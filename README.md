@@ -12,6 +12,8 @@ This initial repository contains the compile-stable foundation:
 - Computer Use backend protocol and stub backend
 - deterministic mock LLM agent runner
 - `quill-code` CLI harness
+- `quill-code-desktop` SwiftUI workspace shell
+- Playwright mock UI harness
 - parity, roadmap, decision, and test-plan docs
 
 ## Try It
@@ -20,9 +22,11 @@ This initial repository contains the compile-stable foundation:
 swift test
 swift run quill-code "run whoami"
 swift run quill-code "make a file that says hello world"
+swift run quill-code-desktop
+cd E2E/playwright && npm install && npx playwright install chromium && npm test
 ```
 
-The CLI uses a deterministic mock LLM by default so tests and local demos do not require a TrustedRouter account.
+The CLI and desktop shell use a deterministic mock LLM by default so tests and local demos do not require a TrustedRouter account.
 
 To exercise the live TrustedRouter adapter:
 

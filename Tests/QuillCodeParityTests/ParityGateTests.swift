@@ -6,11 +6,16 @@ final class ParityGateTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-        let appDir = packageRoot.appendingPathComponent("Sources/QuillCodeApp")
-        let files = try FileManager.default.contentsOfDirectory(
-            at: appDir,
-            includingPropertiesForKeys: nil
-        ).filter { $0.pathExtension == "swift" }
+        let sourceRoots = [
+            packageRoot.appendingPathComponent("Sources/QuillCodeApp"),
+            packageRoot.appendingPathComponent("Sources/quill-code-desktop")
+        ]
+        let files = try sourceRoots.flatMap { root in
+            try FileManager.default.contentsOfDirectory(
+                at: root,
+                includingPropertiesForKeys: nil
+            ).filter { $0.pathExtension == "swift" }
+        }
 
         for file in files {
             let text = try String(contentsOf: file, encoding: .utf8)

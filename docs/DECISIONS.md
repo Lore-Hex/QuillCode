@@ -12,3 +12,4 @@
 - Live TrustedRouter mode is exposed through `quill-code --live`; native UI should use the same `LLMClient` and `SafetyModelClient` protocols.
 - QuillUI is the UI direction, but core tests must not depend on a dirty local QuillUI checkout.
 - Platform-specific code belongs in adapter packages, not the app target.
+- The first desktop executable is `quill-code-desktop`, built with SwiftUI over the same `WorkspaceSurface` contract used by the HTML/Playwright harness. This keeps native UI work testable before the full QuillUI adapter exists.
