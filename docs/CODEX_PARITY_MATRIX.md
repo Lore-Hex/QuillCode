@@ -4,12 +4,12 @@
 | --- | --- | --- | --- |
 | Core | Threads and transcript persistence | Implemented | JSON thread store, desktop bootstrap loading, and mock agent runner. |
 | Core | Project picker/sidebar | Partial | Workspace state model and native sidebar exist with selection, pin, archive, and sorting; project picker pending. |
-| Core | TrustedRouter model picker | Partial | Catalog model and live fetch adapter exist; native UI pending. |
+| Core | TrustedRouter model picker | Partial | Catalog model and live fetch adapter exist; SwiftUI shell has initial persisted model menu; full provider/category browser pending. |
 | Tools | Shell commands | Implemented | `host.shell.run` with empty-command guard. |
 | Tools | File read/write | Implemented | Workspace-scoped UTF-8 files. |
 | Tools | Apply patch | Implemented | Workspace-scoped unified diff application through `git apply`. |
 | Tools | Git status/diff | Implemented | Read-only shell-backed git tool. |
-| Safety | Read-only/Review/Auto modes | Implemented | Auto can use static or model reviewer. |
+| Safety | Read-only/Review/Auto modes | Implemented | Auto can use static or model reviewer; SwiftUI shell can switch and persist modes. |
 | Safety | Reviewer model call | Partial | TrustedRouter client exists; OAuth/UI wiring pending. |
 | UX | Tool cards | Partial | Tool-card presentation model, HTML harness, and SwiftUI shell render queued/running/done/failed/review states; QuillUI polish pending. |
 | UX | Top bar widget | Partial | Top-bar presentation state, HTML harness, and SwiftUI shell track thread, project, model, mode, status, and Computer Use; native menu bar widget pending. |

@@ -1,5 +1,6 @@
 import SwiftUI
 import QuillCodeApp
+import QuillCodeCore
 
 @main
 struct QuillCodeDesktopApp: App {
@@ -27,6 +28,8 @@ private struct QuillCodeDesktopRootView: View {
             draft: $controller.draft,
             onSend: controller.send,
             onSelectThread: controller.selectThread,
+            onSetMode: controller.setMode,
+            onSetModel: controller.setModel,
             onCommand: controller.runCommand
         )
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeNewChat)) { _ in
@@ -41,12 +44,14 @@ private final class QuillCodeDesktopController: ObservableObject {
     @Published var draft: String
 
     private let model: QuillCodeWorkspaceModel
+    private let bootstrap: QuillCodeWorkspaceBootstrap
     private let workspaceRoot: URL
 
     init(
         bootstrap: QuillCodeWorkspaceBootstrap = QuillCodeWorkspaceBootstrap(),
         workspaceRoot: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     ) {
+        self.bootstrap = bootstrap
         do {
             self.model = try bootstrap.makeModel()
         } catch {
@@ -64,6 +69,18 @@ private final class QuillCodeDesktopController: ObservableObject {
 
     func selectThread(_ id: UUID) {
         model.selectThread(id)
+        refresh()
+    }
+
+    func setMode(_ mode: AgentMode) {
+        model.setMode(mode)
+        persistConfig()
+        refresh()
+    }
+
+    func setModel(_ modelID: String) {
+        model.setModel(modelID)
+        persistConfig()
         refresh()
     }
 
@@ -95,6 +112,10 @@ private final class QuillCodeDesktopController: ObservableObject {
         if draft != model.composer.draft, !model.composer.isSending {
             draft = model.composer.draft
         }
+    }
+
+    private func persistConfig() {
+        try? bootstrap.saveConfig(model.root.config)
     }
 }
 

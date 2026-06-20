@@ -126,6 +126,10 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.root.threads.map(\.title), ["Newer", "Older"])
         XCTAssertEqual(model.root.selectedThreadID, newer.id)
         XCTAssertEqual(model.surface().topBar.primaryTitle, "Newer")
+
+        let nextConfig = AppConfig(defaultModel: "trustedrouter/fusion", mode: .auto)
+        try QuillCodeWorkspaceBootstrap(paths: paths).saveConfig(nextConfig)
+        XCTAssertEqual(try ConfigStore(fileURL: paths.configFile).load(), nextConfig)
     }
 
     private func makeTempDirectory() throws -> URL {

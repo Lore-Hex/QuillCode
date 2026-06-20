@@ -25,4 +25,9 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             threadStore: threadStore
         )
     }
+
+    public func saveConfig(_ config: AppConfig) throws {
+        try paths.ensure()
+        try ConfigStore(fileURL: paths.configFile).save(config)
+    }
 }

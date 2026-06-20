@@ -60,6 +60,7 @@ let package = Package(
         .executableTarget(
             name: "quill-code-desktop",
             dependencies: [
+                "QuillCodeCore",
                 "QuillCodeApp"
             ]
         ),

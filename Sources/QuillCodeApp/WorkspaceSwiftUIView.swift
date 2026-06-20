@@ -1,10 +1,13 @@
 import SwiftUI
+import QuillCodeCore
 
 public struct QuillCodeWorkspaceView: View {
     public var surface: WorkspaceSurface
     @Binding public var draft: String
     public var onSend: () -> Void
     public var onSelectThread: (UUID) -> Void
+    public var onSetMode: (AgentMode) -> Void
+    public var onSetModel: (String) -> Void
     public var onCommand: (WorkspaceCommandSurface) -> Void
 
     public init(
@@ -12,18 +15,28 @@ public struct QuillCodeWorkspaceView: View {
         draft: Binding<String>,
         onSend: @escaping () -> Void,
         onSelectThread: @escaping (UUID) -> Void,
+        onSetMode: @escaping (AgentMode) -> Void,
+        onSetModel: @escaping (String) -> Void,
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
     ) {
         self.surface = surface
         self._draft = draft
         self.onSend = onSend
         self.onSelectThread = onSelectThread
+        self.onSetMode = onSetMode
+        self.onSetModel = onSetModel
         self.onCommand = onCommand
     }
 
     public var body: some View {
         VStack(spacing: 0) {
-            QuillCodeTopBarView(topBar: surface.topBar, commands: surface.commands, onCommand: onCommand)
+            QuillCodeTopBarView(
+                topBar: surface.topBar,
+                commands: surface.commands,
+                onSetMode: onSetMode,
+                onSetModel: onSetModel,
+                onCommand: onCommand
+            )
             Divider()
             HStack(spacing: 0) {
                 QuillCodeSidebarView(sidebar: surface.sidebar, onSelectThread: onSelectThread)
@@ -49,6 +62,8 @@ public struct QuillCodeWorkspaceView: View {
 private struct QuillCodeTopBarView: View {
     var topBar: TopBarSurface
     var commands: [WorkspaceCommandSurface]
+    var onSetMode: (AgentMode) -> Void
+    var onSetModel: (String) -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
@@ -68,8 +83,26 @@ private struct QuillCodeTopBarView: View {
                     .lineLimit(1)
             }
             Spacer()
-            QuillCodePill(text: topBar.modelLabel, systemImage: "cpu")
-            QuillCodePill(text: topBar.modeLabel, systemImage: "shield")
+            Menu {
+                ForEach(QuillCodeModelMenuOption.defaults) { option in
+                    Button(option.title) {
+                        onSetModel(option.id)
+                    }
+                }
+            } label: {
+                QuillCodePill(text: topBar.modelLabel, systemImage: "cpu")
+            }
+            .buttonStyle(.borderless)
+            Menu {
+                ForEach(AgentMode.allCases, id: \.rawValue) { mode in
+                    Button(mode.title) {
+                        onSetMode(mode)
+                    }
+                }
+            } label: {
+                QuillCodePill(text: topBar.modeLabel, systemImage: "shield")
+            }
+            .buttonStyle(.borderless)
             QuillCodePill(text: topBar.agentStatus, systemImage: "waveform.path")
             Menu {
                 ForEach(commands) { command in
@@ -336,6 +369,30 @@ private struct QuillCodePill: View {
             .background(QuillCodePalette.blue.opacity(0.14))
             .foregroundStyle(QuillCodePalette.blue)
             .clipShape(Capsule())
+    }
+}
+
+private struct QuillCodeModelMenuOption: Identifiable {
+    var id: String
+    var title: String
+
+    static let defaults = [
+        QuillCodeModelMenuOption(id: TrustedRouterDefaults.defaultModel, title: "TrustedRouter Fusion"),
+        QuillCodeModelMenuOption(id: "z-ai/glm-5.2", title: "GLM 5.2"),
+        QuillCodeModelMenuOption(id: "moonshotai/kimi-k2.6", title: "Kimi K2.6")
+    ]
+}
+
+private extension AgentMode {
+    var title: String {
+        switch self {
+        case .readOnly:
+            return "Read-only"
+        case .review:
+            return "Review"
+        case .auto:
+            return "Auto"
+        }
     }
 }
 
