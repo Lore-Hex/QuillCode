@@ -85,6 +85,29 @@ test('mock harness starts a new chat from the sidebar action', async ({ page }) 
   await expect(page.getByLabel('Message')).toHaveValue('');
 });
 
+test('mock harness shows context pressure banner and forks from latest turn', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  const longPrompt = 'long context ' + 'word '.repeat(22000);
+  await page.getByLabel('Message').fill(longPrompt);
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('context-banner')).toBeVisible();
+  await expect(page.getByTestId('context-banner-title')).toContainText(/context limit/i);
+
+  await page.getByLabel('Message').fill('run whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('context-banner')).toBeVisible();
+
+  await page.getByTestId('context-fork-last').click();
+
+  await expect(page.getByTestId('top-bar-title')).toContainText('Fork:');
+  await expect(page.getByTestId('context-banner')).toHaveCount(0);
+  await expect(page.getByTestId('message').first()).toContainText('run whoami');
+  await expect(page.getByText('Output:\\nmock-user')).toBeVisible();
+});
+
 test('mock harness runs a command from the command palette', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

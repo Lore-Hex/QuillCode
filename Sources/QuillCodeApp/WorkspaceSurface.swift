@@ -6,6 +6,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var projects: ProjectListSurface
     public var sidebar: SidebarSurface
     public var transcript: TranscriptSurface
+    public var contextBanner: ContextBannerSurface?
     public var review: WorkspaceReviewSurface
     public var terminal: TerminalSurface
     public var browser: BrowserSurface
@@ -19,6 +20,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         projects: ProjectListSurface,
         sidebar: SidebarSurface,
         transcript: TranscriptSurface,
+        contextBanner: ContextBannerSurface? = nil,
         review: WorkspaceReviewSurface,
         terminal: TerminalSurface,
         browser: BrowserSurface,
@@ -31,6 +33,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.projects = projects
         self.sidebar = sidebar
         self.transcript = transcript
+        self.contextBanner = contextBanner
         self.review = review
         self.terminal = terminal
         self.browser = browser
@@ -250,6 +253,28 @@ public struct TranscriptSurface: Codable, Sendable, Hashable {
         self.toolCards = toolCards
         self.emptyTitle = emptyTitle
         self.emptySubtitle = emptySubtitle
+    }
+}
+
+public struct ContextBannerSurface: Codable, Sendable, Hashable {
+    public var usedPercent: Int
+    public var title: String
+    public var subtitle: String
+    public var newThreadCommand: WorkspaceCommandSurface
+    public var forkCommand: WorkspaceCommandSurface
+
+    public init(
+        usedPercent: Int,
+        title: String,
+        subtitle: String,
+        newThreadCommand: WorkspaceCommandSurface,
+        forkCommand: WorkspaceCommandSurface
+    ) {
+        self.usedPercent = usedPercent
+        self.title = title
+        self.subtitle = subtitle
+        self.newThreadCommand = newThreadCommand
+        self.forkCommand = forkCommand
     }
 }
 
@@ -639,6 +664,7 @@ public extension QuillCodeWorkspaceModel {
                 messages: (thread?.messages ?? []).map(MessageSurface.init),
                 toolCards: toolCards
             ),
+            contextBanner: contextBanner(for: thread),
             review: reviewSurface(from: toolCards, events: thread?.events ?? []),
             terminal: TerminalSurface(
                 terminal: terminal,
@@ -723,6 +749,11 @@ public extension QuillCodeWorkspaceModel {
         }
         return [
             WorkspaceCommandSurface(id: "new-chat", title: "New chat", shortcut: "Cmd+N"),
+            WorkspaceCommandSurface(
+                id: "fork-from-last",
+                title: "Fork from last",
+                isEnabled: selectedThread?.messages.isEmpty == false
+            ),
             WorkspaceCommandSurface(id: "search", title: "Search", shortcut: "Cmd+K"),
             WorkspaceCommandSurface(id: "add-project", title: "Open project", shortcut: "Cmd+O"),
             WorkspaceCommandSurface(id: "toggle-terminal", title: "Terminal", shortcut: "Ctrl+`"),
@@ -746,6 +777,41 @@ public extension QuillCodeWorkspaceModel {
                 isEnabled: root.topBar.computerUseStatus.available == false
             )
         ]
+    }
+
+    private func contextBanner(for thread: ChatThread?) -> ContextBannerSurface? {
+        guard let thread, !thread.messages.isEmpty else { return nil }
+        let usedPercent = Self.contextUsedPercent(for: thread)
+        guard usedPercent >= Self.contextWarningThresholdPercent else { return nil }
+        let isFull = usedPercent >= 100
+        return ContextBannerSurface(
+            usedPercent: usedPercent,
+            title: "\(isFull ? "Context limit reached" : "Approaching context limit") (\(usedPercent)% used)",
+            subtitle: "Older turns may drop out soon. Start a new thread or fork from the latest useful context.",
+            newThreadCommand: WorkspaceCommandSurface(id: "new-chat", title: "New thread"),
+            forkCommand: WorkspaceCommandSurface(id: "fork-from-last", title: "Fork from last")
+        )
+    }
+
+    private static let contextTokenBudget = 32_000
+    private static let contextWarningThresholdPercent = 80
+
+    private static func contextUsedPercent(for thread: ChatThread) -> Int {
+        let estimatedTokens = max(1, estimatedContextTokens(for: thread))
+        return min(100, Int((Double(estimatedTokens) / Double(contextTokenBudget) * 100).rounded()))
+    }
+
+    private static func estimatedContextTokens(for thread: ChatThread) -> Int {
+        let messageCharacters = thread.messages.reduce(0) { total, message in
+            total + message.content.count + 24
+        }
+        let eventCharacters = thread.events.reduce(0) { total, event in
+            total + event.summary.count + (event.payloadJSON?.count ?? 0)
+        }
+        let instructionCharacters = thread.instructions.reduce(0) { total, instruction in
+            total + instruction.content.count
+        }
+        return (messageCharacters + eventCharacters + instructionCharacters) / 4
     }
 
     private func reviewSurface(from toolCards: [ToolCardState], events: [ThreadEvent]) -> WorkspaceReviewSurface {

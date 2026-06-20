@@ -107,7 +107,9 @@ public struct QuillCodeWorkspaceView: View {
                 VStack(spacing: 0) {
                     QuillCodeTranscriptView(
                         transcript: surface.transcript,
+                        contextBanner: surface.contextBanner,
                         review: surface.review,
+                        onContextCommand: handleCommand,
                         onReviewAction: onReviewAction,
                         onAddReviewComment: onAddReviewComment
                     )
@@ -811,14 +813,16 @@ private struct QuillCodeProjectListView: View {
 
 private struct QuillCodeTranscriptView: View {
     var transcript: TranscriptSurface
+    var contextBanner: ContextBannerSurface?
     var review: WorkspaceReviewSurface
+    var onContextCommand: (WorkspaceCommandSurface) -> Void
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onAddReviewComment: (String, String) -> Void
 
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 14) {
-                if transcript.messages.isEmpty && transcript.toolCards.isEmpty && !review.isVisible {
+                if transcript.messages.isEmpty && transcript.toolCards.isEmpty && !review.isVisible && contextBanner == nil {
                     VStack(spacing: 8) {
                         Text(transcript.emptyTitle)
                             .font(.title3.weight(.semibold))
@@ -830,6 +834,12 @@ private struct QuillCodeTranscriptView: View {
                     .frame(maxWidth: 540)
                     .padding(.top, 180)
                 } else {
+                    if let contextBanner {
+                        QuillCodeContextBannerView(
+                            banner: contextBanner,
+                            onCommand: onContextCommand
+                        )
+                    }
                     if review.isVisible {
                         QuillCodeReviewPaneView(
                             review: review,
@@ -849,6 +859,61 @@ private struct QuillCodeTranscriptView: View {
             .padding(22)
         }
         .background(QuillCodePalette.background)
+    }
+}
+
+private struct QuillCodeContextBannerView: View {
+    var banner: ContextBannerSurface
+    var onCommand: (WorkspaceCommandSurface) -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "text.bubble.badge.exclamationmark")
+                .font(.title3)
+                .foregroundStyle(QuillCodePalette.yellow)
+                .frame(width: 34, height: 34)
+                .background(QuillCodePalette.yellow.opacity(0.14))
+                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(banner.title)
+                        .font(.headline)
+                    Text("\(banner.usedPercent)%")
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.yellow)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(QuillCodePalette.yellow.opacity(0.14))
+                        .clipShape(Capsule())
+                }
+                Text(banner.subtitle)
+                    .font(.callout)
+                    .foregroundStyle(QuillCodePalette.muted)
+                HStack(spacing: 8) {
+                    Button(banner.newThreadCommand.title) {
+                        onCommand(banner.newThreadCommand)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Button(banner.forkCommand.title) {
+                        onCommand(banner.forkCommand)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!banner.forkCommand.isEnabled)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: 760, alignment: .leading)
+        .background(QuillCodePalette.panel)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(QuillCodePalette.yellow.opacity(0.28), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

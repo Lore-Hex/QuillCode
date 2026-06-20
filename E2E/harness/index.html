@@ -222,7 +222,7 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 12px;
     }
-    .message, .tool-card, .review-pane {
+    .message, .tool-card, .review-pane, .context-banner {
       max-width: min(760px, 88%);
       padding: 13px 15px;
       border-radius: 16px;
@@ -245,6 +245,38 @@
       width: min(760px, 92%);
       background: rgba(65,184,232,.08);
       border: 1px solid rgba(65,184,232,.26);
+    }
+    .context-banner {
+      align-self: flex-start;
+      width: min(760px, 92%);
+      display: grid;
+      gap: 9px;
+      background: rgba(248,184,78,.10);
+      border: 1px solid rgba(248,184,78,.32);
+    }
+    .context-banner header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .context-banner p { margin: 0; color: var(--muted); }
+    .context-banner span {
+      padding: 4px 8px;
+      border-radius: 999px;
+      color: #ffe2a3;
+      background: rgba(248,184,78,.14);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .context-banner div { display: flex; gap: 8px; flex-wrap: wrap; }
+    .context-banner button {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(248,184,78,.28);
+      background: rgba(248,184,78,.14);
+      color: #ffe2a3;
+      font-size: 13px;
     }
     .review-pane header {
       display: flex;
@@ -462,6 +494,7 @@
       },
       commands: [
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', isEnabled: true },
+        { id: 'fork-from-last', title: 'Fork from last', shortcut: '', isEnabled: false },
         { id: 'search', title: 'Search', shortcut: 'Cmd+K', isEnabled: true },
         { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', isEnabled: true },
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', isEnabled: true },
@@ -502,7 +535,54 @@
         .replaceAll("'", '&#39;');
     }
 
+    const contextTokenBudget = 32000;
+    const contextWarningThresholdPercent = 80;
+
+    function updateDynamicCommands() {
+      const hasMessages = Boolean(state.sidebar.selectedThreadID && state.transcript.messages.length);
+      state.commands = state.commands.map(command => (
+        command.id === 'fork-from-last' ? { ...command, isEnabled: hasMessages } : command
+      ));
+    }
+
+    function estimatedContextTokens() {
+      const messageChars = state.transcript.messages
+        .reduce((total, message) => total + message.text.length + 24, 0);
+      const cardChars = state.transcript.toolCards
+        .reduce((total, card) => total + (card.subtitle || '').length + (card.inputJSON || '').length + (card.outputJSON || '').length, 0);
+      return Math.max(1, Math.floor((messageChars + cardChars) / 4));
+    }
+
+    function contextBanner() {
+      if (!state.transcript.messages.length) return null;
+      const usedPercent = Math.min(100, Math.round((estimatedContextTokens() / contextTokenBudget) * 100));
+      if (usedPercent < contextWarningThresholdPercent) return null;
+      return {
+        usedPercent,
+        title: `${usedPercent >= 100 ? 'Context limit reached' : 'Approaching context limit'} (${usedPercent}% used)`,
+        subtitle: 'Older turns may drop out soon. Start a new thread or fork from the latest useful context.'
+      };
+    }
+
+    function renderContextBanner(banner) {
+      if (!banner) return '';
+      return `
+        <section class="context-banner" data-testid="context-banner" aria-label="Context limit warning">
+          <header>
+            <strong data-testid="context-banner-title">${escapeHTML(banner.title)}</strong>
+            <span data-testid="context-banner-percent">${escapeHTML(banner.usedPercent)}%</span>
+          </header>
+          <p data-testid="context-banner-subtitle">${escapeHTML(banner.subtitle)}</p>
+          <div>
+            <button type="button" data-testid="context-new-thread" data-command-id="new-chat">New thread</button>
+            <button type="button" data-testid="context-fork-last" data-command-id="fork-from-last">Fork from last</button>
+          </div>
+        </section>`;
+    }
+
     function render() {
+      updateDynamicCommands();
+      const context = renderContextBanner(contextBanner());
       const review = state.review.files.length ? `
         <section class="review-pane" data-testid="review-pane" aria-label="Git review summary">
           <header>
@@ -555,7 +635,7 @@
           ${card.inputJSON ? `<pre data-testid="tool-card-input">${escapeHTML(card.inputJSON)}</pre>` : ''}
           ${card.outputJSON ? `<pre data-testid="tool-card-output">${escapeHTML(card.outputJSON)}</pre>` : ''}
         </article>`).join('');
-      const timeline = review || messages || cards ? review + messages + cards : `
+      const timeline = context || review || messages || cards ? context + review + messages + cards : `
         <section class="empty" data-testid="transcript-empty">
           <h1>${escapeHTML(state.transcript.emptyTitle)}</h1>
           <p>${escapeHTML(state.transcript.emptySubtitle)}</p>
@@ -703,6 +783,11 @@
       });
       document.querySelector('[data-testid="new-chat-button"]').addEventListener('click', () => {
         newChat();
+      });
+      document.querySelectorAll('[data-testid="context-banner"] [data-command-id]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
+        });
       });
 	      document.querySelector('[data-testid="terminal-button"]').addEventListener('click', () => {
 	        state.terminal.isVisible = !state.terminal.isVisible;
@@ -1048,6 +1133,42 @@
       render();
     }
 
+    function forkFromLast() {
+      if (!state.sidebar.selectedThreadID || !state.transcript.messages.length) return;
+      const source = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
+      const title = `Fork: ${source?.title || 'Chat'}`;
+      const latestUserIndex = state.transcript.messages
+        .map((message, index) => ({ message, index }))
+        .filter(entry => entry.message.role === 'user')
+        .at(-1)?.index ?? Math.max(0, state.transcript.messages.length - 4);
+      const copiedMessages = state.transcript.messages.slice(latestUserIndex, latestUserIndex + 4);
+      const threadID = `thread-${state.nextThreadIndex++}`;
+
+      state.sidebar.selectedThreadID = threadID;
+      state.sidebar.items = [{
+        id: threadID,
+        title,
+        subtitle: state.topBar.modelLabel,
+        searchText: copiedMessages.map(message => message.text).join('\n'),
+        isSelected: true,
+        isPinned: false
+      }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
+      state.transcript.messages = copiedMessages;
+      state.transcript.toolCards = [];
+      state.review = {
+        title: 'Review changes',
+        subtitle: 'Latest git diff',
+        totalInsertions: 0,
+        totalDeletions: 0,
+        totalHunks: 0,
+        files: []
+      };
+      state.topBar.primaryTitle = title;
+      const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
+      state.topBar.subtitle = `${selectedProject?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+      render();
+    }
+
     function addProject() {
       const index = state.nextProjectIndex++;
       const project = {
@@ -1070,6 +1191,10 @@
       state.commandPalette.isOpen = false;
       if (commandID === 'new-chat') {
         newChat();
+        return;
+      }
+      if (commandID === 'fork-from-last') {
+        forkFromLast();
         return;
       }
       if (commandID === 'search') {

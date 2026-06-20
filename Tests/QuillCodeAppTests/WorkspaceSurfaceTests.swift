@@ -42,6 +42,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(surface.composer.canSend)
         XCTAssertEqual(surface.commands.map(\.id), [
             "new-chat",
+            "fork-from-last",
             "search",
             "add-project",
             "toggle-terminal",
@@ -55,6 +56,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "command-palette",
             "computer-use-setup"
         ])
+        XCTAssertEqual(surface.commands.first { $0.id == "fork-from-last" }?.isEnabled, true)
         XCTAssertEqual(surface.settings.apiBaseURL, TrustedRouterDefaults.defaultAPIBaseURL)
         XCTAssertFalse(surface.settings.developerOverrideEnabled)
         XCTAssertFalse(surface.settings.hasStoredAPIKey)
@@ -161,6 +163,39 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(surface.review.isVisible)
         XCTAssertFalse(surface.composer.canSend)
         XCTAssertTrue(surface.topBar.showsComputerUseSetup)
+    }
+
+    func testContextBannerAppearsNearEstimatedLimit() throws {
+        let longMessage = "context " + String(repeating: "word ", count: 26_000)
+        let thread = ChatThread(title: "Long context", messages: [
+            .init(role: .user, content: longMessage)
+        ])
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let surface = model.surface()
+        let banner = try XCTUnwrap(surface.contextBanner)
+
+        XCTAssertTrue(banner.usedPercent >= 80)
+        XCTAssertTrue(banner.title.contains("Context"))
+        XCTAssertEqual(banner.newThreadCommand.id, "new-chat")
+        XCTAssertEqual(banner.forkCommand.id, "fork-from-last")
+        XCTAssertEqual(surface.commands.first { $0.id == "fork-from-last" }?.isEnabled, true)
+    }
+
+    func testContextBannerHiddenForShortThreadAndForkDisabledWithoutMessages() {
+        let thread = ChatThread(title: "Short")
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let surface = model.surface()
+
+        XCTAssertNil(surface.contextBanner)
+        XCTAssertEqual(surface.commands.first { $0.id == "fork-from-last" }?.isEnabled, false)
     }
 
     func testSidebarSearchFiltersByThreadTitleSubtitleAndTranscriptContent() {
@@ -333,6 +368,22 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains("Unsafe &lt;title&gt;"))
         XCTAssertTrue(html.contains("Unsafe &lt;project&gt;"))
         XCTAssertFalse(html.contains("<script>alert(1)</script>"))
+    }
+
+    func testHTMLRendererIncludesContextBanner() throws {
+        let thread = ChatThread(title: "Long context", messages: [
+            .init(role: .user, content: String(repeating: "token ", count: 26_000))
+        ])
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="context-banner""#))
+        XCTAssertTrue(html.contains(#"data-testid="context-new-thread""#))
+        XCTAssertTrue(html.contains(#"data-testid="context-fork-last""#))
     }
 
     func testHTMLRendererIncludesToolCardOutput() async throws {

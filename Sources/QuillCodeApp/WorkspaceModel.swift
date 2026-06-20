@@ -307,6 +307,35 @@ public final class QuillCodeWorkspaceModel {
         return thread.id
     }
 
+    @discardableResult
+    public func forkFromLast() -> UUID? {
+        guard let source = selectedThread, !source.messages.isEmpty else { return nil }
+        let copiedMessages = Self.forkSeedMessages(from: source.messages)
+        let fork = ChatThread(
+            title: "Fork: \(source.title)",
+            projectID: knownProjectID(source.projectID),
+            mode: source.mode,
+            model: source.model,
+            messages: copiedMessages,
+            events: [
+                .init(
+                    kind: .notice,
+                    summary: "Forked from \(source.title)",
+                    payloadJSON: source.id.uuidString
+                )
+            ],
+            instructions: source.instructions
+        )
+        root.threads.insert(fork, at: 0)
+        root.selectedThreadID = fork.id
+        root.selectedProjectID = knownProjectID(source.projectID)
+        touchProject(root.selectedProjectID)
+        saveProjects()
+        try? threadStore?.save(fork)
+        refreshTopBar(agentStatus: "Idle")
+        return fork.id
+    }
+
     public func selectThread(_ id: UUID) {
         guard let thread = root.threads.first(where: { $0.id == id }) else { return }
         root.selectedThreadID = id
@@ -530,6 +559,8 @@ public final class QuillCodeWorkspaceModel {
         case "toggle-browser":
             toggleBrowser()
             return true
+        case "fork-from-last":
+            return forkFromLast() != nil
         case "git-worktree-list":
             runToolCall(
                 ToolCall(name: ToolDefinition.gitWorktreeList.name, argumentsJSON: "{}"),
@@ -821,6 +852,13 @@ public final class QuillCodeWorkspaceModel {
     private static func title(fromUserPrompt userPrompt: String) -> String {
         let words = userPrompt.split(separator: " ").prefix(6).joined(separator: " ")
         return words.isEmpty ? "New chat" : words
+    }
+
+    private static func forkSeedMessages(from messages: [ChatMessage]) -> [ChatMessage] {
+        guard let lastUserIndex = messages.lastIndex(where: { $0.role == .user }) else {
+            return Array(messages.suffix(4))
+        }
+        return Array(messages[lastUserIndex...].prefix(4))
     }
 
     private func statusText() -> String {

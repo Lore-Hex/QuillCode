@@ -46,6 +46,67 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertNil(model.root.topBar.projectName)
     }
 
+    func testForkFromLastCreatesBoundedThreadFromLatestUserTurn() throws {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        let instructions = [
+            ProjectInstruction(
+                path: "AGENTS.md",
+                title: "Project AGENTS.md",
+                content: "Prefer focused tests.",
+                byteCount: 21
+            )
+        ]
+        let source = ChatThread(
+            title: "Long thread",
+            projectID: project.id,
+            mode: .review,
+            model: "z-ai/glm-5.2",
+            messages: [
+                .init(role: .user, content: "old question"),
+                .init(role: .assistant, content: "old answer"),
+                .init(role: .user, content: "latest question"),
+                .init(role: .assistant, content: "latest answer")
+            ],
+            instructions: instructions
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
+            threads: [source],
+            selectedThreadID: source.id
+        ))
+
+        let forkID = try XCTUnwrap(model.forkFromLast())
+        let fork = try XCTUnwrap(model.root.threads.first { $0.id == forkID })
+
+        XCTAssertEqual(fork.title, "Fork: Long thread")
+        XCTAssertEqual(fork.projectID, project.id)
+        XCTAssertEqual(fork.mode, .review)
+        XCTAssertEqual(fork.model, "z-ai/glm-5.2")
+        XCTAssertEqual(fork.instructions, instructions)
+        XCTAssertEqual(fork.messages.map(\.content), ["latest question", "latest answer"])
+        XCTAssertEqual(fork.events.first?.kind, .notice)
+        XCTAssertEqual(fork.events.first?.payloadJSON, source.id.uuidString)
+        XCTAssertEqual(model.root.selectedThreadID, forkID)
+        XCTAssertEqual(model.root.selectedProjectID, project.id)
+    }
+
+    func testWorkspaceCommandForkFromLastSelectsFork() throws {
+        let source = ChatThread(title: "Active", messages: [
+            .init(role: .user, content: "run whoami"),
+            .init(role: .assistant, content: "Output:\nquill")
+        ])
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [source],
+            selectedThreadID: source.id
+        ))
+
+        XCTAssertTrue(model.runWorkspaceCommand("fork-from-last", workspaceRoot: try makeTempDirectory()))
+
+        XCTAssertEqual(model.selectedThread?.title, "Fork: Active")
+        XCTAssertEqual(model.selectedThread?.messages.map(\.content), ["run whoami", "Output:\nquill"])
+    }
+
     func testSelectingProjectSelectsNewestThreadForThatProject() {
         let firstProject = ProjectRef(name: "One", path: "/tmp/one")
         let secondProject = ProjectRef(name: "Two", path: "/tmp/two")

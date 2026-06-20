@@ -8,7 +8,7 @@ public enum WorkspaceHTMLRenderer {
           <div class="workspace-grid">
             \(renderSidebar(projects: surface.projects, sidebar: surface.sidebar))
             <main class="transcript" data-testid="transcript">
-              \(renderTranscript(surface.transcript, review: surface.review))
+              \(renderTranscript(surface.transcript, contextBanner: surface.contextBanner, review: surface.review))
               \(renderBrowser(surface.browser))
               \(renderTerminal(surface.terminal))
               \(renderComposer(surface.composer))
@@ -86,7 +86,12 @@ public enum WorkspaceHTMLRenderer {
         """
     }
 
-    private static func renderTranscript(_ transcript: TranscriptSurface, review: WorkspaceReviewSurface) -> String {
+    private static func renderTranscript(
+        _ transcript: TranscriptSurface,
+        contextBanner: ContextBannerSurface?,
+        review: WorkspaceReviewSurface
+    ) -> String {
+        let context = renderContextBanner(contextBanner)
         let reviewPane = renderReview(review)
         let messages = transcript.messages.map { message in
             """
@@ -96,7 +101,7 @@ public enum WorkspaceHTMLRenderer {
             """
         }.joined(separator: "\n")
         let cards = transcript.toolCards.map(renderToolCard).joined(separator: "\n")
-        if messages.isEmpty && cards.isEmpty && !review.isVisible {
+        if context.isEmpty && messages.isEmpty && cards.isEmpty && !review.isVisible {
             return """
             <section class="empty" data-testid="transcript-empty">
               <h1>\(escape(transcript.emptyTitle))</h1>
@@ -104,7 +109,24 @@ public enum WorkspaceHTMLRenderer {
             </section>
             """
         }
-        return reviewPane + "\n" + messages + "\n" + cards
+        return context + "\n" + reviewPane + "\n" + messages + "\n" + cards
+    }
+
+    private static func renderContextBanner(_ banner: ContextBannerSurface?) -> String {
+        guard let banner else { return "" }
+        return """
+        <section class="context-banner" data-testid="context-banner" aria-label="Context limit warning">
+          <header>
+            <strong data-testid="context-banner-title">\(escape(banner.title))</strong>
+            <span data-testid="context-banner-percent">\(banner.usedPercent)%</span>
+          </header>
+          <p data-testid="context-banner-subtitle">\(escape(banner.subtitle))</p>
+          <div>
+            <button type="button" data-testid="context-new-thread" data-command-id="\(escape(banner.newThreadCommand.id))">\(escape(banner.newThreadCommand.title))</button>
+            <button type="button" data-testid="context-fork-last" data-command-id="\(escape(banner.forkCommand.id))">\(escape(banner.forkCommand.title))</button>
+          </div>
+        </section>
+        """
     }
 
     private static func renderReview(_ review: WorkspaceReviewSurface) -> String {
