@@ -61,6 +61,7 @@ let package = Package(
         .testTarget(name: "QuillCodeToolsTests", dependencies: ["QuillCodeTools"]),
         .testTarget(name: "QuillCodePersistenceTests", dependencies: ["QuillCodePersistence"]),
         .testTarget(name: "QuillCodeAgentTests", dependencies: ["QuillCodeAgent", "QuillCodeTools"]),
+        .testTarget(name: "QuillCodeAppTests", dependencies: ["QuillCodeApp", "QuillCodeAgent"]),
         .testTarget(name: "QuillCodeParityTests", dependencies: ["QuillCodeCore"])
     ]
 )
