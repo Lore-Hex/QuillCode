@@ -9,7 +9,7 @@
 | Tools | Shell commands | Implemented | `host.shell.run` with empty-command guard. |
 | Tools | File read/write | Implemented | Workspace-scoped UTF-8 files. |
 | Tools | Apply patch | Implemented | Workspace-scoped unified diff application through `git apply`. |
-| Tools | Git status/diff/stage/restore | Partial | Status/diff, file-level stage/restore, and hunk-level stage/restore are implemented with workspace path and patch checks. Commit/push/PR pending. |
+| Tools | Git status/diff/stage/restore/commit | Partial | Status/diff, file-level stage/restore, hunk-level stage/restore, and local commit are implemented with workspace path and patch checks. Push/PR pending. |
 | Safety | Read-only/Review/Auto modes | Implemented | Auto can use static or model reviewer; SwiftUI shell can switch and persist modes. |
 | Safety | Reviewer model call | Partial | TrustedRouter client and native developer settings exist; OAuth wiring pending. |
 | UX | Tool cards | Partial | Tool-card presentation model, HTML harness, and SwiftUI shell render queued/running/done/failed/review states; QuillUI polish pending. |

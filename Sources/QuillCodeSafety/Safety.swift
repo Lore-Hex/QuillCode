@@ -121,6 +121,12 @@ public struct StaticSafetyReviewer: SafetyReviewer {
         if user.contains("make") || user.contains("create") || user.contains("write") {
             return context.toolCall.name.contains("file") || context.toolCall.name.contains("shell")
         }
+        if user.contains("commit") {
+            return context.toolCall.name.contains("git.commit")
+                || context.toolCall.name.contains("git.stage")
+                || context.toolCall.name.contains("git.status")
+                || context.toolCall.name.contains("git.diff")
+        }
         if user.contains("openclaw") || user.contains("whoami") || user.contains("disk") || user.contains("storage") {
             return true
         }

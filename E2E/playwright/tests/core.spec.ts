@@ -94,6 +94,18 @@ test('mock harness stages a single hunk from the review pane', async ({ page }) 
   await expect(page.getByTestId('tool-card-input').nth(1)).toContainText('Sources/App.swift');
 });
 
+test('mock harness commits staged changes in one turn', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('commit these changes with message Add hello file');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.commit');
+  await expect(page.getByTestId('tool-card-input')).toContainText('Add hello file');
+  await expect(page.getByTestId('tool-card-output')).toContainText('[main abc1234] Add hello file');
+  await expect(page.getByText('Output:\\n[main abc1234] Add hello file')).toBeVisible();
+});
+
 test('mock harness handles slash mode locally', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

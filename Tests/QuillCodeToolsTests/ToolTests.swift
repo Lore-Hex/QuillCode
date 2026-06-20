@@ -181,6 +181,28 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(restore.error?.contains("outside the workspace") == true, restore.error ?? "")
     }
 
+    func testGitCommitCommitsStagedChanges() throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        let file = root.appendingPathComponent("hello.txt")
+        try "hello\n".write(to: file, atomically: true, encoding: .utf8)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "hello.txt").ok)
+
+        let result = GitToolExecutor().commit(cwd: root, message: "Add hello file")
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        let log = ShellToolExecutor().run(.init(command: "git log -1 --pretty=%s", cwd: root))
+        XCTAssertEqual(log.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "Add hello file")
+        XCTAssertFalse(GitToolExecutor().status(cwd: root).stdout.contains("hello.txt"))
+    }
+
+    func testGitCommitRejectsEmptyMessage() throws {
+        let result = GitToolExecutor().commit(cwd: try makeTempDirectory(), message: " ")
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("message is required") == true, result.error ?? "")
+    }
+
     func testGitHunkActionsRejectPatchPathMismatch() throws {
         let root = try makeTempDirectory()
         try initializeGitRepo(at: root)
@@ -206,6 +228,7 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.restore"))
         XCTAssertTrue(definitions.contains("host.git.stage_hunk"))
         XCTAssertTrue(definitions.contains("host.git.restore_hunk"))
+        XCTAssertTrue(definitions.contains("host.git.commit"))
     }
 
     private func makeTempDirectory() throws -> URL {

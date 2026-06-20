@@ -572,6 +572,17 @@
           outputJSON: JSON.stringify({ ok: true, stdout: diff }, null, 2)
         });
         state.transcript.messages.push({ role: 'assistant', text: 'Output:\\n' + diff });
+      } else if (text.toLowerCase().includes('commit')) {
+        const message = text.match(/message[: ]+(.+)$/i)?.[1]?.trim() || 'QuillCode changes';
+        state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
+        state.transcript.toolCards.push({
+          title: 'host.git.commit',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ message }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: '[main abc1234] ' + message + '\\n' }, null, 2)
+        });
+        state.transcript.messages.push({ role: 'assistant', text: 'Output:\\n[main abc1234] ' + message });
       } else if (text.toLowerCase().includes('run') || text.toLowerCase().includes('whoami')) {
         const cmd = text.match(/`([^`]+)`/)?.[1] || text.replace(/^run\s+/i, '') || 'whoami';
         state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };

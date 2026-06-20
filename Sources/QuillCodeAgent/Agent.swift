@@ -71,6 +71,15 @@ public struct MockLLMClient: LLMClient {
             return .tool(.init(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}"))
         }
 
+        if lower.contains("commit") {
+            return .tool(.init(
+                name: ToolDefinition.gitCommit.name,
+                argumentsJSON: ToolArguments.json([
+                    "message": Self.extractCommitMessage(from: request) ?? "QuillCode changes"
+                ])
+            ))
+        }
+
         return .say("I can inspect and edit this project, run shell commands, review git diffs, and use Computer Use as the platform backends come online.")
     }
 
@@ -84,6 +93,27 @@ public struct MockLLMClient: LLMClient {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
         }
         return String(trimmed.dropFirst(4)).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func extractCommitMessage(from request: String) -> String? {
+        if let first = request.firstIndex(of: "`"),
+           let last = request[request.index(after: first)...].lastIndex(of: "`"),
+           first < last {
+            let quoted = String(request[request.index(after: first)..<last])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return quoted.isEmpty ? nil : quoted
+        }
+
+        let lower = request.lowercased()
+        guard let range = lower.range(of: "message") else { return nil }
+        var message = String(request[range.upperBound...])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if message.hasPrefix(":") {
+            message.removeFirst()
+            message = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        message = message.trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+        return message.isEmpty ? nil : message
     }
 }
 

@@ -32,10 +32,36 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(text, "hello world\n")
     }
 
+    func testCommitChangesExecutesImmediately() async throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        try "hello\n".write(to: root.appendingPathComponent("hello.txt"), atomically: true, encoding: .utf8)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "hello.txt").ok)
+
+        let result = try await AgentRunner().send(
+            "commit these changes with message Add hello file",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        let log = ShellToolExecutor().run(.init(command: "git log -1 --pretty=%s", cwd: root))
+        XCTAssertEqual(log.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "Add hello file")
+    }
+
     private func makeTempDirectory() throws -> URL {
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("QuillCodeAgentTests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+
+    private func initializeGitRepo(at root: URL) throws {
+        let result = ShellToolExecutor().run(.init(
+            command: "git init && git config user.email test@example.com && git config user.name QuillCodeTests",
+            cwd: root
+        ))
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
     }
 }

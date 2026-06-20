@@ -4,6 +4,7 @@ import QuillCodeCore
 public enum GitToolError: Error, CustomStringConvertible {
     case emptyPath
     case emptyPatch
+    case emptyCommitMessage
     case outsideWorkspace(String)
     case patchPathMismatch(String)
     case temporaryPatchFailed(String)
@@ -14,6 +15,8 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "Git path is required."
         case .emptyPatch:
             return "Git patch is empty."
+        case .emptyCommitMessage:
+            return "Git commit message is required."
         case .outsideWorkspace(let path):
             return "Git path is outside the workspace: \(path)"
         case .patchPathMismatch(let path):
@@ -66,6 +69,14 @@ public struct GitToolExecutor: Sendable {
 
     public func restoreHunk(cwd: URL, path: String, patch: String) -> ToolResult {
         applyHunk(cwd: cwd, path: path, patch: patch, arguments: ["apply", "--reverse", "--whitespace=nowarn"], successMessage: "Hunk restored.\n")
+    }
+
+    public func commit(cwd: URL, message: String) -> ToolResult {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return ToolResult(ok: false, error: String(describing: GitToolError.emptyCommitMessage))
+        }
+        return runGit(["commit", "-m", trimmed], cwd: cwd, timeoutSeconds: 30)
     }
 
     private func safeRelativePath(_ path: String, cwd: URL) throws -> String {
@@ -299,5 +310,13 @@ public extension ToolDefinition {
         parametersJSON: #"{"type":"object","properties":{"path":{"type":"string"},"patch":{"type":"string"}},"required":["path","patch"]}"#,
         host: .local,
         risk: .destructive
+    )
+
+    static let gitCommit = ToolDefinition(
+        name: "host.git.commit",
+        description: "Create a git commit from already staged project changes.",
+        parametersJSON: #"{"type":"object","properties":{"message":{"type":"string"}},"required":["message"]}"#,
+        host: .local,
+        risk: .append
     )
 }

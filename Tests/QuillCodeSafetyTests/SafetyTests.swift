@@ -17,6 +17,13 @@ final class SafetyTests: XCTestCase {
         host: .local,
         risk: .append
     )
+    private let gitCommit = ToolDefinition(
+        name: "host.git.commit",
+        description: "Commit staged changes",
+        parametersJSON: "{}",
+        host: .local,
+        risk: .append
+    )
 
     func testAutoApprovesUserRequestedWhoami() async {
         let reviewer = StaticSafetyReviewer()
@@ -55,5 +62,18 @@ final class SafetyTests: XCTestCase {
             recentMessages: []
         ))
         XCTAssertEqual(review.verdict, ApprovalVerdict.deny)
+    }
+
+    func testAutoApprovesUserRequestedGitCommit() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: gitCommit.name, argumentsJSON: #"{"message":"Add hello file"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "commit these changes with message Add hello file",
+            toolCall: call,
+            toolDefinition: gitCommit,
+            recentMessages: [.init(role: .user, content: "commit these changes with message Add hello file")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }
 }
