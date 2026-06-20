@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QuillCode Harness</title>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #0b1115; color: #eef5f8; }
+    main { max-width: 900px; margin: 0 auto; padding: 32px; }
+    .topbar { display: flex; justify-content: space-between; padding: 16px; border: 1px solid #2b3d46; border-radius: 12px; background: #17242b; }
+    .thread { margin: 24px 0; display: grid; gap: 12px; }
+    .card { border: 1px solid #254a5c; background: #111a20; border-radius: 12px; padding: 14px; }
+    label { display: block; margin-bottom: 8px; }
+    input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #31464f; background: #0b1115; color: white; }
+    button { margin-top: 12px; padding: 10px 18px; border: 0; border-radius: 10px; background: #39aee2; color: #041018; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="topbar">
+      <strong>QuillCode</strong>
+      <span>trustedrouter/fusion · Auto</span>
+    </div>
+    <section class="thread" id="thread"></section>
+    <label for="message">Message</label>
+    <input id="message" aria-label="Message">
+    <button id="send">Send</button>
+  </main>
+  <script>
+    const thread = document.getElementById('thread');
+    document.getElementById('send').addEventListener('click', () => {
+      const value = document.getElementById('message').value;
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.textContent = value.toLowerCase().includes('run')
+        ? 'host.shell.run queued'
+        : 'assistant response';
+      thread.appendChild(card);
+      const output = document.createElement('div');
+      output.className = 'card';
+      output.textContent = 'Output: mock-user';
+      thread.appendChild(output);
+    });
+  </script>
+</body>
+</html>

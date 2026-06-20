@@ -1,0 +1,12 @@
+.build/
+.swiftpm/
+DerivedData/
+
+E2E/playwright/node_modules/
+E2E/playwright/playwright-report/
+E2E/playwright/test-results/
+
+.DS_Store
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/

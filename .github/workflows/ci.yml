@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  swift:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        run: swift test
+      - name: Enforce no app-level Linux conditionals
+        run: |
+          if grep -R "#if os(Linux)\\|#if linux" Sources/QuillCodeApp; then
+            echo "Platform conditionals belong in adapter libraries, not QuillCodeApp."
+            exit 1
+          fi
+
