@@ -110,6 +110,14 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(command?.isEnabled, true)
     }
 
+    func testStopAllCommandIsEnabledForTerminalRuns() {
+        let model = QuillCodeWorkspaceModel(terminal: TerminalState(isRunning: true))
+
+        let command = model.surface().commands.first { $0.id == "stop-all" }
+
+        XCTAssertEqual(command?.isEnabled, true)
+    }
+
     func testSurfaceIncludesBrowserPreviewState() throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()

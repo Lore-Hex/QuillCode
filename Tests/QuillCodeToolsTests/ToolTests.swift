@@ -21,6 +21,24 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(result.error?.contains("No shell command") == true)
     }
 
+    func testCancellableShellStopsLongRunningCommand() async throws {
+        let task = Task {
+            await ShellToolExecutor().runCancellable(.init(
+                command: "sleep 10; echo should-not-print",
+                cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+                timeoutSeconds: 20
+            ))
+        }
+
+        try await Task.sleep(nanoseconds: 150_000_000)
+        task.cancel()
+        let result = await task.value
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("cancelled") == true, result.error ?? "")
+        XCTAssertFalse(result.stdout.contains("should-not-print"))
+    }
+
     func testFileWriteStaysInsideWorkspace() throws {
         let root = try makeTempDirectory()
         let files = FileToolExecutor(workspaceRoot: root)

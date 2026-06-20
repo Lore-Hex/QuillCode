@@ -96,6 +96,54 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(cards[0].outputJSON?.contains("\"ok\" : true") == true)
     }
 
+    func testCancellingComposerRunStopsStateAndRecordsNotice() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(runner: AgentRunner(llm: SlowLLMClient()))
+
+        model.setDraft("run a long task")
+        let task = Task {
+            await model.submitComposer(workspaceRoot: root)
+        }
+        try await waitUntil(timeoutSeconds: 1) {
+            model.composer.isSending
+        }
+
+        task.cancel()
+        await task.value
+
+        XCTAssertFalse(model.composer.isSending)
+        XCTAssertNil(model.lastError)
+        XCTAssertEqual(model.root.topBar.agentStatus, "Stopped")
+        let thread = try XCTUnwrap(model.selectedThread)
+        XCTAssertEqual(thread.messages.map(\.role), [.user])
+        XCTAssertEqual(thread.messages.first?.content, "run a long task")
+        XCTAssertTrue(thread.events.contains { $0.kind == .notice && $0.summary == "Stopped by user" })
+    }
+
+    func testCancelledComposerRunRecordsNoticeOnOriginalThread() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(runner: AgentRunner(llm: SlowLLMClient()))
+        let firstThreadID = model.newChat()
+
+        model.setDraft("run a long task")
+        let task = Task {
+            await model.submitComposer(workspaceRoot: root)
+        }
+        try await waitUntil(timeoutSeconds: 1) {
+            model.composer.isSending
+        }
+        let secondThreadID = model.newChat()
+
+        task.cancel()
+        await task.value
+
+        XCTAssertEqual(model.root.selectedThreadID, secondThreadID)
+        let firstThread = try XCTUnwrap(model.root.threads.first { $0.id == firstThreadID })
+        let secondThread = try XCTUnwrap(model.root.threads.first { $0.id == secondThreadID })
+        XCTAssertTrue(firstThread.events.contains { $0.kind == .notice && $0.summary == "Stopped by user" })
+        XCTAssertFalse(secondThread.events.contains { $0.kind == .notice && $0.summary == "Stopped by user" })
+    }
+
     func testTerminalCommandRunsInWorkspaceRootAndRecordsOutput() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()
@@ -816,5 +864,26 @@ final class WorkspaceModelTests: XCTestCase {
             )
         }
         return out
+    }
+
+    private func waitUntil(
+        timeoutSeconds: TimeInterval,
+        condition: @MainActor @escaping () -> Bool
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeoutSeconds)
+        while !condition() {
+            if Date() > deadline {
+                XCTFail("Timed out waiting for condition")
+                return
+            }
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
+    }
+}
+
+private struct SlowLLMClient: LLMClient {
+    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        try await Task.sleep(nanoseconds: 5_000_000_000)
+        return .say("late response")
     }
 }

@@ -444,6 +444,7 @@ public final class QuillCodeWorkspaceModel {
         }
         guard var thread = selectedThread else { return }
         syncInstructions(into: &thread)
+        let threadID = thread.id
 
         composer.draft = ""
         composer.isSending = true
@@ -451,12 +452,16 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: "Running")
 
         do {
+            try Task.checkCancellation()
             let result = try await runner.send(prompt, in: thread, workspaceRoot: workspaceRoot)
+            try Task.checkCancellation()
             thread = result.thread
             replaceThread(thread)
             try threadStore?.save(thread)
             composer.isSending = false
             refreshTopBar(agentStatus: "Idle")
+        } catch is CancellationError {
+            finishCancelledSend(userPrompt: prompt, threadID: threadID)
         } catch {
             composer.isSending = false
             lastError = String(describing: error)
@@ -624,9 +629,13 @@ public final class QuillCodeWorkspaceModel {
         lastError = nil
         refreshTopBar(agentStatus: "Terminal")
 
-        let result = await Task.detached(priority: .userInitiated) {
-            ShellToolExecutor().run(.init(command: command, cwd: workspaceRoot))
-        }.value
+        let result = await ShellToolExecutor().runCancellable(.init(command: command, cwd: workspaceRoot))
+        guard !Task.isCancelled else {
+            terminal.isRunning = false
+            lastError = nil
+            refreshTopBar(agentStatus: "Stopped")
+            return
+        }
 
         terminal.entries.append(TerminalCommandState(
             command: command,
@@ -637,6 +646,16 @@ public final class QuillCodeWorkspaceModel {
         ))
         terminal.isRunning = false
         refreshTopBar(agentStatus: result.ok ? "Idle" : "Failed")
+    }
+
+    public func cancelActiveWork() {
+        let hadActiveWork = composer.isSending || terminal.isRunning
+        composer.isSending = false
+        terminal.isRunning = false
+        lastError = nil
+        if hadActiveWork {
+            refreshTopBar(agentStatus: "Stopped")
+        }
     }
 
     public static func toolCards(for thread: ChatThread) -> [ToolCardState] {
@@ -779,6 +798,29 @@ public final class QuillCodeWorkspaceModel {
         if let thread = selectedThread {
             try? threadStore?.save(thread)
         }
+    }
+
+    private func finishCancelledSend(userPrompt: String, threadID: UUID) {
+        composer.isSending = false
+        lastError = nil
+        mutateThread(threadID) { thread in
+            if thread.messages.isEmpty && thread.title == "New chat" {
+                thread.title = Self.title(fromUserPrompt: userPrompt)
+            }
+            if !thread.messages.contains(where: { $0.role == .user && $0.content == userPrompt }) {
+                thread.messages.append(ChatMessage(role: .user, content: userPrompt))
+            }
+            let summary = "Stopped by user"
+            if thread.events.last?.kind != .notice || thread.events.last?.summary != summary {
+                thread.events.append(.init(kind: .notice, summary: summary))
+            }
+        }
+        refreshTopBar(agentStatus: "Stopped")
+    }
+
+    private static func title(fromUserPrompt userPrompt: String) -> String {
+        let words = userPrompt.split(separator: " ").prefix(6).joined(separator: " ")
+        return words.isEmpty ? "New chat" : words
     }
 
     private func statusText() -> String {

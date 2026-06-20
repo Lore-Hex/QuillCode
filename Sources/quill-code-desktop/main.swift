@@ -133,6 +133,10 @@ private final class QuillCodeDesktopController: ObservableObject {
     private let model: QuillCodeWorkspaceModel
     private let bootstrap: QuillCodeWorkspaceBootstrap
     private let workspaceRoot: URL
+    private var sendTask: Task<Void, Never>?
+    private var terminalTask: Task<Void, Never>?
+    private var sendTaskID: UUID?
+    private var terminalTaskID: UUID?
 
     init(
         bootstrap: QuillCodeWorkspaceBootstrap = QuillCodeWorkspaceBootstrap(),
@@ -237,12 +241,18 @@ private final class QuillCodeDesktopController: ObservableObject {
 
     func send() {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prompt.isEmpty else { return }
+        guard !prompt.isEmpty, sendTask == nil else { return }
         model.setDraft(prompt)
         draft = ""
         refresh()
-        Task {
+        let taskID = UUID()
+        sendTaskID = taskID
+        sendTask = Task { @MainActor in
             await model.submitComposer(workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+            if sendTaskID == taskID {
+                sendTask = nil
+                sendTaskID = nil
+            }
             refresh()
         }
     }
@@ -292,10 +302,18 @@ private final class QuillCodeDesktopController: ObservableObject {
     }
 
     func runTerminalCommand() {
-        let command = terminalDraft
+        let command = terminalDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !command.isEmpty, terminalTask == nil else { return }
         terminalDraft = ""
-        Task {
+        refresh()
+        let taskID = UUID()
+        terminalTaskID = taskID
+        terminalTask = Task { @MainActor in
             await model.runTerminalCommand(command, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+            if terminalTaskID == taskID {
+                terminalTask = nil
+                terminalTaskID = nil
+            }
             refresh()
         }
     }
@@ -346,7 +364,13 @@ private final class QuillCodeDesktopController: ObservableObject {
     }
 
     func stopAll() {
-        model.setDraft("")
+        sendTask?.cancel()
+        terminalTask?.cancel()
+        sendTask = nil
+        terminalTask = nil
+        sendTaskID = nil
+        terminalTaskID = nil
+        model.cancelActiveWork()
         draft = ""
         refresh()
     }
@@ -387,7 +411,7 @@ private struct QuillCodeMenuBarView: View {
         Button("Settings...", action: onSettings)
         Divider()
         Button("Stop All", action: onStopAll)
-            .disabled(!surface.composer.isSending)
+            .disabled(!surface.composer.isSending && !surface.terminal.isRunning)
         Button("Disconnect All") {}
             .disabled(true)
         Divider()

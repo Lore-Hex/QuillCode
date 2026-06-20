@@ -245,15 +245,17 @@ public struct AgentRunner: Sendable {
             next.title = Self.title(from: userMessage)
         }
 
+        try Task.checkCancellation()
         let tools = ToolRouter.definitions
         let action = try await llm.nextAction(thread: next, userMessage: userMessage, tools: tools)
+        try Task.checkCancellation()
         switch action {
         case .say(let text):
             next.messages.append(.init(role: .assistant, content: text))
             next.events.append(.init(kind: .message, summary: text))
             return AgentRunResult(thread: next, toolResults: [])
         case .tool(let call):
-            return await runTool(call, userMessage: userMessage, thread: next, workspaceRoot: workspaceRoot)
+            return try await runTool(call, userMessage: userMessage, thread: next, workspaceRoot: workspaceRoot)
         }
     }
 
@@ -262,7 +264,7 @@ public struct AgentRunner: Sendable {
         userMessage: String,
         thread: ChatThread,
         workspaceRoot: URL
-    ) async -> AgentRunResult {
+    ) async throws -> AgentRunResult {
         var next = thread
         let router = ToolRouter(workspaceRoot: workspaceRoot)
         let definition = router.definition(named: call.name)
@@ -273,6 +275,7 @@ public struct AgentRunner: Sendable {
             payloadJSON: callJSON
         ))
 
+        try Task.checkCancellation()
         let review = await safety.review(.init(
             mode: next.mode,
             userMessage: userMessage,
@@ -280,6 +283,7 @@ public struct AgentRunner: Sendable {
             toolDefinition: definition,
             recentMessages: next.messages
         ))
+        try Task.checkCancellation()
 
         if review.verdict != .approve {
             let text: String
@@ -300,7 +304,9 @@ public struct AgentRunner: Sendable {
         }
 
         next.events.append(.init(kind: .toolRunning, summary: "\(call.name) running"))
+        try Task.checkCancellation()
         let result = router.execute(call)
+        try Task.checkCancellation()
         let resultJSON = (try? JSONHelpers.encodePretty(result)) ?? "{}"
         next.events.append(.init(
             kind: result.ok ? .toolCompleted : .toolFailed,
