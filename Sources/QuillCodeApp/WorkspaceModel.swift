@@ -220,6 +220,13 @@ public final class QuillCodeWorkspaceModel {
         let prompt = composer.draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty else { return }
 
+        if let command = SlashCommandParser.parse(prompt) {
+            composer.draft = ""
+            lastError = nil
+            handleSlashCommand(command, originalPrompt: prompt)
+            return
+        }
+
         if selectedThread == nil {
             _ = newChat()
         }
@@ -289,6 +296,87 @@ public final class QuillCodeWorkspaceModel {
         }
 
         return cards
+    }
+
+    private func handleSlashCommand(_ command: SlashCommand, originalPrompt: String) {
+        switch command {
+        case .help:
+            appendLocalCommandTranscript(
+                userText: originalPrompt,
+                assistantText: """
+                Slash commands:
+                /new - start a new chat
+                /status - show current project, mode, and model
+                /mode auto|review|read-only - switch approval behavior
+                /model provider/model - switch the active model
+                """,
+                title: "Slash commands"
+            )
+        case .status:
+            appendLocalCommandTranscript(
+                userText: originalPrompt,
+                assistantText: statusText(),
+                title: "Status"
+            )
+        case .newChat:
+            _ = newChat()
+        case .mode(let mode):
+            setMode(mode)
+            appendLocalCommandTranscript(
+                userText: originalPrompt,
+                assistantText: "Mode set to \(Self.modeLabel(mode)).",
+                title: "Set mode"
+            )
+        case .model(let model):
+            setModel(model)
+            appendLocalCommandTranscript(
+                userText: originalPrompt,
+                assistantText: "Model set to \(model).",
+                title: "Set model"
+            )
+        case .invalid(let message):
+            appendLocalCommandTranscript(
+                userText: originalPrompt,
+                assistantText: message,
+                title: "Slash command"
+            )
+        case .unknown(let name):
+            appendLocalCommandTranscript(
+                userText: originalPrompt,
+                assistantText: "Unknown slash command '/\(name)'. Try /help.",
+                title: "Slash command"
+            )
+        }
+        composer.isSending = false
+        refreshTopBar(agentStatus: "Idle")
+    }
+
+    private func appendLocalCommandTranscript(userText: String, assistantText: String, title: String) {
+        if selectedThread == nil {
+            _ = newChat()
+        }
+        mutateSelectedThread { thread in
+            if thread.messages.isEmpty && thread.title == "New chat" {
+                thread.title = title
+            }
+            thread.messages.append(ChatMessage(role: .user, content: userText))
+            thread.messages.append(ChatMessage(role: .assistant, content: assistantText))
+        }
+        if let thread = selectedThread {
+            try? threadStore?.save(thread)
+        }
+    }
+
+    private func statusText() -> String {
+        let project = selectedProject?.name ?? root.topBar.projectName ?? "No project"
+        let thread = selectedThread?.title ?? "No chat"
+        return """
+        Project: \(project)
+        Thread: \(thread)
+        Mode: \(Self.modeLabel(root.topBar.mode))
+        Model: \(root.topBar.model)
+        Agent: \(root.topBar.agentStatus)
+        """
     }
 
     private func mutateSelectedThread(_ update: (inout ChatThread) -> Void) {

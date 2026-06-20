@@ -54,3 +54,15 @@ test('mock harness shows git review summary for diff flow', async ({ page }) => 
   await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.diff');
   await expect(page.getByTestId('tool-card-output')).toContainText('diff --git');
 });
+
+test('mock harness handles slash mode locally', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('/mode review');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('mode-pill')).toHaveText('Review');
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('QuillCode - Review');
+  await expect(page.getByText('Mode set to Review.')).toBeVisible();
+  await expect(page.getByTestId('tool-card')).toHaveCount(0);
+});

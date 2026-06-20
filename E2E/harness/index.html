@@ -465,7 +465,24 @@
       state.composer.draft = '';
       state.composer.canSend = false;
       state.transcript.messages.push({ role: 'user', text });
-      if (text.toLowerCase().includes('git diff')) {
+      if (text.toLowerCase().startsWith('/mode ')) {
+        const requestedMode = text.split(/\s+/)[1]?.toLowerCase();
+        const modeMap = { auto: 'Auto', review: 'Review', 'read-only': 'Read-only', readonly: 'Read-only' };
+        const nextMode = modeMap[requestedMode] || null;
+        if (nextMode) {
+          state.topBar.modeLabel = nextMode;
+          state.transcript.messages.push({ role: 'assistant', text: `Mode set to ${nextMode}.` });
+          const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
+          state.topBar.subtitle = `${selectedProject?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+        } else {
+          state.transcript.messages.push({ role: 'assistant', text: 'Usage: /mode auto, /mode review, or /mode read-only' });
+        }
+      } else if (text.toLowerCase().startsWith('/help')) {
+        state.transcript.messages.push({
+          role: 'assistant',
+          text: 'Slash commands:\\n/new\\n/status\\n/mode auto|review|read-only\\n/model provider/model'
+        });
+      } else if (text.toLowerCase().includes('git diff')) {
         const diff = [
           'diff --git a/Sources/App.swift b/Sources/App.swift',
           '--- a/Sources/App.swift',

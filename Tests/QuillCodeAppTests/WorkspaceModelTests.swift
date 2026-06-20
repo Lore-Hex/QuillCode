@@ -103,6 +103,69 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(model.root.threads.isEmpty)
     }
 
+    func testSlashNewCreatesFreshThreadWithoutAgentRun() async throws {
+        let existing = ChatThread(title: "Existing")
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [existing],
+            selectedThreadID: existing.id
+        ))
+
+        model.setDraft("/new")
+        await model.submitComposer(workspaceRoot: try makeTempDirectory())
+
+        XCTAssertEqual(model.composer.draft, "")
+        XCTAssertEqual(model.root.threads.count, 2)
+        XCTAssertEqual(model.selectedThread?.title, "New chat")
+        XCTAssertTrue(model.selectedThread?.messages.isEmpty == true)
+        XCTAssertTrue(model.currentToolCards.isEmpty)
+    }
+
+    func testSlashModeChangesModeAndWritesLocalTranscript() async throws {
+        let model = QuillCodeWorkspaceModel()
+
+        model.setDraft("/mode review")
+        await model.submitComposer(workspaceRoot: try makeTempDirectory())
+
+        XCTAssertEqual(model.root.config.mode, .review)
+        XCTAssertEqual(model.selectedThread?.mode, .review)
+        XCTAssertEqual(model.selectedThread?.title, "Set mode")
+        XCTAssertEqual(model.selectedThread?.messages.map(\.role), [.user, .assistant])
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Mode set to Review.")
+        XCTAssertTrue(model.currentToolCards.isEmpty)
+    }
+
+    func testSlashModelChangesModelAndWritesLocalTranscript() async throws {
+        let model = QuillCodeWorkspaceModel()
+
+        model.setDraft("/model z-ai/glm-5.2")
+        await model.submitComposer(workspaceRoot: try makeTempDirectory())
+
+        XCTAssertEqual(model.root.config.defaultModel, "z-ai/glm-5.2")
+        XCTAssertEqual(model.selectedThread?.model, "z-ai/glm-5.2")
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Model set to z-ai/glm-5.2.")
+        XCTAssertTrue(model.currentToolCards.isEmpty)
+    }
+
+    func testSlashStatusReportsWorkspaceState() async throws {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        let thread = ChatThread(title: "Status thread", projectID: project.id)
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        model.setDraft("/status")
+        await model.submitComposer(workspaceRoot: try makeTempDirectory())
+
+        let message = try XCTUnwrap(model.selectedThread?.messages.last?.content)
+        XCTAssertTrue(message.contains("Project: QuillCode"))
+        XCTAssertTrue(message.contains("Thread: Status thread"))
+        XCTAssertTrue(message.contains("Mode: Auto"))
+        XCTAssertTrue(message.contains("Model: trustedrouter/fusion"))
+    }
+
     func testPinnedThreadsSortBeforeRecentThreads() {
         let older = ChatThread(
             title: "Older",
