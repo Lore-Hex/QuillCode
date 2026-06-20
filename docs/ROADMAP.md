@@ -22,7 +22,7 @@
 - Streaming chat client.
 - Live model catalog native UI.
 - Auto reviewer using `glm-5.2` with `kimi-k2.6` fallback in the native app.
-- Current status: non-streaming live TrustedRouter CLI adapter exists behind `--live`.
+- Current status: non-streaming live TrustedRouter adapter exists behind CLI `--live` and desktop env/secret-key runtime selection.
 
 ## Milestone 3: Codex Workflow Parity
 

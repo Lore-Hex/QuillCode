@@ -4,6 +4,7 @@
 | --- | --- | --- | --- |
 | Core | Threads and transcript persistence | Implemented | JSON thread store, desktop bootstrap loading, and mock agent runner. |
 | Core | Project picker/sidebar | Partial | Workspace state model and native sidebar exist with selection, pin, archive, and sorting; project picker pending. |
+| Core | TrustedRouter runtime | Partial | CLI and desktop can use live TrustedRouter when an env or stored secret key exists; OAuth flow pending. |
 | Core | TrustedRouter model picker | Partial | Catalog model and live fetch adapter exist; SwiftUI shell has initial persisted model menu; full provider/category browser pending. |
 | Tools | Shell commands | Implemented | `host.shell.run` with empty-command guard. |
 | Tools | File read/write | Implemented | Workspace-scoped UTF-8 files. |

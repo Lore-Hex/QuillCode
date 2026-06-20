@@ -132,6 +132,49 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(try ConfigStore(fileURL: paths.configFile).load(), nextConfig)
     }
 
+    func testRuntimeFactoryUsesTrustedRouterWhenEnvironmentKeyExists() throws {
+        let paths = QuillCodePaths(home: try makeTempDirectory())
+        try paths.ensure()
+
+        let runtime = QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: ["TRUSTEDROUTER_API_KEY": "sk-test"]
+        ).makeRuntime(config: AppConfig())
+
+        XCTAssertEqual(runtime.mode, .trustedRouter)
+        XCTAssertEqual(runtime.statusLabel, "TrustedRouter ready")
+    }
+
+    func testRuntimeFactoryUsesTrustedRouterWhenSecretExists() throws {
+        let paths = QuillCodePaths(home: try makeTempDirectory())
+        try paths.ensure()
+        try FileSecretStore(directory: paths.secretsDirectory).write(
+            "sk-test",
+            for: QuillCodeRuntimeFactory.trustedRouterSecretKey
+        )
+
+        let runtime = QuillCodeRuntimeFactory(paths: paths, environment: [:])
+            .makeRuntime(config: AppConfig())
+
+        XCTAssertEqual(runtime.mode, .trustedRouter)
+    }
+
+    func testRuntimeFactoryCanForceMockForDeterministicRuns() throws {
+        let paths = QuillCodePaths(home: try makeTempDirectory())
+        try paths.ensure()
+
+        let runtime = QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: [
+                "TRUSTEDROUTER_API_KEY": "sk-test",
+                "QUILLCODE_USE_MOCK_LLM": "true"
+            ]
+        ).makeRuntime(config: AppConfig())
+
+        XCTAssertEqual(runtime.mode, .mock)
+        XCTAssertEqual(runtime.statusLabel, "Mock LLM")
+    }
+
     private func makeTempDirectory() throws -> URL {
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("QuillCodeAppTests-\(UUID().uuidString)")

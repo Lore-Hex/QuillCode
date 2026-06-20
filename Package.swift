@@ -44,6 +44,7 @@ let package = Package(
                 "QuillCodeCore",
                 "QuillCodeAgent",
                 "QuillCodePersistence",
+                "QuillCodeSafety",
                 "QuillComputerUseKit"
             ]
         ),

@@ -13,3 +13,4 @@
 - QuillUI is the UI direction, but core tests must not depend on a dirty local QuillUI checkout.
 - Platform-specific code belongs in adapter packages, not the app target.
 - The first desktop executable is `quill-code-desktop`, built with SwiftUI over the same `WorkspaceSurface` contract used by the HTML/Playwright harness. This keeps native UI work testable before the full QuillUI adapter exists.
+- Desktop runtime selection defaults to mock LLM for no-key demos, switches to live TrustedRouter when an environment or stored secret key exists, and supports `QUILLCODE_USE_MOCK_LLM=true` for deterministic test runs.

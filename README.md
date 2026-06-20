@@ -26,7 +26,7 @@ swift run quill-code-desktop
 cd E2E/playwright && npm install && npx playwright install chromium && npm test
 ```
 
-The CLI and desktop shell use a deterministic mock LLM by default so tests and local demos do not require a TrustedRouter account.
+The CLI and desktop shell use a deterministic mock LLM by default so tests and local demos do not require a TrustedRouter account. The desktop shell switches to live TrustedRouter automatically when `QUILLCODE_API_KEY` or `TRUSTEDROUTER_API_KEY` is present, or when an API key is stored in the QuillCode secret store. Set `QUILLCODE_USE_MOCK_LLM=true` to force deterministic mock mode.
 
 To exercise the live TrustedRouter adapter:
 
@@ -34,6 +34,7 @@ To exercise the live TrustedRouter adapter:
 export TRUSTEDROUTER_API_KEY=sk-tr-v1-...
 swift run quill-code --live "run whoami"
 swift run quill-code --live --model trustedrouter/fusion "make a file that says hello world"
+swift run quill-code-desktop
 ```
 
 The live adapter asks the model for a strict QuillCode action JSON object, then routes that through the same safety and tool executor path as the mock harness.
