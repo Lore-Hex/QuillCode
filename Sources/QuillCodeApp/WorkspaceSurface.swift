@@ -162,6 +162,7 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
             let pinLabel = item.isPinned ? "pinned" : ""
             return item.title.localizedCaseInsensitiveContains(normalizedQuery)
                 || item.subtitle.localizedCaseInsensitiveContains(normalizedQuery)
+                || item.searchText.localizedCaseInsensitiveContains(normalizedQuery)
                 || pinLabel.localizedCaseInsensitiveContains(normalizedQuery)
         }
     }
@@ -171,6 +172,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var title: String
     public var subtitle: String
+    public var searchText: String
     public var isSelected: Bool
     public var isPinned: Bool
 
@@ -178,6 +180,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.id = item.id
         self.title = item.title
         self.subtitle = item.subtitle
+        self.searchText = item.searchText
         self.isSelected = item.id == selectedThreadID
         self.isPinned = item.isPinned
     }

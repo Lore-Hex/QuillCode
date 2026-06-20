@@ -93,9 +93,12 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(surface.topBar.showsComputerUseSetup)
     }
 
-    func testSidebarSearchFiltersByThreadTitleAndSubtitle() {
+    func testSidebarSearchFiltersByThreadTitleSubtitleAndTranscriptContent() {
         let selectedThread = ChatThread(title: "Run whoami", model: "trustedrouter/fusion")
-        let otherThread = ChatThread(title: "Review git diff", model: "z-ai/glm-5.2", isPinned: true)
+        var otherThread = ChatThread(title: "Review git diff", model: "z-ai/glm-5.2", isPinned: true)
+        otherThread.messages = [
+            .init(role: .user, content: "Can you inspect the browser preview?")
+        ]
         let surface = SidebarSurface(
             items: [
                 SidebarItemSurface(item: SidebarItem(thread: selectedThread), selectedThreadID: selectedThread.id),
@@ -107,7 +110,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.filteredItems(matching: "").map(\.title), ["Run whoami", "Review git diff"])
         XCTAssertEqual(surface.filteredItems(matching: "who").map(\.title), ["Run whoami"])
         XCTAssertEqual(surface.filteredItems(matching: "GLM").map(\.title), ["Review git diff"])
-        XCTAssertTrue(surface.filteredItems(matching: "browser").isEmpty)
+        XCTAssertEqual(surface.filteredItems(matching: "browser preview").map(\.title), ["Review git diff"])
+        XCTAssertTrue(surface.filteredItems(matching: "workspace manager").isEmpty)
     }
 
     func testGitDiffReviewSurfaceSummarizesLatestCompletedDiff() throws {

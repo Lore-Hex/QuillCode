@@ -8,6 +8,7 @@ public struct SidebarItem: Sendable, Hashable, Identifiable {
     public var id: UUID
     public var title: String
     public var subtitle: String
+    public var searchText: String
     public var isPinned: Bool
     public var isArchived: Bool
 
@@ -15,6 +16,10 @@ public struct SidebarItem: Sendable, Hashable, Identifiable {
         self.id = thread.id
         self.title = thread.title
         self.subtitle = thread.model
+        let combinedSearchText = thread.messages
+            .map(\.content)
+            .joined(separator: "\n")
+        self.searchText = String(combinedSearchText.prefix(8_000))
         self.isPinned = thread.isPinned
         self.isArchived = thread.isArchived
     }

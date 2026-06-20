@@ -663,6 +663,7 @@
         if (!query) return true;
         return item.title.toLowerCase().includes(query)
           || item.subtitle.toLowerCase().includes(query)
+          || (item.searchText || '').toLowerCase().includes(query)
           || (item.isPinned ? 'pinned' : '').includes(query);
       });
       return `
@@ -722,6 +723,7 @@
           id: threadID,
           title,
           subtitle: state.topBar.modelLabel,
+          searchText: '',
           isSelected: true,
           isPinned: false
         }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
@@ -818,6 +820,18 @@
       render();
     }
 
+    function syncSelectedThreadSearchText() {
+      if (!state.sidebar.selectedThreadID) return;
+      const messageText = state.transcript.messages.map(message => message.text).join('\n');
+      const toolText = state.transcript.toolCards
+        .map(card => [card.inputJSON || '', card.outputJSON || ''].join('\n'))
+        .join('\n');
+      const searchText = `${messageText}\n${toolText}`.slice(0, 8000);
+      state.sidebar.items = state.sidebar.items.map(item => (
+        item.id === state.sidebar.selectedThreadID ? { ...item, searchText } : item
+      ));
+    }
+
     function sendMessage(value) {
       const text = String(value).trim();
       if (!text) return;
@@ -897,6 +911,7 @@
         state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
         state.transcript.messages.push({ role: 'assistant', text: 'I can inspect and edit this project.' });
       }
+      syncSelectedThreadSearchText();
       render();
     }
 
