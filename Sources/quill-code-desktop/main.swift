@@ -23,6 +23,10 @@ struct QuillCodeDesktopApp: App {
                     NotificationCenter.default.post(name: .quillCodeToggleTerminal, object: nil)
                 }
                 .keyboardShortcut("`", modifiers: .control)
+                Button("Toggle Browser") {
+                    NotificationCenter.default.post(name: .quillCodeToggleBrowser, object: nil)
+                }
+                .keyboardShortcut("b", modifiers: [.command, .shift])
                 Button("Command Palette") {
                     NotificationCenter.default.post(name: .quillCodeCommandPalette, object: nil)
                 }
@@ -40,9 +44,12 @@ private struct QuillCodeDesktopRootView: View {
             surface: controller.surface,
             draft: $controller.draft,
             terminalDraft: $controller.terminalDraft,
+            browserAddressDraft: $controller.browserAddressDraft,
             isCommandPalettePresented: $controller.isCommandPalettePresented,
             onSend: controller.send,
             onRunTerminalCommand: controller.runTerminalCommand,
+            onOpenBrowserPreview: controller.openBrowserPreview,
+            onAddBrowserComment: controller.addBrowserComment,
             onAddProjectRequested: controller.requestAddProject,
             onSelectThread: controller.selectThread,
             onThreadAction: controller.runThreadAction,
@@ -60,6 +67,9 @@ private struct QuillCodeDesktopRootView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeToggleTerminal)) { _ in
             controller.toggleTerminal()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .quillCodeToggleBrowser)) { _ in
+            controller.toggleBrowser()
         }
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeOpenProject)) { _ in
             controller.requestAddProject()
@@ -85,6 +95,7 @@ private final class QuillCodeDesktopController: ObservableObject {
     @Published var surface: WorkspaceSurface
     @Published var draft: String
     @Published var terminalDraft: String
+    @Published var browserAddressDraft: String
     @Published var isCommandPalettePresented = false
     @Published var isProjectImporterPresented = false
 
@@ -109,6 +120,7 @@ private final class QuillCodeDesktopController: ObservableObject {
         self.surface = model.surface()
         self.draft = model.composer.draft
         self.terminalDraft = model.terminal.draft
+        self.browserAddressDraft = model.browser.addressDraft
     }
 
     func newChat() {
@@ -212,6 +224,8 @@ private final class QuillCodeDesktopController: ObservableObject {
             requestAddProject()
         case "toggle-terminal":
             toggleTerminal()
+        case "toggle-browser":
+            toggleBrowser()
         case "command-palette":
             openCommandPalette()
         case "stop-all":
@@ -227,6 +241,22 @@ private final class QuillCodeDesktopController: ObservableObject {
 
     func toggleTerminal() {
         model.toggleTerminal()
+        refresh()
+    }
+
+    func toggleBrowser() {
+        model.toggleBrowser()
+        refresh()
+    }
+
+    func openBrowserPreview() {
+        model.setBrowserAddressDraft(browserAddressDraft)
+        _ = model.openBrowserPreview(workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+        refresh()
+    }
+
+    func addBrowserComment(_ comment: String) {
+        _ = model.addBrowserComment(comment)
         refresh()
     }
 
@@ -262,6 +292,9 @@ private final class QuillCodeDesktopController: ObservableObject {
         if terminalDraft != model.terminal.draft, !model.terminal.isRunning {
             terminalDraft = model.terminal.draft
         }
+        if browserAddressDraft != model.browser.addressDraft {
+            browserAddressDraft = model.browser.addressDraft
+        }
     }
 
     private func persistConfig() {
@@ -278,4 +311,5 @@ private extension Notification.Name {
     static let quillCodeOpenProject = Notification.Name("QuillCodeOpenProject")
     static let quillCodeCommandPalette = Notification.Name("QuillCodeCommandPalette")
     static let quillCodeToggleTerminal = Notification.Name("QuillCodeToggleTerminal")
+    static let quillCodeToggleBrowser = Notification.Name("QuillCodeToggleBrowser")
 }

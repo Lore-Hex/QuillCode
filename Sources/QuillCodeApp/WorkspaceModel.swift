@@ -125,11 +125,51 @@ public struct TerminalState: Sendable, Hashable {
     }
 }
 
+public struct BrowserCommentState: Sendable, Hashable, Identifiable {
+    public var id: UUID
+    public var url: String
+    public var text: String
+    public var createdAt: Date
+
+    public init(id: UUID = UUID(), url: String, text: String, createdAt: Date = Date()) {
+        self.id = id
+        self.url = url
+        self.text = text
+        self.createdAt = createdAt
+    }
+}
+
+public struct BrowserState: Sendable, Hashable {
+    public var isVisible: Bool
+    public var addressDraft: String
+    public var currentURL: String?
+    public var title: String
+    public var status: String
+    public var comments: [BrowserCommentState]
+
+    public init(
+        isVisible: Bool = false,
+        addressDraft: String = "",
+        currentURL: String? = nil,
+        title: String = "Browser preview",
+        status: String = "Ready",
+        comments: [BrowserCommentState] = []
+    ) {
+        self.isVisible = isVisible
+        self.addressDraft = addressDraft
+        self.currentURL = currentURL
+        self.title = title
+        self.status = status
+        self.comments = comments
+    }
+}
+
 @MainActor
 public final class QuillCodeWorkspaceModel {
     public private(set) var root: QuillCodeRootState
     public private(set) var composer: ComposerState
     public private(set) var terminal: TerminalState
+    public private(set) var browser: BrowserState
     public private(set) var lastError: String?
 
     private var runner: AgentRunner
@@ -140,6 +180,7 @@ public final class QuillCodeWorkspaceModel {
         root: QuillCodeRootState = QuillCodeRootState(),
         composer: ComposerState = ComposerState(),
         terminal: TerminalState = TerminalState(),
+        browser: BrowserState = BrowserState(),
         runner: AgentRunner = AgentRunner(),
         threadStore: JSONThreadStore? = nil,
         projectStore: JSONProjectStore? = nil
@@ -147,6 +188,7 @@ public final class QuillCodeWorkspaceModel {
         self.root = root
         self.composer = composer
         self.terminal = terminal
+        self.browser = browser
         self.runner = runner
         self.threadStore = threadStore
         self.projectStore = projectStore
@@ -185,6 +227,46 @@ public final class QuillCodeWorkspaceModel {
 
     public func toggleTerminal() {
         terminal.isVisible.toggle()
+    }
+
+    public func setBrowserAddressDraft(_ draft: String) {
+        browser.addressDraft = draft
+    }
+
+    public func toggleBrowser() {
+        browser.isVisible.toggle()
+    }
+
+    @discardableResult
+    public func openBrowserPreview(_ input: String? = nil, workspaceRoot: URL? = nil) -> Bool {
+        let rawValue = input ?? browser.addressDraft
+        guard let url = Self.normalizedBrowserURL(rawValue, workspaceRoot: workspaceRoot) else {
+            browser.isVisible = true
+            browser.status = "Invalid address"
+            lastError = "Enter an http, https, file, localhost, or project file URL."
+            refreshTopBar(agentStatus: "Idle")
+            return false
+        }
+
+        browser.isVisible = true
+        browser.currentURL = url.absoluteString
+        browser.addressDraft = url.absoluteString
+        browser.title = Self.browserTitle(for: url)
+        browser.status = "Preview ready"
+        lastError = nil
+        refreshTopBar(agentStatus: "Idle")
+        return true
+    }
+
+    @discardableResult
+    public func addBrowserComment(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let url = browser.currentURL else {
+            return false
+        }
+        browser.comments.append(BrowserCommentState(url: url, text: trimmed))
+        browser.status = "Comment added"
+        return true
     }
 
     @discardableResult
@@ -389,6 +471,9 @@ public final class QuillCodeWorkspaceModel {
             return runLocalEnvironmentAction(commandID, workspaceRoot: workspaceRoot)
         }
         switch commandID {
+        case "toggle-browser":
+            toggleBrowser()
+            return true
         case "git-worktree-list":
             runToolCall(
                 ToolCall(name: ToolDefinition.gitWorktreeList.name, argumentsJSON: "{}"),
@@ -769,6 +854,63 @@ public final class QuillCodeWorkspaceModel {
     private static func defaultProjectName(for url: URL) -> String {
         let lastPathComponent = url.lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
         return lastPathComponent.isEmpty ? url.path : lastPathComponent
+    }
+
+    private static func normalizedBrowserURL(_ rawValue: String, workspaceRoot: URL?) -> URL? {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        if let url = URL(string: trimmed),
+           let scheme = url.scheme?.lowercased(),
+           ["http", "https", "file"].contains(scheme) {
+            return url
+        }
+
+        if trimmed.hasPrefix("localhost")
+            || trimmed.hasPrefix("127.0.0.1")
+            || trimmed.hasPrefix("[::1]") {
+            return URL(string: "http://\(trimmed)")
+        }
+
+        if let workspaceRoot,
+           let fileURL = projectFileBrowserURL(trimmed, workspaceRoot: workspaceRoot) {
+            return fileURL
+        }
+
+        if trimmed.hasPrefix("/") {
+            let fileURL = URL(fileURLWithPath: trimmed)
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                return fileURL.standardizedFileURL
+            }
+        }
+
+        if trimmed.contains(".") {
+            return URL(string: "https://\(trimmed)")
+        }
+
+        return nil
+    }
+
+    private static func projectFileBrowserURL(_ relativePath: String, workspaceRoot: URL) -> URL? {
+        guard !relativePath.contains("..") else { return nil }
+        let root = workspaceRoot.standardizedFileURL.resolvingSymlinksInPath()
+        let fileURL = root
+            .appendingPathComponent(relativePath)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        guard (fileURL.path == root.path || fileURL.path.hasPrefix(root.path + "/")),
+              FileManager.default.fileExists(atPath: fileURL.path)
+        else {
+            return nil
+        }
+        return fileURL
+    }
+
+    private static func browserTitle(for url: URL) -> String {
+        if url.isFileURL {
+            return url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent
+        }
+        return url.host ?? url.absoluteString
     }
 
     private static func updateLastOpenCard(

@@ -8,6 +8,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var transcript: TranscriptSurface
     public var review: WorkspaceReviewSurface
     public var terminal: TerminalSurface
+    public var browser: BrowserSurface
     public var composer: ComposerSurface
     public var commands: [WorkspaceCommandSurface]
     public var settings: WorkspaceSettingsSurface
@@ -20,6 +21,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         transcript: TranscriptSurface,
         review: WorkspaceReviewSurface,
         terminal: TerminalSurface,
+        browser: BrowserSurface,
         composer: ComposerSurface,
         commands: [WorkspaceCommandSurface],
         settings: WorkspaceSettingsSurface,
@@ -31,6 +33,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.transcript = transcript
         self.review = review
         self.terminal = terminal
+        self.browser = browser
         self.composer = composer
         self.commands = commands
         self.settings = settings
@@ -324,6 +327,48 @@ public struct TerminalCommandSurface: Codable, Sendable, Hashable, Identifiable 
     }
 }
 
+public struct BrowserSurface: Codable, Sendable, Hashable {
+    public var isVisible: Bool
+    public var addressDraft: String
+    public var currentURL: String?
+    public var title: String
+    public var statusLabel: String
+    public var comments: [BrowserCommentSurface]
+    public var emptyTitle: String
+    public var emptySubtitle: String
+
+    public var canOpen: Bool {
+        !addressDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    public init(
+        browser: BrowserState,
+        emptyTitle: String = "Open a localhost, file, or web page inside QuillCode.",
+        emptySubtitle: String = "Use browser comments to keep observations attached to the current page."
+    ) {
+        self.isVisible = browser.isVisible
+        self.addressDraft = browser.addressDraft
+        self.currentURL = browser.currentURL
+        self.title = browser.title
+        self.statusLabel = browser.status
+        self.comments = browser.comments.map(BrowserCommentSurface.init)
+        self.emptyTitle = emptyTitle
+        self.emptySubtitle = emptySubtitle
+    }
+}
+
+public struct BrowserCommentSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: UUID
+    public var url: String
+    public var text: String
+
+    public init(comment: BrowserCommentState) {
+        self.id = comment.id
+        self.url = comment.url
+        self.text = comment.text
+    }
+}
+
 public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: String { path }
     public var path: String
@@ -582,6 +627,7 @@ public extension QuillCodeWorkspaceModel {
                 terminal: terminal,
                 cwd: activeWorkspaceRoot
             ),
+            browser: BrowserSurface(browser: browser),
             composer: ComposerSurface(composer: composer),
             commands: commands(),
             settings: WorkspaceSettingsSurface(
@@ -663,6 +709,7 @@ public extension QuillCodeWorkspaceModel {
             WorkspaceCommandSurface(id: "search", title: "Search", shortcut: "Cmd+K"),
             WorkspaceCommandSurface(id: "add-project", title: "Open project", shortcut: "Cmd+O"),
             WorkspaceCommandSurface(id: "toggle-terminal", title: "Terminal", shortcut: "Ctrl+`"),
+            WorkspaceCommandSurface(id: "toggle-browser", title: "Browser", shortcut: "Cmd+Shift+B"),
             WorkspaceCommandSurface(id: "git-worktree-list", title: "List worktrees", isEnabled: activeWorkspaceRoot != nil),
             WorkspaceCommandSurface(id: "git-worktree-create", title: "Create worktree", isEnabled: activeWorkspaceRoot != nil),
             WorkspaceCommandSurface(id: "git-worktree-remove", title: "Remove worktree", isEnabled: activeWorkspaceRoot != nil),

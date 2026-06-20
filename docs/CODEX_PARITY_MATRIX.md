@@ -20,7 +20,7 @@
 | Workspace | Worktrees | Partial | Core `git worktree` list/create/remove tools, shared command-palette actions, and create/remove dialogs exist. Codex-style worktree thread UI and branch handoff flows pending. |
 | Workspace | Local environment actions | Partial | Project-local `.quillcode/actions/*.sh` and `.quillcode/local-env/*.sh` scripts are discovered with symlink/root bounds and exposed in the command palette as `Run ...` actions that dispatch through `host.shell.run`. Setup config metadata, scheduling, and richer local-env orchestration pending. |
 | Workspace | AGENTS/rules instructions | Partial | Project-local `AGENTS.md`, `.quillcode/rules.md`, and `.quillcode/instructions.md` are bounded, persisted on project refs, copied into thread context, injected into TrustedRouter as hidden system context, and surfaced as a top-bar status. Nested directory precedence, per-file rule scopes, and richer conflict display pending. |
-| Browser | In-app browser | Deferred | Requires QuillUI/browser surface. |
+| Browser | In-app browser | Partial | Workspace browser panel, address normalization for web/localhost/file/project-relative targets, browser comments, SwiftUI surface, HTML renderer, and Playwright coverage exist. Native WebView/rendering adapter, browser DOM inspection, and signed-in browser profile support pending. |
 | Computer Use | Backend protocol | Implemented | Stub backend exists; platform backends pending. |
 | Plugins | Skills/plugins/MCP | Deferred | Manifest tests planned. |
 | Long-running | Automations/subagents | Deferred | Planned after stable thread runtime. |

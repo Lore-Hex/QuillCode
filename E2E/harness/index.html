@@ -169,7 +169,8 @@
     }
     .transcript { display: grid; grid-template-rows: 1fr auto; overflow: hidden; }
     .timeline { padding: 22px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
-    .terminal-pane {
+    .terminal-pane,
+    .browser-pane {
       display: grid;
       gap: 10px;
       padding: 14px;
@@ -177,6 +178,7 @@
       background: rgba(18,29,35,.96);
     }
     .terminal-pane header,
+    .browser-pane header,
     .terminal-entry header {
       display: flex;
       align-items: center;
@@ -202,6 +204,24 @@
     .terminal-status.ok { color: var(--green); }
     .terminal-status.failed { color: var(--red); }
     .terminal-form { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+    .browser-form,
+    .browser-comment-form { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+    .browser-preview,
+    .browser-comment {
+      display: grid;
+      gap: 5px;
+      padding: 10px;
+      border-radius: 10px;
+      background: rgba(0,0,0,.26);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .browser-comments { display: grid; gap: 8px; max-height: 120px; overflow: auto; }
+    .browser-preview code,
+    .browser-comment small {
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+    }
     .message, .tool-card, .review-pane {
       max-width: min(760px, 88%);
       padding: 13px 15px;
@@ -408,6 +428,7 @@
         { id: 'search', title: 'Search', shortcut: 'Cmd+K', isEnabled: true },
         { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', isEnabled: true },
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', isEnabled: true },
+        { id: 'toggle-browser', title: 'Browser', shortcut: 'Cmd+Shift+B', isEnabled: true },
         { id: 'git-worktree-list', title: 'List worktrees', shortcut: '', isEnabled: true },
         { id: 'git-worktree-create', title: 'Create worktree', shortcut: '', isEnabled: true },
         { id: 'git-worktree-remove', title: 'Remove worktree', shortcut: '', isEnabled: true },
@@ -421,6 +442,14 @@
         isRunning: false,
         cwdLabel: '/mock/QuillCode',
         entries: []
+      },
+      browser: {
+        isVisible: false,
+        addressDraft: '',
+        currentURL: null,
+        title: 'Browser preview',
+        statusLabel: 'Ready',
+        comments: []
       },
       nextProjectIndex: 2,
       nextThreadIndex: 1
@@ -535,9 +564,10 @@
           <div class="workspace-grid">
             <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
               <div class="sidebar-actions" aria-label="Primary chat actions">
-                <button class="sidebar-action" type="button" data-testid="new-chat-button">New chat</button>
-                <button class="sidebar-action" type="button" data-testid="sidebar-search-button">Search</button>
-                <button class="sidebar-action" type="button" data-testid="terminal-button">Terminal</button>
+	                <button class="sidebar-action" type="button" data-testid="new-chat-button">New chat</button>
+	                <button class="sidebar-action" type="button" data-testid="sidebar-search-button">Search</button>
+	                <button class="sidebar-action" type="button" data-testid="browser-button">Browser</button>
+	                <button class="sidebar-action" type="button" data-testid="terminal-button">Terminal</button>
               </div>
               <div class="sidebar-section-title">
                 <h2>${escapeHTML(state.projects.title)}</h2>
@@ -547,9 +577,10 @@
               <h2>${escapeHTML(state.sidebar.title)}</h2>
               ${sidebarContent}
             </aside>
-            <main class="transcript" data-testid="transcript">
-              <div class="timeline">${timeline}</div>
-              ${state.terminal.isVisible ? renderTerminalPane() : ''}
+	            <main class="transcript" data-testid="transcript">
+	              <div class="timeline">${timeline}</div>
+	              ${state.browser.isVisible ? renderBrowserPane() : ''}
+	              ${state.terminal.isVisible ? renderTerminalPane() : ''}
               <form class="composer" data-testid="composer">
                 <label for="message">Message</label>
                 <input id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" value="${escapeHTML(state.composer.draft)}" ${state.composer.isSending ? 'disabled' : ''}>
@@ -627,10 +658,14 @@
       document.querySelector('[data-testid="new-chat-button"]').addEventListener('click', () => {
         newChat();
       });
-      document.querySelector('[data-testid="terminal-button"]').addEventListener('click', () => {
-        state.terminal.isVisible = !state.terminal.isVisible;
-        render();
-      });
+	      document.querySelector('[data-testid="terminal-button"]').addEventListener('click', () => {
+	        state.terminal.isVisible = !state.terminal.isVisible;
+	        render();
+	      });
+	      document.querySelector('[data-testid="browser-button"]').addEventListener('click', () => {
+	        state.browser.isVisible = !state.browser.isVisible;
+	        render();
+	      });
       document.querySelectorAll('[data-testid="sidebar-item"]').forEach(button => {
         button.addEventListener('click', event => {
           selectThread(event.currentTarget.getAttribute('data-thread-id'));
@@ -746,11 +781,28 @@
         state.terminal.draft = event.target.value;
         document.querySelector('[data-testid="terminal-run"]').disabled = !state.terminal.draft.trim();
       });
-      document.querySelector('[data-testid="terminal-form"]')?.addEventListener('submit', event => {
-        event.preventDefault();
-        runTerminalCommand();
-      });
-    }
+	      document.querySelector('[data-testid="terminal-form"]')?.addEventListener('submit', event => {
+	        event.preventDefault();
+	        runTerminalCommand();
+	      });
+	      document.querySelector('[data-testid="browser-address"]')?.addEventListener('input', event => {
+	        state.browser.addressDraft = event.target.value;
+	        document.querySelector('[data-testid="browser-open"]').disabled = !state.browser.addressDraft.trim();
+	      });
+	      document.querySelector('[data-testid="browser-form"]')?.addEventListener('submit', event => {
+	        event.preventDefault();
+	        openBrowserPreview();
+	      });
+	      document.querySelector('[data-testid="browser-comment-input"]')?.addEventListener('input', event => {
+	        document.querySelector('[data-testid="browser-add-comment"]').disabled =
+	          !state.browser.currentURL || !event.target.value.trim();
+	      });
+	      document.querySelector('[data-testid="browser-comment-form"]')?.addEventListener('submit', event => {
+	        event.preventDefault();
+	        const input = document.querySelector('[data-testid="browser-comment-input"]');
+	        addBrowserComment(input.value);
+	      });
+	    }
 
     function renderSettingsPanel() {
       return `
@@ -841,7 +893,7 @@
         </div>`;
     }
 
-    function renderTerminalPane() {
+	    function renderTerminalPane() {
       const entries = state.terminal.entries.length ? state.terminal.entries.map(entry => `
         <article class="terminal-entry" data-testid="terminal-entry">
           <header>
@@ -866,7 +918,42 @@
             <button type="submit" data-testid="terminal-run" ${state.terminal.draft.trim() ? '' : 'disabled'}>Run</button>
           </form>
         </section>`;
-    }
+	    }
+
+	    function renderBrowserPane() {
+	      const preview = state.browser.currentURL ? `
+	        <div class="browser-preview" data-testid="browser-preview">
+	          <strong data-testid="browser-title">${escapeHTML(state.browser.title)}</strong>
+	          <code data-testid="browser-current-url">${escapeHTML(state.browser.currentURL)}</code>
+	          <p data-testid="browser-status">${escapeHTML(state.browser.statusLabel)}</p>
+	        </div>` : `
+	        <div class="browser-preview" data-testid="browser-empty">
+	          <strong>Open a localhost, file, or web page inside QuillCode.</strong>
+	          <p>Use browser comments to keep observations attached to the current page.</p>
+	        </div>`;
+	      const comments = state.browser.comments.map(comment => `
+	        <article class="browser-comment" data-testid="browser-comment">
+	          <p>${escapeHTML(comment.text)}</p>
+	          <small>${escapeHTML(comment.url)}</small>
+	        </article>`).join('');
+	      return `
+	        <section class="browser-pane" data-testid="browser-pane">
+	          <header>
+	            <strong>Browser</strong>
+	            <span data-testid="browser-status-label">${escapeHTML(state.browser.statusLabel)}</span>
+	          </header>
+	          <form class="browser-form" data-testid="browser-form">
+	            <input data-testid="browser-address" aria-label="Browser address" placeholder="localhost:3000 or https://example.com" value="${escapeHTML(state.browser.addressDraft)}">
+	            <button type="submit" data-testid="browser-open" ${state.browser.addressDraft.trim() ? '' : 'disabled'}>Open</button>
+	          </form>
+	          ${preview}
+	          <form class="browser-comment-form" data-testid="browser-comment-form">
+	            <input data-testid="browser-comment-input" aria-label="Browser comment" placeholder="Add browser comment">
+	            <button type="submit" data-testid="browser-add-comment" ${state.browser.currentURL ? '' : 'disabled'}>Comment</button>
+	          </form>
+	          <div class="browser-comments" data-testid="browser-comments">${comments}</div>
+	        </section>`;
+	    }
 
     function ensureThread(title) {
       if (!state.sidebar.selectedThreadID) {
@@ -939,9 +1026,12 @@
         addProject();
         return;
       }
-      if (commandID === 'toggle-terminal') {
-        state.terminal.isVisible = !state.terminal.isVisible;
-      }
+	      if (commandID === 'toggle-terminal') {
+	        state.terminal.isVisible = !state.terminal.isVisible;
+	      }
+	      if (commandID === 'toggle-browser') {
+	        state.browser.isVisible = !state.browser.isVisible;
+	      }
       if (commandID === 'git-worktree-list') {
         listWorktrees();
         return;
@@ -992,7 +1082,7 @@
       render();
     }
 
-    function terminalOutput(command, cwd) {
+	    function terminalOutput(command, cwd) {
       if (command === 'pwd') {
         return { stdout: cwd + '\n', stderr: '', exitCode: 0 };
       }
@@ -1006,9 +1096,45 @@
         return { stdout: '', stderr: '', exitCode: 1 };
       }
       return { stdout: 'ran: ' + command + '\n', stderr: '', exitCode: 0 };
-    }
+	    }
 
-    function runLocalEnvironmentAction(commandID) {
+	    function normalizeBrowserURL(raw) {
+	      const value = raw.trim();
+	      if (!value) return null;
+	      if (/^(https?|file):\/\//i.test(value)) return value;
+	      if (/^(localhost|127\\.0\\.0\\.1|\\[::1\\])/i.test(value)) return `http://${value}`;
+	      if (value.includes('.')) return `https://${value}`;
+	      return null;
+	    }
+
+	    function openBrowserPreview() {
+	      const url = normalizeBrowserURL(state.browser.addressDraft);
+	      state.browser.isVisible = true;
+	      if (!url) {
+	        state.browser.statusLabel = 'Invalid address';
+	        render();
+	        return;
+	      }
+	      state.browser.currentURL = url;
+	      state.browser.addressDraft = url;
+	      state.browser.title = new URL(url).hostname || url;
+	      state.browser.statusLabel = 'Preview ready';
+	      render();
+	    }
+
+	    function addBrowserComment(text) {
+	      const comment = text.trim();
+	      if (!comment || !state.browser.currentURL) return;
+	      state.browser.comments.push({
+	        id: `browser-comment-${state.browser.comments.length + 1}`,
+	        url: state.browser.currentURL,
+	        text: comment
+	      });
+	      state.browser.statusLabel = 'Comment added';
+	      render();
+	    }
+
+	    function runLocalEnvironmentAction(commandID) {
       const relativePath = commandID.replace(/^local-env:/, '');
       const command = `sh '${relativePath.replaceAll("'", "'\\\\''")}'`;
       const output = `Local environment action completed: ${relativePath}\\n`;

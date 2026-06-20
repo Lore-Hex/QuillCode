@@ -5,9 +5,12 @@ public struct QuillCodeWorkspaceView: View {
     public var surface: WorkspaceSurface
     @Binding public var draft: String
     @Binding public var terminalDraft: String
+    @Binding public var browserAddressDraft: String
     @Binding public var isCommandPalettePresented: Bool
     public var onSend: () -> Void
     public var onRunTerminalCommand: () -> Void
+    public var onOpenBrowserPreview: () -> Void
+    public var onAddBrowserComment: (String) -> Void
     public var onAddProjectRequested: () -> Void
     public var onSelectThread: (UUID) -> Void
     public var onThreadAction: (SidebarItemActionSurface) -> Void
@@ -33,9 +36,12 @@ public struct QuillCodeWorkspaceView: View {
         surface: WorkspaceSurface,
         draft: Binding<String>,
         terminalDraft: Binding<String>,
+        browserAddressDraft: Binding<String>,
         isCommandPalettePresented: Binding<Bool>,
         onSend: @escaping () -> Void,
         onRunTerminalCommand: @escaping () -> Void,
+        onOpenBrowserPreview: @escaping () -> Void,
+        onAddBrowserComment: @escaping (String) -> Void,
         onAddProjectRequested: @escaping () -> Void,
         onSelectThread: @escaping (UUID) -> Void,
         onThreadAction: @escaping (SidebarItemActionSurface) -> Void,
@@ -51,9 +57,12 @@ public struct QuillCodeWorkspaceView: View {
         self.surface = surface
         self._draft = draft
         self._terminalDraft = terminalDraft
+        self._browserAddressDraft = browserAddressDraft
         self._isCommandPalettePresented = isCommandPalettePresented
         self.onSend = onSend
         self.onRunTerminalCommand = onRunTerminalCommand
+        self.onOpenBrowserPreview = onOpenBrowserPreview
+        self.onAddBrowserComment = onAddBrowserComment
         self.onAddProjectRequested = onAddProjectRequested
         self.onSelectThread = onSelectThread
         self.onThreadAction = onThreadAction
@@ -96,6 +105,15 @@ public struct QuillCodeWorkspaceView: View {
                         review: surface.review,
                         onReviewAction: onReviewAction
                     )
+                    if surface.browser.isVisible {
+                        Divider()
+                        QuillCodeBrowserPaneView(
+                            browser: surface.browser,
+                            addressDraft: $browserAddressDraft,
+                            onOpen: onOpenBrowserPreview,
+                            onAddComment: onAddBrowserComment
+                        )
+                    }
                     if surface.terminal.isVisible {
                         Divider()
                         QuillCodeTerminalPaneView(
@@ -307,6 +325,8 @@ private struct QuillCodeCommandPaletteView: View {
             return "folder.badge.plus"
         case "toggle-terminal":
             return "terminal"
+        case "toggle-browser":
+            return "globe"
         case "git-worktree-list":
             return "point.3.connected.trianglepath.dotted"
         case "git-worktree-create":
@@ -569,7 +589,7 @@ private struct QuillCodeSidebarActionsView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     private var visibleCommands: [WorkspaceCommandSurface] {
-        commands.filter { ["new-chat", "search", "toggle-terminal"].contains($0.id) }
+        commands.filter { ["new-chat", "search", "toggle-browser", "toggle-terminal"].contains($0.id) }
     }
 
     var body: some View {
@@ -599,6 +619,8 @@ private struct QuillCodeSidebarActionsView: View {
             return "magnifyingglass"
         case "toggle-terminal":
             return "terminal"
+        case "toggle-browser":
+            return "globe"
         default:
             return "circle"
         }
@@ -866,6 +888,106 @@ private struct QuillCodeTerminalPaneView: View {
         .padding(14)
         .frame(height: 220)
         .background(QuillCodePalette.panel)
+    }
+}
+
+private struct QuillCodeBrowserPaneView: View {
+    var browser: BrowserSurface
+    @Binding var addressDraft: String
+    var onOpen: () -> Void
+    var onAddComment: (String) -> Void
+
+    @State private var commentDraft = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "globe")
+                    .foregroundStyle(QuillCodePalette.blue)
+                Text("Browser")
+                    .font(.headline)
+                Text(browser.statusLabel)
+                    .font(.caption)
+                    .foregroundStyle(QuillCodePalette.muted)
+                Spacer()
+            }
+
+            HStack(spacing: 8) {
+                TextField("localhost:3000, docs/page.html, or https://example.com", text: $addressDraft)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit(onOpen)
+                Button("Open", action: onOpen)
+                    .disabled(addressDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+
+            if let currentURL = browser.currentURL {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(browser.title)
+                        .font(.callout.weight(.semibold))
+                    Text(currentURL)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(1)
+                    Text("Ready for page inspection.")
+                        .font(.caption)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(QuillCodePalette.background.opacity(0.7))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(browser.emptyTitle)
+                        .font(.callout.weight(.semibold))
+                    Text(browser.emptySubtitle)
+                        .font(.caption)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack(spacing: 8) {
+                TextField("Add browser comment", text: $commentDraft)
+                    .textFieldStyle(.roundedBorder)
+                    .disabled(browser.currentURL == nil)
+                    .onSubmit(addComment)
+                Button("Comment", action: addComment)
+                    .disabled(browser.currentURL == nil || commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+
+            if !browser.comments.isEmpty {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        ForEach(browser.comments) { comment in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(comment.text)
+                                    .font(.caption)
+                                    .lineLimit(2)
+                                Text(comment.url)
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(QuillCodePalette.muted)
+                                    .lineLimit(1)
+                            }
+                            .padding(8)
+                            .frame(width: 220, alignment: .leading)
+                            .background(QuillCodePalette.background.opacity(0.7))
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(height: 260)
+        .background(QuillCodePalette.panel)
+    }
+
+    private func addComment() {
+        let comment = commentDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !comment.isEmpty else { return }
+        onAddComment(comment)
+        commentDraft = ""
     }
 }
 

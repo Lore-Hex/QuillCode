@@ -9,6 +9,7 @@ public enum WorkspaceHTMLRenderer {
             \(renderSidebar(projects: surface.projects, sidebar: surface.sidebar))
             <main class="transcript" data-testid="transcript">
               \(renderTranscript(surface.transcript, review: surface.review))
+              \(renderBrowser(surface.browser))
               \(renderTerminal(surface.terminal))
               \(renderComposer(surface.composer))
             </main>
@@ -194,6 +195,55 @@ public enum WorkspaceHTMLRenderer {
             <input aria-label="Terminal command" value="\(escape(terminal.draft))">
             <button type="submit" data-testid="terminal-run" \(terminal.canRun ? "" : "disabled")>Run</button>
           </form>
+        </section>
+        """
+    }
+
+    private static func renderBrowser(_ browser: BrowserSurface) -> String {
+        guard browser.isVisible else { return "" }
+        let preview: String
+        if let currentURL = browser.currentURL {
+            preview = """
+            <div class="browser-preview" data-testid="browser-preview">
+              <strong data-testid="browser-title">\(escape(browser.title))</strong>
+              <code data-testid="browser-current-url">\(escape(currentURL))</code>
+              <p data-testid="browser-status">\(escape(browser.statusLabel))</p>
+            </div>
+            """
+        } else {
+            preview = """
+            <div class="browser-preview empty" data-testid="browser-empty">
+              <strong>\(escape(browser.emptyTitle))</strong>
+              <p>\(escape(browser.emptySubtitle))</p>
+            </div>
+            """
+        }
+        let comments = browser.comments.map { comment in
+            """
+            <article data-testid="browser-comment">
+              <p>\(escape(comment.text))</p>
+              <small>\(escape(comment.url))</small>
+            </article>
+            """
+        }.joined(separator: "\n")
+        return """
+        <section class="browser-pane" data-testid="browser-pane">
+          <header>
+            <strong>Browser</strong>
+            <span data-testid="browser-status-label">\(escape(browser.statusLabel))</span>
+          </header>
+          <form data-testid="browser-form">
+            <input aria-label="Browser address" value="\(escape(browser.addressDraft))">
+            <button type="submit" data-testid="browser-open" \(browser.canOpen ? "" : "disabled")>Open</button>
+          </form>
+          \(preview)
+          <form data-testid="browser-comment-form">
+            <input aria-label="Browser comment" placeholder="Add browser comment">
+            <button type="submit" data-testid="browser-add-comment" \(browser.currentURL == nil ? "disabled" : "")>Comment</button>
+          </form>
+          <div data-testid="browser-comments">
+            \(comments)
+          </div>
         </section>
         """
     }

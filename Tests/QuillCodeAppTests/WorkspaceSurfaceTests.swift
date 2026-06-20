@@ -45,6 +45,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "search",
             "add-project",
             "toggle-terminal",
+            "toggle-browser",
             "git-worktree-list",
             "git-worktree-create",
             "git-worktree-remove",
@@ -59,6 +60,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.settings.apiKeyStatusLabel, "No API key saved")
         XCTAssertFalse(surface.terminal.isVisible)
         XCTAssertEqual(surface.terminal.cwdLabel, "/tmp/QuillCode")
+        XCTAssertFalse(surface.browser.isVisible)
     }
 
     func testSurfaceGroupsCustomModelCatalogByCategory() {
@@ -105,6 +107,24 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertEqual(command?.title, "Run Bootstrap")
         XCTAssertEqual(command?.isEnabled, true)
+    }
+
+    func testSurfaceIncludesBrowserPreviewState() throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+        model.toggleBrowser()
+        XCTAssertTrue(model.openBrowserPreview("example.com", workspaceRoot: root))
+        XCTAssertTrue(model.addBrowserComment("Looks aligned"))
+
+        let surface = model.surface()
+
+        XCTAssertTrue(surface.browser.isVisible)
+        XCTAssertEqual(surface.browser.currentURL, "https://example.com")
+        XCTAssertEqual(surface.browser.title, "example.com")
+        XCTAssertEqual(surface.browser.statusLabel, "Comment added")
+        XCTAssertEqual(surface.browser.comments.first?.text, "Looks aligned")
+        XCTAssertTrue(surface.browser.canOpen)
+        XCTAssertTrue(surface.commands.contains { $0.id == "toggle-browser" && $0.title == "Browser" })
     }
 
     func testSurfaceKeepsUnknownSelectedModelVisible() {
@@ -299,6 +319,22 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="terminal-cwd""#))
         XCTAssertTrue(html.contains(#"data-testid="terminal-entry""#))
         XCTAssertTrue(html.contains("renderer-ok"))
+    }
+
+    func testHTMLRendererIncludesVisibleBrowserPane() throws {
+        let model = QuillCodeWorkspaceModel()
+        model.toggleBrowser()
+        XCTAssertTrue(model.openBrowserPreview("localhost:5173"))
+        XCTAssertTrue(model.addBrowserComment("Inspect responsive state"))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="browser-pane""#))
+        XCTAssertTrue(html.contains(#"data-testid="browser-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="browser-current-url""#))
+        XCTAssertTrue(html.contains("http://localhost:5173"))
+        XCTAssertTrue(html.contains(#"data-testid="browser-comment""#))
+        XCTAssertTrue(html.contains("Inspect responsive state"))
     }
 
     func testHTMLRendererIncludesGitReviewPane() throws {

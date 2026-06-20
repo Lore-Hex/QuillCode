@@ -120,6 +120,34 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(surface.entries.first?.exitCodeLabel, "exit 0")
     }
 
+    func testBrowserPreviewNormalizesURLsAndStoresComments() throws {
+        let root = try makeTempDirectory()
+        let previewFile = root.appendingPathComponent("preview.html")
+        try "<h1>Preview</h1>".write(to: previewFile, atomically: true, encoding: .utf8)
+        let model = QuillCodeWorkspaceModel()
+
+        XCTAssertTrue(model.runWorkspaceCommand("toggle-browser", workspaceRoot: root))
+        XCTAssertTrue(model.browser.isVisible)
+
+        XCTAssertTrue(model.openBrowserPreview("localhost:3000", workspaceRoot: root))
+        XCTAssertEqual(model.browser.currentURL, "http://localhost:3000")
+        XCTAssertEqual(model.browser.title, "localhost")
+        XCTAssertEqual(model.browser.status, "Preview ready")
+
+        XCTAssertTrue(model.openBrowserPreview("preview.html", workspaceRoot: root))
+        XCTAssertEqual(model.browser.currentURL, previewFile.standardizedFileURL.resolvingSymlinksInPath().absoluteString)
+        XCTAssertEqual(model.browser.title, "preview.html")
+
+        XCTAssertTrue(model.addBrowserComment("Check the hero spacing"))
+        XCTAssertEqual(model.browser.comments.count, 1)
+        XCTAssertEqual(model.browser.comments[0].text, "Check the hero spacing")
+        XCTAssertEqual(model.browser.comments[0].url, model.browser.currentURL)
+
+        XCTAssertFalse(model.openBrowserPreview("not-a-valid-target", workspaceRoot: root))
+        XCTAssertEqual(model.browser.status, "Invalid address")
+        XCTAssertEqual(model.lastError, "Enter an http, https, file, localhost, or project file URL.")
+    }
+
     func testWorkspaceCommandListsGitWorktrees() throws {
         let root = try makeTempDirectory()
         try initializeGitRepository(at: root)

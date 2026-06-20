@@ -218,6 +218,32 @@ test('mock harness runs a command in the integrated terminal', async ({ page }) 
   await expect(page.getByLabel('Terminal command')).toHaveValue('');
 });
 
+test('mock harness opens browser preview and records comments', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('command-palette-button').click();
+  await page.getByLabel('Search commands').fill('browser');
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
+  await page.getByTestId('command-palette-result').click();
+
+  await expect(page.getByTestId('browser-pane')).toBeVisible();
+  await expect(page.getByTestId('browser-empty')).toBeVisible();
+
+  await page.getByLabel('Browser address').fill('localhost:5173');
+  await expect(page.getByTestId('browser-open')).toBeEnabled();
+  await page.getByTestId('browser-open').click();
+
+  await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
+  await expect(page.getByTestId('browser-status')).toHaveText('Preview ready');
+
+  await page.getByLabel('Browser comment').fill('Check hero spacing');
+  await expect(page.getByTestId('browser-add-comment')).toBeEnabled();
+  await page.getByTestId('browser-add-comment').click();
+
+  await expect(page.getByTestId('browser-comment')).toContainText('Check hero spacing');
+  await expect(page.getByTestId('browser-status-label')).toHaveText('Comment added');
+});
+
 test('mock harness shows git review summary for diff flow', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
