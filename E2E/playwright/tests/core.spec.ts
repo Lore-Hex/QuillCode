@@ -210,8 +210,9 @@ test('mock harness pins and archives chats from the sidebar', async ({ page }) =
   const whoamiRow = page.getByTestId('sidebar-thread-row').filter({ hasText: 'run whoami' });
   await whoamiRow.getByRole('button', { name: 'Pin' }).click();
 
+  await expect(page.getByTestId('sidebar-section-title')).toContainText(['Pinned', 'Recent']);
   await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('run whoami');
-  await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('pinned');
+  await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('trustedrouter/fusion');
 
   await page.getByTestId('sidebar-thread-row').first().getByRole('button', { name: 'Archive' }).click();
 

@@ -102,6 +102,7 @@
     }
     .sidebar { padding: 14px; overflow: auto; }
     .sidebar h2 { margin: 0 0 12px; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
+    .sidebar h3 { margin: 10px 0 8px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
     .sidebar-section-title {
       display: flex;
       align-items: center;
@@ -647,18 +648,25 @@
             <small>${escapeHTML(item.path)}</small>
           </button>`).join('')
         : '<p data-testid="project-empty">No projects yet</p>';
-      const sidebarContent = state.sidebar.items.length
-        ? state.sidebar.items.map(item => `
+      const renderSidebarSection = (title, items) => items.length ? `
+        <section data-testid="sidebar-section">
+          <h3 data-testid="sidebar-section-title">${escapeHTML(title)}</h3>
+          ${items.map(item => `
           <div class="sidebar-thread-row" data-testid="sidebar-thread-row">
             <button class="sidebar-item ${item.isSelected ? 'selected' : ''}" data-testid="sidebar-item" data-thread-id="${escapeHTML(item.id)}" aria-current="${item.isSelected ? 'true' : 'false'}">
               <span>${escapeHTML(item.title)}</span>
-              <small>${escapeHTML(item.subtitle)}${item.isPinned ? ' · pinned' : ''}</small>
+              <small>${escapeHTML(item.subtitle)}</small>
             </button>
             <span class="sidebar-thread-actions" data-testid="sidebar-item-actions">
               <button type="button" data-testid="sidebar-thread-action" data-action="${item.isPinned ? 'unpin' : 'pin'}" data-thread-id="${escapeHTML(item.id)}">${item.isPinned ? 'Unpin' : 'Pin'}</button>
               <button type="button" data-testid="sidebar-thread-action" data-action="archive" data-thread-id="${escapeHTML(item.id)}">Archive</button>
             </span>
-          </div>`).join('')
+          </div>`).join('')}
+        </section>` : '';
+      const pinnedItems = state.sidebar.items.filter(item => item.isPinned);
+      const recentItems = state.sidebar.items.filter(item => !item.isPinned);
+      const sidebarContent = state.sidebar.items.length
+        ? renderSidebarSection('Pinned', pinnedItems) + renderSidebarSection('Recent', recentItems)
         : '<p data-testid="sidebar-empty">No chats yet</p>';
       const modelOptions = state.topBar.modelCategories.map(category => `
         <optgroup label="${escapeHTML(category.category)}" data-testid="model-category">

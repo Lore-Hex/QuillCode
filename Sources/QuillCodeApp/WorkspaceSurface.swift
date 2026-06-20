@@ -178,6 +178,14 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
                 || pinLabel.localizedCaseInsensitiveContains(normalizedQuery)
         }
     }
+
+    public var pinnedItems: [SidebarItemSurface] {
+        items.filter(\.isPinned)
+    }
+
+    public var recentItems: [SidebarItemSurface] {
+        items.filter { !$0.isPinned }
+    }
 }
 
 public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {

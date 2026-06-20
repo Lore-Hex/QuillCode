@@ -217,6 +217,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.filteredItems(matching: "GLM").map(\.title), ["Review git diff"])
         XCTAssertEqual(surface.filteredItems(matching: "browser preview").map(\.title), ["Review git diff"])
         XCTAssertTrue(surface.filteredItems(matching: "workspace manager").isEmpty)
+        XCTAssertEqual(surface.pinnedItems.map(\.title), ["Review git diff"])
+        XCTAssertEqual(surface.recentItems.map(\.title), ["Run whoami"])
     }
 
     func testGitDiffReviewSurfaceSummarizesLatestCompletedDiff() throws {
@@ -384,6 +386,23 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="context-banner""#))
         XCTAssertTrue(html.contains(#"data-testid="context-new-thread""#))
         XCTAssertTrue(html.contains(#"data-testid="context-fork-last""#))
+    }
+
+    func testHTMLRendererGroupsPinnedAndRecentChats() {
+        var pinned = ChatThread(title: "Pinned chat", model: "trustedrouter/fusion")
+        pinned.isPinned = true
+        let recent = ChatThread(title: "Recent chat", model: "z-ai/glm-5.2")
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [recent, pinned],
+            selectedThreadID: recent.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="sidebar-section-title">Pinned"#))
+        XCTAssertTrue(html.contains(#"data-testid="sidebar-section-title">Recent"#))
+        XCTAssertTrue(html.contains("Pinned chat"))
+        XCTAssertTrue(html.contains("Recent chat"))
     }
 
     func testHTMLRendererIncludesToolCardOutput() async throws {

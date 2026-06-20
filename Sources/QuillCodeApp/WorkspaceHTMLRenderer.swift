@@ -55,17 +55,12 @@ public enum WorkspaceHTMLRenderer {
         if sidebar.items.isEmpty {
             content = #"<p data-testid="sidebar-empty">\#(escape(sidebar.emptyTitle))</p>"#
         } else {
-            content = sidebar.items.map { item in
-                """
-                <button class="sidebar-item\(item.isSelected ? " selected" : "")" data-testid="sidebar-item" data-thread-id="\(item.id.uuidString)" aria-current="\(item.isSelected ? "true" : "false")">
-                  <span>\(escape(item.title))</span>
-                  <small>\(escape(item.subtitle))\(item.isPinned ? " · pinned" : "")</small>
-                </button>
-                <span data-testid="sidebar-item-actions">
-                  \(item.actions.map(renderSidebarAction).joined(separator: "\n"))
-                </span>
-                """
-            }.joined(separator: "\n")
+            content = [
+                renderSidebarSection(title: "Pinned", items: sidebar.pinnedItems),
+                renderSidebarSection(title: "Recent", items: sidebar.recentItems)
+            ]
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
         }
         return """
         <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
@@ -77,6 +72,29 @@ public enum WorkspaceHTMLRenderer {
           <h2>\(escape(sidebar.title))</h2>
           \(content)
         </aside>
+        """
+    }
+
+    private static func renderSidebarSection(title: String, items: [SidebarItemSurface]) -> String {
+        guard !items.isEmpty else { return "" }
+        let rows = items.map { item in
+            """
+            <div data-testid="sidebar-thread-row">
+              <button class="sidebar-item\(item.isSelected ? " selected" : "")" data-testid="sidebar-item" data-thread-id="\(item.id.uuidString)" aria-current="\(item.isSelected ? "true" : "false")">
+                <span>\(escape(item.title))</span>
+                <small>\(escape(item.subtitle))</small>
+              </button>
+              <span data-testid="sidebar-item-actions">
+                \(item.actions.map(renderSidebarAction).joined(separator: "\n"))
+              </span>
+            </div>
+            """
+        }.joined(separator: "\n")
+        return """
+        <section data-testid="sidebar-section">
+          <h3 data-testid="sidebar-section-title">\(escape(title))</h3>
+          \(rows)
+        </section>
         """
     }
 

@@ -555,39 +555,21 @@ private struct QuillCodeSidebarView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 8) {
-                        ForEach(sidebar.items) { item in
-                            HStack(spacing: 6) {
-                                Button {
-                                    onSelectThread(item.id)
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(item.title)
-                                            .font(.callout.weight(.semibold))
-                                            .lineLimit(1)
-                                        Text(item.subtitle + (item.isPinned ? " - pinned" : ""))
-                                            .font(.caption)
-                                            .foregroundStyle(QuillCodePalette.muted)
-                                            .lineLimit(1)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                                .buttonStyle(.plain)
-                                Menu {
-                                    ForEach(item.actions) { action in
-                                        Button(action.kind.title) {
-                                            onThreadAction(action)
-                                        }
-                                    }
-                                } label: {
-                                    Image(systemName: "ellipsis")
-                                        .frame(width: 24, height: 24)
-                                        .foregroundStyle(QuillCodePalette.muted)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            .padding(10)
-                            .background(item.isSelected ? QuillCodePalette.selection : Color.clear)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        if !sidebar.pinnedItems.isEmpty {
+                            QuillCodeSidebarThreadSectionView(
+                                title: "Pinned",
+                                items: sidebar.pinnedItems,
+                                onSelectThread: onSelectThread,
+                                onThreadAction: onThreadAction
+                            )
+                        }
+                        if !sidebar.recentItems.isEmpty {
+                            QuillCodeSidebarThreadSectionView(
+                                title: "Recent",
+                                items: sidebar.recentItems,
+                                onSelectThread: onSelectThread,
+                                onThreadAction: onThreadAction
+                            )
                         }
                     }
                 }
@@ -596,6 +578,71 @@ private struct QuillCodeSidebarView: View {
         }
         .padding(14)
         .background(QuillCodePalette.sidebar)
+    }
+}
+
+private struct QuillCodeSidebarThreadSectionView: View {
+    var title: String
+    var items: [SidebarItemSurface]
+    var onSelectThread: (UUID) -> Void
+    var onThreadAction: (SidebarItemActionSurface) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title.uppercased())
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(QuillCodePalette.muted)
+                .padding(.top, 4)
+            ForEach(items) { item in
+                QuillCodeSidebarThreadRowView(
+                    item: item,
+                    onSelectThread: onSelectThread,
+                    onThreadAction: onThreadAction
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct QuillCodeSidebarThreadRowView: View {
+    var item: SidebarItemSurface
+    var onSelectThread: (UUID) -> Void
+    var onThreadAction: (SidebarItemActionSurface) -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Button {
+                onSelectThread(item.id)
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.title)
+                        .font(.callout.weight(.semibold))
+                        .lineLimit(1)
+                    Text(item.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            Menu {
+                ForEach(item.actions) { action in
+                    Button(action.kind.title) {
+                        onThreadAction(action)
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .frame(width: 24, height: 24)
+                    .foregroundStyle(QuillCodePalette.muted)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(10)
+        .background(item.isSelected ? QuillCodePalette.selection : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
