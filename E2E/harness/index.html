@@ -101,6 +101,19 @@
     }
     .sidebar { padding: 14px; overflow: auto; }
     .sidebar h2 { margin: 0 0 12px; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
+    .sidebar-actions {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .sidebar-action {
+      width: 100%;
+      padding: 11px 12px;
+      text-align: left;
+      color: var(--text);
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.1);
+    }
     .sidebar-item,
     .project-item {
       width: 100%;
@@ -306,7 +319,8 @@
       search: {
         isOpen: false,
         query: ''
-      }
+      },
+      nextThreadIndex: 1
     };
 
     function escapeHTML(value) {
@@ -409,6 +423,10 @@
           </header>
           <div class="workspace-grid">
             <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
+              <div class="sidebar-actions" aria-label="Primary chat actions">
+                <button class="sidebar-action" type="button" data-testid="new-chat-button">New chat</button>
+                <button class="sidebar-action" type="button" data-testid="sidebar-search-button">Search</button>
+              </div>
               <h2>${escapeHTML(state.projects.title)}</h2>
               ${projectsContent}
               <h2>${escapeHTML(state.sidebar.title)}</h2>
@@ -473,6 +491,14 @@
         state.search.isOpen = true;
         state.search.query = '';
         render();
+      });
+      document.querySelector('[data-testid="sidebar-search-button"]').addEventListener('click', () => {
+        state.search.isOpen = true;
+        state.search.query = '';
+        render();
+      });
+      document.querySelector('[data-testid="new-chat-button"]').addEventListener('click', () => {
+        newChat();
       });
       document.querySelectorAll('[data-testid="sidebar-item"]').forEach(button => {
         button.addEventListener('click', event => {
@@ -586,18 +612,40 @@
 
     function ensureThread(title) {
       if (!state.sidebar.selectedThreadID) {
-        state.sidebar.selectedThreadID = 'thread-main';
+        const threadID = `thread-${state.nextThreadIndex++}`;
+        state.sidebar.selectedThreadID = threadID;
         state.sidebar.items = [{
-          id: 'thread-main',
+          id: threadID,
           title,
           subtitle: state.topBar.modelLabel,
           isSelected: true,
           isPinned: false
-        }];
+        }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
       }
       state.topBar.primaryTitle = title;
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       state.topBar.subtitle = `${selectedProject?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+    }
+
+    function newChat() {
+      state.sidebar.selectedThreadID = null;
+      state.sidebar.items = state.sidebar.items.map(item => ({ ...item, isSelected: false }));
+      state.transcript.messages = [];
+      state.transcript.toolCards = [];
+      state.review = {
+        title: 'Review changes',
+        subtitle: 'Latest git diff',
+        totalInsertions: 0,
+        totalDeletions: 0,
+        totalHunks: 0,
+        files: []
+      };
+      state.composer.draft = '';
+      state.composer.canSend = false;
+      state.topBar.primaryTitle = 'QuillCode';
+      const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
+      state.topBar.subtitle = `${selectedProject?.name || 'No project'} - Not started`;
+      render();
     }
 
     function selectThread(threadID) {

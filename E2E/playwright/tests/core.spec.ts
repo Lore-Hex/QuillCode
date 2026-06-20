@@ -49,7 +49,7 @@ test('mock harness searches and reopens an existing chat', async ({ page }) => {
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('sidebar-item')).toContainText('run whoami');
 
-  await page.getByTestId('search-button').click();
+  await page.getByTestId('sidebar-search-button').click();
   await expect(page.getByTestId('search-panel')).toBeVisible();
   await expect(page.getByTestId('search-result')).toContainText('run whoami');
 
@@ -61,6 +61,23 @@ test('mock harness searches and reopens an existing chat', async ({ page }) => {
   await expect(page.getByTestId('search-panel')).toHaveCount(0);
   await expect(page.getByTestId('top-bar-title')).toHaveText('run whoami');
   await expect(page.getByTestId('sidebar-item')).toHaveAttribute('aria-current', 'true');
+});
+
+test('mock harness starts a new chat from the sidebar action', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('run whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('sidebar-item')).toContainText('run whoami');
+
+  await page.getByTestId('new-chat-button').click();
+
+  await expect(page.getByTestId('top-bar-title')).toHaveText('QuillCode');
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('Not started');
+  await expect(page.getByTestId('transcript-empty')).toBeVisible();
+  await expect(page.getByTestId('sidebar-item')).toHaveAttribute('aria-current', 'false');
+  await expect(page.getByTestId('sidebar-item')).toContainText('run whoami');
+  await expect(page.getByLabel('Message')).toHaveValue('');
 });
 
 test('mock harness shows git review summary for diff flow', async ({ page }) => {

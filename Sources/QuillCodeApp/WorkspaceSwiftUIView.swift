@@ -56,8 +56,10 @@ public struct QuillCodeWorkspaceView: View {
                 QuillCodeSidebarView(
                     projects: surface.projects,
                     sidebar: surface.sidebar,
+                    commands: surface.commands,
                     onSelectProject: onSelectProject,
-                    onSelectThread: onSelectThread
+                    onSelectThread: onSelectThread,
+                    onCommand: handleCommand
                 )
                     .frame(width: 280)
                 Divider()
@@ -282,11 +284,15 @@ private struct QuillCodeTopBarView: View {
 private struct QuillCodeSidebarView: View {
     var projects: ProjectListSurface
     var sidebar: SidebarSurface
+    var commands: [WorkspaceCommandSurface]
     var onSelectProject: (UUID?) -> Void
     var onSelectThread: (UUID) -> Void
+    var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            QuillCodeSidebarActionsView(commands: commands, onCommand: onCommand)
+            Divider()
             QuillCodeProjectListView(projects: projects, onSelectProject: onSelectProject)
             Divider()
             Text(sidebar.title.uppercased())
@@ -327,6 +333,45 @@ private struct QuillCodeSidebarView: View {
         }
         .padding(14)
         .background(QuillCodePalette.sidebar)
+    }
+}
+
+private struct QuillCodeSidebarActionsView: View {
+    var commands: [WorkspaceCommandSurface]
+    var onCommand: (WorkspaceCommandSurface) -> Void
+
+    private var visibleCommands: [WorkspaceCommandSurface] {
+        commands.filter { ["new-chat", "search"].contains($0.id) }
+    }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ForEach(visibleCommands) { command in
+                Button {
+                    onCommand(command)
+                } label: {
+                    Label(command.title, systemImage: systemImage(for: command.id))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 10)
+                        .background(QuillCodePalette.panel)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(!command.isEnabled)
+            }
+        }
+    }
+
+    private func systemImage(for commandID: String) -> String {
+        switch commandID {
+        case "new-chat":
+            return "square.and.pencil"
+        case "search":
+            return "magnifyingglass"
+        default:
+            return "circle"
+        }
     }
 }
 
