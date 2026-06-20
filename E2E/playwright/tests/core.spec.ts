@@ -85,6 +85,29 @@ test('mock harness starts a new chat from the sidebar action', async ({ page }) 
   await expect(page.getByLabel('Message')).toHaveValue('');
 });
 
+test('mock harness pins and archives chats from the sidebar', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('run whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByTestId('new-chat-button').click();
+  await page.getByLabel('Message').fill('git diff');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(2);
+  const whoamiRow = page.getByTestId('sidebar-thread-row').filter({ hasText: 'run whoami' });
+  await whoamiRow.getByRole('button', { name: 'Pin' }).click();
+
+  await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('run whoami');
+  await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('pinned');
+
+  await page.getByTestId('sidebar-thread-row').first().getByRole('button', { name: 'Archive' }).click();
+
+  await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(1);
+  await expect(page.getByTestId('sidebar-thread-row')).toContainText('git diff');
+  await expect(page.getByTestId('top-bar-title')).toHaveText('git diff');
+});
+
 test('mock harness opens a new project from the sidebar', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

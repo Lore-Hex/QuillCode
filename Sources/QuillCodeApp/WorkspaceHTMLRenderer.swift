@@ -59,6 +59,9 @@ public enum WorkspaceHTMLRenderer {
                   <span>\(escape(item.title))</span>
                   <small>\(escape(item.subtitle))\(item.isPinned ? " · pinned" : "")</small>
                 </button>
+                <span data-testid="sidebar-item-actions">
+                  \(item.actions.map(renderSidebarAction).joined(separator: "\n"))
+                </span>
                 """
             }.joined(separator: "\n")
         }
@@ -72,6 +75,12 @@ public enum WorkspaceHTMLRenderer {
           <h2>\(escape(sidebar.title))</h2>
           \(content)
         </aside>
+        """
+    }
+
+    private static func renderSidebarAction(_ action: SidebarItemActionSurface) -> String {
+        """
+        <button type="button" data-testid="sidebar-thread-action" data-action="\(escape(action.kind.rawValue))" data-thread-id="\(action.threadID.uuidString)">\(escape(action.kind.title))</button>
         """
     }
 

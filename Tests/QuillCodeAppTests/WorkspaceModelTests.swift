@@ -219,6 +219,30 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.root.selectedThreadID, second.id)
     }
 
+    func testPinAndArchiveThreadByIDPersistChanges() throws {
+        let root = try makeTempDirectory()
+        let threadStore = JSONThreadStore(directory: root)
+        let first = ChatThread(title: "First")
+        let second = ChatThread(title: "Second")
+        try threadStore.save(first)
+        try threadStore.save(second)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                threads: [first, second],
+                selectedThreadID: first.id
+            ),
+            threadStore: threadStore
+        )
+
+        model.togglePinThread(second.id)
+        model.archiveThread(first.id)
+
+        XCTAssertEqual(model.root.sidebarItems.map(\.title), ["Second"])
+        XCTAssertEqual(model.root.selectedThreadID, second.id)
+        XCTAssertTrue(try threadStore.load(second.id).isPinned)
+        XCTAssertTrue(try threadStore.load(first.id).isArchived)
+    }
+
     func testModeAndModelUpdateSelectedThreadAndTopBar() {
         let thread = ChatThread()
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(

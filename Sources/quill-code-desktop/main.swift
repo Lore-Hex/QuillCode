@@ -40,6 +40,7 @@ private struct QuillCodeDesktopRootView: View {
             onRunTerminalCommand: controller.runTerminalCommand,
             onAddProjectRequested: controller.requestAddProject,
             onSelectThread: controller.selectThread,
+            onThreadAction: controller.runThreadAction,
             onSelectProject: controller.selectProject,
             onSetMode: controller.setMode,
             onSetModel: controller.setModel,
@@ -106,6 +107,16 @@ private final class QuillCodeDesktopController: ObservableObject {
 
     func selectThread(_ id: UUID) {
         model.selectThread(id)
+        refresh()
+    }
+
+    func runThreadAction(_ action: SidebarItemActionSurface) {
+        switch action.kind {
+        case .pin, .unpin:
+            model.togglePinThread(action.threadID)
+        case .archive:
+            model.archiveThread(action.threadID)
+        }
         refresh()
     }
 

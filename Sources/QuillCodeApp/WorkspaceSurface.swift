@@ -173,6 +173,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var title: String
     public var subtitle: String
     public var searchText: String
+    public var actions: [SidebarItemActionSurface]
     public var isSelected: Bool
     public var isPinned: Bool
 
@@ -181,8 +182,46 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.title = item.title
         self.subtitle = item.subtitle
         self.searchText = item.searchText
+        self.actions = [
+            SidebarItemActionSurface(
+                kind: item.isPinned ? .unpin : .pin,
+                threadID: item.id
+            ),
+            SidebarItemActionSurface(kind: .archive, threadID: item.id)
+        ]
         self.isSelected = item.id == selectedThreadID
         self.isPinned = item.isPinned
+    }
+}
+
+public enum SidebarItemActionKind: String, Codable, Sendable, Hashable {
+    case pin
+    case unpin
+    case archive
+
+    public var title: String {
+        switch self {
+        case .pin:
+            return "Pin"
+        case .unpin:
+            return "Unpin"
+        case .archive:
+            return "Archive"
+        }
+    }
+}
+
+public struct SidebarItemActionSurface: Codable, Sendable, Hashable, Identifiable {
+    public var kind: SidebarItemActionKind
+    public var threadID: UUID
+
+    public var id: String {
+        "\(threadID.uuidString)-\(kind.rawValue)"
+    }
+
+    public init(kind: SidebarItemActionKind, threadID: UUID) {
+        self.kind = kind
+        self.threadID = threadID
     }
 }
 

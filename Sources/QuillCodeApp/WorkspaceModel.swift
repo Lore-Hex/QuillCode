@@ -228,17 +228,32 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func togglePinSelectedThread() {
-        mutateSelectedThread { thread in
+        guard let selectedThreadID = root.selectedThreadID else { return }
+        togglePinThread(selectedThreadID)
+    }
+
+    public func archiveSelectedThread() {
+        guard let selectedThreadID = root.selectedThreadID else { return }
+        archiveThread(selectedThreadID)
+    }
+
+    public func togglePinThread(_ id: UUID) {
+        mutateThread(id) { thread in
             thread.isPinned.toggle()
         }
     }
 
-    public func archiveSelectedThread() {
-        mutateSelectedThread { thread in
+    public func archiveThread(_ id: UUID) {
+        let archivedProjectID = root.threads.first { $0.id == id }?.projectID
+        mutateThread(id) { thread in
             thread.isArchived = true
         }
-        if selectedThread?.isArchived == true {
-            root.selectedThreadID = root.threads.first(where: { !$0.isArchived })?.id
+        if root.selectedThreadID == id {
+            root.selectedThreadID = root.threads
+                .filter { !$0.isArchived && $0.projectID == archivedProjectID }
+                .sorted { $0.updatedAt > $1.updatedAt }
+                .first?
+                .id
         }
         refreshTopBar(agentStatus: "Idle")
     }
@@ -514,13 +529,24 @@ public final class QuillCodeWorkspaceModel {
 
     private func mutateSelectedThread(_ update: (inout ChatThread) -> Void) {
         guard let selectedThreadID = root.selectedThreadID,
-              let index = root.threads.firstIndex(where: { $0.id == selectedThreadID })
+              let index = mutateThread(selectedThreadID, update)
         else {
             return
         }
+        root.selectedThreadID = root.threads[index].id
+        refreshTopBar(agentStatus: root.topBar.agentStatus)
+    }
+
+    @discardableResult
+    private func mutateThread(_ id: UUID, _ update: (inout ChatThread) -> Void) -> Int? {
+        guard let index = root.threads.firstIndex(where: { $0.id == id }) else {
+            return nil
+        }
         update(&root.threads[index])
         root.threads[index].updatedAt = Date()
+        try? threadStore?.save(root.threads[index])
         refreshTopBar(agentStatus: root.topBar.agentStatus)
+        return index
     }
 
     private func replaceThread(_ thread: ChatThread) {

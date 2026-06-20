@@ -34,6 +34,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.sidebar.items.count, 1)
         XCTAssertEqual(surface.sidebar.items[0].title, "Run whoami")
         XCTAssertTrue(surface.sidebar.items[0].isSelected)
+        XCTAssertEqual(surface.sidebar.items[0].actions.map(\.kind), [.pin, .archive])
         XCTAssertEqual(surface.transcript.messages.count, 2)
         XCTAssertEqual(surface.composer.placeholder, "Message QuillCode")
         XCTAssertTrue(surface.composer.canSend)

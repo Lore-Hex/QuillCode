@@ -9,6 +9,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onRunTerminalCommand: () -> Void
     public var onAddProjectRequested: () -> Void
     public var onSelectThread: (UUID) -> Void
+    public var onThreadAction: (SidebarItemActionSurface) -> Void
     public var onSelectProject: (UUID?) -> Void
     public var onSetMode: (AgentMode) -> Void
     public var onSetModel: (String) -> Void
@@ -29,6 +30,7 @@ public struct QuillCodeWorkspaceView: View {
         onRunTerminalCommand: @escaping () -> Void,
         onAddProjectRequested: @escaping () -> Void,
         onSelectThread: @escaping (UUID) -> Void,
+        onThreadAction: @escaping (SidebarItemActionSurface) -> Void,
         onSelectProject: @escaping (UUID?) -> Void,
         onSetMode: @escaping (AgentMode) -> Void,
         onSetModel: @escaping (String) -> Void,
@@ -43,6 +45,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onRunTerminalCommand = onRunTerminalCommand
         self.onAddProjectRequested = onAddProjectRequested
         self.onSelectThread = onSelectThread
+        self.onThreadAction = onThreadAction
         self.onSelectProject = onSelectProject
         self.onSetMode = onSetMode
         self.onSetModel = onSetModel
@@ -69,6 +72,7 @@ public struct QuillCodeWorkspaceView: View {
                     onSelectProject: onSelectProject,
                     onAddProjectRequested: onAddProjectRequested,
                     onSelectThread: onSelectThread,
+                    onThreadAction: onThreadAction,
                     onCommand: handleCommand
                 )
                     .frame(width: 280)
@@ -158,7 +162,7 @@ private struct QuillCodeSearchView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Search chats")
                         .font(.title2.weight(.semibold))
-                    Text("Find a thread by title, model, or pinned state.")
+                    Text("Find a thread by title, model, pinned state, or transcript text.")
                         .font(.callout)
                         .foregroundStyle(QuillCodePalette.muted)
                 }
@@ -177,7 +181,7 @@ private struct QuillCodeSearchView: View {
                         .foregroundStyle(QuillCodePalette.muted)
                     Text("No matching chats")
                         .font(.headline)
-                    Text("Try a thread title, selected model, or pinned.")
+                    Text("Try a thread title, selected model, pinned, or prior message text.")
                         .font(.callout)
                         .foregroundStyle(QuillCodePalette.muted)
                 }
@@ -308,6 +312,7 @@ private struct QuillCodeSidebarView: View {
     var onSelectProject: (UUID?) -> Void
     var onAddProjectRequested: () -> Void
     var onSelectThread: (UUID) -> Void
+    var onThreadAction: (SidebarItemActionSurface) -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
@@ -332,24 +337,38 @@ private struct QuillCodeSidebarView: View {
                 ScrollView {
                     LazyVStack(spacing: 8) {
                         ForEach(sidebar.items) { item in
-                            Button {
-                                onSelectThread(item.id)
-                            } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(item.title)
-                                        .font(.callout.weight(.semibold))
-                                        .lineLimit(1)
-                                    Text(item.subtitle + (item.isPinned ? " - pinned" : ""))
-                                        .font(.caption)
-                                        .foregroundStyle(QuillCodePalette.muted)
-                                        .lineLimit(1)
+                            HStack(spacing: 6) {
+                                Button {
+                                    onSelectThread(item.id)
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(item.title)
+                                            .font(.callout.weight(.semibold))
+                                            .lineLimit(1)
+                                        Text(item.subtitle + (item.isPinned ? " - pinned" : ""))
+                                            .font(.caption)
+                                            .foregroundStyle(QuillCodePalette.muted)
+                                            .lineLimit(1)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                 }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(10)
-                                .background(item.isSelected ? QuillCodePalette.selection : Color.clear)
-                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                .buttonStyle(.plain)
+                                Menu {
+                                    ForEach(item.actions) { action in
+                                        Button(action.kind.title) {
+                                            onThreadAction(action)
+                                        }
+                                    }
+                                } label: {
+                                    Image(systemName: "ellipsis")
+                                        .frame(width: 24, height: 24)
+                                        .foregroundStyle(QuillCodePalette.muted)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
+                            .padding(10)
+                            .background(item.isSelected ? QuillCodePalette.selection : Color.clear)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         }
                     }
                 }

@@ -146,6 +146,26 @@
     .project-item.selected { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.14); }
     .sidebar-item small,
     .project-item small { color: var(--muted); }
+    .sidebar-thread-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+      align-items: start;
+    }
+    .sidebar-thread-actions {
+      display: flex;
+      gap: 4px;
+    }
+    .sidebar-thread-actions button {
+      min-width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      color: var(--blue);
+      background: rgba(65,184,232,.12);
+      font-size: 12px;
+      font-weight: 700;
+    }
     .transcript { display: grid; grid-template-rows: 1fr auto; overflow: hidden; }
     .timeline { padding: 22px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
     .terminal-pane {
@@ -447,10 +467,16 @@
         : '<p data-testid="project-empty">No projects yet</p>';
       const sidebarContent = state.sidebar.items.length
         ? state.sidebar.items.map(item => `
-          <button class="sidebar-item ${item.isSelected ? 'selected' : ''}" data-testid="sidebar-item" data-thread-id="${escapeHTML(item.id)}" aria-current="${item.isSelected ? 'true' : 'false'}">
-            <span>${escapeHTML(item.title)}</span>
-            <small>${escapeHTML(item.subtitle)}${item.isPinned ? ' · pinned' : ''}</small>
-          </button>`).join('')
+          <div class="sidebar-thread-row" data-testid="sidebar-thread-row">
+            <button class="sidebar-item ${item.isSelected ? 'selected' : ''}" data-testid="sidebar-item" data-thread-id="${escapeHTML(item.id)}" aria-current="${item.isSelected ? 'true' : 'false'}">
+              <span>${escapeHTML(item.title)}</span>
+              <small>${escapeHTML(item.subtitle)}${item.isPinned ? ' · pinned' : ''}</small>
+            </button>
+            <span class="sidebar-thread-actions" data-testid="sidebar-item-actions">
+              <button type="button" data-testid="sidebar-thread-action" data-action="${item.isPinned ? 'unpin' : 'pin'}" data-thread-id="${escapeHTML(item.id)}">${item.isPinned ? 'Unpin' : 'Pin'}</button>
+              <button type="button" data-testid="sidebar-thread-action" data-action="archive" data-thread-id="${escapeHTML(item.id)}">Archive</button>
+            </span>
+          </div>`).join('')
         : '<p data-testid="sidebar-empty">No chats yet</p>';
       const modelOptions = state.topBar.modelCategories.map(category => `
         <optgroup label="${escapeHTML(category.category)}" data-testid="model-category">
@@ -572,6 +598,14 @@
       document.querySelectorAll('[data-testid="sidebar-item"]').forEach(button => {
         button.addEventListener('click', event => {
           selectThread(event.currentTarget.getAttribute('data-thread-id'));
+        });
+      });
+      document.querySelectorAll('[data-testid="sidebar-thread-action"]').forEach(button => {
+        button.addEventListener('click', event => {
+          runSidebarThreadAction(
+            event.currentTarget.getAttribute('data-action'),
+            event.currentTarget.getAttribute('data-thread-id')
+          );
         });
       });
       document.querySelectorAll('[data-testid="review-action"]').forEach(button => {
@@ -818,6 +852,32 @@
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       state.topBar.subtitle = `${selectedProject?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
       render();
+    }
+
+    function runSidebarThreadAction(action, threadID) {
+      if (!threadID) return;
+      if (action === 'pin' || action === 'unpin') {
+        state.sidebar.items = sortSidebarItems(state.sidebar.items.map(item => (
+          item.id === threadID ? { ...item, isPinned: !item.isPinned } : item
+        )));
+      }
+      if (action === 'archive') {
+        state.sidebar.items = state.sidebar.items.filter(item => item.id !== threadID);
+        if (state.sidebar.selectedThreadID === threadID) {
+          state.sidebar.selectedThreadID = state.sidebar.items[0]?.id || null;
+          state.sidebar.items = state.sidebar.items.map((item, index) => ({ ...item, isSelected: index === 0 }));
+          state.topBar.primaryTitle = state.sidebar.items[0]?.title || 'QuillCode';
+          if (!state.sidebar.selectedThreadID) {
+            state.transcript.messages = [];
+            state.transcript.toolCards = [];
+          }
+        }
+      }
+      render();
+    }
+
+    function sortSidebarItems(items) {
+      return [...items].sort((lhs, rhs) => Number(rhs.isPinned) - Number(lhs.isPinned));
     }
 
     function syncSelectedThreadSearchText() {
