@@ -57,7 +57,7 @@ public struct QuillCodeWorkspaceView: View {
                     .frame(width: 280)
                 Divider()
                 VStack(spacing: 0) {
-                    QuillCodeTranscriptView(transcript: surface.transcript)
+                    QuillCodeTranscriptView(transcript: surface.transcript, review: surface.review)
                     Divider()
                     QuillCodeComposerView(
                         composer: surface.composer,
@@ -276,11 +276,12 @@ private struct QuillCodeProjectListView: View {
 
 private struct QuillCodeTranscriptView: View {
     var transcript: TranscriptSurface
+    var review: WorkspaceReviewSurface
 
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 14) {
-                if transcript.messages.isEmpty && transcript.toolCards.isEmpty {
+                if transcript.messages.isEmpty && transcript.toolCards.isEmpty && !review.isVisible {
                     VStack(spacing: 8) {
                         Text(transcript.emptyTitle)
                             .font(.title3.weight(.semibold))
@@ -292,6 +293,9 @@ private struct QuillCodeTranscriptView: View {
                     .frame(maxWidth: 540)
                     .padding(.top, 180)
                 } else {
+                    if review.isVisible {
+                        QuillCodeReviewPaneView(review: review)
+                    }
                     ForEach(transcript.messages) { message in
                         QuillCodeMessageBubble(message: message)
                     }
@@ -304,6 +308,68 @@ private struct QuillCodeTranscriptView: View {
             .padding(22)
         }
         .background(QuillCodePalette.background)
+    }
+}
+
+private struct QuillCodeReviewPaneView: View {
+    var review: WorkspaceReviewSurface
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "doc.text.magnifyingglass")
+                    .font(.title3)
+                    .foregroundStyle(QuillCodePalette.blue)
+                    .frame(width: 34, height: 34)
+                    .background(QuillCodePalette.blue.opacity(0.14))
+                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(review.title)
+                        .font(.headline)
+                    Text(review.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                Spacer()
+                Text("\(review.totalHunks) hunk\(review.totalHunks == 1 ? "" : "s")")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(QuillCodePalette.blue.opacity(0.14))
+                    .foregroundStyle(QuillCodePalette.blue)
+                    .clipShape(Capsule())
+            }
+
+            VStack(spacing: 0) {
+                ForEach(review.files) { file in
+                    HStack(spacing: 10) {
+                        Image(systemName: file.isBinary ? "photo" : "doc.plaintext")
+                            .foregroundStyle(QuillCodePalette.muted)
+                            .frame(width: 20)
+                        Text(file.path)
+                            .font(.callout.weight(.medium))
+                            .lineLimit(1)
+                        Spacer()
+                        Text(file.changeLabel)
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(QuillCodePalette.muted)
+                    }
+                    .padding(.vertical, 8)
+                    if file.id != review.files.last?.id {
+                        Divider()
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: 760, alignment: .leading)
+        .background(QuillCodePalette.panel)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(QuillCodePalette.blue.opacity(0.28), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

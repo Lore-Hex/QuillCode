@@ -6,6 +6,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var projects: ProjectListSurface
     public var sidebar: SidebarSurface
     public var transcript: TranscriptSurface
+    public var review: WorkspaceReviewSurface
     public var composer: ComposerSurface
     public var commands: [WorkspaceCommandSurface]
     public var settings: WorkspaceSettingsSurface
@@ -16,6 +17,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         projects: ProjectListSurface,
         sidebar: SidebarSurface,
         transcript: TranscriptSurface,
+        review: WorkspaceReviewSurface,
         composer: ComposerSurface,
         commands: [WorkspaceCommandSurface],
         settings: WorkspaceSettingsSurface,
@@ -25,6 +27,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.projects = projects
         self.sidebar = sidebar
         self.transcript = transcript
+        self.review = review
         self.composer = composer
         self.commands = commands
         self.settings = settings
@@ -183,6 +186,62 @@ public struct TranscriptSurface: Codable, Sendable, Hashable {
     }
 }
 
+public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
+    public var title: String
+    public var subtitle: String
+    public var files: [WorkspaceReviewFileSurface]
+    public var totalInsertions: Int
+    public var totalDeletions: Int
+    public var totalHunks: Int
+
+    public var isVisible: Bool {
+        !files.isEmpty
+    }
+
+    public init(
+        title: String = "Review changes",
+        subtitle: String = "Latest git diff",
+        files: [WorkspaceReviewFileSurface] = []
+    ) {
+        self.title = title
+        self.files = files
+        self.totalInsertions = files.reduce(0) { $0 + $1.insertions }
+        self.totalDeletions = files.reduce(0) { $0 + $1.deletions }
+        self.totalHunks = files.reduce(0) { $0 + $1.hunks }
+        self.subtitle = files.isEmpty
+            ? subtitle
+            : "\(files.count) file\(files.count == 1 ? "" : "s") changed, +\(totalInsertions) -\(totalDeletions)"
+    }
+}
+
+public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String { path }
+    public var path: String
+    public var insertions: Int
+    public var deletions: Int
+    public var hunks: Int
+    public var isBinary: Bool
+
+    public var changeLabel: String {
+        var parts = ["+\(insertions)", "-\(deletions)"]
+        if hunks > 0 {
+            parts.append("\(hunks) hunk\(hunks == 1 ? "" : "s")")
+        }
+        if isBinary {
+            parts.append("binary")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    public init(path: String, insertions: Int, deletions: Int, hunks: Int, isBinary: Bool = false) {
+        self.path = path
+        self.insertions = insertions
+        self.deletions = deletions
+        self.hunks = hunks
+        self.isBinary = isBinary
+    }
+}
+
 public struct MessageSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var role: ChatRole
@@ -266,6 +325,7 @@ public extension QuillCodeWorkspaceModel {
         let thread = selectedThread
         let topBarState = root.topBar
         let computerUse = topBarState.computerUseStatus
+        let toolCards = currentToolCards
         return WorkspaceSurface(
             topBar: TopBarSurface(
                 appName: topBarState.appName,
@@ -289,8 +349,9 @@ public extension QuillCodeWorkspaceModel {
             ),
             transcript: TranscriptSurface(
                 messages: (thread?.messages ?? []).map(MessageSurface.init),
-                toolCards: currentToolCards
+                toolCards: toolCards
             ),
+            review: reviewSurface(from: toolCards),
             composer: ComposerSurface(composer: composer),
             commands: commands(),
             settings: WorkspaceSettingsSurface(
@@ -371,6 +432,18 @@ public extension QuillCodeWorkspaceModel {
                 isEnabled: root.topBar.computerUseStatus.available == false
             )
         ]
+    }
+
+    private func reviewSurface(from toolCards: [ToolCardState]) -> WorkspaceReviewSurface {
+        guard let card = toolCards.reversed().first(where: { $0.title == "host.git.diff" }),
+              card.status == .done,
+              let outputJSON = card.outputJSON,
+              let result = try? JSONHelpers.decode(ToolResult.self, from: outputJSON),
+              result.ok
+        else {
+            return WorkspaceReviewSurface()
+        }
+        return GitDiffReviewParser.parse(result.stdout)
     }
 
     static func modeLabel(_ mode: AgentMode) -> String {

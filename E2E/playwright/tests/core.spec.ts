@@ -41,3 +41,16 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('tool-card-output')).toContainText('mock-user');
   await expect(page.getByText('Output:\\nmock-user')).toBeVisible();
 });
+
+test('mock harness shows git review summary for diff flow', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('git diff');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('review-pane')).toBeVisible();
+  await expect(page.getByTestId('review-summary')).toHaveText('1 file changed, +1 -0');
+  await expect(page.getByTestId('review-file')).toContainText('Sources/App.swift');
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.diff');
+  await expect(page.getByTestId('tool-card-output')).toContainText('diff --git');
+});

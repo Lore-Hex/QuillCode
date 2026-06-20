@@ -103,7 +103,7 @@
     .project-item small { color: var(--muted); }
     .transcript { display: grid; grid-template-rows: 1fr auto; overflow: hidden; }
     .timeline { padding: 22px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
-    .message, .tool-card {
+    .message, .tool-card, .review-pane {
       max-width: min(760px, 88%);
       padding: 13px 15px;
       border-radius: 16px;
@@ -121,6 +121,21 @@
     .tool-card.failed { border-color: rgba(255,93,82,.44); }
     .tool-card.review { border-color: rgba(248,184,78,.48); }
     .tool-card header { display: flex; justify-content: space-between; gap: 14px; }
+    .review-pane {
+      align-self: flex-start;
+      width: min(760px, 92%);
+      background: rgba(65,184,232,.08);
+      border: 1px solid rgba(65,184,232,.26);
+    }
+    .review-pane header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+    .review-pane ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+    .review-pane li { display: flex; justify-content: space-between; gap: 16px; color: var(--text); }
+    .review-pane small { color: var(--muted); }
     pre { overflow: auto; white-space: pre-wrap; background: rgba(0,0,0,.38); border-radius: 10px; padding: 10px; color: #dff8ff; }
     .empty { margin: auto; max-width: 560px; color: var(--muted); text-align: center; }
     .composer {
@@ -210,6 +225,14 @@
         emptyTitle: 'Ask QuillCode to inspect, edit, or run this project.',
         emptySubtitle: 'Use Auto for normal coding work, Review for manual gates, or Read-only for exploration.'
       },
+      review: {
+        title: 'Review changes',
+        subtitle: 'Latest git diff',
+        files: [],
+        totalInsertions: 0,
+        totalDeletions: 0,
+        totalHunks: 0
+      },
       composer: {
         draft: '',
         placeholder: 'Message QuillCode',
@@ -237,6 +260,20 @@
     }
 
     function render() {
+      const review = state.review.files.length ? `
+        <section class="review-pane" data-testid="review-pane" aria-label="Git review summary">
+          <header>
+            <strong>${escapeHTML(state.review.title)}</strong>
+            <span data-testid="review-summary">${escapeHTML(state.review.subtitle)}</span>
+          </header>
+          <ul>
+            ${state.review.files.map(file => `
+              <li data-testid="review-file">
+                <span data-testid="review-file-path">${escapeHTML(file.path)}</span>
+                <small>${escapeHTML(file.changeLabel)}</small>
+              </li>`).join('')}
+          </ul>
+        </section>` : '';
       const messages = state.transcript.messages.map(message => `
         <article class="message ${escapeHTML(message.role)}" data-testid="message" aria-label="${escapeHTML(message.role + ': ' + message.text)}">
           ${escapeHTML(message.text)}
@@ -251,7 +288,7 @@
           ${card.inputJSON ? `<pre data-testid="tool-card-input">${escapeHTML(card.inputJSON)}</pre>` : ''}
           ${card.outputJSON ? `<pre data-testid="tool-card-output">${escapeHTML(card.outputJSON)}</pre>` : ''}
         </article>`).join('');
-      const timeline = messages || cards ? messages + cards : `
+      const timeline = review || messages || cards ? review + messages + cards : `
         <section class="empty" data-testid="transcript-empty">
           <h1>${escapeHTML(state.transcript.emptyTitle)}</h1>
           <p>${escapeHTML(state.transcript.emptySubtitle)}</p>
@@ -428,8 +465,34 @@
       state.composer.draft = '';
       state.composer.canSend = false;
       state.transcript.messages.push({ role: 'user', text });
-      if (text.toLowerCase().includes('run') || text.toLowerCase().includes('whoami')) {
+      if (text.toLowerCase().includes('git diff')) {
+        const diff = [
+          'diff --git a/Sources/App.swift b/Sources/App.swift',
+          '--- a/Sources/App.swift',
+          '+++ b/Sources/App.swift',
+          '@@ -1 +1,2 @@',
+          '+let title = "QuillCode"',
+          ' import Foundation'
+        ].join('\\n');
+        state.review = {
+          title: 'Review changes',
+          subtitle: '1 file changed, +1 -0',
+          totalInsertions: 1,
+          totalDeletions: 0,
+          totalHunks: 1,
+          files: [{ path: 'Sources/App.swift', changeLabel: '+1 · -0 · 1 hunk' }]
+        };
+        state.transcript.toolCards.push({
+          title: 'host.git.diff',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({}, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: diff }, null, 2)
+        });
+        state.transcript.messages.push({ role: 'assistant', text: 'Output:\\n' + diff });
+      } else if (text.toLowerCase().includes('run') || text.toLowerCase().includes('whoami')) {
         const cmd = text.match(/`([^`]+)`/)?.[1] || text.replace(/^run\s+/i, '') || 'whoami';
+        state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
         state.transcript.toolCards.push({
           title: 'host.shell.run',
           subtitle: 'Completed',
@@ -439,6 +502,7 @@
         });
         state.transcript.messages.push({ role: 'assistant', text: 'Output:\\nmock-user' });
       } else {
+        state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
         state.transcript.messages.push({ role: 'assistant', text: 'I can inspect and edit this project.' });
       }
       render();

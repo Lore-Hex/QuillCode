@@ -8,7 +8,7 @@ public enum WorkspaceHTMLRenderer {
           <div class="workspace-grid">
             \(renderSidebar(projects: surface.projects, sidebar: surface.sidebar))
             <main class="transcript" data-testid="transcript">
-              \(renderTranscript(surface.transcript))
+              \(renderTranscript(surface.transcript, review: surface.review))
               \(renderComposer(surface.composer))
             </main>
           </div>
@@ -71,7 +71,8 @@ public enum WorkspaceHTMLRenderer {
         """
     }
 
-    private static func renderTranscript(_ transcript: TranscriptSurface) -> String {
+    private static func renderTranscript(_ transcript: TranscriptSurface, review: WorkspaceReviewSurface) -> String {
+        let reviewPane = renderReview(review)
         let messages = transcript.messages.map { message in
             """
             <article class="message \(message.role.rawValue)" data-testid="message" aria-label="\(escape(message.accessibilityLabel))">
@@ -80,7 +81,7 @@ public enum WorkspaceHTMLRenderer {
             """
         }.joined(separator: "\n")
         let cards = transcript.toolCards.map(renderToolCard).joined(separator: "\n")
-        if messages.isEmpty && cards.isEmpty {
+        if messages.isEmpty && cards.isEmpty && !review.isVisible {
             return """
             <section class="empty" data-testid="transcript-empty">
               <h1>\(escape(transcript.emptyTitle))</h1>
@@ -88,7 +89,30 @@ public enum WorkspaceHTMLRenderer {
             </section>
             """
         }
-        return messages + "\n" + cards
+        return reviewPane + "\n" + messages + "\n" + cards
+    }
+
+    private static func renderReview(_ review: WorkspaceReviewSurface) -> String {
+        guard review.isVisible else { return "" }
+        let files = review.files.map { file in
+            """
+            <li data-testid="review-file">
+              <span data-testid="review-file-path">\(escape(file.path))</span>
+              <small>\(escape(file.changeLabel))</small>
+            </li>
+            """
+        }.joined(separator: "\n")
+        return """
+        <section class="review-pane" data-testid="review-pane" aria-label="Git review summary">
+          <header>
+            <strong>\(escape(review.title))</strong>
+            <span data-testid="review-summary">\(escape(review.subtitle))</span>
+          </header>
+          <ul>
+            \(files)
+          </ul>
+        </section>
+        """
     }
 
     private static func renderToolCard(_ card: ToolCardState) -> String {

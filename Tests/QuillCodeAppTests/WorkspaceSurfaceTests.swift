@@ -86,8 +86,82 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.topBar.primaryTitle, "QuillCode")
         XCTAssertEqual(surface.sidebar.items.count, 0)
         XCTAssertEqual(surface.transcript.emptyTitle, "Ask QuillCode to inspect, edit, or run this project.")
+        XCTAssertFalse(surface.review.isVisible)
         XCTAssertFalse(surface.composer.canSend)
         XCTAssertTrue(surface.topBar.showsComputerUseSetup)
+    }
+
+    func testGitDiffReviewSurfaceSummarizesLatestCompletedDiff() throws {
+        let diff = """
+        diff --git a/Sources/App.swift b/Sources/App.swift
+        index 1111111..2222222 100644
+        --- a/Sources/App.swift
+        +++ b/Sources/App.swift
+        @@ -1,3 +1,4 @@
+         import Foundation
+        -let title = "Old"
+        +let title = "QuillCode"
+        +let subtitle = "Review"
+        diff --git a/README.md b/README.md
+        index 3333333..4444444 100644
+        --- a/README.md
+        +++ b/README.md
+        @@ -1 +1 @@
+        -Old README
+        +New README
+        """
+        let call = ToolCall(name: "host.git.diff", argumentsJSON: "{}")
+        let result = ToolResult(ok: true, stdout: diff)
+        let thread = ChatThread(
+            title: "Review changes",
+            events: [
+                ThreadEvent(kind: .toolQueued, summary: "host.git.diff queued", payloadJSON: try JSONHelpers.encodePretty(call)),
+                ThreadEvent(kind: .toolRunning, summary: "host.git.diff running"),
+                ThreadEvent(kind: .toolCompleted, summary: "host.git.diff completed", payloadJSON: try JSONHelpers.encodePretty(result))
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let review = model.surface().review
+
+        XCTAssertTrue(review.isVisible)
+        XCTAssertEqual(review.files.map(\.path), ["Sources/App.swift", "README.md"])
+        XCTAssertEqual(review.totalInsertions, 3)
+        XCTAssertEqual(review.totalDeletions, 2)
+        XCTAssertEqual(review.totalHunks, 2)
+        XCTAssertEqual(review.subtitle, "2 files changed, +3 -2")
+    }
+
+    func testGitDiffReviewSurfaceHidesStaleDiffWhenLatestDiffFailed() throws {
+        let successfulCall = ToolCall(id: "git-diff-1", name: "host.git.diff", argumentsJSON: "{}")
+        let failedCall = ToolCall(id: "git-diff-2", name: "host.git.diff", argumentsJSON: "{}")
+        let successfulResult = ToolResult(ok: true, stdout: """
+        diff --git a/A.swift b/A.swift
+        --- a/A.swift
+        +++ b/A.swift
+        @@ -1 +1 @@
+        -old
+        +new
+        """)
+        let failedResult = ToolResult(ok: false, error: "not a git repository")
+        let thread = ChatThread(
+            title: "Git diff",
+            events: [
+                ThreadEvent(kind: .toolQueued, summary: "host.git.diff queued", payloadJSON: try JSONHelpers.encodePretty(successfulCall)),
+                ThreadEvent(kind: .toolCompleted, summary: "host.git.diff completed", payloadJSON: try JSONHelpers.encodePretty(successfulResult)),
+                ThreadEvent(kind: .toolQueued, summary: "host.git.diff queued", payloadJSON: try JSONHelpers.encodePretty(failedCall)),
+                ThreadEvent(kind: .toolFailed, summary: "host.git.diff failed", payloadJSON: try JSONHelpers.encodePretty(failedResult))
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        XCTAssertFalse(model.surface().review.isVisible)
     }
 
     func testHTMLRendererEscapesAndLabelsPrimaryRegions() {
@@ -127,6 +201,37 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-status="done""#))
         XCTAssertTrue(html.contains("host.shell.run"))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-output""#))
+    }
+
+    func testHTMLRendererIncludesGitReviewPane() throws {
+        let diff = """
+        diff --git a/Package.swift b/Package.swift
+        --- a/Package.swift
+        +++ b/Package.swift
+        @@ -1 +1,2 @@
+        +// QuillCode
+         import PackageDescription
+        """
+        let call = ToolCall(name: "host.git.diff", argumentsJSON: "{}")
+        let result = ToolResult(ok: true, stdout: diff)
+        let thread = ChatThread(
+            title: "Git diff",
+            events: [
+                ThreadEvent(kind: .toolQueued, summary: "host.git.diff queued", payloadJSON: try JSONHelpers.encodePretty(call)),
+                ThreadEvent(kind: .toolCompleted, summary: "host.git.diff completed", payloadJSON: try JSONHelpers.encodePretty(result))
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="review-pane""#))
+        XCTAssertTrue(html.contains(#"data-testid="review-file""#))
+        XCTAssertTrue(html.contains("Package.swift"))
+        XCTAssertTrue(html.contains("1 file changed, +1 -0"))
     }
 
     private func makeTempDirectory() throws -> URL {
