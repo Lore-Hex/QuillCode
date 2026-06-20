@@ -4,13 +4,13 @@
 | --- | --- | --- | --- |
 | Core | Threads and transcript persistence | Implemented | JSON thread store and mock agent runner. |
 | Core | Project picker/sidebar | Partial | State models exist; QuillUI view pending. |
-| Core | TrustedRouter model picker | Partial | Catalog model exists; live catalog pending. |
+| Core | TrustedRouter model picker | Partial | Catalog model and live fetch adapter exist; native UI pending. |
 | Tools | Shell commands | Implemented | `host.shell.run` with empty-command guard. |
 | Tools | File read/write | Implemented | Workspace-scoped UTF-8 files. |
 | Tools | Apply patch | Deferred | Planned after diff/review pane. |
 | Tools | Git status/diff | Implemented | Read-only shell-backed git tool. |
 | Safety | Read-only/Review/Auto modes | Implemented | Auto can use static or model reviewer. |
-| Safety | Reviewer model call | Partial | Protocol and parser exist; TrustedRouter client pending. |
+| Safety | Reviewer model call | Partial | TrustedRouter client exists; OAuth/UI wiring pending. |
 | UX | Tool cards | Partial | Event model exists; UI pending. |
 | UX | Top bar widget | Partial | State model exists; native menu widget pending. |
 | UX | Keyboard shortcuts/slash commands | Deferred | Documented in test plan. |
@@ -23,4 +23,3 @@
 | Memory | Memories/Chronicle | Deferred | Requires redaction and idle jobs. |
 | Remote | Phone/SSH remote | Deferred | QuillCloud/SSH design pending. |
 | Artifacts | PDF/docs/sheets/images | Deferred | Preview adapters pending. |
-

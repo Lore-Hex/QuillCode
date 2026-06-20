@@ -7,6 +7,7 @@ This initial repository contains the compile-stable foundation:
 - core thread, tool, approval, project, model, and config types
 - shell, file, and git tool executors
 - Auto safety review policy with `glm-5.2` and `kimi-k2.6` model slots
+- TrustedRouter LLM and safety-model adapters
 - JSON thread persistence and a single secret-store protocol
 - Computer Use backend protocol and stub backend
 - deterministic mock LLM agent runner
@@ -21,7 +22,17 @@ swift run quill-code "run whoami"
 swift run quill-code "make a file that says hello world"
 ```
 
-The CLI currently uses a deterministic mock LLM so tests and local demos do not require a TrustedRouter account. Real TrustedRouter streaming is the next narrow integration: implement `LLMClient` and `SafetyModelClient` using `trusted-router-swift`.
+The CLI uses a deterministic mock LLM by default so tests and local demos do not require a TrustedRouter account.
+
+To exercise the live TrustedRouter adapter:
+
+```bash
+export TRUSTEDROUTER_API_KEY=sk-tr-v1-...
+swift run quill-code --live "run whoami"
+swift run quill-code --live --model trustedrouter/fusion "make a file that says hello world"
+```
+
+The live adapter asks the model for a strict QuillCode action JSON object, then routes that through the same safety and tool executor path as the mock harness.
 
 ## Design Principles
 
@@ -38,4 +49,3 @@ The CLI currently uses a deterministic mock LLM so tests and local demos do not 
 - [Parity Matrix](docs/CODEX_PARITY_MATRIX.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Test Plan](docs/TEST_PLAN.md)
-

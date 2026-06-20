@@ -17,7 +17,9 @@ let package = Package(
         .library(name: "QuillCodeApp", targets: ["QuillCodeApp"]),
         .executable(name: "quill-code", targets: ["quill-code"])
     ],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/jperla/trusted-router-swift.git", from: "0.4.0")
+    ],
     targets: [
         .target(name: "QuillCodeCore"),
         .target(name: "QuillCodeSafety", dependencies: ["QuillCodeCore"]),
@@ -31,7 +33,8 @@ let package = Package(
                 "QuillCodeSafety",
                 "QuillCodeTools",
                 "QuillCodePersistence",
-                "QuillComputerUseKit"
+                "QuillComputerUseKit",
+                .product(name: "TrustedRouter", package: "trusted-router-swift")
             ]
         ),
         .target(

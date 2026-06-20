@@ -19,8 +19,9 @@
 
 - OAuth PKCE and delegated key storage.
 - Streaming chat client.
-- Live model catalog.
-- Auto reviewer using `glm-5.2` with `kimi-k2.6` fallback.
+- Live model catalog native UI.
+- Auto reviewer using `glm-5.2` with `kimi-k2.6` fallback in the native app.
+- Current status: non-streaming live TrustedRouter CLI adapter exists behind `--live`.
 
 ## Milestone 3: Codex Workflow Parity
 
@@ -28,4 +29,3 @@
 - Browser preview and comments.
 - Computer Use platform backends and app approvals.
 - Plugins, skills, MCP, memories, and automations.
-
