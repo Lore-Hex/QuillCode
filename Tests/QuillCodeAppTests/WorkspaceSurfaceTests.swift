@@ -6,11 +6,14 @@ import QuillCodeCore
 @MainActor
 final class WorkspaceSurfaceTests: XCTestCase {
     func testSurfaceIncludesTopBarSidebarComposerAndCommands() {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
         let thread = ChatThread(title: "Run whoami", messages: [
             .init(role: .user, content: "run whoami"),
             .init(role: .assistant, content: "Output:\njperla")
         ])
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
             threads: [thread],
             selectedThreadID: thread.id
         ))
@@ -24,6 +27,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(surface.topBar.modelCategories.contains { $0.category == "Recommended" })
         XCTAssertTrue(surface.topBar.modelCategories.flatMap(\.models).contains { $0.id == TrustedRouterDefaults.defaultModel && $0.isSelected })
         XCTAssertEqual(surface.topBar.modeLabel, "Auto")
+        XCTAssertEqual(surface.projects.items.count, 1)
+        XCTAssertEqual(surface.projects.items[0].name, "QuillCode")
+        XCTAssertEqual(surface.projects.items[0].path, "/tmp/QuillCode")
+        XCTAssertTrue(surface.projects.items[0].isSelected)
         XCTAssertEqual(surface.sidebar.items.count, 1)
         XCTAssertEqual(surface.sidebar.items[0].title, "Run whoami")
         XCTAssertTrue(surface.sidebar.items[0].isSelected)
@@ -80,11 +87,14 @@ final class WorkspaceSurfaceTests: XCTestCase {
     }
 
     func testHTMLRendererEscapesAndLabelsPrimaryRegions() {
+        let project = ProjectRef(name: "Unsafe <project>", path: "/tmp/unsafe")
         var thread = ChatThread(title: "Unsafe <title>")
         thread.messages = [
             .init(role: .user, content: "<script>alert(1)</script>")
         ]
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
             threads: [thread],
             selectedThreadID: thread.id
         ))
@@ -93,9 +103,11 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="top-bar""#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar""#))
+        XCTAssertTrue(html.contains(#"data-testid="project-item""#))
         XCTAssertTrue(html.contains(#"data-testid="transcript""#))
         XCTAssertTrue(html.contains(#"data-testid="composer""#))
         XCTAssertTrue(html.contains("Unsafe &lt;title&gt;"))
+        XCTAssertTrue(html.contains("Unsafe &lt;project&gt;"))
         XCTAssertFalse(html.contains("<script>alert(1)</script>"))
     }
 

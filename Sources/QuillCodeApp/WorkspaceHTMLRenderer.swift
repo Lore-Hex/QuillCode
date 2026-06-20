@@ -6,7 +6,7 @@ public enum WorkspaceHTMLRenderer {
         <section class="quillcode-workspace" data-testid="workspace">
           \(renderTopBar(surface.topBar))
           <div class="workspace-grid">
-            \(renderSidebar(surface.sidebar))
+            \(renderSidebar(projects: surface.projects, sidebar: surface.sidebar))
             <main class="transcript" data-testid="transcript">
               \(renderTranscript(surface.transcript))
               \(renderComposer(surface.composer))
@@ -33,7 +33,21 @@ public enum WorkspaceHTMLRenderer {
         """
     }
 
-    private static func renderSidebar(_ sidebar: SidebarSurface) -> String {
+    private static func renderSidebar(projects: ProjectListSurface, sidebar: SidebarSurface) -> String {
+        let projectContent: String
+        if projects.items.isEmpty {
+            projectContent = #"<p data-testid="project-empty">\#(escape(projects.emptyTitle))</p>"#
+        } else {
+            projectContent = projects.items.map { project in
+                """
+                <button class="project-item\(project.isSelected ? " selected" : "")" data-testid="project-item" data-project-id="\(project.id.uuidString)" aria-current="\(project.isSelected ? "true" : "false")">
+                  <span>\(escape(project.name))</span>
+                  <small>\(escape(project.path))</small>
+                </button>
+                """
+            }.joined(separator: "\n")
+        }
+
         let content: String
         if sidebar.items.isEmpty {
             content = #"<p data-testid="sidebar-empty">\#(escape(sidebar.emptyTitle))</p>"#
@@ -48,7 +62,9 @@ public enum WorkspaceHTMLRenderer {
             }.joined(separator: "\n")
         }
         return """
-        <aside class="sidebar" data-testid="sidebar" aria-label="Chats">
+        <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
+          <h2>\(escape(projects.title))</h2>
+          \(projectContent)
           <h2>\(escape(sidebar.title))</h2>
           \(content)
         </aside>

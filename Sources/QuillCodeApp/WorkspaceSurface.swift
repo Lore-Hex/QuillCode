@@ -3,6 +3,7 @@ import QuillCodeCore
 
 public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var topBar: TopBarSurface
+    public var projects: ProjectListSurface
     public var sidebar: SidebarSurface
     public var transcript: TranscriptSurface
     public var composer: ComposerSurface
@@ -11,6 +12,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
 
     public init(
         topBar: TopBarSurface,
+        projects: ProjectListSurface,
         sidebar: SidebarSurface,
         transcript: TranscriptSurface,
         composer: ComposerSurface,
@@ -18,11 +20,45 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         lastError: String? = nil
     ) {
         self.topBar = topBar
+        self.projects = projects
         self.sidebar = sidebar
         self.transcript = transcript
         self.composer = composer
         self.commands = commands
         self.lastError = lastError
+    }
+}
+
+public struct ProjectListSurface: Codable, Sendable, Hashable {
+    public var title: String
+    public var items: [ProjectItemSurface]
+    public var selectedProjectID: UUID?
+    public var emptyTitle: String
+
+    public init(
+        title: String = "Projects",
+        items: [ProjectItemSurface],
+        selectedProjectID: UUID?,
+        emptyTitle: String = "No projects yet"
+    ) {
+        self.title = title
+        self.items = items
+        self.selectedProjectID = selectedProjectID
+        self.emptyTitle = emptyTitle
+    }
+}
+
+public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: UUID
+    public var name: String
+    public var path: String
+    public var isSelected: Bool
+
+    public init(project: ProjectRef, selectedProjectID: UUID?) {
+        self.id = project.id
+        self.name = project.name
+        self.path = project.path
+        self.isSelected = project.id == selectedProjectID
     }
 }
 
@@ -205,6 +241,10 @@ public extension QuillCodeWorkspaceModel {
                 computerUseLabel: computerUse.available ? "Computer Use ready" : "Computer Use setup needed",
                 showsComputerUseSetup: !computerUse.available
             ),
+            projects: ProjectListSurface(
+                items: projectItems(),
+                selectedProjectID: root.selectedProjectID
+            ),
             sidebar: SidebarSurface(
                 items: root.sidebarItems.map { SidebarItemSurface(item: $0, selectedThreadID: root.selectedThreadID) },
                 selectedThreadID: root.selectedThreadID
@@ -225,6 +265,12 @@ public extension QuillCodeWorkspaceModel {
             return "\(projectName) - Not started"
         }
         return "\(projectName) - \(Self.modeLabel(thread.mode)) - \(thread.model)"
+    }
+
+    private func projectItems() -> [ProjectItemSurface] {
+        root.projects
+            .sorted { $0.lastOpenedAt > $1.lastOpenedAt }
+            .map { ProjectItemSurface(project: $0, selectedProjectID: root.selectedProjectID) }
     }
 
     private func modelLabel(for id: String) -> String {

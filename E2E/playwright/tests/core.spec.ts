@@ -5,6 +5,8 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('workspace')).toBeVisible();
   await expect(page.getByTestId('top-bar')).toBeVisible();
   await expect(page.getByTestId('sidebar')).toBeVisible();
+  await expect(page.getByTestId('project-item')).toContainText('QuillCode');
+  await expect(page.getByTestId('project-item')).toHaveAttribute('aria-current', 'true');
   await expect(page.getByTestId('transcript-empty')).toBeVisible();
   await expect(page.getByTestId('model-category')).toHaveCount(2);
   await expect(page.getByLabel('Model')).toHaveValue('trustedrouter/fusion');
@@ -22,6 +24,7 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('sidebar-item')).toContainText('run whoami');
   await expect(page.getByTestId('sidebar-item')).toContainText('z-ai/glm-5.2');
   await expect(page.getByTestId('top-bar-title')).toHaveText('run whoami');
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('QuillCode - Auto');
   await expect(page.getByTestId('tool-card-title')).toHaveText('host.shell.run');
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
   await expect(page.getByTestId('tool-card-input')).toContainText('whoami');

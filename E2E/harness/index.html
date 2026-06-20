@@ -60,7 +60,8 @@
     }
     .sidebar { padding: 14px; overflow: auto; }
     .sidebar h2 { margin: 0 0 12px; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
-    .sidebar-item {
+    .sidebar-item,
+    .project-item {
       width: 100%;
       margin: 0 0 8px;
       padding: 11px 12px;
@@ -72,8 +73,10 @@
       border: 1px solid transparent;
       border-radius: 12px;
     }
-    .sidebar-item.selected { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.14); }
-    .sidebar-item small { color: var(--muted); }
+    .sidebar-item.selected,
+    .project-item.selected { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.14); }
+    .sidebar-item small,
+    .project-item small { color: var(--muted); }
     .transcript { display: grid; grid-template-rows: 1fr auto; overflow: hidden; }
     .timeline { padding: 22px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
     .message, .tool-card {
@@ -160,6 +163,18 @@
         agentStatus: 'Idle',
         computerUseLabel: 'Computer Use setup needed'
       },
+      projects: {
+        title: 'Projects',
+        selectedProjectID: 'project-main',
+        items: [
+          {
+            id: 'project-main',
+            name: 'QuillCode',
+            path: '/mock/QuillCode',
+            isSelected: true
+          }
+        ]
+      },
       sidebar: {
         title: 'Chats',
         selectedThreadID: null,
@@ -208,6 +223,13 @@
           <h1>${escapeHTML(state.transcript.emptyTitle)}</h1>
           <p>${escapeHTML(state.transcript.emptySubtitle)}</p>
         </section>`;
+      const projectsContent = state.projects.items.length
+        ? state.projects.items.map(item => `
+          <button class="project-item ${item.isSelected ? 'selected' : ''}" data-testid="project-item" data-project-id="${escapeHTML(item.id)}" aria-current="${item.isSelected ? 'true' : 'false'}">
+            <span>${escapeHTML(item.name)}</span>
+            <small>${escapeHTML(item.path)}</small>
+          </button>`).join('')
+        : '<p data-testid="project-empty">No projects yet</p>';
       const sidebarContent = state.sidebar.items.length
         ? state.sidebar.items.map(item => `
           <button class="sidebar-item ${item.isSelected ? 'selected' : ''}" data-testid="sidebar-item" aria-current="${item.isSelected ? 'true' : 'false'}">
@@ -239,7 +261,9 @@
             </div>
           </header>
           <div class="workspace-grid">
-            <aside class="sidebar" data-testid="sidebar" aria-label="Chats">
+            <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
+              <h2>${escapeHTML(state.projects.title)}</h2>
+              ${projectsContent}
               <h2>${escapeHTML(state.sidebar.title)}</h2>
               ${sidebarContent}
             </aside>
@@ -278,6 +302,19 @@
         }));
         render();
       });
+      document.querySelectorAll('[data-testid="project-item"]').forEach(button => {
+        button.addEventListener('click', event => {
+          const id = event.currentTarget.getAttribute('data-project-id');
+          state.projects.selectedProjectID = id;
+          state.projects.items = state.projects.items.map(project => ({
+            ...project,
+            isSelected: project.id === id
+          }));
+          const project = state.projects.items.find(project => project.id === id);
+          state.topBar.subtitle = `${project?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+          render();
+        });
+      });
     }
 
     function ensureThread(title) {
@@ -292,7 +329,8 @@
         }];
       }
       state.topBar.primaryTitle = title;
-      state.topBar.subtitle = `No project - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+      const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
+      state.topBar.subtitle = `${selectedProject?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
     }
 
     function sendMessage(value) {

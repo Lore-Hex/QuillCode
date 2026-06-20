@@ -56,6 +56,7 @@ public struct TopBarState: Sendable, Hashable {
 public struct QuillCodeRootState: Sendable, Hashable {
     public var config: AppConfig
     public var projects: [ProjectRef]
+    public var selectedProjectID: UUID?
     public var threads: [ChatThread]
     public var selectedThreadID: UUID?
     public var topBar: TopBarState
@@ -64,6 +65,7 @@ public struct QuillCodeRootState: Sendable, Hashable {
     public init(
         config: AppConfig = AppConfig(),
         projects: [ProjectRef] = [],
+        selectedProjectID: UUID? = nil,
         threads: [ChatThread] = [],
         selectedThreadID: UUID? = nil,
         topBar: TopBarState = TopBarState(),
@@ -71,6 +73,7 @@ public struct QuillCodeRootState: Sendable, Hashable {
     ) {
         self.config = config
         self.projects = projects
+        self.selectedProjectID = selectedProjectID
         self.threads = threads
         self.selectedThreadID = selectedThreadID
         self.topBar = topBar

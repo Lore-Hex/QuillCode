@@ -6,6 +6,7 @@ public struct QuillCodeWorkspaceView: View {
     @Binding public var draft: String
     public var onSend: () -> Void
     public var onSelectThread: (UUID) -> Void
+    public var onSelectProject: (UUID?) -> Void
     public var onSetMode: (AgentMode) -> Void
     public var onSetModel: (String) -> Void
     public var onCommand: (WorkspaceCommandSurface) -> Void
@@ -15,6 +16,7 @@ public struct QuillCodeWorkspaceView: View {
         draft: Binding<String>,
         onSend: @escaping () -> Void,
         onSelectThread: @escaping (UUID) -> Void,
+        onSelectProject: @escaping (UUID?) -> Void,
         onSetMode: @escaping (AgentMode) -> Void,
         onSetModel: @escaping (String) -> Void,
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
@@ -23,6 +25,7 @@ public struct QuillCodeWorkspaceView: View {
         self._draft = draft
         self.onSend = onSend
         self.onSelectThread = onSelectThread
+        self.onSelectProject = onSelectProject
         self.onSetMode = onSetMode
         self.onSetModel = onSetModel
         self.onCommand = onCommand
@@ -39,7 +42,12 @@ public struct QuillCodeWorkspaceView: View {
             )
             Divider()
             HStack(spacing: 0) {
-                QuillCodeSidebarView(sidebar: surface.sidebar, onSelectThread: onSelectThread)
+                QuillCodeSidebarView(
+                    projects: surface.projects,
+                    sidebar: surface.sidebar,
+                    onSelectProject: onSelectProject,
+                    onSelectThread: onSelectThread
+                )
                     .frame(width: 280)
                 Divider()
                 VStack(spacing: 0) {
@@ -137,11 +145,15 @@ private struct QuillCodeTopBarView: View {
 }
 
 private struct QuillCodeSidebarView: View {
+    var projects: ProjectListSurface
     var sidebar: SidebarSurface
+    var onSelectProject: (UUID?) -> Void
     var onSelectThread: (UUID) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            QuillCodeProjectListView(projects: projects, onSelectProject: onSelectProject)
+            Divider()
             Text(sidebar.title.uppercased())
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)
@@ -180,6 +192,57 @@ private struct QuillCodeSidebarView: View {
         }
         .padding(14)
         .background(QuillCodePalette.sidebar)
+    }
+}
+
+private struct QuillCodeProjectListView: View {
+    var projects: ProjectListSurface
+    var onSelectProject: (UUID?) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(projects.title.uppercased())
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                Spacer()
+                Button {
+                    onSelectProject(nil)
+                } label: {
+                    Image(systemName: "xmark.circle")
+                        .imageScale(.small)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(QuillCodePalette.muted)
+                .help("Clear project")
+            }
+            if projects.items.isEmpty {
+                Text(projects.emptyTitle)
+                    .font(.caption)
+                    .foregroundStyle(QuillCodePalette.muted)
+            } else {
+                ForEach(projects.items) { project in
+                    Button {
+                        onSelectProject(project.id)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(project.name)
+                                .font(.callout.weight(.semibold))
+                                .lineLimit(1)
+                            Text(project.path)
+                                .font(.caption)
+                                .foregroundStyle(QuillCodePalette.muted)
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                        .background(project.isSelected ? QuillCodePalette.selection : Color.clear)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
     }
 }
 

@@ -28,6 +28,7 @@ private struct QuillCodeDesktopRootView: View {
             draft: $controller.draft,
             onSend: controller.send,
             onSelectThread: controller.selectThread,
+            onSelectProject: controller.selectProject,
             onSetMode: controller.setMode,
             onSetModel: controller.setModel,
             onCommand: controller.runCommand
@@ -61,6 +62,9 @@ private final class QuillCodeDesktopController: ObservableObject {
             self.model = QuillCodeWorkspaceModel()
         }
         self.workspaceRoot = workspaceRoot
+        if self.model.root.projects.isEmpty {
+            _ = self.model.addProject(path: workspaceRoot)
+        }
         self.surface = model.surface()
         self.draft = model.composer.draft
     }
@@ -72,6 +76,11 @@ private final class QuillCodeDesktopController: ObservableObject {
 
     func selectThread(_ id: UUID) {
         model.selectThread(id)
+        refresh()
+    }
+
+    func selectProject(_ id: UUID?) {
+        model.selectProject(id)
         refresh()
     }
 
@@ -100,7 +109,7 @@ private final class QuillCodeDesktopController: ObservableObject {
         draft = ""
         refresh()
         Task {
-            await model.submitComposer(workspaceRoot: workspaceRoot)
+            await model.submitComposer(workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
             refresh()
         }
     }

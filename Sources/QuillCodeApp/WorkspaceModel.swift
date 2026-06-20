@@ -82,6 +82,15 @@ public final class QuillCodeWorkspaceModel {
         return root.threads.first { $0.id == selectedThreadID }
     }
 
+    public var selectedProject: ProjectRef? {
+        guard let selectedProjectID = root.selectedProjectID else { return nil }
+        return root.projects.first { $0.id == selectedProjectID }
+    }
+
+    public var activeWorkspaceRoot: URL? {
+        selectedProject.map { URL(fileURLWithPath: $0.path) }
+    }
+
     public var currentToolCards: [ToolCardState] {
         selectedThread.map(Self.toolCards(for:)) ?? []
     }
@@ -92,20 +101,58 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func newChat(projectID: UUID? = nil) -> UUID {
+        let effectiveProjectID = knownProjectID(projectID ?? root.selectedProjectID)
         let thread = ChatThread(
-            projectID: projectID,
+            projectID: effectiveProjectID,
             mode: root.config.mode,
             model: root.config.defaultModel
         )
         root.threads.insert(thread, at: 0)
         root.selectedThreadID = thread.id
+        root.selectedProjectID = effectiveProjectID
+        touchProject(effectiveProjectID)
         refreshTopBar(agentStatus: "Idle")
         return thread.id
     }
 
     public func selectThread(_ id: UUID) {
-        guard root.threads.contains(where: { $0.id == id }) else { return }
+        guard let thread = root.threads.first(where: { $0.id == id }) else { return }
         root.selectedThreadID = id
+        root.selectedProjectID = knownProjectID(thread.projectID)
+        touchProject(root.selectedProjectID)
+        refreshTopBar(agentStatus: "Idle")
+    }
+
+    @discardableResult
+    public func addProject(path: URL, name: String? = nil) -> UUID {
+        let standardized = path.standardizedFileURL
+        let projectName = name ?? Self.defaultProjectName(for: standardized)
+        if let index = root.projects.firstIndex(where: { $0.path == standardized.path }) {
+            root.projects[index].name = projectName
+            root.projects[index].lastOpenedAt = Date()
+            root.selectedProjectID = root.projects[index].id
+            refreshTopBar(agentStatus: "Idle")
+            return root.projects[index].id
+        }
+
+        let project = ProjectRef(name: projectName, path: standardized.path)
+        root.projects.insert(project, at: 0)
+        root.selectedProjectID = project.id
+        refreshTopBar(agentStatus: "Idle")
+        return project.id
+    }
+
+    public func selectProject(_ id: UUID?) {
+        if let id {
+            guard root.projects.contains(where: { $0.id == id }) else { return }
+        }
+        root.selectedProjectID = id
+        touchProject(id)
+        root.selectedThreadID = root.threads
+            .filter { !$0.isArchived && $0.projectID == id }
+            .sorted { $0.updatedAt > $1.updatedAt }
+            .first?
+            .id
         refreshTopBar(agentStatus: "Idle")
     }
 
@@ -239,13 +286,14 @@ public final class QuillCodeWorkspaceModel {
             root.threads.insert(thread, at: 0)
         }
         root.selectedThreadID = thread.id
+        root.selectedProjectID = knownProjectID(thread.projectID)
+        touchProject(root.selectedProjectID)
     }
 
     private func refreshTopBar(agentStatus: String? = nil) {
         let thread = selectedThread
-        let project = thread?.projectID.flatMap { projectID in
-            root.projects.first { $0.id == projectID }
-        }
+        let projectID = thread?.projectID ?? root.selectedProjectID
+        let project = projectID.flatMap { id in root.projects.first { $0.id == id } }
         root.topBar = TopBarState(
             projectName: project?.name,
             threadTitle: thread?.title,
@@ -254,6 +302,21 @@ public final class QuillCodeWorkspaceModel {
             agentStatus: agentStatus ?? root.topBar.agentStatus,
             computerUseStatus: root.topBar.computerUseStatus
         )
+    }
+
+    private func touchProject(_ id: UUID?) {
+        guard let id, let index = root.projects.firstIndex(where: { $0.id == id }) else { return }
+        root.projects[index].lastOpenedAt = Date()
+    }
+
+    private func knownProjectID(_ id: UUID?) -> UUID? {
+        guard let id, root.projects.contains(where: { $0.id == id }) else { return nil }
+        return id
+    }
+
+    private static func defaultProjectName(for url: URL) -> String {
+        let lastPathComponent = url.lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
+        return lastPathComponent.isEmpty ? url.path : lastPathComponent
     }
 
     private static func updateLastOpenCard(

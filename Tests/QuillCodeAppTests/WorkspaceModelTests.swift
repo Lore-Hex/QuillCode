@@ -19,6 +19,61 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.root.topBar.mode, .auto)
     }
 
+    func testSelectingProjectControlsNextChatAndWorkspaceRoot() throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+
+        let projectID = model.addProject(path: root, name: "QuillCode")
+        model.selectProject(projectID)
+        let threadID = model.newChat()
+
+        XCTAssertEqual(model.root.selectedProjectID, projectID)
+        XCTAssertEqual(model.root.selectedThreadID, threadID)
+        XCTAssertEqual(model.selectedThread?.projectID, projectID)
+        XCTAssertEqual(model.selectedProject?.name, "QuillCode")
+        XCTAssertEqual(model.activeWorkspaceRoot?.path, root.standardizedFileURL.path)
+        XCTAssertEqual(model.root.topBar.projectName, "QuillCode")
+    }
+
+    func testNewChatIgnoresUnknownProjectID() {
+        let model = QuillCodeWorkspaceModel()
+
+        let threadID = model.newChat(projectID: UUID())
+
+        XCTAssertEqual(model.root.selectedThreadID, threadID)
+        XCTAssertNil(model.root.selectedProjectID)
+        XCTAssertNil(model.selectedThread?.projectID)
+        XCTAssertNil(model.root.topBar.projectName)
+    }
+
+    func testSelectingProjectSelectsNewestThreadForThatProject() {
+        let firstProject = ProjectRef(name: "One", path: "/tmp/one")
+        let secondProject = ProjectRef(name: "Two", path: "/tmp/two")
+        let older = ChatThread(
+            title: "Older",
+            projectID: firstProject.id,
+            updatedAt: Date(timeIntervalSince1970: 1)
+        )
+        let newer = ChatThread(
+            title: "Newer",
+            projectID: firstProject.id,
+            updatedAt: Date(timeIntervalSince1970: 2)
+        )
+        let other = ChatThread(title: "Other", projectID: secondProject.id)
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [firstProject, secondProject],
+            threads: [older, newer, other]
+        ))
+
+        model.selectProject(firstProject.id)
+
+        XCTAssertEqual(model.root.selectedProjectID, firstProject.id)
+        XCTAssertEqual(model.root.selectedThreadID, newer.id)
+        XCTAssertEqual(model.root.topBar.threadTitle, "Newer")
+        XCTAssertEqual(model.root.topBar.projectName, "One")
+        XCTAssertEqual(model.selectedThread?.title, "Newer")
+    }
+
     func testSubmitComposerRunsToolAndBuildsToolCard() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()

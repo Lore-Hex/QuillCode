@@ -12,7 +12,7 @@ This initial repository contains the compile-stable foundation:
 - Computer Use backend protocol and stub backend
 - deterministic mock LLM agent runner
 - `quill-code` CLI harness
-- `quill-code-desktop` SwiftUI workspace shell with persisted config/thread bootstrap and grouped model picker
+- `quill-code-desktop` SwiftUI workspace shell with persisted config/thread bootstrap, project rail, and grouped model picker
 - Playwright mock UI harness
 - parity, roadmap, decision, and test-plan docs
 
