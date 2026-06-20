@@ -64,7 +64,10 @@ public enum WorkspaceHTMLRenderer {
         }
         return """
         <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
-          <h2>\(escape(projects.title))</h2>
+          <div class="sidebar-section-title">
+            <h2>\(escape(projects.title))</h2>
+            <button type="button" data-testid="add-project-button" aria-label="Open project">+</button>
+          </div>
           \(projectContent)
           <h2>\(escape(sidebar.title))</h2>
           \(content)

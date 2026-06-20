@@ -7,6 +7,7 @@ public struct QuillCodeWorkspaceView: View {
     @Binding public var terminalDraft: String
     public var onSend: () -> Void
     public var onRunTerminalCommand: () -> Void
+    public var onAddProjectRequested: () -> Void
     public var onSelectThread: (UUID) -> Void
     public var onSelectProject: (UUID?) -> Void
     public var onSetMode: (AgentMode) -> Void
@@ -26,6 +27,7 @@ public struct QuillCodeWorkspaceView: View {
         terminalDraft: Binding<String>,
         onSend: @escaping () -> Void,
         onRunTerminalCommand: @escaping () -> Void,
+        onAddProjectRequested: @escaping () -> Void,
         onSelectThread: @escaping (UUID) -> Void,
         onSelectProject: @escaping (UUID?) -> Void,
         onSetMode: @escaping (AgentMode) -> Void,
@@ -39,6 +41,7 @@ public struct QuillCodeWorkspaceView: View {
         self._terminalDraft = terminalDraft
         self.onSend = onSend
         self.onRunTerminalCommand = onRunTerminalCommand
+        self.onAddProjectRequested = onAddProjectRequested
         self.onSelectThread = onSelectThread
         self.onSelectProject = onSelectProject
         self.onSetMode = onSetMode
@@ -64,6 +67,7 @@ public struct QuillCodeWorkspaceView: View {
                     sidebar: surface.sidebar,
                     commands: surface.commands,
                     onSelectProject: onSelectProject,
+                    onAddProjectRequested: onAddProjectRequested,
                     onSelectThread: onSelectThread,
                     onCommand: handleCommand
                 )
@@ -130,6 +134,8 @@ public struct QuillCodeWorkspaceView: View {
         } else if command.id == "search" {
             searchQuery = ""
             isSearchPresented = true
+        } else if command.id == "add-project" {
+            onAddProjectRequested()
         } else {
             onCommand(command)
         }
@@ -300,6 +306,7 @@ private struct QuillCodeSidebarView: View {
     var sidebar: SidebarSurface
     var commands: [WorkspaceCommandSurface]
     var onSelectProject: (UUID?) -> Void
+    var onAddProjectRequested: () -> Void
     var onSelectThread: (UUID) -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
 
@@ -307,7 +314,11 @@ private struct QuillCodeSidebarView: View {
         VStack(alignment: .leading, spacing: 12) {
             QuillCodeSidebarActionsView(commands: commands, onCommand: onCommand)
             Divider()
-            QuillCodeProjectListView(projects: projects, onSelectProject: onSelectProject)
+            QuillCodeProjectListView(
+                projects: projects,
+                onSelectProject: onSelectProject,
+                onAddProjectRequested: onAddProjectRequested
+            )
             Divider()
             Text(sidebar.title.uppercased())
                 .font(.caption.weight(.semibold))
@@ -394,6 +405,7 @@ private struct QuillCodeSidebarActionsView: View {
 private struct QuillCodeProjectListView: View {
     var projects: ProjectListSurface
     var onSelectProject: (UUID?) -> Void
+    var onAddProjectRequested: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -402,6 +414,13 @@ private struct QuillCodeProjectListView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(QuillCodePalette.muted)
                 Spacer()
+                Button(action: onAddProjectRequested) {
+                    Image(systemName: "plus.circle")
+                        .imageScale(.small)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(QuillCodePalette.muted)
+                .help("Open project")
                 Button {
                     onSelectProject(nil)
                 } label: {

@@ -101,6 +101,21 @@
     }
     .sidebar { padding: 14px; overflow: auto; }
     .sidebar h2 { margin: 0 0 12px; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
+    .sidebar-section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .sidebar-icon-button {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      color: var(--blue);
+      background: rgba(65,184,232,.12);
+      font-weight: 700;
+    }
     .sidebar-actions {
       display: grid;
       gap: 8px;
@@ -360,6 +375,7 @@
         cwdLabel: '/mock/QuillCode',
         entries: []
       },
+      nextProjectIndex: 2,
       nextThreadIndex: 1
     };
 
@@ -468,7 +484,10 @@
                 <button class="sidebar-action" type="button" data-testid="sidebar-search-button">Search</button>
                 <button class="sidebar-action" type="button" data-testid="terminal-button">Terminal</button>
               </div>
-              <h2>${escapeHTML(state.projects.title)}</h2>
+              <div class="sidebar-section-title">
+                <h2>${escapeHTML(state.projects.title)}</h2>
+                <button class="sidebar-icon-button" type="button" data-testid="add-project-button" aria-label="Open project">+</button>
+              </div>
               ${projectsContent}
               <h2>${escapeHTML(state.sidebar.title)}</h2>
               ${sidebarContent}
@@ -524,6 +543,9 @@
           state.topBar.subtitle = `${project?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
           render();
         });
+      });
+      document.querySelector('[data-testid="add-project-button"]').addEventListener('click', () => {
+        addProject();
       });
       document.querySelector('[data-testid="settings-button"]').addEventListener('click', () => {
         state.settings.isOpen = true;
@@ -727,6 +749,24 @@
       state.topBar.primaryTitle = 'QuillCode';
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       state.topBar.subtitle = `${selectedProject?.name || 'No project'} - Not started`;
+      render();
+    }
+
+    function addProject() {
+      const index = state.nextProjectIndex++;
+      const project = {
+        id: `project-${index}`,
+        name: `Example Project ${index}`,
+        path: `/mock/example-${index}`,
+        isSelected: true
+      };
+      state.projects.selectedProjectID = project.id;
+      state.projects.items = [
+        project,
+        ...state.projects.items.map(item => ({ ...item, isSelected: false }))
+      ];
+      state.terminal.cwdLabel = project.path;
+      state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
       render();
     }
 

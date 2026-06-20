@@ -37,7 +37,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.transcript.messages.count, 2)
         XCTAssertEqual(surface.composer.placeholder, "Message QuillCode")
         XCTAssertTrue(surface.composer.canSend)
-        XCTAssertEqual(surface.commands.map(\.id), ["new-chat", "search", "toggle-terminal", "stop-all", "settings", "computer-use-setup"])
+        XCTAssertEqual(surface.commands.map(\.id), ["new-chat", "search", "add-project", "toggle-terminal", "stop-all", "settings", "computer-use-setup"])
         XCTAssertEqual(surface.settings.apiBaseURL, TrustedRouterDefaults.defaultAPIBaseURL)
         XCTAssertFalse(surface.settings.developerOverrideEnabled)
         XCTAssertFalse(surface.settings.hasStoredAPIKey)
@@ -204,6 +204,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="top-bar""#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar""#))
+        XCTAssertTrue(html.contains(#"data-testid="add-project-button""#))
         XCTAssertTrue(html.contains(#"data-testid="project-item""#))
         XCTAssertTrue(html.contains(#"data-testid="transcript""#))
         XCTAssertTrue(html.contains(#"data-testid="composer""#))

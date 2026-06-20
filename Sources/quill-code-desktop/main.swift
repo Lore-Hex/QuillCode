@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import QuillCodeApp
 import QuillCodeCore
 
@@ -14,6 +15,10 @@ struct QuillCodeDesktopApp: App {
                     NotificationCenter.default.post(name: .quillCodeNewChat, object: nil)
                 }
                 .keyboardShortcut("n", modifiers: .command)
+                Button("Open Project...") {
+                    NotificationCenter.default.post(name: .quillCodeOpenProject, object: nil)
+                }
+                .keyboardShortcut("o", modifiers: .command)
                 Button("Toggle Terminal") {
                     NotificationCenter.default.post(name: .quillCodeToggleTerminal, object: nil)
                 }
@@ -33,6 +38,7 @@ private struct QuillCodeDesktopRootView: View {
             terminalDraft: $controller.terminalDraft,
             onSend: controller.send,
             onRunTerminalCommand: controller.runTerminalCommand,
+            onAddProjectRequested: controller.requestAddProject,
             onSelectThread: controller.selectThread,
             onSelectProject: controller.selectProject,
             onSetMode: controller.setMode,
@@ -47,6 +53,16 @@ private struct QuillCodeDesktopRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeToggleTerminal)) { _ in
             controller.toggleTerminal()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .quillCodeOpenProject)) { _ in
+            controller.requestAddProject()
+        }
+        .fileImporter(
+            isPresented: $controller.isProjectImporterPresented,
+            allowedContentTypes: [.folder],
+            allowsMultipleSelection: false
+        ) { result in
+            controller.handleProjectImport(result)
+        }
         .task {
             await controller.refreshModelCatalog()
         }
@@ -58,6 +74,7 @@ private final class QuillCodeDesktopController: ObservableObject {
     @Published var surface: WorkspaceSurface
     @Published var draft: String
     @Published var terminalDraft: String
+    @Published var isProjectImporterPresented = false
 
     private let model: QuillCodeWorkspaceModel
     private let bootstrap: QuillCodeWorkspaceBootstrap
@@ -94,6 +111,22 @@ private final class QuillCodeDesktopController: ObservableObject {
 
     func selectProject(_ id: UUID?) {
         model.selectProject(id)
+        refresh()
+    }
+
+    func requestAddProject() {
+        isProjectImporterPresented = true
+    }
+
+    func handleProjectImport(_ result: Result<[URL], Error>) {
+        guard case let .success(urls) = result, let url = urls.first else {
+            return
+        }
+        addProject(url)
+    }
+
+    func addProject(_ url: URL) {
+        _ = model.addProject(path: url)
         refresh()
     }
 
@@ -153,6 +186,8 @@ private final class QuillCodeDesktopController: ObservableObject {
         switch command.id {
         case "new-chat":
             newChat()
+        case "add-project":
+            requestAddProject()
         case "toggle-terminal":
             toggleTerminal()
         case "stop-all":
@@ -198,5 +233,6 @@ private final class QuillCodeDesktopController: ObservableObject {
 
 private extension Notification.Name {
     static let quillCodeNewChat = Notification.Name("QuillCodeNewChat")
+    static let quillCodeOpenProject = Notification.Name("QuillCodeOpenProject")
     static let quillCodeToggleTerminal = Notification.Name("QuillCodeToggleTerminal")
 }

@@ -598,6 +598,7 @@ public extension QuillCodeWorkspaceModel {
         [
             WorkspaceCommandSurface(id: "new-chat", title: "New chat", shortcut: "Cmd+N"),
             WorkspaceCommandSurface(id: "search", title: "Search", shortcut: "Cmd+K"),
+            WorkspaceCommandSurface(id: "add-project", title: "Open project", shortcut: "Cmd+O"),
             WorkspaceCommandSurface(id: "toggle-terminal", title: "Terminal", shortcut: "Ctrl+`"),
             WorkspaceCommandSurface(id: "stop-all", title: "Stop all", shortcut: "Esc", isEnabled: composer.isSending),
             WorkspaceCommandSurface(id: "settings", title: "Settings", shortcut: "Cmd+,"),

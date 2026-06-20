@@ -80,6 +80,21 @@ test('mock harness starts a new chat from the sidebar action', async ({ page }) 
   await expect(page.getByLabel('Message')).toHaveValue('');
 });
 
+test('mock harness opens a new project from the sidebar', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('add-project-button').click();
+
+  await expect(page.getByTestId('project-item')).toHaveCount(2);
+  await expect(page.getByTestId('project-item').first()).toContainText('Example Project 2');
+  await expect(page.getByTestId('project-item').first()).toContainText('/mock/example-2');
+  await expect(page.getByTestId('project-item').first()).toHaveAttribute('aria-current', 'true');
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('Example Project 2');
+
+  await page.getByTestId('terminal-button').click();
+  await expect(page.getByTestId('terminal-cwd')).toHaveText('/mock/example-2');
+});
+
 test('mock harness runs a command in the integrated terminal', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
