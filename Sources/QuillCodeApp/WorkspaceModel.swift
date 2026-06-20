@@ -190,10 +190,12 @@ public final class QuillCodeWorkspaceModel {
     @discardableResult
     public func newChat(projectID: UUID? = nil) -> UUID {
         let effectiveProjectID = knownProjectID(projectID ?? root.selectedProjectID)
+        refreshProjectInstructions(effectiveProjectID)
         let thread = ChatThread(
             projectID: effectiveProjectID,
             mode: root.config.mode,
-            model: root.config.defaultModel
+            model: root.config.defaultModel,
+            instructions: instructions(for: effectiveProjectID)
         )
         root.threads.insert(thread, at: 0)
         root.selectedThreadID = thread.id
@@ -219,6 +221,7 @@ public final class QuillCodeWorkspaceModel {
         let projectName = name ?? Self.defaultProjectName(for: standardized)
         if let index = root.projects.firstIndex(where: { $0.path == standardized.path }) {
             root.projects[index].name = projectName
+            root.projects[index].instructions = ProjectInstructionLoader.load(from: standardized)
             root.projects[index].lastOpenedAt = Date()
             root.selectedProjectID = root.projects[index].id
             saveProjects()
@@ -226,7 +229,12 @@ public final class QuillCodeWorkspaceModel {
             return root.projects[index].id
         }
 
-        let project = ProjectRef(name: projectName, path: standardized.path)
+        let project = ProjectRef(
+            name: projectName,
+            path: standardized.path,
+            lastOpenedAt: Date(),
+            instructions: ProjectInstructionLoader.load(from: standardized)
+        )
         root.projects.insert(project, at: 0)
         root.selectedProjectID = project.id
         saveProjects()
@@ -239,6 +247,7 @@ public final class QuillCodeWorkspaceModel {
             guard root.projects.contains(where: { $0.id == id }) else { return }
         }
         root.selectedProjectID = id
+        refreshProjectInstructions(id)
         touchProject(id)
         root.selectedThreadID = root.threads
             .filter { !$0.isArchived && $0.projectID == id }
@@ -331,6 +340,7 @@ public final class QuillCodeWorkspaceModel {
             _ = newChat()
         }
         guard var thread = selectedThread else { return }
+        syncInstructions(into: &thread)
 
         composer.draft = ""
         composer.isSending = true
@@ -427,6 +437,7 @@ public final class QuillCodeWorkspaceModel {
         if selectedThread == nil {
             _ = newChat()
         }
+        refreshProjectInstructions(root.selectedProjectID)
         lastError = nil
         refreshTopBar(agentStatus: "Running")
 
@@ -613,9 +624,11 @@ public final class QuillCodeWorkspaceModel {
     private func statusText() -> String {
         let project = selectedProject?.name ?? root.topBar.projectName ?? "No project"
         let thread = selectedThread?.title ?? "No chat"
+        let instructionLabel = Self.instructionStatusLabel(for: selectedProject?.instructions ?? selectedThread?.instructions ?? [])
         return """
         Project: \(project)
         Thread: \(thread)
+        Instructions: \(instructionLabel)
         Mode: \(Self.modeLabel(root.topBar.mode))
         Model: \(root.topBar.model)
         Agent: \(root.topBar.agentStatus)
@@ -656,6 +669,16 @@ public final class QuillCodeWorkspaceModel {
         saveProjects()
     }
 
+    public func refreshSelectedProjectInstructions() {
+        let projectID = selectedThread?.projectID ?? root.selectedProjectID
+        refreshProjectInstructions(projectID)
+        let refreshedInstructions = instructions(for: projectID)
+        mutateSelectedThread { thread in
+            thread.instructions = refreshedInstructions
+        }
+        saveProjects()
+    }
+
     private func refreshTopBar(agentStatus: String? = nil) {
         let thread = selectedThread
         let projectID = thread?.projectID ?? root.selectedProjectID
@@ -673,6 +696,33 @@ public final class QuillCodeWorkspaceModel {
     private func touchProject(_ id: UUID?) {
         guard let id, let index = root.projects.firstIndex(where: { $0.id == id }) else { return }
         root.projects[index].lastOpenedAt = Date()
+    }
+
+    private func refreshProjectInstructions(_ id: UUID?) {
+        guard let id, let index = root.projects.firstIndex(where: { $0.id == id }) else { return }
+        let rootURL = URL(fileURLWithPath: root.projects[index].path)
+        root.projects[index].instructions = ProjectInstructionLoader.load(from: rootURL)
+    }
+
+    private func syncInstructions(into thread: inout ChatThread) {
+        let projectID = thread.projectID ?? root.selectedProjectID
+        refreshProjectInstructions(projectID)
+        thread.instructions = instructions(for: projectID)
+    }
+
+    private func instructions(for projectID: UUID?) -> [ProjectInstruction] {
+        guard let projectID,
+              let project = root.projects.first(where: { $0.id == projectID })
+        else {
+            return []
+        }
+        return project.instructions
+    }
+
+    static func instructionStatusLabel(for instructions: [ProjectInstruction]) -> String {
+        guard !instructions.isEmpty else { return "No project instructions" }
+        let truncated = instructions.contains { $0.wasTruncated } ? ", truncated" : ""
+        return "\(instructions.count) instruction file\(instructions.count == 1 ? "" : "s") loaded\(truncated)"
     }
 
     private func knownProjectID(_ id: UUID?) -> UUID? {

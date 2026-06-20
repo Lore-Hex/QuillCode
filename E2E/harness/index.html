@@ -318,6 +318,8 @@
       topBar: {
         primaryTitle: 'QuillCode',
         subtitle: 'QuillCode - Not started',
+        instructionLabel: '1 instruction file loaded',
+        instructionSources: ['AGENTS.md'],
         modelLabel: 'trustedrouter/fusion',
         selectedModelID: 'trustedrouter/fusion',
         modelCategories: [
@@ -521,6 +523,7 @@
               <select aria-label="Model" data-testid="model-picker">${modelOptions}</select>
               <span data-testid="model-pill">${escapeHTML(state.topBar.modelLabel)}</span>
               <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
+              <span data-testid="project-instructions-status" title="${escapeHTML(state.topBar.instructionSources.join(', '))}">${escapeHTML(state.topBar.instructionLabel)}</span>
               <span data-testid="agent-status">${escapeHTML(state.topBar.agentStatus)}</span>
               <span data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</span>
               <button type="button" data-testid="command-palette-button">Commands</button>

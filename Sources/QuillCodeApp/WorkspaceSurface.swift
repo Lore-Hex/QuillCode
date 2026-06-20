@@ -75,6 +75,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     public var appName: String
     public var primaryTitle: String
     public var subtitle: String
+    public var instructionLabel: String
+    public var instructionSources: [String]
     public var modelLabel: String
     public var selectedModelID: String
     public var modelCategories: [ModelCategorySurface]
@@ -87,6 +89,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         appName: String,
         primaryTitle: String,
         subtitle: String,
+        instructionLabel: String,
+        instructionSources: [String],
         modelLabel: String,
         selectedModelID: String,
         modelCategories: [ModelCategorySurface],
@@ -98,6 +102,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.appName = appName
         self.primaryTitle = primaryTitle
         self.subtitle = subtitle
+        self.instructionLabel = instructionLabel
+        self.instructionSources = instructionSources
         self.modelLabel = modelLabel
         self.selectedModelID = selectedModelID
         self.modelCategories = modelCategories
@@ -538,11 +544,19 @@ public extension QuillCodeWorkspaceModel {
         let topBarState = root.topBar
         let computerUse = topBarState.computerUseStatus
         let toolCards = currentToolCards
+        let activeInstructions: [ProjectInstruction]
+        if let thread, !thread.instructions.isEmpty {
+            activeInstructions = thread.instructions
+        } else {
+            activeInstructions = selectedProject?.instructions ?? []
+        }
         return WorkspaceSurface(
             topBar: TopBarSurface(
                 appName: topBarState.appName,
                 primaryTitle: thread?.title ?? "QuillCode",
                 subtitle: topBarSubtitle(thread: thread),
+                instructionLabel: Self.instructionStatusLabel(for: activeInstructions),
+                instructionSources: activeInstructions.map(\.path),
                 modelLabel: modelLabel(for: topBarState.model),
                 selectedModelID: topBarState.model,
                 modelCategories: modelCategories(selectedModelID: topBarState.model),

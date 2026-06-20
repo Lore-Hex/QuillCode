@@ -27,6 +27,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(surface.topBar.modelCategories.contains { $0.category == "Recommended" })
         XCTAssertTrue(surface.topBar.modelCategories.flatMap(\.models).contains { $0.id == TrustedRouterDefaults.defaultModel && $0.isSelected })
         XCTAssertEqual(surface.topBar.modeLabel, "Auto")
+        XCTAssertEqual(surface.topBar.instructionLabel, "No project instructions")
+        XCTAssertEqual(surface.topBar.instructionSources, [])
         XCTAssertEqual(surface.projects.items.count, 1)
         XCTAssertEqual(surface.projects.items[0].name, "QuillCode")
         XCTAssertEqual(surface.projects.items[0].path, "/tmp/QuillCode")
@@ -205,7 +207,19 @@ final class WorkspaceSurfaceTests: XCTestCase {
     }
 
     func testHTMLRendererEscapesAndLabelsPrimaryRegions() {
-        let project = ProjectRef(name: "Unsafe <project>", path: "/tmp/unsafe")
+        let project = ProjectRef(
+            name: "Unsafe <project>",
+            path: "/tmp/unsafe",
+            lastOpenedAt: Date(),
+            instructions: [
+                ProjectInstruction(
+                    path: "AGENTS.md",
+                    title: "Project AGENTS.md",
+                    content: "No <script> tags.",
+                    byteCount: 17
+                )
+            ]
+        )
         var thread = ChatThread(title: "Unsafe <title>")
         thread.messages = [
             .init(role: .user, content: "<script>alert(1)</script>")
@@ -225,6 +239,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="project-item""#))
         XCTAssertTrue(html.contains(#"data-testid="transcript""#))
         XCTAssertTrue(html.contains(#"data-testid="composer""#))
+        XCTAssertTrue(html.contains(#"data-testid="project-instructions-status""#))
+        XCTAssertTrue(html.contains("1 instruction file loaded"))
+        XCTAssertTrue(html.contains("AGENTS.md"))
         XCTAssertTrue(html.contains("Unsafe &lt;title&gt;"))
         XCTAssertTrue(html.contains("Unsafe &lt;project&gt;"))
         XCTAssertFalse(html.contains("<script>alert(1)</script>"))

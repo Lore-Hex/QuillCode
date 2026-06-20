@@ -15,7 +15,7 @@
 - Project picker and model picker.
 - Settings with OAuth/dev override and mode selection.
 - Native smoke tests.
-- Current status: testable workspace state model, persisted config/thread/project bootstrap, HTML surface contract, Playwright harness, and SwiftUI desktop shell exist for project rail, visible New chat/Search/Open project/Terminal sidebar actions, desktop folder picking, thread pin/archive controls, thread search, command palette, composer, top bar, transcript, tool-card presentation, integrated workspace terminal command history, git diff review summaries with file and hunk Stage/Restore controls, git worktree command-palette actions and create/remove dialogs, slash commands, grouped model selection, mode switching, and native developer settings. The desktop app seeds the current working directory as the initial project and runs tools from the selected project path.
+- Current status: testable workspace state model, persisted config/thread/project bootstrap, bounded project instruction loading from `AGENTS.md` and `.quillcode` rules, HTML surface contract, Playwright harness, and SwiftUI desktop shell exist for project rail, visible New chat/Search/Open project/Terminal sidebar actions, desktop folder picking, thread pin/archive controls, thread search, command palette, composer, top bar, transcript, tool-card presentation, integrated workspace terminal command history, git diff review summaries with file and hunk Stage/Restore controls, git worktree command-palette actions and create/remove dialogs, slash commands, grouped model selection, mode switching, and native developer settings. The desktop app seeds the current working directory as the initial project and runs tools from the selected project path.
 
 ## Milestone 2: TrustedRouter Runtime
 
@@ -28,6 +28,7 @@
 ## Milestone 3: Codex Workflow Parity
 
 - Inline review comments, apply patch review integration, full PTY terminal sessions, worktree thread UI, local env actions.
+- Nested project-instruction precedence and visible conflict diagnostics.
 - Browser preview and comments.
 - Computer Use platform backends and app approvals.
 - Plugins, skills, MCP, memories, and automations.

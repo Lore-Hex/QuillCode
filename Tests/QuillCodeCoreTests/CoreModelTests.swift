@@ -20,4 +20,36 @@ final class CoreModelTests: XCTestCase {
         let args = try ToolArguments("{}")
         XCTAssertThrowsError(try args.requiredString("cmd"))
     }
+
+    func testProjectAndThreadDecodeOlderStateWithoutInstructions() throws {
+        let projectID = UUID()
+        let date = ISO8601DateFormatter().string(from: Date())
+        let project = try JSONHelpers.decode(ProjectRef.self, from: """
+        {
+          "id": "\(projectID.uuidString)",
+          "name": "QuillCode",
+          "path": "/tmp/QuillCode",
+          "lastOpenedAt": "\(date)"
+        }
+        """)
+        XCTAssertEqual(project.instructions, [])
+
+        let threadID = UUID()
+        let thread = try JSONHelpers.decode(ChatThread.self, from: """
+        {
+          "id": "\(threadID.uuidString)",
+          "title": "Old thread",
+          "projectID": "\(projectID.uuidString)",
+          "mode": "auto",
+          "model": "trustedrouter/fusion",
+          "messages": [],
+          "events": [],
+          "isPinned": false,
+          "isArchived": false,
+          "createdAt": "\(date)",
+          "updatedAt": "\(date)"
+        }
+        """)
+        XCTAssertEqual(thread.instructions, [])
+    }
 }

@@ -463,6 +463,8 @@ private struct QuillCodeTopBarView: View {
             }
             .buttonStyle(.borderless)
             QuillCodePill(text: topBar.agentStatus, systemImage: "waveform.path")
+            QuillCodePill(text: topBar.instructionLabel, systemImage: topBar.instructionSources.isEmpty ? "doc" : "doc.text.magnifyingglass")
+                .help(topBar.instructionSources.isEmpty ? topBar.instructionLabel : topBar.instructionSources.joined(separator: "\n"))
             Menu {
                 ForEach(commands) { command in
                     Button(command.title) {

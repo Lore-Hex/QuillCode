@@ -28,7 +28,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             .flatMap { id in threads.first { $0.id == id }?.projectID }
             ?? projects.first?.id
         let runtime = runtimeFactory.makeRuntime(config: config)
-        return QuillCodeWorkspaceModel(
+        let model = QuillCodeWorkspaceModel(
             root: QuillCodeRootState(
                 config: config,
                 projects: projects,
@@ -50,6 +50,8 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             threadStore: threadStore,
             projectStore: projectStore
         )
+        model.refreshSelectedProjectInstructions()
+        return model
     }
 
     public func saveConfig(_ config: AppConfig) throws {

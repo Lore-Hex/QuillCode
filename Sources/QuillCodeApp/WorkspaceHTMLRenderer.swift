@@ -27,6 +27,7 @@ public enum WorkspaceHTMLRenderer {
           <div class="topbar-pills">
             <span data-testid="model-pill">\(escape(topBar.modelLabel))</span>
             <span data-testid="mode-pill">\(escape(topBar.modeLabel))</span>
+            <span data-testid="project-instructions-status" title="\(escape(topBar.instructionSources.joined(separator: ", ")))">\(escape(topBar.instructionLabel))</span>
             <span data-testid="agent-status">\(escape(topBar.agentStatus))</span>
             <span data-testid="computer-use-status">\(escape(topBar.computerUseLabel))</span>
           </div>

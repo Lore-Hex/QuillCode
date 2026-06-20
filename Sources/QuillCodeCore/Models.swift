@@ -174,13 +174,70 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var name: String
     public var path: String
+    public var instructions: [ProjectInstruction]
     public var lastOpenedAt: Date
 
-    public init(id: UUID = UUID(), name: String, path: String, lastOpenedAt: Date = Date()) {
+    public init(
+        id: UUID = UUID(),
+        name: String,
+        path: String,
+        lastOpenedAt: Date = Date(),
+        instructions: [ProjectInstruction] = []
+    ) {
         self.id = id
         self.name = name
         self.path = path
+        self.instructions = instructions
         self.lastOpenedAt = lastOpenedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case path
+        case instructions
+        case lastOpenedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.path = try container.decode(String.self, forKey: .path)
+        self.instructions = try container.decodeIfPresent([ProjectInstruction].self, forKey: .instructions) ?? []
+        self.lastOpenedAt = try container.decode(Date.self, forKey: .lastOpenedAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(path, forKey: .path)
+        try container.encode(instructions, forKey: .instructions)
+        try container.encode(lastOpenedAt, forKey: .lastOpenedAt)
+    }
+}
+
+public struct ProjectInstruction: Codable, Sendable, Hashable, Identifiable {
+    public var id: String { path }
+    public var path: String
+    public var title: String
+    public var content: String
+    public var byteCount: Int
+    public var wasTruncated: Bool
+
+    public init(
+        path: String,
+        title: String,
+        content: String,
+        byteCount: Int,
+        wasTruncated: Bool = false
+    ) {
+        self.path = path
+        self.title = title
+        self.content = content
+        self.byteCount = byteCount
+        self.wasTruncated = wasTruncated
     }
 }
 
@@ -188,6 +245,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var title: String
     public var projectID: UUID?
+    public var instructions: [ProjectInstruction]
     public var mode: AgentMode
     public var model: String
     public var messages: [ChatMessage]
@@ -208,11 +266,13 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         isPinned: Bool = false,
         isArchived: Bool = false,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        instructions: [ProjectInstruction] = []
     ) {
         self.id = id
         self.title = title
         self.projectID = projectID
+        self.instructions = instructions
         self.mode = mode
         self.model = model
         self.messages = messages
@@ -221,6 +281,53 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.isArchived = isArchived
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case projectID
+        case instructions
+        case mode
+        case model
+        case messages
+        case events
+        case isPinned
+        case isArchived
+        case createdAt
+        case updatedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.projectID = try container.decodeIfPresent(UUID.self, forKey: .projectID)
+        self.instructions = try container.decodeIfPresent([ProjectInstruction].self, forKey: .instructions) ?? []
+        self.mode = try container.decode(AgentMode.self, forKey: .mode)
+        self.model = try container.decode(String.self, forKey: .model)
+        self.messages = try container.decode([ChatMessage].self, forKey: .messages)
+        self.events = try container.decode([ThreadEvent].self, forKey: .events)
+        self.isPinned = try container.decode(Bool.self, forKey: .isPinned)
+        self.isArchived = try container.decode(Bool.self, forKey: .isArchived)
+        self.createdAt = try container.decode(Date.self, forKey: .createdAt)
+        self.updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encodeIfPresent(projectID, forKey: .projectID)
+        try container.encode(instructions, forKey: .instructions)
+        try container.encode(mode, forKey: .mode)
+        try container.encode(model, forKey: .model)
+        try container.encode(messages, forKey: .messages)
+        try container.encode(events, forKey: .events)
+        try container.encode(isPinned, forKey: .isPinned)
+        try container.encode(isArchived, forKey: .isArchived)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(updatedAt, forKey: .updatedAt)
     }
 }
 

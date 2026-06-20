@@ -73,6 +73,9 @@ public struct TrustedRouterLLMClient: LLMClient {
         var messages: [[String: Any]] = [
             ["role": "system", "content": systemPrompt(tools: tools)]
         ]
+        if !thread.instructions.isEmpty {
+            messages.append(["role": "system", "content": projectInstructionsPrompt(thread.instructions)])
+        }
         for message in thread.messages.suffix(20) {
             switch message.role {
             case .system:
@@ -89,6 +92,20 @@ public struct TrustedRouterLLMClient: LLMClient {
             messages.append(["role": "user", "content": userMessage])
         }
         return messages
+    }
+
+    public static func projectInstructionsPrompt(_ instructions: [ProjectInstruction]) -> String {
+        let blocks = instructions.map { instruction in
+            """
+            # \(instruction.title) (\(instruction.path))
+            \(instruction.content)
+            """
+        }.joined(separator: "\n\n")
+        return """
+        Follow these project instructions while working in this project. Higher-priority system and safety instructions still apply.
+
+        \(blocks)
+        """
     }
 
     public static func systemPrompt(tools: [ToolDefinition]) -> String {

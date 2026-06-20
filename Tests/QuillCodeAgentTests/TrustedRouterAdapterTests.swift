@@ -34,6 +34,31 @@ final class TrustedRouterAdapterTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Do not say \"I'll do it\""))
     }
 
+    func testMessagesIncludeProjectInstructionsAsSystemContext() {
+        let thread = ChatThread(
+            messages: [.init(role: .user, content: "status")],
+            instructions: [
+                ProjectInstruction(
+                    path: "AGENTS.md",
+                    title: "Project AGENTS.md",
+                    content: "Always run swift test before claiming completion.",
+                    byteCount: 52
+                )
+            ]
+        )
+
+        let messages = TrustedRouterLLMClient.messages(
+            thread: thread,
+            userMessage: "run tests",
+            tools: [.shellRun]
+        )
+
+        XCTAssertEqual(messages[0]["role"] as? String, "system")
+        XCTAssertEqual(messages[1]["role"] as? String, "system")
+        XCTAssertTrue((messages[1]["content"] as? String)?.contains("AGENTS.md") == true)
+        XCTAssertTrue((messages[1]["content"] as? String)?.contains("Always run swift test") == true)
+    }
+
     func testModelCatalogMapsProvidersAndCategories() {
         XCTAssertTrue(TrustedRouterModelCatalog.defaultModels.contains { $0.id == "z-ai/glm-5.2" })
         XCTAssertTrue(TrustedRouterModelCatalog.defaultModels.contains { $0.id == "moonshotai/kimi-k2.6" })
