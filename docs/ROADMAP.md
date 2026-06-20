@@ -14,7 +14,7 @@
 - Project picker and model picker.
 - Settings with OAuth/dev override and mode selection.
 - Native smoke tests.
-- Current status: testable workspace state model exists for sidebar, composer, top bar, and tool-card presentation.
+- Current status: testable workspace state model and HTML surface contract exist for sidebar, composer, top bar, transcript, and tool-card presentation.
 
 ## Milestone 2: TrustedRouter Runtime
 

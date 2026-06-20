@@ -5,42 +5,281 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>QuillCode Harness</title>
   <style>
-    body { margin: 0; font-family: system-ui, sans-serif; background: #0b1115; color: #eef5f8; }
-    main { max-width: 900px; margin: 0 auto; padding: 32px; }
-    .topbar { display: flex; justify-content: space-between; padding: 16px; border: 1px solid #2b3d46; border-radius: 12px; background: #17242b; }
-    .thread { margin: 24px 0; display: grid; gap: 12px; }
-    .card { border: 1px solid #254a5c; background: #111a20; border-radius: 12px; padding: 14px; }
-    label { display: block; margin-bottom: 8px; }
-    input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #31464f; background: #0b1115; color: white; }
-    button { margin-top: 12px; padding: 10px 18px; border: 0; border-radius: 10px; background: #39aee2; color: #041018; font-weight: 700; }
+    :root {
+      color-scheme: dark;
+      --bg: #071014;
+      --panel: #121d23;
+      --panel-2: #192930;
+      --line: #2a414a;
+      --text: #eef7fa;
+      --muted: #9fb0b8;
+      --blue: #41b8e8;
+      --green: #52d273;
+      --red: #ff5d52;
+      --yellow: #f8b84e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, rgba(65,184,232,.14), transparent 35%), var(--bg);
+      color: var(--text);
+    }
+    .quillcode-workspace { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+    .topbar {
+      margin: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 16px 18px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 18px;
+      background: color-mix(in srgb, var(--panel-2) 86%, transparent);
+      box-shadow: 0 18px 60px rgba(0,0,0,.28);
+    }
+    .topbar strong { font-size: 20px; }
+    .topbar p { margin: 3px 0 0; color: var(--muted); }
+    .topbar-pills { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .topbar-pills span {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(65,184,232,.14);
+      color: #b6eaff;
+      border: 1px solid rgba(65,184,232,.22);
+      font-size: 13px;
+    }
+    .workspace-grid { min-height: 0; display: grid; grid-template-columns: 280px 1fr; gap: 18px; padding: 0 18px 18px; }
+    .sidebar, .transcript {
+      min-height: 0;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 18px;
+      background: rgba(18,29,35,.84);
+    }
+    .sidebar { padding: 14px; overflow: auto; }
+    .sidebar h2 { margin: 0 0 12px; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
+    .sidebar-item {
+      width: 100%;
+      margin: 0 0 8px;
+      padding: 11px 12px;
+      display: grid;
+      gap: 3px;
+      text-align: left;
+      color: var(--text);
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 12px;
+    }
+    .sidebar-item.selected { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.14); }
+    .sidebar-item small { color: var(--muted); }
+    .transcript { display: grid; grid-template-rows: 1fr auto; overflow: hidden; }
+    .timeline { padding: 22px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
+    .message, .tool-card {
+      max-width: min(760px, 88%);
+      padding: 13px 15px;
+      border-radius: 16px;
+      line-height: 1.42;
+    }
+    .message.user { align-self: flex-end; background: linear-gradient(135deg, #45bdec, #d16c5f); }
+    .message.assistant { align-self: flex-start; background: rgba(255,255,255,.1); }
+    .tool-card {
+      align-self: flex-start;
+      width: min(760px, 92%);
+      background: rgba(0,0,0,.22);
+      border: 1px solid rgba(65,184,232,.25);
+    }
+    .tool-card.done { border-color: rgba(82,210,115,.34); }
+    .tool-card.failed { border-color: rgba(255,93,82,.44); }
+    .tool-card.review { border-color: rgba(248,184,78,.48); }
+    .tool-card header { display: flex; justify-content: space-between; gap: 14px; }
+    pre { overflow: auto; white-space: pre-wrap; background: rgba(0,0,0,.38); border-radius: 10px; padding: 10px; color: #dff8ff; }
+    .empty { margin: auto; max-width: 560px; color: var(--muted); text-align: center; }
+    .composer {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      padding: 14px;
+      border-top: 1px solid rgba(255,255,255,.1);
+      background: rgba(25,41,48,.78);
+    }
+    .composer label { position: absolute; width: 1px; height: 1px; clip: rect(0 0 0 0); overflow: hidden; }
+    input {
+      min-width: 0;
+      padding: 13px 15px;
+      border-radius: 13px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.18);
+      color: white;
+      font: inherit;
+    }
+    button {
+      padding: 0 18px;
+      border: 0;
+      border-radius: 13px;
+      background: var(--blue);
+      color: #041018;
+      font-weight: 700;
+      font: inherit;
+    }
+    button:disabled { opacity: .45; }
+    @media (max-width: 760px) {
+      .workspace-grid { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .message, .tool-card { max-width: 100%; width: 100%; }
+    }
   </style>
 </head>
 <body>
-  <main>
-    <div class="topbar">
-      <strong>QuillCode</strong>
-      <span>trustedrouter/fusion · Auto</span>
-    </div>
-    <section class="thread" id="thread"></section>
-    <label for="message">Message</label>
-    <input id="message" aria-label="Message">
-    <button id="send">Send</button>
-  </main>
+  <div id="app"></div>
   <script>
-    const thread = document.getElementById('thread');
-    document.getElementById('send').addEventListener('click', () => {
-      const value = document.getElementById('message').value;
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.textContent = value.toLowerCase().includes('run')
-        ? 'host.shell.run queued'
-        : 'assistant response';
-      thread.appendChild(card);
-      const output = document.createElement('div');
-      output.className = 'card';
-      output.textContent = 'Output: mock-user';
-      thread.appendChild(output);
-    });
+    const state = {
+      topBar: {
+        primaryTitle: 'QuillCode',
+        subtitle: 'No project - Not started',
+        modelLabel: 'trustedrouter/fusion',
+        modeLabel: 'Auto',
+        agentStatus: 'Idle',
+        computerUseLabel: 'Computer Use setup needed'
+      },
+      sidebar: {
+        title: 'Chats',
+        selectedThreadID: null,
+        items: []
+      },
+      transcript: {
+        messages: [],
+        toolCards: [],
+        emptyTitle: 'Ask QuillCode to inspect, edit, or run this project.',
+        emptySubtitle: 'Use Auto for normal coding work, Review for manual gates, or Read-only for exploration.'
+      },
+      composer: {
+        draft: '',
+        placeholder: 'Message QuillCode',
+        isSending: false,
+        canSend: false
+      }
+    };
+
+    function escapeHTML(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function render() {
+      const messages = state.transcript.messages.map(message => `
+        <article class="message ${escapeHTML(message.role)}" data-testid="message" aria-label="${escapeHTML(message.role + ': ' + message.text)}">
+          ${escapeHTML(message.text)}
+        </article>`).join('');
+      const cards = state.transcript.toolCards.map(card => `
+        <article class="tool-card ${escapeHTML(card.status)}" data-testid="tool-card" data-status="${escapeHTML(card.status)}">
+          <header>
+            <strong data-testid="tool-card-title">${escapeHTML(card.title)}</strong>
+            <span data-testid="tool-card-status">${escapeHTML(card.status)}</span>
+          </header>
+          <p>${escapeHTML(card.subtitle)}</p>
+          ${card.inputJSON ? `<pre data-testid="tool-card-input">${escapeHTML(card.inputJSON)}</pre>` : ''}
+          ${card.outputJSON ? `<pre data-testid="tool-card-output">${escapeHTML(card.outputJSON)}</pre>` : ''}
+        </article>`).join('');
+      const timeline = messages || cards ? messages + cards : `
+        <section class="empty" data-testid="transcript-empty">
+          <h1>${escapeHTML(state.transcript.emptyTitle)}</h1>
+          <p>${escapeHTML(state.transcript.emptySubtitle)}</p>
+        </section>`;
+      const sidebarContent = state.sidebar.items.length
+        ? state.sidebar.items.map(item => `
+          <button class="sidebar-item ${item.isSelected ? 'selected' : ''}" data-testid="sidebar-item" aria-current="${item.isSelected ? 'true' : 'false'}">
+            <span>${escapeHTML(item.title)}</span>
+            <small>${escapeHTML(item.subtitle)}${item.isPinned ? ' · pinned' : ''}</small>
+          </button>`).join('')
+        : '<p data-testid="sidebar-empty">No chats yet</p>';
+
+      document.getElementById('app').innerHTML = `
+        <section class="quillcode-workspace" data-testid="workspace">
+          <header class="topbar" data-testid="top-bar" aria-label="QuillCode top bar">
+            <div>
+              <strong data-testid="top-bar-title">${escapeHTML(state.topBar.primaryTitle)}</strong>
+              <p data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
+            </div>
+            <div class="topbar-pills">
+              <span data-testid="model-pill">${escapeHTML(state.topBar.modelLabel)}</span>
+              <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
+              <span data-testid="agent-status">${escapeHTML(state.topBar.agentStatus)}</span>
+              <span data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</span>
+            </div>
+          </header>
+          <div class="workspace-grid">
+            <aside class="sidebar" data-testid="sidebar" aria-label="Chats">
+              <h2>${escapeHTML(state.sidebar.title)}</h2>
+              ${sidebarContent}
+            </aside>
+            <main class="transcript" data-testid="transcript">
+              <div class="timeline">${timeline}</div>
+              <form class="composer" data-testid="composer">
+                <label for="message">Message</label>
+                <input id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" value="${escapeHTML(state.composer.draft)}" ${state.composer.isSending ? 'disabled' : ''}>
+                <button type="submit" data-testid="send-button" ${state.composer.canSend ? '' : 'disabled'}>Send</button>
+              </form>
+            </main>
+          </div>
+        </section>`;
+
+      const form = document.querySelector('[data-testid="composer"]');
+      const input = document.getElementById('message');
+      input.addEventListener('input', event => {
+        state.composer.draft = event.target.value;
+        state.composer.canSend = state.composer.draft.trim().length > 0;
+        document.querySelector('[data-testid="send-button"]').disabled = !state.composer.canSend;
+      });
+      form.addEventListener('submit', event => {
+        event.preventDefault();
+        sendMessage(input.value);
+      });
+    }
+
+    function ensureThread(title) {
+      if (!state.sidebar.selectedThreadID) {
+        state.sidebar.selectedThreadID = 'thread-main';
+        state.sidebar.items = [{
+          id: 'thread-main',
+          title,
+          subtitle: state.topBar.modelLabel,
+          isSelected: true,
+          isPinned: false
+        }];
+      }
+      state.topBar.primaryTitle = title;
+      state.topBar.subtitle = `No project - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+    }
+
+    function sendMessage(value) {
+      const text = String(value).trim();
+      if (!text) return;
+      ensureThread(text.split(/\s+/).slice(0, 6).join(' '));
+      state.composer.draft = '';
+      state.composer.canSend = false;
+      state.transcript.messages.push({ role: 'user', text });
+      if (text.toLowerCase().includes('run') || text.toLowerCase().includes('whoami')) {
+        const cmd = text.match(/`([^`]+)`/)?.[1] || text.replace(/^run\s+/i, '') || 'whoami';
+        state.transcript.toolCards.push({
+          title: 'host.shell.run',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ cmd }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: 'mock-user\\n' }, null, 2)
+        });
+        state.transcript.messages.push({ role: 'assistant', text: 'Output:\\nmock-user' });
+      } else {
+        state.transcript.messages.push({ role: 'assistant', text: 'I can inspect and edit this project.' });
+      }
+      render();
+    }
+
+    render();
   </script>
 </body>
 </html>

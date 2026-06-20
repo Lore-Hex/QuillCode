@@ -11,8 +11,8 @@
 | Tools | Git status/diff | Implemented | Read-only shell-backed git tool. |
 | Safety | Read-only/Review/Auto modes | Implemented | Auto can use static or model reviewer. |
 | Safety | Reviewer model call | Partial | TrustedRouter client exists; OAuth/UI wiring pending. |
-| UX | Tool cards | Partial | Tool-card presentation model derives queued/running/done/failed/review states; visual UI pending. |
-| UX | Top bar widget | Partial | Top-bar presentation state tracks thread, project, model, mode, status, and Computer Use; native menu widget pending. |
+| UX | Tool cards | Partial | Tool-card presentation model and HTML harness render queued/running/done/failed/review states; native QuillUI view pending. |
+| UX | Top bar widget | Partial | Top-bar presentation state and HTML harness track thread, project, model, mode, status, and Computer Use; native menu widget pending. |
 | UX | Keyboard shortcuts/slash commands | Deferred | Documented in test plan. |
 | Workspace | Integrated terminal | Deferred | PTY integration pending. |
 | Workspace | Worktrees | Deferred | Requires git worktree manager. |
