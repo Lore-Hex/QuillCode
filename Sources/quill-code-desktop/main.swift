@@ -51,6 +51,8 @@ private struct QuillCodeDesktopRootView: View {
             onSetModel: controller.setModel,
             onSaveSettings: controller.saveSettings,
             onReviewAction: controller.runReviewAction,
+            onCreateWorktree: controller.createWorktree,
+            onRemoveWorktree: controller.removeWorktree,
             onCommand: controller.runCommand
         )
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeNewChat)) { _ in
@@ -239,6 +241,16 @@ private final class QuillCodeDesktopController: ObservableObject {
 
     func runReviewAction(_ action: WorkspaceReviewActionSurface) {
         model.runReviewAction(action, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+        refresh()
+    }
+
+    func createWorktree(_ request: WorkspaceWorktreeCreateRequest) {
+        model.createWorktree(request, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+        refresh()
+    }
+
+    func removeWorktree(_ request: WorkspaceWorktreeRemoveRequest) {
+        model.removeWorktree(request, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
         refresh()
     }
 

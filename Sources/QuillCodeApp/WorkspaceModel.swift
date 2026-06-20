@@ -84,6 +84,28 @@ public struct TerminalCommandState: Sendable, Hashable, Identifiable {
     }
 }
 
+public struct WorkspaceWorktreeCreateRequest: Sendable, Hashable {
+    public var path: String
+    public var branch: String
+    public var base: String
+
+    public init(path: String, branch: String = "", base: String = "") {
+        self.path = path
+        self.branch = branch
+        self.base = base
+    }
+}
+
+public struct WorkspaceWorktreeRemoveRequest: Sendable, Hashable {
+    public var path: String
+    public var force: Bool
+
+    public init(path: String, force: Bool = false) {
+        self.path = path
+        self.force = force
+    }
+}
+
 public struct TerminalState: Sendable, Hashable {
     public var isVisible: Bool
     public var draft: String
@@ -369,6 +391,38 @@ public final class QuillCodeWorkspaceModel {
         }
     }
 
+    public func createWorktree(_ request: WorkspaceWorktreeCreateRequest, workspaceRoot: URL) {
+        var arguments: [String: Any] = ["path": request.path]
+        let branch = request.branch.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = request.base.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !branch.isEmpty {
+            arguments["branch"] = branch
+        }
+        if !base.isEmpty {
+            arguments["base"] = base
+        }
+        runToolCall(
+            ToolCall(
+                name: ToolDefinition.gitWorktreeCreate.name,
+                argumentsJSON: toolArgumentsJSON(arguments)
+            ),
+            workspaceRoot: workspaceRoot
+        )
+    }
+
+    public func removeWorktree(_ request: WorkspaceWorktreeRemoveRequest, workspaceRoot: URL) {
+        runToolCall(
+            ToolCall(
+                name: ToolDefinition.gitWorktreeRemove.name,
+                argumentsJSON: toolArgumentsJSON([
+                    "path": request.path,
+                    "force": request.force
+                ])
+            ),
+            workspaceRoot: workspaceRoot
+        )
+    }
+
     public func runToolCall(_ call: ToolCall, workspaceRoot: URL) {
         if selectedThread == nil {
             _ = newChat()
@@ -480,6 +534,11 @@ public final class QuillCodeWorkspaceModel {
                 payloadJSON: resultJSON
             ))
         }
+    }
+
+    private func toolArgumentsJSON(_ values: [String: Any]) -> String {
+        let data = try? JSONSerialization.data(withJSONObject: values, options: [.sortedKeys])
+        return data.map { String(decoding: $0, as: UTF8.self) } ?? "{}"
     }
 
     private func handleSlashCommand(_ command: SlashCommand, originalPrompt: String) {

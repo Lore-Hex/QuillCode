@@ -113,6 +113,41 @@ test('mock harness lists worktrees from the command palette', async ({ page }) =
   await expect(page.getByTestId('message').last()).toContainText('worktree /mock/QuillCode');
 });
 
+test('mock harness creates and removes worktrees from dialogs', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('command-palette-button').click();
+  await page.getByLabel('Search commands').fill('create worktree');
+  await page.getByRole('button', { name: /Create worktree/ }).click();
+  await expect(page.getByTestId('worktree-create-panel')).toBeVisible();
+  await expect(page.getByTestId('worktree-create-submit')).toBeDisabled();
+
+  await page.getByLabel('Worktree folder').fill('quillcode-feature');
+  await page.getByLabel('New branch').fill('feature/quillcode');
+  await page.getByLabel('Base ref').fill('main');
+  await expect(page.getByTestId('worktree-create-submit')).toBeEnabled();
+  await page.getByTestId('worktree-create-submit').click();
+
+  await expect(page.getByTestId('worktree-create-panel')).toHaveCount(0);
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.worktree.create');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('feature/quillcode');
+  await expect(page.getByTestId('message').last()).toContainText('Created worktree quillcode-feature.');
+
+  await page.getByTestId('command-palette-button').click();
+  await page.getByLabel('Search commands').fill('remove worktree');
+  await page.getByRole('button', { name: /Remove worktree/ }).click();
+  await expect(page.getByTestId('worktree-remove-panel')).toBeVisible();
+
+  await page.getByLabel('Worktree folder').fill('quillcode-feature');
+  await page.getByLabel('Force removal').check();
+  await page.getByTestId('worktree-remove-submit').click();
+
+  await expect(page.getByTestId('worktree-remove-panel')).toHaveCount(0);
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.worktree.remove');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('"force": true');
+  await expect(page.getByTestId('message').last()).toContainText('Removed worktree quillcode-feature.');
+});
+
 test('mock harness pins and archives chats from the sidebar', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

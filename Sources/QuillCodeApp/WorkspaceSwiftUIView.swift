@@ -16,13 +16,18 @@ public struct QuillCodeWorkspaceView: View {
     public var onSetModel: (String) -> Void
     public var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
     public var onReviewAction: (WorkspaceReviewActionSurface) -> Void
+    public var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
+    public var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
     public var onCommand: (WorkspaceCommandSurface) -> Void
 
     @State private var isSettingsPresented = false
     @State private var isSearchPresented = false
+    @State private var worktreeSheet: QuillCodeWorktreeSheet?
     @State private var searchQuery = ""
     @State private var commandQuery = ""
     @State private var settingsDraft = QuillCodeSettingsDraft()
+    @State private var createWorktreeDraft = QuillCodeWorktreeCreateDraft()
+    @State private var removeWorktreeDraft = QuillCodeWorktreeRemoveDraft()
 
     public init(
         surface: WorkspaceSurface,
@@ -39,6 +44,8 @@ public struct QuillCodeWorkspaceView: View {
         onSetModel: @escaping (String) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onReviewAction: @escaping (WorkspaceReviewActionSurface) -> Void,
+        onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
+        onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
     ) {
         self.surface = surface
@@ -55,6 +62,8 @@ public struct QuillCodeWorkspaceView: View {
         self.onSetModel = onSetModel
         self.onSaveSettings = onSaveSettings
         self.onReviewAction = onReviewAction
+        self.onCreateWorktree = onCreateWorktree
+        self.onRemoveWorktree = onRemoveWorktree
         self.onCommand = onCommand
     }
 
@@ -146,6 +155,32 @@ public struct QuillCodeWorkspaceView: View {
                 }
             )
         }
+        .sheet(item: $worktreeSheet) { sheet in
+            switch sheet {
+            case .create:
+                QuillCodeWorktreeCreateView(
+                    draft: $createWorktreeDraft,
+                    onCancel: {
+                        worktreeSheet = nil
+                    },
+                    onCreate: {
+                        onCreateWorktree(createWorktreeDraft.request)
+                        worktreeSheet = nil
+                    }
+                )
+            case .remove:
+                QuillCodeWorktreeRemoveView(
+                    draft: $removeWorktreeDraft,
+                    onCancel: {
+                        worktreeSheet = nil
+                    },
+                    onRemove: {
+                        onRemoveWorktree(removeWorktreeDraft.request)
+                        worktreeSheet = nil
+                    }
+                )
+            }
+        }
     }
 
     private func handleCommand(_ command: WorkspaceCommandSurface) {
@@ -160,10 +195,23 @@ public struct QuillCodeWorkspaceView: View {
         } else if command.id == "command-palette" {
             commandQuery = ""
             isCommandPalettePresented = true
+        } else if command.id == "git-worktree-create" {
+            createWorktreeDraft = QuillCodeWorktreeCreateDraft()
+            worktreeSheet = .create
+        } else if command.id == "git-worktree-remove" {
+            removeWorktreeDraft = QuillCodeWorktreeRemoveDraft()
+            worktreeSheet = .remove
         } else {
             onCommand(command)
         }
     }
+}
+
+private enum QuillCodeWorktreeSheet: String, Identifiable {
+    case create
+    case remove
+
+    var id: String { rawValue }
 }
 
 private struct QuillCodeCommandPaletteView: View {
@@ -549,6 +597,116 @@ private struct QuillCodeSidebarActionsView: View {
         default:
             return "circle"
         }
+    }
+}
+
+private struct QuillCodeWorktreeCreateView: View {
+    @Binding var draft: QuillCodeWorktreeCreateDraft
+    var onCancel: () -> Void
+    var onCreate: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Create Worktree")
+                        .font(.title2.weight(.semibold))
+                    Text("Create a sibling git worktree for this project.")
+                        .font(.callout)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                Spacer()
+                Image(systemName: "plus.rectangle.on.folder")
+                    .font(.title2)
+                    .foregroundStyle(QuillCodePalette.blue)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Worktree folder")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                TextField("quillcode-feature", text: $draft.path)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("New branch")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                TextField("feature/quillcode", text: $draft.branch)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Base ref")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                TextField("main", text: $draft.base)
+                    .textFieldStyle(.roundedBorder)
+                Text("Leave branch or base blank to use git defaults.")
+                    .font(.caption)
+                    .foregroundStyle(QuillCodePalette.muted)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel", action: onCancel)
+                Button("Create", action: onCreate)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!draft.canCreate)
+            }
+        }
+        .padding(24)
+        .frame(width: 520)
+        .background(QuillCodePalette.background)
+    }
+}
+
+private struct QuillCodeWorktreeRemoveView: View {
+    @Binding var draft: QuillCodeWorktreeRemoveDraft
+    var onCancel: () -> Void
+    var onRemove: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Remove Worktree")
+                        .font(.title2.weight(.semibold))
+                    Text("Remove an existing registered git worktree.")
+                        .font(.callout)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                Spacer()
+                Image(systemName: "minus.rectangle")
+                    .font(.title2)
+                    .foregroundStyle(QuillCodePalette.yellow)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Worktree folder")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                TextField("quillcode-feature", text: $draft.path)
+                    .textFieldStyle(.roundedBorder)
+                Text("Removal is limited to worktrees registered by git.")
+                    .font(.caption)
+                    .foregroundStyle(QuillCodePalette.muted)
+            }
+
+            Toggle("Force removal", isOn: $draft.force)
+
+            HStack {
+                Spacer()
+                Button("Cancel", action: onCancel)
+                Button("Remove", action: onRemove)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!draft.canRemove)
+            }
+        }
+        .padding(24)
+        .frame(width: 520)
+        .background(QuillCodePalette.background)
     }
 }
 
@@ -1088,6 +1246,40 @@ private struct QuillCodeSettingsDraft: Equatable {
                 ? nil
                 : replacementAPIKey.trimmingCharacters(in: .whitespacesAndNewlines),
             shouldClearAPIKey: shouldClearAPIKey
+        )
+    }
+}
+
+private struct QuillCodeWorktreeCreateDraft: Equatable {
+    var path = ""
+    var branch = ""
+    var base = ""
+
+    var canCreate: Bool {
+        !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var request: WorkspaceWorktreeCreateRequest {
+        WorkspaceWorktreeCreateRequest(
+            path: path.trimmingCharacters(in: .whitespacesAndNewlines),
+            branch: branch.trimmingCharacters(in: .whitespacesAndNewlines),
+            base: base.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+    }
+}
+
+private struct QuillCodeWorktreeRemoveDraft: Equatable {
+    var path = ""
+    var force = false
+
+    var canRemove: Bool {
+        !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var request: WorkspaceWorktreeRemoveRequest {
+        WorkspaceWorktreeRemoveRequest(
+            path: path.trimmingCharacters(in: .whitespacesAndNewlines),
+            force: force
         )
     }
 }

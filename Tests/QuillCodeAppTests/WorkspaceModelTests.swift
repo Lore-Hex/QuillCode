@@ -150,6 +150,30 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.composer.draft, "Remove git worktree at ")
     }
 
+    func testWorkspaceCreateAndRemoveWorktreeActionsRecordToolCards() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let parent = root.deletingLastPathComponent()
+        let worktreeName = "quillcode-ui-\(UUID().uuidString)"
+        let branch = "quillcode-ui-\(UUID().uuidString.prefix(8))"
+        let worktree = parent.appendingPathComponent(worktreeName).standardizedFileURL
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Worktree Project")
+        model.selectProject(projectID)
+
+        model.createWorktree(.init(path: worktreeName, branch: String(branch)), workspaceRoot: root)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: worktree.path))
+        XCTAssertEqual(model.currentToolCards.last?.title, "host.git.worktree.create")
+        XCTAssertEqual(model.currentToolCards.last?.status, .done)
+        XCTAssertTrue(model.currentToolCards.last?.inputJSON?.contains(worktreeName) == true)
+
+        model.removeWorktree(.init(path: worktreeName), workspaceRoot: root)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: worktree.path))
+        XCTAssertEqual(model.currentToolCards.last?.title, "host.git.worktree.remove")
+        XCTAssertEqual(model.currentToolCards.last?.status, .done)
+    }
+
     func testEmptyDraftDoesNotCreateThread() async throws {
         let model = QuillCodeWorkspaceModel()
         model.setDraft("   ")
@@ -576,6 +600,17 @@ final class WorkspaceModelTests: XCTestCase {
         _ = try runGit(["init"], cwd: root)
         _ = try runGit(["config", "user.email", "quillcode-tests@example.com"], cwd: root)
         _ = try runGit(["config", "user.name", "QuillCode Tests"], cwd: root)
+    }
+
+    private func makeTempGitRepoWithInitialCommit() throws -> URL {
+        let parent = try makeTempDirectory()
+        let root = parent.appendingPathComponent("repo")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try initializeGitRepository(at: root)
+        try "# Test repo\n".write(to: root.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
+        _ = try runGit(["add", "README.md"], cwd: root)
+        _ = try runGit(["commit", "-m", "initial"], cwd: root)
+        return root
     }
 
     private func runGit(_ arguments: [String], cwd: URL) throws -> String {
