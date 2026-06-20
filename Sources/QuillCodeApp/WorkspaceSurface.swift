@@ -149,6 +149,19 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         self.selectedThreadID = selectedThreadID
         self.emptyTitle = emptyTitle
     }
+
+    public func filteredItems(matching query: String) -> [SidebarItemSurface] {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedQuery.isEmpty else {
+            return items
+        }
+        return items.filter { item in
+            let pinLabel = item.isPinned ? "pinned" : ""
+            return item.title.localizedCaseInsensitiveContains(normalizedQuery)
+                || item.subtitle.localizedCaseInsensitiveContains(normalizedQuery)
+                || pinLabel.localizedCaseInsensitiveContains(normalizedQuery)
+        }
+    }
 }
 
 public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {

@@ -42,6 +42,27 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByText('Output:\\nmock-user')).toBeVisible();
 });
 
+test('mock harness searches and reopens an existing chat', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('run whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('sidebar-item')).toContainText('run whoami');
+
+  await page.getByTestId('search-button').click();
+  await expect(page.getByTestId('search-panel')).toBeVisible();
+  await expect(page.getByTestId('search-result')).toContainText('run whoami');
+
+  await page.getByTestId('search-input').fill('whoami');
+  await expect(page.getByTestId('search-result')).toHaveCount(1);
+  await expect(page.getByTestId('search-result')).toContainText('trustedrouter/fusion');
+  await page.getByTestId('search-result').click();
+
+  await expect(page.getByTestId('search-panel')).toHaveCount(0);
+  await expect(page.getByTestId('top-bar-title')).toHaveText('run whoami');
+  await expect(page.getByTestId('sidebar-item')).toHaveAttribute('aria-current', 'true');
+});
+
 test('mock harness shows git review summary for diff flow', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

@@ -53,7 +53,8 @@
     }
     .topbar-pills select { max-width: 230px; }
     .topbar-pills button { font-weight: 600; }
-    .settings-panel {
+    .settings-panel,
+    .search-panel {
       position: fixed;
       inset: 0;
       display: grid;
@@ -62,7 +63,8 @@
       background: rgba(0,0,0,.45);
       z-index: 5;
     }
-    .settings-card {
+    .settings-card,
+    .search-card {
       width: min(520px, 100%);
       display: grid;
       gap: 14px;
@@ -72,8 +74,23 @@
       background: var(--panel);
       box-shadow: 0 20px 80px rgba(0,0,0,.45);
     }
+    .search-card { width: min(620px, 100%); }
     .settings-card h2, .settings-card p { margin: 0; }
+    .search-card h2, .search-card p { margin: 0; }
     .settings-card label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+    .search-card header { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
+    .search-results { display: grid; gap: 8px; max-height: 340px; overflow: auto; }
+    .search-result {
+      width: 100%;
+      padding: 12px;
+      display: grid;
+      gap: 4px;
+      text-align: left;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,.1);
+      background: rgba(255,255,255,.06);
+    }
+    .search-result small { color: var(--muted); }
     .settings-actions { display: flex; gap: 10px; justify-content: flex-end; }
     .workspace-grid { min-height: 0; display: grid; grid-template-columns: 280px 1fr; gap: 18px; padding: 0 18px 18px; }
     .sidebar, .transcript {
@@ -285,6 +302,10 @@
         apiKeyStatusLabel: 'No API key saved',
         loginStatusLabel: 'TrustedRouter login required',
         replacementAPIKey: ''
+      },
+      search: {
+        isOpen: false,
+        query: ''
       }
     };
 
@@ -356,7 +377,7 @@
         : '<p data-testid="project-empty">No projects yet</p>';
       const sidebarContent = state.sidebar.items.length
         ? state.sidebar.items.map(item => `
-          <button class="sidebar-item ${item.isSelected ? 'selected' : ''}" data-testid="sidebar-item" aria-current="${item.isSelected ? 'true' : 'false'}">
+          <button class="sidebar-item ${item.isSelected ? 'selected' : ''}" data-testid="sidebar-item" data-thread-id="${escapeHTML(item.id)}" aria-current="${item.isSelected ? 'true' : 'false'}">
             <span>${escapeHTML(item.title)}</span>
             <small>${escapeHTML(item.subtitle)}${item.isPinned ? ' · pinned' : ''}</small>
           </button>`).join('')
@@ -382,6 +403,7 @@
               <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
               <span data-testid="agent-status">${escapeHTML(state.topBar.agentStatus)}</span>
               <span data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</span>
+              <button type="button" data-testid="search-button">Search</button>
               <button type="button" data-testid="settings-button">Settings</button>
             </div>
           </header>
@@ -402,6 +424,7 @@
             </main>
           </div>
           ${state.settings.isOpen ? renderSettingsPanel() : ''}
+          ${state.search.isOpen ? renderSearchPanel() : ''}
         </section>`;
 
       const form = document.querySelector('[data-testid="composer"]');
@@ -446,6 +469,16 @@
         state.settings.replacementAPIKey = '';
         render();
       });
+      document.querySelector('[data-testid="search-button"]').addEventListener('click', () => {
+        state.search.isOpen = true;
+        state.search.query = '';
+        render();
+      });
+      document.querySelectorAll('[data-testid="sidebar-item"]').forEach(button => {
+        button.addEventListener('click', event => {
+          selectThread(event.currentTarget.getAttribute('data-thread-id'));
+        });
+      });
       document.querySelectorAll('[data-testid="review-action"]').forEach(button => {
         button.addEventListener('click', event => {
           const action = event.currentTarget.getAttribute('data-action');
@@ -471,6 +504,24 @@
         }
         state.settings.isOpen = false;
         render();
+      });
+      document.querySelector('[data-testid="search-close"]')?.addEventListener('click', () => {
+        state.search.isOpen = false;
+        render();
+      });
+      document.querySelector('[data-testid="search-input"]')?.addEventListener('input', event => {
+        state.search.query = event.target.value;
+        render();
+        const input = document.querySelector('[data-testid="search-input"]');
+        input?.focus();
+        input?.setSelectionRange(input.value.length, input.value.length);
+      });
+      document.querySelectorAll('[data-testid="search-result"]').forEach(button => {
+        button.addEventListener('click', event => {
+          selectThread(event.currentTarget.getAttribute('data-thread-id'));
+          state.search.isOpen = false;
+          render();
+        });
       });
     }
 
@@ -503,6 +554,36 @@
         </div>`;
     }
 
+    function renderSearchPanel() {
+      const query = state.search.query.trim().toLowerCase();
+      const results = state.sidebar.items.filter(item => {
+        if (!query) return true;
+        return item.title.toLowerCase().includes(query)
+          || item.subtitle.toLowerCase().includes(query)
+          || (item.isPinned ? 'pinned' : '').includes(query);
+      });
+      return `
+        <div class="search-panel" data-testid="search-panel">
+          <section class="search-card" role="dialog" aria-label="Search chats">
+            <header>
+              <div>
+                <h2>Search chats</h2>
+                <p>Find a thread by title, model, or pinned state.</p>
+              </div>
+              <button type="button" data-testid="search-close">Close</button>
+            </header>
+            <input data-testid="search-input" aria-label="Search chats" placeholder="Search chats" value="${escapeHTML(state.search.query)}" autofocus>
+            <div class="search-results" data-testid="search-results">
+              ${results.length ? results.map(item => `
+                <button class="search-result" type="button" data-testid="search-result" data-thread-id="${escapeHTML(item.id)}">
+                  <span>${escapeHTML(item.title)}</span>
+                  <small>${escapeHTML(item.subtitle)}${item.isPinned ? ' · pinned' : ''}</small>
+                </button>`).join('') : '<p data-testid="search-empty">No matching chats</p>'}
+            </div>
+          </section>
+        </div>`;
+    }
+
     function ensureThread(title) {
       if (!state.sidebar.selectedThreadID) {
         state.sidebar.selectedThreadID = 'thread-main';
@@ -517,6 +598,20 @@
       state.topBar.primaryTitle = title;
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       state.topBar.subtitle = `${selectedProject?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+    }
+
+    function selectThread(threadID) {
+      const selected = state.sidebar.items.find(item => item.id === threadID);
+      if (!selected) return;
+      state.sidebar.selectedThreadID = threadID;
+      state.sidebar.items = state.sidebar.items.map(item => ({
+        ...item,
+        isSelected: item.id === threadID
+      }));
+      state.topBar.primaryTitle = selected.title;
+      const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
+      state.topBar.subtitle = `${selectedProject?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+      render();
     }
 
     function sendMessage(value) {

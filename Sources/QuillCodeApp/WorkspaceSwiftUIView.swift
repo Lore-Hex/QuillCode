@@ -14,6 +14,8 @@ public struct QuillCodeWorkspaceView: View {
     public var onCommand: (WorkspaceCommandSurface) -> Void
 
     @State private var isSettingsPresented = false
+    @State private var isSearchPresented = false
+    @State private var searchQuery = ""
     @State private var settingsDraft = QuillCodeSettingsDraft()
 
     public init(
@@ -90,15 +92,113 @@ public struct QuillCodeWorkspaceView: View {
                 }
             )
         }
+        .sheet(isPresented: $isSearchPresented) {
+            QuillCodeSearchView(
+                sidebar: surface.sidebar,
+                query: $searchQuery,
+                onSelectThread: { threadID in
+                    onSelectThread(threadID)
+                    isSearchPresented = false
+                },
+                onClose: {
+                    isSearchPresented = false
+                }
+            )
+        }
     }
 
     private func handleCommand(_ command: WorkspaceCommandSurface) {
         if command.id == "settings" {
             settingsDraft = QuillCodeSettingsDraft(settings: surface.settings)
             isSettingsPresented = true
+        } else if command.id == "search" {
+            searchQuery = ""
+            isSearchPresented = true
         } else {
             onCommand(command)
         }
+    }
+}
+
+private struct QuillCodeSearchView: View {
+    var sidebar: SidebarSurface
+    @Binding var query: String
+    var onSelectThread: (UUID) -> Void
+    var onClose: () -> Void
+
+    private var results: [SidebarItemSurface] {
+        sidebar.filteredItems(matching: query)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Search chats")
+                        .font(.title2.weight(.semibold))
+                    Text("Find a thread by title, model, or pinned state.")
+                        .font(.callout)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                Spacer()
+                Button("Close", action: onClose)
+                    .keyboardShortcut(.cancelAction)
+            }
+
+            TextField("Search chats", text: $query)
+                .textFieldStyle(.roundedBorder)
+
+            if results.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.title2)
+                        .foregroundStyle(QuillCodePalette.muted)
+                    Text("No matching chats")
+                        .font(.headline)
+                    Text("Try a thread title, selected model, or pinned.")
+                        .font(.callout)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                .frame(maxWidth: .infinity, minHeight: 180)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(results) { item in
+                            Button {
+                                onSelectThread(item.id)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: item.isPinned ? "pin.fill" : "text.bubble")
+                                        .foregroundStyle(item.isSelected ? QuillCodePalette.blue : QuillCodePalette.muted)
+                                        .frame(width: 22)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(item.title)
+                                            .font(.callout.weight(.semibold))
+                                            .lineLimit(1)
+                                        Text(item.subtitle + (item.isPinned ? " - pinned" : ""))
+                                            .font(.caption)
+                                            .foregroundStyle(QuillCodePalette.muted)
+                                            .lineLimit(1)
+                                    }
+                                    Spacer()
+                                    if item.isSelected {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(QuillCodePalette.blue)
+                                    }
+                                }
+                                .padding(12)
+                                .background(item.isSelected ? QuillCodePalette.selection : QuillCodePalette.panel)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .frame(width: 560, height: 520)
+        .background(QuillCodePalette.background)
     }
 }
 

@@ -91,6 +91,23 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(surface.topBar.showsComputerUseSetup)
     }
 
+    func testSidebarSearchFiltersByThreadTitleAndSubtitle() {
+        let selectedThread = ChatThread(title: "Run whoami", model: "trustedrouter/fusion")
+        let otherThread = ChatThread(title: "Review git diff", model: "z-ai/glm-5.2", isPinned: true)
+        let surface = SidebarSurface(
+            items: [
+                SidebarItemSurface(item: SidebarItem(thread: selectedThread), selectedThreadID: selectedThread.id),
+                SidebarItemSurface(item: SidebarItem(thread: otherThread), selectedThreadID: selectedThread.id)
+            ],
+            selectedThreadID: selectedThread.id
+        )
+
+        XCTAssertEqual(surface.filteredItems(matching: "").map(\.title), ["Run whoami", "Review git diff"])
+        XCTAssertEqual(surface.filteredItems(matching: "who").map(\.title), ["Run whoami"])
+        XCTAssertEqual(surface.filteredItems(matching: "GLM").map(\.title), ["Review git diff"])
+        XCTAssertTrue(surface.filteredItems(matching: "browser").isEmpty)
+    }
+
     func testGitDiffReviewSurfaceSummarizesLatestCompletedDiff() throws {
         let diff = """
         diff --git a/Sources/App.swift b/Sources/App.swift

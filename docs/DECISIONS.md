@@ -23,3 +23,4 @@
 - Review-pane Stage/Restore controls append normal tool queued/running/completed events and immediately run `host.git.diff` afterward. The UI does not keep a separate review mutation log; the visible review pane remains reconstructed from the latest diff tool result.
 - Hunk Stage/Restore uses selected unified-diff patches and `git apply` through process arguments: `--cached` for staging and `--reverse` for restoring. The tool rejects patch metadata that points at a different path than the selected review hunk.
 - Local git commit support is intentionally limited to already staged changes and a required message. Push, PR creation, and remote writes remain separate tools so safety and review can gate them differently.
+- The first Search command is a local thread finder over sidebar title, model subtitle, and pinned state. Full transcript/content indexing is deferred until thread persistence and search ranking are mature enough to avoid noisy results.
