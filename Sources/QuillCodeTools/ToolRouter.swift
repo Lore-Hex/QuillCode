@@ -31,7 +31,10 @@ public struct ToolRouter: Sendable {
         .gitRestore,
         .gitStageHunk,
         .gitRestoreHunk,
-        .gitCommit
+        .gitCommit,
+        .gitWorktreeList,
+        .gitWorktreeCreate,
+        .gitWorktreeRemove
     ]
 
     public func definition(named name: String) -> ToolDefinition? {
@@ -81,6 +84,21 @@ public struct ToolRouter: Sendable {
                 )
             case ToolDefinition.gitCommit.name:
                 return git.commit(cwd: workspaceRoot, message: try args.requiredString("message"))
+            case ToolDefinition.gitWorktreeList.name:
+                return git.listWorktrees(cwd: workspaceRoot)
+            case ToolDefinition.gitWorktreeCreate.name:
+                return git.createWorktree(
+                    cwd: workspaceRoot,
+                    path: try args.requiredString("path"),
+                    branch: args.string("branch"),
+                    base: args.string("base")
+                )
+            case ToolDefinition.gitWorktreeRemove.name:
+                return git.removeWorktree(
+                    cwd: workspaceRoot,
+                    path: try args.requiredString("path"),
+                    force: args.bool("force") ?? false
+                )
             default:
                 return ToolResult(ok: false, error: "Unknown tool: \(call.name)")
             }

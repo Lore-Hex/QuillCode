@@ -6,6 +6,8 @@ public enum GitToolError: Error, CustomStringConvertible {
     case emptyPatch
     case emptyCommitMessage
     case outsideWorkspace(String)
+    case mainWorkspaceWorktreePath
+    case unregisteredWorktree(String)
     case patchPathMismatch(String)
     case temporaryPatchFailed(String)
 
@@ -19,6 +21,10 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "Git commit message is required."
         case .outsideWorkspace(let path):
             return "Git path is outside the workspace: \(path)"
+        case .mainWorkspaceWorktreePath:
+            return "Git worktree path cannot be the main workspace."
+        case .unregisteredWorktree(let path):
+            return "Git worktree is not registered: \(path)"
         case .patchPathMismatch(let path):
             return "Git patch touches a different path than requested: \(path)"
         case .temporaryPatchFailed(let message):
@@ -79,6 +85,59 @@ public struct GitToolExecutor: Sendable {
         return runGit(["commit", "-m", trimmed], cwd: cwd, timeoutSeconds: 30)
     }
 
+    public func listWorktrees(cwd: URL) -> ToolResult {
+        runGit(["worktree", "list", "--porcelain"], cwd: cwd, timeoutSeconds: 20)
+    }
+
+    public func createWorktree(cwd: URL, path: String, branch: String? = nil, base: String? = nil) -> ToolResult {
+        do {
+            var arguments = ["worktree", "add"]
+            if let branch = trimmedNonEmpty(branch) {
+                arguments += ["-b", branch]
+            }
+            let worktreePath = try safeWorktreePath(path, cwd: cwd)
+            arguments.append(worktreePath)
+            if let base = trimmedNonEmpty(base) {
+                arguments.append(base)
+            }
+            let result = runGit(arguments, cwd: cwd, timeoutSeconds: 45)
+            if result.ok {
+                return ToolResult(
+                    ok: true,
+                    stdout: result.stdout,
+                    stderr: result.stderr,
+                    exitCode: result.exitCode,
+                    artifacts: [worktreePath]
+                )
+            }
+            return result
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
+    public func removeWorktree(cwd: URL, path: String, force: Bool = false) -> ToolResult {
+        do {
+            let worktreePath = try safeWorktreePath(path, cwd: cwd)
+            let registered = registeredWorktreePaths(cwd: cwd)
+            if let failure = registered.failure {
+                return failure
+            }
+            guard registered.paths.contains(worktreePath) else {
+                throw GitToolError.unregisteredWorktree(worktreePath)
+            }
+
+            var arguments = ["worktree", "remove"]
+            if force {
+                arguments.append("--force")
+            }
+            arguments.append(worktreePath)
+            return runGit(arguments, cwd: cwd, timeoutSeconds: 30)
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
     private func safeRelativePath(_ path: String, cwd: URL) throws -> String {
         let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -98,6 +157,49 @@ public struct GitToolExecutor: Sendable {
             return "."
         }
         return String(standardized.path.dropFirst(rootPath.count))
+    }
+
+    private func safeWorktreePath(_ path: String, cwd: URL) throws -> String {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw GitToolError.emptyPath
+        }
+
+        let workspace = cwd.standardizedFileURL
+        let parent = workspace.deletingLastPathComponent().standardizedFileURL
+        let candidate = trimmed.hasPrefix("/")
+            ? URL(fileURLWithPath: trimmed)
+            : parent.appendingPathComponent(trimmed)
+        let standardized = candidate.standardizedFileURL
+        let parentPath = parent.path.hasSuffix("/") ? parent.path : "\(parent.path)/"
+        guard standardized.path.hasPrefix(parentPath) else {
+            throw GitToolError.outsideWorkspace(path)
+        }
+        guard standardized.path != workspace.path else {
+            throw GitToolError.mainWorkspaceWorktreePath
+        }
+        return standardized.path
+    }
+
+    private func trimmedNonEmpty(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func registeredWorktreePaths(cwd: URL) -> (paths: Set<String>, failure: ToolResult?) {
+        let result = listWorktrees(cwd: cwd)
+        guard result.ok else {
+            return ([], result)
+        }
+        let paths = result.stdout
+            .components(separatedBy: .newlines)
+            .compactMap { line -> String? in
+                guard line.hasPrefix("worktree ") else { return nil }
+                return URL(fileURLWithPath: String(line.dropFirst("worktree ".count)))
+                    .standardizedFileURL
+                    .path
+            }
+        return (Set(paths), nil)
     }
 
     private func applyHunk(
@@ -318,5 +420,29 @@ public extension ToolDefinition {
         parametersJSON: #"{"type":"object","properties":{"message":{"type":"string"}},"required":["message"]}"#,
         host: .local,
         risk: .append
+    )
+
+    static let gitWorktreeList = ToolDefinition(
+        name: "host.git.worktree.list",
+        description: "List git worktrees for the project.",
+        parametersJSON: #"{"type":"object","properties":{}}"#,
+        host: .local,
+        risk: .read
+    )
+
+    static let gitWorktreeCreate = ToolDefinition(
+        name: "host.git.worktree.create",
+        description: "Create a sibling git worktree for the project, optionally with a new branch and base ref.",
+        parametersJSON: #"{"type":"object","properties":{"path":{"type":"string"},"branch":{"type":"string"},"base":{"type":"string"}},"required":["path"]}"#,
+        host: .local,
+        risk: .append
+    )
+
+    static let gitWorktreeRemove = ToolDefinition(
+        name: "host.git.worktree.remove",
+        description: "Remove a registered sibling git worktree for the project.",
+        parametersJSON: #"{"type":"object","properties":{"path":{"type":"string"},"force":{"type":"boolean"}},"required":["path"]}"#,
+        host: .local,
+        risk: .destructive
     )
 }

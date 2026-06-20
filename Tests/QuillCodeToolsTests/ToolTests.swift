@@ -203,6 +203,55 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(result.error?.contains("message is required") == true, result.error ?? "")
     }
 
+    func testGitWorktreeCreateListAndRemoveSibling() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let parent = root.deletingLastPathComponent()
+        let worktreeName = "quillcode-worktree-\(UUID().uuidString)"
+        let worktree = parent.appendingPathComponent(worktreeName).standardizedFileURL
+        let branch = "quillcode-\(UUID().uuidString.prefix(8))"
+        let git = GitToolExecutor()
+
+        let create = git.createWorktree(cwd: root, path: worktreeName, branch: String(branch))
+
+        XCTAssertTrue(create.ok, "\(create.error ?? "") \(create.stderr)")
+        XCTAssertEqual(create.artifacts, [worktree.path])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: worktree.appendingPathComponent(".git").path))
+
+        let list = git.listWorktrees(cwd: root)
+        XCTAssertTrue(list.ok, "\(list.error ?? "") \(list.stderr)")
+        XCTAssertTrue(list.stdout.contains(worktree.path), list.stdout)
+        XCTAssertTrue(list.stdout.contains(String(branch)), list.stdout)
+
+        let remove = git.removeWorktree(cwd: root, path: worktreeName)
+
+        XCTAssertTrue(remove.ok, "\(remove.error ?? "") \(remove.stderr)")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: worktree.path))
+    }
+
+    func testGitWorktreeCreateRejectsUnsafePath() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+
+        let result = GitToolExecutor().createWorktree(cwd: root, path: "../outside")
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("outside the workspace") == true, result.error ?? "")
+    }
+
+    func testGitWorktreeRemoveRejectsUnregisteredPath() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let parent = root.deletingLastPathComponent()
+        let unrelatedName = "not-a-worktree-\(UUID().uuidString)"
+        try FileManager.default.createDirectory(
+            at: parent.appendingPathComponent(unrelatedName),
+            withIntermediateDirectories: true
+        )
+
+        let result = GitToolExecutor().removeWorktree(cwd: root, path: unrelatedName, force: true)
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("not registered") == true, result.error ?? "")
+    }
+
     func testGitHunkActionsRejectPatchPathMismatch() throws {
         let root = try makeTempDirectory()
         try initializeGitRepo(at: root)
@@ -229,6 +278,20 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.stage_hunk"))
         XCTAssertTrue(definitions.contains("host.git.restore_hunk"))
         XCTAssertTrue(definitions.contains("host.git.commit"))
+        XCTAssertTrue(definitions.contains("host.git.worktree.list"))
+        XCTAssertTrue(definitions.contains("host.git.worktree.create"))
+        XCTAssertTrue(definitions.contains("host.git.worktree.remove"))
+    }
+
+    func testToolRouterRoutesGitWorktreeList() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.gitWorktreeList.name,
+            argumentsJSON: "{}"
+        ))
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertTrue(result.stdout.contains(root.path), result.stdout)
     }
 
     private func makeTempDirectory() throws -> URL {
@@ -236,6 +299,19 @@ final class ToolTests: XCTestCase {
             .appendingPathComponent("QuillCodeToolTests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+
+    private func makeTempGitRepoWithInitialCommit() throws -> URL {
+        let parent = try makeTempDirectory()
+        let root = parent.appendingPathComponent("repo")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try initializeGitRepo(at: root)
+        let file = root.appendingPathComponent("README.md")
+        try "# Test repo\n".write(to: file, atomically: true, encoding: .utf8)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "README.md").ok)
+        let commit = ShellToolExecutor().run(.init(command: "git commit -m initial", cwd: root))
+        XCTAssertTrue(commit.ok, "\(commit.error ?? "") \(commit.stderr)")
+        return root
     }
 
     private func initializeGitRepo(at root: URL) throws {

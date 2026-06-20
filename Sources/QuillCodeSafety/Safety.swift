@@ -119,11 +119,18 @@ public struct StaticSafetyReviewer: SafetyReviewer {
             return true
         }
         if user.contains("make") || user.contains("create") || user.contains("write") {
-            return context.toolCall.name.contains("file") || context.toolCall.name.contains("shell")
+            return context.toolCall.name.contains("file")
+                || context.toolCall.name.contains("shell")
+                || context.toolCall.name.contains("git.worktree")
         }
         if user.contains("commit") {
             return context.toolCall.name.contains("git.commit")
                 || context.toolCall.name.contains("git.stage")
+                || context.toolCall.name.contains("git.status")
+                || context.toolCall.name.contains("git.diff")
+        }
+        if user.contains("worktree") {
+            return context.toolCall.name.contains("git.worktree")
                 || context.toolCall.name.contains("git.status")
                 || context.toolCall.name.contains("git.diff")
         }
