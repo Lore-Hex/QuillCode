@@ -6,6 +6,7 @@ public struct ToolRouter: Sendable {
     public var shell: ShellToolExecutor
     public var files: FileToolExecutor
     public var git: GitToolExecutor
+    public var patch: PatchToolExecutor
 
     public init(
         workspaceRoot: URL,
@@ -16,12 +17,14 @@ public struct ToolRouter: Sendable {
         self.shell = shell
         self.files = FileToolExecutor(workspaceRoot: workspaceRoot)
         self.git = git
+        self.patch = PatchToolExecutor(workspaceRoot: workspaceRoot, shell: shell)
     }
 
     public static let definitions: [ToolDefinition] = [
         .shellRun,
         .fileRead,
         .fileWrite,
+        .applyPatch,
         .gitStatus,
         .gitDiff
     ]
@@ -45,6 +48,8 @@ public struct ToolRouter: Sendable {
                     path: try args.requiredString("path"),
                     content: try args.requiredString("content")
                 )
+            case ToolDefinition.applyPatch.name:
+                return patch.apply(unifiedDiff: try args.requiredString("patch"))
             case ToolDefinition.gitStatus.name:
                 return git.status(cwd: workspaceRoot)
             case ToolDefinition.gitDiff.name:
