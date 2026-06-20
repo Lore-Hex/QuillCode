@@ -134,9 +134,33 @@
       margin-bottom: 10px;
     }
     .review-pane ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
-    .review-pane li { display: flex; justify-content: space-between; gap: 16px; color: var(--text); }
+    .review-pane li {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px 16px;
+      color: var(--text);
+    }
     .review-pane small { color: var(--muted); }
     .review-actions { display: flex; align-items: center; gap: 8px; }
+    .review-hunks {
+      grid-column: 1 / -1;
+      display: grid;
+      gap: 6px;
+      margin: 6px 0 0 20px;
+    }
+    .review-hunk {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+    }
+    .review-hunk code {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .review-actions button {
       padding: 5px 9px;
       border-radius: 999px;
@@ -289,6 +313,18 @@
                   <button type="button" data-testid="review-action" data-action="stage" data-path="${escapeHTML(file.path)}">Stage</button>
                   <button type="button" data-testid="review-action" data-action="restore" data-path="${escapeHTML(file.path)}">Restore</button>
                 </span>
+                ${(file.hunks || []).length ? `
+                  <div class="review-hunks">
+                    ${file.hunks.map(hunk => `
+                      <div class="review-hunk" data-testid="review-hunk">
+                        <code data-testid="review-hunk-header">${escapeHTML(hunk.header)}</code>
+                        <span class="review-actions">
+                          <small>${escapeHTML(hunk.changeLabel)}</small>
+                          <button type="button" data-testid="review-action" data-action="stage_hunk" data-path="${escapeHTML(file.path)}">Stage hunk</button>
+                          <button type="button" data-testid="review-action" data-action="restore_hunk" data-path="${escapeHTML(file.path)}">Restore hunk</button>
+                        </span>
+                      </div>`).join('')}
+                  </div>` : ''}
               </li>`).join('')}
           </ul>
         </section>` : '';
@@ -522,7 +558,11 @@
           totalInsertions: 1,
           totalDeletions: 0,
           totalHunks: 1,
-          files: [{ path: 'Sources/App.swift', changeLabel: '+1 · -0 · 1 hunk' }]
+          files: [{
+            path: 'Sources/App.swift',
+            changeLabel: '+1 · -0 · 1 hunk',
+            hunks: [{ header: '@@ -1 +1,2 @@', changeLabel: '+1 · -0' }]
+          }]
         };
         state.transcript.toolCards.push({
           title: 'host.git.diff',
@@ -552,7 +592,12 @@
 
     function runReviewAction(action, path) {
       if (!path) return;
-      const toolName = action === 'restore' ? 'host.git.restore' : 'host.git.stage';
+      const toolMap = {
+        restore: 'host.git.restore',
+        stage_hunk: 'host.git.stage_hunk',
+        restore_hunk: 'host.git.restore_hunk'
+      };
+      const toolName = toolMap[action] || 'host.git.stage';
       state.topBar.agentStatus = 'Running';
       state.transcript.toolCards.push({
         title: toolName,

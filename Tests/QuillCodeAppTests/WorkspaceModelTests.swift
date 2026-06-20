@@ -431,6 +431,50 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertFalse(model.surface().review.isVisible)
     }
 
+    func testRunReviewStageHunkActionStagesPatchAndRefreshesDiff() throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepository(at: root)
+        let fileURL = root.appendingPathComponent("hello.txt")
+        try "one\ntwo\nthree\n".write(to: fileURL, atomically: true, encoding: .utf8)
+        _ = try runGit(["add", "hello.txt"], cwd: root)
+        _ = try runGit(["commit", "-m", "Initial"], cwd: root)
+        try "one\nTWO\nthree\n".write(to: fileURL, atomically: true, encoding: .utf8)
+        let patch = """
+        diff --git a/hello.txt b/hello.txt
+        --- a/hello.txt
+        +++ b/hello.txt
+        @@ -1,3 +1,3 @@
+         one
+        -two
+        +TWO
+         three
+        """
+        let thread = ChatThread(title: "Review")
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        model.runReviewAction(
+            WorkspaceReviewActionSurface(
+                kind: .stageHunk,
+                path: "hello.txt",
+                patch: patch,
+                targetID: "hello.txt:hunk-1"
+            ),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
+        XCTAssertEqual(model.currentToolCards.map(\.title), [
+            "host.git.stage_hunk",
+            "host.git.diff"
+        ])
+        XCTAssertTrue(model.currentToolCards.allSatisfy { $0.status == .done })
+        XCTAssertTrue(try runGit(["diff", "--staged"], cwd: root).contains("+TWO"))
+        XCTAssertFalse(model.surface().review.isVisible)
+    }
+
     func testRuntimeFactoryModelCatalogFallsBackWithoutKey() async throws {
         let paths = QuillCodePaths(home: try makeTempDirectory())
         try paths.ensure()

@@ -61,15 +61,34 @@ test('mock harness stages a changed file from the review pane', async ({ page })
   await page.getByLabel('Message').fill('git diff');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('review-pane')).toBeVisible();
-  await expect(page.getByTestId('review-action')).toHaveCount(2);
+  await expect(page.getByTestId('review-action')).toHaveCount(4);
 
-  await page.getByTestId('review-action').filter({ hasText: 'Stage' }).click();
+  await page.getByRole('button', { name: 'Stage', exact: true }).click();
 
   await expect(page.getByTestId('review-pane')).toHaveCount(0);
   await expect(page.getByTestId('agent-status')).toHaveText('Idle');
   await expect(page.getByTestId('tool-card-title')).toHaveText([
     'host.git.diff',
     'host.git.stage',
+    'host.git.diff'
+  ]);
+  await expect(page.getByTestId('tool-card-input').nth(1)).toContainText('Sources/App.swift');
+});
+
+test('mock harness stages a single hunk from the review pane', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('git diff');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('review-hunk')).toBeVisible();
+  await expect(page.getByTestId('review-hunk-header')).toContainText('@@ -1 +1,2 @@');
+
+  await page.getByRole('button', { name: 'Stage hunk' }).click();
+
+  await expect(page.getByTestId('review-pane')).toHaveCount(0);
+  await expect(page.getByTestId('tool-card-title')).toHaveText([
+    'host.git.diff',
+    'host.git.stage_hunk',
     'host.git.diff'
   ]);
   await expect(page.getByTestId('tool-card-input').nth(1)).toContainText('Sources/App.swift');

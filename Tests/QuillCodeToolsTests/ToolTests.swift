@@ -91,6 +91,82 @@ final class ToolTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "before\n")
     }
 
+    func testGitStageHunkStagesSelectedPatch() throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        let file = root.appendingPathComponent("hello.txt")
+        try "one\ntwo\nthree\n".write(to: file, atomically: true, encoding: .utf8)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "hello.txt").ok)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git commit -m initial", cwd: root)).ok)
+        try "one\nTWO\nthree\n".write(to: file, atomically: true, encoding: .utf8)
+        let patch = """
+        diff --git a/hello.txt b/hello.txt
+        --- a/hello.txt
+        +++ b/hello.txt
+        @@ -1,3 +1,3 @@
+         one
+        -two
+        +TWO
+         three
+        """
+
+        let result = GitToolExecutor().stageHunk(cwd: root, path: "hello.txt", patch: patch)
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertTrue(GitToolExecutor().diff(cwd: root, staged: true).stdout.contains("+TWO"))
+        XCTAssertEqual(GitToolExecutor().diff(cwd: root).stdout, "")
+    }
+
+    func testGitStageHunkSupportsWorkspaceFileWithSpaces() throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        let file = root.appendingPathComponent("hello world.txt")
+        try "one\ntwo\n".write(to: file, atomically: true, encoding: .utf8)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "hello world.txt").ok)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git commit -m initial", cwd: root)).ok)
+        try "one\nTWO\n".write(to: file, atomically: true, encoding: .utf8)
+        let patch = """
+        diff --git a/hello world.txt b/hello world.txt
+        --- a/hello world.txt
+        +++ b/hello world.txt
+        @@ -1,2 +1,2 @@
+         one
+        -two
+        +TWO
+        """
+
+        let result = GitToolExecutor().stageHunk(cwd: root, path: "hello world.txt", patch: patch)
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertTrue(GitToolExecutor().diff(cwd: root, staged: true).stdout.contains("+TWO"))
+    }
+
+    func testGitRestoreHunkRestoresSelectedPatch() throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        let file = root.appendingPathComponent("hello.txt")
+        try "one\ntwo\nthree\n".write(to: file, atomically: true, encoding: .utf8)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "hello.txt").ok)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git commit -m initial", cwd: root)).ok)
+        try "one\nTWO\nthree\n".write(to: file, atomically: true, encoding: .utf8)
+        let patch = """
+        diff --git a/hello.txt b/hello.txt
+        --- a/hello.txt
+        +++ b/hello.txt
+        @@ -1,3 +1,3 @@
+         one
+        -two
+        +TWO
+         three
+        """
+
+        let result = GitToolExecutor().restoreHunk(cwd: root, path: "hello.txt", patch: patch)
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "one\ntwo\nthree\n")
+        XCTAssertEqual(GitToolExecutor().status(cwd: root).stdout, "## \(currentBranchName(in: root))\n")
+    }
+
     func testGitStageAndRestoreRejectOutsideWorkspacePaths() throws {
         let root = try makeTempDirectory()
         try initializeGitRepo(at: root)
@@ -105,11 +181,31 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(restore.error?.contains("outside the workspace") == true, restore.error ?? "")
     }
 
+    func testGitHunkActionsRejectPatchPathMismatch() throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        let patch = """
+        diff --git a/other.txt b/other.txt
+        --- a/other.txt
+        +++ b/other.txt
+        @@ -1 +1 @@
+        -old
+        +new
+        """
+
+        let result = GitToolExecutor().stageHunk(cwd: root, path: "hello.txt", patch: patch)
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("different path") == true, result.error ?? "")
+    }
+
     func testToolRouterExposesGitStageAndRestoreDefinitions() {
         let definitions = ToolRouter.definitions.map(\.name)
 
         XCTAssertTrue(definitions.contains("host.git.stage"))
         XCTAssertTrue(definitions.contains("host.git.restore"))
+        XCTAssertTrue(definitions.contains("host.git.stage_hunk"))
+        XCTAssertTrue(definitions.contains("host.git.restore_hunk"))
     }
 
     private func makeTempDirectory() throws -> URL {
@@ -125,5 +221,10 @@ final class ToolTests: XCTestCase {
             cwd: root
         ))
         XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+    }
+
+    private func currentBranchName(in root: URL) -> String {
+        let result = ShellToolExecutor().run(.init(command: "git branch --show-current", cwd: root))
+        return result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

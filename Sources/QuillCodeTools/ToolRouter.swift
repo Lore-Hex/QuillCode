@@ -28,7 +28,9 @@ public struct ToolRouter: Sendable {
         .gitStatus,
         .gitDiff,
         .gitStage,
-        .gitRestore
+        .gitRestore,
+        .gitStageHunk,
+        .gitRestoreHunk
     ]
 
     public func definition(named name: String) -> ToolDefinition? {
@@ -63,6 +65,18 @@ public struct ToolRouter: Sendable {
                     cwd: workspaceRoot,
                     path: try args.requiredString("path"),
                     staged: args.bool("staged") ?? false
+                )
+            case ToolDefinition.gitStageHunk.name:
+                return git.stageHunk(
+                    cwd: workspaceRoot,
+                    path: try args.requiredString("path"),
+                    patch: try args.requiredString("patch")
+                )
+            case ToolDefinition.gitRestoreHunk.name:
+                return git.restoreHunk(
+                    cwd: workspaceRoot,
+                    path: try args.requiredString("path"),
+                    patch: try args.requiredString("patch")
                 )
             default:
                 return ToolResult(ok: false, error: "Unknown tool: \(call.name)")

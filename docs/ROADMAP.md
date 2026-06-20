@@ -7,7 +7,7 @@
 - Auto safety policy and reviewer protocol.
 - Persistence and secret-store API.
 - Unit tests for direct command execution and safety behavior.
-- Current status: shell, file read/write, apply patch, git status/diff, and file-level git stage/restore are implemented with unit coverage.
+- Current status: shell, file read/write, apply patch, git status/diff, and file/hunk-level git stage/restore are implemented with unit coverage.
 
 ## Milestone 1: Native Workspace UI
 
@@ -15,7 +15,7 @@
 - Project picker and model picker.
 - Settings with OAuth/dev override and mode selection.
 - Native smoke tests.
-- Current status: testable workspace state model, persisted config/thread/project bootstrap, HTML surface contract, Playwright harness, and SwiftUI desktop shell exist for project rail, sidebar, composer, top bar, transcript, tool-card presentation, git diff review summaries with file-level Stage/Restore controls, slash commands, grouped model selection, mode switching, and native developer settings. The desktop app seeds the current working directory as the initial project and runs tools from the selected project path.
+- Current status: testable workspace state model, persisted config/thread/project bootstrap, HTML surface contract, Playwright harness, and SwiftUI desktop shell exist for project rail, sidebar, composer, top bar, transcript, tool-card presentation, git diff review summaries with file and hunk Stage/Restore controls, slash commands, grouped model selection, mode switching, and native developer settings. The desktop app seeds the current working directory as the initial project and runs tools from the selected project path.
 
 ## Milestone 2: TrustedRouter Runtime
 
@@ -27,7 +27,7 @@
 
 ## Milestone 3: Codex Workflow Parity
 
-- Hunk-level review actions, apply patch review integration, integrated terminal, worktrees, local env actions.
+- Inline review comments, apply patch review integration, integrated terminal, worktrees, local env actions.
 - Browser preview and comments.
 - Computer Use platform backends and app approvals.
 - Plugins, skills, MCP, memories, and automations.

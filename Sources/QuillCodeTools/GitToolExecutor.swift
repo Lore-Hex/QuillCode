@@ -3,14 +3,23 @@ import QuillCodeCore
 
 public enum GitToolError: Error, CustomStringConvertible {
     case emptyPath
+    case emptyPatch
     case outsideWorkspace(String)
+    case patchPathMismatch(String)
+    case temporaryPatchFailed(String)
 
     public var description: String {
         switch self {
         case .emptyPath:
             return "Git path is required."
+        case .emptyPatch:
+            return "Git patch is empty."
         case .outsideWorkspace(let path):
             return "Git path is outside the workspace: \(path)"
+        case .patchPathMismatch(let path):
+            return "Git patch touches a different path than requested: \(path)"
+        case .temporaryPatchFailed(let message):
+            return "Failed to prepare git patch: \(message)"
         }
     }
 }
@@ -51,6 +60,14 @@ public struct GitToolExecutor: Sendable {
         }
     }
 
+    public func stageHunk(cwd: URL, path: String, patch: String) -> ToolResult {
+        applyHunk(cwd: cwd, path: path, patch: patch, arguments: ["apply", "--cached", "--whitespace=nowarn"], successMessage: "Hunk staged.\n")
+    }
+
+    public func restoreHunk(cwd: URL, path: String, patch: String) -> ToolResult {
+        applyHunk(cwd: cwd, path: path, patch: patch, arguments: ["apply", "--reverse", "--whitespace=nowarn"], successMessage: "Hunk restored.\n")
+    }
+
     private func safeRelativePath(_ path: String, cwd: URL) throws -> String {
         let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -70,6 +87,132 @@ public struct GitToolExecutor: Sendable {
             return "."
         }
         return String(standardized.path.dropFirst(rootPath.count))
+    }
+
+    private func applyHunk(
+        cwd: URL,
+        path: String,
+        patch: String,
+        arguments: [String],
+        successMessage: String
+    ) -> ToolResult {
+        do {
+            let relativePath = try safeRelativePath(path, cwd: cwd)
+            let trimmedPatch = patch.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedPatch.isEmpty else {
+                throw GitToolError.emptyPatch
+            }
+            if let mismatch = mismatchedPatchPath(in: patch, expectedPath: relativePath) {
+                throw GitToolError.patchPathMismatch(mismatch)
+            }
+
+            var normalizedPatch = patch
+            if !normalizedPatch.hasSuffix("\n") {
+                normalizedPatch.append("\n")
+            }
+            let patchURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("quillcode-hunk-\(UUID().uuidString).patch")
+            do {
+                try normalizedPatch.write(to: patchURL, atomically: true, encoding: .utf8)
+            } catch {
+                throw GitToolError.temporaryPatchFailed(String(describing: error))
+            }
+            defer { try? FileManager.default.removeItem(at: patchURL) }
+
+            let check = runGit(arguments + ["--check", patchURL.path], cwd: cwd, timeoutSeconds: 20)
+            guard check.ok else { return check }
+            let apply = runGit(arguments + [patchURL.path], cwd: cwd, timeoutSeconds: 20)
+            if apply.ok {
+                return ToolResult(ok: true, stdout: successMessage, stderr: apply.stderr, exitCode: apply.exitCode)
+            }
+            return apply
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
+    private func mismatchedPatchPath(in patch: String, expectedPath: String) -> String? {
+        for line in patch.components(separatedBy: .newlines) {
+            guard line.hasPrefix("--- ") || line.hasPrefix("+++ ") || line.hasPrefix("diff --git ") else {
+                continue
+            }
+            for path in pathsInDiffMetadataLine(line) {
+                guard path != "/dev/null" else { continue }
+                let normalized = normalizedPatchPath(path)
+                guard normalized == expectedPath else {
+                    return normalized
+                }
+            }
+        }
+        return nil
+    }
+
+    private func pathsInDiffMetadataLine(_ line: String) -> [String] {
+        if line.hasPrefix("diff --git ") {
+            return pathsInDiffGitHeader(String(line.dropFirst("diff --git ".count)))
+        }
+        return line
+            .dropFirst(4)
+            .split(separator: "\t")
+            .first
+            .map { [String($0)] } ?? []
+    }
+
+    private func pathsInDiffGitHeader(_ header: String) -> [String] {
+        if header.hasPrefix("\"") {
+            return quotedPaths(in: header)
+        }
+        guard let secondPathRange = header.range(of: " b/") else {
+            return header.split(separator: " ").map(String.init)
+        }
+        let first = String(header[..<secondPathRange.lowerBound])
+        let second = String(header[header.index(after: secondPathRange.lowerBound)...])
+        return [first, second]
+    }
+
+    private func quotedPaths(in header: String) -> [String] {
+        var paths: [String] = []
+        var current = ""
+        var isInQuote = false
+        var isEscaped = false
+
+        for character in header {
+            if isEscaped {
+                current.append(character)
+                isEscaped = false
+                continue
+            }
+            if character == "\\" {
+                isEscaped = true
+                continue
+            }
+            if character == "\"" {
+                if isInQuote {
+                    paths.append(current)
+                    current = ""
+                }
+                isInQuote.toggle()
+                continue
+            }
+            if isInQuote {
+                current.append(character)
+            }
+        }
+        return paths
+    }
+
+    private func normalizedPatchPath(_ rawPath: String) -> String {
+        var path = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        if path.hasPrefix("\"") {
+            path.removeFirst()
+        }
+        if path.hasSuffix("\"") {
+            path.removeLast()
+        }
+        if path.hasPrefix("a/") || path.hasPrefix("b/") {
+            path.removeFirst(2)
+        }
+        return path
     }
 
     private func runGit(_ arguments: [String], cwd: URL, timeoutSeconds: TimeInterval) -> ToolResult {
@@ -138,6 +281,22 @@ public extension ToolDefinition {
         name: "host.git.restore",
         description: "Restore one file path inside the project from git.",
         parametersJSON: #"{"type":"object","properties":{"path":{"type":"string"},"staged":{"type":"boolean"}},"required":["path"]}"#,
+        host: .local,
+        risk: .destructive
+    )
+
+    static let gitStageHunk = ToolDefinition(
+        name: "host.git.stage_hunk",
+        description: "Stage one selected git diff hunk inside the project.",
+        parametersJSON: #"{"type":"object","properties":{"path":{"type":"string"},"patch":{"type":"string"}},"required":["path","patch"]}"#,
+        host: .local,
+        risk: .append
+    )
+
+    static let gitRestoreHunk = ToolDefinition(
+        name: "host.git.restore_hunk",
+        description: "Restore one selected git diff hunk inside the project.",
+        parametersJSON: #"{"type":"object","properties":{"path":{"type":"string"},"patch":{"type":"string"}},"required":["path","patch"]}"#,
         host: .local,
         risk: .destructive
     )

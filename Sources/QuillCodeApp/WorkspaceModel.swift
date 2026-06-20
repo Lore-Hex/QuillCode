@@ -519,6 +519,22 @@ private extension WorkspaceReviewActionSurface {
                 name: ToolDefinition.gitRestore.name,
                 argumentsJSON: ToolArguments.json(["path": path])
             )
+        case .stageHunk:
+            return ToolCall(
+                name: ToolDefinition.gitStageHunk.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": path,
+                    "patch": patch ?? ""
+                ])
+            )
+        case .restoreHunk:
+            return ToolCall(
+                name: ToolDefinition.gitRestoreHunk.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": path,
+                    "patch": patch ?? ""
+                ])
+            )
         }
     }
 }

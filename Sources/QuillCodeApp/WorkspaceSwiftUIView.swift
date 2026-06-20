@@ -351,29 +351,40 @@ private struct QuillCodeReviewPaneView: View {
 
             VStack(spacing: 0) {
                 ForEach(review.files) { file in
-                    HStack(spacing: 10) {
-                        Image(systemName: file.isBinary ? "photo" : "doc.plaintext")
-                            .foregroundStyle(QuillCodePalette.muted)
-                            .frame(width: 20)
-                        Text(file.path)
-                            .font(.callout.weight(.medium))
-                            .lineLimit(1)
-                        Spacer()
-                        Text(file.changeLabel)
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(QuillCodePalette.muted)
-                        HStack(spacing: 6) {
-                            ForEach(file.actions) { action in
-                                Button {
-                                    onReviewAction(action)
-                                } label: {
-                                    Label(action.kind.title, systemImage: action.kind.systemImage)
-                                        .labelStyle(.iconOnly)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 10) {
+                            Image(systemName: file.isBinary ? "photo" : "doc.plaintext")
+                                .foregroundStyle(QuillCodePalette.muted)
+                                .frame(width: 20)
+                            Text(file.path)
+                                .font(.callout.weight(.medium))
+                                .lineLimit(1)
+                            Spacer()
+                            Text(file.changeLabel)
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(QuillCodePalette.muted)
+                            HStack(spacing: 6) {
+                                ForEach(file.actions) { action in
+                                    QuillCodeReviewActionButton(action: action, path: file.path, onReviewAction: onReviewAction)
                                 }
-                                .buttonStyle(.borderless)
-                                .help("\(action.kind.title) \(file.path)")
-                                .foregroundStyle(action.kind == .restore ? QuillCodePalette.yellow : QuillCodePalette.blue)
                             }
+                        }
+
+                        ForEach(file.hunkItems) { hunk in
+                            HStack(spacing: 8) {
+                                Text(hunk.header)
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(QuillCodePalette.muted)
+                                    .lineLimit(1)
+                                Text(hunk.changeLabel)
+                                    .font(.caption.monospacedDigit())
+                                    .foregroundStyle(QuillCodePalette.muted)
+                                Spacer()
+                                ForEach(hunk.actions) { action in
+                                    QuillCodeReviewActionButton(action: action, path: hunk.path, onReviewAction: onReviewAction)
+                                }
+                            }
+                            .padding(.leading, 30)
                         }
                     }
                     .padding(.vertical, 8)
@@ -392,6 +403,24 @@ private struct QuillCodeReviewPaneView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct QuillCodeReviewActionButton: View {
+    var action: WorkspaceReviewActionSurface
+    var path: String
+    var onReviewAction: (WorkspaceReviewActionSurface) -> Void
+
+    var body: some View {
+        Button {
+            onReviewAction(action)
+        } label: {
+            Label(action.kind.title, systemImage: action.kind.systemImage)
+                .labelStyle(.iconOnly)
+        }
+        .buttonStyle(.borderless)
+        .help("\(action.kind.title) \(path)")
+        .foregroundStyle(action.kind == .restore || action.kind == .restoreHunk ? QuillCodePalette.yellow : QuillCodePalette.blue)
     }
 }
 

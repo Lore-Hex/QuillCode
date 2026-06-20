@@ -134,6 +134,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(review.totalHunks, 2)
         XCTAssertEqual(review.subtitle, "2 files changed, +3 -2")
         XCTAssertEqual(review.files.first?.actions.map(\.kind), [.stage, .restore])
+        XCTAssertEqual(review.files.first?.hunkItems.count, 1)
+        XCTAssertEqual(review.files.first?.hunkItems.first?.actions.map(\.kind), [.stageHunk, .restoreHunk])
+        XCTAssertTrue(review.files.first?.hunkItems.first?.patch.contains("diff --git a/Sources/App.swift b/Sources/App.swift") == true)
     }
 
     func testGitDiffReviewSurfaceHidesStaleDiffWhenLatestDiffFailed() throws {
@@ -232,8 +235,11 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="review-pane""#))
         XCTAssertTrue(html.contains(#"data-testid="review-file""#))
         XCTAssertTrue(html.contains(#"data-testid="review-action""#))
+        XCTAssertTrue(html.contains(#"data-testid="review-hunk""#))
         XCTAssertTrue(html.contains(#"data-action="stage""#))
         XCTAssertTrue(html.contains(#"data-action="restore""#))
+        XCTAssertTrue(html.contains(#"data-action="stage_hunk""#))
+        XCTAssertTrue(html.contains(#"data-action="restore_hunk""#))
         XCTAssertTrue(html.contains("Package.swift"))
         XCTAssertTrue(html.contains("Stage"))
         XCTAssertTrue(html.contains("Restore"))

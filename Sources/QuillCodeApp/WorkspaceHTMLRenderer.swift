@@ -102,6 +102,7 @@ public enum WorkspaceHTMLRenderer {
               <span>
                 \(file.actions.map(renderReviewAction).joined(separator: "\n"))
               </span>
+              \(file.hunkItems.map(renderReviewHunk).joined(separator: "\n"))
             </li>
             """
         }.joined(separator: "\n")
@@ -115,6 +116,18 @@ public enum WorkspaceHTMLRenderer {
             \(files)
           </ul>
         </section>
+        """
+    }
+
+    private static func renderReviewHunk(_ hunk: WorkspaceReviewHunkSurface) -> String {
+        """
+        <div data-testid="review-hunk">
+          <code data-testid="review-hunk-header">\(escape(hunk.header))</code>
+          <small>\(escape(hunk.changeLabel))</small>
+          <span>
+            \(hunk.actions.map(renderReviewAction).joined(separator: "\n"))
+          </span>
+        </div>
         """
     }
 
