@@ -33,4 +33,19 @@ final class ParityGateTests: XCTestCase {
             XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("docs/\(name)").path), name)
         }
     }
+
+    func testDesktopDefinesNativeMenuBarWidget() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let desktopSource = root.appendingPathComponent("Sources/quill-code-desktop/main.swift")
+        let text = try String(contentsOf: desktopSource, encoding: .utf8)
+
+        XCTAssertTrue(text.contains("MenuBarExtra"), "Desktop app should define a native menu-bar widget.")
+        XCTAssertTrue(text.contains(#"systemImage: "q.circle.fill""#), "Menu-bar widget should use a visible QuillCode symbol.")
+        for label in ["New Chat", "Open Project", "Command Palette", "Computer Use Setup", "Settings", "Stop All", "Disconnect All"] {
+            XCTAssertTrue(text.contains(label), "Menu-bar widget is missing \(label).")
+        }
+    }
 }

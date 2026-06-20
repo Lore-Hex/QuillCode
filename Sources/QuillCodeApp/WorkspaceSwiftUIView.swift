@@ -7,6 +7,7 @@ public struct QuillCodeWorkspaceView: View {
     @Binding public var terminalDraft: String
     @Binding public var browserAddressDraft: String
     @Binding public var isCommandPalettePresented: Bool
+    @Binding public var isSettingsPresented: Bool
     public var onSend: () -> Void
     public var onRunTerminalCommand: () -> Void
     public var onOpenBrowserPreview: () -> Void
@@ -24,7 +25,6 @@ public struct QuillCodeWorkspaceView: View {
     public var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
     public var onCommand: (WorkspaceCommandSurface) -> Void
 
-    @State private var isSettingsPresented = false
     @State private var isSearchPresented = false
     @State private var worktreeSheet: QuillCodeWorktreeSheet?
     @State private var searchQuery = ""
@@ -39,6 +39,7 @@ public struct QuillCodeWorkspaceView: View {
         terminalDraft: Binding<String>,
         browserAddressDraft: Binding<String>,
         isCommandPalettePresented: Binding<Bool>,
+        isSettingsPresented: Binding<Bool>,
         onSend: @escaping () -> Void,
         onRunTerminalCommand: @escaping () -> Void,
         onOpenBrowserPreview: @escaping () -> Void,
@@ -61,6 +62,7 @@ public struct QuillCodeWorkspaceView: View {
         self._terminalDraft = terminalDraft
         self._browserAddressDraft = browserAddressDraft
         self._isCommandPalettePresented = isCommandPalettePresented
+        self._isSettingsPresented = isSettingsPresented
         self.onSend = onSend
         self.onRunTerminalCommand = onRunTerminalCommand
         self.onOpenBrowserPreview = onOpenBrowserPreview
@@ -150,6 +152,11 @@ public struct QuillCodeWorkspaceView: View {
                     isSettingsPresented = false
                 }
             )
+        }
+        .onChange(of: isSettingsPresented) { _, isPresented in
+            if isPresented {
+                settingsDraft = QuillCodeSettingsDraft(settings: surface.settings)
+            }
         }
         .sheet(isPresented: $isSearchPresented) {
             QuillCodeSearchView(

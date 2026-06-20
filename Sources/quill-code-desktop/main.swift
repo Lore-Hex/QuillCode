@@ -1,13 +1,16 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import AppKit
 import QuillCodeApp
 import QuillCodeCore
 
 @main
 struct QuillCodeDesktopApp: App {
+    @StateObject private var controller = QuillCodeDesktopController()
+
     var body: some Scene {
         WindowGroup("QuillCode") {
-            QuillCodeDesktopRootView()
+            QuillCodeDesktopRootView(controller: controller)
         }
         .commands {
             CommandMenu("QuillCode") {
@@ -31,13 +34,35 @@ struct QuillCodeDesktopApp: App {
                     NotificationCenter.default.post(name: .quillCodeCommandPalette, object: nil)
                 }
                 .keyboardShortcut("p", modifiers: [.command, .shift])
+                Button("Settings...") {
+                    NotificationCenter.default.post(name: .quillCodeOpenSettings, object: nil)
+                }
+                .keyboardShortcut(",", modifiers: .command)
             }
+        }
+        MenuBarExtra {
+            QuillCodeMenuBarView(
+                surface: controller.surface,
+                onNewChat: controller.newChat,
+                onOpenProject: controller.requestAddProject,
+                onCommandPalette: controller.openCommandPalette,
+                onSettings: controller.openSettings,
+                onToggleTerminal: controller.toggleTerminal,
+                onToggleBrowser: controller.toggleBrowser,
+                onStopAll: controller.stopAll,
+                onComputerUseSetup: controller.openSettings,
+                onQuit: {
+                    NSApplication.shared.terminate(nil)
+                }
+            )
+        } label: {
+            Label("QuillCode", systemImage: "q.circle.fill")
         }
     }
 }
 
 private struct QuillCodeDesktopRootView: View {
-    @StateObject private var controller = QuillCodeDesktopController()
+    @ObservedObject var controller: QuillCodeDesktopController
 
     var body: some View {
         QuillCodeWorkspaceView(
@@ -46,6 +71,7 @@ private struct QuillCodeDesktopRootView: View {
             terminalDraft: $controller.terminalDraft,
             browserAddressDraft: $controller.browserAddressDraft,
             isCommandPalettePresented: $controller.isCommandPalettePresented,
+            isSettingsPresented: $controller.isSettingsPresented,
             onSend: controller.send,
             onRunTerminalCommand: controller.runTerminalCommand,
             onOpenBrowserPreview: controller.openBrowserPreview,
@@ -78,6 +104,9 @@ private struct QuillCodeDesktopRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeCommandPalette)) { _ in
             controller.openCommandPalette()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .quillCodeOpenSettings)) { _ in
+            controller.openSettings()
+        }
         .fileImporter(
             isPresented: $controller.isProjectImporterPresented,
             allowedContentTypes: [.folder],
@@ -98,6 +127,7 @@ private final class QuillCodeDesktopController: ObservableObject {
     @Published var terminalDraft: String
     @Published var browserAddressDraft: String
     @Published var isCommandPalettePresented = false
+    @Published var isSettingsPresented = false
     @Published var isProjectImporterPresented = false
 
     private let model: QuillCodeWorkspaceModel
@@ -230,7 +260,7 @@ private final class QuillCodeDesktopController: ObservableObject {
         case "command-palette":
             openCommandPalette()
         case "stop-all":
-            break
+            stopAll()
         default:
             if model.runWorkspaceCommand(command.id, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot) {
                 draft = model.composer.draft
@@ -310,6 +340,70 @@ private final class QuillCodeDesktopController: ObservableObject {
     func openCommandPalette() {
         isCommandPalettePresented = true
     }
+
+    func openSettings() {
+        isSettingsPresented = true
+    }
+
+    func stopAll() {
+        model.setDraft("")
+        draft = ""
+        refresh()
+    }
+}
+
+private struct QuillCodeMenuBarView: View {
+    var surface: WorkspaceSurface
+    var onNewChat: () -> Void
+    var onOpenProject: () -> Void
+    var onCommandPalette: () -> Void
+    var onSettings: () -> Void
+    var onToggleTerminal: () -> Void
+    var onToggleBrowser: () -> Void
+    var onStopAll: () -> Void
+    var onComputerUseSetup: () -> Void
+    var onQuit: () -> Void
+
+    var body: some View {
+        Text(surface.topBar.appName)
+            .font(.headline)
+        Text(surface.topBar.subtitle)
+            .font(.caption)
+        Divider()
+        Label(surface.topBar.agentStatus, systemImage: statusSystemImage)
+        Text("Thread: \(surface.topBar.primaryTitle)")
+        Text("Model: \(surface.topBar.modelLabel)")
+        Text("Mode: \(surface.topBar.modeLabel)")
+        Text("Computer Use: \(surface.topBar.computerUseLabel)")
+        Divider()
+        Button("New Chat", action: onNewChat)
+        Button("Open Project...", action: onOpenProject)
+        Button("Command Palette", action: onCommandPalette)
+        Button(surface.terminal.isVisible ? "Hide Terminal" : "Show Terminal", action: onToggleTerminal)
+        Button(surface.browser.isVisible ? "Hide Browser" : "Show Browser", action: onToggleBrowser)
+        if surface.topBar.showsComputerUseSetup {
+            Button("Computer Use Setup", action: onComputerUseSetup)
+        }
+        Button("Settings...", action: onSettings)
+        Divider()
+        Button("Stop All", action: onStopAll)
+            .disabled(!surface.composer.isSending)
+        Button("Disconnect All") {}
+            .disabled(true)
+        Divider()
+        Button("Quit QuillCode", action: onQuit)
+    }
+
+    private var statusSystemImage: String {
+        switch surface.topBar.agentStatus.lowercased() {
+        case let status where status.contains("fail"):
+            return "xmark.circle"
+        case let status where status.contains("running") || status.contains("terminal"):
+            return "arrow.triangle.2.circlepath"
+        default:
+            return "checkmark.circle"
+        }
+    }
 }
 
 private extension Notification.Name {
@@ -318,4 +412,5 @@ private extension Notification.Name {
     static let quillCodeCommandPalette = Notification.Name("QuillCodeCommandPalette")
     static let quillCodeToggleTerminal = Notification.Name("QuillCodeToggleTerminal")
     static let quillCodeToggleBrowser = Notification.Name("QuillCodeToggleBrowser")
+    static let quillCodeOpenSettings = Notification.Name("QuillCodeOpenSettings")
 }
