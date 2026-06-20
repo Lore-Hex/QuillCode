@@ -727,6 +727,7 @@ public extension QuillCodeWorkspaceModel {
             WorkspaceCommandSurface(id: "add-project", title: "Open project", shortcut: "Cmd+O"),
             WorkspaceCommandSurface(id: "toggle-terminal", title: "Terminal", shortcut: "Ctrl+`"),
             WorkspaceCommandSurface(id: "toggle-browser", title: "Browser", shortcut: "Cmd+Shift+B"),
+            WorkspaceCommandSurface(id: "git-pr-create", title: "Create pull request", isEnabled: activeWorkspaceRoot != nil),
             WorkspaceCommandSurface(id: "git-worktree-list", title: "List worktrees", isEnabled: activeWorkspaceRoot != nil),
             WorkspaceCommandSurface(id: "git-worktree-create", title: "Create worktree", isEnabled: activeWorkspaceRoot != nil),
             WorkspaceCommandSurface(id: "git-worktree-remove", title: "Remove worktree", isEnabled: activeWorkspaceRoot != nil),

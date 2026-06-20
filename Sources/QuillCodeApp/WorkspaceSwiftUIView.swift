@@ -331,6 +331,8 @@ private struct QuillCodeCommandPaletteView: View {
             return "terminal"
         case "toggle-browser":
             return "globe"
+        case "git-pr-create":
+            return "arrow.up.doc"
         case "git-worktree-list":
             return "point.3.connected.trianglepath.dotted"
         case "git-worktree-create":

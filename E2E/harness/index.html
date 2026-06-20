@@ -466,6 +466,7 @@
         { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', isEnabled: true },
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', isEnabled: true },
         { id: 'toggle-browser', title: 'Browser', shortcut: 'Cmd+Shift+B', isEnabled: true },
+        { id: 'git-pr-create', title: 'Create pull request', shortcut: '', isEnabled: true },
         { id: 'git-worktree-list', title: 'List worktrees', shortcut: '', isEnabled: true },
         { id: 'git-worktree-create', title: 'Create worktree', shortcut: '', isEnabled: true },
         { id: 'git-worktree-remove', title: 'Remove worktree', shortcut: '', isEnabled: true },
@@ -1079,12 +1080,15 @@
         addProject();
         return;
       }
-	      if (commandID === 'toggle-terminal') {
-	        state.terminal.isVisible = !state.terminal.isVisible;
-	      }
-	      if (commandID === 'toggle-browser') {
-	        state.browser.isVisible = !state.browser.isVisible;
-	      }
+      if (commandID === 'toggle-terminal') {
+        state.terminal.isVisible = !state.terminal.isVisible;
+      }
+      if (commandID === 'toggle-browser') {
+        state.browser.isVisible = !state.browser.isVisible;
+      }
+      if (commandID === 'git-pr-create') {
+        state.composer.draft = 'Create a pull request titled ';
+      }
       if (commandID === 'git-worktree-list') {
         listWorktrees();
         return;

@@ -46,6 +46,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "add-project",
             "toggle-terminal",
             "toggle-browser",
+            "git-pr-create",
             "git-worktree-list",
             "git-worktree-create",
             "git-worktree-remove",

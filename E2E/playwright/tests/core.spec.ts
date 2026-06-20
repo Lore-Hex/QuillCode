@@ -113,6 +113,18 @@ test('mock harness lists worktrees from the command palette', async ({ page }) =
   await expect(page.getByTestId('message').last()).toContainText('worktree /mock/QuillCode');
 });
 
+test('mock harness prepares pull request creation from the command palette', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('command-palette-button').click();
+  await page.getByLabel('Search commands').fill('pull request');
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
+  await page.getByRole('button', { name: /Create pull request/ }).click();
+
+  await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+  await expect(page.getByLabel('Message')).toHaveValue('Create a pull request titled ');
+});
+
 test('mock harness runs local environment action from the command palette', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

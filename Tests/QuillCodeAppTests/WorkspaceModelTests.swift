@@ -171,6 +171,9 @@ final class WorkspaceModelTests: XCTestCase {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()
 
+        XCTAssertTrue(model.runWorkspaceCommand("git-pr-create", workspaceRoot: root))
+        XCTAssertEqual(model.composer.draft, "Create a pull request titled ")
+
         XCTAssertTrue(model.runWorkspaceCommand("git-worktree-create", workspaceRoot: root))
         XCTAssertEqual(model.composer.draft, "Create a git worktree named ")
 

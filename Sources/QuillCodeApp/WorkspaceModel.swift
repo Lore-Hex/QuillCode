@@ -531,6 +531,9 @@ public final class QuillCodeWorkspaceModel {
                 workspaceRoot: workspaceRoot
             )
             return true
+        case "git-pr-create":
+            setDraft("Create a pull request titled ")
+            return true
         case "git-worktree-create":
             setDraft("Create a git worktree named ")
             return true
