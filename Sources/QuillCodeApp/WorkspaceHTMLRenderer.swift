@@ -110,7 +110,12 @@ public enum WorkspaceHTMLRenderer {
     private static func renderReview(_ review: WorkspaceReviewSurface) -> String {
         guard review.isVisible else { return "" }
         let files = review.files.map { file in
-            """
+            let comments = file.comments.map { comment in
+                """
+                <blockquote data-testid="review-comment">\(escape(comment.text))</blockquote>
+                """
+            }.joined(separator: "\n")
+            return """
             <li data-testid="review-file">
               <span data-testid="review-file-path">\(escape(file.path))</span>
               <small>\(escape(file.changeLabel))</small>
@@ -118,6 +123,7 @@ public enum WorkspaceHTMLRenderer {
                 \(file.actions.map(renderReviewAction).joined(separator: "\n"))
               </span>
               \(file.hunkItems.map(renderReviewHunk).joined(separator: "\n"))
+              \(comments)
             </li>
             """
         }.joined(separator: "\n")

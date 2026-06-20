@@ -58,6 +58,7 @@ private struct QuillCodeDesktopRootView: View {
             onSetModel: controller.setModel,
             onSaveSettings: controller.saveSettings,
             onReviewAction: controller.runReviewAction,
+            onAddReviewComment: controller.addReviewComment,
             onCreateWorktree: controller.createWorktree,
             onRemoveWorktree: controller.removeWorktree,
             onCommand: controller.runCommand
@@ -271,6 +272,11 @@ private final class QuillCodeDesktopController: ObservableObject {
 
     func runReviewAction(_ action: WorkspaceReviewActionSurface) {
         model.runReviewAction(action, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+        refresh()
+    }
+
+    func addReviewComment(path: String, text: String) {
+        _ = model.addReviewComment(path: path, text: text)
         refresh()
     }
 

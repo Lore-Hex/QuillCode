@@ -223,6 +223,39 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(review.files.first?.hunkItems.first?.patch.contains("diff --git a/Sources/App.swift b/Sources/App.swift") == true)
     }
 
+    func testGitDiffReviewSurfaceIncludesMatchingReviewComments() throws {
+        let diff = """
+        diff --git a/Sources/App.swift b/Sources/App.swift
+        --- a/Sources/App.swift
+        +++ b/Sources/App.swift
+        @@ -1 +1,2 @@
+        +let title = "QuillCode"
+         import Foundation
+        """
+        let call = ToolCall(name: "host.git.diff", argumentsJSON: "{}")
+        let result = ToolResult(ok: true, stdout: diff)
+        let matchingComment = WorkspaceReviewCommentState(path: "Sources/App.swift", text: "Check the public API name.")
+        let staleComment = WorkspaceReviewCommentState(path: "README.md", text: "This file is no longer in the diff.")
+        let thread = ChatThread(
+            title: "Review changes",
+            events: [
+                ThreadEvent(kind: .toolQueued, summary: "host.git.diff queued", payloadJSON: try JSONHelpers.encodePretty(call)),
+                ThreadEvent(kind: .toolCompleted, summary: "host.git.diff completed", payloadJSON: try JSONHelpers.encodePretty(result)),
+                ThreadEvent(kind: .reviewComment, summary: "Commented on Sources/App.swift", payloadJSON: try JSONHelpers.encodePretty(matchingComment)),
+                ThreadEvent(kind: .reviewComment, summary: "Commented on README.md", payloadJSON: try JSONHelpers.encodePretty(staleComment))
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let review = model.surface().review
+
+        XCTAssertEqual(review.files.count, 1)
+        XCTAssertEqual(review.files.first?.comments.map(\.text), ["Check the public API name."])
+    }
+
     func testGitDiffReviewSurfaceHidesStaleDiffWhenLatestDiffFailed() throws {
         let successfulCall = ToolCall(id: "git-diff-1", name: "host.git.diff", argumentsJSON: "{}")
         let failedCall = ToolCall(id: "git-diff-2", name: "host.git.diff", argumentsJSON: "{}")
@@ -348,11 +381,13 @@ final class WorkspaceSurfaceTests: XCTestCase {
         """
         let call = ToolCall(name: "host.git.diff", argumentsJSON: "{}")
         let result = ToolResult(ok: true, stdout: diff)
+        let comment = WorkspaceReviewCommentState(path: "Package.swift", text: "Confirm package tools version.")
         let thread = ChatThread(
             title: "Git diff",
             events: [
                 ThreadEvent(kind: .toolQueued, summary: "host.git.diff queued", payloadJSON: try JSONHelpers.encodePretty(call)),
-                ThreadEvent(kind: .toolCompleted, summary: "host.git.diff completed", payloadJSON: try JSONHelpers.encodePretty(result))
+                ThreadEvent(kind: .toolCompleted, summary: "host.git.diff completed", payloadJSON: try JSONHelpers.encodePretty(result)),
+                ThreadEvent(kind: .reviewComment, summary: "Commented on Package.swift", payloadJSON: try JSONHelpers.encodePretty(comment))
             ]
         )
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
@@ -366,11 +401,13 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="review-file""#))
         XCTAssertTrue(html.contains(#"data-testid="review-action""#))
         XCTAssertTrue(html.contains(#"data-testid="review-hunk""#))
+        XCTAssertTrue(html.contains(#"data-testid="review-comment""#))
         XCTAssertTrue(html.contains(#"data-action="stage""#))
         XCTAssertTrue(html.contains(#"data-action="restore""#))
         XCTAssertTrue(html.contains(#"data-action="stage_hunk""#))
         XCTAssertTrue(html.contains(#"data-action="restore_hunk""#))
         XCTAssertTrue(html.contains("Package.swift"))
+        XCTAssertTrue(html.contains("Confirm package tools version."))
         XCTAssertTrue(html.contains("Stage"))
         XCTAssertTrue(html.contains("Restore"))
         XCTAssertTrue(html.contains("1 file changed, +1 -0"))

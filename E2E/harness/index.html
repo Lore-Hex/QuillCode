@@ -293,6 +293,43 @@
       color: #ffe2a3;
       border-color: rgba(248,184,78,.28);
     }
+    .review-comments {
+      grid-column: 1 / -1;
+      display: grid;
+      gap: 6px;
+      margin-left: 20px;
+    }
+    .review-comment {
+      margin: 0;
+      padding: 7px 9px;
+      border-left: 2px solid rgba(65,184,232,.55);
+      color: var(--text);
+      background: rgba(0,0,0,.18);
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .review-comment-form {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      margin: 4px 0 0 20px;
+    }
+    .review-comment-form input {
+      min-width: 0;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.18);
+      color: var(--text);
+      padding: 7px 10px;
+    }
+    .review-comment-form button {
+      border-radius: 999px;
+      border: 1px solid rgba(65,184,232,.28);
+      background: rgba(65,184,232,.14);
+      color: #b6eaff;
+      padding: 7px 10px;
+    }
     pre { overflow: auto; white-space: pre-wrap; background: rgba(0,0,0,.38); border-radius: 10px; padding: 10px; color: #dff8ff; }
     .empty { margin: auto; max-width: 560px; color: var(--muted); text-align: center; }
     .composer {
@@ -492,6 +529,14 @@
                         </span>
                       </div>`).join('')}
                   </div>` : ''}
+                ${(file.comments || []).length ? `
+                  <div class="review-comments">
+                    ${file.comments.map(comment => `<blockquote class="review-comment" data-testid="review-comment">${escapeHTML(comment.text)}</blockquote>`).join('')}
+                  </div>` : ''}
+                <form class="review-comment-form" data-testid="review-comment-form" data-path="${escapeHTML(file.path)}">
+                  <input data-testid="review-comment-input" aria-label="Review note for ${escapeHTML(file.path)}" placeholder="Add review note">
+                  <button type="submit">Add note</button>
+                </form>
               </li>`).join('')}
           </ul>
         </section>` : '';
@@ -684,6 +729,14 @@
           const action = event.currentTarget.getAttribute('data-action');
           const path = event.currentTarget.getAttribute('data-path');
           runReviewAction(action, path);
+        });
+      });
+      document.querySelectorAll('[data-testid="review-comment-form"]').forEach(form => {
+        form.addEventListener('submit', event => {
+          event.preventDefault();
+          const path = event.currentTarget.getAttribute('data-path');
+          const input = event.currentTarget.querySelector('[data-testid="review-comment-input"]');
+          addReviewComment(path, input.value);
         });
       });
       document.querySelector('[data-testid="settings-cancel"]')?.addEventListener('click', () => {
@@ -1358,7 +1411,8 @@
           files: [{
             path: 'Sources/App.swift',
             changeLabel: '+1 · -0 · 1 hunk',
-            hunks: [{ header: '@@ -1 +1,2 @@', changeLabel: '+1 · -0' }]
+            hunks: [{ header: '@@ -1 +1,2 @@', changeLabel: '+1 · -0' }],
+            comments: []
           }]
         };
         state.transcript.toolCards.push({
@@ -1396,6 +1450,16 @@
         state.transcript.messages.push({ role: 'assistant', text: 'I can inspect and edit this project.' });
       }
       syncSelectedThreadSearchText();
+      render();
+    }
+
+    function addReviewComment(path, text) {
+      const trimmed = (text || '').trim();
+      if (!path || !trimmed) return;
+      const file = state.review.files.find(file => file.path === path);
+      if (!file) return;
+      file.comments = file.comments || [];
+      file.comments.push({ id: crypto.randomUUID(), path, text: trimmed });
       render();
     }
 

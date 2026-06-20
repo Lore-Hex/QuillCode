@@ -19,6 +19,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onSetModel: (String) -> Void
     public var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
     public var onReviewAction: (WorkspaceReviewActionSurface) -> Void
+    public var onAddReviewComment: (String, String) -> Void
     public var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
     public var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
     public var onCommand: (WorkspaceCommandSurface) -> Void
@@ -50,6 +51,7 @@ public struct QuillCodeWorkspaceView: View {
         onSetModel: @escaping (String) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onReviewAction: @escaping (WorkspaceReviewActionSurface) -> Void,
+        onAddReviewComment: @escaping (String, String) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
@@ -71,6 +73,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onSetModel = onSetModel
         self.onSaveSettings = onSaveSettings
         self.onReviewAction = onReviewAction
+        self.onAddReviewComment = onAddReviewComment
         self.onCreateWorktree = onCreateWorktree
         self.onRemoveWorktree = onRemoveWorktree
         self.onCommand = onCommand
@@ -103,7 +106,8 @@ public struct QuillCodeWorkspaceView: View {
                     QuillCodeTranscriptView(
                         transcript: surface.transcript,
                         review: surface.review,
-                        onReviewAction: onReviewAction
+                        onReviewAction: onReviewAction,
+                        onAddReviewComment: onAddReviewComment
                     )
                     if surface.browser.isVisible {
                         Divider()
@@ -800,6 +804,7 @@ private struct QuillCodeTranscriptView: View {
     var transcript: TranscriptSurface
     var review: WorkspaceReviewSurface
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
+    var onAddReviewComment: (String, String) -> Void
 
     var body: some View {
         ScrollView {
@@ -817,7 +822,11 @@ private struct QuillCodeTranscriptView: View {
                     .padding(.top, 180)
                 } else {
                     if review.isVisible {
-                        QuillCodeReviewPaneView(review: review, onReviewAction: onReviewAction)
+                        QuillCodeReviewPaneView(
+                            review: review,
+                            onReviewAction: onReviewAction,
+                            onAddReviewComment: onAddReviewComment
+                        )
                     }
                     ForEach(transcript.messages) { message in
                         QuillCodeMessageBubble(message: message)
@@ -1028,6 +1037,7 @@ private struct QuillCodeTerminalEntryView: View {
 private struct QuillCodeReviewPaneView: View {
     var review: WorkspaceReviewSurface
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
+    var onAddReviewComment: (String, String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1057,43 +1067,11 @@ private struct QuillCodeReviewPaneView: View {
 
             VStack(spacing: 0) {
                 ForEach(review.files) { file in
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 10) {
-                            Image(systemName: file.isBinary ? "photo" : "doc.plaintext")
-                                .foregroundStyle(QuillCodePalette.muted)
-                                .frame(width: 20)
-                            Text(file.path)
-                                .font(.callout.weight(.medium))
-                                .lineLimit(1)
-                            Spacer()
-                            Text(file.changeLabel)
-                                .font(.caption.monospacedDigit())
-                                .foregroundStyle(QuillCodePalette.muted)
-                            HStack(spacing: 6) {
-                                ForEach(file.actions) { action in
-                                    QuillCodeReviewActionButton(action: action, path: file.path, onReviewAction: onReviewAction)
-                                }
-                            }
-                        }
-
-                        ForEach(file.hunkItems) { hunk in
-                            HStack(spacing: 8) {
-                                Text(hunk.header)
-                                    .font(.caption.monospaced())
-                                    .foregroundStyle(QuillCodePalette.muted)
-                                    .lineLimit(1)
-                                Text(hunk.changeLabel)
-                                    .font(.caption.monospacedDigit())
-                                    .foregroundStyle(QuillCodePalette.muted)
-                                Spacer()
-                                ForEach(hunk.actions) { action in
-                                    QuillCodeReviewActionButton(action: action, path: hunk.path, onReviewAction: onReviewAction)
-                                }
-                            }
-                            .padding(.leading, 30)
-                        }
-                    }
-                    .padding(.vertical, 8)
+                    QuillCodeReviewFileRowView(
+                        file: file,
+                        onReviewAction: onReviewAction,
+                        onAddReviewComment: onAddReviewComment
+                    )
                     if file.id != review.files.last?.id {
                         Divider()
                     }
@@ -1109,6 +1087,88 @@ private struct QuillCodeReviewPaneView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct QuillCodeReviewFileRowView: View {
+    var file: WorkspaceReviewFileSurface
+    var onReviewAction: (WorkspaceReviewActionSurface) -> Void
+    var onAddReviewComment: (String, String) -> Void
+
+    @State private var commentDraft = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: file.isBinary ? "photo" : "doc.plaintext")
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .frame(width: 20)
+                Text(file.path)
+                    .font(.callout.weight(.medium))
+                    .lineLimit(1)
+                Spacer()
+                Text(file.changeLabel)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(QuillCodePalette.muted)
+                HStack(spacing: 6) {
+                    ForEach(file.actions) { action in
+                        QuillCodeReviewActionButton(action: action, path: file.path, onReviewAction: onReviewAction)
+                    }
+                }
+            }
+
+            ForEach(file.hunkItems) { hunk in
+                HStack(spacing: 8) {
+                    Text(hunk.header)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(1)
+                    Text(hunk.changeLabel)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(QuillCodePalette.muted)
+                    Spacer()
+                    ForEach(hunk.actions) { action in
+                        QuillCodeReviewActionButton(action: action, path: hunk.path, onReviewAction: onReviewAction)
+                    }
+                }
+                .padding(.leading, 30)
+            }
+
+            if !file.comments.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(file.comments) { comment in
+                        Label(comment.text, systemImage: "text.bubble")
+                            .font(.caption)
+                            .foregroundStyle(QuillCodePalette.text)
+                            .labelStyle(.titleAndIcon)
+                    }
+                }
+                .padding(.leading, 30)
+            }
+
+            HStack(spacing: 8) {
+                TextField("Add review note", text: $commentDraft)
+                    .textFieldStyle(.plain)
+                    .font(.caption)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 7)
+                    .background(QuillCodePalette.background.opacity(0.72))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                Button {
+                    let text = commentDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                    onAddReviewComment(file.path, text)
+                    commentDraft = ""
+                } label: {
+                    Label("Add review note", systemImage: "plus.bubble")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.borderless)
+                .disabled(commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .help("Add review note to \(file.path)")
+            }
+            .padding(.leading, 30)
+        }
+        .padding(.vertical, 8)
     }
 }
 

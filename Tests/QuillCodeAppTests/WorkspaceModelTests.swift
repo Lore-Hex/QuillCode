@@ -650,6 +650,36 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(try runGit(["status", "--short"], cwd: root), "M  hello.txt\n")
     }
 
+    func testAddReviewCommentAppendsThreadEventForVisibleDiffFile() throws {
+        let diff = """
+        diff --git a/hello.txt b/hello.txt
+        --- a/hello.txt
+        +++ b/hello.txt
+        @@ -1 +1,2 @@
+        +new
+         old
+        """
+        let call = ToolCall(name: "host.git.diff", argumentsJSON: "{}")
+        let result = ToolResult(ok: true, stdout: diff)
+        let thread = ChatThread(
+            title: "Review",
+            events: [
+                ThreadEvent(kind: .toolQueued, summary: "host.git.diff queued", payloadJSON: try JSONHelpers.encodePretty(call)),
+                ThreadEvent(kind: .toolCompleted, summary: "host.git.diff completed", payloadJSON: try JSONHelpers.encodePretty(result))
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        XCTAssertTrue(model.addReviewComment(path: "hello.txt", text: "Keep this wording direct."))
+        XCTAssertFalse(model.addReviewComment(path: "README.md", text: "Stale file"))
+
+        XCTAssertEqual(model.selectedThread?.events.filter { $0.kind == .reviewComment }.count, 1)
+        XCTAssertEqual(model.surface().review.files.first?.comments.map(\.text), ["Keep this wording direct."])
+    }
+
     func testRunReviewRestoreActionRestoresFileAndRefreshesDiff() throws {
         let root = try makeTempDirectory()
         try initializeGitRepository(at: root)

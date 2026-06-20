@@ -139,6 +139,25 @@ public struct BrowserCommentState: Sendable, Hashable, Identifiable {
     }
 }
 
+public struct WorkspaceReviewCommentState: Codable, Sendable, Hashable, Identifiable {
+    public var id: UUID
+    public var path: String
+    public var text: String
+    public var createdAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        path: String,
+        text: String,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.path = path
+        self.text = text
+        self.createdAt = createdAt
+    }
+}
+
 public struct BrowserState: Sendable, Hashable {
     public var isVisible: Bool
     public var addressDraft: String
@@ -466,6 +485,38 @@ public final class QuillCodeWorkspaceModel {
     }
 
     @discardableResult
+    public func addReviewComment(path: String, text: String) -> Bool {
+        let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard selectedThread != nil,
+              !trimmedPath.isEmpty,
+              !trimmedText.isEmpty
+        else {
+            return false
+        }
+
+        let currentReview = surface().review
+        guard currentReview.files.contains(where: { $0.path == trimmedPath }) else {
+            return false
+        }
+
+        let comment = WorkspaceReviewCommentState(path: trimmedPath, text: trimmedText)
+        let payloadJSON = (try? JSONHelpers.encodePretty(comment)) ?? "{}"
+        mutateSelectedThread { thread in
+            thread.events.append(.init(
+                kind: .reviewComment,
+                summary: "Commented on \(trimmedPath)",
+                payloadJSON: payloadJSON
+            ))
+        }
+        if let thread = selectedThread {
+            try? threadStore?.save(thread)
+        }
+        refreshTopBar(agentStatus: "Idle")
+        return true
+    }
+
+    @discardableResult
     public func runWorkspaceCommand(_ commandID: String, workspaceRoot: URL) -> Bool {
         if commandID.hasPrefix("local-env:") {
             return runLocalEnvironmentAction(commandID, workspaceRoot: workspaceRoot)
@@ -624,7 +675,7 @@ public final class QuillCodeWorkspaceModel {
                     inputJSON: event.payloadJSON,
                     isExpanded: true
                 ))
-            case .message, .approvalDecided, .notice:
+            case .message, .approvalDecided, .reviewComment, .notice:
                 continue
             }
         }

@@ -255,6 +255,10 @@ test('mock harness shows git review summary for diff flow', async ({ page }) => 
   await expect(page.getByTestId('review-file')).toContainText('Sources/App.swift');
   await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.diff');
   await expect(page.getByTestId('tool-card-output')).toContainText('diff --git');
+
+  await page.getByLabel('Review note for Sources/App.swift').fill('Check the exported symbol name');
+  await page.getByRole('button', { name: 'Add note' }).click();
+  await expect(page.getByTestId('review-comment')).toContainText('Check the exported symbol name');
 });
 
 test('mock harness stages a changed file from the review pane', async ({ page }) => {

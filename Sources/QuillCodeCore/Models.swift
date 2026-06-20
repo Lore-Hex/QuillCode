@@ -145,6 +145,7 @@ public enum ThreadEventKind: String, Codable, Sendable {
     case toolFailed
     case approvalRequested
     case approvalDecided
+    case reviewComment
     case notice
 }
 

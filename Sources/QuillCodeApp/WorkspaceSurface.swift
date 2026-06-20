@@ -369,6 +369,20 @@ public struct BrowserCommentSurface: Codable, Sendable, Hashable, Identifiable {
     }
 }
 
+public struct WorkspaceReviewCommentSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: UUID
+    public var path: String
+    public var text: String
+    public var createdAt: Date
+
+    public init(comment: WorkspaceReviewCommentState) {
+        self.id = comment.id
+        self.path = comment.path
+        self.text = comment.text
+        self.createdAt = comment.createdAt
+    }
+}
+
 public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: String { path }
     public var path: String
@@ -377,6 +391,7 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
     public var hunks: Int
     public var isBinary: Bool
     public var hunkItems: [WorkspaceReviewHunkSurface]
+    public var comments: [WorkspaceReviewCommentSurface]
 
     public var changeLabel: String {
         var parts = ["+\(insertions)", "-\(deletions)"]
@@ -402,7 +417,8 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
         deletions: Int,
         hunks: Int,
         isBinary: Bool = false,
-        hunkItems: [WorkspaceReviewHunkSurface] = []
+        hunkItems: [WorkspaceReviewHunkSurface] = [],
+        comments: [WorkspaceReviewCommentSurface] = []
     ) {
         self.path = path
         self.insertions = insertions
@@ -410,6 +426,7 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
         self.hunks = hunks
         self.isBinary = isBinary
         self.hunkItems = hunkItems
+        self.comments = comments
     }
 }
 
@@ -622,7 +639,7 @@ public extension QuillCodeWorkspaceModel {
                 messages: (thread?.messages ?? []).map(MessageSurface.init),
                 toolCards: toolCards
             ),
-            review: reviewSurface(from: toolCards),
+            review: reviewSurface(from: toolCards, events: thread?.events ?? []),
             terminal: TerminalSurface(
                 terminal: terminal,
                 cwd: activeWorkspaceRoot
@@ -725,7 +742,7 @@ public extension QuillCodeWorkspaceModel {
         ]
     }
 
-    private func reviewSurface(from toolCards: [ToolCardState]) -> WorkspaceReviewSurface {
+    private func reviewSurface(from toolCards: [ToolCardState], events: [ThreadEvent]) -> WorkspaceReviewSurface {
         guard let card = toolCards.reversed().first(where: { $0.title == "host.git.diff" }),
               card.status == .done,
               let outputJSON = card.outputJSON,
@@ -734,7 +751,33 @@ public extension QuillCodeWorkspaceModel {
         else {
             return WorkspaceReviewSurface()
         }
-        return GitDiffReviewParser.parse(result.stdout)
+        var review = GitDiffReviewParser.parse(result.stdout)
+        let commentsByPath = Self.reviewCommentsByPath(from: events)
+        review.files = review.files.map { file in
+            var file = file
+            file.comments = commentsByPath[file.path] ?? []
+            return file
+        }
+        return review
+    }
+
+    private static func reviewCommentsByPath(from events: [ThreadEvent]) -> [String: [WorkspaceReviewCommentSurface]] {
+        var commentsByPath: [String: [WorkspaceReviewCommentSurface]] = [:]
+        for event in events where event.kind == .reviewComment {
+            guard let comment = decode(WorkspaceReviewCommentState.self, event.payloadJSON) else {
+                continue
+            }
+            commentsByPath[comment.path, default: []].append(WorkspaceReviewCommentSurface(comment: comment))
+        }
+        for path in commentsByPath.keys {
+            commentsByPath[path]?.sort { $0.createdAt < $1.createdAt }
+        }
+        return commentsByPath
+    }
+
+    private static func decode<T: Decodable>(_ type: T.Type, _ payloadJSON: String?) -> T? {
+        guard let payloadJSON else { return nil }
+        return try? JSONHelpers.decode(type, from: payloadJSON)
     }
 
     static func modeLabel(_ mode: AgentMode) -> String {
