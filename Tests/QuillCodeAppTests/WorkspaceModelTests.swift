@@ -168,9 +168,23 @@ final class WorkspaceModelTests: XCTestCase {
             defaultModel: "trustedrouter/glm-5.2",
             mode: .review
         ))
+        let project = ProjectRef(name: "QuillCode", path: root.path)
+        try JSONProjectStore(fileURL: paths.projectsFile).save([project])
         let store = JSONThreadStore(directory: paths.threadsDirectory)
-        let older = ChatThread(title: "Older", updatedAt: Date(timeIntervalSince1970: 1))
-        let newer = ChatThread(title: "Newer", updatedAt: Date(timeIntervalSince1970: 2))
+        let older = ChatThread(
+            title: "Older",
+            projectID: project.id,
+            mode: .review,
+            model: "trustedrouter/glm-5.2",
+            updatedAt: Date(timeIntervalSince1970: 1)
+        )
+        let newer = ChatThread(
+            title: "Newer",
+            projectID: project.id,
+            mode: .review,
+            model: "trustedrouter/glm-5.2",
+            updatedAt: Date(timeIntervalSince1970: 2)
+        )
         try store.save(older)
         try store.save(newer)
 
@@ -178,13 +192,28 @@ final class WorkspaceModelTests: XCTestCase {
 
         XCTAssertEqual(model.root.config.defaultModel, "trustedrouter/glm-5.2")
         XCTAssertEqual(model.root.config.mode, .review)
+        XCTAssertEqual(model.root.projects.map(\.name), ["QuillCode"])
+        XCTAssertEqual(model.root.selectedProjectID, project.id)
         XCTAssertEqual(model.root.threads.map(\.title), ["Newer", "Older"])
         XCTAssertEqual(model.root.selectedThreadID, newer.id)
         XCTAssertEqual(model.surface().topBar.primaryTitle, "Newer")
+        XCTAssertEqual(model.surface().topBar.subtitle, "QuillCode - Review - trustedrouter/glm-5.2")
 
         let nextConfig = AppConfig(defaultModel: "trustedrouter/fusion", mode: .auto)
         try QuillCodeWorkspaceBootstrap(paths: paths).saveConfig(nextConfig)
         XCTAssertEqual(try ConfigStore(fileURL: paths.configFile).load(), nextConfig)
+    }
+
+    func testModelPersistsProjectRegistryChanges() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let projectStore = JSONProjectStore(fileURL: paths.projectsFile)
+        let model = QuillCodeWorkspaceModel(projectStore: projectStore)
+
+        _ = model.addProject(path: root, name: "QuillCode")
+
+        XCTAssertEqual(try projectStore.load().map(\.name), ["QuillCode"])
     }
 
     func testRuntimeFactoryUsesTrustedRouterWhenEnvironmentKeyExists() throws {

@@ -8,7 +8,7 @@ This initial repository contains the compile-stable foundation:
 - shell, file, and git tool executors
 - Auto safety review policy with `glm-5.2` and `kimi-k2.6` model slots
 - TrustedRouter LLM and safety-model adapters
-- JSON thread persistence and a single secret-store protocol
+- JSON thread/project persistence and a single secret-store protocol
 - Computer Use backend protocol and stub backend
 - deterministic mock LLM agent runner
 - `quill-code` CLI harness

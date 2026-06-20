@@ -21,6 +21,25 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(try store.list().count, 1)
     }
 
+    func testProjectStoreRoundTripsSortedByLastOpened() throws {
+        let root = try makeTempDirectory()
+        let store = JSONProjectStore(fileURL: root.appendingPathComponent("projects.json"))
+        let older = ProjectRef(
+            name: "Older",
+            path: "/tmp/older",
+            lastOpenedAt: Date(timeIntervalSince1970: 1)
+        )
+        let newer = ProjectRef(
+            name: "Newer",
+            path: "/tmp/newer",
+            lastOpenedAt: Date(timeIntervalSince1970: 2)
+        )
+
+        try store.save([older, newer])
+
+        XCTAssertEqual(try store.load().map(\.name), ["Newer", "Older"])
+    }
+
     func testFileSecretStoreRoundTrips() throws {
         let root = try makeTempDirectory()
         let store = FileSecretStore(directory: root)

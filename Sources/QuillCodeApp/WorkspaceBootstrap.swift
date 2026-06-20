@@ -19,12 +19,19 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         try paths.ensure()
         let config = try ConfigStore(fileURL: paths.configFile).load()
         let threadStore = JSONThreadStore(directory: paths.threadsDirectory)
+        let projectStore = JSONProjectStore(fileURL: paths.projectsFile)
+        let projects = try projectStore.load()
         let threads = try threadStore.list()
         let selectedThreadID = threads.first(where: { !$0.isArchived })?.id
+        let selectedProjectID = selectedThreadID
+            .flatMap { id in threads.first { $0.id == id }?.projectID }
+            ?? projects.first?.id
         let runtime = runtimeFactory.makeRuntime(config: config)
         return QuillCodeWorkspaceModel(
             root: QuillCodeRootState(
                 config: config,
+                projects: projects,
+                selectedProjectID: selectedProjectID,
                 threads: threads,
                 selectedThreadID: selectedThreadID,
                 topBar: TopBarState(
@@ -38,7 +45,8 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
                 )
             ),
             runner: runtime.runner,
-            threadStore: threadStore
+            threadStore: threadStore,
+            projectStore: projectStore
         )
     }
 

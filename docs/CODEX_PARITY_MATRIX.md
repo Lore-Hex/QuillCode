@@ -3,7 +3,7 @@
 | Area | Feature | Status | Notes |
 | --- | --- | --- | --- |
 | Core | Threads and transcript persistence | Implemented | JSON thread store, desktop bootstrap loading, and mock agent runner. |
-| Core | Project picker/sidebar | Partial | Workspace state model, selected-project context, native project rail, current-directory desktop project seed, thread selection, pin/archive sorting, and Playwright coverage exist; native folder picker and persisted project registry pending. |
+| Core | Project picker/sidebar | Partial | Workspace state model, persisted project registry, selected-project context, native project rail, current-directory desktop project seed, thread selection, pin/archive sorting, and Playwright coverage exist; native folder picker pending. |
 | Core | TrustedRouter runtime | Partial | CLI and desktop can use live TrustedRouter when an env or stored secret key exists; CLI auth key management exists; desktop refreshes the live model catalog when keyed; OAuth flow pending. |
 | Core | TrustedRouter model picker | Partial | Catalog model, live fetch adapter, grouped provider/category/model SwiftUI picker, and Playwright coverage exist; richer search/filter browser pending. |
 | Tools | Shell commands | Implemented | `host.shell.run` with empty-command guard. |

@@ -63,17 +63,20 @@ public final class QuillCodeWorkspaceModel {
 
     private let runner: AgentRunner
     private let threadStore: JSONThreadStore?
+    private let projectStore: JSONProjectStore?
 
     public init(
         root: QuillCodeRootState = QuillCodeRootState(),
         composer: ComposerState = ComposerState(),
         runner: AgentRunner = AgentRunner(),
-        threadStore: JSONThreadStore? = nil
+        threadStore: JSONThreadStore? = nil,
+        projectStore: JSONProjectStore? = nil
     ) {
         self.root = root
         self.composer = composer
         self.runner = runner
         self.threadStore = threadStore
+        self.projectStore = projectStore
         refreshTopBar()
     }
 
@@ -111,6 +114,7 @@ public final class QuillCodeWorkspaceModel {
         root.selectedThreadID = thread.id
         root.selectedProjectID = effectiveProjectID
         touchProject(effectiveProjectID)
+        saveProjects()
         refreshTopBar(agentStatus: "Idle")
         return thread.id
     }
@@ -120,6 +124,7 @@ public final class QuillCodeWorkspaceModel {
         root.selectedThreadID = id
         root.selectedProjectID = knownProjectID(thread.projectID)
         touchProject(root.selectedProjectID)
+        saveProjects()
         refreshTopBar(agentStatus: "Idle")
     }
 
@@ -131,6 +136,7 @@ public final class QuillCodeWorkspaceModel {
             root.projects[index].name = projectName
             root.projects[index].lastOpenedAt = Date()
             root.selectedProjectID = root.projects[index].id
+            saveProjects()
             refreshTopBar(agentStatus: "Idle")
             return root.projects[index].id
         }
@@ -138,6 +144,7 @@ public final class QuillCodeWorkspaceModel {
         let project = ProjectRef(name: projectName, path: standardized.path)
         root.projects.insert(project, at: 0)
         root.selectedProjectID = project.id
+        saveProjects()
         refreshTopBar(agentStatus: "Idle")
         return project.id
     }
@@ -153,6 +160,7 @@ public final class QuillCodeWorkspaceModel {
             .sorted { $0.updatedAt > $1.updatedAt }
             .first?
             .id
+        saveProjects()
         refreshTopBar(agentStatus: "Idle")
     }
 
@@ -288,6 +296,7 @@ public final class QuillCodeWorkspaceModel {
         root.selectedThreadID = thread.id
         root.selectedProjectID = knownProjectID(thread.projectID)
         touchProject(root.selectedProjectID)
+        saveProjects()
     }
 
     private func refreshTopBar(agentStatus: String? = nil) {
@@ -312,6 +321,10 @@ public final class QuillCodeWorkspaceModel {
     private func knownProjectID(_ id: UUID?) -> UUID? {
         guard let id, root.projects.contains(where: { $0.id == id }) else { return nil }
         return id
+    }
+
+    private func saveProjects() {
+        try? projectStore?.save(root.projects)
     }
 
     private static func defaultProjectName(for url: URL) -> String {
