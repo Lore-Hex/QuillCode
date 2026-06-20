@@ -118,6 +118,17 @@ public struct StaticSafetyReviewer: SafetyReviewer {
         if user.contains("run") || user.contains("execute") {
             return true
         }
+        if user.contains("pull request")
+            || user.contains("open pr")
+            || user.contains("open a pr")
+            || user.contains("create pr")
+            || user.contains("create a pr")
+            || user.contains("submit pr")
+            || user.contains("submit a pr") {
+            return context.toolCall.name.contains("git.pr.create")
+                || context.toolCall.name.contains("git.push")
+                || context.toolCall.name.contains("git.status")
+        }
         if user.contains("make") || user.contains("create") || user.contains("write") {
             return context.toolCall.name.contains("file")
                 || context.toolCall.name.contains("shell")

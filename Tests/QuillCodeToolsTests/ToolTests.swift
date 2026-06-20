@@ -234,6 +234,58 @@ final class ToolTests: XCTestCase {
         XCTAssertFalse(GitToolExecutor().push(cwd: root, remote: "origin", branch: "feature;rm").ok)
     }
 
+    func testGitCreatePullRequestUsesGitHubCLIArguments() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        let git = GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+
+        let result = git.createPullRequest(
+            cwd: root,
+            title: "Add PR tool",
+            body: "Adds structured pull request creation.",
+            base: "main",
+            head: "feature/pr-tool",
+            draft: true
+        )
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(result.artifacts, ["https://github.com/example/repo/pull/123"])
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, [
+            "pr",
+            "create",
+            "--title",
+            "Add PR tool",
+            "--body",
+            "Adds structured pull request creation.",
+            "--base",
+            "main",
+            "--head",
+            "feature/pr-tool",
+            "--draft"
+        ])
+    }
+
+    func testGitCreatePullRequestRequiresTitleUnlessFillIsEnabled() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        let git = GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+
+        XCTAssertFalse(git.createPullRequest(cwd: root, title: " ").ok)
+
+        let result = git.createPullRequest(cwd: root, fill: true)
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, ["pr", "create", "--fill"])
+    }
+
     func testGitWorktreeCreateListAndRemoveSibling() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let parent = root.deletingLastPathComponent()
@@ -310,6 +362,7 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.restore_hunk"))
         XCTAssertTrue(definitions.contains("host.git.commit"))
         XCTAssertTrue(definitions.contains("host.git.push"))
+        XCTAssertTrue(definitions.contains("host.git.pr.create"))
         XCTAssertTrue(definitions.contains("host.git.worktree.list"))
         XCTAssertTrue(definitions.contains("host.git.worktree.create"))
         XCTAssertTrue(definitions.contains("host.git.worktree.remove"))
@@ -346,6 +399,27 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
     }
 
+    func testToolRouterRoutesGitPullRequestCreate() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        let router = ToolRouter(
+            workspaceRoot: root,
+            git: GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+        )
+
+        let result = router.execute(ToolCall(
+            name: ToolDefinition.gitPullRequestCreate.name,
+            argumentsJSON: #"{"title":"Add PR route","base":"main","draft":true}"#
+        ))
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, ["pr", "create", "--title", "Add PR route", "--base", "main", "--draft"])
+    }
+
     private func makeTempDirectory() throws -> URL {
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("QuillCodeToolTests-\(UUID().uuidString)")
@@ -377,5 +451,17 @@ final class ToolTests: XCTestCase {
     private func currentBranchName(in root: URL) -> String {
         let result = ShellToolExecutor().run(.init(command: "git branch --show-current", cwd: root))
         return result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func makeFakeGitHubCLI(in root: URL, argumentsFile: URL) throws -> URL {
+        let script = root.appendingPathComponent("fake-gh")
+        let argumentsPath = argumentsFile.path.replacingOccurrences(of: "'", with: "'\\''")
+        try """
+        #!/bin/sh
+        printf '%s\\n' "$@" > '\(argumentsPath)'
+        echo 'https://github.com/example/repo/pull/123'
+        """.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        return script
     }
 }

@@ -5,6 +5,7 @@ public enum GitToolError: Error, CustomStringConvertible {
     case emptyPath
     case emptyPatch
     case emptyCommitMessage
+    case emptyPullRequestTitle
     case emptyBranch
     case invalidGitName(String)
     case noCurrentBranch
@@ -22,6 +23,8 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "Git patch is empty."
         case .emptyCommitMessage:
             return "Git commit message is required."
+        case .emptyPullRequestTitle:
+            return "Git pull request title is required unless fill is enabled."
         case .emptyBranch:
             return "Git branch is required."
         case .invalidGitName(let value):
@@ -44,9 +47,14 @@ public enum GitToolError: Error, CustomStringConvertible {
 
 public struct GitToolExecutor: Sendable {
     private let shell: ShellToolExecutor
+    private let githubCLIExecutable: URL?
 
-    public init(shell: ShellToolExecutor = ShellToolExecutor()) {
+    public init(
+        shell: ShellToolExecutor = ShellToolExecutor(),
+        githubCLIExecutable: URL? = nil
+    ) {
         self.shell = shell
+        self.githubCLIExecutable = githubCLIExecutable
     }
 
     public func status(cwd: URL) -> ToolResult {
@@ -118,6 +126,57 @@ public struct GitToolExecutor: Sendable {
             }
             arguments += [remoteName, branchName]
             return runGit(arguments, cwd: cwd, timeoutSeconds: 120)
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
+    public func createPullRequest(
+        cwd: URL,
+        title: String? = nil,
+        body: String? = nil,
+        base: String? = nil,
+        head: String? = nil,
+        draft: Bool = false,
+        fill: Bool = false
+    ) -> ToolResult {
+        do {
+            let trimmedTitle = trimmedNonEmpty(title)
+            guard fill || trimmedTitle != nil else {
+                throw GitToolError.emptyPullRequestTitle
+            }
+
+            var arguments = ["pr", "create"]
+            if let trimmedTitle {
+                arguments += ["--title", trimmedTitle]
+            }
+            if let body = trimmedNonEmpty(body) {
+                arguments += ["--body", body]
+            }
+            if let base = trimmedNonEmpty(base) {
+                arguments += ["--base", try safeGitName(base)]
+            }
+            if let head = trimmedNonEmpty(head) {
+                arguments += ["--head", try safeGitName(head)]
+            }
+            if draft {
+                arguments.append("--draft")
+            }
+            if fill {
+                arguments.append("--fill")
+            }
+
+            let result = runGitHub(arguments, cwd: cwd, timeoutSeconds: 120)
+            if result.ok {
+                return ToolResult(
+                    ok: true,
+                    stdout: result.stdout,
+                    stderr: result.stderr,
+                    exitCode: result.exitCode,
+                    artifacts: extractURLs(from: result.stdout)
+                )
+            }
+            return result
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
@@ -249,6 +308,13 @@ public struct GitToolExecutor: Sendable {
             throw GitToolError.noCurrentBranch
         }
         return try safeGitName(branch)
+    }
+
+    private func extractURLs(from output: String) -> [String] {
+        output
+            .split { $0.isWhitespace }
+            .map(String.init)
+            .filter { $0.hasPrefix("https://") || $0.hasPrefix("http://") }
     }
 
     private func registeredWorktreePaths(cwd: URL) -> (paths: Set<String>, failure: ToolResult?) {
@@ -394,9 +460,44 @@ public struct GitToolExecutor: Sendable {
     }
 
     private func runGit(_ arguments: [String], cwd: URL, timeoutSeconds: TimeInterval) -> ToolResult {
+        runProcess(
+            executableURL: URL(fileURLWithPath: "/usr/bin/env"),
+            arguments: ["git"] + arguments,
+            cwd: cwd,
+            timeoutSeconds: timeoutSeconds,
+            toolName: "Git"
+        )
+    }
+
+    private func runGitHub(_ arguments: [String], cwd: URL, timeoutSeconds: TimeInterval) -> ToolResult {
+        if let githubCLIExecutable {
+            return runProcess(
+                executableURL: githubCLIExecutable,
+                arguments: arguments,
+                cwd: cwd,
+                timeoutSeconds: timeoutSeconds,
+                toolName: "GitHub CLI"
+            )
+        }
+        return runProcess(
+            executableURL: URL(fileURLWithPath: "/usr/bin/env"),
+            arguments: ["gh"] + arguments,
+            cwd: cwd,
+            timeoutSeconds: timeoutSeconds,
+            toolName: "GitHub CLI"
+        )
+    }
+
+    private func runProcess(
+        executableURL: URL,
+        arguments: [String],
+        cwd: URL,
+        timeoutSeconds: TimeInterval,
+        toolName: String
+    ) -> ToolResult {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["git"] + arguments
+        process.executableURL = executableURL
+        process.arguments = arguments
         process.currentDirectoryURL = cwd
 
         let stdout = Pipe()
@@ -407,14 +508,14 @@ public struct GitToolExecutor: Sendable {
         do {
             try process.run()
         } catch {
-            return ToolResult(ok: false, error: "Failed to start git: \(error)")
+            return ToolResult(ok: false, error: "Failed to start \(toolName.lowercased()): \(error)")
         }
 
         let semaphore = DispatchSemaphore(value: 0)
         process.terminationHandler = { _ in semaphore.signal() }
         if semaphore.wait(timeout: .now() + timeoutSeconds) == .timedOut {
             process.terminate()
-            return ToolResult(ok: false, error: "Git command timed out after \(Int(timeoutSeconds))s.")
+            return ToolResult(ok: false, error: "\(toolName) command timed out after \(Int(timeoutSeconds))s.")
         }
 
         let out = String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
@@ -425,7 +526,7 @@ public struct GitToolExecutor: Sendable {
             stdout: out,
             stderr: err,
             exitCode: process.terminationStatus,
-            error: ok ? nil : "Git command failed with exit code \(process.terminationStatus)."
+            error: ok ? nil : "\(toolName) command failed with exit code \(process.terminationStatus)."
         )
     }
 }
@@ -491,6 +592,14 @@ public extension ToolDefinition {
         name: "host.git.push",
         description: "Push a project branch to a named git remote. Defaults to remote origin and the current branch.",
         parametersJSON: #"{"type":"object","properties":{"remote":{"type":"string"},"branch":{"type":"string"},"setUpstream":{"type":"boolean"}}}"#,
+        host: .local,
+        risk: .append
+    )
+
+    static let gitPullRequestCreate = ToolDefinition(
+        name: "host.git.pr.create",
+        description: "Create a GitHub pull request for the current project branch using GitHub CLI.",
+        parametersJSON: #"{"type":"object","properties":{"title":{"type":"string"},"body":{"type":"string"},"base":{"type":"string"},"head":{"type":"string"},"draft":{"type":"boolean"},"fill":{"type":"boolean"}}}"#,
         host: .local,
         risk: .append
     )

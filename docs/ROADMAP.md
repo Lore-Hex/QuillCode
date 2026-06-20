@@ -7,7 +7,7 @@
 - Auto safety policy and reviewer protocol.
 - Persistence and secret-store API.
 - Unit tests for direct command execution and safety behavior.
-- Current status: shell, file read/write, apply patch, git status/diff, file/hunk-level git stage/restore, local git commit, named-remote git push, and git worktree list/create/remove are implemented with unit coverage.
+- Current status: shell, file read/write, apply patch, git status/diff, file/hunk-level git stage/restore, local git commit, named-remote git push, GitHub PR creation, and git worktree list/create/remove are implemented with unit coverage.
 
 ## Milestone 1: Native Workspace UI
 

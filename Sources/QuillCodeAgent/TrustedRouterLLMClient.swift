@@ -128,6 +128,8 @@ public struct TrustedRouterLLMClient: LLMClient {
         - host.shell.run MUST include a non-empty "cmd" string. Never emit {} for shell arguments.
         - If the user asks to create or write a file, use host.file.write with non-empty "path" and "content".
         - If the user asks to push or publish a git branch, use host.git.push instead of host.shell.run.
+        - If the user asks to open or create a pull request/PR, use host.git.pr.create instead of host.shell.run.
+        - host.git.pr.create should include a non-empty "title" unless you set "fill": true.
         - Do not say "I'll do it" unless you are returning the tool call that does it.
         - Keep commands bounded to the current project unless the user explicitly asks otherwise.
 

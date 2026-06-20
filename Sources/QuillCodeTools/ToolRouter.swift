@@ -33,6 +33,7 @@ public struct ToolRouter: Sendable {
         .gitRestoreHunk,
         .gitCommit,
         .gitPush,
+        .gitPullRequestCreate,
         .gitWorktreeList,
         .gitWorktreeCreate,
         .gitWorktreeRemove
@@ -91,6 +92,16 @@ public struct ToolRouter: Sendable {
                     remote: args.string("remote"),
                     branch: args.string("branch"),
                     setUpstream: args.bool("setUpstream") ?? false
+                )
+            case ToolDefinition.gitPullRequestCreate.name:
+                return git.createPullRequest(
+                    cwd: workspaceRoot,
+                    title: args.string("title"),
+                    body: args.string("body"),
+                    base: args.string("base"),
+                    head: args.string("head"),
+                    draft: args.bool("draft") ?? false,
+                    fill: args.bool("fill") ?? false
                 )
             case ToolDefinition.gitWorktreeList.name:
                 return git.listWorktrees(cwd: workspaceRoot)

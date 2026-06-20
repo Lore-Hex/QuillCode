@@ -73,6 +73,24 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(result.thread.events.filter { $0.summary.contains("host.git.push") }.count, 3)
     }
 
+    func testCreatePullRequestUsesStructuredToolCall() async throws {
+        let action = try await MockLLMClient().nextAction(
+            thread: ChatThread(mode: .auto),
+            userMessage: "create a pull request titled Add PR tool base main head feature/pr-tool",
+            tools: ToolRouter.definitions
+        )
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected a tool action.")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.gitPullRequestCreate.name)
+        let data = try XCTUnwrap(call.argumentsJSON.data(using: .utf8))
+        let arguments = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: String])
+        XCTAssertEqual(arguments["title"], "Add PR tool")
+        XCTAssertEqual(arguments["base"], "main")
+        XCTAssertEqual(arguments["head"], "feature/pr-tool")
+    }
+
     private func makeTempDirectory() throws -> URL {
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("QuillCodeAgentTests-\(UUID().uuidString)")

@@ -71,6 +71,13 @@ public struct MockLLMClient: LLMClient {
             return .tool(.init(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}"))
         }
 
+        if Self.isPullRequestRequest(lower) {
+            return .tool(.init(
+                name: ToolDefinition.gitPullRequestCreate.name,
+                argumentsJSON: ToolArguments.json(Self.extractPullRequestArguments(from: request))
+            ))
+        }
+
         if lower.contains("commit") {
             return .tool(.init(
                 name: ToolDefinition.gitCommit.name,
@@ -137,6 +144,69 @@ public struct MockLLMClient: LLMClient {
             arguments["branch"] = tokens[tokens.index(after: branchIndex)]
         }
         return arguments
+    }
+
+    static func isPullRequestRequest(_ lowercasedRequest: String) -> Bool {
+        if lowercasedRequest.contains("pull request") {
+            return true
+        }
+        let tokens = lowercasedRequest
+            .split { !$0.isLetter && !$0.isNumber }
+            .map(String.init)
+        return tokens.contains("pr")
+            && (tokens.contains("create") || tokens.contains("open") || tokens.contains("submit"))
+    }
+
+    static func extractPullRequestArguments(from request: String) -> [String: String] {
+        var arguments: [String: String] = [:]
+        arguments["title"] = extractPullRequestTitle(from: request) ?? "QuillCode changes"
+
+        let tokens = request
+            .split { !$0.isLetter && !$0.isNumber && $0 != "/" && $0 != "-" && $0 != "_" && $0 != "." }
+            .map(String.init)
+        if let baseIndex = tokens.firstIndex(where: { $0.lowercased() == "base" }),
+           tokens.indices.contains(tokens.index(after: baseIndex)) {
+            arguments["base"] = tokens[tokens.index(after: baseIndex)]
+        }
+        if let headIndex = tokens.firstIndex(where: { $0.lowercased() == "head" }),
+           tokens.indices.contains(tokens.index(after: headIndex)) {
+            arguments["head"] = tokens[tokens.index(after: headIndex)]
+        }
+        return arguments
+    }
+
+    static func extractPullRequestTitle(from request: String) -> String? {
+        if let first = request.firstIndex(of: "`"),
+           let last = request[request.index(after: first)...].lastIndex(of: "`"),
+           first < last {
+            let quoted = String(request[request.index(after: first)..<last])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return quoted.isEmpty ? nil : quoted
+        }
+
+        let lower = request.lowercased()
+        for marker in [" titled ", " title "] {
+            guard let range = lower.range(of: marker) else { continue }
+            var title = String(request[range.upperBound...])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if title.hasPrefix(":") {
+                title.removeFirst()
+                title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            title = title.trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+            title = trimTrailingPullRequestClauses(from: title)
+            return title.isEmpty ? nil : title
+        }
+        return nil
+    }
+
+    private static func trimTrailingPullRequestClauses(from title: String) -> String {
+        let lower = title.lowercased()
+        let markers = [" base ", " head "]
+        let end = markers
+            .compactMap { lower.range(of: $0)?.lowerBound }
+            .min() ?? title.endIndex
+        return String(title[..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
