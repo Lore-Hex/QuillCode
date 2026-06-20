@@ -26,7 +26,9 @@ public struct ToolRouter: Sendable {
         .fileWrite,
         .applyPatch,
         .gitStatus,
-        .gitDiff
+        .gitDiff,
+        .gitStage,
+        .gitRestore
     ]
 
     public func definition(named name: String) -> ToolDefinition? {
@@ -54,6 +56,14 @@ public struct ToolRouter: Sendable {
                 return git.status(cwd: workspaceRoot)
             case ToolDefinition.gitDiff.name:
                 return git.diff(cwd: workspaceRoot, staged: args.bool("staged") ?? false)
+            case ToolDefinition.gitStage.name:
+                return git.stage(cwd: workspaceRoot, path: try args.requiredString("path"))
+            case ToolDefinition.gitRestore.name:
+                return git.restore(
+                    cwd: workspaceRoot,
+                    path: try args.requiredString("path"),
+                    staged: args.bool("staged") ?? false
+                )
             default:
                 return ToolResult(ok: false, error: "Unknown tool: \(call.name)")
             }

@@ -7,6 +7,7 @@
 - Auto safety policy and reviewer protocol.
 - Persistence and secret-store API.
 - Unit tests for direct command execution and safety behavior.
+- Current status: shell, file read/write, apply patch, git status/diff, and file-level git stage/restore are implemented with unit coverage.
 
 ## Milestone 1: Native Workspace UI
 
@@ -26,7 +27,7 @@
 
 ## Milestone 3: Codex Workflow Parity
 
-- Review pane stage/revert/hunk actions, apply patch, integrated terminal, worktrees, local env actions.
+- Review pane controls and hunk actions, apply patch, integrated terminal, worktrees, local env actions.
 - Browser preview and comments.
 - Computer Use platform backends and app approvals.
 - Plugins, skills, MCP, memories, and automations.
