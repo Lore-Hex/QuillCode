@@ -259,6 +259,12 @@ private struct QuillCodeCommandPaletteView: View {
             return "folder.badge.plus"
         case "toggle-terminal":
             return "terminal"
+        case "git-worktree-list":
+            return "point.3.connected.trianglepath.dotted"
+        case "git-worktree-create":
+            return "plus.rectangle.on.folder"
+        case "git-worktree-remove":
+            return "minus.rectangle"
         case "settings":
             return "gearshape"
         case "computer-use-setup":

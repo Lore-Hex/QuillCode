@@ -397,6 +397,9 @@
         { id: 'search', title: 'Search', shortcut: 'Cmd+K', isEnabled: true },
         { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', isEnabled: true },
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', isEnabled: true },
+        { id: 'git-worktree-list', title: 'List worktrees', shortcut: '', isEnabled: true },
+        { id: 'git-worktree-create', title: 'Create worktree', shortcut: '', isEnabled: true },
+        { id: 'git-worktree-remove', title: 'Remove worktree', shortcut: '', isEnabled: true },
         { id: 'settings', title: 'Settings', shortcut: 'Cmd+,', isEnabled: true },
         { id: 'computer-use-setup', title: 'Computer Use setup', shortcut: '', isEnabled: true }
       ],
@@ -887,6 +890,18 @@
       if (commandID === 'toggle-terminal') {
         state.terminal.isVisible = !state.terminal.isVisible;
       }
+      if (commandID === 'git-worktree-list') {
+        listWorktrees();
+        return;
+      }
+      if (commandID === 'git-worktree-create') {
+        state.composer.draft = 'Create a git worktree named ';
+        state.composer.canSend = true;
+      }
+      if (commandID === 'git-worktree-remove') {
+        state.composer.draft = 'Remove git worktree at ';
+        state.composer.canSend = true;
+      }
       if (commandID === 'settings') {
         state.settings.isOpen = true;
         state.settings.replacementAPIKey = '';
@@ -926,6 +941,29 @@
         return { stdout: '', stderr: '', exitCode: 1 };
       }
       return { stdout: 'ran: ' + command + '\n', stderr: '', exitCode: 0 };
+    }
+
+    function listWorktrees() {
+      ensureThread('List worktrees');
+      const stdout = [
+        'worktree /mock/QuillCode',
+        'HEAD abc1234',
+        'branch refs/heads/main',
+        '',
+        'worktree /mock/QuillCode-feature',
+        'HEAD def5678',
+        'branch refs/heads/feature/quillcode'
+      ].join('\\n') + '\\n';
+      state.transcript.toolCards.push({
+        title: 'host.git.worktree.list',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({}, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout }, null, 2)
+      });
+      state.transcript.messages.push({ role: 'assistant', text: 'Output:\\n' + stdout });
+      syncSelectedThreadSearchText();
+      render();
     }
 
     function selectThread(threadID) {

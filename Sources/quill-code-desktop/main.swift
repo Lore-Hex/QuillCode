@@ -215,6 +215,10 @@ private final class QuillCodeDesktopController: ObservableObject {
         case "stop-all":
             break
         default:
+            if model.runWorkspaceCommand(command.id, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot) {
+                draft = model.composer.draft
+                refresh()
+            }
             break
         }
     }

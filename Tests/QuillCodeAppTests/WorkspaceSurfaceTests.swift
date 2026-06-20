@@ -38,7 +38,19 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.transcript.messages.count, 2)
         XCTAssertEqual(surface.composer.placeholder, "Message QuillCode")
         XCTAssertTrue(surface.composer.canSend)
-        XCTAssertEqual(surface.commands.map(\.id), ["new-chat", "search", "add-project", "toggle-terminal", "stop-all", "settings", "command-palette", "computer-use-setup"])
+        XCTAssertEqual(surface.commands.map(\.id), [
+            "new-chat",
+            "search",
+            "add-project",
+            "toggle-terminal",
+            "git-worktree-list",
+            "git-worktree-create",
+            "git-worktree-remove",
+            "stop-all",
+            "settings",
+            "command-palette",
+            "computer-use-setup"
+        ])
         XCTAssertEqual(surface.settings.apiBaseURL, TrustedRouterDefaults.defaultAPIBaseURL)
         XCTAssertFalse(surface.settings.developerOverrideEnabled)
         XCTAssertFalse(surface.settings.hasStoredAPIKey)

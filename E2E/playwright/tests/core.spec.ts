@@ -98,6 +98,21 @@ test('mock harness runs a command from the command palette', async ({ page }) =>
   await expect(page.getByTestId('terminal-pane')).toBeVisible();
 });
 
+test('mock harness lists worktrees from the command palette', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('command-palette-button').click();
+  await page.getByLabel('Search commands').fill('worktree');
+
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(3);
+  await page.getByRole('button', { name: /List worktrees/ }).click();
+
+  await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.worktree.list');
+  await expect(page.getByTestId('tool-card-output')).toContainText('/mock/QuillCode-feature');
+  await expect(page.getByTestId('message').last()).toContainText('worktree /mock/QuillCode');
+});
+
 test('mock harness pins and archives chats from the sidebar', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

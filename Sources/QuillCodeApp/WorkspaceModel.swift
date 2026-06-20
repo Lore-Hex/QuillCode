@@ -349,6 +349,42 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: actionResult.ok && diffResult.ok ? "Idle" : "Failed")
     }
 
+    @discardableResult
+    public func runWorkspaceCommand(_ commandID: String, workspaceRoot: URL) -> Bool {
+        switch commandID {
+        case "git-worktree-list":
+            runToolCall(
+                ToolCall(name: ToolDefinition.gitWorktreeList.name, argumentsJSON: "{}"),
+                workspaceRoot: workspaceRoot
+            )
+            return true
+        case "git-worktree-create":
+            setDraft("Create a git worktree named ")
+            return true
+        case "git-worktree-remove":
+            setDraft("Remove git worktree at ")
+            return true
+        default:
+            return false
+        }
+    }
+
+    public func runToolCall(_ call: ToolCall, workspaceRoot: URL) {
+        if selectedThread == nil {
+            _ = newChat()
+        }
+        lastError = nil
+        refreshTopBar(agentStatus: "Running")
+
+        let result = ToolRouter(workspaceRoot: workspaceRoot).execute(call)
+        appendToolRun(call: call, result: result)
+
+        if let thread = selectedThread {
+            try? threadStore?.save(thread)
+        }
+        refreshTopBar(agentStatus: result.ok ? "Idle" : "Failed")
+    }
+
     public func runTerminalCommand(workspaceRoot: URL) async {
         await runTerminalCommand(terminal.draft, workspaceRoot: workspaceRoot)
     }

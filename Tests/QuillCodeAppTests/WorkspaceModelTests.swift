@@ -120,6 +120,36 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(surface.entries.first?.exitCodeLabel, "exit 0")
     }
 
+    func testWorkspaceCommandListsGitWorktrees() throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepository(at: root)
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Worktree Project")
+        model.selectProject(projectID)
+
+        XCTAssertTrue(model.runWorkspaceCommand("git-worktree-list", workspaceRoot: root))
+
+        let cards = model.currentToolCards
+        XCTAssertEqual(cards.count, 1)
+        XCTAssertEqual(cards[0].title, "host.git.worktree.list")
+        XCTAssertEqual(cards[0].status, .done)
+        let outputJSON = try XCTUnwrap(cards[0].outputJSON)
+        let result = try JSONHelpers.decode(ToolResult.self, from: outputJSON)
+        XCTAssertTrue(result.stdout.contains(root.standardizedFileURL.path), result.stdout)
+        XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
+    }
+
+    func testWorkspaceWorktreeCommandsPrefillComposer() throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+
+        XCTAssertTrue(model.runWorkspaceCommand("git-worktree-create", workspaceRoot: root))
+        XCTAssertEqual(model.composer.draft, "Create a git worktree named ")
+
+        XCTAssertTrue(model.runWorkspaceCommand("git-worktree-remove", workspaceRoot: root))
+        XCTAssertEqual(model.composer.draft, "Remove git worktree at ")
+    }
+
     func testEmptyDraftDoesNotCreateThread() async throws {
         let model = QuillCodeWorkspaceModel()
         model.setDraft("   ")
