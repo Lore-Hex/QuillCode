@@ -644,6 +644,7 @@ public extension QuillCodeWorkspaceModel {
             WorkspaceCommandSurface(id: "toggle-terminal", title: "Terminal", shortcut: "Ctrl+`"),
             WorkspaceCommandSurface(id: "stop-all", title: "Stop all", shortcut: "Esc", isEnabled: composer.isSending),
             WorkspaceCommandSurface(id: "settings", title: "Settings", shortcut: "Cmd+,"),
+            WorkspaceCommandSurface(id: "command-palette", title: "Command palette", shortcut: "Cmd+Shift+P"),
             WorkspaceCommandSurface(
                 id: "computer-use-setup",
                 title: "Computer Use setup",

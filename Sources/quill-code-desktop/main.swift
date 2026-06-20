@@ -23,6 +23,10 @@ struct QuillCodeDesktopApp: App {
                     NotificationCenter.default.post(name: .quillCodeToggleTerminal, object: nil)
                 }
                 .keyboardShortcut("`", modifiers: .control)
+                Button("Command Palette") {
+                    NotificationCenter.default.post(name: .quillCodeCommandPalette, object: nil)
+                }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
             }
         }
     }
@@ -36,6 +40,7 @@ private struct QuillCodeDesktopRootView: View {
             surface: controller.surface,
             draft: $controller.draft,
             terminalDraft: $controller.terminalDraft,
+            isCommandPalettePresented: $controller.isCommandPalettePresented,
             onSend: controller.send,
             onRunTerminalCommand: controller.runTerminalCommand,
             onAddProjectRequested: controller.requestAddProject,
@@ -57,6 +62,9 @@ private struct QuillCodeDesktopRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeOpenProject)) { _ in
             controller.requestAddProject()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .quillCodeCommandPalette)) { _ in
+            controller.openCommandPalette()
+        }
         .fileImporter(
             isPresented: $controller.isProjectImporterPresented,
             allowedContentTypes: [.folder],
@@ -75,6 +83,7 @@ private final class QuillCodeDesktopController: ObservableObject {
     @Published var surface: WorkspaceSurface
     @Published var draft: String
     @Published var terminalDraft: String
+    @Published var isCommandPalettePresented = false
     @Published var isProjectImporterPresented = false
 
     private let model: QuillCodeWorkspaceModel
@@ -201,6 +210,8 @@ private final class QuillCodeDesktopController: ObservableObject {
             requestAddProject()
         case "toggle-terminal":
             toggleTerminal()
+        case "command-palette":
+            openCommandPalette()
         case "stop-all":
             break
         default:
@@ -240,10 +251,15 @@ private final class QuillCodeDesktopController: ObservableObject {
     private func persistConfig() {
         try? bootstrap.saveConfig(model.root.config)
     }
+
+    func openCommandPalette() {
+        isCommandPalettePresented = true
+    }
 }
 
 private extension Notification.Name {
     static let quillCodeNewChat = Notification.Name("QuillCodeNewChat")
     static let quillCodeOpenProject = Notification.Name("QuillCodeOpenProject")
+    static let quillCodeCommandPalette = Notification.Name("QuillCodeCommandPalette")
     static let quillCodeToggleTerminal = Notification.Name("QuillCodeToggleTerminal")
 }

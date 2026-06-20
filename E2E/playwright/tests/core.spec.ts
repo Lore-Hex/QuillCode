@@ -85,6 +85,19 @@ test('mock harness starts a new chat from the sidebar action', async ({ page }) 
   await expect(page.getByLabel('Message')).toHaveValue('');
 });
 
+test('mock harness runs a command from the command palette', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('command-palette-button').click();
+  await expect(page.getByTestId('command-palette-panel')).toBeVisible();
+  await page.getByLabel('Search commands').fill('terminal');
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
+  await page.getByTestId('command-palette-result').click();
+
+  await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+  await expect(page.getByTestId('terminal-pane')).toBeVisible();
+});
+
 test('mock harness pins and archives chats from the sidebar', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

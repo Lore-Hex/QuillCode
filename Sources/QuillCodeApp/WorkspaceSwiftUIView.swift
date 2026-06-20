@@ -5,6 +5,7 @@ public struct QuillCodeWorkspaceView: View {
     public var surface: WorkspaceSurface
     @Binding public var draft: String
     @Binding public var terminalDraft: String
+    @Binding public var isCommandPalettePresented: Bool
     public var onSend: () -> Void
     public var onRunTerminalCommand: () -> Void
     public var onAddProjectRequested: () -> Void
@@ -20,12 +21,14 @@ public struct QuillCodeWorkspaceView: View {
     @State private var isSettingsPresented = false
     @State private var isSearchPresented = false
     @State private var searchQuery = ""
+    @State private var commandQuery = ""
     @State private var settingsDraft = QuillCodeSettingsDraft()
 
     public init(
         surface: WorkspaceSurface,
         draft: Binding<String>,
         terminalDraft: Binding<String>,
+        isCommandPalettePresented: Binding<Bool>,
         onSend: @escaping () -> Void,
         onRunTerminalCommand: @escaping () -> Void,
         onAddProjectRequested: @escaping () -> Void,
@@ -41,6 +44,7 @@ public struct QuillCodeWorkspaceView: View {
         self.surface = surface
         self._draft = draft
         self._terminalDraft = terminalDraft
+        self._isCommandPalettePresented = isCommandPalettePresented
         self.onSend = onSend
         self.onRunTerminalCommand = onRunTerminalCommand
         self.onAddProjectRequested = onAddProjectRequested
@@ -129,6 +133,19 @@ public struct QuillCodeWorkspaceView: View {
                 }
             )
         }
+        .sheet(isPresented: $isCommandPalettePresented) {
+            QuillCodeCommandPaletteView(
+                commands: surface.commands.filter { $0.id != "command-palette" },
+                query: $commandQuery,
+                onSelectCommand: { command in
+                    isCommandPalettePresented = false
+                    handleCommand(command)
+                },
+                onClose: {
+                    isCommandPalettePresented = false
+                }
+            )
+        }
     }
 
     private func handleCommand(_ command: WorkspaceCommandSurface) {
@@ -140,8 +157,116 @@ public struct QuillCodeWorkspaceView: View {
             isSearchPresented = true
         } else if command.id == "add-project" {
             onAddProjectRequested()
+        } else if command.id == "command-palette" {
+            commandQuery = ""
+            isCommandPalettePresented = true
         } else {
             onCommand(command)
+        }
+    }
+}
+
+private struct QuillCodeCommandPaletteView: View {
+    var commands: [WorkspaceCommandSurface]
+    @Binding var query: String
+    var onSelectCommand: (WorkspaceCommandSurface) -> Void
+    var onClose: () -> Void
+
+    private var results: [WorkspaceCommandSurface] {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedQuery.isEmpty else {
+            return commands
+        }
+        return commands.filter { command in
+            command.title.localizedCaseInsensitiveContains(normalizedQuery)
+                || (command.shortcut ?? "").localizedCaseInsensitiveContains(normalizedQuery)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Command palette")
+                        .font(.title2.weight(.semibold))
+                    Text("Run QuillCode workspace actions from one place.")
+                        .font(.callout)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                Spacer()
+                Button("Close", action: onClose)
+                    .keyboardShortcut(.cancelAction)
+            }
+
+            TextField("Search commands", text: $query)
+                .textFieldStyle(.roundedBorder)
+
+            if results.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "command")
+                        .font(.title2)
+                        .foregroundStyle(QuillCodePalette.muted)
+                    Text("No matching commands")
+                        .font(.headline)
+                    Text("Try a command name or shortcut.")
+                        .font(.callout)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                .frame(maxWidth: .infinity, minHeight: 180)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(results) { command in
+                            Button {
+                                onSelectCommand(command)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: systemImage(for: command.id))
+                                        .foregroundStyle(command.isEnabled ? QuillCodePalette.blue : QuillCodePalette.muted)
+                                        .frame(width: 22)
+                                    Text(command.title)
+                                        .font(.callout.weight(.semibold))
+                                    Spacer()
+                                    if let shortcut = command.shortcut {
+                                        Text(shortcut)
+                                            .font(.caption.monospaced())
+                                            .foregroundStyle(QuillCodePalette.muted)
+                                    }
+                                }
+                                .padding(12)
+                                .background(QuillCodePalette.panel)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(!command.isEnabled)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .frame(width: 560, height: 520)
+        .background(QuillCodePalette.background)
+    }
+
+    private func systemImage(for commandID: String) -> String {
+        switch commandID {
+        case "new-chat":
+            return "square.and.pencil"
+        case "search":
+            return "magnifyingglass"
+        case "add-project":
+            return "folder.badge.plus"
+        case "toggle-terminal":
+            return "terminal"
+        case "settings":
+            return "gearshape"
+        case "computer-use-setup":
+            return "display"
+        case "stop-all":
+            return "stop.circle"
+        default:
+            return "command"
         }
     }
 }

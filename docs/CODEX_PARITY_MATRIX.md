@@ -15,7 +15,7 @@
 | UX | Tool cards | Partial | Tool-card presentation model, HTML harness, and SwiftUI shell render queued/running/done/failed/review states; QuillUI polish pending. |
 | UX | Review pane | Partial | Latest completed `host.git.diff` is summarized into a changed-file pane in SwiftUI and the Playwright harness; file-level and hunk-level Stage/Restore controls execute workspace-scoped git tools and refresh the diff. Inline comments pending. |
 | UX | Top bar widget | Partial | Top-bar presentation state, HTML harness, and SwiftUI shell track thread, project, model, mode, status, and Computer Use; native menu bar widget pending. |
-| UX | Keyboard shortcuts/slash commands | Partial | Local slash command parser handles `/help`, `/status`, `/new`, `/mode`, and `/model` with Swift and Playwright coverage; Search opens a finder over thread title, model, pinned state, and indexed transcript/tool content. Shortcut registry, richer ranking, and command palette pending. |
+| UX | Keyboard shortcuts/slash commands | Partial | Local slash command parser handles `/help`, `/status`, `/new`, `/mode`, and `/model` with Swift and Playwright coverage; Search opens a finder over thread title, model, pinned state, and indexed transcript/tool content. A command palette over workspace commands exists in SwiftUI and the Playwright harness; richer ranking and full shortcut registry pending. |
 | Workspace | Integrated terminal | Partial | Workspace-scoped terminal pane, command history, native SwiftUI surface, static HTML rendering, and Playwright coverage exist; full interactive PTY/session streaming pending. |
 | Workspace | Worktrees | Deferred | Requires git worktree manager. |
 | Browser | In-app browser | Deferred | Requires QuillUI/browser surface. |

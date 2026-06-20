@@ -388,6 +388,18 @@
         isOpen: false,
         query: ''
       },
+      commandPalette: {
+        isOpen: false,
+        query: ''
+      },
+      commands: [
+        { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', isEnabled: true },
+        { id: 'search', title: 'Search', shortcut: 'Cmd+K', isEnabled: true },
+        { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', isEnabled: true },
+        { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', isEnabled: true },
+        { id: 'settings', title: 'Settings', shortcut: 'Cmd+,', isEnabled: true },
+        { id: 'computer-use-setup', title: 'Computer Use setup', shortcut: '', isEnabled: true }
+      ],
       terminal: {
         isVisible: false,
         draft: '',
@@ -499,6 +511,7 @@
               <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
               <span data-testid="agent-status">${escapeHTML(state.topBar.agentStatus)}</span>
               <span data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</span>
+              <button type="button" data-testid="command-palette-button">Commands</button>
               <button type="button" data-testid="search-button">Search</button>
               <button type="button" data-testid="settings-button">Settings</button>
             </div>
@@ -530,6 +543,7 @@
           </div>
           ${state.settings.isOpen ? renderSettingsPanel() : ''}
           ${state.search.isOpen ? renderSearchPanel() : ''}
+          ${state.commandPalette.isOpen ? renderCommandPalette() : ''}
         </section>`;
 
       const form = document.querySelector('[data-testid="composer"]');
@@ -581,6 +595,11 @@
       document.querySelector('[data-testid="search-button"]').addEventListener('click', () => {
         state.search.isOpen = true;
         state.search.query = '';
+        render();
+      });
+      document.querySelector('[data-testid="command-palette-button"]').addEventListener('click', () => {
+        state.commandPalette.isOpen = true;
+        state.commandPalette.query = '';
         render();
       });
       document.querySelector('[data-testid="sidebar-search-button"]').addEventListener('click', () => {
@@ -638,6 +657,10 @@
         state.search.isOpen = false;
         render();
       });
+      document.querySelector('[data-testid="command-palette-close"]')?.addEventListener('click', () => {
+        state.commandPalette.isOpen = false;
+        render();
+      });
       document.querySelector('[data-testid="search-input"]')?.addEventListener('input', event => {
         state.search.query = event.target.value;
         render();
@@ -650,6 +673,18 @@
           selectThread(event.currentTarget.getAttribute('data-thread-id'));
           state.search.isOpen = false;
           render();
+        });
+      });
+      document.querySelector('[data-testid="command-palette-input"]')?.addEventListener('input', event => {
+        state.commandPalette.query = event.target.value;
+        render();
+        const input = document.querySelector('[data-testid="command-palette-input"]');
+        input?.focus();
+        input?.setSelectionRange(input.value.length, input.value.length);
+      });
+      document.querySelectorAll('[data-testid="command-palette-result"]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
       });
       document.querySelector('[data-testid="terminal-input"]')?.addEventListener('input', event => {
@@ -717,6 +752,35 @@
                   <span>${escapeHTML(item.title)}</span>
                   <small>${escapeHTML(item.subtitle)}${item.isPinned ? ' · pinned' : ''}</small>
                 </button>`).join('') : '<p data-testid="search-empty">No matching chats</p>'}
+            </div>
+          </section>
+        </div>`;
+    }
+
+    function renderCommandPalette() {
+      const query = state.commandPalette.query.trim().toLowerCase();
+      const results = state.commands.filter(command => {
+        if (!query) return true;
+        return command.title.toLowerCase().includes(query)
+          || (command.shortcut || '').toLowerCase().includes(query);
+      });
+      return `
+        <div class="search-panel" data-testid="command-palette-panel">
+          <section class="search-card" role="dialog" aria-label="Command palette">
+            <header>
+              <div>
+                <h2>Command palette</h2>
+                <p>Run QuillCode workspace actions from one place.</p>
+              </div>
+              <button type="button" data-testid="command-palette-close">Close</button>
+            </header>
+            <input data-testid="command-palette-input" aria-label="Search commands" placeholder="Search commands" value="${escapeHTML(state.commandPalette.query)}" autofocus>
+            <div class="search-results" data-testid="command-palette-results">
+              ${results.length ? results.map(command => `
+                <button class="search-result" type="button" data-testid="command-palette-result" data-command-id="${escapeHTML(command.id)}" ${command.isEnabled ? '' : 'disabled'}>
+                  <span>${escapeHTML(command.title)}</span>
+                  <small>${escapeHTML(command.shortcut || '')}</small>
+                </button>`).join('') : '<p data-testid="command-palette-empty">No matching commands</p>'}
             </div>
           </section>
         </div>`;
@@ -803,6 +867,30 @@
       ];
       state.terminal.cwdLabel = project.path;
       state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+      render();
+    }
+
+    function runCommand(commandID) {
+      state.commandPalette.isOpen = false;
+      if (commandID === 'new-chat') {
+        newChat();
+        return;
+      }
+      if (commandID === 'search') {
+        state.search.isOpen = true;
+        state.search.query = '';
+      }
+      if (commandID === 'add-project') {
+        addProject();
+        return;
+      }
+      if (commandID === 'toggle-terminal') {
+        state.terminal.isVisible = !state.terminal.isVisible;
+      }
+      if (commandID === 'settings') {
+        state.settings.isOpen = true;
+        state.settings.replacementAPIKey = '';
+      }
       render();
     }
 
@@ -1009,6 +1097,15 @@
       state.topBar.agentStatus = 'Idle';
       render();
     }
+
+    document.addEventListener('keydown', event => {
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'p') {
+        event.preventDefault();
+        state.commandPalette.isOpen = true;
+        state.commandPalette.query = '';
+        render();
+      }
+    });
 
     render();
   </script>
