@@ -233,12 +233,56 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
         return parts.joined(separator: " · ")
     }
 
+    public var actions: [WorkspaceReviewActionSurface] {
+        [
+            WorkspaceReviewActionSurface(kind: .stage, path: path),
+            WorkspaceReviewActionSurface(kind: .restore, path: path)
+        ]
+    }
+
     public init(path: String, insertions: Int, deletions: Int, hunks: Int, isBinary: Bool = false) {
         self.path = path
         self.insertions = insertions
         self.deletions = deletions
         self.hunks = hunks
         self.isBinary = isBinary
+    }
+}
+
+public enum WorkspaceReviewActionKind: String, Codable, Sendable, Hashable {
+    case stage
+    case restore
+
+    public var title: String {
+        switch self {
+        case .stage:
+            return "Stage"
+        case .restore:
+            return "Restore"
+        }
+    }
+
+    public var systemImage: String {
+        switch self {
+        case .stage:
+            return "plus.rectangle.on.folder"
+        case .restore:
+            return "arrow.uturn.backward"
+        }
+    }
+}
+
+public struct WorkspaceReviewActionSurface: Codable, Sendable, Hashable, Identifiable {
+    public var kind: WorkspaceReviewActionKind
+    public var path: String
+
+    public var id: String {
+        "\(kind.rawValue):\(path)"
+    }
+
+    public init(kind: WorkspaceReviewActionKind, path: String) {
+        self.kind = kind
+        self.path = path
     }
 }
 

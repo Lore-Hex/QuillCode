@@ -373,6 +373,64 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(runtime.statusLabel, "Mock LLM")
     }
 
+    func testRunReviewStageActionStagesFileAndRefreshesDiff() throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepository(at: root)
+        try "old\n".write(to: root.appendingPathComponent("hello.txt"), atomically: true, encoding: .utf8)
+        _ = try runGit(["add", "hello.txt"], cwd: root)
+        _ = try runGit(["commit", "-m", "Initial"], cwd: root)
+        try "new\n".write(to: root.appendingPathComponent("hello.txt"), atomically: true, encoding: .utf8)
+        let thread = ChatThread(title: "Review")
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        model.runReviewAction(
+            WorkspaceReviewActionSurface(kind: .stage, path: "hello.txt"),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
+        XCTAssertEqual(model.currentToolCards.map(\.title), [
+            "host.git.stage",
+            "host.git.diff"
+        ])
+        XCTAssertTrue(model.currentToolCards.allSatisfy { $0.status == .done })
+        XCTAssertFalse(model.surface().review.isVisible)
+        XCTAssertEqual(try runGit(["status", "--short"], cwd: root), "M  hello.txt\n")
+    }
+
+    func testRunReviewRestoreActionRestoresFileAndRefreshesDiff() throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepository(at: root)
+        let fileURL = root.appendingPathComponent("hello.txt")
+        try "old\n".write(to: fileURL, atomically: true, encoding: .utf8)
+        _ = try runGit(["add", "hello.txt"], cwd: root)
+        _ = try runGit(["commit", "-m", "Initial"], cwd: root)
+        try "new\n".write(to: fileURL, atomically: true, encoding: .utf8)
+        let thread = ChatThread(title: "Review")
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        model.runReviewAction(
+            WorkspaceReviewActionSurface(kind: .restore, path: "hello.txt"),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
+        XCTAssertEqual(model.currentToolCards.map(\.title), [
+            "host.git.restore",
+            "host.git.diff"
+        ])
+        XCTAssertTrue(model.currentToolCards.allSatisfy { $0.status == .done })
+        XCTAssertEqual(try String(contentsOf: fileURL, encoding: .utf8), "old\n")
+        XCTAssertEqual(try runGit(["status", "--short"], cwd: root), "")
+        XCTAssertFalse(model.surface().review.isVisible)
+    }
+
     func testRuntimeFactoryModelCatalogFallsBackWithoutKey() async throws {
         let paths = QuillCodePaths(home: try makeTempDirectory())
         try paths.ensure()
@@ -390,5 +448,36 @@ final class WorkspaceModelTests: XCTestCase {
             .appendingPathComponent("QuillCodeAppTests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+
+    private func initializeGitRepository(at root: URL) throws {
+        _ = try runGit(["init"], cwd: root)
+        _ = try runGit(["config", "user.email", "quillcode-tests@example.com"], cwd: root)
+        _ = try runGit(["config", "user.name", "QuillCode Tests"], cwd: root)
+    }
+
+    private func runGit(_ arguments: [String], cwd: URL) throws -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["git"] + arguments
+        process.currentDirectoryURL = cwd
+
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+        try process.run()
+        process.waitUntilExit()
+
+        let out = String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        let err = String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        guard process.terminationStatus == 0 else {
+            throw NSError(
+                domain: "QuillCodeAppTests.Git",
+                code: Int(process.terminationStatus),
+                userInfo: [NSLocalizedDescriptionKey: err.isEmpty ? out : err]
+            )
+        }
+        return out
     }
 }

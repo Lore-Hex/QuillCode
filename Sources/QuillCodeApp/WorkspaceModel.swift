@@ -2,6 +2,7 @@ import Foundation
 import QuillCodeAgent
 import QuillCodeCore
 import QuillCodePersistence
+import QuillCodeTools
 
 public enum ToolCardStatus: String, Codable, Sendable, Hashable {
     case queued
@@ -251,6 +252,26 @@ public final class QuillCodeWorkspaceModel {
         }
     }
 
+    public func runReviewAction(_ action: WorkspaceReviewActionSurface, workspaceRoot: URL) {
+        guard selectedThread != nil else { return }
+        lastError = nil
+        refreshTopBar(agentStatus: "Running")
+
+        let router = ToolRouter(workspaceRoot: workspaceRoot)
+        let actionCall = action.toolCall
+        let actionResult = router.execute(actionCall)
+        appendToolRun(call: actionCall, result: actionResult)
+
+        let diffCall = ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}")
+        let diffResult = router.execute(diffCall)
+        appendToolRun(call: diffCall, result: diffResult)
+
+        if let thread = selectedThread {
+            try? threadStore?.save(thread)
+        }
+        refreshTopBar(agentStatus: actionResult.ok && diffResult.ok ? "Idle" : "Failed")
+    }
+
     public static func toolCards(for thread: ChatThread) -> [ToolCardState] {
         var cards: [ToolCardState] = []
 
@@ -296,6 +317,27 @@ public final class QuillCodeWorkspaceModel {
         }
 
         return cards
+    }
+
+    private func appendToolRun(call: ToolCall, result: ToolResult) {
+        let callJSON = (try? JSONHelpers.encodePretty(call)) ?? call.argumentsJSON
+        let resultJSON = (try? JSONHelpers.encodePretty(result)) ?? "{}"
+        mutateSelectedThread { thread in
+            thread.events.append(.init(
+                kind: .toolQueued,
+                summary: "\(call.name) queued",
+                payloadJSON: callJSON
+            ))
+            thread.events.append(.init(
+                kind: .toolRunning,
+                summary: "\(call.name) running"
+            ))
+            thread.events.append(.init(
+                kind: result.ok ? .toolCompleted : .toolFailed,
+                summary: "\(call.name) \(result.ok ? "completed" : "failed")",
+                payloadJSON: resultJSON
+            ))
+        }
     }
 
     private func handleSlashCommand(_ command: SlashCommand, originalPrompt: String) {
@@ -461,5 +503,22 @@ public final class QuillCodeWorkspaceModel {
     private static func decode<T: Decodable>(_ type: T.Type, _ payloadJSON: String?) -> T? {
         guard let payloadJSON else { return nil }
         return try? JSONHelpers.decode(type, from: payloadJSON)
+    }
+}
+
+private extension WorkspaceReviewActionSurface {
+    var toolCall: ToolCall {
+        switch kind {
+        case .stage:
+            return ToolCall(
+                name: ToolDefinition.gitStage.name,
+                argumentsJSON: ToolArguments.json(["path": path])
+            )
+        case .restore:
+            return ToolCall(
+                name: ToolDefinition.gitRestore.name,
+                argumentsJSON: ToolArguments.json(["path": path])
+            )
+        }
     }
 }

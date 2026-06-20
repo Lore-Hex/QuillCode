@@ -13,7 +13,7 @@
 | Safety | Read-only/Review/Auto modes | Implemented | Auto can use static or model reviewer; SwiftUI shell can switch and persist modes. |
 | Safety | Reviewer model call | Partial | TrustedRouter client and native developer settings exist; OAuth wiring pending. |
 | UX | Tool cards | Partial | Tool-card presentation model, HTML harness, and SwiftUI shell render queued/running/done/failed/review states; QuillUI polish pending. |
-| UX | Review pane | Partial | Latest completed `host.git.diff` is summarized into a read-only changed-file pane in SwiftUI and the Playwright harness; file-level stage/restore tools exist, while review-pane controls, hunk actions, and inline comments pending. |
+| UX | Review pane | Partial | Latest completed `host.git.diff` is summarized into a changed-file pane in SwiftUI and the Playwright harness; file-level Stage/Restore controls execute workspace-scoped git tools and refresh the diff. Hunk actions and inline comments pending. |
 | UX | Top bar widget | Partial | Top-bar presentation state, HTML harness, and SwiftUI shell track thread, project, model, mode, status, and Computer Use; native menu bar widget pending. |
 | UX | Keyboard shortcuts/slash commands | Partial | Local slash command parser handles `/help`, `/status`, `/new`, `/mode`, and `/model` with Swift and Playwright coverage; shortcut registry and richer command palette pending. |
 | Workspace | Integrated terminal | Deferred | PTY integration pending. |

@@ -99,6 +99,9 @@ public enum WorkspaceHTMLRenderer {
             <li data-testid="review-file">
               <span data-testid="review-file-path">\(escape(file.path))</span>
               <small>\(escape(file.changeLabel))</small>
+              <span>
+                \(file.actions.map(renderReviewAction).joined(separator: "\n"))
+              </span>
             </li>
             """
         }.joined(separator: "\n")
@@ -112,6 +115,12 @@ public enum WorkspaceHTMLRenderer {
             \(files)
           </ul>
         </section>
+        """
+    }
+
+    private static func renderReviewAction(_ action: WorkspaceReviewActionSurface) -> String {
+        """
+        <button type="button" data-testid="review-action" data-action="\(escape(action.kind.rawValue))" data-path="\(escape(action.path))">\(escape(action.kind.title))</button>
         """
     }
 

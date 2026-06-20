@@ -136,6 +136,20 @@
     .review-pane ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
     .review-pane li { display: flex; justify-content: space-between; gap: 16px; color: var(--text); }
     .review-pane small { color: var(--muted); }
+    .review-actions { display: flex; align-items: center; gap: 8px; }
+    .review-actions button {
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: rgba(65,184,232,.12);
+      color: #b6eaff;
+      border: 1px solid rgba(65,184,232,.25);
+      font-size: 12px;
+    }
+    .review-actions button[data-action="restore"] {
+      background: rgba(248,184,78,.12);
+      color: #ffe2a3;
+      border-color: rgba(248,184,78,.28);
+    }
     pre { overflow: auto; white-space: pre-wrap; background: rgba(0,0,0,.38); border-radius: 10px; padding: 10px; color: #dff8ff; }
     .empty { margin: auto; max-width: 560px; color: var(--muted); text-align: center; }
     .composer {
@@ -270,7 +284,11 @@
             ${state.review.files.map(file => `
               <li data-testid="review-file">
                 <span data-testid="review-file-path">${escapeHTML(file.path)}</span>
-                <small>${escapeHTML(file.changeLabel)}</small>
+                <span class="review-actions">
+                  <small>${escapeHTML(file.changeLabel)}</small>
+                  <button type="button" data-testid="review-action" data-action="stage" data-path="${escapeHTML(file.path)}">Stage</button>
+                  <button type="button" data-testid="review-action" data-action="restore" data-path="${escapeHTML(file.path)}">Restore</button>
+                </span>
               </li>`).join('')}
           </ul>
         </section>` : '';
@@ -391,6 +409,13 @@
         state.settings.isOpen = true;
         state.settings.replacementAPIKey = '';
         render();
+      });
+      document.querySelectorAll('[data-testid="review-action"]').forEach(button => {
+        button.addEventListener('click', event => {
+          const action = event.currentTarget.getAttribute('data-action');
+          const path = event.currentTarget.getAttribute('data-path');
+          runReviewAction(action, path);
+        });
       });
       document.querySelector('[data-testid="settings-cancel"]')?.addEventListener('click', () => {
         state.settings.isOpen = false;
@@ -522,6 +547,36 @@
         state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
         state.transcript.messages.push({ role: 'assistant', text: 'I can inspect and edit this project.' });
       }
+      render();
+    }
+
+    function runReviewAction(action, path) {
+      if (!path) return;
+      const toolName = action === 'restore' ? 'host.git.restore' : 'host.git.stage';
+      state.topBar.agentStatus = 'Running';
+      state.transcript.toolCards.push({
+        title: toolName,
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({ path }, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: '' }, null, 2)
+      });
+      state.transcript.toolCards.push({
+        title: 'host.git.diff',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({}, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: '' }, null, 2)
+      });
+      state.review = {
+        title: 'Review changes',
+        subtitle: 'Latest git diff',
+        totalInsertions: 0,
+        totalDeletions: 0,
+        totalHunks: 0,
+        files: []
+      };
+      state.topBar.agentStatus = 'Idle';
       render();
     }
 

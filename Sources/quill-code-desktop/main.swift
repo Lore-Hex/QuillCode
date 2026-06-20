@@ -32,6 +32,7 @@ private struct QuillCodeDesktopRootView: View {
             onSetMode: controller.setMode,
             onSetModel: controller.setModel,
             onSaveSettings: controller.saveSettings,
+            onReviewAction: controller.runReviewAction,
             onCommand: controller.runCommand
         )
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeNewChat)) { _ in
@@ -146,6 +147,11 @@ private final class QuillCodeDesktopController: ObservableObject {
         default:
             break
         }
+    }
+
+    func runReviewAction(_ action: WorkspaceReviewActionSurface) {
+        model.runReviewAction(action, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+        refresh()
     }
 
     private func refresh() {

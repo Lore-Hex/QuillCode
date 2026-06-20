@@ -10,6 +10,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onSetMode: (AgentMode) -> Void
     public var onSetModel: (String) -> Void
     public var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
+    public var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     public var onCommand: (WorkspaceCommandSurface) -> Void
 
     @State private var isSettingsPresented = false
@@ -24,6 +25,7 @@ public struct QuillCodeWorkspaceView: View {
         onSetMode: @escaping (AgentMode) -> Void,
         onSetModel: @escaping (String) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
+        onReviewAction: @escaping (WorkspaceReviewActionSurface) -> Void,
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
     ) {
         self.surface = surface
@@ -34,6 +36,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onSetMode = onSetMode
         self.onSetModel = onSetModel
         self.onSaveSettings = onSaveSettings
+        self.onReviewAction = onReviewAction
         self.onCommand = onCommand
     }
 
@@ -57,7 +60,11 @@ public struct QuillCodeWorkspaceView: View {
                     .frame(width: 280)
                 Divider()
                 VStack(spacing: 0) {
-                    QuillCodeTranscriptView(transcript: surface.transcript, review: surface.review)
+                    QuillCodeTranscriptView(
+                        transcript: surface.transcript,
+                        review: surface.review,
+                        onReviewAction: onReviewAction
+                    )
                     Divider()
                     QuillCodeComposerView(
                         composer: surface.composer,
@@ -277,6 +284,7 @@ private struct QuillCodeProjectListView: View {
 private struct QuillCodeTranscriptView: View {
     var transcript: TranscriptSurface
     var review: WorkspaceReviewSurface
+    var onReviewAction: (WorkspaceReviewActionSurface) -> Void
 
     var body: some View {
         ScrollView {
@@ -294,7 +302,7 @@ private struct QuillCodeTranscriptView: View {
                     .padding(.top, 180)
                 } else {
                     if review.isVisible {
-                        QuillCodeReviewPaneView(review: review)
+                        QuillCodeReviewPaneView(review: review, onReviewAction: onReviewAction)
                     }
                     ForEach(transcript.messages) { message in
                         QuillCodeMessageBubble(message: message)
@@ -313,6 +321,7 @@ private struct QuillCodeTranscriptView: View {
 
 private struct QuillCodeReviewPaneView: View {
     var review: WorkspaceReviewSurface
+    var onReviewAction: (WorkspaceReviewActionSurface) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -353,6 +362,19 @@ private struct QuillCodeReviewPaneView: View {
                         Text(file.changeLabel)
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(QuillCodePalette.muted)
+                        HStack(spacing: 6) {
+                            ForEach(file.actions) { action in
+                                Button {
+                                    onReviewAction(action)
+                                } label: {
+                                    Label(action.kind.title, systemImage: action.kind.systemImage)
+                                        .labelStyle(.iconOnly)
+                                }
+                                .buttonStyle(.borderless)
+                                .help("\(action.kind.title) \(file.path)")
+                                .foregroundStyle(action.kind == .restore ? QuillCodePalette.yellow : QuillCodePalette.blue)
+                            }
+                        }
                     }
                     .padding(.vertical, 8)
                     if file.id != review.files.last?.id {

@@ -43,6 +43,7 @@ let package = Package(
             dependencies: [
                 "QuillCodeCore",
                 "QuillCodeAgent",
+                "QuillCodeTools",
                 "QuillCodePersistence",
                 "QuillCodeSafety",
                 "QuillComputerUseKit"

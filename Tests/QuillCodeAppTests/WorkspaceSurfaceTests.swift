@@ -133,6 +133,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(review.totalDeletions, 2)
         XCTAssertEqual(review.totalHunks, 2)
         XCTAssertEqual(review.subtitle, "2 files changed, +3 -2")
+        XCTAssertEqual(review.files.first?.actions.map(\.kind), [.stage, .restore])
     }
 
     func testGitDiffReviewSurfaceHidesStaleDiffWhenLatestDiffFailed() throws {
@@ -230,7 +231,12 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="review-pane""#))
         XCTAssertTrue(html.contains(#"data-testid="review-file""#))
+        XCTAssertTrue(html.contains(#"data-testid="review-action""#))
+        XCTAssertTrue(html.contains(#"data-action="stage""#))
+        XCTAssertTrue(html.contains(#"data-action="restore""#))
         XCTAssertTrue(html.contains("Package.swift"))
+        XCTAssertTrue(html.contains("Stage"))
+        XCTAssertTrue(html.contains("Restore"))
         XCTAssertTrue(html.contains("1 file changed, +1 -0"))
     }
 
