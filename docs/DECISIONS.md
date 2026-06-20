@@ -14,3 +14,4 @@
 - Platform-specific code belongs in adapter packages, not the app target.
 - The first desktop executable is `quill-code-desktop`, built with SwiftUI over the same `WorkspaceSurface` contract used by the HTML/Playwright harness. This keeps native UI work testable before the full QuillUI adapter exists.
 - Desktop runtime selection defaults to mock LLM for no-key demos, switches to live TrustedRouter when an environment or stored secret key exists, and supports `QUILLCODE_USE_MOCK_LLM=true` for deterministic test runs.
+- The desktop model picker is data-driven from the TrustedRouter catalog. It keeps `trustedrouter/fusion` as the deterministic fallback, groups options by category, and refreshes live catalog data only when an env or stored key exists.

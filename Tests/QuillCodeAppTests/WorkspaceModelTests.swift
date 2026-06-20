@@ -175,6 +175,18 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(runtime.statusLabel, "Mock LLM")
     }
 
+    func testRuntimeFactoryModelCatalogFallsBackWithoutKey() async throws {
+        let paths = QuillCodePaths(home: try makeTempDirectory())
+        try paths.ensure()
+
+        let catalog = await QuillCodeRuntimeFactory(paths: paths, environment: [:])
+            .fetchModelCatalog(config: AppConfig())
+
+        XCTAssertEqual(catalog.defaultModelID, TrustedRouterDefaults.defaultModel)
+        XCTAssertTrue(catalog.models.contains { $0.id == "trustedrouter/fusion" })
+        XCTAssertTrue(catalog.models.contains { $0.id == "z-ai/glm-5.2" })
+    }
+
     private func makeTempDirectory() throws -> URL {
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("QuillCodeAppTests-\(UUID().uuidString)")

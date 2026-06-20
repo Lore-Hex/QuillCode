@@ -14,7 +14,7 @@
 - Project picker and model picker.
 - Settings with OAuth/dev override and mode selection.
 - Native smoke tests.
-- Current status: testable workspace state model, persisted config/thread bootstrap, HTML surface contract, Playwright harness, and SwiftUI desktop shell exist for sidebar, composer, top bar, transcript, tool-card presentation, and initial model/mode switching.
+- Current status: testable workspace state model, persisted config/thread bootstrap, HTML surface contract, Playwright harness, and SwiftUI desktop shell exist for sidebar, composer, top bar, transcript, tool-card presentation, grouped model selection, and mode switching.
 
 ## Milestone 2: TrustedRouter Runtime
 
@@ -22,7 +22,7 @@
 - Streaming chat client.
 - Live model catalog native UI.
 - Auto reviewer using `glm-5.2` with `kimi-k2.6` fallback in the native app.
-- Current status: non-streaming live TrustedRouter adapter exists behind CLI `--live`, desktop env/secret-key runtime selection, and CLI key-management commands.
+- Current status: non-streaming live TrustedRouter adapter exists behind CLI `--live`; desktop env/secret-key runtime selection, live model-catalog refresh, and CLI key-management commands are implemented.
 
 ## Milestone 3: Codex Workflow Parity
 

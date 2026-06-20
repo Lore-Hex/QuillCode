@@ -41,7 +41,8 @@
     .topbar strong { font-size: 20px; }
     .topbar p { margin: 3px 0 0; color: var(--muted); }
     .topbar-pills { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-    .topbar-pills span {
+    .topbar-pills span,
+    .topbar-pills select {
       padding: 6px 10px;
       border-radius: 999px;
       background: rgba(65,184,232,.14);
@@ -49,6 +50,7 @@
       border: 1px solid rgba(65,184,232,.22);
       font-size: 13px;
     }
+    .topbar-pills select { max-width: 230px; }
     .workspace-grid { min-height: 0; display: grid; grid-template-columns: 280px 1fr; gap: 18px; padding: 0 18px 18px; }
     .sidebar, .transcript {
       min-height: 0;
@@ -138,6 +140,22 @@
         primaryTitle: 'QuillCode',
         subtitle: 'No project - Not started',
         modelLabel: 'trustedrouter/fusion',
+        selectedModelID: 'trustedrouter/fusion',
+        modelCategories: [
+          {
+            category: 'Recommended',
+            models: [
+              { id: 'trustedrouter/fusion', provider: 'trustedrouter', displayName: 'Fusion', isSelected: true }
+            ]
+          },
+          {
+            category: 'Safety',
+            models: [
+              { id: 'z-ai/glm-5.2', provider: 'z-ai', displayName: 'GLM 5.2', isSelected: false },
+              { id: 'moonshotai/kimi-k2.6', provider: 'moonshotai', displayName: 'Kimi K2.6', isSelected: false }
+            ]
+          }
+        ],
         modeLabel: 'Auto',
         agentStatus: 'Idle',
         computerUseLabel: 'Computer Use setup needed'
@@ -197,6 +215,13 @@
             <small>${escapeHTML(item.subtitle)}${item.isPinned ? ' · pinned' : ''}</small>
           </button>`).join('')
         : '<p data-testid="sidebar-empty">No chats yet</p>';
+      const modelOptions = state.topBar.modelCategories.map(category => `
+        <optgroup label="${escapeHTML(category.category)}" data-testid="model-category">
+          ${category.models.map(model => `
+            <option value="${escapeHTML(model.id)}" ${model.id === state.topBar.selectedModelID ? 'selected' : ''}>
+              ${escapeHTML(model.provider + '/' + model.displayName)}
+            </option>`).join('')}
+        </optgroup>`).join('');
 
       document.getElementById('app').innerHTML = `
         <section class="quillcode-workspace" data-testid="workspace">
@@ -206,6 +231,7 @@
               <p data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
             </div>
             <div class="topbar-pills">
+              <select aria-label="Model" data-testid="model-picker">${modelOptions}</select>
               <span data-testid="model-pill">${escapeHTML(state.topBar.modelLabel)}</span>
               <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
               <span data-testid="agent-status">${escapeHTML(state.topBar.agentStatus)}</span>
@@ -238,6 +264,19 @@
       form.addEventListener('submit', event => {
         event.preventDefault();
         sendMessage(input.value);
+      });
+      document.querySelector('[data-testid="model-picker"]').addEventListener('change', event => {
+        const selectedID = event.target.value;
+        const allModels = state.topBar.modelCategories.flatMap(category => category.models);
+        const selected = allModels.find(model => model.id === selectedID);
+        if (!selected) return;
+        state.topBar.selectedModelID = selected.id;
+        state.topBar.modelLabel = selected.id;
+        state.topBar.modelCategories = state.topBar.modelCategories.map(category => ({
+          ...category,
+          models: category.models.map(model => ({ ...model, isSelected: model.id === selected.id }))
+        }));
+        render();
       });
     }
 

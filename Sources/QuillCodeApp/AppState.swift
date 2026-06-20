@@ -59,19 +59,22 @@ public struct QuillCodeRootState: Sendable, Hashable {
     public var threads: [ChatThread]
     public var selectedThreadID: UUID?
     public var topBar: TopBarState
+    public var modelCatalog: [ModelInfo]
 
     public init(
         config: AppConfig = AppConfig(),
         projects: [ProjectRef] = [],
         threads: [ChatThread] = [],
         selectedThreadID: UUID? = nil,
-        topBar: TopBarState = TopBarState()
+        topBar: TopBarState = TopBarState(),
+        modelCatalog: [ModelInfo] = TrustedRouterModelCatalog.defaultModels
     ) {
         self.config = config
         self.projects = projects
         self.threads = threads
         self.selectedThreadID = selectedThreadID
         self.topBar = topBar
+        self.modelCatalog = modelCatalog
     }
 
     public var sidebarItems: [SidebarItem] {

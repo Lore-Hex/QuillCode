@@ -23,8 +23,8 @@ public struct TrustedRouterModelCatalog: Sendable {
 
     public static let defaultModels: [QuillCodeCore.ModelInfo] = [
         .init(id: "trustedrouter/fusion", provider: "trustedrouter", displayName: "Fusion", category: "Recommended"),
-        .init(id: "glm-5.2", provider: "z-ai", displayName: "GLM 5.2", category: "Safety"),
-        .init(id: "kimi-k2.6", provider: "moonshot", displayName: "Kimi K2.6", category: "Safety")
+        .init(id: "z-ai/glm-5.2", provider: "z-ai", displayName: "GLM 5.2", category: "Safety"),
+        .init(id: "moonshotai/kimi-k2.6", provider: "moonshotai", displayName: "Kimi K2.6", category: "Safety")
     ]
 }
 

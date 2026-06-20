@@ -84,9 +84,20 @@ private struct QuillCodeTopBarView: View {
             }
             Spacer()
             Menu {
-                ForEach(QuillCodeModelMenuOption.defaults) { option in
-                    Button(option.title) {
-                        onSetModel(option.id)
+                ForEach(topBar.modelCategories) { category in
+                    Section(category.category) {
+                        ForEach(category.models) { option in
+                            Button {
+                                onSetModel(option.id)
+                            } label: {
+                                HStack {
+                                    Text("\(option.provider)/\(option.displayName)")
+                                    if option.isSelected {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             } label: {
@@ -370,17 +381,6 @@ private struct QuillCodePill: View {
             .foregroundStyle(QuillCodePalette.blue)
             .clipShape(Capsule())
     }
-}
-
-private struct QuillCodeModelMenuOption: Identifiable {
-    var id: String
-    var title: String
-
-    static let defaults = [
-        QuillCodeModelMenuOption(id: TrustedRouterDefaults.defaultModel, title: "TrustedRouter Fusion"),
-        QuillCodeModelMenuOption(id: "z-ai/glm-5.2", title: "GLM 5.2"),
-        QuillCodeModelMenuOption(id: "moonshotai/kimi-k2.6", title: "Kimi K2.6")
-    ]
 }
 
 private extension AgentMode {

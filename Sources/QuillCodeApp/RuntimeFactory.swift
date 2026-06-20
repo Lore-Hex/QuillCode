@@ -38,11 +38,7 @@ public struct QuillCodeRuntimeFactory: Sendable {
             return mockRuntime(status: "Mock LLM")
         }
 
-        let secretStore = FileSecretStore(directory: paths.secretsDirectory)
-        let sessionStore = SecretTrustedRouterSessionStore(
-            secretStore: secretStore,
-            key: QuillSecretKeys.trustedRouterAPIKey
-        )
+        let sessionStore = sessionStore()
         let apiKey = configuredAPIKey()
         guard apiKey != nil || sessionStore.hasAPIKey else {
             return mockRuntime(status: "Mock LLM")
@@ -69,6 +65,24 @@ public struct QuillCodeRuntimeFactory: Sendable {
         )
     }
 
+    public func fetchModelCatalog(config: AppConfig) async -> TrustedRouterModelCatalog {
+        guard !forcedMock else {
+            return TrustedRouterModelCatalog()
+        }
+        let key = configuredAPIKey() ?? (try? sessionStore().apiKey())
+        guard key?.isEmpty == false else {
+            return TrustedRouterModelCatalog()
+        }
+        do {
+            return try await TrustedRouterModelCatalogClient(
+                apiKey: key,
+                baseURL: config.apiBaseURL
+            ).fetch()
+        } catch {
+            return TrustedRouterModelCatalog()
+        }
+    }
+
     private var forcedMock: Bool {
         let value = environment["QUILLCODE_USE_MOCK_LLM"]?.lowercased()
         return value == "1" || value == "true" || value == "yes"
@@ -80,6 +94,13 @@ public struct QuillCodeRuntimeFactory: Sendable {
             return key
         }
         return nil
+    }
+
+    private func sessionStore() -> SecretTrustedRouterSessionStore {
+        SecretTrustedRouterSessionStore(
+            secretStore: FileSecretStore(directory: paths.secretsDirectory),
+            key: QuillSecretKeys.trustedRouterAPIKey
+        )
     }
 
     private func mockRuntime(status: String) -> QuillCodeRuntime {

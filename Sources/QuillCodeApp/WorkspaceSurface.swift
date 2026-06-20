@@ -31,6 +31,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     public var primaryTitle: String
     public var subtitle: String
     public var modelLabel: String
+    public var selectedModelID: String
+    public var modelCategories: [ModelCategorySurface]
     public var modeLabel: String
     public var agentStatus: String
     public var computerUseLabel: String
@@ -41,6 +43,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         primaryTitle: String,
         subtitle: String,
         modelLabel: String,
+        selectedModelID: String,
+        modelCategories: [ModelCategorySurface],
         modeLabel: String,
         agentStatus: String,
         computerUseLabel: String,
@@ -50,10 +54,39 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.primaryTitle = primaryTitle
         self.subtitle = subtitle
         self.modelLabel = modelLabel
+        self.selectedModelID = selectedModelID
+        self.modelCategories = modelCategories
         self.modeLabel = modeLabel
         self.agentStatus = agentStatus
         self.computerUseLabel = computerUseLabel
         self.showsComputerUseSetup = showsComputerUseSetup
+    }
+}
+
+public struct ModelCategorySurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String { category }
+    public var category: String
+    public var models: [ModelOptionSurface]
+
+    public init(category: String, models: [ModelOptionSurface]) {
+        self.category = category
+        self.models = models
+    }
+}
+
+public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var provider: String
+    public var displayName: String
+    public var category: String
+    public var isSelected: Bool
+
+    public init(model: ModelInfo, selectedModelID: String) {
+        self.id = model.id
+        self.provider = model.provider
+        self.displayName = model.displayName
+        self.category = model.category
+        self.isSelected = model.id == selectedModelID
     }
 }
 
@@ -164,7 +197,9 @@ public extension QuillCodeWorkspaceModel {
                 appName: topBarState.appName,
                 primaryTitle: thread?.title ?? "QuillCode",
                 subtitle: topBarSubtitle(thread: thread),
-                modelLabel: topBarState.model,
+                modelLabel: modelLabel(for: topBarState.model),
+                selectedModelID: topBarState.model,
+                modelCategories: modelCategories(selectedModelID: topBarState.model),
                 modeLabel: Self.modeLabel(topBarState.mode),
                 agentStatus: topBarState.agentStatus,
                 computerUseLabel: computerUse.available ? "Computer Use ready" : "Computer Use setup needed",
@@ -190,6 +225,50 @@ public extension QuillCodeWorkspaceModel {
             return "\(projectName) - Not started"
         }
         return "\(projectName) - \(Self.modeLabel(thread.mode)) - \(thread.model)"
+    }
+
+    private func modelLabel(for id: String) -> String {
+        guard let model = root.modelCatalog.first(where: { $0.id == id }) else {
+            return id
+        }
+        if model.provider == "trustedrouter" {
+            return model.id
+        }
+        return "\(model.provider)/\(model.displayName)"
+    }
+
+    private func modelCategories(selectedModelID: String) -> [ModelCategorySurface] {
+        var catalog = root.modelCatalog
+        if !catalog.contains(where: { $0.id == selectedModelID }) {
+            catalog.insert(Self.fallbackModelInfo(for: selectedModelID), at: 0)
+        }
+
+        let options = catalog.map {
+            ModelOptionSurface(model: $0, selectedModelID: selectedModelID)
+        }
+        return Dictionary(grouping: options, by: \.category)
+            .map { category, models in
+                ModelCategorySurface(
+                    category: category,
+                    models: models.sorted { lhs, rhs in
+                        if lhs.provider != rhs.provider { return lhs.provider < rhs.provider }
+                        return lhs.displayName < rhs.displayName
+                    }
+                )
+            }
+            .sorted {
+                if $0.category == "Recommended" { return true }
+                if $1.category == "Recommended" { return false }
+                return $0.category < $1.category
+            }
+    }
+
+    private static func fallbackModelInfo(for id: String) -> ModelInfo {
+        let parts = id.split(separator: "/", maxSplits: 1).map(String.init)
+        if parts.count == 2 {
+            return ModelInfo(id: id, provider: parts[0], displayName: parts[1], category: "Current")
+        }
+        return ModelInfo(id: id, provider: "custom", displayName: id, category: "Current")
     }
 
     private func commands() -> [WorkspaceCommandSurface] {

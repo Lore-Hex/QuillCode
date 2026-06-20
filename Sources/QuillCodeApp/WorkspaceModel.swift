@@ -141,6 +141,11 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: "Idle")
     }
 
+    public func setModelCatalog(_ models: [ModelInfo]) {
+        guard !models.isEmpty else { return }
+        root.modelCatalog = models
+    }
+
     public func submitComposer(workspaceRoot: URL) async {
         let prompt = composer.draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty else { return }

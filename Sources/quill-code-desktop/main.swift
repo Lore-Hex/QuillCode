@@ -35,6 +35,9 @@ private struct QuillCodeDesktopRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeNewChat)) { _ in
             controller.newChat()
         }
+        .task {
+            await controller.refreshModelCatalog()
+        }
     }
 }
 
@@ -81,6 +84,12 @@ private final class QuillCodeDesktopController: ObservableObject {
     func setModel(_ modelID: String) {
         model.setModel(modelID)
         persistConfig()
+        refresh()
+    }
+
+    func refreshModelCatalog() async {
+        let models = await bootstrap.fetchModelCatalog(config: model.root.config)
+        model.setModelCatalog(models)
         refresh()
     }
 

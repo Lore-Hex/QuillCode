@@ -46,4 +46,8 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         try paths.ensure()
         try ConfigStore(fileURL: paths.configFile).save(config)
     }
+
+    public func fetchModelCatalog(config: AppConfig) async -> [ModelInfo] {
+        await runtimeFactory.fetchModelCatalog(config: config).models
+    }
 }
