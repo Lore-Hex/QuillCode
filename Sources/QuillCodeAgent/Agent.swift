@@ -80,6 +80,13 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
+        if lower.contains("push") || lower.contains("publish branch") {
+            return .tool(.init(
+                name: ToolDefinition.gitPush.name,
+                argumentsJSON: ToolArguments.json(Self.extractPushArguments(from: request))
+            ))
+        }
+
         return .say("I can inspect and edit this project, run shell commands, review git diffs, and use Computer Use as the platform backends come online.")
     }
 
@@ -114,6 +121,22 @@ public struct MockLLMClient: LLMClient {
         }
         message = message.trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
         return message.isEmpty ? nil : message
+    }
+
+    static func extractPushArguments(from request: String) -> [String: String] {
+        let tokens = request
+            .split { !$0.isLetter && !$0.isNumber && $0 != "/" && $0 != "-" && $0 != "_" && $0 != "." }
+            .map(String.init)
+        var arguments: [String: String] = [:]
+        if let remoteIndex = tokens.firstIndex(where: { $0.lowercased() == "remote" }),
+           tokens.indices.contains(tokens.index(after: remoteIndex)) {
+            arguments["remote"] = tokens[tokens.index(after: remoteIndex)]
+        }
+        if let branchIndex = tokens.firstIndex(where: { $0.lowercased() == "branch" }),
+           tokens.indices.contains(tokens.index(after: branchIndex)) {
+            arguments["branch"] = tokens[tokens.index(after: branchIndex)]
+        }
+        return arguments
     }
 }
 

@@ -129,6 +129,10 @@ public struct StaticSafetyReviewer: SafetyReviewer {
                 || context.toolCall.name.contains("git.status")
                 || context.toolCall.name.contains("git.diff")
         }
+        if user.contains("push") || user.contains("publish branch") {
+            return context.toolCall.name.contains("git.push")
+                || context.toolCall.name.contains("git.status")
+        }
         if user.contains("worktree") {
             return context.toolCall.name.contains("git.worktree")
                 || context.toolCall.name.contains("git.status")

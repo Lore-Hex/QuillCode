@@ -5,6 +5,9 @@ public enum GitToolError: Error, CustomStringConvertible {
     case emptyPath
     case emptyPatch
     case emptyCommitMessage
+    case emptyBranch
+    case invalidGitName(String)
+    case noCurrentBranch
     case outsideWorkspace(String)
     case mainWorkspaceWorktreePath
     case unregisteredWorktree(String)
@@ -19,6 +22,12 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "Git patch is empty."
         case .emptyCommitMessage:
             return "Git commit message is required."
+        case .emptyBranch:
+            return "Git branch is required."
+        case .invalidGitName(let value):
+            return "Git remote or branch contains unsupported characters: \(value)"
+        case .noCurrentBranch:
+            return "Git push needs a branch, but the current checkout has no branch."
         case .outsideWorkspace(let path):
             return "Git path is outside the workspace: \(path)"
         case .mainWorkspaceWorktreePath:
@@ -83,6 +92,35 @@ public struct GitToolExecutor: Sendable {
             return ToolResult(ok: false, error: String(describing: GitToolError.emptyCommitMessage))
         }
         return runGit(["commit", "-m", trimmed], cwd: cwd, timeoutSeconds: 30)
+    }
+
+    public func push(
+        cwd: URL,
+        remote: String? = nil,
+        branch: String? = nil,
+        setUpstream: Bool = false
+    ) -> ToolResult {
+        do {
+            let remoteName = try safeGitName(trimmedNonEmpty(remote) ?? "origin")
+            let branchName: String
+            if let branch = trimmedNonEmpty(branch) {
+                branchName = try safeGitName(branch)
+            } else {
+                branchName = try currentBranchName(cwd: cwd)
+            }
+            guard !branchName.isEmpty else {
+                throw GitToolError.emptyBranch
+            }
+
+            var arguments = ["push"]
+            if setUpstream {
+                arguments.append("-u")
+            }
+            arguments += [remoteName, branchName]
+            return runGit(arguments, cwd: cwd, timeoutSeconds: 120)
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
     }
 
     public func listWorktrees(cwd: URL) -> ToolResult {
@@ -184,6 +222,33 @@ public struct GitToolExecutor: Sendable {
     private func trimmedNonEmpty(_ value: String?) -> String? {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func safeGitName(_ value: String) throws -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw GitToolError.emptyBranch
+        }
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._/-")
+        guard trimmed.rangeOfCharacter(from: allowed.inverted) == nil,
+              !trimmed.hasPrefix("-"),
+              !trimmed.contains("..")
+        else {
+            throw GitToolError.invalidGitName(value)
+        }
+        return trimmed
+    }
+
+    private func currentBranchName(cwd: URL) throws -> String {
+        let result = runGit(["branch", "--show-current"], cwd: cwd, timeoutSeconds: 10)
+        guard result.ok else {
+            throw GitToolError.noCurrentBranch
+        }
+        let branch = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !branch.isEmpty else {
+            throw GitToolError.noCurrentBranch
+        }
+        return try safeGitName(branch)
     }
 
     private func registeredWorktreePaths(cwd: URL) -> (paths: Set<String>, failure: ToolResult?) {
@@ -418,6 +483,14 @@ public extension ToolDefinition {
         name: "host.git.commit",
         description: "Create a git commit from already staged project changes.",
         parametersJSON: #"{"type":"object","properties":{"message":{"type":"string"}},"required":["message"]}"#,
+        host: .local,
+        risk: .append
+    )
+
+    static let gitPush = ToolDefinition(
+        name: "host.git.push",
+        description: "Push a project branch to a named git remote. Defaults to remote origin and the current branch.",
+        parametersJSON: #"{"type":"object","properties":{"remote":{"type":"string"},"branch":{"type":"string"},"setUpstream":{"type":"boolean"}}}"#,
         host: .local,
         risk: .append
     )

@@ -24,6 +24,13 @@ final class SafetyTests: XCTestCase {
         host: .local,
         risk: .append
     )
+    private let gitPush = ToolDefinition(
+        name: "host.git.push",
+        description: "Push branch",
+        parametersJSON: "{}",
+        host: .local,
+        risk: .append
+    )
     private let gitWorktreeCreate = ToolDefinition(
         name: "host.git.worktree.create",
         description: "Create a worktree",
@@ -80,6 +87,19 @@ final class SafetyTests: XCTestCase {
             toolCall: call,
             toolDefinition: gitCommit,
             recentMessages: [.init(role: .user, content: "commit these changes with message Add hello file")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoApprovesUserRequestedGitPush() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: gitPush.name, argumentsJSON: #"{"remote":"origin"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "push this branch",
+            toolCall: call,
+            toolDefinition: gitPush,
+            recentMessages: [.init(role: .user, content: "push this branch")]
         ))
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }

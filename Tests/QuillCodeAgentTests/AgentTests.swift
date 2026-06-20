@@ -50,6 +50,29 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(log.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "Add hello file")
     }
 
+    func testPushCurrentBranchExecutesImmediately() async throws {
+        let parent = try makeTempDirectory()
+        let root = parent.appendingPathComponent("repo")
+        let remote = parent.appendingPathComponent("remote.git")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try initializeGitRepo(at: root)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git init --bare '\(remote.path)'", cwd: parent)).ok)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git remote add origin '\(remote.path)'", cwd: root)).ok)
+        try "hello\n".write(to: root.appendingPathComponent("hello.txt"), atomically: true, encoding: .utf8)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "hello.txt").ok)
+        XCTAssertTrue(GitToolExecutor().commit(cwd: root, message: "Add hello").ok)
+
+        let result = try await AgentRunner().send(
+            "push this branch",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(result.thread.events.filter { $0.summary.contains("host.git.push") }.count, 3)
+    }
+
     private func makeTempDirectory() throws -> URL {
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("QuillCodeAgentTests-\(UUID().uuidString)")

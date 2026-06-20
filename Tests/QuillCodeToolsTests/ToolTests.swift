@@ -203,6 +203,37 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(result.error?.contains("message is required") == true, result.error ?? "")
     }
 
+    func testGitPushPushesCurrentBranchToNamedRemote() throws {
+        let parent = try makeTempDirectory()
+        let root = parent.appendingPathComponent("repo")
+        let remote = parent.appendingPathComponent("remote.git")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try initializeGitRepo(at: root)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git init --bare '\(remote.path)'", cwd: parent)).ok)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git remote add origin '\(remote.path)'", cwd: root)).ok)
+        try "hello\n".write(to: root.appendingPathComponent("hello.txt"), atomically: true, encoding: .utf8)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "hello.txt").ok)
+        XCTAssertTrue(GitToolExecutor().commit(cwd: root, message: "Add hello").ok)
+        let branch = currentBranchName(in: root)
+
+        let result = GitToolExecutor().push(cwd: root, remote: "origin", branch: branch, setUpstream: true)
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        let remoteHead = ShellToolExecutor().run(.init(
+            command: "git --git-dir='\(remote.path)' rev-parse \(branch)",
+            cwd: parent
+        ))
+        XCTAssertTrue(remoteHead.ok, "\(remoteHead.error ?? "") \(remoteHead.stderr)")
+        XCTAssertFalse(remoteHead.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    }
+
+    func testGitPushRejectsUnsafeRemoteAndBranchNames() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+
+        XCTAssertFalse(GitToolExecutor().push(cwd: root, remote: "--all").ok)
+        XCTAssertFalse(GitToolExecutor().push(cwd: root, remote: "origin", branch: "feature;rm").ok)
+    }
+
     func testGitWorktreeCreateListAndRemoveSibling() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let parent = root.deletingLastPathComponent()
@@ -278,6 +309,7 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.stage_hunk"))
         XCTAssertTrue(definitions.contains("host.git.restore_hunk"))
         XCTAssertTrue(definitions.contains("host.git.commit"))
+        XCTAssertTrue(definitions.contains("host.git.push"))
         XCTAssertTrue(definitions.contains("host.git.worktree.list"))
         XCTAssertTrue(definitions.contains("host.git.worktree.create"))
         XCTAssertTrue(definitions.contains("host.git.worktree.remove"))
@@ -292,6 +324,26 @@ final class ToolTests: XCTestCase {
 
         XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
         XCTAssertTrue(result.stdout.contains(root.path), result.stdout)
+    }
+
+    func testToolRouterRoutesGitPush() throws {
+        let parent = try makeTempDirectory()
+        let root = parent.appendingPathComponent("repo")
+        let remote = parent.appendingPathComponent("remote.git")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try initializeGitRepo(at: root)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git init --bare '\(remote.path)'", cwd: parent)).ok)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git remote add origin '\(remote.path)'", cwd: root)).ok)
+        try "hello\n".write(to: root.appendingPathComponent("hello.txt"), atomically: true, encoding: .utf8)
+        XCTAssertTrue(GitToolExecutor().stage(cwd: root, path: "hello.txt").ok)
+        XCTAssertTrue(GitToolExecutor().commit(cwd: root, message: "Add hello").ok)
+
+        let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.gitPush.name,
+            argumentsJSON: #"{"remote":"origin","setUpstream":true}"#
+        ))
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
     }
 
     private func makeTempDirectory() throws -> URL {
