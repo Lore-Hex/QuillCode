@@ -80,6 +80,24 @@ test('mock harness starts a new chat from the sidebar action', async ({ page }) 
   await expect(page.getByLabel('Message')).toHaveValue('');
 });
 
+test('mock harness runs a command in the integrated terminal', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('terminal-button').click();
+  await expect(page.getByTestId('terminal-pane')).toBeVisible();
+  await expect(page.getByTestId('terminal-cwd')).toHaveText('/mock/QuillCode');
+  await expect(page.getByTestId('terminal-empty')).toBeVisible();
+
+  await page.getByLabel('Terminal command').fill('pwd');
+  await expect(page.getByTestId('terminal-run')).toBeEnabled();
+  await page.getByTestId('terminal-run').click();
+
+  await expect(page.getByTestId('terminal-entry')).toContainText('$ pwd');
+  await expect(page.getByTestId('terminal-status')).toHaveText('Done · exit 0');
+  await expect(page.getByTestId('terminal-stdout')).toContainText('/mock/QuillCode');
+  await expect(page.getByLabel('Terminal command')).toHaveValue('');
+});
+
 test('mock harness shows git review summary for diff flow', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

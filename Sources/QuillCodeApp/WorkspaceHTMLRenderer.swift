@@ -9,6 +9,7 @@ public enum WorkspaceHTMLRenderer {
             \(renderSidebar(projects: surface.projects, sidebar: surface.sidebar))
             <main class="transcript" data-testid="transcript">
               \(renderTranscript(surface.transcript, review: surface.review))
+              \(renderTerminal(surface.terminal))
               \(renderComposer(surface.composer))
             </main>
           </div>
@@ -148,6 +149,39 @@ public enum WorkspaceHTMLRenderer {
           \(card.inputJSON.map { #"<pre data-testid="tool-card-input">\#(escape($0))</pre>"# } ?? "")
           \(card.outputJSON.map { #"<pre data-testid="tool-card-output">\#(escape($0))</pre>"# } ?? "")
         </article>
+        """
+    }
+
+    private static func renderTerminal(_ terminal: TerminalSurface) -> String {
+        guard terminal.isVisible else { return "" }
+        let entries = terminal.entries.isEmpty
+            ? #"<p data-testid="terminal-empty">\#(escape(terminal.emptyTitle))</p>"#
+            : terminal.entries.map { entry in
+                """
+                <article class="terminal-entry" data-testid="terminal-entry">
+                  <header>
+                    <code>$ \(escape(entry.command))</code>
+                    <span data-testid="terminal-status">\(escape(entry.statusLabel)) · \(escape(entry.exitCodeLabel))</span>
+                  </header>
+                  \(entry.stdout.isEmpty ? "" : #"<pre data-testid="terminal-stdout">\#(escape(entry.stdout))</pre>"#)
+                  \(entry.stderr.isEmpty ? "" : #"<pre data-testid="terminal-stderr">\#(escape(entry.stderr))</pre>"#)
+                </article>
+                """
+            }.joined(separator: "\n")
+        return """
+        <section class="terminal-pane" data-testid="terminal-pane">
+          <header>
+            <strong>Terminal</strong>
+            <code data-testid="terminal-cwd">\(escape(terminal.cwdLabel))</code>
+          </header>
+          <div data-testid="terminal-history">
+            \(entries)
+          </div>
+          <form data-testid="terminal-form">
+            <input aria-label="Terminal command" value="\(escape(terminal.draft))">
+            <button type="submit" data-testid="terminal-run" \(terminal.canRun ? "" : "disabled")>Run</button>
+          </form>
+        </section>
         """
     }
 

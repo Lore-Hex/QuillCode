@@ -96,6 +96,30 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(cards[0].outputJSON?.contains("\"ok\" : true") == true)
     }
 
+    func testTerminalCommandRunsInWorkspaceRootAndRecordsOutput() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Terminal Project")
+        model.selectProject(projectID)
+
+        model.toggleTerminal()
+        await model.runTerminalCommand("printf terminal-ok", workspaceRoot: root)
+
+        XCTAssertTrue(model.terminal.isVisible)
+        XCTAssertFalse(model.terminal.isRunning)
+        XCTAssertEqual(model.terminal.entries.count, 1)
+        XCTAssertEqual(model.terminal.entries[0].command, "printf terminal-ok")
+        XCTAssertEqual(model.terminal.entries[0].stdout, "terminal-ok")
+        XCTAssertEqual(model.terminal.entries[0].exitCode, 0)
+        XCTAssertTrue(model.terminal.entries[0].ok)
+
+        let surface = model.surface().terminal
+        XCTAssertTrue(surface.isVisible)
+        XCTAssertEqual(surface.cwdLabel, root.path)
+        XCTAssertEqual(surface.entries.first?.statusLabel, "Done")
+        XCTAssertEqual(surface.entries.first?.exitCodeLabel, "exit 0")
+    }
+
     func testEmptyDraftDoesNotCreateThread() async throws {
         let model = QuillCodeWorkspaceModel()
         model.setDraft("   ")

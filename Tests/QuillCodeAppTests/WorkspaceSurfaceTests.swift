@@ -37,11 +37,13 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.transcript.messages.count, 2)
         XCTAssertEqual(surface.composer.placeholder, "Message QuillCode")
         XCTAssertTrue(surface.composer.canSend)
-        XCTAssertEqual(surface.commands.map(\.id), ["new-chat", "search", "stop-all", "settings", "computer-use-setup"])
+        XCTAssertEqual(surface.commands.map(\.id), ["new-chat", "search", "toggle-terminal", "stop-all", "settings", "computer-use-setup"])
         XCTAssertEqual(surface.settings.apiBaseURL, TrustedRouterDefaults.defaultAPIBaseURL)
         XCTAssertFalse(surface.settings.developerOverrideEnabled)
         XCTAssertFalse(surface.settings.hasStoredAPIKey)
         XCTAssertEqual(surface.settings.apiKeyStatusLabel, "No API key saved")
+        XCTAssertFalse(surface.terminal.isVisible)
+        XCTAssertEqual(surface.terminal.cwdLabel, "/tmp/QuillCode")
     }
 
     func testSurfaceGroupsCustomModelCatalogByCategory() {
@@ -222,6 +224,20 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-status="done""#))
         XCTAssertTrue(html.contains("host.shell.run"))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-output""#))
+    }
+
+    func testHTMLRendererIncludesVisibleTerminalPane() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+        model.toggleTerminal()
+        await model.runTerminalCommand("printf renderer-ok", workspaceRoot: root)
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="terminal-pane""#))
+        XCTAssertTrue(html.contains(#"data-testid="terminal-cwd""#))
+        XCTAssertTrue(html.contains(#"data-testid="terminal-entry""#))
+        XCTAssertTrue(html.contains("renderer-ok"))
     }
 
     func testHTMLRendererIncludesGitReviewPane() throws {

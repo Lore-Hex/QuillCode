@@ -7,6 +7,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var sidebar: SidebarSurface
     public var transcript: TranscriptSurface
     public var review: WorkspaceReviewSurface
+    public var terminal: TerminalSurface
     public var composer: ComposerSurface
     public var commands: [WorkspaceCommandSurface]
     public var settings: WorkspaceSettingsSurface
@@ -18,6 +19,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         sidebar: SidebarSurface,
         transcript: TranscriptSurface,
         review: WorkspaceReviewSurface,
+        terminal: TerminalSurface,
         composer: ComposerSurface,
         commands: [WorkspaceCommandSurface],
         settings: WorkspaceSettingsSurface,
@@ -28,6 +30,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.sidebar = sidebar
         self.transcript = transcript
         self.review = review
+        self.terminal = terminal
         self.composer = composer
         self.commands = commands
         self.settings = settings
@@ -224,6 +227,52 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
         self.subtitle = files.isEmpty
             ? subtitle
             : "\(files.count) file\(files.count == 1 ? "" : "s") changed, +\(totalInsertions) -\(totalDeletions)"
+    }
+}
+
+public struct TerminalSurface: Codable, Sendable, Hashable {
+    public var isVisible: Bool
+    public var draft: String
+    public var isRunning: Bool
+    public var cwdLabel: String
+    public var entries: [TerminalCommandSurface]
+    public var emptyTitle: String
+
+    public var canRun: Bool {
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isRunning
+    }
+
+    public init(
+        terminal: TerminalState,
+        cwd: URL?,
+        emptyTitle: String = "Run commands in this project without leaving QuillCode."
+    ) {
+        self.isVisible = terminal.isVisible
+        self.draft = terminal.draft
+        self.isRunning = terminal.isRunning
+        self.cwdLabel = cwd?.path ?? "No project"
+        self.entries = terminal.entries.map(TerminalCommandSurface.init)
+        self.emptyTitle = emptyTitle
+    }
+}
+
+public struct TerminalCommandSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: UUID
+    public var command: String
+    public var stdout: String
+    public var stderr: String
+    public var exitCodeLabel: String
+    public var statusLabel: String
+    public var isSuccess: Bool
+
+    public init(entry: TerminalCommandState) {
+        self.id = entry.id
+        self.command = entry.command
+        self.stdout = entry.stdout
+        self.stderr = entry.stderr
+        self.exitCodeLabel = entry.exitCode.map { "exit \($0)" } ?? "exit unknown"
+        self.statusLabel = entry.ok ? "Done" : "Failed"
+        self.isSuccess = entry.ok
     }
 }
 
@@ -473,6 +522,10 @@ public extension QuillCodeWorkspaceModel {
                 toolCards: toolCards
             ),
             review: reviewSurface(from: toolCards),
+            terminal: TerminalSurface(
+                terminal: terminal,
+                cwd: activeWorkspaceRoot
+            ),
             composer: ComposerSurface(composer: composer),
             commands: commands(),
             settings: WorkspaceSettingsSurface(
@@ -545,6 +598,7 @@ public extension QuillCodeWorkspaceModel {
         [
             WorkspaceCommandSurface(id: "new-chat", title: "New chat", shortcut: "Cmd+N"),
             WorkspaceCommandSurface(id: "search", title: "Search", shortcut: "Cmd+K"),
+            WorkspaceCommandSurface(id: "toggle-terminal", title: "Terminal", shortcut: "Ctrl+`"),
             WorkspaceCommandSurface(id: "stop-all", title: "Stop all", shortcut: "Esc", isEnabled: composer.isSending),
             WorkspaceCommandSurface(id: "settings", title: "Settings", shortcut: "Cmd+,"),
             WorkspaceCommandSurface(

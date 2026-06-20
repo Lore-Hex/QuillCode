@@ -56,10 +56,58 @@ public struct ComposerState: Sendable, Hashable {
     }
 }
 
+public struct TerminalCommandState: Sendable, Hashable, Identifiable {
+    public var id: UUID
+    public var command: String
+    public var stdout: String
+    public var stderr: String
+    public var exitCode: Int32?
+    public var ok: Bool
+    public var createdAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        command: String,
+        stdout: String,
+        stderr: String,
+        exitCode: Int32?,
+        ok: Bool,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.command = command
+        self.stdout = stdout
+        self.stderr = stderr
+        self.exitCode = exitCode
+        self.ok = ok
+        self.createdAt = createdAt
+    }
+}
+
+public struct TerminalState: Sendable, Hashable {
+    public var isVisible: Bool
+    public var draft: String
+    public var isRunning: Bool
+    public var entries: [TerminalCommandState]
+
+    public init(
+        isVisible: Bool = false,
+        draft: String = "",
+        isRunning: Bool = false,
+        entries: [TerminalCommandState] = []
+    ) {
+        self.isVisible = isVisible
+        self.draft = draft
+        self.isRunning = isRunning
+        self.entries = entries
+    }
+}
+
 @MainActor
 public final class QuillCodeWorkspaceModel {
     public private(set) var root: QuillCodeRootState
     public private(set) var composer: ComposerState
+    public private(set) var terminal: TerminalState
     public private(set) var lastError: String?
 
     private var runner: AgentRunner
@@ -69,12 +117,14 @@ public final class QuillCodeWorkspaceModel {
     public init(
         root: QuillCodeRootState = QuillCodeRootState(),
         composer: ComposerState = ComposerState(),
+        terminal: TerminalState = TerminalState(),
         runner: AgentRunner = AgentRunner(),
         threadStore: JSONThreadStore? = nil,
         projectStore: JSONProjectStore? = nil
     ) {
         self.root = root
         self.composer = composer
+        self.terminal = terminal
         self.runner = runner
         self.threadStore = threadStore
         self.projectStore = projectStore
@@ -101,6 +151,18 @@ public final class QuillCodeWorkspaceModel {
 
     public func setDraft(_ draft: String) {
         composer.draft = draft
+    }
+
+    public func setTerminalDraft(_ draft: String) {
+        terminal.draft = draft
+    }
+
+    public func setTerminalVisible(_ isVisible: Bool) {
+        terminal.isVisible = isVisible
+    }
+
+    public func toggleTerminal() {
+        terminal.isVisible.toggle()
     }
 
     @discardableResult
@@ -270,6 +332,35 @@ public final class QuillCodeWorkspaceModel {
             try? threadStore?.save(thread)
         }
         refreshTopBar(agentStatus: actionResult.ok && diffResult.ok ? "Idle" : "Failed")
+    }
+
+    public func runTerminalCommand(workspaceRoot: URL) async {
+        await runTerminalCommand(terminal.draft, workspaceRoot: workspaceRoot)
+    }
+
+    public func runTerminalCommand(_ input: String, workspaceRoot: URL) async {
+        let command = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !command.isEmpty, !terminal.isRunning else { return }
+
+        terminal.draft = ""
+        terminal.isVisible = true
+        terminal.isRunning = true
+        lastError = nil
+        refreshTopBar(agentStatus: "Terminal")
+
+        let result = await Task.detached(priority: .userInitiated) {
+            ShellToolExecutor().run(.init(command: command, cwd: workspaceRoot))
+        }.value
+
+        terminal.entries.append(TerminalCommandState(
+            command: command,
+            stdout: result.stdout,
+            stderr: result.stderr,
+            exitCode: result.exitCode,
+            ok: result.ok
+        ))
+        terminal.isRunning = false
+        refreshTopBar(agentStatus: result.ok ? "Idle" : "Failed")
     }
 
     public static func toolCards(for thread: ChatThread) -> [ToolCardState] {

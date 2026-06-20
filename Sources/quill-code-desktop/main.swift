@@ -14,6 +14,10 @@ struct QuillCodeDesktopApp: App {
                     NotificationCenter.default.post(name: .quillCodeNewChat, object: nil)
                 }
                 .keyboardShortcut("n", modifiers: .command)
+                Button("Toggle Terminal") {
+                    NotificationCenter.default.post(name: .quillCodeToggleTerminal, object: nil)
+                }
+                .keyboardShortcut("`", modifiers: .control)
             }
         }
     }
@@ -26,7 +30,9 @@ private struct QuillCodeDesktopRootView: View {
         QuillCodeWorkspaceView(
             surface: controller.surface,
             draft: $controller.draft,
+            terminalDraft: $controller.terminalDraft,
             onSend: controller.send,
+            onRunTerminalCommand: controller.runTerminalCommand,
             onSelectThread: controller.selectThread,
             onSelectProject: controller.selectProject,
             onSetMode: controller.setMode,
@@ -38,6 +44,9 @@ private struct QuillCodeDesktopRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeNewChat)) { _ in
             controller.newChat()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .quillCodeToggleTerminal)) { _ in
+            controller.toggleTerminal()
+        }
         .task {
             await controller.refreshModelCatalog()
         }
@@ -48,6 +57,7 @@ private struct QuillCodeDesktopRootView: View {
 private final class QuillCodeDesktopController: ObservableObject {
     @Published var surface: WorkspaceSurface
     @Published var draft: String
+    @Published var terminalDraft: String
 
     private let model: QuillCodeWorkspaceModel
     private let bootstrap: QuillCodeWorkspaceBootstrap
@@ -69,6 +79,7 @@ private final class QuillCodeDesktopController: ObservableObject {
         }
         self.surface = model.surface()
         self.draft = model.composer.draft
+        self.terminalDraft = model.terminal.draft
     }
 
     func newChat() {
@@ -142,10 +153,26 @@ private final class QuillCodeDesktopController: ObservableObject {
         switch command.id {
         case "new-chat":
             newChat()
+        case "toggle-terminal":
+            toggleTerminal()
         case "stop-all":
             break
         default:
             break
+        }
+    }
+
+    func toggleTerminal() {
+        model.toggleTerminal()
+        refresh()
+    }
+
+    func runTerminalCommand() {
+        let command = terminalDraft
+        terminalDraft = ""
+        Task {
+            await model.runTerminalCommand(command, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+            refresh()
         }
     }
 
@@ -159,6 +186,9 @@ private final class QuillCodeDesktopController: ObservableObject {
         if draft != model.composer.draft, !model.composer.isSending {
             draft = model.composer.draft
         }
+        if terminalDraft != model.terminal.draft, !model.terminal.isRunning {
+            terminalDraft = model.terminal.draft
+        }
     }
 
     private func persistConfig() {
@@ -168,4 +198,5 @@ private final class QuillCodeDesktopController: ObservableObject {
 
 private extension Notification.Name {
     static let quillCodeNewChat = Notification.Name("QuillCodeNewChat")
+    static let quillCodeToggleTerminal = Notification.Name("QuillCodeToggleTerminal")
 }

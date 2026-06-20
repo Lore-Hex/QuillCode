@@ -133,6 +133,39 @@
     .project-item small { color: var(--muted); }
     .transcript { display: grid; grid-template-rows: 1fr auto; overflow: hidden; }
     .timeline { padding: 22px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
+    .terminal-pane {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border-top: 1px solid rgba(255,255,255,.1);
+      background: rgba(18,29,35,.96);
+    }
+    .terminal-pane header,
+    .terminal-entry header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .terminal-pane code,
+    .terminal-entry code,
+    .terminal-entry pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .terminal-pane code { color: var(--muted); font-size: 12px; }
+    .terminal-history { display: grid; gap: 8px; max-height: 180px; overflow: auto; }
+    .terminal-entry {
+      display: grid;
+      gap: 6px;
+      padding: 10px;
+      border-radius: 10px;
+      background: rgba(0,0,0,.26);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .terminal-entry pre { margin: 0; }
+    .terminal-status.ok { color: var(--green); }
+    .terminal-status.failed { color: var(--red); }
+    .terminal-form { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
     .message, .tool-card, .review-pane {
       max-width: min(760px, 88%);
       padding: 13px 15px;
@@ -248,7 +281,7 @@
     const state = {
       topBar: {
         primaryTitle: 'QuillCode',
-        subtitle: 'No project - Not started',
+        subtitle: 'QuillCode - Not started',
         modelLabel: 'trustedrouter/fusion',
         selectedModelID: 'trustedrouter/fusion',
         modelCategories: [
@@ -319,6 +352,13 @@
       search: {
         isOpen: false,
         query: ''
+      },
+      terminal: {
+        isVisible: false,
+        draft: '',
+        isRunning: false,
+        cwdLabel: '/mock/QuillCode',
+        entries: []
       },
       nextThreadIndex: 1
     };
@@ -426,6 +466,7 @@
               <div class="sidebar-actions" aria-label="Primary chat actions">
                 <button class="sidebar-action" type="button" data-testid="new-chat-button">New chat</button>
                 <button class="sidebar-action" type="button" data-testid="sidebar-search-button">Search</button>
+                <button class="sidebar-action" type="button" data-testid="terminal-button">Terminal</button>
               </div>
               <h2>${escapeHTML(state.projects.title)}</h2>
               ${projectsContent}
@@ -434,6 +475,7 @@
             </aside>
             <main class="transcript" data-testid="transcript">
               <div class="timeline">${timeline}</div>
+              ${state.terminal.isVisible ? renderTerminalPane() : ''}
               <form class="composer" data-testid="composer">
                 <label for="message">Message</label>
                 <input id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" value="${escapeHTML(state.composer.draft)}" ${state.composer.isSending ? 'disabled' : ''}>
@@ -478,6 +520,7 @@
             isSelected: project.id === id
           }));
           const project = state.projects.items.find(project => project.id === id);
+          state.terminal.cwdLabel = project?.path || 'No project';
           state.topBar.subtitle = `${project?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
           render();
         });
@@ -499,6 +542,10 @@
       });
       document.querySelector('[data-testid="new-chat-button"]').addEventListener('click', () => {
         newChat();
+      });
+      document.querySelector('[data-testid="terminal-button"]').addEventListener('click', () => {
+        state.terminal.isVisible = !state.terminal.isVisible;
+        render();
       });
       document.querySelectorAll('[data-testid="sidebar-item"]').forEach(button => {
         button.addEventListener('click', event => {
@@ -548,6 +595,14 @@
           state.search.isOpen = false;
           render();
         });
+      });
+      document.querySelector('[data-testid="terminal-input"]')?.addEventListener('input', event => {
+        state.terminal.draft = event.target.value;
+        document.querySelector('[data-testid="terminal-run"]').disabled = !state.terminal.draft.trim();
+      });
+      document.querySelector('[data-testid="terminal-form"]')?.addEventListener('submit', event => {
+        event.preventDefault();
+        runTerminalCommand();
       });
     }
 
@@ -610,6 +665,33 @@
         </div>`;
     }
 
+    function renderTerminalPane() {
+      const entries = state.terminal.entries.length ? state.terminal.entries.map(entry => `
+        <article class="terminal-entry" data-testid="terminal-entry">
+          <header>
+            <code>$ ${escapeHTML(entry.command)}</code>
+            <span class="terminal-status ${entry.ok ? 'ok' : 'failed'}" data-testid="terminal-status">
+              ${entry.ok ? 'Done' : 'Failed'} · exit ${entry.exitCode}
+            </span>
+          </header>
+          ${entry.stdout ? `<pre data-testid="terminal-stdout">${escapeHTML(entry.stdout)}</pre>` : ''}
+          ${entry.stderr ? `<pre data-testid="terminal-stderr">${escapeHTML(entry.stderr)}</pre>` : ''}
+        </article>`).join('') : '<p data-testid="terminal-empty">Run commands in this project without leaving QuillCode.</p>';
+      return `
+        <section class="terminal-pane" data-testid="terminal-pane">
+          <header>
+            <strong>Terminal</strong>
+            <code data-testid="terminal-cwd">${escapeHTML(state.terminal.cwdLabel)}</code>
+          </header>
+          <div class="terminal-history" data-testid="terminal-history">${entries}</div>
+          <form class="terminal-form" data-testid="terminal-form">
+            <code>$</code>
+            <input data-testid="terminal-input" aria-label="Terminal command" placeholder="Run command" value="${escapeHTML(state.terminal.draft)}">
+            <button type="submit" data-testid="terminal-run" ${state.terminal.draft.trim() ? '' : 'disabled'}>Run</button>
+          </form>
+        </section>`;
+    }
+
     function ensureThread(title) {
       if (!state.sidebar.selectedThreadID) {
         const threadID = `thread-${state.nextThreadIndex++}`;
@@ -646,6 +728,40 @@
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       state.topBar.subtitle = `${selectedProject?.name || 'No project'} - Not started`;
       render();
+    }
+
+    function runTerminalCommand() {
+      const command = state.terminal.draft.trim();
+      if (!command) return;
+      state.terminal.draft = '';
+      state.terminal.isVisible = true;
+      const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
+      const cwd = selectedProject?.path || state.terminal.cwdLabel;
+      const output = terminalOutput(command, cwd);
+      state.terminal.entries.push({
+        command,
+        stdout: output.stdout,
+        stderr: output.stderr,
+        exitCode: output.exitCode,
+        ok: output.exitCode === 0
+      });
+      render();
+    }
+
+    function terminalOutput(command, cwd) {
+      if (command === 'pwd') {
+        return { stdout: cwd + '\n', stderr: '', exitCode: 0 };
+      }
+      if (command === 'whoami') {
+        return { stdout: 'mock-user\n', stderr: '', exitCode: 0 };
+      }
+      if (command.startsWith('printf ')) {
+        return { stdout: command.replace(/^printf\\s+/, ''), stderr: '', exitCode: 0 };
+      }
+      if (command === 'false') {
+        return { stdout: '', stderr: '', exitCode: 1 };
+      }
+      return { stdout: 'ran: ' + command + '\n', stderr: '', exitCode: 0 };
     }
 
     function selectThread(threadID) {

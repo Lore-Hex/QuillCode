@@ -4,7 +4,9 @@ import QuillCodeCore
 public struct QuillCodeWorkspaceView: View {
     public var surface: WorkspaceSurface
     @Binding public var draft: String
+    @Binding public var terminalDraft: String
     public var onSend: () -> Void
+    public var onRunTerminalCommand: () -> Void
     public var onSelectThread: (UUID) -> Void
     public var onSelectProject: (UUID?) -> Void
     public var onSetMode: (AgentMode) -> Void
@@ -21,7 +23,9 @@ public struct QuillCodeWorkspaceView: View {
     public init(
         surface: WorkspaceSurface,
         draft: Binding<String>,
+        terminalDraft: Binding<String>,
         onSend: @escaping () -> Void,
+        onRunTerminalCommand: @escaping () -> Void,
         onSelectThread: @escaping (UUID) -> Void,
         onSelectProject: @escaping (UUID?) -> Void,
         onSetMode: @escaping (AgentMode) -> Void,
@@ -32,7 +36,9 @@ public struct QuillCodeWorkspaceView: View {
     ) {
         self.surface = surface
         self._draft = draft
+        self._terminalDraft = terminalDraft
         self.onSend = onSend
+        self.onRunTerminalCommand = onRunTerminalCommand
         self.onSelectThread = onSelectThread
         self.onSelectProject = onSelectProject
         self.onSetMode = onSetMode
@@ -69,6 +75,14 @@ public struct QuillCodeWorkspaceView: View {
                         review: surface.review,
                         onReviewAction: onReviewAction
                     )
+                    if surface.terminal.isVisible {
+                        Divider()
+                        QuillCodeTerminalPaneView(
+                            terminal: surface.terminal,
+                            draft: $terminalDraft,
+                            onRun: onRunTerminalCommand
+                        )
+                    }
                     Divider()
                     QuillCodeComposerView(
                         composer: surface.composer,
@@ -341,7 +355,7 @@ private struct QuillCodeSidebarActionsView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     private var visibleCommands: [WorkspaceCommandSurface] {
-        commands.filter { ["new-chat", "search"].contains($0.id) }
+        commands.filter { ["new-chat", "search", "toggle-terminal"].contains($0.id) }
     }
 
     var body: some View {
@@ -369,6 +383,8 @@ private struct QuillCodeSidebarActionsView: View {
             return "square.and.pencil"
         case "search":
             return "magnifyingglass"
+        case "toggle-terminal":
+            return "terminal"
         default:
             return "circle"
         }
@@ -461,6 +477,97 @@ private struct QuillCodeTranscriptView: View {
             .padding(22)
         }
         .background(QuillCodePalette.background)
+    }
+}
+
+private struct QuillCodeTerminalPaneView: View {
+    var terminal: TerminalSurface
+    @Binding var draft: String
+    var onRun: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "terminal")
+                    .foregroundStyle(QuillCodePalette.blue)
+                Text("Terminal")
+                    .font(.headline)
+                Text(terminal.cwdLabel)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(1)
+                Spacer()
+                if terminal.isRunning {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+            }
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    if terminal.entries.isEmpty {
+                        Text(terminal.emptyTitle)
+                            .font(.callout)
+                            .foregroundStyle(QuillCodePalette.muted)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 12)
+                    } else {
+                        ForEach(terminal.entries) { entry in
+                            QuillCodeTerminalEntryView(entry: entry)
+                        }
+                    }
+                }
+            }
+
+            HStack(spacing: 8) {
+                Text("$")
+                    .font(.body.monospaced())
+                    .foregroundStyle(QuillCodePalette.muted)
+                TextField("Run command", text: $draft)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit(onRun)
+                    .disabled(terminal.isRunning)
+                Button("Run", action: onRun)
+                    .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || terminal.isRunning)
+            }
+        }
+        .padding(14)
+        .frame(height: 220)
+        .background(QuillCodePalette.panel)
+    }
+}
+
+private struct QuillCodeTerminalEntryView: View {
+    var entry: TerminalCommandSurface
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Text("$ \(entry.command)")
+                    .font(.caption.monospaced().weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.text)
+                Spacer()
+                Text("\(entry.statusLabel) · \(entry.exitCodeLabel)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(entry.isSuccess ? QuillCodePalette.green : QuillCodePalette.red)
+            }
+            if !entry.stdout.isEmpty {
+                Text(entry.stdout)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if !entry.stderr.isEmpty {
+                Text(entry.stderr)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(QuillCodePalette.red)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(10)
+        .background(QuillCodePalette.background.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
