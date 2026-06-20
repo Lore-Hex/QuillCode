@@ -31,6 +31,7 @@ private struct QuillCodeDesktopRootView: View {
             onSelectProject: controller.selectProject,
             onSetMode: controller.setMode,
             onSetModel: controller.setModel,
+            onSaveSettings: controller.saveSettings,
             onCommand: controller.runCommand
         )
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeNewChat)) { _ in
@@ -100,6 +101,28 @@ private final class QuillCodeDesktopController: ObservableObject {
         let models = await bootstrap.fetchModelCatalog(config: model.root.config)
         model.setModelCatalog(models)
         refresh()
+    }
+
+    func saveSettings(_ update: WorkspaceSettingsUpdate) {
+        var config = model.root.config
+        config.apiBaseURL = update.apiBaseURL
+        config.developerOverrideEnabled = update.developerOverrideEnabled
+        if update.shouldClearAPIKey {
+            try? bootstrap.clearTrustedRouterAPIKey()
+        }
+        if let replacementAPIKey = update.replacementAPIKey {
+            try? bootstrap.saveTrustedRouterAPIKey(replacementAPIKey)
+        }
+        try? bootstrap.saveConfig(config)
+        model.applySettings(
+            config: config,
+            trustedRouterAPIKeyConfigured: bootstrap.hasTrustedRouterAPIKey()
+        )
+        model.applyRuntime(bootstrap.makeRuntime(config: config))
+        refresh()
+        Task {
+            await refreshModelCatalog()
+        }
     }
 
     func send() {

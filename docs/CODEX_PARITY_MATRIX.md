@@ -4,14 +4,14 @@
 | --- | --- | --- | --- |
 | Core | Threads and transcript persistence | Implemented | JSON thread store, desktop bootstrap loading, and mock agent runner. |
 | Core | Project picker/sidebar | Partial | Workspace state model, persisted project registry, selected-project context, native project rail, current-directory desktop project seed, thread selection, pin/archive sorting, and Playwright coverage exist; native folder picker pending. |
-| Core | TrustedRouter runtime | Partial | CLI and desktop can use live TrustedRouter when an env or stored secret key exists; CLI auth key management exists; desktop refreshes the live model catalog when keyed; OAuth flow pending. |
+| Core | TrustedRouter runtime | Partial | CLI and desktop can use live TrustedRouter when an env or stored secret key exists; CLI auth key management and native developer settings exist; desktop refreshes the live model catalog when keyed; OAuth flow pending. |
 | Core | TrustedRouter model picker | Partial | Catalog model, live fetch adapter, grouped provider/category/model SwiftUI picker, and Playwright coverage exist; richer search/filter browser pending. |
 | Tools | Shell commands | Implemented | `host.shell.run` with empty-command guard. |
 | Tools | File read/write | Implemented | Workspace-scoped UTF-8 files. |
 | Tools | Apply patch | Implemented | Workspace-scoped unified diff application through `git apply`. |
 | Tools | Git status/diff | Implemented | Read-only shell-backed git tool. |
 | Safety | Read-only/Review/Auto modes | Implemented | Auto can use static or model reviewer; SwiftUI shell can switch and persist modes. |
-| Safety | Reviewer model call | Partial | TrustedRouter client exists; OAuth/UI wiring pending. |
+| Safety | Reviewer model call | Partial | TrustedRouter client and native developer settings exist; OAuth wiring pending. |
 | UX | Tool cards | Partial | Tool-card presentation model, HTML harness, and SwiftUI shell render queued/running/done/failed/review states; QuillUI polish pending. |
 | UX | Top bar widget | Partial | Top-bar presentation state, HTML harness, and SwiftUI shell track thread, project, model, mode, status, and Computer Use; native menu bar widget pending. |
 | UX | Keyboard shortcuts/slash commands | Deferred | Documented in test plan. |

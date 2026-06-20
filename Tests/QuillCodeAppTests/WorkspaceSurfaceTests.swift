@@ -38,6 +38,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.composer.placeholder, "Message QuillCode")
         XCTAssertTrue(surface.composer.canSend)
         XCTAssertEqual(surface.commands.map(\.id), ["new-chat", "search", "stop-all", "settings", "computer-use-setup"])
+        XCTAssertEqual(surface.settings.apiBaseURL, TrustedRouterDefaults.defaultAPIBaseURL)
+        XCTAssertFalse(surface.settings.developerOverrideEnabled)
+        XCTAssertFalse(surface.settings.hasStoredAPIKey)
+        XCTAssertEqual(surface.settings.apiKeyStatusLabel, "No API key saved")
     }
 
     func testSurfaceGroupsCustomModelCatalogByCategory() {

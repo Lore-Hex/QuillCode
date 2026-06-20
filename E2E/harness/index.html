@@ -42,7 +42,8 @@
     .topbar p { margin: 3px 0 0; color: var(--muted); }
     .topbar-pills { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
     .topbar-pills span,
-    .topbar-pills select {
+    .topbar-pills select,
+    .topbar-pills button {
       padding: 6px 10px;
       border-radius: 999px;
       background: rgba(65,184,232,.14);
@@ -51,6 +52,29 @@
       font-size: 13px;
     }
     .topbar-pills select { max-width: 230px; }
+    .topbar-pills button { font-weight: 600; }
+    .settings-panel {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(0,0,0,.45);
+      z-index: 5;
+    }
+    .settings-card {
+      width: min(520px, 100%);
+      display: grid;
+      gap: 14px;
+      padding: 20px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: 0 20px 80px rgba(0,0,0,.45);
+    }
+    .settings-card h2, .settings-card p { margin: 0; }
+    .settings-card label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+    .settings-actions { display: flex; gap: 10px; justify-content: flex-end; }
     .workspace-grid { min-height: 0; display: grid; grid-template-columns: 280px 1fr; gap: 18px; padding: 0 18px 18px; }
     .sidebar, .transcript {
       min-height: 0;
@@ -191,6 +215,15 @@
         placeholder: 'Message QuillCode',
         isSending: false,
         canSend: false
+      },
+      settings: {
+        isOpen: false,
+        apiBaseURL: 'https://api.quillrouter.com/v1',
+        developerOverrideEnabled: false,
+        hasStoredAPIKey: false,
+        apiKeyStatusLabel: 'No API key saved',
+        loginStatusLabel: 'TrustedRouter login required',
+        replacementAPIKey: ''
       }
     };
 
@@ -258,6 +291,7 @@
               <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
               <span data-testid="agent-status">${escapeHTML(state.topBar.agentStatus)}</span>
               <span data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</span>
+              <button type="button" data-testid="settings-button">Settings</button>
             </div>
           </header>
           <div class="workspace-grid">
@@ -276,6 +310,7 @@
               </form>
             </main>
           </div>
+          ${state.settings.isOpen ? renderSettingsPanel() : ''}
         </section>`;
 
       const form = document.querySelector('[data-testid="composer"]');
@@ -315,6 +350,59 @@
           render();
         });
       });
+      document.querySelector('[data-testid="settings-button"]').addEventListener('click', () => {
+        state.settings.isOpen = true;
+        state.settings.replacementAPIKey = '';
+        render();
+      });
+      document.querySelector('[data-testid="settings-cancel"]')?.addEventListener('click', () => {
+        state.settings.isOpen = false;
+        render();
+      });
+      document.querySelector('[data-testid="settings-form"]')?.addEventListener('submit', event => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        state.settings.apiBaseURL = form.elements.namedItem('apiBaseURL').value.trim();
+        state.settings.developerOverrideEnabled = form.elements.namedItem('developerOverrideEnabled').checked;
+        const replacementAPIKey = form.elements.namedItem('replacementAPIKey').value.trim();
+        if (replacementAPIKey) {
+          state.settings.hasStoredAPIKey = true;
+          state.settings.apiKeyStatusLabel = 'API key configured';
+          state.settings.loginStatusLabel = 'TrustedRouter developer override ready';
+          state.topBar.agentStatus = 'TrustedRouter ready';
+        }
+        state.settings.isOpen = false;
+        render();
+      });
+    }
+
+    function renderSettingsPanel() {
+      return `
+        <div class="settings-panel" data-testid="settings-panel">
+          <form class="settings-card" data-testid="settings-form">
+            <h2>Settings</h2>
+            <p data-testid="settings-login-status">${escapeHTML(state.settings.loginStatusLabel)}</p>
+            <p data-testid="settings-key-status">${escapeHTML(state.settings.apiKeyStatusLabel)}</p>
+            <label>
+              TrustedRouter API base URL
+              <input name="apiBaseURL" aria-label="TrustedRouter API base URL" value="${escapeHTML(state.settings.apiBaseURL)}">
+            </label>
+            <label>
+              <span>
+                <input type="checkbox" name="developerOverrideEnabled" aria-label="Enable developer override" ${state.settings.developerOverrideEnabled ? 'checked' : ''}>
+                Enable developer override
+              </span>
+            </label>
+            <label>
+              Replace API key
+              <input name="replacementAPIKey" aria-label="Replace API key" type="password" value="${escapeHTML(state.settings.replacementAPIKey)}">
+            </label>
+            <div class="settings-actions">
+              <button type="button" data-testid="settings-cancel">Cancel</button>
+              <button type="submit" data-testid="settings-save">Save</button>
+            </div>
+          </form>
+        </div>`;
     }
 
     function ensureThread(title) {

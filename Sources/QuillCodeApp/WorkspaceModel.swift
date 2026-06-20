@@ -61,7 +61,7 @@ public final class QuillCodeWorkspaceModel {
     public private(set) var composer: ComposerState
     public private(set) var lastError: String?
 
-    private let runner: AgentRunner
+    private var runner: AgentRunner
     private let threadStore: JSONThreadStore?
     private let projectStore: JSONProjectStore?
 
@@ -199,6 +199,21 @@ public final class QuillCodeWorkspaceModel {
     public func setModelCatalog(_ models: [ModelInfo]) {
         guard !models.isEmpty else { return }
         root.modelCatalog = models
+    }
+
+    public func applySettings(config: AppConfig, trustedRouterAPIKeyConfigured: Bool) {
+        root.config = config
+        root.trustedRouterAPIKeyConfigured = trustedRouterAPIKeyConfigured
+        mutateSelectedThread { thread in
+            thread.mode = config.mode
+            thread.model = config.defaultModel
+        }
+        refreshTopBar(agentStatus: root.topBar.agentStatus)
+    }
+
+    public func applyRuntime(_ runtime: QuillCodeRuntime) {
+        runner = runtime.runner
+        refreshTopBar(agentStatus: runtime.statusLabel)
     }
 
     public func submitComposer(workspaceRoot: URL) async {

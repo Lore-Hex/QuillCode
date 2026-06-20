@@ -148,6 +148,42 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.root.topBar.model, "provider/model")
     }
 
+    func testApplySettingsUpdatesConfigThreadAndSettingsSurface() {
+        let thread = ChatThread()
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+        let config = AppConfig(
+            defaultModel: "z-ai/glm-5.2",
+            mode: .review,
+            apiBaseURL: "https://api.trustedrouter.test/v1",
+            developerOverrideEnabled: true
+        )
+
+        model.applySettings(config: config, trustedRouterAPIKeyConfigured: true)
+
+        XCTAssertEqual(model.root.config, config)
+        XCTAssertEqual(model.selectedThread?.mode, .review)
+        XCTAssertEqual(model.selectedThread?.model, "z-ai/glm-5.2")
+        XCTAssertEqual(model.surface().settings.apiBaseURL, "https://api.trustedrouter.test/v1")
+        XCTAssertTrue(model.surface().settings.developerOverrideEnabled)
+        XCTAssertTrue(model.surface().settings.hasStoredAPIKey)
+        XCTAssertEqual(model.surface().settings.apiKeyStatusLabel, "API key configured")
+    }
+
+    func testApplyRuntimeRefreshesAgentStatus() {
+        let model = QuillCodeWorkspaceModel()
+
+        model.applyRuntime(QuillCodeRuntime(
+            runner: AgentRunner(),
+            mode: .trustedRouter,
+            statusLabel: "TrustedRouter ready"
+        ))
+
+        XCTAssertEqual(model.root.topBar.agentStatus, "TrustedRouter ready")
+    }
+
     func testToolCardsRepresentSafetyReview() {
         let event = ThreadEvent(kind: .approvalRequested, summary: "clarify: needs target")
         let thread = ChatThread(events: [event])
@@ -214,6 +250,21 @@ final class WorkspaceModelTests: XCTestCase {
         _ = model.addProject(path: root, name: "QuillCode")
 
         XCTAssertEqual(try projectStore.load().map(\.name), ["QuillCode"])
+    }
+
+    func testBootstrapPersistsAndClearsTrustedRouterAPIKey() throws {
+        let paths = QuillCodePaths(home: try makeTempDirectory())
+        let bootstrap = QuillCodeWorkspaceBootstrap(paths: paths)
+
+        XCTAssertFalse(bootstrap.hasTrustedRouterAPIKey())
+        try bootstrap.saveTrustedRouterAPIKey("  sk-tr-v1-test  ")
+        XCTAssertTrue(bootstrap.hasTrustedRouterAPIKey())
+
+        let model = try bootstrap.makeModel()
+        XCTAssertTrue(model.surface().settings.hasStoredAPIKey)
+
+        try bootstrap.clearTrustedRouterAPIKey()
+        XCTAssertFalse(bootstrap.hasTrustedRouterAPIKey())
     }
 
     func testRuntimeFactoryUsesTrustedRouterWhenEnvironmentKeyExists() throws {

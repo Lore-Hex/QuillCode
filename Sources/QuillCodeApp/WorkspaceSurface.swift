@@ -8,6 +8,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var transcript: TranscriptSurface
     public var composer: ComposerSurface
     public var commands: [WorkspaceCommandSurface]
+    public var settings: WorkspaceSettingsSurface
     public var lastError: String?
 
     public init(
@@ -17,6 +18,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         transcript: TranscriptSurface,
         composer: ComposerSurface,
         commands: [WorkspaceCommandSurface],
+        settings: WorkspaceSettingsSurface,
         lastError: String? = nil
     ) {
         self.topBar = topBar
@@ -25,6 +27,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.transcript = transcript
         self.composer = composer
         self.commands = commands
+        self.settings = settings
         self.lastError = lastError
     }
 }
@@ -222,6 +225,41 @@ public struct WorkspaceCommandSurface: Codable, Sendable, Hashable, Identifiable
     }
 }
 
+public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
+    public var apiBaseURL: String
+    public var developerOverrideEnabled: Bool
+    public var hasStoredAPIKey: Bool
+    public var apiKeyStatusLabel: String
+    public var loginStatusLabel: String
+
+    public init(config: AppConfig, hasStoredAPIKey: Bool) {
+        self.apiBaseURL = config.apiBaseURL
+        self.developerOverrideEnabled = config.developerOverrideEnabled
+        self.hasStoredAPIKey = hasStoredAPIKey
+        self.apiKeyStatusLabel = hasStoredAPIKey ? "API key configured" : "No API key saved"
+        self.loginStatusLabel = hasStoredAPIKey ? "TrustedRouter developer override ready" : "TrustedRouter login required"
+    }
+}
+
+public struct WorkspaceSettingsUpdate: Sendable, Hashable {
+    public var apiBaseURL: String
+    public var developerOverrideEnabled: Bool
+    public var replacementAPIKey: String?
+    public var shouldClearAPIKey: Bool
+
+    public init(
+        apiBaseURL: String,
+        developerOverrideEnabled: Bool,
+        replacementAPIKey: String? = nil,
+        shouldClearAPIKey: Bool = false
+    ) {
+        self.apiBaseURL = apiBaseURL
+        self.developerOverrideEnabled = developerOverrideEnabled
+        self.replacementAPIKey = replacementAPIKey
+        self.shouldClearAPIKey = shouldClearAPIKey
+    }
+}
+
 @MainActor
 public extension QuillCodeWorkspaceModel {
     func surface() -> WorkspaceSurface {
@@ -255,6 +293,10 @@ public extension QuillCodeWorkspaceModel {
             ),
             composer: ComposerSurface(composer: composer),
             commands: commands(),
+            settings: WorkspaceSettingsSurface(
+                config: root.config,
+                hasStoredAPIKey: root.trustedRouterAPIKeyConfigured
+            ),
             lastError: lastError
         )
     }

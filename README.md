@@ -12,7 +12,7 @@ This initial repository contains the compile-stable foundation:
 - Computer Use backend protocol and stub backend
 - deterministic mock LLM agent runner
 - `quill-code` CLI harness
-- `quill-code-desktop` SwiftUI workspace shell with persisted config/thread bootstrap, project rail, and grouped model picker
+- `quill-code-desktop` SwiftUI workspace shell with persisted config/thread bootstrap, project rail, grouped model picker, and developer settings
 - Playwright mock UI harness
 - parity, roadmap, decision, and test-plan docs
 
@@ -27,7 +27,7 @@ swift run quill-code-desktop
 cd E2E/playwright && npm install && npx playwright install chromium && npm test
 ```
 
-The CLI and desktop shell use a deterministic mock LLM by default so tests and local demos do not require a TrustedRouter account. The desktop shell switches to live TrustedRouter automatically when `QUILLCODE_API_KEY` or `TRUSTEDROUTER_API_KEY` is present, or when an API key is stored in the QuillCode secret store. With a key, the desktop shell also refreshes the TrustedRouter model catalog and groups provider/category/model choices in the top bar. Set `QUILLCODE_USE_MOCK_LLM=true` to force deterministic mock mode.
+The CLI and desktop shell use a deterministic mock LLM by default so tests and local demos do not require a TrustedRouter account. The desktop shell switches to live TrustedRouter automatically when `QUILLCODE_API_KEY` or `TRUSTEDROUTER_API_KEY` is present, or when an API key is stored in the QuillCode secret store. With a key, the desktop shell also refreshes the TrustedRouter model catalog and groups provider/category/model choices in the top bar. The desktop Settings sheet can save, replace, or clear the local developer key and API base URL. Set `QUILLCODE_USE_MOCK_LLM=true` to force deterministic mock mode.
 
 To exercise the live TrustedRouter adapter:
 

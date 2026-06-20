@@ -20,6 +20,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         let config = try ConfigStore(fileURL: paths.configFile).load()
         let threadStore = JSONThreadStore(directory: paths.threadsDirectory)
         let projectStore = JSONProjectStore(fileURL: paths.projectsFile)
+        let secretStore = FileSecretStore(directory: paths.secretsDirectory)
         let projects = try projectStore.load()
         let threads = try threadStore.list()
         let selectedThreadID = threads.first(where: { !$0.isArchived })?.id
@@ -42,7 +43,8 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
                         threads.first { $0.id == id }?.mode
                     } ?? config.mode,
                     agentStatus: runtime.statusLabel
-                )
+                ),
+                trustedRouterAPIKeyConfigured: Self.hasTrustedRouterAPIKey(secretStore: secretStore)
             ),
             runner: runtime.runner,
             threadStore: threadStore,
@@ -55,7 +57,35 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         try ConfigStore(fileURL: paths.configFile).save(config)
     }
 
+    public func makeRuntime(config: AppConfig) -> QuillCodeRuntime {
+        runtimeFactory.makeRuntime(config: config)
+    }
+
+    public func hasTrustedRouterAPIKey() -> Bool {
+        Self.hasTrustedRouterAPIKey(secretStore: FileSecretStore(directory: paths.secretsDirectory))
+    }
+
+    public func saveTrustedRouterAPIKey(_ apiKey: String) throws {
+        try paths.ensure()
+        let trimmed = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        try FileSecretStore(directory: paths.secretsDirectory)
+            .write(trimmed, for: QuillSecretKeys.trustedRouterAPIKey)
+    }
+
+    public func clearTrustedRouterAPIKey() throws {
+        try paths.ensure()
+        try FileSecretStore(directory: paths.secretsDirectory)
+            .delete(QuillSecretKeys.trustedRouterAPIKey)
+    }
+
     public func fetchModelCatalog(config: AppConfig) async -> [ModelInfo] {
         await runtimeFactory.fetchModelCatalog(config: config).models
+    }
+
+    private static func hasTrustedRouterAPIKey(secretStore: FileSecretStore) -> Bool {
+        let value = try? secretStore.read(QuillSecretKeys.trustedRouterAPIKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return value?.isEmpty == false
     }
 }

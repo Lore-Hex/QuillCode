@@ -9,7 +9,11 @@ public struct QuillCodeWorkspaceView: View {
     public var onSelectProject: (UUID?) -> Void
     public var onSetMode: (AgentMode) -> Void
     public var onSetModel: (String) -> Void
+    public var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
     public var onCommand: (WorkspaceCommandSurface) -> Void
+
+    @State private var isSettingsPresented = false
+    @State private var settingsDraft = QuillCodeSettingsDraft()
 
     public init(
         surface: WorkspaceSurface,
@@ -19,6 +23,7 @@ public struct QuillCodeWorkspaceView: View {
         onSelectProject: @escaping (UUID?) -> Void,
         onSetMode: @escaping (AgentMode) -> Void,
         onSetModel: @escaping (String) -> Void,
+        onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
     ) {
         self.surface = surface
@@ -28,6 +33,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onSelectProject = onSelectProject
         self.onSetMode = onSetMode
         self.onSetModel = onSetModel
+        self.onSaveSettings = onSaveSettings
         self.onCommand = onCommand
     }
 
@@ -38,7 +44,7 @@ public struct QuillCodeWorkspaceView: View {
                 commands: surface.commands,
                 onSetMode: onSetMode,
                 onSetModel: onSetModel,
-                onCommand: onCommand
+                onCommand: handleCommand
             )
             Divider()
             HStack(spacing: 0) {
@@ -64,6 +70,28 @@ public struct QuillCodeWorkspaceView: View {
         .frame(minWidth: 920, minHeight: 640)
         .background(QuillCodePalette.background)
         .foregroundStyle(QuillCodePalette.text)
+        .sheet(isPresented: $isSettingsPresented) {
+            QuillCodeSettingsView(
+                settings: surface.settings,
+                draft: $settingsDraft,
+                onCancel: {
+                    isSettingsPresented = false
+                },
+                onSave: {
+                    onSaveSettings(settingsDraft.update)
+                    isSettingsPresented = false
+                }
+            )
+        }
+    }
+
+    private func handleCommand(_ command: WorkspaceCommandSurface) {
+        if command.id == "settings" {
+            settingsDraft = QuillCodeSettingsDraft(settings: surface.settings)
+            isSettingsPresented = true
+        } else {
+            onCommand(command)
+        }
     }
 }
 
@@ -427,6 +455,102 @@ private struct QuillCodeComposerView: View {
         }
         .padding(14)
         .background(QuillCodePalette.panel)
+    }
+}
+
+private struct QuillCodeSettingsView: View {
+    var settings: WorkspaceSettingsSurface
+    @Binding var draft: QuillCodeSettingsDraft
+    var onCancel: () -> Void
+    var onSave: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Settings")
+                        .font(.title2.weight(.semibold))
+                    Text(settings.loginStatusLabel)
+                        .font(.callout)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                Spacer()
+                Text(settings.apiKeyStatusLabel)
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background((settings.hasStoredAPIKey ? QuillCodePalette.green : QuillCodePalette.yellow).opacity(0.16))
+                    .foregroundStyle(settings.hasStoredAPIKey ? QuillCodePalette.green : QuillCodePalette.yellow)
+                    .clipShape(Capsule())
+            }
+
+            Toggle("Enable developer override", isOn: $draft.developerOverrideEnabled)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("TrustedRouter API base URL")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                TextField("https://api.quillrouter.com/v1", text: $draft.apiBaseURL)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Replace API key")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                SecureField(settings.hasStoredAPIKey ? "Leave blank to keep saved key" : "Paste TrustedRouter key", text: $draft.replacementAPIKey)
+                    .textFieldStyle(.roundedBorder)
+                if draft.shouldClearAPIKey {
+                    Text("Saved key will be cleared when you save.")
+                        .font(.caption)
+                        .foregroundStyle(QuillCodePalette.yellow)
+                }
+            }
+
+            HStack {
+                Button("Clear API key") {
+                    draft.replacementAPIKey = ""
+                    draft.shouldClearAPIKey = true
+                }
+                .disabled(!settings.hasStoredAPIKey)
+                Spacer()
+                Button("Cancel", action: onCancel)
+                Button("Save", action: onSave)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!draft.canSave)
+            }
+        }
+        .padding(24)
+        .frame(width: 520)
+    }
+}
+
+private struct QuillCodeSettingsDraft: Equatable {
+    var apiBaseURL: String = ""
+    var developerOverrideEnabled: Bool = false
+    var replacementAPIKey: String = ""
+    var shouldClearAPIKey: Bool = false
+
+    init() {}
+
+    init(settings: WorkspaceSettingsSurface) {
+        self.apiBaseURL = settings.apiBaseURL
+        self.developerOverrideEnabled = settings.developerOverrideEnabled
+    }
+
+    var canSave: Bool {
+        !apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var update: WorkspaceSettingsUpdate {
+        WorkspaceSettingsUpdate(
+            apiBaseURL: apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines),
+            developerOverrideEnabled: developerOverrideEnabled,
+            replacementAPIKey: replacementAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? nil
+                : replacementAPIKey.trimmingCharacters(in: .whitespacesAndNewlines),
+            shouldClearAPIKey: shouldClearAPIKey
+        )
     }
 }
 
