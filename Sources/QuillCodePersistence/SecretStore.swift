@@ -1,5 +1,9 @@
 import Foundation
 
+public enum QuillSecretKeys {
+    public static let trustedRouterAPIKey = "trustedrouter:api_key"
+}
+
 public protocol QuillSecretStore: Sendable {
     func read(_ key: String) throws -> String?
     func write(_ value: String, for key: String) throws

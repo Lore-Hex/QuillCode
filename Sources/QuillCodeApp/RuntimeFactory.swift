@@ -22,8 +22,6 @@ public struct QuillCodeRuntime: Sendable {
 }
 
 public struct QuillCodeRuntimeFactory: Sendable {
-    public static let trustedRouterSecretKey = "trustedrouter:api_key"
-
     public var paths: QuillCodePaths
     public var environment: [String: String]
 
@@ -43,7 +41,7 @@ public struct QuillCodeRuntimeFactory: Sendable {
         let secretStore = FileSecretStore(directory: paths.secretsDirectory)
         let sessionStore = SecretTrustedRouterSessionStore(
             secretStore: secretStore,
-            key: Self.trustedRouterSecretKey
+            key: QuillSecretKeys.trustedRouterAPIKey
         )
         let apiKey = configuredAPIKey()
         guard apiKey != nil || sessionStore.hasAPIKey else {
@@ -90,31 +88,5 @@ public struct QuillCodeRuntimeFactory: Sendable {
             mode: .mock,
             statusLabel: status
         )
-    }
-}
-
-public struct SecretTrustedRouterSessionStore: TrustedRouterSessionStore {
-    public var secretStore: QuillSecretStore
-    public var key: String
-
-    public init(
-        secretStore: QuillSecretStore,
-        key: String = QuillCodeRuntimeFactory.trustedRouterSecretKey
-    ) {
-        self.secretStore = secretStore
-        self.key = key
-    }
-
-    public var hasAPIKey: Bool {
-        let value = try? apiKey()
-        return value?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-    }
-
-    public func apiKey() throws -> String? {
-        try secretStore.read(key)?.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    public func saveAPIKey(_ key: String) throws {
-        try secretStore.write(key, for: self.key)
     }
 }

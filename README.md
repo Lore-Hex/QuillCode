@@ -22,6 +22,7 @@ This initial repository contains the compile-stable foundation:
 swift test
 swift run quill-code "run whoami"
 swift run quill-code "make a file that says hello world"
+swift run quill-code auth status
 swift run quill-code-desktop
 cd E2E/playwright && npm install && npx playwright install chromium && npm test
 ```
@@ -38,6 +39,14 @@ swift run quill-code-desktop
 ```
 
 The live adapter asks the model for a strict QuillCode action JSON object, then routes that through the same safety and tool executor path as the mock harness.
+
+To store or clear the local developer key used by the desktop shell:
+
+```bash
+swift run quill-code auth set-key sk-tr-v1-...
+swift run quill-code auth status
+swift run quill-code auth clear
+```
 
 ## Design Principles
 

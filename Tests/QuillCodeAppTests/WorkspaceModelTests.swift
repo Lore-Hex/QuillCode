@@ -150,7 +150,7 @@ final class WorkspaceModelTests: XCTestCase {
         try paths.ensure()
         try FileSecretStore(directory: paths.secretsDirectory).write(
             "sk-test",
-            for: QuillCodeRuntimeFactory.trustedRouterSecretKey
+            for: QuillSecretKeys.trustedRouterAPIKey
         )
 
         let runtime = QuillCodeRuntimeFactory(paths: paths, environment: [:])

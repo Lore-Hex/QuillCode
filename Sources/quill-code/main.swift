@@ -12,6 +12,7 @@ struct QuillCodeCLI {
         var apiKey: String?
         var modelOverride: String?
         var baseURLOverride: String?
+        var homeOverride: URL?
         let cwd: URL
         if let index = args.firstIndex(of: "--cwd"), args.indices.contains(args.index(after: index)) {
             cwd = URL(fileURLWithPath: args[args.index(after: index)])
@@ -19,6 +20,11 @@ struct QuillCodeCLI {
             args.remove(at: index)
         } else {
             cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        }
+        if let index = args.firstIndex(of: "--home"), args.indices.contains(args.index(after: index)) {
+            homeOverride = URL(fileURLWithPath: args[args.index(after: index)])
+            args.remove(at: args.index(after: index))
+            args.remove(at: index)
         }
         if let index = args.firstIndex(of: "--live") {
             live = true
@@ -40,29 +46,41 @@ struct QuillCodeCLI {
             args.remove(at: index)
         }
 
-        let prompt = args.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prompt.isEmpty else {
-            print("Usage: quill-code [--live] [--api-key KEY] [--model MODEL] [--base-url URL] [--cwd PATH] \"run whoami\"")
+        let paths = QuillCodePaths(home: homeOverride ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+
+        if args.first == "auth" {
+            try handleAuth(Array(args.dropFirst()), paths: paths)
             return
         }
 
-        let paths = QuillCodePaths()
-        try paths.ensure()
+        let prompt = args.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prompt.isEmpty else {
+            print(usage)
+            return
+        }
+
         let config = try ConfigStore(fileURL: paths.configFile).load()
         var thread = ChatThread(mode: config.mode, model: config.defaultModel)
         let runner: AgentRunner
         if live {
+            let sessionStore = SecretTrustedRouterSessionStore(
+                secretStore: FileSecretStore(directory: paths.secretsDirectory),
+                key: QuillSecretKeys.trustedRouterAPIKey
+            )
             let key = apiKey
                 ?? ProcessInfo.processInfo.environment["QUILLCODE_API_KEY"]
                 ?? ProcessInfo.processInfo.environment["TRUSTEDROUTER_API_KEY"]
             let baseURL = baseURLOverride ?? config.apiBaseURL
             let model = modelOverride ?? config.defaultModel
             let llm = TrustedRouterLLMClient(
+                sessionStore: sessionStore,
                 apiKeyOverride: key,
                 model: model,
                 baseURL: baseURL
             )
             let safetyClient = TrustedRouterSafetyModelClient(
+                sessionStore: sessionStore,
                 apiKeyOverride: key,
                 baseURL: baseURL
             )
@@ -80,6 +98,43 @@ struct QuillCodeCLI {
 
         if let last = thread.messages.last {
             print(last.content)
+        }
+    }
+
+    private static var usage: String {
+        """
+        Usage:
+          quill-code [--live] [--api-key KEY] [--model MODEL] [--base-url URL] [--cwd PATH] [--home PATH] "run whoami"
+          quill-code [--home PATH] auth status
+          quill-code [--home PATH] auth set-key KEY
+          quill-code [--home PATH] auth clear
+        """
+    }
+
+    private static func handleAuth(_ args: [String], paths: QuillCodePaths) throws {
+        let store = FileSecretStore(directory: paths.secretsDirectory)
+        switch args.first {
+        case "status":
+            let key = try store.read(QuillSecretKeys.trustedRouterAPIKey)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            print(key?.isEmpty == false ? "TrustedRouter key configured." : "TrustedRouter key not configured.")
+        case "set-key":
+            guard args.count >= 2 else {
+                print("Usage: quill-code auth set-key KEY")
+                return
+            }
+            let key = args[1].trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty else {
+                print("TrustedRouter key cannot be empty.")
+                return
+            }
+            try store.write(key, for: QuillSecretKeys.trustedRouterAPIKey)
+            print("TrustedRouter key saved.")
+        case "clear":
+            try store.delete(QuillSecretKeys.trustedRouterAPIKey)
+            print("TrustedRouter key cleared.")
+        default:
+            print(usage)
         }
     }
 }
