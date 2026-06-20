@@ -756,16 +756,32 @@ public extension QuillCodeWorkspaceModel {
             )
         }
         return [
-            WorkspaceCommandSurface(id: "new-chat", title: "New chat", shortcut: "Cmd+N"),
+            WorkspaceCommandSurface(
+                id: "new-chat",
+                title: "New chat",
+                shortcut: WorkspaceShortcutRegistry.label(for: "new-chat")
+            ),
             WorkspaceCommandSurface(
                 id: "fork-from-last",
                 title: "Fork from last",
                 isEnabled: selectedThread?.messages.isEmpty == false
             ),
-            WorkspaceCommandSurface(id: "search", title: "Search", shortcut: "Cmd+K"),
-            WorkspaceCommandSurface(id: "add-project", title: "Open project", shortcut: "Cmd+O"),
-            WorkspaceCommandSurface(id: "toggle-terminal", title: "Terminal", shortcut: "Ctrl+`"),
-            WorkspaceCommandSurface(id: "toggle-browser", title: "Browser", shortcut: "Cmd+Shift+B"),
+            WorkspaceCommandSurface(id: "search", title: "Search", shortcut: WorkspaceShortcutRegistry.label(for: "search")),
+            WorkspaceCommandSurface(
+                id: "add-project",
+                title: "Open project",
+                shortcut: WorkspaceShortcutRegistry.label(for: "add-project")
+            ),
+            WorkspaceCommandSurface(
+                id: "toggle-terminal",
+                title: "Terminal",
+                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-terminal")
+            ),
+            WorkspaceCommandSurface(
+                id: "toggle-browser",
+                title: "Browser",
+                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-browser")
+            ),
             WorkspaceCommandSurface(id: "git-pr-create", title: "Create pull request", isEnabled: activeWorkspaceRoot != nil),
             WorkspaceCommandSurface(id: "git-worktree-list", title: "List worktrees", isEnabled: activeWorkspaceRoot != nil),
             WorkspaceCommandSurface(id: "git-worktree-create", title: "Create worktree", isEnabled: activeWorkspaceRoot != nil),
@@ -774,11 +790,15 @@ public extension QuillCodeWorkspaceModel {
             WorkspaceCommandSurface(
                 id: "stop-all",
                 title: "Stop all",
-                shortcut: "Esc",
+                shortcut: WorkspaceShortcutRegistry.label(for: "stop-all"),
                 isEnabled: composer.isSending || terminal.isRunning
             ),
-            WorkspaceCommandSurface(id: "settings", title: "Settings", shortcut: "Cmd+,"),
-            WorkspaceCommandSurface(id: "command-palette", title: "Command palette", shortcut: "Cmd+Shift+P"),
+            WorkspaceCommandSurface(id: "settings", title: "Settings", shortcut: WorkspaceShortcutRegistry.label(for: "settings")),
+            WorkspaceCommandSurface(
+                id: "command-palette",
+                title: "Command palette",
+                shortcut: WorkspaceShortcutRegistry.label(for: "command-palette")
+            ),
             WorkspaceCommandSurface(
                 id: "computer-use-setup",
                 title: "Computer Use setup",

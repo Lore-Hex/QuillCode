@@ -121,6 +121,30 @@ test('mock harness runs a command from the command palette', async ({ page }) =>
   await expect(page.getByTestId('terminal-pane')).toBeVisible();
 });
 
+test('mock harness dispatches workspace keyboard shortcuts', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.keyboard.press('Meta+K');
+  await expect(page.getByTestId('search-panel')).toBeVisible();
+  await page.getByTestId('search-close').click();
+
+  await page.keyboard.press('Meta+Shift+P');
+  await expect(page.getByTestId('command-palette-panel')).toBeVisible();
+  await page.getByTestId('command-palette-close').click();
+
+  await page.keyboard.press('Control+Backquote');
+  await expect(page.getByTestId('terminal-pane')).toBeVisible();
+
+  await page.keyboard.press('Meta+Shift+B');
+  await expect(page.getByTestId('browser-pane')).toBeVisible();
+
+  await page.getByLabel('Message').fill('run whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await page.keyboard.press('Meta+N');
+
+  await expect(page.getByTestId('transcript-empty')).toBeVisible();
+});
+
 test('mock harness lists worktrees from the command palette', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

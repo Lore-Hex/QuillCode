@@ -17,27 +17,31 @@ struct QuillCodeDesktopApp: App {
                 Button("New Chat") {
                     NotificationCenter.default.post(name: .quillCodeNewChat, object: nil)
                 }
-                .keyboardShortcut("n", modifiers: .command)
+                .quillCodeShortcut("new-chat")
                 Button("Open Project...") {
                     NotificationCenter.default.post(name: .quillCodeOpenProject, object: nil)
                 }
-                .keyboardShortcut("o", modifiers: .command)
+                .quillCodeShortcut("add-project")
                 Button("Toggle Terminal") {
                     NotificationCenter.default.post(name: .quillCodeToggleTerminal, object: nil)
                 }
-                .keyboardShortcut("`", modifiers: .control)
+                .quillCodeShortcut("toggle-terminal")
                 Button("Toggle Browser") {
                     NotificationCenter.default.post(name: .quillCodeToggleBrowser, object: nil)
                 }
-                .keyboardShortcut("b", modifiers: [.command, .shift])
+                .quillCodeShortcut("toggle-browser")
                 Button("Command Palette") {
                     NotificationCenter.default.post(name: .quillCodeCommandPalette, object: nil)
                 }
-                .keyboardShortcut("p", modifiers: [.command, .shift])
+                .quillCodeShortcut("command-palette")
                 Button("Settings...") {
                     NotificationCenter.default.post(name: .quillCodeOpenSettings, object: nil)
                 }
-                .keyboardShortcut(",", modifiers: .command)
+                .quillCodeShortcut("settings")
+                Button("Stop All") {
+                    NotificationCenter.default.post(name: .quillCodeStopAll, object: nil)
+                }
+                .quillCodeShortcut("stop-all")
             }
         }
         MenuBarExtra {
@@ -106,6 +110,9 @@ private struct QuillCodeDesktopRootView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeOpenSettings)) { _ in
             controller.openSettings()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .quillCodeStopAll)) { _ in
+            controller.stopAll()
         }
         .fileImporter(
             isPresented: $controller.isProjectImporterPresented,
@@ -437,4 +444,46 @@ private extension Notification.Name {
     static let quillCodeToggleTerminal = Notification.Name("QuillCodeToggleTerminal")
     static let quillCodeToggleBrowser = Notification.Name("QuillCodeToggleBrowser")
     static let quillCodeOpenSettings = Notification.Name("QuillCodeOpenSettings")
+    static let quillCodeStopAll = Notification.Name("QuillCodeStopAll")
+}
+
+private extension View {
+    func quillCodeShortcut(_ commandID: String) -> some View {
+        guard let shortcut = WorkspaceShortcutRegistry.shortcut(for: commandID) else {
+            return AnyView(self)
+        }
+        return AnyView(keyboardShortcut(shortcut.keyEquivalent, modifiers: shortcut.eventModifiers))
+    }
+}
+
+private extension WorkspaceShortcut {
+    var keyEquivalent: KeyEquivalent {
+        switch key {
+        case "escape":
+            return .escape
+        case "`":
+            return "`"
+        case ",":
+            return ","
+        default:
+            return KeyEquivalent(Character(key))
+        }
+    }
+
+    var eventModifiers: EventModifiers {
+        var result: EventModifiers = []
+        if modifiers.contains(.command) {
+            result.insert(.command)
+        }
+        if modifiers.contains(.control) {
+            result.insert(.control)
+        }
+        if modifiers.contains(.option) {
+            result.insert(.option)
+        }
+        if modifiers.contains(.shift) {
+            result.insert(.shift)
+        }
+        return result
+    }
 }

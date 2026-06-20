@@ -66,6 +66,27 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(surface.browser.isVisible)
     }
 
+    func testShortcutRegistryLabelsSurfaceCommands() {
+        let model = QuillCodeWorkspaceModel()
+        let commandsByID = Dictionary(uniqueKeysWithValues: model.surface().commands.map { ($0.id, $0) })
+
+        for shortcut in WorkspaceShortcutRegistry.shortcuts {
+            XCTAssertEqual(
+                commandsByID[shortcut.commandID]?.shortcut,
+                shortcut.displayLabel,
+                shortcut.commandID
+            )
+        }
+    }
+
+    func testShortcutRegistryHasNoDuplicateBindings() {
+        let bindings = WorkspaceShortcutRegistry.shortcuts.map {
+            "\($0.modifiers.map(\.rawValue).joined(separator: "+"))+\($0.key)"
+        }
+
+        XCTAssertEqual(Set(bindings).count, bindings.count)
+    }
+
     func testSurfaceGroupsCustomModelCatalogByCategory() {
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
             config: AppConfig(defaultModel: "acme/code-pro"),

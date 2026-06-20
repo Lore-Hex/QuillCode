@@ -500,11 +500,13 @@
         { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', isEnabled: true },
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', isEnabled: true },
         { id: 'toggle-browser', title: 'Browser', shortcut: 'Cmd+Shift+B', isEnabled: true },
+        { id: 'command-palette', title: 'Command palette', shortcut: 'Cmd+Shift+P', isEnabled: true },
         { id: 'git-pr-create', title: 'Create pull request', shortcut: '', isEnabled: true },
         { id: 'git-worktree-list', title: 'List worktrees', shortcut: '', isEnabled: true },
         { id: 'git-worktree-create', title: 'Create worktree', shortcut: '', isEnabled: true },
         { id: 'git-worktree-remove', title: 'Remove worktree', shortcut: '', isEnabled: true },
         { id: 'local-env:.quillcode/actions/bootstrap.sh', title: 'Run Bootstrap', shortcut: '', isEnabled: true },
+        { id: 'stop-all', title: 'Stop all', shortcut: 'Esc', isEnabled: false },
         { id: 'settings', title: 'Settings', shortcut: 'Cmd+,', isEnabled: true },
         { id: 'computer-use-setup', title: 'Computer Use setup', shortcut: '', isEnabled: true }
       ],
@@ -541,8 +543,11 @@
 
     function updateDynamicCommands() {
       const hasMessages = Boolean(state.sidebar.selectedThreadID && state.transcript.messages.length);
+      const hasActiveWork = state.composer.isSending || state.terminal.isRunning;
       state.commands = state.commands.map(command => (
-        command.id === 'fork-from-last' ? { ...command, isEnabled: hasMessages } : command
+        command.id === 'fork-from-last' ? { ...command, isEnabled: hasMessages } :
+        command.id === 'stop-all' ? { ...command, isEnabled: hasActiveWork } :
+        command
       ));
     }
 
@@ -1219,6 +1224,10 @@
       if (commandID === 'toggle-browser') {
         state.browser.isVisible = !state.browser.isVisible;
       }
+      if (commandID === 'command-palette') {
+        state.commandPalette.isOpen = true;
+        state.commandPalette.query = '';
+      }
       if (commandID === 'git-pr-create') {
         state.composer.draft = 'Create a pull request titled ';
       }
@@ -1246,6 +1255,11 @@
       if (commandID.startsWith('local-env:')) {
         runLocalEnvironmentAction(commandID);
         return;
+      }
+      if (commandID === 'stop-all') {
+        state.composer.isSending = false;
+        state.terminal.isRunning = false;
+        state.topBar.agentStatus = 'Stopped';
       }
       if (commandID === 'settings') {
         state.settings.isOpen = true;
@@ -1635,13 +1649,30 @@
       render();
     }
 
+    function shortcutMatches(event, shortcut) {
+      if (!shortcut) return false;
+      const parts = shortcut.split('+').map(part => part.trim().toLowerCase()).filter(Boolean);
+      const key = parts.at(-1);
+      const requiresCmd = parts.includes('cmd');
+      const requiresCtrl = parts.includes('ctrl');
+      const requiresShift = parts.includes('shift');
+      const requiresOption = parts.includes('option');
+      const eventKey = event.key === 'Escape' ? 'esc' : event.key.toLowerCase();
+      return event.metaKey === requiresCmd
+        && event.ctrlKey === requiresCtrl
+        && event.shiftKey === requiresShift
+        && event.altKey === requiresOption
+        && eventKey === key;
+    }
+
     document.addEventListener('keydown', event => {
-      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'p') {
-        event.preventDefault();
-        state.commandPalette.isOpen = true;
-        state.commandPalette.query = '';
-        render();
-      }
+      updateDynamicCommands();
+      const command = state.commands.find(candidate => (
+        candidate.isEnabled && shortcutMatches(event, candidate.shortcut)
+      ));
+      if (!command) return;
+      event.preventDefault();
+      runCommand(command.id);
     });
 
     render();
