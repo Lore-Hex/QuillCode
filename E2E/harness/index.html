@@ -411,6 +411,7 @@
         { id: 'git-worktree-list', title: 'List worktrees', shortcut: '', isEnabled: true },
         { id: 'git-worktree-create', title: 'Create worktree', shortcut: '', isEnabled: true },
         { id: 'git-worktree-remove', title: 'Remove worktree', shortcut: '', isEnabled: true },
+        { id: 'local-env:.quillcode/actions/bootstrap.sh', title: 'Run Bootstrap', shortcut: '', isEnabled: true },
         { id: 'settings', title: 'Settings', shortcut: 'Cmd+,', isEnabled: true },
         { id: 'computer-use-setup', title: 'Computer Use setup', shortcut: '', isEnabled: true }
       ],
@@ -962,6 +963,10 @@
           removeForce: false
         };
       }
+      if (commandID.startsWith('local-env:')) {
+        runLocalEnvironmentAction(commandID);
+        return;
+      }
       if (commandID === 'settings') {
         state.settings.isOpen = true;
         state.settings.replacementAPIKey = '';
@@ -1001,6 +1006,21 @@
         return { stdout: '', stderr: '', exitCode: 1 };
       }
       return { stdout: 'ran: ' + command + '\n', stderr: '', exitCode: 0 };
+    }
+
+    function runLocalEnvironmentAction(commandID) {
+      const relativePath = commandID.replace(/^local-env:/, '');
+      const command = `sh '${relativePath.replaceAll("'", "'\\\\''")}'`;
+      const output = `Local environment action completed: ${relativePath}\\n`;
+      state.transcript.toolCards.push({
+        title: 'host.shell.run',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({ name: 'host.shell.run', argumentsJSON: JSON.stringify({ cmd: command }) }, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: output, stderr: '', exitCode: 0 }, null, 2)
+      });
+      state.transcript.messages.push({ role: 'assistant', text: 'Output:\\n' + output });
+      render();
     }
 
     function renderWorktreeDialog() {

@@ -222,6 +222,7 @@ public final class QuillCodeWorkspaceModel {
         if let index = root.projects.firstIndex(where: { $0.path == standardized.path }) {
             root.projects[index].name = projectName
             root.projects[index].instructions = ProjectInstructionLoader.load(from: standardized)
+            root.projects[index].localActions = LocalEnvironmentActionLoader.load(from: standardized)
             root.projects[index].lastOpenedAt = Date()
             root.selectedProjectID = root.projects[index].id
             saveProjects()
@@ -233,7 +234,8 @@ public final class QuillCodeWorkspaceModel {
             name: projectName,
             path: standardized.path,
             lastOpenedAt: Date(),
-            instructions: ProjectInstructionLoader.load(from: standardized)
+            instructions: ProjectInstructionLoader.load(from: standardized),
+            localActions: LocalEnvironmentActionLoader.load(from: standardized)
         )
         root.projects.insert(project, at: 0)
         root.selectedProjectID = project.id
@@ -247,7 +249,7 @@ public final class QuillCodeWorkspaceModel {
             guard root.projects.contains(where: { $0.id == id }) else { return }
         }
         root.selectedProjectID = id
-        refreshProjectInstructions(id)
+        refreshProjectMetadata(id)
         touchProject(id)
         root.selectedThreadID = root.threads
             .filter { !$0.isArchived && $0.projectID == id }
@@ -383,6 +385,9 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func runWorkspaceCommand(_ commandID: String, workspaceRoot: URL) -> Bool {
+        if commandID.hasPrefix("local-env:") {
+            return runLocalEnvironmentAction(commandID, workspaceRoot: workspaceRoot)
+        }
         switch commandID {
         case "git-worktree-list":
             runToolCall(
@@ -399,6 +404,22 @@ public final class QuillCodeWorkspaceModel {
         default:
             return false
         }
+    }
+
+    @discardableResult
+    public func runLocalEnvironmentAction(_ actionID: String, workspaceRoot: URL) -> Bool {
+        refreshProjectMetadata(root.selectedProjectID)
+        guard let action = localAction(withID: actionID) else {
+            return false
+        }
+        runToolCall(
+            ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: toolArgumentsJSON(["cmd": action.command])
+            ),
+            workspaceRoot: workspaceRoot
+        )
+        return true
     }
 
     public func createWorktree(_ request: WorkspaceWorktreeCreateRequest, workspaceRoot: URL) {
@@ -704,6 +725,13 @@ public final class QuillCodeWorkspaceModel {
         root.projects[index].instructions = ProjectInstructionLoader.load(from: rootURL)
     }
 
+    private func refreshProjectMetadata(_ id: UUID?) {
+        guard let id, let index = root.projects.firstIndex(where: { $0.id == id }) else { return }
+        let rootURL = URL(fileURLWithPath: root.projects[index].path)
+        root.projects[index].instructions = ProjectInstructionLoader.load(from: rootURL)
+        root.projects[index].localActions = LocalEnvironmentActionLoader.load(from: rootURL)
+    }
+
     private func syncInstructions(into thread: inout ChatThread) {
         let projectID = thread.projectID ?? root.selectedProjectID
         refreshProjectInstructions(projectID)
@@ -717,6 +745,10 @@ public final class QuillCodeWorkspaceModel {
             return []
         }
         return project.instructions
+    }
+
+    private func localAction(withID id: String) -> LocalEnvironmentAction? {
+        selectedProject?.localActions.first { $0.id == id }
     }
 
     static func instructionStatusLabel(for instructions: [ProjectInstruction]) -> String {

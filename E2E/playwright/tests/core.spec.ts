@@ -113,6 +113,20 @@ test('mock harness lists worktrees from the command palette', async ({ page }) =
   await expect(page.getByTestId('message').last()).toContainText('worktree /mock/QuillCode');
 });
 
+test('mock harness runs local environment action from the command palette', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('command-palette-button').click();
+  await page.getByLabel('Search commands').fill('bootstrap');
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
+  await page.getByRole('button', { name: /Run Bootstrap/ }).click();
+
+  await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.shell.run');
+  await expect(page.getByTestId('tool-card-input')).toContainText(".quillcode/actions/bootstrap.sh");
+  await expect(page.getByTestId('message').last()).toContainText('Local environment action completed');
+});
+
 test('mock harness creates and removes worktrees from dialogs', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

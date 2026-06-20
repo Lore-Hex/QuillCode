@@ -239,6 +239,60 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertFalse(instructions[0].content.contains("outside rules"))
     }
 
+    func testLocalEnvironmentActionsLoadAndRunFromCommandPaletteIDs() throws {
+        let root = try makeTempDirectory()
+        let actionsDirectory = root.appendingPathComponent(".quillcode/actions")
+        try FileManager.default.createDirectory(at: actionsDirectory, withIntermediateDirectories: true)
+        try "printf local-env-ok".write(
+            to: actionsDirectory.appendingPathComponent("bootstrap-env.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Local Env Project")
+        model.selectProject(projectID)
+
+        let action = try XCTUnwrap(model.selectedProject?.localActions.first)
+        XCTAssertEqual(action.title, "Bootstrap Env")
+        XCTAssertEqual(action.relativePath, ".quillcode/actions/bootstrap-env.sh")
+        XCTAssertTrue(model.runWorkspaceCommand(action.id, workspaceRoot: root))
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, "host.shell.run")
+        XCTAssertEqual(card.status, .done)
+        let outputJSON = try XCTUnwrap(card.outputJSON)
+        let result = try JSONHelpers.decode(ToolResult.self, from: outputJSON)
+        XCTAssertEqual(result.stdout, "local-env-ok")
+    }
+
+    func testLocalEnvironmentActionLoaderBoundsScriptsAndRejectsSymlinkEscape() throws {
+        let root = try makeTempDirectory()
+        let outside = try makeTempDirectory().appendingPathComponent("outside.sh")
+        try "printf bad".write(to: outside, atomically: true, encoding: .utf8)
+        let actionsDirectory = root.appendingPathComponent(".quillcode/actions")
+        try FileManager.default.createDirectory(at: actionsDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: actionsDirectory.appendingPathComponent("outside.sh"),
+            withDestinationURL: outside
+        )
+        try "printf one".write(
+            to: actionsDirectory.appendingPathComponent("one.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "printf two".write(
+            to: actionsDirectory.appendingPathComponent("two.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let actions = LocalEnvironmentActionLoader.load(from: root, maxActions: 1)
+
+        XCTAssertEqual(actions.map(\.relativePath), [".quillcode/actions/one.sh"])
+        XCTAssertEqual(actions[0].command, #"sh '.quillcode/actions/one.sh'"#)
+    }
+
     func testEmptyDraftDoesNotCreateThread() async throws {
         let model = QuillCodeWorkspaceModel()
         model.setDraft("   ")

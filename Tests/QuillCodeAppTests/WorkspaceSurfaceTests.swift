@@ -81,6 +81,32 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(coding?.models.first?.isSelected == true)
     }
 
+    func testSurfaceIncludesLocalEnvironmentActionCommands() {
+        let project = ProjectRef(
+            name: "QuillCode",
+            path: "/tmp/QuillCode",
+            localActions: [
+                LocalEnvironmentAction(
+                    id: "local-env:.quillcode/actions/bootstrap.sh",
+                    title: "Bootstrap",
+                    relativePath: ".quillcode/actions/bootstrap.sh",
+                    command: "sh '.quillcode/actions/bootstrap.sh'"
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id
+        ))
+
+        let command = model.surface().commands.first {
+            $0.id == "local-env:.quillcode/actions/bootstrap.sh"
+        }
+
+        XCTAssertEqual(command?.title, "Run Bootstrap")
+        XCTAssertEqual(command?.isEnabled, true)
+    }
+
     func testSurfaceKeepsUnknownSelectedModelVisible() {
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
             config: AppConfig(defaultModel: "custom/edge-model"),

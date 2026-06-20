@@ -175,6 +175,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
     public var name: String
     public var path: String
     public var instructions: [ProjectInstruction]
+    public var localActions: [LocalEnvironmentAction]
     public var lastOpenedAt: Date
 
     public init(
@@ -182,12 +183,14 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         name: String,
         path: String,
         lastOpenedAt: Date = Date(),
-        instructions: [ProjectInstruction] = []
+        instructions: [ProjectInstruction] = [],
+        localActions: [LocalEnvironmentAction] = []
     ) {
         self.id = id
         self.name = name
         self.path = path
         self.instructions = instructions
+        self.localActions = localActions
         self.lastOpenedAt = lastOpenedAt
     }
 
@@ -196,6 +199,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         case name
         case path
         case instructions
+        case localActions
         case lastOpenedAt
     }
 
@@ -205,6 +209,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         self.name = try container.decode(String.self, forKey: .name)
         self.path = try container.decode(String.self, forKey: .path)
         self.instructions = try container.decodeIfPresent([ProjectInstruction].self, forKey: .instructions) ?? []
+        self.localActions = try container.decodeIfPresent([LocalEnvironmentAction].self, forKey: .localActions) ?? []
         self.lastOpenedAt = try container.decode(Date.self, forKey: .lastOpenedAt)
     }
 
@@ -214,6 +219,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         try container.encode(name, forKey: .name)
         try container.encode(path, forKey: .path)
         try container.encode(instructions, forKey: .instructions)
+        try container.encode(localActions, forKey: .localActions)
         try container.encode(lastOpenedAt, forKey: .lastOpenedAt)
     }
 }
@@ -238,6 +244,20 @@ public struct ProjectInstruction: Codable, Sendable, Hashable, Identifiable {
         self.content = content
         self.byteCount = byteCount
         self.wasTruncated = wasTruncated
+    }
+}
+
+public struct LocalEnvironmentAction: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var title: String
+    public var relativePath: String
+    public var command: String
+
+    public init(id: String, title: String, relativePath: String, command: String) {
+        self.id = id
+        self.title = title
+        self.relativePath = relativePath
+        self.command = command
     }
 }
 

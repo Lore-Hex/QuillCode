@@ -320,6 +320,9 @@ private struct QuillCodeCommandPaletteView: View {
         case "stop-all":
             return "stop.circle"
         default:
+            if commandID.hasPrefix("local-env:") {
+                return "hammer"
+            }
             return "command"
         }
     }

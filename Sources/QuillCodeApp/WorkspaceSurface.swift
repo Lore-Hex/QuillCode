@@ -651,7 +651,14 @@ public extension QuillCodeWorkspaceModel {
     }
 
     private func commands() -> [WorkspaceCommandSurface] {
-        [
+        let localActionCommands = (selectedProject?.localActions ?? []).map { action in
+            WorkspaceCommandSurface(
+                id: action.id,
+                title: "Run \(action.title)",
+                isEnabled: activeWorkspaceRoot != nil
+            )
+        }
+        return [
             WorkspaceCommandSurface(id: "new-chat", title: "New chat", shortcut: "Cmd+N"),
             WorkspaceCommandSurface(id: "search", title: "Search", shortcut: "Cmd+K"),
             WorkspaceCommandSurface(id: "add-project", title: "Open project", shortcut: "Cmd+O"),
@@ -659,6 +666,7 @@ public extension QuillCodeWorkspaceModel {
             WorkspaceCommandSurface(id: "git-worktree-list", title: "List worktrees", isEnabled: activeWorkspaceRoot != nil),
             WorkspaceCommandSurface(id: "git-worktree-create", title: "Create worktree", isEnabled: activeWorkspaceRoot != nil),
             WorkspaceCommandSurface(id: "git-worktree-remove", title: "Remove worktree", isEnabled: activeWorkspaceRoot != nil),
+        ] + localActionCommands + [
             WorkspaceCommandSurface(id: "stop-all", title: "Stop all", shortcut: "Esc", isEnabled: composer.isSending),
             WorkspaceCommandSurface(id: "settings", title: "Settings", shortcut: "Cmd+,"),
             WorkspaceCommandSurface(id: "command-palette", title: "Command palette", shortcut: "Cmd+Shift+P"),
