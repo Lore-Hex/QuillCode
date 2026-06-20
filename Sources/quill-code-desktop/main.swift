@@ -44,10 +44,14 @@ private final class QuillCodeDesktopController: ObservableObject {
     private let workspaceRoot: URL
 
     init(
-        model: QuillCodeWorkspaceModel = QuillCodeWorkspaceModel(),
+        bootstrap: QuillCodeWorkspaceBootstrap = QuillCodeWorkspaceBootstrap(),
         workspaceRoot: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     ) {
-        self.model = model
+        do {
+            self.model = try bootstrap.makeModel()
+        } catch {
+            self.model = QuillCodeWorkspaceModel()
+        }
         self.workspaceRoot = workspaceRoot
         self.surface = model.surface()
         self.draft = model.composer.draft

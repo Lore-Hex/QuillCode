@@ -14,7 +14,7 @@
 - Project picker and model picker.
 - Settings with OAuth/dev override and mode selection.
 - Native smoke tests.
-- Current status: testable workspace state model, HTML surface contract, Playwright harness, and SwiftUI desktop shell exist for sidebar, composer, top bar, transcript, and tool-card presentation.
+- Current status: testable workspace state model, persisted config/thread bootstrap, HTML surface contract, Playwright harness, and SwiftUI desktop shell exist for sidebar, composer, top bar, transcript, and tool-card presentation.
 
 ## Milestone 2: TrustedRouter Runtime
 

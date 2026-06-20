@@ -1,6 +1,7 @@
 import XCTest
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodePersistence
 @testable import QuillCodeApp
 
 @MainActor
@@ -102,6 +103,29 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(cards[0].title, "Safety Check")
         XCTAssertEqual(cards[0].status, .review)
         XCTAssertTrue(cards[0].isExpanded)
+    }
+
+    func testBootstrapLoadsConfigAndPersistedThreads() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        try ConfigStore(fileURL: paths.configFile).save(AppConfig(
+            defaultModel: "trustedrouter/glm-5.2",
+            mode: .review
+        ))
+        let store = JSONThreadStore(directory: paths.threadsDirectory)
+        let older = ChatThread(title: "Older", updatedAt: Date(timeIntervalSince1970: 1))
+        let newer = ChatThread(title: "Newer", updatedAt: Date(timeIntervalSince1970: 2))
+        try store.save(older)
+        try store.save(newer)
+
+        let model = try QuillCodeWorkspaceBootstrap(paths: paths).makeModel()
+
+        XCTAssertEqual(model.root.config.defaultModel, "trustedrouter/glm-5.2")
+        XCTAssertEqual(model.root.config.mode, .review)
+        XCTAssertEqual(model.root.threads.map(\.title), ["Newer", "Older"])
+        XCTAssertEqual(model.root.selectedThreadID, newer.id)
+        XCTAssertEqual(model.surface().topBar.primaryTitle, "Newer")
     }
 
     private func makeTempDirectory() throws -> URL {

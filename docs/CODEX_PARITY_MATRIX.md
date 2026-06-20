@@ -2,7 +2,7 @@
 
 | Area | Feature | Status | Notes |
 | --- | --- | --- | --- |
-| Core | Threads and transcript persistence | Implemented | JSON thread store and mock agent runner. |
+| Core | Threads and transcript persistence | Implemented | JSON thread store, desktop bootstrap loading, and mock agent runner. |
 | Core | Project picker/sidebar | Partial | Workspace state model and native sidebar exist with selection, pin, archive, and sorting; project picker pending. |
 | Core | TrustedRouter model picker | Partial | Catalog model and live fetch adapter exist; native UI pending. |
 | Tools | Shell commands | Implemented | `host.shell.run` with empty-command guard. |
