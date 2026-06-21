@@ -493,6 +493,7 @@ public final class QuillCodeWorkspaceModel {
     private let threadStore: JSONThreadStore?
     private let projectStore: JSONProjectStore?
     private let globalMemoryDirectory: URL?
+    private var computerUseBackend: (any ComputerUseBackend)?
     private var mcpServerProcesses: [String: MCPServerProcessHandle]
 
     public init(
@@ -505,7 +506,8 @@ public final class QuillCodeWorkspaceModel {
         runner: AgentRunner = AgentRunner(),
         threadStore: JSONThreadStore? = nil,
         projectStore: JSONProjectStore? = nil,
-        globalMemoryDirectory: URL? = nil
+        globalMemoryDirectory: URL? = nil,
+        computerUseBackend: (any ComputerUseBackend)? = nil
     ) {
         self.root = root
         self.composer = composer
@@ -517,7 +519,11 @@ public final class QuillCodeWorkspaceModel {
         self.threadStore = threadStore
         self.projectStore = projectStore
         self.globalMemoryDirectory = globalMemoryDirectory
+        self.computerUseBackend = computerUseBackend
         self.mcpServerProcesses = [:]
+        if let computerUseBackend {
+            self.root.topBar.computerUseStatus = computerUseBackend.status
+        }
         refreshTopBar()
     }
 
@@ -1053,9 +1059,14 @@ public final class QuillCodeWorkspaceModel {
             try Task.checkCancellation()
             let activeMCPToolDefinition = mcpToolDefinitionForReadyServers()
             let activeMCPExecutor = mcpToolExecutionOverride()
+            let activeComputerDefinitions = computerUseBackend == nil ? [] : ToolDefinition.computerUseDefinitions
+            let activeComputerExecutor = computerUseToolExecutionOverride()
             var activeRunner = runner
-            activeRunner.additionalToolDefinitions = activeMCPToolDefinition.map { [$0] } ?? []
-            activeRunner.toolExecutionOverride = activeMCPExecutor
+            activeRunner.additionalToolDefinitions = activeComputerDefinitions + (activeMCPToolDefinition.map { [$0] } ?? [])
+            activeRunner.toolExecutionOverride = combinedToolExecutionOverride(
+                computerUse: activeComputerExecutor,
+                mcp: activeMCPExecutor
+            )
 
             let result = try await activeRunner.send(
                 prompt,
@@ -1519,6 +1530,30 @@ public final class QuillCodeWorkspaceModel {
             } catch {
                 return ToolResult(ok: false, error: Self.mcpUserFacingError(error))
             }
+        }
+    }
+
+    private func computerUseToolExecutionOverride() -> AgentToolExecutionOverride? {
+        guard let computerUseBackend else { return nil }
+        let executor = ComputerUseToolExecutor(backend: computerUseBackend)
+        return { call, _ in
+            await executor.execute(call)
+        }
+    }
+
+    private func combinedToolExecutionOverride(
+        computerUse: AgentToolExecutionOverride?,
+        mcp: AgentToolExecutionOverride?
+    ) -> AgentToolExecutionOverride? {
+        guard computerUse != nil || mcp != nil else { return nil }
+        return { call, workspaceRoot in
+            if let result = await computerUse?(call, workspaceRoot) {
+                return result
+            }
+            if let result = await mcp?(call, workspaceRoot) {
+                return result
+            }
+            return nil
         }
     }
 
@@ -2305,6 +2340,11 @@ public final class QuillCodeWorkspaceModel {
     public func setComputerUseStatus(_ status: ComputerUseStatus) {
         root.topBar.computerUseStatus = status
         refreshTopBar(agentStatus: root.topBar.agentStatus)
+    }
+
+    public func setComputerUseBackend(_ backend: any ComputerUseBackend) {
+        computerUseBackend = backend
+        setComputerUseStatus(backend.status)
     }
 
     public func refreshSelectedProjectInstructions() {

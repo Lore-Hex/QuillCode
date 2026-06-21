@@ -3,6 +3,7 @@ import Foundation
 public enum ToolArgumentError: Error, CustomStringConvertible {
     case invalidJSON(String)
     case missingString(String)
+    case missingInteger(String)
 
     public var description: String {
         switch self {
@@ -10,6 +11,8 @@ public enum ToolArgumentError: Error, CustomStringConvertible {
             return "Invalid tool arguments JSON: \(payload)"
         case .missingString(let key):
             return "Missing required string argument: \(key)"
+        case .missingInteger(let key):
+            return "Missing required integer argument: \(key)"
         }
     }
 }
@@ -28,10 +31,14 @@ public struct ToolArguments: Sendable {
             switch value {
             case let string as String:
                 values[key] = string
+            case let number as NSNumber:
+                if CFGetTypeID(number) == CFBooleanGetTypeID() {
+                    values[key] = number.boolValue
+                } else {
+                    values[key] = number.stringValue
+                }
             case let bool as Bool:
                 values[key] = bool
-            case let number as NSNumber:
-                values[key] = number.stringValue
             default:
                 continue
             }
@@ -46,6 +53,18 @@ public struct ToolArguments: Sendable {
     public func requiredString(_ key: String) throws -> String {
         guard let value = string(key), !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ToolArgumentError.missingString(key)
+        }
+        return value
+    }
+
+    public func int(_ key: String) -> Int? {
+        guard let value = string(key)?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
+        return Int(value)
+    }
+
+    public func requiredInt(_ key: String) throws -> Int {
+        guard let value = int(key) else {
+            throw ToolArgumentError.missingInteger(key)
         }
         return value
     }

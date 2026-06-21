@@ -30,5 +30,5 @@
 - Full PTY terminal sessions, richer worktree branch lifecycle polish, local env orchestration, and richer GitHub review workflows.
 - Per-file project-instruction scopes and visible conflict diagnostics.
 - Browser rendering adapter, DOM/page inspection, and richer browser comments.
-- Computer Use platform backends, app approvals, and agent wiring. macOS now has permission-aware status, screenshot/input primitives, and Settings onboarding actions; Linux backend and richer onboarding remain.
+- Computer Use platform backends, app approvals, and agent wiring. macOS now has permission-aware status, screenshot/input primitives, Settings onboarding actions, and structured agent tools for screenshot/click/type/scroll/move/key dispatch through the active backend; Linux backend, richer onboarding, and multi-step model feedback over screenshot results remain.
 - Rich artifact previews, plugin/skill install and execution lifecycle, richer MCP per-tool schemas/resources/prompts/streaming beyond the generic verified-server call path, autonomous memory writes/richer redaction/Chronicle jobs, memory editing, and automations.

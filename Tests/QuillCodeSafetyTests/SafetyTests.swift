@@ -45,6 +45,13 @@ final class SafetyTests: XCTestCase {
         host: .local,
         risk: .append
     )
+    private let computerClick = ToolDefinition(
+        name: "host.computer.click",
+        description: "Click a point on the desktop",
+        parametersJSON: "{}",
+        host: .computer,
+        risk: .destructive
+    )
 
     func testAutoApprovesUserRequestedWhoami() async {
         let reviewer = StaticSafetyReviewer()
@@ -133,6 +140,19 @@ final class SafetyTests: XCTestCase {
             toolCall: call,
             toolDefinition: gitWorktreeCreate,
             recentMessages: [.init(role: .user, content: "create a worktree for this feature")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoApprovesExplicitComputerUseClick() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: computerClick.name, argumentsJSON: #"{"x":42,"y":84}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "click 42 84",
+            toolCall: call,
+            toolDefinition: computerClick,
+            recentMessages: [.init(role: .user, content: "click 42 84")]
         ))
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }

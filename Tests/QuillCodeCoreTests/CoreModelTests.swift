@@ -21,6 +21,14 @@ final class CoreModelTests: XCTestCase {
         XCTAssertThrowsError(try args.requiredString("cmd"))
     }
 
+    func testToolArgumentsParseIntegerValues() throws {
+        let args = try ToolArguments(#"{"x":42,"y":"84"}"#)
+
+        XCTAssertEqual(try args.requiredInt("x"), 42)
+        XCTAssertEqual(try args.requiredInt("y"), 84)
+        XCTAssertThrowsError(try args.requiredInt("z"))
+    }
+
     func testAppConfigDecodesOlderPayloadWithoutFavorites() throws {
         let config = try JSONHelpers.decode(AppConfig.self, from: """
         {

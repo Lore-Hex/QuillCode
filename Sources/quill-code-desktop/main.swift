@@ -203,7 +203,7 @@ private final class QuillCodeDesktopController: ObservableObject {
         if self.model.root.projects.isEmpty {
             _ = self.model.addProject(path: workspaceRoot)
         }
-        self.model.setComputerUseStatus(computerUseBackend.status)
+        self.model.setComputerUseBackend(computerUseBackend)
         self.surface = model.surface()
         self.draft = model.composer.draft
         self.terminalDraft = model.terminal.draft

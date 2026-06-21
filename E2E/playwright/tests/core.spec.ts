@@ -1,4 +1,4 @@
-import { test, expect, type Locator } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 
 test('mock harness executes simple command flow', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
@@ -95,6 +95,55 @@ test('mock harness shows actionable Computer Use setup in settings', async ({ pa
 
   await settingsPanel.getByTestId('computer-use-refresh').click();
   await expect(page.getByTestId('computer-use-status')).toHaveText('Needs Screen Recording + Accessibility');
+});
+
+test('mock harness avoids horizontal clipping in key desktop and mobile flows', async ({ browser }) => {
+  const viewports = [
+    { name: 'desktop', width: 1440, height: 1000 },
+    { name: 'mobile', width: 390, height: 844 }
+  ];
+
+  const expectNoHorizontalOverflow = async (page: Page, label: string) => {
+    const overflow = await page.evaluate(() => {
+      const viewportWidth = document.documentElement.clientWidth;
+      return [...document.querySelectorAll('body *')]
+        .map((element) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            tag: element.tagName,
+            testid: element.getAttribute('data-testid'),
+            className: String(element.className || ''),
+            left: rect.left,
+            right: rect.right,
+            width: rect.width,
+            text: (element.textContent || '').trim().slice(0, 80)
+          };
+        })
+        .filter((rect) => rect.width > 0 && (rect.left < -1 || rect.right > viewportWidth + 1));
+    });
+
+    expect(overflow, `${label} should not clip horizontally`).toEqual([]);
+  };
+
+  for (const viewport of viewports) {
+    const page = await browser.newPage({
+      viewport: { width: viewport.width, height: viewport.height },
+      deviceScaleFactor: 1
+    });
+    await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+    await page.getByTestId('settings-button').click();
+    await expect(page.getByTestId('settings-panel')).toBeVisible();
+    await expectNoHorizontalOverflow(page, `${viewport.name} settings`);
+
+    await page.getByTestId('settings-save').click();
+    await page.getByLabel('Message').fill('run whoami');
+    await page.getByRole('button', { name: 'Send' }).click();
+    await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+    await expectNoHorizontalOverflow(page, `${viewport.name} tool flow`);
+
+    await page.close();
+  }
 });
 
 test('mock harness stops an active composer run from the composer', async ({ page }) => {

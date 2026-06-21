@@ -1,4 +1,5 @@
 import Foundation
+import QuillComputerUseKit
 import QuillCodeCore
 import QuillCodeSafety
 import QuillCodeTools
@@ -355,7 +356,7 @@ public struct AgentRunResult: Sendable {
 }
 
 public typealias AgentRunProgressHandler = @Sendable (ChatThread) async -> Void
-public typealias AgentToolExecutionOverride = @Sendable (ToolCall, URL) -> ToolResult?
+public typealias AgentToolExecutionOverride = @Sendable (ToolCall, URL) async -> ToolResult?
 
 public struct AgentRunner: Sendable {
     public static let streamingNotice = "Streaming model response"
@@ -551,7 +552,7 @@ public struct AgentRunner: Sendable {
         next.updatedAt = Date()
         await onProgress?(next)
         try Task.checkCancellation()
-        let result = toolExecutionOverride?(call, workspaceRoot) ?? router.execute(call)
+        let result = await toolExecutionOverride?(call, workspaceRoot) ?? router.execute(call)
         try Task.checkCancellation()
         let resultJSON = (try? JSONHelpers.encodePretty(result)) ?? "{}"
         next.events.append(.init(
@@ -656,6 +657,16 @@ public struct AgentRunner: Sendable {
             if let answer = shellAnswer(command: command, result: result) {
                 return answer
             }
+        }
+
+        if call.name == ToolDefinition.computerScreenshot.name,
+           let screenshot = try? JSONHelpers.decode(ComputerScreenshotToolOutput.self, from: result.stdout) {
+            return "Captured a screenshot (\(screenshot.width) x \(screenshot.height))."
+        }
+
+        if ToolDefinition.computerUseDefinitions.contains(where: { $0.name == call.name }) {
+            let output = result.stdout.trimmedNonEmpty
+            return output.map { "Computer Use completed: \($0)" } ?? "Computer Use action completed."
         }
 
         let output = [result.stdout, result.stderr]

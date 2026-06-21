@@ -3,6 +3,7 @@ import QuillCodeAgent
 import QuillCodeCore
 import QuillCodePersistence
 import QuillCodeSafety
+import QuillComputerUseKit
 @testable import QuillCodeApp
 
 @MainActor
@@ -336,6 +337,64 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(card.artifacts.map(\.kind), [.file])
         XCTAssertEqual(card.artifacts.map(\.detail), [root.path])
         XCTAssertEqual(card.artifacts.first?.value, root.appendingPathComponent("hello.txt").path)
+    }
+
+    func testSubmitComposerDispatchesComputerUseToolThroughBackend() async throws {
+        let root = try makeTempDirectory()
+        let backend = StubComputerUseBackend()
+        let call = ToolCall(
+            name: ToolDefinition.computerClick.name,
+            argumentsJSON: #"{"x":42,"y":84}"#
+        )
+        let model = QuillCodeWorkspaceModel(
+            runner: AgentRunner(llm: FixedToolLLMClient(call: call)),
+            computerUseBackend: backend
+        )
+
+        model.setDraft("click 42 84")
+        await model.submitComposer(workspaceRoot: root)
+
+        let actions = await backend.recordedActions()
+        XCTAssertEqual(actions, ["leftClick:42,84"])
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, "host.computer.click")
+        XCTAssertEqual(card.status, .done)
+        XCTAssertEqual(
+            model.selectedThread?.messages.last?.content,
+            "Computer Use completed: Clicked 42 84."
+        )
+    }
+
+    func testSubmitComposerCapturesComputerUseScreenshotThroughBackend() async throws {
+        let root = try makeTempDirectory()
+        let backend = StubComputerUseBackend()
+        let call = ToolCall(name: ToolDefinition.computerScreenshot.name, argumentsJSON: "{}")
+        let model = QuillCodeWorkspaceModel(
+            runner: AgentRunner(llm: FixedToolLLMClient(call: call)),
+            computerUseBackend: backend
+        )
+
+        model.setDraft("take a screenshot")
+        await model.submitComposer(workspaceRoot: root)
+
+        let actions = await backend.recordedActions()
+        XCTAssertEqual(actions, ["screenshot"])
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, "host.computer.screenshot")
+        XCTAssertEqual(card.status, .done)
+        let outputJSON = try XCTUnwrap(card.outputJSON)
+        let result = try JSONHelpers.decode(ToolResult.self, from: outputJSON)
+        XCTAssertTrue(result.stdout.contains(#""width" : 1"#))
+        XCTAssertFalse(result.stdout.contains("pngBase64"))
+        let screenshotArtifact = try XCTUnwrap(result.artifacts.first)
+        defer {
+            try? FileManager.default.removeItem(atPath: screenshotArtifact)
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: screenshotArtifact))
+        XCTAssertEqual(
+            model.selectedThread?.messages.last?.content,
+            "Captured a screenshot (1 x 1)."
+        )
     }
 
     func testSubmitComposerStreamsQueuedToolBeforeCompletion() async throws {

@@ -13,6 +13,18 @@ public struct ComputerScreenshot: Codable, Sendable, Hashable {
     }
 }
 
+public struct ComputerScreenshotToolOutput: Codable, Sendable, Hashable {
+    public var width: Int
+    public var height: Int
+    public var path: String?
+
+    public init(width: Int, height: Int, path: String?) {
+        self.width = width
+        self.height = height
+        self.path = path
+    }
+}
+
 public enum ComputerUseError: Error, CustomStringConvertible, Sendable {
     case permissionDenied(String)
     case unsupportedPlatform(String)
@@ -95,6 +107,10 @@ public actor StubComputerUseBackend: ComputerUseBackend {
 
     public init() {}
 
+    public func recordedActions() -> [String] {
+        actions
+    }
+
     public func screenshot() async throws -> ComputerScreenshot {
         actions.append("screenshot")
         return ComputerScreenshot(width: 1, height: 1, pngBase64: "iVBORw0KGgo=")
@@ -121,7 +137,96 @@ public actor StubComputerUseBackend: ComputerUseBackend {
     }
 }
 
+public struct ComputerUseToolExecutor: Sendable {
+    private let backend: any ComputerUseBackend
+    private let artifactDirectory: URL
+
+    public init(
+        backend: any ComputerUseBackend,
+        artifactDirectory: URL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("QuillCode", isDirectory: true)
+            .appendingPathComponent("screenshots", isDirectory: true)
+    ) {
+        self.backend = backend
+        self.artifactDirectory = artifactDirectory
+    }
+
+    public func execute(_ call: ToolCall) async -> ToolResult? {
+        do {
+            let args = try ToolArguments(call.argumentsJSON)
+            switch call.name {
+            case ToolDefinition.computerScreenshot.name:
+                let screenshot = try await backend.screenshot()
+                let path = try writeScreenshotArtifact(screenshot)
+                let output = ComputerScreenshotToolOutput(
+                    width: screenshot.width,
+                    height: screenshot.height,
+                    path: path
+                )
+                return ToolResult(
+                    ok: true,
+                    stdout: (try? JSONHelpers.encodePretty(output)) ?? """
+                    {"width":\(screenshot.width),"height":\(screenshot.height)}
+                    """,
+                    artifacts: path.map { [$0] } ?? []
+                )
+            case ToolDefinition.computerClick.name:
+                let x = try args.requiredInt("x")
+                let y = try args.requiredInt("y")
+                try await backend.leftClick(x: x, y: y)
+                return ToolResult(ok: true, stdout: "Clicked \(x) \(y).")
+            case ToolDefinition.computerType.name:
+                let text = try args.requiredString("text")
+                try await backend.type(text)
+                return ToolResult(ok: true, stdout: "Typed \(text.count) characters.")
+            case ToolDefinition.computerScroll.name:
+                let dx = args.int("dx") ?? 0
+                let dy = args.int("dy") ?? 0
+                try await backend.scroll(dx: dx, dy: dy)
+                return ToolResult(ok: true, stdout: "Scrolled dx \(dx), dy \(dy).")
+            case ToolDefinition.computerMove.name:
+                let x = try args.requiredInt("x")
+                let y = try args.requiredInt("y")
+                try await backend.moveCursor(x: x, y: y)
+                return ToolResult(ok: true, stdout: "Moved cursor to \(x) \(y).")
+            case ToolDefinition.computerKey.name:
+                let key = try args.requiredString("key")
+                try await backend.pressKey(key)
+                return ToolResult(ok: true, stdout: "Pressed \(key).")
+            default:
+                return nil
+            }
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
+    private func writeScreenshotArtifact(_ screenshot: ComputerScreenshot) throws -> String? {
+        guard let data = Data(base64Encoded: screenshot.pngBase64) else {
+            return nil
+        }
+        try FileManager.default.createDirectory(
+            at: artifactDirectory,
+            withIntermediateDirectories: true
+        )
+        let url = artifactDirectory
+            .appendingPathComponent("screenshot-\(UUID().uuidString)", isDirectory: false)
+            .appendingPathExtension("png")
+        try data.write(to: url, options: .atomic)
+        return url.path
+    }
+}
+
 public extension ToolDefinition {
+    static let computerUseDefinitions: [ToolDefinition] = [
+        .computerScreenshot,
+        .computerClick,
+        .computerType,
+        .computerScroll,
+        .computerMove,
+        .computerKey
+    ]
+
     static let computerScreenshot = ToolDefinition(
         name: "host.computer.screenshot",
         description: "Capture a screenshot of the active desktop.",
@@ -134,6 +239,38 @@ public extension ToolDefinition {
         name: "host.computer.click",
         description: "Click a point on the active desktop.",
         parametersJSON: #"{"type":"object","properties":{"x":{"type":"integer"},"y":{"type":"integer"}},"required":["x","y"]}"#,
+        host: .computer,
+        risk: .destructive
+    )
+
+    static let computerType = ToolDefinition(
+        name: "host.computer.type",
+        description: "Type text into the focused application.",
+        parametersJSON: #"{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}"#,
+        host: .computer,
+        risk: .destructive
+    )
+
+    static let computerScroll = ToolDefinition(
+        name: "host.computer.scroll",
+        description: "Scroll the active desktop view by a delta.",
+        parametersJSON: #"{"type":"object","properties":{"dx":{"type":"integer"},"dy":{"type":"integer"}}}"#,
+        host: .computer,
+        risk: .destructive
+    )
+
+    static let computerMove = ToolDefinition(
+        name: "host.computer.move",
+        description: "Move the cursor to a point on the active desktop.",
+        parametersJSON: #"{"type":"object","properties":{"x":{"type":"integer"},"y":{"type":"integer"}},"required":["x","y"]}"#,
+        host: .computer,
+        risk: .destructive
+    )
+
+    static let computerKey = ToolDefinition(
+        name: "host.computer.key",
+        description: "Press a keyboard key or shortcut in the focused application.",
+        parametersJSON: #"{"type":"object","properties":{"key":{"type":"string"}},"required":["key"]}"#,
         host: .computer,
         risk: .destructive
     )

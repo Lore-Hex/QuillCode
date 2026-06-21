@@ -149,6 +149,19 @@ public struct StaticSafetyReviewer: SafetyReviewer {
                 || context.toolCall.name.contains("git.status")
                 || context.toolCall.name.contains("git.diff")
         }
+        if context.toolCall.name.contains("computer") {
+            if user.contains("screenshot")
+                || user.contains("screen")
+                || user.contains("click")
+                || user.contains("type")
+                || user.contains("scroll")
+                || user.contains("cursor")
+                || user.contains("mouse")
+                || user.contains("press")
+                || user.contains("key") {
+                return true
+            }
+        }
         if user.contains("openclaw") || user.contains("whoami") || user.contains("disk") || user.contains("storage") {
             return true
         }
