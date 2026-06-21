@@ -775,7 +775,7 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.authMode = config.authMode
         self.developerOverrideEnabled = config.developerOverrideEnabled
         self.hasStoredAPIKey = hasStoredAPIKey
-        self.signInURL = TrustedRouterDefaults.signInURL
+        self.signInURL = TrustedRouterDefaults.loopbackCallbackURL
         switch config.authMode {
         case .oauth:
             self.apiKeyStatusLabel = hasStoredAPIKey ? "TrustedRouter signed in" : "Not signed in"

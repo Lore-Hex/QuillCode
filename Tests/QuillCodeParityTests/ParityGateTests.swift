@@ -48,4 +48,24 @@ final class ParityGateTests: XCTestCase {
             XCTAssertTrue(text.contains(label), "Menu-bar widget is missing \(label).")
         }
     }
+
+    func testDesktopTrustedRouterSignInUsesLoopbackOAuth() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let desktopSource = root.appendingPathComponent("Sources/quill-code-desktop/main.swift")
+        let text = try String(contentsOf: desktopSource, encoding: .utf8)
+
+        XCTAssertTrue(text.contains("TrustedRouterLoopbackCallbackServer"), "Desktop sign-in should own a loopback callback server.")
+        XCTAssertTrue(text.contains("TrustedRouterDefaults.loopbackCallbackURL"), "Desktop sign-in should use the shared TrustedRouter loopback callback URL.")
+        XCTAssertTrue(text.contains("createAuthorization"), "Desktop sign-in should construct a PKCE authorization URL.")
+        XCTAssertTrue(text.contains("exchangeCode"), "Desktop sign-in should exchange the callback code for a scoped key.")
+        XCTAssertTrue(text.contains("saveTrustedRouterAPIKey"), "Desktop sign-in should persist the returned TrustedRouter key.")
+        XCTAssertTrue(text.contains("fetchModelCatalog"), "Desktop sign-in should refresh the model catalog after storing the key.")
+        XCTAssertFalse(
+            text.contains("NSWorkspace.shared.open(url)") && text.contains("TrustedRouterDefaults.signInURL"),
+            "Desktop sign-in should not regress to opening the static sign-in documentation page."
+        )
+    }
 }

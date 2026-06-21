@@ -1583,7 +1583,7 @@ private struct QuillCodeSettingsView: View {
 
             if draft.authMode == .oauth {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("OAuth browser login will use the TrustedRouter account flow. Developer keys stay hidden unless you switch modes.")
+                    Text("OAuth browser login opens TrustedRouter and returns through QuillCode's local callback. Developer keys stay hidden unless you switch modes.")
                         .font(.caption)
                         .foregroundStyle(QuillCodePalette.muted)
                     Button("Sign in with TrustedRouter", action: onStartTrustedRouterSignIn)

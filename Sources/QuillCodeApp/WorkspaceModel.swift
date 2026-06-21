@@ -457,6 +457,11 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: runtime.statusLabel)
     }
 
+    public func setAgentStatus(_ status: String, lastError: String? = nil) {
+        self.lastError = lastError
+        refreshTopBar(agentStatus: status)
+    }
+
     public func submitComposer(workspaceRoot: URL) async {
         let prompt = composer.draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty else { return }

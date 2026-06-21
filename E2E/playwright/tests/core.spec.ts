@@ -18,7 +18,7 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('settings-panel')).toBeVisible();
   await expect(page.getByTestId('settings-key-status')).toHaveText('Not signed in');
   await page.getByTestId('settings-sign-in').click();
-  await expect(page.getByTestId('last-opened-url')).toHaveText('https://trustedrouter.com/sign-in-with-trustedrouter');
+  await expect(page.getByTestId('last-opened-url')).toHaveText('http://localhost:3000/callback');
   await page.getByLabel('TrustedRouter API base URL').fill('https://api.trustedrouter.test/v1');
   await page.getByLabel('Authentication').selectOption('developer-override');
   await page.getByLabel('Replace API key').fill('sk-tr-v1-test');

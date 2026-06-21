@@ -61,7 +61,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(surface.settings.developerOverrideEnabled)
         XCTAssertFalse(surface.settings.hasStoredAPIKey)
         XCTAssertEqual(surface.settings.authMode, .oauth)
-        XCTAssertEqual(surface.settings.signInURL, TrustedRouterDefaults.signInURL)
+        XCTAssertEqual(surface.settings.signInURL, TrustedRouterDefaults.loopbackCallbackURL)
         XCTAssertEqual(surface.settings.apiKeyStatusLabel, "Not signed in")
         XCTAssertFalse(surface.terminal.isVisible)
         XCTAssertEqual(surface.terminal.cwdLabel, "/tmp/QuillCode")

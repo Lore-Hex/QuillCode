@@ -476,7 +476,7 @@
         authMode: 'oauth',
         developerOverrideEnabled: false,
         hasStoredAPIKey: false,
-        signInURL: 'https://trustedrouter.com/sign-in-with-trustedrouter',
+        signInURL: 'http://localhost:3000/callback',
         apiKeyStatusLabel: 'Not signed in',
         loginStatusLabel: 'TrustedRouter login required',
         replacementAPIKey: ''
@@ -1128,7 +1128,7 @@
                 <input name="replacementAPIKey" aria-label="Replace API key" type="password" value="${escapeHTML(state.settings.replacementAPIKey)}">
               </label>
             ` : `
-              <p>OAuth browser login will use the TrustedRouter account flow.</p>
+              <p>OAuth browser login opens TrustedRouter and returns through QuillCode's local callback.</p>
               <button type="button" data-testid="settings-sign-in">Sign in with TrustedRouter</button>
               <p data-testid="settings-sign-in-url">${escapeHTML(state.settings.signInURL)}</p>
               ${state.lastOpenedURL ? `<p data-testid="last-opened-url">${escapeHTML(state.lastOpenedURL)}</p>` : ''}
