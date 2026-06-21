@@ -718,6 +718,13 @@ test('mock harness runs a command in the integrated terminal', async ({ page }) 
   await expect(page.getByTestId('terminal-stdout')).toContainText('/mock/QuillCode');
   await expect(page.getByLabel('Terminal command')).toHaveValue('');
 
+  await page.getByLabel('Terminal command').fill('stream-demo');
+  await page.getByTestId('terminal-run').click();
+  await expect(page.getByTestId('terminal-status').last()).toHaveText('Running · running');
+  await expect(page.getByTestId('terminal-stdout').last()).toContainText('stream-start');
+  await expect(page.getByTestId('terminal-status').last()).toHaveText('Done · exit 0');
+  await expect(page.getByTestId('terminal-stdout').last()).toContainText('stream-end');
+
   await page.getByLabel('Terminal command').fill('sleep 5');
   await page.getByTestId('terminal-run').click();
   await expect(page.getByTestId('terminal-status').last()).toHaveText('Running · running');

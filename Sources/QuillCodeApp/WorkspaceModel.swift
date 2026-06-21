@@ -1812,13 +1812,27 @@ public final class QuillCodeWorkspaceModel {
         lastError = nil
         refreshTopBar(agentStatus: "Terminal")
 
-        let result = await ShellToolExecutor().runCancellable(.init(command: command, cwd: workspaceRoot))
+        var finalResult: ToolResult?
+        for await event in ShellToolExecutor().runStreaming(.init(command: command, cwd: workspaceRoot)) {
+            if Task.isCancelled || terminal.entries.first(where: { $0.id == entryID })?.status == .stopped {
+                break
+            }
+            switch event {
+            case .stdout(let text):
+                appendTerminalOutput(id: entryID, stdout: text)
+            case .stderr(let text):
+                appendTerminalOutput(id: entryID, stderr: text)
+            case .finished(let result):
+                finalResult = result
+            }
+        }
+
         if terminal.entries.first(where: { $0.id == entryID })?.status == .stopped {
             terminal.isRunning = false
             refreshTopBar(agentStatus: "Stopped")
             return
         }
-        guard !Task.isCancelled else {
+        guard !Task.isCancelled, let result = finalResult else {
             finishTerminalEntry(
                 id: entryID,
                 stdout: "",
@@ -1843,6 +1857,15 @@ public final class QuillCodeWorkspaceModel {
         )
         terminal.isRunning = false
         refreshTopBar(agentStatus: result.ok ? "Idle" : "Failed")
+    }
+
+    private func appendTerminalOutput(id: UUID, stdout: String = "", stderr: String = "") {
+        guard let index = terminal.entries.firstIndex(where: { $0.id == id }),
+              terminal.entries[index].status == .running else {
+            return
+        }
+        terminal.entries[index].stdout += stdout
+        terminal.entries[index].stderr += stderr
     }
 
     private func finishTerminalEntry(

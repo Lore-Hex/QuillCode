@@ -590,6 +590,28 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.terminal.entries[0].stdout, "terminal-done")
     }
 
+    func testTerminalCommandStreamsOutputBeforeCompletion() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+
+        let task = Task {
+            await model.runTerminalCommand("echo terminal-start; sleep 0.2; echo terminal-end", workspaceRoot: root)
+        }
+        try await waitUntil(timeoutSeconds: 1) {
+            model.terminal.entries.first?.status == .running
+                && model.terminal.entries.first?.stdout.contains("terminal-start") == true
+        }
+
+        XCTAssertEqual(model.surface().terminal.entries.first?.statusLabel, "Running")
+        XCTAssertTrue(model.surface().terminal.entries.first?.stdout.contains("terminal-start") == true)
+
+        await task.value
+
+        XCTAssertFalse(model.terminal.isRunning)
+        XCTAssertEqual(model.terminal.entries.first?.status, .done)
+        XCTAssertTrue(model.terminal.entries.first?.stdout.contains("terminal-end") == true)
+    }
+
     func testTerminalCancellationMarksRunningEntryStopped() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()

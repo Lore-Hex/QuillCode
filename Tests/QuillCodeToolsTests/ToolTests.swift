@@ -39,6 +39,35 @@ final class ToolTests: XCTestCase {
         XCTAssertFalse(result.stdout.contains("should-not-print"))
     }
 
+    func testStreamingShellYieldsOutputBeforeCompletion() async throws {
+        let stream = ShellToolExecutor().runStreaming(.init(
+            command: "echo stream-start; sleep 0.2; echo stream-end",
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            timeoutSeconds: 5
+        ))
+        var sawStartBeforeFinish = false
+        var finishedResult: ToolResult?
+
+        for await event in stream {
+            switch event {
+            case .stdout(let text):
+                if finishedResult == nil, text.contains("stream-start") {
+                    sawStartBeforeFinish = true
+                }
+            case .stderr:
+                continue
+            case .finished(let result):
+                finishedResult = result
+            }
+        }
+
+        let result = try XCTUnwrap(finishedResult)
+        XCTAssertTrue(sawStartBeforeFinish)
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertTrue(result.stdout.contains("stream-start"))
+        XCTAssertTrue(result.stdout.contains("stream-end"))
+    }
+
     func testFileWriteStaysInsideWorkspace() throws {
         let root = try makeTempDirectory()
         let files = FileToolExecutor(workspaceRoot: root)

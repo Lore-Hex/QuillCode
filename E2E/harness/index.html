@@ -3767,7 +3767,18 @@
       updateDynamicCommands();
       render();
 
-      const completionDelay = /^sleep\s+/.test(command) ? 5000 : 250;
+      const streamingOutput = terminalStreamingOutput(command);
+      if (streamingOutput) {
+        window.setTimeout(() => {
+          if (activeTerminalRun?.entry !== entry || terminalStatus(entry) !== 'running') {
+            return;
+          }
+          entry.stdout += streamingOutput;
+          render();
+        }, 80);
+      }
+
+      const completionDelay = command === 'stream-demo' ? 700 : /^sleep\s+/.test(command) ? 5000 : 250;
       const timer = window.setTimeout(() => {
         if (activeTerminalRun?.entry !== entry || terminalStatus(entry) !== 'running') {
           return;
@@ -3786,7 +3797,10 @@
       activeTerminalRun = { entry, timer };
     }
 
-	    function terminalOutput(command, cwd) {
+    function terminalOutput(command, cwd) {
+      if (command === 'stream-demo') {
+        return { stdout: 'stream-start\nstream-end\n', stderr: '', exitCode: 0 };
+      }
       if (command === 'pwd') {
         return { stdout: cwd + '\n', stderr: '', exitCode: 0 };
       }
@@ -3800,16 +3814,23 @@
         return { stdout: '', stderr: '', exitCode: 1 };
       }
       return { stdout: 'ran: ' + command + '\n', stderr: '', exitCode: 0 };
-	    }
+    }
 
-	    function normalizeBrowserURL(raw) {
-	      const value = raw.trim();
-	      if (!value) return null;
-	      if (/^(https?|file):\/\//i.test(value)) return value;
-	      if (/^(localhost|127\\.0\\.0\\.1|\\[::1\\])/i.test(value)) return `http://${value}`;
-	      if (value.includes('.')) return `https://${value}`;
-	      return null;
-	    }
+    function terminalStreamingOutput(command) {
+      if (command === 'stream-demo') {
+        return 'stream-start\n';
+      }
+      return '';
+    }
+
+    function normalizeBrowserURL(raw) {
+      const value = raw.trim();
+      if (!value) return null;
+      if (/^(https?|file):\/\//i.test(value)) return value;
+      if (/^(localhost|127\\.0\\.0\\.1|\\[::1\\])/i.test(value)) return `http://${value}`;
+      if (value.includes('.')) return `https://${value}`;
+      return null;
+    }
 
       function browserSnapshot(url) {
         const parsed = new URL(url);

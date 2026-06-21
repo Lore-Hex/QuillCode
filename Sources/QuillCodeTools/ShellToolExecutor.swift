@@ -13,6 +13,16 @@ public struct ShellExecutionRequest: Sendable {
     }
 }
 
+public enum ShellProcessEvent: Sendable, Equatable {
+    case stdout(String)
+    case stderr(String)
+    case finished(ToolResult)
+}
+
+private enum ShellToolMessages {
+    static let missingCommand = "No shell command was specified. Try `Run ls` or `Run df -h /`."
+}
+
 public struct ShellToolExecutor: Sendable {
     public init() {}
 
@@ -38,13 +48,23 @@ public struct ShellToolExecutor: Sendable {
         return result
     }
 
+    public func runStreaming(_ request: ShellExecutionRequest) -> AsyncStream<ShellProcessEvent> {
+        AsyncStream { continuation in
+            let runner = StreamingShellProcess(request: request, continuation: continuation)
+            continuation.onTermination = { @Sendable _ in
+                runner.cancel()
+            }
+            runner.start()
+        }
+    }
+
     private static func runProcess(
         _ request: ShellExecutionRequest,
         processBox: CancellableProcessBox? = nil
     ) -> ToolResult {
         let trimmed = request.command.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            return ToolResult(ok: false, error: "No shell command was specified. Try `Run ls` or `Run df -h /`.")
+            return ToolResult(ok: false, error: ShellToolMessages.missingCommand)
         }
 
         let process = Process()
@@ -86,6 +106,236 @@ public struct ShellToolExecutor: Sendable {
             exitCode: process.terminationStatus,
             error: ok ? nil : "Command failed with exit code \(process.terminationStatus)."
         )
+    }
+}
+
+private final class StreamingShellProcess: @unchecked Sendable {
+    private let request: ShellExecutionRequest
+    private let continuation: AsyncStream<ShellProcessEvent>.Continuation
+    private let lock = NSLock()
+    private var process: Process?
+    private var stdout = ""
+    private var stderr = ""
+    private var didFinish = false
+    private var didCancel = false
+    private var didTimeOut = false
+
+    init(
+        request: ShellExecutionRequest,
+        continuation: AsyncStream<ShellProcessEvent>.Continuation
+    ) {
+        self.request = request
+        self.continuation = continuation
+    }
+
+    func start() {
+        DispatchQueue.global(qos: .userInitiated).async { [self] in
+            run()
+        }
+    }
+
+    func cancel() {
+        let activeProcess: Process?
+        lock.lock()
+        guard !didFinish else {
+            lock.unlock()
+            return
+        }
+        didCancel = true
+        activeProcess = process
+        lock.unlock()
+        activeProcess?.terminate()
+    }
+
+    private func run() {
+        let trimmed = request.command.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            finish(
+                stdout: "",
+                stderr: "",
+                exitCode: nil,
+                ok: false,
+                error: ShellToolMessages.missingCommand
+            )
+            return
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-lc", trimmed]
+        process.currentDirectoryURL = request.cwd
+
+        let standardOutput = Pipe()
+        let standardError = Pipe()
+        process.standardOutput = standardOutput
+        process.standardError = standardError
+
+        standardOutput.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            self?.handleOutput(handle.availableData, stream: .stdout)
+        }
+        standardError.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            self?.handleOutput(handle.availableData, stream: .stderr)
+        }
+        process.terminationHandler = { [weak self] process in
+            self?.finish(process: process)
+        }
+
+        lock.lock()
+        if didCancel {
+            lock.unlock()
+            finishCancelled()
+            return
+        }
+        self.process = process
+        lock.unlock()
+
+        do {
+            try process.run()
+        } catch {
+            standardOutput.fileHandleForReading.readabilityHandler = nil
+            standardError.fileHandleForReading.readabilityHandler = nil
+            finish(
+                stdout: "",
+                stderr: "",
+                exitCode: nil,
+                ok: false,
+                error: "Failed to start shell: \(error)"
+            )
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + request.timeoutSeconds) { [weak self] in
+            self?.timeout()
+        }
+    }
+
+    private enum OutputStream {
+        case stdout
+        case stderr
+    }
+
+    private func handleOutput(_ data: Data, stream: OutputStream) {
+        guard !data.isEmpty else { return }
+        let text = String(decoding: data, as: UTF8.self)
+        lock.lock()
+        switch stream {
+        case .stdout:
+            stdout += text
+        case .stderr:
+            stderr += text
+        }
+        lock.unlock()
+        switch stream {
+        case .stdout:
+            continuation.yield(.stdout(text))
+        case .stderr:
+            continuation.yield(.stderr(text))
+        }
+    }
+
+    private func timeout() {
+        let activeProcess: Process?
+        lock.lock()
+        guard !didFinish else {
+            lock.unlock()
+            return
+        }
+        didTimeOut = true
+        activeProcess = process
+        lock.unlock()
+        activeProcess?.terminate()
+    }
+
+    private func finish(process: Process) {
+        let outputPipe = process.standardOutput as? Pipe
+        let errorPipe = process.standardError as? Pipe
+        outputPipe?.fileHandleForReading.readabilityHandler = nil
+        errorPipe?.fileHandleForReading.readabilityHandler = nil
+
+        if let output = outputPipe {
+            handleOutput(output.fileHandleForReading.readDataToEndOfFile(), stream: .stdout)
+        }
+        if let error = errorPipe {
+            handleOutput(error.fileHandleForReading.readDataToEndOfFile(), stream: .stderr)
+        }
+
+        let out: String
+        let err: String
+        let cancelled: Bool
+        let timedOut: Bool
+        lock.lock()
+        out = stdout
+        err = stderr
+        cancelled = didCancel
+        timedOut = didTimeOut
+        lock.unlock()
+
+        if cancelled {
+            finish(stdout: out, stderr: err, exitCode: nil, ok: false, error: "Command cancelled.")
+            return
+        }
+        if timedOut {
+            finish(
+                stdout: out,
+                stderr: err,
+                exitCode: process.terminationStatus,
+                ok: false,
+                error: "Command timed out after \(Int(request.timeoutSeconds))s."
+            )
+            return
+        }
+
+        let ok = process.terminationStatus == 0
+        finish(
+            stdout: out,
+            stderr: err,
+            exitCode: process.terminationStatus,
+            ok: ok,
+            error: ok ? nil : "Command failed with exit code \(process.terminationStatus)."
+        )
+    }
+
+    private func finishCancelled() {
+        let out: String
+        let err: String
+        lock.lock()
+        out = stdout
+        err = stderr
+        lock.unlock()
+        finish(stdout: out, stderr: err, exitCode: nil, ok: false, error: "Command cancelled.")
+    }
+
+    private func finish(
+        stdout: String,
+        stderr: String,
+        exitCode: Int32?,
+        ok: Bool,
+        error: String?
+    ) {
+        lock.lock()
+        guard !didFinish else {
+            lock.unlock()
+            return
+        }
+        didFinish = true
+        let activeProcess = process
+        process = nil
+        lock.unlock()
+
+        if let activeProcess {
+            (activeProcess.standardOutput as? Pipe)?.fileHandleForReading.readabilityHandler = nil
+            (activeProcess.standardError as? Pipe)?.fileHandleForReading.readabilityHandler = nil
+            activeProcess.terminationHandler = nil
+        }
+
+        continuation.yield(.finished(ToolResult(
+            ok: ok,
+            stdout: stdout,
+            stderr: stderr,
+            exitCode: exitCode,
+            error: error
+        )))
+        continuation.finish()
     }
 }
 
