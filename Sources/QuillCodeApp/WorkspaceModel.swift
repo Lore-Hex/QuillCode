@@ -3,6 +3,7 @@ import QuillCodeAgent
 import QuillCodeCore
 import QuillCodePersistence
 import QuillCodeTools
+import QuillComputerUseKit
 
 public enum ToolCardStatus: String, Codable, Sendable, Hashable {
     case queued
@@ -2299,6 +2300,11 @@ public final class QuillCodeWorkspaceModel {
         root.selectedProjectID = knownProjectID(thread.projectID)
         touchProject(root.selectedProjectID)
         saveProjects()
+    }
+
+    public func setComputerUseStatus(_ status: ComputerUseStatus) {
+        root.topBar.computerUseStatus = status
+        refreshTopBar(agentStatus: root.topBar.agentStatus)
     }
 
     public func refreshSelectedProjectInstructions() {

@@ -5,6 +5,7 @@ import Network
 import QuillCodeAgent
 import QuillCodeApp
 import QuillCodeCore
+import QuillComputerUseKit
 
 @main
 struct QuillCodeDesktopApp: App {
@@ -180,6 +181,7 @@ private final class QuillCodeDesktopController: ObservableObject {
 
     private let model: QuillCodeWorkspaceModel
     private let bootstrap: QuillCodeWorkspaceBootstrap
+    private let computerUseBackend: MacComputerUseBackend
     private let workspaceRoot: URL
     private var sendTask: Task<Void, Never>?
     private var terminalTask: Task<Void, Never>?
@@ -191,6 +193,7 @@ private final class QuillCodeDesktopController: ObservableObject {
         workspaceRoot: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     ) {
         self.bootstrap = bootstrap
+        self.computerUseBackend = MacComputerUseBackend()
         do {
             self.model = try bootstrap.makeModel()
         } catch {
@@ -200,6 +203,7 @@ private final class QuillCodeDesktopController: ObservableObject {
         if self.model.root.projects.isEmpty {
             _ = self.model.addProject(path: workspaceRoot)
         }
+        self.model.setComputerUseStatus(computerUseBackend.status)
         self.surface = model.surface()
         self.draft = model.composer.draft
         self.terminalDraft = model.terminal.draft
@@ -543,6 +547,7 @@ private final class QuillCodeDesktopController: ObservableObject {
     }
 
     private func refresh() {
+        model.setComputerUseStatus(computerUseBackend.status)
         surface = model.surface()
         if draft != model.composer.draft, !model.composer.isSending {
             draft = model.composer.draft

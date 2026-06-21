@@ -57,17 +57,39 @@ public struct ComputerUseStatus: Codable, Sendable, Hashable {
         self.accessibilityGranted = accessibilityGranted
         self.message = message
     }
+
+    public static func permissionStatus(
+        screenRecordingGranted: Bool,
+        accessibilityGranted: Bool
+    ) -> ComputerUseStatus {
+        let available = screenRecordingGranted && accessibilityGranted
+        let message: String
+        switch (screenRecordingGranted, accessibilityGranted) {
+        case (true, true):
+            message = "Computer Use ready"
+        case (false, false):
+            message = "Needs Screen Recording + Accessibility"
+        case (false, true):
+            message = "Needs Screen Recording"
+        case (true, false):
+            message = "Needs Accessibility"
+        }
+        return ComputerUseStatus(
+            available: available,
+            screenRecordingGranted: screenRecordingGranted,
+            accessibilityGranted: accessibilityGranted,
+            message: message
+        )
+    }
 }
 
 public actor StubComputerUseBackend: ComputerUseBackend {
     public private(set) var actions: [String] = []
 
     public nonisolated var status: ComputerUseStatus {
-        ComputerUseStatus(
-            available: true,
+        .permissionStatus(
             screenRecordingGranted: true,
-            accessibilityGranted: true,
-            message: "Stub Computer Use backend ready."
+            accessibilityGranted: true
         )
     }
 

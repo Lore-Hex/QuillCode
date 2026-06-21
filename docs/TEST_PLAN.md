@@ -9,6 +9,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - Patch parser, diff parser, file/line/range review comments, Auto reviewer JSON, sandbox policy.
 - Project instruction discovery, nested precedence, symlink/root bounds, and byte/file caps.
 - Shortcut registry, command-derived shortcut discoverability, plugin/skill/MCP manifest discovery, MCP structured launch command/args, stdio `Content-Length` framing, bounded MCP `initialize`/`tools/list` probes, MCP `tools/call` request/response parsing, symlink/root bounds, duplicate ID handling, byte/count caps, malformed manifest skips.
+- Computer Use status labeling for all permission combinations and deterministic stub backend action recording.
 - Memory discovery from global and project roots, extension allow-listing, symlink/root bounds, unsupported file skips, count/file/total byte caps, truncation labels, explicit `/remember text` global writes, global memory deletion, credential/token/password/private-key rejection, thread snapshotting, TrustedRouter prompt injection as background context, and future memory redaction.
 
 ## Functional Tests
@@ -21,7 +22,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - Real filesystem, git, shell, terminal PTY.
 - OAuth PKCE generation, authorize URL construction, callback state validation, loopback callback capture, key exchange, delegated key persistence, non-secret account persistence, userinfo fetch, runtime refresh, loopback/dev override.
 - QuillUI secret-store adapter.
-- macOS Computer Use permission detection and Linux backend detection.
+- macOS Computer Use permission detection, permission-denied behavior, screenshot capture, and input primitives; Linux backend detection.
 - Worktree creation plus selected-project/thread handoff, local env actions, MCP stdio server lifecycle, MCP readiness probes, and MCP tool routing through advertised `tools/call` allowlists.
 
 ## Playwright E2E
@@ -49,6 +50,7 @@ Drive the QuillCode test harness with mock LLM:
 - memories pane discovery, global/project labels, truncation status, top-bar memory pill, sidebar toggle, command-palette toggle, command-palette Add memory prefill, `/memories` slash command, `/remember text` save flow with refreshed counts, and global Forget action with refreshed counts/transcript
 - plugin install
 - settings, runtime issue diagnostics, and secret redaction
+- Computer Use top-bar status labels for ready and missing-permission states
 - top bar stop-all and composer Stop during active runs
 - `Cmd+/` Keyboard Shortcuts panel, plus command-palette access to the same panel
 - slash commands for mode, compact context, terminal, browser, worktrees, and PR prep, plus composer slash suggestion filtering, selected-row keyboard navigation, Enter/Tab accept behavior, click-to-insert, focus retention, and send-through-existing-command-path behavior
@@ -62,6 +64,7 @@ Drive the QuillCode test harness with mock LLM:
 - Login/dev override.
 - Open repo, chat, run `whoami`, create file, confirm the created file appears as a tool-card artifact preview, confirm raw successful-tool details can be opened, review diff.
 - Terminal toggle, Memories toggle, Add memory and Forget memory flows, Extensions toggle, settings, Keyboard Shortcuts, top bar widget, quit/relaunch persistence.
+- Computer Use menu-bar status, System Settings setup affordance, and a permission-gated screenshot/input smoke pass on development machines with Screen Recording and Accessibility already granted.
 
 ## Release Gates
 

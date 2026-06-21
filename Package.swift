@@ -64,13 +64,15 @@ let package = Package(
             dependencies: [
                 "QuillCodeCore",
                 "QuillCodeApp",
-                "QuillCodeAgent"
+                "QuillCodeAgent",
+                "QuillComputerUseKit"
             ]
         ),
         .testTarget(name: "QuillCodeCoreTests", dependencies: ["QuillCodeCore"]),
         .testTarget(name: "QuillCodeSafetyTests", dependencies: ["QuillCodeSafety"]),
         .testTarget(name: "QuillCodeToolsTests", dependencies: ["QuillCodeTools"]),
         .testTarget(name: "QuillCodePersistenceTests", dependencies: ["QuillCodePersistence"]),
+        .testTarget(name: "QuillComputerUseKitTests", dependencies: ["QuillComputerUseKit"]),
         .testTarget(name: "QuillCodeAgentTests", dependencies: ["QuillCodeAgent", "QuillCodeTools"]),
         .testTarget(name: "QuillCodeAppTests", dependencies: ["QuillCodeApp", "QuillCodeAgent"]),
         .testTarget(name: "QuillCodeParityTests", dependencies: ["QuillCodeCore"])

@@ -1498,7 +1498,7 @@ public extension QuillCodeWorkspaceModel {
                 agentStatus: topBarState.agentStatus,
                 runtimeIssueLabel: runtimeIssue?.title,
                 runtimeIssueSeverity: runtimeIssue?.severity,
-                computerUseLabel: computerUse.available ? "Computer Use ready" : "Computer Use setup needed",
+                computerUseLabel: computerUse.message,
                 showsComputerUseSetup: !computerUse.available
             ),
             projects: ProjectListSurface(

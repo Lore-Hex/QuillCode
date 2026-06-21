@@ -45,7 +45,7 @@ public struct TopBarState: Sendable, Hashable {
             available: false,
             screenRecordingGranted: false,
             accessibilityGranted: false,
-            message: "Computer Use setup needed."
+            message: "Needs Screen Recording + Accessibility"
         )
     ) {
         self.appName = appName
