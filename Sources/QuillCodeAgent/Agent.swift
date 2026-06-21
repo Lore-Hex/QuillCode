@@ -221,17 +221,24 @@ public struct AgentRunResult: Sendable {
 }
 
 public typealias AgentRunProgressHandler = @Sendable (ChatThread) async -> Void
+public typealias AgentToolExecutionOverride = @Sendable (ToolCall, URL) -> ToolResult?
 
 public struct AgentRunner: Sendable {
     public var llm: LLMClient
     public var safety: SafetyReviewer
+    public var additionalToolDefinitions: [ToolDefinition]
+    public var toolExecutionOverride: AgentToolExecutionOverride?
 
     public init(
         llm: LLMClient = MockLLMClient(),
-        safety: SafetyReviewer = AutoSafetyReviewer()
+        safety: SafetyReviewer = AutoSafetyReviewer(),
+        additionalToolDefinitions: [ToolDefinition] = [],
+        toolExecutionOverride: AgentToolExecutionOverride? = nil
     ) {
         self.llm = llm
         self.safety = safety
+        self.additionalToolDefinitions = additionalToolDefinitions
+        self.toolExecutionOverride = toolExecutionOverride
     }
 
     public func send(
@@ -250,7 +257,7 @@ public struct AgentRunner: Sendable {
         await onProgress?(next)
 
         try Task.checkCancellation()
-        let tools = ToolRouter.definitions
+        let tools = Self.mergedToolDefinitions(additionalToolDefinitions)
         let action = try await llm.nextAction(thread: next, userMessage: userMessage, tools: tools)
         try Task.checkCancellation()
         switch action {
@@ -266,6 +273,7 @@ public struct AgentRunner: Sendable {
                 userMessage: userMessage,
                 thread: next,
                 workspaceRoot: workspaceRoot,
+                toolDefinitions: tools,
                 onProgress: onProgress
             )
         }
@@ -276,11 +284,12 @@ public struct AgentRunner: Sendable {
         userMessage: String,
         thread: ChatThread,
         workspaceRoot: URL,
+        toolDefinitions: [ToolDefinition],
         onProgress: AgentRunProgressHandler?
     ) async throws -> AgentRunResult {
         var next = thread
         let router = ToolRouter(workspaceRoot: workspaceRoot)
-        let definition = router.definition(named: call.name)
+        let definition = toolDefinitions.first { $0.name == call.name } ?? router.definition(named: call.name)
         let callJSON = (try? JSONHelpers.encodePretty(call)) ?? call.argumentsJSON
         next.events.append(.init(
             kind: .toolQueued,
@@ -325,7 +334,7 @@ public struct AgentRunner: Sendable {
         next.updatedAt = Date()
         await onProgress?(next)
         try Task.checkCancellation()
-        let result = router.execute(call)
+        let result = toolExecutionOverride?(call, workspaceRoot) ?? router.execute(call)
         try Task.checkCancellation()
         let resultJSON = (try? JSONHelpers.encodePretty(result)) ?? "{}"
         next.events.append(.init(
@@ -372,6 +381,17 @@ public struct AgentRunner: Sendable {
         next.updatedAt = Date()
         await onProgress?(next)
         return AgentRunResult(thread: next, toolResults: toolResults)
+    }
+
+    private static func mergedToolDefinitions(_ additional: [ToolDefinition]) -> [ToolDefinition] {
+        var seen = Set<String>()
+        var definitions: [ToolDefinition] = []
+        for definition in ToolRouter.definitions + additional {
+            guard !seen.contains(definition.name) else { continue }
+            seen.insert(definition.name)
+            definitions.append(definition)
+        }
+        return definitions
     }
 
     static func finalAnswer(

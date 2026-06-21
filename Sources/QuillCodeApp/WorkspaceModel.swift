@@ -411,12 +411,70 @@ private final class MCPServerProcessHandle: @unchecked Sendable {
     let standardInput: Pipe
     let standardOutput: Pipe
     let standardError: Pipe
+    let session: MCPStdioProber
 
-    init(process: Process, standardInput: Pipe, standardOutput: Pipe, standardError: Pipe) {
+    init(
+        process: Process,
+        standardInput: Pipe,
+        standardOutput: Pipe,
+        standardError: Pipe,
+        session: MCPStdioProber
+    ) {
         self.process = process
         self.standardInput = standardInput
         self.standardOutput = standardOutput
         self.standardError = standardError
+        self.session = session
+    }
+}
+
+private struct MCPToolCallRequest {
+    var serverID: String
+    var toolName: String
+    var toolArgumentsJSON: String
+
+    init(argumentsJSON: String) throws {
+        guard let data = argumentsJSON.data(using: .utf8),
+              let object = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+        else {
+            throw MCPToolCallRequestError.invalidJSON
+        }
+
+        let serverID = (object["serverID"] as? String ?? object["serverId"] as? String ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let toolName = (object["toolName"] as? String ?? object["name"] as? String ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !serverID.isEmpty else { throw MCPToolCallRequestError.missingServerID }
+        guard !toolName.isEmpty else { throw MCPToolCallRequestError.missingToolName }
+
+        if let argumentsJSON = object["argumentsJSON"] as? String,
+           !argumentsJSON.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            self.toolArgumentsJSON = argumentsJSON
+        } else if let arguments = object["arguments"] as? [String: Any],
+                  let data = try? JSONSerialization.data(withJSONObject: arguments, options: [.sortedKeys]) {
+            self.toolArgumentsJSON = String(decoding: data, as: UTF8.self)
+        } else {
+            self.toolArgumentsJSON = "{}"
+        }
+        self.serverID = serverID
+        self.toolName = toolName
+    }
+}
+
+private enum MCPToolCallRequestError: Error, CustomStringConvertible {
+    case invalidJSON
+    case missingServerID
+    case missingToolName
+
+    var description: String {
+        switch self {
+        case .invalidJSON:
+            return "MCP call arguments must be a JSON object."
+        case .missingServerID:
+            return "MCP call requires a non-empty serverID."
+        case .missingToolName:
+            return "MCP call requires a non-empty toolName."
+        }
     }
 }
 
@@ -759,7 +817,13 @@ public final class QuillCodeWorkspaceModel {
 
         do {
             try Task.checkCancellation()
-            let result = try await runner.send(
+            let activeMCPToolDefinition = mcpToolDefinitionForReadyServers()
+            let activeMCPExecutor = mcpToolExecutionOverride()
+            var activeRunner = runner
+            activeRunner.additionalToolDefinitions = activeMCPToolDefinition.map { [$0] } ?? []
+            activeRunner.toolExecutionOverride = activeMCPExecutor
+
+            let result = try await activeRunner.send(
                 prompt,
                 in: thread,
                 workspaceRoot: workspaceRoot,
@@ -1039,11 +1103,16 @@ public final class QuillCodeWorkspaceModel {
             return false
         }
 
+        let session = MCPStdioProber(
+            standardInput: standardInput.fileHandleForWriting,
+            standardOutput: standardOutput.fileHandleForReading
+        )
         let handle = MCPServerProcessHandle(
             process: process,
             standardInput: standardInput,
             standardOutput: standardOutput,
-            standardError: standardError
+            standardError: standardError,
+            session: session
         )
         mcpServerProcesses[id] = handle
         extensions.mcpServerStatuses[id] = .probing
@@ -1052,15 +1121,9 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: "Idle")
 
         do {
-            let result = try MCPStdioProber(
-                standardInput: standardInput.fileHandleForWriting,
-                standardOutput: standardOutput.fileHandleForReading
-            ).probe(timeout: 2.0)
+            let result = try session.probe(timeout: 2.0)
             extensions.mcpServerStatuses[id] = .ready
             extensions.mcpServerProbeSummaries[id] = MCPServerProbeSummary(result: result)
-            standardOutput.fileHandleForReading.readabilityHandler = { handle in
-                _ = handle.availableData
-            }
             standardError.fileHandleForReading.readabilityHandler = { handle in
                 _ = handle.availableData
             }
@@ -1131,6 +1194,69 @@ public final class QuillCodeWorkspaceModel {
             return " (\(toolNames.count) tools: \(preview), +\(remaining) more)"
         }
         return " (\(toolNames.count) tools: \(preview))"
+    }
+
+    private func mcpToolDefinitionForReadyServers() -> ToolDefinition? {
+        let ready = readyMCPToolDescriptions()
+        guard !ready.isEmpty else { return nil }
+        var definition = ToolDefinition.mcpCall
+        definition.description = """
+        Call a tool on a verified project-local MCP stdio server. Use only these Ready MCP tools:
+        \(ready.joined(separator: "\n"))
+        """
+        return definition
+    }
+
+    private func readyMCPToolDescriptions() -> [String] {
+        (selectedProject?.extensionManifests ?? [])
+            .filter { manifest in
+                manifest.kind == .mcpServer
+                    && extensions.mcpServerStatuses[manifest.id] == .ready
+                    && mcpServerProcesses[manifest.id]?.process.isRunning == true
+            }
+            .compactMap { manifest -> String? in
+                let tools = extensions.mcpServerProbeSummaries[manifest.id]?.toolNames ?? []
+                guard !tools.isEmpty else { return nil }
+                return "- \(manifest.id) (\(manifest.name)): \(tools.joined(separator: ", "))"
+            }
+    }
+
+    private func mcpToolExecutionOverride() -> AgentToolExecutionOverride? {
+        let sessions = mcpServerProcesses.compactMapValues { handle in
+            handle.process.isRunning ? handle.session : nil
+        }
+        let allowedTools = extensions.mcpServerProbeSummaries.mapValues { Set($0.toolNames) }
+        guard !sessions.isEmpty else { return nil }
+
+        return { call, _ in
+            guard call.name == ToolDefinition.mcpCall.name else { return nil }
+            do {
+                let request = try MCPToolCallRequest(argumentsJSON: call.argumentsJSON)
+                guard let session = sessions[request.serverID] else {
+                    return ToolResult(ok: false, error: "MCP server is not running or is not Ready: \(request.serverID)")
+                }
+                guard allowedTools[request.serverID]?.contains(request.toolName) == true else {
+                    return ToolResult(
+                        ok: false,
+                        error: "MCP tool \(request.toolName) was not advertised by \(request.serverID)."
+                    )
+                }
+                return try session.callTool(
+                    toolName: request.toolName,
+                    argumentsJSON: request.toolArgumentsJSON
+                )
+            } catch {
+                return ToolResult(ok: false, error: Self.mcpUserFacingError(error))
+            }
+        }
+    }
+
+    private nonisolated static func mcpUserFacingError(_ error: Error) -> String {
+        if let localized = (error as? LocalizedError)?.errorDescription,
+           !localized.isEmpty {
+            return localized
+        }
+        return String(describing: error)
     }
 
     private func appendNotice(_ summary: String) {

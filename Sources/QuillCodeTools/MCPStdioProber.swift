@@ -1,5 +1,10 @@
 import Foundation
+import QuillCodeCore
+#if canImport(Darwin)
 import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 public struct MCPServerProbeResult: Sendable, Hashable {
     public var protocolVersion: String?
@@ -103,10 +108,12 @@ public enum MCPStdioMessageCodec {
     }
 }
 
-public final class MCPStdioProber {
+public final class MCPStdioProber: @unchecked Sendable {
     private let standardInput: FileHandle
     private let standardOutput: FileHandle
+    private let ioLock = NSLock()
     private var readBuffer = Data()
+    private var nextRequestID = 1
 
     public init(standardInput: FileHandle, standardOutput: FileHandle) {
         self.standardInput = standardInput
@@ -114,8 +121,12 @@ public final class MCPStdioProber {
     }
 
     public func probe(timeout: TimeInterval = 2.0) throws -> MCPServerProbeResult {
+        ioLock.lock()
+        defer { ioLock.unlock() }
+
         let deadline = Date().addingTimeInterval(timeout)
-        try write(method: "initialize", id: 1, params: [
+        let initializeID = nextID()
+        try write(method: "initialize", id: initializeID, params: [
             "protocolVersion": "2024-11-05",
             "capabilities": [:],
             "clientInfo": [
@@ -124,13 +135,14 @@ public final class MCPStdioProber {
             ]
         ])
 
-        let initialize = try readResponse(id: 1, deadline: deadline)
+        let initialize = try readResponse(id: initializeID, deadline: deadline)
         let initializeResult = try resultDictionary(from: initialize)
 
         try writeNotification(method: "notifications/initialized", params: [:])
-        try write(method: "tools/list", id: 2, params: [:])
+        let toolsListID = nextID()
+        try write(method: "tools/list", id: toolsListID, params: [:])
 
-        let toolsList = try readResponse(id: 2, deadline: deadline)
+        let toolsList = try readResponse(id: toolsListID, deadline: deadline)
         let toolsResult = try resultDictionary(from: toolsList)
         let tools = (toolsResult["tools"] as? [[String: Any]]) ?? []
         let toolNames = tools
@@ -144,6 +156,34 @@ public final class MCPStdioProber {
             serverVersion: serverInfo?["version"] as? String,
             toolNames: toolNames
         )
+    }
+
+    public func callTool(
+        toolName: String,
+        argumentsJSON: String = "{}",
+        timeout: TimeInterval = 10.0
+    ) throws -> ToolResult {
+        ioLock.lock()
+        defer { ioLock.unlock() }
+
+        let toolName = toolName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !toolName.isEmpty else {
+            return ToolResult(ok: false, error: "MCP tool name is required.")
+        }
+        let arguments = try Self.argumentsObject(from: argumentsJSON)
+        let requestID = nextID()
+        try write(method: "tools/call", id: requestID, params: [
+            "name": toolName,
+            "arguments": arguments
+        ])
+        let response = try readResponse(id: requestID, deadline: Date().addingTimeInterval(timeout))
+        let result = try resultDictionary(from: response)
+        return Self.toolResult(from: result)
+    }
+
+    private func nextID() -> Int {
+        defer { nextRequestID += 1 }
+        return nextRequestID
     }
 
     private func write(method: String, id: Int, params: [String: Any]) throws {
@@ -181,7 +221,7 @@ public final class MCPStdioProber {
                 readBuffer.append(data)
             }
         }
-        throw MCPProbeError.timeout("MCP server did not respond before the probe timed out.")
+        throw MCPProbeError.timeout("MCP server did not respond before the request timed out.")
     }
 
     private func matchesResponseID(_ value: Any?, id: Int) -> Bool {
@@ -224,10 +264,57 @@ public final class MCPStdioProber {
         }
 
         var bytes = [UInt8](repeating: 0, count: 64 * 1024)
-        let byteCount = Darwin.read(descriptor.fd, &bytes, bytes.count)
+        let byteCount = read(descriptor.fd, &bytes, bytes.count)
         guard byteCount >= 0 else {
             throw MCPProbeError.invalidMessage("MCP stdout read failed with errno \(errno).")
         }
         return Data(bytes.prefix(byteCount))
     }
+
+    private static func argumentsObject(from json: String) throws -> [String: Any] {
+        let trimmed = json.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [:] }
+        guard let data = trimmed.data(using: .utf8),
+              let object = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+        else {
+            throw MCPProbeError.invalidMessage("MCP tool arguments must be a JSON object.")
+        }
+        return object
+    }
+
+    private static func toolResult(from result: [String: Any]) -> ToolResult {
+        let isError = (result["isError"] as? Bool) ?? false
+        let content = (result["content"] as? [[String: Any]]) ?? []
+        let text = content
+            .compactMap { item -> String? in
+                if let text = item["text"] as? String {
+                    return text
+                }
+                if let data = try? JSONSerialization.data(withJSONObject: item, options: [.sortedKeys]) {
+                    return String(decoding: data, as: UTF8.self)
+                }
+                return nil
+            }
+            .joined(separator: "\n")
+        if isError {
+            return ToolResult(ok: false, stderr: text, error: text.isEmpty ? "MCP tool returned an error." : text)
+        }
+        if !text.isEmpty {
+            return ToolResult(ok: true, stdout: text)
+        }
+        if let data = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {
+            return ToolResult(ok: true, stdout: String(decoding: data, as: UTF8.self))
+        }
+        return ToolResult(ok: true)
+    }
+}
+
+public extension ToolDefinition {
+    static let mcpCall = ToolDefinition(
+        name: "host.mcp.call",
+        description: "Call a tool on a verified project-local MCP stdio server. Use only server IDs and tool names listed in the description supplied by QuillCode.",
+        parametersJSON: #"{"type":"object","required":["serverID","toolName"],"properties":{"serverID":{"type":"string"},"toolName":{"type":"string"},"arguments":{"type":"object"},"argumentsJSON":{"type":"string","description":"JSON object string for tool arguments when object arguments are not convenient."}}}"#,
+        host: .mcp,
+        risk: .append
+    )
 }

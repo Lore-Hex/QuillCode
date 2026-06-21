@@ -84,4 +84,57 @@ final class MCPStdioProberTests: XCTestCase {
         XCTAssertEqual(result.serverVersion, "1.0.0")
         XCTAssertEqual(result.toolNames, ["read_file", "write_file"])
     }
+
+    func testCallToolSendsToolsCallAndParsesTextContent() throws {
+        let input = Pipe()
+        let output = Pipe()
+        defer {
+            try? input.fileHandleForWriting.close()
+            try? input.fileHandleForReading.close()
+            try? output.fileHandleForWriting.close()
+            try? output.fileHandleForReading.close()
+        }
+
+        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": [
+                "protocolVersion": "2024-11-05",
+                "serverInfo": ["name": "Fixture MCP"],
+                "capabilities": ["tools": [:]]
+            ]
+        ]))
+        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": [
+                "tools": [["name": "read_file"]]
+            ]
+        ]))
+        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": [
+                "content": [
+                    ["type": "text", "text": "hello from MCP"]
+                ],
+                "isError": false
+            ]
+        ]))
+        try output.fileHandleForWriting.close()
+
+        let prober = MCPStdioProber(
+            standardInput: input.fileHandleForWriting,
+            standardOutput: output.fileHandleForReading
+        )
+        _ = try prober.probe(timeout: 1.0)
+        let result = try prober.callTool(
+            toolName: "read_file",
+            argumentsJSON: #"{"path":"README.md"}"#,
+            timeout: 1.0
+        )
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(result.stdout, "hello from MCP")
+    }
 }

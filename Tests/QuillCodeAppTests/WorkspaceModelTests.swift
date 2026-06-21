@@ -811,6 +811,81 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(model.selectedThread?.events.contains { $0.summary == "MCP server Filesystem MCP stopped" } == true)
     }
 
+    func testReadyMCPServerCanBeCalledFromAgentTurn() async throws {
+        let root = try makeTempDirectory()
+        let mcpDirectory = root.appendingPathComponent(".quillcode/mcp")
+        try FileManager.default.createDirectory(at: mcpDirectory, withIntermediateDirectories: true)
+        let server = try writeFixtureMCPServer(in: root, callText: "hello from MCP")
+        try #"{"id":"filesystem","name":"Filesystem MCP","command":""#
+            .appending(server.path)
+            .appending(#""}"#)
+            .write(
+                to: mcpDirectory.appendingPathComponent("filesystem.json"),
+                atomically: true,
+                encoding: .utf8
+            )
+
+        let call = ToolCall(
+            name: ToolDefinition.mcpCall.name,
+            argumentsJSON: """
+            {"serverID":"mcp_server:filesystem","toolName":"read_file","arguments":{"path":"README.md"}}
+            """
+        )
+        let model = QuillCodeWorkspaceModel(runner: AgentRunner(llm: FixedToolLLMClient(call: call)))
+        let projectID = model.addProject(path: root, name: "MCP Project")
+        model.selectProject(projectID)
+        _ = model.newChat(projectID: projectID)
+
+        XCTAssertTrue(model.runWorkspaceCommand("mcp-start:mcp_server:filesystem", workspaceRoot: root))
+        model.setDraft("run MCP read_file on README")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertEqual(Array(model.selectedThread?.events.map(\.kind).suffix(5) ?? []), [
+            .message,
+            .toolQueued,
+            .toolRunning,
+            .toolCompleted,
+            .message
+        ])
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Output:\nhello from MCP")
+    }
+
+    func testMCPToolCallRejectsUnadvertisedTools() async throws {
+        let root = try makeTempDirectory()
+        let mcpDirectory = root.appendingPathComponent(".quillcode/mcp")
+        try FileManager.default.createDirectory(at: mcpDirectory, withIntermediateDirectories: true)
+        let server = try writeFixtureMCPServer(in: root, callText: "should not run")
+        try #"{"id":"filesystem","name":"Filesystem MCP","command":""#
+            .appending(server.path)
+            .appending(#""}"#)
+            .write(
+                to: mcpDirectory.appendingPathComponent("filesystem.json"),
+                atomically: true,
+                encoding: .utf8
+            )
+
+        let call = ToolCall(
+            name: ToolDefinition.mcpCall.name,
+            argumentsJSON: """
+            {"serverID":"mcp_server:filesystem","toolName":"delete_everything","arguments":{}}
+            """
+        )
+        let model = QuillCodeWorkspaceModel(runner: AgentRunner(llm: FixedToolLLMClient(call: call)))
+        let projectID = model.addProject(path: root, name: "MCP Project")
+        model.selectProject(projectID)
+        _ = model.newChat(projectID: projectID)
+
+        XCTAssertTrue(model.runWorkspaceCommand("mcp-start:mcp_server:filesystem", workspaceRoot: root))
+        model.setDraft("run MCP delete_everything")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertEqual(model.selectedThread?.events.suffix(2).first?.kind, .toolFailed)
+        XCTAssertEqual(
+            model.selectedThread?.messages.last?.content,
+            "Command failed:\nMCP tool delete_everything was not advertised by mcp_server:filesystem."
+        )
+    }
+
     func testMemoryNotesLoadGlobalAndProjectIntoThreadAndSurface() async throws {
         let root = try makeTempDirectory()
         let globalMemories = try makeTempDirectory()
@@ -1495,8 +1570,11 @@ final class WorkspaceModelTests: XCTestCase {
         return root
     }
 
-    private func writeFixtureMCPServer(in root: URL) throws -> URL {
+    private func writeFixtureMCPServer(in root: URL, callText: String? = nil) throws -> URL {
         let script = root.appendingPathComponent("fixture-mcp.sh")
+        let callResponse = callText.map {
+            "emit '{\"jsonrpc\":\"2.0\",\"id\":3,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"\($0)\"}],\"isError\":false}}'"
+        } ?? ""
         let content = """
         #!/bin/sh
         emit() {
@@ -1506,6 +1584,7 @@ final class WorkspaceModelTests: XCTestCase {
         }
         emit '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","serverInfo":{"name":"Fixture MCP","version":"1.0.0"},"capabilities":{"tools":{}}}}'
         emit '{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"read_file","description":"Read a file","inputSchema":{"type":"object"}},{"name":"write_file","inputSchema":{"type":"object"}}]}}'
+        \(callResponse)
         sleep 60
         """
         try content.write(to: script, atomically: true, encoding: .utf8)
@@ -1566,6 +1645,14 @@ private struct ImmediateToolLLMClient: LLMClient {
             name: ToolDefinition.shellRun.name,
             argumentsJSON: ToolArguments.json(["cmd": "pwd"])
         ))
+    }
+}
+
+private struct FixedToolLLMClient: LLMClient {
+    var call: ToolCall
+
+    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        .tool(call)
     }
 }
 
