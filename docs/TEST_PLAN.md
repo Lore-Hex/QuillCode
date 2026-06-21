@@ -6,6 +6,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 
 - Config parsing, model catalog, auth state, secret store.
 - Thread reducers, tool schemas, shell/file/path safety.
+- Multi-step agent tool continuation, hidden tool-feedback serialization, duplicate tool-call loop guards, max-step fallback, and user-visible filtering for sidebar search/fork/compaction.
 - Patch parser, diff parser, file/line/range review comments, Auto reviewer JSON, sandbox policy.
 - Project instruction discovery, nested precedence, symlink/root bounds, and byte/file caps.
 - Shortcut registry, command-derived shortcut discoverability, plugin/skill/MCP manifest discovery, MCP structured launch command/args, stdio `Content-Length` framing, bounded MCP `initialize`/`tools/list` probes, MCP `tools/call` request/response parsing, symlink/root bounds, duplicate ID handling, byte/count caps, malformed manifest skips.
@@ -15,7 +16,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 ## Functional Tests
 
 - Mock TrustedRouter, mock LLM, fake shell, fake filesystem, fake git repo.
-- Cover login, model switch, searchable model picker, persistent favorite model toggles, recent model sections, current/default/recommended/favorite model badges, duplicate-free model search, new thread, thread rename/duplicate/archive/unarchive/delete, project new-chat/refresh/rename/remove lifecycle, context compaction, project instruction and memory refresh before runs, explicit memory writes and forgetting, project extension manifest refresh, MCP start/probe/stop lifecycle state, MCP tool invocation from an agent turn, Computer Use screenshot/input invocation from an agent turn, incremental run progress, chronological transcript ordering, active-chat find state, transcript copy actions, user-message draft reuse, assistant response feedback, latest-assistant retry, tool cards, stopped queued/running tool-card resolution, artifact preview chips, collapsed successful-tool details, file edit, post-patch review refresh, review comments, command failure, rate-limit recovery, redacted runtime diagnostics, cancellation, approvals, settings, top bar, search, keyboard shortcut panel, slash command catalog/help/suggestions, slash-to-workspace-action routing, and worktree project/thread handoff.
+- Cover login, model switch, searchable model picker, persistent favorite model toggles, recent model sections, current/default/recommended/favorite model badges, duplicate-free model search, new thread, thread rename/duplicate/archive/unarchive/delete, project new-chat/refresh/rename/remove lifecycle, context compaction, project instruction and memory refresh before runs, explicit memory writes and forgetting, project extension manifest refresh, MCP start/probe/stop lifecycle state, MCP tool invocation from an agent turn, Computer Use screenshot/input invocation from an agent turn, multi-step agent runs that chain tools before a final answer, incremental run progress, chronological transcript ordering, active-chat find state, transcript copy actions, user-message draft reuse, assistant response feedback, latest-assistant retry, tool cards, stopped queued/running tool-card resolution, artifact preview chips, collapsed successful-tool details, file edit, post-patch review refresh, review comments, command failure, rate-limit recovery, redacted runtime diagnostics, cancellation, approvals, settings, top bar, search, keyboard shortcut panel, slash command catalog/help/suggestions, slash-to-workspace-action routing, and worktree project/thread handoff.
 
 ## Integration Tests
 
@@ -37,6 +38,7 @@ Drive the QuillCode test harness with mock LLM:
 - run shell
 - surface file/URL artifacts from tool-card output, with preview metadata visible and raw successful-tool JSON collapsed until opened
 - chronological user/tool/answer transcript rendering
+- hidden agent tool-feedback messages never render as transcript bubbles, sidebar search hits, fork seed messages, or compaction summary content
 - copy user/assistant messages and tool outputs with visible `Copied` feedback
 - reuse a user message as the focused composer draft without mutating transcript history
 - mark assistant responses Helpful or Not helpful and preserve the selected state after rerender

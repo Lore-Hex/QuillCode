@@ -23,11 +23,14 @@ public protocol StreamingLLMClient: LLMClient {
 
 public enum AgentError: Error, CustomStringConvertible {
     case emptyStreamingResponse
+    case tooManyToolSteps(Int)
 
     public var description: String {
         switch self {
         case .emptyStreamingResponse:
             return "The model stream finished without returning an action."
+        case .tooManyToolSteps(let limit):
+            return "The agent reached the tool-step limit (\(limit)) before returning a final answer."
         }
     }
 }
@@ -151,6 +154,15 @@ public struct MockLLMClient: LLMClient {
     public init() {}
 
     public func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        if let lastToolOutput = thread.messages.last(where: { $0.role == .tool })?.content,
+           let feedback = try? JSONHelpers.decode(AgentToolFeedback.self, from: lastToolOutput) {
+            return .say(AgentRunner.finalAnswer(
+                for: feedback.toolCall,
+                result: feedback.result,
+                followUpReviewResult: feedback.followUpResult
+            ))
+        }
+
         let request = userMessage.trimmingCharacters(in: .whitespacesAndNewlines)
         let lower = request.lowercased()
 
@@ -355,27 +367,43 @@ public struct AgentRunResult: Sendable {
     }
 }
 
+public struct AgentToolFeedback: Codable, Sendable, Hashable {
+    public var toolCall: ToolCall
+    public var result: ToolResult
+    public var followUpResult: ToolResult?
+
+    public init(toolCall: ToolCall, result: ToolResult, followUpResult: ToolResult? = nil) {
+        self.toolCall = toolCall
+        self.result = result
+        self.followUpResult = followUpResult
+    }
+}
+
 public typealias AgentRunProgressHandler = @Sendable (ChatThread) async -> Void
 public typealias AgentToolExecutionOverride = @Sendable (ToolCall, URL) async -> ToolResult?
 
 public struct AgentRunner: Sendable {
     public static let streamingNotice = "Streaming model response"
+    public static let defaultMaxToolSteps = 6
 
     public var llm: LLMClient
     public var safety: SafetyReviewer
     public var additionalToolDefinitions: [ToolDefinition]
     public var toolExecutionOverride: AgentToolExecutionOverride?
+    public var maxToolSteps: Int
 
     public init(
         llm: LLMClient = MockLLMClient(),
         safety: SafetyReviewer = AutoSafetyReviewer(),
         additionalToolDefinitions: [ToolDefinition] = [],
-        toolExecutionOverride: AgentToolExecutionOverride? = nil
+        toolExecutionOverride: AgentToolExecutionOverride? = nil,
+        maxToolSteps: Int = AgentRunner.defaultMaxToolSteps
     ) {
         self.llm = llm
         self.safety = safety
         self.additionalToolDefinitions = additionalToolDefinitions
         self.toolExecutionOverride = toolExecutionOverride
+        self.maxToolSteps = maxToolSteps
     }
 
     public func send(
@@ -395,35 +423,72 @@ public struct AgentRunner: Sendable {
 
         try Task.checkCancellation()
         let tools = Self.mergedToolDefinitions(additionalToolDefinitions)
-        let action = try await nextAction(
-            thread: &next,
-            userMessage: userMessage,
-            tools: tools,
-            onProgress: onProgress
-        )
-        try Task.checkCancellation()
-        switch action {
-        case .say(let text):
-            if let lastIndex = next.messages.indices.last,
-               next.messages[lastIndex].role == .assistant {
-                next.messages[lastIndex].content = text
-            } else {
-                next.messages.append(.init(role: .assistant, content: text))
-            }
-            next.events.append(.init(kind: .message, summary: text))
-            next.updatedAt = Date()
-            await onProgress?(next)
-            return AgentRunResult(thread: next, toolResults: [])
-        case .tool(let call):
-            return try await runTool(
-                call,
+        var toolResults: [ToolResult] = []
+        var lastExecutedCall: ToolCall?
+        var lastCompletion: ToolStepCompletion?
+        let limit = max(1, maxToolSteps)
+
+        for _ in 0..<limit {
+            let action = try await nextAction(
+                thread: &next,
                 userMessage: userMessage,
-                thread: next,
-                workspaceRoot: workspaceRoot,
-                toolDefinitions: tools,
+                tools: tools,
                 onProgress: onProgress
             )
+            try Task.checkCancellation()
+            switch action {
+            case .say(let text):
+                appendAssistantMessage(text, to: &next)
+                await onProgress?(next)
+                return AgentRunResult(thread: next, toolResults: toolResults)
+            case .tool(let call):
+                if let lastExecutedCall,
+                   lastExecutedCall.name == call.name,
+                   lastExecutedCall.argumentsJSON == call.argumentsJSON,
+                   let lastCompletion {
+                    appendAssistantMessage(Self.finalAnswer(
+                        for: lastCompletion.call,
+                        result: lastCompletion.result,
+                        followUpReviewResult: lastCompletion.followUpReviewResult
+                    ), to: &next)
+                    await onProgress?(next)
+                    return AgentRunResult(thread: next, toolResults: toolResults)
+                }
+
+                let step = try await runToolStep(
+                    call,
+                    userMessage: userMessage,
+                    thread: &next,
+                    workspaceRoot: workspaceRoot,
+                    toolDefinitions: tools,
+                    onProgress: onProgress
+                )
+                switch step {
+                case .blocked:
+                    return AgentRunResult(thread: next, toolResults: toolResults)
+                case .completed(let completion):
+                    toolResults.append(contentsOf: completion.toolResults)
+                    lastExecutedCall = call
+                    lastCompletion = completion
+                    appendToolFeedback(completion, to: &next)
+                }
+            }
         }
+
+        if let lastCompletion {
+            appendAssistantMessage(Self.finalAnswer(
+                for: lastCompletion.call,
+                result: lastCompletion.result,
+                followUpReviewResult: lastCompletion.followUpReviewResult
+            ), to: &next)
+        } else {
+            let message = AgentError.tooManyToolSteps(limit).description
+            next.messages.append(.init(role: .assistant, content: message))
+            next.events.append(.init(kind: .message, summary: message))
+            next.updatedAt = Date()
+        }
+        await onProgress?(next)
+        return AgentRunResult(thread: next, toolResults: toolResults)
     }
 
     private func nextAction(
@@ -497,33 +562,44 @@ public struct AgentRunner: Sendable {
         thread.updatedAt = Date()
     }
 
-    private func runTool(
+    private enum ToolStep {
+        case completed(ToolStepCompletion)
+        case blocked
+    }
+
+    private struct ToolStepCompletion {
+        var call: ToolCall
+        var result: ToolResult
+        var followUpReviewResult: ToolResult?
+        var toolResults: [ToolResult]
+    }
+
+    private func runToolStep(
         _ call: ToolCall,
         userMessage: String,
-        thread: ChatThread,
+        thread: inout ChatThread,
         workspaceRoot: URL,
         toolDefinitions: [ToolDefinition],
         onProgress: AgentRunProgressHandler?
-    ) async throws -> AgentRunResult {
-        var next = thread
+    ) async throws -> ToolStep {
         let router = ToolRouter(workspaceRoot: workspaceRoot)
         let definition = toolDefinitions.first { $0.name == call.name } ?? router.definition(named: call.name)
         let callJSON = (try? JSONHelpers.encodePretty(call)) ?? call.argumentsJSON
-        next.events.append(.init(
+        thread.events.append(.init(
             kind: .toolQueued,
             summary: "\(call.name) queued",
             payloadJSON: callJSON
         ))
-        next.updatedAt = Date()
-        await onProgress?(next)
+        thread.updatedAt = Date()
+        await onProgress?(thread)
 
         try Task.checkCancellation()
         let review = await safety.review(.init(
-            mode: next.mode,
+            mode: thread.mode,
             userMessage: userMessage,
             toolCall: call,
             toolDefinition: definition,
-            recentMessages: next.messages
+            recentMessages: thread.messages
         ))
         try Task.checkCancellation()
 
@@ -537,25 +613,25 @@ public struct AgentRunner: Sendable {
             case .approve:
                 text = ""
             }
-            next.events.append(.init(
+            thread.events.append(.init(
                 kind: .approvalRequested,
                 summary: "\(review.verdict.rawValue): \(review.rationale)"
             ))
-            next.messages.append(.init(role: .assistant, content: text))
-            next.events.append(.init(kind: .message, summary: text))
-            next.updatedAt = Date()
-            await onProgress?(next)
-            return AgentRunResult(thread: next, toolResults: [])
+            thread.messages.append(.init(role: .assistant, content: text))
+            thread.events.append(.init(kind: .message, summary: text))
+            thread.updatedAt = Date()
+            await onProgress?(thread)
+            return .blocked
         }
 
-        next.events.append(.init(kind: .toolRunning, summary: "\(call.name) running"))
-        next.updatedAt = Date()
-        await onProgress?(next)
+        thread.events.append(.init(kind: .toolRunning, summary: "\(call.name) running"))
+        thread.updatedAt = Date()
+        await onProgress?(thread)
         try Task.checkCancellation()
         let result = await toolExecutionOverride?(call, workspaceRoot) ?? router.execute(call)
         try Task.checkCancellation()
         let resultJSON = (try? JSONHelpers.encodePretty(result)) ?? "{}"
-        next.events.append(.init(
+        thread.events.append(.init(
             kind: result.ok ? .toolCompleted : .toolFailed,
             summary: result.ok ? "\(call.name) completed" : "\(call.name) failed",
             payloadJSON: resultJSON
@@ -565,23 +641,23 @@ public struct AgentRunner: Sendable {
         if call.name == ToolDefinition.applyPatch.name, result.ok {
             let diffCall = ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}")
             let diffCallJSON = (try? JSONHelpers.encodePretty(diffCall)) ?? diffCall.argumentsJSON
-            next.events.append(.init(
+            thread.events.append(.init(
                 kind: .toolQueued,
                 summary: "\(diffCall.name) queued",
                 payloadJSON: diffCallJSON
             ))
-            next.updatedAt = Date()
-            await onProgress?(next)
+            thread.updatedAt = Date()
+            await onProgress?(thread)
 
-            next.events.append(.init(kind: .toolRunning, summary: "\(diffCall.name) running"))
-            next.updatedAt = Date()
-            await onProgress?(next)
+            thread.events.append(.init(kind: .toolRunning, summary: "\(diffCall.name) running"))
+            thread.updatedAt = Date()
+            await onProgress?(thread)
 
             try Task.checkCancellation()
             let diffResult = router.execute(diffCall)
             try Task.checkCancellation()
             let diffResultJSON = (try? JSONHelpers.encodePretty(diffResult)) ?? "{}"
-            next.events.append(.init(
+            thread.events.append(.init(
                 kind: diffResult.ok ? .toolCompleted : .toolFailed,
                 summary: diffResult.ok ? "\(diffCall.name) completed" : "\(diffCall.name) failed",
                 payloadJSON: diffResultJSON
@@ -589,16 +665,35 @@ public struct AgentRunner: Sendable {
             patchReviewResult = diffResult
             toolResults.append(diffResult)
         }
-        let finalAnswer = Self.finalAnswer(
-            for: call,
+        thread.updatedAt = Date()
+        return .completed(ToolStepCompletion(
+            call: call,
             result: result,
-            followUpReviewResult: patchReviewResult
+            followUpReviewResult: patchReviewResult,
+            toolResults: toolResults
+        ))
+    }
+
+    private func appendToolFeedback(_ completion: ToolStepCompletion, to thread: inout ChatThread) {
+        let feedback = AgentToolFeedback(
+            toolCall: completion.call,
+            result: completion.result,
+            followUpResult: completion.followUpReviewResult
         )
-        next.messages.append(.init(role: .assistant, content: finalAnswer))
-        next.events.append(.init(kind: .message, summary: finalAnswer))
-        next.updatedAt = Date()
-        await onProgress?(next)
-        return AgentRunResult(thread: next, toolResults: toolResults)
+        let content = (try? JSONHelpers.encodePretty(feedback)) ?? "{}"
+        thread.messages.append(.init(role: .tool, content: content))
+        thread.updatedAt = Date()
+    }
+
+    private func appendAssistantMessage(_ text: String, to thread: inout ChatThread) {
+        if let lastIndex = thread.messages.indices.last,
+           thread.messages[lastIndex].role == .assistant {
+            thread.messages[lastIndex].content = text
+        } else {
+            thread.messages.append(.init(role: .assistant, content: text))
+        }
+        thread.events.append(.init(kind: .message, summary: text))
+        thread.updatedAt = Date()
     }
 
     private static func mergedToolDefinitions(_ additional: [ToolDefinition]) -> [ToolDefinition] {

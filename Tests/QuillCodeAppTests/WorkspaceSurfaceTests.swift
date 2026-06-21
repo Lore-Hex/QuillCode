@@ -101,6 +101,23 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(surface.memories.isVisible)
     }
 
+    func testSidebarSearchExcludesHiddenToolFeedback() {
+        let thread = ChatThread(title: "Visible thread", messages: [
+            .init(role: .user, content: "run whoami"),
+            .init(role: .tool, content: #"{"result":"secret internal feedback"}"#),
+            .init(role: .assistant, content: "Output:\nquill")
+        ])
+
+        let item = SidebarItem(thread: thread)
+        let sidebar = SidebarSurface(
+            items: [SidebarItemSurface(item: item, selectedThreadID: thread.id)],
+            selectedThreadID: thread.id
+        )
+
+        XCTAssertEqual(sidebar.filteredItems(matching: "secret internal feedback"), [])
+        XCTAssertEqual(sidebar.filteredItems(matching: "whoami").map(\.id), [thread.id])
+    }
+
     func testComposerShowsFilteredSlashSuggestions() {
         let model = QuillCodeWorkspaceModel()
 

@@ -97,6 +97,7 @@ final class WorkspaceModelTests: XCTestCase {
                 .init(role: .user, content: "old question"),
                 .init(role: .assistant, content: "old answer"),
                 .init(role: .user, content: "latest question"),
+                .init(role: .tool, content: #"{"result":"hidden continuation feedback"}"#),
                 .init(role: .assistant, content: "latest answer")
             ],
             instructions: instructions
@@ -117,6 +118,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(fork.model, "z-ai/glm-5.2")
         XCTAssertEqual(fork.instructions, instructions)
         XCTAssertEqual(fork.messages.map(\.content), ["latest question", "latest answer"])
+        XCTAssertFalse(fork.messages.contains { $0.role == .tool })
         XCTAssertEqual(fork.events.first?.kind, .notice)
         XCTAssertEqual(fork.events.first?.payloadJSON, source.id.uuidString)
         XCTAssertEqual(model.root.selectedThreadID, forkID)
@@ -160,6 +162,7 @@ final class WorkspaceModelTests: XCTestCase {
                 .init(role: .user, content: "old question two"),
                 .init(role: .assistant, content: "old answer two"),
                 .init(role: .user, content: "latest request"),
+                .init(role: .tool, content: #"{"result":"hidden continuation feedback"}"#),
                 .init(role: .assistant, content: "latest answer")
             ],
             instructions: instructions
@@ -184,6 +187,8 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(compacted.messages[0].content.contains("summarized 4 earlier messages"))
         XCTAssertEqual(compacted.messages[1].content, "latest request")
         XCTAssertEqual(compacted.messages[2].content, "latest answer")
+        XCTAssertFalse(compacted.messages.contains { $0.role == .tool })
+        XCTAssertFalse(compacted.messages[0].content.contains("hidden continuation feedback"))
         XCTAssertEqual(compacted.events.first?.kind, .notice)
         XCTAssertEqual(compacted.events.first?.payloadJSON, source.id.uuidString)
     }
@@ -298,6 +303,8 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(cards[0].outputJSON?.contains("\"ok\" : true") == true)
 
         let thread = try XCTUnwrap(model.selectedThread)
+        XCTAssertEqual(thread.messages.map(\.role), [.user, .tool, .assistant])
+        XCTAssertEqual(QuillCodeWorkspaceModel.messageSurfaces(for: thread).map(\.role), [.user, .assistant])
         let timeline = QuillCodeWorkspaceModel.transcriptTimelineItems(for: thread)
         XCTAssertEqual(timeline.map(\.kind), [.message, .toolCard, .message])
         XCTAssertEqual(timeline[0].message?.role, .user)

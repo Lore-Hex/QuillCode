@@ -33,6 +33,68 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(result.thread.messages.last?.content, "Wrote `hello.txt`.")
     }
 
+    func testAgentContinuesAcrossMultipleToolCallsInOneTurn() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: SequenceLLMClient(actions: [
+            .tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "hello.txt",
+                    "content": "hello world\n"
+                ])
+            )),
+            .tool(.init(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json(["cmd": "cat hello.txt"])
+            )),
+            .say("Created `hello.txt` and verified its contents.")
+        ]))
+
+        let result = try await runner.send(
+            "write hello world to a file and verify it",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 2)
+        XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("hello.txt"), encoding: .utf8),
+            "hello world\n"
+        )
+        XCTAssertEqual(result.thread.messages.map(\.role), [.user, .tool, .tool, .assistant])
+        XCTAssertEqual(result.thread.messages.last?.content, "Created `hello.txt` and verified its contents.")
+        XCTAssertEqual(result.thread.events.map(\.kind), [
+            .message,
+            .toolQueued,
+            .toolRunning,
+            .toolCompleted,
+            .toolQueued,
+            .toolRunning,
+            .toolCompleted,
+            .message
+        ])
+    }
+
+    func testRepeatedToolCallFallsBackToSynthesizedFinalAnswer() async throws {
+        let root = try makeTempDirectory()
+        let call = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "whoami"])
+        )
+        let runner = AgentRunner(llm: FixedToolLLMClient(call: call))
+
+        let result = try await runner.send(
+            "run whoami",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertEqual(result.thread.events.filter { $0.summary.contains("host.shell.run") }.count, 3)
+        XCTAssertTrue(result.thread.messages.last?.content.hasPrefix("You are `") == true)
+    }
+
     func testApplyPatchRefreshesReviewDiffInSameTurn() async throws {
         let root = try makeTempDirectory()
         try initializeGitRepo(at: root)
@@ -118,13 +180,14 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(result.toolResults.count, 1)
         XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
         let eventKinds = await recorder.eventKinds()
-        XCTAssertEqual(eventKinds, [.message, .notice, .toolQueued, .toolRunning, .message])
+        XCTAssertEqual(eventKinds, [.message, .notice, .toolQueued, .toolRunning, .notice, .message])
         XCTAssertEqual(result.thread.events.map(\.kind), [
             .message,
             .notice,
             .toolQueued,
             .toolRunning,
             .toolCompleted,
+            .notice,
             .message
         ])
         XCTAssertEqual(result.thread.events[1].summary, AgentRunner.streamingNotice)
@@ -298,6 +361,33 @@ private struct FixedToolLLMClient: LLMClient {
 
     func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
         .tool(call)
+    }
+}
+
+private actor SequenceLLMState {
+    private var actions: [AgentAction]
+
+    init(actions: [AgentAction]) {
+        self.actions = actions
+    }
+
+    func next() -> AgentAction {
+        guard !actions.isEmpty else {
+            return .say("Done.")
+        }
+        return actions.removeFirst()
+    }
+}
+
+private struct SequenceLLMClient: LLMClient {
+    private let state: SequenceLLMState
+
+    init(actions: [AgentAction]) {
+        self.state = SequenceLLMState(actions: actions)
+    }
+
+    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        await state.next()
     }
 }
 

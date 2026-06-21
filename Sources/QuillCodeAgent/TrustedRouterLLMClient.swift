@@ -1,4 +1,5 @@
 import Foundation
+import QuillComputerUseKit
 import QuillCodeCore
 import QuillCodeSafety
 import TrustedRouter
@@ -100,7 +101,7 @@ public struct TrustedRouterLLMClient: StreamingLLMClient {
                 messages.append(["role": "assistant", "content": "Tool output: \(message.content)"])
             }
         }
-        if thread.messages.last?.content != userMessage {
+        if thread.messages.last(where: { $0.role == .user })?.content != userMessage {
             messages.append(["role": "user", "content": userMessage])
         }
         return messages
@@ -158,6 +159,8 @@ public struct TrustedRouterLLMClient: StreamingLLMClient {
         - host.git.pr.create should include a non-empty "title" unless you set "fill": true.
         - Do not say "I'll do it" unless you are returning the tool call that does it.
         - Keep commands bounded to the current project unless the user explicitly asks otherwise.
+        - After a tool output is provided, return a concise final {"type":"say","text":"..."} answer if the request is satisfied.
+        - If the tool output shows more work is needed, return the next tool call. Do not repeat the exact same tool call unless the output shows a transient failure worth retrying.
 
         Available tools:
         \(toolList)
@@ -182,7 +185,7 @@ public enum AgentActionJSONParser {
                 throw TrustedRouterAgentError.invalidActionJSON(text)
             }
             let arguments = object["arguments"] as? [String: Any] ?? [:]
-            if arguments.isEmpty {
+            if arguments.isEmpty && Self.requiresNonEmptyArguments(name) {
                 throw TrustedRouterAgentError.emptyToolArguments(name)
             }
             if name == "host.shell.run" {
@@ -209,6 +212,18 @@ public enum AgentActionJSONParser {
             output.removeLast("```".count)
         }
         return output.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func requiresNonEmptyArguments(_ toolName: String) -> Bool {
+        switch toolName {
+        case ToolDefinition.gitStatus.name,
+            ToolDefinition.gitDiff.name,
+            ToolDefinition.gitWorktreeList.name,
+            ToolDefinition.computerScreenshot.name:
+            return false
+        default:
+            return true
+        }
     }
 }
 

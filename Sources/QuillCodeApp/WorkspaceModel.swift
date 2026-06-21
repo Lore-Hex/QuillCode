@@ -1816,9 +1816,11 @@ public final class QuillCodeWorkspaceModel {
 
     public static func messageSurfaces(for thread: ChatThread) -> [MessageSurface] {
         let feedbackByMessageID = messageFeedbackByMessageID(for: thread)
-        return thread.messages.map { message in
-            MessageSurface(message: message, feedback: feedbackByMessageID[message.id])
-        }
+        return thread.messages
+            .filter { $0.role != .tool }
+            .map { message in
+                MessageSurface(message: message, feedback: feedbackByMessageID[message.id])
+            }
     }
 
     public static func transcriptTimelineItems(for thread: ChatThread) -> [TranscriptTimelineItemSurface] {
@@ -1914,7 +1916,7 @@ public final class QuillCodeWorkspaceModel {
             }
         }
 
-        for message in thread.messages where !consumedMessageIDs.contains(message.id) {
+        for message in thread.messages where message.role != .tool && !consumedMessageIDs.contains(message.id) {
             items.append(.message(MessageSurface(message: message, feedback: feedbackByMessageID[message.id])))
         }
         return items
@@ -2226,21 +2228,27 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private static func forkSeedMessages(from messages: [ChatMessage]) -> [ChatMessage] {
-        guard let lastUserIndex = messages.lastIndex(where: { $0.role == .user }) else {
-            return Array(messages.suffix(4))
+        let visibleMessages = visibleConversationMessages(from: messages)
+        guard let lastUserIndex = visibleMessages.lastIndex(where: { $0.role == .user }) else {
+            return Array(visibleMessages.suffix(4))
         }
-        return Array(messages[lastUserIndex...].prefix(4))
+        return Array(visibleMessages[lastUserIndex...].prefix(4))
     }
 
     private static func compactSeedMessages(from thread: ChatThread) -> [ChatMessage] {
-        let recentMessages = forkSeedMessages(from: thread.messages)
+        let visibleMessages = visibleConversationMessages(from: thread.messages)
+        let recentMessages = forkSeedMessages(from: visibleMessages)
         let recentIDs = Set(recentMessages.map(\.id))
-        let olderMessages = thread.messages.filter { !recentIDs.contains($0.id) }
+        let olderMessages = visibleMessages.filter { !recentIDs.contains($0.id) }
         return [compactSummaryMessage(
             sourceTitle: thread.title,
             olderMessages: olderMessages,
             recentMessages: recentMessages
         )] + recentMessages
+    }
+
+    private static func visibleConversationMessages(from messages: [ChatMessage]) -> [ChatMessage] {
+        messages.filter { $0.role != .tool }
     }
 
     private static func compactSummaryMessage(
