@@ -251,15 +251,18 @@ private struct QuillCodeCommandPaletteView: View {
     var onSelectCommand: (WorkspaceCommandSurface) -> Void
     var onClose: () -> Void
 
+    @State private var selectedCommandID: String?
+
     private var results: [WorkspaceCommandSurface] {
-        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalizedQuery.isEmpty else {
-            return commands
-        }
-        return commands.filter { command in
-            command.title.localizedCaseInsensitiveContains(normalizedQuery)
-                || (command.shortcut ?? "").localizedCaseInsensitiveContains(normalizedQuery)
-        }
+        WorkspaceCommandPalette.rankedCommands(commands, matching: query)
+    }
+
+    private var groups: [WorkspaceCommandGroupSurface] {
+        WorkspaceCommandPalette.groupedCommands(commands, matching: query)
+    }
+
+    private var enabledResults: [WorkspaceCommandSurface] {
+        results.filter(\.isEnabled)
     }
 
     var body: some View {
@@ -279,6 +282,7 @@ private struct QuillCodeCommandPaletteView: View {
 
             TextField("Search commands", text: $query)
                 .textFieldStyle(.roundedBorder)
+                .onSubmit(selectHighlightedCommand)
 
             if results.isEmpty {
                 VStack(spacing: 8) {
@@ -294,30 +298,17 @@ private struct QuillCodeCommandPaletteView: View {
                 .frame(maxWidth: .infinity, minHeight: 180)
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(results) { command in
-                            Button {
-                                onSelectCommand(command)
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: systemImage(for: command.id))
-                                        .foregroundStyle(command.isEnabled ? QuillCodePalette.blue : QuillCodePalette.muted)
-                                        .frame(width: 22)
-                                    Text(command.title)
-                                        .font(.callout.weight(.semibold))
-                                    Spacer()
-                                    if let shortcut = command.shortcut {
-                                        Text(shortcut)
-                                            .font(.caption.monospaced())
-                                            .foregroundStyle(QuillCodePalette.muted)
-                                    }
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        ForEach(groups) { group in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(group.title)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(QuillCodePalette.muted)
+                                    .textCase(.uppercase)
+                                ForEach(group.commands) { command in
+                                    commandButton(command)
                                 }
-                                .padding(12)
-                                .background(QuillCodePalette.panel)
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             }
-                            .buttonStyle(.plain)
-                            .disabled(!command.isEnabled)
                         }
                     }
                 }
@@ -326,6 +317,84 @@ private struct QuillCodeCommandPaletteView: View {
         .padding(20)
         .frame(width: 560, height: 520)
         .background(QuillCodePalette.background)
+        .onAppear(perform: ensureSelection)
+        .onChange(of: query) { _, _ in
+            ensureSelection()
+        }
+        .onMoveCommand { direction in
+            switch direction {
+            case .up:
+                moveSelection(by: -1)
+            case .down:
+                moveSelection(by: 1)
+            default:
+                break
+            }
+        }
+    }
+
+    private func commandButton(_ command: WorkspaceCommandSurface) -> some View {
+        Button {
+            selectedCommandID = command.id
+            onSelectCommand(command)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage(for: command.id))
+                    .foregroundStyle(command.isEnabled ? QuillCodePalette.blue : QuillCodePalette.muted)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(command.title)
+                        .font(.callout.weight(.semibold))
+                    if !command.keywords.isEmpty {
+                        Text(command.keywords.prefix(3).joined(separator: " - "))
+                            .font(.caption)
+                            .foregroundStyle(QuillCodePalette.muted)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer()
+                if let shortcut = command.shortcut {
+                    Text(shortcut)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+            }
+            .padding(12)
+            .background(command.id == selectedCommandID ? QuillCodePalette.selection : QuillCodePalette.panel)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(command.id == selectedCommandID ? QuillCodePalette.blue.opacity(0.6) : Color.clear)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!command.isEnabled)
+    }
+
+    private func ensureSelection() {
+        if let selectedCommandID, enabledResults.contains(where: { $0.id == selectedCommandID }) {
+            return
+        }
+        selectedCommandID = enabledResults.first?.id
+    }
+
+    private func moveSelection(by delta: Int) {
+        guard !enabledResults.isEmpty else {
+            selectedCommandID = nil
+            return
+        }
+        let currentIndex = selectedCommandID.flatMap { id in
+            enabledResults.firstIndex(where: { $0.id == id })
+        } ?? 0
+        let nextIndex = (currentIndex + delta + enabledResults.count) % enabledResults.count
+        selectedCommandID = enabledResults[nextIndex].id
+    }
+
+    private func selectHighlightedCommand() {
+        guard let command = enabledResults.first(where: { $0.id == selectedCommandID }) ?? enabledResults.first else {
+            return
+        }
+        onSelectCommand(command)
     }
 
     private func systemImage(for commandID: String) -> String {

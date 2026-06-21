@@ -587,13 +587,177 @@ public struct WorkspaceCommandSurface: Codable, Sendable, Hashable, Identifiable
     public var id: String
     public var title: String
     public var shortcut: String?
+    public var category: String
+    public var keywords: [String]
     public var isEnabled: Bool
 
-    public init(id: String, title: String, shortcut: String? = nil, isEnabled: Bool = true) {
+    public init(
+        id: String,
+        title: String,
+        shortcut: String? = nil,
+        category: String = WorkspaceCommandPalette.workspaceCategory,
+        keywords: [String] = [],
+        isEnabled: Bool = true
+    ) {
         self.id = id
         self.title = title
         self.shortcut = shortcut
+        self.category = category
+        self.keywords = keywords
         self.isEnabled = isEnabled
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case shortcut
+        case category
+        case keywords
+        case isEnabled
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.shortcut = try container.decodeIfPresent(String.self, forKey: .shortcut)
+        self.category = try container.decodeIfPresent(String.self, forKey: .category)
+            ?? WorkspaceCommandPalette.workspaceCategory
+        self.keywords = try container.decodeIfPresent([String].self, forKey: .keywords) ?? []
+        self.isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encodeIfPresent(shortcut, forKey: .shortcut)
+        try container.encode(category, forKey: .category)
+        try container.encode(keywords, forKey: .keywords)
+        try container.encode(isEnabled, forKey: .isEnabled)
+    }
+}
+
+public struct WorkspaceCommandGroupSurface: Sendable, Hashable, Identifiable {
+    public var id: String { title }
+    public var title: String
+    public var commands: [WorkspaceCommandSurface]
+}
+
+public enum WorkspaceCommandPalette {
+    public static let threadCategory = "Thread"
+    public static let navigationCategory = "Navigation"
+    public static let workspaceCategory = "Workspace"
+    public static let gitCategory = "Git"
+    public static let environmentCategory = "Environment"
+    public static let controlCategory = "Control"
+    public static let computerUseCategory = "Computer Use"
+
+    public static let categoryOrder = [
+        threadCategory,
+        navigationCategory,
+        workspaceCategory,
+        gitCategory,
+        environmentCategory,
+        controlCategory,
+        computerUseCategory
+    ]
+
+    public static func rankedCommands(
+        _ commands: [WorkspaceCommandSurface],
+        matching query: String
+    ) -> [WorkspaceCommandSurface] {
+        let normalizedQuery = normalize(query)
+        let scoredCommands = commands.enumerated().compactMap { index, command in
+            score(command, query: normalizedQuery).map { score in
+                (index: index, command: command, score: score)
+            }
+        }
+        return scoredCommands.sorted { lhs, rhs in
+            if lhs.score != rhs.score {
+                return lhs.score > rhs.score
+            }
+            let lhsCategory = categoryRank(lhs.command.category)
+            let rhsCategory = categoryRank(rhs.command.category)
+            if lhsCategory != rhsCategory {
+                return lhsCategory < rhsCategory
+            }
+            return lhs.index < rhs.index
+        }
+        .map(\.command)
+    }
+
+    public static func groupedCommands(
+        _ commands: [WorkspaceCommandSurface],
+        matching query: String
+    ) -> [WorkspaceCommandGroupSurface] {
+        var groupsByCategory: [String: [WorkspaceCommandSurface]] = [:]
+        for command in rankedCommands(commands, matching: query) {
+            groupsByCategory[command.category, default: []].append(command)
+        }
+        return groupsByCategory.keys.sorted { lhs, rhs in
+            let lhsRank = categoryRank(lhs)
+            let rhsRank = categoryRank(rhs)
+            if lhsRank != rhsRank {
+                return lhsRank < rhsRank
+            }
+            return lhs < rhs
+        }
+        .map { category in
+            WorkspaceCommandGroupSurface(title: category, commands: groupsByCategory[category] ?? [])
+        }
+    }
+
+    private static func score(_ command: WorkspaceCommandSurface, query: String) -> Int? {
+        guard !query.isEmpty else {
+            return 1
+        }
+
+        let title = normalize(command.title)
+        let compactTitle = compact(title)
+        let shortcut = compact(normalize(command.shortcut ?? ""))
+        let id = normalize(command.id.replacingOccurrences(of: "-", with: " "))
+        let category = normalize(command.category)
+        let keywords = command.keywords.map(normalize)
+        let compactQuery = compact(query)
+
+        if title == query || compactTitle == compactQuery {
+            return 1_000
+        }
+        if title.hasPrefix(query) || compactTitle.hasPrefix(compactQuery) {
+            return 900
+        }
+        if title.split(separator: " ").contains(where: { $0.hasPrefix(query) }) {
+            return 820
+        }
+        if !shortcut.isEmpty && shortcut.contains(compactQuery) {
+            return 780
+        }
+        if keywords.contains(where: { $0 == query || $0.hasPrefix(query) }) {
+            return 720
+        }
+        if title.contains(query) || compactTitle.contains(compactQuery) {
+            return 650
+        }
+        if id.contains(query) || keywords.contains(where: { $0.contains(query) }) {
+            return 560
+        }
+        if category.contains(query) {
+            return 440
+        }
+        return nil
+    }
+
+    private static func normalize(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private static func compact(_ value: String) -> String {
+        value.filter { !$0.isWhitespace && $0 != "+" }
+    }
+
+    private static func categoryRank(_ category: String) -> Int {
+        categoryOrder.firstIndex(of: category) ?? categoryOrder.count
     }
 }
 
@@ -752,6 +916,8 @@ public extension QuillCodeWorkspaceModel {
             WorkspaceCommandSurface(
                 id: action.id,
                 title: "Run \(action.title)",
+                category: WorkspaceCommandPalette.environmentCategory,
+                keywords: ["local environment", "script", "bootstrap", action.title],
                 isEnabled: activeWorkspaceRoot != nil
             )
         }
@@ -759,49 +925,101 @@ public extension QuillCodeWorkspaceModel {
             WorkspaceCommandSurface(
                 id: "new-chat",
                 title: "New chat",
-                shortcut: WorkspaceShortcutRegistry.label(for: "new-chat")
+                shortcut: WorkspaceShortcutRegistry.label(for: "new-chat"),
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "conversation"]
             ),
             WorkspaceCommandSurface(
                 id: "fork-from-last",
                 title: "Fork from last",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "context", "continue"],
                 isEnabled: selectedThread?.messages.isEmpty == false
             ),
-            WorkspaceCommandSurface(id: "search", title: "Search", shortcut: WorkspaceShortcutRegistry.label(for: "search")),
+            WorkspaceCommandSurface(
+                id: "search",
+                title: "Search",
+                shortcut: WorkspaceShortcutRegistry.label(for: "search"),
+                category: WorkspaceCommandPalette.navigationCategory,
+                keywords: ["find", "threads", "chat"]
+            ),
             WorkspaceCommandSurface(
                 id: "add-project",
                 title: "Open project",
-                shortcut: WorkspaceShortcutRegistry.label(for: "add-project")
+                shortcut: WorkspaceShortcutRegistry.label(for: "add-project"),
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["folder", "workspace", "repo"]
             ),
             WorkspaceCommandSurface(
                 id: "toggle-terminal",
                 title: "Terminal",
-                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-terminal")
+                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-terminal"),
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["shell", "command", "pty"]
             ),
             WorkspaceCommandSurface(
                 id: "toggle-browser",
                 title: "Browser",
-                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-browser")
+                shortcut: WorkspaceShortcutRegistry.label(for: "toggle-browser"),
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["preview", "web", "localhost"]
             ),
-            WorkspaceCommandSurface(id: "git-pr-create", title: "Create pull request", isEnabled: activeWorkspaceRoot != nil),
-            WorkspaceCommandSurface(id: "git-worktree-list", title: "List worktrees", isEnabled: activeWorkspaceRoot != nil),
-            WorkspaceCommandSurface(id: "git-worktree-create", title: "Create worktree", isEnabled: activeWorkspaceRoot != nil),
-            WorkspaceCommandSurface(id: "git-worktree-remove", title: "Remove worktree", isEnabled: activeWorkspaceRoot != nil),
+            WorkspaceCommandSurface(
+                id: "git-pr-create",
+                title: "Create pull request",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["github", "pr", "review"],
+                isEnabled: activeWorkspaceRoot != nil
+            ),
+            WorkspaceCommandSurface(
+                id: "git-worktree-list",
+                title: "List worktrees",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["branch", "git", "workspace"],
+                isEnabled: activeWorkspaceRoot != nil
+            ),
+            WorkspaceCommandSurface(
+                id: "git-worktree-create",
+                title: "Create worktree",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["branch", "git", "workspace"],
+                isEnabled: activeWorkspaceRoot != nil
+            ),
+            WorkspaceCommandSurface(
+                id: "git-worktree-remove",
+                title: "Remove worktree",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["branch", "git", "workspace", "delete"],
+                isEnabled: activeWorkspaceRoot != nil
+            ),
         ] + localActionCommands + [
             WorkspaceCommandSurface(
                 id: "stop-all",
                 title: "Stop all",
                 shortcut: WorkspaceShortcutRegistry.label(for: "stop-all"),
+                category: WorkspaceCommandPalette.controlCategory,
+                keywords: ["cancel", "abort", "halt"],
                 isEnabled: composer.isSending || terminal.isRunning
             ),
-            WorkspaceCommandSurface(id: "settings", title: "Settings", shortcut: WorkspaceShortcutRegistry.label(for: "settings")),
+            WorkspaceCommandSurface(
+                id: "settings",
+                title: "Settings",
+                shortcut: WorkspaceShortcutRegistry.label(for: "settings"),
+                category: WorkspaceCommandPalette.navigationCategory,
+                keywords: ["preferences", "trustedrouter", "auth"]
+            ),
             WorkspaceCommandSurface(
                 id: "command-palette",
                 title: "Command palette",
-                shortcut: WorkspaceShortcutRegistry.label(for: "command-palette")
+                shortcut: WorkspaceShortcutRegistry.label(for: "command-palette"),
+                category: WorkspaceCommandPalette.navigationCategory,
+                keywords: ["commands", "actions"]
             ),
             WorkspaceCommandSurface(
                 id: "computer-use-setup",
                 title: "Computer Use setup",
+                category: WorkspaceCommandPalette.computerUseCategory,
+                keywords: ["screen", "accessibility", "permissions"],
                 isEnabled: root.topBar.computerUseStatus.available == false
             )
         ]

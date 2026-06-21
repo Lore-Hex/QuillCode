@@ -87,6 +87,45 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(Set(bindings).count, bindings.count)
     }
 
+    func testCommandPaletteRanksByShortcutKeywordsAndTitle() {
+        let model = QuillCodeWorkspaceModel()
+        let commands = model.surface().commands
+
+        XCTAssertEqual(
+            WorkspaceCommandPalette.rankedCommands(commands, matching: "shell").first?.id,
+            "toggle-terminal"
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPalette.rankedCommands(commands, matching: "cmd+k").first?.id,
+            "search"
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPalette.rankedCommands(commands, matching: "pull").first?.id,
+            "git-pr-create"
+        )
+    }
+
+    func testCommandPaletteGroupsFilteredResultsByCategory() {
+        let model = QuillCodeWorkspaceModel()
+        let groups = WorkspaceCommandPalette.groupedCommands(model.surface().commands, matching: "worktree")
+
+        XCTAssertEqual(groups.map(\.title), [WorkspaceCommandPalette.gitCategory])
+        XCTAssertEqual(groups.first?.commands.map(\.id), [
+            "git-worktree-list",
+            "git-worktree-create",
+            "git-worktree-remove"
+        ])
+    }
+
+    func testWorkspaceCommandSurfaceDecodesOlderPayloadWithoutCategoryMetadata() throws {
+        let data = #"{"id":"search","title":"Search","shortcut":"Cmd+K","isEnabled":true}"#.data(using: .utf8)!
+
+        let command = try JSONDecoder().decode(WorkspaceCommandSurface.self, from: data)
+
+        XCTAssertEqual(command.category, WorkspaceCommandPalette.workspaceCategory)
+        XCTAssertEqual(command.keywords, [])
+    }
+
     func testSurfaceGroupsCustomModelCatalogByCategory() {
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
             config: AppConfig(defaultModel: "acme/code-pro"),

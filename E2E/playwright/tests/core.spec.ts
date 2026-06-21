@@ -145,6 +145,29 @@ test('mock harness dispatches workspace keyboard shortcuts', async ({ page }) =>
   await expect(page.getByTestId('transcript-empty')).toBeVisible();
 });
 
+test('mock harness ranks and navigates command palette with keyboard', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('command-palette-button').click();
+  await expect(page.getByTestId('command-palette-group').first()).toContainText('Thread');
+
+  await page.getByLabel('Search commands').fill('shell');
+  await expect(page.locator('[data-testid="command-palette-result"][data-selected="true"]')).toContainText('Terminal');
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('terminal-pane')).toBeVisible();
+
+  await page.keyboard.press('Meta+Shift+P');
+  await page.getByLabel('Search commands').fill('worktree');
+  await expect(page.getByTestId('command-palette-group')).toHaveCount(1);
+  await expect(page.getByTestId('command-palette-group')).toContainText('Git');
+  await expect(page.locator('[data-testid="command-palette-result"][data-selected="true"]')).toContainText('List worktrees');
+
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('[data-testid="command-palette-result"][data-selected="true"]')).toContainText('Create worktree');
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('worktree-create-panel')).toBeVisible();
+});
+
 test('mock harness lists worktrees from the command palette', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

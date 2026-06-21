@@ -91,7 +91,9 @@
       border: 1px solid rgba(255,255,255,.1);
       background: rgba(255,255,255,.06);
     }
+    .search-result.selected { border-color: rgba(65,184,232,.75); background: rgba(65,184,232,.12); }
     .search-result small { color: var(--muted); }
+    .command-group-title { margin: 6px 0 2px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
     .settings-actions { display: flex; gap: 10px; justify-content: flex-end; }
     .workspace-grid { min-height: 0; display: grid; grid-template-columns: 280px 1fr; gap: 18px; padding: 0 18px 18px; }
     .sidebar, .transcript {
@@ -483,7 +485,8 @@
       },
       commandPalette: {
         isOpen: false,
-        query: ''
+        query: '',
+        selectedCommandID: null
       },
       worktreeDialog: {
         mode: null,
@@ -494,21 +497,21 @@
         removeForce: false
       },
       commands: [
-        { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', isEnabled: true },
-        { id: 'fork-from-last', title: 'Fork from last', shortcut: '', isEnabled: false },
-        { id: 'search', title: 'Search', shortcut: 'Cmd+K', isEnabled: true },
-        { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', isEnabled: true },
-        { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', isEnabled: true },
-        { id: 'toggle-browser', title: 'Browser', shortcut: 'Cmd+Shift+B', isEnabled: true },
-        { id: 'command-palette', title: 'Command palette', shortcut: 'Cmd+Shift+P', isEnabled: true },
-        { id: 'git-pr-create', title: 'Create pull request', shortcut: '', isEnabled: true },
-        { id: 'git-worktree-list', title: 'List worktrees', shortcut: '', isEnabled: true },
-        { id: 'git-worktree-create', title: 'Create worktree', shortcut: '', isEnabled: true },
-        { id: 'git-worktree-remove', title: 'Remove worktree', shortcut: '', isEnabled: true },
-        { id: 'local-env:.quillcode/actions/bootstrap.sh', title: 'Run Bootstrap', shortcut: '', isEnabled: true },
-        { id: 'stop-all', title: 'Stop all', shortcut: 'Esc', isEnabled: false },
-        { id: 'settings', title: 'Settings', shortcut: 'Cmd+,', isEnabled: true },
-        { id: 'computer-use-setup', title: 'Computer Use setup', shortcut: '', isEnabled: true }
+        { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
+        { id: 'fork-from-last', title: 'Fork from last', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'continue'], isEnabled: false },
+        { id: 'search', title: 'Search', shortcut: 'Cmd+K', category: 'Navigation', keywords: ['find', 'threads', 'chat'], isEnabled: true },
+        { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', category: 'Workspace', keywords: ['folder', 'workspace', 'repo'], isEnabled: true },
+        { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', category: 'Workspace', keywords: ['shell', 'command', 'pty'], isEnabled: true },
+        { id: 'toggle-browser', title: 'Browser', shortcut: 'Cmd+Shift+B', category: 'Workspace', keywords: ['preview', 'web', 'localhost'], isEnabled: true },
+        { id: 'command-palette', title: 'Command palette', shortcut: 'Cmd+Shift+P', category: 'Navigation', keywords: ['commands', 'actions'], isEnabled: true },
+        { id: 'git-pr-create', title: 'Create pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'review'], isEnabled: true },
+        { id: 'git-worktree-list', title: 'List worktrees', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
+        { id: 'git-worktree-create', title: 'Create worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
+        { id: 'git-worktree-remove', title: 'Remove worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace', 'delete'], isEnabled: true },
+        { id: 'local-env:.quillcode/actions/bootstrap.sh', title: 'Run Bootstrap', shortcut: '', category: 'Environment', keywords: ['local environment', 'script', 'bootstrap'], isEnabled: true },
+        { id: 'stop-all', title: 'Stop all', shortcut: 'Esc', category: 'Control', keywords: ['cancel', 'abort', 'halt'], isEnabled: false },
+        { id: 'settings', title: 'Settings', shortcut: 'Cmd+,', category: 'Navigation', keywords: ['preferences', 'trustedrouter', 'auth'], isEnabled: true },
+        { id: 'computer-use-setup', title: 'Computer Use setup', shortcut: '', category: 'Computer Use', keywords: ['screen', 'accessibility', 'permissions'], isEnabled: true }
       ],
       terminal: {
         isVisible: false,
@@ -549,6 +552,132 @@
         command.id === 'stop-all' ? { ...command, isEnabled: hasActiveWork } :
         command
       ));
+    }
+
+    const commandCategoryOrder = ['Thread', 'Navigation', 'Workspace', 'Git', 'Environment', 'Control', 'Computer Use'];
+
+    function normalizeCommandText(value) {
+      return String(value || '').trim().toLowerCase();
+    }
+
+    function compactCommandText(value) {
+      return normalizeCommandText(value).replace(/[\s+]/g, '');
+    }
+
+    function commandCategoryRank(category) {
+      const index = commandCategoryOrder.indexOf(category || 'Workspace');
+      return index === -1 ? commandCategoryOrder.length : index;
+    }
+
+    function commandScore(command, query) {
+      if (!query) return 1;
+      const title = normalizeCommandText(command.title);
+      const compactTitle = compactCommandText(command.title);
+      const shortcut = compactCommandText(command.shortcut);
+      const id = normalizeCommandText(command.id.replaceAll('-', ' '));
+      const category = normalizeCommandText(command.category || 'Workspace');
+      const keywords = (command.keywords || []).map(normalizeCommandText);
+      const compactQuery = compactCommandText(query);
+
+      if (title === query || compactTitle === compactQuery) return 1000;
+      if (title.startsWith(query) || compactTitle.startsWith(compactQuery)) return 900;
+      if (title.split(/\s+/).some(part => part.startsWith(query))) return 820;
+      if (shortcut && shortcut.includes(compactQuery)) return 780;
+      if (keywords.some(keyword => keyword === query || keyword.startsWith(query))) return 720;
+      if (title.includes(query) || compactTitle.includes(compactQuery)) return 650;
+      if (id.includes(query) || keywords.some(keyword => keyword.includes(query))) return 560;
+      if (category.includes(query)) return 440;
+      return null;
+    }
+
+    function commandPaletteResults() {
+      const query = normalizeCommandText(state.commandPalette.query);
+      return state.commands
+        .map((command, index) => ({ command, index, score: commandScore(command, query) }))
+        .filter(entry => entry.score !== null)
+        .sort((lhs, rhs) => {
+          if (lhs.score !== rhs.score) return rhs.score - lhs.score;
+          const lhsCategory = commandCategoryRank(lhs.command.category);
+          const rhsCategory = commandCategoryRank(rhs.command.category);
+          if (lhsCategory !== rhsCategory) return lhsCategory - rhsCategory;
+          return lhs.index - rhs.index;
+        })
+        .map(entry => entry.command);
+    }
+
+    function commandPaletteGroups() {
+      const groupsByCategory = new Map();
+      for (const command of commandPaletteResults()) {
+        const category = command.category || 'Workspace';
+        if (!groupsByCategory.has(category)) groupsByCategory.set(category, []);
+        groupsByCategory.get(category).push(command);
+      }
+      return [...groupsByCategory.entries()]
+        .sort(([lhs], [rhs]) => {
+          const lhsRank = commandCategoryRank(lhs);
+          const rhsRank = commandCategoryRank(rhs);
+          if (lhsRank !== rhsRank) return lhsRank - rhsRank;
+          return lhs.localeCompare(rhs);
+        })
+        .map(([category, commands]) => ({ category, commands }));
+    }
+
+    function ensureCommandPaletteSelection() {
+      const enabled = commandPaletteResults().filter(command => command.isEnabled);
+      if (enabled.some(command => command.id === state.commandPalette.selectedCommandID)) return;
+      state.commandPalette.selectedCommandID = enabled[0]?.id || null;
+    }
+
+    function openCommandPalette() {
+      state.commandPalette.isOpen = true;
+      state.commandPalette.query = '';
+      ensureCommandPaletteSelection();
+      render();
+    }
+
+    function moveCommandPaletteSelection(delta) {
+      const enabled = commandPaletteResults().filter(command => command.isEnabled);
+      if (!enabled.length) {
+        state.commandPalette.selectedCommandID = null;
+        return;
+      }
+      const currentIndex = Math.max(0, enabled.findIndex(command => command.id === state.commandPalette.selectedCommandID));
+      const nextIndex = (currentIndex + delta + enabled.length) % enabled.length;
+      state.commandPalette.selectedCommandID = enabled[nextIndex].id;
+    }
+
+    function selectCommandPaletteSelection() {
+      const enabled = commandPaletteResults().filter(command => command.isEnabled);
+      const command = enabled.find(candidate => candidate.id === state.commandPalette.selectedCommandID) || enabled[0];
+      if (command) runCommand(command.id);
+    }
+
+    function handleCommandPaletteKeydown(event) {
+      if (!state.commandPalette.isOpen) return false;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        state.commandPalette.isOpen = false;
+        render();
+        return true;
+      }
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        moveCommandPaletteSelection(1);
+        render();
+        return true;
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        moveCommandPaletteSelection(-1);
+        render();
+        return true;
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        selectCommandPaletteSelection();
+        return true;
+      }
+      return false;
     }
 
     function estimatedContextTokens() {
@@ -785,9 +914,7 @@
         render();
       });
       document.querySelector('[data-testid="command-palette-button"]').addEventListener('click', () => {
-        state.commandPalette.isOpen = true;
-        state.commandPalette.query = '';
-        render();
+        openCommandPalette();
       });
       document.querySelector('[data-testid="sidebar-search-button"]').addEventListener('click', () => {
         state.search.isOpen = true;
@@ -881,6 +1008,7 @@
       });
       document.querySelector('[data-testid="command-palette-input"]')?.addEventListener('input', event => {
         state.commandPalette.query = event.target.value;
+        ensureCommandPaletteSelection();
         render();
         const input = document.querySelector('[data-testid="command-palette-input"]');
         input?.focus();
@@ -1017,12 +1145,9 @@
     }
 
     function renderCommandPalette() {
-      const query = state.commandPalette.query.trim().toLowerCase();
-      const results = state.commands.filter(command => {
-        if (!query) return true;
-        return command.title.toLowerCase().includes(query)
-          || (command.shortcut || '').toLowerCase().includes(query);
-      });
+      ensureCommandPaletteSelection();
+      const groups = commandPaletteGroups();
+      const hasResults = groups.some(group => group.commands.length);
       return `
         <div class="search-panel" data-testid="command-palette-panel">
           <section class="search-card" role="dialog" aria-label="Command palette">
@@ -1035,11 +1160,15 @@
             </header>
             <input data-testid="command-palette-input" aria-label="Search commands" placeholder="Search commands" value="${escapeHTML(state.commandPalette.query)}" autofocus>
             <div class="search-results" data-testid="command-palette-results">
-              ${results.length ? results.map(command => `
-                <button class="search-result" type="button" data-testid="command-palette-result" data-command-id="${escapeHTML(command.id)}" ${command.isEnabled ? '' : 'disabled'}>
-                  <span>${escapeHTML(command.title)}</span>
-                  <small>${escapeHTML(command.shortcut || '')}</small>
-                </button>`).join('') : '<p data-testid="command-palette-empty">No matching commands</p>'}
+              ${hasResults ? groups.map(group => `
+                <div class="command-group" data-testid="command-palette-group">
+                  <div class="command-group-title">${escapeHTML(group.category)}</div>
+                  ${group.commands.map(command => `
+                    <button class="search-result ${command.id === state.commandPalette.selectedCommandID ? 'selected' : ''}" type="button" data-testid="command-palette-result" data-command-id="${escapeHTML(command.id)}" data-selected="${command.id === state.commandPalette.selectedCommandID ? 'true' : 'false'}" ${command.isEnabled ? '' : 'disabled'}>
+                      <span>${escapeHTML(command.title)}</span>
+                      <small>${escapeHTML([command.shortcut, ...(command.keywords || []).slice(0, 3)].filter(Boolean).join(' · '))}</small>
+                    </button>`).join('')}
+                </div>`).join('') : '<p data-testid="command-palette-empty">No matching commands</p>'}
             </div>
           </section>
         </div>`;
@@ -1201,6 +1330,10 @@
     }
 
     function runCommand(commandID) {
+      if (commandID === 'command-palette') {
+        openCommandPalette();
+        return;
+      }
       state.commandPalette.isOpen = false;
       if (commandID === 'new-chat') {
         newChat();
@@ -1223,10 +1356,6 @@
       }
       if (commandID === 'toggle-browser') {
         state.browser.isVisible = !state.browser.isVisible;
-      }
-      if (commandID === 'command-palette') {
-        state.commandPalette.isOpen = true;
-        state.commandPalette.query = '';
       }
       if (commandID === 'git-pr-create') {
         state.composer.draft = 'Create a pull request titled ';
@@ -1666,6 +1795,7 @@
     }
 
     document.addEventListener('keydown', event => {
+      if (handleCommandPaletteKeydown(event)) return;
       updateDynamicCommands();
       const command = state.commands.find(candidate => (
         candidate.isEnabled && shortcutMatches(event, candidate.shortcut)
