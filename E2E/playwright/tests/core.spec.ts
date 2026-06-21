@@ -8,9 +8,10 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('project-item')).toContainText('QuillCode');
   await expect(page.getByTestId('project-item')).toHaveAttribute('aria-current', 'true');
   await expect(page.getByTestId('transcript-empty')).toBeVisible();
+  await expect(page.getByTestId('model-picker-button')).toHaveText('trustedrouter/fusion');
+  await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-category')).toHaveCount(2);
-  await expect(page.getByLabel('Model')).toHaveValue('trustedrouter/fusion');
-  await expect(page.getByTestId('model-pill')).toHaveText('trustedrouter/fusion');
+  await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
   await expect(page.getByTestId('send-button')).toBeDisabled();
 
@@ -26,8 +27,10 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('settings-panel')).toBeHidden();
   await expect(page.getByTestId('agent-status')).toHaveText('TrustedRouter ready');
 
-  await page.getByLabel('Model').selectOption('z-ai/glm-5.2');
-  await expect(page.getByTestId('model-pill')).toHaveText('z-ai/glm-5.2');
+  await page.getByTestId('model-picker-button').click();
+  await page.getByTestId('model-search').fill('glm');
+  await page.getByTestId('model-option').click();
+  await expect(page.getByTestId('model-picker-button')).toHaveText('z-ai/glm-5.2');
 
   await page.getByLabel('Message').fill('run whoami');
   await expect(page.getByTestId('send-button')).toBeEnabled();
@@ -435,4 +438,24 @@ test('mock harness routes slash commands to workspace actions', async ({ page })
   await page.getByLabel('Message').fill('/pr');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByLabel('Message')).toHaveValue('Create a pull request titled ');
+});
+
+test('mock harness searches and selects models from the top bar', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('model-picker-button').click();
+  await expect(page.getByTestId('model-browser')).toBeVisible();
+  await expect(page.getByTestId('model-option')).toHaveCount(3);
+
+  await page.getByTestId('model-search').fill('moon k2');
+  await expect(page.getByTestId('model-option')).toHaveCount(1);
+  await expect(page.getByTestId('model-option')).toContainText('moonshotai/Kimi K2.6');
+
+  await page.getByTestId('model-option').click();
+  await expect(page.getByTestId('model-picker-button')).toHaveText('moonshotai/kimi-k2.6');
+  await expect(page.getByTestId('model-browser')).toHaveCount(0);
+
+  await page.getByTestId('model-picker-button').click();
+  await page.getByTestId('model-search').fill('not-a-model');
+  await expect(page.getByTestId('model-empty')).toBeVisible();
 });

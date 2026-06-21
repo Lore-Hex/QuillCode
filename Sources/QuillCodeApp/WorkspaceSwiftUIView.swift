@@ -544,27 +544,7 @@ private struct QuillCodeTopBarView: View {
                     .lineLimit(1)
             }
             Spacer()
-            Menu {
-                ForEach(topBar.modelCategories) { category in
-                    Section(category.category) {
-                        ForEach(category.models) { option in
-                            Button {
-                                onSetModel(option.id)
-                            } label: {
-                                HStack {
-                                    Text("\(option.provider)/\(option.displayName)")
-                                    if option.isSelected {
-                                        Image(systemName: "checkmark")
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            } label: {
-                QuillCodePill(text: topBar.modelLabel, systemImage: "cpu")
-            }
-            .buttonStyle(.borderless)
+            QuillCodeModelPickerView(topBar: topBar, onSetModel: onSetModel)
             Menu {
                 ForEach(AgentMode.allCases, id: \.rawValue) { mode in
                     Button(mode.title) {
@@ -596,6 +576,97 @@ private struct QuillCodeTopBarView: View {
         }
         .padding(16)
         .background(QuillCodePalette.panel)
+    }
+}
+
+private struct QuillCodeModelPickerView: View {
+    var topBar: TopBarSurface
+    var onSetModel: (String) -> Void
+
+    @State private var isPresented = false
+    @State private var searchText = ""
+
+    private var filteredCategories: [ModelCategorySurface] {
+        topBar.filteredModelCategories(matching: searchText)
+    }
+
+    var body: some View {
+        Button {
+            isPresented.toggle()
+        } label: {
+            QuillCodePill(text: topBar.modelLabel, systemImage: "cpu")
+        }
+        .buttonStyle(.borderless)
+        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Choose Model")
+                            .font(.headline)
+                        Text("Search provider, category, or model")
+                            .font(.caption)
+                            .foregroundStyle(QuillCodePalette.muted)
+                    }
+                    Spacer()
+                }
+                TextField("Search models", text: $searchText)
+                    .textFieldStyle(.roundedBorder)
+                if filteredCategories.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("No models match")
+                            .font(.headline)
+                        Text("Try a provider, model name, or category.")
+                            .font(.caption)
+                            .foregroundStyle(QuillCodePalette.muted)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(QuillCodePalette.background.opacity(0.7))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                } else {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 12) {
+                            ForEach(filteredCategories) { category in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(category.category.uppercased())
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(QuillCodePalette.muted)
+                                    ForEach(category.models) { option in
+                                        Button {
+                                            onSetModel(option.id)
+                                            isPresented = false
+                                        } label: {
+                                            HStack(spacing: 10) {
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text("\(option.provider)/\(option.displayName)")
+                                                        .font(.callout.weight(.medium))
+                                                    Text(option.id)
+                                                        .font(.caption)
+                                                        .foregroundStyle(QuillCodePalette.muted)
+                                                }
+                                                Spacer()
+                                                if option.isSelected {
+                                                    Image(systemName: "checkmark.circle.fill")
+                                                        .foregroundStyle(QuillCodePalette.green)
+                                                }
+                                            }
+                                            .padding(10)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .background(option.isSelected ? QuillCodePalette.selection : QuillCodePalette.background.opacity(0.7))
+                                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(14)
+            .frame(width: 380, height: 440)
+            .background(QuillCodePalette.panel)
+        }
     }
 }
 

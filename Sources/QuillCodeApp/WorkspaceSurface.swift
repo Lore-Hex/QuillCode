@@ -118,6 +118,31 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.computerUseLabel = computerUseLabel
         self.showsComputerUseSetup = showsComputerUseSetup
     }
+
+    public func filteredModelCategories(matching query: String) -> [ModelCategorySurface] {
+        let normalizedTerms = query
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .split(whereSeparator: \.isWhitespace)
+            .map(String.init)
+        guard !normalizedTerms.isEmpty else {
+            return modelCategories
+        }
+
+        return modelCategories.compactMap { category in
+            let models = category.models.filter { option in
+                let haystack = [
+                    category.category,
+                    option.id,
+                    option.provider,
+                    option.displayName
+                ].joined(separator: " ").lowercased()
+                return normalizedTerms.allSatisfy { haystack.contains($0) }
+            }
+            guard !models.isEmpty else { return nil }
+            return ModelCategorySurface(category: category.category, models: models)
+        }
+    }
 }
 
 public struct ModelCategorySurface: Codable, Sendable, Hashable, Identifiable {

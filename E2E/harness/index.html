@@ -53,6 +53,62 @@
     }
     .topbar-pills select { max-width: 230px; }
     .topbar-pills button { font-weight: 600; }
+    .model-picker-wrap { position: relative; display: inline-flex; }
+    .model-panel {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 4;
+      width: min(380px, calc(100vw - 36px));
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      background: var(--panel);
+      box-shadow: 0 20px 80px rgba(0,0,0,.45);
+    }
+    .model-panel h2,
+    .model-panel p { margin: 0; }
+    .model-panel input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      color: var(--text);
+      background: rgba(0,0,0,.24);
+    }
+    .model-results { display: grid; gap: 10px; max-height: 330px; overflow: auto; }
+    .model-category { display: grid; gap: 6px; }
+    .model-category h3 {
+      margin: 0;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .model-option {
+      width: 100%;
+      display: grid;
+      gap: 2px;
+      padding: 10px;
+      border-radius: 10px;
+      color: var(--text);
+      text-align: left;
+      background: rgba(255,255,255,.04);
+      border: 1px solid transparent;
+    }
+    .model-option small { color: var(--muted); }
+    .model-option.selected {
+      background: rgba(65,184,232,.13);
+      border-color: rgba(65,184,232,.32);
+    }
+    .model-empty {
+      padding: 12px;
+      border-radius: 10px;
+      color: var(--muted);
+      background: rgba(0,0,0,.22);
+    }
     .settings-panel,
     .search-panel {
       position: fixed;
@@ -415,6 +471,8 @@
         instructionSources: ['AGENTS.md'],
         modelLabel: 'trustedrouter/fusion',
         selectedModelID: 'trustedrouter/fusion',
+        modelPickerOpen: false,
+        modelSearch: '',
         modelCategories: [
           {
             category: 'Recommended',
@@ -846,13 +904,28 @@
       const sidebarContent = state.sidebar.items.length
         ? renderSidebarSection('Pinned', pinnedItems) + renderSidebarSection('Recent', recentItems)
         : '<p data-testid="sidebar-empty">No chats yet</p>';
-      const modelOptions = state.topBar.modelCategories.map(category => `
-        <optgroup label="${escapeHTML(category.category)}" data-testid="model-category">
-          ${category.models.map(model => `
-            <option value="${escapeHTML(model.id)}" ${model.id === state.topBar.selectedModelID ? 'selected' : ''}>
-              ${escapeHTML(model.provider + '/' + model.displayName)}
-            </option>`).join('')}
-        </optgroup>`).join('');
+      const filteredModelCategories = filterModelCategories(state.topBar.modelSearch);
+      const modelResults = filteredModelCategories.length ? `
+        <div class="model-results" data-testid="model-results">
+          ${filteredModelCategories.map(category => `
+            <section class="model-category" data-testid="model-category">
+              <h3>${escapeHTML(category.category)}</h3>
+              ${category.models.map(model => `
+                <button class="model-option ${model.id === state.topBar.selectedModelID ? 'selected' : ''}" type="button" data-testid="model-option" data-model-id="${escapeHTML(model.id)}">
+                  <span>${escapeHTML(model.provider + '/' + model.displayName)}${model.id === state.topBar.selectedModelID ? ' ✓' : ''}</span>
+                  <small>${escapeHTML(model.id)}</small>
+                </button>`).join('')}
+            </section>`).join('')}
+        </div>` : '<div class="model-empty" data-testid="model-empty">No models match. Try a provider, category, or model name.</div>';
+      const modelBrowser = state.topBar.modelPickerOpen ? `
+        <section class="model-panel" data-testid="model-browser" aria-label="Model browser">
+          <div>
+            <h2>Choose Model</h2>
+            <p>Search provider, category, or model</p>
+          </div>
+          <input data-testid="model-search" aria-label="Search models" placeholder="Search models" value="${escapeHTML(state.topBar.modelSearch)}">
+          ${modelResults}
+        </section>` : '';
 
       document.getElementById('app').innerHTML = `
         <section class="quillcode-workspace" data-testid="workspace">
@@ -862,8 +935,10 @@
               <p data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
             </div>
             <div class="topbar-pills">
-              <select aria-label="Model" data-testid="model-picker">${modelOptions}</select>
-              <span data-testid="model-pill">${escapeHTML(state.topBar.modelLabel)}</span>
+              <div class="model-picker-wrap">
+                <button type="button" aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" data-testid="model-picker-button">${escapeHTML(state.topBar.modelLabel)}</button>
+                ${modelBrowser}
+              </div>
               <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
               <span data-testid="project-instructions-status" title="${escapeHTML(state.topBar.instructionSources.join(', '))}">${escapeHTML(state.topBar.instructionLabel)}</span>
               <span data-testid="agent-status">${escapeHTML(state.topBar.agentStatus)}</span>
@@ -917,18 +992,19 @@
         event.preventDefault();
         sendMessage(input.value);
       });
-      document.querySelector('[data-testid="model-picker"]').addEventListener('change', event => {
-        const selectedID = event.target.value;
-        const allModels = state.topBar.modelCategories.flatMap(category => category.models);
-        const selected = allModels.find(model => model.id === selectedID);
-        if (!selected) return;
-        state.topBar.selectedModelID = selected.id;
-        state.topBar.modelLabel = selected.id;
-        state.topBar.modelCategories = state.topBar.modelCategories.map(category => ({
-          ...category,
-          models: category.models.map(model => ({ ...model, isSelected: model.id === selected.id }))
-        }));
+      document.querySelector('[data-testid="model-picker-button"]').addEventListener('click', () => {
+        state.topBar.modelPickerOpen = !state.topBar.modelPickerOpen;
         render();
+      });
+      document.querySelector('[data-testid="model-search"]')?.addEventListener('input', event => {
+        state.topBar.modelSearch = event.target.value;
+        render();
+        document.querySelector('[data-testid="model-search"]')?.focus();
+      });
+      document.querySelectorAll('[data-testid="model-option"]').forEach(button => {
+        button.addEventListener('click', event => {
+          selectModel(event.currentTarget.getAttribute('data-model-id'));
+        });
       });
       document.querySelectorAll('[data-testid="project-item"]').forEach(button => {
         button.addEventListener('click', event => {
@@ -1146,6 +1222,40 @@
 	        addBrowserComment(input.value);
 	      });
 	    }
+
+    function filterModelCategories(query) {
+      const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      if (!terms.length) return state.topBar.modelCategories;
+      return state.topBar.modelCategories
+        .map(category => ({
+          ...category,
+          models: category.models.filter(model => {
+            const haystack = [
+              category.category,
+              model.id,
+              model.provider,
+              model.displayName
+            ].join(' ').toLowerCase();
+            return terms.every(term => haystack.includes(term));
+          })
+        }))
+        .filter(category => category.models.length > 0);
+    }
+
+    function selectModel(selectedID) {
+      const allModels = state.topBar.modelCategories.flatMap(category => category.models);
+      const selected = allModels.find(model => model.id === selectedID);
+      if (!selected) return;
+      state.topBar.selectedModelID = selected.id;
+      state.topBar.modelLabel = selected.id;
+      state.topBar.modelPickerOpen = false;
+      state.topBar.modelSearch = '';
+      state.topBar.modelCategories = state.topBar.modelCategories.map(category => ({
+        ...category,
+        models: category.models.map(model => ({ ...model, isSelected: model.id === selected.id }))
+      }));
+      render();
+    }
 
     function renderSettingsPanel() {
       return `

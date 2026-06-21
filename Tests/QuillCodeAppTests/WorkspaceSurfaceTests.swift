@@ -163,6 +163,25 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(coding?.models.first?.isSelected == true)
     }
 
+    func testTopBarFiltersModelCatalogByProviderCategoryAndModel() {
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            config: AppConfig(defaultModel: "trustedrouter/fusion"),
+            topBar: TopBarState(model: "trustedrouter/fusion")
+        ))
+        model.setModelCatalog([
+            .init(id: "trustedrouter/fusion", provider: "trustedrouter", displayName: "Fusion", category: "Recommended"),
+            .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
+            .init(id: "moonshotai/kimi-k2.6", provider: "moonshotai", displayName: "Kimi K2.6", category: "Safety")
+        ])
+
+        let topBar = model.surface().topBar
+
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "coding").flatMap(\.models).map(\.id), ["acme/code-pro"])
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "moon k2").flatMap(\.models).map(\.id), ["moonshotai/kimi-k2.6"])
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "trusted fusion").flatMap(\.models).map(\.id), ["trustedrouter/fusion"])
+        XCTAssertTrue(topBar.filteredModelCategories(matching: "does-not-exist").isEmpty)
+    }
+
     func testSurfaceIncludesLocalEnvironmentActionCommands() {
         let project = ProjectRef(
             name: "QuillCode",
