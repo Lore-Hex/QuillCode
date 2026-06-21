@@ -3268,6 +3268,18 @@ private struct QuillCodeToolCardView: View {
                     }
                 }
             }
+            if !card.documentPreviewArtifacts.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Document previews")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 10)], spacing: 10) {
+                        ForEach(card.documentPreviewArtifacts) { artifact in
+                            QuillCodeArtifactDocumentPreview(artifact: artifact)
+                        }
+                    }
+                }
+            }
             if !card.imagePreviewArtifacts.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Previews")
@@ -3435,6 +3447,9 @@ private struct QuillCodeArtifactChip: View {
     }
 
     private var iconName: String {
+        if let documentPreview = artifact.documentPreview {
+            return documentPreview.systemImage
+        }
         switch artifact.kind {
         case .url:
             return "link"
@@ -3443,6 +3458,90 @@ private struct QuillCodeArtifactChip: View {
         case .path:
             return "folder"
         }
+    }
+}
+
+private struct QuillCodeArtifactDocumentPreview: View {
+    var artifact: ToolArtifactState
+
+    var body: some View {
+        Group {
+            if let url = artifactURL {
+                Link(destination: url) {
+                    content
+                }
+            } else {
+                content
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var content: some View {
+        HStack(alignment: .center, spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(QuillCodePalette.blue.opacity(0.14))
+                Image(systemName: preview?.systemImage ?? "doc")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.blue)
+                    .accessibilityHidden(true)
+            }
+            .frame(width: 44, height: 52)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+            )
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(typeLine)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.blue)
+                    .lineLimit(1)
+                Text(artifact.label)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.text)
+                    .lineLimit(1)
+                Text(preview?.detail ?? artifact.detail)
+                    .font(.caption2)
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            if artifactURL != nil {
+                Image(systemName: "arrow.up.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: 74, alignment: .leading)
+        .quillCodeSurface(
+            fill: Color.white.opacity(0.05),
+            radius: 18,
+            stroke: Color.white.opacity(0.08),
+            shadow: false
+        )
+    }
+
+    private var preview: ToolArtifactDocumentPreview? {
+        artifact.documentPreview
+    }
+
+    private var typeLine: String {
+        guard let preview else { return "Document" }
+        return "\(preview.typeLabel) · \(preview.extensionLabel)"
+    }
+
+    private var artifactURL: URL? {
+        artifact.href.flatMap(URL.init(string:))
+    }
+
+    private var accessibilityLabel: String {
+        "\(typeLine) preview \(artifact.label)"
     }
 }
 

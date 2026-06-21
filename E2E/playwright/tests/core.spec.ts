@@ -464,6 +464,38 @@ test('mock harness renders image artifact previews from tool cards', async ({ pa
   await expect(page.getByText('Captured a screenshot (1280 x 720).')).toBeVisible();
 });
 
+test('mock harness renders document artifact previews from tool cards', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('make a pdf artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('briefing.pdf');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'pdf');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('PDF · PDF');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('briefing.pdf');
+  await expect(page.getByTestId('tool-card-document-preview-detail')).toHaveText('/mock/QuillCode/reports');
+  await expect(page.getByTestId('tool-card-document-preview-open')).toHaveAttribute('href', 'file:///mock/QuillCode/reports/briefing.pdf');
+  const documentSurface = await page.getByTestId('tool-card-document-preview').evaluate((element) => {
+    const cardStyle = getComputedStyle(element);
+    const iconStyle = getComputedStyle(element.querySelector('.artifact-document-icon')!);
+    return {
+      cardRadius: cardStyle.borderRadius,
+      cardMinHeight: cardStyle.minHeight,
+      iconRadius: iconStyle.borderRadius,
+      transitionProperty: cardStyle.transitionProperty
+    };
+  });
+  expect(documentSurface.cardRadius).toBe('18px');
+  expect(documentSurface.cardMinHeight).toBe('74px');
+  expect(documentSurface.iconRadius).toBe('10px');
+  expect(documentSurface.transitionProperty).toBe('transform, box-shadow');
+  await expect(page.getByText('Created `briefing.pdf`.')).toBeVisible();
+});
+
 test('mock harness searches and reopens an existing chat', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

@@ -1350,6 +1350,32 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"alt="screenshot.png""#))
     }
 
+    func testHTMLRendererIncludesDocumentArtifactPreview() throws {
+        let documentPath = "/tmp/quillcode-preview/reports/briefing.pdf"
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"briefing.pdf"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote briefing.pdf\n", artifacts: [documentPath])
+        let thread = ChatThread(
+            title: "Document artifact",
+            events: [
+                ThreadEvent(kind: .toolQueued, summary: "host.file.write queued", payloadJSON: try JSONHelpers.encodePretty(call)),
+                ThreadEvent(kind: .toolCompleted, summary: "host.file.write completed", payloadJSON: try JSONHelpers.encodePretty(result))
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-previews""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview""#))
+        XCTAssertTrue(html.contains(#"data-kind="pdf""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">PDF · PDF"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">briefing.pdf"#))
+        XCTAssertTrue(html.contains(#"href="file:///tmp/quillcode-preview/reports/briefing.pdf""#))
+    }
+
     func testHTMLRendererKeepsToolCardsInTranscriptOrder() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()

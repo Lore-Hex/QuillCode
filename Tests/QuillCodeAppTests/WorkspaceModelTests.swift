@@ -387,6 +387,30 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertNil(nonImageData.textPreview)
     }
 
+    func testArtifactStateDerivesDocumentPreviews() {
+        let pdfFile = ToolArtifactState(value: "/tmp/quillcode/reports/briefing.pdf")
+        XCTAssertEqual(pdfFile.kind, .file)
+        XCTAssertFalse(pdfFile.isImagePreview)
+        XCTAssertTrue(pdfFile.isDocumentPreview)
+        XCTAssertEqual(pdfFile.documentPreview?.kind, .pdf)
+        XCTAssertEqual(pdfFile.documentPreview?.typeLabel, "PDF")
+        XCTAssertEqual(pdfFile.documentPreview?.extensionLabel, "PDF")
+        XCTAssertEqual(pdfFile.documentPreview?.detail, "/tmp/quillcode/reports")
+
+        let spreadsheetURL = ToolArtifactState(value: "https://example.com/artifacts/budget.xlsx?download=1")
+        XCTAssertEqual(spreadsheetURL.kind, .url)
+        XCTAssertTrue(spreadsheetURL.isDocumentPreview)
+        XCTAssertEqual(spreadsheetURL.documentPreview?.kind, .spreadsheet)
+        XCTAssertEqual(spreadsheetURL.documentPreview?.typeLabel, "Spreadsheet")
+        XCTAssertEqual(spreadsheetURL.documentPreview?.extensionLabel, "XLSX")
+        XCTAssertEqual(spreadsheetURL.documentPreview?.detail, "example.com/artifacts/budget.xlsx")
+        XCTAssertEqual(spreadsheetURL.href, "https://example.com/artifacts/budget.xlsx?download=1")
+
+        let textFile = ToolArtifactState(value: "/tmp/quillcode/notes.md", textPreview: "# Notes\n")
+        XCTAssertFalse(textFile.isDocumentPreview)
+        XCTAssertTrue(textFile.hasTextPreview)
+    }
+
     func testSubmitComposerDispatchesComputerUseToolThroughBackend() async throws {
         let root = try makeTempDirectory()
         let backend = StubComputerUseBackend()

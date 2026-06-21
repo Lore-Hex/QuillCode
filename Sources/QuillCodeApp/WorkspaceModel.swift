@@ -19,6 +19,54 @@ public enum ToolArtifactKind: String, Codable, Sendable, Hashable {
     case path
 }
 
+public enum ToolArtifactDocumentKind: String, Codable, Sendable, Hashable {
+    case pdf
+    case document
+    case spreadsheet
+    case presentation
+
+    public var label: String {
+        switch self {
+        case .pdf:
+            return "PDF"
+        case .document:
+            return "Document"
+        case .spreadsheet:
+            return "Spreadsheet"
+        case .presentation:
+            return "Presentation"
+        }
+    }
+
+    public var systemImage: String {
+        switch self {
+        case .pdf:
+            return "doc.richtext"
+        case .document:
+            return "doc.text"
+        case .spreadsheet:
+            return "tablecells"
+        case .presentation:
+            return "rectangle.on.rectangle"
+        }
+    }
+}
+
+public struct ToolArtifactDocumentPreview: Codable, Sendable, Hashable {
+    public var kind: ToolArtifactDocumentKind
+    public var typeLabel: String
+    public var extensionLabel: String
+    public var detail: String
+    public var systemImage: String { kind.systemImage }
+
+    public init(kind: ToolArtifactDocumentKind, extensionLabel: String, detail: String) {
+        self.kind = kind
+        self.typeLabel = kind.label
+        self.extensionLabel = extensionLabel
+        self.detail = detail
+    }
+}
+
 public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var id: String { value }
     public var value: String
@@ -29,6 +77,10 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var href: String? { Self.href(for: value, kind: kind) }
     public var isImagePreview: Bool { Self.isImagePreview(for: value, kind: kind) }
     public var previewURL: String? { Self.previewURL(for: value, kind: kind) }
+    public var documentPreview: ToolArtifactDocumentPreview? {
+        Self.documentPreview(for: value, kind: kind)
+    }
+    public var isDocumentPreview: Bool { documentPreview != nil }
     public var hasTextPreview: Bool {
         guard let textPreview else { return false }
         return !textPreview.isEmpty
@@ -106,13 +158,7 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         guard kind == .file || kind == .url else {
             return false
         }
-        let pathExtension: String
-        if let url = URL(string: value), url.scheme != nil {
-            pathExtension = url.pathExtension
-        } else {
-            pathExtension = URL(fileURLWithPath: value).pathExtension
-        }
-        return imageExtensions.contains(pathExtension.lowercased())
+        return imageExtensions.contains(pathExtension(for: value))
     }
 
     private static func previewURL(for value: String, kind: ToolArtifactKind) -> String? {
@@ -142,6 +188,28 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         }
     }
 
+    private static func documentPreview(for value: String, kind: ToolArtifactKind) -> ToolArtifactDocumentPreview? {
+        guard kind == .file || kind == .url, !isImagePreview(for: value, kind: kind) else {
+            return nil
+        }
+        let fileExtension = pathExtension(for: value)
+        guard let documentKind = documentKindsByExtension[fileExtension] else {
+            return nil
+        }
+        return ToolArtifactDocumentPreview(
+            kind: documentKind,
+            extensionLabel: fileExtension.uppercased(),
+            detail: detail(for: value, kind: kind)
+        )
+    }
+
+    private static func pathExtension(for value: String) -> String {
+        if let url = URL(string: value), url.scheme != nil {
+            return url.pathExtension.lowercased()
+        }
+        return URL(fileURLWithPath: value).pathExtension.lowercased()
+    }
+
     private static func isInlineImageData(_ value: String) -> Bool {
         value.lowercased().hasPrefix("data:image/")
     }
@@ -156,6 +224,23 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         "tif",
         "tiff",
         "bmp"
+    ]
+
+    private static let documentKindsByExtension: [String: ToolArtifactDocumentKind] = [
+        "pdf": .pdf,
+        "doc": .document,
+        "docx": .document,
+        "odt": .document,
+        "pages": .document,
+        "rtf": .document,
+        "numbers": .spreadsheet,
+        "ods": .spreadsheet,
+        "xls": .spreadsheet,
+        "xlsx": .spreadsheet,
+        "key": .presentation,
+        "odp": .presentation,
+        "ppt": .presentation,
+        "pptx": .presentation
     ]
 }
 
@@ -328,6 +413,10 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
 
     public var textPreviewArtifacts: [ToolArtifactState] {
         artifacts.filter(\.hasTextPreview)
+    }
+
+    public var documentPreviewArtifacts: [ToolArtifactState] {
+        artifacts.filter(\.isDocumentPreview)
     }
 }
 

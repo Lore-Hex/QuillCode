@@ -342,6 +342,7 @@ public enum WorkspaceHTMLRenderer {
           </footer>
           \(renderToolArtifacts(card.artifacts))
           \(renderToolTextPreviews(card.artifacts))
+          \(renderToolDocumentPreviews(card.artifacts))
           \(renderToolImagePreviews(card.artifacts))
           \(renderToolDetails(card))
         </article>
@@ -406,6 +407,34 @@ public enum WorkspaceHTMLRenderer {
         """
     }
 
+    private static func renderToolDocumentPreviews(_ artifacts: [ToolArtifactState]) -> String {
+        let documentArtifacts = artifacts.filter(\.isDocumentPreview)
+        guard !documentArtifacts.isEmpty else { return "" }
+        let previews = documentArtifacts.compactMap { artifact -> String? in
+            guard let preview = artifact.documentPreview else { return nil }
+            let openLink = artifact.href.map {
+                #"<a data-testid="tool-card-document-preview-open" href="\#(escape($0))">Open</a>"#
+            } ?? ""
+            return """
+            <figure class="artifact-document-preview" data-testid="tool-card-document-preview" data-kind="\(escape(preview.kind.rawValue))">
+              <span class="artifact-document-icon" aria-hidden="true">\(documentIcon(for: preview.kind))</span>
+              <figcaption>
+                <small data-testid="tool-card-document-preview-type">\(escape(preview.typeLabel)) · \(escape(preview.extensionLabel))</small>
+                <strong data-testid="tool-card-document-preview-label">\(escape(artifact.label))</strong>
+                <small data-testid="tool-card-document-preview-detail">\(escape(preview.detail))</small>
+              </figcaption>
+              \(openLink)
+            </figure>
+            """
+        }.joined(separator: "\n")
+        guard !previews.isEmpty else { return "" }
+        return """
+        <div class="tool-artifact-document-previews" data-testid="tool-card-document-previews" aria-label="Document previews">
+          \(previews)
+        </div>
+        """
+    }
+
     private static func renderToolImagePreviews(_ artifacts: [ToolArtifactState]) -> String {
         let imageArtifacts = artifacts.filter(\.isImagePreview)
         guard !imageArtifacts.isEmpty else { return "" }
@@ -424,6 +453,19 @@ public enum WorkspaceHTMLRenderer {
           \(previews)
         </div>
         """
+    }
+
+    private static func documentIcon(for kind: ToolArtifactDocumentKind) -> String {
+        switch kind {
+        case .pdf:
+            return "PDF"
+        case .document:
+            return "DOC"
+        case .spreadsheet:
+            return "XLS"
+        case .presentation:
+            return "PPT"
+        }
     }
 
     private static func renderTerminal(_ terminal: TerminalSurface) -> String {
