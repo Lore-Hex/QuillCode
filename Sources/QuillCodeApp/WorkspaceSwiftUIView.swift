@@ -111,8 +111,14 @@ public struct QuillCodeWorkspaceView: View {
                     QuillCodeTranscriptView(
                         transcript: surface.transcript,
                         contextBanner: surface.contextBanner,
+                        runtimeIssue: surface.runtimeIssue,
                         review: surface.review,
                         onContextCommand: handleCommand,
+                        onRuntimeIssueAction: runtimeIssueOpensSettings(surface.runtimeIssue) ? {
+                            if let command = surface.commands.first(where: { $0.id == "settings" }) {
+                                handleCommand(command)
+                            }
+                        } : nil,
                         onReviewAction: onReviewAction,
                         onAddReviewComment: onAddReviewComment
                     )
@@ -263,6 +269,11 @@ public struct QuillCodeWorkspaceView: View {
         } else {
             onCommand(command)
         }
+    }
+
+    private func runtimeIssueOpensSettings(_ issue: RuntimeIssueSurface?) -> Bool {
+        guard let actionLabel = issue?.actionLabel else { return false }
+        return ["Open Settings", "Add key", "Fix key"].contains(actionLabel)
     }
 }
 
@@ -582,6 +593,14 @@ private struct QuillCodeTopBarView: View {
             }
             .buttonStyle(.borderless)
             QuillCodePill(text: topBar.agentStatus, systemImage: "waveform.path")
+            if let runtimeIssueLabel = topBar.runtimeIssueLabel {
+                QuillCodePill(
+                    text: runtimeIssueLabel,
+                    systemImage: "exclamationmark.triangle",
+                    tint: topBar.runtimeIssueSeverity == .error ? QuillCodePalette.red : QuillCodePalette.yellow
+                )
+                .help(runtimeIssueLabel)
+            }
             QuillCodePill(text: topBar.instructionLabel, systemImage: topBar.instructionSources.isEmpty ? "doc" : "doc.text.magnifyingglass")
                 .help(topBar.instructionSources.isEmpty ? topBar.instructionLabel : topBar.instructionSources.joined(separator: "\n"))
             QuillCodePill(text: topBar.memoryLabel, systemImage: topBar.memorySources.isEmpty ? "brain" : "brain.head.profile")
@@ -1039,15 +1058,17 @@ private struct QuillCodeProjectListView: View {
 private struct QuillCodeTranscriptView: View {
     var transcript: TranscriptSurface
     var contextBanner: ContextBannerSurface?
+    var runtimeIssue: RuntimeIssueSurface?
     var review: WorkspaceReviewSurface
     var onContextCommand: (WorkspaceCommandSurface) -> Void
+    var onRuntimeIssueAction: (() -> Void)?
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
 
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 14) {
-                if transcript.timelineItems.isEmpty && !review.isVisible && contextBanner == nil {
+                if transcript.timelineItems.isEmpty && !review.isVisible && contextBanner == nil && runtimeIssue == nil {
                     VStack(spacing: 8) {
                         Text(transcript.emptyTitle)
                             .font(.title3.weight(.semibold))
@@ -1064,6 +1085,13 @@ private struct QuillCodeTranscriptView: View {
                             banner: contextBanner,
                             onCommand: onContextCommand
                         )
+                    }
+                    if let runtimeIssue {
+                        QuillCodeRuntimeIssueView(
+                            issue: runtimeIssue,
+                            onAction: onRuntimeIssueAction
+                        )
+                        .frame(maxWidth: 760, alignment: .leading)
                     }
                     if review.isVisible {
                         QuillCodeReviewPaneView(
@@ -2324,6 +2352,10 @@ private struct QuillCodeSettingsView: View {
                     .clipShape(Capsule())
             }
 
+            if let issue = settings.runtimeIssue {
+                QuillCodeRuntimeIssueView(issue: issue)
+            }
+
             Picker("Authentication", selection: $draft.authMode) {
                 Text("TrustedRouter login").tag(TrustedRouterAuthMode.oauth)
                 Text("Developer override").tag(TrustedRouterAuthMode.developerOverride)
@@ -2384,6 +2416,50 @@ private struct QuillCodeSettingsView: View {
         }
         .padding(24)
         .frame(width: 520)
+    }
+}
+
+private struct QuillCodeRuntimeIssueView: View {
+    var issue: RuntimeIssueSurface
+    var onAction: (() -> Void)?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: issue.severity == .error ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(tint)
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(issue.title)
+                    .font(.callout.weight(.semibold))
+                Text(issue.message)
+                    .font(.caption)
+                    .foregroundStyle(QuillCodePalette.muted)
+                if let actionLabel = issue.actionLabel {
+                    if let onAction {
+                        Button(actionLabel, action: onAction)
+                            .buttonStyle(.borderless)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(tint)
+                    } else {
+                        Text(actionLabel)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(tint)
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(tint.opacity(0.12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(tint.opacity(0.35), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var tint: Color {
+        issue.severity == .error ? QuillCodePalette.red : QuillCodePalette.yellow
     }
 }
 
@@ -2456,6 +2532,7 @@ private struct QuillCodeWorktreeRemoveDraft: Equatable {
 private struct QuillCodePill: View {
     var text: String
     var systemImage: String
+    var tint: Color = QuillCodePalette.blue
 
     var body: some View {
         Label(text, systemImage: systemImage)
@@ -2463,8 +2540,8 @@ private struct QuillCodePill: View {
             .lineLimit(1)
             .padding(.horizontal, 9)
             .padding(.vertical, 6)
-            .background(QuillCodePalette.blue.opacity(0.14))
-            .foregroundStyle(QuillCodePalette.blue)
+            .background(tint.opacity(0.14))
+            .foregroundStyle(tint)
             .clipShape(Capsule())
     }
 }

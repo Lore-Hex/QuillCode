@@ -23,7 +23,7 @@
 - Streaming chat client.
 - Live model catalog native UI.
 - Auto reviewer using `glm-5.2` with `kimi-k2.6` fallback in the native app.
-- Current status: live TrustedRouter adapter exists behind CLI `--live`; desktop env/secret-key runtime selection, OAuth-first auth mode state, native loopback PKCE sign-in, pure authorize/exchange/userinfo OAuth client, automatic delegated key storage, non-secret signed-in account display, secondary developer key/base-URL settings, live model-catalog refresh, CLI key-management commands, incremental agent progress callbacks, streamed action-text transport, visible Streaming status, and safe streamed assistant drafts for `say` actions are implemented. Richer auth error UI remains the next runtime slice.
+- Current status: live TrustedRouter adapter exists behind CLI `--live`; desktop env/secret-key runtime selection, OAuth-first auth mode state, native loopback PKCE sign-in, pure authorize/exchange/userinfo OAuth client, automatic delegated key storage, non-secret signed-in account display, secondary developer key/base-URL settings, live model-catalog refresh, CLI key-management commands, incremental agent progress callbacks, streamed action-text transport, visible Streaming status, safe streamed assistant drafts for `say` actions, and shared actionable runtime issue UI for sign-in/key/network/empty-response/malformed-action failures are implemented. Deeper retry controls, account recovery telemetry, and provider status diagnostics remain the next runtime polish.
 
 ## Milestone 3: Codex Workflow Parity
 

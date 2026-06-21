@@ -52,6 +52,26 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(transcriptItems.nth(2)).toContainText('You are `mock-user` in this workspace.');
 });
 
+test('mock harness shows actionable TrustedRouter runtime issue', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('settings-button').click();
+  await expect(page.getByTestId('settings-panel')).toBeVisible();
+  await page.getByTestId('settings-save').click();
+
+  await expect(page.getByTestId('settings-panel')).toBeHidden();
+  await expect(page.getByTestId('runtime-issue-pill')).toHaveText('TrustedRouter sign-in needed');
+  await expect(page.getByTestId('runtime-issue')).toBeVisible();
+  await expect(page.getByTestId('runtime-issue-title')).toHaveText('TrustedRouter sign-in needed');
+  await expect(page.getByTestId('runtime-issue-message')).toContainText('Sign in with TrustedRouter');
+  await expect(page.getByTestId('runtime-issue-action')).toHaveText('Open Settings');
+
+  await page.getByTestId('runtime-issue-action').click();
+  const settingsPanel = page.getByTestId('settings-panel');
+  await expect(settingsPanel.getByTestId('runtime-issue')).toBeVisible();
+  await expect(settingsPanel.getByTestId('runtime-issue-title')).toHaveText('TrustedRouter sign-in needed');
+});
+
 test('mock harness surfaces file artifacts from tool cards', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

@@ -1280,6 +1280,53 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.root.topBar.agentStatus, "TrustedRouter ready")
     }
 
+    func testRuntimeIssueSurfacesMissingTrustedRouterSignIn() {
+        let model = QuillCodeWorkspaceModel()
+
+        model.applyRuntime(QuillCodeRuntime(
+            runner: AgentRunner(),
+            mode: .trustedRouter,
+            statusLabel: "Sign in with TrustedRouter"
+        ))
+
+        let surface = model.surface()
+        XCTAssertEqual(surface.runtimeIssue?.severity, .warning)
+        XCTAssertEqual(surface.runtimeIssue?.title, "TrustedRouter sign-in needed")
+        XCTAssertEqual(surface.runtimeIssue?.actionLabel, "Open Settings")
+        XCTAssertEqual(surface.topBar.runtimeIssueLabel, "TrustedRouter sign-in needed")
+        XCTAssertEqual(surface.topBar.runtimeIssueSeverity, .warning)
+        XCTAssertEqual(surface.settings.runtimeIssue?.title, "TrustedRouter sign-in needed")
+    }
+
+    func testRuntimeIssueNormalizesRejectedTrustedRouterKey() throws {
+        let model = QuillCodeWorkspaceModel()
+
+        model.setAgentStatus(
+            "Failed",
+            lastError: "TrustedRouter OAuth exchange failed with HTTP 401: Invalid API key"
+        )
+
+        let issue = try XCTUnwrap(model.surface().runtimeIssue)
+        XCTAssertEqual(issue.severity, .error)
+        XCTAssertEqual(issue.title, "TrustedRouter key rejected")
+        XCTAssertEqual(issue.actionLabel, "Fix key")
+        XCTAssertTrue(issue.message.contains("Sign in again"))
+    }
+
+    func testRuntimeIssueNormalizesMalformedModelAction() throws {
+        let model = QuillCodeWorkspaceModel()
+
+        model.setAgentStatus(
+            "Failed",
+            lastError: "Expected valid QuillCode action JSON but received an empty argument object."
+        )
+
+        let issue = try XCTUnwrap(model.surface().runtimeIssue)
+        XCTAssertEqual(issue.severity, .warning)
+        XCTAssertEqual(issue.title, "Model response was malformed")
+        XCTAssertEqual(issue.actionLabel, "Switch model")
+    }
+
     func testToolCardsRepresentSafetyReview() {
         let event = ThreadEvent(kind: .approvalRequested, summary: "clarify: needs target")
         let thread = ChatThread(events: [event])

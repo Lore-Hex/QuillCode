@@ -53,6 +53,16 @@
     }
     .topbar-pills select { max-width: 230px; }
     .topbar-pills button { font-weight: 600; }
+    .topbar-pills [data-testid="runtime-issue-pill"] {
+      color: #ffe2a3;
+      background: rgba(248,184,78,.14);
+      border-color: rgba(248,184,78,.28);
+    }
+    .topbar-pills [data-testid="runtime-issue-pill"][data-severity="error"] {
+      color: #ffc4c0;
+      background: rgba(255,93,82,.14);
+      border-color: rgba(255,93,82,.30);
+    }
     .model-picker-wrap { position: relative; display: inline-flex; }
     .model-panel {
       position: absolute;
@@ -453,7 +463,7 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .message, .tool-card, .review-pane, .context-banner {
+    .message, .tool-card, .review-pane, .context-banner, .runtime-issue {
       max-width: min(760px, 88%);
       padding: 13px 15px;
       border-radius: 16px;
@@ -554,6 +564,42 @@
       background: rgba(248,184,78,.14);
       color: #ffe2a3;
       font-size: 13px;
+    }
+    .runtime-issue {
+      align-self: flex-start;
+      width: min(760px, 92%);
+      display: grid;
+      gap: 9px;
+      background: rgba(248,184,78,.08);
+      border: 1px solid rgba(248,184,78,.32);
+    }
+    .runtime-issue.error {
+      background: rgba(255,93,82,.08);
+      border-color: rgba(255,93,82,.38);
+    }
+    .runtime-issue header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .runtime-issue p { margin: 0; color: var(--muted); }
+    .runtime-issue span,
+    .runtime-issue button {
+      width: fit-content;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(248,184,78,.24);
+      background: rgba(248,184,78,.14);
+      color: var(--yellow);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .runtime-issue.error span,
+    .runtime-issue.error button {
+      border-color: rgba(255,93,82,.24);
+      background: rgba(255,93,82,.14);
+      color: var(--red);
     }
     .review-pane header {
       display: flex;
@@ -811,6 +857,7 @@
         memorySources: ['memories/preferences.md', '.quillcode/memories/project.md'],
         computerUseLabel: 'Computer Use setup needed'
       },
+      runtimeIssue: null,
       projects: {
         title: 'Projects',
         selectedProjectID: 'project-main',
@@ -1369,9 +1416,24 @@
         </section>`;
     }
 
+    function renderRuntimeIssue(issue) {
+      if (!issue) return '';
+      const severity = issue.severity || 'warning';
+      return `
+        <section class="runtime-issue ${escapeHTML(severity)}" data-testid="runtime-issue" data-severity="${escapeHTML(severity)}" aria-label="Runtime issue">
+          <header>
+            <strong data-testid="runtime-issue-title">${escapeHTML(issue.title)}</strong>
+            <span data-testid="runtime-issue-severity">${escapeHTML(severity)}</span>
+          </header>
+          <p data-testid="runtime-issue-message">${escapeHTML(issue.message)}</p>
+          ${issue.actionLabel ? `<button type="button" data-testid="runtime-issue-action">${escapeHTML(issue.actionLabel)}</button>` : ''}
+        </section>`;
+    }
+
     function render() {
       updateDynamicCommands();
       const context = renderContextBanner(contextBanner());
+      const runtimeIssue = renderRuntimeIssue(state.runtimeIssue);
       const review = state.review.files.length ? `
         <section class="review-pane" data-testid="review-pane" aria-label="Git review summary">
           <header>
@@ -1474,7 +1536,7 @@
         )).join('')
         : state.transcript.messages.map(renderMessage).join('')
           + state.transcript.toolCards.map(renderToolCard).join('');
-      const timeline = context || review || transcriptItems ? context + review + transcriptItems : `
+      const timeline = context || runtimeIssue || review || transcriptItems ? context + runtimeIssue + review + transcriptItems : `
         <section class="empty" data-testid="transcript-empty">
           <h1>${escapeHTML(state.transcript.emptyTitle)}</h1>
           <p>${escapeHTML(state.transcript.emptySubtitle)}</p>
@@ -1545,6 +1607,7 @@
               <span data-testid="project-instructions-status" title="${escapeHTML(state.topBar.instructionSources.join(', '))}">${escapeHTML(state.topBar.instructionLabel)}</span>
               <span data-testid="project-memories-status" title="${escapeHTML(state.topBar.memorySources.join(', '))}">${escapeHTML(state.topBar.memoryLabel)}</span>
               <span data-testid="agent-status">${escapeHTML(state.topBar.agentStatus)}</span>
+              ${state.runtimeIssue ? `<span data-testid="runtime-issue-pill" data-severity="${escapeHTML(state.runtimeIssue.severity || 'warning')}">${escapeHTML(state.runtimeIssue.title)}</span>` : ''}
               <span data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</span>
               <button type="button" data-testid="command-palette-button">Commands</button>
               <button type="button" data-testid="search-button">Search</button>
@@ -1634,6 +1697,16 @@
         state.settings.isOpen = true;
         state.settings.replacementAPIKey = '';
         render();
+      });
+      document.querySelectorAll('[data-testid="runtime-issue-action"]').forEach(button => {
+        button.addEventListener('click', event => {
+          const label = event.currentTarget.textContent.trim();
+          if (['Open Settings', 'Add key', 'Fix key'].includes(label)) {
+            state.settings.isOpen = true;
+            state.settings.replacementAPIKey = '';
+            render();
+          }
+        });
       });
       document.querySelector('[data-testid="search-button"]').addEventListener('click', () => {
         state.search.isOpen = true;
@@ -1763,10 +1836,22 @@
           state.settings.apiKeyStatusLabel = state.settings.hasStoredAPIKey ? 'API key configured' : 'No API key saved';
           state.settings.loginStatusLabel = state.settings.hasStoredAPIKey ? 'TrustedRouter developer override ready' : 'Developer override needs an API key';
           state.topBar.agentStatus = state.settings.hasStoredAPIKey ? 'TrustedRouter ready' : 'Developer key needed';
+          state.runtimeIssue = state.settings.hasStoredAPIKey ? null : {
+            severity: 'warning',
+            title: 'Developer key needed',
+            message: 'Developer override is enabled, but no TrustedRouter API key is saved.',
+            actionLabel: 'Add key'
+          };
         } else {
           state.settings.apiKeyStatusLabel = state.settings.hasStoredAPIKey ? 'Signed in' : 'Not signed in';
           state.settings.loginStatusLabel = state.settings.hasStoredAPIKey && state.settings.accountLabel ? `Signed in as ${state.settings.accountLabel}` : state.settings.hasStoredAPIKey ? 'TrustedRouter OAuth ready' : 'TrustedRouter login required';
           state.topBar.agentStatus = state.settings.hasStoredAPIKey ? 'TrustedRouter signed in' : 'Sign in with TrustedRouter';
+          state.runtimeIssue = state.settings.hasStoredAPIKey ? null : {
+            severity: 'warning',
+            title: 'TrustedRouter sign-in needed',
+            message: 'Sign in with TrustedRouter to use live models. Mock mode stays available for deterministic local testing.',
+            actionLabel: 'Open Settings'
+          };
         }
         state.settings.isOpen = false;
         render();
@@ -1913,6 +1998,7 @@
             <p data-testid="settings-login-status">${escapeHTML(state.settings.loginStatusLabel)}</p>
             <p data-testid="settings-key-status">${escapeHTML(state.settings.apiKeyStatusLabel)}</p>
             ${state.settings.accountLabel ? `<p data-testid="settings-account">${escapeHTML(state.settings.accountLabel)}</p>` : ''}
+            ${state.runtimeIssue ? renderRuntimeIssue(state.runtimeIssue) : ''}
             <label>
               TrustedRouter API base URL
               <input name="apiBaseURL" aria-label="TrustedRouter API base URL" value="${escapeHTML(state.settings.apiBaseURL)}">

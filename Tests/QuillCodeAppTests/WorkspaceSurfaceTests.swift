@@ -656,6 +656,18 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="context-fork-last""#))
     }
 
+    func testHTMLRendererIncludesRuntimeIssue() throws {
+        let model = QuillCodeWorkspaceModel()
+        model.setAgentStatus("Failed", lastError: "TrustedRouter returned an empty response.")
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="runtime-issue""#))
+        XCTAssertTrue(html.contains(#"data-testid="runtime-issue-pill""#))
+        XCTAssertTrue(html.contains(#"data-testid="runtime-issue-title">TrustedRouter returned no content"#))
+        XCTAssertTrue(html.contains(#"data-testid="runtime-issue-action">Retry"#))
+    }
+
     func testHTMLRendererGroupsPinnedAndRecentChats() {
         var pinned = ChatThread(title: "Pinned chat", model: "trustedrouter/fusion")
         pinned.isPinned = true

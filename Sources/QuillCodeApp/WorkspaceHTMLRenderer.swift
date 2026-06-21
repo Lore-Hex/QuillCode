@@ -8,7 +8,7 @@ public enum WorkspaceHTMLRenderer {
           <div class="workspace-grid">
             \(renderSidebar(projects: surface.projects, sidebar: surface.sidebar))
             <main class="transcript" data-testid="transcript">
-              \(renderTranscript(surface.transcript, contextBanner: surface.contextBanner, review: surface.review))
+              \(renderTranscript(surface.transcript, contextBanner: surface.contextBanner, review: surface.review, runtimeIssue: surface.runtimeIssue))
               \(renderExtensions(surface.extensions))
               \(renderMemories(surface.memories))
               \(renderBrowser(surface.browser))
@@ -33,6 +33,7 @@ public enum WorkspaceHTMLRenderer {
             <span data-testid="project-instructions-status" title="\(escape(topBar.instructionSources.joined(separator: ", ")))">\(escape(topBar.instructionLabel))</span>
             <span data-testid="project-memories-status" title="\(escape(topBar.memorySources.joined(separator: ", ")))">\(escape(topBar.memoryLabel))</span>
             <span data-testid="agent-status">\(escape(topBar.agentStatus))</span>
+            \(topBar.runtimeIssueLabel.map { #"<span data-testid="runtime-issue-pill" data-severity="\#(escape(topBar.runtimeIssueSeverity?.rawValue ?? "warning"))">\#(escape($0))</span>"# } ?? "")
             <span data-testid="computer-use-status">\(escape(topBar.computerUseLabel))</span>
           </div>
         </header>
@@ -110,12 +111,14 @@ public enum WorkspaceHTMLRenderer {
     private static func renderTranscript(
         _ transcript: TranscriptSurface,
         contextBanner: ContextBannerSurface?,
-        review: WorkspaceReviewSurface
+        review: WorkspaceReviewSurface,
+        runtimeIssue: RuntimeIssueSurface? = nil
     ) -> String {
         let context = renderContextBanner(contextBanner)
+        let issue = renderRuntimeIssue(runtimeIssue)
         let reviewPane = renderReview(review)
         let timeline = transcript.timelineItems.map(renderTimelineItem).joined(separator: "\n")
-        if context.isEmpty && timeline.isEmpty && !review.isVisible {
+        if context.isEmpty && issue.isEmpty && timeline.isEmpty && !review.isVisible {
             return """
             <section class="empty" data-testid="transcript-empty">
               <h1>\(escape(transcript.emptyTitle))</h1>
@@ -123,7 +126,21 @@ public enum WorkspaceHTMLRenderer {
             </section>
             """
         }
-        return context + "\n" + reviewPane + "\n" + timeline
+        return context + "\n" + issue + "\n" + reviewPane + "\n" + timeline
+    }
+
+    private static func renderRuntimeIssue(_ issue: RuntimeIssueSurface?) -> String {
+        guard let issue else { return "" }
+        return """
+        <section class="runtime-issue \(escape(issue.severity.rawValue))" data-testid="runtime-issue" data-severity="\(escape(issue.severity.rawValue))" aria-label="Runtime issue">
+          <header>
+            <strong data-testid="runtime-issue-title">\(escape(issue.title))</strong>
+            <span data-testid="runtime-issue-severity">\(escape(issue.severity.rawValue))</span>
+          </header>
+          <p data-testid="runtime-issue-message">\(escape(issue.message))</p>
+          \(issue.actionLabel.map { #"<button type="button" data-testid="runtime-issue-action">\#(escape($0))</button>"# } ?? "")
+        </section>
+        """
     }
 
     private static func renderTimelineItem(_ item: TranscriptTimelineItemSurface) -> String {

@@ -526,6 +526,11 @@ private struct QuillCodeMenuBarView: View {
             .font(.caption)
         Divider()
         Label(surface.topBar.agentStatus, systemImage: statusSystemImage)
+        if let issue = surface.runtimeIssue {
+            Label(issue.title, systemImage: issue.severity == .error ? "xmark.octagon" : "exclamationmark.triangle")
+            Text(issue.message)
+                .font(.caption)
+        }
         Text("Thread: \(surface.topBar.primaryTitle)")
         Text("Model: \(surface.topBar.modelLabel)")
         Text("Mode: \(surface.topBar.modeLabel)")

@@ -15,6 +15,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var composer: ComposerSurface
     public var commands: [WorkspaceCommandSurface]
     public var settings: WorkspaceSettingsSurface
+    public var runtimeIssue: RuntimeIssueSurface?
     public var lastError: String?
 
     public init(
@@ -31,6 +32,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         composer: ComposerSurface,
         commands: [WorkspaceCommandSurface],
         settings: WorkspaceSettingsSurface,
+        runtimeIssue: RuntimeIssueSurface? = nil,
         lastError: String? = nil
     ) {
         self.topBar = topBar
@@ -46,7 +48,33 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.composer = composer
         self.commands = commands
         self.settings = settings
+        self.runtimeIssue = runtimeIssue
         self.lastError = lastError
+    }
+}
+
+public enum RuntimeIssueSeverity: String, Codable, Sendable, Hashable {
+    case info
+    case warning
+    case error
+}
+
+public struct RuntimeIssueSurface: Codable, Sendable, Hashable {
+    public var severity: RuntimeIssueSeverity
+    public var title: String
+    public var message: String
+    public var actionLabel: String?
+
+    public init(
+        severity: RuntimeIssueSeverity,
+        title: String,
+        message: String,
+        actionLabel: String? = nil
+    ) {
+        self.severity = severity
+        self.title = title
+        self.message = message
+        self.actionLabel = actionLabel
     }
 }
 
@@ -96,6 +124,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     public var modelCategories: [ModelCategorySurface]
     public var modeLabel: String
     public var agentStatus: String
+    public var runtimeIssueLabel: String?
+    public var runtimeIssueSeverity: RuntimeIssueSeverity?
     public var computerUseLabel: String
     public var showsComputerUseSetup: Bool
 
@@ -112,6 +142,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         modelCategories: [ModelCategorySurface],
         modeLabel: String,
         agentStatus: String,
+        runtimeIssueLabel: String? = nil,
+        runtimeIssueSeverity: RuntimeIssueSeverity? = nil,
         computerUseLabel: String,
         showsComputerUseSetup: Bool
     ) {
@@ -127,6 +159,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.modelCategories = modelCategories
         self.modeLabel = modeLabel
         self.agentStatus = agentStatus
+        self.runtimeIssueLabel = runtimeIssueLabel
+        self.runtimeIssueSeverity = runtimeIssueSeverity
         self.computerUseLabel = computerUseLabel
         self.showsComputerUseSetup = showsComputerUseSetup
     }
@@ -1117,14 +1151,20 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var apiKeyStatusLabel: String
     public var loginStatusLabel: String
     public var accountLabel: String?
+    public var runtimeIssue: RuntimeIssueSurface?
 
-    public init(config: AppConfig, hasStoredAPIKey: Bool) {
+    public init(
+        config: AppConfig,
+        hasStoredAPIKey: Bool,
+        runtimeIssue: RuntimeIssueSurface? = nil
+    ) {
         self.apiBaseURL = config.apiBaseURL
         self.authMode = config.authMode
         self.developerOverrideEnabled = config.developerOverrideEnabled
         self.hasStoredAPIKey = hasStoredAPIKey
         self.signInURL = TrustedRouterDefaults.loopbackCallbackURL
         self.accountLabel = config.trustedRouterAccount?.displayLabel
+        self.runtimeIssue = runtimeIssue
         switch config.authMode {
         case .oauth:
             self.apiKeyStatusLabel = hasStoredAPIKey ? "Signed in" : "Not signed in"
@@ -1169,6 +1209,7 @@ public extension QuillCodeWorkspaceModel {
         let topBarState = root.topBar
         let computerUse = topBarState.computerUseStatus
         let toolCards = currentToolCards
+        let runtimeIssue = runtimeIssueSurface()
         let activeInstructions: [ProjectInstruction]
         if let thread, !thread.instructions.isEmpty {
             activeInstructions = thread.instructions
@@ -1195,6 +1236,8 @@ public extension QuillCodeWorkspaceModel {
                 modelCategories: modelCategories(selectedModelID: topBarState.model),
                 modeLabel: Self.modeLabel(topBarState.mode),
                 agentStatus: topBarState.agentStatus,
+                runtimeIssueLabel: runtimeIssue?.title,
+                runtimeIssueSeverity: runtimeIssue?.severity,
                 computerUseLabel: computerUse.available ? "Computer Use ready" : "Computer Use setup needed",
                 showsComputerUseSetup: !computerUse.available
             ),
@@ -1232,9 +1275,93 @@ public extension QuillCodeWorkspaceModel {
             commands: commands(),
             settings: WorkspaceSettingsSurface(
                 config: root.config,
-                hasStoredAPIKey: root.trustedRouterAPIKeyConfigured
+                hasStoredAPIKey: root.trustedRouterAPIKeyConfigured,
+                runtimeIssue: runtimeIssue
             ),
+            runtimeIssue: runtimeIssue,
             lastError: lastError
+        )
+    }
+
+    private func runtimeIssueSurface() -> RuntimeIssueSurface? {
+        if let lastError,
+           let issue = Self.runtimeIssue(from: lastError, config: root.config) {
+            return issue
+        }
+        switch root.topBar.agentStatus {
+        case "Sign in with TrustedRouter":
+            return RuntimeIssueSurface(
+                severity: .warning,
+                title: "TrustedRouter sign-in needed",
+                message: "Sign in with TrustedRouter to use live models. Mock mode stays available for deterministic local testing.",
+                actionLabel: "Open Settings"
+            )
+        case "Developer key needed":
+            return RuntimeIssueSurface(
+                severity: .warning,
+                title: "Developer key needed",
+                message: "Developer override is enabled, but no TrustedRouter API key is saved.",
+                actionLabel: "Add key"
+            )
+        default:
+            return nil
+        }
+    }
+
+    private static func runtimeIssue(from error: String, config: AppConfig) -> RuntimeIssueSurface? {
+        let trimmed = error.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let normalized = trimmed.lowercased()
+        if normalized.contains("api key is not configured") {
+            return RuntimeIssueSurface(
+                severity: .warning,
+                title: "TrustedRouter sign-in needed",
+                message: "Sign in with TrustedRouter or switch to developer override with a valid key.",
+                actionLabel: "Open Settings"
+            )
+        }
+        if normalized.contains("401") || normalized.contains("invalid api key") || normalized.contains("unauthorized") {
+            return RuntimeIssueSurface(
+                severity: .error,
+                title: "TrustedRouter key rejected",
+                message: "The saved key was rejected by \(config.apiBaseURL). Sign in again or replace the developer key.",
+                actionLabel: "Fix key"
+            )
+        }
+        if normalized.contains("timed out") ||
+            normalized.contains("not connected") ||
+            normalized.contains("network is unreachable") ||
+            normalized.contains("cannot connect") ||
+            normalized.contains("could not connect") ||
+            normalized.contains("cannot find host") {
+            return RuntimeIssueSurface(
+                severity: .error,
+                title: "TrustedRouter network issue",
+                message: "QuillCode could not reach \(config.apiBaseURL). Check the network or API base URL, then retry.",
+                actionLabel: "Retry"
+            )
+        }
+        if normalized.contains("empty response") {
+            return RuntimeIssueSurface(
+                severity: .warning,
+                title: "TrustedRouter returned no content",
+                message: "Retry the turn or switch models. If it repeats, check provider status.",
+                actionLabel: "Retry"
+            )
+        }
+        if normalized.contains("valid quillcode action json") || normalized.contains("empty argument object") {
+            return RuntimeIssueSurface(
+                severity: .warning,
+                title: "Model response was malformed",
+                message: "The selected model did not follow QuillCode's action schema. Try trustedrouter/fusion or another coding model.",
+                actionLabel: "Switch model"
+            )
+        }
+        return RuntimeIssueSurface(
+            severity: .error,
+            title: "Run failed",
+            message: String(trimmed.prefix(260)),
+            actionLabel: "Retry"
         )
     }
 
