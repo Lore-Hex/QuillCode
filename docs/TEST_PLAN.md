@@ -34,6 +34,7 @@ Drive the QuillCode test harness with mock LLM:
 
 - first run
 - login
+- interface polish primitives: root font smoothing, balanced headings, pretty short text, tabular dynamic numbers, 40px hit areas, explicit transitions without `all`, tactile `scale(0.96)` press feedback, concentric panel radii, and image outlines
 - open project, rename it, refresh context, start a project-scoped chat, and remove it from the project list
 - find within the active chat with `Cmd+F`, focused input, result counts, next/previous navigation, and close behavior
 - search and select a model, including current/default/recommended badges and duplicate-free search results

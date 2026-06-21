@@ -146,6 +146,43 @@ test('mock harness avoids horizontal clipping in key desktop and mobile flows', 
   }
 });
 
+test('mock harness applies interface polish primitives', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  const polish = await page.evaluate(() => {
+    const styleFor = (selector: string) => getComputedStyle(document.querySelector(selector)!);
+    const sendButton = styleFor('[data-testid="send-button"]');
+    const addProjectButton = styleFor('[data-testid="add-project-button"]');
+    const messageInput = styleFor('#message');
+    const title = styleFor('[data-testid="top-bar-title"]');
+    const agentStatus = styleFor('[data-testid="agent-status"]');
+    const sidebar = styleFor('[data-testid="sidebar"]');
+
+    return {
+      rootFontSmoothing: getComputedStyle(document.documentElement).webkitFontSmoothing,
+      sendMinHeight: parseFloat(sendButton.minHeight),
+      sendTransitionProperty: sendButton.transitionProperty,
+      inputTransitionProperty: messageInput.transitionProperty,
+      titleTextWrap: title.getPropertyValue('text-wrap'),
+      agentStatusNumbers: agentStatus.fontVariantNumeric,
+      addProjectWidth: parseFloat(addProjectButton.width),
+      addProjectHeight: parseFloat(addProjectButton.height),
+      sidebarRadius: parseFloat(sidebar.borderRadius)
+    };
+  });
+
+  expect(polish.rootFontSmoothing).toBe('antialiased');
+  expect(polish.sendMinHeight).toBeGreaterThanOrEqual(40);
+  expect(polish.addProjectWidth).toBeGreaterThanOrEqual(40);
+  expect(polish.addProjectHeight).toBeGreaterThanOrEqual(40);
+  expect(polish.sendTransitionProperty).toContain('transform');
+  expect(polish.sendTransitionProperty).not.toContain('all');
+  expect(polish.inputTransitionProperty).toContain('box-shadow');
+  expect(polish.titleTextWrap).toBe('balance');
+  expect(polish.agentStatusNumbers).toContain('tabular-nums');
+  expect(polish.sidebarRadius).toBeGreaterThanOrEqual(24);
+});
+
 test('mock harness stops an active composer run from the composer', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
