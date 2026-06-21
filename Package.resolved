@@ -1,13 +1,13 @@
 {
-  "originHash" : "ef0e4d9ab5861515f9ed4557c04ff9a221b6c42991e4f8601ae637271293465e",
+  "originHash" : "389d35d9f96ceb765b4060d6dc9c07fe717e6d851aa0e2d3cf5a67f57ddda763",
   "pins" : [
     {
       "identity" : "trusted-router-swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/jperla/trusted-router-swift.git",
       "state" : {
-        "revision" : "6c8be67203ba390bad634f2f695df50334455a43",
-        "version" : "0.4.0"
+        "revision" : "410cb034ce5a20b62f209d03d46a256cafe7b54f",
+        "version" : "0.4.1"
       }
     }
   ],

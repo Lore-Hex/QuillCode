@@ -1113,7 +1113,17 @@ test('mock harness searches and selects models from the top bar', async ({ page 
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-browser')).toBeVisible();
   await expect(page.getByTestId('model-badge').filter({ hasText: 'Current' }).first()).toBeVisible();
+  await expect(page.getByTestId('model-option-summary').first()).toContainText('Recommended · trustedrouter/fast');
+  await expect(page.getByTestId('model-option-detail').filter({ hasText: 'Provider: trustedrouter' }).first()).toBeVisible();
+  await expect(page.getByTestId('model-option-detail').filter({ hasText: 'Category: Recommended' }).first()).toBeVisible();
+  await expect(page.getByTestId('model-badge').filter({ hasText: 'Default' }).first()).toBeVisible();
+  await expect(page.getByTestId('model-badge').filter({ hasText: 'Recommended' }).first()).toBeVisible();
   await expect(page.getByTestId('model-option')).toHaveCount(4);
+
+  await page.getByTestId('model-search').fill('default model');
+  await expect(page.getByTestId('model-option')).toHaveCount(1);
+  await expect(page.getByTestId('model-option')).toContainText('trustedrouter/Fast');
+  await page.getByTestId('model-search').fill('');
 
   await page.getByTestId('model-favorite-button').nth(1).click();
   await expect(page.getByTestId('model-browser')).toBeVisible();

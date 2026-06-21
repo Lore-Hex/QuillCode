@@ -300,6 +300,9 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
                     option.id,
                     option.provider,
                     option.displayName,
+                    option.category,
+                    option.metadataSummary,
+                    option.metadataDetails.joined(separator: " "),
                     option.badges.joined(separator: " ")
                 ].joined(separator: " ").lowercased()
                 return normalizedTerms.allSatisfy { haystack.contains($0) }
@@ -329,6 +332,8 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
     public var isSelected: Bool
     public var isFavorite: Bool
     public var badges: [String]
+    public var metadataSummary: String
+    public var metadataDetails: [String]
     public var modelInfo: ModelInfo {
         ModelInfo(id: id, provider: provider, displayName: displayName, category: category)
     }
@@ -341,6 +346,15 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         self.isSelected = model.id == selectedModelID
         self.isFavorite = isFavorite
         self.badges = badges
+        self.metadataSummary = Self.metadataSummary(provider: model.provider, modelID: model.id, category: model.category)
+        self.metadataDetails = Self.metadataDetails(
+            provider: model.provider,
+            modelID: model.id,
+            category: model.category,
+            isSelected: model.id == selectedModelID,
+            isFavorite: isFavorite,
+            badges: badges
+        )
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -351,6 +365,8 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         case isSelected
         case isFavorite
         case badges
+        case metadataSummary
+        case metadataDetails
     }
 
     public init(from decoder: Decoder) throws {
@@ -362,6 +378,66 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         self.isSelected = try container.decode(Bool.self, forKey: .isSelected)
         self.isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         self.badges = try container.decodeIfPresent([String].self, forKey: .badges) ?? []
+        self.metadataSummary = try container.decodeIfPresent(String.self, forKey: .metadataSummary)
+            ?? Self.metadataSummary(provider: provider, modelID: id, category: category)
+        self.metadataDetails = try container.decodeIfPresent([String].self, forKey: .metadataDetails)
+            ?? Self.metadataDetails(
+                provider: provider,
+                modelID: id,
+                category: category,
+                isSelected: isSelected,
+                isFavorite: isFavorite,
+                badges: badges
+            )
+    }
+
+    private static func metadataSummary(provider: String, modelID: String, category: String) -> String {
+        "\(category) · \(modelID)"
+    }
+
+    private static func metadataDetails(
+        provider: String,
+        modelID: String,
+        category: String,
+        isSelected: Bool,
+        isFavorite: Bool,
+        badges: [String]
+    ) -> [String] {
+        var details = [
+            "Provider: \(provider)",
+            "Model ID: \(modelID)",
+            "Category: \(category)"
+        ]
+        if isSelected {
+            details.append("Current selection")
+        }
+        if isFavorite {
+            details.append("Favorite")
+        }
+        for badge in badges {
+            switch badge {
+            case "Default":
+                details.append("Default model")
+            case "Recommended":
+                details.append("Recommended by QuillCode")
+            case "Recent":
+                details.append("Recently used")
+            case "Current", "Favorite":
+                continue
+            default:
+                details.append(badge)
+            }
+        }
+        return unique(details)
+    }
+
+    private static func unique(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for value in values where seen.insert(value).inserted {
+            result.append(value)
+        }
+        return result
     }
 }
 

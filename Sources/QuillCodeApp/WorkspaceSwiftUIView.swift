@@ -1032,7 +1032,7 @@ private struct QuillCodeModelPickerView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("No models match")
                             .font(.headline)
-                        Text("Try a provider, model name, or category.")
+                        Text("Try a provider, model name, category, or state.")
                             .font(.caption)
                             .foregroundStyle(QuillCodePalette.muted)
                     }
@@ -1058,7 +1058,7 @@ private struct QuillCodeModelPickerView: View {
                 }
             }
             .padding(14)
-            .frame(width: 380, height: 440)
+            .frame(width: 420, height: 460)
             .background(QuillCodePalette.panel)
         }
         .onChange(of: isPresented) { _, presented in
@@ -1083,9 +1083,10 @@ private struct QuillCodeModelPickerView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(option.provider)/\(option.displayName)")
                             .font(.callout.weight(.medium))
-                        Text(option.id)
+                        Text(option.metadataSummary)
                             .font(.caption)
                             .foregroundStyle(QuillCodePalette.muted)
+                            .lineLimit(1)
                         if !option.badges.isEmpty {
                             HStack(spacing: 5) {
                                 ForEach(option.badges, id: \.self) { badge in
@@ -1110,6 +1111,8 @@ private struct QuillCodeModelPickerView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .help(option.metadataDetails.joined(separator: "\n"))
+            .accessibilityHint(option.metadataDetails.joined(separator: ", "))
 
             Button {
                 onToggleModelFavorite(option.id)
@@ -1117,7 +1120,7 @@ private struct QuillCodeModelPickerView: View {
                 Image(systemName: option.isFavorite ? "star.fill" : "star")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(option.isFavorite ? QuillCodePalette.yellow : QuillCodePalette.muted)
-                    .frame(width: 30, height: 30)
+                    .frame(width: 40, height: 40)
                     .background((option.isFavorite ? QuillCodePalette.yellow : QuillCodePalette.muted).opacity(0.12))
                     .clipShape(Circle())
             }
@@ -1128,7 +1131,7 @@ private struct QuillCodeModelPickerView: View {
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(option.isSelected ? QuillCodePalette.selection : QuillCodePalette.background.opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private func badgeTint(_ badge: String) -> Color {

@@ -121,7 +121,7 @@
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 8px;
-      align-items: stretch;
+      align-items: center;
     }
     .model-option {
       width: 100%;
@@ -130,15 +130,31 @@
       gap: 2px;
       text-align: left;
     }
-    .model-option span,
-    .model-option small {
+    .model-title,
+    .model-summary {
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .model-option small { color: var(--muted); }
+    .model-summary { color: var(--muted); }
+    .model-details {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 2px;
+    }
+    .model-details em {
+      color: var(--muted);
+      background: rgba(255,255,255,.045);
+      border-radius: 999px;
+      padding: 2px 6px;
+      font-style: normal;
+      font-size: 10px;
+      font-weight: 600;
+    }
     .model-favorite {
       width: 40px;
       min-width: 40px;
+      height: 40px;
       padding: 0;
       display: grid;
       place-items: center;
@@ -2489,19 +2505,22 @@
               ${category.models.map(model => `
                 <div class="model-row" data-testid="model-row" data-model-id="${escapeHTML(model.id)}">
                   <button class="model-option ${model.id === state.topBar.selectedModelID ? 'selected' : ''}" type="button" data-testid="model-option" data-model-id="${escapeHTML(model.id)}">
-                    <span>${escapeHTML(model.provider + '/' + model.displayName)}${model.id === state.topBar.selectedModelID ? ' ✓' : ''}</span>
-                    <small>${escapeHTML(model.id)}</small>
+                    <span class="model-title">${escapeHTML(model.provider + '/' + model.displayName)}${model.id === state.topBar.selectedModelID ? ' ✓' : ''}</span>
+                    <small class="model-summary" data-testid="model-option-summary">${escapeHTML(modelMetadataSummary(model, category.category))}</small>
+                    <span class="model-details" data-testid="model-option-details">
+                      ${visibleModelMetadataDetails(model, category.category).map(detail => `<em data-testid="model-option-detail">${escapeHTML(detail)}</em>`).join('')}
+                    </span>
                     ${(model.badges || []).length ? `<span class="model-badges">${model.badges.map(badge => `<em data-testid="model-badge">${escapeHTML(badge)}</em>`).join('')}</span>` : ''}
                   </button>
                   <button class="model-favorite ${model.isFavorite ? 'active' : ''}" type="button" data-testid="model-favorite-button" data-model-id="${escapeHTML(model.id)}" aria-label="${model.isFavorite ? 'Remove favorite model' : 'Favorite model'}">${model.isFavorite ? '★' : '☆'}</button>
                 </div>`).join('')}
             </section>`).join('')}
-        </div>` : '<div class="model-empty" data-testid="model-empty">No models match. Try a provider, category, or model name.</div>';
+        </div>` : '<div class="model-empty" data-testid="model-empty">No models match. Try a provider, category, model name, or state.</div>';
       const modelBrowser = state.topBar.modelPickerOpen ? `
         <section class="model-panel" data-testid="model-browser" aria-label="Model browser">
           <div>
             <h2>Choose Model</h2>
-            <p>Search provider, category, or model</p>
+            <p>Search provider, category, model, or state</p>
           </div>
           <input data-testid="model-search" aria-label="Search models" placeholder="Search models" value="${escapeHTML(state.topBar.modelSearch)}">
           ${modelResults}
@@ -3033,6 +3052,9 @@
               model.id,
               model.provider,
               model.displayName,
+              model.category || category.category,
+              modelMetadataSummary(model, category.category),
+              modelMetadataDetails(model, category.category).join(' '),
               (model.badges || []).join(' ')
             ].join(' ').toLowerCase();
             return terms.every(term => haystack.includes(term));
@@ -3107,6 +3129,50 @@
         isFavorite,
         badges
       };
+    }
+
+    function modelMetadataSummary(model, categoryName) {
+      return model.metadataSummary || `${model.category || categoryName || 'Models'} · ${model.id}`;
+    }
+
+    function modelMetadataDetails(model, categoryName) {
+      if (Array.isArray(model.metadataDetails) && model.metadataDetails.length) {
+        return model.metadataDetails;
+      }
+      const category = model.category || categoryName || 'Models';
+      const details = [
+        `Provider: ${model.provider}`,
+        `Model ID: ${model.id}`,
+        `Category: ${category}`
+      ];
+      if (model.isSelected || model.id === state.topBar.selectedModelID) {
+        details.push('Current selection');
+      }
+      if (model.isFavorite) {
+        details.push('Favorite');
+      }
+      (model.badges || []).forEach(badge => {
+        if (badge === 'Default') details.push('Default model');
+        else if (badge === 'Recommended') details.push('Recommended by QuillCode');
+        else if (badge === 'Recent') details.push('Recently used');
+        else if (badge !== 'Current' && badge !== 'Favorite') details.push(badge);
+      });
+      return uniqueStrings(details);
+    }
+
+    function visibleModelMetadataDetails(model, categoryName) {
+      return modelMetadataDetails(model, categoryName).filter(detail =>
+        detail.startsWith('Provider:') || detail.startsWith('Category:')
+      );
+    }
+
+    function uniqueStrings(values) {
+      const seen = new Set();
+      return values.filter(value => {
+        if (seen.has(value)) return false;
+        seen.add(value);
+        return true;
+      });
     }
 
     function uniqueBadges(badges) {

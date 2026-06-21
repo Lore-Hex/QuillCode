@@ -33,6 +33,12 @@ final class WorkspaceSurfaceTests: XCTestCase {
             .prefix(2)
             .map(\.id) ?? []
         XCTAssertEqual(recommendedModelIDs, [TrustedRouterDefaults.fastModel, TrustedRouterDefaults.fusionModel])
+        let defaultOption = surface.topBar.modelCategories
+            .flatMap(\.models)
+            .first { $0.id == TrustedRouterDefaults.defaultModel }
+        XCTAssertEqual(defaultOption?.metadataSummary, "Recommended · trustedrouter/fast")
+        XCTAssertTrue(defaultOption?.metadataDetails.contains("Default model") == true)
+        XCTAssertTrue(defaultOption?.metadataDetails.contains("Recommended by QuillCode") == true)
         XCTAssertEqual(surface.topBar.modeLabel, "Auto")
         XCTAssertEqual(surface.topBar.instructionLabel, "No project instructions")
         XCTAssertEqual(surface.topBar.instructionSources, [])
@@ -484,6 +490,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(topBar.filteredModelCategories(matching: "coding").flatMap(\.models).map(\.id), ["acme/code-pro"])
         XCTAssertEqual(topBar.filteredModelCategories(matching: "moon k2").flatMap(\.models).map(\.id), ["moonshotai/kimi-k2.6"])
         XCTAssertEqual(topBar.filteredModelCategories(matching: "trusted fusion").flatMap(\.models).map(\.id), [TrustedRouterDefaults.fusionModel])
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "default model").flatMap(\.models).map(\.id), [TrustedRouterDefaults.fusionModel])
         XCTAssertTrue(topBar.filteredModelCategories(matching: "does-not-exist").isEmpty)
     }
 
@@ -728,6 +735,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
             .first { $0.id == TrustedRouterDefaults.defaultModel })
         XCTAssertTrue(defaultOption.badges.contains("Default"))
         XCTAssertTrue(defaultOption.badges.contains("Recommended"))
+        XCTAssertEqual(defaultOption.metadataSummary, "Recommended · trustedrouter/fast")
+        XCTAssertTrue(defaultOption.metadataDetails.contains("Provider: trustedrouter"))
+        XCTAssertTrue(defaultOption.metadataDetails.contains("Model ID: trustedrouter/fast"))
+        XCTAssertTrue(defaultOption.metadataDetails.contains("Category: Recommended"))
 
         XCTAssertEqual(topBar.filteredModelCategories(matching: "moon k2").flatMap(\.models).map(\.id), ["moonshotai/kimi-k2.6"])
         XCTAssertEqual(topBar.filteredModelCategories(matching: "recent").first?.category, "Recent")
@@ -787,6 +798,11 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(option.isSelected)
         XCTAssertFalse(option.isFavorite)
         XCTAssertTrue(option.badges.isEmpty)
+        XCTAssertEqual(option.metadataSummary, "Recommended · tr/fusion")
+        XCTAssertTrue(option.metadataDetails.contains("Provider: trustedrouter"))
+        XCTAssertTrue(option.metadataDetails.contains("Model ID: tr/fusion"))
+        XCTAssertTrue(option.metadataDetails.contains("Category: Recommended"))
+        XCTAssertTrue(option.metadataDetails.contains("Current selection"))
     }
 
     func testEmptySurfaceShowsCodexLikeEmptyState() {

@@ -19,7 +19,7 @@ let package = Package(
         .executable(name: "quill-code-desktop", targets: ["quill-code-desktop"])
     ],
     dependencies: [
-        .package(url: "https://github.com/jperla/trusted-router-swift.git", from: "0.4.0")
+        .package(url: "https://github.com/jperla/trusted-router-swift.git", from: "0.4.1")
     ],
     targets: [
         .target(name: "QuillCodeCore"),

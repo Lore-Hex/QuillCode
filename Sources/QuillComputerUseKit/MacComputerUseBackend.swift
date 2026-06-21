@@ -1,3 +1,4 @@
+#if canImport(AppKit) && canImport(ApplicationServices) && canImport(CoreGraphics)
 import AppKit
 import ApplicationServices
 import CoreGraphics
@@ -197,3 +198,4 @@ public struct MacComputerUseBackend: ComputerUseBackend {
         }
     }
 }
+#endif

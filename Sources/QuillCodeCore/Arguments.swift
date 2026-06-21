@@ -21,29 +21,53 @@ public struct ToolArguments: Sendable {
     private let values: [String: Sendable]
 
     public init(_ json: String) throws {
-        guard let data = json.data(using: .utf8),
-              let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else {
+        guard let data = json.data(using: .utf8) else {
+            throw ToolArgumentError.invalidJSON(json)
+        }
+        let object: [String: JSONArgumentValue]
+        do {
+            object = try JSONDecoder().decode([String: JSONArgumentValue].self, from: data)
+        } catch {
             throw ToolArgumentError.invalidJSON(json)
         }
         var values: [String: Sendable] = [:]
         for (key, value) in object {
             switch value {
-            case let string as String:
+            case .string(let string):
                 values[key] = string
-            case let number as NSNumber:
-                if CFGetTypeID(number) == CFBooleanGetTypeID() {
-                    values[key] = number.boolValue
-                } else {
-                    values[key] = number.stringValue
-                }
-            case let bool as Bool:
+            case .bool(let bool):
                 values[key] = bool
-            default:
+            case .number(let number):
+                values[key] = number
+            case .unsupported:
                 continue
             }
         }
         self.values = values
+    }
+
+    private enum JSONArgumentValue: Decodable {
+        case string(String)
+        case bool(Bool)
+        case number(String)
+        case unsupported
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            if container.decodeNil() {
+                self = .unsupported
+            } else if let bool = try? container.decode(Bool.self) {
+                self = .bool(bool)
+            } else if let int = try? container.decode(Int.self) {
+                self = .number(String(int))
+            } else if let double = try? container.decode(Double.self) {
+                self = .number(String(double))
+            } else if let string = try? container.decode(String.self) {
+                self = .string(string)
+            } else {
+                self = .unsupported
+            }
+        }
     }
 
     public func string(_ key: String) -> String? {

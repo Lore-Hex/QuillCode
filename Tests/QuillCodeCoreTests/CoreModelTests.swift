@@ -36,11 +36,21 @@ final class CoreModelTests: XCTestCase {
     }
 
     func testToolArgumentsParseIntegerValues() throws {
-        let args = try ToolArguments(#"{"x":42,"y":"84"}"#)
+        let args = try ToolArguments(#"{"x":42,"y":"84","dx":1,"dy":-2}"#)
 
         XCTAssertEqual(try args.requiredInt("x"), 42)
         XCTAssertEqual(try args.requiredInt("y"), 84)
+        XCTAssertEqual(try args.requiredInt("dx"), 1)
+        XCTAssertEqual(try args.requiredInt("dy"), -2)
         XCTAssertThrowsError(try args.requiredInt("z"))
+    }
+
+    func testToolArgumentsParseBooleanValues() throws {
+        let args = try ToolArguments(#"{"enabled":true,"disabled":false}"#)
+
+        XCTAssertEqual(args.bool("enabled"), true)
+        XCTAssertEqual(args.bool("disabled"), false)
+        XCTAssertNil(args.bool("missing"))
     }
 
     func testModelCatalogNormalizationDeduplicatesAliasesAndSortsDefaultsFirst() {
