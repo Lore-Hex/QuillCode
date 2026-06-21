@@ -8,12 +8,12 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - Thread reducers, tool schemas, shell/file/path safety.
 - Patch parser, diff parser, file/line/range review comments, Auto reviewer JSON, sandbox policy.
 - Project instruction discovery, nested precedence, symlink/root bounds, and byte/file caps.
-- Shortcut registry, plugin/skill/MCP manifests, memory redaction.
+- Shortcut registry, plugin/skill/MCP manifest discovery, symlink/root bounds, duplicate ID handling, byte/count caps, malformed manifest skips, memory redaction.
 
 ## Functional Tests
 
 - Mock TrustedRouter, mock LLM, fake shell, fake filesystem, fake git repo.
-- Cover login, model switch, searchable model picker, new thread, project instruction refresh before runs, incremental run progress, chronological transcript ordering, tool cards, artifact preview chips, collapsed successful-tool details, file edit, post-patch review refresh, review comments, command failure, cancellation, approvals, settings, top bar, search, slash commands, slash-to-workspace-action routing, and worktree project/thread handoff.
+- Cover login, model switch, searchable model picker, new thread, project instruction refresh before runs, project extension manifest refresh, incremental run progress, chronological transcript ordering, tool cards, artifact preview chips, collapsed successful-tool details, file edit, post-patch review refresh, review comments, command failure, cancellation, approvals, settings, top bar, search, slash commands, slash-to-workspace-action routing, and worktree project/thread handoff.
 
 ## Integration Tests
 
@@ -21,7 +21,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - OAuth PKCE generation, authorize URL construction, callback state validation, loopback callback capture, key exchange, delegated key persistence, non-secret account persistence, userinfo fetch, runtime refresh, loopback/dev override.
 - QuillUI secret-store adapter.
 - macOS Computer Use permission detection and Linux backend detection.
-- Worktree creation plus selected-project/thread handoff, local env actions, MCP stdio server.
+- Worktree creation plus selected-project/thread handoff, local env actions, MCP stdio server discovery and lifecycle once execution is enabled.
 
 ## Playwright E2E
 
@@ -38,6 +38,7 @@ Drive the QuillCode test harness with mock LLM:
 - review diff, post-patch review refresh, and file/line/range review notes
 - Auto approve/deny/clarify
 - browser preview
+- extension manifest discovery, with plugin/skill/MCP counts and disabled-state display
 - plugin install
 - settings
 - top bar stop-all
@@ -51,7 +52,7 @@ Drive the QuillCode test harness with mock LLM:
 - Packaged macOS and Linux app launch.
 - Login/dev override.
 - Open repo, chat, run `whoami`, create file, confirm the created file appears as a tool-card artifact preview, confirm raw successful-tool details can be opened, review diff.
-- Terminal toggle, settings, top bar widget, quit/relaunch persistence.
+- Terminal toggle, Extensions toggle, settings, top bar widget, quit/relaunch persistence.
 
 ## Release Gates
 

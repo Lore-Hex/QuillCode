@@ -47,6 +47,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "add-project",
             "toggle-terminal",
             "toggle-browser",
+            "toggle-extensions",
             "git-pr-create",
             "git-worktree-list",
             "git-worktree-create",
@@ -66,6 +67,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(surface.terminal.isVisible)
         XCTAssertEqual(surface.terminal.cwdLabel, "/tmp/QuillCode")
         XCTAssertFalse(surface.browser.isVisible)
+        XCTAssertFalse(surface.extensions.isVisible)
     }
 
     func testSettingsSurfaceShowsTrustedRouterAccount() {
@@ -206,6 +208,44 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertEqual(command?.title, "Run Bootstrap")
         XCTAssertEqual(command?.isEnabled, true)
+    }
+
+    func testSurfaceIncludesProjectExtensionSummaryAndCommand() {
+        let project = ProjectRef(
+            name: "QuillCode",
+            path: "/tmp/QuillCode",
+            extensionManifests: [
+                ProjectExtensionManifest(
+                    id: "plugin:github",
+                    kind: .plugin,
+                    name: "GitHub",
+                    summary: "PR workflow helpers.",
+                    relativePath: ".quillcode/plugins/github.json"
+                ),
+                ProjectExtensionManifest(
+                    id: "mcp_server:filesystem",
+                    kind: .mcpServer,
+                    name: "Filesystem MCP",
+                    summary: "Workspace MCP server.",
+                    relativePath: ".quillcode/mcp/filesystem.json",
+                    isEnabled: false,
+                    launchCommand: "quill-mcp --root ."
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            extensions: ExtensionsState(isVisible: true)
+        )
+
+        let surface = model.surface()
+
+        XCTAssertEqual(surface.extensions.subtitle, "1 plugin · 0 skills · 1 MCP server")
+        XCTAssertEqual(surface.extensions.items.map(\.kindLabel), ["Plugin", "MCP"])
+        XCTAssertEqual(surface.extensions.items.map(\.statusLabel), ["Discovered", "Disabled"])
+        XCTAssertEqual(surface.extensions.items.last?.launchCommand, "quill-mcp --root .")
+        XCTAssertEqual(surface.commands.first { $0.id == "toggle-extensions" }?.category, WorkspaceCommandPalette.extensionsCategory)
+        XCTAssertEqual(surface.commands.first { $0.id == "toggle-extensions" }?.isEnabled, true)
     }
 
     func testStopAllCommandIsEnabledForTerminalRuns() {
@@ -599,6 +639,33 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains("http://localhost:5173"))
         XCTAssertTrue(html.contains(#"data-testid="browser-comment""#))
         XCTAssertTrue(html.contains("Inspect responsive state"))
+    }
+
+    func testHTMLRendererIncludesVisibleExtensionsPane() throws {
+        let project = ProjectRef(
+            name: "QuillCode",
+            path: "/tmp/QuillCode",
+            extensionManifests: [
+                ProjectExtensionManifest(
+                    id: "skill:review",
+                    kind: .skill,
+                    name: "Code Review",
+                    summary: "Review bugs first.",
+                    relativePath: ".quillcode/skills/review.json"
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            extensions: ExtensionsState(isVisible: true)
+        )
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="extensions-pane""#))
+        XCTAssertTrue(html.contains(#"data-testid="extension-item""#))
+        XCTAssertTrue(html.contains("Code Review"))
+        XCTAssertTrue(html.contains(".quillcode/skills/review.json"))
     }
 
     func testHTMLRendererIncludesGitReviewPane() throws {

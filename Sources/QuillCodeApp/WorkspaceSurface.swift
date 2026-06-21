@@ -10,6 +10,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var review: WorkspaceReviewSurface
     public var terminal: TerminalSurface
     public var browser: BrowserSurface
+    public var extensions: WorkspaceExtensionsSurface
     public var composer: ComposerSurface
     public var commands: [WorkspaceCommandSurface]
     public var settings: WorkspaceSettingsSurface
@@ -24,6 +25,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         review: WorkspaceReviewSurface,
         terminal: TerminalSurface,
         browser: BrowserSurface,
+        extensions: WorkspaceExtensionsSurface = WorkspaceExtensionsSurface(),
         composer: ComposerSurface,
         commands: [WorkspaceCommandSurface],
         settings: WorkspaceSettingsSurface,
@@ -37,6 +39,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.review = review
         self.terminal = terminal
         self.browser = browser
+        self.extensions = extensions
         self.composer = composer
         self.commands = commands
         self.settings = settings
@@ -459,6 +462,70 @@ public struct BrowserCommentSurface: Codable, Sendable, Hashable, Identifiable {
     }
 }
 
+public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
+    public var isVisible: Bool
+    public var title: String
+    public var subtitle: String
+    public var items: [ProjectExtensionManifestSurface]
+    public var emptyTitle: String
+    public var emptySubtitle: String
+
+    public var pluginCount: Int { items.filter { $0.kind == .plugin }.count }
+    public var skillCount: Int { items.filter { $0.kind == .skill }.count }
+    public var mcpServerCount: Int { items.filter { $0.kind == .mcpServer }.count }
+
+    public init(
+        isVisible: Bool = false,
+        manifests: [ProjectExtensionManifest] = [],
+        emptyTitle: String = "No extension manifests found",
+        emptySubtitle: String = "Add JSON manifests under .quillcode/plugins, .quillcode/skills, or .quillcode/mcp."
+    ) {
+        self.isVisible = isVisible
+        self.items = manifests.map(ProjectExtensionManifestSurface.init)
+        self.emptyTitle = emptyTitle
+        self.emptySubtitle = emptySubtitle
+        self.title = "Extensions"
+        if manifests.isEmpty {
+            self.subtitle = "No project-local plugins, skills, or MCP servers discovered"
+        } else {
+            let pluginCount = manifests.filter { $0.kind == .plugin }.count
+            let skillCount = manifests.filter { $0.kind == .skill }.count
+            let mcpCount = manifests.filter { $0.kind == .mcpServer }.count
+            self.subtitle = [
+                Self.countLabel(pluginCount, singular: "plugin"),
+                Self.countLabel(skillCount, singular: "skill"),
+                Self.countLabel(mcpCount, singular: "MCP server")
+            ].joined(separator: " · ")
+        }
+    }
+
+    private static func countLabel(_ count: Int, singular: String) -> String {
+        "\(count) \(singular)\(count == 1 ? "" : "s")"
+    }
+}
+
+public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var kind: ProjectExtensionKind
+    public var kindLabel: String
+    public var name: String
+    public var summary: String
+    public var relativePath: String
+    public var statusLabel: String
+    public var launchCommand: String?
+
+    public init(manifest: ProjectExtensionManifest) {
+        self.id = manifest.id
+        self.kind = manifest.kind
+        self.kindLabel = manifest.kind.title
+        self.name = manifest.name
+        self.summary = manifest.summary
+        self.relativePath = manifest.relativePath
+        self.statusLabel = manifest.isEnabled ? "Discovered" : "Disabled"
+        self.launchCommand = manifest.launchCommand
+    }
+}
+
 public struct WorkspaceReviewCommentSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var path: String
@@ -782,11 +849,13 @@ public enum WorkspaceCommandPalette {
     public static let environmentCategory = "Environment"
     public static let controlCategory = "Control"
     public static let computerUseCategory = "Computer Use"
+    public static let extensionsCategory = "Extensions"
 
     public static let categoryOrder = [
         threadCategory,
         navigationCategory,
         workspaceCategory,
+        extensionsCategory,
         gitCategory,
         environmentCategory,
         controlCategory,
@@ -993,6 +1062,10 @@ public extension QuillCodeWorkspaceModel {
                 cwd: activeWorkspaceRoot
             ),
             browser: BrowserSurface(browser: browser),
+            extensions: WorkspaceExtensionsSurface(
+                isVisible: extensions.isVisible,
+                manifests: selectedProject?.extensionManifests ?? []
+            ),
             composer: ComposerSurface(composer: composer),
             commands: commands(),
             settings: WorkspaceSettingsSurface(
@@ -1113,6 +1186,13 @@ public extension QuillCodeWorkspaceModel {
                 shortcut: WorkspaceShortcutRegistry.label(for: "toggle-browser"),
                 category: WorkspaceCommandPalette.workspaceCategory,
                 keywords: ["preview", "web", "localhost"]
+            ),
+            WorkspaceCommandSurface(
+                id: "toggle-extensions",
+                title: "Extensions",
+                category: WorkspaceCommandPalette.extensionsCategory,
+                keywords: ["plugins", "skills", "mcp", "manifest"],
+                isEnabled: activeWorkspaceRoot != nil
             ),
             WorkspaceCommandSurface(
                 id: "git-pr-create",

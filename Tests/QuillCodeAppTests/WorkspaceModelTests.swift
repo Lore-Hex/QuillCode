@@ -659,6 +659,80 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(actions[0].command, #"sh '.quillcode/actions/one.sh'"#)
     }
 
+    func testProjectExtensionManifestLoaderLoadsKindsAndRejectsUnsafeFiles() throws {
+        let root = try makeTempDirectory()
+        let pluginDirectory = root.appendingPathComponent(".quillcode/plugins")
+        let skillDirectory = root.appendingPathComponent(".quillcode/skills")
+        let mcpDirectory = root.appendingPathComponent(".quillcode/mcp")
+        try FileManager.default.createDirectory(at: pluginDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: skillDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: mcpDirectory, withIntermediateDirectories: true)
+
+        try #"{"id":"github","name":"GitHub","description":"PR and issue helpers."}"#.write(
+            to: pluginDirectory.appendingPathComponent("github.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try #"{"id":"review","name":"Code Review","summary":"Review defects first.","enabled":false}"#.write(
+            to: skillDirectory.appendingPathComponent("review.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try #"{"id":"filesystem","name":"Filesystem MCP","command":"quill-mcp","args":["--root","."]}"#.write(
+            to: mcpDirectory.appendingPathComponent("filesystem.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try #"{"id":"broken""#.write(
+            to: pluginDirectory.appendingPathComponent("broken.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let outside = try makeTempDirectory().appendingPathComponent("outside.json")
+        try #"{"id":"outside","name":"Outside"}"#.write(to: outside, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(
+            at: pluginDirectory.appendingPathComponent("outside.json"),
+            withDestinationURL: outside
+        )
+
+        let manifests = ProjectExtensionManifestLoader.load(from: root)
+
+        XCTAssertEqual(manifests.map(\.id), [
+            "plugin:github",
+            "skill:review",
+            "mcp_server:filesystem"
+        ])
+        XCTAssertEqual(manifests.map(\.kind), [.plugin, .skill, .mcpServer])
+        XCTAssertEqual(manifests[0].summary, "PR and issue helpers.")
+        XCTAssertEqual(manifests[1].isEnabled, false)
+        XCTAssertEqual(manifests[2].launchCommand, "quill-mcp --root .")
+    }
+
+    func testProjectExtensionManifestsLoadIntoProjectSurface() throws {
+        let root = try makeTempDirectory()
+        let pluginDirectory = root.appendingPathComponent(".quillcode/plugins")
+        try FileManager.default.createDirectory(at: pluginDirectory, withIntermediateDirectories: true)
+        try #"{"id":"github","name":"GitHub","description":"PR workflow helpers."}"#.write(
+            to: pluginDirectory.appendingPathComponent("github.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Extension Project")
+        model.selectProject(projectID)
+        XCTAssertTrue(model.runWorkspaceCommand("toggle-extensions", workspaceRoot: root))
+
+        let extensions = model.surface().extensions
+
+        XCTAssertTrue(extensions.isVisible)
+        XCTAssertEqual(extensions.pluginCount, 1)
+        XCTAssertEqual(extensions.skillCount, 0)
+        XCTAssertEqual(extensions.mcpServerCount, 0)
+        XCTAssertEqual(extensions.items.first?.name, "GitHub")
+        XCTAssertEqual(extensions.items.first?.relativePath, ".quillcode/plugins/github.json")
+    }
+
     func testEmptyDraftDoesNotCreateThread() async throws {
         let model = QuillCodeWorkspaceModel()
         model.setDraft("   ")

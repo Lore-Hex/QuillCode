@@ -242,7 +242,8 @@
     .transcript { display: grid; grid-template-rows: 1fr auto; overflow: hidden; }
     .timeline { padding: 22px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
     .terminal-pane,
-    .browser-pane {
+    .browser-pane,
+    .extensions-pane {
       display: grid;
       gap: 10px;
       padding: 14px;
@@ -251,6 +252,7 @@
     }
     .terminal-pane header,
     .browser-pane header,
+    .extensions-pane header,
     .terminal-entry header {
       display: flex;
       align-items: center;
@@ -293,6 +295,48 @@
       color: var(--muted);
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 12px;
+    }
+    .extensions-pane header p { margin: 3px 0 0; color: var(--muted); }
+    .extensions-counts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+    .extensions-counts span,
+    .extension-card [data-testid="extension-kind"],
+    .extension-card [data-testid="extension-status"] {
+      padding: 4px 8px;
+      border-radius: 999px;
+      color: #b8ecff;
+      background: rgba(65,184,232,.12);
+      border: 1px solid rgba(65,184,232,.18);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .extension-card [data-testid="extension-status"] {
+      color: var(--green);
+      background: rgba(82,210,115,.12);
+      border-color: rgba(82,210,115,.22);
+    }
+    .extensions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .extension-card,
+    .extensions-empty {
+      display: grid;
+      gap: 7px;
+      padding: 12px;
+      border-radius: 12px;
+      background: rgba(0,0,0,.26);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .extension-card header { justify-content: flex-start; }
+    .extension-card p,
+    .extensions-empty p { margin: 0; color: var(--muted); }
+    .extension-card code {
+      color: var(--muted);
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .message, .tool-card, .review-pane, .context-banner {
       max-width: min(760px, 88%);
@@ -682,6 +726,48 @@
         totalDeletions: 0,
         totalHunks: 0
       },
+      extensions: {
+        isVisible: false,
+        title: 'Extensions',
+        subtitle: '1 plugin · 1 skill · 1 MCP server',
+        pluginCount: 1,
+        skillCount: 1,
+        mcpServerCount: 1,
+        emptyTitle: 'No extension manifests found',
+        emptySubtitle: 'Add JSON manifests under .quillcode/plugins, .quillcode/skills, or .quillcode/mcp.',
+        items: [
+          {
+            id: 'plugin:github',
+            kind: 'plugin',
+            kindLabel: 'Plugin',
+            name: 'GitHub',
+            summary: 'Pull request and issue workflow helpers.',
+            relativePath: '.quillcode/plugins/github.json',
+            statusLabel: 'Discovered',
+            launchCommand: null
+          },
+          {
+            id: 'skill:review',
+            kind: 'skill',
+            kindLabel: 'Skill',
+            name: 'Code Review',
+            summary: 'Review bugs, regressions, and missing tests first.',
+            relativePath: '.quillcode/skills/code-review.json',
+            statusLabel: 'Discovered',
+            launchCommand: null
+          },
+          {
+            id: 'mcp_server:filesystem',
+            kind: 'mcp_server',
+            kindLabel: 'MCP',
+            name: 'Filesystem MCP',
+            summary: 'Local fixture MCP server for workspace tools.',
+            relativePath: '.quillcode/mcp/filesystem.json',
+            statusLabel: 'Disabled',
+            launchCommand: 'quill-mcp-filesystem --root .'
+          }
+        ]
+      },
       composer: {
         draft: '',
         placeholder: 'Message QuillCode',
@@ -725,6 +811,7 @@
         { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', category: 'Workspace', keywords: ['folder', 'workspace', 'repo'], isEnabled: true },
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', category: 'Workspace', keywords: ['shell', 'command', 'pty'], isEnabled: true },
         { id: 'toggle-browser', title: 'Browser', shortcut: 'Cmd+Shift+B', category: 'Workspace', keywords: ['preview', 'web', 'localhost'], isEnabled: true },
+        { id: 'toggle-extensions', title: 'Extensions', shortcut: '', category: 'Extensions', keywords: ['plugins', 'skills', 'mcp', 'manifest'], isEnabled: true },
         { id: 'command-palette', title: 'Command palette', shortcut: 'Cmd+Shift+P', category: 'Navigation', keywords: ['commands', 'actions'], isEnabled: true },
         { id: 'git-pr-create', title: 'Create pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'review'], isEnabled: true },
         { id: 'git-worktree-list', title: 'List worktrees', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
@@ -854,6 +941,10 @@
       return null;
     }
 
+    function countLabel(count, singular) {
+      return `${count} ${singular}${count === 1 ? '' : 's'}`;
+    }
+
     const contextTokenBudget = 32000;
     const contextWarningThresholdPercent = 80;
 
@@ -867,7 +958,7 @@
       ));
     }
 
-    const commandCategoryOrder = ['Thread', 'Navigation', 'Workspace', 'Git', 'Environment', 'Control', 'Computer Use'];
+    const commandCategoryOrder = ['Thread', 'Navigation', 'Workspace', 'Extensions', 'Git', 'Environment', 'Control', 'Computer Use'];
 
     function normalizeCommandText(value) {
       return String(value || '').trim().toLowerCase();
@@ -1216,6 +1307,7 @@
 	                <button class="sidebar-action" type="button" data-testid="sidebar-search-button">Search</button>
 	                <button class="sidebar-action" type="button" data-testid="browser-button">Browser</button>
 	                <button class="sidebar-action" type="button" data-testid="terminal-button">Terminal</button>
+	                <button class="sidebar-action" type="button" data-testid="extensions-button">Extensions</button>
               </div>
               <div class="sidebar-section-title">
                 <h2>${escapeHTML(state.projects.title)}</h2>
@@ -1228,6 +1320,7 @@
 	            <main class="transcript" data-testid="transcript">
 	              <div class="timeline">${timeline}</div>
 	              ${state.browser.isVisible ? renderBrowserPane() : ''}
+	              ${state.extensions.isVisible ? renderExtensionsPane() : ''}
 	              ${state.terminal.isVisible ? renderTerminalPane() : ''}
               <form class="composer" data-testid="composer">
                 <label for="message">Message</label>
@@ -1316,6 +1409,10 @@
 	      });
 	      document.querySelector('[data-testid="browser-button"]').addEventListener('click', () => {
 	        state.browser.isVisible = !state.browser.isVisible;
+	        render();
+	      });
+	      document.querySelector('[data-testid="extensions-button"]').addEventListener('click', () => {
+	        state.extensions.isVisible = !state.extensions.isVisible;
 	        render();
 	      });
       document.querySelectorAll('[data-testid="sidebar-item"]').forEach(button => {
@@ -1699,6 +1796,42 @@
 	        </section>`;
 	    }
 
+    function renderExtensionsPane() {
+      const counts = `
+        <span data-testid="extensions-count">${countLabel(state.extensions.pluginCount, 'plugin')}</span>
+        <span data-testid="extensions-count">${countLabel(state.extensions.skillCount, 'skill')}</span>
+        <span data-testid="extensions-count">${countLabel(state.extensions.mcpServerCount, 'MCP server')}</span>`;
+      const content = state.extensions.items.length ? `
+        <div class="extensions-grid" data-testid="extensions-grid">
+          ${state.extensions.items.map(item => `
+            <article class="extension-card" data-testid="extension-item" data-kind="${escapeHTML(item.kind)}">
+              <header>
+                <span data-testid="extension-kind">${escapeHTML(item.kindLabel)}</span>
+                <span data-testid="extension-status">${escapeHTML(item.statusLabel)}</span>
+              </header>
+              <strong data-testid="extension-name">${escapeHTML(item.name)}</strong>
+              ${item.summary ? `<p data-testid="extension-summary">${escapeHTML(item.summary)}</p>` : ''}
+              <code data-testid="extension-path">${escapeHTML(item.relativePath)}</code>
+              ${item.launchCommand ? `<code data-testid="extension-command">${escapeHTML(item.launchCommand)}</code>` : ''}
+            </article>`).join('')}
+        </div>` : `
+        <div class="extensions-empty" data-testid="extensions-empty">
+          <strong>${escapeHTML(state.extensions.emptyTitle)}</strong>
+          <p>${escapeHTML(state.extensions.emptySubtitle)}</p>
+        </div>`;
+      return `
+        <section class="extensions-pane" data-testid="extensions-pane" aria-label="Project extensions">
+          <header>
+            <div>
+              <strong>${escapeHTML(state.extensions.title)}</strong>
+              <p data-testid="extensions-subtitle">${escapeHTML(state.extensions.subtitle)}</p>
+            </div>
+            <span class="extensions-counts">${counts}</span>
+          </header>
+          ${content}
+        </section>`;
+    }
+
     function ensureThread(title) {
       if (!state.sidebar.selectedThreadID) {
         const threadID = `thread-${state.nextThreadIndex++}`;
@@ -1825,6 +1958,9 @@
       }
       if (commandID === 'toggle-browser') {
         state.browser.isVisible = !state.browser.isVisible;
+      }
+      if (commandID === 'toggle-extensions') {
+        state.extensions.isVisible = !state.extensions.isVisible;
       }
       if (commandID === 'git-pr-create') {
         state.composer.draft = 'Create a pull request titled ';

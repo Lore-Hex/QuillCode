@@ -23,7 +23,7 @@
 | Workspace | AGENTS/rules instructions | Partial | Project-local and nested `AGENTS.md`, `.quillcode/rules.md`, and `.quillcode/instructions.md` are bounded, persisted on project refs, copied into thread context in broad-to-specific order, injected into TrustedRouter as hidden system context, and surfaced as a top-bar status. Per-file rule scopes and richer conflict display pending. |
 | Browser | In-app browser | Partial | Workspace browser panel, address normalization for web/localhost/file/project-relative targets, browser comments, SwiftUI surface, HTML renderer, and Playwright coverage exist. Native WebView/rendering adapter, browser DOM inspection, and signed-in browser profile support pending. |
 | Computer Use | Backend protocol | Implemented | Stub backend exists; platform backends pending. |
-| Plugins | Skills/plugins/MCP | Deferred | Manifest tests planned. |
+| Plugins | Skills/plugins/MCP | Partial | Project-local `.quillcode/plugins/*.json`, `.quillcode/skills/*.json`, and `.quillcode/mcp/*.json` manifests are discovered with symlink/root and byte/count bounds, surfaced in the Extensions pane, command palette, static HTML renderer, macOS menu bar, and Playwright harness. Install/update lifecycle, MCP process management, and execution wiring pending. |
 | Long-running | Automations/subagents | Deferred | Planned after stable thread runtime. |
 | Memory | Memories/Chronicle | Deferred | Requires redaction and idle jobs. |
 | Remote | Phone/SSH remote | Deferred | QuillCloud/SSH design pending. |

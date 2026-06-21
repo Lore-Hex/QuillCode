@@ -125,6 +125,10 @@ public struct QuillCodeWorkspaceView: View {
                             onAddComment: onAddBrowserComment
                         )
                     }
+                    if surface.extensions.isVisible {
+                        Divider()
+                        QuillCodeExtensionsPaneView(extensions: surface.extensions)
+                    }
                     if surface.terminal.isVisible {
                         Divider()
                         QuillCodeTerminalPaneView(
@@ -415,6 +419,8 @@ private struct QuillCodeCommandPaletteView: View {
             return "terminal"
         case "toggle-browser":
             return "globe"
+        case "toggle-extensions":
+            return "puzzlepiece.extension"
         case "git-pr-create":
             return "arrow.up.doc"
         case "git-worktree-list":
@@ -797,7 +803,7 @@ private struct QuillCodeSidebarActionsView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     private var visibleCommands: [WorkspaceCommandSurface] {
-        commands.filter { ["new-chat", "search", "toggle-browser", "toggle-terminal"].contains($0.id) }
+        commands.filter { ["new-chat", "search", "toggle-browser", "toggle-terminal", "toggle-extensions"].contains($0.id) }
     }
 
     var body: some View {
@@ -829,6 +835,8 @@ private struct QuillCodeSidebarActionsView: View {
             return "terminal"
         case "toggle-browser":
             return "globe"
+        case "toggle-extensions":
+            return "puzzlepiece.extension"
         default:
             return "circle"
         }
@@ -1270,6 +1278,104 @@ private struct QuillCodeBrowserPaneView: View {
         guard !comment.isEmpty else { return }
         onAddComment(comment)
         commentDraft = ""
+    }
+}
+
+private struct QuillCodeExtensionsPaneView: View {
+    var extensions: WorkspaceExtensionsSurface
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "puzzlepiece.extension")
+                    .foregroundStyle(QuillCodePalette.blue)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(extensions.title)
+                        .font(.headline)
+                    Text(extensions.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                Spacer()
+                HStack(spacing: 6) {
+                    countPill(label: "Plugins", count: extensions.pluginCount)
+                    countPill(label: "Skills", count: extensions.skillCount)
+                    countPill(label: "MCP", count: extensions.mcpServerCount)
+                }
+            }
+
+            if extensions.items.isEmpty {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(extensions.emptyTitle)
+                        .font(.callout.weight(.semibold))
+                    Text(extensions.emptySubtitle)
+                        .font(.caption)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(QuillCodePalette.background.opacity(0.7))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            } else {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 10) {
+                        ForEach(extensions.items) { item in
+                            VStack(alignment: .leading, spacing: 7) {
+                                HStack(spacing: 6) {
+                                    Text(item.kindLabel)
+                                        .font(.caption2.weight(.bold))
+                                        .foregroundStyle(QuillCodePalette.blue)
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 3)
+                                        .background(QuillCodePalette.blue.opacity(0.14))
+                                        .clipShape(Capsule())
+                                    Text(item.statusLabel)
+                                        .font(.caption2.weight(.bold))
+                                        .foregroundStyle(item.statusLabel == "Discovered" ? QuillCodePalette.green : QuillCodePalette.muted)
+                                    Spacer()
+                                }
+                                Text(item.name)
+                                    .font(.callout.weight(.semibold))
+                                    .lineLimit(1)
+                                if !item.summary.isEmpty {
+                                    Text(item.summary)
+                                        .font(.caption)
+                                        .foregroundStyle(QuillCodePalette.muted)
+                                        .lineLimit(2)
+                                }
+                                Text(item.relativePath)
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(QuillCodePalette.muted)
+                                    .lineLimit(1)
+                                if let launchCommand = item.launchCommand {
+                                    Text(launchCommand)
+                                        .font(.caption2.monospaced())
+                                        .foregroundStyle(QuillCodePalette.muted)
+                                        .lineLimit(1)
+                                }
+                            }
+                            .padding(12)
+                            .frame(width: 260, alignment: .topLeading)
+                            .background(QuillCodePalette.background.opacity(0.7))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(height: extensions.items.isEmpty ? 170 : 220)
+        .background(QuillCodePalette.panel)
+    }
+
+    private func countPill(label: String, count: Int) -> some View {
+        Text("\(count) \(label)")
+            .font(.caption2.monospacedDigit().weight(.semibold))
+            .foregroundStyle(QuillCodePalette.blue)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(QuillCodePalette.blue.opacity(0.12))
+            .clipShape(Capsule())
     }
 }
 

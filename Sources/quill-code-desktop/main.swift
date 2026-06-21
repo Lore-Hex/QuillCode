@@ -32,6 +32,9 @@ struct QuillCodeDesktopApp: App {
                     NotificationCenter.default.post(name: .quillCodeToggleBrowser, object: nil)
                 }
                 .quillCodeShortcut("toggle-browser")
+                Button("Toggle Extensions") {
+                    NotificationCenter.default.post(name: .quillCodeToggleExtensions, object: nil)
+                }
                 Button("Command Palette") {
                     NotificationCenter.default.post(name: .quillCodeCommandPalette, object: nil)
                 }
@@ -55,6 +58,7 @@ struct QuillCodeDesktopApp: App {
                 onSettings: controller.openSettings,
                 onToggleTerminal: controller.toggleTerminal,
                 onToggleBrowser: controller.toggleBrowser,
+                onToggleExtensions: controller.toggleExtensions,
                 onStopAll: controller.stopAll,
                 onComputerUseSetup: controller.openSettings,
                 onQuit: {
@@ -104,6 +108,9 @@ private struct QuillCodeDesktopRootView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeToggleBrowser)) { _ in
             controller.toggleBrowser()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .quillCodeToggleExtensions)) { _ in
+            controller.toggleExtensions()
         }
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeOpenProject)) { _ in
             controller.requestAddProject()
@@ -356,6 +363,8 @@ private final class QuillCodeDesktopController: ObservableObject {
             toggleTerminal()
         case "toggle-browser":
             toggleBrowser()
+        case "toggle-extensions":
+            toggleExtensions()
         case "command-palette":
             openCommandPalette()
         case "stop-all":
@@ -376,6 +385,11 @@ private final class QuillCodeDesktopController: ObservableObject {
 
     func toggleBrowser() {
         model.toggleBrowser()
+        refresh()
+    }
+
+    func toggleExtensions() {
+        model.toggleExtensions()
         refresh()
     }
 
@@ -485,6 +499,7 @@ private struct QuillCodeMenuBarView: View {
     var onSettings: () -> Void
     var onToggleTerminal: () -> Void
     var onToggleBrowser: () -> Void
+    var onToggleExtensions: () -> Void
     var onStopAll: () -> Void
     var onComputerUseSetup: () -> Void
     var onQuit: () -> Void
@@ -506,6 +521,7 @@ private struct QuillCodeMenuBarView: View {
         Button("Command Palette", action: onCommandPalette)
         Button(surface.terminal.isVisible ? "Hide Terminal" : "Show Terminal", action: onToggleTerminal)
         Button(surface.browser.isVisible ? "Hide Browser" : "Show Browser", action: onToggleBrowser)
+        Button(surface.extensions.isVisible ? "Hide Extensions" : "Show Extensions", action: onToggleExtensions)
         if surface.topBar.showsComputerUseSetup {
             Button("Computer Use Setup", action: onComputerUseSetup)
         }
@@ -537,6 +553,7 @@ private extension Notification.Name {
     static let quillCodeCommandPalette = Notification.Name("QuillCodeCommandPalette")
     static let quillCodeToggleTerminal = Notification.Name("QuillCodeToggleTerminal")
     static let quillCodeToggleBrowser = Notification.Name("QuillCodeToggleBrowser")
+    static let quillCodeToggleExtensions = Notification.Name("QuillCodeToggleExtensions")
     static let quillCodeOpenSettings = Notification.Name("QuillCodeOpenSettings")
     static let quillCodeStopAll = Notification.Name("QuillCodeStopAll")
 }

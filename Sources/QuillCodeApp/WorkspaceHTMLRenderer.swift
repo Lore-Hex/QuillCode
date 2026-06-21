@@ -9,6 +9,7 @@ public enum WorkspaceHTMLRenderer {
             \(renderSidebar(projects: surface.projects, sidebar: surface.sidebar))
             <main class="transcript" data-testid="transcript">
               \(renderTranscript(surface.transcript, contextBanner: surface.contextBanner, review: surface.review))
+              \(renderExtensions(surface.extensions))
               \(renderBrowser(surface.browser))
               \(renderTerminal(surface.terminal))
               \(renderComposer(surface.composer))
@@ -366,6 +367,63 @@ public enum WorkspaceHTMLRenderer {
           </div>
         </section>
         """
+    }
+
+    private static func renderExtensions(_ extensions: WorkspaceExtensionsSurface) -> String {
+        guard extensions.isVisible else { return "" }
+        let counts = """
+        <span data-testid="extensions-count">\(countLabel(extensions.pluginCount, singular: "plugin"))</span>
+        <span data-testid="extensions-count">\(countLabel(extensions.skillCount, singular: "skill"))</span>
+        <span data-testid="extensions-count">\(countLabel(extensions.mcpServerCount, singular: "MCP server"))</span>
+        """
+        let content: String
+        if extensions.items.isEmpty {
+            content = """
+            <div class="extensions-empty" data-testid="extensions-empty">
+              <strong>\(escape(extensions.emptyTitle))</strong>
+              <p>\(escape(extensions.emptySubtitle))</p>
+            </div>
+            """
+        } else {
+            content = """
+            <div class="extensions-grid" data-testid="extensions-grid">
+              \(extensions.items.map(renderExtensionItem).joined(separator: "\n"))
+            </div>
+            """
+        }
+        return """
+        <section class="extensions-pane" data-testid="extensions-pane" aria-label="Project extensions">
+          <header>
+            <div>
+              <strong>\(escape(extensions.title))</strong>
+              <p data-testid="extensions-subtitle">\(escape(extensions.subtitle))</p>
+            </div>
+            <span class="extensions-counts">
+              \(counts)
+            </span>
+          </header>
+          \(content)
+        </section>
+        """
+    }
+
+    private static func renderExtensionItem(_ item: ProjectExtensionManifestSurface) -> String {
+        """
+        <article class="extension-card" data-testid="extension-item" data-kind="\(escape(item.kind.rawValue))">
+          <header>
+            <span data-testid="extension-kind">\(escape(item.kindLabel))</span>
+            <span data-testid="extension-status">\(escape(item.statusLabel))</span>
+          </header>
+          <strong data-testid="extension-name">\(escape(item.name))</strong>
+          \(item.summary.isEmpty ? "" : #"<p data-testid="extension-summary">\#(escape(item.summary))</p>"#)
+          <code data-testid="extension-path">\(escape(item.relativePath))</code>
+          \(item.launchCommand.map { #"<code data-testid="extension-command">\#(escape($0))</code>"# } ?? "")
+        </article>
+        """
+    }
+
+    private static func countLabel(_ count: Int, singular: String) -> String {
+        "\(count) \(singular)\(count == 1 ? "" : "s")"
     }
 
     private static func renderComposer(_ composer: ComposerSurface) -> String {

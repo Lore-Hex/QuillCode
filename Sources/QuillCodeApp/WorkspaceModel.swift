@@ -287,12 +287,21 @@ public struct BrowserState: Sendable, Hashable {
     }
 }
 
+public struct ExtensionsState: Sendable, Hashable {
+    public var isVisible: Bool
+
+    public init(isVisible: Bool = false) {
+        self.isVisible = isVisible
+    }
+}
+
 @MainActor
 public final class QuillCodeWorkspaceModel {
     public private(set) var root: QuillCodeRootState
     public private(set) var composer: ComposerState
     public private(set) var terminal: TerminalState
     public private(set) var browser: BrowserState
+    public private(set) var extensions: ExtensionsState
     public private(set) var lastError: String?
 
     private var runner: AgentRunner
@@ -304,6 +313,7 @@ public final class QuillCodeWorkspaceModel {
         composer: ComposerState = ComposerState(),
         terminal: TerminalState = TerminalState(),
         browser: BrowserState = BrowserState(),
+        extensions: ExtensionsState = ExtensionsState(),
         runner: AgentRunner = AgentRunner(),
         threadStore: JSONThreadStore? = nil,
         projectStore: JSONProjectStore? = nil
@@ -312,6 +322,7 @@ public final class QuillCodeWorkspaceModel {
         self.composer = composer
         self.terminal = terminal
         self.browser = browser
+        self.extensions = extensions
         self.runner = runner
         self.threadStore = threadStore
         self.projectStore = projectStore
@@ -358,6 +369,10 @@ public final class QuillCodeWorkspaceModel {
 
     public func toggleBrowser() {
         browser.isVisible.toggle()
+    }
+
+    public func toggleExtensions() {
+        extensions.isVisible.toggle()
     }
 
     @discardableResult
@@ -457,6 +472,7 @@ public final class QuillCodeWorkspaceModel {
             root.projects[index].name = projectName
             root.projects[index].instructions = ProjectInstructionLoader.load(from: standardized)
             root.projects[index].localActions = LocalEnvironmentActionLoader.load(from: standardized)
+            root.projects[index].extensionManifests = ProjectExtensionManifestLoader.load(from: standardized)
             root.projects[index].lastOpenedAt = Date()
             root.selectedProjectID = root.projects[index].id
             saveProjects()
@@ -469,7 +485,8 @@ public final class QuillCodeWorkspaceModel {
             path: standardized.path,
             lastOpenedAt: Date(),
             instructions: ProjectInstructionLoader.load(from: standardized),
-            localActions: LocalEnvironmentActionLoader.load(from: standardized)
+            localActions: LocalEnvironmentActionLoader.load(from: standardized),
+            extensionManifests: ProjectExtensionManifestLoader.load(from: standardized)
         )
         root.projects.insert(project, at: 0)
         root.selectedProjectID = project.id
@@ -761,6 +778,9 @@ public final class QuillCodeWorkspaceModel {
             return true
         case "toggle-browser":
             toggleBrowser()
+            return true
+        case "toggle-extensions":
+            toggleExtensions()
             return true
         case "fork-from-last":
             return forkFromLast() != nil
@@ -1382,6 +1402,7 @@ public final class QuillCodeWorkspaceModel {
         let rootURL = URL(fileURLWithPath: root.projects[index].path)
         root.projects[index].instructions = ProjectInstructionLoader.load(from: rootURL)
         root.projects[index].localActions = LocalEnvironmentActionLoader.load(from: rootURL)
+        root.projects[index].extensionManifests = ProjectExtensionManifestLoader.load(from: rootURL)
     }
 
     private func syncInstructions(into thread: inout ChatThread) {

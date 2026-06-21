@@ -359,6 +359,30 @@ test('mock harness opens browser preview and records comments', async ({ page })
   await expect(page.getByTestId('browser-status-label')).toHaveText('Comment added');
 });
 
+test('mock harness shows project extension manifests from sidebar and command palette', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('extensions-button').click();
+
+  await expect(page.getByTestId('extensions-pane')).toBeVisible();
+  await expect(page.getByTestId('extensions-subtitle')).toHaveText('1 plugin · 1 skill · 1 MCP server');
+  await expect(page.getByTestId('extensions-count')).toContainText(['1 plugin', '1 skill', '1 MCP server']);
+  await expect(page.getByTestId('extension-item')).toHaveCount(3);
+  await expect(page.getByTestId('extension-item').first()).toContainText('GitHub');
+  await expect(page.getByTestId('extension-item').nth(1)).toContainText('Code Review');
+  await expect(page.getByTestId('extension-item').nth(2)).toContainText('Disabled');
+  await expect(page.getByTestId('extension-command')).toHaveText('quill-mcp-filesystem --root .');
+
+  await page.getByTestId('extensions-button').click();
+  await expect(page.getByTestId('extensions-pane')).toHaveCount(0);
+
+  await page.getByTestId('command-palette-button').click();
+  await page.getByLabel('Search commands').fill('manifest');
+  await expect(page.getByTestId('command-palette-group')).toContainText('Extensions');
+  await page.getByTestId('command-palette-result').click();
+  await expect(page.getByTestId('extensions-pane')).toBeVisible();
+});
+
 test('mock harness shows git review summary for diff flow', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

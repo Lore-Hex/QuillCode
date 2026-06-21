@@ -177,7 +177,26 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
     public var path: String
     public var instructions: [ProjectInstruction]
     public var localActions: [LocalEnvironmentAction]
+    public var extensionManifests: [ProjectExtensionManifest]
     public var lastOpenedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        name: String,
+        path: String,
+        lastOpenedAt: Date = Date(),
+        instructions: [ProjectInstruction] = [],
+        localActions: [LocalEnvironmentAction] = [],
+        extensionManifests: [ProjectExtensionManifest]
+    ) {
+        self.id = id
+        self.name = name
+        self.path = path
+        self.instructions = instructions
+        self.localActions = localActions
+        self.extensionManifests = extensionManifests
+        self.lastOpenedAt = lastOpenedAt
+    }
 
     public init(
         id: UUID = UUID(),
@@ -187,12 +206,15 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         instructions: [ProjectInstruction] = [],
         localActions: [LocalEnvironmentAction] = []
     ) {
-        self.id = id
-        self.name = name
-        self.path = path
-        self.instructions = instructions
-        self.localActions = localActions
-        self.lastOpenedAt = lastOpenedAt
+        self.init(
+            id: id,
+            name: name,
+            path: path,
+            lastOpenedAt: lastOpenedAt,
+            instructions: instructions,
+            localActions: localActions,
+            extensionManifests: []
+        )
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -201,6 +223,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         case path
         case instructions
         case localActions
+        case extensionManifests
         case lastOpenedAt
     }
 
@@ -211,6 +234,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         self.path = try container.decode(String.self, forKey: .path)
         self.instructions = try container.decodeIfPresent([ProjectInstruction].self, forKey: .instructions) ?? []
         self.localActions = try container.decodeIfPresent([LocalEnvironmentAction].self, forKey: .localActions) ?? []
+        self.extensionManifests = try container.decodeIfPresent([ProjectExtensionManifest].self, forKey: .extensionManifests) ?? []
         self.lastOpenedAt = try container.decode(Date.self, forKey: .lastOpenedAt)
     }
 
@@ -221,6 +245,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         try container.encode(path, forKey: .path)
         try container.encode(instructions, forKey: .instructions)
         try container.encode(localActions, forKey: .localActions)
+        try container.encode(extensionManifests, forKey: .extensionManifests)
         try container.encode(lastOpenedAt, forKey: .lastOpenedAt)
     }
 }
@@ -259,6 +284,51 @@ public struct LocalEnvironmentAction: Codable, Sendable, Hashable, Identifiable 
         self.title = title
         self.relativePath = relativePath
         self.command = command
+    }
+}
+
+public enum ProjectExtensionKind: String, Codable, Sendable, Hashable, CaseIterable {
+    case plugin
+    case skill
+    case mcpServer = "mcp_server"
+
+    public var title: String {
+        switch self {
+        case .plugin:
+            return "Plugin"
+        case .skill:
+            return "Skill"
+        case .mcpServer:
+            return "MCP"
+        }
+    }
+}
+
+public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var kind: ProjectExtensionKind
+    public var name: String
+    public var summary: String
+    public var relativePath: String
+    public var isEnabled: Bool
+    public var launchCommand: String?
+
+    public init(
+        id: String,
+        kind: ProjectExtensionKind,
+        name: String,
+        summary: String = "",
+        relativePath: String,
+        isEnabled: Bool = true,
+        launchCommand: String? = nil
+    ) {
+        self.id = id
+        self.kind = kind
+        self.name = name
+        self.summary = summary
+        self.relativePath = relativePath
+        self.isEnabled = isEnabled
+        self.launchCommand = launchCommand
     }
 }
 
