@@ -233,10 +233,43 @@ public enum WorkspaceHTMLRenderer {
             <span data-testid="tool-card-status">\(escape(card.status.rawValue))</span>
           </header>
           <p>\(escape(card.subtitle))</p>
+          \(renderToolArtifacts(card.artifacts))
           \(card.inputJSON.map { #"<pre data-testid="tool-card-input">\#(escape($0))</pre>"# } ?? "")
           \(card.outputJSON.map { #"<pre data-testid="tool-card-output">\#(escape($0))</pre>"# } ?? "")
         </article>
         """
+    }
+
+    private static func renderToolArtifacts(_ artifacts: [ToolArtifactState]) -> String {
+        guard !artifacts.isEmpty else { return "" }
+        let chips = artifacts.map { artifact in
+            let href = artifactHref(artifact).map { #" href="\#(escape($0))""# } ?? ""
+            return """
+            <a class="artifact-chip" data-testid="tool-card-artifact" data-kind="\(escape(artifact.kind.rawValue))"\(href)>\(escape(artifact.label))</a>
+            """
+        }.joined(separator: "\n")
+        return """
+        <div class="tool-artifacts" data-testid="tool-card-artifacts" aria-label="Artifacts">
+          \(chips)
+        </div>
+        """
+    }
+
+    private static func artifactHref(_ artifact: ToolArtifactState) -> String? {
+        switch artifact.kind {
+        case .url:
+            return artifact.value
+        case .file:
+            if artifact.value.hasPrefix("file://") {
+                return artifact.value
+            }
+            if artifact.value.hasPrefix("/") {
+                return URL(fileURLWithPath: artifact.value).absoluteString
+            }
+            return nil
+        case .path:
+            return nil
+        }
     }
 
     private static func renderTerminal(_ terminal: TerminalSurface) -> String {

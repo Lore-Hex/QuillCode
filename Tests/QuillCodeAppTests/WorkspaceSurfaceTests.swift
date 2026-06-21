@@ -538,6 +538,20 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-output""#))
     }
 
+    func testHTMLRendererIncludesToolCardArtifacts() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+        model.setDraft("Can you write a file that says hello world")
+        await model.submitComposer(workspaceRoot: root)
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-artifacts""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-artifact""#))
+        XCTAssertTrue(html.contains(#"data-kind="file""#))
+        XCTAssertTrue(html.contains("hello.txt"))
+    }
+
     func testHTMLRendererKeepsToolCardsInTranscriptOrder() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()

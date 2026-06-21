@@ -313,6 +313,28 @@
     .tool-card.failed { border-color: rgba(255,93,82,.44); }
     .tool-card.review { border-color: rgba(248,184,78,.48); }
     .tool-card header { display: flex; justify-content: space-between; gap: 14px; }
+    .tool-artifacts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .artifact-chip {
+      max-width: 100%;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(65,184,232,.28);
+      color: #b8ecff;
+      background: rgba(65,184,232,.12);
+      text-decoration: none;
+      overflow-wrap: anywhere;
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .artifact-chip::before { content: "•"; opacity: .7; }
     .review-pane {
       align-self: flex-start;
       width: min(760px, 92%);
@@ -737,6 +759,7 @@
     function addToolCard(card) {
       const toolCard = {
         id: `tool-${state.nextTimelineIndex++}`,
+        artifacts: artifactsFromOutput(card.outputJSON),
         ...card
       };
       state.transcript.toolCards.push(toolCard);
@@ -746,6 +769,49 @@
         toolCard
       });
       return toolCard;
+    }
+
+    function artifactsFromOutput(outputJSON) {
+      if (!outputJSON) return [];
+      try {
+        const decoded = JSON.parse(outputJSON);
+        return Array.isArray(decoded.artifacts)
+          ? decoded.artifacts
+              .filter(value => String(value || '').trim())
+              .map(value => artifactState(String(value)))
+          : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function artifactState(value) {
+      let kind = value.startsWith('http://') || value.startsWith('https://')
+        ? 'url'
+        : value.startsWith('/') || value.startsWith('file://')
+          ? 'file'
+          : 'path';
+      let label = value;
+      try {
+        const url = value.startsWith('/') ? new URL(`file://${value}`) : new URL(value);
+        if (url.protocol === 'http:' || url.protocol === 'https:') {
+          label = url.pathname && url.pathname !== '/' ? `${url.hostname}${url.pathname}` : url.hostname;
+        } else {
+          const parts = url.pathname.split('/').filter(Boolean);
+          label = parts.at(-1) || url.hostname || value;
+        }
+      } catch {
+        const parts = value.split('/').filter(Boolean);
+        label = parts.at(-1) || value;
+      }
+      return { value, label, kind };
+    }
+
+    function artifactHref(artifact) {
+      if (artifact.kind === 'url') return artifact.value;
+      if (artifact.kind === 'file' && artifact.value.startsWith('/')) return `file://${artifact.value}`;
+      if (artifact.kind === 'file' && artifact.value.startsWith('file://')) return artifact.value;
+      return null;
     }
 
     const contextTokenBudget = 32000;
@@ -991,6 +1057,13 @@
         <article class="message ${escapeHTML(message.role)}" data-testid="message" aria-label="${escapeHTML(message.role + ': ' + message.text)}">
           ${escapeHTML(message.text)}
         </article>`;
+      const renderArtifacts = artifacts => artifacts && artifacts.length ? `
+          <div class="tool-artifacts" data-testid="tool-card-artifacts" aria-label="Artifacts">
+            ${artifacts.map(artifact => {
+              const href = artifactHref(artifact);
+              return `<a class="artifact-chip" data-testid="tool-card-artifact" data-kind="${escapeHTML(artifact.kind)}" ${href ? `href="${escapeHTML(href)}"` : ''}>${escapeHTML(artifact.label)}</a>`;
+            }).join('')}
+          </div>` : '';
       const renderToolCard = card => `
         <article class="tool-card ${escapeHTML(card.status)}" data-testid="tool-card" data-status="${escapeHTML(card.status)}">
           <header>
@@ -998,6 +1071,7 @@
             <span data-testid="tool-card-status">${escapeHTML(card.status)}</span>
           </header>
           <p>${escapeHTML(card.subtitle)}</p>
+          ${renderArtifacts(card.artifacts)}
           ${card.inputJSON ? `<pre data-testid="tool-card-input">${escapeHTML(card.inputJSON)}</pre>` : ''}
           ${card.outputJSON ? `<pre data-testid="tool-card-output">${escapeHTML(card.outputJSON)}</pre>` : ''}
         </article>`;
@@ -2118,6 +2192,16 @@
           '/mode auto|review|read-only',
           '/model provider/model'
         ].join('\n'));
+      } else if (text.toLowerCase().includes('write a file') || text.toLowerCase().includes('make a file')) {
+        const path = 'hello.txt';
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, content: 'hello world\n' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote /mock/QuillCode/${path}\n`, artifacts: [`/mock/QuillCode/${path}`] }, null, 2)
+        });
+        addMessage('assistant', `Wrote \`${path}\`.`);
       } else if (text.toLowerCase().includes('apply patch') || text.toLowerCase().includes('edit file')) {
         const { diff, review } = mockReviewDiff();
         state.review = review;

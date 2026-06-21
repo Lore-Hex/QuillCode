@@ -1724,6 +1724,20 @@ private struct QuillCodeToolCardView: View {
                     .clipShape(Capsule())
             }
             if card.isExpanded || card.status == .failed || card.status == .done {
+                if !card.artifacts.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Artifacts")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(QuillCodePalette.muted)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(Array(card.artifacts.enumerated()), id: \.offset) { _, artifact in
+                                    QuillCodeArtifactChip(artifact: artifact)
+                                }
+                            }
+                        }
+                    }
+                }
                 if let inputJSON = card.inputJSON {
                     QuillCodeCodeBlock(title: "Input", text: inputJSON)
                 }
@@ -1766,6 +1780,70 @@ private struct QuillCodeToolCardView: View {
             return "xmark.octagon.fill"
         case .review:
             return "shield.lefthalf.filled"
+        }
+    }
+}
+
+private struct QuillCodeArtifactChip: View {
+    var artifact: ToolArtifactState
+
+    var body: some View {
+        Group {
+            if let url = artifactURL {
+                Link(destination: url) {
+                    label
+                }
+            } else {
+                label
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Artifact \(artifact.label)")
+    }
+
+    private var label: some View {
+        HStack(spacing: 6) {
+            Image(systemName: iconName)
+            Text(artifact.label)
+                .lineLimit(1)
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(QuillCodePalette.blue)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(QuillCodePalette.blue.opacity(0.12))
+        .overlay(
+            Capsule()
+                .stroke(QuillCodePalette.blue.opacity(0.28), lineWidth: 1)
+        )
+        .clipShape(Capsule())
+    }
+
+    private var artifactURL: URL? {
+        switch artifact.kind {
+        case .url:
+            return URL(string: artifact.value)
+        case .file:
+            if artifact.value.hasPrefix("file://") {
+                return URL(string: artifact.value)
+            }
+            if artifact.value.hasPrefix("/") {
+                return URL(fileURLWithPath: artifact.value)
+            }
+            return nil
+        case .path:
+            return nil
+        }
+    }
+
+    private var iconName: String {
+        switch artifact.kind {
+        case .url:
+            return "link"
+        case .file:
+            return "doc.text"
+        case .path:
+            return "folder"
         }
     }
 }

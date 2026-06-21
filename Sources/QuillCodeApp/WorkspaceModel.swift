@@ -12,6 +12,56 @@ public enum ToolCardStatus: String, Codable, Sendable, Hashable {
     case review
 }
 
+public enum ToolArtifactKind: String, Codable, Sendable, Hashable {
+    case file
+    case url
+    case path
+}
+
+public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
+    public var id: String { value }
+    public var value: String
+    public var label: String
+    public var kind: ToolArtifactKind
+
+    public init(value: String) {
+        self.value = value
+        self.label = Self.label(for: value)
+        self.kind = Self.kind(for: value)
+    }
+
+    private static func kind(for value: String) -> ToolArtifactKind {
+        guard let url = URL(string: value), let scheme = url.scheme?.lowercased() else {
+            return value.hasPrefix("/") ? .file : .path
+        }
+        if scheme == "http" || scheme == "https" {
+            return .url
+        }
+        if scheme == "file" {
+            return .file
+        }
+        return .path
+    }
+
+    private static func label(for value: String) -> String {
+        if let url = URL(string: value),
+           let scheme = url.scheme?.lowercased(),
+           ["http", "https", "file"].contains(scheme) {
+            if scheme == "http" || scheme == "https" {
+                let host = url.host ?? value
+                return url.path.isEmpty || url.path == "/" ? host : "\(host)\(url.path)"
+            }
+            if !url.lastPathComponent.isEmpty {
+                return url.lastPathComponent
+            }
+            return value
+        }
+        let url = URL(fileURLWithPath: value)
+        let lastPathComponent = url.lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
+        return lastPathComponent.isEmpty ? value : lastPathComponent
+    }
+}
+
 public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var title: String
@@ -19,6 +69,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
     public var status: ToolCardStatus
     public var inputJSON: String?
     public var outputJSON: String?
+    public var artifacts: [ToolArtifactState]
     public var isExpanded: Bool
 
     public init(
@@ -28,6 +79,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         status: ToolCardStatus,
         inputJSON: String? = nil,
         outputJSON: String? = nil,
+        artifacts: [ToolArtifactState] = [],
         isExpanded: Bool = false
     ) {
         self.id = id
@@ -36,7 +88,31 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         self.status = status
         self.inputJSON = inputJSON
         self.outputJSON = outputJSON
+        self.artifacts = artifacts
         self.isExpanded = isExpanded
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case subtitle
+        case status
+        case inputJSON
+        case outputJSON
+        case artifacts
+        case isExpanded
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.subtitle = try container.decode(String.self, forKey: .subtitle)
+        self.status = try container.decode(ToolCardStatus.self, forKey: .status)
+        self.inputJSON = try container.decodeIfPresent(String.self, forKey: .inputJSON)
+        self.outputJSON = try container.decodeIfPresent(String.self, forKey: .outputJSON)
+        self.artifacts = try container.decodeIfPresent([ToolArtifactState].self, forKey: .artifacts) ?? []
+        self.isExpanded = try container.decode(Bool.self, forKey: .isExpanded)
     }
 }
 
@@ -903,7 +979,8 @@ public final class QuillCodeWorkspaceModel {
                     title: "Tool",
                     subtitle: subtitle,
                     status: status,
-                    outputJSON: outputJSON
+                    outputJSON: outputJSON,
+                    artifacts: outputJSON.map(Self.artifacts(from:)) ?? []
                 ))
                 return
             }
@@ -911,6 +988,7 @@ public final class QuillCodeWorkspaceModel {
             card.subtitle = subtitle
             if let outputJSON {
                 card.outputJSON = outputJSON
+                card.artifacts = Self.artifacts(from: outputJSON)
             }
             items[index] = .toolCard(card)
             if status == .done || status == .failed {
@@ -1412,7 +1490,17 @@ public final class QuillCodeWorkspaceModel {
         cards[index].subtitle = subtitle
         if let outputJSON {
             cards[index].outputJSON = outputJSON
+            cards[index].artifacts = artifacts(from: outputJSON)
         }
+    }
+
+    private static func artifacts(from outputJSON: String) -> [ToolArtifactState] {
+        guard let result = try? JSONHelpers.decode(ToolResult.self, from: outputJSON) else {
+            return []
+        }
+        return result.artifacts
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .map(ToolArtifactState.init(value:))
     }
 
     private static func decode<T: Decodable>(_ type: T.Type, _ payloadJSON: String?) -> T? {

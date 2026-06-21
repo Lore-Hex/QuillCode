@@ -52,6 +52,20 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(transcriptItems.nth(2)).toContainText('You are `mock-user` in this workspace.');
 });
 
+test('mock harness surfaces file artifacts from tool cards', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('Can you write a file that says hello world');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifacts')).toBeVisible();
+  await expect(page.getByTestId('tool-card-artifact')).toHaveText('hello.txt');
+  await expect(page.getByTestId('tool-card-artifact')).toHaveAttribute('data-kind', 'file');
+  await expect(page.getByTestId('tool-card-artifact')).toHaveAttribute('href', 'file:///mock/QuillCode/hello.txt');
+  await expect(page.getByText('Wrote `hello.txt`.')).toBeVisible();
+});
+
 test('mock harness searches and reopens an existing chat', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

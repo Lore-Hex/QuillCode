@@ -216,6 +216,21 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(timeline[2].message?.role, .assistant)
     }
 
+    func testSubmitComposerSurfacesToolArtifacts() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+
+        model.setDraft("Can you write a file that says hello world")
+        await model.submitComposer(workspaceRoot: root)
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, "host.file.write")
+        XCTAssertEqual(card.status, .done)
+        XCTAssertEqual(card.artifacts.map(\.label), ["hello.txt"])
+        XCTAssertEqual(card.artifacts.map(\.kind), [.file])
+        XCTAssertEqual(card.artifacts.first?.value, root.appendingPathComponent("hello.txt").path)
+    }
+
     func testSubmitComposerStreamsQueuedToolBeforeCompletion() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel(runner: AgentRunner(
