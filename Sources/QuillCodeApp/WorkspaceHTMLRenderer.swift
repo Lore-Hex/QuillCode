@@ -234,9 +234,20 @@ public enum WorkspaceHTMLRenderer {
           </header>
           <p>\(escape(card.subtitle))</p>
           \(renderToolArtifacts(card.artifacts))
+          \(renderToolDetails(card))
+        </article>
+        """
+    }
+
+    private static func renderToolDetails(_ card: ToolCardState) -> String {
+        guard card.inputJSON != nil || card.outputJSON != nil else { return "" }
+        let isOpen = card.isExpanded || card.status == .failed || card.status == .review
+        return """
+        <details data-testid="tool-card-details"\(isOpen ? " open" : "")>
+          <summary>\(isOpen ? "Hide details" : "Show details")</summary>
           \(card.inputJSON.map { #"<pre data-testid="tool-card-input">\#(escape($0))</pre>"# } ?? "")
           \(card.outputJSON.map { #"<pre data-testid="tool-card-output">\#(escape($0))</pre>"# } ?? "")
-        </article>
+        </details>
         """
     }
 
@@ -245,7 +256,10 @@ public enum WorkspaceHTMLRenderer {
         let chips = artifacts.map { artifact in
             let href = artifactHref(artifact).map { #" href="\#(escape($0))""# } ?? ""
             return """
-            <a class="artifact-chip" data-testid="tool-card-artifact" data-kind="\(escape(artifact.kind.rawValue))"\(href)>\(escape(artifact.label))</a>
+            <a class="artifact-chip" data-testid="tool-card-artifact" data-kind="\(escape(artifact.kind.rawValue))"\(href)>
+              <strong data-testid="tool-card-artifact-label">\(escape(artifact.label))</strong>
+              <small data-testid="tool-card-artifact-detail">\(escape(artifact.detail))</small>
+            </a>
             """
         }.joined(separator: "\n")
         return """

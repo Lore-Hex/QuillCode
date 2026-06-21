@@ -1702,6 +1702,12 @@ private struct QuillCodeMessageBubble: View {
 
 private struct QuillCodeToolCardView: View {
     var card: ToolCardState
+    @State private var isDetailsOpen: Bool
+
+    init(card: ToolCardState) {
+        self.card = card
+        self._isDetailsOpen = State(initialValue: card.isExpanded || card.status == .failed || card.status == .review)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1723,26 +1729,53 @@ private struct QuillCodeToolCardView: View {
                     .background(statusColor.opacity(0.16))
                     .clipShape(Capsule())
             }
-            if card.isExpanded || card.status == .failed || card.status == .done {
-                if !card.artifacts.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Artifacts")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(QuillCodePalette.muted)
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(Array(card.artifacts.enumerated()), id: \.offset) { _, artifact in
-                                    QuillCodeArtifactChip(artifact: artifact)
-                                }
+            if !card.artifacts.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Artifacts")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(Array(card.artifacts.enumerated()), id: \.offset) { _, artifact in
+                                QuillCodeArtifactChip(artifact: artifact)
                             }
                         }
                     }
                 }
-                if let inputJSON = card.inputJSON {
-                    QuillCodeCodeBlock(title: "Input", text: inputJSON)
+            }
+
+            if card.inputJSON != nil || card.outputJSON != nil {
+                DisclosureGroup(isExpanded: $isDetailsOpen) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if let inputJSON = card.inputJSON {
+                            QuillCodeCodeBlock(title: "Input", text: inputJSON)
+                        }
+                        if let outputJSON = card.outputJSON {
+                            QuillCodeCodeBlock(title: "Output", text: outputJSON)
+                        }
+                    }
+                    .padding(.top, 4)
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(isDetailsOpen ? "Hide details" : "Show details")
+                        if !isDetailsOpen, card.status == .done {
+                            Text("Raw tool data")
+                                .foregroundStyle(QuillCodePalette.muted)
+                        }
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.blue)
                 }
-                if let outputJSON = card.outputJSON {
-                    QuillCodeCodeBlock(title: "Output", text: outputJSON)
+                .tint(QuillCodePalette.blue)
+                .onChange(of: card.status) { _, status in
+                    if status == .failed || status == .review || card.isExpanded {
+                        isDetailsOpen = true
+                    }
+                }
+                .onChange(of: card.isExpanded) { _, expanded in
+                    if expanded {
+                        isDetailsOpen = true
+                    }
                 }
             }
         }
@@ -1804,11 +1837,18 @@ private struct QuillCodeArtifactChip: View {
     private var label: some View {
         HStack(spacing: 6) {
             Image(systemName: iconName)
-            Text(artifact.label)
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(artifact.label)
+                    .lineLimit(1)
+                Text(artifact.detail)
+                    .font(.caption2)
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(1)
+            }
         }
         .font(.caption.weight(.semibold))
         .foregroundStyle(QuillCodePalette.blue)
+        .frame(maxWidth: 260, alignment: .leading)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(QuillCodePalette.blue.opacity(0.12))

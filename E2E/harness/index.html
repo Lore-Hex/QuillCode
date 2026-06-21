@@ -335,6 +335,29 @@
       font-weight: 650;
     }
     .artifact-chip::before { content: "•"; opacity: .7; }
+    .artifact-chip strong,
+    .artifact-chip small {
+      display: block;
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .artifact-chip small {
+      color: #9baeb5;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .tool-details {
+      margin-top: 6px;
+    }
+    .tool-details summary {
+      cursor: pointer;
+      color: #8fe2ff;
+      font-size: 12px;
+      font-weight: 700;
+      user-select: none;
+    }
     .review-pane {
       align-self: flex-start;
       width: min(760px, 92%);
@@ -807,6 +830,23 @@
       return { value, label, kind };
     }
 
+    function artifactDetail(artifact) {
+      if (artifact.kind === 'url') return artifact.label;
+      if (artifact.kind === 'file') {
+        try {
+          const url = artifact.value.startsWith('/') ? new URL(`file://${artifact.value}`) : new URL(artifact.value);
+          const parts = url.pathname.split('/').filter(Boolean);
+          parts.pop();
+          return '/' + parts.join('/');
+        } catch {
+          const parts = artifact.value.split('/').filter(Boolean);
+          parts.pop();
+          return parts.length ? '/' + parts.join('/') : 'File artifact';
+        }
+      }
+      return artifact.value;
+    }
+
     function artifactHref(artifact) {
       if (artifact.kind === 'url') return artifact.value;
       if (artifact.kind === 'file' && artifact.value.startsWith('/')) return `file://${artifact.value}`;
@@ -1061,9 +1101,20 @@
           <div class="tool-artifacts" data-testid="tool-card-artifacts" aria-label="Artifacts">
             ${artifacts.map(artifact => {
               const href = artifactHref(artifact);
-              return `<a class="artifact-chip" data-testid="tool-card-artifact" data-kind="${escapeHTML(artifact.kind)}" ${href ? `href="${escapeHTML(href)}"` : ''}>${escapeHTML(artifact.label)}</a>`;
+              return `<a class="artifact-chip" data-testid="tool-card-artifact" data-kind="${escapeHTML(artifact.kind)}" ${href ? `href="${escapeHTML(href)}"` : ''}>
+                <span>
+                  <strong data-testid="tool-card-artifact-label">${escapeHTML(artifact.label)}</strong>
+                  <small data-testid="tool-card-artifact-detail">${escapeHTML(artifactDetail(artifact))}</small>
+                </span>
+              </a>`;
             }).join('')}
           </div>` : '';
+      const renderToolDetails = card => card.inputJSON || card.outputJSON ? `
+          <details class="tool-details" data-testid="tool-card-details" ${card.isExpanded || card.status === 'failed' || card.status === 'review' ? 'open' : ''}>
+            <summary>${card.isExpanded || card.status === 'failed' || card.status === 'review' ? 'Hide details' : 'Show details'}</summary>
+            ${card.inputJSON ? `<pre data-testid="tool-card-input">${escapeHTML(card.inputJSON)}</pre>` : ''}
+            ${card.outputJSON ? `<pre data-testid="tool-card-output">${escapeHTML(card.outputJSON)}</pre>` : ''}
+          </details>` : '';
       const renderToolCard = card => `
         <article class="tool-card ${escapeHTML(card.status)}" data-testid="tool-card" data-status="${escapeHTML(card.status)}">
           <header>
@@ -1072,8 +1123,7 @@
           </header>
           <p>${escapeHTML(card.subtitle)}</p>
           ${renderArtifacts(card.artifacts)}
-          ${card.inputJSON ? `<pre data-testid="tool-card-input">${escapeHTML(card.inputJSON)}</pre>` : ''}
-          ${card.outputJSON ? `<pre data-testid="tool-card-output">${escapeHTML(card.outputJSON)}</pre>` : ''}
+          ${renderToolDetails(card)}
         </article>`;
       const transcriptItems = state.transcript.timelineItems.length
         ? state.transcript.timelineItems.map(item => (

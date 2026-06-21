@@ -548,6 +548,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="tool-card-artifacts""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-artifact""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-artifact-label""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-artifact-detail""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-details""#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-details" open"#))
         XCTAssertTrue(html.contains(#"data-kind="file""#))
         XCTAssertTrue(html.contains("hello.txt"))
     }

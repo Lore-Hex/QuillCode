@@ -23,6 +23,7 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var value: String
     public var label: String
     public var kind: ToolArtifactKind
+    public var detail: String { Self.detail(for: value, kind: kind) }
 
     public init(value: String) {
         self.value = value
@@ -59,6 +60,24 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         let url = URL(fileURLWithPath: value)
         let lastPathComponent = url.lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
         return lastPathComponent.isEmpty ? value : lastPathComponent
+    }
+
+    private static func detail(for value: String, kind: ToolArtifactKind) -> String {
+        switch kind {
+        case .url:
+            guard let url = URL(string: value), let host = url.host else { return value }
+            return url.path.isEmpty || url.path == "/" ? host : "\(host)\(url.path)"
+        case .file:
+            let url = value.hasPrefix("file://")
+                ? URL(string: value)
+                : URL(fileURLWithPath: value)
+            guard let path = url?.deletingLastPathComponent().path, !path.isEmpty else {
+                return "File artifact"
+            }
+            return path
+        case .path:
+            return value
+        }
     }
 }
 

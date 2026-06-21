@@ -60,9 +60,14 @@ test('mock harness surfaces file artifacts from tool cards', async ({ page }) =>
 
   await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
   await expect(page.getByTestId('tool-card-artifacts')).toBeVisible();
-  await expect(page.getByTestId('tool-card-artifact')).toHaveText('hello.txt');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('hello.txt');
+  await expect(page.getByTestId('tool-card-artifact-detail')).toHaveText('/mock/QuillCode');
   await expect(page.getByTestId('tool-card-artifact')).toHaveAttribute('data-kind', 'file');
   await expect(page.getByTestId('tool-card-artifact')).toHaveAttribute('href', 'file:///mock/QuillCode/hello.txt');
+  await expect.poll(() => page.getByTestId('tool-card-details').evaluate(element => (element as HTMLDetailsElement).open)).toBe(false);
+  await page.getByTestId('tool-card-details').locator('summary').click();
+  await expect.poll(() => page.getByTestId('tool-card-details').evaluate(element => (element as HTMLDetailsElement).open)).toBe(true);
+  await expect(page.getByTestId('tool-card-output')).toContainText('/mock/QuillCode/hello.txt');
   await expect(page.getByText('Wrote `hello.txt`.')).toBeVisible();
 });
 

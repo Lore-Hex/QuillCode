@@ -228,6 +228,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(card.status, .done)
         XCTAssertEqual(card.artifacts.map(\.label), ["hello.txt"])
         XCTAssertEqual(card.artifacts.map(\.kind), [.file])
+        XCTAssertEqual(card.artifacts.map(\.detail), [root.path])
         XCTAssertEqual(card.artifacts.first?.value, root.appendingPathComponent("hello.txt").path)
     }
 

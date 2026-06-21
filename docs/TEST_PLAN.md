@@ -13,7 +13,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 ## Functional Tests
 
 - Mock TrustedRouter, mock LLM, fake shell, fake filesystem, fake git repo.
-- Cover login, model switch, searchable model picker, new thread, project instruction refresh before runs, incremental run progress, chronological transcript ordering, tool cards, artifact chips, file edit, post-patch review refresh, review comments, command failure, cancellation, approvals, settings, top bar, search, slash commands, slash-to-workspace-action routing, and worktree project/thread handoff.
+- Cover login, model switch, searchable model picker, new thread, project instruction refresh before runs, incremental run progress, chronological transcript ordering, tool cards, artifact preview chips, collapsed successful-tool details, file edit, post-patch review refresh, review comments, command failure, cancellation, approvals, settings, top bar, search, slash commands, slash-to-workspace-action routing, and worktree project/thread handoff.
 
 ## Integration Tests
 
@@ -32,7 +32,7 @@ Drive the QuillCode test harness with mock LLM:
 - open project
 - search and select a model
 - run shell
-- surface file/URL artifacts from tool-card output
+- surface file/URL artifacts from tool-card output, with preview metadata visible and raw successful-tool JSON collapsed until opened
 - chronological user/tool/answer transcript rendering
 - edit file
 - review diff, post-patch review refresh, and file/line/range review notes
@@ -50,7 +50,7 @@ Drive the QuillCode test harness with mock LLM:
 - `./scripts/smoke.sh` runs Swift tests, mock CLI `run whoami`, mock CLI file creation in a temp workspace, and Playwright E2E when local node modules are installed.
 - Packaged macOS and Linux app launch.
 - Login/dev override.
-- Open repo, chat, run `whoami`, create file, confirm the created file appears as a tool-card artifact, review diff.
+- Open repo, chat, run `whoami`, create file, confirm the created file appears as a tool-card artifact preview, confirm raw successful-tool details can be opened, review diff.
 - Terminal toggle, settings, top bar widget, quit/relaunch persistence.
 
 ## Release Gates
