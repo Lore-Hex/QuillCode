@@ -78,6 +78,25 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('message-use-as-draft')).toHaveCount(2);
 });
 
+test('mock harness shows actionable Computer Use setup in settings', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('settings-button').click();
+  const settingsPanel = page.getByTestId('settings-panel');
+  await expect(settingsPanel).toBeVisible();
+  await expect(settingsPanel.getByTestId('computer-use-settings')).toBeVisible();
+  await expect(settingsPanel.getByTestId('computer-use-settings-status')).toHaveText('Setup needed');
+  await expect(settingsPanel.getByTestId('computer-use-permission')).toHaveCount(2);
+  await expect(settingsPanel.getByTestId('computer-use-permission').nth(0)).toContainText('Screen Recording');
+  await expect(settingsPanel.getByTestId('computer-use-permission').nth(1)).toContainText('Accessibility');
+
+  await settingsPanel.getByTestId('computer-use-permission-open').first().click();
+  await expect(settingsPanel.getByTestId('computer-use-last-opened')).toContainText('Privacy_ScreenCapture');
+
+  await settingsPanel.getByTestId('computer-use-refresh').click();
+  await expect(page.getByTestId('computer-use-status')).toHaveText('Needs Screen Recording + Accessibility');
+});
+
 test('mock harness stops an active composer run from the composer', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

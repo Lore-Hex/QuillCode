@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillComputerUseKit
 
 public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var topBar: TopBarSurface
@@ -1275,6 +1276,45 @@ public struct WorkspaceCommandSurface: Codable, Sendable, Hashable, Identifiable
     }
 }
 
+public extension WorkspaceCommandSurface {
+    static func computerUseSetup(isEnabled: Bool) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: "computer-use-setup",
+            title: "Computer Use setup",
+            category: WorkspaceCommandPalette.computerUseCategory,
+            keywords: ["screen", "accessibility", "permissions"],
+            isEnabled: isEnabled
+        )
+    }
+
+    static func computerUseScreenRecordingSettings(isEnabled: Bool) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: "computer-use-open-screen-recording",
+            title: "Open Screen Recording settings",
+            category: WorkspaceCommandPalette.computerUseCategory,
+            keywords: ["screen", "recording", "capture", "permissions"],
+            isEnabled: isEnabled
+        )
+    }
+
+    static func computerUseAccessibilitySettings(isEnabled: Bool) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: "computer-use-open-accessibility",
+            title: "Open Accessibility settings",
+            category: WorkspaceCommandPalette.computerUseCategory,
+            keywords: ["accessibility", "click", "keyboard", "permissions"],
+            isEnabled: isEnabled
+        )
+    }
+
+    static let computerUseRefresh = WorkspaceCommandSurface(
+        id: "computer-use-refresh",
+        title: "Refresh Computer Use status",
+        category: WorkspaceCommandPalette.computerUseCategory,
+        keywords: ["computer use", "permissions", "refresh", "status"]
+    )
+}
+
 public struct WorkspaceCommandGroupSurface: Sendable, Hashable, Identifiable {
     public var id: String { title }
     public var title: String
@@ -1412,11 +1452,20 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var loginStatusLabel: String
     public var accountLabel: String?
     public var runtimeIssue: RuntimeIssueSurface?
+    public var computerUseStatus: ComputerUseStatus
+    public var computerUseSetupCommand: WorkspaceCommandSurface
+    public var computerUseScreenRecordingCommand: WorkspaceCommandSurface
+    public var computerUseAccessibilityCommand: WorkspaceCommandSurface
+    public var computerUseRefreshCommand: WorkspaceCommandSurface
 
     public init(
         config: AppConfig,
         hasStoredAPIKey: Bool,
-        runtimeIssue: RuntimeIssueSurface? = nil
+        runtimeIssue: RuntimeIssueSurface? = nil,
+        computerUseStatus: ComputerUseStatus = .permissionStatus(
+            screenRecordingGranted: false,
+            accessibilityGranted: false
+        )
     ) {
         self.apiBaseURL = config.apiBaseURL
         self.authMode = config.authMode
@@ -1425,6 +1474,11 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.signInURL = TrustedRouterDefaults.loopbackCallbackURL
         self.accountLabel = config.trustedRouterAccount?.displayLabel
         self.runtimeIssue = runtimeIssue
+        self.computerUseStatus = computerUseStatus
+        self.computerUseSetupCommand = WorkspaceCommandSurface.computerUseSetup(isEnabled: !computerUseStatus.available)
+        self.computerUseScreenRecordingCommand = WorkspaceCommandSurface.computerUseScreenRecordingSettings(isEnabled: !computerUseStatus.screenRecordingGranted)
+        self.computerUseAccessibilityCommand = WorkspaceCommandSurface.computerUseAccessibilitySettings(isEnabled: !computerUseStatus.accessibilityGranted)
+        self.computerUseRefreshCommand = WorkspaceCommandSurface.computerUseRefresh
         switch config.authMode {
         case .oauth:
             self.apiKeyStatusLabel = hasStoredAPIKey ? "Signed in" : "Not signed in"
@@ -1437,6 +1491,55 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             self.apiKeyStatusLabel = hasStoredAPIKey ? "API key configured" : "No API key saved"
             self.loginStatusLabel = hasStoredAPIKey ? "TrustedRouter developer override ready" : "Developer override needs an API key"
         }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case apiBaseURL
+        case authMode
+        case developerOverrideEnabled
+        case hasStoredAPIKey
+        case signInURL
+        case apiKeyStatusLabel
+        case loginStatusLabel
+        case accountLabel
+        case runtimeIssue
+        case computerUseStatus
+        case computerUseSetupCommand
+        case computerUseScreenRecordingCommand
+        case computerUseAccessibilityCommand
+        case computerUseRefreshCommand
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.apiBaseURL = try container.decode(String.self, forKey: .apiBaseURL)
+        self.authMode = try container.decode(TrustedRouterAuthMode.self, forKey: .authMode)
+        self.developerOverrideEnabled = try container.decode(Bool.self, forKey: .developerOverrideEnabled)
+        self.hasStoredAPIKey = try container.decode(Bool.self, forKey: .hasStoredAPIKey)
+        self.signInURL = try container.decode(String.self, forKey: .signInURL)
+        self.apiKeyStatusLabel = try container.decode(String.self, forKey: .apiKeyStatusLabel)
+        self.loginStatusLabel = try container.decode(String.self, forKey: .loginStatusLabel)
+        self.accountLabel = try container.decodeIfPresent(String.self, forKey: .accountLabel)
+        self.runtimeIssue = try container.decodeIfPresent(RuntimeIssueSurface.self, forKey: .runtimeIssue)
+        let decodedComputerUseStatus = try container.decodeIfPresent(ComputerUseStatus.self, forKey: .computerUseStatus)
+            ?? .permissionStatus(screenRecordingGranted: false, accessibilityGranted: false)
+        self.computerUseStatus = decodedComputerUseStatus
+        self.computerUseSetupCommand = try container.decodeIfPresent(
+            WorkspaceCommandSurface.self,
+            forKey: .computerUseSetupCommand
+        ) ?? .computerUseSetup(isEnabled: !decodedComputerUseStatus.available)
+        self.computerUseScreenRecordingCommand = try container.decodeIfPresent(
+            WorkspaceCommandSurface.self,
+            forKey: .computerUseScreenRecordingCommand
+        ) ?? .computerUseScreenRecordingSettings(isEnabled: !decodedComputerUseStatus.screenRecordingGranted)
+        self.computerUseAccessibilityCommand = try container.decodeIfPresent(
+            WorkspaceCommandSurface.self,
+            forKey: .computerUseAccessibilityCommand
+        ) ?? .computerUseAccessibilitySettings(isEnabled: !decodedComputerUseStatus.accessibilityGranted)
+        self.computerUseRefreshCommand = try container.decodeIfPresent(
+            WorkspaceCommandSurface.self,
+            forKey: .computerUseRefreshCommand
+        ) ?? .computerUseRefresh
     }
 }
 
@@ -1536,7 +1639,8 @@ public extension QuillCodeWorkspaceModel {
             settings: WorkspaceSettingsSurface(
                 config: root.config,
                 hasStoredAPIKey: root.trustedRouterAPIKeyConfigured,
-                runtimeIssue: runtimeIssue
+                runtimeIssue: runtimeIssue,
+                computerUseStatus: computerUse
             ),
             runtimeIssue: runtimeIssue,
             lastError: lastError
@@ -2085,13 +2189,10 @@ public extension QuillCodeWorkspaceModel {
                 category: WorkspaceCommandPalette.navigationCategory,
                 keywords: ["keyboard", "shortcuts", "help", "commands"]
             ),
-            WorkspaceCommandSurface(
-                id: "computer-use-setup",
-                title: "Computer Use setup",
-                category: WorkspaceCommandPalette.computerUseCategory,
-                keywords: ["screen", "accessibility", "permissions"],
-                isEnabled: root.topBar.computerUseStatus.available == false
-            )
+            .computerUseSetup(isEnabled: !root.topBar.computerUseStatus.available),
+            .computerUseScreenRecordingSettings(isEnabled: !root.topBar.computerUseStatus.screenRecordingGranted),
+            .computerUseAccessibilitySettings(isEnabled: !root.topBar.computerUseStatus.accessibilityGranted),
+            .computerUseRefresh
         ]
     }
 

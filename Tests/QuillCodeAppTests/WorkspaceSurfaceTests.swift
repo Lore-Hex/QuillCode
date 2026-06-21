@@ -74,7 +74,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "settings",
             "command-palette",
             "keyboard-shortcuts",
-            "computer-use-setup"
+            "computer-use-setup",
+            "computer-use-open-screen-recording",
+            "computer-use-open-accessibility",
+            "computer-use-refresh"
         ])
         XCTAssertEqual(surface.commands.first { $0.id == "fork-from-last" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "compact-context" }?.isEnabled, true)
@@ -86,6 +89,11 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.settings.authMode, .oauth)
         XCTAssertEqual(surface.settings.signInURL, TrustedRouterDefaults.loopbackCallbackURL)
         XCTAssertEqual(surface.settings.apiKeyStatusLabel, "Not signed in")
+        XCTAssertEqual(surface.settings.computerUseStatus.message, "Needs Screen Recording + Accessibility")
+        XCTAssertEqual(surface.settings.computerUseSetupCommand.id, "computer-use-setup")
+        XCTAssertEqual(surface.settings.computerUseScreenRecordingCommand.id, "computer-use-open-screen-recording")
+        XCTAssertEqual(surface.settings.computerUseAccessibilityCommand.id, "computer-use-open-accessibility")
+        XCTAssertEqual(surface.settings.computerUseRefreshCommand.id, "computer-use-refresh")
         XCTAssertFalse(surface.terminal.isVisible)
         XCTAssertEqual(surface.terminal.cwdLabel, "/tmp/QuillCode")
         XCTAssertFalse(surface.browser.isVisible)

@@ -226,7 +226,8 @@ public struct QuillCodeWorkspaceView: View {
                 },
                 onStartTrustedRouterSignIn: {
                     onStartTrustedRouterSignIn()
-                }
+                },
+                onCommand: handleCommand
             )
         }
         .onChange(of: isSettingsPresented) { _, isPresented in
@@ -339,7 +340,7 @@ public struct QuillCodeWorkspaceView: View {
     }
 
     private func handleCommand(_ command: WorkspaceCommandSurface) {
-        if command.id == "settings" {
+        if command.id == "settings" || command.id == "computer-use-setup" {
             settingsDraft = QuillCodeSettingsDraft(settings: surface.settings)
             isSettingsPresented = true
         } else if command.id == "search" {
@@ -3263,91 +3264,225 @@ private struct QuillCodeSettingsView: View {
     var onCancel: () -> Void
     var onSave: () -> Void
     var onStartTrustedRouterSignIn: () -> Void
+    var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Settings")
+                            .font(.title2.weight(.semibold))
+                        Text(settings.loginStatusLabel)
+                            .font(.callout)
+                            .foregroundStyle(QuillCodePalette.muted)
+                    }
+                    Spacer()
+                    Text(settings.apiKeyStatusLabel)
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background((settings.hasStoredAPIKey ? QuillCodePalette.green : QuillCodePalette.yellow).opacity(0.16))
+                        .foregroundStyle(settings.hasStoredAPIKey ? QuillCodePalette.green : QuillCodePalette.yellow)
+                        .clipShape(Capsule())
+                }
+
+                QuillCodeComputerUseSettingsCard(settings: settings, onCommand: onCommand)
+
+                Divider()
+
+                if let issue = settings.runtimeIssue {
+                    QuillCodeRuntimeIssueView(issue: issue, showsDiagnostics: true)
+                }
+
+                Picker("Authentication", selection: $draft.authMode) {
+                    Text("TrustedRouter login").tag(TrustedRouterAuthMode.oauth)
+                    Text("Developer override").tag(TrustedRouterAuthMode.developerOverride)
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: draft.authMode) { _, mode in
+                    draft.developerOverrideEnabled = mode == .developerOverride
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("TrustedRouter API base URL")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                    TextField("https://api.quillrouter.com/v1", text: $draft.apiBaseURL)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                if draft.authMode == .oauth {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("OAuth browser login opens TrustedRouter and returns through QuillCode's local callback. Developer keys stay hidden unless you switch modes.")
+                            .font(.caption)
+                            .foregroundStyle(QuillCodePalette.muted)
+                        Button("Sign in with TrustedRouter", action: onStartTrustedRouterSignIn)
+                            .buttonStyle(.borderedProminent)
+                        Text(settings.signInURL)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(QuillCodePalette.muted)
+                            .textSelection(.enabled)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Replace API key")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(QuillCodePalette.muted)
+                        SecureField(settings.hasStoredAPIKey ? "Leave blank to keep saved key" : "Paste TrustedRouter key", text: $draft.replacementAPIKey)
+                            .textFieldStyle(.roundedBorder)
+                        if draft.shouldClearAPIKey {
+                            Text("Saved key will be cleared when you save.")
+                                .font(.caption)
+                                .foregroundStyle(QuillCodePalette.yellow)
+                        }
+                        Button("Clear API key") {
+                            draft.replacementAPIKey = ""
+                            draft.shouldClearAPIKey = true
+                        }
+                        .disabled(!settings.hasStoredAPIKey)
+                        .font(.caption)
+                    }
+                }
+
+                HStack {
+                    Spacer()
+                    Button("Cancel", action: onCancel)
+                    Button("Save", action: onSave)
+                        .buttonStyle(.borderedProminent)
+                        .disabled(!draft.canSave)
+                }
+            }
+            .padding(24)
+        }
+        .frame(width: 560)
+        .frame(maxHeight: 720)
+    }
+}
+
+private struct QuillCodeComputerUseSettingsCard: View {
+    var settings: WorkspaceSettingsSurface
+    var onCommand: (WorkspaceCommandSurface) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Settings")
-                        .font(.title2.weight(.semibold))
-                    Text(settings.loginStatusLabel)
-                        .font(.callout)
+                    Text("Computer Use")
+                        .font(.headline)
+                    Text(statusSummary)
+                        .font(.caption)
                         .foregroundStyle(QuillCodePalette.muted)
                 }
                 Spacer()
-                Text(settings.apiKeyStatusLabel)
+                Text(statusLabel)
                     .font(.caption.weight(.semibold))
+                    .lineLimit(1)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background((settings.hasStoredAPIKey ? QuillCodePalette.green : QuillCodePalette.yellow).opacity(0.16))
-                    .foregroundStyle(settings.hasStoredAPIKey ? QuillCodePalette.green : QuillCodePalette.yellow)
+                    .background(statusTint.opacity(0.16))
+                    .foregroundStyle(statusTint)
                     .clipShape(Capsule())
             }
 
-            if let issue = settings.runtimeIssue {
-                QuillCodeRuntimeIssueView(issue: issue, showsDiagnostics: true)
-            }
-
-            Picker("Authentication", selection: $draft.authMode) {
-                Text("TrustedRouter login").tag(TrustedRouterAuthMode.oauth)
-                Text("Developer override").tag(TrustedRouterAuthMode.developerOverride)
-            }
-            .pickerStyle(.segmented)
-            .onChange(of: draft.authMode) { _, mode in
-                draft.developerOverrideEnabled = mode == .developerOverride
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("TrustedRouter API base URL")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(QuillCodePalette.muted)
-                TextField("https://api.quillrouter.com/v1", text: $draft.apiBaseURL)
-                    .textFieldStyle(.roundedBorder)
-            }
-
-            if draft.authMode == .oauth {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("OAuth browser login opens TrustedRouter and returns through QuillCode's local callback. Developer keys stay hidden unless you switch modes.")
-                        .font(.caption)
-                        .foregroundStyle(QuillCodePalette.muted)
-                    Button("Sign in with TrustedRouter", action: onStartTrustedRouterSignIn)
-                        .buttonStyle(.borderedProminent)
-                    Text(settings.signInURL)
-                        .font(.caption2.monospaced())
-                        .foregroundStyle(QuillCodePalette.muted)
-                        .textSelection(.enabled)
-                }
-            } else {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Replace API key")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(QuillCodePalette.muted)
-                    SecureField(settings.hasStoredAPIKey ? "Leave blank to keep saved key" : "Paste TrustedRouter key", text: $draft.replacementAPIKey)
-                        .textFieldStyle(.roundedBorder)
-                    if draft.shouldClearAPIKey {
-                        Text("Saved key will be cleared when you save.")
-                            .font(.caption)
-                            .foregroundStyle(QuillCodePalette.yellow)
-                    }
-                    Button("Clear API key") {
-                        draft.replacementAPIKey = ""
-                        draft.shouldClearAPIKey = true
-                    }
-                    .disabled(!settings.hasStoredAPIKey)
-                    .font(.caption)
-                }
+            VStack(spacing: 8) {
+                QuillCodePermissionRow(
+                    title: "Screen Recording",
+                    detail: "Lets QuillCode inspect the screen for Computer Use.",
+                    isGranted: settings.computerUseStatus.screenRecordingGranted,
+                    command: settings.computerUseScreenRecordingCommand,
+                    onCommand: onCommand
+                )
+                QuillCodePermissionRow(
+                    title: "Accessibility",
+                    detail: "Lets QuillCode click, type, scroll, and press keys.",
+                    isGranted: settings.computerUseStatus.accessibilityGranted,
+                    command: settings.computerUseAccessibilityCommand,
+                    onCommand: onCommand
+                )
             }
 
             HStack {
+                Button("Refresh status") {
+                    onCommand(settings.computerUseRefreshCommand)
+                }
+                .buttonStyle(.borderless)
                 Spacer()
-                Button("Cancel", action: onCancel)
-                Button("Save", action: onSave)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!draft.canSave)
+            }
+            .font(.caption.weight(.semibold))
+        }
+        .padding(14)
+        .background(QuillCodePalette.panel.opacity(0.72))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(statusTint.opacity(0.28), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var statusSummary: String {
+        if settings.computerUseStatus.available {
+            return "Ready for screenshots and desktop input."
+        }
+        return "Open each required permission below, then return and refresh."
+    }
+
+    private var statusLabel: String {
+        if settings.computerUseStatus.available {
+            return "Ready"
+        }
+        if !settings.computerUseStatus.screenRecordingGranted && !settings.computerUseStatus.accessibilityGranted {
+            return "Setup needed"
+        }
+        if !settings.computerUseStatus.screenRecordingGranted {
+            return "Screen Recording needed"
+        }
+        return "Accessibility needed"
+    }
+
+    private var statusTint: Color {
+        settings.computerUseStatus.available ? QuillCodePalette.green : QuillCodePalette.yellow
+    }
+}
+
+private struct QuillCodePermissionRow: View {
+    var title: String
+    var detail: String
+    var isGranted: Bool
+    var command: WorkspaceCommandSurface
+    var onCommand: (WorkspaceCommandSurface) -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: isGranted ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                .foregroundStyle(isGranted ? QuillCodePalette.green : QuillCodePalette.yellow)
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.callout.weight(.semibold))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(QuillCodePalette.muted)
+            }
+            .layoutPriority(1)
+            Spacer(minLength: 12)
+            if isGranted {
+                Text("Granted")
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .foregroundStyle(QuillCodePalette.green)
+            } else {
+                Button("Open") {
+                    onCommand(command)
+                }
+                .buttonStyle(.bordered)
+                .disabled(!command.isEnabled)
+                .controlSize(.small)
             }
         }
-        .padding(24)
-        .frame(width: 520)
+        .padding(10)
+        .background(Color.black.opacity(0.16))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 

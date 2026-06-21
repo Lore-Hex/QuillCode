@@ -50,7 +50,7 @@ Drive the QuillCode test harness with mock LLM:
 - memories pane discovery, global/project labels, truncation status, top-bar memory pill, sidebar toggle, command-palette toggle, command-palette Add memory prefill, `/memories` slash command, `/remember text` save flow with refreshed counts, and global Forget action with refreshed counts/transcript
 - plugin install
 - settings, runtime issue diagnostics, and secret redaction
-- Computer Use top-bar status labels for ready and missing-permission states
+- Computer Use top-bar status labels for ready and missing-permission states, plus the Settings permission card and setup buttons
 - top bar stop-all and composer Stop during active runs
 - `Cmd+/` Keyboard Shortcuts panel, plus command-palette access to the same panel
 - slash commands for mode, compact context, terminal, browser, worktrees, and PR prep, plus composer slash suggestion filtering, selected-row keyboard navigation, Enter/Tab accept behavior, click-to-insert, focus retention, and send-through-existing-command-path behavior

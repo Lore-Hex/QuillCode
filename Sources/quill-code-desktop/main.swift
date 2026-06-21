@@ -453,6 +453,14 @@ private final class QuillCodeDesktopController: ObservableObject {
             toggleMemories()
         case "command-palette":
             openCommandPalette()
+        case "settings", "computer-use-setup":
+            openSettings()
+        case "computer-use-open-screen-recording":
+            openComputerUseSystemSettings("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+        case "computer-use-open-accessibility":
+            openComputerUseSystemSettings("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+        case "computer-use-refresh":
+            refresh()
         case "stop-all":
             stopAll()
         case "retry-last-turn":
@@ -595,6 +603,12 @@ private final class QuillCodeDesktopController: ObservableObject {
 
     func openSettings() {
         isSettingsPresented = true
+    }
+
+    private func openComputerUseSystemSettings(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        NSWorkspace.shared.open(url)
+        refresh()
     }
 
     func stopAll() {

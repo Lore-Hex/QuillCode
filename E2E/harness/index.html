@@ -213,6 +213,18 @@
     }
     .command-group-title { margin: 6px 0 2px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
     .settings-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    .permission-card { display: grid; gap: 12px; padding: 14px; border-radius: 14px; background: rgba(15, 23, 28, .72); border: 1px solid rgba(255, 255, 255, .10); }
+    .permission-card h3 { margin: 0 0 6px; }
+    .permission-card p { margin: 0; }
+    .permission-card header, .permission-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .permission-row { padding: 10px; border-radius: 10px; background: rgba(0, 0, 0, .16); }
+    .permission-row > div { min-width: 0; }
+    .permission-row strong { display: block; }
+    .permission-row span { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .permission-row button, .permission-actions button { min-width: 110px; }
+    .permission-status-pill { flex: none; max-width: 180px; padding: 5px 10px; border-radius: 999px; color: var(--yellow); background: rgba(255,184,77,.14); font-size: 12px; font-weight: 800; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .permission-status-pill[data-available="true"] { color: var(--green); background: rgba(67,212,120,.14); }
+    .permission-actions { display: flex; justify-content: flex-start; gap: 10px; }
     .workspace-grid { min-height: 0; display: grid; grid-template-columns: 280px 1fr; gap: 18px; padding: 0 18px 18px; }
     .sidebar, .transcript {
       min-height: 0;
@@ -1246,7 +1258,17 @@
         apiKeyStatusLabel: 'Not signed in',
         loginStatusLabel: 'TrustedRouter login required',
         accountLabel: null,
-        replacementAPIKey: ''
+        replacementAPIKey: '',
+        computerUseStatus: {
+          available: false,
+          screenRecordingGranted: false,
+          accessibilityGranted: false,
+          message: 'Needs Screen Recording + Accessibility'
+        },
+        computerUseSetupCommand: { id: 'computer-use-setup', title: 'Computer Use setup', shortcut: '', category: 'Computer Use', keywords: ['screen', 'accessibility', 'permissions'], isEnabled: true },
+        computerUseScreenRecordingCommand: { id: 'computer-use-open-screen-recording', title: 'Open Screen Recording settings', shortcut: '', category: 'Computer Use', keywords: ['screen', 'recording', 'capture', 'permissions'], isEnabled: true },
+        computerUseAccessibilityCommand: { id: 'computer-use-open-accessibility', title: 'Open Accessibility settings', shortcut: '', category: 'Computer Use', keywords: ['accessibility', 'click', 'keyboard', 'permissions'], isEnabled: true },
+        computerUseRefreshCommand: { id: 'computer-use-refresh', title: 'Refresh Computer Use status', shortcut: '', category: 'Computer Use', keywords: ['computer use', 'permissions', 'refresh', 'status'], isEnabled: true }
       },
       lastOpenedURL: null,
       search: {
@@ -1307,7 +1329,10 @@
         { id: 'local-env:.quillcode/actions/bootstrap.sh', title: 'Run Bootstrap', shortcut: '', category: 'Environment', keywords: ['local environment', 'script', 'bootstrap'], isEnabled: true },
         { id: 'stop-all', title: 'Stop all', shortcut: 'Esc', category: 'Control', keywords: ['cancel', 'abort', 'halt'], isEnabled: false },
         { id: 'settings', title: 'Settings', shortcut: 'Cmd+,', category: 'Navigation', keywords: ['preferences', 'trustedrouter', 'auth'], isEnabled: true },
-        { id: 'computer-use-setup', title: 'Computer Use setup', shortcut: '', category: 'Computer Use', keywords: ['screen', 'accessibility', 'permissions'], isEnabled: true }
+        { id: 'computer-use-setup', title: 'Computer Use setup', shortcut: '', category: 'Computer Use', keywords: ['screen', 'accessibility', 'permissions'], isEnabled: true },
+        { id: 'computer-use-open-screen-recording', title: 'Open Screen Recording settings', shortcut: '', category: 'Computer Use', keywords: ['screen', 'recording', 'capture', 'permissions'], isEnabled: true },
+        { id: 'computer-use-open-accessibility', title: 'Open Accessibility settings', shortcut: '', category: 'Computer Use', keywords: ['accessibility', 'click', 'keyboard', 'permissions'], isEnabled: true },
+        { id: 'computer-use-refresh', title: 'Refresh Computer Use status', shortcut: '', category: 'Computer Use', keywords: ['computer use', 'permissions', 'refresh', 'status'], isEnabled: true }
       ],
       terminal: {
         isVisible: false,
@@ -2395,6 +2420,11 @@
         state.settings.loginStatusLabel = 'Opening TrustedRouter sign in';
         render();
       });
+      document.querySelectorAll('[data-testid="computer-use-settings"] [data-command-id]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
+        });
+      });
       document.querySelector('[data-testid="settings-form"]')?.addEventListener('submit', event => {
         event.preventDefault();
         const form = event.currentTarget;
@@ -2670,6 +2700,7 @@
             <p data-testid="settings-login-status">${escapeHTML(state.settings.loginStatusLabel)}</p>
             <p data-testid="settings-key-status">${escapeHTML(state.settings.apiKeyStatusLabel)}</p>
             ${state.settings.accountLabel ? `<p data-testid="settings-account">${escapeHTML(state.settings.accountLabel)}</p>` : ''}
+            ${renderComputerUseSettingsCard()}
             ${state.runtimeIssue ? renderRuntimeIssue(state.runtimeIssue, { showDiagnostics: true }) : ''}
             <label>
               TrustedRouter API base URL
@@ -2698,6 +2729,48 @@
               <button type="submit" data-testid="settings-save">Save</button>
             </div>
           </form>
+        </div>`;
+    }
+
+    function renderComputerUseSettingsCard() {
+      const status = state.settings.computerUseStatus;
+      const screenCommand = state.settings.computerUseScreenRecordingCommand;
+      const accessibilityCommand = state.settings.computerUseAccessibilityCommand;
+      const statusLabel = status.available
+        ? 'Ready'
+        : (!status.screenRecordingGranted && !status.accessibilityGranted
+          ? 'Setup needed'
+          : (!status.screenRecordingGranted ? 'Screen Recording needed' : 'Accessibility needed'));
+      return `
+        <section class="permission-card" data-testid="computer-use-settings">
+          <header>
+            <div>
+              <h3>Computer Use</h3>
+              <p>${status.available ? 'Ready for screenshots and desktop input.' : 'Open each required permission below, then return and refresh.'}</p>
+            </div>
+            <span class="permission-status-pill" data-testid="computer-use-settings-status" data-available="${status.available}">${escapeHTML(statusLabel)}</span>
+          </header>
+          ${renderComputerUsePermissionRow('Screen Recording', 'Lets QuillCode inspect the screen for Computer Use.', status.screenRecordingGranted, screenCommand)}
+          ${renderComputerUsePermissionRow('Accessibility', 'Lets QuillCode click, type, scroll, and press keys.', status.accessibilityGranted, accessibilityCommand)}
+          <div class="permission-actions">
+            <button type="button" data-testid="computer-use-refresh" data-command-id="${state.settings.computerUseRefreshCommand.id}">Refresh status</button>
+          </div>
+          ${state.lastOpenedURL?.startsWith('x-apple.systempreferences:')
+            ? `<p data-testid="computer-use-last-opened">${escapeHTML(state.lastOpenedURL)}</p>`
+            : ''}
+        </section>`;
+    }
+
+    function renderComputerUsePermissionRow(title, detail, isGranted, command) {
+      return `
+        <div class="permission-row" data-testid="computer-use-permission">
+          <div>
+            <strong>${escapeHTML(title)}</strong>
+            <span>${escapeHTML(detail)}</span>
+          </div>
+          ${isGranted
+            ? '<strong>Granted</strong>'
+            : `<button type="button" data-testid="computer-use-permission-open" data-command-id="${command.id}" ${command.isEnabled ? '' : 'disabled'}>Open</button>`}
         </div>`;
     }
 
@@ -3506,6 +3579,18 @@
       if (commandID === 'settings') {
         state.settings.isOpen = true;
         state.settings.replacementAPIKey = '';
+      }
+      if (commandID === 'computer-use-setup') {
+        state.settings.isOpen = true;
+      }
+      if (commandID === 'computer-use-open-screen-recording') {
+        state.lastOpenedURL = 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture';
+      }
+      if (commandID === 'computer-use-open-accessibility') {
+        state.lastOpenedURL = 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility';
+      }
+      if (commandID === 'computer-use-refresh') {
+        state.topBar.computerUseLabel = state.settings.computerUseStatus.message;
       }
       if (commandID === 'keyboard-shortcuts') {
         state.shortcuts.isOpen = true;
