@@ -715,6 +715,19 @@ private struct QuillCodeModelPickerView: View {
                                                     Text(option.id)
                                                         .font(.caption)
                                                         .foregroundStyle(QuillCodePalette.muted)
+                                                    if !option.badges.isEmpty {
+                                                        HStack(spacing: 5) {
+                                                            ForEach(option.badges, id: \.self) { badge in
+                                                                Text(badge)
+                                                                    .font(.caption2.weight(.semibold))
+                                                                    .foregroundStyle(badge == "Current" ? QuillCodePalette.green : QuillCodePalette.blue)
+                                                                    .padding(.horizontal, 6)
+                                                                    .padding(.vertical, 2)
+                                                                    .background((badge == "Current" ? QuillCodePalette.green : QuillCodePalette.blue).opacity(0.14))
+                                                                    .clipShape(Capsule())
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                                 Spacer()
                                                 if option.isSelected {

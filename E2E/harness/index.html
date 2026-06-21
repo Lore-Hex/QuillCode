@@ -102,17 +102,24 @@
       width: 100%;
       display: grid;
       gap: 2px;
-      padding: 10px;
-      border-radius: 10px;
-      color: var(--text);
       text-align: left;
-      background: rgba(255,255,255,.04);
-      border: 1px solid transparent;
     }
     .model-option small { color: var(--muted); }
-    .model-option.selected {
-      background: rgba(65,184,232,.13);
-      border-color: rgba(65,184,232,.32);
+    .model-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 3px;
+    }
+    .model-badges em {
+      color: #b8ecff;
+      background: rgba(65,184,232,.12);
+      border: 1px solid rgba(65,184,232,.18);
+      border-radius: 999px;
+      padding: 2px 6px;
+      font-style: normal;
+      font-size: 10px;
+      font-weight: 800;
     }
     .model-empty {
       padding: 12px;
@@ -838,6 +845,18 @@
       font-weight: 700;
       font: inherit;
     }
+    .model-option {
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 10px;
+      background: rgba(0,0,0,.16);
+      color: var(--text);
+      font-weight: 400;
+    }
+    .model-option.selected {
+      background: rgba(65,184,232,.13);
+      border-color: rgba(65,184,232,.32);
+    }
     button:disabled { opacity: .45; }
     @media (max-width: 760px) {
       .workspace-grid { grid-template-columns: 1fr; }
@@ -864,14 +883,14 @@
           {
             category: 'Recommended',
             models: [
-              { id: 'trustedrouter/fusion', provider: 'trustedrouter', displayName: 'Fusion', isSelected: true }
+              { id: 'trustedrouter/fusion', provider: 'trustedrouter', displayName: 'Fusion', isSelected: true, badges: ['Current', 'Default', 'Recommended'] }
             ]
           },
           {
             category: 'Safety',
             models: [
-              { id: 'z-ai/glm-5.2', provider: 'z-ai', displayName: 'GLM 5.2', isSelected: false },
-              { id: 'moonshotai/kimi-k2.6', provider: 'moonshotai', displayName: 'Kimi K2.6', isSelected: false }
+              { id: 'z-ai/glm-5.2', provider: 'z-ai', displayName: 'GLM 5.2', isSelected: false, badges: [] },
+              { id: 'moonshotai/kimi-k2.6', provider: 'moonshotai', displayName: 'Kimi K2.6', isSelected: false, badges: [] }
             ]
           }
         ],
@@ -1648,6 +1667,7 @@
                 <button class="model-option ${model.id === state.topBar.selectedModelID ? 'selected' : ''}" type="button" data-testid="model-option" data-model-id="${escapeHTML(model.id)}">
                   <span>${escapeHTML(model.provider + '/' + model.displayName)}${model.id === state.topBar.selectedModelID ? ' ✓' : ''}</span>
                   <small>${escapeHTML(model.id)}</small>
+                  ${(model.badges || []).length ? `<span class="model-badges">${model.badges.map(badge => `<em data-testid="model-badge">${escapeHTML(badge)}</em>`).join('')}</span>` : ''}
                 </button>`).join('')}
             </section>`).join('')}
         </div>` : '<div class="model-empty" data-testid="model-empty">No models match. Try a provider, category, or model name.</div>';
@@ -2036,7 +2056,9 @@
     function filterModelCategories(query) {
       const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
       if (!terms.length) return state.topBar.modelCategories;
+      const includesRecentTerm = terms.includes('recent');
       return state.topBar.modelCategories
+        .filter(category => category.category !== 'Recent' || includesRecentTerm)
         .map(category => ({
           ...category,
           models: category.models.filter(model => {
@@ -2044,7 +2066,8 @@
               category.category,
               model.id,
               model.provider,
-              model.displayName
+              model.displayName,
+              (model.badges || []).join(' ')
             ].join(' ').toLowerCase();
             return terms.every(term => haystack.includes(term));
           })
@@ -2062,7 +2085,15 @@
       state.topBar.modelSearch = '';
       state.topBar.modelCategories = state.topBar.modelCategories.map(category => ({
         ...category,
-        models: category.models.map(model => ({ ...model, isSelected: model.id === selected.id }))
+        models: category.models.map(model => {
+          const selectedMatch = model.id === selected.id;
+          const withoutCurrent = (model.badges || []).filter(badge => badge !== 'Current');
+          return {
+            ...model,
+            isSelected: selectedMatch,
+            badges: selectedMatch ? ['Current', ...withoutCurrent] : withoutCurrent
+          };
+        })
       }));
       render();
     }

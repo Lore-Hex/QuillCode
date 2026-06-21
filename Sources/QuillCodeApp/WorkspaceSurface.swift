@@ -212,13 +212,18 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
             return modelCategories
         }
 
+        let includesRecentTerm = normalizedTerms.contains("recent")
         return modelCategories.compactMap { category in
+            if category.category == "Recent" && !includesRecentTerm {
+                return nil
+            }
             let models = category.models.filter { option in
                 let haystack = [
                     category.category,
                     option.id,
                     option.provider,
-                    option.displayName
+                    option.displayName,
+                    option.badges.joined(separator: " ")
                 ].joined(separator: " ").lowercased()
                 return normalizedTerms.allSatisfy { haystack.contains($0) }
             }
@@ -245,13 +250,34 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
     public var displayName: String
     public var category: String
     public var isSelected: Bool
+    public var badges: [String]
 
-    public init(model: ModelInfo, selectedModelID: String) {
+    public init(model: ModelInfo, selectedModelID: String, badges: [String] = []) {
         self.id = model.id
         self.provider = model.provider
         self.displayName = model.displayName
         self.category = model.category
         self.isSelected = model.id == selectedModelID
+        self.badges = badges
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case provider
+        case displayName
+        case category
+        case isSelected
+        case badges
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.provider = try container.decode(String.self, forKey: .provider)
+        self.displayName = try container.decode(String.self, forKey: .displayName)
+        self.category = try container.decode(String.self, forKey: .category)
+        self.isSelected = try container.decode(Bool.self, forKey: .isSelected)
+        self.badges = try container.decodeIfPresent([String].self, forKey: .badges) ?? []
     }
 }
 
@@ -1474,9 +1500,9 @@ public extension QuillCodeWorkspaceModel {
         }
 
         let options = catalog.map {
-            ModelOptionSurface(model: $0, selectedModelID: selectedModelID)
+            modelOption(for: $0, selectedModelID: selectedModelID)
         }
-        return Dictionary(grouping: options, by: \.category)
+        var categories = Dictionary(grouping: options, by: \.category)
             .map { category, models in
                 ModelCategorySurface(
                     category: category,
@@ -1491,6 +1517,50 @@ public extension QuillCodeWorkspaceModel {
                 if $1.category == "Recommended" { return false }
                 return $0.category < $1.category
             }
+
+        let recentModels = recentModelIDs(limit: 4).compactMap { id -> ModelOptionSurface? in
+            let model = catalog.first { $0.id == id } ?? Self.fallbackModelInfo(for: id)
+            return modelOption(for: model, selectedModelID: selectedModelID, extraBadges: ["Recent"])
+        }
+        if !recentModels.isEmpty {
+            categories.insert(ModelCategorySurface(category: "Recent", models: recentModels), at: 0)
+        }
+        return categories
+    }
+
+    private func modelOption(
+        for model: ModelInfo,
+        selectedModelID: String,
+        extraBadges: [String] = []
+    ) -> ModelOptionSurface {
+        var badges = extraBadges
+        if model.id == selectedModelID {
+            badges.append("Current")
+        }
+        if model.id == root.config.defaultModel {
+            badges.append("Default")
+        }
+        if model.id == TrustedRouterDefaults.defaultModel {
+            badges.append("Recommended")
+        }
+        return ModelOptionSurface(model: model, selectedModelID: selectedModelID, badges: Self.unique(badges))
+    }
+
+    private func recentModelIDs(limit: Int) -> [String] {
+        let modelIDs = root.threads
+            .filter { !$0.isArchived }
+            .sorted { $0.updatedAt > $1.updatedAt }
+            .map(\.model)
+        return Array(Self.unique(modelIDs).prefix(limit))
+    }
+
+    private static func unique<S: Sequence>(_ values: S) -> [S.Element] where S.Element: Hashable {
+        var seen = Set<S.Element>()
+        var result: [S.Element] = []
+        for value in values where seen.insert(value).inserted {
+            result.append(value)
+        }
+        return result
     }
 
     private static func fallbackModelInfo(for id: String) -> ModelInfo {

@@ -669,6 +669,7 @@ test('mock harness searches and selects models from the top bar', async ({ page 
 
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-browser')).toBeVisible();
+  await expect(page.getByTestId('model-badge').filter({ hasText: 'Current' }).first()).toBeVisible();
   await expect(page.getByTestId('model-option')).toHaveCount(3);
 
   await page.getByTestId('model-search').fill('moon k2');

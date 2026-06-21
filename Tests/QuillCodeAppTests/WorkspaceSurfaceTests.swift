@@ -417,6 +417,60 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(current?.models.first?.isSelected == true)
     }
 
+    func testModelPickerShowsRecentModelsAndBadges() throws {
+        let older = ChatThread(
+            title: "Older model",
+            model: "z-ai/glm-5.2",
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+        let newer = ChatThread(
+            title: "Newer model",
+            model: "moonshotai/kimi-k2.6",
+            updatedAt: Date(timeIntervalSince1970: 200)
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            config: AppConfig(defaultModel: "trustedrouter/fusion"),
+            threads: [older, newer],
+            selectedThreadID: newer.id,
+            topBar: TopBarState(model: "moonshotai/kimi-k2.6"),
+            modelCatalog: TrustedRouterModelCatalog.defaultModels
+        ))
+
+        let topBar = model.surface().topBar
+        let recent = try XCTUnwrap(topBar.modelCategories.first)
+
+        XCTAssertEqual(recent.category, "Recent")
+        XCTAssertEqual(recent.models.map(\.id), ["moonshotai/kimi-k2.6", "z-ai/glm-5.2"])
+        XCTAssertEqual(recent.models.first?.badges, ["Recent", "Current"])
+
+        let defaultOption = try XCTUnwrap(topBar.modelCategories
+            .flatMap(\.models)
+            .first { $0.id == "trustedrouter/fusion" })
+        XCTAssertTrue(defaultOption.badges.contains("Default"))
+        XCTAssertTrue(defaultOption.badges.contains("Recommended"))
+
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "moon k2").flatMap(\.models).map(\.id), ["moonshotai/kimi-k2.6"])
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "recent").first?.category, "Recent")
+    }
+
+    func testModelOptionDecodesOlderPayloadWithoutBadges() throws {
+        let data = """
+        {
+          "id": "trustedrouter/fusion",
+          "provider": "trustedrouter",
+          "displayName": "Fusion",
+          "category": "Recommended",
+          "isSelected": true
+        }
+        """.data(using: .utf8)!
+
+        let option = try JSONDecoder().decode(ModelOptionSurface.self, from: data)
+
+        XCTAssertEqual(option.id, "trustedrouter/fusion")
+        XCTAssertTrue(option.isSelected)
+        XCTAssertTrue(option.badges.isEmpty)
+    }
+
     func testEmptySurfaceShowsCodexLikeEmptyState() {
         let surface = QuillCodeWorkspaceModel().surface()
 
