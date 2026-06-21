@@ -142,17 +142,23 @@ public struct BrowserCommentState: Sendable, Hashable, Identifiable {
 public struct WorkspaceReviewCommentState: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var path: String
+    public var lineNumber: Int?
+    public var lineKind: WorkspaceReviewLineKind?
     public var text: String
     public var createdAt: Date
 
     public init(
         id: UUID = UUID(),
         path: String,
+        lineNumber: Int? = nil,
+        lineKind: WorkspaceReviewLineKind? = nil,
         text: String,
         createdAt: Date = Date()
     ) {
         self.id = id
         self.path = path
+        self.lineNumber = lineNumber
+        self.lineKind = lineKind
         self.text = text
         self.createdAt = createdAt
     }
@@ -557,6 +563,16 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func addReviewComment(path: String, text: String) -> Bool {
+        addReviewComment(path: path, lineNumber: nil, lineKind: nil, text: text)
+    }
+
+    @discardableResult
+    public func addReviewComment(
+        path: String,
+        lineNumber: Int?,
+        lineKind: WorkspaceReviewLineKind?,
+        text: String
+    ) -> Bool {
         let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard selectedThread != nil,
@@ -567,16 +583,32 @@ public final class QuillCodeWorkspaceModel {
         }
 
         let currentReview = surface().review
-        guard currentReview.files.contains(where: { $0.path == trimmedPath }) else {
+        guard let file = currentReview.files.first(where: { $0.path == trimmedPath }) else {
             return false
         }
 
-        let comment = WorkspaceReviewCommentState(path: trimmedPath, text: trimmedText)
+        if let lineNumber {
+            let hasLine = file.hunkItems
+                .flatMap(\.lines)
+                .contains { line in
+                    line.displayLineNumber == lineNumber
+                        && (lineKind == nil || line.kind == lineKind)
+                }
+            guard hasLine else { return false }
+        }
+
+        let comment = WorkspaceReviewCommentState(
+            path: trimmedPath,
+            lineNumber: lineNumber,
+            lineKind: lineKind,
+            text: trimmedText
+        )
         let payloadJSON = (try? JSONHelpers.encodePretty(comment)) ?? "{}"
+        let summary = lineNumber.map { "Commented on \(trimmedPath):\($0)" } ?? "Commented on \(trimmedPath)"
         mutateSelectedThread { thread in
             thread.events.append(.init(
                 kind: .reviewComment,
-                summary: "Commented on \(trimmedPath)",
+                summary: summary,
                 payloadJSON: payloadJSON
             ))
         }

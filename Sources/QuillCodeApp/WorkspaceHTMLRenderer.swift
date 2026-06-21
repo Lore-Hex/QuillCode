@@ -196,7 +196,26 @@ public enum WorkspaceHTMLRenderer {
           <span>
             \(hunk.actions.map(renderReviewAction).joined(separator: "\n"))
           </span>
+          <ol data-testid="review-lines">
+            \(hunk.lines.map(renderReviewLine).joined(separator: "\n"))
+          </ol>
         </div>
+        """
+    }
+
+    private static func renderReviewLine(_ line: WorkspaceReviewLineSurface) -> String {
+        let comments = line.comments.map { comment in
+            """
+            <blockquote data-testid="review-line-comment">\(escape(comment.text))</blockquote>
+            """
+        }.joined(separator: "\n")
+        return """
+        <li data-testid="review-line" data-line-kind="\(escape(line.kind.rawValue))">
+          <span data-testid="review-line-number">\(escape(line.lineLabel))</span>
+          <span data-testid="review-line-marker">\(escape(line.kind.marker))</span>
+          <code data-testid="review-line-content">\(escape(line.content))</code>
+          \(comments)
+        </li>
         """
     }
 

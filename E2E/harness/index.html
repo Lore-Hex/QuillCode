@@ -360,17 +360,95 @@
       margin: 6px 0 0 20px;
     }
     .review-hunk {
+      display: grid;
+      gap: 10px;
+      color: var(--muted);
+    }
+    .review-hunk-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      color: var(--muted);
     }
-    .review-hunk code {
+    .review-hunk-header code {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .review-lines {
+      display: grid;
+      gap: 0;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      border-radius: 10px;
+      background: rgba(0,0,0,.22);
+    }
+    .review-line {
+      display: grid;
+      grid-template-columns: 40px 14px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 8px;
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+    }
+    .review-line[data-line-kind="insertion"] {
+      background: rgba(52,199,89,.08);
+    }
+    .review-line[data-line-kind="deletion"] {
+      background: rgba(255,69,58,.08);
+    }
+    .review-line-number {
+      color: var(--muted);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .review-line-marker[data-line-kind="insertion"] { color: #7ee787; }
+    .review-line-marker[data-line-kind="deletion"] { color: #ff8a80; }
+    .review-line-content {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .review-line-comment-form {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .review-line-comment-form input {
+      width: 150px;
+      min-width: 0;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      color: var(--text);
+      padding: 5px 8px;
+      font-family: var(--font);
+    }
+    .review-line-comment-form button {
+      border-radius: 999px;
+      border: 1px solid rgba(65,184,232,.28);
+      background: rgba(65,184,232,.14);
+      color: #b6eaff;
+      padding: 5px 8px;
+    }
+    .review-line-comments {
+      grid-column: 3 / -1;
+      display: grid;
+      gap: 4px;
+      font-family: var(--font);
+    }
+    .review-line-comment {
+      margin: 0;
+      padding: 5px 7px;
+      border-left: 2px solid rgba(65,184,232,.55);
+      border-radius: 7px;
+      background: rgba(0,0,0,.2);
+      color: var(--text);
     }
     .review-actions button {
       padding: 5px 9px;
@@ -831,12 +909,30 @@
                   <div class="review-hunks">
                     ${file.hunks.map(hunk => `
                       <div class="review-hunk" data-testid="review-hunk">
-                        <code data-testid="review-hunk-header">${escapeHTML(hunk.header)}</code>
-                        <span class="review-actions">
-                          <small>${escapeHTML(hunk.changeLabel)}</small>
-                          <button type="button" data-testid="review-action" data-action="stage_hunk" data-path="${escapeHTML(file.path)}">Stage hunk</button>
-                          <button type="button" data-testid="review-action" data-action="restore_hunk" data-path="${escapeHTML(file.path)}">Restore hunk</button>
-                        </span>
+                        <div class="review-hunk-header">
+                          <code data-testid="review-hunk-header">${escapeHTML(hunk.header)}</code>
+                          <span class="review-actions">
+                            <small>${escapeHTML(hunk.changeLabel)}</small>
+                            <button type="button" data-testid="review-action" data-action="stage_hunk" data-path="${escapeHTML(file.path)}">Stage hunk</button>
+                            <button type="button" data-testid="review-action" data-action="restore_hunk" data-path="${escapeHTML(file.path)}">Restore hunk</button>
+                          </span>
+                        </div>
+                        <ol class="review-lines" data-testid="review-lines">
+                          ${(hunk.lines || []).map(line => `
+                            <li class="review-line" data-testid="review-line" data-line-kind="${escapeHTML(line.kind)}">
+                              <span class="review-line-number" data-testid="review-line-number">${escapeHTML(line.lineNumber || '')}</span>
+                              <span class="review-line-marker" data-line-kind="${escapeHTML(line.kind)}">${escapeHTML(line.marker)}</span>
+                              <code class="review-line-content" data-testid="review-line-content">${escapeHTML(line.content)}</code>
+                              <form class="review-line-comment-form" data-testid="review-line-comment-form" data-path="${escapeHTML(file.path)}" data-line-number="${escapeHTML(line.lineNumber || '')}" data-line-kind="${escapeHTML(line.kind)}">
+                                <input data-testid="review-line-comment-input" aria-label="Line note for ${escapeHTML(file.path)}:${escapeHTML(line.lineNumber || '')}" placeholder="Line note">
+                                <button type="submit">Add</button>
+                              </form>
+                              ${(line.comments || []).length ? `
+                                <div class="review-line-comments">
+                                  ${line.comments.map(comment => `<blockquote class="review-line-comment" data-testid="review-line-comment">${escapeHTML(comment.text)}</blockquote>`).join('')}
+                                </div>` : ''}
+                            </li>`).join('')}
+                        </ol>
                       </div>`).join('')}
                   </div>` : ''}
                 ${(file.comments || []).length ? `
@@ -1083,6 +1179,16 @@
           const path = event.currentTarget.getAttribute('data-path');
           const input = event.currentTarget.querySelector('[data-testid="review-comment-input"]');
           addReviewComment(path, input.value);
+        });
+      });
+      document.querySelectorAll('[data-testid="review-line-comment-form"]').forEach(form => {
+        form.addEventListener('submit', event => {
+          event.preventDefault();
+          const path = event.currentTarget.getAttribute('data-path');
+          const lineNumber = Number(event.currentTarget.getAttribute('data-line-number'));
+          const lineKind = event.currentTarget.getAttribute('data-line-kind');
+          const input = event.currentTarget.querySelector('[data-testid="review-line-comment-input"]');
+          addReviewLineComment(path, lineNumber, lineKind, input.value);
         });
       });
       document.querySelector('[data-testid="settings-cancel"]')?.addEventListener('click', () => {
@@ -1899,7 +2005,14 @@
           files: [{
             path: 'Sources/App.swift',
             changeLabel: '+1 · -0 · 1 hunk',
-            hunks: [{ header: '@@ -1 +1,2 @@', changeLabel: '+1 · -0' }],
+            hunks: [{
+              header: '@@ -1 +1,2 @@',
+              changeLabel: '+1 · -0',
+              lines: [
+                { lineNumber: 1, kind: 'insertion', marker: '+', content: 'let title = "QuillCode"', comments: [] },
+                { lineNumber: 2, kind: 'context', marker: ' ', content: 'import Foundation', comments: [] }
+              ]
+            }],
             comments: []
           }]
         };
@@ -1951,6 +2064,20 @@
       if (!file) return;
       file.comments = file.comments || [];
       file.comments.push({ id: crypto.randomUUID(), path, text: trimmed });
+      render();
+    }
+
+    function addReviewLineComment(path, lineNumber, lineKind, text) {
+      const trimmed = (text || '').trim();
+      if (!path || !lineNumber || !trimmed) return;
+      const file = state.review.files.find(file => file.path === path);
+      if (!file) return;
+      const line = (file.hunks || [])
+        .flatMap(hunk => hunk.lines || [])
+        .find(line => line.lineNumber === lineNumber && line.kind === lineKind);
+      if (!line) return;
+      line.comments = line.comments || [];
+      line.comments.push({ id: crypto.randomUUID(), path, lineNumber, lineKind, text: trimmed });
       render();
     }
 

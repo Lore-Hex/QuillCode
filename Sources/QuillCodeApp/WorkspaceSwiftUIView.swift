@@ -21,7 +21,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
     public var onStartTrustedRouterSignIn: () -> Void
     public var onReviewAction: (WorkspaceReviewActionSurface) -> Void
-    public var onAddReviewComment: (String, String) -> Void
+    public var onAddReviewComment: (String, Int?, WorkspaceReviewLineKind?, String) -> Void
     public var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
     public var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
     public var onCommand: (WorkspaceCommandSurface) -> Void
@@ -54,7 +54,7 @@ public struct QuillCodeWorkspaceView: View {
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onStartTrustedRouterSignIn: @escaping () -> Void,
         onReviewAction: @escaping (WorkspaceReviewActionSurface) -> Void,
-        onAddReviewComment: @escaping (String, String) -> Void,
+        onAddReviewComment: @escaping (String, Int?, WorkspaceReviewLineKind?, String) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
@@ -1010,7 +1010,7 @@ private struct QuillCodeTranscriptView: View {
     var review: WorkspaceReviewSurface
     var onContextCommand: (WorkspaceCommandSurface) -> Void
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
-    var onAddReviewComment: (String, String) -> Void
+    var onAddReviewComment: (String, Int?, WorkspaceReviewLineKind?, String) -> Void
 
     var body: some View {
         ScrollView {
@@ -1310,7 +1310,7 @@ private struct QuillCodeTerminalEntryView: View {
 private struct QuillCodeReviewPaneView: View {
     var review: WorkspaceReviewSurface
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
-    var onAddReviewComment: (String, String) -> Void
+    var onAddReviewComment: (String, Int?, WorkspaceReviewLineKind?, String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1366,7 +1366,7 @@ private struct QuillCodeReviewPaneView: View {
 private struct QuillCodeReviewFileRowView: View {
     var file: WorkspaceReviewFileSurface
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
-    var onAddReviewComment: (String, String) -> Void
+    var onAddReviewComment: (String, Int?, WorkspaceReviewLineKind?, String) -> Void
 
     @State private var commentDraft = ""
 
@@ -1391,19 +1391,11 @@ private struct QuillCodeReviewFileRowView: View {
             }
 
             ForEach(file.hunkItems) { hunk in
-                HStack(spacing: 8) {
-                    Text(hunk.header)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(QuillCodePalette.muted)
-                        .lineLimit(1)
-                    Text(hunk.changeLabel)
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(QuillCodePalette.muted)
-                    Spacer()
-                    ForEach(hunk.actions) { action in
-                        QuillCodeReviewActionButton(action: action, path: hunk.path, onReviewAction: onReviewAction)
-                    }
-                }
+                QuillCodeReviewHunkView(
+                    hunk: hunk,
+                    onReviewAction: onReviewAction,
+                    onAddReviewComment: onAddReviewComment
+                )
                 .padding(.leading, 30)
             }
 
@@ -1429,7 +1421,7 @@ private struct QuillCodeReviewFileRowView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 Button {
                     let text = commentDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                    onAddReviewComment(file.path, text)
+                    onAddReviewComment(file.path, nil, nil, text)
                     commentDraft = ""
                 } label: {
                     Label("Add review note", systemImage: "plus.bubble")
@@ -1442,6 +1434,145 @@ private struct QuillCodeReviewFileRowView: View {
             .padding(.leading, 30)
         }
         .padding(.vertical, 8)
+    }
+}
+
+private struct QuillCodeReviewHunkView: View {
+    var hunk: WorkspaceReviewHunkSurface
+    var onReviewAction: (WorkspaceReviewActionSurface) -> Void
+    var onAddReviewComment: (String, Int?, WorkspaceReviewLineKind?, String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text(hunk.header)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(1)
+                Text(hunk.changeLabel)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(QuillCodePalette.muted)
+                Spacer()
+                ForEach(hunk.actions) { action in
+                    QuillCodeReviewActionButton(action: action, path: hunk.path, onReviewAction: onReviewAction)
+                }
+            }
+
+            if !hunk.lines.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(hunk.lines) { line in
+                        QuillCodeReviewLineRowView(
+                            line: line,
+                            onAddReviewComment: onAddReviewComment
+                        )
+                    }
+                }
+                .background(QuillCodePalette.background.opacity(0.58))
+                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            }
+        }
+    }
+}
+
+private struct QuillCodeReviewLineRowView: View {
+    var line: WorkspaceReviewLineSurface
+    var onAddReviewComment: (String, Int?, WorkspaceReviewLineKind?, String) -> Void
+
+    @State private var isAddingComment = false
+    @State private var commentDraft = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(line.lineLabel)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .frame(width: 34, alignment: .trailing)
+                Text(line.kind.marker)
+                    .font(.caption.monospaced().weight(.semibold))
+                    .foregroundStyle(markerColor)
+                    .frame(width: 10, alignment: .center)
+                Text(line.content.isEmpty ? " " : line.content)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(QuillCodePalette.text)
+                    .lineLimit(2)
+                    .textSelection(.enabled)
+                Spacer(minLength: 8)
+                if line.displayLineNumber != nil {
+                    Button {
+                        isAddingComment.toggle()
+                    } label: {
+                        Label("Comment on line \(line.lineLabel)", systemImage: "plus.bubble")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Comment on line \(line.lineLabel)")
+                    .foregroundStyle(QuillCodePalette.blue)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(lineBackground)
+
+            if !line.comments.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(line.comments) { comment in
+                        Label(comment.text, systemImage: "text.bubble")
+                            .font(.caption)
+                            .foregroundStyle(QuillCodePalette.text)
+                            .labelStyle(.titleAndIcon)
+                    }
+                }
+                .padding(.leading, 58)
+                .padding(.trailing, 8)
+            }
+
+            if isAddingComment {
+                HStack(spacing: 8) {
+                    TextField("Line note", text: $commentDraft)
+                        .textFieldStyle(.plain)
+                        .font(.caption)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 7)
+                        .background(QuillCodePalette.panel.opacity(0.82))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    Button("Add") {
+                        guard let lineNumber = line.displayLineNumber else { return }
+                        let text = commentDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                        onAddReviewComment(line.path, lineNumber, line.kind, text)
+                        commentDraft = ""
+                        isAddingComment = false
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding(.leading, 58)
+                .padding(.trailing, 8)
+                .padding(.bottom, 6)
+            }
+        }
+    }
+
+    private var markerColor: Color {
+        switch line.kind {
+        case .context:
+            return QuillCodePalette.muted
+        case .insertion:
+            return .green
+        case .deletion:
+            return .red
+        }
+    }
+
+    private var lineBackground: Color {
+        switch line.kind {
+        case .context:
+            return .clear
+        case .insertion:
+            return Color.green.opacity(0.08)
+        case .deletion:
+            return Color.red.opacity(0.08)
+        }
     }
 }
 

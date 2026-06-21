@@ -27,7 +27,7 @@
 
 ## Milestone 3: Codex Workflow Parity
 
-- Line/range review comments, apply patch review integration, full PTY terminal sessions, worktree thread UI, local env actions.
+- Range review comments, apply patch review integration, full PTY terminal sessions, worktree thread UI, local env actions.
 - Per-file project-instruction scopes and visible conflict diagnostics.
 - Browser rendering adapter, DOM/page inspection, and richer browser comments.
 - Computer Use platform backends and app approvals.

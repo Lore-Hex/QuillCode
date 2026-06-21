@@ -462,12 +462,16 @@ public struct BrowserCommentSurface: Codable, Sendable, Hashable, Identifiable {
 public struct WorkspaceReviewCommentSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var path: String
+    public var lineNumber: Int?
+    public var lineKind: WorkspaceReviewLineKind?
     public var text: String
     public var createdAt: Date
 
     public init(comment: WorkspaceReviewCommentState) {
         self.id = comment.id
         self.path = comment.path
+        self.lineNumber = comment.lineNumber
+        self.lineKind = comment.lineKind
         self.text = comment.text
         self.createdAt = comment.createdAt
     }
@@ -520,6 +524,62 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
     }
 }
 
+public enum WorkspaceReviewLineKind: String, Codable, Sendable, Hashable {
+    case context
+    case insertion
+    case deletion
+
+    public var marker: String {
+        switch self {
+        case .context:
+            return " "
+        case .insertion:
+            return "+"
+        case .deletion:
+            return "-"
+        }
+    }
+}
+
+public struct WorkspaceReviewLineSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var path: String
+    public var hunkID: String
+    public var oldLineNumber: Int?
+    public var newLineNumber: Int?
+    public var kind: WorkspaceReviewLineKind
+    public var content: String
+    public var comments: [WorkspaceReviewCommentSurface]
+
+    public var displayLineNumber: Int? {
+        newLineNumber ?? oldLineNumber
+    }
+
+    public var lineLabel: String {
+        displayLineNumber.map(String.init) ?? ""
+    }
+
+    public init(
+        id: String,
+        path: String,
+        hunkID: String,
+        oldLineNumber: Int?,
+        newLineNumber: Int?,
+        kind: WorkspaceReviewLineKind,
+        content: String,
+        comments: [WorkspaceReviewCommentSurface] = []
+    ) {
+        self.id = id
+        self.path = path
+        self.hunkID = hunkID
+        self.oldLineNumber = oldLineNumber
+        self.newLineNumber = newLineNumber
+        self.kind = kind
+        self.content = content
+        self.comments = comments
+    }
+}
+
 public struct WorkspaceReviewHunkSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var path: String
@@ -527,6 +587,7 @@ public struct WorkspaceReviewHunkSurface: Codable, Sendable, Hashable, Identifia
     public var insertions: Int
     public var deletions: Int
     public var patch: String
+    public var lines: [WorkspaceReviewLineSurface]
 
     public var changeLabel: String {
         "+\(insertions) · -\(deletions)"
@@ -545,7 +606,8 @@ public struct WorkspaceReviewHunkSurface: Codable, Sendable, Hashable, Identifia
         header: String,
         insertions: Int,
         deletions: Int,
-        patch: String
+        patch: String,
+        lines: [WorkspaceReviewLineSurface] = []
     ) {
         self.id = id
         self.path = path
@@ -553,6 +615,7 @@ public struct WorkspaceReviewHunkSurface: Codable, Sendable, Hashable, Identifia
         self.insertions = insertions
         self.deletions = deletions
         self.patch = patch
+        self.lines = lines
     }
 }
 
@@ -1147,27 +1210,58 @@ public extension QuillCodeWorkspaceModel {
             return WorkspaceReviewSurface()
         }
         var review = GitDiffReviewParser.parse(result.stdout)
-        let commentsByPath = Self.reviewCommentsByPath(from: events)
+        let commentBuckets = Self.reviewCommentBuckets(from: events)
         review.files = review.files.map { file in
             var file = file
-            file.comments = commentsByPath[file.path] ?? []
+            file.comments = commentBuckets.fileCommentsByPath[file.path] ?? []
+            file.hunkItems = file.hunkItems.map { hunk in
+                var hunk = hunk
+                hunk.lines = hunk.lines.map { line in
+                    var line = line
+                    if let displayLineNumber = line.displayLineNumber {
+                        line.comments = commentBuckets.lineCommentsByPath[file.path]?[displayLineNumber]?.filter { comment in
+                            comment.lineKind == nil || comment.lineKind == line.kind
+                        } ?? []
+                    }
+                    return line
+                }
+                return hunk
+            }
             return file
         }
         return review
     }
 
-    private static func reviewCommentsByPath(from events: [ThreadEvent]) -> [String: [WorkspaceReviewCommentSurface]] {
-        var commentsByPath: [String: [WorkspaceReviewCommentSurface]] = [:]
+    private struct ReviewCommentBuckets {
+        var fileCommentsByPath: [String: [WorkspaceReviewCommentSurface]] = [:]
+        var lineCommentsByPath: [String: [Int: [WorkspaceReviewCommentSurface]]] = [:]
+    }
+
+    private static func reviewCommentBuckets(from events: [ThreadEvent]) -> ReviewCommentBuckets {
+        var buckets = ReviewCommentBuckets()
         for event in events where event.kind == .reviewComment {
             guard let comment = decode(WorkspaceReviewCommentState.self, event.payloadJSON) else {
                 continue
             }
-            commentsByPath[comment.path, default: []].append(WorkspaceReviewCommentSurface(comment: comment))
+            let surface = WorkspaceReviewCommentSurface(comment: comment)
+            if let lineNumber = comment.lineNumber {
+                buckets.lineCommentsByPath[comment.path, default: [:]][lineNumber, default: []].append(surface)
+            } else {
+                buckets.fileCommentsByPath[comment.path, default: []].append(surface)
+            }
         }
-        for path in commentsByPath.keys {
-            commentsByPath[path]?.sort { $0.createdAt < $1.createdAt }
+        for path in buckets.fileCommentsByPath.keys {
+            buckets.fileCommentsByPath[path]?.sort { $0.createdAt < $1.createdAt }
         }
-        return commentsByPath
+        for path in buckets.lineCommentsByPath.keys {
+            guard let lineNumbers = buckets.lineCommentsByPath[path]?.keys else {
+                continue
+            }
+            for lineNumber in lineNumbers {
+                buckets.lineCommentsByPath[path]?[lineNumber]?.sort { $0.createdAt < $1.createdAt }
+            }
+        }
+        return buckets
     }
 
     private static func decode<T: Decodable>(_ type: T.Type, _ payloadJSON: String?) -> T? {

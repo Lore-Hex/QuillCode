@@ -117,11 +117,11 @@ enum GitDiffReviewParser {
         }
 
         mutating func appendHunkLine(_ line: String) {
-            currentHunk?.lines.append(line)
-            if line.hasPrefix("+"), !line.hasPrefix("+++") {
+            let kind = currentHunk?.appendDiffLine(line)
+            if kind == .insertion {
                 insertions += 1
                 currentHunk?.insertions += 1
-            } else if line.hasPrefix("-"), !line.hasPrefix("---") {
+            } else if kind == .deletion {
                 deletions += 1
                 currentHunk?.deletions += 1
             }
@@ -154,18 +154,99 @@ enum GitDiffReviewParser {
         var header: String
         var insertions = 0
         var deletions = 0
-        var lines: [String] = []
+        var diffLines: [String] = []
+        var reviewLines: [WorkspaceReviewLineSurface] = []
+        var oldLineNumber: Int
+        var newLineNumber: Int
+
+        init(
+            id: String,
+            path: String,
+            diffHeader: String,
+            oldHeader: String,
+            newHeader: String,
+            header: String
+        ) {
+            let startingLines = Self.startingLines(from: header)
+            self.id = id
+            self.path = path
+            self.diffHeader = diffHeader
+            self.oldHeader = oldHeader
+            self.newHeader = newHeader
+            self.header = header
+            self.oldLineNumber = startingLines.old
+            self.newLineNumber = startingLines.new
+        }
+
+        mutating func appendDiffLine(_ line: String) -> WorkspaceReviewLineKind? {
+            diffLines.append(line)
+            guard let first = line.first,
+                  first == " " || first == "+" || first == "-"
+            else {
+                return nil
+            }
+
+            let kind: WorkspaceReviewLineKind
+            let oldNumber: Int?
+            let newNumber: Int?
+            switch first {
+            case "+":
+                kind = .insertion
+                oldNumber = nil
+                newNumber = newLineNumber
+                newLineNumber += 1
+            case "-":
+                kind = .deletion
+                oldNumber = oldLineNumber
+                newNumber = nil
+                oldLineNumber += 1
+            default:
+                kind = .context
+                oldNumber = oldLineNumber
+                newNumber = newLineNumber
+                oldLineNumber += 1
+                newLineNumber += 1
+            }
+
+            reviewLines.append(WorkspaceReviewLineSurface(
+                id: "\(id):line-\(reviewLines.count + 1)",
+                path: path,
+                hunkID: id,
+                oldLineNumber: oldNumber,
+                newLineNumber: newNumber,
+                kind: kind,
+                content: String(line.dropFirst())
+            ))
+            return kind
+        }
 
         var surface: WorkspaceReviewHunkSurface {
-            let patch = ([diffHeader, oldHeader, newHeader, header] + lines).joined(separator: "\n") + "\n"
+            let patch = ([diffHeader, oldHeader, newHeader, header] + diffLines).joined(separator: "\n") + "\n"
             return WorkspaceReviewHunkSurface(
                 id: id,
                 path: path,
                 header: header,
                 insertions: insertions,
                 deletions: deletions,
-                patch: patch
+                patch: patch,
+                lines: reviewLines
             )
+        }
+
+        private static func startingLines(from header: String) -> (old: Int, new: Int) {
+            let parts = header.split(separator: " ")
+            let oldToken = parts.first { $0.hasPrefix("-") }
+            let newToken = parts.first { $0.hasPrefix("+") }
+            return (
+                old: lineStart(from: oldToken) ?? 1,
+                new: lineStart(from: newToken) ?? 1
+            )
+        }
+
+        private static func lineStart(from token: Substring?) -> Int? {
+            guard let token else { return nil }
+            let trimmed = token.dropFirst().split(separator: ",", maxSplits: 1).first
+            return trimmed.flatMap { Int($0) }
         }
     }
 }
