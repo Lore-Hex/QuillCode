@@ -1158,9 +1158,30 @@ private struct QuillCodeSidebarView: View {
                 onProjectAction: onProjectAction
             )
             Divider()
-            Text(sidebar.title.uppercased())
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(QuillCodePalette.muted)
+            HStack {
+                Text(sidebar.title.uppercased())
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                Spacer()
+                if let action = sidebar.bulkActions.first(where: {
+                    sidebar.isSelectionMode ? $0.kind == .clearSelection : $0.kind == .select
+                }) {
+                    Button(action.title) {
+                        onCommand(command(for: action))
+                    }
+                    .font(.caption.weight(.semibold))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(action.isEnabled ? QuillCodePalette.blue : QuillCodePalette.muted)
+                    .disabled(!action.isEnabled)
+                }
+            }
+            if sidebar.isSelectionMode {
+                QuillCodeSidebarBulkActionsView(
+                    selectionLabel: sidebar.selectionLabel,
+                    actions: sidebar.bulkActions.filter { $0.kind != .clearSelection },
+                    onCommand: onCommand
+                )
+            }
             if sidebar.items.isEmpty {
                 Text(sidebar.emptyTitle)
                     .font(.callout)
@@ -1173,24 +1194,30 @@ private struct QuillCodeSidebarView: View {
                             QuillCodeSidebarThreadSectionView(
                                 title: "Pinned",
                                 items: sidebar.pinnedItems,
+                                isSelectionMode: sidebar.isSelectionMode,
                                 onSelectThread: onSelectThread,
-                                onThreadAction: onThreadAction
+                                onThreadAction: onThreadAction,
+                                onCommand: onCommand
                             )
                         }
                         if !sidebar.recentItems.isEmpty {
                             QuillCodeSidebarThreadSectionView(
                                 title: "Recent",
                                 items: sidebar.recentItems,
+                                isSelectionMode: sidebar.isSelectionMode,
                                 onSelectThread: onSelectThread,
-                                onThreadAction: onThreadAction
+                                onThreadAction: onThreadAction,
+                                onCommand: onCommand
                             )
                         }
                         if !sidebar.archivedItems.isEmpty {
                             QuillCodeSidebarThreadSectionView(
                                 title: "Archived",
                                 items: sidebar.archivedItems,
+                                isSelectionMode: sidebar.isSelectionMode,
                                 onSelectThread: onSelectThread,
-                                onThreadAction: onThreadAction
+                                onThreadAction: onThreadAction,
+                                onCommand: onCommand
                             )
                         }
                     }
@@ -1201,13 +1228,66 @@ private struct QuillCodeSidebarView: View {
         .padding(14)
         .background(QuillCodePalette.sidebar)
     }
+
+    private func command(for action: SidebarBulkActionSurface) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: action.commandID,
+            title: action.title,
+            category: WorkspaceCommandPalette.threadCategory,
+            isEnabled: action.isEnabled
+        )
+    }
+}
+
+private struct QuillCodeSidebarBulkActionsView: View {
+    var selectionLabel: String
+    var actions: [SidebarBulkActionSurface]
+    var onCommand: (WorkspaceCommandSurface) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(selectionLabel)
+                .font(.caption)
+                .foregroundStyle(QuillCodePalette.muted)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 6)], spacing: 6) {
+                ForEach(actions) { action in
+                    Button(action.title) {
+                        onCommand(command(for: action))
+                    }
+                    .font(.caption.weight(.semibold))
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 8)
+                    .frame(maxWidth: .infinity)
+                    .background((action.isDestructive ? QuillCodePalette.red : QuillCodePalette.panel).opacity(action.isEnabled ? 1 : 0.45))
+                    .foregroundStyle(action.isDestructive ? Color.white : QuillCodePalette.text)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .disabled(!action.isEnabled)
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(8)
+        .background(QuillCodePalette.background.opacity(0.55))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func command(for action: SidebarBulkActionSurface) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: action.commandID,
+            title: action.title,
+            category: WorkspaceCommandPalette.threadCategory,
+            isEnabled: action.isEnabled
+        )
+    }
 }
 
 private struct QuillCodeSidebarThreadSectionView: View {
     var title: String
     var items: [SidebarItemSurface]
+    var isSelectionMode: Bool
     var onSelectThread: (UUID) -> Void
     var onThreadAction: (SidebarItemActionSurface) -> Void
+    var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -1218,8 +1298,10 @@ private struct QuillCodeSidebarThreadSectionView: View {
             ForEach(items) { item in
                 QuillCodeSidebarThreadRowView(
                     item: item,
+                    isSelectionMode: isSelectionMode,
                     onSelectThread: onSelectThread,
-                    onThreadAction: onThreadAction
+                    onThreadAction: onThreadAction,
+                    onCommand: onCommand
                 )
             }
         }
@@ -1229,13 +1311,39 @@ private struct QuillCodeSidebarThreadSectionView: View {
 
 private struct QuillCodeSidebarThreadRowView: View {
     var item: SidebarItemSurface
+    var isSelectionMode: Bool
     var onSelectThread: (UUID) -> Void
     var onThreadAction: (SidebarItemActionSurface) -> Void
+    var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
         HStack(spacing: 6) {
+            if isSelectionMode {
+                Button {
+                    onCommand(WorkspaceCommandSurface(
+                        id: "thread-selection-toggle:\(item.id.uuidString)",
+                        title: item.isBulkSelected ? "Deselect chat" : "Select chat",
+                        category: WorkspaceCommandPalette.threadCategory
+                    ))
+                } label: {
+                    Image(systemName: item.isBulkSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(item.isBulkSelected ? QuillCodePalette.blue : QuillCodePalette.muted)
+                        .frame(width: 22, height: 22)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(item.isBulkSelected ? "Deselect \(item.title)" : "Select \(item.title)")
+            }
             Button {
-                onSelectThread(item.id)
+                if isSelectionMode {
+                    onCommand(WorkspaceCommandSurface(
+                        id: "thread-selection-toggle:\(item.id.uuidString)",
+                        title: item.isBulkSelected ? "Deselect chat" : "Select chat",
+                        category: WorkspaceCommandPalette.threadCategory
+                    ))
+                } else {
+                    onSelectThread(item.id)
+                }
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.title)

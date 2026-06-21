@@ -46,6 +46,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.sidebar.items.count, 1)
         XCTAssertEqual(surface.sidebar.items[0].title, "Run whoami")
         XCTAssertTrue(surface.sidebar.items[0].isSelected)
+        XCTAssertFalse(surface.sidebar.items[0].isBulkSelected)
+        XCTAssertFalse(surface.sidebar.isSelectionMode)
+        XCTAssertEqual(surface.sidebar.selectionLabel, "No chats selected")
+        XCTAssertEqual(surface.sidebar.bulkActions.map(\.kind), [.select])
         XCTAssertEqual(surface.sidebar.items[0].actions.map(\.kind), [.rename, .duplicate, .pin, .archive, .delete])
         XCTAssertEqual(surface.transcript.messages.count, 2)
         XCTAssertEqual(surface.composer.placeholder, "Message QuillCode")
@@ -58,6 +62,14 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "thread-archive",
             "thread-unarchive",
             "thread-delete",
+            "thread-selection-start",
+            "thread-selection-select-all",
+            "thread-selection-clear",
+            "thread-bulk-pin",
+            "thread-bulk-unpin",
+            "thread-bulk-archive",
+            "thread-bulk-unarchive",
+            "thread-bulk-delete",
             "fork-from-last",
             "compact-context",
             "retry-last-turn",
@@ -108,6 +120,45 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(surface.extensions.isVisible)
         XCTAssertFalse(surface.memories.isVisible)
         XCTAssertFalse(surface.activity.isVisible)
+    }
+
+    func testSidebarBulkSelectionArchivesAndDeletesChats() {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        let first = ChatThread(title: "Run whoami", projectID: project.id)
+        let second = ChatThread(title: "Check diff", projectID: project.id)
+        let fallback = ChatThread(title: "Review tests", projectID: project.id)
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
+            threads: [first, second, fallback],
+            selectedThreadID: first.id
+        ))
+
+        model.startSidebarSelection(selecting: first.id)
+        model.toggleSidebarThreadSelection(second.id)
+
+        var surface = model.surface()
+        XCTAssertTrue(surface.sidebar.isSelectionMode)
+        XCTAssertEqual(surface.sidebar.selectionLabel, "2 chats selected")
+        XCTAssertEqual(Set(surface.sidebar.items.filter(\.isBulkSelected).map(\.id)), [first.id, second.id])
+        XCTAssertEqual(surface.sidebar.bulkActions.first { $0.kind == .archive }?.isEnabled, true)
+
+        XCTAssertTrue(model.performSidebarBulkAction(.archive))
+        surface = model.surface()
+
+        XCTAssertFalse(surface.sidebar.isSelectionMode)
+        XCTAssertEqual(Set(surface.sidebar.archivedItems.map(\.id)), [first.id, second.id])
+        XCTAssertEqual(surface.sidebar.selectedThreadID, fallback.id)
+
+        model.selectAllSidebarThreads()
+        surface = model.surface()
+        XCTAssertEqual(surface.sidebar.selectionLabel, "3 chats selected")
+        XCTAssertTrue(model.performSidebarBulkAction(.delete))
+
+        surface = model.surface()
+        XCTAssertEqual(surface.sidebar.items.count, 0)
+        XCTAssertNil(surface.sidebar.selectedThreadID)
+        XCTAssertFalse(surface.sidebar.isSelectionMode)
     }
 
     func testActivitySurfaceSummarizesThreadToolsSourcesAndArtifacts() throws {

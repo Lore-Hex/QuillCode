@@ -522,6 +522,16 @@ public struct ActivityState: Sendable, Hashable {
     }
 }
 
+public struct SidebarSelectionState: Sendable, Hashable {
+    public var isActive: Bool
+    public var selectedThreadIDs: Set<UUID>
+
+    public init(isActive: Bool = false, selectedThreadIDs: Set<UUID> = []) {
+        self.isActive = isActive
+        self.selectedThreadIDs = selectedThreadIDs
+    }
+}
+
 private final class MCPServerProcessHandle: @unchecked Sendable {
     let process: Process
     let standardInput: Pipe
@@ -603,6 +613,7 @@ public final class QuillCodeWorkspaceModel {
     public private(set) var extensions: ExtensionsState
     public private(set) var memories: MemoriesState
     public private(set) var activity: ActivityState
+    public private(set) var sidebarSelection: SidebarSelectionState
     public private(set) var lastError: String?
 
     private var runner: AgentRunner
@@ -620,6 +631,7 @@ public final class QuillCodeWorkspaceModel {
         extensions: ExtensionsState = ExtensionsState(),
         memories: MemoriesState = MemoriesState(),
         activity: ActivityState = ActivityState(),
+        sidebarSelection: SidebarSelectionState = SidebarSelectionState(),
         runner: AgentRunner = AgentRunner(),
         threadStore: JSONThreadStore? = nil,
         projectStore: JSONProjectStore? = nil,
@@ -633,6 +645,7 @@ public final class QuillCodeWorkspaceModel {
         self.extensions = extensions
         self.memories = memories
         self.activity = activity
+        self.sidebarSelection = sidebarSelection
         self.runner = runner
         self.threadStore = threadStore
         self.projectStore = projectStore
@@ -809,6 +822,7 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func newChat(projectID: UUID? = nil) -> UUID {
+        clearSidebarSelection()
         let effectiveProjectID = knownProjectID(projectID ?? root.selectedProjectID)
         refreshProjectMetadata(effectiveProjectID)
         let thread = ChatThread(
@@ -831,6 +845,7 @@ public final class QuillCodeWorkspaceModel {
     @discardableResult
     public func forkFromLast() -> UUID? {
         guard let source = selectedThread, !source.messages.isEmpty else { return nil }
+        clearSidebarSelection()
         let copiedMessages = Self.forkSeedMessages(from: source.messages)
         let fork = ChatThread(
             title: "Fork: \(source.title)",
@@ -862,6 +877,7 @@ public final class QuillCodeWorkspaceModel {
     @discardableResult
     public func compactContext() -> UUID? {
         guard let source = selectedThread, !source.messages.isEmpty else { return nil }
+        clearSidebarSelection()
         let copiedMessages = Self.compactSeedMessages(from: source)
         let compacted = ChatThread(
             title: "Compact: \(source.title)",
@@ -898,6 +914,107 @@ public final class QuillCodeWorkspaceModel {
         touchProject(root.selectedProjectID)
         saveProjects()
         refreshTopBar(agentStatus: "Idle")
+    }
+
+    public func startSidebarSelection(selecting id: UUID? = nil) {
+        sidebarSelection.isActive = true
+        if let id, root.threads.contains(where: { $0.id == id }) {
+            sidebarSelection.selectedThreadIDs.insert(id)
+        }
+    }
+
+    public func clearSidebarSelection() {
+        sidebarSelection = SidebarSelectionState()
+    }
+
+    public func selectAllSidebarThreads() {
+        let ids = root.allSidebarItems.map(\.id)
+        guard !ids.isEmpty else {
+            clearSidebarSelection()
+            return
+        }
+        sidebarSelection = SidebarSelectionState(isActive: true, selectedThreadIDs: Set(ids))
+    }
+
+    public func toggleSidebarThreadSelection(_ id: UUID) {
+        guard root.threads.contains(where: { $0.id == id }) else { return }
+        sidebarSelection.isActive = true
+        if sidebarSelection.selectedThreadIDs.contains(id) {
+            sidebarSelection.selectedThreadIDs.remove(id)
+        } else {
+            sidebarSelection.selectedThreadIDs.insert(id)
+        }
+    }
+
+    @discardableResult
+    public func performSidebarBulkAction(_ kind: SidebarBulkActionKind) -> Bool {
+        let ids = selectedSidebarThreadIDs()
+        switch kind {
+        case .select:
+            startSidebarSelection()
+            return true
+        case .selectAll:
+            selectAllSidebarThreads()
+            return true
+        case .clearSelection:
+            clearSidebarSelection()
+            return true
+        case .pin:
+            guard !ids.isEmpty else { return false }
+            updateThreads(ids) { thread in
+                guard !thread.isArchived else { return }
+                thread.isPinned = true
+            }
+        case .unpin:
+            guard !ids.isEmpty else { return false }
+            updateThreads(ids) { thread in
+                thread.isPinned = false
+            }
+        case .archive:
+            guard !ids.isEmpty else { return false }
+            let previousSelection = selectedThread
+            updateThreads(ids) { thread in
+                thread.isArchived = true
+                thread.isPinned = false
+            }
+            if let selectedID = previousSelection?.id, ids.contains(selectedID) {
+                selectBestThread(afterRemoving: ids, preferredProjectID: previousSelection?.projectID)
+            }
+        case .unarchive:
+            guard !ids.isEmpty else { return false }
+            updateThreads(ids) { thread in
+                thread.isArchived = false
+            }
+            if let firstID = ids.first,
+               let firstThread = root.threads.first(where: { $0.id == firstID }) {
+                root.selectedThreadID = firstID
+                root.selectedProjectID = knownProjectID(firstThread.projectID)
+                syncTerminalSessionToSelectedProject()
+                touchProject(root.selectedProjectID)
+            }
+        case .delete:
+            guard !ids.isEmpty else { return false }
+            let previousSelection = selectedThread
+            root.threads.removeAll { thread in
+                if ids.contains(thread.id) {
+                    try? threadStore?.delete(thread.id)
+                    return true
+                }
+                return false
+            }
+            if let selectedID = previousSelection?.id, ids.contains(selectedID) {
+                selectBestThread(afterRemoving: ids, preferredProjectID: previousSelection?.projectID)
+            } else if let selectedThread {
+                root.selectedProjectID = knownProjectID(selectedThread.projectID)
+            } else {
+                root.selectedProjectID = knownProjectID(root.selectedProjectID)
+            }
+            saveProjects()
+        }
+
+        clearSidebarSelection()
+        refreshTopBar(agentStatus: "Idle")
+        return true
     }
 
     @discardableResult
@@ -1040,6 +1157,7 @@ public final class QuillCodeWorkspaceModel {
     @discardableResult
     public func duplicateThread(_ id: UUID) -> UUID? {
         guard let source = root.threads.first(where: { $0.id == id }) else { return nil }
+        clearSidebarSelection()
         var duplicate = ChatThread(
             title: "Copy: \(source.title)",
             projectID: knownProjectID(source.projectID),
@@ -1402,6 +1520,12 @@ public final class QuillCodeWorkspaceModel {
             let id = String(commandID.dropFirst("mcp-stop:".count))
             return stopMCPServer(id: id)
         }
+        if commandID.hasPrefix("thread-selection-toggle:") {
+            let rawID = String(commandID.dropFirst("thread-selection-toggle:".count))
+            guard let id = UUID(uuidString: rawID) else { return false }
+            toggleSidebarThreadSelection(id)
+            return true
+        }
         switch commandID {
         case "toggle-terminal":
             toggleTerminal()
@@ -1452,6 +1576,22 @@ public final class QuillCodeWorkspaceModel {
         case "thread-delete":
             guard let selectedThreadID = root.selectedThreadID else { return false }
             return deleteThread(selectedThreadID)
+        case "thread-selection-start":
+            return performSidebarBulkAction(.select)
+        case "thread-selection-select-all":
+            return performSidebarBulkAction(.selectAll)
+        case "thread-selection-clear":
+            return performSidebarBulkAction(.clearSelection)
+        case "thread-bulk-pin":
+            return performSidebarBulkAction(.pin)
+        case "thread-bulk-unpin":
+            return performSidebarBulkAction(.unpin)
+        case "thread-bulk-archive":
+            return performSidebarBulkAction(.archive)
+        case "thread-bulk-unarchive":
+            return performSidebarBulkAction(.unarchive)
+        case "thread-bulk-delete":
+            return performSidebarBulkAction(.delete)
         case "retry-last-turn":
             return prepareRetryLastUserTurn()
         case "fork-from-last":
@@ -2710,6 +2850,44 @@ public final class QuillCodeWorkspaceModel {
         }
         root.selectedThreadID = root.threads[index].id
         refreshTopBar(agentStatus: root.topBar.agentStatus)
+    }
+
+    func selectedSidebarThreadIDs() -> [UUID] {
+        let validIDs = Set(root.threads.map(\.id))
+        sidebarSelection.selectedThreadIDs = sidebarSelection.selectedThreadIDs.intersection(validIDs)
+        if sidebarSelection.selectedThreadIDs.isEmpty {
+            return []
+        }
+        return root.allSidebarItems
+            .map(\.id)
+            .filter { sidebarSelection.selectedThreadIDs.contains($0) }
+    }
+
+    private func updateThreads(_ ids: [UUID], _ update: (inout ChatThread) -> Void) {
+        let targetIDs = Set(ids)
+        guard !targetIDs.isEmpty else { return }
+        for index in root.threads.indices where targetIDs.contains(root.threads[index].id) {
+            update(&root.threads[index])
+            root.threads[index].updatedAt = Date()
+            try? threadStore?.save(root.threads[index])
+        }
+        saveProjects()
+    }
+
+    private func selectBestThread(afterRemoving ids: [UUID], preferredProjectID: UUID?) {
+        let removedIDs = Set(ids)
+        let preferred = root.threads
+            .filter { !$0.isArchived && !removedIDs.contains($0.id) && $0.projectID == preferredProjectID }
+            .sorted { $0.updatedAt > $1.updatedAt }
+            .first
+        let fallback = preferred ?? root.threads
+            .filter { !$0.isArchived && !removedIDs.contains($0.id) }
+            .sorted { $0.updatedAt > $1.updatedAt }
+            .first
+
+        root.selectedThreadID = fallback?.id
+        root.selectedProjectID = knownProjectID(fallback?.projectID ?? preferredProjectID)
+        syncTerminalSessionToSelectedProject()
     }
 
     @discardableResult

@@ -671,6 +671,40 @@ test('mock harness manages chat lifecycle from the sidebar', async ({ page }) =>
   await expect(page.getByTestId('sidebar')).not.toContainText('Copy: Renamed whoami');
 });
 
+test('mock harness bulk-selects chats from the sidebar', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  for (const prompt of ['run whoami', 'git diff', 'review tests']) {
+    await page.getByLabel('Message').fill(prompt);
+    await page.getByRole('button', { name: 'Send' }).click();
+    await page.getByTestId('new-chat-button').click();
+  }
+
+  await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(3);
+  await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Select$/ }).click();
+  await expect(page.getByTestId('sidebar-selection')).toHaveAttribute('data-active', 'true');
+
+  await page.getByTestId('sidebar-thread-row').nth(0).getByTestId('sidebar-select-toggle').click();
+  await page.getByTestId('sidebar-thread-row').nth(1).getByTestId('sidebar-select-toggle').click();
+  await expect(page.getByTestId('sidebar-selection-label')).toHaveText('2 chats selected');
+
+  await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Archive$/ }).click();
+  await expect(page.getByTestId('sidebar-selection')).toHaveAttribute('data-active', 'false');
+  const sidebarSection = (title: string) => page.getByTestId('sidebar-section').filter({
+    has: page.getByTestId('sidebar-section-title').filter({ hasText: new RegExp(`^${title}$`) })
+  });
+  await expect(sidebarSection('Archived').getByTestId('sidebar-thread-row')).toHaveCount(2);
+  await expect(sidebarSection('Recent').getByTestId('sidebar-thread-row')).toHaveCount(1);
+
+  await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Select$/ }).click();
+  await page.getByTestId('sidebar-bulk-action').filter({ hasText: 'Select all' }).click();
+  await expect(page.getByTestId('sidebar-selection-label')).toHaveText('3 chats selected');
+  await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Delete$/ }).click();
+
+  await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(0);
+  await expect(page.getByTestId('sidebar-empty')).toHaveText('No chats yet');
+});
+
 test('mock harness manages projects from the sidebar', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
   const clickProjectAction = async (row: Locator, name: string) => {

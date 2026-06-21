@@ -82,6 +82,7 @@ public enum WorkspaceHTMLRenderer {
           </div>
           \(projectContent)
           <h2>\(escape(sidebar.title))</h2>
+          \(renderSidebarBulkToolbar(sidebar))
           \(content)
         </aside>
         """
@@ -92,6 +93,7 @@ public enum WorkspaceHTMLRenderer {
         let rows = items.map { item in
             """
             <div data-testid="sidebar-thread-row">
+              \(item.isBulkSelected ? "<span data-testid=\"sidebar-thread-selected\">Selected</span>" : "")
               <button class="sidebar-item\(item.isSelected ? " selected" : "")" data-testid="sidebar-item" data-thread-id="\(item.id.uuidString)" aria-current="\(item.isSelected ? "true" : "false")">
                 <span>\(escape(item.title))</span>
                 <small>\(escape(item.subtitle))</small>
@@ -107,6 +109,21 @@ public enum WorkspaceHTMLRenderer {
           <h3 data-testid="sidebar-section-title">\(escape(title))</h3>
           \(rows)
         </section>
+        """
+    }
+
+    private static func renderSidebarBulkToolbar(_ sidebar: SidebarSurface) -> String {
+        guard !sidebar.bulkActions.isEmpty else { return "" }
+        let actions = sidebar.bulkActions.map { action in
+            """
+            <button type="button" data-testid="sidebar-bulk-action" data-command-id="\(escape(action.commandID))" data-action="\(escape(action.kind.rawValue))" data-destructive="\(action.isDestructive)" \(action.isEnabled ? "" : "disabled")>\(escape(action.title))</button>
+            """
+        }.joined(separator: "\n")
+        return """
+        <div data-testid="sidebar-selection" data-active="\(sidebar.isSelectionMode)" data-selected-count="\(sidebar.selectedThreadIDs.count)">
+          <span data-testid="sidebar-selection-label">\(escape(sidebar.selectionLabel))</span>
+          \(actions)
+        </div>
         """
     }
 

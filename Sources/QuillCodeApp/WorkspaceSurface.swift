@@ -367,17 +367,52 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
     public var items: [SidebarItemSurface]
     public var selectedThreadID: UUID?
     public var emptyTitle: String
+    public var isSelectionMode: Bool
+    public var selectedThreadIDs: Set<UUID>
+    public var selectionLabel: String
+    public var bulkActions: [SidebarBulkActionSurface]
 
     public init(
         title: String = "Chats",
         items: [SidebarItemSurface],
         selectedThreadID: UUID?,
-        emptyTitle: String = "No chats yet"
+        emptyTitle: String = "No chats yet",
+        isSelectionMode: Bool = false,
+        selectedThreadIDs: Set<UUID> = [],
+        bulkActions: [SidebarBulkActionSurface] = []
     ) {
         self.title = title
         self.items = items
         self.selectedThreadID = selectedThreadID
         self.emptyTitle = emptyTitle
+        self.isSelectionMode = isSelectionMode
+        self.selectedThreadIDs = selectedThreadIDs
+        self.selectionLabel = Self.selectionLabel(count: selectedThreadIDs.count)
+        self.bulkActions = bulkActions
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case title
+        case items
+        case selectedThreadID
+        case emptyTitle
+        case isSelectionMode
+        case selectedThreadIDs
+        case selectionLabel
+        case bulkActions
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.title = try container.decodeIfPresent(String.self, forKey: .title) ?? "Chats"
+        self.items = try container.decodeIfPresent([SidebarItemSurface].self, forKey: .items) ?? []
+        self.selectedThreadID = try container.decodeIfPresent(UUID.self, forKey: .selectedThreadID)
+        self.emptyTitle = try container.decodeIfPresent(String.self, forKey: .emptyTitle) ?? "No chats yet"
+        self.isSelectionMode = try container.decodeIfPresent(Bool.self, forKey: .isSelectionMode) ?? false
+        self.selectedThreadIDs = try container.decodeIfPresent(Set<UUID>.self, forKey: .selectedThreadIDs) ?? []
+        self.selectionLabel = try container.decodeIfPresent(String.self, forKey: .selectionLabel)
+            ?? Self.selectionLabel(count: self.selectedThreadIDs.count)
+        self.bulkActions = try container.decodeIfPresent([SidebarBulkActionSurface].self, forKey: .bulkActions) ?? []
     }
 
     public func filteredItems(matching query: String) -> [SidebarItemSurface] {
@@ -407,6 +442,17 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
     public var archivedItems: [SidebarItemSurface] {
         items.filter(\.isArchived)
     }
+
+    private static func selectionLabel(count: Int) -> String {
+        switch count {
+        case 0:
+            return "No chats selected"
+        case 1:
+            return "1 chat selected"
+        default:
+            return "\(count) chats selected"
+        }
+    }
 }
 
 public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
@@ -416,16 +462,18 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var searchText: String
     public var actions: [SidebarItemActionSurface]
     public var isSelected: Bool
+    public var isBulkSelected: Bool
     public var isPinned: Bool
     public var isArchived: Bool
 
-    public init(item: SidebarItem, selectedThreadID: UUID?) {
+    public init(item: SidebarItem, selectedThreadID: UUID?, selectedThreadIDs: Set<UUID> = []) {
         self.id = item.id
         self.title = item.title
         self.subtitle = item.subtitle
         self.searchText = item.searchText
         self.actions = Self.actions(for: item)
         self.isSelected = item.id == selectedThreadID
+        self.isBulkSelected = selectedThreadIDs.contains(item.id)
         self.isPinned = item.isPinned
         self.isArchived = item.isArchived
     }
@@ -437,6 +485,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         case searchText
         case actions
         case isSelected
+        case isBulkSelected
         case isPinned
         case isArchived
     }
@@ -449,6 +498,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.searchText = try container.decode(String.self, forKey: .searchText)
         self.actions = try container.decodeIfPresent([SidebarItemActionSurface].self, forKey: .actions) ?? []
         self.isSelected = try container.decode(Bool.self, forKey: .isSelected)
+        self.isBulkSelected = try container.decodeIfPresent(Bool.self, forKey: .isBulkSelected) ?? false
         self.isPinned = try container.decode(Bool.self, forKey: .isPinned)
         self.isArchived = try container.decodeIfPresent(Bool.self, forKey: .isArchived) ?? false
     }
@@ -461,6 +511,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         try container.encode(searchText, forKey: .searchText)
         try container.encode(actions, forKey: .actions)
         try container.encode(isSelected, forKey: .isSelected)
+        try container.encode(isBulkSelected, forKey: .isBulkSelected)
         try container.encode(isPinned, forKey: .isPinned)
         try container.encode(isArchived, forKey: .isArchived)
     }
@@ -482,6 +533,81 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
             SidebarItemActionSurface(kind: .archive, threadID: item.id),
             SidebarItemActionSurface(kind: .delete, threadID: item.id)
         ]
+    }
+}
+
+public enum SidebarBulkActionKind: String, Codable, Sendable, Hashable {
+    case select
+    case selectAll
+    case clearSelection
+    case pin
+    case unpin
+    case archive
+    case unarchive
+    case delete
+
+    public var title: String {
+        switch self {
+        case .select:
+            return "Select"
+        case .selectAll:
+            return "Select all"
+        case .clearSelection:
+            return "Done"
+        case .pin:
+            return "Pin"
+        case .unpin:
+            return "Unpin"
+        case .archive:
+            return "Archive"
+        case .unarchive:
+            return "Unarchive"
+        case .delete:
+            return "Delete"
+        }
+    }
+}
+
+public struct SidebarBulkActionSurface: Codable, Sendable, Hashable, Identifiable {
+    public var kind: SidebarBulkActionKind
+    public var commandID: String
+    public var title: String
+    public var isEnabled: Bool
+    public var isDestructive: Bool
+
+    public var id: String { commandID }
+
+    public init(
+        kind: SidebarBulkActionKind,
+        isEnabled: Bool = true,
+        isDestructive: Bool = false
+    ) {
+        self.kind = kind
+        self.commandID = Self.commandID(for: kind)
+        self.title = kind.title
+        self.isEnabled = isEnabled
+        self.isDestructive = isDestructive
+    }
+
+    public static func commandID(for kind: SidebarBulkActionKind) -> String {
+        switch kind {
+        case .select:
+            return "thread-selection-start"
+        case .selectAll:
+            return "thread-selection-select-all"
+        case .clearSelection:
+            return "thread-selection-clear"
+        case .pin:
+            return "thread-bulk-pin"
+        case .unpin:
+            return "thread-bulk-unpin"
+        case .archive:
+            return "thread-bulk-archive"
+        case .unarchive:
+            return "thread-bulk-unarchive"
+        case .delete:
+            return "thread-bulk-delete"
+        }
     }
 }
 
@@ -1637,6 +1763,9 @@ public extension QuillCodeWorkspaceModel {
         } else {
             activeMemories = root.globalMemories + (selectedProject?.memories ?? [])
         }
+        let sidebarSelectedThreadIDs = sidebarSelection.isActive
+            ? Set(selectedSidebarThreadIDs())
+            : []
         return WorkspaceSurface(
             topBar: TopBarSurface(
                 appName: topBarState.appName,
@@ -1661,8 +1790,17 @@ public extension QuillCodeWorkspaceModel {
                 selectedProjectID: root.selectedProjectID
             ),
             sidebar: SidebarSurface(
-                items: root.allSidebarItems.map { SidebarItemSurface(item: $0, selectedThreadID: root.selectedThreadID) },
-                selectedThreadID: root.selectedThreadID
+                items: root.allSidebarItems.map {
+                    SidebarItemSurface(
+                        item: $0,
+                        selectedThreadID: root.selectedThreadID,
+                        selectedThreadIDs: sidebarSelectedThreadIDs
+                    )
+                },
+                selectedThreadID: root.selectedThreadID,
+                isSelectionMode: sidebarSelection.isActive,
+                selectedThreadIDs: sidebarSelectedThreadIDs,
+                bulkActions: sidebarBulkActions(selectedThreadIDs: sidebarSelectedThreadIDs)
             ),
             transcript: TranscriptSurface(
                 messages: thread.map(Self.messageSurfaces(for:)) ?? [],
@@ -1889,6 +2027,51 @@ public extension QuillCodeWorkspaceModel {
         return "\(projectName) - \(Self.modeLabel(thread.mode)) - \(thread.model)"
     }
 
+    private func sidebarBulkActions(selectedThreadIDs: Set<UUID>) -> [SidebarBulkActionSurface] {
+        let selectedThreads = root.threads.filter { selectedThreadIDs.contains($0.id) }
+        let hasSelection = !selectedThreads.isEmpty
+        guard sidebarSelection.isActive else {
+            return [
+                SidebarBulkActionSurface(
+                    kind: .select,
+                    isEnabled: !root.threads.isEmpty
+                )
+            ]
+        }
+
+        let hasPinnedSelection = selectedThreads.contains { $0.isPinned }
+        let hasUnarchivedSelection = selectedThreads.contains { !$0.isArchived }
+        let hasArchivedSelection = selectedThreads.contains { $0.isArchived }
+        return [
+            SidebarBulkActionSurface(kind: .clearSelection),
+            SidebarBulkActionSurface(
+                kind: .selectAll,
+                isEnabled: selectedThreadIDs.count < root.allSidebarItems.count
+            ),
+            SidebarBulkActionSurface(
+                kind: .pin,
+                isEnabled: hasUnarchivedSelection
+            ),
+            SidebarBulkActionSurface(
+                kind: .unpin,
+                isEnabled: hasPinnedSelection
+            ),
+            SidebarBulkActionSurface(
+                kind: .archive,
+                isEnabled: hasUnarchivedSelection
+            ),
+            SidebarBulkActionSurface(
+                kind: .unarchive,
+                isEnabled: hasArchivedSelection
+            ),
+            SidebarBulkActionSurface(
+                kind: .delete,
+                isEnabled: hasSelection,
+                isDestructive: true
+            )
+        ]
+    }
+
     private func projectItems() -> [ProjectItemSurface] {
         root.projects
             .sorted { $0.lastOpenedAt > $1.lastOpenedAt }
@@ -2031,6 +2214,13 @@ public extension QuillCodeWorkspaceModel {
     }
 
     private func commands() -> [WorkspaceCommandSurface] {
+        let sidebarSelectedThreadIDs = Set(selectedSidebarThreadIDs())
+        let selectedSidebarThreads = root.threads.filter { sidebarSelectedThreadIDs.contains($0.id) }
+        let hasSidebarSelection = !selectedSidebarThreads.isEmpty
+        let hasPinnedSidebarSelection = selectedSidebarThreads.contains { $0.isPinned }
+        let hasUnarchivedSidebarSelection = selectedSidebarThreads.contains { !$0.isArchived }
+        let hasArchivedSidebarSelection = selectedSidebarThreads.contains { $0.isArchived }
+        let hasAnySidebarThread = !root.allSidebarItems.isEmpty
         let localActionCommands = (selectedProject?.localActions ?? []).map { action in
             WorkspaceCommandSurface(
                 id: action.id,
@@ -2108,6 +2298,62 @@ public extension QuillCodeWorkspaceModel {
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "remove"],
                 isEnabled: selectedThread != nil
+            ),
+            WorkspaceCommandSurface(
+                id: SidebarBulkActionSurface.commandID(for: .select),
+                title: "Select chats",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "bulk", "multi"],
+                isEnabled: hasAnySidebarThread
+            ),
+            WorkspaceCommandSurface(
+                id: SidebarBulkActionSurface.commandID(for: .selectAll),
+                title: "Select all chats",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "bulk", "all"],
+                isEnabled: hasAnySidebarThread
+            ),
+            WorkspaceCommandSurface(
+                id: SidebarBulkActionSurface.commandID(for: .clearSelection),
+                title: "Clear chat selection",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "bulk", "done"],
+                isEnabled: sidebarSelection.isActive
+            ),
+            WorkspaceCommandSurface(
+                id: SidebarBulkActionSurface.commandID(for: .pin),
+                title: "Pin selected chats",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "bulk", "pin"],
+                isEnabled: hasUnarchivedSidebarSelection
+            ),
+            WorkspaceCommandSurface(
+                id: SidebarBulkActionSurface.commandID(for: .unpin),
+                title: "Unpin selected chats",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "bulk", "unpin"],
+                isEnabled: hasPinnedSidebarSelection
+            ),
+            WorkspaceCommandSurface(
+                id: SidebarBulkActionSurface.commandID(for: .archive),
+                title: "Archive selected chats",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "bulk", "archive"],
+                isEnabled: hasUnarchivedSidebarSelection
+            ),
+            WorkspaceCommandSurface(
+                id: SidebarBulkActionSurface.commandID(for: .unarchive),
+                title: "Unarchive selected chats",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "bulk", "restore"],
+                isEnabled: hasArchivedSidebarSelection
+            ),
+            WorkspaceCommandSurface(
+                id: SidebarBulkActionSurface.commandID(for: .delete),
+                title: "Delete selected chats",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "bulk", "delete"],
+                isEnabled: hasSidebarSelection
             ),
             WorkspaceCommandSurface(
                 id: "fork-from-last",

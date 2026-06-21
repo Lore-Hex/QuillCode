@@ -284,6 +284,50 @@
     }
     .sidebar-item.selected,
     .project-item.selected { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.14); }
+    .sidebar-selection {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      margin: 8px 0 12px;
+      background: rgba(255,255,255,.045);
+      border: 1px solid rgba(255,255,255,.09);
+      border-radius: 12px;
+    }
+    .sidebar-selection-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .sidebar-bulk-action {
+      padding: 7px 10px;
+      font-size: .78rem;
+      font-weight: 700;
+      color: var(--text);
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.12);
+    }
+    .sidebar-bulk-action[data-destructive="true"] {
+      background: rgba(255,93,86,.18);
+      border-color: rgba(255,93,86,.35);
+    }
+    .sidebar-select-toggle {
+      position: absolute;
+      left: 7px;
+      top: 17px;
+      z-index: 2;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border-radius: 999px;
+      border-color: rgba(65,184,232,.45);
+    }
+    .sidebar-thread-row.selection-mode .sidebar-item {
+      padding-left: 42px;
+    }
+    .sidebar-thread-row.bulk-selected .sidebar-item {
+      border-color: rgba(65,184,232,.58);
+      background: rgba(65,184,232,.1);
+    }
     .sidebar-item small,
     .project-item small { color: var(--muted); }
     .sidebar-thread-row {
@@ -1228,6 +1272,8 @@
       sidebar: {
         title: 'Chats',
         selectedThreadID: null,
+        isSelectionMode: false,
+        selectedThreadIDs: [],
         items: []
       },
       transcript: {
@@ -1396,6 +1442,14 @@
         { id: 'thread-archive', title: 'Archive chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'hide'], isEnabled: false },
         { id: 'thread-unarchive', title: 'Unarchive chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'restore'], isEnabled: false },
         { id: 'thread-delete', title: 'Delete chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'remove'], isEnabled: false },
+        { id: 'thread-selection-start', title: 'Select chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'bulk', 'multi'], isEnabled: false },
+        { id: 'thread-selection-select-all', title: 'Select all chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'bulk', 'all'], isEnabled: false },
+        { id: 'thread-selection-clear', title: 'Clear chat selection', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'bulk', 'done'], isEnabled: false },
+        { id: 'thread-bulk-pin', title: 'Pin selected chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'bulk', 'pin'], isEnabled: false },
+        { id: 'thread-bulk-unpin', title: 'Unpin selected chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'bulk', 'unpin'], isEnabled: false },
+        { id: 'thread-bulk-archive', title: 'Archive selected chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'bulk', 'archive'], isEnabled: false },
+        { id: 'thread-bulk-unarchive', title: 'Unarchive selected chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'bulk', 'restore'], isEnabled: false },
+        { id: 'thread-bulk-delete', title: 'Delete selected chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'bulk', 'delete'], isEnabled: false },
         { id: 'fork-from-last', title: 'Fork from last', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'continue'], isEnabled: false },
         { id: 'compact-context', title: 'Compact context', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'summarize', 'compact'], isEnabled: false },
         { id: 'retry-last-turn', title: 'Retry last turn', shortcut: '', category: 'Control', keywords: ['retry', 'rerun', 'again', 'failed'], isEnabled: false },
@@ -1824,12 +1878,27 @@
       const hasUserMessages = state.transcript.messages.some(message => message.role === 'user' && String(message.text || '').trim());
       const hasActiveWork = state.composer.isSending || state.terminal.isRunning;
       const hasProject = Boolean(state.projects.selectedProjectID);
+      const selectedThreadIDs = new Set(state.sidebar.selectedThreadIDs);
+      const selectedThreads = state.sidebar.items.filter(item => selectedThreadIDs.has(item.id));
+      const hasBulkSelection = selectedThreads.length > 0;
+      const hasPinnedBulkSelection = selectedThreads.some(item => item.isPinned);
+      const hasUnarchivedBulkSelection = selectedThreads.some(item => !item.isArchived);
+      const hasArchivedBulkSelection = selectedThreads.some(item => item.isArchived);
+      const hasSidebarThreads = state.sidebar.items.length > 0;
       state.commands = state.commands.map(command => (
         command.id === 'thread-rename' ? { ...command, isEnabled: hasThread } :
         command.id === 'thread-duplicate' ? { ...command, isEnabled: hasThread } :
         command.id === 'thread-archive' ? { ...command, isEnabled: hasThread && !selectedThread.isArchived } :
         command.id === 'thread-unarchive' ? { ...command, isEnabled: hasThread && selectedThread.isArchived } :
         command.id === 'thread-delete' ? { ...command, isEnabled: hasThread } :
+        command.id === 'thread-selection-start' ? { ...command, isEnabled: hasSidebarThreads } :
+        command.id === 'thread-selection-select-all' ? { ...command, isEnabled: hasSidebarThreads } :
+        command.id === 'thread-selection-clear' ? { ...command, isEnabled: state.sidebar.isSelectionMode } :
+        command.id === 'thread-bulk-pin' ? { ...command, isEnabled: hasUnarchivedBulkSelection } :
+        command.id === 'thread-bulk-unpin' ? { ...command, isEnabled: hasPinnedBulkSelection } :
+        command.id === 'thread-bulk-archive' ? { ...command, isEnabled: hasUnarchivedBulkSelection } :
+        command.id === 'thread-bulk-unarchive' ? { ...command, isEnabled: hasArchivedBulkSelection } :
+        command.id === 'thread-bulk-delete' ? { ...command, isEnabled: hasBulkSelection } :
         command.id === 'project-new-chat' ? { ...command, isEnabled: hasProject } :
         command.id === 'project-refresh-context' ? { ...command, isEnabled: hasProject } :
         command.id === 'project-rename' ? { ...command, isEnabled: hasProject } :
@@ -2203,7 +2272,8 @@
         <section data-testid="sidebar-section">
           <h3 data-testid="sidebar-section-title">${escapeHTML(title)}</h3>
           ${items.map(item => `
-          <div class="sidebar-thread-row" data-testid="sidebar-thread-row">
+          <div class="sidebar-thread-row ${state.sidebar.isSelectionMode ? 'selection-mode' : ''} ${state.sidebar.selectedThreadIDs.includes(item.id) ? 'bulk-selected' : ''}" data-testid="sidebar-thread-row">
+            ${state.sidebar.isSelectionMode ? `<button class="sidebar-select-toggle" type="button" data-testid="sidebar-select-toggle" data-thread-id="${escapeHTML(item.id)}" aria-label="${state.sidebar.selectedThreadIDs.includes(item.id) ? 'Deselect' : 'Select'} ${escapeHTML(item.title)}">${state.sidebar.selectedThreadIDs.includes(item.id) ? '✓' : '○'}</button>` : ''}
             <button class="sidebar-item ${item.isSelected ? 'selected' : ''}" data-testid="sidebar-item" data-thread-id="${escapeHTML(item.id)}" aria-current="${item.isSelected ? 'true' : 'false'}">
               <span>${escapeHTML(item.title)}</span>
               <small>${escapeHTML(item.subtitle)}</small>
@@ -2219,8 +2289,16 @@
       const pinnedItems = state.sidebar.items.filter(item => item.isPinned && !item.isArchived);
       const recentItems = state.sidebar.items.filter(item => !item.isPinned && !item.isArchived);
       const archivedItems = state.sidebar.items.filter(item => item.isArchived);
+      const bulkActions = sidebarBulkActions();
+      const bulkToolbar = bulkActions.length ? `
+        <div class="sidebar-selection" data-testid="sidebar-selection" data-active="${state.sidebar.isSelectionMode ? 'true' : 'false'}" data-selected-count="${normalizedSidebarSelectionIDs().length}">
+          <span data-testid="sidebar-selection-label">${escapeHTML(sidebarSelectionLabel())}</span>
+          <div class="sidebar-selection-actions">
+            ${bulkActions.map(action => `<button class="sidebar-bulk-action" type="button" data-testid="sidebar-bulk-action" data-command-id="${escapeHTML(action.commandID)}" data-action="${escapeHTML(action.id)}" data-destructive="${action.destructive ? 'true' : 'false'}" ${action.enabled ? '' : 'disabled'}>${escapeHTML(action.title)}</button>`).join('')}
+          </div>
+        </div>` : '';
       const sidebarContent = state.sidebar.items.length
-        ? renderSidebarSection('Pinned', pinnedItems) + renderSidebarSection('Recent', recentItems) + renderSidebarSection('Archived', archivedItems)
+        ? bulkToolbar + renderSidebarSection('Pinned', pinnedItems) + renderSidebarSection('Recent', recentItems) + renderSidebarSection('Archived', archivedItems)
         : '<p data-testid="sidebar-empty">No chats yet</p>';
       const filteredModelCategories = filterModelCategories(state.topBar.modelSearch);
       const modelResults = filteredModelCategories.length ? `
@@ -2502,7 +2580,24 @@
       });
       document.querySelectorAll('[data-testid="sidebar-item"]').forEach(button => {
         button.addEventListener('click', event => {
-          selectThread(event.currentTarget.getAttribute('data-thread-id'));
+          const threadID = event.currentTarget.getAttribute('data-thread-id');
+          if (state.sidebar.isSelectionMode) {
+            toggleSidebarThreadSelection(threadID);
+            render();
+          } else {
+            selectThread(threadID);
+          }
+        });
+      });
+      document.querySelectorAll('[data-testid="sidebar-select-toggle"]').forEach(button => {
+        button.addEventListener('click', event => {
+          toggleSidebarThreadSelection(event.currentTarget.getAttribute('data-thread-id'));
+          render();
+        });
+      });
+      document.querySelectorAll('[data-testid="sidebar-bulk-action"]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
       });
       document.querySelectorAll('[data-testid="sidebar-thread-action"]').forEach(button => {
@@ -3449,6 +3544,32 @@
       ];
     }
 
+    function sidebarBulkActions() {
+      const selected = selectedSidebarThreads();
+      if (!state.sidebar.isSelectionMode) {
+        return [{
+          id: 'select',
+          title: 'Select',
+          commandID: 'thread-selection-start',
+          enabled: state.sidebar.items.length > 0,
+          destructive: false
+        }];
+      }
+      const hasSelection = selected.length > 0;
+      const hasPinned = selected.some(item => item.isPinned);
+      const hasUnarchived = selected.some(item => !item.isArchived);
+      const hasArchived = selected.some(item => item.isArchived);
+      return [
+        { id: 'clearSelection', title: 'Done', commandID: 'thread-selection-clear', enabled: true, destructive: false },
+        { id: 'selectAll', title: 'Select all', commandID: 'thread-selection-select-all', enabled: state.sidebar.selectedThreadIDs.length < state.sidebar.items.length, destructive: false },
+        { id: 'pin', title: 'Pin', commandID: 'thread-bulk-pin', enabled: hasUnarchived, destructive: false },
+        { id: 'unpin', title: 'Unpin', commandID: 'thread-bulk-unpin', enabled: hasPinned, destructive: false },
+        { id: 'archive', title: 'Archive', commandID: 'thread-bulk-archive', enabled: hasUnarchived, destructive: false },
+        { id: 'unarchive', title: 'Unarchive', commandID: 'thread-bulk-unarchive', enabled: hasArchived, destructive: false },
+        { id: 'delete', title: 'Delete', commandID: 'thread-bulk-delete', enabled: hasSelection, destructive: true }
+      ];
+    }
+
     function projectActionsFor() {
       return [
         { id: 'new-chat', title: 'New chat' },
@@ -3478,6 +3599,7 @@
     }
 
     function newChat() {
+      clearSidebarSelection();
       state.sidebar.selectedThreadID = null;
       state.sidebar.items = state.sidebar.items.map(item => ({ ...item, isSelected: false }));
       state.transcript.messages = [];
@@ -3722,6 +3844,11 @@
         render();
         return;
       }
+      if (commandID?.startsWith('thread-selection-toggle:')) {
+        toggleSidebarThreadSelection(commandID.slice('thread-selection-toggle:'.length));
+        render();
+        return;
+      }
       state.commandPalette.isOpen = false;
       if (commandID === 'new-chat') {
         newChat();
@@ -3745,6 +3872,38 @@
       }
       if (commandID === 'thread-delete') {
         runSidebarThreadAction('delete', state.sidebar.selectedThreadID);
+        return;
+      }
+      if (commandID === 'thread-selection-start') {
+        performSidebarBulkAction('select');
+        return;
+      }
+      if (commandID === 'thread-selection-select-all') {
+        performSidebarBulkAction('selectAll');
+        return;
+      }
+      if (commandID === 'thread-selection-clear') {
+        performSidebarBulkAction('clearSelection');
+        return;
+      }
+      if (commandID === 'thread-bulk-pin') {
+        performSidebarBulkAction('pin');
+        return;
+      }
+      if (commandID === 'thread-bulk-unpin') {
+        performSidebarBulkAction('unpin');
+        return;
+      }
+      if (commandID === 'thread-bulk-archive') {
+        performSidebarBulkAction('archive');
+        return;
+      }
+      if (commandID === 'thread-bulk-unarchive') {
+        performSidebarBulkAction('unarchive');
+        return;
+      }
+      if (commandID === 'thread-bulk-delete') {
+        performSidebarBulkAction('delete');
         return;
       }
       if (commandID === 'fork-from-last') {
@@ -4305,6 +4464,112 @@
       addMessage('assistant', `Removed worktree ${values.path}.`);
       state.worktreeDialog.mode = null;
       syncSelectedThreadSearchText();
+      render();
+    }
+
+    function normalizedSidebarSelectionIDs() {
+      const validIDs = new Set(state.sidebar.items.map(item => item.id));
+      state.sidebar.selectedThreadIDs = state.sidebar.selectedThreadIDs.filter(id => validIDs.has(id));
+      return state.sidebar.selectedThreadIDs;
+    }
+
+    function sidebarSelectionLabel() {
+      const count = normalizedSidebarSelectionIDs().length;
+      if (count === 0) return 'No chats selected';
+      if (count === 1) return '1 chat selected';
+      return `${count} chats selected`;
+    }
+
+    function startSidebarSelection(threadID = null) {
+      state.sidebar.isSelectionMode = true;
+      if (threadID && !state.sidebar.selectedThreadIDs.includes(threadID)) {
+        state.sidebar.selectedThreadIDs = [...state.sidebar.selectedThreadIDs, threadID];
+      }
+      normalizedSidebarSelectionIDs();
+    }
+
+    function clearSidebarSelection() {
+      state.sidebar.isSelectionMode = false;
+      state.sidebar.selectedThreadIDs = [];
+    }
+
+    function toggleSidebarThreadSelection(threadID) {
+      if (!state.sidebar.items.some(item => item.id === threadID)) return;
+      state.sidebar.isSelectionMode = true;
+      state.sidebar.selectedThreadIDs = state.sidebar.selectedThreadIDs.includes(threadID)
+        ? state.sidebar.selectedThreadIDs.filter(id => id !== threadID)
+        : [...state.sidebar.selectedThreadIDs, threadID];
+    }
+
+    function selectAllSidebarThreads() {
+      state.sidebar.isSelectionMode = true;
+      state.sidebar.selectedThreadIDs = state.sidebar.items.map(item => item.id);
+    }
+
+    function selectedSidebarThreads() {
+      const ids = new Set(normalizedSidebarSelectionIDs());
+      return state.sidebar.items.filter(item => ids.has(item.id));
+    }
+
+    function performSidebarBulkAction(action) {
+      if (action === 'select') {
+        startSidebarSelection();
+        render();
+        return;
+      }
+      if (action === 'selectAll') {
+        selectAllSidebarThreads();
+        render();
+        return;
+      }
+      if (action === 'clearSelection') {
+        clearSidebarSelection();
+        render();
+        return;
+      }
+
+      const selected = selectedSidebarThreads();
+      const ids = new Set(selected.map(item => item.id));
+      if (!ids.size) return;
+      const selectedWasRemoved = ids.has(state.sidebar.selectedThreadID);
+
+      if (action === 'pin' || action === 'unpin') {
+        state.sidebar.items = sortSidebarItems(state.sidebar.items.map(item => (
+          ids.has(item.id) && !item.isArchived ? { ...item, isPinned: action === 'pin' } : item
+        )));
+      }
+      if (action === 'archive') {
+        state.sidebar.items = sortSidebarItems(state.sidebar.items.map(item => (
+          ids.has(item.id) ? { ...item, isPinned: false, isArchived: true, isSelected: false } : item
+        )));
+      }
+      if (action === 'unarchive') {
+        state.sidebar.items = sortSidebarItems(state.sidebar.items.map(item => (
+          ids.has(item.id) ? { ...item, isArchived: false } : item
+        )));
+        const first = selected[0];
+        if (first) state.sidebar.selectedThreadID = first.id;
+      }
+      if (action === 'delete') {
+        state.sidebar.items = state.sidebar.items.filter(item => !ids.has(item.id));
+      }
+
+      if ((action === 'archive' || action === 'delete') && selectedWasRemoved) {
+        const next = state.sidebar.items.find(item => !item.isArchived);
+        state.sidebar.selectedThreadID = next?.id || null;
+      }
+      state.sidebar.items = state.sidebar.items.map(item => ({
+        ...item,
+        isSelected: item.id === state.sidebar.selectedThreadID
+      }));
+      const next = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
+      state.topBar.primaryTitle = next?.title || 'QuillCode';
+      if (!state.sidebar.selectedThreadID) {
+        state.transcript.messages = [];
+        state.transcript.toolCards = [];
+        state.transcript.timelineItems = [];
+      }
+      clearSidebarSelection();
       render();
     }
 
