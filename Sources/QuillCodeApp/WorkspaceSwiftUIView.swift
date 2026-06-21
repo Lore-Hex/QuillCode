@@ -46,6 +46,7 @@ public struct QuillCodeWorkspaceView: View {
     @State private var removeWorktreeDraft = QuillCodeWorktreeRemoveDraft()
     @State private var renameThreadDraft: QuillCodeThreadRenameDraft?
     @State private var renameProjectDraft: QuillCodeProjectRenameDraft?
+    @FocusState private var isComposerFocused: Bool
 
     public init(
         surface: WorkspaceSurface,
@@ -153,6 +154,7 @@ public struct QuillCodeWorkspaceView: View {
                         onReviewAction: onReviewAction,
                         onAddReviewComment: onAddReviewComment,
                         onCopyTranscriptItem: onCopyTranscriptItem,
+                        onUseMessageAsDraft: useMessageAsDraft,
                         onMessageFeedback: onMessageFeedback
                     )
                     if surface.browser.isVisible {
@@ -198,6 +200,7 @@ public struct QuillCodeWorkspaceView: View {
                     QuillCodeComposerView(
                         composer: surface.composer,
                         draft: $draft,
+                        isFocused: $isComposerFocused,
                         onSend: onSend,
                         onStop: stopActiveRun
                     )
@@ -369,6 +372,13 @@ public struct QuillCodeWorkspaceView: View {
                 category: WorkspaceCommandPalette.controlCategory,
                 keywords: ["cancel", "abort", "halt"]
             ))
+        }
+    }
+
+    private func useMessageAsDraft(_ text: String) {
+        draft = text
+        DispatchQueue.main.async {
+            isComposerFocused = true
         }
     }
 
@@ -1407,6 +1417,7 @@ private struct QuillCodeTranscriptView: View {
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     var onCopyTranscriptItem: (String, String) -> Void
+    var onUseMessageAsDraft: (String) -> Void
     var onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
 
     private var findMatches: [QuillCodeTranscriptFindMatch] {
@@ -1487,6 +1498,9 @@ private struct QuillCodeTranscriptView: View {
                                                 isCopied: copiedTranscriptItemID == item.id,
                                                 onCopy: {
                                                     onCopyTranscriptItem(item.id, message.text)
+                                                },
+                                                onUseAsDraft: {
+                                                    onUseMessageAsDraft(message.text)
                                                 },
                                                 canRetry: message.id == latestAssistantMessageID && retryLastTurnCommand != nil,
                                                 onRetry: {
@@ -2623,6 +2637,7 @@ private struct QuillCodeMessageBubble: View {
     var timelineItemID: String
     var isCopied: Bool
     var onCopy: () -> Void
+    var onUseAsDraft: () -> Void
     var canRetry: Bool
     var onRetry: () -> Void
     var onFeedback: (MessageFeedbackValue) -> Void
@@ -2649,6 +2664,10 @@ private struct QuillCodeMessageBubble: View {
                         action: onCopy
                     )
                     .accessibilityIdentifier("transcript-copy-\(timelineItemID)")
+                    if message.role == .user {
+                        QuillCodeMessageDraftButton(action: onUseAsDraft)
+                            .accessibilityIdentifier("message-use-as-draft")
+                    }
                     if message.role == .assistant {
                         if canRetry {
                             QuillCodeMessageRetryButton(action: onRetry)
@@ -2684,6 +2703,24 @@ private struct QuillCodeMessageBubble: View {
         message.role == .user
             ? AnyShapeStyle(LinearGradient(colors: [QuillCodePalette.blue, QuillCodePalette.coral], startPoint: .leading, endPoint: .trailing))
             : AnyShapeStyle(QuillCodePalette.panel)
+    }
+}
+
+private struct QuillCodeMessageDraftButton: View {
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label("Use as draft", systemImage: "square.and.pencil")
+                .labelStyle(.iconOnly)
+                .font(.caption2.weight(.semibold))
+                .frame(width: 24, height: 22)
+                .foregroundStyle(QuillCodePalette.text)
+                .background(Color.white.opacity(0.1))
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help("Use as draft")
     }
 }
 
@@ -2984,6 +3021,7 @@ private struct QuillCodeCodeBlock: View {
 private struct QuillCodeComposerView: View {
     var composer: ComposerSurface
     @Binding var draft: String
+    var isFocused: FocusState<Bool>.Binding
     var onSend: () -> Void
     var onStop: () -> Void
 
@@ -3007,6 +3045,7 @@ private struct QuillCodeComposerView: View {
                     .background(Color.black.opacity(0.18))
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .disabled(composer.isSending)
+                    .focused(isFocused)
                     .onKeyPress(.downArrow) {
                         guard !composer.slashSuggestions.isEmpty else { return .ignored }
                         activeSlashSuggestionIndex = min(activeSlashSuggestionIndex + 1, composer.slashSuggestions.count - 1)

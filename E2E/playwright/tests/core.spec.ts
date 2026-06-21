@@ -53,6 +53,10 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await page.getByTestId('tool-card-copy').click();
   await expect(page.getByTestId('tool-card-copy')).toHaveText('Copied');
   await expect(page.getByTestId('tool-card-copy')).toHaveAttribute('data-copied', 'true');
+  await expect(page.getByTestId('message-use-as-draft')).toHaveCount(1);
+  await page.getByTestId('message-use-as-draft').click();
+  await expect(page.getByLabel('Message')).toHaveValue('run whoami');
+  await expect(page.getByTestId('send-button')).toBeEnabled();
   await expect(page.getByTestId('message-feedback-up')).toHaveCount(1);
   await expect(page.getByTestId('message-feedback-down')).toHaveCount(1);
   await page.getByTestId('message-feedback-up').click();
@@ -71,6 +75,7 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('tool-card')).toHaveCount(2);
   await expect(page.getByTestId('message').filter({ hasText: 'You are `mock-user` in this workspace.' })).toHaveCount(2);
   await expect(page.getByTestId('message-retry')).toHaveCount(1);
+  await expect(page.getByTestId('message-use-as-draft')).toHaveCount(2);
 });
 
 test('mock harness stops an active composer run from the composer', async ({ page }) => {

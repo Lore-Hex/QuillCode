@@ -182,6 +182,7 @@ public enum WorkspaceHTMLRenderer {
               <p>\(escape(message.text))</p>
               <footer class="transcript-actions">
                 <button type="button" data-testid="message-copy" data-copy-id="\(escape(item.id))">Copy</button>
+                \(renderMessageDraftAction(message))
                 \(renderMessageRetryAction(message, latestAssistantMessageID: latestAssistantMessageID, command: retryLastTurnCommand))
                 \(renderMessageFeedbackActions(message))
               </footer>
@@ -201,6 +202,11 @@ public enum WorkspaceHTMLRenderer {
         <button type="button" data-testid="message-feedback-up" data-message-id="\(message.id.uuidString)" data-selected="\(helpfulSelected)">Helpful</button>
         <button type="button" data-testid="message-feedback-down" data-message-id="\(message.id.uuidString)" data-selected="\(notHelpfulSelected)">Not helpful</button>
         """
+    }
+
+    private static func renderMessageDraftAction(_ message: MessageSurface) -> String {
+        guard message.role == .user else { return "" }
+        return #"<button type="button" data-testid="message-use-as-draft" data-message-id="\#(message.id.uuidString)">Use as draft</button>"#
     }
 
     private static func renderMessageRetryAction(
