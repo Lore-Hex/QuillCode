@@ -1000,10 +1000,18 @@ private struct QuillCodeModelPickerView: View {
     var onToggleModelFavorite: (String) -> Void
 
     @State private var searchText = ""
+    @State private var expandedModelID: String?
     @FocusState private var isSearchFocused: Bool
 
     private var filteredCategories: [ModelCategorySurface] {
         topBar.filteredModelCategories(matching: searchText)
+    }
+
+    private var currentModelID: String? {
+        topBar.modelCategories
+            .flatMap(\.models)
+            .first { $0.isSelected }?
+            .id
     }
 
     var body: some View {
@@ -1019,7 +1027,7 @@ private struct QuillCodeModelPickerView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Choose Model")
                             .font(.headline)
-                        Text("Search provider, category, or model")
+                        Text("Search provider, category, model, or state")
                             .font(.caption)
                             .foregroundStyle(QuillCodePalette.muted)
                     }
@@ -1058,80 +1066,142 @@ private struct QuillCodeModelPickerView: View {
                 }
             }
             .padding(14)
-            .frame(width: 420, height: 460)
+            .frame(width: 460, height: 500)
             .background(QuillCodePalette.panel)
         }
         .onChange(of: isPresented) { _, presented in
             if presented {
+                expandedModelID = currentModelID
                 DispatchQueue.main.async {
                     isSearchFocused = true
                 }
             } else {
                 searchText = ""
+                expandedModelID = nil
                 isSearchFocused = false
             }
         }
     }
 
     private func modelRow(_ option: ModelOptionSurface) -> some View {
-        HStack(spacing: 8) {
-            Button {
-                onSetModel(option.id)
-                isPresented = false
-            } label: {
-                HStack(spacing: 10) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("\(option.provider)/\(option.displayName)")
-                            .font(.callout.weight(.medium))
-                        Text(option.metadataSummary)
-                            .font(.caption)
-                            .foregroundStyle(QuillCodePalette.muted)
-                            .lineLimit(1)
-                        if !option.badges.isEmpty {
-                            HStack(spacing: 5) {
-                                ForEach(option.badges, id: \.self) { badge in
-                                    let tint = badgeTint(badge)
-                                    Text(badge)
-                                        .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(tint)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(tint.opacity(0.14))
-                                        .clipShape(Capsule())
-                                }
+        let isExpanded = expandedModelID == option.id
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Button {
+                    onSetModel(option.id)
+                    isPresented = false
+                } label: {
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(option.detailTitle)
+                                .font(.callout.weight(.medium))
+                                .lineLimit(1)
+                            Text(option.metadataSummary)
+                                .font(.caption)
+                                .foregroundStyle(QuillCodePalette.muted)
+                                .lineLimit(1)
+                            if !option.badges.isEmpty {
+                                modelBadges(option.badges)
                             }
                         }
+                        Spacer()
+                        if option.isSelected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(QuillCodePalette.green)
+                        }
                     }
-                    Spacer()
-                    if option.isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(QuillCodePalette.green)
-                    }
+                    .contentShape(Rectangle())
                 }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help(option.metadataDetails.joined(separator: "\n"))
-            .accessibilityHint(option.metadataDetails.joined(separator: ", "))
+                .buttonStyle(.plain)
+                .help(option.metadataDetails.joined(separator: "\n"))
+                .accessibilityHint(option.metadataDetails.joined(separator: ", "))
 
-            Button {
-                onToggleModelFavorite(option.id)
-            } label: {
-                Image(systemName: option.isFavorite ? "star.fill" : "star")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(option.isFavorite ? QuillCodePalette.yellow : QuillCodePalette.muted)
-                    .frame(width: 40, height: 40)
-                    .background((option.isFavorite ? QuillCodePalette.yellow : QuillCodePalette.muted).opacity(0.12))
-                    .clipShape(Circle())
+                HStack(spacing: 6) {
+                    Button {
+                        withAnimation(.easeOut(duration: 0.16)) {
+                            expandedModelID = isExpanded ? nil : option.id
+                        }
+                    } label: {
+                        Image(systemName: isExpanded ? "info.circle.fill" : "info.circle")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(isExpanded ? QuillCodePalette.blue : QuillCodePalette.muted)
+                            .frame(width: 40, height: 40)
+                            .background((isExpanded ? QuillCodePalette.blue : QuillCodePalette.muted).opacity(0.12))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.borderless)
+                    .help(isExpanded ? "Hide model details" : "Show model details")
+                    .accessibilityLabel(isExpanded ? "Hide model details" : "Show model details")
+
+                    Button {
+                        onToggleModelFavorite(option.id)
+                    } label: {
+                        Image(systemName: option.isFavorite ? "star.fill" : "star")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(option.isFavorite ? QuillCodePalette.yellow : QuillCodePalette.muted)
+                            .frame(width: 40, height: 40)
+                            .background((option.isFavorite ? QuillCodePalette.yellow : QuillCodePalette.muted).opacity(0.12))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.borderless)
+                    .help(option.isFavorite ? "Remove favorite" : "Favorite model")
+                    .accessibilityLabel(option.isFavorite ? "Remove favorite model" : "Favorite model")
+                }
             }
-            .buttonStyle(.borderless)
-            .help(option.isFavorite ? "Remove favorite" : "Favorite model")
-            .accessibilityLabel(option.isFavorite ? "Remove favorite model" : "Favorite model")
+
+            if isExpanded {
+                modelDetails(option)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(option.isSelected ? QuillCodePalette.selection : QuillCodePalette.background.opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func modelBadges(_ badges: [String]) -> some View {
+        HStack(spacing: 5) {
+            ForEach(badges, id: \.self) { badge in
+                let tint = badgeTint(badge)
+                Text(badge)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(tint)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(tint.opacity(0.14))
+                    .clipShape(Capsule())
+            }
+        }
+    }
+
+    private func modelDetails(_ option: ModelOptionSurface) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(option.capabilitySummary)
+                .font(.caption)
+                .foregroundStyle(QuillCodePalette.muted)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(spacing: 5) {
+                ForEach(option.metadataRows) { row in
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(row.label)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(QuillCodePalette.muted)
+                            .frame(width: 62, alignment: .leading)
+                        Text(row.value)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(QuillCodePalette.text)
+                            .lineLimit(2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(QuillCodePalette.panel.opacity(0.72))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private func badgeTint(_ badge: String) -> Color {

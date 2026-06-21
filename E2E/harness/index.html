@@ -83,17 +83,16 @@
       background: rgba(255,93,82,.14);
       border-color: rgba(255,93,82,.30);
     }
-    .model-picker-wrap { display: inline-flex; }
+    .model-picker-wrap { display: inline-flex; position: relative; }
     .model-panel {
       position: absolute;
       top: calc(100% + 8px);
       right: 18px;
       z-index: 4;
-      width: min(380px, calc(100vw - 36px));
+      width: min(440px, calc(100vw - 36px));
       display: grid;
       gap: 10px;
       padding: 14px;
-      border: 1px solid rgba(255,255,255,.12);
       border-radius: 24px;
       background: var(--panel);
       box-shadow: var(--shadow-panel);
@@ -108,7 +107,7 @@
       color: var(--text);
       background: rgba(0,0,0,.24);
     }
-    .model-results { display: grid; gap: 10px; max-height: 330px; overflow: auto; }
+    .model-results { display: grid; gap: 10px; max-height: 360px; overflow: auto; }
     .model-category { display: grid; gap: 6px; }
     .model-category h3 {
       margin: 0;
@@ -151,6 +150,12 @@
       font-size: 10px;
       font-weight: 600;
     }
+    .model-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .model-detail-toggle,
     .model-favorite {
       width: 40px;
       min-width: 40px;
@@ -158,15 +163,54 @@
       padding: 0;
       display: grid;
       place-items: center;
-      border-radius: 10px;
+      border-radius: 999px;
       color: var(--muted);
       background: rgba(255,255,255,.05);
       border: 1px solid rgba(255,255,255,.08);
+    }
+    .model-detail-toggle.active {
+      color: var(--blue);
+      background: rgba(65,184,232,.13);
+      border-color: rgba(65,184,232,.26);
     }
     .model-favorite.active {
       color: var(--yellow);
       background: rgba(248,184,78,.14);
       border-color: rgba(248,184,78,.28);
+    }
+    .model-inspector {
+      grid-column: 1 / -1;
+      display: grid;
+      gap: 8px;
+      padding: 8px;
+      border-radius: 8px;
+      color: var(--muted);
+      background: rgba(255,255,255,.045);
+      box-shadow: var(--shadow-border);
+    }
+    .model-inspector p {
+      margin: 0;
+      font-size: 12px;
+    }
+    .model-inspector dl {
+      margin: 0;
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 5px 10px;
+      font-size: 11px;
+    }
+    .model-inspector dt {
+      color: var(--muted);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .model-inspector dd {
+      margin: 0;
+      color: var(--text);
+      overflow-wrap: anywhere;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-variant-numeric: tabular-nums;
     }
     .model-badges {
       display: flex;
@@ -1365,6 +1409,7 @@
         modelLabel: 'trustedrouter/fast',
         selectedModelID: 'trustedrouter/fast',
         modelPickerOpen: false,
+        expandedModelID: null,
         modelSearch: '',
         modelCategories: [
           {
@@ -2512,7 +2557,20 @@
                     </span>
                     ${(model.badges || []).length ? `<span class="model-badges">${model.badges.map(badge => `<em data-testid="model-badge">${escapeHTML(badge)}</em>`).join('')}</span>` : ''}
                   </button>
-                  <button class="model-favorite ${model.isFavorite ? 'active' : ''}" type="button" data-testid="model-favorite-button" data-model-id="${escapeHTML(model.id)}" aria-label="${model.isFavorite ? 'Remove favorite model' : 'Favorite model'}">${model.isFavorite ? '★' : '☆'}</button>
+                  <div class="model-actions">
+                    <button class="model-detail-toggle ${state.topBar.expandedModelID === model.id ? 'active' : ''}" type="button" data-testid="model-detail-button" data-model-id="${escapeHTML(model.id)}" aria-expanded="${state.topBar.expandedModelID === model.id ? 'true' : 'false'}" aria-label="${state.topBar.expandedModelID === model.id ? 'Hide model details' : 'Show model details'}">${state.topBar.expandedModelID === model.id ? 'i' : 'ⓘ'}</button>
+                    <button class="model-favorite ${model.isFavorite ? 'active' : ''}" type="button" data-testid="model-favorite-button" data-model-id="${escapeHTML(model.id)}" aria-label="${model.isFavorite ? 'Remove favorite model' : 'Favorite model'}">${model.isFavorite ? '★' : '☆'}</button>
+                  </div>
+                  ${state.topBar.expandedModelID === model.id ? `
+                    <div class="model-inspector" data-testid="model-inspector" data-model-id="${escapeHTML(model.id)}">
+                      <p data-testid="model-capability">${escapeHTML(modelCapabilitySummary(model, category.category))}</p>
+                      <dl>
+                        ${modelMetadataRows(model, category.category).map(row => `
+                          <dt>${escapeHTML(row.label)}</dt>
+                          <dd data-testid="model-metadata-row">${escapeHTML(row.value)}</dd>
+                        `).join('')}
+                      </dl>
+                    </div>` : ''}
                 </div>`).join('')}
             </section>`).join('')}
         </div>` : '<div class="model-empty" data-testid="model-empty">No models match. Try a provider, category, model name, or state.</div>';
@@ -2668,6 +2726,7 @@
       });
       document.querySelector('[data-testid="model-picker-button"]').addEventListener('click', () => {
         state.topBar.modelPickerOpen = !state.topBar.modelPickerOpen;
+        state.topBar.expandedModelID = state.topBar.modelPickerOpen ? state.topBar.selectedModelID : null;
         render();
       });
       document.querySelector('[data-testid="model-search"]')?.addEventListener('input', event => {
@@ -2678,6 +2737,13 @@
       document.querySelectorAll('[data-testid="model-option"]').forEach(button => {
         button.addEventListener('click', event => {
           selectModel(event.currentTarget.getAttribute('data-model-id'));
+        });
+      });
+      document.querySelectorAll('[data-testid="model-detail-button"]').forEach(button => {
+        button.addEventListener('click', event => {
+          const modelID = event.currentTarget.getAttribute('data-model-id');
+          state.topBar.expandedModelID = state.topBar.expandedModelID === modelID ? null : modelID;
+          render();
         });
       });
       document.querySelectorAll('[data-testid="model-favorite-button"]').forEach(button => {
@@ -3053,8 +3119,11 @@
               model.provider,
               model.displayName,
               model.category || category.category,
+              model.detailTitle || `${model.provider}/${model.displayName}`,
+              modelCapabilitySummary(model, category.category),
               modelMetadataSummary(model, category.category),
               modelMetadataDetails(model, category.category).join(' '),
+              modelMetadataRows(model, category.category).map(row => `${row.label}: ${row.value}`).join(' '),
               (model.badges || []).join(' ')
             ].join(' ').toLowerCase();
             return terms.every(term => haystack.includes(term));
@@ -3071,6 +3140,7 @@
       state.topBar.modelLabel = selected.id;
       state.topBar.modelPickerOpen = false;
       state.topBar.modelSearch = '';
+      state.topBar.expandedModelID = null;
       state.topBar.modelCategories = state.topBar.modelCategories.map(category => ({
         ...category,
         models: category.models.map(model => {
@@ -3133,6 +3203,37 @@
 
     function modelMetadataSummary(model, categoryName) {
       return model.metadataSummary || `${model.category || categoryName || 'Models'} · ${model.id}`;
+    }
+
+    function modelCapabilitySummary(model, categoryName) {
+      if (model.capabilitySummary) return model.capabilitySummary;
+      if (model.id === 'trustedrouter/fast') return 'Fast default for coding, shell, and file-editing turns.';
+      if (model.id === 'tr/fusion') return 'Balanced TrustedRouter model for deeper coding and review turns.';
+      if ((model.badges || []).includes('Recommended')) return 'Recommended model profile available through TrustedRouter.';
+      const category = model.category || categoryName || 'Models';
+      if (category === 'Safety') return 'Lightweight reviewer model for Auto safety decisions.';
+      return `${category} model available through TrustedRouter.`;
+    }
+
+    function modelMetadataRows(model, categoryName) {
+      if (Array.isArray(model.metadataRows) && model.metadataRows.length) {
+        return model.metadataRows;
+      }
+      const category = model.category || categoryName || 'Models';
+      const badges = model.badges || [];
+      const stateLabels = [
+        model.isSelected || model.id === state.topBar.selectedModelID ? 'Current' : null,
+        badges.includes('Default') ? 'Default' : null,
+        badges.includes('Recommended') ? 'Recommended' : null,
+        model.isFavorite || badges.includes('Favorite') ? 'Favorite' : null,
+        badges.includes('Recent') ? 'Recent' : null
+      ].filter(Boolean);
+      return [
+        { label: 'Provider', value: model.provider },
+        { label: 'Model ID', value: model.id },
+        { label: 'Category', value: category },
+        { label: 'State', value: stateLabels.length ? uniqueStrings(stateLabels).join(', ') : 'Available' }
+      ];
     }
 
     function modelMetadataDetails(model, categoryName) {
