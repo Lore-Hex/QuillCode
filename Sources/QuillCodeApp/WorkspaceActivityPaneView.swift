@@ -3,6 +3,7 @@ import QuillCodeCore
 
 struct QuillCodeActivityPaneView: View {
     var activity: WorkspaceActivitySurface
+    var onCommand: (String) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -11,23 +12,11 @@ struct QuillCodeActivityPaneView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    QuillCodeActivitySectionView(
-                        title: "Recent",
-                        emptyTitle: "No task events yet",
-                        items: activity.recentSteps
-                    )
-                    QuillCodeActivitySectionView(
-                        title: "Tools",
-                        emptyTitle: "No tools used yet",
-                        items: activity.tools
-                    )
-                    QuillCodeActivitySectionView(
-                        title: "Sources",
-                        emptyTitle: "No context sources attached",
-                        items: activity.sources
-                    )
-                    QuillCodeActivityArtifactsView(artifacts: activity.artifacts)
-                    latestAnswer
+                    ForEach(activity.sections) { section in
+                        QuillCodeActivitySectionView(section: section) {
+                            onCommand(section.toggleCommandID)
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -74,41 +63,57 @@ struct QuillCodeActivityPaneView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    @ViewBuilder
-    private var latestAnswer: some View {
-        if let finalAnswer = activity.finalAnswer {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Latest Answer")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(QuillCodePalette.muted)
-                Text(finalAnswer)
-                    .font(.caption)
-                    .foregroundStyle(QuillCodePalette.text)
-                    .lineLimit(8)
-            }
-        }
-    }
 }
 
 private struct QuillCodeActivitySectionView: View {
-    var title: String
-    var emptyTitle: String
-    var items: [ActivityItemSurface]
+    var section: ActivitySectionSurface
+    var onToggle: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(QuillCodePalette.muted)
-            if items.isEmpty {
-                Text(emptyTitle)
-                    .font(.caption)
-                    .foregroundStyle(QuillCodePalette.muted)
-            } else {
-                ForEach(items) { item in
-                    QuillCodeActivityItemView(item: item)
+            Button(action: onToggle) {
+                HStack(spacing: 8) {
+                    Image(systemName: section.isCollapsed ? "chevron.right" : "chevron.down")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .frame(width: 10)
+                    Text(section.title)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                    Spacer()
+                    Text(section.countLabel)
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(QuillCodePalette.blue)
                 }
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(section.isCollapsed ? "Expand" : "Collapse") \(section.title)")
+
+            if !section.isCollapsed {
+                sectionContent
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var sectionContent: some View {
+        if let bodyText = section.bodyText {
+            Text(bodyText)
+                .font(.caption)
+                .foregroundStyle(QuillCodePalette.text)
+                .lineLimit(8)
+        } else if !section.artifacts.isEmpty {
+            ForEach(section.artifacts) { artifact in
+                QuillCodeActivityArtifactView(artifact: artifact)
+            }
+        } else if !section.items.isEmpty {
+            ForEach(section.items) { item in
+                QuillCodeActivityItemView(item: item)
+            }
+        } else {
+            Text(section.emptyTitle)
+                .font(.caption)
+                .foregroundStyle(QuillCodePalette.muted)
         }
     }
 }
@@ -158,35 +163,22 @@ private struct QuillCodeActivityItemView: View {
     }
 }
 
-private struct QuillCodeActivityArtifactsView: View {
-    var artifacts: [ToolArtifactState]
+private struct QuillCodeActivityArtifactView: View {
+    var artifact: ToolArtifactState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Artifacts")
+        VStack(alignment: .leading, spacing: 2) {
+            Text(artifact.label)
                 .font(.caption.weight(.semibold))
+                .lineLimit(1)
+            Text(artifact.detail)
+                .font(.caption2.monospaced())
                 .foregroundStyle(QuillCodePalette.muted)
-            if artifacts.isEmpty {
-                Text("No artifacts produced yet")
-                    .font(.caption)
-                    .foregroundStyle(QuillCodePalette.muted)
-            } else {
-                ForEach(artifacts) { artifact in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(artifact.label)
-                            .font(.caption.weight(.semibold))
-                            .lineLimit(1)
-                        Text(artifact.detail)
-                            .font(.caption2.monospaced())
-                            .foregroundStyle(QuillCodePalette.muted)
-                            .lineLimit(1)
-                    }
-                    .padding(8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(QuillCodePalette.background.opacity(0.55))
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                }
-            }
+                .lineLimit(1)
         }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(QuillCodePalette.background.opacity(0.55))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }

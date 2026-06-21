@@ -1830,7 +1830,8 @@ public extension QuillCodeWorkspaceModel {
                 toolCards: toolCards,
                 instructions: activeInstructions,
                 memories: activeMemories,
-                agentStatus: topBarState.agentStatus
+                agentStatus: topBarState.agentStatus,
+                collapsedSectionIDs: activity.collapsedSectionIDs
             ),
             composer: ComposerSurface(composer: composer),
             commands: commands(),

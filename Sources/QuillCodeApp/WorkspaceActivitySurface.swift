@@ -13,6 +13,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
     public var sources: [ActivityItemSurface]
     public var artifacts: [ToolArtifactState]
     public var finalAnswer: String?
+    public var sections: [ActivitySectionSurface]
 
     public init(
         isVisible: Bool = false,
@@ -25,7 +26,8 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         tools: [ActivityItemSurface] = [],
         sources: [ActivityItemSurface] = [],
         artifacts: [ToolArtifactState] = [],
-        finalAnswer: String? = nil
+        finalAnswer: String? = nil,
+        collapsedSectionIDs: Set<ActivitySectionKind> = []
     ) {
         self.isVisible = isVisible
         self.title = title
@@ -38,6 +40,14 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         self.sources = sources
         self.artifacts = artifacts
         self.finalAnswer = finalAnswer
+        self.sections = Self.sections(
+            recentSteps: recentSteps,
+            tools: tools,
+            sources: sources,
+            artifacts: artifacts,
+            finalAnswer: finalAnswer,
+            collapsedSectionIDs: collapsedSectionIDs
+        )
     }
 
     public init(
@@ -46,10 +56,15 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         toolCards: [ToolCardState],
         instructions: [ProjectInstruction],
         memories: [MemoryNote],
-        agentStatus: String
+        agentStatus: String,
+        collapsedSectionIDs: Set<ActivitySectionKind> = []
     ) {
         guard let thread else {
-            self.init(isVisible: isVisible, statusLabel: agentStatus)
+            self.init(
+                isVisible: isVisible,
+                statusLabel: agentStatus,
+                collapsedSectionIDs: collapsedSectionIDs
+            )
             return
         }
 
@@ -66,8 +81,49 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
             tools: Self.toolItems(from: toolCards),
             sources: sources,
             artifacts: artifacts,
-            finalAnswer: Self.finalAnswer(for: thread)
+            finalAnswer: Self.finalAnswer(for: thread),
+            collapsedSectionIDs: collapsedSectionIDs
         )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case isVisible
+        case title
+        case subtitle
+        case statusLabel
+        case taskTitle
+        case taskSubtitle
+        case recentSteps
+        case tools
+        case sources
+        case artifacts
+        case finalAnswer
+        case sections
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.isVisible = try container.decodeIfPresent(Bool.self, forKey: .isVisible) ?? false
+        self.title = try container.decodeIfPresent(String.self, forKey: .title) ?? "Activity"
+        self.subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle) ?? "No active thread"
+        self.statusLabel = try container.decodeIfPresent(String.self, forKey: .statusLabel) ?? "Idle"
+        self.taskTitle = try container.decodeIfPresent(String.self, forKey: .taskTitle) ?? "No task selected"
+        self.taskSubtitle = try container.decodeIfPresent(String.self, forKey: .taskSubtitle)
+            ?? "Start a chat to see task progress, tools, sources, and artifacts."
+        self.recentSteps = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .recentSteps) ?? []
+        self.tools = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .tools) ?? []
+        self.sources = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .sources) ?? []
+        self.artifacts = try container.decodeIfPresent([ToolArtifactState].self, forKey: .artifacts) ?? []
+        self.finalAnswer = try container.decodeIfPresent(String.self, forKey: .finalAnswer)
+        self.sections = try container.decodeIfPresent([ActivitySectionSurface].self, forKey: .sections)
+            ?? Self.sections(
+                recentSteps: recentSteps,
+                tools: tools,
+                sources: sources,
+                artifacts: artifacts,
+                finalAnswer: finalAnswer,
+                collapsedSectionIDs: []
+            )
     }
 
     private static func subtitle(toolCount: Int, sourceCount: Int, artifactCount: Int) -> String {
@@ -147,6 +203,43 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         return Array(artifacts.reversed())
     }
 
+    private static func sections(
+        recentSteps: [ActivityItemSurface],
+        tools: [ActivityItemSurface],
+        sources: [ActivityItemSurface],
+        artifacts: [ToolArtifactState],
+        finalAnswer: String?,
+        collapsedSectionIDs: Set<ActivitySectionKind>
+    ) -> [ActivitySectionSurface] {
+        [
+            ActivitySectionSurface(
+                kind: .recent,
+                items: recentSteps,
+                isCollapsed: collapsedSectionIDs.contains(.recent)
+            ),
+            ActivitySectionSurface(
+                kind: .tools,
+                items: tools,
+                isCollapsed: collapsedSectionIDs.contains(.tools)
+            ),
+            ActivitySectionSurface(
+                kind: .sources,
+                items: sources,
+                isCollapsed: collapsedSectionIDs.contains(.sources)
+            ),
+            ActivitySectionSurface(
+                kind: .artifacts,
+                artifacts: artifacts,
+                isCollapsed: collapsedSectionIDs.contains(.artifacts)
+            ),
+            ActivitySectionSurface(
+                kind: .latestAnswer,
+                bodyText: finalAnswer,
+                isCollapsed: collapsedSectionIDs.contains(.latestAnswer)
+            )
+        ].filter { !$0.isEmpty || $0.kind.alwaysVisible }
+    }
+
     private static func finalAnswer(for thread: ChatThread) -> String? {
         guard let answer = thread.messages.reversed().first(where: { $0.role == .assistant })?.content else {
             return nil
@@ -216,6 +309,140 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
 
     private static func countLabel(_ count: Int, singular: String) -> String {
         "\(count) \(singular)\(count == 1 ? "" : "s")"
+    }
+}
+
+public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterable {
+    case recent
+    case tools
+    case sources
+    case artifacts
+    case latestAnswer
+
+    public var title: String {
+        switch self {
+        case .recent:
+            return "Recent"
+        case .tools:
+            return "Tools"
+        case .sources:
+            return "Sources"
+        case .artifacts:
+            return "Artifacts"
+        case .latestAnswer:
+            return "Latest Answer"
+        }
+    }
+
+    public var emptyTitle: String {
+        switch self {
+        case .recent:
+            return "No task events yet"
+        case .tools:
+            return "No tools used yet"
+        case .sources:
+            return "No context sources attached"
+        case .artifacts:
+            return "No artifacts produced yet"
+        case .latestAnswer:
+            return ""
+        }
+    }
+
+    public var itemTestID: String {
+        switch self {
+        case .recent:
+            return "activity-step"
+        case .tools:
+            return "activity-tool"
+        case .sources:
+            return "activity-source"
+        case .artifacts:
+            return "activity-artifact"
+        case .latestAnswer:
+            return "activity-final-answer"
+        }
+    }
+
+    public var alwaysVisible: Bool {
+        switch self {
+        case .latestAnswer:
+            return false
+        case .recent, .tools, .sources, .artifacts:
+            return true
+        }
+    }
+}
+
+public struct ActivitySectionSurface: Codable, Sendable, Hashable, Identifiable {
+    public var kind: ActivitySectionKind
+    public var title: String
+    public var emptyTitle: String
+    public var itemTestID: String
+    public var items: [ActivityItemSurface]
+    public var artifacts: [ToolArtifactState]
+    public var bodyText: String?
+    public var isCollapsed: Bool
+    public var toggleCommandID: String
+
+    public var id: String { kind.rawValue }
+    public var isEmpty: Bool {
+        items.isEmpty
+            && artifacts.isEmpty
+            && (bodyText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
+    public var countLabel: String {
+        if let bodyText, !bodyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "1 answer"
+        }
+        if !artifacts.isEmpty {
+            return "\(artifacts.count) artifact\(artifacts.count == 1 ? "" : "s")"
+        }
+        return "\(items.count) item\(items.count == 1 ? "" : "s")"
+    }
+
+    public init(
+        kind: ActivitySectionKind,
+        items: [ActivityItemSurface] = [],
+        artifacts: [ToolArtifactState] = [],
+        bodyText: String? = nil,
+        isCollapsed: Bool = false
+    ) {
+        self.kind = kind
+        self.title = kind.title
+        self.emptyTitle = kind.emptyTitle
+        self.itemTestID = kind.itemTestID
+        self.items = items
+        self.artifacts = artifacts
+        self.bodyText = bodyText
+        self.isCollapsed = isCollapsed
+        self.toggleCommandID = "activity-toggle-section:\(kind.rawValue)"
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case title
+        case emptyTitle
+        case itemTestID
+        case items
+        case artifacts
+        case bodyText
+        case isCollapsed
+        case toggleCommandID
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.kind = try container.decode(ActivitySectionKind.self, forKey: .kind)
+        self.title = try container.decodeIfPresent(String.self, forKey: .title) ?? kind.title
+        self.emptyTitle = try container.decodeIfPresent(String.self, forKey: .emptyTitle) ?? kind.emptyTitle
+        self.itemTestID = try container.decodeIfPresent(String.self, forKey: .itemTestID) ?? kind.itemTestID
+        self.items = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .items) ?? []
+        self.artifacts = try container.decodeIfPresent([ToolArtifactState].self, forKey: .artifacts) ?? []
+        self.bodyText = try container.decodeIfPresent(String.self, forKey: .bodyText)
+        self.isCollapsed = try container.decodeIfPresent(Bool.self, forKey: .isCollapsed) ?? false
+        self.toggleCommandID = try container.decodeIfPresent(String.self, forKey: .toggleCommandID)
+            ?? "activity-toggle-section:\(kind.rawValue)"
     }
 }
 

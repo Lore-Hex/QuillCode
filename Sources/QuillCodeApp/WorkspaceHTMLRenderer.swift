@@ -673,54 +673,45 @@ public enum WorkspaceHTMLRenderer {
             <strong data-testid="activity-task-title">\(escape(activity.taskTitle))</strong>
             <p data-testid="activity-task-subtitle">\(escape(activity.taskSubtitle))</p>
           </article>
-          \(renderActivityItems(title: "Recent", emptyTitle: "No task events yet", items: activity.recentSteps, testID: "activity-step"))
-          \(renderActivityItems(title: "Tools", emptyTitle: "No tools used yet", items: activity.tools, testID: "activity-tool"))
-          \(renderActivityItems(title: "Sources", emptyTitle: "No context sources attached", items: activity.sources, testID: "activity-source"))
-          \(renderActivityArtifacts(activity.artifacts))
-          \(activity.finalAnswer.map { #"<section data-testid="activity-final-answer"><h3>Latest Answer</h3><p>\#(escape($0))</p></section>"# } ?? "")
+          \(activity.sections.map(renderActivitySection).joined(separator: "\n"))
         </section>
         """
     }
 
-    private static func renderActivityItems(
-        title: String,
-        emptyTitle: String,
-        items: [ActivityItemSurface],
-        testID: String
-    ) -> String {
-        let content = items.isEmpty
-            ? #"<p data-testid="\#(testID)-empty">\#(escape(emptyTitle))</p>"#
-            : items.map { item in
+    private static func renderActivitySection(_ section: ActivitySectionSurface) -> String {
+        let content: String
+        if section.isCollapsed {
+            content = ""
+        } else if let bodyText = section.bodyText {
+            content = #"<p data-testid="\#(escape(section.itemTestID))">\#(escape(bodyText))</p>"#
+        } else if !section.artifacts.isEmpty {
+            content = section.artifacts.map { artifact in
                 """
-                <article class="activity-item" data-testid="\(escape(testID))" data-kind="\(escape(item.kind))">
+                <article class="activity-artifact" data-testid="\(escape(section.itemTestID))">
+                  <strong>\(escape(artifact.label))</strong>
+                  <p>\(escape(artifact.detail))</p>
+                </article>
+                """
+            }.joined(separator: "\n")
+        } else if !section.items.isEmpty {
+            content = section.items.map { item in
+                """
+                <article class="activity-item" data-testid="\(escape(section.itemTestID))" data-kind="\(escape(item.kind))">
                   <strong>\(escape(item.title))</strong>
                   \(item.statusLabel.isEmpty ? "" : #"<span>\#(escape(item.statusLabel))</span>"#)
                   \(item.detail.isEmpty ? "" : #"<p>\#(escape(item.detail))</p>"#)
                 </article>
                 """
             }.joined(separator: "\n")
+        } else {
+            content = #"<p data-testid="\#(escape(section.itemTestID))-empty">\#(escape(section.emptyTitle))</p>"#
+        }
         return """
-        <section class="activity-section" data-testid="\(escape(testID))-section">
-          <h3>\(escape(title))</h3>
-          \(content)
-        </section>
-        """
-    }
-
-    private static func renderActivityArtifacts(_ artifacts: [ToolArtifactState]) -> String {
-        let content = artifacts.isEmpty
-            ? #"<p data-testid="activity-artifact-empty">No artifacts produced yet</p>"#
-            : artifacts.map { artifact in
-                """
-                <article class="activity-artifact" data-testid="activity-artifact">
-                  <strong>\(escape(artifact.label))</strong>
-                  <p>\(escape(artifact.detail))</p>
-                </article>
-                """
-            }.joined(separator: "\n")
-        return """
-        <section class="activity-section" data-testid="activity-artifact-section">
-          <h3>Artifacts</h3>
+        <section class="activity-section" data-testid="\(escape(section.itemTestID))-section" data-collapsed="\(section.isCollapsed ? "true" : "false")">
+          <button type="button" data-testid="activity-section-toggle" data-command-id="\(escape(section.toggleCommandID))">
+            <span>\(section.isCollapsed ? ">" : "v") \(escape(section.title))</span>
+            <span>\(escape(section.countLabel))</span>
+          </button>
           \(content)
         </section>
         """

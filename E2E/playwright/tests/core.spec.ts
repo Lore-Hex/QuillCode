@@ -303,6 +303,13 @@ test('mock harness surfaces file artifacts from tool cards', async ({ page }) =>
   await expect(page.getByTestId('activity-artifact')).not.toContainText('undefined');
   await expect(page.getByTestId('activity-source').first()).toContainText('AGENTS.md');
   await expect(page.getByTestId('activity-final-answer')).toContainText('Wrote `hello.txt`.');
+
+  await page.getByTestId('activity-tool-section').getByTestId('activity-section-toggle').click();
+  await expect(page.getByTestId('activity-tool-section')).toHaveAttribute('data-collapsed', 'true');
+  await expect(page.getByTestId('activity-tool')).toHaveCount(0);
+  await page.getByTestId('activity-tool-section').getByTestId('activity-section-toggle').click();
+  await expect(page.getByTestId('activity-tool-section')).toHaveAttribute('data-collapsed', 'false');
+  await expect(page.getByTestId('activity-tool')).toContainText('host.file.write');
 });
 
 test('mock harness renders image artifact previews from tool cards', async ({ page }) => {

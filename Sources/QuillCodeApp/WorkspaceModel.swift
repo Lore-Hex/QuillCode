@@ -516,9 +516,11 @@ public struct MemoriesState: Sendable, Hashable {
 
 public struct ActivityState: Sendable, Hashable {
     public var isVisible: Bool
+    public var collapsedSectionIDs: Set<ActivitySectionKind>
 
-    public init(isVisible: Bool = false) {
+    public init(isVisible: Bool = false, collapsedSectionIDs: Set<ActivitySectionKind> = []) {
         self.isVisible = isVisible
+        self.collapsedSectionIDs = collapsedSectionIDs
     }
 }
 
@@ -782,6 +784,15 @@ public final class QuillCodeWorkspaceModel {
 
     public func toggleActivity() {
         activity.isVisible.toggle()
+    }
+
+    public func toggleActivitySection(_ section: ActivitySectionKind) {
+        activity.isVisible = true
+        if activity.collapsedSectionIDs.contains(section) {
+            activity.collapsedSectionIDs.remove(section)
+        } else {
+            activity.collapsedSectionIDs.insert(section)
+        }
     }
 
     @discardableResult
@@ -1524,6 +1535,12 @@ public final class QuillCodeWorkspaceModel {
             let rawID = String(commandID.dropFirst("thread-selection-toggle:".count))
             guard let id = UUID(uuidString: rawID) else { return false }
             toggleSidebarThreadSelection(id)
+            return true
+        }
+        if commandID.hasPrefix("activity-toggle-section:") {
+            let rawKind = String(commandID.dropFirst("activity-toggle-section:".count))
+            guard let section = ActivitySectionKind(rawValue: rawKind) else { return false }
+            toggleActivitySection(section)
             return true
         }
         switch commandID {

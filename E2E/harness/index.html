@@ -479,6 +479,27 @@
       text-transform: uppercase;
       letter-spacing: .08em;
     }
+    .activity-section button {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .activity-section button span:last-child {
+      color: #62c9f3;
+      letter-spacing: 0;
+      text-transform: none;
+    }
     .activity-item,
     .activity-artifact {
       min-width: 0;
@@ -1500,7 +1521,8 @@
         comments: []
       },
       activity: {
-        isVisible: false
+        isVisible: false,
+        collapsedSections: []
       },
       nextProjectIndex: 2,
       nextThreadIndex: 1,
@@ -2544,6 +2566,11 @@
       document.querySelector('[data-testid="activity-button"]').addEventListener('click', () => {
         runCommand('toggle-activity');
       });
+      document.querySelectorAll('[data-testid="activity-section-toggle"]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
+        });
+      });
       document.querySelectorAll('[data-testid="context-banner"] [data-command-id]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
@@ -3317,8 +3344,55 @@
         })),
         sources,
         artifacts,
-        finalAnswer: latestAssistant?.text || null
+        finalAnswer: latestAssistant?.text || null,
+        sections: activitySections({
+          steps,
+          tools: cards.slice(-8).map(card => ({
+            id: card.id,
+            title: card.title,
+            detail: card.subtitle,
+            statusLabel: card.status
+          })),
+          sources,
+          artifacts,
+          finalAnswer: latestAssistant?.text || null
+        })
       };
+    }
+
+    function activitySections(activity) {
+      const collapsed = new Set(state.activity.collapsedSections || []);
+      const section = (id, title, itemTestID, emptyTitle, values) => ({
+        id,
+        title,
+        itemTestID,
+        emptyTitle,
+        isCollapsed: collapsed.has(id),
+        commandID: `activity-toggle-section:${id}`,
+        ...values
+      });
+      return [
+        section('recent', 'Recent', 'activity-step', 'No task events yet', {
+          items: activity.steps,
+          countLabel: countLabel(activity.steps.length, 'item')
+        }),
+        section('tools', 'Tools', 'activity-tool', 'No tools used yet', {
+          items: activity.tools,
+          countLabel: countLabel(activity.tools.length, 'item')
+        }),
+        section('sources', 'Sources', 'activity-source', 'No context sources attached', {
+          items: activity.sources,
+          countLabel: countLabel(activity.sources.length, 'item')
+        }),
+        section('artifacts', 'Artifacts', 'activity-artifact', 'No artifacts produced yet', {
+          artifacts: activity.artifacts,
+          countLabel: countLabel(activity.artifacts.length, 'artifact')
+        }),
+        section('latestAnswer', 'Latest Answer', 'activity-final-answer', '', {
+          bodyText: activity.finalAnswer,
+          countLabel: activity.finalAnswer ? '1 answer' : '0 answers'
+        })
+      ].filter(section => section.id !== 'latestAnswer' || section.bodyText);
     }
 
     function uniqueBy(items, keyForItem) {
@@ -3346,35 +3420,40 @@
             <strong data-testid="activity-task-title">${escapeHTML(activity.taskTitle)}</strong>
             <p data-testid="activity-task-subtitle">${escapeHTML(activity.taskSubtitle)}</p>
           </article>
-          ${renderActivityItems('Recent', activity.steps, 'activity-step', 'No task events yet')}
-          ${renderActivityItems('Tools', activity.tools, 'activity-tool', 'No tools used yet')}
-          ${renderActivityItems('Sources', activity.sources, 'activity-source', 'No context sources attached')}
-          ${renderActivityArtifacts(activity.artifacts)}
-          ${activity.finalAnswer ? `<section class="activity-section" data-testid="activity-final-answer"><h3>Latest Answer</h3><p>${escapeHTML(activity.finalAnswer)}</p></section>` : ''}
+          ${activity.sections.map(renderActivitySection).join('')}
         </section>`;
     }
 
-    function renderActivityItems(title, items, testID, emptyTitle) {
-      const content = items.length
-        ? items.map(item => `
-          <article class="activity-item" data-testid="${testID}">
-            <strong>${escapeHTML(item.title)}</strong>
-            <span>${escapeHTML(item.statusLabel || '')}</span>
-            <p>${escapeHTML(item.detail || '')}</p>
-          </article>`).join('')
-        : `<p data-testid="${testID}-empty">${escapeHTML(emptyTitle)}</p>`;
-      return `<section class="activity-section" data-testid="${testID}-section"><h3>${escapeHTML(title)}</h3>${content}</section>`;
-    }
-
-    function renderActivityArtifacts(artifacts) {
-      const content = artifacts.length
-        ? artifacts.map(artifact => `
-          <article class="activity-artifact" data-testid="activity-artifact">
-            <strong>${escapeHTML(artifact.label)}</strong>
-            <p>${escapeHTML(artifact.detail)}</p>
-          </article>`).join('')
-        : '<p data-testid="activity-artifact-empty">No artifacts produced yet</p>';
-      return `<section class="activity-section" data-testid="activity-artifact-section"><h3>Artifacts</h3>${content}</section>`;
+    function renderActivitySection(section) {
+      let content = '';
+      if (!section.isCollapsed) {
+        if (section.bodyText) {
+          content = `<p data-testid="${section.itemTestID}">${escapeHTML(section.bodyText)}</p>`;
+        } else if (section.artifacts?.length) {
+          content = section.artifacts.map(artifact => `
+            <article class="activity-artifact" data-testid="${section.itemTestID}">
+              <strong>${escapeHTML(artifact.label)}</strong>
+              <p>${escapeHTML(artifact.detail)}</p>
+            </article>`).join('');
+        } else if (section.items?.length) {
+          content = section.items.map(item => `
+            <article class="activity-item" data-testid="${section.itemTestID}">
+              <strong>${escapeHTML(item.title)}</strong>
+              <span>${escapeHTML(item.statusLabel || '')}</span>
+              <p>${escapeHTML(item.detail || '')}</p>
+            </article>`).join('');
+        } else {
+          content = `<p data-testid="${section.itemTestID}-empty">${escapeHTML(section.emptyTitle)}</p>`;
+        }
+      }
+      return `
+        <section class="activity-section" data-testid="${section.itemTestID}-section" data-collapsed="${section.isCollapsed ? 'true' : 'false'}">
+          <button type="button" data-testid="activity-section-toggle" data-command-id="${escapeHTML(section.commandID)}">
+            <span>${section.isCollapsed ? '&gt;' : 'v'} ${escapeHTML(section.title)}</span>
+            <span>${escapeHTML(section.countLabel)}</span>
+          </button>
+          ${content}
+        </section>`;
     }
 
     function renderTerminalPane() {
@@ -3954,6 +4033,17 @@
       }
       if (commandID === 'toggle-activity') {
         state.activity.isVisible = !state.activity.isVisible;
+      }
+      if (commandID?.startsWith('activity-toggle-section:')) {
+        state.activity.isVisible = true;
+        const section = commandID.slice('activity-toggle-section:'.length);
+        const collapsed = new Set(state.activity.collapsedSections || []);
+        if (collapsed.has(section)) {
+          collapsed.delete(section);
+        } else {
+          collapsed.add(section);
+        }
+        state.activity.collapsedSections = Array.from(collapsed);
       }
       if (commandID === 'toggle-memories') {
         state.memories.isVisible = !state.memories.isVisible;

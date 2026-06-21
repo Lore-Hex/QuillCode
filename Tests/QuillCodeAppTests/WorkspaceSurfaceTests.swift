@@ -220,6 +220,11 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(activity.sources.map(\.title), ["AGENTS.md", "Prefers concise diffs"])
         XCTAssertEqual(activity.finalAnswer, "Output: quill")
         XCTAssertTrue(activity.recentSteps.contains { $0.title == "Tool completed" && $0.statusLabel == "Done" })
+        XCTAssertEqual(activity.sections.map(\.kind), [.recent, .tools, .sources, .artifacts, .latestAnswer])
+        XCTAssertEqual(activity.sections.first { $0.kind == .tools }?.items.map(\.title), [ToolDefinition.shellRun.name])
+        XCTAssertEqual(activity.sections.first { $0.kind == .artifacts }?.artifacts.map(\.label), ["quillcode-activity.png"])
+        XCTAssertEqual(activity.sections.first { $0.kind == .latestAnswer }?.bodyText, "Output: quill")
+        XCTAssertEqual(activity.sections.first { $0.kind == .tools }?.toggleCommandID, "activity-toggle-section:tools")
     }
 
     func testActivityCommandTogglesActivityPane() {
@@ -228,6 +233,35 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(model.surface().activity.isVisible)
         XCTAssertTrue(model.runWorkspaceCommand("toggle-activity", workspaceRoot: URL(fileURLWithPath: "/tmp")))
         XCTAssertTrue(model.surface().activity.isVisible)
+    }
+
+    func testActivitySectionToggleCollapsesSharedSurfaceSection() throws {
+        let call = ToolCall(
+            id: "tool-activity",
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"whoami"}"#
+        )
+        let result = ToolResult(ok: true, stdout: "quill\n")
+        let thread = ChatThread(
+            title: "Run command",
+            messages: [.init(role: .user, content: "run whoami")],
+            events: [
+                .init(kind: .toolQueued, summary: "host.shell.run queued", payloadJSON: try JSONHelpers.encodePretty(call)),
+                .init(kind: .toolCompleted, summary: "host.shell.run completed", payloadJSON: try JSONHelpers.encodePretty(result))
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            activity: ActivityState(isVisible: true)
+        )
+
+        XCTAssertEqual(model.surface().activity.sections.first { $0.kind == .tools }?.isCollapsed, false)
+        XCTAssertTrue(model.runWorkspaceCommand("activity-toggle-section:tools", workspaceRoot: URL(fileURLWithPath: "/tmp")))
+        XCTAssertEqual(model.surface().activity.sections.first { $0.kind == .tools }?.isCollapsed, true)
+        XCTAssertTrue(model.surface().activity.isVisible)
+        XCTAssertTrue(model.runWorkspaceCommand("activity-toggle-section:tools", workspaceRoot: URL(fileURLWithPath: "/tmp")))
+        XCTAssertEqual(model.surface().activity.sections.first { $0.kind == .tools }?.isCollapsed, false)
+        XCTAssertFalse(model.runWorkspaceCommand("activity-toggle-section:not-real", workspaceRoot: URL(fileURLWithPath: "/tmp")))
     }
 
     func testSidebarSearchExcludesHiddenToolFeedback() {
