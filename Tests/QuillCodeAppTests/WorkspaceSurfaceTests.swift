@@ -68,6 +68,21 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(surface.browser.isVisible)
     }
 
+    func testSettingsSurfaceShowsTrustedRouterAccount() {
+        let config = AppConfig(
+            authMode: .oauth,
+            trustedRouterAccount: TrustedRouterAccountProfile(
+                userID: "usr_123",
+                email: "quill@example.com"
+            )
+        )
+        let settings = WorkspaceSettingsSurface(config: config, hasStoredAPIKey: true)
+
+        XCTAssertEqual(settings.apiKeyStatusLabel, "Signed in")
+        XCTAssertEqual(settings.loginStatusLabel, "Signed in as quill@example.com")
+        XCTAssertEqual(settings.accountLabel, "quill@example.com")
+    }
+
     func testShortcutRegistryLabelsSurfaceCommands() {
         let model = QuillCodeWorkspaceModel()
         let commandsByID = Dictionary(uniqueKeysWithValues: model.surface().commands.map { ($0.id, $0) })

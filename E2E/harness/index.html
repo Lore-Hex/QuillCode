@@ -479,6 +479,7 @@
         signInURL: 'http://localhost:3000/callback',
         apiKeyStatusLabel: 'Not signed in',
         loginStatusLabel: 'TrustedRouter login required',
+        accountLabel: null,
         replacementAPIKey: ''
       },
       lastOpenedURL: null,
@@ -991,14 +992,16 @@
         const replacementAPIKey = form.elements.namedItem('replacementAPIKey')?.value.trim() || '';
         if (replacementAPIKey) {
           state.settings.hasStoredAPIKey = true;
+          state.settings.accountLabel = null;
         }
         if (state.settings.authMode === 'developer-override') {
+          state.settings.accountLabel = null;
           state.settings.apiKeyStatusLabel = state.settings.hasStoredAPIKey ? 'API key configured' : 'No API key saved';
           state.settings.loginStatusLabel = state.settings.hasStoredAPIKey ? 'TrustedRouter developer override ready' : 'Developer override needs an API key';
           state.topBar.agentStatus = state.settings.hasStoredAPIKey ? 'TrustedRouter ready' : 'Developer key needed';
         } else {
-          state.settings.apiKeyStatusLabel = state.settings.hasStoredAPIKey ? 'TrustedRouter signed in' : 'Not signed in';
-          state.settings.loginStatusLabel = state.settings.hasStoredAPIKey ? 'TrustedRouter OAuth ready' : 'TrustedRouter login required';
+          state.settings.apiKeyStatusLabel = state.settings.hasStoredAPIKey ? 'Signed in' : 'Not signed in';
+          state.settings.loginStatusLabel = state.settings.hasStoredAPIKey && state.settings.accountLabel ? `Signed in as ${state.settings.accountLabel}` : state.settings.hasStoredAPIKey ? 'TrustedRouter OAuth ready' : 'TrustedRouter login required';
           state.topBar.agentStatus = state.settings.hasStoredAPIKey ? 'TrustedRouter signed in' : 'Sign in with TrustedRouter';
         }
         state.settings.isOpen = false;
@@ -1111,6 +1114,7 @@
             <h2>Settings</h2>
             <p data-testid="settings-login-status">${escapeHTML(state.settings.loginStatusLabel)}</p>
             <p data-testid="settings-key-status">${escapeHTML(state.settings.apiKeyStatusLabel)}</p>
+            ${state.settings.accountLabel ? `<p data-testid="settings-account">${escapeHTML(state.settings.accountLabel)}</p>` : ''}
             <label>
               TrustedRouter API base URL
               <input name="apiBaseURL" aria-label="TrustedRouter API base URL" value="${escapeHTML(state.settings.apiBaseURL)}">

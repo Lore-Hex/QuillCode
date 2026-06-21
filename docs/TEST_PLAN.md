@@ -17,7 +17,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 ## Integration Tests
 
 - Real filesystem, git, shell, terminal PTY.
-- OAuth PKCE generation, authorize URL construction, callback state validation, loopback callback capture, key exchange, delegated key persistence, userinfo fetch, runtime refresh, loopback/dev override.
+- OAuth PKCE generation, authorize URL construction, callback state validation, loopback callback capture, key exchange, delegated key persistence, non-secret account persistence, userinfo fetch, runtime refresh, loopback/dev override.
 - QuillUI secret-store adapter.
 - macOS Computer Use permission detection and Linux backend detection.
 - Worktree creation, local env actions, MCP stdio server.

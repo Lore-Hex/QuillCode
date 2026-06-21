@@ -769,6 +769,7 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var signInURL: String
     public var apiKeyStatusLabel: String
     public var loginStatusLabel: String
+    public var accountLabel: String?
 
     public init(config: AppConfig, hasStoredAPIKey: Bool) {
         self.apiBaseURL = config.apiBaseURL
@@ -776,10 +777,15 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.developerOverrideEnabled = config.developerOverrideEnabled
         self.hasStoredAPIKey = hasStoredAPIKey
         self.signInURL = TrustedRouterDefaults.loopbackCallbackURL
+        self.accountLabel = config.trustedRouterAccount?.displayLabel
         switch config.authMode {
         case .oauth:
-            self.apiKeyStatusLabel = hasStoredAPIKey ? "TrustedRouter signed in" : "Not signed in"
-            self.loginStatusLabel = hasStoredAPIKey ? "TrustedRouter OAuth ready" : "TrustedRouter login required"
+            self.apiKeyStatusLabel = hasStoredAPIKey ? "Signed in" : "Not signed in"
+            if hasStoredAPIKey, let accountLabel {
+                self.loginStatusLabel = "Signed in as \(accountLabel)"
+            } else {
+                self.loginStatusLabel = hasStoredAPIKey ? "TrustedRouter OAuth ready" : "TrustedRouter login required"
+            }
         case .developerOverride:
             self.apiKeyStatusLabel = hasStoredAPIKey ? "API key configured" : "No API key saved"
             self.loginStatusLabel = hasStoredAPIKey ? "TrustedRouter developer override ready" : "Developer override needs an API key"

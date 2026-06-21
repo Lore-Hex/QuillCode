@@ -21,6 +21,29 @@ final class PersistenceTests: XCTestCase {
         XCTAssertFalse(loaded.developerOverrideEnabled)
     }
 
+    func testConfigRoundTripsTrustedRouterAccountProfile() throws {
+        let root = try makeTempDirectory()
+        let store = ConfigStore(fileURL: root.appendingPathComponent("config.toml"))
+        let config = AppConfig(
+            defaultModel: "trustedrouter/fusion",
+            mode: .auto,
+            apiBaseURL: "https://api.quillrouter.com/v1",
+            authMode: .oauth,
+            trustedRouterAccount: TrustedRouterAccountProfile(
+                userID: "usr_123",
+                subject: "sub_quoted\"value",
+                email: "quill@example.com",
+                walletAddress: "0xabc"
+            )
+        )
+
+        try store.save(config)
+        let loaded = try store.load()
+
+        XCTAssertEqual(loaded, config)
+        XCTAssertEqual(loaded.trustedRouterAccount?.displayLabel, "quill@example.com")
+    }
+
     func testExplicitAuthModeWinsOverLegacyDeveloperOverrideFlag() throws {
         let root = try makeTempDirectory()
         let fileURL = root.appendingPathComponent("config.toml")

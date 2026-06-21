@@ -27,6 +27,7 @@ public struct ConfigStore: Sendable {
         var config = AppConfig()
         var explicitAuthMode: TrustedRouterAuthMode?
         var legacyDeveloperOverrideEnabled: Bool?
+        var account = TrustedRouterAccountProfile()
         for rawLine in text.components(separatedBy: .newlines) {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             guard !line.isEmpty, !line.hasPrefix("#") else { continue }
@@ -35,7 +36,7 @@ public struct ConfigStore: Sendable {
             }
             guard parts.count == 2 else { throw ConfigStoreError.invalidLine(rawLine) }
             let key = parts[0]
-            let value = parts[1].trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+            let value = Self.unquote(parts[1])
             switch key {
             case "default_model":
                 config.defaultModel = value
@@ -47,6 +48,14 @@ public struct ConfigStore: Sendable {
                 explicitAuthMode = TrustedRouterAuthMode(rawValue: value) ?? config.authMode
             case "developer_override_enabled":
                 legacyDeveloperOverrideEnabled = (value == "true")
+            case "trustedrouter_user_id":
+                account.userID = value
+            case "trustedrouter_subject":
+                account.subject = value
+            case "trustedrouter_email":
+                account.email = value
+            case "trustedrouter_wallet_address":
+                account.walletAddress = value
             default:
                 continue
             }
@@ -58,6 +67,13 @@ public struct ConfigStore: Sendable {
             config.authMode = .developerOverride
             config.developerOverrideEnabled = true
         }
+        let normalizedAccount = TrustedRouterAccountProfile(
+            userID: account.userID,
+            subject: account.subject,
+            email: account.email,
+            walletAddress: account.walletAddress
+        )
+        config.trustedRouterAccount = normalizedAccount.isEmpty ? nil : normalizedAccount
         return config
     }
 
@@ -66,13 +82,59 @@ public struct ConfigStore: Sendable {
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        let body = """
-        default_model = "\(config.defaultModel)"
-        mode = "\(config.mode.rawValue)"
-        api_base_url = "\(config.apiBaseURL)"
-        auth_mode = "\(config.authMode.rawValue)"
-        developer_override_enabled = \(config.developerOverrideEnabled ? "true" : "false")
-        """
+        var lines = [
+            "default_model = \(Self.quote(config.defaultModel))",
+            "mode = \(Self.quote(config.mode.rawValue))",
+            "api_base_url = \(Self.quote(config.apiBaseURL))",
+            "auth_mode = \(Self.quote(config.authMode.rawValue))",
+            "developer_override_enabled = \(config.developerOverrideEnabled ? "true" : "false")"
+        ]
+        if let account = config.trustedRouterAccount {
+            if let userID = account.userID {
+                lines.append("trustedrouter_user_id = \(Self.quote(userID))")
+            }
+            if let subject = account.subject {
+                lines.append("trustedrouter_subject = \(Self.quote(subject))")
+            }
+            if let email = account.email {
+                lines.append("trustedrouter_email = \(Self.quote(email))")
+            }
+            if let walletAddress = account.walletAddress {
+                lines.append("trustedrouter_wallet_address = \(Self.quote(walletAddress))")
+            }
+        }
+        let body = lines.joined(separator: "\n")
         try body.write(to: fileURL, atomically: true, encoding: .utf8)
+    }
+
+    private static func quote(_ value: String) -> String {
+        let escaped = value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        return "\"\(escaped)\""
+    }
+
+    private static func unquote(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespaces)
+        guard trimmed.hasPrefix("\""), trimmed.hasSuffix("\""), trimmed.count >= 2 else {
+            return trimmed
+        }
+        let inner = String(trimmed.dropFirst().dropLast())
+        var output = ""
+        var isEscaping = false
+        for character in inner {
+            if isEscaping {
+                output.append(character)
+                isEscaping = false
+            } else if character == "\\" {
+                isEscaping = true
+            } else {
+                output.append(character)
+            }
+        }
+        if isEscaping {
+            output.append("\\")
+        }
+        return output
     }
 }

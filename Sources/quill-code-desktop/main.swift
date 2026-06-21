@@ -234,9 +234,14 @@ private final class QuillCodeDesktopController: ObservableObject {
         config.developerOverrideEnabled = update.developerOverrideEnabled || update.authMode == .developerOverride
         if update.shouldClearAPIKey {
             try? bootstrap.clearTrustedRouterAPIKey()
+            config.trustedRouterAccount = nil
         }
         if let replacementAPIKey = update.replacementAPIKey {
             try? bootstrap.saveTrustedRouterAPIKey(replacementAPIKey)
+            config.trustedRouterAccount = nil
+        }
+        if config.authMode == .developerOverride {
+            config.trustedRouterAccount = nil
         }
         try? bootstrap.saveConfig(config)
         model.applySettings(
@@ -281,11 +286,13 @@ private final class QuillCodeDesktopController: ObservableObject {
                 code: code,
                 codeVerifier: authorization.codeVerifier
             )
+            let account = await trustedRouterAccountProfile(from: token, client: client)
 
             try bootstrap.saveTrustedRouterAPIKey(token.key)
             var config = model.root.config
             config.authMode = .oauth
             config.developerOverrideEnabled = false
+            config.trustedRouterAccount = account
             try bootstrap.saveConfig(config)
             model.applySettings(
                 config: config,
@@ -298,6 +305,27 @@ private final class QuillCodeDesktopController: ObservableObject {
             model.setAgentStatus("Sign-in failed", lastError: String(describing: error))
             refresh()
         }
+    }
+
+    private func trustedRouterAccountProfile(
+        from token: TrustedRouterOAuthToken,
+        client: TrustedRouterOAuthClient
+    ) async -> TrustedRouterAccountProfile? {
+        var profile = TrustedRouterAccountProfile(
+            userID: token.userID,
+            subject: token.identity?.sub,
+            email: token.identity?.email,
+            walletAddress: token.identity?.walletAddress
+        )
+        if let userInfo = try? await client.fetchUserInfo(apiKey: token.key) {
+            profile = TrustedRouterAccountProfile(
+                userID: profile.userID,
+                subject: profile.subject ?? userInfo.data.sub,
+                email: profile.email ?? userInfo.data.email,
+                walletAddress: profile.walletAddress ?? userInfo.data.walletAddress
+            )
+        }
+        return profile.isEmpty ? nil : profile
     }
 
     func send() {

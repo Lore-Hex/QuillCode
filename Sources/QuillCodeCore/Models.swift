@@ -380,25 +380,65 @@ public enum TrustedRouterAuthMode: String, Codable, Sendable, CaseIterable, Hash
     case developerOverride = "developer-override"
 }
 
+public struct TrustedRouterAccountProfile: Codable, Sendable, Hashable {
+    public var userID: String?
+    public var subject: String?
+    public var email: String?
+    public var walletAddress: String?
+
+    public init(
+        userID: String? = nil,
+        subject: String? = nil,
+        email: String? = nil,
+        walletAddress: String? = nil
+    ) {
+        self.userID = Self.trimmed(userID)
+        self.subject = Self.trimmed(subject)
+        self.email = Self.trimmed(email)
+        self.walletAddress = Self.trimmed(walletAddress)
+    }
+
+    public var isEmpty: Bool {
+        [userID, subject, email, walletAddress].allSatisfy { ($0 ?? "").isEmpty }
+    }
+
+    public var displayLabel: String {
+        if let email, !email.isEmpty { return email }
+        if let userID, !userID.isEmpty { return userID }
+        if let subject, !subject.isEmpty { return subject }
+        if let walletAddress, !walletAddress.isEmpty { return walletAddress }
+        return "TrustedRouter account"
+    }
+
+    private static func trimmed(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
 public struct AppConfig: Codable, Sendable, Hashable {
     public var defaultModel: String
     public var mode: AgentMode
     public var apiBaseURL: String
     public var authMode: TrustedRouterAuthMode
     public var developerOverrideEnabled: Bool
+    public var trustedRouterAccount: TrustedRouterAccountProfile?
 
     public init(
         defaultModel: String = TrustedRouterDefaults.defaultModel,
         mode: AgentMode = .auto,
         apiBaseURL: String = TrustedRouterDefaults.defaultAPIBaseURL,
         authMode: TrustedRouterAuthMode = .oauth,
-        developerOverrideEnabled: Bool = false
+        developerOverrideEnabled: Bool = false,
+        trustedRouterAccount: TrustedRouterAccountProfile? = nil
     ) {
         self.defaultModel = defaultModel
         self.mode = mode
         self.apiBaseURL = apiBaseURL
         self.authMode = developerOverrideEnabled ? .developerOverride : authMode
         self.developerOverrideEnabled = developerOverrideEnabled || authMode == .developerOverride
+        self.trustedRouterAccount = trustedRouterAccount?.isEmpty == true ? nil : trustedRouterAccount
     }
 
     public init(
@@ -412,7 +452,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
             mode: mode,
             apiBaseURL: apiBaseURL,
             authMode: developerOverrideEnabled ? .developerOverride : .oauth,
-            developerOverrideEnabled: developerOverrideEnabled
+            developerOverrideEnabled: developerOverrideEnabled,
+            trustedRouterAccount: nil
         )
     }
 }
