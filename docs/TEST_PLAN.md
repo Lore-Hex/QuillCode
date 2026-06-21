@@ -14,7 +14,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 ## Functional Tests
 
 - Mock TrustedRouter, mock LLM, fake shell, fake filesystem, fake git repo.
-- Cover login, model switch, searchable model picker, new thread, project instruction and memory refresh before runs, explicit memory writes and forgetting, project extension manifest refresh, MCP start/probe/stop lifecycle state, MCP tool invocation from an agent turn, incremental run progress, chronological transcript ordering, tool cards, artifact preview chips, collapsed successful-tool details, file edit, post-patch review refresh, review comments, command failure, cancellation, approvals, settings, top bar, search, slash commands, slash-to-workspace-action routing, and worktree project/thread handoff.
+- Cover login, model switch, searchable model picker, new thread, project instruction and memory refresh before runs, explicit memory writes and forgetting, project extension manifest refresh, MCP start/probe/stop lifecycle state, MCP tool invocation from an agent turn, incremental run progress, chronological transcript ordering, tool cards, artifact preview chips, collapsed successful-tool details, file edit, post-patch review refresh, review comments, command failure, redacted runtime diagnostics, cancellation, approvals, settings, top bar, search, slash commands, slash-to-workspace-action routing, and worktree project/thread handoff.
 
 ## Integration Tests
 
@@ -43,7 +43,7 @@ Drive the QuillCode test harness with mock LLM:
 - extension manifest discovery, with plugin/skill/MCP counts and disabled-state display
 - memories pane discovery, global/project labels, truncation status, top-bar memory pill, sidebar toggle, command-palette toggle, command-palette Add memory prefill, `/memories` slash command, `/remember text` save flow with refreshed counts, and global Forget action with refreshed counts/transcript
 - plugin install
-- settings
+- settings, runtime issue diagnostics, and secret redaction
 - top bar stop-all
 - slash commands for mode, terminal, browser, worktrees, and PR prep
 - worktree create handoff into the selected worktree project and thread

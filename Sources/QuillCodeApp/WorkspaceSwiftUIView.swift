@@ -2388,7 +2388,7 @@ private struct QuillCodeSettingsView: View {
             }
 
             if let issue = settings.runtimeIssue {
-                QuillCodeRuntimeIssueView(issue: issue)
+                QuillCodeRuntimeIssueView(issue: issue, showsDiagnostics: true)
             }
 
             Picker("Authentication", selection: $draft.authMode) {
@@ -2456,6 +2456,7 @@ private struct QuillCodeSettingsView: View {
 
 private struct QuillCodeRuntimeIssueView: View {
     var issue: RuntimeIssueSurface
+    var showsDiagnostics = false
     var onAction: (() -> Void)?
 
     var body: some View {
@@ -2480,6 +2481,28 @@ private struct QuillCodeRuntimeIssueView: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(tint)
                     }
+                }
+                if showsDiagnostics && !issue.diagnostics.isEmpty {
+                    Divider()
+                        .padding(.vertical, 4)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Diagnostics")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(QuillCodePalette.muted)
+                        ForEach(issue.diagnostics) { diagnostic in
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text(diagnostic.label)
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(QuillCodePalette.muted)
+                                    .frame(width: 96, alignment: .leading)
+                                Text(diagnostic.value)
+                                    .font(.caption2.monospaced())
+                                    .textSelection(.enabled)
+                                    .lineLimit(3)
+                            }
+                        }
+                    }
+                    .accessibilityElement(children: .contain)
                 }
             }
         }

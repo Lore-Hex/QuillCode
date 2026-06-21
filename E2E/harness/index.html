@@ -602,6 +602,29 @@
       background: rgba(255,93,82,.14);
       color: var(--red);
     }
+    .runtime-diagnostics {
+      margin: 2px 0 0;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,.1);
+      display: grid;
+      gap: 5px;
+    }
+    .runtime-diagnostics div {
+      display: grid;
+      grid-template-columns: minmax(120px, 0.32fr) 1fr;
+      gap: 10px;
+    }
+    .runtime-diagnostics dt,
+    .runtime-diagnostics dd {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .runtime-diagnostics dt { font-weight: 800; }
+    .runtime-diagnostics dd {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      overflow-wrap: anywhere;
+    }
     .review-pane header {
       display: flex;
       justify-content: space-between;
@@ -1070,6 +1093,39 @@
         .replaceAll("'", '&#39;');
     }
 
+    function authModeLabel(authMode) {
+      return authMode === 'developer-override' ? 'Developer override' : 'TrustedRouter login';
+    }
+
+    function redactedDiagnosticError(error) {
+      return String(error)
+        .replace(/sk-[A-Za-z0-9_-]{8,}/g, 'sk-...redacted')
+        .replace(/Bearer\s+[A-Za-z0-9._-]{12,}/g, 'Bearer ...redacted')
+        .trim()
+        .slice(0, 260);
+    }
+
+    function runtimeDiagnostics(lastError = null) {
+      const diagnostics = [
+        { label: 'API base URL', value: state.settings.apiBaseURL },
+        { label: 'Authentication', value: authModeLabel(state.settings.authMode) },
+        { label: 'Key state', value: state.settings.hasStoredAPIKey ? 'Configured' : 'Missing' },
+        { label: 'Model', value: state.topBar.selectedModelID },
+        { label: 'Agent status', value: state.topBar.agentStatus }
+      ];
+      if (lastError) {
+        diagnostics.push({ label: 'Last error', value: redactedDiagnosticError(lastError) });
+      }
+      return diagnostics;
+    }
+
+    function makeRuntimeIssue(issue, lastError = null) {
+      return {
+        ...issue,
+        diagnostics: runtimeDiagnostics(lastError)
+      };
+    }
+
     function addMessage(role, text) {
       const message = {
         id: `message-${state.nextTimelineIndex++}`,
@@ -1421,9 +1477,17 @@
         </section>`;
     }
 
-    function renderRuntimeIssue(issue) {
+    function renderRuntimeIssue(issue, options = {}) {
       if (!issue) return '';
       const severity = issue.severity || 'warning';
+      const diagnostics = options.showDiagnostics && (issue.diagnostics || []).length ? `
+        <dl class="runtime-diagnostics" data-testid="runtime-diagnostics">
+          ${issue.diagnostics.map(diagnostic => `
+            <div data-testid="runtime-diagnostic">
+              <dt data-testid="runtime-diagnostic-label">${escapeHTML(diagnostic.label)}</dt>
+              <dd data-testid="runtime-diagnostic-value">${escapeHTML(diagnostic.value)}</dd>
+            </div>`).join('')}
+        </dl>` : '';
       return `
         <section class="runtime-issue ${escapeHTML(severity)}" data-testid="runtime-issue" data-severity="${escapeHTML(severity)}" aria-label="Runtime issue">
           <header>
@@ -1432,6 +1496,7 @@
           </header>
           <p data-testid="runtime-issue-message">${escapeHTML(issue.message)}</p>
           ${issue.actionLabel ? `<button type="button" data-testid="runtime-issue-action">${escapeHTML(issue.actionLabel)}</button>` : ''}
+          ${diagnostics}
         </section>`;
     }
 
@@ -1848,22 +1913,22 @@
           state.settings.apiKeyStatusLabel = state.settings.hasStoredAPIKey ? 'API key configured' : 'No API key saved';
           state.settings.loginStatusLabel = state.settings.hasStoredAPIKey ? 'TrustedRouter developer override ready' : 'Developer override needs an API key';
           state.topBar.agentStatus = state.settings.hasStoredAPIKey ? 'TrustedRouter ready' : 'Developer key needed';
-          state.runtimeIssue = state.settings.hasStoredAPIKey ? null : {
+          state.runtimeIssue = state.settings.hasStoredAPIKey ? null : makeRuntimeIssue({
             severity: 'warning',
             title: 'Developer key needed',
             message: 'Developer override is enabled, but no TrustedRouter API key is saved.',
             actionLabel: 'Add key'
-          };
+          });
         } else {
           state.settings.apiKeyStatusLabel = state.settings.hasStoredAPIKey ? 'Signed in' : 'Not signed in';
           state.settings.loginStatusLabel = state.settings.hasStoredAPIKey && state.settings.accountLabel ? `Signed in as ${state.settings.accountLabel}` : state.settings.hasStoredAPIKey ? 'TrustedRouter OAuth ready' : 'TrustedRouter login required';
           state.topBar.agentStatus = state.settings.hasStoredAPIKey ? 'TrustedRouter signed in' : 'Sign in with TrustedRouter';
-          state.runtimeIssue = state.settings.hasStoredAPIKey ? null : {
+          state.runtimeIssue = state.settings.hasStoredAPIKey ? null : makeRuntimeIssue({
             severity: 'warning',
             title: 'TrustedRouter sign-in needed',
             message: 'Sign in with TrustedRouter to use live models. Mock mode stays available for deterministic local testing.',
             actionLabel: 'Open Settings'
-          };
+          });
         }
         state.settings.isOpen = false;
         render();
@@ -2010,7 +2075,7 @@
             <p data-testid="settings-login-status">${escapeHTML(state.settings.loginStatusLabel)}</p>
             <p data-testid="settings-key-status">${escapeHTML(state.settings.apiKeyStatusLabel)}</p>
             ${state.settings.accountLabel ? `<p data-testid="settings-account">${escapeHTML(state.settings.accountLabel)}</p>` : ''}
-            ${state.runtimeIssue ? renderRuntimeIssue(state.runtimeIssue) : ''}
+            ${state.runtimeIssue ? renderRuntimeIssue(state.runtimeIssue, { showDiagnostics: true }) : ''}
             <label>
               TrustedRouter API base URL
               <input name="apiBaseURL" aria-label="TrustedRouter API base URL" value="${escapeHTML(state.settings.apiBaseURL)}">
@@ -2860,12 +2925,13 @@
         if (!state.mockRuntimeFailureConsumed) {
           state.mockRuntimeFailureConsumed = true;
           state.topBar.agentStatus = 'Failed';
-          state.runtimeIssue = {
+          const lastError = 'TrustedRouter request timed out while connecting to https://api.trustedrouter.test/v1 with Bearer sk-tr-v1-secretDiagnosticToken';
+          state.runtimeIssue = makeRuntimeIssue({
             severity: 'error',
             title: 'TrustedRouter network issue',
             message: 'QuillCode could not reach https://api.trustedrouter.test/v1. Check the network or API base URL, then retry.',
             actionLabel: 'Retry'
-          };
+          }, lastError);
         } else {
           state.topBar.agentStatus = 'Idle';
           addToolCard({
@@ -2879,12 +2945,12 @@
         }
       } else if (text.toLowerCase().includes('trigger malformed model action')) {
         state.topBar.agentStatus = 'Failed';
-        state.runtimeIssue = {
+        state.runtimeIssue = makeRuntimeIssue({
           severity: 'warning',
           title: 'Model response was malformed',
           message: "The selected model did not follow QuillCode's action schema. Try trustedrouter/fusion or another coding model.",
           actionLabel: 'Switch model'
-        };
+        }, 'Expected valid QuillCode action JSON but received an empty argument object.');
       } else if (text.toLowerCase().startsWith('/mode ')) {
         const requestedMode = text.split(/\s+/)[1]?.toLowerCase();
         const modeMap = { auto: 'Auto', review: 'Review', 'read-only': 'Read-only', readonly: 'Read-only' };

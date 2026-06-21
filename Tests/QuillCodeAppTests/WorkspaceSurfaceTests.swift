@@ -91,6 +91,23 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.accountLabel, "quill@example.com")
     }
 
+    func testRuntimeIssueDecodesOlderPayloadWithoutDiagnostics() throws {
+        let data = """
+        {
+          "severity": "warning",
+          "title": "Old issue",
+          "message": "Older renderer payload",
+          "actionLabel": "Retry"
+        }
+        """.data(using: .utf8)!
+
+        let issue = try JSONDecoder().decode(RuntimeIssueSurface.self, from: data)
+
+        XCTAssertEqual(issue.title, "Old issue")
+        XCTAssertEqual(issue.actionLabel, "Retry")
+        XCTAssertTrue(issue.diagnostics.isEmpty)
+    }
+
     func testShortcutRegistryLabelsSurfaceCommands() {
         let model = QuillCodeWorkspaceModel()
         let commandsByID = Dictionary(uniqueKeysWithValues: model.surface().commands.map { ($0.id, $0) })
@@ -667,6 +684,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="runtime-issue-pill""#))
         XCTAssertTrue(html.contains(#"data-testid="runtime-issue-title">TrustedRouter returned no content"#))
         XCTAssertTrue(html.contains(#"data-testid="runtime-issue-action">Retry"#))
+        XCTAssertTrue(html.contains(#"data-testid="runtime-diagnostics""#))
+        XCTAssertTrue(html.contains(#"data-testid="runtime-diagnostic-label">API base URL"#))
+        XCTAssertTrue(html.contains(#"data-testid="runtime-diagnostic-label">Last error"#))
     }
 
     func testHTMLRendererGroupsPinnedAndRecentChats() {

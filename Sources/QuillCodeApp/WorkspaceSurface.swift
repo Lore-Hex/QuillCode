@@ -64,17 +64,54 @@ public struct RuntimeIssueSurface: Codable, Sendable, Hashable {
     public var title: String
     public var message: String
     public var actionLabel: String?
+    public var diagnostics: [RuntimeDiagnosticSurface]
 
     public init(
         severity: RuntimeIssueSeverity,
         title: String,
         message: String,
-        actionLabel: String? = nil
+        actionLabel: String? = nil,
+        diagnostics: [RuntimeDiagnosticSurface] = []
     ) {
         self.severity = severity
         self.title = title
         self.message = message
         self.actionLabel = actionLabel
+        self.diagnostics = diagnostics
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case severity
+        case title
+        case message
+        case actionLabel
+        case diagnostics
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.severity = try container.decode(RuntimeIssueSeverity.self, forKey: .severity)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.message = try container.decode(String.self, forKey: .message)
+        self.actionLabel = try container.decodeIfPresent(String.self, forKey: .actionLabel)
+        self.diagnostics = try container.decodeIfPresent([RuntimeDiagnosticSurface].self, forKey: .diagnostics) ?? []
+    }
+
+    fileprivate func withDiagnostics(_ diagnostics: [RuntimeDiagnosticSurface]) -> RuntimeIssueSurface {
+        var copy = self
+        copy.diagnostics = diagnostics
+        return copy
+    }
+}
+
+public struct RuntimeDiagnosticSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String { label }
+    public var label: String
+    public var value: String
+
+    public init(label: String, value: String) {
+        self.label = label
+        self.value = value
     }
 }
 
@@ -1286,7 +1323,7 @@ public extension QuillCodeWorkspaceModel {
     private func runtimeIssueSurface() -> RuntimeIssueSurface? {
         if let lastError,
            let issue = Self.runtimeIssue(from: lastError, config: root.config) {
-            return issue
+            return issue.withDiagnostics(runtimeDiagnostics(lastError: lastError))
         }
         switch root.topBar.agentStatus {
         case "Sign in with TrustedRouter":
@@ -1294,18 +1331,59 @@ public extension QuillCodeWorkspaceModel {
                 severity: .warning,
                 title: "TrustedRouter sign-in needed",
                 message: "Sign in with TrustedRouter to use live models. Mock mode stays available for deterministic local testing.",
-                actionLabel: "Open Settings"
+                actionLabel: "Open Settings",
+                diagnostics: runtimeDiagnostics()
             )
         case "Developer key needed":
             return RuntimeIssueSurface(
                 severity: .warning,
                 title: "Developer key needed",
                 message: "Developer override is enabled, but no TrustedRouter API key is saved.",
-                actionLabel: "Add key"
+                actionLabel: "Add key",
+                diagnostics: runtimeDiagnostics()
             )
         default:
             return nil
         }
+    }
+
+    private func runtimeDiagnostics(lastError: String? = nil) -> [RuntimeDiagnosticSurface] {
+        var diagnostics = [
+            RuntimeDiagnosticSurface(label: "API base URL", value: root.config.apiBaseURL),
+            RuntimeDiagnosticSurface(label: "Authentication", value: Self.authModeLabel(root.config.authMode)),
+            RuntimeDiagnosticSurface(label: "Key state", value: root.trustedRouterAPIKeyConfigured ? "Configured" : "Missing"),
+            RuntimeDiagnosticSurface(label: "Model", value: root.topBar.model),
+            RuntimeDiagnosticSurface(label: "Agent status", value: root.topBar.agentStatus)
+        ]
+        if let lastError {
+            diagnostics.append(RuntimeDiagnosticSurface(label: "Last error", value: Self.redactedDiagnosticError(lastError)))
+        }
+        return diagnostics
+    }
+
+    private static func authModeLabel(_ authMode: TrustedRouterAuthMode) -> String {
+        switch authMode {
+        case .oauth:
+            return "TrustedRouter login"
+        case .developerOverride:
+            return "Developer override"
+        }
+    }
+
+    private static func redactedDiagnosticError(_ error: String) -> String {
+        let redacted = error
+            .replacingOccurrences(
+                of: #"sk-[A-Za-z0-9_-]{8,}"#,
+                with: "sk-...redacted",
+                options: .regularExpression
+            )
+            .replacingOccurrences(
+                of: #"Bearer\s+[A-Za-z0-9._-]{12,}"#,
+                with: "Bearer ...redacted",
+                options: .regularExpression
+            )
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return String(redacted.prefix(260))
     }
 
     private static func runtimeIssue(from error: String, config: AppConfig) -> RuntimeIssueSurface? {

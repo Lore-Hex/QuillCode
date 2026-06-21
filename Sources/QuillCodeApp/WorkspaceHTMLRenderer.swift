@@ -131,6 +131,13 @@ public enum WorkspaceHTMLRenderer {
 
     private static func renderRuntimeIssue(_ issue: RuntimeIssueSurface?) -> String {
         guard let issue else { return "" }
+        let diagnostics = issue.diagnostics.isEmpty ? "" : """
+          <dl class="runtime-diagnostics" data-testid="runtime-diagnostics">
+            \(issue.diagnostics.map { diagnostic in
+              #"<div data-testid="runtime-diagnostic"><dt data-testid="runtime-diagnostic-label">\#(escape(diagnostic.label))</dt><dd data-testid="runtime-diagnostic-value">\#(escape(diagnostic.value))</dd></div>"#
+            }.joined(separator: "\n"))
+          </dl>
+        """
         return """
         <section class="runtime-issue \(escape(issue.severity.rawValue))" data-testid="runtime-issue" data-severity="\(escape(issue.severity.rawValue))" aria-label="Runtime issue">
           <header>
@@ -139,6 +146,7 @@ public enum WorkspaceHTMLRenderer {
           </header>
           <p data-testid="runtime-issue-message">\(escape(issue.message))</p>
           \(issue.actionLabel.map { #"<button type="button" data-testid="runtime-issue-action">\#(escape($0))</button>"# } ?? "")
+          \(diagnostics)
         </section>
         """
     }

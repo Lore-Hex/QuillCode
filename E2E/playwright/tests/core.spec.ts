@@ -91,6 +91,28 @@ test('mock harness retries the last user turn from a runtime issue', async ({ pa
   await expect(page.getByTestId('message').filter({ hasText: 'trigger network failure' })).toHaveCount(2);
 });
 
+test('mock harness shows runtime diagnostics in settings', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('trigger network failure');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('runtime-issue-title')).toHaveText('TrustedRouter network issue');
+
+  await page.getByTestId('settings-button').click();
+  const settingsPanel = page.getByTestId('settings-panel');
+
+  await expect(settingsPanel.getByTestId('runtime-diagnostics')).toBeVisible();
+  await expect(settingsPanel.getByTestId('runtime-diagnostic')).toHaveCount(6);
+  await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(0)).toContainText('API base URL');
+  await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(0)).toContainText('https://api.quillrouter.com/v1');
+  await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(1)).toContainText('TrustedRouter login');
+  await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(2)).toContainText('Missing');
+  await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(3)).toContainText('trustedrouter/fusion');
+  await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(4)).toContainText('Failed');
+  await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(5)).toContainText('Bearer ...redacted');
+  await expect(settingsPanel).not.toContainText('secretDiagnosticToken');
+});
+
 test('mock harness opens model picker from malformed model issue', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

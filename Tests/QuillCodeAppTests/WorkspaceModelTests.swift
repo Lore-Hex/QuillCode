@@ -1327,6 +1327,35 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(issue.actionLabel, "Switch model")
     }
 
+    func testRuntimeIssueIncludesRedactedDiagnostics() throws {
+        let config = AppConfig(
+            defaultModel: "z-ai/glm-5.2",
+            apiBaseURL: "https://api.trustedrouter.test/v1",
+            developerOverrideEnabled: true
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            config: config,
+            topBar: TopBarState(model: "z-ai/glm-5.2"),
+            trustedRouterAPIKeyConfigured: true
+        ))
+
+        model.setAgentStatus(
+            "Failed",
+            lastError: "TrustedRouter request timed out with Bearer sk-tr-v1-superSecretDiagnosticKey"
+        )
+
+        let issue = try XCTUnwrap(model.surface().runtimeIssue)
+        let diagnostics = Dictionary(uniqueKeysWithValues: issue.diagnostics.map { ($0.label, $0.value) })
+        XCTAssertEqual(diagnostics["API base URL"], "https://api.trustedrouter.test/v1")
+        XCTAssertEqual(diagnostics["Authentication"], "Developer override")
+        XCTAssertEqual(diagnostics["Key state"], "Configured")
+        XCTAssertEqual(diagnostics["Model"], "z-ai/glm-5.2")
+        XCTAssertEqual(diagnostics["Agent status"], "Failed")
+        XCTAssertTrue(diagnostics["Last error"]?.contains("Bearer ...redacted") == true)
+        XCTAssertFalse(diagnostics["Last error"]?.contains("superSecretDiagnosticKey") == true)
+        XCTAssertEqual(model.surface().settings.runtimeIssue?.diagnostics, issue.diagnostics)
+    }
+
     func testPrepareRetryLastUserTurnUsesLatestUserPromptAndClearsError() throws {
         let thread = ChatThread(messages: [
             ChatMessage(role: .user, content: "run whoami"),
