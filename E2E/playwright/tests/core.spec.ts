@@ -399,7 +399,7 @@ test('mock harness commits staged changes in one turn', async ({ page }) => {
   await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.commit');
   await expect(page.getByTestId('tool-card-input')).toContainText('Add hello file');
   await expect(page.getByTestId('tool-card-output')).toContainText('[main abc1234] Add hello file');
-  await expect(page.getByText('Output:\\n[main abc1234] Add hello file')).toBeVisible();
+  await expect(page.getByText('Output:\n[main abc1234] Add hello file')).toBeVisible();
 });
 
 test('mock harness handles slash mode locally', async ({ page }) => {
@@ -412,4 +412,27 @@ test('mock harness handles slash mode locally', async ({ page }) => {
   await expect(page.getByTestId('top-bar-subtitle')).toContainText('QuillCode - Review');
   await expect(page.getByText('Mode set to Review.')).toBeVisible();
   await expect(page.getByTestId('tool-card')).toHaveCount(0);
+});
+
+test('mock harness routes slash commands to workspace actions', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('/terminal');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('terminal-pane')).toBeVisible();
+  await expect(page.getByText('Terminal opened.')).toBeVisible();
+
+  await page.getByLabel('Message').fill('/browser');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('browser-pane')).toBeVisible();
+  await expect(page.getByText('Browser opened.')).toBeVisible();
+
+  await page.getByLabel('Message').fill('/worktrees');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.worktree.list');
+  await expect(page.getByTestId('tool-card-output').last()).toContainText('/mock/QuillCode-feature');
+
+  await page.getByLabel('Message').fill('/pr');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByLabel('Message')).toHaveValue('Create a pull request titled ');
 });

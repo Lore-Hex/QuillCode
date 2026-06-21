@@ -469,7 +469,7 @@ public final class QuillCodeWorkspaceModel {
         if let command = SlashCommandParser.parse(prompt) {
             composer.draft = ""
             lastError = nil
-            handleSlashCommand(command, originalPrompt: prompt)
+            handleSlashCommand(command, originalPrompt: prompt, workspaceRoot: workspaceRoot)
             return
         }
 
@@ -593,6 +593,9 @@ public final class QuillCodeWorkspaceModel {
             return runLocalEnvironmentAction(commandID, workspaceRoot: workspaceRoot)
         }
         switch commandID {
+        case "toggle-terminal":
+            toggleTerminal()
+            return true
         case "toggle-browser":
             toggleBrowser()
             return true
@@ -905,7 +908,7 @@ public final class QuillCodeWorkspaceModel {
         return data.map { String(decoding: $0, as: UTF8.self) } ?? "{}"
     }
 
-    private func handleSlashCommand(_ command: SlashCommand, originalPrompt: String) {
+    private func handleSlashCommand(_ command: SlashCommand, originalPrompt: String, workspaceRoot: URL) {
         switch command {
         case .help:
             appendLocalCommandTranscript(
@@ -914,6 +917,11 @@ public final class QuillCodeWorkspaceModel {
                 Slash commands:
                 /new - start a new chat
                 /status - show current project, mode, and model
+                /terminal - show or hide the integrated terminal
+                /browser - show or hide the browser preview
+                /worktrees - list git worktrees for this project
+                /pr - prepare a pull request request
+                /env [name] - list or run a local environment action
                 /mode auto|review|read-only - switch approval behavior
                 /model provider/model - switch the active model
                 """,
@@ -941,6 +949,16 @@ public final class QuillCodeWorkspaceModel {
                 assistantText: "Model set to \(model).",
                 title: "Set model"
             )
+        case .workspaceCommand(let commandID):
+            if !runWorkspaceCommand(commandID, workspaceRoot: workspaceRoot) {
+                appendLocalCommandTranscript(
+                    userText: originalPrompt,
+                    assistantText: "Could not run /\(originalPrompt.dropFirst()). Try /help.",
+                    title: "Slash command"
+                )
+            }
+        case .environmentAction(let query):
+            runEnvironmentSlashCommand(query, originalPrompt: originalPrompt, workspaceRoot: workspaceRoot)
         case .invalid(let message):
             appendLocalCommandTranscript(
                 userText: originalPrompt,
@@ -956,6 +974,38 @@ public final class QuillCodeWorkspaceModel {
         }
         composer.isSending = false
         refreshTopBar(agentStatus: "Idle")
+    }
+
+    private func runEnvironmentSlashCommand(_ query: String?, originalPrompt: String, workspaceRoot: URL) {
+        refreshProjectMetadata(root.selectedProjectID)
+        guard let query, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            let actions = selectedProject?.localActions ?? []
+            let message: String
+            if actions.isEmpty {
+                message = "No local environment actions found. Add scripts under `.quillcode/actions` or `.quillcode/local-env`."
+            } else {
+                let rows = actions
+                    .map { "- `/env \($0.title)` — \($0.relativePath)" }
+                    .joined(separator: "\n")
+                message = "Local environment actions:\n\(rows)"
+            }
+            appendLocalCommandTranscript(
+                userText: originalPrompt,
+                assistantText: message,
+                title: "Local environment actions"
+            )
+            return
+        }
+
+        guard let action = localAction(matching: query) else {
+            appendLocalCommandTranscript(
+                userText: originalPrompt,
+                assistantText: "No local environment action matches `\(query)`. Run `/env` to see available actions.",
+                title: "Local environment actions"
+            )
+            return
+        }
+        _ = runLocalEnvironmentAction(action.id, workspaceRoot: workspaceRoot)
     }
 
     private func appendLocalCommandTranscript(userText: String, assistantText: String, title: String) {
@@ -1111,6 +1161,23 @@ public final class QuillCodeWorkspaceModel {
 
     private func localAction(withID id: String) -> LocalEnvironmentAction? {
         selectedProject?.localActions.first { $0.id == id }
+    }
+
+    private func localAction(matching query: String) -> LocalEnvironmentAction? {
+        let normalizedQuery = Self.normalizedActionName(query)
+        return selectedProject?.localActions.first { action in
+            action.id.caseInsensitiveCompare(query) == .orderedSame
+                || action.title.caseInsensitiveCompare(query) == .orderedSame
+                || action.relativePath.caseInsensitiveCompare(query) == .orderedSame
+                || Self.normalizedActionName(action.title) == normalizedQuery
+                || Self.normalizedActionName(action.relativePath) == normalizedQuery
+        }
+    }
+
+    private static func normalizedActionName(_ value: String) -> String {
+        value
+            .lowercased()
+            .filter { $0.isLetter || $0.isNumber }
     }
 
     static func instructionStatusLabel(for instructions: [ProjectInstruction]) -> String {

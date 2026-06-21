@@ -108,6 +108,57 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.selectedThread?.messages.map(\.content), ["run whoami", "Output:\nquill"])
     }
 
+    func testSlashCommandsRouteToWorkspaceActions() async throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Slash Project")
+        model.selectProject(projectID)
+
+        model.setDraft("/terminal")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertTrue(model.terminal.isVisible)
+
+        model.setDraft("/browser")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertTrue(model.browser.isVisible)
+
+        model.setDraft("/worktrees")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertEqual(model.currentToolCards.last?.title, "host.git.worktree.list")
+
+        model.setDraft("/pr")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertEqual(model.composer.draft, "Create a pull request titled ")
+    }
+
+    func testSlashEnvironmentActionListsAndRunsByName() async throws {
+        let root = try makeTempDirectory()
+        let actionsDirectory = root.appendingPathComponent(".quillcode/actions")
+        try FileManager.default.createDirectory(at: actionsDirectory, withIntermediateDirectories: true)
+        try "printf slash-env-ok".write(
+            to: actionsDirectory.appendingPathComponent("bootstrap-env.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Slash Env Project")
+        model.selectProject(projectID)
+
+        model.setDraft("/env")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertEqual(model.selectedThread?.title, "Local environment actions")
+        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("/env Bootstrap Env") == true)
+
+        model.setDraft("/env bootstrap env")
+        await model.submitComposer(workspaceRoot: root)
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, "host.shell.run")
+        let outputJSON = try XCTUnwrap(card.outputJSON)
+        let result = try JSONHelpers.decode(ToolResult.self, from: outputJSON)
+        XCTAssertEqual(result.stdout, "slash-env-ok")
+    }
+
     func testSelectingProjectSelectsNewestThreadForThatProject() {
         let firstProject = ProjectRef(name: "One", path: "/tmp/one")
         let secondProject = ProjectRef(name: "Two", path: "/tmp/two")

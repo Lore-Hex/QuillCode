@@ -233,6 +233,7 @@
     }
     .message.user { align-self: flex-end; background: linear-gradient(135deg, #45bdec, #d16c5f); }
     .message.assistant { align-self: flex-start; background: rgba(255,255,255,.1); }
+    .message { white-space: pre-wrap; }
     .tool-card {
       align-self: flex-start;
       width: min(760px, 92%);
@@ -1628,7 +1629,7 @@
         'worktree /mock/QuillCode-feature',
         'HEAD def5678',
         'branch refs/heads/feature/quillcode'
-      ].join('\\n') + '\\n';
+      ].join('\n') + '\n';
       addToolCard({
         title: 'host.git.worktree.list',
         subtitle: 'Completed',
@@ -1636,7 +1637,7 @@
         inputJSON: JSON.stringify({}, null, 2),
         outputJSON: JSON.stringify({ ok: true, stdout }, null, 2)
       });
-      addMessage('assistant', 'Output:\\n' + stdout);
+      addMessage('assistant', 'Output:\n' + stdout);
       syncSelectedThreadSearchText();
       render();
     }
@@ -1746,8 +1747,30 @@
         } else {
           addMessage('assistant', 'Usage: /mode auto, /mode review, or /mode read-only');
         }
+      } else if (/^\/(terminal|term|shell)\b/i.test(text)) {
+        state.terminal.isVisible = !state.terminal.isVisible;
+        addMessage('assistant', state.terminal.isVisible ? 'Terminal opened.' : 'Terminal hidden.');
+      } else if (/^\/(browser|preview)\b/i.test(text)) {
+        state.browser.isVisible = !state.browser.isVisible;
+        addMessage('assistant', state.browser.isVisible ? 'Browser opened.' : 'Browser hidden.');
+      } else if (/^\/(worktrees?|wt)\b/i.test(text)) {
+        listWorktrees();
+        return;
+      } else if (/^\/(pr|pull-?request)\b/i.test(text)) {
+        state.composer.draft = 'Create a pull request titled ';
+        addMessage('assistant', 'Pull request prompt prepared.');
       } else if (text.toLowerCase().startsWith('/help')) {
-        addMessage('assistant', 'Slash commands:\\n/new\\n/status\\n/mode auto|review|read-only\\n/model provider/model');
+        addMessage('assistant', [
+          'Slash commands:',
+          '/new',
+          '/status',
+          '/terminal',
+          '/browser',
+          '/worktrees',
+          '/pr',
+          '/mode auto|review|read-only',
+          '/model provider/model'
+        ].join('\n'));
       } else if (text.toLowerCase().includes('git diff')) {
         const diff = [
           'diff --git a/Sources/App.swift b/Sources/App.swift',
@@ -1756,7 +1779,7 @@
           '@@ -1 +1,2 @@',
           '+let title = "QuillCode"',
           ' import Foundation'
-        ].join('\\n');
+        ].join('\n');
         state.review = {
           title: 'Review changes',
           subtitle: '1 file changed, +1 -0',
@@ -1777,7 +1800,7 @@
           inputJSON: JSON.stringify({}, null, 2),
           outputJSON: JSON.stringify({ ok: true, stdout: diff }, null, 2)
         });
-        addMessage('assistant', 'Output:\\n' + diff);
+        addMessage('assistant', 'Output:\n' + diff);
       } else if (text.toLowerCase().includes('commit')) {
         const message = text.match(/message[: ]+(.+)$/i)?.[1]?.trim() || 'QuillCode changes';
         state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
@@ -1788,7 +1811,7 @@
           inputJSON: JSON.stringify({ message }, null, 2),
           outputJSON: JSON.stringify({ ok: true, stdout: '[main abc1234] ' + message + '\\n' }, null, 2)
         });
-        addMessage('assistant', 'Output:\\n[main abc1234] ' + message);
+        addMessage('assistant', 'Output:\n[main abc1234] ' + message);
       } else if (text.toLowerCase().includes('run') || text.toLowerCase().includes('whoami')) {
         const cmd = text.match(/`([^`]+)`/)?.[1] || text.replace(/^run\s+/i, '') || 'whoami';
         state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
@@ -1801,7 +1824,7 @@
         });
         const answer = cmd.trim() === 'whoami'
           ? 'You are `mock-user` in this workspace.'
-          : 'Output:\\nmock-user';
+          : 'Output:\nmock-user';
         addMessage('assistant', answer);
       } else {
         state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };

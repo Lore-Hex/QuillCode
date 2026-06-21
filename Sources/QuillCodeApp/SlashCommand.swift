@@ -7,6 +7,8 @@ enum SlashCommand: Equatable {
     case newChat
     case mode(AgentMode)
     case model(String)
+    case workspaceCommand(String)
+    case environmentAction(String?)
     case invalid(String)
     case unknown(String)
 }
@@ -32,6 +34,16 @@ enum SlashCommandParser {
             return .status
         case "new", "new-chat", "newchat":
             return .newChat
+        case "terminal", "term", "shell":
+            return .workspaceCommand("toggle-terminal")
+        case "browser", "preview":
+            return .workspaceCommand("toggle-browser")
+        case "worktree", "worktrees", "wt":
+            return .workspaceCommand("git-worktree-list")
+        case "pr", "pull-request", "pullrequest":
+            return .workspaceCommand("git-pr-create")
+        case "env", "environment", "local-env":
+            return .environmentAction(argument.isEmpty ? nil : argument)
         case "mode":
             return parseMode(argument)
         case "model":
