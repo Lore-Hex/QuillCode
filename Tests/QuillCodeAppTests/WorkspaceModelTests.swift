@@ -566,6 +566,75 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(surface.entries.first?.exitCodeLabel, "exit 0")
     }
 
+    func testTerminalCommandAppearsAsRunningBeforeCompletion() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+
+        let task = Task {
+            await model.runTerminalCommand("sleep 0.2 && printf terminal-done", workspaceRoot: root)
+        }
+        try await waitUntil(timeoutSeconds: 1) {
+            model.terminal.isRunning && model.terminal.entries.first?.status == .running
+        }
+
+        XCTAssertEqual(model.terminal.entries.count, 1)
+        XCTAssertEqual(model.terminal.entries[0].command, "sleep 0.2 && printf terminal-done")
+        XCTAssertEqual(model.surface().terminal.entries.first?.statusLabel, "Running")
+        XCTAssertEqual(model.surface().terminal.entries.first?.exitCodeLabel, "running")
+
+        await task.value
+
+        XCTAssertFalse(model.terminal.isRunning)
+        XCTAssertEqual(model.terminal.entries.count, 1)
+        XCTAssertEqual(model.terminal.entries[0].status, .done)
+        XCTAssertEqual(model.terminal.entries[0].stdout, "terminal-done")
+    }
+
+    func testTerminalCancellationMarksRunningEntryStopped() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+
+        let task = Task {
+            await model.runTerminalCommand("sleep 5", workspaceRoot: root)
+        }
+        try await waitUntil(timeoutSeconds: 1) {
+            model.terminal.entries.first?.status == .running
+        }
+
+        task.cancel()
+        model.cancelActiveWork()
+        await task.value
+
+        XCTAssertFalse(model.terminal.isRunning)
+        XCTAssertEqual(model.terminal.entries.count, 1)
+        XCTAssertEqual(model.terminal.entries[0].status, .stopped)
+        XCTAssertEqual(model.surface().terminal.entries.first?.statusLabel, "Stopped")
+        XCTAssertEqual(model.surface().terminal.entries.first?.exitCodeLabel, "stopped")
+        XCTAssertTrue(model.terminal.entries[0].stderr.contains("Command stopped."))
+    }
+
+    func testTerminalStopAllKeepsEntryStoppedAfterProcessExits() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+
+        let task = Task {
+            await model.runTerminalCommand("sleep 0.2 && printf late-result", workspaceRoot: root)
+        }
+        try await waitUntil(timeoutSeconds: 1) {
+            model.terminal.entries.first?.status == .running
+        }
+
+        model.cancelActiveWork()
+        await task.value
+
+        XCTAssertFalse(model.terminal.isRunning)
+        XCTAssertEqual(model.terminal.entries.count, 1)
+        XCTAssertEqual(model.terminal.entries[0].status, .stopped)
+        XCTAssertEqual(model.terminal.entries[0].stdout, "")
+        XCTAssertEqual(model.terminal.entries[0].stderr, "Command stopped.")
+        XCTAssertNil(model.terminal.entries[0].exitCode)
+    }
+
     func testBrowserPreviewNormalizesURLsAndStoresComments() throws {
         let root = try makeTempDirectory()
         let previewFile = root.appendingPathComponent("preview.html")
@@ -1429,7 +1498,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(message.contains("Project: QuillCode"))
         XCTAssertTrue(message.contains("Thread: Status thread"))
         XCTAssertTrue(message.contains("Mode: Auto"))
-        XCTAssertTrue(message.contains("Model: trustedrouter/fusion"))
+        XCTAssertTrue(message.contains("Model: trustedrouter/fast"))
     }
 
     func testPinnedThreadsSortBeforeRecentThreads() {
@@ -2063,6 +2132,7 @@ final class WorkspaceModelTests: XCTestCase {
             .fetchModelCatalog(config: AppConfig())
 
         XCTAssertEqual(catalog.defaultModelID, TrustedRouterDefaults.defaultModel)
+        XCTAssertTrue(catalog.models.contains { $0.id == "trustedrouter/fast" })
         XCTAssertTrue(catalog.models.contains { $0.id == "trustedrouter/fusion" })
         XCTAssertTrue(catalog.models.contains { $0.id == "z-ai/glm-5.2" })
     }

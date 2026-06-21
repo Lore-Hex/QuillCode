@@ -708,15 +708,43 @@ public struct TerminalCommandSurface: Codable, Sendable, Hashable, Identifiable 
     public var exitCodeLabel: String
     public var statusLabel: String
     public var isSuccess: Bool
+    public var isRunning: Bool
+    public var isStopped: Bool
 
     public init(entry: TerminalCommandState) {
         self.id = entry.id
         self.command = entry.command
         self.stdout = entry.stdout
         self.stderr = entry.stderr
-        self.exitCodeLabel = entry.exitCode.map { "exit \($0)" } ?? "exit unknown"
-        self.statusLabel = entry.ok ? "Done" : "Failed"
-        self.isSuccess = entry.ok
+        self.exitCodeLabel = Self.exitCodeLabel(for: entry)
+        self.statusLabel = Self.statusLabel(for: entry.status)
+        self.isSuccess = entry.status == .done
+        self.isRunning = entry.status == .running
+        self.isStopped = entry.status == .stopped
+    }
+
+    private static func exitCodeLabel(for entry: TerminalCommandState) -> String {
+        switch entry.status {
+        case .running:
+            return "running"
+        case .stopped:
+            return "stopped"
+        case .done, .failed:
+            return entry.exitCode.map { "exit \($0)" } ?? "exit unknown"
+        }
+    }
+
+    private static func statusLabel(for status: TerminalCommandStatus) -> String {
+        switch status {
+        case .running:
+            return "Running"
+        case .done:
+            return "Done"
+        case .failed:
+            return "Failed"
+        case .stopped:
+            return "Stopped"
+        }
     }
 }
 
@@ -1800,7 +1828,7 @@ public extension QuillCodeWorkspaceModel {
             return RuntimeIssueSurface(
                 severity: .warning,
                 title: "Model response was malformed",
-                message: "The selected model did not follow QuillCode's action schema. Try trustedrouter/fusion or another coding model.",
+                message: "The selected model did not follow QuillCode's action schema. Try trustedrouter/fast, trustedrouter/fusion, or another coding model.",
                 actionLabel: "Switch model"
             )
         }

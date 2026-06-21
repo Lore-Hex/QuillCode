@@ -4,7 +4,7 @@
 
 - Product and repository name: **QuillCode**.
 - License: Apache 2.0.
-- Default model: `trustedrouter/fusion`.
+- Default model: `trustedrouter/fast`; `trustedrouter/fusion` stays the next Recommended option and deterministic fallback.
 - Auth: TrustedRouter OAuth first; hidden developer override for API key/base URL.
 - Tool modes: `Read-only`, `Review`, `Auto`; do not use the label `Full Access`.
 - Auto reviewer: primary `glm-5.2`, fallback `kimi-k2.6`.
@@ -14,7 +14,7 @@
 - Platform-specific code belongs in adapter packages, not the app target.
 - The first desktop executable is `quill-code-desktop`, built with SwiftUI over the same `WorkspaceSurface` contract used by the HTML/Playwright harness. This keeps native UI work testable before the full QuillUI adapter exists.
 - Desktop runtime selection defaults to mock LLM for no-key demos, switches to live TrustedRouter when an environment or stored secret key exists, and supports `QUILLCODE_USE_MOCK_LLM=true` for deterministic test runs.
-- The desktop model picker is data-driven from the TrustedRouter catalog. It keeps `trustedrouter/fusion` as the deterministic fallback, groups options by category, and refreshes live catalog data only when an env or stored key exists.
+- The desktop model picker is data-driven from the TrustedRouter catalog. It keeps `trustedrouter/fast` first and `trustedrouter/fusion` adjacent as the deterministic fallback, groups options by category, and refreshes live catalog data only when an env or stored key exists.
 - Model picking uses the same provider/category/model search semantics in SwiftUI and the Playwright harness. Filtering is term-based across provider, category, model ID, and display name so users can type things like `moon k2`, `coding`, or `trusted fusion` without knowing the exact provider string.
 - The first project UX is a native project rail backed by explicit selected-project state and `~/.quillcode/projects.json`. The desktop app seeds the launch working directory as the initial project, and `Open project` uses a desktop folder picker while the surface contract keeps the project action as a platform-neutral command.
 - Native developer settings save the TrustedRouter API base URL in `config.toml` and the local API key through `QuillSecretStore`. Saving settings rebuilds the active desktop runtime immediately so the user does not need to relaunch to switch from mock to live mode.
@@ -45,6 +45,7 @@
 - The macOS top-bar widget starts as a native SwiftUI `MenuBarExtra` over the same desktop controller as the main window. It displays current workspace/model/mode/status/Computer Use state and routes quick actions back through the shared controller so menu-bar behavior does not fork app state.
 - Computer Use platform code lives in `QuillComputerUseKit`. The desktop app owns a backend instance, but the workspace surface receives only `ComputerUseStatus`, so UI labels stay platform-neutral and permission-specific (`Needs Screen Recording`, `Needs Accessibility`, or ready) without app-target conditionals. Settings owns the permission-onboarding card, while desktop handles macOS System Settings URLs behind shared `WorkspaceCommandSurface` command IDs. Agent tool execution overrides are async so Computer Use screenshot/input calls can run through the same structured tool-card path as shell/MCP without blocking platform APIs. Screenshot tool cards store images as artifacts and keep stdout metadata-only so transcripts stay responsive.
 - Stop All is owned by the desktop controller because that is where native send and terminal tasks are created. The workspace model exposes a platform-neutral `cancelActiveWork()` state transition, and terminal execution has a cancellable async shell path that terminates the active child process.
+- Terminal command history entries carry explicit `running`, `done`, `failed`, and `stopped` lifecycle state. Stop All and terminal-local Stop update running entries in place instead of deleting them, so replayed surfaces never imply a command is still active after cancellation.
 - Context pressure warnings use a conservative local estimate until the TrustedRouter streaming runtime reports exact model token usage. The banner is reconstructed from the selected thread surface, offers New thread and Fork from last commands, and the fork copies only the latest user turn onward so users can keep momentum without carrying the whole transcript.
 - Sidebar pinned/recent grouping is computed from existing thread pin state instead of persisted as separate sections. That keeps pin/archive behavior cheap to replay and avoids migrations while matching Codex's visible pinned-chat affordance.
 - Keyboard shortcuts are registered by command ID in `WorkspaceShortcutRegistry`. Surfaces use the registry for display labels, and the desktop menu resolves native SwiftUI shortcuts from the same registry so visible command names and actual bindings do not drift.

@@ -234,6 +234,7 @@ public struct TerminalCommandState: Sendable, Hashable, Identifiable {
     public var stderr: String
     public var exitCode: Int32?
     public var ok: Bool
+    public var status: TerminalCommandStatus
     public var createdAt: Date
 
     public init(
@@ -243,6 +244,7 @@ public struct TerminalCommandState: Sendable, Hashable, Identifiable {
         stderr: String,
         exitCode: Int32?,
         ok: Bool,
+        status: TerminalCommandStatus? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -251,8 +253,16 @@ public struct TerminalCommandState: Sendable, Hashable, Identifiable {
         self.stderr = stderr
         self.exitCode = exitCode
         self.ok = ok
+        self.status = status ?? (ok ? .done : .failed)
         self.createdAt = createdAt
     }
+}
+
+public enum TerminalCommandStatus: String, Sendable, Hashable {
+    case running
+    case done
+    case failed
+    case stopped
 }
 
 public struct WorkspaceWorktreeCreateRequest: Sendable, Hashable {
@@ -1786,29 +1796,72 @@ public final class QuillCodeWorkspaceModel {
         let command = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !command.isEmpty, !terminal.isRunning else { return }
 
+        let entryID = UUID()
         terminal.draft = ""
         terminal.isVisible = true
         terminal.isRunning = true
+        terminal.entries.append(TerminalCommandState(
+            id: entryID,
+            command: command,
+            stdout: "",
+            stderr: "",
+            exitCode: nil,
+            ok: false,
+            status: .running
+        ))
         lastError = nil
         refreshTopBar(agentStatus: "Terminal")
 
         let result = await ShellToolExecutor().runCancellable(.init(command: command, cwd: workspaceRoot))
+        if terminal.entries.first(where: { $0.id == entryID })?.status == .stopped {
+            terminal.isRunning = false
+            refreshTopBar(agentStatus: "Stopped")
+            return
+        }
         guard !Task.isCancelled else {
+            finishTerminalEntry(
+                id: entryID,
+                stdout: "",
+                stderr: "Command stopped.",
+                exitCode: nil,
+                ok: false,
+                status: .stopped
+            )
             terminal.isRunning = false
             lastError = nil
             refreshTopBar(agentStatus: "Stopped")
             return
         }
 
-        terminal.entries.append(TerminalCommandState(
-            command: command,
+        finishTerminalEntry(
+            id: entryID,
             stdout: result.stdout,
             stderr: result.stderr,
             exitCode: result.exitCode,
-            ok: result.ok
-        ))
+            ok: result.ok,
+            status: result.ok ? .done : .failed
+        )
         terminal.isRunning = false
         refreshTopBar(agentStatus: result.ok ? "Idle" : "Failed")
+    }
+
+    private func finishTerminalEntry(
+        id: UUID,
+        stdout: String,
+        stderr: String,
+        exitCode: Int32?,
+        ok: Bool,
+        status: TerminalCommandStatus
+    ) {
+        guard let index = terminal.entries.firstIndex(where: { $0.id == id }) else { return }
+        if terminal.entries[index].status == .stopped, status != .stopped {
+            return
+        }
+        terminal.entries[index].stdout = stdout
+        terminal.entries[index].stderr = stderr
+        terminal.entries[index].exitCode = exitCode
+        terminal.entries[index].ok = ok
+        terminal.entries[index].status = status
     }
 
     public func cancelActiveWork() {
@@ -1818,6 +1871,14 @@ public final class QuillCodeWorkspaceModel {
         let hadActiveWork = composer.isSending || terminal.isRunning || !runningMCPIDs.isEmpty
         composer.isSending = false
         terminal.isRunning = false
+        for index in terminal.entries.indices where terminal.entries[index].status == .running {
+            terminal.entries[index].stderr = terminal.entries[index].stderr.isEmpty
+                ? "Command stopped."
+                : terminal.entries[index].stderr
+            terminal.entries[index].exitCode = nil
+            terminal.entries[index].ok = false
+            terminal.entries[index].status = .stopped
+        }
         for id in runningMCPIDs {
             mcpServerProcesses[id]?.standardOutput.fileHandleForReading.readabilityHandler = nil
             mcpServerProcesses[id]?.standardError.fileHandleForReading.readabilityHandler = nil

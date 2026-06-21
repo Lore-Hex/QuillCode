@@ -37,7 +37,7 @@ To exercise the live TrustedRouter adapter:
 ```bash
 export TRUSTEDROUTER_API_KEY=sk-tr-v1-...
 swift run quill-code --live "run whoami"
-swift run quill-code --live --model trustedrouter/fusion "make a file that says hello world"
+swift run quill-code --live --model trustedrouter/fast "make a file that says hello world"
 swift run quill-code-desktop
 ```
 

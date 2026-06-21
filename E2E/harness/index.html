@@ -407,6 +407,8 @@
     }
     .terminal-entry pre { margin: 0; }
     .terminal-status.ok { color: var(--green); }
+    .terminal-status.running { color: var(--blue); }
+    .terminal-status.stopped { color: var(--muted); }
     .terminal-status.failed { color: var(--red); }
     .terminal-form { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
     .browser-form,
@@ -1123,15 +1125,16 @@
         subtitle: 'QuillCode - Not started',
         instructionLabel: '1 instruction file loaded',
         instructionSources: ['AGENTS.md'],
-        modelLabel: 'trustedrouter/fusion',
-        selectedModelID: 'trustedrouter/fusion',
+        modelLabel: 'trustedrouter/fast',
+        selectedModelID: 'trustedrouter/fast',
         modelPickerOpen: false,
         modelSearch: '',
         modelCategories: [
           {
             category: 'Recommended',
             models: [
-              { id: 'trustedrouter/fusion', provider: 'trustedrouter', displayName: 'Fusion', isSelected: true, isFavorite: false, badges: ['Current', 'Default', 'Recommended'] }
+              { id: 'trustedrouter/fast', provider: 'trustedrouter', displayName: 'Fast', isSelected: true, isFavorite: false, badges: ['Current', 'Default', 'Recommended'] },
+              { id: 'trustedrouter/fusion', provider: 'trustedrouter', displayName: 'Fusion', isSelected: false, isFavorite: false, badges: [] }
             ]
           },
           {
@@ -1386,6 +1389,7 @@
       copiedTranscriptItemID: null
     };
     let activeMockRun = null;
+    let activeTerminalRun = null;
 
     function escapeHTML(value) {
       return String(value)
@@ -2631,12 +2635,16 @@
       });
       document.querySelector('[data-testid="terminal-input"]')?.addEventListener('input', event => {
         state.terminal.draft = event.target.value;
-        document.querySelector('[data-testid="terminal-run"]').disabled = !state.terminal.draft.trim();
+        document.querySelector('[data-testid="terminal-run"]').disabled =
+          !state.terminal.draft.trim() || state.terminal.isRunning;
       });
 	      document.querySelector('[data-testid="terminal-form"]')?.addEventListener('submit', event => {
 	        event.preventDefault();
 	        runTerminalCommand();
 	      });
+      document.querySelector('[data-testid="terminal-stop"]')?.addEventListener('click', () => {
+        runCommand('stop-all');
+      });
 	      document.querySelector('[data-testid="browser-address"]')?.addEventListener('input', event => {
 	        state.browser.addressDraft = event.target.value;
 	        document.querySelector('[data-testid="browser-open"]').disabled = !state.browser.addressDraft.trim();
@@ -3067,13 +3075,40 @@
         </div>`;
     }
 
-	    function renderTerminalPane() {
+    function terminalStatus(entry) {
+      return entry.status || (entry.ok ? 'done' : 'failed');
+    }
+
+    function terminalStatusLabel(entry) {
+      const status = terminalStatus(entry);
+      if (status === 'running') return 'Running';
+      if (status === 'done') return 'Done';
+      if (status === 'stopped') return 'Stopped';
+      return 'Failed';
+    }
+
+    function terminalExitLabel(entry) {
+      const status = terminalStatus(entry);
+      if (status === 'running') return 'running';
+      if (status === 'stopped') return 'stopped';
+      return entry.exitCode == null ? 'exit unknown' : `exit ${entry.exitCode}`;
+    }
+
+    function terminalStatusClass(entry) {
+      const status = terminalStatus(entry);
+      if (status === 'done') return 'ok';
+      if (status === 'running') return 'running';
+      if (status === 'stopped') return 'stopped';
+      return 'failed';
+    }
+
+    function renderTerminalPane() {
       const entries = state.terminal.entries.length ? state.terminal.entries.map(entry => `
         <article class="terminal-entry" data-testid="terminal-entry">
           <header>
             <code>$ ${escapeHTML(entry.command)}</code>
-            <span class="terminal-status ${entry.ok ? 'ok' : 'failed'}" data-testid="terminal-status">
-              ${entry.ok ? 'Done' : 'Failed'} · exit ${entry.exitCode}
+            <span class="terminal-status ${terminalStatusClass(entry)}" data-testid="terminal-status">
+              ${terminalStatusLabel(entry)} · ${terminalExitLabel(entry)}
             </span>
           </header>
           ${entry.stdout ? `<pre data-testid="terminal-stdout">${escapeHTML(entry.stdout)}</pre>` : ''}
@@ -3084,12 +3119,13 @@
           <header>
             <strong>Terminal</strong>
             <code data-testid="terminal-cwd">${escapeHTML(state.terminal.cwdLabel)}</code>
+            ${state.terminal.isRunning ? '<button type="button" data-testid="terminal-stop">Stop</button>' : ''}
           </header>
           <div class="terminal-history" data-testid="terminal-history">${entries}</div>
           <form class="terminal-form" data-testid="terminal-form">
             <code>$</code>
-            <input data-testid="terminal-input" aria-label="Terminal command" placeholder="Run command" value="${escapeHTML(state.terminal.draft)}">
-            <button type="submit" data-testid="terminal-run" ${state.terminal.draft.trim() ? '' : 'disabled'}>Run</button>
+            <input data-testid="terminal-input" aria-label="Terminal command" placeholder="Run command" value="${escapeHTML(state.terminal.draft)}" ${state.terminal.isRunning ? 'disabled' : ''}>
+            <button type="submit" data-testid="terminal-run" ${state.terminal.draft.trim() && !state.terminal.isRunning ? '' : 'disabled'}>Run</button>
           </form>
         </section>`;
 	    }
@@ -3628,8 +3664,20 @@
           window.clearTimeout(activeMockRun.timer);
           activeMockRun = null;
         }
+        if (activeTerminalRun?.timer) {
+          window.clearTimeout(activeTerminalRun.timer);
+          activeTerminalRun = null;
+        }
         state.composer.isSending = false;
         state.terminal.isRunning = false;
+        state.terminal.entries
+          .filter(entry => terminalStatus(entry) === 'running')
+          .forEach(entry => {
+            entry.status = 'stopped';
+            entry.ok = false;
+            entry.exitCode = null;
+            entry.stderr = entry.stderr || 'Command stopped.';
+          });
         state.transcript.toolCards
           .filter(card => card.status === 'queued' || card.status === 'running')
           .forEach(card => {
@@ -3701,20 +3749,41 @@
 
     function runTerminalCommand() {
       const command = state.terminal.draft.trim();
-      if (!command) return;
+      if (!command || state.terminal.isRunning) return;
       state.terminal.draft = '';
       state.terminal.isVisible = true;
+      state.terminal.isRunning = true;
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       const cwd = selectedProject?.path || state.terminal.cwdLabel;
-      const output = terminalOutput(command, cwd);
-      state.terminal.entries.push({
+      const entry = {
         command,
-        stdout: output.stdout,
-        stderr: output.stderr,
-        exitCode: output.exitCode,
-        ok: output.exitCode === 0
-      });
+        stdout: '',
+        stderr: '',
+        exitCode: null,
+        ok: false,
+        status: 'running'
+      };
+      state.terminal.entries.push(entry);
+      updateDynamicCommands();
       render();
+
+      const completionDelay = /^sleep\s+/.test(command) ? 5000 : 250;
+      const timer = window.setTimeout(() => {
+        if (activeTerminalRun?.entry !== entry || terminalStatus(entry) !== 'running') {
+          return;
+        }
+        const output = terminalOutput(command, cwd);
+        entry.stdout = output.stdout;
+        entry.stderr = output.stderr;
+        entry.exitCode = output.exitCode;
+        entry.ok = output.exitCode === 0;
+        entry.status = entry.ok ? 'done' : 'failed';
+        state.terminal.isRunning = false;
+        activeTerminalRun = null;
+        updateDynamicCommands();
+        render();
+      }, completionDelay);
+      activeTerminalRun = { entry, timer };
     }
 
 	    function terminalOutput(command, cwd) {
@@ -4192,7 +4261,7 @@
         state.runtimeIssue = makeRuntimeIssue({
           severity: 'warning',
           title: 'Model response was malformed',
-          message: "The selected model did not follow QuillCode's action schema. Try trustedrouter/fusion or another coding model.",
+          message: "The selected model did not follow QuillCode's action schema. Try trustedrouter/fast, trustedrouter/fusion, or another coding model.",
           actionLabel: 'Switch model'
         }, 'Expected valid QuillCode action JSON but received an empty argument object.');
       } else if (/^\/(new|new-chat|newchat)\b/i.test(text)) {

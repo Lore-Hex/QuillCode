@@ -398,7 +398,7 @@ public enum WorkspaceHTMLRenderer {
                 <article class="terminal-entry" data-testid="terminal-entry">
                   <header>
                     <code>$ \(escape(entry.command))</code>
-                    <span data-testid="terminal-status">\(escape(entry.statusLabel)) · \(escape(entry.exitCodeLabel))</span>
+                    <span class="terminal-status \(terminalStatusClass(entry))" data-testid="terminal-status">\(escape(entry.statusLabel)) · \(escape(entry.exitCodeLabel))</span>
                   </header>
                   \(entry.stdout.isEmpty ? "" : #"<pre data-testid="terminal-stdout">\#(escape(entry.stdout))</pre>"#)
                   \(entry.stderr.isEmpty ? "" : #"<pre data-testid="terminal-stderr">\#(escape(entry.stderr))</pre>"#)
@@ -420,6 +420,19 @@ public enum WorkspaceHTMLRenderer {
           </form>
         </section>
         """
+    }
+
+    private static func terminalStatusClass(_ entry: TerminalCommandSurface) -> String {
+        if entry.isSuccess {
+            return "ok"
+        }
+        if entry.isRunning {
+            return "running"
+        }
+        if entry.isStopped {
+            return "stopped"
+        }
+        return "failed"
     }
 
     private static func renderBrowser(_ browser: BrowserSurface) -> String {

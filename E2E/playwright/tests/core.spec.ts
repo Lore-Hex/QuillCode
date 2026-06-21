@@ -8,7 +8,7 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('project-item')).toContainText('QuillCode');
   await expect(page.getByTestId('project-item')).toHaveAttribute('aria-current', 'true');
   await expect(page.getByTestId('transcript-empty')).toBeVisible();
-  await expect(page.getByTestId('model-picker-button')).toHaveText('trustedrouter/fusion');
+  await expect(page.getByTestId('model-picker-button')).toHaveText('trustedrouter/fast');
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-category')).toHaveCount(2);
   await page.getByTestId('model-picker-button').click();
@@ -227,7 +227,7 @@ test('mock harness shows runtime diagnostics in settings', async ({ page }) => {
   await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(0)).toContainText('https://api.quillrouter.com/v1');
   await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(1)).toContainText('TrustedRouter login');
   await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(2)).toContainText('Missing');
-  await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(3)).toContainText('trustedrouter/fusion');
+  await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(3)).toContainText('trustedrouter/fast');
   await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(4)).toContainText('Failed');
   await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(5)).toContainText('Bearer ...redacted');
   await expect(settingsPanel).not.toContainText('secretDiagnosticToken');
@@ -241,7 +241,7 @@ test('mock harness opens model picker from malformed model issue', async ({ page
 
   await expect(page.getByTestId('runtime-issue')).toBeVisible();
   await expect(page.getByTestId('runtime-issue-title')).toHaveText('Model response was malformed');
-  await expect(page.getByTestId('runtime-issue-message')).toContainText('Try trustedrouter/fusion');
+  await expect(page.getByTestId('runtime-issue-message')).toContainText('Try trustedrouter/fast');
   await expect(page.getByTestId('runtime-issue-action')).toHaveText('Switch model');
 
   await page.getByTestId('runtime-issue-action').click();
@@ -322,7 +322,7 @@ test('mock harness searches and reopens an existing chat', async ({ page }) => {
 
   await page.getByTestId('search-input').fill('whoami');
   await expect(page.getByTestId('search-result')).toHaveCount(1);
-  await expect(page.getByTestId('search-result')).toContainText('trustedrouter/fusion');
+  await expect(page.getByTestId('search-result')).toContainText('trustedrouter/fast');
 
   await page.getByTestId('search-input').fill('mock-user');
   await expect(page.getByTestId('search-result')).toHaveCount(1);
@@ -592,7 +592,7 @@ test('mock harness creates and removes worktrees from dialogs', async ({ page })
   await expect(page.getByTestId('project-item').first()).toContainText('quillcode-feature');
   await expect(page.getByTestId('project-item').first()).toContainText('/mock/quillcode-feature');
   await expect(page.getByTestId('top-bar-title')).toHaveText('Worktree: feature/quillcode');
-  await expect(page.getByTestId('top-bar-subtitle')).toContainText('quillcode-feature - Auto - trustedrouter/fusion');
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('quillcode-feature - Auto - trustedrouter/fast');
   await expect(page.getByTestId('sidebar-item').first()).toContainText('Worktree: feature/quillcode');
   await expect(page.getByTestId('message').last()).toContainText('Opened worktree quillcode-feature at /mock/quillcode-feature.');
 
@@ -630,7 +630,7 @@ test('mock harness manages chat lifecycle from the sidebar', async ({ page }) =>
 
   await expect(page.getByTestId('sidebar-section-title')).toContainText(['Pinned', 'Recent']);
   await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('run whoami');
-  await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('trustedrouter/fusion');
+  await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('trustedrouter/fast');
 
   page.once('dialog', async dialog => {
     expect(dialog.message()).toContain('Rename chat');
@@ -713,9 +713,17 @@ test('mock harness runs a command in the integrated terminal', async ({ page }) 
   await page.getByTestId('terminal-run').click();
 
   await expect(page.getByTestId('terminal-entry')).toContainText('$ pwd');
+  await expect(page.getByTestId('terminal-status')).toHaveText('Running · running');
   await expect(page.getByTestId('terminal-status')).toHaveText('Done · exit 0');
   await expect(page.getByTestId('terminal-stdout')).toContainText('/mock/QuillCode');
   await expect(page.getByLabel('Terminal command')).toHaveValue('');
+
+  await page.getByLabel('Terminal command').fill('sleep 5');
+  await page.getByTestId('terminal-run').click();
+  await expect(page.getByTestId('terminal-status').last()).toHaveText('Running · running');
+  await page.getByTestId('terminal-stop').click();
+  await expect(page.getByTestId('terminal-status').last()).toHaveText('Stopped · stopped');
+  await expect(page.getByTestId('terminal-stderr').last()).toContainText('Command stopped.');
 });
 
 test('mock harness opens browser preview and records comments', async ({ page }) => {
@@ -961,12 +969,12 @@ test('mock harness searches and selects models from the top bar', async ({ page 
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-browser')).toBeVisible();
   await expect(page.getByTestId('model-badge').filter({ hasText: 'Current' }).first()).toBeVisible();
-  await expect(page.getByTestId('model-option')).toHaveCount(3);
+  await expect(page.getByTestId('model-option')).toHaveCount(4);
 
   await page.getByTestId('model-favorite-button').nth(1).click();
   await expect(page.getByTestId('model-browser')).toBeVisible();
   await expect(page.getByTestId('model-category').first()).toContainText('Favorites');
-  await expect(page.getByTestId('model-option')).toHaveCount(4);
+  await expect(page.getByTestId('model-option')).toHaveCount(5);
   await expect(page.getByTestId('model-badge').filter({ hasText: 'Favorite' }).first()).toBeVisible();
 
   await page.getByTestId('model-search').fill('favorite');

@@ -196,7 +196,8 @@ public struct QuillCodeWorkspaceView: View {
                         QuillCodeTerminalPaneView(
                             terminal: surface.terminal,
                             draft: $terminalDraft,
-                            onRun: onRunTerminalCommand
+                            onRun: onRunTerminalCommand,
+                            onStop: stopActiveRun
                         )
                     }
                     Divider()
@@ -1848,6 +1849,7 @@ private struct QuillCodeTerminalPaneView: View {
     var terminal: TerminalSurface
     @Binding var draft: String
     var onRun: () -> Void
+    var onStop: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1864,6 +1866,10 @@ private struct QuillCodeTerminalPaneView: View {
                 if terminal.isRunning {
                     ProgressView()
                         .controlSize(.small)
+                    Button("Stop", action: onStop)
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .tint(QuillCodePalette.red)
                 }
             }
 
@@ -2338,7 +2344,7 @@ private struct QuillCodeTerminalEntryView: View {
                 Spacer()
                 Text("\(entry.statusLabel) · \(entry.exitCodeLabel)")
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(entry.isSuccess ? QuillCodePalette.green : QuillCodePalette.red)
+                    .foregroundStyle(statusColor)
             }
             if !entry.stdout.isEmpty {
                 Text(entry.stdout)
@@ -2357,6 +2363,19 @@ private struct QuillCodeTerminalEntryView: View {
         .padding(10)
         .background(QuillCodePalette.background.opacity(0.7))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var statusColor: Color {
+        if entry.isSuccess {
+            return QuillCodePalette.green
+        }
+        if entry.isRunning {
+            return QuillCodePalette.blue
+        }
+        if entry.isStopped {
+            return QuillCodePalette.muted
+        }
+        return QuillCodePalette.red
     }
 }
 

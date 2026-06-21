@@ -27,6 +27,12 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.topBar.selectedModelID, TrustedRouterDefaults.defaultModel)
         XCTAssertTrue(surface.topBar.modelCategories.contains { $0.category == "Recommended" })
         XCTAssertTrue(surface.topBar.modelCategories.flatMap(\.models).contains { $0.id == TrustedRouterDefaults.defaultModel && $0.isSelected })
+        let recommendedModelIDs = surface.topBar.modelCategories
+            .first { $0.category == "Recommended" }?
+            .models
+            .prefix(2)
+            .map(\.id) ?? []
+        XCTAssertEqual(recommendedModelIDs, [TrustedRouterDefaults.fastModel, TrustedRouterDefaults.fusionModel])
         XCTAssertEqual(surface.topBar.modeLabel, "Auto")
         XCTAssertEqual(surface.topBar.instructionLabel, "No project instructions")
         XCTAssertEqual(surface.topBar.instructionSources, [])
@@ -524,7 +530,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             updatedAt: Date(timeIntervalSince1970: 200)
         )
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
-            config: AppConfig(defaultModel: "trustedrouter/fusion"),
+            config: AppConfig(defaultModel: TrustedRouterDefaults.defaultModel),
             threads: [older, newer],
             selectedThreadID: newer.id,
             topBar: TopBarState(model: "moonshotai/kimi-k2.6"),
@@ -540,7 +546,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         let defaultOption = try XCTUnwrap(topBar.modelCategories
             .flatMap(\.models)
-            .first { $0.id == "trustedrouter/fusion" })
+            .first { $0.id == TrustedRouterDefaults.defaultModel })
         XCTAssertTrue(defaultOption.badges.contains("Default"))
         XCTAssertTrue(defaultOption.badges.contains("Recommended"))
 
@@ -1010,6 +1016,38 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="terminal-cwd""#))
         XCTAssertTrue(html.contains(#"data-testid="terminal-entry""#))
         XCTAssertTrue(html.contains("renderer-ok"))
+    }
+
+    func testHTMLRendererLabelsRunningAndStoppedTerminalEntries() {
+        let model = QuillCodeWorkspaceModel(terminal: TerminalState(
+            isVisible: true,
+            isRunning: true,
+            entries: [
+                TerminalCommandState(
+                    command: "sleep 5",
+                    stdout: "",
+                    stderr: "",
+                    exitCode: nil,
+                    ok: false,
+                    status: .running
+                ),
+                TerminalCommandState(
+                    command: "sleep 10",
+                    stdout: "",
+                    stderr: "Command stopped.",
+                    exitCode: nil,
+                    ok: false,
+                    status: .stopped
+                )
+            ]
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains("Running · running"))
+        XCTAssertTrue(html.contains("Stopped · stopped"))
+        XCTAssertTrue(html.contains(#"class="terminal-status running""#))
+        XCTAssertTrue(html.contains(#"class="terminal-status stopped""#))
     }
 
     func testHTMLRendererIncludesVisibleBrowserPane() throws {

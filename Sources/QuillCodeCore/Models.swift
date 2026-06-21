@@ -544,7 +544,9 @@ public struct ModelInfo: Codable, Sendable, Hashable, Identifiable {
 }
 
 public enum TrustedRouterDefaults {
-    public static let defaultModel = "trustedrouter/fusion"
+    public static let fastModel = "trustedrouter/fast"
+    public static let fusionModel = "trustedrouter/fusion"
+    public static let defaultModel = fastModel
     public static let defaultAPIBaseURL = "https://api.quillrouter.com/v1"
     public static let signInURL = "https://trustedrouter.com/sign-in-with-trustedrouter"
     public static let loopbackCallbackURL = "http://localhost:3000/callback"

@@ -3,7 +3,9 @@ import XCTest
 
 final class CoreModelTests: XCTestCase {
     func testTrustedRouterDefaults() {
-        XCTAssertEqual(TrustedRouterDefaults.defaultModel, "trustedrouter/fusion")
+        XCTAssertEqual(TrustedRouterDefaults.fastModel, "trustedrouter/fast")
+        XCTAssertEqual(TrustedRouterDefaults.fusionModel, "trustedrouter/fusion")
+        XCTAssertEqual(TrustedRouterDefaults.defaultModel, TrustedRouterDefaults.fastModel)
         XCTAssertEqual(TrustedRouterDefaults.safetyPrimaryModel, "glm-5.2")
         XCTAssertEqual(TrustedRouterDefaults.safetyFallbackModel, "kimi-k2.6")
     }
