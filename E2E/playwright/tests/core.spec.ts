@@ -672,6 +672,17 @@ test('mock harness searches and selects models from the top bar', async ({ page 
   await expect(page.getByTestId('model-badge').filter({ hasText: 'Current' }).first()).toBeVisible();
   await expect(page.getByTestId('model-option')).toHaveCount(3);
 
+  await page.getByTestId('model-favorite-button').nth(1).click();
+  await expect(page.getByTestId('model-browser')).toBeVisible();
+  await expect(page.getByTestId('model-category').first()).toContainText('Favorites');
+  await expect(page.getByTestId('model-option')).toHaveCount(4);
+  await expect(page.getByTestId('model-badge').filter({ hasText: 'Favorite' }).first()).toBeVisible();
+
+  await page.getByTestId('model-search').fill('favorite');
+  await expect(page.getByTestId('model-category')).toHaveCount(1);
+  await expect(page.getByTestId('model-category')).toContainText('Favorites');
+  await expect(page.getByTestId('model-option')).toHaveCount(1);
+
   await page.getByTestId('model-search').fill('moon k2');
   await expect(page.getByTestId('model-option')).toHaveCount(1);
   await expect(page.getByTestId('model-option')).toContainText('moonshotai/Kimi K2.6');

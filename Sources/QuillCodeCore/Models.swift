@@ -585,6 +585,17 @@ public struct AppConfig: Codable, Sendable, Hashable {
     public var authMode: TrustedRouterAuthMode
     public var developerOverrideEnabled: Bool
     public var trustedRouterAccount: TrustedRouterAccountProfile?
+    public var favoriteModels: [String]
+
+    private enum CodingKeys: String, CodingKey {
+        case defaultModel
+        case mode
+        case apiBaseURL
+        case authMode
+        case developerOverrideEnabled
+        case trustedRouterAccount
+        case favoriteModels
+    }
 
     public init(
         defaultModel: String = TrustedRouterDefaults.defaultModel,
@@ -592,7 +603,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
         apiBaseURL: String = TrustedRouterDefaults.defaultAPIBaseURL,
         authMode: TrustedRouterAuthMode = .oauth,
         developerOverrideEnabled: Bool = false,
-        trustedRouterAccount: TrustedRouterAccountProfile? = nil
+        trustedRouterAccount: TrustedRouterAccountProfile? = nil,
+        favoriteModels: [String] = []
     ) {
         self.defaultModel = defaultModel
         self.mode = mode
@@ -600,6 +612,7 @@ public struct AppConfig: Codable, Sendable, Hashable {
         self.authMode = developerOverrideEnabled ? .developerOverride : authMode
         self.developerOverrideEnabled = developerOverrideEnabled || authMode == .developerOverride
         self.trustedRouterAccount = trustedRouterAccount?.isEmpty == true ? nil : trustedRouterAccount
+        self.favoriteModels = Self.normalizedModelIDs(favoriteModels)
     }
 
     public init(
@@ -614,8 +627,33 @@ public struct AppConfig: Codable, Sendable, Hashable {
             apiBaseURL: apiBaseURL,
             authMode: developerOverrideEnabled ? .developerOverride : .oauth,
             developerOverrideEnabled: developerOverrideEnabled,
-            trustedRouterAccount: nil
+            trustedRouterAccount: nil,
+            favoriteModels: []
         )
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            defaultModel: try container.decodeIfPresent(String.self, forKey: .defaultModel) ?? TrustedRouterDefaults.defaultModel,
+            mode: try container.decodeIfPresent(AgentMode.self, forKey: .mode) ?? .auto,
+            apiBaseURL: try container.decodeIfPresent(String.self, forKey: .apiBaseURL) ?? TrustedRouterDefaults.defaultAPIBaseURL,
+            authMode: try container.decodeIfPresent(TrustedRouterAuthMode.self, forKey: .authMode) ?? .oauth,
+            developerOverrideEnabled: try container.decodeIfPresent(Bool.self, forKey: .developerOverrideEnabled) ?? false,
+            trustedRouterAccount: try container.decodeIfPresent(TrustedRouterAccountProfile.self, forKey: .trustedRouterAccount),
+            favoriteModels: try container.decodeIfPresent([String].self, forKey: .favoriteModels) ?? []
+        )
+    }
+
+    private static func normalizedModelIDs(_ ids: [String]) -> [String] {
+        var seen = Set<String>()
+        var normalized: [String] = []
+        for id in ids {
+            let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, seen.insert(trimmed).inserted else { continue }
+            normalized.append(trimmed)
+        }
+        return normalized
     }
 }
 

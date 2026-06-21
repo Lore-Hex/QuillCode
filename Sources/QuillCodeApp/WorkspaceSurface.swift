@@ -212,8 +212,18 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
             return modelCategories
         }
 
+        let includesFavoriteTerm = normalizedTerms.contains("favorite") || normalizedTerms.contains("favorites")
         let includesRecentTerm = normalizedTerms.contains("recent")
         return modelCategories.compactMap { category in
+            if includesFavoriteTerm && category.category != "Favorites" {
+                return nil
+            }
+            if includesRecentTerm && category.category != "Recent" {
+                return nil
+            }
+            if category.category == "Favorites" && !includesFavoriteTerm {
+                return nil
+            }
             if category.category == "Recent" && !includesRecentTerm {
                 return nil
             }
@@ -250,14 +260,16 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
     public var displayName: String
     public var category: String
     public var isSelected: Bool
+    public var isFavorite: Bool
     public var badges: [String]
 
-    public init(model: ModelInfo, selectedModelID: String, badges: [String] = []) {
+    public init(model: ModelInfo, selectedModelID: String, isFavorite: Bool = false, badges: [String] = []) {
         self.id = model.id
         self.provider = model.provider
         self.displayName = model.displayName
         self.category = model.category
         self.isSelected = model.id == selectedModelID
+        self.isFavorite = isFavorite
         self.badges = badges
     }
 
@@ -267,6 +279,7 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         case displayName
         case category
         case isSelected
+        case isFavorite
         case badges
     }
 
@@ -277,6 +290,7 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         self.displayName = try container.decode(String.self, forKey: .displayName)
         self.category = try container.decode(String.self, forKey: .category)
         self.isSelected = try container.decode(Bool.self, forKey: .isSelected)
+        self.isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         self.badges = try container.decodeIfPresent([String].self, forKey: .badges) ?? []
     }
 }
@@ -1518,12 +1532,20 @@ public extension QuillCodeWorkspaceModel {
                 return $0.category < $1.category
             }
 
+        let favoriteModels = favoriteModelIDs().compactMap { id -> ModelOptionSurface? in
+            let model = catalog.first { $0.id == id } ?? Self.fallbackModelInfo(for: id)
+            return modelOption(for: model, selectedModelID: selectedModelID, extraBadges: ["Favorite"])
+        }
+        if !favoriteModels.isEmpty {
+            categories.insert(ModelCategorySurface(category: "Favorites", models: favoriteModels), at: 0)
+        }
+
         let recentModels = recentModelIDs(limit: 4).compactMap { id -> ModelOptionSurface? in
             let model = catalog.first { $0.id == id } ?? Self.fallbackModelInfo(for: id)
             return modelOption(for: model, selectedModelID: selectedModelID, extraBadges: ["Recent"])
         }
         if !recentModels.isEmpty {
-            categories.insert(ModelCategorySurface(category: "Recent", models: recentModels), at: 0)
+            categories.insert(ModelCategorySurface(category: "Recent", models: recentModels), at: favoriteModels.isEmpty ? 0 : 1)
         }
         return categories
     }
@@ -1534,6 +1556,10 @@ public extension QuillCodeWorkspaceModel {
         extraBadges: [String] = []
     ) -> ModelOptionSurface {
         var badges = extraBadges
+        let isFavorite = favoriteModelIDs().contains(model.id)
+        if isFavorite {
+            badges.append("Favorite")
+        }
         if model.id == selectedModelID {
             badges.append("Current")
         }
@@ -1543,14 +1569,25 @@ public extension QuillCodeWorkspaceModel {
         if model.id == TrustedRouterDefaults.defaultModel {
             badges.append("Recommended")
         }
-        return ModelOptionSurface(model: model, selectedModelID: selectedModelID, badges: Self.unique(badges))
+        return ModelOptionSurface(
+            model: model,
+            selectedModelID: selectedModelID,
+            isFavorite: isFavorite,
+            badges: Self.unique(badges)
+        )
+    }
+
+    private func favoriteModelIDs() -> [String] {
+        Self.unique(root.config.favoriteModels)
     }
 
     private func recentModelIDs(limit: Int) -> [String] {
+        let favoriteIDs = Set(favoriteModelIDs())
         let modelIDs = root.threads
             .filter { !$0.isArchived }
             .sorted { $0.updatedAt > $1.updatedAt }
             .map(\.model)
+            .filter { !favoriteIDs.contains($0) }
         return Array(Self.unique(modelIDs).prefix(limit))
     }
 

@@ -44,6 +44,25 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(loaded.trustedRouterAccount?.displayLabel, "quill@example.com")
     }
 
+    func testConfigRoundTripsFavoriteModels() throws {
+        let root = try makeTempDirectory()
+        let store = ConfigStore(fileURL: root.appendingPathComponent("config.toml"))
+        let config = AppConfig(favoriteModels: [
+            " z-ai/glm-5.2 ",
+            "moonshotai/kimi-k2.6",
+            "z-ai/glm-5.2",
+            ""
+        ])
+
+        try store.save(config)
+
+        let loaded = try store.load()
+        XCTAssertEqual(loaded.favoriteModels, ["z-ai/glm-5.2", "moonshotai/kimi-k2.6"])
+        let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
+        XCTAssertTrue(stored.contains(#"favorite_model = "z-ai/glm-5.2""#))
+        XCTAssertTrue(stored.contains(#"favorite_model = "moonshotai/kimi-k2.6""#))
+    }
+
     func testExplicitAuthModeWinsOverLegacyDeveloperOverrideFlag() throws {
         let root = try makeTempDirectory()
         let fileURL = root.appendingPathComponent("config.toml")

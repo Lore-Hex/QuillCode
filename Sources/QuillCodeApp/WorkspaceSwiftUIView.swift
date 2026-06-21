@@ -18,6 +18,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onSelectProject: (UUID?) -> Void
     public var onSetMode: (AgentMode) -> Void
     public var onSetModel: (String) -> Void
+    public var onToggleModelFavorite: (String) -> Void
     public var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
     public var onStartTrustedRouterSignIn: () -> Void
     public var onReviewAction: (WorkspaceReviewActionSurface) -> Void
@@ -52,6 +53,7 @@ public struct QuillCodeWorkspaceView: View {
         onSelectProject: @escaping (UUID?) -> Void,
         onSetMode: @escaping (AgentMode) -> Void,
         onSetModel: @escaping (String) -> Void,
+        onToggleModelFavorite: @escaping (String) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onStartTrustedRouterSignIn: @escaping () -> Void,
         onReviewAction: @escaping (WorkspaceReviewActionSurface) -> Void,
@@ -76,6 +78,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onSelectProject = onSelectProject
         self.onSetMode = onSetMode
         self.onSetModel = onSetModel
+        self.onToggleModelFavorite = onToggleModelFavorite
         self.onSaveSettings = onSaveSettings
         self.onStartTrustedRouterSignIn = onStartTrustedRouterSignIn
         self.onReviewAction = onReviewAction
@@ -93,6 +96,7 @@ public struct QuillCodeWorkspaceView: View {
                 isModelPickerPresented: $isModelPickerPresented,
                 onSetMode: onSetMode,
                 onSetModel: onSetModel,
+                onToggleModelFavorite: onToggleModelFavorite,
                 onCommand: handleCommand
             )
             Divider()
@@ -581,6 +585,7 @@ private struct QuillCodeTopBarView: View {
     @Binding var isModelPickerPresented: Bool
     var onSetMode: (AgentMode) -> Void
     var onSetModel: (String) -> Void
+    var onToggleModelFavorite: (String) -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
@@ -603,7 +608,8 @@ private struct QuillCodeTopBarView: View {
             QuillCodeModelPickerView(
                 topBar: topBar,
                 isPresented: $isModelPickerPresented,
-                onSetModel: onSetModel
+                onSetModel: onSetModel,
+                onToggleModelFavorite: onToggleModelFavorite
             )
             Menu {
                 ForEach(AgentMode.allCases, id: \.rawValue) { mode in
@@ -653,6 +659,7 @@ private struct QuillCodeModelPickerView: View {
     var topBar: TopBarSurface
     @Binding var isPresented: Bool
     var onSetModel: (String) -> Void
+    var onToggleModelFavorite: (String) -> Void
 
     @State private var searchText = ""
     @FocusState private var isSearchFocused: Bool
@@ -704,43 +711,7 @@ private struct QuillCodeModelPickerView: View {
                                         .font(.caption.weight(.semibold))
                                         .foregroundStyle(QuillCodePalette.muted)
                                     ForEach(category.models) { option in
-                                        Button {
-                                            onSetModel(option.id)
-                                            isPresented = false
-                                        } label: {
-                                            HStack(spacing: 10) {
-                                                VStack(alignment: .leading, spacing: 2) {
-                                                    Text("\(option.provider)/\(option.displayName)")
-                                                        .font(.callout.weight(.medium))
-                                                    Text(option.id)
-                                                        .font(.caption)
-                                                        .foregroundStyle(QuillCodePalette.muted)
-                                                    if !option.badges.isEmpty {
-                                                        HStack(spacing: 5) {
-                                                            ForEach(option.badges, id: \.self) { badge in
-                                                                Text(badge)
-                                                                    .font(.caption2.weight(.semibold))
-                                                                    .foregroundStyle(badge == "Current" ? QuillCodePalette.green : QuillCodePalette.blue)
-                                                                    .padding(.horizontal, 6)
-                                                                    .padding(.vertical, 2)
-                                                                    .background((badge == "Current" ? QuillCodePalette.green : QuillCodePalette.blue).opacity(0.14))
-                                                                    .clipShape(Capsule())
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                                Spacer()
-                                                if option.isSelected {
-                                                    Image(systemName: "checkmark.circle.fill")
-                                                        .foregroundStyle(QuillCodePalette.green)
-                                                }
-                                            }
-                                            .padding(10)
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                            .background(option.isSelected ? QuillCodePalette.selection : QuillCodePalette.background.opacity(0.7))
-                                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                                        }
-                                        .buttonStyle(.plain)
+                                        modelRow(option)
                                     }
                                 }
                             }
@@ -761,6 +732,75 @@ private struct QuillCodeModelPickerView: View {
                 searchText = ""
                 isSearchFocused = false
             }
+        }
+    }
+
+    private func modelRow(_ option: ModelOptionSurface) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                onSetModel(option.id)
+                isPresented = false
+            } label: {
+                HStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(option.provider)/\(option.displayName)")
+                            .font(.callout.weight(.medium))
+                        Text(option.id)
+                            .font(.caption)
+                            .foregroundStyle(QuillCodePalette.muted)
+                        if !option.badges.isEmpty {
+                            HStack(spacing: 5) {
+                                ForEach(option.badges, id: \.self) { badge in
+                                    let tint = badgeTint(badge)
+                                    Text(badge)
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(tint)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(tint.opacity(0.14))
+                                        .clipShape(Capsule())
+                                }
+                            }
+                        }
+                    }
+                    Spacer()
+                    if option.isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(QuillCodePalette.green)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                onToggleModelFavorite(option.id)
+            } label: {
+                Image(systemName: option.isFavorite ? "star.fill" : "star")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(option.isFavorite ? QuillCodePalette.yellow : QuillCodePalette.muted)
+                    .frame(width: 30, height: 30)
+                    .background((option.isFavorite ? QuillCodePalette.yellow : QuillCodePalette.muted).opacity(0.12))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.borderless)
+            .help(option.isFavorite ? "Remove favorite" : "Favorite model")
+            .accessibilityLabel(option.isFavorite ? "Remove favorite model" : "Favorite model")
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(option.isSelected ? QuillCodePalette.selection : QuillCodePalette.background.opacity(0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func badgeTint(_ badge: String) -> Color {
+        switch badge {
+        case "Current":
+            QuillCodePalette.green
+        case "Favorite":
+            QuillCodePalette.yellow
+        default:
+            QuillCodePalette.blue
         }
     }
 }

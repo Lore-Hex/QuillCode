@@ -99,6 +99,7 @@ private struct QuillCodeDesktopRootView: View {
             onSelectProject: controller.selectProject,
             onSetMode: controller.setMode,
             onSetModel: controller.setModel,
+            onToggleModelFavorite: controller.toggleModelFavorite,
             onSaveSettings: controller.saveSettings,
             onStartTrustedRouterSignIn: controller.startTrustedRouterSignIn,
             onReviewAction: controller.runReviewAction,
@@ -237,6 +238,12 @@ private final class QuillCodeDesktopController: ObservableObject {
 
     func setModel(_ modelID: String) {
         model.setModel(modelID)
+        persistConfig()
+        refresh()
+    }
+
+    func toggleModelFavorite(_ modelID: String) {
+        model.toggleModelFavorite(modelID)
         persistConfig()
         refresh()
     }

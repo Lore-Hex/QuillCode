@@ -21,6 +21,21 @@ final class CoreModelTests: XCTestCase {
         XCTAssertThrowsError(try args.requiredString("cmd"))
     }
 
+    func testAppConfigDecodesOlderPayloadWithoutFavorites() throws {
+        let config = try JSONHelpers.decode(AppConfig.self, from: """
+        {
+          "defaultModel": "trustedrouter/fusion",
+          "mode": "auto",
+          "apiBaseURL": "https://api.trustedrouter.com/v1",
+          "authMode": "oauth",
+          "developerOverrideEnabled": false
+        }
+        """)
+
+        XCTAssertEqual(config.defaultModel, "trustedrouter/fusion")
+        XCTAssertEqual(config.favoriteModels, [])
+    }
+
     func testProjectAndThreadDecodeOlderStateWithoutInstructions() throws {
         let projectID = UUID()
         let date = ISO8601DateFormatter().string(from: Date())

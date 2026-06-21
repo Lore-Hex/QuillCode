@@ -1244,6 +1244,25 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.root.topBar.model, "provider/model")
     }
 
+    func testToggleModelFavoriteUpdatesConfigAndSurface() {
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            config: AppConfig(favoriteModels: ["provider/old"]),
+            topBar: TopBarState(model: "trustedrouter/fusion"),
+            modelCatalog: TrustedRouterModelCatalog.defaultModels
+        ))
+
+        model.toggleModelFavorite(" z-ai/glm-5.2 ")
+
+        XCTAssertEqual(model.root.config.favoriteModels, ["provider/old", "z-ai/glm-5.2"])
+        XCTAssertEqual(model.surface().topBar.modelCategories.first?.category, "Favorites")
+        XCTAssertEqual(model.surface().topBar.modelCategories.first?.models.map(\.id), ["provider/old", "z-ai/glm-5.2"])
+
+        model.toggleModelFavorite("provider/old")
+
+        XCTAssertEqual(model.root.config.favoriteModels, ["z-ai/glm-5.2"])
+        XCTAssertEqual(model.surface().topBar.modelCategories.first?.models.map(\.id), ["z-ai/glm-5.2"])
+    }
+
     func testApplySettingsUpdatesConfigThreadAndSettingsSurface() {
         let thread = ChatThread()
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(

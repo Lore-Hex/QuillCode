@@ -453,6 +453,43 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(topBar.filteredModelCategories(matching: "recent").first?.category, "Recent")
     }
 
+    func testModelPickerShowsFavoriteModelsBeforeRecent() throws {
+        let older = ChatThread(
+            title: "Favorite model",
+            model: "z-ai/glm-5.2",
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+        let newer = ChatThread(
+            title: "Recent model",
+            model: "moonshotai/kimi-k2.6",
+            updatedAt: Date(timeIntervalSince1970: 200)
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            config: AppConfig(
+                defaultModel: "trustedrouter/fusion",
+                favoriteModels: [" z-ai/glm-5.2 ", "z-ai/glm-5.2"]
+            ),
+            threads: [older, newer],
+            selectedThreadID: newer.id,
+            topBar: TopBarState(model: "moonshotai/kimi-k2.6"),
+            modelCatalog: TrustedRouterModelCatalog.defaultModels
+        ))
+
+        let topBar = model.surface().topBar
+        XCTAssertEqual(topBar.modelCategories.prefix(2).map(\.category), ["Favorites", "Recent"])
+
+        let favorite = try XCTUnwrap(topBar.modelCategories.first)
+        XCTAssertEqual(favorite.models.map(\.id), ["z-ai/glm-5.2"])
+        XCTAssertTrue(favorite.models.first?.isFavorite == true)
+        XCTAssertEqual(favorite.models.first?.badges, ["Favorite"])
+
+        let recent = try XCTUnwrap(topBar.modelCategories.dropFirst().first)
+        XCTAssertEqual(recent.models.map(\.id), ["moonshotai/kimi-k2.6"])
+
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "favorite").map(\.category), ["Favorites"])
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "glm").flatMap(\.models).map(\.id), ["z-ai/glm-5.2"])
+    }
+
     func testModelOptionDecodesOlderPayloadWithoutBadges() throws {
         let data = """
         {
@@ -468,6 +505,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertEqual(option.id, "trustedrouter/fusion")
         XCTAssertTrue(option.isSelected)
+        XCTAssertFalse(option.isFavorite)
         XCTAssertTrue(option.badges.isEmpty)
     }
 

@@ -98,13 +98,41 @@
       letter-spacing: .08em;
       text-transform: uppercase;
     }
+    .model-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: stretch;
+    }
     .model-option {
       width: 100%;
+      min-width: 0;
       display: grid;
       gap: 2px;
       text-align: left;
     }
+    .model-option span,
+    .model-option small {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .model-option small { color: var(--muted); }
+    .model-favorite {
+      width: 38px;
+      min-width: 38px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      color: var(--muted);
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .model-favorite.active {
+      color: var(--yellow);
+      background: rgba(248,184,78,.14);
+      border-color: rgba(248,184,78,.28);
+    }
     .model-badges {
       display: flex;
       flex-wrap: wrap;
@@ -883,14 +911,14 @@
           {
             category: 'Recommended',
             models: [
-              { id: 'trustedrouter/fusion', provider: 'trustedrouter', displayName: 'Fusion', isSelected: true, badges: ['Current', 'Default', 'Recommended'] }
+              { id: 'trustedrouter/fusion', provider: 'trustedrouter', displayName: 'Fusion', isSelected: true, isFavorite: false, badges: ['Current', 'Default', 'Recommended'] }
             ]
           },
           {
             category: 'Safety',
             models: [
-              { id: 'z-ai/glm-5.2', provider: 'z-ai', displayName: 'GLM 5.2', isSelected: false, badges: [] },
-              { id: 'moonshotai/kimi-k2.6', provider: 'moonshotai', displayName: 'Kimi K2.6', isSelected: false, badges: [] }
+              { id: 'z-ai/glm-5.2', provider: 'z-ai', displayName: 'GLM 5.2', isSelected: false, isFavorite: false, badges: [] },
+              { id: 'moonshotai/kimi-k2.6', provider: 'moonshotai', displayName: 'Kimi K2.6', isSelected: false, isFavorite: false, badges: [] }
             ]
           }
         ],
@@ -1664,11 +1692,14 @@
             <section class="model-category" data-testid="model-category">
               <h3>${escapeHTML(category.category)}</h3>
               ${category.models.map(model => `
-                <button class="model-option ${model.id === state.topBar.selectedModelID ? 'selected' : ''}" type="button" data-testid="model-option" data-model-id="${escapeHTML(model.id)}">
-                  <span>${escapeHTML(model.provider + '/' + model.displayName)}${model.id === state.topBar.selectedModelID ? ' ✓' : ''}</span>
-                  <small>${escapeHTML(model.id)}</small>
-                  ${(model.badges || []).length ? `<span class="model-badges">${model.badges.map(badge => `<em data-testid="model-badge">${escapeHTML(badge)}</em>`).join('')}</span>` : ''}
-                </button>`).join('')}
+                <div class="model-row" data-testid="model-row" data-model-id="${escapeHTML(model.id)}">
+                  <button class="model-option ${model.id === state.topBar.selectedModelID ? 'selected' : ''}" type="button" data-testid="model-option" data-model-id="${escapeHTML(model.id)}">
+                    <span>${escapeHTML(model.provider + '/' + model.displayName)}${model.id === state.topBar.selectedModelID ? ' ✓' : ''}</span>
+                    <small>${escapeHTML(model.id)}</small>
+                    ${(model.badges || []).length ? `<span class="model-badges">${model.badges.map(badge => `<em data-testid="model-badge">${escapeHTML(badge)}</em>`).join('')}</span>` : ''}
+                  </button>
+                  <button class="model-favorite ${model.isFavorite ? 'active' : ''}" type="button" data-testid="model-favorite-button" data-model-id="${escapeHTML(model.id)}" aria-label="${model.isFavorite ? 'Remove favorite model' : 'Favorite model'}">${model.isFavorite ? '★' : '☆'}</button>
+                </div>`).join('')}
             </section>`).join('')}
         </div>` : '<div class="model-empty" data-testid="model-empty">No models match. Try a provider, category, or model name.</div>';
       const modelBrowser = state.topBar.modelPickerOpen ? `
@@ -1764,6 +1795,11 @@
       document.querySelectorAll('[data-testid="model-option"]').forEach(button => {
         button.addEventListener('click', event => {
           selectModel(event.currentTarget.getAttribute('data-model-id'));
+        });
+      });
+      document.querySelectorAll('[data-testid="model-favorite-button"]').forEach(button => {
+        button.addEventListener('click', event => {
+          toggleModelFavorite(event.currentTarget.getAttribute('data-model-id'));
         });
       });
       document.querySelectorAll('[data-testid="project-item"]').forEach(button => {
@@ -2056,8 +2092,12 @@
     function filterModelCategories(query) {
       const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
       if (!terms.length) return state.topBar.modelCategories;
+      const includesFavoriteTerm = terms.includes('favorite') || terms.includes('favorites');
       const includesRecentTerm = terms.includes('recent');
       return state.topBar.modelCategories
+        .filter(category => !includesFavoriteTerm || category.category === 'Favorites')
+        .filter(category => !includesRecentTerm || category.category === 'Recent')
+        .filter(category => category.category !== 'Favorites' || includesFavoriteTerm)
         .filter(category => category.category !== 'Recent' || includesRecentTerm)
         .map(category => ({
           ...category,
@@ -2096,6 +2136,60 @@
         })
       }));
       render();
+    }
+
+    function toggleModelFavorite(modelID) {
+      const models = state.topBar.modelCategories.flatMap(category => category.models);
+      const isFavorite = models.some(model => model.id === modelID && model.isFavorite);
+      state.topBar.modelCategories = state.topBar.modelCategories
+        .filter(category => category.category !== 'Favorites')
+        .map(category => ({
+          ...category,
+          models: category.models.map(model => model.id === modelID
+            ? setModelFavorite(model, !isFavorite)
+            : model)
+        }));
+      syncFavoriteModels();
+      render();
+    }
+
+    function syncFavoriteModels() {
+      const favoriteModels = [];
+      const seen = new Set();
+      state.topBar.modelCategories
+        .filter(category => category.category !== 'Favorites')
+        .flatMap(category => category.models)
+        .forEach(model => {
+          if (!model.isFavorite || seen.has(model.id)) return;
+          seen.add(model.id);
+          favoriteModels.push(setModelFavorite(model, true));
+        });
+      if (favoriteModels.length) {
+        state.topBar.modelCategories.unshift({
+          category: 'Favorites',
+          models: favoriteModels
+        });
+      }
+    }
+
+    function setModelFavorite(model, isFavorite) {
+      const badges = isFavorite
+        ? uniqueBadges(['Favorite', ...(model.badges || [])])
+        : (model.badges || []).filter(badge => badge !== 'Favorite');
+      return {
+        ...model,
+        isFavorite,
+        badges
+      };
+    }
+
+    function uniqueBadges(badges) {
+      const seen = new Set();
+      return badges.filter(badge => {
+        if (seen.has(badge)) return false;
+        seen.add(badge);
+        return true;
+      });
     }
 
     function renderSettingsPanel() {

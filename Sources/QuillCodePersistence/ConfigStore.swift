@@ -28,6 +28,7 @@ public struct ConfigStore: Sendable {
         var explicitAuthMode: TrustedRouterAuthMode?
         var legacyDeveloperOverrideEnabled: Bool?
         var account = TrustedRouterAccountProfile()
+        var favoriteModels: [String] = []
         for rawLine in text.components(separatedBy: .newlines) {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             guard !line.isEmpty, !line.hasPrefix("#") else { continue }
@@ -56,6 +57,8 @@ public struct ConfigStore: Sendable {
                 account.email = value
             case "trustedrouter_wallet_address":
                 account.walletAddress = value
+            case "favorite_model":
+                favoriteModels.append(value)
             default:
                 continue
             }
@@ -74,6 +77,7 @@ public struct ConfigStore: Sendable {
             walletAddress: account.walletAddress
         )
         config.trustedRouterAccount = normalizedAccount.isEmpty ? nil : normalizedAccount
+        config.favoriteModels = AppConfig(favoriteModels: favoriteModels).favoriteModels
         return config
     }
 
@@ -89,6 +93,9 @@ public struct ConfigStore: Sendable {
             "auth_mode = \(Self.quote(config.authMode.rawValue))",
             "developer_override_enabled = \(config.developerOverrideEnabled ? "true" : "false")"
         ]
+        for model in config.favoriteModels {
+            lines.append("favorite_model = \(Self.quote(model))")
+        }
         if let account = config.trustedRouterAccount {
             if let userID = account.userID {
                 lines.append("trustedrouter_user_id = \(Self.quote(userID))")

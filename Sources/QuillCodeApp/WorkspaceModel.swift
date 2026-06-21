@@ -787,6 +787,18 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: "Idle")
     }
 
+    public func toggleModelFavorite(_ model: String) {
+        let trimmed = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if let index = root.config.favoriteModels.firstIndex(of: trimmed) {
+            root.config.favoriteModels.remove(at: index)
+        } else {
+            root.config.favoriteModels.append(trimmed)
+        }
+        root.config.favoriteModels = AppConfig(favoriteModels: root.config.favoriteModels).favoriteModels
+        refreshTopBar(agentStatus: root.topBar.agentStatus)
+    }
+
     public func setModelCatalog(_ models: [ModelInfo]) {
         guard !models.isEmpty else { return }
         root.modelCatalog = models
