@@ -3726,16 +3726,18 @@ private struct QuillCodeComputerUseSettingsCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Computer Use")
                         .font(.headline)
-                    Text(statusSummary)
+                    Text(settings.computerUseSetupSummary)
                         .font(.caption)
                         .foregroundStyle(QuillCodePalette.muted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .layoutPriority(1)
                 Spacer()
-                Text(statusLabel)
+                Text(settings.computerUseStatusLabel)
                     .font(.caption.weight(.semibold))
                     .lineLimit(1)
                     .padding(.horizontal, 10)
@@ -3746,20 +3748,38 @@ private struct QuillCodeComputerUseSettingsCard: View {
             }
 
             VStack(spacing: 8) {
-                QuillCodePermissionRow(
-                    title: "Screen Recording",
-                    detail: "Lets QuillCode inspect the screen for Computer Use.",
-                    isGranted: settings.computerUseStatus.screenRecordingGranted,
-                    command: settings.computerUseScreenRecordingCommand,
-                    onCommand: onCommand
-                )
-                QuillCodePermissionRow(
-                    title: "Accessibility",
-                    detail: "Lets QuillCode click, type, scroll, and press keys.",
-                    isGranted: settings.computerUseStatus.accessibilityGranted,
-                    command: settings.computerUseAccessibilityCommand,
-                    onCommand: onCommand
-                )
+                ForEach(settings.computerUseRequirements) { requirement in
+                    QuillCodePermissionRow(requirement: requirement, onCommand: onCommand)
+                }
+            }
+
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: settings.computerUseStatus.available ? "checkmark.circle.fill" : "arrow.forward.circle.fill")
+                    .foregroundStyle(settings.computerUseStatus.available ? QuillCodePalette.green : QuillCodePalette.blue)
+                    .frame(width: 18)
+                Text(settings.computerUseNextAction)
+                    .font(.caption)
+                    .foregroundStyle(settings.computerUseStatus.available ? QuillCodePalette.green : QuillCodePalette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .layoutPriority(1)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(QuillCodePalette.background.opacity(0.48))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.white.opacity(0.04), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(QuillCodePalette.blue)
+                    .frame(width: 18)
+                Text("After changing macOS permissions, quit and reopen QuillCode if the status does not update.")
+                    .font(.caption2)
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             HStack {
@@ -3774,30 +3794,11 @@ private struct QuillCodeComputerUseSettingsCard: View {
         .padding(14)
         .background(QuillCodePalette.panel.opacity(0.72))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(statusTint.opacity(0.28), lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
-    private var statusSummary: String {
-        if settings.computerUseStatus.available {
-            return "Ready for screenshots and desktop input."
-        }
-        return "Open each required permission below, then return and refresh."
-    }
-
-    private var statusLabel: String {
-        if settings.computerUseStatus.available {
-            return "Ready"
-        }
-        if !settings.computerUseStatus.screenRecordingGranted && !settings.computerUseStatus.accessibilityGranted {
-            return "Setup needed"
-        }
-        if !settings.computerUseStatus.screenRecordingGranted {
-            return "Screen Recording needed"
-        }
-        return "Accessibility needed"
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: Color.black.opacity(0.12), radius: 16, x: 0, y: 8)
     }
 
     private var statusTint: Color {
@@ -3806,43 +3807,54 @@ private struct QuillCodeComputerUseSettingsCard: View {
 }
 
 private struct QuillCodePermissionRow: View {
-    var title: String
-    var detail: String
-    var isGranted: Bool
-    var command: WorkspaceCommandSurface
+    var requirement: ComputerUseRequirementSurface
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
-            Image(systemName: isGranted ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                .foregroundStyle(isGranted ? QuillCodePalette.green : QuillCodePalette.yellow)
-                .frame(width: 20)
+        HStack(alignment: .center, spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(iconTint.opacity(0.14))
+                Image(systemName: requirement.isGranted ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .foregroundStyle(iconTint)
+            }
+            .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(requirement.title)
                     .font(.callout.weight(.semibold))
-                Text(detail)
+                Text(requirement.detail)
                     .font(.caption)
                     .foregroundStyle(QuillCodePalette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .layoutPriority(1)
             Spacer(minLength: 12)
-            if isGranted {
-                Text("Granted")
+            if requirement.isGranted {
+                Text(requirement.statusLabel)
                     .font(.caption.weight(.semibold))
                     .lineLimit(1)
                     .foregroundStyle(QuillCodePalette.green)
             } else {
                 Button("Open") {
-                    onCommand(command)
+                    onCommand(requirement.command)
                 }
                 .buttonStyle(.bordered)
-                .disabled(!command.isEnabled)
+                .disabled(!requirement.command.isEnabled)
                 .controlSize(.small)
+                .frame(minWidth: 72, minHeight: 40)
             }
         }
         .padding(10)
         .background(Color.black.opacity(0.16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color.white.opacity(0.04), lineWidth: 1)
+        )
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var iconTint: Color {
+        requirement.isGranted ? QuillCodePalette.green : QuillCodePalette.yellow
     }
 }
 

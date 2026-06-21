@@ -1792,6 +1792,31 @@ public enum WorkspaceCommandPalette {
     }
 }
 
+public struct ComputerUseRequirementSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var title: String
+    public var detail: String
+    public var statusLabel: String
+    public var isGranted: Bool
+    public var command: WorkspaceCommandSurface
+
+    public init(
+        id: String,
+        title: String,
+        detail: String,
+        statusLabel: String,
+        isGranted: Bool,
+        command: WorkspaceCommandSurface
+    ) {
+        self.id = id
+        self.title = title
+        self.detail = detail
+        self.statusLabel = statusLabel
+        self.isGranted = isGranted
+        self.command = command
+    }
+}
+
 public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var apiBaseURL: String
     public var authMode: TrustedRouterAuthMode
@@ -1807,6 +1832,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var computerUseScreenRecordingCommand: WorkspaceCommandSurface
     public var computerUseAccessibilityCommand: WorkspaceCommandSurface
     public var computerUseRefreshCommand: WorkspaceCommandSurface
+    public var computerUseStatusLabel: String
+    public var computerUseSetupSummary: String
+    public var computerUseNextAction: String
+    public var computerUseRequirements: [ComputerUseRequirementSurface]
 
     public init(
         config: AppConfig,
@@ -1829,6 +1858,14 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.computerUseScreenRecordingCommand = WorkspaceCommandSurface.computerUseScreenRecordingSettings(isEnabled: !computerUseStatus.screenRecordingGranted)
         self.computerUseAccessibilityCommand = WorkspaceCommandSurface.computerUseAccessibilitySettings(isEnabled: !computerUseStatus.accessibilityGranted)
         self.computerUseRefreshCommand = WorkspaceCommandSurface.computerUseRefresh
+        self.computerUseStatusLabel = Self.computerUseStatusLabel(computerUseStatus)
+        self.computerUseSetupSummary = Self.computerUseSetupSummary(computerUseStatus)
+        self.computerUseNextAction = Self.computerUseNextAction(computerUseStatus)
+        self.computerUseRequirements = Self.computerUseRequirements(
+            status: computerUseStatus,
+            screenRecordingCommand: computerUseScreenRecordingCommand,
+            accessibilityCommand: computerUseAccessibilityCommand
+        )
         switch config.authMode {
         case .oauth:
             self.apiKeyStatusLabel = hasStoredAPIKey ? "Signed in" : "Not signed in"
@@ -1858,6 +1895,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         case computerUseScreenRecordingCommand
         case computerUseAccessibilityCommand
         case computerUseRefreshCommand
+        case computerUseStatusLabel
+        case computerUseSetupSummary
+        case computerUseNextAction
+        case computerUseRequirements
     }
 
     public init(from decoder: Decoder) throws {
@@ -1890,6 +1931,78 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
             WorkspaceCommandSurface.self,
             forKey: .computerUseRefreshCommand
         ) ?? .computerUseRefresh
+        self.computerUseStatusLabel = try container.decodeIfPresent(String.self, forKey: .computerUseStatusLabel)
+            ?? Self.computerUseStatusLabel(decodedComputerUseStatus)
+        self.computerUseSetupSummary = try container.decodeIfPresent(String.self, forKey: .computerUseSetupSummary)
+            ?? Self.computerUseSetupSummary(decodedComputerUseStatus)
+        self.computerUseNextAction = try container.decodeIfPresent(String.self, forKey: .computerUseNextAction)
+            ?? Self.computerUseNextAction(decodedComputerUseStatus)
+        self.computerUseRequirements = try container.decodeIfPresent(
+            [ComputerUseRequirementSurface].self,
+            forKey: .computerUseRequirements
+        ) ?? Self.computerUseRequirements(
+            status: decodedComputerUseStatus,
+            screenRecordingCommand: computerUseScreenRecordingCommand,
+            accessibilityCommand: computerUseAccessibilityCommand
+        )
+    }
+
+    private static func computerUseStatusLabel(_ status: ComputerUseStatus) -> String {
+        if status.available {
+            return "Ready"
+        }
+        if !status.screenRecordingGranted && !status.accessibilityGranted {
+            return "Setup needed"
+        }
+        if !status.screenRecordingGranted {
+            return "Screen Recording needed"
+        }
+        return "Accessibility needed"
+    }
+
+    private static func computerUseSetupSummary(_ status: ComputerUseStatus) -> String {
+        if status.available {
+            return "Ready for screenshots, clicks, typing, scrolling, and keyboard shortcuts."
+        }
+        return "Computer Use needs macOS privacy permissions before QuillCode can inspect or control the desktop."
+    }
+
+    private static func computerUseNextAction(_ status: ComputerUseStatus) -> String {
+        if status.available {
+            return "Computer Use is enabled. Ask QuillCode to inspect the screen or operate an app."
+        }
+        if !status.screenRecordingGranted && !status.accessibilityGranted {
+            return "Open Screen Recording first, enable QuillCode, then open Accessibility."
+        }
+        if !status.screenRecordingGranted {
+            return "Open Screen Recording, enable QuillCode, then refresh status."
+        }
+        return "Open Accessibility, enable QuillCode, then refresh status."
+    }
+
+    private static func computerUseRequirements(
+        status: ComputerUseStatus,
+        screenRecordingCommand: WorkspaceCommandSurface,
+        accessibilityCommand: WorkspaceCommandSurface
+    ) -> [ComputerUseRequirementSurface] {
+        [
+            ComputerUseRequirementSurface(
+                id: "screen-recording",
+                title: "Screen Recording",
+                detail: "Required for screenshots and visual inspection.",
+                statusLabel: status.screenRecordingGranted ? "Granted" : "Required",
+                isGranted: status.screenRecordingGranted,
+                command: screenRecordingCommand
+            ),
+            ComputerUseRequirementSurface(
+                id: "accessibility",
+                title: "Accessibility",
+                detail: "Required for clicks, typing, scrolling, cursor moves, and keyboard shortcuts.",
+                statusLabel: status.accessibilityGranted ? "Granted" : "Required",
+                isGranted: status.accessibilityGranted,
+                command: accessibilityCommand
+            )
+        ]
     }
 }
 

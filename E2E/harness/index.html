@@ -1590,7 +1590,28 @@
         computerUseSetupCommand: { id: 'computer-use-setup', title: 'Computer Use setup', shortcut: '', category: 'Computer Use', keywords: ['screen', 'accessibility', 'permissions'], isEnabled: true },
         computerUseScreenRecordingCommand: { id: 'computer-use-open-screen-recording', title: 'Open Screen Recording settings', shortcut: '', category: 'Computer Use', keywords: ['screen', 'recording', 'capture', 'permissions'], isEnabled: true },
         computerUseAccessibilityCommand: { id: 'computer-use-open-accessibility', title: 'Open Accessibility settings', shortcut: '', category: 'Computer Use', keywords: ['accessibility', 'click', 'keyboard', 'permissions'], isEnabled: true },
-        computerUseRefreshCommand: { id: 'computer-use-refresh', title: 'Refresh Computer Use status', shortcut: '', category: 'Computer Use', keywords: ['computer use', 'permissions', 'refresh', 'status'], isEnabled: true }
+        computerUseRefreshCommand: { id: 'computer-use-refresh', title: 'Refresh Computer Use status', shortcut: '', category: 'Computer Use', keywords: ['computer use', 'permissions', 'refresh', 'status'], isEnabled: true },
+        computerUseStatusLabel: 'Setup needed',
+        computerUseSetupSummary: 'Computer Use needs macOS privacy permissions before QuillCode can inspect or control the desktop.',
+        computerUseNextAction: 'Open Screen Recording first, enable QuillCode, then open Accessibility.',
+        computerUseRequirements: [
+          {
+            id: 'screen-recording',
+            title: 'Screen Recording',
+            detail: 'Required for screenshots and visual inspection.',
+            statusLabel: 'Required',
+            isGranted: false,
+            command: { id: 'computer-use-open-screen-recording', title: 'Open Screen Recording settings', shortcut: '', category: 'Computer Use', keywords: ['screen', 'recording', 'capture', 'permissions'], isEnabled: true }
+          },
+          {
+            id: 'accessibility',
+            title: 'Accessibility',
+            detail: 'Required for clicks, typing, scrolling, cursor moves, and keyboard shortcuts.',
+            statusLabel: 'Required',
+            isGranted: false,
+            command: { id: 'computer-use-open-accessibility', title: 'Open Accessibility settings', shortcut: '', category: 'Computer Use', keywords: ['accessibility', 'click', 'keyboard', 'permissions'], isEnabled: true }
+          }
+        ]
       },
       lastOpenedURL: null,
       search: {
@@ -3331,24 +3352,19 @@
 
     function renderComputerUseSettingsCard() {
       const status = state.settings.computerUseStatus;
-      const screenCommand = state.settings.computerUseScreenRecordingCommand;
-      const accessibilityCommand = state.settings.computerUseAccessibilityCommand;
-      const statusLabel = status.available
-        ? 'Ready'
-        : (!status.screenRecordingGranted && !status.accessibilityGranted
-          ? 'Setup needed'
-          : (!status.screenRecordingGranted ? 'Screen Recording needed' : 'Accessibility needed'));
+      const requirements = computerUseRequirements();
       return `
         <section class="permission-card" data-testid="computer-use-settings">
           <header>
             <div>
               <h3>Computer Use</h3>
-              <p>${status.available ? 'Ready for screenshots and desktop input.' : 'Open each required permission below, then return and refresh.'}</p>
+              <p data-testid="computer-use-summary">${escapeHTML(computerUseSetupSummary())}</p>
             </div>
-            <span class="permission-status-pill" data-testid="computer-use-settings-status" data-available="${status.available}">${escapeHTML(statusLabel)}</span>
+            <span class="permission-status-pill" data-testid="computer-use-settings-status" data-available="${status.available}">${escapeHTML(computerUseStatusLabel())}</span>
           </header>
-          ${renderComputerUsePermissionRow('Screen Recording', 'Lets QuillCode inspect the screen for Computer Use.', status.screenRecordingGranted, screenCommand)}
-          ${renderComputerUsePermissionRow('Accessibility', 'Lets QuillCode click, type, scroll, and press keys.', status.accessibilityGranted, accessibilityCommand)}
+          ${requirements.map(renderComputerUsePermissionRow).join('')}
+          <p class="permission-next-action" data-testid="computer-use-next-action">${escapeHTML(computerUseNextAction())}</p>
+          <p class="permission-footnote">After changing macOS permissions, quit and reopen QuillCode if the status does not update.</p>
           <div class="permission-actions">
             <button type="button" data-testid="computer-use-refresh" data-command-id="${state.settings.computerUseRefreshCommand.id}">Refresh status</button>
           </div>
@@ -3358,17 +3374,67 @@
         </section>`;
     }
 
-    function renderComputerUsePermissionRow(title, detail, isGranted, command) {
+    function renderComputerUsePermissionRow(requirement) {
       return `
-        <div class="permission-row" data-testid="computer-use-permission">
+        <div class="permission-row" data-testid="computer-use-permission" data-requirement-id="${escapeHTML(requirement.id)}">
           <div>
-            <strong>${escapeHTML(title)}</strong>
-            <span>${escapeHTML(detail)}</span>
+            <strong>${escapeHTML(requirement.title)}</strong>
+            <span>${escapeHTML(requirement.detail)}</span>
           </div>
-          ${isGranted
-            ? '<strong>Granted</strong>'
-            : `<button type="button" data-testid="computer-use-permission-open" data-command-id="${command.id}" ${command.isEnabled ? '' : 'disabled'}>Open</button>`}
+          ${requirement.isGranted
+            ? `<strong data-testid="computer-use-permission-status">${escapeHTML(requirement.statusLabel)}</strong>`
+            : `<button type="button" data-testid="computer-use-permission-open" data-command-id="${requirement.command.id}" ${requirement.command.isEnabled ? '' : 'disabled'}>Open</button>`}
         </div>`;
+    }
+
+    function computerUseStatusLabel() {
+      if (state.settings.computerUseStatusLabel) return state.settings.computerUseStatusLabel;
+      const status = state.settings.computerUseStatus;
+      if (status.available) return 'Ready';
+      if (!status.screenRecordingGranted && !status.accessibilityGranted) return 'Setup needed';
+      if (!status.screenRecordingGranted) return 'Screen Recording needed';
+      return 'Accessibility needed';
+    }
+
+    function computerUseSetupSummary() {
+      if (state.settings.computerUseSetupSummary) return state.settings.computerUseSetupSummary;
+      return state.settings.computerUseStatus.available
+        ? 'Ready for screenshots, clicks, typing, scrolling, and keyboard shortcuts.'
+        : 'Computer Use needs macOS privacy permissions before QuillCode can inspect or control the desktop.';
+    }
+
+    function computerUseNextAction() {
+      if (state.settings.computerUseNextAction) return state.settings.computerUseNextAction;
+      const status = state.settings.computerUseStatus;
+      if (status.available) return 'Computer Use is enabled. Ask QuillCode to inspect the screen or operate an app.';
+      if (!status.screenRecordingGranted && !status.accessibilityGranted) return 'Open Screen Recording first, enable QuillCode, then open Accessibility.';
+      if (!status.screenRecordingGranted) return 'Open Screen Recording, enable QuillCode, then refresh status.';
+      return 'Open Accessibility, enable QuillCode, then refresh status.';
+    }
+
+    function computerUseRequirements() {
+      if (Array.isArray(state.settings.computerUseRequirements) && state.settings.computerUseRequirements.length) {
+        return state.settings.computerUseRequirements;
+      }
+      const status = state.settings.computerUseStatus;
+      return [
+        {
+          id: 'screen-recording',
+          title: 'Screen Recording',
+          detail: 'Required for screenshots and visual inspection.',
+          statusLabel: status.screenRecordingGranted ? 'Granted' : 'Required',
+          isGranted: status.screenRecordingGranted,
+          command: state.settings.computerUseScreenRecordingCommand
+        },
+        {
+          id: 'accessibility',
+          title: 'Accessibility',
+          detail: 'Required for clicks, typing, scrolling, cursor moves, and keyboard shortcuts.',
+          statusLabel: status.accessibilityGranted ? 'Granted' : 'Required',
+          isGranted: status.accessibilityGranted,
+          command: state.settings.computerUseAccessibilityCommand
+        }
+      ];
     }
 
     function renderSearchPanel() {
