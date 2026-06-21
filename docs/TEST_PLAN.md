@@ -49,9 +49,10 @@ Drive the QuillCode test harness with mock LLM:
 
 ## Release Gates
 
-- All unit tests pass on macOS and Linux.
-- Playwright mock-LLM E2E passes for core agent, tools, approvals, settings, top bar, and browser harness.
-- `./scripts/smoke.sh` passes from a clean checkout after dependencies are installed.
+- GitHub Actions runs macOS `swift test` and the app-level Linux-conditional guard on each push and PR.
+- GitHub Actions runs Playwright mock-LLM E2E for core agent, tools, approvals, settings, top bar, and browser harness on each push and PR.
+- GitHub Actions runs `./scripts/smoke.sh` from a clean checkout after installing E2E dependencies.
+- All unit tests pass on macOS and Linux before a stable release.
 - Native app smoke tests pass on packaged macOS and Linux builds.
 - No app target contains `#if linux`; CI enforces this.
 - `docs/CODEX_PARITY_MATRIX.md` marks each feature as implemented, deferred with reason, or not applicable.

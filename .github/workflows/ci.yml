@@ -19,3 +19,38 @@ jobs:
             exit 1
           fi
 
+  playwright:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: E2E/playwright
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: E2E/playwright/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Test
+        run: npm test
+
+  smoke:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: E2E/playwright/package-lock.json
+      - name: Install Playwright dependencies
+        working-directory: E2E/playwright
+        run: |
+          npm ci
+          npx playwright install chromium
+      - name: Smoke
+        run: ./scripts/smoke.sh
