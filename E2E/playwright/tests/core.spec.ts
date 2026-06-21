@@ -153,6 +153,7 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
     const styleFor = (selector: string) => getComputedStyle(document.querySelector(selector)!);
     const sendButton = styleFor('[data-testid="send-button"]');
     const addProjectButton = styleFor('[data-testid="add-project-button"]');
+    const sidebarAction = styleFor('[data-testid="new-chat-button"]');
     const messageInput = styleFor('#message');
     const title = styleFor('[data-testid="top-bar-title"]');
     const agentStatus = styleFor('[data-testid="agent-status"]');
@@ -163,6 +164,8 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
       sendMinHeight: parseFloat(sendButton.minHeight),
       sendTransitionProperty: sendButton.transitionProperty,
       inputTransitionProperty: messageInput.transitionProperty,
+      sidebarActionTransitionProperty: sidebarAction.transitionProperty,
+      sidebarActionMinHeight: parseFloat(sidebarAction.minHeight),
       titleTextWrap: title.getPropertyValue('text-wrap'),
       agentStatusNumbers: agentStatus.fontVariantNumeric,
       addProjectWidth: parseFloat(addProjectButton.width),
@@ -178,6 +181,10 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(polish.sendTransitionProperty).toContain('transform');
   expect(polish.sendTransitionProperty).not.toContain('all');
   expect(polish.inputTransitionProperty).toContain('box-shadow');
+  expect(polish.sidebarActionTransitionProperty).toContain('transform');
+  expect(polish.sidebarActionTransitionProperty).toContain('box-shadow');
+  expect(polish.sidebarActionTransitionProperty).not.toContain('all');
+  expect(polish.sidebarActionMinHeight).toBeGreaterThanOrEqual(40);
   expect(polish.titleTextWrap).toBe('balance');
   expect(polish.agentStatusNumbers).toContain('tabular-nums');
   expect(polish.sidebarRadius).toBeGreaterThanOrEqual(24);
@@ -384,6 +391,22 @@ test('mock harness renders image artifact previews from tool cards', async ({ pa
   await expect(page.getByTestId('tool-card-image-previews')).toBeVisible();
   await expect(page.getByTestId('tool-card-image-preview')).toBeVisible();
   await expect(page.getByTestId('tool-card-image-preview').locator('img')).toHaveAttribute('src', 'file:///mock/QuillCode/screenshots/screenshot.png');
+  const imageSurface = await page.getByTestId('tool-card-image-preview').evaluate((element) => {
+    const cardStyle = getComputedStyle(element);
+    const imageStyle = getComputedStyle(element.querySelector('img')!);
+    return {
+      cardRadius: cardStyle.borderRadius,
+      imageRadius: imageStyle.borderRadius,
+      imageOutlineColor: imageStyle.outlineColor,
+      imageOutlineWidth: imageStyle.outlineWidth,
+      imageOutlineOffset: imageStyle.outlineOffset
+    };
+  });
+  expect(imageSurface.cardRadius).toBe('18px');
+  expect(imageSurface.imageRadius).toBe('10px');
+  expect(imageSurface.imageOutlineColor).toBe('rgba(255, 255, 255, 0.1)');
+  expect(imageSurface.imageOutlineWidth).toBe('1px');
+  expect(imageSurface.imageOutlineOffset).toBe('-1px');
   await expect(page.getByText('Captured a screenshot (1280 x 720).')).toBeVisible();
 });
 

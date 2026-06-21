@@ -21,6 +21,7 @@
       --shadow-border: 0 0 0 1px rgba(255, 255, 255, 0.08);
       --shadow-border-hover: 0 0 0 1px rgba(255, 255, 255, 0.13);
       --shadow-panel: 0 0 0 1px rgba(255,255,255,.09), 0 18px 54px rgba(0,0,0,.30);
+      --shadow-surface-hover: 0 0 0 1px rgba(255,255,255,.14), 0 12px 30px rgba(0,0,0,.18);
     }
     * { box-sizing: border-box; }
     html {
@@ -294,7 +295,7 @@
     }
     .command-group-title { margin: 6px 0 2px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
     .settings-actions { display: flex; gap: 10px; justify-content: flex-end; }
-    .permission-card { display: grid; gap: 12px; padding: 14px; border-radius: 14px; background: rgba(15, 23, 28, .72); border: 1px solid rgba(255, 255, 255, .10); }
+    .permission-card { display: grid; gap: 12px; padding: 14px; border-radius: 24px; background: rgba(15, 23, 28, .72); border: 1px solid rgba(255, 255, 255, .10); }
     .permission-card h3 { margin: 0 0 6px; }
     .permission-card p { margin: 0; }
     .permission-card header, .permission-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -346,6 +347,9 @@
       background: rgba(255,255,255,.06);
       border: 1px solid rgba(255,255,255,.1);
       box-shadow: var(--shadow-border);
+      transition-property: transform, background-color, box-shadow, border-color;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
     }
     .sidebar-item,
     .project-item {
@@ -359,6 +363,15 @@
       background: transparent;
       border: 1px solid transparent;
       border-radius: 12px;
+      transition-property: transform, background-color, box-shadow, border-color;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .sidebar-action:not(:disabled):hover,
+    .sidebar-item:not(:disabled):hover,
+    .project-item:not(:disabled):hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-border-hover);
     }
     .sidebar-item {
       min-height: 60px;
@@ -630,9 +643,18 @@
       display: grid;
       gap: 5px;
       padding: 10px;
-      border-radius: 10px;
+      border-radius: 18px;
       background: rgba(0,0,0,.26);
       border: 1px solid rgba(255,255,255,.08);
+      box-shadow: var(--shadow-border);
+      transition-property: transform, box-shadow, border-color;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .browser-preview:hover,
+    .browser-comment:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-border-hover);
     }
     .browser-comments { display: grid; gap: 8px; max-height: 120px; overflow: auto; }
     .browser-preview code,
@@ -887,6 +909,13 @@
       background: rgba(0,0,0,.22);
       border: 1px solid rgba(65,184,232,.25);
       box-shadow: 0 0 0 1px rgba(65,184,232,.18), 0 12px 34px rgba(0,0,0,.18);
+      transition-property: transform, box-shadow, border-color;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .tool-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 0 1px rgba(65,184,232,.24), 0 16px 38px rgba(0,0,0,.22);
     }
     .tool-card.done { border-color: rgba(82,210,115,.34); }
     .tool-card.failed { border-color: rgba(255,93,82,.44); }
@@ -940,6 +969,9 @@
       border-radius: 20px;
       background: rgba(255,255,255,.05);
       box-shadow: var(--shadow-border);
+      transition-property: transform, box-shadow;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
     }
     .artifact-text-preview figcaption {
       color: var(--text);
@@ -976,6 +1008,14 @@
       border: 1px solid rgba(255,255,255,.10);
       background: rgba(255,255,255,.05);
       box-shadow: var(--shadow-border);
+      transition-property: transform, box-shadow;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .artifact-text-preview:hover,
+    .artifact-preview:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-surface-hover);
     }
     .artifact-preview img {
       width: 100%;
@@ -1425,6 +1465,32 @@
       box-shadow: 0 0 0 1px rgba(65,184,232,.32);
     }
     button:disabled { opacity: .45; }
+    @media (prefers-reduced-motion: reduce) {
+      button,
+      input,
+      .sidebar-action,
+      .sidebar-item,
+      .project-item,
+      .browser-preview,
+      .browser-comment,
+      .tool-card,
+      .artifact-preview,
+      .artifact-text-preview,
+      .model-option {
+        transition-duration: 1ms;
+      }
+      button:not(:disabled):active,
+      .sidebar-action:not(:disabled):hover,
+      .sidebar-item:not(:disabled):hover,
+      .project-item:not(:disabled):hover,
+      .browser-preview:hover,
+      .browser-comment:hover,
+      .tool-card:hover,
+      .artifact-preview:hover,
+      .artifact-text-preview:hover {
+        transform: none;
+      }
+    }
     @media (max-width: 760px) {
       .workspace-grid,
       .workspace-grid.with-activity { grid-template-columns: 1fr; }

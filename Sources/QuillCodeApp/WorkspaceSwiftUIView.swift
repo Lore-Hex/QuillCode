@@ -984,7 +984,7 @@ private struct QuillCodeTopBarView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .frame(width: 36, height: 36)
+                    .frame(width: 40, height: 40)
             }
             .buttonStyle(.borderless)
         }
@@ -2206,8 +2206,12 @@ private struct QuillCodeBrowserPaneView: View {
                 }
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(QuillCodePalette.background.opacity(0.7))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .quillCodeSurface(
+                    fill: QuillCodePalette.background.opacity(0.7),
+                    radius: 20,
+                    stroke: Color.white.opacity(0.08),
+                    shadow: false
+                )
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(browser.emptyTitle)
@@ -2243,8 +2247,12 @@ private struct QuillCodeBrowserPaneView: View {
                             }
                             .padding(8)
                             .frame(width: 220, alignment: .leading)
-                            .background(QuillCodePalette.background.opacity(0.7))
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .quillCodeSurface(
+                                fill: QuillCodePalette.background.opacity(0.7),
+                                radius: 18,
+                                stroke: Color.white.opacity(0.08),
+                                shadow: false
+                            )
                         }
                     }
                 }
@@ -2264,11 +2272,15 @@ private struct QuillCodeBrowserPaneView: View {
 
     private func browserBadge(_ label: String, tint: Color) -> some View {
         Text(label)
-            .font(.caption2.weight(.bold))
+            .font(.caption2.monospacedDigit().weight(.bold))
             .foregroundStyle(tint)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
             .background(tint.opacity(0.14))
+            .overlay(
+                Capsule()
+                    .stroke(tint.opacity(0.22), lineWidth: 1)
+            )
             .clipShape(Capsule())
     }
 
@@ -3072,12 +3084,12 @@ private struct QuillCodeMessageDraftButton: View {
             Label("Use as draft", systemImage: "square.and.pencil")
                 .labelStyle(.iconOnly)
                 .font(.caption2.weight(.semibold))
-                .frame(width: 24, height: 22)
+                .frame(width: 40, height: 32)
                 .foregroundStyle(QuillCodePalette.text)
                 .background(Color.white.opacity(0.1))
                 .clipShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(QuillCodePressableButtonStyle())
         .help("Use as draft")
     }
 }
@@ -3090,12 +3102,12 @@ private struct QuillCodeMessageRetryButton: View {
             Label("Retry", systemImage: "arrow.clockwise")
                 .labelStyle(.iconOnly)
                 .font(.caption2.weight(.semibold))
-                .frame(width: 24, height: 22)
+                .frame(width: 40, height: 32)
                 .foregroundStyle(QuillCodePalette.blue)
                 .background(QuillCodePalette.blue.opacity(0.14))
                 .clipShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(QuillCodePressableButtonStyle())
         .help("Retry last turn")
     }
 }
@@ -3111,12 +3123,12 @@ private struct QuillCodeMessageFeedbackButton: View {
             Label(label, systemImage: systemImage)
                 .labelStyle(.iconOnly)
                 .font(.caption2.weight(.semibold))
-                .frame(width: 24, height: 22)
+                .frame(width: 40, height: 32)
                 .foregroundStyle(isSelected ? QuillCodePalette.green : QuillCodePalette.muted)
                 .background((isSelected ? QuillCodePalette.green : Color.white).opacity(isSelected ? 0.16 : 0.08))
                 .clipShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(QuillCodePressableButtonStyle())
         .help(label)
     }
 }
@@ -3239,12 +3251,12 @@ private struct QuillCodeToolCardView: View {
         }
         .padding(14)
         .frame(maxWidth: 760, alignment: .leading)
-        .background(QuillCodePalette.panel)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(statusColor.opacity(0.35), lineWidth: 1)
+        .quillCodeSurface(
+            fill: QuillCodePalette.panel,
+            radius: 20,
+            stroke: statusColor.opacity(0.35),
+            shadow: true
         )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -3298,11 +3310,12 @@ private struct QuillCodeTranscriptCopyButton: View {
                 .lineLimit(1)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
+                .frame(minHeight: 32)
                 .foregroundStyle(isCopied ? QuillCodePalette.green : QuillCodePalette.muted)
                 .background((isCopied ? QuillCodePalette.green : Color.white).opacity(isCopied ? 0.16 : 0.08))
                 .clipShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(QuillCodePressableButtonStyle())
         .help(isCopied ? copiedLabel : label)
     }
 }
@@ -3339,6 +3352,7 @@ private struct QuillCodeArtifactChip: View {
         .font(.caption.weight(.semibold))
         .foregroundStyle(QuillCodePalette.blue)
         .frame(maxWidth: 260, alignment: .leading)
+        .frame(minHeight: 40)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(QuillCodePalette.blue.opacity(0.12))
@@ -3389,7 +3403,7 @@ private struct QuillCodeArtifactImagePreview: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 180)
                 .background(Color.black.opacity(0.22))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .quillCodeImageOutline(radius: 10)
             } else {
                 fallback
             }
@@ -3399,12 +3413,12 @@ private struct QuillCodeArtifactImagePreview: View {
                 .lineLimit(1)
         }
         .padding(8)
-        .background(Color.white.opacity(0.05))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        .quillCodeSurface(
+            fill: Color.white.opacity(0.05),
+            radius: 18,
+            stroke: Color.white.opacity(0.08),
+            shadow: false
         )
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Image preview \(artifact.label)")
     }
@@ -3423,7 +3437,7 @@ private struct QuillCodeArtifactImagePreview: View {
         .foregroundStyle(QuillCodePalette.muted)
         .frame(maxWidth: .infinity, minHeight: 120)
         .background(Color.black.opacity(0.22))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .quillCodeImageOutline(radius: 10)
     }
 }
 
@@ -3456,12 +3470,12 @@ private struct QuillCodeArtifactTextPreview: View {
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .padding(10)
-        .background(Color.white.opacity(0.05))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        .quillCodeSurface(
+            fill: Color.white.opacity(0.05),
+            radius: 18,
+            stroke: Color.white.opacity(0.08),
+            shadow: false
         )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Text preview \(artifact.label)")
     }
@@ -4017,13 +4031,82 @@ private struct QuillCodePill: View {
 
     var body: some View {
         Label(text, systemImage: systemImage)
-            .font(.caption.weight(.medium))
+            .font(.caption.monospacedDigit().weight(.medium))
             .lineLimit(1)
             .padding(.horizontal, 9)
             .padding(.vertical, 6)
+            .frame(minHeight: 32)
             .background(tint.opacity(0.14))
             .foregroundStyle(tint)
+            .overlay(
+                Capsule()
+                    .stroke(tint.opacity(0.22), lineWidth: 1)
+            )
             .clipShape(Capsule())
+    }
+}
+
+private struct QuillCodePressableButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+}
+
+private extension View {
+    func quillCodeSurface(
+        fill: Color,
+        radius: CGFloat,
+        stroke: Color = Color.white.opacity(0.08),
+        shadow: Bool
+    ) -> some View {
+        modifier(QuillCodeSurfaceModifier(
+            fill: fill,
+            radius: radius,
+            stroke: stroke,
+            shadow: shadow
+        ))
+    }
+
+    func quillCodeImageOutline(radius: CGFloat) -> some View {
+        modifier(QuillCodeImageOutlineModifier(radius: radius))
+    }
+}
+
+private struct QuillCodeSurfaceModifier: ViewModifier {
+    var fill: Color
+    var radius: CGFloat
+    var stroke: Color
+    var shadow: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .background(fill)
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(stroke, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .shadow(
+                color: shadow ? Color.black.opacity(0.18) : .clear,
+                radius: shadow ? 18 : 0,
+                x: 0,
+                y: shadow ? 10 : 0
+            )
+    }
+}
+
+private struct QuillCodeImageOutlineModifier: ViewModifier {
+    var radius: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+            )
     }
 }
 
