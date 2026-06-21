@@ -288,17 +288,23 @@ public struct WorkspaceWorktreeRemoveRequest: Sendable, Hashable {
 }
 
 public struct TerminalState: Sendable, Hashable {
+    public var projectID: UUID?
+    public var currentDirectoryPath: String?
     public var isVisible: Bool
     public var draft: String
     public var isRunning: Bool
     public var entries: [TerminalCommandState]
 
     public init(
+        projectID: UUID? = nil,
+        currentDirectoryPath: String? = nil,
         isVisible: Bool = false,
         draft: String = "",
         isRunning: Bool = false,
         entries: [TerminalCommandState] = []
     ) {
+        self.projectID = projectID
+        self.currentDirectoryPath = currentDirectoryPath
         self.isVisible = isVisible
         self.draft = draft
         self.isRunning = isRunning
@@ -609,6 +615,7 @@ public final class QuillCodeWorkspaceModel {
         if let computerUseBackend {
             self.root.topBar.computerUseStatus = computerUseBackend.status
         }
+        syncTerminalSessionToSelectedProject()
         refreshTopBar()
     }
 
@@ -630,6 +637,23 @@ public final class QuillCodeWorkspaceModel {
 
     public var activeWorkspaceRoot: URL? {
         selectedProject.map { URL(fileURLWithPath: $0.path) }
+    }
+
+    var terminalCurrentDirectoryURL: URL? {
+        guard terminal.projectID == knownProjectID(root.selectedProjectID) else {
+            return activeWorkspaceRoot
+        }
+        if let path = terminal.currentDirectoryPath, !path.isEmpty {
+            return URL(fileURLWithPath: path).standardizedFileURL
+        }
+        return activeWorkspaceRoot
+    }
+
+    private func syncTerminalSessionToSelectedProject() {
+        let selectedProjectID = knownProjectID(root.selectedProjectID)
+        guard terminal.projectID != selectedProjectID else { return }
+        terminal.projectID = selectedProjectID
+        terminal.currentDirectoryPath = selectedProject.map(\.path)
     }
 
     public var currentToolCards: [ToolCardState] {
@@ -764,6 +788,7 @@ public final class QuillCodeWorkspaceModel {
         root.threads.insert(thread, at: 0)
         root.selectedThreadID = thread.id
         root.selectedProjectID = effectiveProjectID
+        syncTerminalSessionToSelectedProject()
         touchProject(effectiveProjectID)
         saveProjects()
         refreshTopBar(agentStatus: "Idle")
@@ -793,6 +818,7 @@ public final class QuillCodeWorkspaceModel {
         root.threads.insert(fork, at: 0)
         root.selectedThreadID = fork.id
         root.selectedProjectID = knownProjectID(source.projectID)
+        syncTerminalSessionToSelectedProject()
         touchProject(root.selectedProjectID)
         saveProjects()
         try? threadStore?.save(fork)
@@ -823,6 +849,7 @@ public final class QuillCodeWorkspaceModel {
         root.threads.insert(compacted, at: 0)
         root.selectedThreadID = compacted.id
         root.selectedProjectID = knownProjectID(source.projectID)
+        syncTerminalSessionToSelectedProject()
         touchProject(root.selectedProjectID)
         saveProjects()
         try? threadStore?.save(compacted)
@@ -834,6 +861,7 @@ public final class QuillCodeWorkspaceModel {
         guard let thread = root.threads.first(where: { $0.id == id }) else { return }
         root.selectedThreadID = id
         root.selectedProjectID = knownProjectID(thread.projectID)
+        syncTerminalSessionToSelectedProject()
         touchProject(root.selectedProjectID)
         saveProjects()
         refreshTopBar(agentStatus: "Idle")
@@ -851,6 +879,7 @@ public final class QuillCodeWorkspaceModel {
             root.projects[index].memories = MemoryNoteLoader.loadProject(from: standardized)
             root.projects[index].lastOpenedAt = Date()
             root.selectedProjectID = root.projects[index].id
+            syncTerminalSessionToSelectedProject()
             saveProjects()
             refreshTopBar(agentStatus: "Idle")
             return root.projects[index].id
@@ -867,6 +896,7 @@ public final class QuillCodeWorkspaceModel {
         )
         root.projects.insert(project, at: 0)
         root.selectedProjectID = project.id
+        syncTerminalSessionToSelectedProject()
         saveProjects()
         refreshTopBar(agentStatus: "Idle")
         return project.id
@@ -877,6 +907,7 @@ public final class QuillCodeWorkspaceModel {
             guard root.projects.contains(where: { $0.id == id }) else { return }
         }
         root.selectedProjectID = id
+        syncTerminalSessionToSelectedProject()
         refreshProjectMetadata(id)
         touchProject(id)
         root.selectedThreadID = root.threads
@@ -944,6 +975,7 @@ public final class QuillCodeWorkspaceModel {
         } else {
             root.selectedProjectID = knownProjectID(root.selectedProjectID)
         }
+        syncTerminalSessionToSelectedProject()
         saveProjects()
         refreshTopBar(agentStatus: "Idle")
         return true
@@ -995,6 +1027,7 @@ public final class QuillCodeWorkspaceModel {
         root.threads.insert(duplicate, at: 0)
         root.selectedThreadID = duplicate.id
         root.selectedProjectID = knownProjectID(source.projectID)
+        syncTerminalSessionToSelectedProject()
         touchProject(root.selectedProjectID)
         saveProjects()
         try? threadStore?.save(duplicate)
@@ -1795,6 +1828,13 @@ public final class QuillCodeWorkspaceModel {
     public func runTerminalCommand(_ input: String, workspaceRoot: URL) async {
         let command = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !command.isEmpty, !terminal.isRunning else { return }
+        syncTerminalSessionToSelectedProject()
+
+        let workingDirectory = terminalCurrentDirectoryURL ?? workspaceRoot.standardizedFileURL
+        let executionContext = Self.terminalExecutionContext(
+            command: command,
+            workingDirectory: workingDirectory
+        )
 
         let entryID = UUID()
         terminal.draft = ""
@@ -1813,7 +1853,7 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: "Terminal")
 
         var finalResult: ToolResult?
-        for await event in ShellToolExecutor().runStreaming(.init(command: command, cwd: workspaceRoot)) {
+        for await event in ShellToolExecutor().runStreaming(executionContext.request) {
             if Task.isCancelled || terminal.entries.first(where: { $0.id == entryID })?.status == .stopped {
                 break
             }
@@ -1828,11 +1868,13 @@ public final class QuillCodeWorkspaceModel {
         }
 
         if terminal.entries.first(where: { $0.id == entryID })?.status == .stopped {
+            Self.removeTerminalMarker(at: executionContext.cwdMarkerURL)
             terminal.isRunning = false
             refreshTopBar(agentStatus: "Stopped")
             return
         }
         guard !Task.isCancelled, let result = finalResult else {
+            Self.removeTerminalMarker(at: executionContext.cwdMarkerURL)
             finishTerminalEntry(
                 id: entryID,
                 stdout: "",
@@ -1847,6 +1889,10 @@ public final class QuillCodeWorkspaceModel {
             return
         }
 
+        terminal.currentDirectoryPath = Self.terminalCurrentDirectoryPath(
+            markerURL: executionContext.cwdMarkerURL,
+            fallback: workingDirectory
+        )
         finishTerminalEntry(
             id: entryID,
             stdout: result.stdout,
@@ -1866,6 +1912,50 @@ public final class QuillCodeWorkspaceModel {
         }
         terminal.entries[index].stdout += stdout
         terminal.entries[index].stderr += stderr
+    }
+
+    private struct TerminalExecutionContext {
+        var request: ShellExecutionRequest
+        var cwdMarkerURL: URL
+    }
+
+    private static func terminalExecutionContext(
+        command: String,
+        workingDirectory: URL
+    ) -> TerminalExecutionContext {
+        let markerURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-terminal-\(UUID().uuidString).cwd")
+        let markerPath = shellSingleQuoted(markerURL.path)
+        let wrappedCommand = """
+        \(command)
+        status=$?
+        printf '%s\n' "$PWD" > \(markerPath)
+        exit "$status"
+        """
+        return TerminalExecutionContext(
+            request: ShellExecutionRequest(command: wrappedCommand, cwd: workingDirectory),
+            cwdMarkerURL: markerURL
+        )
+    }
+
+    private static func terminalCurrentDirectoryPath(markerURL: URL, fallback: URL) -> String {
+        defer { removeTerminalMarker(at: markerURL) }
+        guard let rawPath = try? String(contentsOf: markerURL, encoding: .utf8) else {
+            return fallback.standardizedFileURL.path
+        }
+        let path = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !path.isEmpty else {
+            return fallback.standardizedFileURL.path
+        }
+        return URL(fileURLWithPath: path).standardizedFileURL.path
+    }
+
+    private static func removeTerminalMarker(at url: URL) {
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    private static func shellSingleQuoted(_ value: String) -> String {
+        "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
     }
 
     private func finishTerminalEntry(
@@ -2143,6 +2233,7 @@ public final class QuillCodeWorkspaceModel {
         root.threads.insert(thread, at: 0)
         root.selectedThreadID = thread.id
         root.selectedProjectID = projectID
+        syncTerminalSessionToSelectedProject()
         touchProject(projectID)
         saveProjects()
         try? threadStore?.save(thread)
@@ -2500,6 +2591,7 @@ public final class QuillCodeWorkspaceModel {
         }
         root.selectedThreadID = thread.id
         root.selectedProjectID = knownProjectID(thread.projectID)
+        syncTerminalSessionToSelectedProject()
         touchProject(root.selectedProjectID)
         saveProjects()
     }

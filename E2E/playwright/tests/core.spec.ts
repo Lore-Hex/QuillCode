@@ -725,6 +725,14 @@ test('mock harness runs a command in the integrated terminal', async ({ page }) 
   await expect(page.getByTestId('terminal-status').last()).toHaveText('Done · exit 0');
   await expect(page.getByTestId('terminal-stdout').last()).toContainText('stream-end');
 
+  await page.getByLabel('Terminal command').fill('cd Packages');
+  await page.getByTestId('terminal-run').click();
+  await expect(page.getByTestId('terminal-status').last()).toHaveText('Done · exit 0');
+  await expect(page.getByTestId('terminal-cwd')).toHaveText('/mock/QuillCode/Packages');
+  await page.getByLabel('Terminal command').fill('pwd');
+  await page.getByTestId('terminal-run').click();
+  await expect(page.getByTestId('terminal-stdout').last()).toContainText('/mock/QuillCode/Packages');
+
   await page.getByLabel('Terminal command').fill('sleep 5');
   await page.getByTestId('terminal-run').click();
   await expect(page.getByTestId('terminal-status').last()).toHaveText('Running · running');

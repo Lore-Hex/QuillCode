@@ -612,6 +612,46 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(model.terminal.entries.first?.stdout.contains("terminal-end") == true)
     }
 
+    func testTerminalCommandPersistsCurrentDirectoryAcrossCommands() async throws {
+        let root = try makeTempDirectory()
+        let nested = root.appendingPathComponent("nested")
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        let model = QuillCodeWorkspaceModel()
+        _ = model.addProject(path: root, name: "Terminal Project")
+
+        await model.runTerminalCommand("cd nested", workspaceRoot: root)
+
+        let resolvedNestedPath = nested.resolvingSymlinksInPath().standardizedFileURL.path
+        XCTAssertEqual(model.terminal.currentDirectoryPath, resolvedNestedPath)
+        XCTAssertEqual(model.surface().terminal.cwdLabel, resolvedNestedPath)
+
+        await model.runTerminalCommand("pwd", workspaceRoot: root)
+
+        let printedPath = try XCTUnwrap(model.terminal.entries.last?.stdout)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        XCTAssertEqual(
+            URL(fileURLWithPath: printedPath).resolvingSymlinksInPath().path,
+            URL(fileURLWithPath: try XCTUnwrap(model.terminal.currentDirectoryPath)).resolvingSymlinksInPath().path
+        )
+    }
+
+    func testTerminalCurrentDirectoryResetsWhenProjectChanges() async throws {
+        let firstRoot = try makeTempDirectory()
+        let firstNested = firstRoot.appendingPathComponent("nested")
+        try FileManager.default.createDirectory(at: firstNested, withIntermediateDirectories: true)
+        let secondRoot = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+        _ = model.addProject(path: firstRoot, name: "First")
+
+        await model.runTerminalCommand("cd nested", workspaceRoot: firstRoot)
+        XCTAssertEqual(model.surface().terminal.cwdLabel, firstNested.standardizedFileURL.path)
+
+        _ = model.addProject(path: secondRoot, name: "Second")
+
+        XCTAssertEqual(model.surface().terminal.cwdLabel, secondRoot.standardizedFileURL.path)
+        XCTAssertEqual(model.terminal.currentDirectoryPath, secondRoot.standardizedFileURL.path)
+    }
+
     func testTerminalCancellationMarksRunningEntryStopped() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()

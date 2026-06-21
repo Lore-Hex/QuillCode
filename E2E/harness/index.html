@@ -3753,8 +3753,7 @@
       state.terminal.draft = '';
       state.terminal.isVisible = true;
       state.terminal.isRunning = true;
-      const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
-      const cwd = selectedProject?.path || state.terminal.cwdLabel;
+      const cwd = state.terminal.cwdLabel;
       const entry = {
         command,
         stdout: '',
@@ -3789,6 +3788,7 @@
         entry.exitCode = output.exitCode;
         entry.ok = output.exitCode === 0;
         entry.status = entry.ok ? 'done' : 'failed';
+        state.terminal.cwdLabel = output.cwd || cwd;
         state.terminal.isRunning = false;
         activeTerminalRun = null;
         updateDynamicCommands();
@@ -3799,21 +3799,38 @@
 
     function terminalOutput(command, cwd) {
       if (command === 'stream-demo') {
-        return { stdout: 'stream-start\nstream-end\n', stderr: '', exitCode: 0 };
+        return { stdout: 'stream-start\nstream-end\n', stderr: '', exitCode: 0, cwd };
       }
       if (command === 'pwd') {
-        return { stdout: cwd + '\n', stderr: '', exitCode: 0 };
+        return { stdout: cwd + '\n', stderr: '', exitCode: 0, cwd };
+      }
+      if (/^cd(?:\s+|$)/.test(command)) {
+        const target = command.replace(/^cd\s*/, '').trim() || '/mock/QuillCode';
+        return { stdout: '', stderr: '', exitCode: 0, cwd: normalizeMockTerminalPath(cwd, target) };
       }
       if (command === 'whoami') {
-        return { stdout: 'mock-user\n', stderr: '', exitCode: 0 };
+        return { stdout: 'mock-user\n', stderr: '', exitCode: 0, cwd };
       }
       if (command.startsWith('printf ')) {
-        return { stdout: command.replace(/^printf\\s+/, ''), stderr: '', exitCode: 0 };
+        return { stdout: command.replace(/^printf\\s+/, ''), stderr: '', exitCode: 0, cwd };
       }
       if (command === 'false') {
-        return { stdout: '', stderr: '', exitCode: 1 };
+        return { stdout: '', stderr: '', exitCode: 1, cwd };
       }
-      return { stdout: 'ran: ' + command + '\n', stderr: '', exitCode: 0 };
+      return { stdout: 'ran: ' + command + '\n', stderr: '', exitCode: 0, cwd };
+    }
+
+    function normalizeMockTerminalPath(cwd, target) {
+      const segments = target.startsWith('/') ? [] : cwd.split('/').filter(Boolean);
+      for (const part of target.split('/')) {
+        if (!part || part === '.') continue;
+        if (part === '..') {
+          segments.pop();
+        } else {
+          segments.push(part);
+        }
+      }
+      return '/' + segments.join('/');
     }
 
     function terminalStreamingOutput(command) {

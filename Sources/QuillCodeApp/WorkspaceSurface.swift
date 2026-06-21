@@ -1649,7 +1649,7 @@ public extension QuillCodeWorkspaceModel {
             review: reviewSurface(from: toolCards, events: thread?.events ?? []),
             terminal: TerminalSurface(
                 terminal: terminal,
-                cwd: activeWorkspaceRoot
+                cwd: terminalCurrentDirectoryURL
             ),
             browser: BrowserSurface(browser: browser),
             extensions: WorkspaceExtensionsSurface(
