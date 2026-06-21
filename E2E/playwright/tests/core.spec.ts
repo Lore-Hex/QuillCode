@@ -778,6 +778,10 @@ test('mock harness opens browser preview and records comments', async ({ page })
     'Scheme: HTTP',
     'Path: /'
   ]);
+  await expect(page.getByTestId('browser-snapshot-outline-item')).toContainText([
+    'Page: localhost',
+    'Path: /'
+  ]);
 
   await page.getByLabel('Browser comment').fill('Check hero spacing');
   await expect(page.getByTestId('browser-add-comment')).toBeEnabled();

@@ -41,6 +41,15 @@ final class TrustedRouterAdapterTests: XCTestCase {
         }
         XCTAssertEqual(screenshotCall.name, "host.computer.screenshot")
         XCTAssertEqual(screenshotCall.argumentsJSON, "{}")
+
+        let browserAction = try AgentActionJSONParser.parse("""
+        {"type":"tool","name":"host.browser.inspect","arguments":{}}
+        """)
+        guard case .tool(let browserCall) = browserAction else {
+            return XCTFail("Expected browser inspection tool action")
+        }
+        XCTAssertEqual(browserCall.name, ToolDefinition.browserInspect.name)
+        XCTAssertEqual(browserCall.argumentsJSON, "{}")
     }
 
     func testActionParserParsesSay() throws {

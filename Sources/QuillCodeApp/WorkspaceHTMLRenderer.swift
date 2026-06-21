@@ -438,13 +438,23 @@ public enum WorkspaceHTMLRenderer {
     private static func renderBrowser(_ browser: BrowserSurface) -> String {
         guard browser.isVisible else { return "" }
         let snapshot = browser.snapshot.map { snapshot in
+            let outline = snapshot.outline.isEmpty ? "" : """
+              <ol data-testid="browser-snapshot-outline">
+                \(snapshot.outline.map { #"<li data-testid="browser-snapshot-outline-item">\#(escape($0))</li>"# }.joined(separator: "\n"))
+              </ol>
             """
+            let textSnippet = snapshot.textSnippet.map {
+                #"<p data-testid="browser-snapshot-text">\#(escape($0))</p>"#
+            } ?? ""
+            return """
             <div class="browser-snapshot" data-testid="browser-snapshot">
               <span data-testid="browser-source">\(escape(snapshot.sourceLabel))</span>
               <p data-testid="browser-snapshot-summary">\(escape(snapshot.summary))</p>
               <ul>
                 \(snapshot.details.map { #"<li data-testid="browser-snapshot-detail">\#(escape($0))</li>"# }.joined(separator: "\n"))
               </ul>
+              \(outline)
+              \(textSnippet)
             </div>
             """
         } ?? ""

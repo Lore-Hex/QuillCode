@@ -742,6 +742,7 @@ final class WorkspaceModelTests: XCTestCase {
           <body>
             <h1>Hero Preview</h1>
             <a href="/next">Next</a>
+            <button>Buy now</button>
             <img src="/hero.png" alt="">
             <form><input name="email"></form>
           </body>
@@ -776,15 +777,59 @@ final class WorkspaceModelTests: XCTestCase {
             "Images: 1",
             "Forms: 1"
         ])
+        XCTAssertTrue(model.browser.snapshot?.outline.contains("H1: Hero Preview") == true)
+        XCTAssertTrue(model.browser.snapshot?.outline.contains("Link: Next -> /next") == true)
+        XCTAssertTrue(model.browser.snapshot?.outline.contains("Button: Buy now") == true)
+        XCTAssertTrue(model.browser.snapshot?.outline.contains("Input: email") == true)
+        XCTAssertTrue(model.browser.snapshot?.textSnippet?.contains("Hero Preview Next Buy now") == true)
 
         XCTAssertTrue(model.addBrowserComment("Check the hero spacing"))
         XCTAssertEqual(model.browser.comments.count, 1)
         XCTAssertEqual(model.browser.comments[0].text, "Check the hero spacing")
         XCTAssertEqual(model.browser.comments[0].url, model.browser.currentURL)
 
+        let inspectionResult = model.runToolCall(
+            ToolCall(name: ToolDefinition.browserInspect.name, argumentsJSON: "{}"),
+            workspaceRoot: root
+        )
+        XCTAssertTrue(inspectionResult.ok)
+        let inspection = try JSONHelpers.decode(BrowserInspectionToolOutput.self, from: inspectionResult.stdout)
+        XCTAssertEqual(inspection.title, "Preview Page")
+        XCTAssertEqual(inspection.sourceLabel, "Local HTML")
+        XCTAssertTrue(inspection.outline.contains("H1: Hero Preview"))
+        XCTAssertEqual(inspection.comments.map(\.text), ["Check the hero spacing"])
+
         XCTAssertFalse(model.openBrowserPreview("not-a-valid-target", workspaceRoot: root))
         XCTAssertEqual(model.browser.status, "Invalid address")
         XCTAssertEqual(model.lastError, "Enter an http, https, file, localhost, or project file URL.")
+    }
+
+    func testComposerCanInspectCurrentBrowserPage() async throws {
+        let root = try makeTempDirectory()
+        let previewFile = root.appendingPathComponent("preview.html")
+        try """
+        <!doctype html>
+        <html>
+          <head><title>Browser Agent</title></head>
+          <body>
+            <h1>Agent Preview</h1>
+            <p>Visible copy.</p>
+          </body>
+        </html>
+        """.write(to: previewFile, atomically: true, encoding: .utf8)
+        let model = QuillCodeWorkspaceModel()
+
+        XCTAssertTrue(model.openBrowserPreview("preview.html", workspaceRoot: root))
+        model.setDraft("inspect browser page")
+        await model.submitComposer(workspaceRoot: root)
+
+        let thread = try XCTUnwrap(model.selectedThread)
+        XCTAssertTrue(thread.events.contains { $0.summary.contains(ToolDefinition.browserInspect.name) })
+        XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.browserInspect.name)
+        XCTAssertEqual(model.currentToolCards.last?.status, .done)
+        XCTAssertTrue(thread.messages.last?.content.contains("Inspected `Browser Agent`") == true)
+        XCTAssertTrue(thread.messages.last?.content.contains("H1: Agent Preview") == true)
+        XCTAssertTrue(thread.messages.last?.content.contains("Visible copy.") == true)
     }
 
     func testWorkspaceCommandListsGitWorktrees() throws {

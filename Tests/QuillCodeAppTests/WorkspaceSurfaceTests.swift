@@ -1065,6 +1065,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="browser-current-url""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-snapshot""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-source""#))
+        XCTAssertTrue(html.contains(#"data-testid="browser-snapshot-outline""#))
+        XCTAssertTrue(html.contains("Page: localhost"))
         XCTAssertTrue(html.contains("Local web app"))
         XCTAssertTrue(html.contains("http://localhost:5173"))
         XCTAssertTrue(html.contains(#"data-testid="browser-comment""#))

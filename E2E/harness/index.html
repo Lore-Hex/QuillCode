@@ -3137,6 +3137,8 @@
             <span data-testid="browser-source">${escapeHTML(state.browser.snapshot.sourceLabel)}</span>
             <p data-testid="browser-snapshot-summary">${escapeHTML(state.browser.snapshot.summary)}</p>
             <ul>${state.browser.snapshot.details.map(detail => `<li data-testid="browser-snapshot-detail">${escapeHTML(detail)}</li>`).join('')}</ul>
+            ${state.browser.snapshot.outline?.length ? `<ol data-testid="browser-snapshot-outline">${state.browser.snapshot.outline.map(item => `<li data-testid="browser-snapshot-outline-item">${escapeHTML(item)}</li>`).join('')}</ol>` : ''}
+            ${state.browser.snapshot.textSnippet ? `<p data-testid="browser-snapshot-text">${escapeHTML(state.browser.snapshot.textSnippet)}</p>` : ''}
           </div>` : '';
 	      const preview = state.browser.currentURL ? `
 	        <div class="browser-preview" data-testid="browser-preview">
@@ -3891,11 +3893,16 @@
             summary: /\\.html?$/i.test(fileName)
               ? 'HTML file is ready for browser review.'
               : 'File is ready to open in the browser preview.',
-            details: [`File: ${fileName}`, `Path: ${decodeURIComponent(parsed.pathname)}`]
+            details: [`File: ${fileName}`, `Path: ${decodeURIComponent(parsed.pathname)}`],
+            outline: [`File: ${fileName}`],
+            textSnippet: /\\.html?$/i.test(fileName)
+              ? 'HTML preview text is available when QuillCode opens local project files.'
+              : null
           };
         }
         const host = parsed.hostname || parsed.href;
         const isLocal = ['localhost', '127.0.0.1', '::1'].includes(host);
+        const path = parsed.pathname || '/';
         return {
           sourceLabel: isLocal ? 'Local web app' : 'Web page',
           summary: isLocal
@@ -3904,8 +3911,10 @@
           details: [
             `Host: ${host}`,
             `Scheme: ${parsed.protocol.replace(':', '').toUpperCase()}`,
-            `Path: ${parsed.pathname || '/'}`
-          ]
+            `Path: ${path}`
+          ],
+          outline: [`Page: ${host}`, `Path: ${path}`],
+          textSnippet: null
         };
       }
 

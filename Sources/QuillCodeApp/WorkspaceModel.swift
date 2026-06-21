@@ -336,11 +336,21 @@ public struct BrowserSnapshotState: Sendable, Hashable {
     public var sourceLabel: String
     public var summary: String
     public var details: [String]
+    public var outline: [String]
+    public var textSnippet: String?
 
-    public init(sourceLabel: String, summary: String, details: [String] = []) {
+    public init(
+        sourceLabel: String,
+        summary: String,
+        details: [String] = [],
+        outline: [String] = [],
+        textSnippet: String? = nil
+    ) {
         self.sourceLabel = sourceLabel
         self.summary = summary
         self.details = details
+        self.outline = outline
+        self.textSnippet = textSnippet
     }
 }
 
@@ -760,11 +770,11 @@ public final class QuillCodeWorkspaceModel {
         browser.isVisible = true
         browser.currentURL = url.absoluteString
         browser.addressDraft = url.absoluteString
-        browser.snapshot = Self.browserSnapshot(for: url)
+        browser.snapshot = BrowserInspector.snapshot(for: url)
         browser.title = browser.snapshot?.details
             .first { $0.hasPrefix("Title: ") }
             .map { String($0.dropFirst("Title: ".count)) }
-            ?? Self.browserTitle(for: url)
+            ?? BrowserInspector.title(for: url)
         browser.status = "Preview ready"
         lastError = nil
         refreshTopBar(agentStatus: "Idle")
@@ -1185,11 +1195,16 @@ public final class QuillCodeWorkspaceModel {
             try Task.checkCancellation()
             let activeMCPToolDefinition = mcpToolDefinitionForReadyServers()
             let activeMCPExecutor = mcpToolExecutionOverride()
+            let activeBrowserDefinitions = [ToolDefinition.browserInspect]
+            let activeBrowserExecutor = browserToolExecutionOverride(snapshot: browser)
             let activeComputerDefinitions = computerUseBackend == nil ? [] : ToolDefinition.computerUseDefinitions
             let activeComputerExecutor = computerUseToolExecutionOverride()
             var activeRunner = runner
-            activeRunner.additionalToolDefinitions = activeComputerDefinitions + (activeMCPToolDefinition.map { [$0] } ?? [])
+            activeRunner.additionalToolDefinitions = activeBrowserDefinitions
+                + activeComputerDefinitions
+                + (activeMCPToolDefinition.map { [$0] } ?? [])
             activeRunner.toolExecutionOverride = combinedToolExecutionOverride(
+                browser: activeBrowserExecutor,
                 computerUse: activeComputerExecutor,
                 mcp: activeMCPExecutor
             )
@@ -1667,12 +1682,23 @@ public final class QuillCodeWorkspaceModel {
         }
     }
 
+    private func browserToolExecutionOverride(snapshot: BrowserState) -> AgentToolExecutionOverride {
+        { call, _ in
+            guard call.name == ToolDefinition.browserInspect.name else { return nil }
+            return BrowserInspector.toolResult(from: snapshot)
+        }
+    }
+
     private func combinedToolExecutionOverride(
+        browser: AgentToolExecutionOverride?,
         computerUse: AgentToolExecutionOverride?,
         mcp: AgentToolExecutionOverride?
     ) -> AgentToolExecutionOverride? {
-        guard computerUse != nil || mcp != nil else { return nil }
+        guard browser != nil || computerUse != nil || mcp != nil else { return nil }
         return { call, workspaceRoot in
+            if let result = await browser?(call, workspaceRoot) {
+                return result
+            }
             if let result = await computerUse?(call, workspaceRoot) {
                 return result
             }
@@ -1813,7 +1839,9 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: "Running")
 
         let router = ToolRouter(workspaceRoot: workspaceRoot)
-        let result = router.execute(call)
+        let result = call.name == ToolDefinition.browserInspect.name
+            ? BrowserInspector.toolResult(from: browser)
+            : router.execute(call)
         appendToolRun(call: call, result: result)
         let followUpResult = appendReviewDiffAfterPatchIfNeeded(
             call: call,
@@ -2881,133 +2909,6 @@ public final class QuillCodeWorkspaceModel {
             return nil
         }
         return fileURL
-    }
-
-    private static func browserTitle(for url: URL) -> String {
-        if url.isFileURL {
-            return url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent
-        }
-        return url.host ?? url.absoluteString
-    }
-
-    private static let browserSnapshotMaxBytes = 512_000
-
-    private static func browserSnapshot(for url: URL) -> BrowserSnapshotState {
-        if url.isFileURL {
-            return fileBrowserSnapshot(for: url)
-        }
-
-        let scheme = (url.scheme ?? "https").uppercased()
-        let host = url.host ?? url.absoluteString
-        let isLocal = ["localhost", "127.0.0.1", "::1"].contains(host)
-        let sourceLabel = isLocal ? "Local web app" : "Web page"
-        let path = url.path.isEmpty ? "/" : url.path
-        return BrowserSnapshotState(
-            sourceLabel: sourceLabel,
-            summary: isLocal
-                ? "Ready to inspect a local development page."
-                : "Ready to open in the browser preview.",
-            details: [
-                "Host: \(host)",
-                "Scheme: \(scheme)",
-                "Path: \(path)"
-            ]
-        )
-    }
-
-    private static func fileBrowserSnapshot(for url: URL) -> BrowserSnapshotState {
-        let fileName = url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent
-        let attributes = (try? FileManager.default.attributesOfItem(atPath: url.path)) ?? [:]
-        let byteCount = (attributes[.size] as? NSNumber)?.intValue ?? 0
-        let extensionName = url.pathExtension.lowercased()
-        let isHTML = ["html", "htm", "xhtml"].contains(extensionName)
-        var details = ["File: \(fileName)", "Size: \(byteCount) bytes"]
-
-        guard isHTML else {
-            return BrowserSnapshotState(
-                sourceLabel: "Local file",
-                summary: "File is ready to open in the browser preview.",
-                details: details
-            )
-        }
-
-        details.insert("Type: HTML", at: 1)
-        guard byteCount <= browserSnapshotMaxBytes,
-              let data = try? Data(contentsOf: url),
-              let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .ascii)
-        else {
-            details.append("Snapshot: skipped because the file is too large or unreadable")
-            return BrowserSnapshotState(
-                sourceLabel: "Local HTML",
-                summary: "HTML file is ready to open; metadata snapshot was skipped.",
-                details: details
-            )
-        }
-
-        if let title = firstHTMLCapture(in: html, pattern: #"<title[^>]*>(.*?)</title>"#) {
-            details.append("Title: \(title)")
-        }
-        if let heading = firstHTMLCapture(in: html, pattern: #"<h[1-2][^>]*>(.*?)</h[1-2]>"#) {
-            details.append("Heading: \(heading)")
-        }
-        details.append("Links: \(htmlTagCount("a", in: html))")
-        details.append("Scripts: \(htmlTagCount("script", in: html))")
-        details.append("Images: \(htmlTagCount("img", in: html))")
-        details.append("Forms: \(htmlTagCount("form", in: html))")
-
-        return BrowserSnapshotState(
-            sourceLabel: "Local HTML",
-            summary: "HTML snapshot captured for browser review.",
-            details: details
-        )
-    }
-
-    private static func firstHTMLCapture(in html: String, pattern: String) -> String? {
-        guard let regex = try? NSRegularExpression(
-            pattern: pattern,
-            options: [.caseInsensitive, .dotMatchesLineSeparators]
-        ) else {
-            return nil
-        }
-        let range = NSRange(html.startIndex..<html.endIndex, in: html)
-        guard let match = regex.firstMatch(in: html, range: range),
-              match.numberOfRanges > 1,
-              let captureRange = Range(match.range(at: 1), in: html)
-        else {
-            return nil
-        }
-        return cleanHTMLText(String(html[captureRange]))
-    }
-
-    private static func htmlTagCount(_ tag: String, in html: String) -> Int {
-        let escapedTag = NSRegularExpression.escapedPattern(for: tag)
-        guard let regex = try? NSRegularExpression(
-            pattern: #"<\s*\#(escapedTag)(\s|>|/)"#,
-            options: [.caseInsensitive]
-        ) else {
-            return 0
-        }
-        let range = NSRange(html.startIndex..<html.endIndex, in: html)
-        return regex.numberOfMatches(in: html, range: range)
-    }
-
-    private static func cleanHTMLText(_ raw: String) -> String {
-        let withoutTags = raw.replacingOccurrences(
-            of: #"<[^>]+>"#,
-            with: " ",
-            options: .regularExpression
-        )
-        let decoded = withoutTags
-            .replacingOccurrences(of: "&amp;", with: "&")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&#39;", with: "'")
-            .replacingOccurrences(of: "&apos;", with: "'")
-        return decoded
-            .components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
     }
 
     private static func updateCard(

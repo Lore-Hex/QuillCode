@@ -189,6 +189,10 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
+        if Self.isBrowserInspectionRequest(lower), tools.contains(where: { $0.name == ToolDefinition.browserInspect.name }) {
+            return .tool(.init(name: ToolDefinition.browserInspect.name, argumentsJSON: "{}"))
+        }
+
         if lower.contains("disk") || lower.contains("storage") || lower.contains("how much hd") {
             return .tool(.init(
                 name: ToolDefinition.shellRun.name,
@@ -302,6 +306,19 @@ public struct MockLLMClient: LLMClient {
             .map(String.init)
         return tokens.contains("pr")
             && (tokens.contains("create") || tokens.contains("open") || tokens.contains("submit"))
+    }
+
+    static func isBrowserInspectionRequest(_ lowercasedRequest: String) -> Bool {
+        let browserTerms = lowercasedRequest.contains("browser")
+            || lowercasedRequest.contains("page")
+            || lowercasedRequest.contains("preview")
+            || lowercasedRequest.contains("localhost")
+        let inspectionTerms = lowercasedRequest.contains("inspect")
+            || lowercasedRequest.contains("look at")
+            || lowercasedRequest.contains("what is on")
+            || lowercasedRequest.contains("summarize")
+            || lowercasedRequest.contains("snapshot")
+        return browserTerms && inspectionTerms
     }
 
     static func extractPullRequestArguments(from request: String) -> [String: String] {
@@ -754,6 +771,11 @@ public struct AgentRunner: Sendable {
             }
         }
 
+        if call.name == ToolDefinition.browserInspect.name,
+           let inspection = try? JSONHelpers.decode(BrowserInspectionToolOutput.self, from: result.stdout) {
+            return browserInspectionAnswer(inspection)
+        }
+
         if call.name == ToolDefinition.computerScreenshot.name,
            let screenshot = try? JSONHelpers.decode(ComputerScreenshotToolOutput.self, from: result.stdout) {
             return "Captured a screenshot (\(screenshot.width) x \(screenshot.height))."
@@ -771,6 +793,23 @@ public struct AgentRunner: Sendable {
             return "Done."
         }
         return "Output:\n\(Self.truncated(output))"
+    }
+
+    private static func browserInspectionAnswer(_ inspection: BrowserInspectionToolOutput) -> String {
+        var lines = [
+            "Inspected `\(inspection.title)` at \(inspection.url).",
+            inspection.summary
+        ]
+        if !inspection.outline.isEmpty {
+            lines.append("Outline: \(inspection.outline.prefix(5).joined(separator: "; ")).")
+        }
+        if let textSnippet = inspection.textSnippet?.trimmedNonEmpty {
+            lines.append("Text: \(Self.truncated(textSnippet, maxCharacters: 320))")
+        }
+        if !inspection.comments.isEmpty {
+            lines.append("Browser comments: \(inspection.comments.map(\.text).prefix(3).joined(separator: "; ")).")
+        }
+        return lines.joined(separator: "\n")
     }
 
     private static func shellAnswer(command: String, result: ToolResult) -> String? {

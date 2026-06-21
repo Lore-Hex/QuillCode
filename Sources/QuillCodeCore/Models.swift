@@ -100,6 +100,62 @@ public struct ToolResult: Codable, Sendable, Hashable {
     }
 }
 
+public struct BrowserInspectionComment: Codable, Sendable, Hashable {
+    public var url: String
+    public var text: String
+    public var createdAt: Date
+
+    public init(url: String, text: String, createdAt: Date) {
+        self.url = url
+        self.text = text
+        self.createdAt = createdAt
+    }
+}
+
+public struct BrowserInspectionToolOutput: Codable, Sendable, Hashable {
+    public var url: String
+    public var title: String
+    public var status: String
+    public var sourceLabel: String
+    public var summary: String
+    public var details: [String]
+    public var outline: [String]
+    public var textSnippet: String?
+    public var comments: [BrowserInspectionComment]
+
+    public init(
+        url: String,
+        title: String,
+        status: String,
+        sourceLabel: String,
+        summary: String,
+        details: [String],
+        outline: [String] = [],
+        textSnippet: String? = nil,
+        comments: [BrowserInspectionComment] = []
+    ) {
+        self.url = url
+        self.title = title
+        self.status = status
+        self.sourceLabel = sourceLabel
+        self.summary = summary
+        self.details = details
+        self.outline = outline
+        self.textSnippet = textSnippet
+        self.comments = comments
+    }
+}
+
+public extension ToolDefinition {
+    static let browserInspect = ToolDefinition(
+        name: "host.browser.inspect",
+        description: "Inspect the current QuillCode browser preview page, including URL, title, summary, visible page outline, text snippet, and attached browser comments.",
+        parametersJSON: #"{"type":"object","properties":{}}"#,
+        host: .browser,
+        risk: .read
+    )
+}
+
 public enum ApprovalVerdict: String, Codable, Sendable {
     case approve
     case deny

@@ -245,6 +245,37 @@ final class AgentTests: XCTestCase {
         XCTAssertLessThan(answer.count, 2_100)
     }
 
+    func testBrowserInspectFinalAnswerSummarizesPage() throws {
+        let output = BrowserInspectionToolOutput(
+            url: "http://localhost:5173",
+            title: "Preview Page",
+            status: "Preview ready",
+            sourceLabel: "Local web app",
+            summary: "Ready to inspect a local development page.",
+            details: ["Host: localhost", "Scheme: HTTP", "Path: /"],
+            outline: ["Page: localhost", "Path: /", "H1: Hero Preview"],
+            textSnippet: "Hero Preview Buy now",
+            comments: [
+                .init(
+                    url: "http://localhost:5173",
+                    text: "Check the hero spacing",
+                    createdAt: Date(timeIntervalSince1970: 0)
+                )
+            ]
+        )
+        let call = ToolCall(name: ToolDefinition.browserInspect.name, argumentsJSON: "{}")
+
+        let answer = AgentRunner.finalAnswer(
+            for: call,
+            result: ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(output))
+        )
+
+        XCTAssertTrue(answer.contains("Inspected `Preview Page` at http://localhost:5173."))
+        XCTAssertTrue(answer.contains("Outline: Page: localhost; Path: /; H1: Hero Preview."))
+        XCTAssertTrue(answer.contains("Text: Hero Preview Buy now"))
+        XCTAssertTrue(answer.contains("Browser comments: Check the hero spacing."))
+    }
+
     func testApplyPatchFinalAnswerMentionsDiffRefreshFailure() throws {
         let call = ToolCall(
             name: ToolDefinition.applyPatch.name,

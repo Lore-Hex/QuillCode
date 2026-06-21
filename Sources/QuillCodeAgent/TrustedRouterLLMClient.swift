@@ -219,6 +219,7 @@ public enum AgentActionJSONParser {
         case ToolDefinition.gitStatus.name,
             ToolDefinition.gitDiff.name,
             ToolDefinition.gitWorktreeList.name,
+            ToolDefinition.browserInspect.name,
             ToolDefinition.computerScreenshot.name:
             return false
         default:

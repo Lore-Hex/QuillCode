@@ -784,11 +784,32 @@ public struct BrowserSnapshotSurface: Codable, Sendable, Hashable {
     public var sourceLabel: String
     public var summary: String
     public var details: [String]
+    public var outline: [String]
+    public var textSnippet: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case sourceLabel
+        case summary
+        case details
+        case outline
+        case textSnippet
+    }
 
     public init(snapshot: BrowserSnapshotState) {
         self.sourceLabel = snapshot.sourceLabel
         self.summary = snapshot.summary
         self.details = snapshot.details
+        self.outline = snapshot.outline
+        self.textSnippet = snapshot.textSnippet
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.sourceLabel = try container.decode(String.self, forKey: .sourceLabel)
+        self.summary = try container.decode(String.self, forKey: .summary)
+        self.details = try container.decodeIfPresent([String].self, forKey: .details) ?? []
+        self.outline = try container.decodeIfPresent([String].self, forKey: .outline) ?? []
+        self.textSnippet = try container.decodeIfPresent(String.self, forKey: .textSnippet)
     }
 }
 

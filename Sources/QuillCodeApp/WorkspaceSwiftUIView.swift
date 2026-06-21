@@ -1972,6 +1972,25 @@ private struct QuillCodeBrowserPaneView: View {
                                     .clipShape(Capsule())
                             }
                         }
+                        if !snapshot.outline.isEmpty {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Page outline")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(QuillCodePalette.muted)
+                                ForEach(snapshot.outline.prefix(8), id: \.self) { item in
+                                    Text(item)
+                                        .font(.caption2)
+                                        .foregroundStyle(QuillCodePalette.text)
+                                        .lineLimit(1)
+                                }
+                            }
+                        }
+                        if let textSnippet = snapshot.textSnippet {
+                            Text(textSnippet)
+                                .font(.caption2)
+                                .foregroundStyle(QuillCodePalette.muted)
+                                .lineLimit(4)
+                        }
                     } else {
                         Text("Ready for page inspection.")
                             .font(.caption)

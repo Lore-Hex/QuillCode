@@ -334,7 +334,6 @@ private final class StreamingShellProcess: @unchecked Sendable {
         if let activeProcess {
             (activeProcess.standardOutput as? Pipe)?.fileHandleForReading.readabilityHandler = nil
             (activeProcess.standardError as? Pipe)?.fileHandleForReading.readabilityHandler = nil
-            activeProcess.terminationHandler = nil
         }
 
         continuation.yield(.finished(ToolResult(
