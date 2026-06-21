@@ -261,8 +261,8 @@ final class WorkspaceModelTests: XCTestCase {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel(runner: AgentRunner(
             llm: DelayedStreamingSayLLMClient(chunks: [
-                #"{"type":"say","#,
-                #""text":"streamed response"}"#
+                #"{"type":"say","text":"stream"#,
+                #"ed response"}"#
             ])
         ))
 
@@ -275,6 +275,10 @@ final class WorkspaceModelTests: XCTestCase {
             model.root.topBar.agentStatus == "Streaming"
         }
         XCTAssertTrue(model.composer.isSending)
+        try await waitUntil(timeoutSeconds: 1) {
+            model.selectedThread?.messages.last?.content == "stream"
+        }
+        XCTAssertEqual(model.surface().transcript.timelineItems.last?.message?.text, "stream")
 
         await task.value
 
@@ -1687,8 +1691,11 @@ private struct DelayedStreamingSayLLMClient: StreamingLLMClient {
             Task {
                 do {
                     try await Task.sleep(nanoseconds: 150_000_000)
-                    for chunk in chunks {
+                    for (index, chunk) in chunks.enumerated() {
                         continuation.yield(chunk)
+                        if index < chunks.count - 1 {
+                            try await Task.sleep(nanoseconds: 150_000_000)
+                        }
                     }
                     continuation.finish()
                 } catch {

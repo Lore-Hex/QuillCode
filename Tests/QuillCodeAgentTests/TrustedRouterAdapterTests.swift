@@ -51,6 +51,15 @@ final class TrustedRouterAdapterTests: XCTestCase {
         }
     }
 
+    func testStreamingPreviewExposesOnlySayText() {
+        XCTAssertEqual(
+            AgentActionStreamPreview.visibleAssistantText(from: #"{"type":"say","text":"hello\nwor"#),
+            "hello\nwor"
+        )
+        XCTAssertNil(AgentActionStreamPreview.visibleAssistantText(from: #"{"type":"tool","name":"host.shell.run","arguments":{"cmd":"printf text"}}"#))
+        XCTAssertNil(AgentActionStreamPreview.visibleAssistantText(from: #"{"type":"say"}"#))
+    }
+
     func testPromptRequiresNonEmptyShellCommand() {
         let prompt = TrustedRouterLLMClient.systemPrompt(tools: [.shellRun, .fileWrite])
         XCTAssertTrue(prompt.contains("MUST include a non-empty \"cmd\""))

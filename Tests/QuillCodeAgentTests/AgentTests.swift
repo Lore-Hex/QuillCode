@@ -131,6 +131,33 @@ final class AgentTests: XCTestCase {
         XCTAssertTrue(result.thread.messages.last?.content.hasPrefix("You are `") == true)
     }
 
+    func testStreamingSayActionPublishesDraftAndFinalizesWithoutDuplicateMessage() async throws {
+        let root = try makeTempDirectory()
+        let recorder = ProgressRecorder()
+        let runner = AgentRunner(llm: StreamingActionLLMClient(chunks: [
+            #"{"type":"say","text":"hello"#,
+            #" world"}"#
+        ]))
+
+        let result = try await runner.send(
+            "say hello",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root,
+            onProgress: { thread in
+                await recorder.record(thread)
+            }
+        )
+
+        XCTAssertEqual(result.toolResults.count, 0)
+        XCTAssertEqual(result.thread.messages.map(\.role), [.user, .assistant])
+        XCTAssertEqual(result.thread.messages.last?.content, "hello world")
+        XCTAssertEqual(result.thread.events.map(\.kind), [.message, .notice, .message])
+        XCTAssertEqual(result.thread.events.last?.summary, "hello world")
+        let progressMessages = await recorder.messageContents()
+        XCTAssertTrue(progressMessages.contains(["say hello", "hello"]))
+        XCTAssertTrue(progressMessages.contains(["say hello", "hello world"]))
+    }
+
     func testOpenClawDiscoverySummarizesMissingBinary() throws {
         let call = ToolCall(
             name: ToolDefinition.shellRun.name,
@@ -249,14 +276,20 @@ final class AgentTests: XCTestCase {
 
 private actor ProgressRecorder {
     private var kinds: [ThreadEventKind] = []
+    private var contents: [[String]] = []
 
     func record(_ thread: ChatThread) {
         guard let kind = thread.events.last?.kind else { return }
         kinds.append(kind)
+        contents.append(thread.messages.map(\.content))
     }
 
     func eventKinds() -> [ThreadEventKind] {
         kinds
+    }
+
+    func messageContents() -> [[String]] {
+        contents
     }
 }
 
