@@ -2789,10 +2789,15 @@ private struct QuillCodeComposerView: View {
     @Binding var draft: String
     var onSend: () -> Void
 
+    @State private var activeSlashSuggestionIndex = 0
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if !composer.slashSuggestions.isEmpty {
-                QuillCodeSlashSuggestionPanel(suggestions: composer.slashSuggestions) { suggestion in
+                QuillCodeSlashSuggestionPanel(
+                    suggestions: composer.slashSuggestions,
+                    selectedIndex: activeSlashSuggestionIndex
+                ) { suggestion in
                     draft = suggestion.insertText
                 }
             }
@@ -2804,6 +2809,24 @@ private struct QuillCodeComposerView: View {
                     .background(Color.black.opacity(0.18))
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .disabled(composer.isSending)
+                    .onKeyPress(.downArrow) {
+                        guard !composer.slashSuggestions.isEmpty else { return .ignored }
+                        activeSlashSuggestionIndex = min(activeSlashSuggestionIndex + 1, composer.slashSuggestions.count - 1)
+                        return .handled
+                    }
+                    .onKeyPress(.upArrow) {
+                        guard !composer.slashSuggestions.isEmpty else { return .ignored }
+                        activeSlashSuggestionIndex = max(activeSlashSuggestionIndex - 1, 0)
+                        return .handled
+                    }
+                    .onKeyPress(.tab) {
+                        guard acceptActiveSlashSuggestion(force: true) else { return .ignored }
+                        return .handled
+                    }
+                    .onKeyPress(.return) {
+                        guard acceptActiveSlashSuggestion(force: false) else { return .ignored }
+                        return .handled
+                    }
                     .onSubmit(onSend)
                 Button {
                     onSend()
@@ -2818,11 +2841,33 @@ private struct QuillCodeComposerView: View {
         }
         .padding(14)
         .background(QuillCodePalette.panel)
+        .onChange(of: draft) { _, _ in
+            activeSlashSuggestionIndex = 0
+        }
+        .onChange(of: composer.slashSuggestions) { _, suggestions in
+            if suggestions.isEmpty {
+                activeSlashSuggestionIndex = 0
+            } else {
+                activeSlashSuggestionIndex = min(activeSlashSuggestionIndex, suggestions.count - 1)
+            }
+        }
+    }
+
+    private func acceptActiveSlashSuggestion(force: Bool) -> Bool {
+        guard !composer.slashSuggestions.isEmpty else { return false }
+        let index = min(max(activeSlashSuggestionIndex, 0), composer.slashSuggestions.count - 1)
+        let suggestion = composer.slashSuggestions[index]
+        guard force || draft != suggestion.insertText || suggestion.insertText.hasSuffix(" ") else {
+            return false
+        }
+        draft = suggestion.insertText
+        return true
     }
 }
 
 private struct QuillCodeSlashSuggestionPanel: View {
     var suggestions: [SlashCommandSuggestionSurface]
+    var selectedIndex: Int
     var onSelect: (SlashCommandSuggestionSurface) -> Void
 
     var body: some View {
@@ -2832,6 +2877,7 @@ private struct QuillCodeSlashSuggestionPanel: View {
                 .foregroundStyle(QuillCodePalette.muted)
                 .textCase(.uppercase)
             ForEach(suggestions) { suggestion in
+                let isSelected = suggestions.firstIndex(of: suggestion) == selectedIndex
                 Button {
                     onSelect(suggestion)
                 } label: {
@@ -2854,6 +2900,8 @@ private struct QuillCodeSlashSuggestionPanel: View {
                     }
                     .padding(.vertical, 7)
                     .padding(.horizontal, 10)
+                    .background(isSelected ? Color.accentColor.opacity(0.16) : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)

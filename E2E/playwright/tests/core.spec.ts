@@ -779,17 +779,31 @@ test('mock harness suggests slash commands in the composer', async ({ page }) =>
   await expect(page.getByTestId('slash-suggestions')).toBeVisible();
   await expect(page.getByTestId('slash-suggestion')).toHaveCount(6);
   await expect(page.getByTestId('slash-suggestion').first()).toContainText('/help');
+  await expect(page.locator('[data-testid="slash-suggestion"][data-selected="true"]')).toContainText('/help');
+
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('[data-testid="slash-suggestion"][data-selected="true"]')).toContainText('/status');
 
   await message.fill('/wor');
   await expect(page.getByTestId('slash-suggestion').first()).toContainText('/worktrees');
-
-  await page.getByTestId('slash-suggestion').first().click();
+  await page.keyboard.press('Enter');
   await expect(message).toHaveValue('/worktrees');
   await expect(message).toBeFocused();
 
-  await page.getByRole('button', { name: 'Send' }).click();
+  await page.keyboard.press('Enter');
   await expect(page.getByTestId('slash-suggestions')).toHaveCount(0);
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.worktree.list');
+
+  await message.fill('/project r');
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('[data-testid="slash-suggestion"][data-selected="true"]')).toContainText('/project rename name');
+  await page.keyboard.press('Tab');
+  await expect(message).toHaveValue('/project rename ');
+
+  await message.fill('/wor');
+  await page.getByTestId('slash-suggestion').first().click();
+  await expect(message).toHaveValue('/worktrees');
+  await expect(message).toBeFocused();
 });
 
 test('mock harness searches and selects models from the top bar', async ({ page }) => {

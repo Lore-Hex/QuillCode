@@ -945,7 +945,8 @@
       color: var(--text);
     }
     .slash-suggestion:hover,
-    .slash-suggestion:focus-visible {
+    .slash-suggestion:focus-visible,
+    .slash-suggestion.selected {
       background: rgba(65,184,232,.16);
       outline: none;
     }
@@ -1166,7 +1167,8 @@
         draft: '',
         placeholder: 'Message QuillCode',
         isSending: false,
-        canSend: false
+        canSend: false,
+        slashActiveIndex: 0
       },
       settings: {
         isOpen: false,
@@ -1316,6 +1318,45 @@
       const searchable = [definition.usage, definition.title, definition.detail, ...definition.aliases]
         .map(normalizeSlashText);
       return searchable.some(value => value.includes(query)) ? 70 : null;
+    }
+
+    function clampSlashActiveIndex(suggestions = slashSuggestions(state.composer.draft)) {
+      if (!suggestions.length) {
+        state.composer.slashActiveIndex = 0;
+        return;
+      }
+      state.composer.slashActiveIndex = Math.max(
+        0,
+        Math.min(state.composer.slashActiveIndex || 0, suggestions.length - 1)
+      );
+    }
+
+    function moveSlashSuggestion(delta) {
+      const suggestions = slashSuggestions(state.composer.draft);
+      if (!suggestions.length) return false;
+      const current = state.composer.slashActiveIndex || 0;
+      state.composer.slashActiveIndex = (current + delta + suggestions.length) % suggestions.length;
+      render();
+      document.getElementById('message')?.focus();
+      return true;
+    }
+
+    function acceptSlashSuggestion({ force = false } = {}) {
+      const suggestions = slashSuggestions(state.composer.draft);
+      if (!suggestions.length) return false;
+      clampSlashActiveIndex(suggestions);
+      const suggestion = suggestions[state.composer.slashActiveIndex];
+      if (!force && state.composer.draft === suggestion.insertText && !suggestion.insertText.endsWith(' ')) {
+        return false;
+      }
+      state.composer.draft = suggestion.insertText;
+      state.composer.canSend = state.composer.draft.trim().length > 0;
+      state.composer.slashActiveIndex = 0;
+      render();
+      const input = document.getElementById('message');
+      input?.focus();
+      input?.setSelectionRange(state.composer.draft.length, state.composer.draft.length);
+      return true;
     }
 
     function authModeLabel(authMode) {
@@ -2013,6 +2054,7 @@
       input.addEventListener('input', event => {
         state.composer.draft = event.target.value;
         state.composer.canSend = state.composer.draft.trim().length > 0;
+        state.composer.slashActiveIndex = 0;
         const shouldRenderSuggestions = state.composer.draft.trimStart().startsWith('/');
         if (shouldRenderSuggestions || document.querySelector('[data-testid="slash-suggestions"]')) {
           const cursor = state.composer.draft.length;
@@ -2024,6 +2066,24 @@
           document.querySelector('[data-testid="send-button"]').disabled = !state.composer.canSend;
         }
       });
+      input.addEventListener('keydown', event => {
+        const suggestions = slashSuggestions(state.composer.draft);
+        if (!suggestions.length) return;
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          moveSlashSuggestion(1);
+        } else if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          moveSlashSuggestion(-1);
+        } else if (event.key === 'Tab') {
+          event.preventDefault();
+          acceptSlashSuggestion({ force: true });
+        } else if (event.key === 'Enter') {
+          if (acceptSlashSuggestion({ force: false })) {
+            event.preventDefault();
+          }
+        }
+      });
       form.addEventListener('submit', event => {
         event.preventDefault();
         sendMessage(input.value);
@@ -2032,10 +2092,8 @@
         button.addEventListener('click', event => {
           state.composer.draft = event.currentTarget.getAttribute('data-insert-text') || '';
           state.composer.canSend = state.composer.draft.trim().length > 0;
-          render();
-          const nextInput = document.getElementById('message');
-          nextInput?.focus();
-          nextInput?.setSelectionRange(state.composer.draft.length, state.composer.draft.length);
+          state.composer.slashActiveIndex = 0;
+          acceptSlashSuggestion({ force: true });
         });
       });
       document.querySelector('[data-testid="model-picker-button"]').addEventListener('click', () => {
@@ -2596,12 +2654,14 @@
     function renderSlashSuggestions() {
       const suggestions = slashSuggestions(state.composer.draft);
       if (!suggestions.length) return '';
-      const rows = suggestions.map(suggestion => `
+      clampSlashActiveIndex(suggestions);
+      const rows = suggestions.map((suggestion, index) => `
         <button
-          class="slash-suggestion"
+          class="slash-suggestion ${index === state.composer.slashActiveIndex ? 'selected' : ''}"
           type="button"
           data-testid="slash-suggestion"
           data-insert-text="${escapeHTML(suggestion.insertText)}"
+          data-selected="${index === state.composer.slashActiveIndex ? 'true' : 'false'}"
         >
           <span class="slash-usage">${escapeHTML(suggestion.usage)}</span>
           <span>
@@ -2855,6 +2915,7 @@
       };
       state.composer.draft = '';
       state.composer.canSend = false;
+      state.composer.slashActiveIndex = 0;
       state.topBar.primaryTitle = 'QuillCode';
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       state.topBar.subtitle = `${selectedProject?.name || 'No project'} - Not started`;
@@ -3680,6 +3741,7 @@
       ensureThread(text.split(/\s+/).slice(0, 6).join(' '));
       state.composer.draft = '';
       state.composer.canSend = false;
+      state.composer.slashActiveIndex = 0;
       state.runtimeIssue = null;
       addMessage('user', text);
       if (text.toLowerCase().includes('trigger rate limit')) {

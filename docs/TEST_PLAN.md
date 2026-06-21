@@ -46,7 +46,7 @@ Drive the QuillCode test harness with mock LLM:
 - plugin install
 - settings, runtime issue diagnostics, and secret redaction
 - top bar stop-all
-- slash commands for mode, compact context, terminal, browser, worktrees, and PR prep, plus composer slash suggestion filtering, click-to-insert, focus retention, and send-through-existing-command-path behavior
+- slash commands for mode, compact context, terminal, browser, worktrees, and PR prep, plus composer slash suggestion filtering, selected-row keyboard navigation, Enter/Tab accept behavior, click-to-insert, focus retention, and send-through-existing-command-path behavior
 - worktree create handoff into the selected worktree project and thread
 - remote-pairing mock
 
