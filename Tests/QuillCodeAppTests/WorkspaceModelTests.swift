@@ -763,6 +763,10 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(memories.globalCount, 1)
         XCTAssertEqual(memories.projectCount, 1)
         XCTAssertEqual(memories.items.map { $0.scope }, [MemoryScope.global, .project])
+        XCTAssertEqual(memories.items.first?.canDelete, true)
+        XCTAssertNotNil(memories.items.first?.deleteCommandID)
+        XCTAssertEqual(memories.items.last?.canDelete, false)
+        XCTAssertNil(memories.items.last?.deleteCommandID)
         XCTAssertEqual(model.surface().topBar.memoryLabel, "2 memories")
     }
 
@@ -788,10 +792,71 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.selectedThread?.messages.last?.role, .assistant)
         XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("Saved memory: \(memory.title)") == true)
         XCTAssertEqual(model.surface().topBar.memoryLabel, "1 memory")
+        XCTAssertEqual(model.surface().memories.items.first?.canDelete, true)
+        XCTAssertEqual(model.surface().memories.items.first?.deleteCommandID, "memory-delete:\(memory.id)")
 
         let filename = memory.relativePath.replacingOccurrences(of: "memories/", with: "")
         let savedURL = globalMemories.appendingPathComponent(filename)
         XCTAssertEqual(try String(contentsOf: savedURL, encoding: .utf8), "Prefer small reviewable commits\n")
+    }
+
+    func testMemoryDeleteWorkspaceCommandRemovesGlobalMemoryAndRefreshesThreadSurface() throws {
+        let root = try makeTempDirectory()
+        let globalMemories = try makeTempDirectory()
+        try "Prefer concise progress updates.\n".write(
+            to: globalMemories.appendingPathComponent("preferences.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let projectMemoryDirectory = root.appendingPathComponent(".quillcode/memories")
+        try FileManager.default.createDirectory(at: projectMemoryDirectory, withIntermediateDirectories: true)
+        try "This project uses SwiftUI.\n".write(
+            to: projectMemoryDirectory.appendingPathComponent("project.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let model = QuillCodeWorkspaceModel(globalMemoryDirectory: globalMemories)
+        let projectID = model.addProject(path: root, name: "Memory Delete Project")
+        model.selectProject(projectID)
+        _ = model.newChat(projectID: projectID)
+
+        let global = try XCTUnwrap(model.root.globalMemories.first)
+        XCTAssertTrue(model.runWorkspaceCommand("memory-delete:\(global.id)", workspaceRoot: root))
+
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: globalMemories.appendingPathComponent("preferences.md").path
+        ))
+        XCTAssertEqual(model.root.globalMemories, [])
+        XCTAssertEqual(model.selectedThread?.memories.map(\.relativePath), [".quillcode/memories/project.md"])
+        XCTAssertEqual(model.selectedThread?.events.last?.summary, "Forgot memory: Preferences")
+        XCTAssertEqual(model.selectedThread?.events.last?.payloadJSON, "memories/preferences.md")
+        XCTAssertEqual(model.selectedThread?.messages.last?.role, .assistant)
+        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("Forgot memory: Preferences") == true)
+        XCTAssertEqual(model.surface().topBar.memoryLabel, "1 memory")
+        XCTAssertEqual(model.surface().memories.items.map(\.scope), [.project])
+    }
+
+    func testMemoryDeleteRejectsUnknownGlobalMemoryIDWithoutRemovingFiles() throws {
+        let root = try makeTempDirectory()
+        let globalMemories = try makeTempDirectory()
+        try "Prefer concise progress updates.\n".write(
+            to: globalMemories.appendingPathComponent("preferences.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let model = QuillCodeWorkspaceModel(globalMemoryDirectory: globalMemories)
+        _ = model.newChat()
+
+        XCTAssertTrue(model.runWorkspaceCommand("memory-delete:missing-memory", workspaceRoot: root))
+
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: globalMemories.appendingPathComponent("preferences.md").path
+        ))
+        XCTAssertEqual(model.root.globalMemories.map(\.relativePath), ["memories/preferences.md"])
+        XCTAssertEqual(model.selectedThread?.title, "Memory not deleted")
+        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("not found") == true)
     }
 
     func testSlashRememberRejectsCredentialLikeMemory() async throws {

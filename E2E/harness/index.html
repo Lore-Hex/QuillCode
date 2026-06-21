@@ -305,6 +305,7 @@
     .extensions-counts span,
     .memories-counts span,
     .memories-add-button,
+    .memory-delete-button,
     .extension-card [data-testid="extension-kind"],
     .extension-card [data-testid="extension-status"],
     .memory-card [data-testid="memory-scope"],
@@ -317,9 +318,16 @@
       font-size: 11px;
       font-weight: 700;
     }
-    .memories-add-button {
+    .memories-add-button,
+    .memory-delete-button {
       font: inherit;
       cursor: pointer;
+    }
+    .memory-delete-button {
+      color: #ffb7b7;
+      background: rgba(255,82,82,.1);
+      border-color: rgba(255,82,82,.16);
+      margin-left: auto;
     }
     .extension-card [data-testid="extension-status"] {
       color: var(--green);
@@ -805,7 +813,9 @@
             title: 'Preferences',
             preview: 'Prefer focused tests, small reviewable commits, and direct status updates while work is running.',
             relativePath: 'memories/preferences.md',
-            byteCountLabel: '91 bytes'
+            byteCountLabel: '91 bytes',
+            canDelete: true,
+            deleteCommandID: 'memory-delete:global:memories/preferences.md'
           },
           {
             id: 'project:.quillcode/memories/project.md',
@@ -814,7 +824,9 @@
             title: 'Project',
             preview: 'QuillCode should stay native Swift/SwiftUI and keep Codex parity decisions documented.',
             relativePath: '.quillcode/memories/project.md',
-            byteCountLabel: '86 bytes'
+            byteCountLabel: '86 bytes',
+            canDelete: false,
+            deleteCommandID: null
           }
         ]
       },
@@ -973,13 +985,28 @@
         title,
         preview: trimmed,
         relativePath: id.replace('global:', ''),
-        byteCountLabel: `${new TextEncoder().encode(trimmed).length} bytes`
+        byteCountLabel: `${new TextEncoder().encode(trimmed).length} bytes`,
+        canDelete: true,
+        deleteCommandID: `memory-delete:${id}`
       };
       state.memories.items = [item, ...state.memories.items];
       refreshMemorySummary();
       renameSelectedThread(`Memory: ${title}`);
       addMessage('assistant', `Saved memory: ${title}. It will be included as background context in future turns.`);
       return item;
+    }
+
+    function deleteMemory(id) {
+      const index = state.memories.items.findIndex(item => item.id === id && item.scope === 'global');
+      if (index < 0) {
+        addMessage('assistant', 'Memory was not found. It may already have been removed.');
+        return false;
+      }
+      const [item] = state.memories.items.splice(index, 1);
+      refreshMemorySummary();
+      renameSelectedThread(`Forgot memory: ${item.title}`);
+      addMessage('assistant', `Forgot memory: ${item.title}. It will no longer be included as background context.`);
+      return true;
     }
 
     function addToolCard(card) {
@@ -1527,6 +1554,11 @@
       document.querySelector('[data-testid="memories-add"]')?.addEventListener('click', event => {
         runCommand(event.currentTarget.getAttribute('data-command-id'));
       });
+      document.querySelectorAll('[data-testid="memory-delete"]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
+        });
+      });
 	      document.querySelector('[data-testid="terminal-button"]').addEventListener('click', () => {
 	        state.terminal.isVisible = !state.terminal.isVisible;
 	        render();
@@ -1971,6 +2003,7 @@
               <header>
                 <span data-testid="memory-scope">${escapeHTML(item.scopeLabel)}</span>
                 <span data-testid="memory-size">${escapeHTML(item.byteCountLabel)}</span>
+                ${item.deleteCommandID ? `<button class="memory-delete-button" type="button" data-testid="memory-delete" data-command-id="${escapeHTML(item.deleteCommandID)}">Forget</button>` : ''}
               </header>
               <strong data-testid="memory-title">${escapeHTML(item.title)}</strong>
               <p data-testid="memory-preview">${escapeHTML(item.preview)}</p>
@@ -2097,6 +2130,11 @@
     function runCommand(commandID) {
       if (commandID === 'command-palette') {
         openCommandPalette();
+        return;
+      }
+      if (commandID?.startsWith('memory-delete:')) {
+        deleteMemory(commandID.slice('memory-delete:'.length));
+        render();
         return;
       }
       state.commandPalette.isOpen = false;

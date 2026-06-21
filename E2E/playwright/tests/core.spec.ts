@@ -161,6 +161,7 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
   await expect(page.getByTestId('memory-item')).toHaveCount(2);
   await expect(page.getByTestId('memory-title').first()).toHaveText('Preferences');
   await expect(page.getByTestId('memory-path').first()).toHaveText('memories/preferences.md');
+  await expect(page.getByTestId('memory-delete')).toHaveCount(1);
   await expect(page.getByTestId('memories-add')).toBeVisible();
 
   await page.getByTestId('command-palette-button').click();
@@ -189,6 +190,17 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
   await expect(page.getByTestId('memory-item')).toHaveCount(3);
   await expect(page.getByTestId('memory-title').first()).toHaveText('Prefer Small Reviewable Commits');
   await expect(page.getByTestId('memory-path').first()).toContainText('memories/manual-');
+  await expect(page.getByTestId('memory-delete')).toHaveCount(2);
+
+  await page.getByTestId('memory-delete').first().click();
+
+  await expect(page.getByText('Forgot memory: Prefer Small Reviewable Commits. It will no longer be included as background context.')).toBeVisible();
+  await expect(page.getByTestId('project-memories-status')).toHaveText('2 memories');
+  await expect(page.getByTestId('top-bar-title')).toHaveText('Forgot memory: Prefer Small Reviewable Commits');
+  await expect(page.getByTestId('memories-subtitle')).toHaveText('1 global memory · 1 project memory');
+  await expect(page.getByTestId('memory-item')).toHaveCount(2);
+  await expect(page.getByTestId('memory-title').first()).toHaveText('Preferences');
+  await expect(page.getByTestId('memory-delete')).toHaveCount(1);
 });
 
 test('mock harness dispatches workspace keyboard shortcuts', async ({ page }) => {

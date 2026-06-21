@@ -467,6 +467,7 @@ public enum WorkspaceHTMLRenderer {
           <header>
             <span data-testid="memory-scope">\(escape(item.scopeLabel))</span>
             <span data-testid="memory-size">\(escape(item.byteCountLabel))</span>
+            \(item.deleteCommandID.map { #"<button type="button" data-testid="memory-delete" data-command-id="\#(escape($0))">Forget</button>"# } ?? "")
           </header>
           <strong data-testid="memory-title">\(escape(item.title))</strong>
           <p data-testid="memory-preview">\(escape(item.preview))</p>
@@ -476,7 +477,11 @@ public enum WorkspaceHTMLRenderer {
     }
 
     private static func countLabel(_ count: Int, singular: String) -> String {
-        "\(count) \(singular)\(count == 1 ? "" : "s")"
+        if count == 1 { return "1 \(singular)" }
+        if singular.hasSuffix("memory") {
+            return "\(count) \(singular.dropLast("memory".count))memories"
+        }
+        return "\(count) \(singular)s"
     }
 
     private static func renderComposer(_ composer: ComposerSurface) -> String {

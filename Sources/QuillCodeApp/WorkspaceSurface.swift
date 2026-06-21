@@ -548,7 +548,11 @@ public struct WorkspaceMemoriesSurface: Codable, Sendable, Hashable {
     }
 
     private static func countLabel(_ count: Int, singular: String) -> String {
-        "\(count) \(singular)\(count == 1 ? "" : "s")"
+        if count == 1 { return "1 \(singular)" }
+        if singular.hasSuffix("memory") {
+            return "\(count) \(singular.dropLast("memory".count))memories"
+        }
+        return "\(count) \(singular)s"
     }
 }
 
@@ -560,6 +564,8 @@ public struct MemoryNoteSurface: Codable, Sendable, Hashable, Identifiable {
     public var preview: String
     public var relativePath: String
     public var byteCountLabel: String
+    public var canDelete: Bool
+    public var deleteCommandID: String?
 
     public init(note: MemoryNote) {
         self.id = note.id
@@ -571,6 +577,8 @@ public struct MemoryNoteSurface: Codable, Sendable, Hashable, Identifiable {
         self.byteCountLabel = note.wasTruncated
             ? "\(note.byteCount) bytes, truncated"
             : "\(note.byteCount) bytes"
+        self.canDelete = note.scope == .global
+        self.deleteCommandID = note.scope == .global ? "memory-delete:\(note.id)" : nil
     }
 
     private static func preview(_ content: String, wasTruncated: Bool) -> String {

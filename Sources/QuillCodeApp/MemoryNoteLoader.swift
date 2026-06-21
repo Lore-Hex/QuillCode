@@ -24,6 +24,20 @@ public enum MemoryNoteWriteError: Error, Equatable, LocalizedError {
     }
 }
 
+public enum MemoryNoteDeleteError: Error, Equatable, LocalizedError {
+    case notFound
+    case deleteFailed
+
+    public var errorDescription: String? {
+        switch self {
+        case .notFound:
+            return "Memory was not found. It may already have been removed."
+        case .deleteFailed:
+            return "Memory could not be deleted."
+        }
+    }
+}
+
 public enum MemoryNoteLoader {
     public static let projectRelativeDirectory = ".quillcode/memories"
     public static let supportedExtensions: Set<String> = ["md", "txt", "json"]
@@ -110,6 +124,39 @@ public enum MemoryNoteLoader {
             maxBytes: maxBytes
         ) else {
             throw MemoryNoteWriteError.writeFailed
+        }
+        return note
+    }
+
+    public static func deleteGlobal(
+        id: String,
+        from directory: URL
+    ) throws -> MemoryNote {
+        let root = directory.standardizedFileURL.resolvingSymlinksInPath()
+        guard let note = loadGlobal(from: root).first(where: { $0.id == id && $0.scope == .global }) else {
+            throw MemoryNoteDeleteError.notFound
+        }
+
+        let prefix = "memories/"
+        guard note.relativePath.hasPrefix(prefix) else {
+            throw MemoryNoteDeleteError.notFound
+        }
+        let filename = String(note.relativePath.dropFirst(prefix.count))
+        guard !filename.isEmpty, !filename.contains("/") else {
+            throw MemoryNoteDeleteError.notFound
+        }
+        let fileURL = root
+            .appendingPathComponent(filename)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        guard fileURL.deletingLastPathComponent().path == root.path else {
+            throw MemoryNoteDeleteError.notFound
+        }
+
+        do {
+            try FileManager.default.removeItem(at: fileURL)
+        } catch {
+            throw MemoryNoteDeleteError.deleteFailed
         }
         return note
     }

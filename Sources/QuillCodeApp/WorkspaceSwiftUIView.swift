@@ -134,6 +134,13 @@ public struct QuillCodeWorkspaceView: View {
                         QuillCodeMemoriesPaneView(memories: surface.memories) { commandID in
                             if let command = surface.commands.first(where: { $0.id == commandID }) {
                                 handleCommand(command)
+                            } else if commandID.hasPrefix("memory-delete:") {
+                                handleCommand(WorkspaceCommandSurface(
+                                    id: commandID,
+                                    title: "Forget memory",
+                                    category: WorkspaceCommandPalette.memoriesCategory,
+                                    keywords: ["memory", "forget", "delete"]
+                                ))
                             }
                         }
                     }
@@ -1452,6 +1459,17 @@ private struct QuillCodeMemoriesPaneView: View {
                                         .font(.caption2)
                                         .foregroundStyle(QuillCodePalette.muted)
                                     Spacer()
+                                    if item.canDelete, let deleteCommandID = item.deleteCommandID {
+                                        Button {
+                                            onCommand(deleteCommandID)
+                                        } label: {
+                                            Label("Forget", systemImage: "trash")
+                                                .labelStyle(.iconOnly)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .foregroundStyle(QuillCodePalette.muted)
+                                        .help("Forget this global memory")
+                                    }
                                 }
                                 Text(item.title)
                                     .font(.callout.weight(.semibold))

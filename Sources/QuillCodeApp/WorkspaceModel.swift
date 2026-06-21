@@ -794,6 +794,10 @@ public final class QuillCodeWorkspaceModel {
         if commandID.hasPrefix("local-env:") {
             return runLocalEnvironmentAction(commandID, workspaceRoot: workspaceRoot)
         }
+        if commandID.hasPrefix("memory-delete:") {
+            let id = String(commandID.dropFirst("memory-delete:".count))
+            return deleteGlobalMemory(id: id)
+        }
         switch commandID {
         case "toggle-terminal":
             toggleTerminal()
@@ -829,6 +833,48 @@ public final class QuillCodeWorkspaceModel {
             return true
         default:
             return false
+        }
+    }
+
+    @discardableResult
+    private func deleteGlobalMemory(id: String) -> Bool {
+        guard let globalMemoryDirectory else { return false }
+        do {
+            let note = try MemoryNoteLoader.deleteGlobal(id: id, from: globalMemoryDirectory)
+            root.globalMemories = MemoryNoteLoader.loadGlobal(from: globalMemoryDirectory)
+            let projectID = selectedThread?.projectID ?? root.selectedProjectID
+            let refreshedMemories = memoryNotes(for: projectID)
+            appendLocalCommandTranscript(
+                userText: "Forget memory: \(note.title)",
+                assistantText: "Forgot memory: \(note.title). It will no longer be included as background context.",
+                title: "Forgot memory: \(note.title)"
+            )
+            mutateSelectedThread { thread in
+                thread.memories = refreshedMemories
+                thread.events.append(ThreadEvent(
+                    kind: .notice,
+                    summary: "Forgot memory: \(note.title)",
+                    payloadJSON: note.relativePath
+                ))
+            }
+            refreshTopBar(agentStatus: "Idle")
+            return true
+        } catch let error as MemoryNoteDeleteError {
+            appendLocalCommandTranscript(
+                userText: "Forget memory",
+                assistantText: error.localizedDescription,
+                title: "Memory not deleted"
+            )
+            refreshTopBar(agentStatus: "Idle")
+            return true
+        } catch {
+            appendLocalCommandTranscript(
+                userText: "Forget memory",
+                assistantText: MemoryNoteDeleteError.deleteFailed.localizedDescription,
+                title: "Memory not deleted"
+            )
+            refreshTopBar(agentStatus: "Idle")
+            return true
         }
     }
 
