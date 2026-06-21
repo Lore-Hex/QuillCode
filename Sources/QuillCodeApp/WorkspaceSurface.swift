@@ -1946,6 +1946,14 @@ public extension QuillCodeWorkspaceModel {
                 keywords: ["find", "threads", "chat"]
             ),
             WorkspaceCommandSurface(
+                id: "find-in-chat",
+                title: "Find in chat",
+                shortcut: WorkspaceShortcutRegistry.label(for: "find-in-chat"),
+                category: WorkspaceCommandPalette.navigationCategory,
+                keywords: ["find", "current", "transcript", "message"],
+                isEnabled: selectedThread != nil
+            ),
+            WorkspaceCommandSurface(
                 id: "add-project",
                 title: "Open project",
                 shortcut: WorkspaceShortcutRegistry.label(for: "add-project"),

@@ -54,6 +54,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "compact-context",
             "retry-last-turn",
             "search",
+            "find-in-chat",
             "add-project",
             "project-new-chat",
             "project-refresh-context",
@@ -75,6 +76,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         ])
         XCTAssertEqual(surface.commands.first { $0.id == "fork-from-last" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "compact-context" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "find-in-chat" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
         XCTAssertEqual(surface.settings.apiBaseURL, TrustedRouterDefaults.defaultAPIBaseURL)
         XCTAssertFalse(surface.settings.developerOverrideEnabled)
@@ -153,6 +155,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(
             WorkspaceCommandPalette.rankedCommands(commands, matching: "cmd+k").first?.id,
             "search"
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPalette.rankedCommands(commands, matching: "cmd+f").first?.id,
+            "find-in-chat"
         )
         XCTAssertEqual(
             WorkspaceCommandPalette.rankedCommands(commands, matching: "pull").first?.id,

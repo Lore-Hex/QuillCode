@@ -14,7 +14,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 ## Functional Tests
 
 - Mock TrustedRouter, mock LLM, fake shell, fake filesystem, fake git repo.
-- Cover login, model switch, searchable model picker, persistent favorite model toggles, recent model sections, current/default/recommended/favorite model badges, duplicate-free model search, new thread, thread rename/duplicate/archive/unarchive/delete, project new-chat/refresh/rename/remove lifecycle, context compaction, project instruction and memory refresh before runs, explicit memory writes and forgetting, project extension manifest refresh, MCP start/probe/stop lifecycle state, MCP tool invocation from an agent turn, incremental run progress, chronological transcript ordering, tool cards, artifact preview chips, collapsed successful-tool details, file edit, post-patch review refresh, review comments, command failure, rate-limit recovery, redacted runtime diagnostics, cancellation, approvals, settings, top bar, search, slash commands, slash-to-workspace-action routing, and worktree project/thread handoff.
+- Cover login, model switch, searchable model picker, persistent favorite model toggles, recent model sections, current/default/recommended/favorite model badges, duplicate-free model search, new thread, thread rename/duplicate/archive/unarchive/delete, project new-chat/refresh/rename/remove lifecycle, context compaction, project instruction and memory refresh before runs, explicit memory writes and forgetting, project extension manifest refresh, MCP start/probe/stop lifecycle state, MCP tool invocation from an agent turn, incremental run progress, chronological transcript ordering, active-chat find state, tool cards, artifact preview chips, collapsed successful-tool details, file edit, post-patch review refresh, review comments, command failure, rate-limit recovery, redacted runtime diagnostics, cancellation, approvals, settings, top bar, search, slash commands, slash-to-workspace-action routing, and worktree project/thread handoff.
 
 ## Integration Tests
 
@@ -31,6 +31,7 @@ Drive the QuillCode test harness with mock LLM:
 - first run
 - login
 - open project, rename it, refresh context, start a project-scoped chat, and remove it from the project list
+- find within the active chat with `Cmd+F`, focused input, result counts, next/previous navigation, and close behavior
 - search and select a model, including current/default/recommended badges and duplicate-free search results
 - run shell
 - surface file/URL artifacts from tool-card output, with preview metadata visible and raw successful-tool JSON collapsed until opened

@@ -322,7 +322,25 @@
       font-size: 12px;
       font-weight: 700;
     }
-    .transcript { display: grid; grid-template-rows: 1fr auto; overflow: hidden; }
+    .transcript { display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
+    .find-bar {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+      background: rgba(18,29,35,.96);
+    }
+    .find-bar span { color: var(--blue); font-weight: 800; }
+    .find-bar input { min-width: 0; }
+    .find-status {
+      min-width: 78px;
+      text-align: right;
+      color: var(--muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
     .timeline { padding: 22px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
     .terminal-pane,
     .browser-pane,
@@ -545,6 +563,10 @@
     .message.user { align-self: flex-end; background: linear-gradient(135deg, #45bdec, #d16c5f); }
     .message.assistant { align-self: flex-start; background: rgba(255,255,255,.1); }
     .message { white-space: pre-wrap; }
+    .find-active {
+      outline: 2px solid rgba(65,184,232,.78);
+      outline-offset: 3px;
+    }
     .tool-card {
       align-self: flex-start;
       width: min(760px, 92%);
@@ -1111,6 +1133,11 @@
         isOpen: false,
         query: ''
       },
+      find: {
+        isOpen: false,
+        query: '',
+        activeIndex: 0
+      },
       commandPalette: {
         isOpen: false,
         query: '',
@@ -1135,6 +1162,7 @@
         { id: 'compact-context', title: 'Compact context', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'summarize', 'compact'], isEnabled: false },
         { id: 'retry-last-turn', title: 'Retry last turn', shortcut: '', category: 'Control', keywords: ['retry', 'rerun', 'again', 'failed'], isEnabled: false },
         { id: 'search', title: 'Search', shortcut: 'Cmd+K', category: 'Navigation', keywords: ['find', 'threads', 'chat'], isEnabled: true },
+        { id: 'find-in-chat', title: 'Find in chat', shortcut: 'Cmd+F', category: 'Navigation', keywords: ['find', 'current', 'transcript', 'message'], isEnabled: false },
         { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', category: 'Workspace', keywords: ['folder', 'workspace', 'repo'], isEnabled: true },
         { id: 'project-new-chat', title: 'New chat in project', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'thread', 'chat'], isEnabled: true },
         { id: 'project-refresh-context', title: 'Refresh project context', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'instructions', 'memory', 'reload'], isEnabled: true },
@@ -1443,6 +1471,7 @@
         command.id === 'fork-from-last' ? { ...command, isEnabled: hasMessages } :
         command.id === 'compact-context' ? { ...command, isEnabled: hasMessages } :
         command.id === 'retry-last-turn' ? { ...command, isEnabled: hasUserMessages && !state.composer.isSending } :
+        command.id === 'find-in-chat' ? { ...command, isEnabled: hasThread } :
         command.id === 'stop-all' ? { ...command, isEnabled: hasActiveWork } :
         command
       ));
@@ -1699,8 +1728,13 @@
               </li>`).join('')}
           </ul>
         </section>` : '';
-      const renderMessage = message => `
-        <article class="message ${escapeHTML(message.role)}" data-testid="message" aria-label="${escapeHTML(message.role + ': ' + message.text)}">
+      const findMatches = transcriptFindMatches();
+      const activeFindID = state.find.isOpen && findMatches.length
+        ? findMatches[Math.min(state.find.activeIndex, findMatches.length - 1)]?.id
+        : null;
+      const activeClass = timelineID => activeFindID === timelineID ? ' find-active' : '';
+      const renderMessage = (message, timelineID = '') => `
+        <article class="message ${escapeHTML(message.role)}${activeClass(timelineID)}" data-testid="message" data-timeline-id="${escapeHTML(timelineID)}" aria-label="${escapeHTML(message.role + ': ' + message.text)}">
           ${escapeHTML(message.text)}
         </article>`;
       const renderArtifacts = artifacts => artifacts && artifacts.length ? `
@@ -1721,8 +1755,8 @@
             ${card.inputJSON ? `<pre data-testid="tool-card-input">${escapeHTML(card.inputJSON)}</pre>` : ''}
             ${card.outputJSON ? `<pre data-testid="tool-card-output">${escapeHTML(card.outputJSON)}</pre>` : ''}
           </details>` : '';
-      const renderToolCard = card => `
-        <article class="tool-card ${escapeHTML(card.status)}" data-testid="tool-card" data-status="${escapeHTML(card.status)}">
+      const renderToolCard = (card, timelineID = '') => `
+        <article class="tool-card ${escapeHTML(card.status)}${activeClass(timelineID)}" data-testid="tool-card" data-status="${escapeHTML(card.status)}" data-timeline-id="${escapeHTML(timelineID)}">
           <header>
             <strong data-testid="tool-card-title">${escapeHTML(card.title)}</strong>
             <span data-testid="tool-card-status">${escapeHTML(card.status)}</span>
@@ -1734,8 +1768,8 @@
       const transcriptItems = state.transcript.timelineItems.length
         ? state.transcript.timelineItems.map(item => (
           item.kind === 'message'
-            ? renderMessage(item.message)
-            : renderToolCard(item.toolCard)
+            ? renderMessage(item.message, item.id)
+            : renderToolCard(item.toolCard, item.id)
         )).join('')
         : state.transcript.messages.map(renderMessage).join('')
           + state.transcript.toolCards.map(renderToolCard).join('');
@@ -1851,6 +1885,7 @@
               ${sidebarContent}
             </aside>
 	            <main class="transcript" data-testid="transcript">
+                ${state.find.isOpen ? renderFindBar(findMatches) : ''}
 	              <div class="timeline">${timeline}</div>
 	              ${state.browser.isVisible ? renderBrowserPane() : ''}
 	              ${state.extensions.isVisible ? renderExtensionsPane() : ''}
@@ -2108,6 +2143,30 @@
           render();
         });
       });
+      document.querySelector('[data-testid="find-input"]')?.addEventListener('input', event => {
+        state.find.query = event.target.value;
+        state.find.activeIndex = 0;
+        render();
+        const input = document.querySelector('[data-testid="find-input"]');
+        input?.focus();
+        input?.setSelectionRange(input.value.length, input.value.length);
+      });
+      document.querySelector('[data-testid="find-bar"]')?.addEventListener('submit', event => {
+        event.preventDefault();
+        moveFindResult(1);
+      });
+      document.querySelector('[data-testid="find-previous"]')?.addEventListener('click', () => {
+        moveFindResult(-1);
+      });
+      document.querySelector('[data-testid="find-next"]')?.addEventListener('click', () => {
+        moveFindResult(1);
+      });
+      document.querySelector('[data-testid="find-close"]')?.addEventListener('click', () => {
+        state.find.isOpen = false;
+        state.find.query = '';
+        state.find.activeIndex = 0;
+        render();
+      });
       document.querySelector('[data-testid="command-palette-input"]')?.addEventListener('input', event => {
         state.commandPalette.query = event.target.value;
         ensureCommandPaletteSelection();
@@ -2358,6 +2417,57 @@
             </div>
           </section>
         </div>`;
+    }
+
+    function transcriptFindMatches() {
+      const query = state.find.query.trim().toLowerCase();
+      if (!query) return [];
+      return transcriptTimelineItems().filter(item =>
+        transcriptTimelineSearchText(item).toLowerCase().includes(query)
+      ).map(item => ({
+        id: item.id,
+        label: item.kind === 'message' ? item.message?.role || 'Message' : item.toolCard?.title || 'Tool'
+      }));
+    }
+
+    function transcriptTimelineItems() {
+      if (state.transcript.timelineItems.length) return state.transcript.timelineItems;
+      return [
+        ...state.transcript.messages.map(message => ({ id: message.id || `message-${message.text}`, kind: 'message', message })),
+        ...state.transcript.toolCards.map(card => ({ id: card.id, kind: 'toolCard', toolCard: card }))
+      ];
+    }
+
+    function transcriptTimelineSearchText(item) {
+      if (item.kind === 'message') {
+        return [item.message?.role, item.message?.text].filter(Boolean).join('\n');
+      }
+      const card = item.toolCard || {};
+      return [
+        card.title,
+        card.subtitle,
+        card.inputJSON,
+        card.outputJSON,
+        ...(card.artifacts || []).map(artifact => artifact.label)
+      ].filter(Boolean).join('\n');
+    }
+
+    function renderFindBar(matches) {
+      const query = state.find.query.trim();
+      const status = !query
+        ? 'Type to find'
+        : matches.length
+          ? `${Math.min(state.find.activeIndex + 1, matches.length)} of ${matches.length}`
+          : 'No results';
+      return `
+        <form class="find-bar" data-testid="find-bar" aria-label="Find in chat">
+          <span>⌕</span>
+          <input data-testid="find-input" aria-label="Find in chat" placeholder="Find in chat" value="${escapeHTML(state.find.query)}" autofocus>
+          <small class="find-status" data-testid="find-status">${escapeHTML(status)}</small>
+          <button type="button" data-testid="find-previous" ${matches.length ? '' : 'disabled'}>↑</button>
+          <button type="button" data-testid="find-next" ${matches.length ? '' : 'disabled'}>↓</button>
+          <button type="button" data-testid="find-close" aria-label="Close find">×</button>
+        </form>`;
     }
 
     function renderCommandPalette() {
@@ -2797,6 +2907,23 @@
       }
     }
 
+    function openFindInChat() {
+      state.find.isOpen = true;
+      state.find.query = '';
+      state.find.activeIndex = 0;
+      render();
+      window.setTimeout(() => {
+        document.querySelector('[data-testid="find-input"]')?.focus();
+      }, 0);
+    }
+
+    function moveFindResult(delta) {
+      const matches = transcriptFindMatches();
+      if (!matches.length) return;
+      state.find.activeIndex = (state.find.activeIndex + delta + matches.length) % matches.length;
+      render();
+    }
+
     function runCommand(commandID) {
       if (commandID === 'command-palette') {
         openCommandPalette();
@@ -2847,6 +2974,10 @@
       if (commandID === 'search') {
         state.search.isOpen = true;
         state.search.query = '';
+      }
+      if (commandID === 'find-in-chat') {
+        openFindInChat();
+        return;
       }
       if (commandID === 'add-project') {
         addProject();

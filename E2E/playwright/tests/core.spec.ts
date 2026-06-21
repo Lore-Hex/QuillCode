@@ -340,6 +340,21 @@ test('mock harness dispatches workspace keyboard shortcuts', async ({ page }) =>
 
   await page.getByLabel('Message').fill('run whoami');
   await page.getByRole('button', { name: 'Send' }).click();
+
+  await page.keyboard.press('Meta+F');
+  await expect(page.getByTestId('find-bar')).toBeVisible();
+  await expect(page.getByTestId('find-input')).toBeFocused();
+  await page.getByTestId('find-input').fill('host.shell.run');
+  await expect(page.getByTestId('find-status')).toHaveText('1 of 1');
+  await expect(page.locator('.find-active')).toContainText('host.shell.run');
+
+  await page.getByTestId('find-input').fill('mock-user');
+  await expect(page.getByTestId('find-status')).toHaveText('1 of 2');
+  await page.getByTestId('find-next').click();
+  await expect(page.getByTestId('find-status')).toHaveText('2 of 2');
+  await page.getByTestId('find-close').click();
+  await expect(page.getByTestId('find-bar')).toHaveCount(0);
+
   await page.keyboard.press('Meta+N');
 
   await expect(page.getByTestId('transcript-empty')).toBeVisible();
