@@ -341,6 +341,7 @@ public enum WorkspaceHTMLRenderer {
             <button type="button" data-testid="tool-card-copy" data-copy-id="\(escape(copyID))">\(escape(copyActionLabel(for: card)))</button>
           </footer>
           \(renderToolArtifacts(card.artifacts))
+          \(renderToolTextPreviews(card.artifacts))
           \(renderToolImagePreviews(card.artifacts))
           \(renderToolDetails(card))
         </article>
@@ -383,6 +384,24 @@ public enum WorkspaceHTMLRenderer {
         return """
         <div class="tool-artifacts" data-testid="tool-card-artifacts" aria-label="Artifacts">
           \(chips)
+        </div>
+        """
+    }
+
+    private static func renderToolTextPreviews(_ artifacts: [ToolArtifactState]) -> String {
+        let textArtifacts = artifacts.filter(\.hasTextPreview)
+        guard !textArtifacts.isEmpty else { return "" }
+        let previews = textArtifacts.map { artifact in
+            """
+            <figure class="artifact-text-preview" data-testid="tool-card-text-preview">
+              <figcaption data-testid="tool-card-text-preview-label">\(escape(artifact.label))</figcaption>
+              <pre data-testid="tool-card-text-preview-content">\(escape(artifact.textPreview ?? ""))</pre>
+            </figure>
+            """
+        }.joined(separator: "\n")
+        return """
+        <div class="tool-artifact-text-previews" data-testid="tool-card-text-previews" aria-label="Text previews">
+          \(previews)
         </div>
         """
     }

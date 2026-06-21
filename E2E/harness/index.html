@@ -834,6 +834,40 @@
       font-size: 11px;
       font-weight: 600;
     }
+    .tool-artifact-text-previews {
+      display: grid;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .artifact-text-preview {
+      margin: 0;
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 20px;
+      background: rgba(255,255,255,.05);
+      box-shadow: var(--shadow-border);
+    }
+    .artifact-text-preview figcaption {
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .artifact-text-preview pre {
+      max-height: 190px;
+      margin: 0;
+      padding: 10px;
+      overflow: auto;
+      border-radius: 10px;
+      color: #f4fbff;
+      background: rgba(0,0,0,.30);
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre;
+    }
     .tool-artifact-previews {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -1366,6 +1400,7 @@
         emptyTitle: 'Ask QuillCode to inspect, edit, or run this project.',
         emptySubtitle: 'Use Auto for normal coding work, Review for manual gates, or Read-only for exploration.'
       },
+      mockFiles: {},
       review: {
         title: 'Review changes',
         subtitle: 'Latest git diff',
@@ -1897,7 +1932,14 @@
         label = parts.at(-1) || value;
       }
       const isImagePreview = artifactIsImagePreview(value, kind);
-      const artifact = { value, label, kind, isImagePreview, previewURL: isImagePreview ? artifactPreviewURL(value, kind) : null };
+      const artifact = {
+        value,
+        label,
+        kind,
+        isImagePreview,
+        previewURL: isImagePreview ? artifactPreviewURL(value, kind) : null,
+        textPreview: isImagePreview ? null : artifactTextPreview(value, kind)
+      };
       return { ...artifact, detail: artifactDetail(artifact) };
     }
 
@@ -1944,6 +1986,47 @@
       if (kind === 'file' && value.startsWith('/')) return `file://${value}`;
       if (kind === 'file' && value.startsWith('file://')) return value;
       return null;
+    }
+
+    const textPreviewExtensions = new Set([
+      'c', 'cc', 'conf', 'cpp', 'css', 'csv', 'go', 'h', 'hpp', 'html',
+      'java', 'js', 'json', 'jsx', 'kt', 'log', 'm', 'md', 'mm', 'py',
+      'rb', 'rs', 'sh', 'sql', 'swift', 'toml', 'ts', 'tsx', 'txt',
+      'xml', 'yaml', 'yml'
+    ]);
+    const textPreviewFilenames = new Set([
+      '.env.example', '.gitignore', 'dockerfile', 'gemfile', 'license', 'makefile', 'podfile', 'readme'
+    ]);
+
+    function artifactFilePath(value) {
+      if (value.startsWith('/')) return value;
+      try {
+        const url = new URL(value);
+        return url.protocol === 'file:' ? decodeURIComponent(url.pathname) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function artifactTextPreview(value, kind) {
+      if (kind !== 'file') return null;
+      const path = artifactFilePath(value);
+      if (!path) return null;
+      const name = path.split('/').filter(Boolean).at(-1)?.toLowerCase() || '';
+      const extension = name.includes('.') ? name.split('.').pop() : '';
+      if (!textPreviewFilenames.has(name) && !textPreviewExtensions.has(extension)) return null;
+      const text = state.mockFiles[path];
+      if (typeof text !== 'string' || !text.trim() || text.includes('\u0000')) return null;
+      const limit = 6 * 1024;
+      let preview = text.slice(0, limit).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      let truncated = text.length > limit;
+      const lines = preview.split('\n');
+      if (lines.length > 80) {
+        preview = lines.slice(0, 80).join('\n');
+        truncated = true;
+      }
+      if (truncated) preview += `${preview.endsWith('\n') ? '' : '\n'}...`;
+      return preview;
     }
 
     function countLabel(count, singular) {
@@ -2306,6 +2389,18 @@
             `).join('')}
           </div>` : '';
       };
+      const renderTextPreviews = artifacts => {
+        const previews = (artifacts || []).filter(artifact => artifact.textPreview);
+        return previews.length ? `
+          <div class="tool-artifact-text-previews" data-testid="tool-card-text-previews" aria-label="Text previews">
+            ${previews.map(artifact => `
+              <figure class="artifact-text-preview" data-testid="tool-card-text-preview">
+                <figcaption data-testid="tool-card-text-preview-label">${escapeHTML(artifact.label)}</figcaption>
+                <pre data-testid="tool-card-text-preview-content">${escapeHTML(artifact.textPreview)}</pre>
+              </figure>
+            `).join('')}
+          </div>` : '';
+      };
       const renderToolDetails = card => card.inputJSON || card.outputJSON ? `
           <details class="tool-details" data-testid="tool-card-details" ${card.isExpanded || card.status === 'failed' || card.status === 'review' ? 'open' : ''}>
             <summary>${card.isExpanded || card.status === 'failed' || card.status === 'review' ? 'Hide details' : 'Show details'}</summary>
@@ -2321,6 +2416,7 @@
           <p>${escapeHTML(card.subtitle)}</p>
           ${copyButton('tool-card-copy', timelineID || card.id, card.outputJSON ? 'Copy output' : card.inputJSON ? 'Copy input' : 'Copy')}
           ${renderArtifacts(card.artifacts)}
+          ${renderTextPreviews(card.artifacts)}
           ${renderImagePreviews(card.artifacts)}
           ${renderToolDetails(card)}
         </article>`;
@@ -5135,6 +5231,7 @@
         ].join('\n'));
       } else if (text.toLowerCase().includes('write a file') || text.toLowerCase().includes('make a file')) {
         const path = 'hello.txt';
+        state.mockFiles[`/mock/QuillCode/${path}`] = 'hello world\n';
         addToolCard({
           title: 'host.file.write',
           subtitle: 'Completed',

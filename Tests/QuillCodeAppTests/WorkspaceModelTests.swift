@@ -344,6 +344,8 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(card.artifacts.map(\.kind), [.file])
         XCTAssertEqual(card.artifacts.map(\.detail), [root.path])
         XCTAssertEqual(card.artifacts.first?.value, root.appendingPathComponent("hello.txt").path)
+        XCTAssertEqual(card.artifacts.first?.textPreview, "hello world\n")
+        XCTAssertEqual(card.textPreviewArtifacts.map(\.label), ["hello.txt"])
     }
 
     func testArtifactStateDerivesLinksAndImagePreviews() {
@@ -366,6 +368,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(inlineImage.detail, "Image artifact")
         XCTAssertTrue(inlineImage.isImagePreview)
         XCTAssertEqual(inlineImage.previewURL, "data:image/png;base64,AAAA")
+        XCTAssertNil(inlineImage.textPreview)
 
         let nonImageData = ToolArtifactState(value: "data:text/plain;base64,SGVsbG8=")
         XCTAssertEqual(nonImageData.kind, .path)
@@ -373,6 +376,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertFalse(nonImageData.isImagePreview)
         XCTAssertNil(nonImageData.previewURL)
         XCTAssertNil(nonImageData.href)
+        XCTAssertNil(nonImageData.textPreview)
     }
 
     func testSubmitComposerDispatchesComputerUseToolThroughBackend() async throws {

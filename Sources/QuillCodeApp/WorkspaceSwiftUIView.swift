@@ -3085,6 +3085,18 @@ private struct QuillCodeToolCardView: View {
                     }
                 }
             }
+            if !card.textPreviewArtifacts.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Text previews")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        ForEach(card.textPreviewArtifacts) { artifact in
+                            QuillCodeArtifactTextPreview(artifact: artifact)
+                        }
+                    }
+                }
+            }
             if !card.imagePreviewArtifacts.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Previews")
@@ -3320,6 +3332,46 @@ private struct QuillCodeArtifactImagePreview: View {
         .frame(maxWidth: .infinity, minHeight: 120)
         .background(Color.black.opacity(0.22))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+private struct QuillCodeArtifactTextPreview: View {
+    var artifact: ToolArtifactState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "doc.plaintext")
+                    .foregroundStyle(QuillCodePalette.blue)
+                Text(artifact.label)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.text)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Text("Preview")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(artifact.textPreview ?? "")
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(14)
+                    .textSelection(.enabled)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(Color.black.opacity(0.30))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .padding(10)
+        .background(Color.white.opacity(0.05))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Text preview \(artifact.label)")
     }
 }
 
