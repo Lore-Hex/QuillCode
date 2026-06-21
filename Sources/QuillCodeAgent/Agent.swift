@@ -220,6 +220,8 @@ public struct AgentRunResult: Sendable {
     }
 }
 
+public typealias AgentRunProgressHandler = @Sendable (ChatThread) async -> Void
+
 public struct AgentRunner: Sendable {
     public var llm: LLMClient
     public var safety: SafetyReviewer
@@ -235,7 +237,8 @@ public struct AgentRunner: Sendable {
     public func send(
         _ userMessage: String,
         in thread: ChatThread,
-        workspaceRoot: URL
+        workspaceRoot: URL,
+        onProgress: AgentRunProgressHandler? = nil
     ) async throws -> AgentRunResult {
         var next = thread
         next.messages.append(.init(role: .user, content: userMessage))
@@ -244,6 +247,7 @@ public struct AgentRunner: Sendable {
         if next.title == "New chat" {
             next.title = Self.title(from: userMessage)
         }
+        await onProgress?(next)
 
         try Task.checkCancellation()
         let tools = ToolRouter.definitions
@@ -253,9 +257,17 @@ public struct AgentRunner: Sendable {
         case .say(let text):
             next.messages.append(.init(role: .assistant, content: text))
             next.events.append(.init(kind: .message, summary: text))
+            next.updatedAt = Date()
+            await onProgress?(next)
             return AgentRunResult(thread: next, toolResults: [])
         case .tool(let call):
-            return try await runTool(call, userMessage: userMessage, thread: next, workspaceRoot: workspaceRoot)
+            return try await runTool(
+                call,
+                userMessage: userMessage,
+                thread: next,
+                workspaceRoot: workspaceRoot,
+                onProgress: onProgress
+            )
         }
     }
 
@@ -263,7 +275,8 @@ public struct AgentRunner: Sendable {
         _ call: ToolCall,
         userMessage: String,
         thread: ChatThread,
-        workspaceRoot: URL
+        workspaceRoot: URL,
+        onProgress: AgentRunProgressHandler?
     ) async throws -> AgentRunResult {
         var next = thread
         let router = ToolRouter(workspaceRoot: workspaceRoot)
@@ -274,6 +287,8 @@ public struct AgentRunner: Sendable {
             summary: "\(call.name) queued",
             payloadJSON: callJSON
         ))
+        next.updatedAt = Date()
+        await onProgress?(next)
 
         try Task.checkCancellation()
         let review = await safety.review(.init(
@@ -300,10 +315,14 @@ public struct AgentRunner: Sendable {
                 summary: "\(review.verdict.rawValue): \(review.rationale)"
             ))
             next.messages.append(.init(role: .assistant, content: text))
+            next.updatedAt = Date()
+            await onProgress?(next)
             return AgentRunResult(thread: next, toolResults: [])
         }
 
         next.events.append(.init(kind: .toolRunning, summary: "\(call.name) running"))
+        next.updatedAt = Date()
+        await onProgress?(next)
         try Task.checkCancellation()
         let result = router.execute(call)
         try Task.checkCancellation()
@@ -318,6 +337,7 @@ public struct AgentRunner: Sendable {
             content: Self.finalAnswer(for: call, result: result)
         ))
         next.updatedAt = Date()
+        await onProgress?(next)
         return AgentRunResult(thread: next, toolResults: [result])
     }
 

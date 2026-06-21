@@ -33,6 +33,24 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(result.thread.messages.last?.content, "Wrote `hello.txt`.")
     }
 
+    func testSendReportsIncrementalToolProgress() async throws {
+        let root = try makeTempDirectory()
+        let recorder = ProgressRecorder()
+
+        let result = try await AgentRunner().send(
+            "run whoami",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root,
+            onProgress: { thread in
+                await recorder.record(thread)
+            }
+        )
+
+        XCTAssertTrue(result.toolResults.first?.ok == true)
+        let eventKinds = await recorder.eventKinds()
+        XCTAssertEqual(eventKinds, [.message, .toolQueued, .toolRunning, .toolCompleted])
+    }
+
     func testOpenClawDiscoverySummarizesMissingBinary() throws {
         let call = ToolCall(
             name: ToolDefinition.shellRun.name,
@@ -129,5 +147,18 @@ final class AgentTests: XCTestCase {
             cwd: root
         ))
         XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+    }
+}
+
+private actor ProgressRecorder {
+    private var kinds: [ThreadEventKind] = []
+
+    func record(_ thread: ChatThread) {
+        guard let kind = thread.events.last?.kind else { return }
+        kinds.append(kind)
+    }
+
+    func eventKinds() -> [ThreadEventKind] {
+        kinds
     }
 }

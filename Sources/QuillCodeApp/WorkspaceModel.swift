@@ -487,7 +487,14 @@ public final class QuillCodeWorkspaceModel {
 
         do {
             try Task.checkCancellation()
-            let result = try await runner.send(prompt, in: thread, workspaceRoot: workspaceRoot)
+            let result = try await runner.send(
+                prompt,
+                in: thread,
+                workspaceRoot: workspaceRoot,
+                onProgress: { [weak self] progressThread in
+                    await self?.applyAgentProgress(progressThread, expectedThreadID: threadID)
+                }
+            )
             try Task.checkCancellation()
             thread = result.thread
             replaceThread(thread)
@@ -500,6 +507,31 @@ public final class QuillCodeWorkspaceModel {
             composer.isSending = false
             lastError = String(describing: error)
             refreshTopBar(agentStatus: "Failed")
+        }
+    }
+
+    private func applyAgentProgress(_ thread: ChatThread, expectedThreadID: UUID) {
+        guard thread.id == expectedThreadID else { return }
+        replaceThread(thread)
+        composer.isSending = true
+        lastError = nil
+        refreshTopBar(agentStatus: agentStatus(for: thread))
+    }
+
+    private func agentStatus(for thread: ChatThread) -> String {
+        switch thread.events.last?.kind {
+        case .toolQueued:
+            return "Queued"
+        case .toolRunning:
+            return "Running"
+        case .approvalRequested:
+            return "Review"
+        case .toolCompleted:
+            return "Finishing"
+        case .toolFailed:
+            return "Failed"
+        case .message, .approvalDecided, .reviewComment, .notice, .none:
+            return "Running"
         }
     }
 

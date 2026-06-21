@@ -2,6 +2,7 @@ import XCTest
 import QuillCodeAgent
 import QuillCodeCore
 import QuillCodePersistence
+import QuillCodeSafety
 @testable import QuillCodeApp
 
 @MainActor
@@ -155,6 +156,31 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(cards[0].status, .done)
         XCTAssertTrue(cards[0].inputJSON?.contains("whoami") == true)
         XCTAssertTrue(cards[0].outputJSON?.contains("\"ok\" : true") == true)
+    }
+
+    func testSubmitComposerStreamsQueuedToolBeforeCompletion() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(runner: AgentRunner(
+            llm: ImmediateToolLLMClient(),
+            safety: SlowApprovingSafetyReviewer()
+        ))
+
+        model.setDraft("run pwd")
+        let task = Task {
+            await model.submitComposer(workspaceRoot: root)
+        }
+
+        try await waitUntil(timeoutSeconds: 1) {
+            model.currentToolCards.first?.status == .queued
+        }
+        XCTAssertTrue(model.composer.isSending)
+        XCTAssertEqual(model.root.topBar.agentStatus, "Queued")
+
+        await task.value
+
+        XCTAssertFalse(model.composer.isSending)
+        XCTAssertEqual(model.currentToolCards.first?.status, .done)
+        XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
     }
 
     func testCancellingComposerRunStopsStateAndRecordsNotice() async throws {
@@ -946,5 +972,25 @@ private struct SlowLLMClient: LLMClient {
     func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
         try await Task.sleep(nanoseconds: 5_000_000_000)
         return .say("late response")
+    }
+}
+
+private struct ImmediateToolLLMClient: LLMClient {
+    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        .tool(ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "pwd"])
+        ))
+    }
+}
+
+private struct SlowApprovingSafetyReviewer: SafetyReviewer {
+    func review(_ context: SafetyContext) async -> SafetyReview {
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        return SafetyReview(
+            verdict: .approve,
+            rationale: "The tool call is bounded and matches the current user request.",
+            userIntentMatched: true
+        )
     }
 }
