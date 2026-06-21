@@ -263,6 +263,50 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(activity.sections.first { $0.kind == .tools }?.toggleCommandID, "activity-toggle-section:tools")
     }
 
+    func testActivitySurfacePrefersModelAuthoredPlan() throws {
+        let update = AgentPlanUpdate(
+            explanation: "The model is planning the work directly.",
+            plan: [
+                AgentPlanItem(step: "Inspect current state", status: .completed),
+                AgentPlanItem(step: "Apply focused change", status: .inProgress, detail: "Keep the diff small."),
+                AgentPlanItem(step: "Run validation", status: .pending)
+            ]
+        )
+        let result = ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(update))
+        let thread = ChatThread(
+            title: "Plan work",
+            messages: [.init(role: .user, content: "plan the work")],
+            events: [
+                .init(
+                    kind: .toolCompleted,
+                    summary: "\(ToolDefinition.planUpdate.name) completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            activity: ActivityState(isVisible: true)
+        )
+
+        let activity = model.surface().activity
+
+        XCTAssertEqual(activity.planItems.map(\.title), [
+            "Inspect current state",
+            "Apply focused change",
+            "Run validation"
+        ])
+        XCTAssertEqual(activity.planItems.map(\.statusLabel), ["Done", "Running", "Pending"])
+        XCTAssertEqual(activity.planItems[0].detail, "The model is planning the work directly.")
+        XCTAssertEqual(activity.planItems[1].detail, "Keep the diff small.")
+        XCTAssertEqual(activity.sections.first { $0.kind == .plan }?.countLabel, "3 items")
+        XCTAssertEqual(activity.sections.first { $0.kind == .plan }?.items.map(\.kind), [
+            "authored-plan",
+            "authored-plan",
+            "authored-plan"
+        ])
+    }
+
     func testActivityCommandTogglesActivityPane() {
         let model = QuillCodeWorkspaceModel()
 

@@ -1804,7 +1804,8 @@
       },
       activity: {
         isVisible: false,
-        collapsedSections: []
+        collapsedSections: [],
+        authoredPlan: null
       },
       nextProjectIndex: 2,
       nextThreadIndex: 1,
@@ -3831,6 +3832,14 @@
           statusLabel: memory.scopeLabel
         }))
       ];
+      const planItems = state.activity.authoredPlan || activityPlan({
+        latestRequest: latestUser ? latestUser.text : 'No task selected',
+        status: state.topBar.agentStatus,
+        tools,
+        sources,
+        artifacts,
+        finalAnswer: latestAssistant?.text || null
+      });
       return {
         subtitle: `${countLabel(cards.length, 'tool')} · ${countLabel(sources.length, 'source')} · ${countLabel(artifacts.length, 'artifact')}`,
         statusLabel: state.topBar.agentStatus,
@@ -3847,14 +3856,7 @@
           sources,
           artifacts,
           finalAnswer: latestAssistant?.text || null,
-          planItems: activityPlan({
-            latestRequest: latestUser ? latestUser.text : 'No task selected',
-            status: state.topBar.agentStatus,
-            tools,
-            sources,
-            artifacts,
-            finalAnswer: latestAssistant?.text || null
-          }),
+          planItems,
           handoffSummary: handoffSummary({
             threadTitle: selectedThread?.title || 'No task selected',
             latestRequest: latestUser ? latestUser.text : 'No task selected',
@@ -4303,6 +4305,7 @@
       state.transcript.messages = [];
       state.transcript.toolCards = [];
       state.transcript.timelineItems = [];
+      state.activity.authoredPlan = null;
       state.review = {
         title: 'Review changes',
         subtitle: 'Latest git diff',
@@ -5602,6 +5605,46 @@
           'Slash commands:',
           ...slashCommandDefinitions.map(definition => `${definition.usage} - ${definition.detail}`)
         ].join('\n'));
+      } else if (text.toLowerCase().includes('plan')) {
+        const update = {
+          explanation: 'Model-authored plan for the current request.',
+          plan: [
+            { step: 'Inspect current state', status: 'completed' },
+            { step: 'Implement requested change', status: 'in_progress', detail: 'Keep the slice reviewable.' },
+            { step: 'Validate and summarize', status: 'pending' }
+          ]
+        };
+        state.activity.authoredPlan = [
+          {
+            id: 'authored-plan-0',
+            title: 'Inspect current state',
+            detail: update.explanation,
+            kind: 'authored-plan',
+            statusLabel: 'Done'
+          },
+          {
+            id: 'authored-plan-1',
+            title: 'Implement requested change',
+            detail: 'Keep the slice reviewable.',
+            kind: 'authored-plan',
+            statusLabel: 'Running'
+          },
+          {
+            id: 'authored-plan-2',
+            title: 'Validate and summarize',
+            detail: 'Model-authored task plan.',
+            kind: 'authored-plan',
+            statusLabel: 'Pending'
+          }
+        ];
+        addToolCard({
+          title: 'host.plan.update',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify(update, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(update, null, 2) }, null, 2)
+        });
+        addMessage('assistant', 'Updated the task plan.');
       } else if (text.toLowerCase().includes('write a file') || text.toLowerCase().includes('make a file')) {
         const path = 'hello.txt';
         state.mockFiles[`/mock/QuillCode/${path}`] = 'hello world\n';

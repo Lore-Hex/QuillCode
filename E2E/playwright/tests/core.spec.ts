@@ -380,6 +380,28 @@ test('mock harness surfaces file artifacts from tool cards', async ({ page }) =>
   await expect(page.getByTestId('activity-tool')).toContainText('host.file.write');
 });
 
+test('mock harness shows model-authored task plan in Activity', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('plan the QuillCode work');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.plan.update');
+  await expect(page.getByText('Updated the task plan.')).toBeVisible();
+
+  await page.getByTestId('activity-button').click();
+  await expect(page.getByTestId('activity-pane')).toBeVisible();
+  await expect(page.getByTestId('activity-plan')).toHaveCount(3);
+  await expect(page.getByTestId('activity-plan').nth(0)).toContainText('Inspect current state');
+  await expect(page.getByTestId('activity-plan').nth(0)).toContainText('Done');
+  await expect(page.getByTestId('activity-plan').nth(1)).toContainText('Implement requested change');
+  await expect(page.getByTestId('activity-plan').nth(1)).toContainText('Running');
+  await expect(page.getByTestId('activity-plan').nth(1)).toContainText('Keep the slice reviewable.');
+  await expect(page.getByTestId('activity-plan').nth(2)).toContainText('Validate and summarize');
+  await expect(page.getByTestId('activity-plan').nth(2)).toContainText('Pending');
+  await expect(page.getByTestId('activity-plan-section')).toContainText('3 items');
+});
+
 test('mock harness renders image artifact previews from tool cards', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

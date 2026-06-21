@@ -33,6 +33,32 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(result.thread.messages.last?.content, "Wrote `hello.txt`.")
     }
 
+    func testAgentUsesPlanUpdateToolWhenAvailable() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(
+            additionalToolDefinitions: [ToolDefinition.planUpdate],
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.planUpdate.name else { return nil }
+                return ToolResult(ok: true, stdout: call.argumentsJSON)
+            }
+        )
+
+        let result = try await runner.send(
+            "plan the work",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok)
+        XCTAssertEqual(result.thread.messages.last?.content, "Updated the task plan.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .toolCompleted && $0.summary == "\(ToolDefinition.planUpdate.name) completed"
+        })
+        let update = try JSONHelpers.decode(AgentPlanUpdate.self, from: result.toolResults[0].stdout)
+        XCTAssertEqual(update.plan.map(\.status), [.completed, .inProgress, .pending])
+    }
+
     func testAgentContinuesAcrossMultipleToolCallsInOneTurn() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(llm: SequenceLLMClient(actions: [

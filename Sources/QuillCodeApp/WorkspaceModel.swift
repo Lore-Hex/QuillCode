@@ -1514,15 +1514,19 @@ public final class QuillCodeWorkspaceModel {
             try Task.checkCancellation()
             let activeMCPToolDefinition = mcpToolDefinitionForReadyServers()
             let activeMCPExecutor = mcpToolExecutionOverride()
+            let activePlanDefinitions = [ToolDefinition.planUpdate]
+            let activePlanExecutor = planToolExecutionOverride()
             let activeBrowserDefinitions = [ToolDefinition.browserInspect]
             let activeBrowserExecutor = browserToolExecutionOverride(snapshot: browser)
             let activeComputerDefinitions = computerUseBackend == nil ? [] : ToolDefinition.computerUseDefinitions
             let activeComputerExecutor = computerUseToolExecutionOverride()
             var activeRunner = runner
-            activeRunner.additionalToolDefinitions = activeBrowserDefinitions
+            activeRunner.additionalToolDefinitions = activePlanDefinitions
+                + activeBrowserDefinitions
                 + activeComputerDefinitions
                 + (activeMCPToolDefinition.map { [$0] } ?? [])
             activeRunner.toolExecutionOverride = combinedToolExecutionOverride(
+                plan: activePlanExecutor,
                 browser: activeBrowserExecutor,
                 computerUse: activeComputerExecutor,
                 mcp: activeMCPExecutor
@@ -2039,13 +2043,24 @@ public final class QuillCodeWorkspaceModel {
         }
     }
 
+    private func planToolExecutionOverride() -> AgentToolExecutionOverride {
+        { call, _ in
+            guard call.name == ToolDefinition.planUpdate.name else { return nil }
+            return PlanUpdateToolExecutor.execute(call)
+        }
+    }
+
     private func combinedToolExecutionOverride(
+        plan: AgentToolExecutionOverride?,
         browser: AgentToolExecutionOverride?,
         computerUse: AgentToolExecutionOverride?,
         mcp: AgentToolExecutionOverride?
     ) -> AgentToolExecutionOverride? {
-        guard browser != nil || computerUse != nil || mcp != nil else { return nil }
+        guard plan != nil || browser != nil || computerUse != nil || mcp != nil else { return nil }
         return { call, workspaceRoot in
+            if let result = await plan?(call, workspaceRoot) {
+                return result
+            }
             if let result = await browser?(call, workspaceRoot) {
                 return result
             }
@@ -2189,9 +2204,14 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: "Running")
 
         let router = ToolRouter(workspaceRoot: workspaceRoot)
-        let result = call.name == ToolDefinition.browserInspect.name
-            ? BrowserInspector.toolResult(from: browser)
-            : router.execute(call)
+        let result: ToolResult
+        if call.name == ToolDefinition.browserInspect.name {
+            result = BrowserInspector.toolResult(from: browser)
+        } else if call.name == ToolDefinition.planUpdate.name {
+            result = PlanUpdateToolExecutor.execute(call)
+        } else {
+            result = router.execute(call)
+        }
         appendToolRun(call: call, result: result)
         let followUpResult = appendReviewDiffAfterPatchIfNeeded(
             call: call,

@@ -30,6 +30,25 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(decoded.argumentsJSON, call.argumentsJSON)
     }
 
+    func testAgentPlanUpdateRoundTrips() throws {
+        let update = AgentPlanUpdate(
+            explanation: "Keep the user informed.",
+            plan: [
+                AgentPlanItem(step: "Inspect state", status: .completed),
+                AgentPlanItem(step: "Implement change", status: .inProgress, detail: "Keep the slice reviewable."),
+                AgentPlanItem(step: "Validate", status: .pending)
+            ]
+        )
+
+        let encoded = try JSONHelpers.encodePretty(update)
+        let decoded = try JSONHelpers.decode(AgentPlanUpdate.self, from: encoded)
+
+        XCTAssertEqual(decoded, update)
+        XCTAssertEqual(ToolDefinition.planUpdate.name, "host.plan.update")
+        XCTAssertEqual(AgentPlanItemStatus.inProgress.label, "Running")
+        XCTAssertTrue(ToolDefinition.planUpdate.parametersJSON.contains("in_progress"))
+    }
+
     func testToolArgumentsRejectMissingCommand() throws {
         let args = try ToolArguments("{}")
         XCTAssertThrowsError(try args.requiredString("cmd"))

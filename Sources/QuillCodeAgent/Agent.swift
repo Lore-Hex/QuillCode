@@ -173,6 +173,22 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
+        if lower.contains("plan"),
+           tools.contains(where: { $0.name == ToolDefinition.planUpdate.name }) {
+            let update = AgentPlanUpdate(
+                explanation: "Model-authored plan for the current request.",
+                plan: [
+                    AgentPlanItem(step: "Inspect current state", status: .completed),
+                    AgentPlanItem(step: "Implement requested change", status: .inProgress),
+                    AgentPlanItem(step: "Validate and summarize", status: .pending)
+                ]
+            )
+            return .tool(.init(
+                name: ToolDefinition.planUpdate.name,
+                argumentsJSON: try JSONHelpers.encodePretty(update)
+            ))
+        }
+
         if lower.contains("whoami") {
             return .tool(.init(
                 name: ToolDefinition.shellRun.name,
@@ -762,6 +778,10 @@ public struct AgentRunner: Sendable {
             return followUpReviewResult == nil
                 ? "Patch applied."
                 : "Patch applied. Review the resulting diff below."
+        }
+
+        if call.name == ToolDefinition.planUpdate.name {
+            return "Updated the task plan."
         }
 
         if call.name == ToolDefinition.shellRun.name,

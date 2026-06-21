@@ -91,14 +91,15 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         let sources = Self.sourceItems(instructions: instructions, memories: memories)
         let artifacts = Self.uniqueArtifacts(from: toolCards)
         let finalAnswer = Self.finalAnswer(for: thread)
-        let planItems = Self.planItems(
-            for: thread,
-            toolCards: toolCards,
-            sources: sources,
-            artifacts: artifacts,
-            finalAnswer: finalAnswer,
-            agentStatus: agentStatus
-        )
+        let planItems = Self.authoredPlanItems(for: thread)
+            ?? Self.planItems(
+                for: thread,
+                toolCards: toolCards,
+                sources: sources,
+                artifacts: artifacts,
+                finalAnswer: finalAnswer,
+                agentStatus: agentStatus
+            )
         self.init(
             isVisible: isVisible,
             title: "Activity",
@@ -368,6 +369,27 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
                 statusLabel: answerStatus
             )
         ]
+    }
+
+    private static func authoredPlanItems(for thread: ChatThread) -> [ActivityItemSurface]? {
+        guard let update = PlanUpdateToolExecutor.latestUpdate(in: thread) else {
+            return nil
+        }
+
+        let explanation = update.explanation.map { boundedLine($0, limit: 160) }
+        let items = update.plan.enumerated().map { index, item in
+            ActivityItemSurface(
+                id: "authored-plan-\(index)",
+                title: boundedLine(item.step, limit: 120),
+                detail: item.detail.map { boundedLine($0, limit: 160) }
+                    ?? (index == 0 ? explanation : nil)
+                    ?? "Model-authored task plan.",
+                kind: "authored-plan",
+                statusLabel: item.status.label
+            )
+        }
+
+        return items.isEmpty ? nil : items
     }
 
     private static func aggregateToolStatus(_ toolCards: [ToolCardState]) -> String {

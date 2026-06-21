@@ -63,6 +63,45 @@ public struct ToolDefinition: Codable, Sendable, Hashable {
     }
 }
 
+public enum AgentPlanItemStatus: String, Codable, Sendable, Hashable, CaseIterable {
+    case pending
+    case inProgress = "in_progress"
+    case completed
+
+    public var label: String {
+        switch self {
+        case .pending:
+            return "Pending"
+        case .inProgress:
+            return "Running"
+        case .completed:
+            return "Done"
+        }
+    }
+}
+
+public struct AgentPlanItem: Codable, Sendable, Hashable {
+    public var step: String
+    public var status: AgentPlanItemStatus
+    public var detail: String?
+
+    public init(step: String, status: AgentPlanItemStatus, detail: String? = nil) {
+        self.step = step
+        self.status = status
+        self.detail = detail
+    }
+}
+
+public struct AgentPlanUpdate: Codable, Sendable, Hashable {
+    public var explanation: String?
+    public var plan: [AgentPlanItem]
+
+    public init(explanation: String? = nil, plan: [AgentPlanItem]) {
+        self.explanation = explanation
+        self.plan = plan
+    }
+}
+
 public struct ToolCall: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var name: String
@@ -200,6 +239,14 @@ public struct BrowserInspectionToolOutput: Codable, Sendable, Hashable {
 }
 
 public extension ToolDefinition {
+    static let planUpdate = ToolDefinition(
+        name: "host.plan.update",
+        description: "Update the visible task plan for the current thread. Use this before or during multi-step work so the Activity pane reflects the model-authored plan. Provide 1-12 concise steps and at most one in_progress item.",
+        parametersJSON: #"{"type":"object","properties":{"explanation":{"type":"string"},"plan":{"type":"array","minItems":1,"maxItems":12,"items":{"type":"object","properties":{"step":{"type":"string"},"status":{"type":"string","enum":["pending","in_progress","completed"]},"detail":{"type":"string"}},"required":["step","status"]}}},"required":["plan"]}"#,
+        host: .local,
+        risk: .read
+    )
+
     static let browserInspect = ToolDefinition(
         name: "host.browser.inspect",
         description: "Inspect the current QuillCode browser preview page, including URL, title, inspection depth, summary, visible page outline, text snippet, and attached browser comments.",
