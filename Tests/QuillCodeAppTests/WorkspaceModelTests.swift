@@ -732,7 +732,10 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(manifests.map(\.kind), [.plugin, .skill, .mcpServer])
         XCTAssertEqual(manifests[0].summary, "PR and issue helpers.")
         XCTAssertEqual(manifests[1].isEnabled, false)
+        XCTAssertEqual(manifests[2].transport, .stdio)
+        XCTAssertEqual(manifests[2].launchExecutable, "quill-mcp")
         XCTAssertEqual(manifests[2].launchCommand, "quill-mcp --root .")
+        XCTAssertEqual(manifests[2].launchArguments, ["--root", "."])
     }
 
     func testProjectExtensionManifestsLoadIntoProjectSurface() throws {
@@ -758,6 +761,44 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(extensions.mcpServerCount, 0)
         XCTAssertEqual(extensions.items.first?.name, "GitHub")
         XCTAssertEqual(extensions.items.first?.relativePath, ".quillcode/plugins/github.json")
+    }
+
+    func testMCPServerLifecycleStartsStopsAndStopAllTerminatesProcesses() throws {
+        let root = try makeTempDirectory()
+        let mcpDirectory = root.appendingPathComponent(".quillcode/mcp")
+        try FileManager.default.createDirectory(at: mcpDirectory, withIntermediateDirectories: true)
+        try #"{"id":"filesystem","name":"Filesystem MCP","command":"sleep","args":["60"]}"#.write(
+            to: mcpDirectory.appendingPathComponent("filesystem.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "MCP Project")
+        model.selectProject(projectID)
+        _ = model.newChat(projectID: projectID)
+        model.toggleExtensions()
+
+        XCTAssertEqual(model.surface().extensions.items.first?.statusLabel, "Stopped")
+        XCTAssertTrue(model.runWorkspaceCommand("mcp-start:mcp_server:filesystem", workspaceRoot: root))
+
+        var surface = model.surface()
+        XCTAssertEqual(surface.extensions.items.first?.statusLabel, "Running")
+        XCTAssertEqual(surface.extensions.items.first?.stopCommandID, "mcp-stop:mcp_server:filesystem")
+        XCTAssertEqual(surface.commands.first { $0.id == "stop-all" }?.isEnabled, true)
+        XCTAssertTrue(model.selectedThread?.events.contains { $0.summary == "MCP server Filesystem MCP started" } == true)
+
+        model.cancelActiveWork()
+        surface = model.surface()
+        XCTAssertEqual(surface.extensions.items.first?.statusLabel, "Stopped")
+        XCTAssertEqual(surface.commands.first { $0.id == "stop-all" }?.isEnabled, false)
+
+        XCTAssertTrue(model.runWorkspaceCommand("mcp-start:mcp_server:filesystem", workspaceRoot: root))
+        XCTAssertTrue(model.runWorkspaceCommand("mcp-stop:mcp_server:filesystem", workspaceRoot: root))
+        surface = model.surface()
+        XCTAssertEqual(surface.extensions.items.first?.statusLabel, "Stopped")
+        XCTAssertEqual(surface.extensions.items.first?.startCommandID, "mcp-start:mcp_server:filesystem")
+        XCTAssertTrue(model.selectedThread?.events.contains { $0.summary == "MCP server Filesystem MCP stopped" } == true)
     }
 
     func testMemoryNotesLoadGlobalAndProjectIntoThreadAndSurface() async throws {

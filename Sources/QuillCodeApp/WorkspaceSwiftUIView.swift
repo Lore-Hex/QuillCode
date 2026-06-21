@@ -127,7 +127,10 @@ public struct QuillCodeWorkspaceView: View {
                     }
                     if surface.extensions.isVisible {
                         Divider()
-                        QuillCodeExtensionsPaneView(extensions: surface.extensions)
+                        QuillCodeExtensionsPaneView(
+                            extensions: surface.extensions,
+                            onCommand: handleCommand
+                        )
                     }
                     if surface.memories.isVisible {
                         Divider()
@@ -1334,6 +1337,7 @@ private struct QuillCodeBrowserPaneView: View {
 
 private struct QuillCodeExtensionsPaneView: View {
     var extensions: WorkspaceExtensionsSurface
+    var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1382,7 +1386,7 @@ private struct QuillCodeExtensionsPaneView: View {
                                         .clipShape(Capsule())
                                     Text(item.statusLabel)
                                         .font(.caption2.weight(.bold))
-                                        .foregroundStyle(item.statusLabel == "Discovered" ? QuillCodePalette.green : QuillCodePalette.muted)
+                                        .foregroundStyle(statusColor(for: item.statusLabel))
                                     Spacer()
                                 }
                                 Text(item.name)
@@ -1403,6 +1407,31 @@ private struct QuillCodeExtensionsPaneView: View {
                                         .font(.caption2.monospaced())
                                         .foregroundStyle(QuillCodePalette.muted)
                                         .lineLimit(1)
+                                }
+                                HStack(spacing: 8) {
+                                    if let transportLabel = item.transportLabel {
+                                        Text(transportLabel)
+                                            .font(.caption2.monospaced().weight(.semibold))
+                                            .foregroundStyle(QuillCodePalette.muted)
+                                            .padding(.horizontal, 7)
+                                            .padding(.vertical, 4)
+                                            .background(QuillCodePalette.panel.opacity(0.9))
+                                            .clipShape(Capsule())
+                                    }
+                                    Spacer()
+                                    if let stopCommandID = item.stopCommandID {
+                                        Button("Stop") {
+                                            onCommand(extensionCommand(id: stopCommandID, title: "Stop \(item.name)"))
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .controlSize(.small)
+                                    } else if let startCommandID = item.startCommandID {
+                                        Button("Start") {
+                                            onCommand(extensionCommand(id: startCommandID, title: "Start \(item.name)"))
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                        .controlSize(.small)
+                                    }
                                 }
                             }
                             .padding(12)
@@ -1427,6 +1456,26 @@ private struct QuillCodeExtensionsPaneView: View {
             .padding(.vertical, 4)
             .background(QuillCodePalette.blue.opacity(0.12))
             .clipShape(Capsule())
+    }
+
+    private func statusColor(for status: String) -> Color {
+        switch status {
+        case "Discovered", "Running":
+            return QuillCodePalette.green
+        case "Failed", "Missing command":
+            return QuillCodePalette.red
+        default:
+            return QuillCodePalette.muted
+        }
+    }
+
+    private func extensionCommand(id: String, title: String) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: id,
+            title: title,
+            category: WorkspaceCommandPalette.extensionsCategory,
+            keywords: ["mcp", "server", title]
+        )
     }
 }
 

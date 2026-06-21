@@ -304,9 +304,31 @@ public struct BrowserState: Sendable, Hashable {
 
 public struct ExtensionsState: Sendable, Hashable {
     public var isVisible: Bool
+    public var mcpServerStatuses: [String: MCPServerLifecycleStatus]
 
-    public init(isVisible: Bool = false) {
+    public init(
+        isVisible: Bool = false,
+        mcpServerStatuses: [String: MCPServerLifecycleStatus] = [:]
+    ) {
         self.isVisible = isVisible
+        self.mcpServerStatuses = mcpServerStatuses
+    }
+}
+
+public enum MCPServerLifecycleStatus: String, Sendable, Hashable {
+    case stopped
+    case running
+    case failed
+
+    public var title: String {
+        switch self {
+        case .stopped:
+            return "Stopped"
+        case .running:
+            return "Running"
+        case .failed:
+            return "Failed"
+        }
     }
 }
 
@@ -332,6 +354,7 @@ public final class QuillCodeWorkspaceModel {
     private let threadStore: JSONThreadStore?
     private let projectStore: JSONProjectStore?
     private let globalMemoryDirectory: URL?
+    private var mcpServerProcesses: [String: Process]
 
     public init(
         root: QuillCodeRootState = QuillCodeRootState(),
@@ -355,7 +378,14 @@ public final class QuillCodeWorkspaceModel {
         self.threadStore = threadStore
         self.projectStore = projectStore
         self.globalMemoryDirectory = globalMemoryDirectory
+        self.mcpServerProcesses = [:]
         refreshTopBar()
+    }
+
+    deinit {
+        for process in mcpServerProcesses.values where process.isRunning {
+            process.terminate()
+        }
     }
 
     public var selectedThread: ChatThread? {
@@ -817,6 +847,14 @@ public final class QuillCodeWorkspaceModel {
             let id = String(commandID.dropFirst("memory-delete:".count))
             return deleteGlobalMemory(id: id)
         }
+        if commandID.hasPrefix("mcp-start:") {
+            let id = String(commandID.dropFirst("mcp-start:".count))
+            return startMCPServer(id: id, workspaceRoot: workspaceRoot)
+        }
+        if commandID.hasPrefix("mcp-stop:") {
+            let id = String(commandID.dropFirst("mcp-stop:".count))
+            return stopMCPServer(id: id)
+        }
         switch commandID {
         case "toggle-terminal":
             toggleTerminal()
@@ -852,6 +890,122 @@ public final class QuillCodeWorkspaceModel {
             return true
         default:
             return false
+        }
+    }
+
+    @discardableResult
+    private func startMCPServer(id: String, workspaceRoot: URL) -> Bool {
+        guard let manifest = selectedProject?.extensionManifests.first(where: {
+            $0.id == id && $0.kind == .mcpServer
+        }) else {
+            lastError = "MCP server manifest not found."
+            return false
+        }
+        guard manifest.isEnabled else {
+            lastError = "\(manifest.name) is disabled."
+            extensions.mcpServerStatuses[id] = .failed
+            return false
+        }
+        guard let command = manifest.launchExecutable,
+              !command.isEmpty
+        else {
+            lastError = "\(manifest.name) does not define a launch command."
+            extensions.mcpServerStatuses[id] = .failed
+            return false
+        }
+        if let process = mcpServerProcesses[id], process.isRunning {
+            extensions.mcpServerStatuses[id] = .running
+            refreshTopBar(agentStatus: "Idle")
+            return true
+        }
+
+        let process = Process()
+        process.currentDirectoryURL = workspaceRoot
+        let arguments = manifest.launchArguments ?? []
+        if command.contains("/") {
+            let commandURL = command.hasPrefix("/")
+                ? URL(fileURLWithPath: command)
+                : workspaceRoot.appendingPathComponent(command)
+            process.executableURL = commandURL
+            process.arguments = arguments
+        } else {
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = [command] + arguments
+        }
+
+        let standardInput = Pipe()
+        let standardOutput = Pipe()
+        let standardError = Pipe()
+        standardOutput.fileHandleForReading.readabilityHandler = { handle in
+            _ = handle.availableData
+        }
+        standardError.fileHandleForReading.readabilityHandler = { handle in
+            _ = handle.availableData
+        }
+        process.standardInput = standardInput
+        process.standardOutput = standardOutput
+        process.standardError = standardError
+        process.terminationHandler = { [weak self] process in
+            standardOutput.fileHandleForReading.readabilityHandler = nil
+            standardError.fileHandleForReading.readabilityHandler = nil
+            Task { @MainActor [weak self] in
+                self?.finishMCPServerProcess(id: id, terminationStatus: process.terminationStatus)
+            }
+        }
+
+        do {
+            try process.run()
+        } catch {
+            lastError = "Could not start \(manifest.name): \(error.localizedDescription)"
+            extensions.mcpServerStatuses[id] = .failed
+            refreshTopBar(agentStatus: "Failed")
+            appendNotice("MCP server \(manifest.name) failed to start")
+            return false
+        }
+
+        mcpServerProcesses[id] = process
+        extensions.mcpServerStatuses[id] = .running
+        lastError = nil
+        refreshTopBar(agentStatus: "Idle")
+        appendNotice("MCP server \(manifest.name) started")
+        return true
+    }
+
+    @discardableResult
+    private func stopMCPServer(id: String) -> Bool {
+        guard let manifest = selectedProject?.extensionManifests.first(where: {
+            $0.id == id && $0.kind == .mcpServer
+        }) else {
+            lastError = "MCP server manifest not found."
+            return false
+        }
+
+        if let process = mcpServerProcesses[id], process.isRunning {
+            process.terminate()
+        }
+        mcpServerProcesses[id] = nil
+        extensions.mcpServerStatuses[id] = .stopped
+        lastError = nil
+        refreshTopBar(agentStatus: "Idle")
+        appendNotice("MCP server \(manifest.name) stopped")
+        return true
+    }
+
+    private func finishMCPServerProcess(id: String, terminationStatus: Int32) {
+        mcpServerProcesses[id] = nil
+        if extensions.mcpServerStatuses[id] == .stopped {
+            return
+        }
+        extensions.mcpServerStatuses[id] = terminationStatus == 0 ? .stopped : .failed
+        refreshTopBar(agentStatus: terminationStatus == 0 ? "Idle" : "Failed")
+    }
+
+    private func appendNotice(_ summary: String) {
+        mutateSelectedThread { thread in
+            thread.events.append(.init(kind: .notice, summary: summary))
+        }
+        if let thread = selectedThread {
+            try? threadStore?.save(thread)
         }
     }
 
@@ -1018,9 +1172,17 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func cancelActiveWork() {
-        let hadActiveWork = composer.isSending || terminal.isRunning
+        let runningMCPIDs = mcpServerProcesses.compactMap { id, process in
+            process.isRunning ? id : nil
+        }
+        let hadActiveWork = composer.isSending || terminal.isRunning || !runningMCPIDs.isEmpty
         composer.isSending = false
         terminal.isRunning = false
+        for id in runningMCPIDs {
+            mcpServerProcesses[id]?.terminate()
+            mcpServerProcesses[id] = nil
+            extensions.mcpServerStatuses[id] = .stopped
+        }
         lastError = nil
         if hadActiveWork {
             refreshTopBar(agentStatus: "Stopped")

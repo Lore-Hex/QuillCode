@@ -233,8 +233,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
                     name: "Filesystem MCP",
                     summary: "Workspace MCP server.",
                     relativePath: ".quillcode/mcp/filesystem.json",
-                    isEnabled: false,
-                    launchCommand: "quill-mcp --root ."
+                    transport: .stdio,
+                    launchExecutable: "quill-mcp",
+                    launchCommand: "quill-mcp --root .",
+                    launchArguments: ["--root", "."]
                 )
             ]
         )
@@ -247,10 +249,49 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertEqual(surface.extensions.subtitle, "1 plugin · 0 skills · 1 MCP server")
         XCTAssertEqual(surface.extensions.items.map(\.kindLabel), ["Plugin", "MCP"])
-        XCTAssertEqual(surface.extensions.items.map(\.statusLabel), ["Discovered", "Disabled"])
+        XCTAssertEqual(surface.extensions.items.map(\.statusLabel), ["Discovered", "Stopped"])
+        XCTAssertEqual(surface.extensions.items.last?.transportLabel, "STDIO")
         XCTAssertEqual(surface.extensions.items.last?.launchCommand, "quill-mcp --root .")
+        XCTAssertEqual(surface.extensions.items.last?.startCommandID, "mcp-start:mcp_server:filesystem")
+        XCTAssertEqual(surface.commands.first { $0.id == "mcp-start:mcp_server:filesystem" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "mcp-stop:mcp_server:filesystem" }?.isEnabled, false)
         XCTAssertEqual(surface.commands.first { $0.id == "toggle-extensions" }?.category, WorkspaceCommandPalette.extensionsCategory)
         XCTAssertEqual(surface.commands.first { $0.id == "toggle-extensions" }?.isEnabled, true)
+    }
+
+    func testSurfaceShowsRunningMCPServerStopAction() {
+        let project = ProjectRef(
+            name: "QuillCode",
+            path: "/tmp/QuillCode",
+            extensionManifests: [
+                ProjectExtensionManifest(
+                    id: "mcp_server:filesystem",
+                    kind: .mcpServer,
+                    name: "Filesystem MCP",
+                    relativePath: ".quillcode/mcp/filesystem.json",
+                    transport: .stdio,
+                    launchExecutable: "quill-mcp",
+                    launchCommand: "quill-mcp --root .",
+                    launchArguments: ["--root", "."]
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            extensions: ExtensionsState(
+                isVisible: true,
+                mcpServerStatuses: ["mcp_server:filesystem": .running]
+            )
+        )
+
+        let surface = model.surface()
+
+        XCTAssertEqual(surface.extensions.items.first?.statusLabel, "Running")
+        XCTAssertNil(surface.extensions.items.first?.startCommandID)
+        XCTAssertEqual(surface.extensions.items.first?.stopCommandID, "mcp-stop:mcp_server:filesystem")
+        XCTAssertEqual(surface.commands.first { $0.id == "mcp-start:mcp_server:filesystem" }?.isEnabled, false)
+        XCTAssertEqual(surface.commands.first { $0.id == "mcp-stop:mcp_server:filesystem" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "stop-all" }?.isEnabled, true)
     }
 
     func testSurfaceIncludesMemorySummariesAndCommand() {
@@ -706,11 +747,15 @@ final class WorkspaceSurfaceTests: XCTestCase {
             path: "/tmp/QuillCode",
             extensionManifests: [
                 ProjectExtensionManifest(
-                    id: "skill:review",
-                    kind: .skill,
-                    name: "Code Review",
-                    summary: "Review bugs first.",
-                    relativePath: ".quillcode/skills/review.json"
+                    id: "mcp_server:filesystem",
+                    kind: .mcpServer,
+                    name: "Filesystem MCP",
+                    summary: "Workspace MCP server.",
+                    relativePath: ".quillcode/mcp/filesystem.json",
+                    transport: .stdio,
+                    launchExecutable: "quill-mcp",
+                    launchCommand: "quill-mcp --root .",
+                    launchArguments: ["--root", "."]
                 )
             ]
         )
@@ -723,8 +768,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="extensions-pane""#))
         XCTAssertTrue(html.contains(#"data-testid="extension-item""#))
-        XCTAssertTrue(html.contains("Code Review"))
-        XCTAssertTrue(html.contains(".quillcode/skills/review.json"))
+        XCTAssertTrue(html.contains("Filesystem MCP"))
+        XCTAssertTrue(html.contains(#"data-testid="extension-transport""#))
+        XCTAssertTrue(html.contains(#"data-testid="extension-start""#))
+        XCTAssertTrue(html.contains(".quillcode/mcp/filesystem.json"))
     }
 
     func testHTMLRendererIncludesVisibleMemoriesPane() throws {

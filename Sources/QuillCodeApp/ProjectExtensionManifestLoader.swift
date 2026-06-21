@@ -113,7 +113,10 @@ public enum ProjectExtensionManifestLoader {
             summary: payload.summaryText,
             relativePath: relativePath,
             isEnabled: payload.enabled ?? true,
-            launchCommand: payload.launchCommand
+            transport: payload.transportKind(for: kind),
+            launchExecutable: payload.launchExecutable,
+            launchCommand: payload.launchCommand,
+            launchArguments: payload.launchArguments
         )
     }
 
@@ -140,6 +143,7 @@ private struct ManifestPayload: Decodable {
     var enabled: Bool?
     var command: String?
     var args: [String]?
+    var transport: String?
 
     var normalizedID: String {
         (id ?? name ?? "")
@@ -154,8 +158,7 @@ private struct ManifestPayload: Decodable {
     }
 
     var launchCommand: String? {
-        guard let command = command?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !command.isEmpty
+        guard let command = launchExecutable
         else {
             return nil
         }
@@ -166,5 +169,31 @@ private struct ManifestPayload: Decodable {
             return command
         }
         return ([command] + args).joined(separator: " ")
+    }
+
+    var launchExecutable: String? {
+        guard let command = command?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !command.isEmpty
+        else {
+            return nil
+        }
+        return command
+    }
+
+    var launchArguments: [String]? {
+        let args = (args ?? [])
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return args.isEmpty ? nil : args
+    }
+
+    func transportKind(for kind: ProjectExtensionKind) -> ProjectExtensionTransport? {
+        if let transport = transport?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased(),
+           let parsed = ProjectExtensionTransport(rawValue: transport) {
+            return parsed
+        }
+        return kind == .mcpServer && launchCommand != nil ? .stdio : nil
     }
 }

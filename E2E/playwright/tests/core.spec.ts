@@ -430,8 +430,15 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await expect(page.getByTestId('extension-item')).toHaveCount(3);
   await expect(page.getByTestId('extension-item').first()).toContainText('GitHub');
   await expect(page.getByTestId('extension-item').nth(1)).toContainText('Code Review');
-  await expect(page.getByTestId('extension-item').nth(2)).toContainText('Disabled');
+  await expect(page.getByTestId('extension-item').nth(2)).toContainText('Stopped');
+  await expect(page.getByTestId('extension-transport')).toHaveText('STDIO');
   await expect(page.getByTestId('extension-command')).toHaveText('quill-mcp-filesystem --root .');
+  await expect(page.getByTestId('extension-start')).toBeVisible();
+  await page.getByTestId('extension-start').click();
+  await expect(page.getByTestId('extension-item').nth(2)).toContainText('Running');
+  await expect(page.getByTestId('extension-stop')).toBeVisible();
+  await page.getByTestId('extension-stop').click();
+  await expect(page.getByTestId('extension-item').nth(2)).toContainText('Stopped');
 
   await page.getByTestId('extensions-button').click();
   await expect(page.getByTestId('extensions-pane')).toHaveCount(0);

@@ -422,7 +422,7 @@ public enum WorkspaceHTMLRenderer {
 
     private static func renderExtensionItem(_ item: ProjectExtensionManifestSurface) -> String {
         """
-        <article class="extension-card" data-testid="extension-item" data-kind="\(escape(item.kind.rawValue))">
+        <article class="extension-card" data-testid="extension-item" data-kind="\(escape(item.kind.rawValue))" data-status="\(escape(item.statusLabel))">
           <header>
             <span data-testid="extension-kind">\(escape(item.kindLabel))</span>
             <span data-testid="extension-status">\(escape(item.statusLabel))</span>
@@ -431,8 +431,20 @@ public enum WorkspaceHTMLRenderer {
           \(item.summary.isEmpty ? "" : #"<p data-testid="extension-summary">\#(escape(item.summary))</p>"#)
           <code data-testid="extension-path">\(escape(item.relativePath))</code>
           \(item.launchCommand.map { #"<code data-testid="extension-command">\#(escape($0))</code>"# } ?? "")
+          \(item.transportLabel.map { #"<span data-testid="extension-transport">\#(escape($0))</span>"# } ?? "")
+          \(renderExtensionActions(item))
         </article>
         """
+    }
+
+    private static func renderExtensionActions(_ item: ProjectExtensionManifestSurface) -> String {
+        if let stopCommandID = item.stopCommandID {
+            return #"<button type="button" data-testid="extension-stop" data-command="\#(escape(stopCommandID))">Stop</button>"#
+        }
+        if let startCommandID = item.startCommandID {
+            return #"<button type="button" data-testid="extension-start" data-command="\#(escape(startCommandID))">Start</button>"#
+        }
+        return ""
     }
 
     private static func renderMemories(_ memories: WorkspaceMemoriesSurface) -> String {

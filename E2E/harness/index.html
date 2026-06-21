@@ -364,6 +364,30 @@
       background: rgba(82,210,115,.12);
       border-color: rgba(82,210,115,.22);
     }
+    .extension-card[data-status="Stopped"] [data-testid="extension-status"],
+    .extension-card[data-status="Disabled"] [data-testid="extension-status"] {
+      color: var(--muted);
+      background: rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.08);
+    }
+    .extension-card[data-status="Failed"] [data-testid="extension-status"],
+    .extension-card[data-status="Missing command"] [data-testid="extension-status"] {
+      color: #ffb7b7;
+      background: rgba(255,82,82,.1);
+      border-color: rgba(255,82,82,.16);
+    }
+    .extension-card button {
+      justify-self: start;
+      padding: 7px 11px;
+      border: 1px solid rgba(65,184,232,.24);
+      border-radius: 999px;
+      background: rgba(65,184,232,.16);
+      color: #b8ecff;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
     .extensions-grid,
     .memories-grid {
       display: grid;
@@ -388,6 +412,7 @@
     .extensions-empty p,
     .memories-empty p { margin: 0; color: var(--muted); }
     .extension-card code,
+    .extension-card [data-testid="extension-transport"],
     .memory-card code {
       color: var(--muted);
       font-size: 12px;
@@ -803,7 +828,10 @@
             summary: 'Pull request and issue workflow helpers.',
             relativePath: '.quillcode/plugins/github.json',
             statusLabel: 'Discovered',
-            launchCommand: null
+            transportLabel: null,
+            launchCommand: null,
+            startCommandID: null,
+            stopCommandID: null
           },
           {
             id: 'skill:review',
@@ -813,7 +841,10 @@
             summary: 'Review bugs, regressions, and missing tests first.',
             relativePath: '.quillcode/skills/code-review.json',
             statusLabel: 'Discovered',
-            launchCommand: null
+            transportLabel: null,
+            launchCommand: null,
+            startCommandID: null,
+            stopCommandID: null
           },
           {
             id: 'mcp_server:filesystem',
@@ -822,8 +853,11 @@
             name: 'Filesystem MCP',
             summary: 'Local fixture MCP server for workspace tools.',
             relativePath: '.quillcode/mcp/filesystem.json',
-            statusLabel: 'Disabled',
-            launchCommand: 'quill-mcp-filesystem --root .'
+            statusLabel: 'Stopped',
+            transportLabel: 'STDIO',
+            launchCommand: 'quill-mcp-filesystem --root .',
+            startCommandID: 'mcp-start:mcp_server:filesystem',
+            stopCommandID: null
           }
         ]
       },
@@ -906,6 +940,8 @@
         { id: 'toggle-memories', title: 'Memories', shortcut: '', category: 'Memories', keywords: ['memory', 'context', 'preferences', 'facts'], isEnabled: true },
         { id: 'memory-add', title: 'Add memory', shortcut: '', category: 'Memories', keywords: ['remember', 'save', 'preference', 'fact'], isEnabled: true },
         { id: 'toggle-extensions', title: 'Extensions', shortcut: '', category: 'Extensions', keywords: ['plugins', 'skills', 'mcp', 'manifest'], isEnabled: true },
+        { id: 'mcp-start:mcp_server:filesystem', title: 'Start Filesystem MCP', shortcut: '', category: 'Extensions', keywords: ['mcp', 'server', 'start', 'stdio', 'filesystem'], isEnabled: true },
+        { id: 'mcp-stop:mcp_server:filesystem', title: 'Stop Filesystem MCP', shortcut: '', category: 'Extensions', keywords: ['mcp', 'server', 'stop', 'stdio', 'filesystem'], isEnabled: false },
         { id: 'command-palette', title: 'Command palette', shortcut: 'Cmd+Shift+P', category: 'Navigation', keywords: ['commands', 'actions'], isEnabled: true },
         { id: 'git-pr-create', title: 'Create pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'review'], isEnabled: true },
         { id: 'git-worktree-list', title: 'List worktrees', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
@@ -1606,6 +1642,11 @@
 	        state.extensions.isVisible = !state.extensions.isVisible;
 	        render();
 	      });
+      document.querySelectorAll('[data-testid="extension-start"], [data-testid="extension-stop"]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
+        });
+      });
       document.querySelectorAll('[data-testid="sidebar-item"]').forEach(button => {
         button.addEventListener('click', event => {
           selectThread(event.currentTarget.getAttribute('data-thread-id'));
@@ -2001,7 +2042,7 @@
       const content = state.extensions.items.length ? `
         <div class="extensions-grid" data-testid="extensions-grid">
           ${state.extensions.items.map(item => `
-            <article class="extension-card" data-testid="extension-item" data-kind="${escapeHTML(item.kind)}">
+            <article class="extension-card" data-testid="extension-item" data-kind="${escapeHTML(item.kind)}" data-status="${escapeHTML(item.statusLabel)}">
               <header>
                 <span data-testid="extension-kind">${escapeHTML(item.kindLabel)}</span>
                 <span data-testid="extension-status">${escapeHTML(item.statusLabel)}</span>
@@ -2010,6 +2051,9 @@
               ${item.summary ? `<p data-testid="extension-summary">${escapeHTML(item.summary)}</p>` : ''}
               <code data-testid="extension-path">${escapeHTML(item.relativePath)}</code>
               ${item.launchCommand ? `<code data-testid="extension-command">${escapeHTML(item.launchCommand)}</code>` : ''}
+              ${item.transportLabel ? `<span data-testid="extension-transport">${escapeHTML(item.transportLabel)}</span>` : ''}
+              ${item.stopCommandID ? `<button type="button" data-testid="extension-stop" data-command-id="${escapeHTML(item.stopCommandID)}">Stop</button>` : ''}
+              ${item.startCommandID ? `<button type="button" data-testid="extension-start" data-command-id="${escapeHTML(item.startCommandID)}">Start</button>` : ''}
             </article>`).join('')}
         </div>` : `
         <div class="extensions-empty" data-testid="extensions-empty">
@@ -2207,6 +2251,18 @@
       if (commandID === 'toggle-extensions') {
         state.extensions.isVisible = !state.extensions.isVisible;
       }
+      if (commandID?.startsWith('mcp-start:')) {
+        setMCPStatus(commandID.slice('mcp-start:'.length), 'Running');
+        addMessage('assistant', 'Started Filesystem MCP.');
+        render();
+        return;
+      }
+      if (commandID?.startsWith('mcp-stop:')) {
+        setMCPStatus(commandID.slice('mcp-stop:'.length), 'Stopped');
+        addMessage('assistant', 'Stopped Filesystem MCP.');
+        render();
+        return;
+      }
       if (commandID === 'git-pr-create') {
         state.composer.draft = 'Create a pull request titled ';
       }
@@ -2238,6 +2294,9 @@
       if (commandID === 'stop-all') {
         state.composer.isSending = false;
         state.terminal.isRunning = false;
+        state.extensions.items
+          .filter(item => item.kind === 'mcp_server' && item.statusLabel === 'Running')
+          .forEach(item => setMCPStatus(item.id, 'Stopped'));
         state.topBar.agentStatus = 'Stopped';
       }
       if (commandID === 'settings') {
@@ -2245,6 +2304,29 @@
         state.settings.replacementAPIKey = '';
       }
       render();
+    }
+
+    function setMCPStatus(id, status) {
+      const item = state.extensions.items.find(item => item.id === id && item.kind === 'mcp_server');
+      if (!item) return;
+      item.statusLabel = status;
+      if (status === 'Running') {
+        item.startCommandID = null;
+        item.stopCommandID = `mcp-stop:${id}`;
+      } else {
+        item.startCommandID = `mcp-start:${id}`;
+        item.stopCommandID = null;
+      }
+      const startCommand = state.commands.find(command => command.id === `mcp-start:${id}`);
+      const stopCommand = state.commands.find(command => command.id === `mcp-stop:${id}`);
+      if (startCommand) startCommand.isEnabled = status !== 'Running';
+      if (stopCommand) stopCommand.isEnabled = status === 'Running';
+      const stopAll = state.commands.find(command => command.id === 'stop-all');
+      if (stopAll) {
+        stopAll.isEnabled = state.composer.isSending
+          || state.terminal.isRunning
+          || state.extensions.items.some(item => item.kind === 'mcp_server' && item.statusLabel === 'Running');
+      }
     }
 
     function runTerminalCommand() {

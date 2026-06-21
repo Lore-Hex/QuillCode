@@ -332,6 +332,12 @@ public enum ProjectExtensionKind: String, Codable, Sendable, Hashable, CaseItera
     }
 }
 
+public enum ProjectExtensionTransport: String, Codable, Sendable, Hashable {
+    case stdio
+    case http
+    case sse
+}
+
 public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var kind: ProjectExtensionKind
@@ -339,7 +345,10 @@ public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiabl
     public var summary: String
     public var relativePath: String
     public var isEnabled: Bool
+    public var transport: ProjectExtensionTransport?
+    public var launchExecutable: String?
     public var launchCommand: String?
+    public var launchArguments: [String]?
 
     public init(
         id: String,
@@ -348,7 +357,10 @@ public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiabl
         summary: String = "",
         relativePath: String,
         isEnabled: Bool = true,
-        launchCommand: String? = nil
+        transport: ProjectExtensionTransport? = nil,
+        launchExecutable: String? = nil,
+        launchCommand: String? = nil,
+        launchArguments: [String]? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -356,7 +368,10 @@ public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiabl
         self.summary = summary
         self.relativePath = relativePath
         self.isEnabled = isEnabled
+        self.transport = transport
+        self.launchExecutable = launchExecutable
         self.launchCommand = launchCommand
+        self.launchArguments = launchArguments
     }
 }
 
