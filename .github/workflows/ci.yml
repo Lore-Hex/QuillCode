@@ -19,6 +19,14 @@ jobs:
             exit 1
           fi
 
+  linux-swift:
+    runs-on: ubuntu-latest
+    container: swift:6.2-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build CLI
+        run: swift build --product quill-code
+
   playwright:
     runs-on: ubuntu-latest
     defaults:

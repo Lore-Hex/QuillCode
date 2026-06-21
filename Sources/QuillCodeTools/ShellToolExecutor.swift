@@ -179,30 +179,17 @@ private final class StreamingShellProcess: @unchecked Sendable {
         process.standardOutput = standardOutput
         process.standardError = standardError
 
-        standardOutput.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            self?.handleOutput(handle.availableData, stream: .stdout)
-        }
-        standardError.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            self?.handleOutput(handle.availableData, stream: .stderr)
-        }
-        process.terminationHandler = { [weak self] process in
-            self?.finish(process: process)
-        }
-
         lock.lock()
         if didCancel {
             lock.unlock()
             finishCancelled()
             return
         }
-        self.process = process
         lock.unlock()
 
         do {
             try process.run()
         } catch {
-            standardOutput.fileHandleForReading.readabilityHandler = nil
-            standardError.fileHandleForReading.readabilityHandler = nil
             finish(
                 stdout: "",
                 stderr: "",
@@ -213,14 +200,44 @@ private final class StreamingShellProcess: @unchecked Sendable {
             return
         }
 
+        lock.lock()
+        self.process = process
+        let shouldTerminate = didCancel
+        lock.unlock()
+
+        let readers = DispatchGroup()
+        startReader(standardOutput, stream: .stdout, readers: readers)
+        startReader(standardError, stream: .stderr, readers: readers)
+        if shouldTerminate {
+            process.terminate()
+        }
+
         DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + request.timeoutSeconds) { [weak self] in
             self?.timeout()
         }
+
+        process.waitUntilExit()
+        readers.wait()
+        finish(process: process)
     }
 
     private enum OutputStream {
         case stdout
         case stderr
+    }
+
+    private func startReader(_ pipe: Pipe, stream: OutputStream, readers: DispatchGroup) {
+        readers.enter()
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            defer { readers.leave() }
+            while true {
+                let data = pipe.fileHandleForReading.availableData
+                if data.isEmpty {
+                    return
+                }
+                self?.handleOutput(data, stream: stream)
+            }
+        }
     }
 
     private func handleOutput(_ data: Data, stream: OutputStream) {
@@ -256,18 +273,6 @@ private final class StreamingShellProcess: @unchecked Sendable {
     }
 
     private func finish(process: Process) {
-        let outputPipe = process.standardOutput as? Pipe
-        let errorPipe = process.standardError as? Pipe
-        outputPipe?.fileHandleForReading.readabilityHandler = nil
-        errorPipe?.fileHandleForReading.readabilityHandler = nil
-
-        if let output = outputPipe {
-            handleOutput(output.fileHandleForReading.readDataToEndOfFile(), stream: .stdout)
-        }
-        if let error = errorPipe {
-            handleOutput(error.fileHandleForReading.readDataToEndOfFile(), stream: .stderr)
-        }
-
         let out: String
         let err: String
         let cancelled: Bool
@@ -331,9 +336,8 @@ private final class StreamingShellProcess: @unchecked Sendable {
         process = nil
         lock.unlock()
 
-        if let activeProcess {
-            (activeProcess.standardOutput as? Pipe)?.fileHandleForReading.readabilityHandler = nil
-            (activeProcess.standardError as? Pipe)?.fileHandleForReading.readabilityHandler = nil
+        if let activeProcess, activeProcess.isRunning {
+            activeProcess.terminate()
         }
 
         continuation.yield(.finished(ToolResult(
