@@ -147,7 +147,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertNil(model.lastError)
         XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
         XCTAssertEqual(model.selectedThread?.messages.last?.role, .assistant)
-        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("Output:") == true)
+        XCTAssertTrue(model.selectedThread?.messages.last?.content.hasPrefix("You are `") == true)
 
         let cards = model.currentToolCards
         XCTAssertEqual(cards.count, 1)

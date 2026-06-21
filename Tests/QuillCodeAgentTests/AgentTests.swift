@@ -9,7 +9,7 @@ final class AgentTests: XCTestCase {
         let result = try await AgentRunner().send("run whoami", in: ChatThread(mode: .auto), workspaceRoot: root)
         XCTAssertEqual(result.toolResults.count, 1)
         XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
-        XCTAssertTrue(result.thread.messages.last?.content.contains("Output:") == true)
+        XCTAssertTrue(result.thread.messages.last?.content.hasPrefix("You are `") == true)
     }
 
     func testBacktickCommandDoesNotBecomeEmptyToolCall() async throws {
@@ -30,6 +30,31 @@ final class AgentTests: XCTestCase {
         XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
         let text = try String(contentsOf: root.appendingPathComponent("hello.txt"), encoding: .utf8)
         XCTAssertEqual(text, "hello world\n")
+        XCTAssertEqual(result.thread.messages.last?.content, "Wrote `hello.txt`.")
+    }
+
+    func testOpenClawDiscoverySummarizesMissingBinary() throws {
+        let call = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "command -v openclaw || which openclaw || echo 'not found'"
+            ])
+        )
+        let answer = AgentRunner.finalAnswer(for: call, result: ToolResult(ok: true, stdout: "not found\n"))
+        XCTAssertEqual(answer, "openclaw is not installed or is not on PATH.")
+    }
+
+    func testLongShellOutputIsTruncatedInFinalAnswer() throws {
+        let call = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "printf long-output"])
+        )
+        let answer = AgentRunner.finalAnswer(
+            for: call,
+            result: ToolResult(ok: true, stdout: String(repeating: "x", count: 2_100))
+        )
+        XCTAssertTrue(answer.contains("[truncated in chat; full output is in the tool card]"))
+        XCTAssertLessThan(answer.count, 2_100)
     }
 
     func testCommitChangesExecutesImmediately() async throws {

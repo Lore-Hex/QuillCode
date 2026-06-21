@@ -39,7 +39,7 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
   await expect(page.getByTestId('tool-card-input')).toContainText('whoami');
   await expect(page.getByTestId('tool-card-output')).toContainText('mock-user');
-  await expect(page.getByText('Output:\\nmock-user')).toBeVisible();
+  await expect(page.getByText('You are `mock-user` in this workspace.')).toBeVisible();
 });
 
 test('mock harness searches and reopens an existing chat', async ({ page }) => {
@@ -105,7 +105,7 @@ test('mock harness shows context pressure banner and forks from latest turn', as
   await expect(page.getByTestId('top-bar-title')).toContainText('Fork:');
   await expect(page.getByTestId('context-banner')).toHaveCount(0);
   await expect(page.getByTestId('message').first()).toContainText('run whoami');
-  await expect(page.getByText('Output:\\nmock-user')).toBeVisible();
+  await expect(page.getByText('You are `mock-user` in this workspace.')).toBeVisible();
 });
 
 test('mock harness runs a command from the command palette', async ({ page }) => {

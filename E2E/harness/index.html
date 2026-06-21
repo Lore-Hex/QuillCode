@@ -1478,7 +1478,7 @@
         inputJSON: JSON.stringify({ name: 'host.shell.run', argumentsJSON: JSON.stringify({ cmd: command }) }, null, 2),
         outputJSON: JSON.stringify({ ok: true, stdout: output, stderr: '', exitCode: 0 }, null, 2)
       });
-      state.transcript.messages.push({ role: 'assistant', text: 'Output:\\n' + output });
+      state.transcript.messages.push({ role: 'assistant', text: `Local environment action completed: ${relativePath}.` });
       render();
     }
 
@@ -1724,7 +1724,10 @@
           inputJSON: JSON.stringify({ cmd }, null, 2),
           outputJSON: JSON.stringify({ ok: true, stdout: 'mock-user\\n' }, null, 2)
         });
-        state.transcript.messages.push({ role: 'assistant', text: 'Output:\\nmock-user' });
+        const answer = cmd.trim() === 'whoami'
+          ? 'You are `mock-user` in this workspace.'
+          : 'Output:\\nmock-user';
+        state.transcript.messages.push({ role: 'assistant', text: answer });
       } else {
         state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
         state.transcript.messages.push({ role: 'assistant', text: 'I can inspect and edit this project.' });

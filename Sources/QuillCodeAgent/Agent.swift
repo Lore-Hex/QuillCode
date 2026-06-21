@@ -323,26 +323,99 @@ public struct AgentRunner: Sendable {
 
     static func finalAnswer(for call: ToolCall, result: ToolResult) -> String {
         if !result.ok {
-            if let error = result.error {
-                return "Command failed: \(error)"
+            let details = [result.error, result.stderr.trimmedNonEmpty]
+                .compactMap { $0 }
+                .joined(separator: "\n")
+            if details.isEmpty {
+                return "Command failed."
             }
-            return "Command failed."
+            return "Command failed:\n\(Self.truncated(details))"
         }
-        if call.name == ToolDefinition.fileWrite.name, let path = result.artifacts.first {
-            return "Wrote \(path)."
+
+        if call.name == ToolDefinition.fileWrite.name {
+            if let path = Self.argument("path", in: call) {
+                return "Wrote `\(path)`."
+            }
+            if let path = result.artifacts.first {
+                return "Wrote `\(path)`."
+            }
+            return "Wrote the file."
         }
+
+        if call.name == ToolDefinition.shellRun.name,
+           let command = Self.argument("cmd", in: call) {
+            if let answer = shellAnswer(command: command, result: result) {
+                return answer
+            }
+        }
+
         let output = [result.stdout, result.stderr]
-            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .compactMap(\.trimmedNonEmpty)
             .joined(separator: "\n")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
         if output.isEmpty {
             return "Done."
         }
-        return "Output:\n\(output)"
+        return "Output:\n\(Self.truncated(output))"
+    }
+
+    private static func shellAnswer(command: String, result: ToolResult) -> String? {
+        let normalizedCommand = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = normalizedCommand.lowercased()
+        let stdout = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        let stderr = result.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+        let output = stdout.isEmpty ? stderr : stdout
+
+        if lower == "whoami" {
+            guard !stdout.isEmpty else { return "The command ran, but did not print a user name." }
+            return "You are `\(Self.firstLine(stdout))` in this workspace."
+        }
+
+        if lower.contains("openclaw") && (lower.contains("command -v") || lower.contains("which ")) {
+            let firstLine = Self.firstLine(output)
+            if firstLine.isEmpty || firstLine == "not found" {
+                return "openclaw is not installed or is not on PATH."
+            }
+            return "openclaw is installed at `\(firstLine)`."
+        }
+
+        if lower.hasPrefix("df ") || lower.contains(" df ") || lower.contains("df -h") {
+            guard !output.isEmpty else { return "Disk usage command completed with no output." }
+            return "Disk usage:\n\(Self.truncated(output))"
+        }
+
+        return nil
+    }
+
+    private static func argument(_ key: String, in call: ToolCall) -> String? {
+        guard let data = call.argumentsJSON.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let value = object[key] as? String
+        else {
+            return nil
+        }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func firstLine(_ text: String) -> String {
+        text.split(whereSeparator: \.isNewline).first.map(String.init) ?? ""
+    }
+
+    private static func truncated(_ text: String, maxCharacters: Int = 2_000) -> String {
+        guard text.count > maxCharacters else { return text }
+        let end = text.index(text.startIndex, offsetBy: maxCharacters)
+        return "\(text[..<end])\n\n[truncated in chat; full output is in the tool card]"
     }
 
     static func title(from userMessage: String) -> String {
         let words = userMessage.split(separator: " ").prefix(6).joined(separator: " ")
         return words.isEmpty ? "New chat" : words
+    }
+}
+
+private extension String {
+    var trimmedNonEmpty: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
