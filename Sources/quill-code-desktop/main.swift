@@ -227,7 +227,8 @@ private final class QuillCodeDesktopController: ObservableObject {
     func saveSettings(_ update: WorkspaceSettingsUpdate) {
         var config = model.root.config
         config.apiBaseURL = update.apiBaseURL
-        config.developerOverrideEnabled = update.developerOverrideEnabled
+        config.authMode = update.authMode
+        config.developerOverrideEnabled = update.developerOverrideEnabled || update.authMode == .developerOverride
         if update.shouldClearAPIKey {
             try? bootstrap.clearTrustedRouterAPIKey()
         }

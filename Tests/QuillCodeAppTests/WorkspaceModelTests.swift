@@ -701,7 +701,7 @@ final class WorkspaceModelTests: XCTestCase {
         ).makeRuntime(config: AppConfig())
 
         XCTAssertEqual(runtime.mode, .trustedRouter)
-        XCTAssertEqual(runtime.statusLabel, "TrustedRouter ready")
+        XCTAssertEqual(runtime.statusLabel, "TrustedRouter signed in")
     }
 
     func testRuntimeFactoryUsesTrustedRouterWhenSecretExists() throws {

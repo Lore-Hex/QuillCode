@@ -373,22 +373,45 @@ public enum TrustedRouterDefaults {
     public static let safetyFallbackModel = "kimi-k2.6"
 }
 
+public enum TrustedRouterAuthMode: String, Codable, Sendable, CaseIterable, Hashable {
+    case oauth
+    case developerOverride = "developer-override"
+}
+
 public struct AppConfig: Codable, Sendable, Hashable {
     public var defaultModel: String
     public var mode: AgentMode
     public var apiBaseURL: String
+    public var authMode: TrustedRouterAuthMode
     public var developerOverrideEnabled: Bool
 
     public init(
         defaultModel: String = TrustedRouterDefaults.defaultModel,
         mode: AgentMode = .auto,
         apiBaseURL: String = TrustedRouterDefaults.defaultAPIBaseURL,
+        authMode: TrustedRouterAuthMode = .oauth,
         developerOverrideEnabled: Bool = false
     ) {
         self.defaultModel = defaultModel
         self.mode = mode
         self.apiBaseURL = apiBaseURL
-        self.developerOverrideEnabled = developerOverrideEnabled
+        self.authMode = developerOverrideEnabled ? .developerOverride : authMode
+        self.developerOverrideEnabled = developerOverrideEnabled || authMode == .developerOverride
+    }
+
+    public init(
+        defaultModel: String = TrustedRouterDefaults.defaultModel,
+        mode: AgentMode = .auto,
+        apiBaseURL: String = TrustedRouterDefaults.defaultAPIBaseURL,
+        developerOverrideEnabled: Bool
+    ) {
+        self.init(
+            defaultModel: defaultModel,
+            mode: mode,
+            apiBaseURL: apiBaseURL,
+            authMode: developerOverrideEnabled ? .developerOverride : .oauth,
+            developerOverrideEnabled: developerOverrideEnabled
+        )
     }
 }
 

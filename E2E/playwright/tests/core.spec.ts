@@ -16,9 +16,9 @@ test('mock harness executes simple command flow', async ({ page }) => {
 
   await page.getByTestId('settings-button').click();
   await expect(page.getByTestId('settings-panel')).toBeVisible();
-  await expect(page.getByTestId('settings-key-status')).toHaveText('No API key saved');
+  await expect(page.getByTestId('settings-key-status')).toHaveText('Not signed in');
   await page.getByLabel('TrustedRouter API base URL').fill('https://api.trustedrouter.test/v1');
-  await page.getByLabel('Enable developer override').check();
+  await page.getByLabel('Authentication').selectOption('developer-override');
   await page.getByLabel('Replace API key').fill('sk-tr-v1-test');
   await page.getByTestId('settings-save').click();
   await expect(page.getByTestId('settings-panel')).toBeHidden();

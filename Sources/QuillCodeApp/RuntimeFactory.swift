@@ -41,7 +41,12 @@ public struct QuillCodeRuntimeFactory: Sendable {
         let sessionStore = sessionStore()
         let apiKey = configuredAPIKey()
         guard apiKey != nil || sessionStore.hasAPIKey else {
-            return mockRuntime(status: "Mock LLM")
+            switch config.authMode {
+            case .oauth:
+                return mockRuntime(status: "Sign in with TrustedRouter")
+            case .developerOverride:
+                return mockRuntime(status: "Developer key needed")
+            }
         }
 
         let llm = TrustedRouterLLMClient(
@@ -61,7 +66,7 @@ public struct QuillCodeRuntimeFactory: Sendable {
                 safety: AutoSafetyReviewer(client: safetyClient)
             ),
             mode: .trustedRouter,
-            statusLabel: "TrustedRouter ready"
+            statusLabel: config.authMode == .oauth ? "TrustedRouter signed in" : "TrustedRouter ready"
         )
     }
 

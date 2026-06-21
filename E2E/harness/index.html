@@ -473,9 +473,10 @@
       settings: {
         isOpen: false,
         apiBaseURL: 'https://api.quillrouter.com/v1',
+        authMode: 'oauth',
         developerOverrideEnabled: false,
         hasStoredAPIKey: false,
-        apiKeyStatusLabel: 'No API key saved',
+        apiKeyStatusLabel: 'Not signed in',
         loginStatusLabel: 'TrustedRouter login required',
         replacementAPIKey: ''
       },
@@ -969,17 +970,29 @@
         state.settings.isOpen = false;
         render();
       });
+      document.querySelector('select[name="authMode"]')?.addEventListener('change', event => {
+        state.settings.authMode = event.target.value;
+        state.settings.developerOverrideEnabled = state.settings.authMode === 'developer-override';
+        render();
+      });
       document.querySelector('[data-testid="settings-form"]')?.addEventListener('submit', event => {
         event.preventDefault();
         const form = event.currentTarget;
         state.settings.apiBaseURL = form.elements.namedItem('apiBaseURL').value.trim();
-        state.settings.developerOverrideEnabled = form.elements.namedItem('developerOverrideEnabled').checked;
-        const replacementAPIKey = form.elements.namedItem('replacementAPIKey').value.trim();
+        state.settings.authMode = form.elements.namedItem('authMode').value;
+        state.settings.developerOverrideEnabled = state.settings.authMode === 'developer-override';
+        const replacementAPIKey = form.elements.namedItem('replacementAPIKey')?.value.trim() || '';
         if (replacementAPIKey) {
           state.settings.hasStoredAPIKey = true;
-          state.settings.apiKeyStatusLabel = 'API key configured';
-          state.settings.loginStatusLabel = 'TrustedRouter developer override ready';
-          state.topBar.agentStatus = 'TrustedRouter ready';
+        }
+        if (state.settings.authMode === 'developer-override') {
+          state.settings.apiKeyStatusLabel = state.settings.hasStoredAPIKey ? 'API key configured' : 'No API key saved';
+          state.settings.loginStatusLabel = state.settings.hasStoredAPIKey ? 'TrustedRouter developer override ready' : 'Developer override needs an API key';
+          state.topBar.agentStatus = state.settings.hasStoredAPIKey ? 'TrustedRouter ready' : 'Developer key needed';
+        } else {
+          state.settings.apiKeyStatusLabel = state.settings.hasStoredAPIKey ? 'TrustedRouter signed in' : 'Not signed in';
+          state.settings.loginStatusLabel = state.settings.hasStoredAPIKey ? 'TrustedRouter OAuth ready' : 'TrustedRouter login required';
+          state.topBar.agentStatus = state.settings.hasStoredAPIKey ? 'TrustedRouter signed in' : 'Sign in with TrustedRouter';
         }
         state.settings.isOpen = false;
         render();
@@ -1096,15 +1109,18 @@
               <input name="apiBaseURL" aria-label="TrustedRouter API base URL" value="${escapeHTML(state.settings.apiBaseURL)}">
             </label>
             <label>
-              <span>
-                <input type="checkbox" name="developerOverrideEnabled" aria-label="Enable developer override" ${state.settings.developerOverrideEnabled ? 'checked' : ''}>
-                Enable developer override
-              </span>
+              Authentication
+              <select name="authMode" aria-label="Authentication">
+                <option value="oauth" ${state.settings.authMode === 'oauth' ? 'selected' : ''}>TrustedRouter login</option>
+                <option value="developer-override" ${state.settings.authMode === 'developer-override' ? 'selected' : ''}>Developer override</option>
+              </select>
             </label>
-            <label>
-              Replace API key
-              <input name="replacementAPIKey" aria-label="Replace API key" type="password" value="${escapeHTML(state.settings.replacementAPIKey)}">
-            </label>
+            ${state.settings.authMode === 'developer-override' ? `
+              <label>
+                Replace API key
+                <input name="replacementAPIKey" aria-label="Replace API key" type="password" value="${escapeHTML(state.settings.replacementAPIKey)}">
+              </label>
+            ` : '<p>OAuth browser login will use the TrustedRouter account flow.</p>'}
             <div class="settings-actions">
               <button type="button" data-testid="settings-cancel">Cancel</button>
               <button type="submit" data-testid="settings-save">Save</button>

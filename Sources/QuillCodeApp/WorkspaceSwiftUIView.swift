@@ -1557,7 +1557,14 @@ private struct QuillCodeSettingsView: View {
                     .clipShape(Capsule())
             }
 
-            Toggle("Enable developer override", isOn: $draft.developerOverrideEnabled)
+            Picker("Authentication", selection: $draft.authMode) {
+                Text("TrustedRouter login").tag(TrustedRouterAuthMode.oauth)
+                Text("Developer override").tag(TrustedRouterAuthMode.developerOverride)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: draft.authMode) { _, mode in
+                draft.developerOverrideEnabled = mode == .developerOverride
+            }
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("TrustedRouter API base URL")
@@ -1567,25 +1574,32 @@ private struct QuillCodeSettingsView: View {
                     .textFieldStyle(.roundedBorder)
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Replace API key")
-                    .font(.caption.weight(.semibold))
+            if draft.authMode == .oauth {
+                Text("OAuth browser login will use the TrustedRouter account flow. Developer keys stay hidden unless you switch modes.")
+                    .font(.caption)
                     .foregroundStyle(QuillCodePalette.muted)
-                SecureField(settings.hasStoredAPIKey ? "Leave blank to keep saved key" : "Paste TrustedRouter key", text: $draft.replacementAPIKey)
-                    .textFieldStyle(.roundedBorder)
-                if draft.shouldClearAPIKey {
-                    Text("Saved key will be cleared when you save.")
-                        .font(.caption)
-                        .foregroundStyle(QuillCodePalette.yellow)
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Replace API key")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                    SecureField(settings.hasStoredAPIKey ? "Leave blank to keep saved key" : "Paste TrustedRouter key", text: $draft.replacementAPIKey)
+                        .textFieldStyle(.roundedBorder)
+                    if draft.shouldClearAPIKey {
+                        Text("Saved key will be cleared when you save.")
+                            .font(.caption)
+                            .foregroundStyle(QuillCodePalette.yellow)
+                    }
+                    Button("Clear API key") {
+                        draft.replacementAPIKey = ""
+                        draft.shouldClearAPIKey = true
+                    }
+                    .disabled(!settings.hasStoredAPIKey)
+                    .font(.caption)
                 }
             }
 
             HStack {
-                Button("Clear API key") {
-                    draft.replacementAPIKey = ""
-                    draft.shouldClearAPIKey = true
-                }
-                .disabled(!settings.hasStoredAPIKey)
                 Spacer()
                 Button("Cancel", action: onCancel)
                 Button("Save", action: onSave)
@@ -1600,6 +1614,7 @@ private struct QuillCodeSettingsView: View {
 
 private struct QuillCodeSettingsDraft: Equatable {
     var apiBaseURL: String = ""
+    var authMode: TrustedRouterAuthMode = .oauth
     var developerOverrideEnabled: Bool = false
     var replacementAPIKey: String = ""
     var shouldClearAPIKey: Bool = false
@@ -1608,6 +1623,7 @@ private struct QuillCodeSettingsDraft: Equatable {
 
     init(settings: WorkspaceSettingsSurface) {
         self.apiBaseURL = settings.apiBaseURL
+        self.authMode = settings.authMode
         self.developerOverrideEnabled = settings.developerOverrideEnabled
     }
 
@@ -1618,6 +1634,7 @@ private struct QuillCodeSettingsDraft: Equatable {
     var update: WorkspaceSettingsUpdate {
         WorkspaceSettingsUpdate(
             apiBaseURL: apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines),
+            authMode: authMode,
             developerOverrideEnabled: developerOverrideEnabled,
             replacementAPIKey: replacementAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 ? nil

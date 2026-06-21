@@ -11,6 +11,32 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(try store.load(), config)
     }
 
+    func testConfigDefaultsToOAuthAuthMode() throws {
+        let root = try makeTempDirectory()
+        let store = ConfigStore(fileURL: root.appendingPathComponent("config.toml"))
+        try store.save(AppConfig())
+
+        let loaded = try store.load()
+        XCTAssertEqual(loaded.authMode, .oauth)
+        XCTAssertFalse(loaded.developerOverrideEnabled)
+    }
+
+    func testExplicitAuthModeWinsOverLegacyDeveloperOverrideFlag() throws {
+        let root = try makeTempDirectory()
+        let fileURL = root.appendingPathComponent("config.toml")
+        try """
+        default_model = "trustedrouter/fusion"
+        mode = "auto"
+        api_base_url = "https://api.quillrouter.com/v1"
+        auth_mode = "oauth"
+        developer_override_enabled = true
+        """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        let loaded = try ConfigStore(fileURL: fileURL).load()
+        XCTAssertEqual(loaded.authMode, .oauth)
+        XCTAssertFalse(loaded.developerOverrideEnabled)
+    }
+
     func testThreadStoreRoundTrips() throws {
         let root = try makeTempDirectory()
         let store = JSONThreadStore(directory: root)

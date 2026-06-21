@@ -763,6 +763,7 @@ public enum WorkspaceCommandPalette {
 
 public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var apiBaseURL: String
+    public var authMode: TrustedRouterAuthMode
     public var developerOverrideEnabled: Bool
     public var hasStoredAPIKey: Bool
     public var apiKeyStatusLabel: String
@@ -770,27 +771,37 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
 
     public init(config: AppConfig, hasStoredAPIKey: Bool) {
         self.apiBaseURL = config.apiBaseURL
+        self.authMode = config.authMode
         self.developerOverrideEnabled = config.developerOverrideEnabled
         self.hasStoredAPIKey = hasStoredAPIKey
-        self.apiKeyStatusLabel = hasStoredAPIKey ? "API key configured" : "No API key saved"
-        self.loginStatusLabel = hasStoredAPIKey ? "TrustedRouter developer override ready" : "TrustedRouter login required"
+        switch config.authMode {
+        case .oauth:
+            self.apiKeyStatusLabel = hasStoredAPIKey ? "TrustedRouter signed in" : "Not signed in"
+            self.loginStatusLabel = hasStoredAPIKey ? "TrustedRouter OAuth ready" : "TrustedRouter login required"
+        case .developerOverride:
+            self.apiKeyStatusLabel = hasStoredAPIKey ? "API key configured" : "No API key saved"
+            self.loginStatusLabel = hasStoredAPIKey ? "TrustedRouter developer override ready" : "Developer override needs an API key"
+        }
     }
 }
 
 public struct WorkspaceSettingsUpdate: Sendable, Hashable {
     public var apiBaseURL: String
+    public var authMode: TrustedRouterAuthMode
     public var developerOverrideEnabled: Bool
     public var replacementAPIKey: String?
     public var shouldClearAPIKey: Bool
 
     public init(
         apiBaseURL: String,
+        authMode: TrustedRouterAuthMode = .oauth,
         developerOverrideEnabled: Bool,
         replacementAPIKey: String? = nil,
         shouldClearAPIKey: Bool = false
     ) {
         self.apiBaseURL = apiBaseURL
-        self.developerOverrideEnabled = developerOverrideEnabled
+        self.authMode = developerOverrideEnabled ? .developerOverride : authMode
+        self.developerOverrideEnabled = developerOverrideEnabled || authMode == .developerOverride
         self.replacementAPIKey = replacementAPIKey
         self.shouldClearAPIKey = shouldClearAPIKey
     }

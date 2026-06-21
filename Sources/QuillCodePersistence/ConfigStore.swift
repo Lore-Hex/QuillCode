@@ -25,6 +25,8 @@ public struct ConfigStore: Sendable {
         }
         let text = try String(contentsOf: fileURL, encoding: .utf8)
         var config = AppConfig()
+        var explicitAuthMode: TrustedRouterAuthMode?
+        var legacyDeveloperOverrideEnabled: Bool?
         for rawLine in text.components(separatedBy: .newlines) {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             guard !line.isEmpty, !line.hasPrefix("#") else { continue }
@@ -41,11 +43,20 @@ public struct ConfigStore: Sendable {
                 config.mode = AgentMode(rawValue: value) ?? config.mode
             case "api_base_url":
                 config.apiBaseURL = value
+            case "auth_mode":
+                explicitAuthMode = TrustedRouterAuthMode(rawValue: value) ?? config.authMode
             case "developer_override_enabled":
-                config.developerOverrideEnabled = (value == "true")
+                legacyDeveloperOverrideEnabled = (value == "true")
             default:
                 continue
             }
+        }
+        if let explicitAuthMode {
+            config.authMode = explicitAuthMode
+            config.developerOverrideEnabled = explicitAuthMode == .developerOverride
+        } else if legacyDeveloperOverrideEnabled == true {
+            config.authMode = .developerOverride
+            config.developerOverrideEnabled = true
         }
         return config
     }
@@ -59,6 +70,7 @@ public struct ConfigStore: Sendable {
         default_model = "\(config.defaultModel)"
         mode = "\(config.mode.rawValue)"
         api_base_url = "\(config.apiBaseURL)"
+        auth_mode = "\(config.authMode.rawValue)"
         developer_override_enabled = \(config.developerOverrideEnabled ? "true" : "false")
         """
         try body.write(to: fileURL, atomically: true, encoding: .utf8)
