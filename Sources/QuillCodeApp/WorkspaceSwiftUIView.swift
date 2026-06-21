@@ -8,6 +8,7 @@ public struct QuillCodeWorkspaceView: View {
     @Binding public var browserAddressDraft: String
     @Binding public var isCommandPalettePresented: Bool
     @Binding public var isSettingsPresented: Bool
+    @Binding public var isKeyboardShortcutsPresented: Bool
     public var copiedTranscriptItemID: String?
     public var onSend: () -> Void
     public var onRunTerminalCommand: () -> Void
@@ -55,6 +56,7 @@ public struct QuillCodeWorkspaceView: View {
         browserAddressDraft: Binding<String>,
         isCommandPalettePresented: Binding<Bool>,
         isSettingsPresented: Binding<Bool>,
+        isKeyboardShortcutsPresented: Binding<Bool>,
         copiedTranscriptItemID: String? = nil,
         onSend: @escaping () -> Void,
         onRunTerminalCommand: @escaping () -> Void,
@@ -86,6 +88,7 @@ public struct QuillCodeWorkspaceView: View {
         self._browserAddressDraft = browserAddressDraft
         self._isCommandPalettePresented = isCommandPalettePresented
         self._isSettingsPresented = isSettingsPresented
+        self._isKeyboardShortcutsPresented = isKeyboardShortcutsPresented
         self.copiedTranscriptItemID = copiedTranscriptItemID
         self.onSend = onSend
         self.onRunTerminalCommand = onRunTerminalCommand
@@ -244,6 +247,14 @@ public struct QuillCodeWorkspaceView: View {
                 }
             )
         }
+        .sheet(isPresented: $isKeyboardShortcutsPresented) {
+            QuillCodeKeyboardShortcutsView(
+                commands: surface.commands,
+                onClose: {
+                    isKeyboardShortcutsPresented = false
+                }
+            )
+        }
         .sheet(isPresented: $isCommandPalettePresented) {
             QuillCodeCommandPaletteView(
                 commands: surface.commands.filter { $0.id != "command-palette" },
@@ -341,6 +352,8 @@ public struct QuillCodeWorkspaceView: View {
         } else if command.id == "command-palette" {
             commandQuery = ""
             isCommandPalettePresented = true
+        } else if command.id == "keyboard-shortcuts" {
+            isKeyboardShortcutsPresented = true
         } else if command.id == "thread-rename" {
             if let selectedID = surface.sidebar.selectedThreadID,
                let item = surface.sidebar.items.first(where: { $0.id == selectedID }) {
@@ -713,6 +726,8 @@ private struct QuillCodeCommandPaletteView: View {
             return "minus.rectangle"
         case "settings":
             return "gearshape"
+        case "keyboard-shortcuts":
+            return "keyboard"
         case "computer-use-setup":
             return "display"
         case "stop-all":
@@ -723,6 +738,82 @@ private struct QuillCodeCommandPaletteView: View {
             }
             return "command"
         }
+    }
+}
+
+private struct QuillCodeKeyboardShortcutsView: View {
+    var commands: [WorkspaceCommandSurface]
+    var onClose: () -> Void
+
+    private var shortcutCommands: [WorkspaceCommandSurface] {
+        commands.filter { $0.shortcut?.isEmpty == false }
+    }
+
+    private var groups: [WorkspaceCommandGroupSurface] {
+        WorkspaceCommandPalette.groupedCommands(shortcutCommands, matching: "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Keyboard shortcuts")
+                        .font(.title2.weight(.semibold))
+                    Text("Fast paths for the workspace actions available right now.")
+                        .font(.callout)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                Spacer()
+                Button("Close", action: onClose)
+                    .keyboardShortcut(.cancelAction)
+            }
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 14) {
+                    ForEach(groups) { group in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(group.title)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(QuillCodePalette.muted)
+                                .textCase(.uppercase)
+                            ForEach(group.commands) { command in
+                                HStack(spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(command.title)
+                                            .font(.callout.weight(.semibold))
+                                            .foregroundStyle(command.isEnabled ? QuillCodePalette.text : QuillCodePalette.muted)
+                                        if !command.keywords.isEmpty {
+                                            Text(command.keywords.prefix(3).joined(separator: " - "))
+                                                .font(.caption)
+                                                .foregroundStyle(QuillCodePalette.muted)
+                                                .lineLimit(1)
+                                        }
+                                    }
+                                    Spacer()
+                                    Text(command.shortcut ?? "")
+                                        .font(.caption.monospaced().weight(.semibold))
+                                        .foregroundStyle(QuillCodePalette.text)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(QuillCodePalette.selection)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                }
+                                .padding(12)
+                                .background(QuillCodePalette.panel)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .stroke(Color.white.opacity(0.08))
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .frame(width: 560, height: 520)
+        .background(QuillCodePalette.background)
     }
 }
 

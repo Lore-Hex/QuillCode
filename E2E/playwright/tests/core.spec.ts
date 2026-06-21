@@ -384,6 +384,11 @@ test('mock harness dispatches workspace keyboard shortcuts', async ({ page }) =>
   await expect(page.getByTestId('command-palette-panel')).toBeVisible();
   await page.getByTestId('command-palette-close').click();
 
+  await page.keyboard.press('Meta+/');
+  await expect(page.getByTestId('keyboard-shortcuts-panel')).toBeVisible();
+  await expect(page.getByTestId('keyboard-shortcut-row').filter({ hasText: 'Keyboard shortcuts' })).toContainText('Cmd+/');
+  await page.getByTestId('keyboard-shortcuts-close').click();
+
   await page.keyboard.press('Control+Backquote');
   await expect(page.getByTestId('terminal-pane')).toBeVisible();
 
@@ -422,6 +427,16 @@ test('mock harness ranks and navigates command palette with keyboard', async ({ 
   await expect(page.locator('[data-testid="command-palette-result"][data-selected="true"]')).toContainText('Terminal');
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('terminal-pane')).toBeVisible();
+
+  await page.keyboard.press('Meta+Shift+P');
+  await page.getByLabel('Search commands').fill('shortcuts');
+  await expect(page.locator('[data-testid="command-palette-result"][data-selected="true"]')).toContainText('Keyboard shortcuts');
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('keyboard-shortcuts-panel')).toBeVisible();
+  await expect(page.getByTestId('keyboard-shortcut-row').filter({ hasText: 'New chat' })).toContainText('Cmd+N');
+  await expect(page.getByTestId('keyboard-shortcut-row').filter({ hasText: 'Search' })).toContainText('Cmd+K');
+  await expect(page.getByTestId('keyboard-shortcut-row').filter({ hasText: 'Keyboard shortcuts' })).toContainText('Cmd+/');
+  await page.getByTestId('keyboard-shortcuts-close').click();
 
   await page.keyboard.press('Meta+Shift+P');
   await page.getByLabel('Search commands').fill('worktree');

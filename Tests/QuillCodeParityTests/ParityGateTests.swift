@@ -44,7 +44,7 @@ final class ParityGateTests: XCTestCase {
 
         XCTAssertTrue(text.contains("MenuBarExtra"), "Desktop app should define a native menu-bar widget.")
         XCTAssertTrue(text.contains(#"systemImage: "q.circle.fill""#), "Menu-bar widget should use a visible QuillCode symbol.")
-        for label in ["New Chat", "Open Project", "Command Palette", "Computer Use Setup", "Settings", "Stop All", "Disconnect All"] {
+        for label in ["New Chat", "Open Project", "Command Palette", "Keyboard Shortcuts", "Computer Use Setup", "Settings", "Stop All", "Disconnect All"] {
             XCTAssertTrue(text.contains(label), "Menu-bar widget is missing \(label).")
         }
     }

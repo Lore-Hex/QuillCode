@@ -73,6 +73,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "stop-all",
             "settings",
             "command-palette",
+            "keyboard-shortcuts",
             "computer-use-setup"
         ])
         XCTAssertEqual(surface.commands.first { $0.id == "fork-from-last" }?.isEnabled, true)
@@ -184,6 +185,14 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(
             WorkspaceCommandPalette.rankedCommands(commands, matching: "pull").first?.id,
             "git-pr-create"
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPalette.rankedCommands(commands, matching: "cmd+/").first?.id,
+            "keyboard-shortcuts"
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPalette.rankedCommands(commands, matching: "shortcuts").first?.id,
+            "keyboard-shortcuts"
         )
     }
 

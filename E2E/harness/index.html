@@ -195,6 +195,22 @@
     }
     .search-result.selected { border-color: rgba(65,184,232,.75); background: rgba(65,184,232,.12); }
     .search-result small { color: var(--muted); }
+    .shortcut-row {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+    }
+    .shortcut-row kbd {
+      padding: 6px 10px;
+      border-radius: 8px;
+      color: var(--text);
+      background: rgba(65,184,232,.14);
+      border: 1px solid rgba(65,184,232,.2);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
     .command-group-title { margin: 6px 0 2px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
     .settings-actions { display: flex; gap: 10px; justify-content: flex-end; }
     .workspace-grid { min-height: 0; display: grid; grid-template-columns: 280px 1fr; gap: 18px; padding: 0 18px 18px; }
@@ -1247,6 +1263,9 @@
         query: '',
         selectedCommandID: null
       },
+      shortcuts: {
+        isOpen: false
+      },
       worktreeDialog: {
         mode: null,
         createPath: '',
@@ -1280,6 +1299,7 @@
         { id: 'mcp-start:mcp_server:filesystem', title: 'Start Filesystem MCP', shortcut: '', category: 'Extensions', keywords: ['mcp', 'server', 'start', 'stdio', 'filesystem'], isEnabled: true },
         { id: 'mcp-stop:mcp_server:filesystem', title: 'Stop Filesystem MCP', shortcut: '', category: 'Extensions', keywords: ['mcp', 'server', 'stop', 'stdio', 'filesystem'], isEnabled: false },
         { id: 'command-palette', title: 'Command palette', shortcut: 'Cmd+Shift+P', category: 'Navigation', keywords: ['commands', 'actions'], isEnabled: true },
+        { id: 'keyboard-shortcuts', title: 'Keyboard shortcuts', shortcut: 'Cmd+/', category: 'Navigation', keywords: ['keyboard', 'shortcuts', 'help', 'commands'], isEnabled: true },
         { id: 'git-pr-create', title: 'Create pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'review'], isEnabled: true },
         { id: 'git-worktree-list', title: 'List worktrees', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
         { id: 'git-worktree-create', title: 'Create worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
@@ -2128,6 +2148,7 @@
           ${state.settings.isOpen ? renderSettingsPanel() : ''}
           ${state.search.isOpen ? renderSearchPanel() : ''}
           ${state.commandPalette.isOpen ? renderCommandPalette() : ''}
+          ${state.shortcuts.isOpen ? renderKeyboardShortcutsPanel() : ''}
           ${state.worktreeDialog.mode ? renderWorktreeDialog() : ''}
         </section>`;
 
@@ -2416,6 +2437,10 @@
       });
       document.querySelector('[data-testid="command-palette-close"]')?.addEventListener('click', () => {
         state.commandPalette.isOpen = false;
+        render();
+      });
+      document.querySelector('[data-testid="keyboard-shortcuts-close"]')?.addEventListener('click', () => {
+        state.shortcuts.isOpen = false;
         render();
       });
       document.querySelector('[data-testid="search-input"]')?.addEventListener('input', event => {
@@ -2858,6 +2883,45 @@
                       <small>${escapeHTML([command.shortcut, ...(command.keywords || []).slice(0, 3)].filter(Boolean).join(' · '))}</small>
                     </button>`).join('')}
                 </div>`).join('') : '<p data-testid="command-palette-empty">No matching commands</p>'}
+            </div>
+          </section>
+        </div>`;
+    }
+
+    function renderKeyboardShortcutsPanel() {
+      const shortcutCommands = state.commands.filter(command => command.shortcut);
+      const groups = new Map();
+      for (const command of shortcutCommands) {
+        if (!groups.has(command.category)) groups.set(command.category, []);
+        groups.get(command.category).push(command);
+      }
+      const categoryOrder = ['Thread', 'Navigation', 'Workspace', 'Memories', 'Extensions', 'Git', 'Environment', 'Control', 'Computer Use'];
+      const sortedCategories = [...groups.keys()].sort((a, b) => {
+        const rankA = categoryOrder.includes(a) ? categoryOrder.indexOf(a) : categoryOrder.length;
+        const rankB = categoryOrder.includes(b) ? categoryOrder.indexOf(b) : categoryOrder.length;
+        if (rankA !== rankB) return rankA - rankB;
+        return a.localeCompare(b);
+      });
+      return `
+        <div class="search-panel" data-testid="keyboard-shortcuts-panel">
+          <section class="search-card" role="dialog" aria-label="Keyboard shortcuts">
+            <header>
+              <div>
+                <h2>Keyboard shortcuts</h2>
+                <p>Fast paths for the workspace actions available right now.</p>
+              </div>
+              <button type="button" data-testid="keyboard-shortcuts-close">Close</button>
+            </header>
+            <div class="search-results" data-testid="keyboard-shortcuts-list">
+              ${sortedCategories.map(category => `
+                <div class="command-group" data-testid="keyboard-shortcuts-group">
+                  <div class="command-group-title">${escapeHTML(category)}</div>
+                  ${groups.get(category).map(command => `
+                    <article class="search-result shortcut-row" data-testid="keyboard-shortcut-row" data-command-id="${escapeHTML(command.id)}">
+                      <span>${escapeHTML(command.title)}</span>
+                      <kbd>${escapeHTML(command.shortcut)}</kbd>
+                    </article>`).join('')}
+                </div>`).join('')}
             </div>
           </section>
         </div>`;
@@ -3442,6 +3506,9 @@
       if (commandID === 'settings') {
         state.settings.isOpen = true;
         state.settings.replacementAPIKey = '';
+      }
+      if (commandID === 'keyboard-shortcuts') {
+        state.shortcuts.isOpen = true;
       }
       render();
     }

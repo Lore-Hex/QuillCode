@@ -2079,6 +2079,13 @@ public extension QuillCodeWorkspaceModel {
                 keywords: ["commands", "actions"]
             ),
             WorkspaceCommandSurface(
+                id: "keyboard-shortcuts",
+                title: "Keyboard shortcuts",
+                shortcut: WorkspaceShortcutRegistry.label(for: "keyboard-shortcuts"),
+                category: WorkspaceCommandPalette.navigationCategory,
+                keywords: ["keyboard", "shortcuts", "help", "commands"]
+            ),
+            WorkspaceCommandSurface(
                 id: "computer-use-setup",
                 title: "Computer Use setup",
                 category: WorkspaceCommandPalette.computerUseCategory,

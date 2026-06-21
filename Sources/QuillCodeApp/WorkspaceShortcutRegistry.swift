@@ -45,6 +45,7 @@ public enum WorkspaceShortcutRegistry {
         WorkspaceShortcut(commandID: "toggle-terminal", key: "`", modifiers: [.control]),
         WorkspaceShortcut(commandID: "toggle-browser", key: "b", modifiers: [.command, .shift]),
         WorkspaceShortcut(commandID: "command-palette", key: "p", modifiers: [.command, .shift]),
+        WorkspaceShortcut(commandID: "keyboard-shortcuts", key: "/", modifiers: [.command]),
         WorkspaceShortcut(commandID: "settings", key: ",", modifiers: [.command]),
         WorkspaceShortcut(commandID: "stop-all", key: "escape", modifiers: [])
     ]

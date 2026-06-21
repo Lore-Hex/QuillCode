@@ -42,6 +42,10 @@ struct QuillCodeDesktopApp: App {
                     NotificationCenter.default.post(name: .quillCodeCommandPalette, object: nil)
                 }
                 .quillCodeShortcut("command-palette")
+                Button("Keyboard Shortcuts") {
+                    NotificationCenter.default.post(name: .quillCodeKeyboardShortcuts, object: nil)
+                }
+                .quillCodeShortcut("keyboard-shortcuts")
                 Button("Settings...") {
                     NotificationCenter.default.post(name: .quillCodeOpenSettings, object: nil)
                 }
@@ -61,6 +65,7 @@ struct QuillCodeDesktopApp: App {
                 onNewChat: controller.newChat,
                 onOpenProject: controller.requestAddProject,
                 onCommandPalette: controller.openCommandPalette,
+                onKeyboardShortcuts: controller.openKeyboardShortcuts,
                 onSettings: controller.openSettings,
                 onToggleTerminal: controller.toggleTerminal,
                 onToggleBrowser: controller.toggleBrowser,
@@ -89,6 +94,7 @@ private struct QuillCodeDesktopRootView: View {
             browserAddressDraft: $controller.browserAddressDraft,
             isCommandPalettePresented: $controller.isCommandPalettePresented,
             isSettingsPresented: $controller.isSettingsPresented,
+            isKeyboardShortcutsPresented: $controller.isKeyboardShortcutsPresented,
             copiedTranscriptItemID: controller.copiedTranscriptItemID,
             onSend: controller.send,
             onRunTerminalCommand: controller.runTerminalCommand,
@@ -135,6 +141,9 @@ private struct QuillCodeDesktopRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeCommandPalette)) { _ in
             controller.openCommandPalette()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .quillCodeKeyboardShortcuts)) { _ in
+            controller.openKeyboardShortcuts()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeOpenSettings)) { _ in
             controller.openSettings()
         }
@@ -165,6 +174,7 @@ private final class QuillCodeDesktopController: ObservableObject {
     @Published var browserAddressDraft: String
     @Published var isCommandPalettePresented = false
     @Published var isSettingsPresented = false
+    @Published var isKeyboardShortcutsPresented = false
     @Published var isProjectImporterPresented = false
     @Published var copiedTranscriptItemID: String?
 
@@ -574,6 +584,10 @@ private final class QuillCodeDesktopController: ObservableObject {
         isCommandPalettePresented = true
     }
 
+    func openKeyboardShortcuts() {
+        isKeyboardShortcutsPresented = true
+    }
+
     func openSettings() {
         isSettingsPresented = true
     }
@@ -596,6 +610,7 @@ private struct QuillCodeMenuBarView: View {
     var onNewChat: () -> Void
     var onOpenProject: () -> Void
     var onCommandPalette: () -> Void
+    var onKeyboardShortcuts: () -> Void
     var onSettings: () -> Void
     var onToggleTerminal: () -> Void
     var onToggleBrowser: () -> Void
@@ -625,6 +640,7 @@ private struct QuillCodeMenuBarView: View {
         Button("New Chat", action: onNewChat)
         Button("Open Project...", action: onOpenProject)
         Button("Command Palette", action: onCommandPalette)
+        Button("Keyboard Shortcuts", action: onKeyboardShortcuts)
         Button(surface.terminal.isVisible ? "Hide Terminal" : "Show Terminal", action: onToggleTerminal)
         Button(surface.browser.isVisible ? "Hide Browser" : "Show Browser", action: onToggleBrowser)
         Button(surface.memories.isVisible ? "Hide Memories" : "Show Memories", action: onToggleMemories)
@@ -658,6 +674,7 @@ private extension Notification.Name {
     static let quillCodeNewChat = Notification.Name("QuillCodeNewChat")
     static let quillCodeOpenProject = Notification.Name("QuillCodeOpenProject")
     static let quillCodeCommandPalette = Notification.Name("QuillCodeCommandPalette")
+    static let quillCodeKeyboardShortcuts = Notification.Name("QuillCodeKeyboardShortcuts")
     static let quillCodeToggleTerminal = Notification.Name("QuillCodeToggleTerminal")
     static let quillCodeToggleBrowser = Notification.Name("QuillCodeToggleBrowser")
     static let quillCodeToggleExtensions = Notification.Name("QuillCodeToggleExtensions")
