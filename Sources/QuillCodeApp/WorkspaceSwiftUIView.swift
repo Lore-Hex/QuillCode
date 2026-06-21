@@ -27,6 +27,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onCommand: (WorkspaceCommandSurface) -> Void
 
     @State private var isSearchPresented = false
+    @State private var isModelPickerPresented = false
     @State private var worktreeSheet: QuillCodeWorktreeSheet?
     @State private var searchQuery = ""
     @State private var commandQuery = ""
@@ -89,6 +90,7 @@ public struct QuillCodeWorkspaceView: View {
             QuillCodeTopBarView(
                 topBar: surface.topBar,
                 commands: surface.commands,
+                isModelPickerPresented: $isModelPickerPresented,
                 onSetMode: onSetMode,
                 onSetModel: onSetModel,
                 onCommand: handleCommand
@@ -274,6 +276,10 @@ public struct QuillCodeWorkspaceView: View {
             commandID = "settings"
         } else if actionLabel == "Retry" {
             commandID = "retry-last-turn"
+        } else if actionLabel == "Switch model" {
+            return {
+                isModelPickerPresented = true
+            }
         } else {
             commandID = nil
         }
@@ -572,6 +578,7 @@ private struct QuillCodeSearchView: View {
 private struct QuillCodeTopBarView: View {
     var topBar: TopBarSurface
     var commands: [WorkspaceCommandSurface]
+    @Binding var isModelPickerPresented: Bool
     var onSetMode: (AgentMode) -> Void
     var onSetModel: (String) -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
@@ -593,7 +600,11 @@ private struct QuillCodeTopBarView: View {
                     .lineLimit(1)
             }
             Spacer()
-            QuillCodeModelPickerView(topBar: topBar, onSetModel: onSetModel)
+            QuillCodeModelPickerView(
+                topBar: topBar,
+                isPresented: $isModelPickerPresented,
+                onSetModel: onSetModel
+            )
             Menu {
                 ForEach(AgentMode.allCases, id: \.rawValue) { mode in
                     Button(mode.title) {
@@ -640,10 +651,11 @@ private struct QuillCodeTopBarView: View {
 
 private struct QuillCodeModelPickerView: View {
     var topBar: TopBarSurface
+    @Binding var isPresented: Bool
     var onSetModel: (String) -> Void
 
-    @State private var isPresented = false
     @State private var searchText = ""
+    @FocusState private var isSearchFocused: Bool
 
     private var filteredCategories: [ModelCategorySurface] {
         topBar.filteredModelCategories(matching: searchText)
@@ -670,6 +682,7 @@ private struct QuillCodeModelPickerView: View {
                 }
                 TextField("Search models", text: $searchText)
                     .textFieldStyle(.roundedBorder)
+                    .focused($isSearchFocused)
                 if filteredCategories.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("No models match")
@@ -725,6 +738,16 @@ private struct QuillCodeModelPickerView: View {
             .padding(14)
             .frame(width: 380, height: 440)
             .background(QuillCodePalette.panel)
+        }
+        .onChange(of: isPresented) { _, presented in
+            if presented {
+                DispatchQueue.main.async {
+                    isSearchFocused = true
+                }
+            } else {
+                searchText = ""
+                isSearchFocused = false
+            }
         }
     }
 }

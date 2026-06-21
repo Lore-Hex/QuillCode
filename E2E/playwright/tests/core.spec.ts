@@ -91,6 +91,26 @@ test('mock harness retries the last user turn from a runtime issue', async ({ pa
   await expect(page.getByTestId('message').filter({ hasText: 'trigger network failure' })).toHaveCount(2);
 });
 
+test('mock harness opens model picker from malformed model issue', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('trigger malformed model action');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('runtime-issue')).toBeVisible();
+  await expect(page.getByTestId('runtime-issue-title')).toHaveText('Model response was malformed');
+  await expect(page.getByTestId('runtime-issue-message')).toContainText('Try trustedrouter/fusion');
+  await expect(page.getByTestId('runtime-issue-action')).toHaveText('Switch model');
+
+  await page.getByTestId('runtime-issue-action').click();
+
+  await expect(page.getByTestId('model-browser')).toBeVisible();
+  await expect(page.getByTestId('model-search')).toBeFocused();
+  await page.getByTestId('model-search').fill('fusion');
+  await expect(page.getByTestId('model-option')).toHaveCount(1);
+  await expect(page.getByTestId('model-option')).toContainText('trustedrouter/fusion');
+});
+
 test('mock harness surfaces file artifacts from tool cards', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

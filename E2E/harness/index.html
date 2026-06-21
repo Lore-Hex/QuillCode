@@ -27,6 +27,7 @@
     }
     .quillcode-workspace { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
     .topbar {
+      position: relative;
       margin: 18px;
       display: flex;
       align-items: center;
@@ -63,11 +64,11 @@
       background: rgba(255,93,82,.14);
       border-color: rgba(255,93,82,.30);
     }
-    .model-picker-wrap { position: relative; display: inline-flex; }
+    .model-picker-wrap { display: inline-flex; }
     .model-panel {
       position: absolute;
       top: calc(100% + 8px);
-      right: 0;
+      right: 18px;
       z-index: 4;
       width: min(380px, calc(100vw - 36px));
       display: grid;
@@ -1711,6 +1712,11 @@
             render();
           } else if (label === 'Retry') {
             retryLastUserTurn();
+          } else if (label === 'Switch model') {
+            state.topBar.modelPickerOpen = true;
+            state.topBar.modelSearch = '';
+            render();
+            document.querySelector('[data-testid="model-search"]')?.focus();
           }
         });
       });
@@ -2871,6 +2877,14 @@
           });
           addMessage('assistant', 'Retry completed after reconnecting to TrustedRouter.');
         }
+      } else if (text.toLowerCase().includes('trigger malformed model action')) {
+        state.topBar.agentStatus = 'Failed';
+        state.runtimeIssue = {
+          severity: 'warning',
+          title: 'Model response was malformed',
+          message: "The selected model did not follow QuillCode's action schema. Try trustedrouter/fusion or another coding model.",
+          actionLabel: 'Switch model'
+        };
       } else if (text.toLowerCase().startsWith('/mode ')) {
         const requestedMode = text.split(/\s+/)[1]?.toLowerCase();
         const modeMap = { auto: 'Auto', review: 'Review', 'read-only': 'Read-only', readonly: 'Read-only' };
