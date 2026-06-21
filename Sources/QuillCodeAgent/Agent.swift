@@ -796,6 +796,18 @@ public struct AgentRunner: Sendable {
             return browserInspectionAnswer(inspection)
         }
 
+        if call.name == ToolDefinition.mcpReadResource.name {
+            let output = result.stdout.trimmedNonEmpty
+            return output.map { "MCP resource contents:\n\(Self.truncated($0))" }
+                ?? "MCP resource read completed with no text content."
+        }
+
+        if call.name == ToolDefinition.mcpGetPrompt.name {
+            let output = result.stdout.trimmedNonEmpty
+            return output.map { "MCP prompt:\n\(Self.truncated($0))" }
+                ?? "MCP prompt loaded."
+        }
+
         if call.name == ToolDefinition.computerScreenshot.name,
            let screenshot = try? JSONHelpers.decode(ComputerScreenshotToolOutput.self, from: result.stdout) {
             return "Captured a screenshot (\(screenshot.width) x \(screenshot.height))."

@@ -587,8 +587,20 @@ public struct MCPServerProbeSummary: Codable, Sendable, Hashable {
     public var serverVersion: String?
     public var toolNames: [String]
     public var resourceNames: [String]
+    public var resourceURIs: [String]
     public var promptNames: [String]
     public var errorMessage: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case protocolVersion
+        case serverName
+        case serverVersion
+        case toolNames
+        case resourceNames
+        case resourceURIs
+        case promptNames
+        case errorMessage
+    }
 
     public init(
         protocolVersion: String? = nil,
@@ -596,6 +608,7 @@ public struct MCPServerProbeSummary: Codable, Sendable, Hashable {
         serverVersion: String? = nil,
         toolNames: [String] = [],
         resourceNames: [String] = [],
+        resourceURIs: [String] = [],
         promptNames: [String] = [],
         errorMessage: String? = nil
     ) {
@@ -604,8 +617,21 @@ public struct MCPServerProbeSummary: Codable, Sendable, Hashable {
         self.serverVersion = serverVersion
         self.toolNames = toolNames
         self.resourceNames = resourceNames
+        self.resourceURIs = resourceURIs
         self.promptNames = promptNames
         self.errorMessage = errorMessage
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.protocolVersion = try container.decodeIfPresent(String.self, forKey: .protocolVersion)
+        self.serverName = try container.decodeIfPresent(String.self, forKey: .serverName)
+        self.serverVersion = try container.decodeIfPresent(String.self, forKey: .serverVersion)
+        self.toolNames = try container.decodeIfPresent([String].self, forKey: .toolNames) ?? []
+        self.resourceNames = try container.decodeIfPresent([String].self, forKey: .resourceNames) ?? []
+        self.resourceURIs = try container.decodeIfPresent([String].self, forKey: .resourceURIs) ?? []
+        self.promptNames = try container.decodeIfPresent([String].self, forKey: .promptNames) ?? []
+        self.errorMessage = try container.decodeIfPresent(String.self, forKey: .errorMessage)
     }
 
     public init(result: MCPServerProbeResult) {
@@ -615,6 +641,7 @@ public struct MCPServerProbeSummary: Codable, Sendable, Hashable {
             serverVersion: result.serverVersion,
             toolNames: result.toolNames,
             resourceNames: result.resourceNames,
+            resourceURIs: result.resourceURIs,
             promptNames: result.promptNames,
             errorMessage: nil
         )
@@ -743,6 +770,99 @@ private enum MCPToolCallRequestError: Error, CustomStringConvertible {
             return "MCP call requires a non-empty serverID."
         case .missingToolName:
             return "MCP call requires a non-empty toolName."
+        }
+    }
+}
+
+private struct MCPResourceReadRequest {
+    var serverID: String
+    var resourceIdentifier: String
+
+    init(argumentsJSON: String) throws {
+        let object = try Self.object(from: argumentsJSON)
+        self.serverID = Self.trimmedString(object["serverID"] ?? object["serverId"])
+        self.resourceIdentifier = Self.trimmedString(
+            object["resourceURI"] ?? object["uri"] ?? object["resourceName"] ?? object["name"]
+        )
+        guard !serverID.isEmpty else { throw MCPResourceReadRequestError.missingServerID }
+        guard !resourceIdentifier.isEmpty else { throw MCPResourceReadRequestError.missingResource }
+    }
+
+    private static func object(from json: String) throws -> [String: Any] {
+        guard let data = json.data(using: .utf8),
+              let object = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+        else {
+            throw MCPResourceReadRequestError.invalidJSON
+        }
+        return object
+    }
+
+    private static func trimmedString(_ value: Any?) -> String {
+        (value as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+private enum MCPResourceReadRequestError: Error, CustomStringConvertible {
+    case invalidJSON
+    case missingServerID
+    case missingResource
+
+    var description: String {
+        switch self {
+        case .invalidJSON:
+            return "MCP resource read arguments must be a JSON object."
+        case .missingServerID:
+            return "MCP resource read requires a non-empty serverID."
+        case .missingResource:
+            return "MCP resource read requires a non-empty resourceURI or resourceName."
+        }
+    }
+}
+
+private struct MCPPromptGetRequest {
+    var serverID: String
+    var promptName: String
+    var promptArgumentsJSON: String
+
+    init(argumentsJSON: String) throws {
+        guard let data = argumentsJSON.data(using: .utf8),
+              let object = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+        else {
+            throw MCPPromptGetRequestError.invalidJSON
+        }
+
+        self.serverID = (object["serverID"] as? String ?? object["serverId"] as? String ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        self.promptName = (object["promptName"] as? String ?? object["name"] as? String ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !serverID.isEmpty else { throw MCPPromptGetRequestError.missingServerID }
+        guard !promptName.isEmpty else { throw MCPPromptGetRequestError.missingPromptName }
+
+        if let argumentsJSON = object["argumentsJSON"] as? String,
+           !argumentsJSON.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            self.promptArgumentsJSON = argumentsJSON
+        } else if let arguments = object["arguments"] as? [String: Any],
+                  let data = try? JSONSerialization.data(withJSONObject: arguments, options: [.sortedKeys]) {
+            self.promptArgumentsJSON = String(decoding: data, as: UTF8.self)
+        } else {
+            self.promptArgumentsJSON = "{}"
+        }
+    }
+}
+
+private enum MCPPromptGetRequestError: Error, CustomStringConvertible {
+    case invalidJSON
+    case missingServerID
+    case missingPromptName
+
+    var description: String {
+        switch self {
+        case .invalidJSON:
+            return "MCP prompt arguments must be a JSON object."
+        case .missingServerID:
+            return "MCP prompt get requires a non-empty serverID."
+        case .missingPromptName:
+            return "MCP prompt get requires a non-empty promptName."
         }
     }
 }
@@ -1530,7 +1650,7 @@ public final class QuillCodeWorkspaceModel {
 
         do {
             try Task.checkCancellation()
-            let activeMCPToolDefinition = mcpToolDefinitionForReadyServers()
+            let activeMCPToolDefinitions = mcpToolDefinitionsForReadyServers()
             let activeMCPExecutor = mcpToolExecutionOverride()
             let activePlanDefinitions = [ToolDefinition.planUpdate]
             let activePlanExecutor = planToolExecutionOverride()
@@ -1542,7 +1662,7 @@ public final class QuillCodeWorkspaceModel {
             activeRunner.additionalToolDefinitions = activePlanDefinitions
                 + activeBrowserDefinitions
                 + activeComputerDefinitions
-                + (activeMCPToolDefinition.map { [$0] } ?? [])
+                + activeMCPToolDefinitions
             activeRunner.toolExecutionOverride = combinedToolExecutionOverride(
                 plan: activePlanExecutor,
                 browser: activeBrowserExecutor,
@@ -2002,15 +2122,40 @@ public final class QuillCodeWorkspaceModel {
         return " (\(parts.joined(separator: "; ")))"
     }
 
-    private func mcpToolDefinitionForReadyServers() -> ToolDefinition? {
-        let ready = readyMCPToolDescriptions()
-        guard !ready.isEmpty else { return nil }
-        var definition = ToolDefinition.mcpCall
-        definition.description = """
-        Call a tool on a verified project-local MCP stdio server. Use only these Ready MCP tools:
-        \(ready.joined(separator: "\n"))
-        """
-        return definition
+    private func mcpToolDefinitionsForReadyServers() -> [ToolDefinition] {
+        var definitions: [ToolDefinition] = []
+
+        let readyTools = readyMCPToolDescriptions()
+        if !readyTools.isEmpty {
+            var definition = ToolDefinition.mcpCall
+            definition.description = """
+            Call a tool on a verified project-local MCP stdio server. Use only these Ready MCP tools:
+            \(readyTools.joined(separator: "\n"))
+            """
+            definitions.append(definition)
+        }
+
+        let readyResources = readyMCPResourceDescriptions()
+        if !readyResources.isEmpty {
+            var definition = ToolDefinition.mcpReadResource
+            definition.description = """
+            Read a resource from a verified project-local MCP stdio server. Use only these Ready MCP resources:
+            \(readyResources.joined(separator: "\n"))
+            """
+            definitions.append(definition)
+        }
+
+        let readyPrompts = readyMCPPromptDescriptions()
+        if !readyPrompts.isEmpty {
+            var definition = ToolDefinition.mcpGetPrompt
+            definition.description = """
+            Get a prompt from a verified project-local MCP stdio server. Use only these Ready MCP prompts:
+            \(readyPrompts.joined(separator: "\n"))
+            """
+            definitions.append(definition)
+        }
+
+        return definitions
     }
 
     private func readyMCPToolDescriptions() -> [String] {
@@ -2027,34 +2172,123 @@ public final class QuillCodeWorkspaceModel {
             }
     }
 
+    private func readyMCPResourceDescriptions() -> [String] {
+        (selectedProject?.extensionManifests ?? [])
+            .filter { manifest in
+                manifest.kind == .mcpServer
+                    && extensions.mcpServerStatuses[manifest.id] == .ready
+                    && mcpServerProcesses[manifest.id]?.process.isRunning == true
+            }
+            .compactMap { manifest -> String? in
+                guard let summary = extensions.mcpServerProbeSummaries[manifest.id],
+                      !summary.resourceNames.isEmpty
+                else { return nil }
+                let resources = zip(summary.resourceNames, summary.resourceURIs).map { name, uri in
+                    name == uri ? uri : "\(name) [\(uri)]"
+                }
+                let fallbackResources = Array(summary.resourceNames.dropFirst(resources.count))
+                return "- \(manifest.id) (\(manifest.name)): \((resources + fallbackResources).joined(separator: ", "))"
+            }
+    }
+
+    private func readyMCPPromptDescriptions() -> [String] {
+        (selectedProject?.extensionManifests ?? [])
+            .filter { manifest in
+                manifest.kind == .mcpServer
+                    && extensions.mcpServerStatuses[manifest.id] == .ready
+                    && mcpServerProcesses[manifest.id]?.process.isRunning == true
+            }
+            .compactMap { manifest -> String? in
+                let prompts = extensions.mcpServerProbeSummaries[manifest.id]?.promptNames ?? []
+                guard !prompts.isEmpty else { return nil }
+                return "- \(manifest.id) (\(manifest.name)): \(prompts.joined(separator: ", "))"
+            }
+    }
+
     private func mcpToolExecutionOverride() -> AgentToolExecutionOverride? {
         let sessions = mcpServerProcesses.compactMapValues { handle in
             handle.process.isRunning ? handle.session : nil
         }
-        let allowedTools = extensions.mcpServerProbeSummaries.mapValues { Set($0.toolNames) }
+        let summaries = extensions.mcpServerProbeSummaries
+        let allowedTools = summaries.mapValues { Set($0.toolNames) }
+        let allowedPrompts = summaries.mapValues { Set($0.promptNames) }
         guard !sessions.isEmpty else { return nil }
 
         return { call, _ in
-            guard call.name == ToolDefinition.mcpCall.name else { return nil }
             do {
-                let request = try MCPToolCallRequest(argumentsJSON: call.argumentsJSON)
-                guard let session = sessions[request.serverID] else {
-                    return ToolResult(ok: false, error: "MCP server is not running or is not Ready: \(request.serverID)")
-                }
-                guard allowedTools[request.serverID]?.contains(request.toolName) == true else {
-                    return ToolResult(
-                        ok: false,
-                        error: "MCP tool \(request.toolName) was not advertised by \(request.serverID)."
+                switch call.name {
+                case ToolDefinition.mcpCall.name:
+                    let request = try MCPToolCallRequest(argumentsJSON: call.argumentsJSON)
+                    guard let session = sessions[request.serverID] else {
+                        return ToolResult(ok: false, error: "MCP server is not running or is not Ready: \(request.serverID)")
+                    }
+                    guard allowedTools[request.serverID]?.contains(request.toolName) == true else {
+                        return ToolResult(
+                            ok: false,
+                            error: "MCP tool \(request.toolName) was not advertised by \(request.serverID)."
+                        )
+                    }
+                    return try session.callTool(
+                        toolName: request.toolName,
+                        argumentsJSON: request.toolArgumentsJSON
                     )
+
+                case ToolDefinition.mcpReadResource.name:
+                    let request = try MCPResourceReadRequest(argumentsJSON: call.argumentsJSON)
+                    guard let session = sessions[request.serverID] else {
+                        return ToolResult(ok: false, error: "MCP server is not running or is not Ready: \(request.serverID)")
+                    }
+                    guard let uri = Self.mcpResourceURI(
+                        for: request.resourceIdentifier,
+                        summary: summaries[request.serverID]
+                    ) else {
+                        return ToolResult(
+                            ok: false,
+                            error: "MCP resource \(request.resourceIdentifier) was not advertised by \(request.serverID)."
+                        )
+                    }
+                    return try session.readResource(uri: uri)
+
+                case ToolDefinition.mcpGetPrompt.name:
+                    let request = try MCPPromptGetRequest(argumentsJSON: call.argumentsJSON)
+                    guard let session = sessions[request.serverID] else {
+                        return ToolResult(ok: false, error: "MCP server is not running or is not Ready: \(request.serverID)")
+                    }
+                    guard allowedPrompts[request.serverID]?.contains(request.promptName) == true else {
+                        return ToolResult(
+                            ok: false,
+                            error: "MCP prompt \(request.promptName) was not advertised by \(request.serverID)."
+                        )
+                    }
+                    return try session.getPrompt(
+                        name: request.promptName,
+                        argumentsJSON: request.promptArgumentsJSON
+                    )
+
+                default:
+                    return nil
                 }
-                return try session.callTool(
-                    toolName: request.toolName,
-                    argumentsJSON: request.toolArgumentsJSON
-                )
             } catch {
                 return ToolResult(ok: false, error: Self.mcpUserFacingError(error))
             }
         }
+    }
+
+    private nonisolated static func mcpResourceURI(for identifier: String, summary: MCPServerProbeSummary?) -> String? {
+        guard let summary else { return nil }
+        let trimmed = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if summary.resourceURIs.contains(trimmed) {
+            return trimmed
+        }
+        if summary.resourceURIs.isEmpty && summary.resourceNames.contains(trimmed) {
+            return trimmed
+        }
+        for (index, name) in summary.resourceNames.enumerated()
+            where name == trimmed && summary.resourceURIs.indices.contains(index) {
+            return summary.resourceURIs[index]
+        }
+        return nil
     }
 
     private func computerUseToolExecutionOverride() -> AgentToolExecutionOverride? {

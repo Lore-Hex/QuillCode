@@ -12,6 +12,7 @@ public struct MCPServerProbeResult: Sendable, Hashable {
     public var serverVersion: String?
     public var toolNames: [String]
     public var resourceNames: [String]
+    public var resourceURIs: [String]
     public var promptNames: [String]
 
     public init(
@@ -20,6 +21,7 @@ public struct MCPServerProbeResult: Sendable, Hashable {
         serverVersion: String? = nil,
         toolNames: [String] = [],
         resourceNames: [String] = [],
+        resourceURIs: [String] = [],
         promptNames: [String] = []
     ) {
         self.protocolVersion = protocolVersion
@@ -27,6 +29,7 @@ public struct MCPServerProbeResult: Sendable, Hashable {
         self.serverVersion = serverVersion
         self.toolNames = toolNames
         self.resourceNames = resourceNames
+        self.resourceURIs = resourceURIs
         self.promptNames = promptNames
     }
 }
@@ -156,14 +159,9 @@ public final class MCPStdioProber: @unchecked Sendable {
             .filter { !$0.isEmpty }
 
         let capabilities = initializeResult["capabilities"] as? [String: Any]
-        let resourceNames = capabilities?["resources"] == nil
+        let resources = capabilities?["resources"] == nil
             ? []
-            : optionalListNames(
-                method: "resources/list",
-                resultKey: "resources",
-                nameKeys: ["name", "uri"],
-                deadline: deadline
-            )
+            : optionalResourceList(deadline: deadline)
         let promptNames = capabilities?["prompts"] == nil
             ? []
             : optionalListNames(
@@ -179,7 +177,8 @@ public final class MCPStdioProber: @unchecked Sendable {
             serverName: serverInfo?["name"] as? String,
             serverVersion: serverInfo?["version"] as? String,
             toolNames: toolNames,
-            resourceNames: resourceNames,
+            resourceNames: resources.map(\.displayName),
+            resourceURIs: resources.map(\.uri),
             promptNames: promptNames
         )
     }
@@ -205,6 +204,48 @@ public final class MCPStdioProber: @unchecked Sendable {
         let response = try readResponse(id: requestID, deadline: Date().addingTimeInterval(timeout))
         let result = try resultDictionary(from: response)
         return Self.toolResult(from: result)
+    }
+
+    public func readResource(
+        uri: String,
+        timeout: TimeInterval = 10.0
+    ) throws -> ToolResult {
+        ioLock.lock()
+        defer { ioLock.unlock() }
+
+        let uri = uri.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !uri.isEmpty else {
+            return ToolResult(ok: false, error: "MCP resource URI is required.")
+        }
+
+        let requestID = nextID()
+        try write(method: "resources/read", id: requestID, params: ["uri": uri])
+        let response = try readResponse(id: requestID, deadline: Date().addingTimeInterval(timeout))
+        let result = try resultDictionary(from: response)
+        return Self.resourceResult(from: result, uri: uri)
+    }
+
+    public func getPrompt(
+        name: String,
+        argumentsJSON: String = "{}",
+        timeout: TimeInterval = 10.0
+    ) throws -> ToolResult {
+        ioLock.lock()
+        defer { ioLock.unlock() }
+
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else {
+            return ToolResult(ok: false, error: "MCP prompt name is required.")
+        }
+        let arguments = try Self.argumentsObject(from: argumentsJSON)
+        let requestID = nextID()
+        try write(method: "prompts/get", id: requestID, params: [
+            "name": name,
+            "arguments": arguments
+        ])
+        let response = try readResponse(id: requestID, deadline: Date().addingTimeInterval(timeout))
+        let result = try resultDictionary(from: response)
+        return Self.promptResult(from: result, name: name)
     }
 
     private func nextID() -> Int {
@@ -294,6 +335,28 @@ public final class MCPStdioProber: @unchecked Sendable {
         }
     }
 
+    private struct ResourceListEntry {
+        var displayName: String
+        var uri: String
+    }
+
+    private func optionalResourceList(deadline: Date) -> [ResourceListEntry] {
+        do {
+            let requestID = nextID()
+            try write(method: "resources/list", id: requestID, params: [:])
+            let response = try readResponse(id: requestID, deadline: deadline)
+            let result = try resultDictionary(from: response)
+            let entries = (result["resources"] as? [[String: Any]]) ?? []
+            return entries.compactMap { entry in
+                guard let uri = firstNonEmptyString(in: entry, keys: ["uri"]) else { return nil }
+                let displayName = firstNonEmptyString(in: entry, keys: ["name"]) ?? uri
+                return ResourceListEntry(displayName: displayName, uri: uri)
+            }
+        } catch {
+            return []
+        }
+    }
+
     private func firstNonEmptyString(in entry: [String: Any], keys: [String]) -> String? {
         for key in keys {
             let value = (entry[key] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -363,6 +426,70 @@ public final class MCPStdioProber: @unchecked Sendable {
         }
         return ToolResult(ok: true)
     }
+
+    private static func resourceResult(from result: [String: Any], uri: String) -> ToolResult {
+        let contents = (result["contents"] as? [[String: Any]]) ?? []
+        let text = contents
+            .compactMap { item -> String? in
+                if let text = item["text"] as? String {
+                    return text
+                }
+                if let blob = item["blob"] as? String {
+                    let itemURI = item["uri"] as? String ?? uri
+                    let mimeType = item["mimeType"] as? String ?? "binary"
+                    return "[\(itemURI) \(mimeType) blob, \(blob.count) base64 characters]"
+                }
+                if let data = try? JSONSerialization.data(withJSONObject: item, options: [.sortedKeys]) {
+                    return String(decoding: data, as: UTF8.self)
+                }
+                return nil
+            }
+            .joined(separator: "\n")
+        if !text.isEmpty {
+            return ToolResult(ok: true, stdout: text, artifacts: [uri])
+        }
+        if let data = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {
+            return ToolResult(ok: true, stdout: String(decoding: data, as: UTF8.self), artifacts: [uri])
+        }
+        return ToolResult(ok: true, artifacts: [uri])
+    }
+
+    private static func promptResult(from result: [String: Any], name: String) -> ToolResult {
+        var lines: [String] = ["Prompt: \(name)"]
+        if let description = (result["description"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !description.isEmpty {
+            lines.append("Description: \(description)")
+        }
+        let messages = (result["messages"] as? [[String: Any]]) ?? []
+        for message in messages {
+            let role = (message["role"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "message"
+            let content = promptMessageContent(from: message["content"])
+            guard !content.isEmpty else { continue }
+            lines.append("\(role): \(content)")
+        }
+        if lines.count > 1 {
+            return ToolResult(ok: true, stdout: lines.joined(separator: "\n"))
+        }
+        if let data = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {
+            return ToolResult(ok: true, stdout: String(decoding: data, as: UTF8.self))
+        }
+        return ToolResult(ok: true)
+    }
+
+    private static func promptMessageContent(from value: Any?) -> String {
+        if let text = value as? String {
+            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if let object = value as? [String: Any] {
+            if let text = object["text"] as? String {
+                return text.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            if let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]) {
+                return String(decoding: data, as: UTF8.self)
+            }
+        }
+        return ""
+    }
 }
 
 public extension ToolDefinition {
@@ -372,5 +499,21 @@ public extension ToolDefinition {
         parametersJSON: #"{"type":"object","required":["serverID","toolName"],"properties":{"serverID":{"type":"string"},"toolName":{"type":"string"},"arguments":{"type":"object"},"argumentsJSON":{"type":"string","description":"JSON object string for tool arguments when object arguments are not convenient."}}}"#,
         host: .mcp,
         risk: .append
+    )
+
+    static let mcpReadResource = ToolDefinition(
+        name: "host.mcp.resource.read",
+        description: "Read an advertised resource from a verified project-local MCP stdio server. Use only server IDs and resource names or URIs listed in the description supplied by QuillCode.",
+        parametersJSON: #"{"type":"object","required":["serverID"],"properties":{"serverID":{"type":"string"},"resourceURI":{"type":"string","description":"Advertised MCP resource URI."},"uri":{"type":"string","description":"Alias for resourceURI."},"resourceName":{"type":"string","description":"Advertised resource display name when the URI is not convenient."},"name":{"type":"string","description":"Alias for resourceName."}}}"#,
+        host: .mcp,
+        risk: .read
+    )
+
+    static let mcpGetPrompt = ToolDefinition(
+        name: "host.mcp.prompt.get",
+        description: "Get an advertised prompt from a verified project-local MCP stdio server. Use only server IDs and prompt names listed in the description supplied by QuillCode.",
+        parametersJSON: #"{"type":"object","required":["serverID","promptName"],"properties":{"serverID":{"type":"string"},"promptName":{"type":"string"},"name":{"type":"string","description":"Alias for promptName."},"arguments":{"type":"object"},"argumentsJSON":{"type":"string","description":"JSON object string for prompt arguments when object arguments are not convenient."}}}"#,
+        host: .mcp,
+        risk: .read
     )
 }

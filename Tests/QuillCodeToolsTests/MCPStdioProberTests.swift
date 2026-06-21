@@ -150,6 +150,7 @@ final class MCPStdioProberTests: XCTestCase {
 
         XCTAssertEqual(result.toolNames, ["read_file"])
         XCTAssertEqual(result.resourceNames, ["README", "file:///workspace/package.json"])
+        XCTAssertEqual(result.resourceURIs, ["file:///workspace/README.md", "file:///workspace/package.json"])
         XCTAssertEqual(result.promptNames, ["summarize_project"])
     }
 
@@ -204,5 +205,129 @@ final class MCPStdioProberTests: XCTestCase {
 
         XCTAssertTrue(result.ok, result.error ?? "")
         XCTAssertEqual(result.stdout, "hello from MCP")
+    }
+
+    func testReadResourceSendsResourcesReadAndParsesTextContent() throws {
+        let input = Pipe()
+        let output = Pipe()
+        defer {
+            try? input.fileHandleForWriting.close()
+            try? input.fileHandleForReading.close()
+            try? output.fileHandleForWriting.close()
+            try? output.fileHandleForReading.close()
+        }
+
+        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": [
+                "protocolVersion": "2024-11-05",
+                "serverInfo": ["name": "Fixture MCP"],
+                "capabilities": ["tools": [:], "resources": [:]]
+            ]
+        ]))
+        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": ["tools": []]
+        ]))
+        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": [
+                "resources": [
+                    ["name": "README", "uri": "file:///workspace/README.md"]
+                ]
+            ]
+        ]))
+        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": 4,
+            "result": [
+                "contents": [
+                    ["uri": "file:///workspace/README.md", "mimeType": "text/markdown", "text": "# README"]
+                ]
+            ]
+        ]))
+        try output.fileHandleForWriting.close()
+
+        let prober = MCPStdioProber(
+            standardInput: input.fileHandleForWriting,
+            standardOutput: output.fileHandleForReading
+        )
+        let probe = try prober.probe(timeout: 1.0)
+        let result = try prober.readResource(uri: "file:///workspace/README.md", timeout: 1.0)
+
+        XCTAssertEqual(probe.resourceNames, ["README"])
+        XCTAssertEqual(probe.resourceURIs, ["file:///workspace/README.md"])
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(result.stdout, "# README")
+        XCTAssertEqual(result.artifacts, ["file:///workspace/README.md"])
+    }
+
+    func testGetPromptSendsPromptsGetAndParsesMessages() throws {
+        let input = Pipe()
+        let output = Pipe()
+        defer {
+            try? input.fileHandleForWriting.close()
+            try? input.fileHandleForReading.close()
+            try? output.fileHandleForWriting.close()
+            try? output.fileHandleForReading.close()
+        }
+
+        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": [
+                "protocolVersion": "2024-11-05",
+                "serverInfo": ["name": "Fixture MCP"],
+                "capabilities": ["tools": [:], "prompts": [:]]
+            ]
+        ]))
+        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": ["tools": []]
+        ]))
+        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": [
+                "prompts": [
+                    ["name": "summarize_project"]
+                ]
+            ]
+        ]))
+        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": 4,
+            "result": [
+                "description": "Summarize the selected project.",
+                "messages": [
+                    [
+                        "role": "user",
+                        "content": ["type": "text", "text": "Summarize this project."]
+                    ]
+                ]
+            ]
+        ]))
+        try output.fileHandleForWriting.close()
+
+        let prober = MCPStdioProber(
+            standardInput: input.fileHandleForWriting,
+            standardOutput: output.fileHandleForReading
+        )
+        _ = try prober.probe(timeout: 1.0)
+        let result = try prober.getPrompt(name: "summarize_project", timeout: 1.0)
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(
+            result.stdout,
+            """
+            Prompt: summarize_project
+            Description: Summarize the selected project.
+            user: Summarize this project.
+            """
+        )
     }
 }
