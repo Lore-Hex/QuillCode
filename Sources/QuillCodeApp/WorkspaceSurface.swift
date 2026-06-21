@@ -301,8 +301,10 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
                     option.provider,
                     option.displayName,
                     option.category,
+                    option.detailTitle,
                     option.metadataSummary,
                     option.metadataDetails.joined(separator: " "),
+                    option.metadataRows.map(\.value).joined(separator: " "),
                     option.badges.joined(separator: " ")
                 ].joined(separator: " ").lowercased()
                 return normalizedTerms.allSatisfy { haystack.contains($0) }
@@ -324,6 +326,17 @@ public struct ModelCategorySurface: Codable, Sendable, Hashable, Identifiable {
     }
 }
 
+public struct ModelMetadataRowSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String { label }
+    public var label: String
+    public var value: String
+
+    public init(label: String, value: String) {
+        self.label = label
+        self.value = value
+    }
+}
+
 public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var provider: String
@@ -334,6 +347,9 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
     public var badges: [String]
     public var metadataSummary: String
     public var metadataDetails: [String]
+    public var detailTitle: String
+    public var capabilitySummary: String
+    public var metadataRows: [ModelMetadataRowSurface]
     public var modelInfo: ModelInfo {
         ModelInfo(id: id, provider: provider, displayName: displayName, category: category)
     }
@@ -347,6 +363,16 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         self.isFavorite = isFavorite
         self.badges = badges
         self.metadataSummary = Self.metadataSummary(provider: model.provider, modelID: model.id, category: model.category)
+        self.detailTitle = "\(model.provider)/\(model.displayName)"
+        self.capabilitySummary = Self.capabilitySummary(modelID: model.id, category: model.category, badges: badges)
+        self.metadataRows = Self.metadataRows(
+            provider: model.provider,
+            modelID: model.id,
+            category: model.category,
+            isSelected: model.id == selectedModelID,
+            isFavorite: isFavorite,
+            badges: badges
+        )
         self.metadataDetails = Self.metadataDetails(
             provider: model.provider,
             modelID: model.id,
@@ -367,6 +393,9 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         case badges
         case metadataSummary
         case metadataDetails
+        case detailTitle
+        case capabilitySummary
+        case metadataRows
     }
 
     public init(from decoder: Decoder) throws {
@@ -380,6 +409,19 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         self.badges = try container.decodeIfPresent([String].self, forKey: .badges) ?? []
         self.metadataSummary = try container.decodeIfPresent(String.self, forKey: .metadataSummary)
             ?? Self.metadataSummary(provider: provider, modelID: id, category: category)
+        self.detailTitle = try container.decodeIfPresent(String.self, forKey: .detailTitle)
+            ?? "\(provider)/\(displayName)"
+        self.capabilitySummary = try container.decodeIfPresent(String.self, forKey: .capabilitySummary)
+            ?? Self.capabilitySummary(modelID: id, category: category, badges: badges)
+        self.metadataRows = try container.decodeIfPresent([ModelMetadataRowSurface].self, forKey: .metadataRows)
+            ?? Self.metadataRows(
+                provider: provider,
+                modelID: id,
+                category: category,
+                isSelected: isSelected,
+                isFavorite: isFavorite,
+                badges: badges
+            )
         self.metadataDetails = try container.decodeIfPresent([String].self, forKey: .metadataDetails)
             ?? Self.metadataDetails(
                 provider: provider,
@@ -393,6 +435,55 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
 
     private static func metadataSummary(provider: String, modelID: String, category: String) -> String {
         "\(category) · \(modelID)"
+    }
+
+    private static func capabilitySummary(modelID: String, category: String, badges: [String]) -> String {
+        if modelID == TrustedRouterDefaults.defaultModel {
+            return "Fast default for coding, shell, and file-editing turns."
+        }
+        if modelID == TrustedRouterDefaults.fusionModel {
+            return "Balanced TrustedRouter model for deeper coding and review turns."
+        }
+        if badges.contains("Recommended") {
+            return "Recommended model profile available through TrustedRouter."
+        }
+        if category == "Safety" {
+            return "Lightweight reviewer model for Auto safety decisions."
+        }
+        return "\(category) model available through TrustedRouter."
+    }
+
+    private static func metadataRows(
+        provider: String,
+        modelID: String,
+        category: String,
+        isSelected: Bool,
+        isFavorite: Bool,
+        badges: [String]
+    ) -> [ModelMetadataRowSurface] {
+        var state: [String] = []
+        if isSelected {
+            state.append("Current")
+        }
+        if badges.contains("Default") {
+            state.append("Default")
+        }
+        if badges.contains("Recommended") {
+            state.append("Recommended")
+        }
+        if isFavorite || badges.contains("Favorite") {
+            state.append("Favorite")
+        }
+        if badges.contains("Recent") {
+            state.append("Recent")
+        }
+
+        return [
+            ModelMetadataRowSurface(label: "Provider", value: provider),
+            ModelMetadataRowSurface(label: "Model ID", value: modelID),
+            ModelMetadataRowSurface(label: "Category", value: category),
+            ModelMetadataRowSurface(label: "State", value: state.isEmpty ? "Available" : unique(state).joined(separator: ", "))
+        ]
     }
 
     private static func metadataDetails(
