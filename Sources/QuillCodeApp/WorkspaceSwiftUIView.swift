@@ -2911,6 +2911,18 @@ private struct QuillCodeToolCardView: View {
                     }
                 }
             }
+            if !card.imagePreviewArtifacts.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Previews")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 10)], spacing: 10) {
+                        ForEach(card.imagePreviewArtifacts) { artifact in
+                            QuillCodeArtifactImagePreview(artifact: artifact)
+                        }
+                    }
+                }
+            }
 
             if card.inputJSON != nil || card.outputJSON != nil {
                 DisclosureGroup(isExpanded: $isDetailsOpen) {
@@ -3060,20 +3072,7 @@ private struct QuillCodeArtifactChip: View {
     }
 
     private var artifactURL: URL? {
-        switch artifact.kind {
-        case .url:
-            return URL(string: artifact.value)
-        case .file:
-            if artifact.value.hasPrefix("file://") {
-                return URL(string: artifact.value)
-            }
-            if artifact.value.hasPrefix("/") {
-                return URL(fileURLWithPath: artifact.value)
-            }
-            return nil
-        case .path:
-            return nil
-        }
+        artifact.href.flatMap(URL.init(string:))
     }
 
     private var iconName: String {
@@ -3085,6 +3084,68 @@ private struct QuillCodeArtifactChip: View {
         case .path:
             return "folder"
         }
+    }
+}
+
+private struct QuillCodeArtifactImagePreview: View {
+    var artifact: ToolArtifactState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let url = previewURL {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFit()
+                    case .failure:
+                        fallback
+                    case .empty:
+                        ProgressView()
+                            .frame(maxWidth: .infinity, minHeight: 120)
+                    @unknown default:
+                        fallback
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 180)
+                .background(Color.black.opacity(0.22))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            } else {
+                fallback
+            }
+            Text(artifact.label)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(QuillCodePalette.text)
+                .lineLimit(1)
+        }
+        .padding(8)
+        .background(Color.white.opacity(0.05))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Image preview \(artifact.label)")
+    }
+
+    private var previewURL: URL? {
+        artifact.previewURL.flatMap(URL.init(string:))
+    }
+
+    private var fallback: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "photo")
+                .font(.title3)
+            Text("Preview unavailable")
+                .font(.caption.weight(.semibold))
+        }
+        .foregroundStyle(QuillCodePalette.muted)
+        .frame(maxWidth: .infinity, minHeight: 120)
+        .background(Color.black.opacity(0.22))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 

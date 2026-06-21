@@ -323,6 +323,7 @@ public enum WorkspaceHTMLRenderer {
             <button type="button" data-testid="tool-card-copy" data-copy-id="\(escape(copyID))">\(escape(copyActionLabel(for: card)))</button>
           </footer>
           \(renderToolArtifacts(card.artifacts))
+          \(renderToolImagePreviews(card.artifacts))
           \(renderToolDetails(card))
         </article>
         """
@@ -353,7 +354,7 @@ public enum WorkspaceHTMLRenderer {
     private static func renderToolArtifacts(_ artifacts: [ToolArtifactState]) -> String {
         guard !artifacts.isEmpty else { return "" }
         let chips = artifacts.map { artifact in
-            let href = artifactHref(artifact).map { #" href="\#(escape($0))""# } ?? ""
+            let href = artifact.href.map { #" href="\#(escape($0))""# } ?? ""
             return """
             <a class="artifact-chip" data-testid="tool-card-artifact" data-kind="\(escape(artifact.kind.rawValue))"\(href)>
               <strong data-testid="tool-card-artifact-label">\(escape(artifact.label))</strong>
@@ -368,21 +369,24 @@ public enum WorkspaceHTMLRenderer {
         """
     }
 
-    private static func artifactHref(_ artifact: ToolArtifactState) -> String? {
-        switch artifact.kind {
-        case .url:
-            return artifact.value
-        case .file:
-            if artifact.value.hasPrefix("file://") {
-                return artifact.value
-            }
-            if artifact.value.hasPrefix("/") {
-                return URL(fileURLWithPath: artifact.value).absoluteString
-            }
-            return nil
-        case .path:
-            return nil
-        }
+    private static func renderToolImagePreviews(_ artifacts: [ToolArtifactState]) -> String {
+        let imageArtifacts = artifacts.filter(\.isImagePreview)
+        guard !imageArtifacts.isEmpty else { return "" }
+        let previews = imageArtifacts.compactMap { artifact -> String? in
+            guard let src = artifact.previewURL else { return nil }
+            return """
+            <figure class="artifact-preview" data-testid="tool-card-image-preview">
+              <img src="\(escape(src))" alt="\(escape(artifact.label))" loading="lazy">
+              <figcaption>\(escape(artifact.label))</figcaption>
+            </figure>
+            """
+        }.joined(separator: "\n")
+        guard !previews.isEmpty else { return "" }
+        return """
+        <div class="tool-artifact-previews" data-testid="tool-card-image-previews" aria-label="Image previews">
+          \(previews)
+        </div>
+        """
     }
 
     private static func renderTerminal(_ terminal: TerminalSurface) -> String {

@@ -1,6 +1,7 @@
 import XCTest
 import QuillCodeAgent
 import QuillCodeCore
+import QuillComputerUseKit
 @testable import QuillCodeApp
 
 @MainActor
@@ -956,6 +957,30 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-details" open"#))
         XCTAssertTrue(html.contains(#"data-kind="file""#))
         XCTAssertTrue(html.contains("hello.txt"))
+    }
+
+    func testHTMLRendererIncludesImageArtifactPreview() throws {
+        let screenshotPath = "/tmp/quillcode-preview/screenshot.png"
+        let call = ToolCall(name: ToolDefinition.computerScreenshot.name, argumentsJSON: "{}")
+        let result = ToolResult(ok: true, stdout: #"{"width":1280,"height":720}"#, artifacts: [screenshotPath])
+        let thread = ChatThread(
+            title: "Screenshot",
+            events: [
+                ThreadEvent(kind: .toolQueued, summary: "host.computer.screenshot queued", payloadJSON: try JSONHelpers.encodePretty(call)),
+                ThreadEvent(kind: .toolCompleted, summary: "host.computer.screenshot completed", payloadJSON: try JSONHelpers.encodePretty(result))
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-image-previews""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview""#))
+        XCTAssertTrue(html.contains(#"src="file:///tmp/quillcode-preview/screenshot.png""#))
+        XCTAssertTrue(html.contains(#"alt="screenshot.png""#))
     }
 
     func testHTMLRendererKeepsToolCardsInTranscriptOrder() async throws {

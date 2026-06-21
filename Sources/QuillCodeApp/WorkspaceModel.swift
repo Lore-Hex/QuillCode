@@ -25,6 +25,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var label: String
     public var kind: ToolArtifactKind
     public var detail: String { Self.detail(for: value, kind: kind) }
+    public var href: String? { Self.href(for: value, kind: kind) }
+    public var isImagePreview: Bool { Self.isImagePreview(for: value, kind: kind) }
+    public var previewURL: String? { Self.previewURL(for: value, kind: kind) }
 
     public init(value: String) {
         self.value = value
@@ -39,6 +42,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         if scheme == "http" || scheme == "https" {
             return .url
         }
+        if isInlineImageData(value) {
+            return .url
+        }
         if scheme == "file" {
             return .file
         }
@@ -48,7 +54,10 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     private static func label(for value: String) -> String {
         if let url = URL(string: value),
            let scheme = url.scheme?.lowercased(),
-           ["http", "https", "file"].contains(scheme) {
+           ["http", "https", "file", "data"].contains(scheme) {
+            if scheme == "data" {
+                return isInlineImageData(value) ? "Inline image" : value
+            }
             if scheme == "http" || scheme == "https" {
                 let host = url.host ?? value
                 return url.path.isEmpty || url.path == "/" ? host : "\(host)\(url.path)"
@@ -66,6 +75,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     private static func detail(for value: String, kind: ToolArtifactKind) -> String {
         switch kind {
         case .url:
+            if isInlineImageData(value) {
+                return "Image artifact"
+            }
             guard let url = URL(string: value), let host = url.host else { return value }
             return url.path.isEmpty || url.path == "/" ? host : "\(host)\(url.path)"
         case .file:
@@ -80,6 +92,65 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
             return value
         }
     }
+
+    private static func isImagePreview(for value: String, kind: ToolArtifactKind) -> Bool {
+        if isInlineImageData(value) {
+            return true
+        }
+        guard kind == .file || kind == .url else {
+            return false
+        }
+        let pathExtension: String
+        if let url = URL(string: value), url.scheme != nil {
+            pathExtension = url.pathExtension
+        } else {
+            pathExtension = URL(fileURLWithPath: value).pathExtension
+        }
+        return imageExtensions.contains(pathExtension.lowercased())
+    }
+
+    private static func previewURL(for value: String, kind: ToolArtifactKind) -> String? {
+        if isInlineImageData(value) {
+            return value
+        }
+        guard isImagePreview(for: value, kind: kind) else {
+            return nil
+        }
+        return href(for: value, kind: kind)
+    }
+
+    private static func href(for value: String, kind: ToolArtifactKind) -> String? {
+        switch kind {
+        case .url:
+            return value
+        case .file:
+            if value.hasPrefix("file://") {
+                return value
+            }
+            if value.hasPrefix("/") {
+                return URL(fileURLWithPath: value).absoluteString
+            }
+            return nil
+        case .path:
+            return nil
+        }
+    }
+
+    private static func isInlineImageData(_ value: String) -> Bool {
+        value.lowercased().hasPrefix("data:image/")
+    }
+
+    private static let imageExtensions: Set<String> = [
+        "png",
+        "jpg",
+        "jpeg",
+        "gif",
+        "webp",
+        "heic",
+        "tif",
+        "tiff",
+        "bmp"
+    ]
 }
 
 public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
@@ -133,6 +204,10 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         self.outputJSON = try container.decodeIfPresent(String.self, forKey: .outputJSON)
         self.artifacts = try container.decodeIfPresent([ToolArtifactState].self, forKey: .artifacts) ?? []
         self.isExpanded = try container.decode(Bool.self, forKey: .isExpanded)
+    }
+
+    public var imagePreviewArtifacts: [ToolArtifactState] {
+        artifacts.filter(\.isImagePreview)
     }
 }
 

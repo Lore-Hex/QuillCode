@@ -678,6 +678,36 @@
       font-size: 11px;
       font-weight: 600;
     }
+    .tool-artifact-previews {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .artifact-preview {
+      margin: 0;
+      display: grid;
+      gap: 6px;
+      padding: 8px;
+      border-radius: 13px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.05);
+    }
+    .artifact-preview img {
+      width: 100%;
+      height: 160px;
+      object-fit: contain;
+      border-radius: 10px;
+      background: rgba(0,0,0,.26);
+    }
+    .artifact-preview figcaption {
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .tool-details {
       margin-top: 6px;
     }
@@ -1639,7 +1669,7 @@
     }
 
     function artifactState(value) {
-      let kind = value.startsWith('http://') || value.startsWith('https://')
+      let kind = value.startsWith('http://') || value.startsWith('https://') || value.toLowerCase().startsWith('data:image/')
         ? 'url'
         : value.startsWith('/') || value.startsWith('file://')
           ? 'file'
@@ -1647,7 +1677,9 @@
       let label = value;
       try {
         const url = value.startsWith('/') ? new URL(`file://${value}`) : new URL(value);
-        if (url.protocol === 'http:' || url.protocol === 'https:') {
+        if (url.protocol === 'data:') {
+          label = 'Inline image';
+        } else if (url.protocol === 'http:' || url.protocol === 'https:') {
           label = url.pathname && url.pathname !== '/' ? `${url.hostname}${url.pathname}` : url.hostname;
         } else {
           const parts = url.pathname.split('/').filter(Boolean);
@@ -1657,10 +1689,12 @@
         const parts = value.split('/').filter(Boolean);
         label = parts.at(-1) || value;
       }
-      return { value, label, kind };
+      const isImagePreview = artifactIsImagePreview(value, kind);
+      return { value, label, kind, isImagePreview, previewURL: isImagePreview ? artifactPreviewURL(value, kind) : null };
     }
 
     function artifactDetail(artifact) {
+      if (artifact.value.toLowerCase().startsWith('data:image/')) return 'Image artifact';
       if (artifact.kind === 'url') return artifact.label;
       if (artifact.kind === 'file') {
         try {
@@ -1681,6 +1715,26 @@
       if (artifact.kind === 'url') return artifact.value;
       if (artifact.kind === 'file' && artifact.value.startsWith('/')) return `file://${artifact.value}`;
       if (artifact.kind === 'file' && artifact.value.startsWith('file://')) return artifact.value;
+      return null;
+    }
+
+    function artifactIsImagePreview(value, kind) {
+      if (value.toLowerCase().startsWith('data:image/')) return true;
+      if (kind !== 'file' && kind !== 'url') return false;
+      try {
+        const url = value.startsWith('/') ? new URL(`file://${value}`) : new URL(value);
+        return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'tif', 'tiff', 'bmp'].includes(url.pathname.split('.').pop().toLowerCase());
+      } catch {
+        return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'tif', 'tiff', 'bmp'].includes(value.split('.').pop().toLowerCase());
+      }
+    }
+
+    function artifactPreviewURL(value, kind) {
+      if (!artifactIsImagePreview(value, kind)) return null;
+      if (value.toLowerCase().startsWith('data:image/')) return value;
+      if (kind === 'url') return value;
+      if (kind === 'file' && value.startsWith('/')) return `file://${value}`;
+      if (kind === 'file' && value.startsWith('file://')) return value;
       return null;
     }
 
@@ -2017,6 +2071,18 @@
               </a>`;
             }).join('')}
           </div>` : '';
+      const renderImagePreviews = artifacts => {
+        const previews = (artifacts || []).filter(artifact => artifact.isImagePreview && artifact.previewURL);
+        return previews.length ? `
+          <div class="tool-artifact-previews" data-testid="tool-card-image-previews" aria-label="Image previews">
+            ${previews.map(artifact => `
+              <figure class="artifact-preview" data-testid="tool-card-image-preview">
+                <img src="${escapeHTML(artifact.previewURL)}" alt="${escapeHTML(artifact.label)}" loading="lazy">
+                <figcaption>${escapeHTML(artifact.label)}</figcaption>
+              </figure>
+            `).join('')}
+          </div>` : '';
+      };
       const renderToolDetails = card => card.inputJSON || card.outputJSON ? `
           <details class="tool-details" data-testid="tool-card-details" ${card.isExpanded || card.status === 'failed' || card.status === 'review' ? 'open' : ''}>
             <summary>${card.isExpanded || card.status === 'failed' || card.status === 'review' ? 'Hide details' : 'Show details'}</summary>
@@ -2032,6 +2098,7 @@
           <p>${escapeHTML(card.subtitle)}</p>
           ${copyButton('tool-card-copy', timelineID || card.id, card.outputJSON ? 'Copy output' : card.inputJSON ? 'Copy input' : 'Copy')}
           ${renderArtifacts(card.artifacts)}
+          ${renderImagePreviews(card.artifacts)}
           ${renderToolDetails(card)}
         </article>`;
       const transcriptItems = state.transcript.timelineItems.length
@@ -4205,6 +4272,16 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote /mock/QuillCode/${path}\n`, artifacts: [`/mock/QuillCode/${path}`] }, null, 2)
         });
         addMessage('assistant', `Wrote \`${path}\`.`);
+      } else if (text.toLowerCase().includes('screenshot')) {
+        const path = '/mock/QuillCode/screenshots/screenshot.png';
+        addToolCard({
+          title: 'host.computer.screenshot',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: '{}',
+          outputJSON: JSON.stringify({ ok: true, stdout: '{"width":1280,"height":720}', artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Captured a screenshot (1280 x 720).');
       } else if (text.toLowerCase().includes('apply patch') || text.toLowerCase().includes('edit file')) {
         const { diff, review } = mockReviewDiff();
         state.review = review;

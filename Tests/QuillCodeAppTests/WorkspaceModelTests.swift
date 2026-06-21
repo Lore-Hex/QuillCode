@@ -346,6 +346,35 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(card.artifacts.first?.value, root.appendingPathComponent("hello.txt").path)
     }
 
+    func testArtifactStateDerivesLinksAndImagePreviews() {
+        let imageFile = ToolArtifactState(value: "/tmp/quillcode/screenshot.png")
+        XCTAssertEqual(imageFile.kind, .file)
+        XCTAssertEqual(imageFile.href, "file:///tmp/quillcode/screenshot.png")
+        XCTAssertTrue(imageFile.isImagePreview)
+        XCTAssertEqual(imageFile.previewURL, imageFile.href)
+
+        let imageURL = ToolArtifactState(value: "https://example.com/assets/mock.webp?size=large")
+        XCTAssertEqual(imageURL.kind, .url)
+        XCTAssertEqual(imageURL.href, "https://example.com/assets/mock.webp?size=large")
+        XCTAssertEqual(imageURL.label, "example.com/assets/mock.webp")
+        XCTAssertTrue(imageURL.isImagePreview)
+        XCTAssertEqual(imageURL.previewURL, imageURL.href)
+
+        let inlineImage = ToolArtifactState(value: "data:image/png;base64,AAAA")
+        XCTAssertEqual(inlineImage.kind, .url)
+        XCTAssertEqual(inlineImage.label, "Inline image")
+        XCTAssertEqual(inlineImage.detail, "Image artifact")
+        XCTAssertTrue(inlineImage.isImagePreview)
+        XCTAssertEqual(inlineImage.previewURL, "data:image/png;base64,AAAA")
+
+        let nonImageData = ToolArtifactState(value: "data:text/plain;base64,SGVsbG8=")
+        XCTAssertEqual(nonImageData.kind, .path)
+        XCTAssertEqual(nonImageData.label, "data:text/plain;base64,SGVsbG8=")
+        XCTAssertFalse(nonImageData.isImagePreview)
+        XCTAssertNil(nonImageData.previewURL)
+        XCTAssertNil(nonImageData.href)
+    }
+
     func testSubmitComposerDispatchesComputerUseToolThroughBackend() async throws {
         let root = try makeTempDirectory()
         let backend = StubComputerUseBackend()
@@ -398,6 +427,10 @@ final class WorkspaceModelTests: XCTestCase {
             try? FileManager.default.removeItem(atPath: screenshotArtifact)
         }
         XCTAssertTrue(FileManager.default.fileExists(atPath: screenshotArtifact))
+        let artifact = try XCTUnwrap(card.artifacts.first)
+        XCTAssertEqual(artifact.kind, .file)
+        XCTAssertTrue(artifact.isImagePreview)
+        XCTAssertEqual(artifact.previewURL, URL(fileURLWithPath: screenshotArtifact).absoluteString)
         XCTAssertEqual(
             model.selectedThread?.messages.last?.content,
             "Captured a screenshot (1 x 1)."

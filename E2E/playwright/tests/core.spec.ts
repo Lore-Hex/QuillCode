@@ -295,6 +295,20 @@ test('mock harness surfaces file artifacts from tool cards', async ({ page }) =>
   await expect(page.getByText('Wrote `hello.txt`.')).toBeVisible();
 });
 
+test('mock harness renders image artifact previews from tool cards', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('take a screenshot');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.computer.screenshot');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('screenshot.png');
+  await expect(page.getByTestId('tool-card-image-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-image-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-image-preview').locator('img')).toHaveAttribute('src', 'file:///mock/QuillCode/screenshots/screenshot.png');
+  await expect(page.getByText('Captured a screenshot (1280 x 720).')).toBeVisible();
+});
+
 test('mock harness searches and reopens an existing chat', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
