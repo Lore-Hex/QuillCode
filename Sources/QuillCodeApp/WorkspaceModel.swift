@@ -1658,15 +1658,19 @@ public final class QuillCodeWorkspaceModel {
             let activeBrowserExecutor = browserToolExecutionOverride(snapshot: browser)
             let activeComputerDefinitions = computerUseBackend == nil ? [] : ToolDefinition.computerUseDefinitions
             let activeComputerExecutor = computerUseToolExecutionOverride()
+            let activeMemoryDefinitions = globalMemoryDirectory == nil ? [] : [ToolDefinition.memoryRemember]
+            let activeMemoryExecutor = memoryToolExecutionOverride()
             var activeRunner = runner
             activeRunner.additionalToolDefinitions = activePlanDefinitions
                 + activeBrowserDefinitions
                 + activeComputerDefinitions
+                + activeMemoryDefinitions
                 + activeMCPToolDefinitions
             activeRunner.toolExecutionOverride = combinedToolExecutionOverride(
                 plan: activePlanExecutor,
                 browser: activeBrowserExecutor,
                 computerUse: activeComputerExecutor,
+                memory: activeMemoryExecutor,
                 mcp: activeMCPExecutor
             )
 
@@ -1680,6 +1684,9 @@ public final class QuillCodeWorkspaceModel {
             )
             try Task.checkCancellation()
             thread = result.thread
+            if Self.didSaveMemory(in: thread) {
+                refreshThreadMemoryContext(&thread)
+            }
             replaceThread(thread)
             try threadStore?.save(thread)
             composer.isSending = false
@@ -2313,13 +2320,22 @@ public final class QuillCodeWorkspaceModel {
         }
     }
 
+    private func memoryToolExecutionOverride() -> AgentToolExecutionOverride? {
+        guard let directory = globalMemoryDirectory else { return nil }
+        return { call, _ in
+            guard call.name == ToolDefinition.memoryRemember.name else { return nil }
+            return Self.executeMemoryRememberTool(call, directory: directory)
+        }
+    }
+
     private func combinedToolExecutionOverride(
         plan: AgentToolExecutionOverride?,
         browser: AgentToolExecutionOverride?,
         computerUse: AgentToolExecutionOverride?,
+        memory: AgentToolExecutionOverride?,
         mcp: AgentToolExecutionOverride?
     ) -> AgentToolExecutionOverride? {
-        guard plan != nil || browser != nil || computerUse != nil || mcp != nil else { return nil }
+        guard plan != nil || browser != nil || computerUse != nil || memory != nil || mcp != nil else { return nil }
         return { call, workspaceRoot in
             if let result = await plan?(call, workspaceRoot) {
                 return result
@@ -2330,10 +2346,65 @@ public final class QuillCodeWorkspaceModel {
             if let result = await computerUse?(call, workspaceRoot) {
                 return result
             }
+            if let result = await memory?(call, workspaceRoot) {
+                return result
+            }
             if let result = await mcp?(call, workspaceRoot) {
                 return result
             }
             return nil
+        }
+    }
+
+    private nonisolated static func executeMemoryRememberTool(_ call: ToolCall, directory: URL) -> ToolResult {
+        do {
+            let args = try ToolArguments(call.argumentsJSON)
+            let content = try args.requiredString("content")
+            let saved = try saveGlobalMemory(content: content, to: directory)
+            return ToolResult(
+                ok: true,
+                stdout: try JSONHelpers.encodePretty(saved.output),
+                artifacts: [saved.note.relativePath]
+            )
+        } catch {
+            return ToolResult(
+                ok: false,
+                error: userFacingMemoryError(error)
+            )
+        }
+    }
+
+    private nonisolated static func saveGlobalMemory(
+        content: String,
+        to directory: URL
+    ) throws -> (note: MemoryNote, output: MemoryRememberToolOutput) {
+        let note = try MemoryNoteLoader.saveGlobal(content: content, to: directory)
+        let output = MemoryRememberToolOutput(
+            title: note.title,
+            relativePath: note.relativePath,
+            content: note.content
+        )
+        return (note, output)
+    }
+
+    private nonisolated static func userFacingMemoryError(_ error: Error) -> String {
+        if let localized = (error as? LocalizedError)?.errorDescription,
+           !localized.isEmpty {
+            return localized
+        }
+        return String(describing: error)
+    }
+
+    private nonisolated static func didSaveMemory(in thread: ChatThread) -> Bool {
+        thread.events.contains { event in
+            guard event.kind == .toolCompleted,
+                  event.summary == "\(ToolDefinition.memoryRemember.name) completed",
+                  let result = decode(ToolResult.self, event.payloadJSON),
+                  result.ok
+            else {
+                return false
+            }
+            return result.artifacts.contains { $0.hasPrefix("memories/") }
         }
     }
 
@@ -3122,7 +3193,8 @@ public final class QuillCodeWorkspaceModel {
         }
 
         do {
-            let note = try MemoryNoteLoader.saveGlobal(content: content, to: globalMemoryDirectory)
+            let saved = try Self.saveGlobalMemory(content: content, to: globalMemoryDirectory)
+            let note = saved.note
             root.globalMemories = MemoryNoteLoader.loadGlobal(from: globalMemoryDirectory)
             let projectID = selectedThread?.projectID ?? root.selectedProjectID
             let refreshedMemories = memoryNotes(for: projectID)
@@ -3465,6 +3537,12 @@ public final class QuillCodeWorkspaceModel {
         thread.memories = memoryNotes(for: projectID)
     }
 
+    private func refreshThreadMemoryContext(_ thread: inout ChatThread) {
+        let projectID = thread.projectID ?? root.selectedProjectID
+        refreshProjectMetadata(projectID)
+        thread.memories = memoryNotes(for: projectID)
+    }
+
     private func instructions(for projectID: UUID?) -> [ProjectInstruction] {
         guard let projectID,
               let project = root.projects.first(where: { $0.id == projectID })
@@ -3621,7 +3699,7 @@ public final class QuillCodeWorkspaceModel {
             }
     }
 
-    private static func decode<T: Decodable>(_ type: T.Type, _ payloadJSON: String?) -> T? {
+    private nonisolated static func decode<T: Decodable>(_ type: T.Type, _ payloadJSON: String?) -> T? {
         guard let payloadJSON else { return nil }
         return try? JSONHelpers.decode(type, from: payloadJSON)
     }

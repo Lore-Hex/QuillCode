@@ -1565,6 +1565,60 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: savedURL, encoding: .utf8), "Prefer small reviewable commits\n")
     }
 
+    func testAgentRememberToolWritesGlobalMemoryAndRefreshesThreadSurface() async throws {
+        let root = try makeTempDirectory()
+        let globalMemories = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(globalMemoryDirectory: globalMemories)
+        let projectID = model.addProject(path: root, name: "Agent Memory Project")
+        model.selectProject(projectID)
+
+        model.setDraft("remember that I prefer small reviewable commits")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertEqual(model.root.globalMemories.count, 1)
+        let memory = try XCTUnwrap(model.root.globalMemories.first)
+        XCTAssertEqual(memory.content, "I prefer small reviewable commits")
+        XCTAssertEqual(model.selectedThread?.memories.map(\.content), ["I prefer small reviewable commits"])
+        XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.memoryRemember.name)
+        XCTAssertEqual(model.currentToolCards.last?.status, .done)
+        XCTAssertEqual(model.selectedThread?.messages.last?.role, .assistant)
+        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("Saved memory: \(memory.title)") == true)
+        XCTAssertEqual(model.surface().topBar.memoryLabel, "1 memory")
+
+        let filename = memory.relativePath.replacingOccurrences(of: "memories/", with: "")
+        let savedURL = globalMemories.appendingPathComponent(filename)
+        XCTAssertEqual(try String(contentsOf: savedURL, encoding: .utf8), "I prefer small reviewable commits\n")
+    }
+
+    func testAgentRememberToolRejectsCredentialLikeMemory() async throws {
+        let root = try makeTempDirectory()
+        let globalMemories = try makeTempDirectory()
+        let call = ToolCall(
+            name: ToolDefinition.memoryRemember.name,
+            argumentsJSON: ToolArguments.json([
+                "content": "api_key=sk-qc-v1-ob4rbJAb9WOqdNIhSsT8oumjqaLZUX8p2zLHr1WOGn8"
+            ])
+        )
+        let model = QuillCodeWorkspaceModel(
+            runner: AgentRunner(llm: FixedToolLLMClient(call: call)),
+            globalMemoryDirectory: globalMemories
+        )
+
+        model.setDraft("remember this api key")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertEqual(model.root.globalMemories, [])
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: globalMemories.path)
+                .filter { $0.hasSuffix(".md") },
+            []
+        )
+        XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.memoryRemember.name)
+        XCTAssertEqual(model.currentToolCards.last?.status, .failed)
+        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("credential") == true)
+        XCTAssertEqual(model.surface().topBar.memoryLabel, "No memories")
+    }
+
     func testMemoryDeleteWorkspaceCommandRemovesGlobalMemoryAndRefreshesThreadSurface() throws {
         let root = try makeTempDirectory()
         let globalMemories = try makeTempDirectory()

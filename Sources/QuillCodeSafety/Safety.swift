@@ -115,6 +115,9 @@ public struct StaticSafetyReviewer: SafetyReviewer {
     public func userIntentMatches(_ context: SafetyContext) -> Bool {
         let user = context.userMessage.lowercased()
         let args = context.toolCall.argumentsJSON.lowercased()
+        if user.contains("remember") || user.contains("memorize") {
+            return context.toolCall.name.contains("memory")
+        }
         if user.contains("run") || user.contains("execute") {
             return true
         }

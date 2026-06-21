@@ -52,6 +52,13 @@ final class SafetyTests: XCTestCase {
         host: .computer,
         risk: .destructive
     )
+    private let memoryRemember = ToolDefinition(
+        name: "host.memory.remember",
+        description: "Remember a preference",
+        parametersJSON: "{}",
+        host: .local,
+        risk: .append
+    )
 
     func testAutoApprovesUserRequestedWhoami() async {
         let reviewer = StaticSafetyReviewer()
@@ -101,6 +108,22 @@ final class SafetyTests: XCTestCase {
             toolCall: call,
             toolDefinition: gitCommit,
             recentMessages: [.init(role: .user, content: "commit these changes with message Add hello file")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoApprovesRememberEvenWhenMemoryMentionsCommandVerbs() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: memoryRemember.name,
+            argumentsJSON: #"{"content":"make small reviewable commits"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "remember to make small reviewable commits",
+            toolCall: call,
+            toolDefinition: memoryRemember,
+            recentMessages: [.init(role: .user, content: "remember to make small reviewable commits")]
         ))
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }

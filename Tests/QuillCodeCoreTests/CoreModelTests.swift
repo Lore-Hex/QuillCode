@@ -47,6 +47,9 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(ToolDefinition.planUpdate.name, "host.plan.update")
         XCTAssertEqual(AgentPlanItemStatus.inProgress.label, "Running")
         XCTAssertTrue(ToolDefinition.planUpdate.parametersJSON.contains("in_progress"))
+        XCTAssertEqual(ToolDefinition.memoryRemember.name, "host.memory.remember")
+        XCTAssertEqual(ToolDefinition.memoryRemember.risk, .append)
+        XCTAssertTrue(ToolDefinition.memoryRemember.parametersJSON.contains(#""content""#))
     }
 
     func testToolArgumentsRejectMissingCommand() throws {

@@ -238,6 +238,18 @@ public struct BrowserInspectionToolOutput: Codable, Sendable, Hashable {
     }
 }
 
+public struct MemoryRememberToolOutput: Codable, Sendable, Hashable {
+    public var title: String
+    public var relativePath: String
+    public var content: String
+
+    public init(title: String, relativePath: String, content: String) {
+        self.title = title
+        self.relativePath = relativePath
+        self.content = content
+    }
+}
+
 public extension ToolDefinition {
     static let planUpdate = ToolDefinition(
         name: "host.plan.update",
@@ -253,6 +265,14 @@ public extension ToolDefinition {
         parametersJSON: #"{"type":"object","properties":{}}"#,
         host: .browser,
         risk: .read
+    )
+
+    static let memoryRemember = ToolDefinition(
+        name: "host.memory.remember",
+        description: "Save a durable user preference or stable project fact as explicit memory for future turns. Use only when the user asks QuillCode to remember something, or when the preference/fact is clearly stable and useful. Never save credentials, tokens, passwords, private keys, or other secrets.",
+        parametersJSON: #"{"type":"object","properties":{"content":{"type":"string","description":"The durable preference or stable fact to remember. Do not include credentials, tokens, passwords, private keys, or other secrets."},"reason":{"type":"string","description":"Optional short rationale for why this should become durable memory."}},"required":["content"]}"#,
+        host: .local,
+        risk: .append
     )
 }
 

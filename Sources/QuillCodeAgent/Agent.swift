@@ -173,6 +173,14 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
+        if let memory = Self.extractMemoryContent(from: request),
+           tools.contains(where: { $0.name == ToolDefinition.memoryRemember.name }) {
+            return .tool(.init(
+                name: ToolDefinition.memoryRemember.name,
+                argumentsJSON: ToolArguments.json(["content": memory])
+            ))
+        }
+
         if lower.contains("plan"),
            tools.contains(where: { $0.name == ToolDefinition.planUpdate.name }) {
             let update = AgentPlanUpdate(
@@ -274,6 +282,29 @@ public struct MockLLMClient: LLMClient {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
         }
         return String(trimmed.dropFirst(4)).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func extractMemoryContent(from request: String) -> String? {
+        let trimmed = request.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let lower = trimmed.lowercased()
+        let markers = [
+            "remember that ",
+            "remember to ",
+            "remember ",
+            "please remember that ",
+            "please remember to ",
+            "please remember ",
+            "memorize that ",
+            "memorize "
+        ]
+        guard let marker = markers.first(where: { lower.hasPrefix($0) }) else { return nil }
+        let start = trimmed.index(trimmed.startIndex, offsetBy: marker.count)
+        let content = String(trimmed[start...])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return content.isEmpty ? nil : content
     }
 
     static func extractCommitMessage(from request: String) -> String? {
@@ -782,6 +813,13 @@ public struct AgentRunner: Sendable {
 
         if call.name == ToolDefinition.planUpdate.name {
             return "Updated the task plan."
+        }
+
+        if call.name == ToolDefinition.memoryRemember.name {
+            if let output = try? JSONHelpers.decode(MemoryRememberToolOutput.self, from: result.stdout) {
+                return "Saved memory: \(output.title). It will be included as background context in future turns."
+            }
+            return "Saved memory."
         }
 
         if call.name == ToolDefinition.shellRun.name,
