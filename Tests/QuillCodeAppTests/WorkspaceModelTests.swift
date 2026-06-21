@@ -398,6 +398,46 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.currentToolCards.last?.status, .done)
     }
 
+    func testApplyPatchToolRunRefreshesReviewDiff() throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepository(at: root)
+        let fileURL = root.appendingPathComponent("hello.txt")
+        try "old\n".write(to: fileURL, atomically: true, encoding: .utf8)
+        _ = try runGit(["add", "hello.txt"], cwd: root)
+        _ = try runGit(["commit", "-m", "Initial"], cwd: root)
+        let patch = """
+        diff --git a/hello.txt b/hello.txt
+        --- a/hello.txt
+        +++ b/hello.txt
+        @@ -1 +1 @@
+        -old
+        +new
+        """
+        let model = QuillCodeWorkspaceModel()
+
+        model.runToolCall(
+            ToolCall(
+                name: ToolDefinition.applyPatch.name,
+                argumentsJSON: ToolArguments.json(["patch": patch])
+            ),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(try String(contentsOf: fileURL, encoding: .utf8), "new\n")
+        XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
+        XCTAssertEqual(model.currentToolCards.map(\.title), [
+            "host.apply_patch",
+            "host.git.diff"
+        ])
+        XCTAssertTrue(model.currentToolCards.allSatisfy { $0.status == .done })
+        XCTAssertTrue(model.surface().review.isVisible)
+        XCTAssertEqual(model.surface().review.files.map(\.path), ["hello.txt"])
+        let lines = try XCTUnwrap(model.surface().review.files.first?.hunkItems.first?.lines)
+        XCTAssertTrue(lines.contains(where: {
+            $0.content == "new" && $0.kind == .insertion
+        }))
+    }
+
     func testProjectInstructionsLoadIntoNewThreadsAndRefreshBeforeRun() async throws {
         let root = try makeTempDirectory()
         try "Prefer Swift tests before final answers.\n".write(

@@ -1982,6 +1982,40 @@
       ));
     }
 
+    function mockReviewDiff() {
+      const diff = [
+        'diff --git a/Sources/App.swift b/Sources/App.swift',
+        '--- a/Sources/App.swift',
+        '+++ b/Sources/App.swift',
+        '@@ -1 +1,2 @@',
+        '+let title = "QuillCode"',
+        ' import Foundation'
+      ].join('\n');
+      return {
+        diff,
+        review: {
+          title: 'Review changes',
+          subtitle: '1 file changed, +1 -0',
+          totalInsertions: 1,
+          totalDeletions: 0,
+          totalHunks: 1,
+          files: [{
+            path: 'Sources/App.swift',
+            changeLabel: '+1 · -0 · 1 hunk',
+            hunks: [{
+              header: '@@ -1 +1,2 @@',
+              changeLabel: '+1 · -0',
+              lines: [
+                { lineNumber: 1, kind: 'insertion', marker: '+', content: 'let title = "QuillCode"', comments: [] },
+                { lineNumber: 2, kind: 'context', marker: ' ', content: 'import Foundation', comments: [] }
+              ]
+            }],
+            comments: []
+          }]
+        }
+      };
+    }
+
     function sendMessage(value) {
       const text = String(value).trim();
       if (!text) return;
@@ -2025,35 +2059,29 @@
           '/mode auto|review|read-only',
           '/model provider/model'
         ].join('\n'));
+      } else if (text.toLowerCase().includes('apply patch') || text.toLowerCase().includes('edit file')) {
+        const { diff, review } = mockReviewDiff();
+        state.review = review;
+        addToolCard({
+          title: 'host.apply_patch',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({
+            patch: 'diff --git a/Sources/App.swift b/Sources/App.swift\\n...'
+          }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: 'Patch applied.\\n' }, null, 2)
+        });
+        addToolCard({
+          title: 'host.git.diff',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({}, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: diff }, null, 2)
+        });
+        addMessage('assistant', 'Patch applied. Review the resulting diff below.');
       } else if (text.toLowerCase().includes('git diff')) {
-        const diff = [
-          'diff --git a/Sources/App.swift b/Sources/App.swift',
-          '--- a/Sources/App.swift',
-          '+++ b/Sources/App.swift',
-          '@@ -1 +1,2 @@',
-          '+let title = "QuillCode"',
-          ' import Foundation'
-        ].join('\n');
-        state.review = {
-          title: 'Review changes',
-          subtitle: '1 file changed, +1 -0',
-          totalInsertions: 1,
-          totalDeletions: 0,
-          totalHunks: 1,
-          files: [{
-            path: 'Sources/App.swift',
-            changeLabel: '+1 · -0 · 1 hunk',
-            hunks: [{
-              header: '@@ -1 +1,2 @@',
-              changeLabel: '+1 · -0',
-              lines: [
-                { lineNumber: 1, kind: 'insertion', marker: '+', content: 'let title = "QuillCode"', comments: [] },
-                { lineNumber: 2, kind: 'context', marker: ' ', content: 'import Foundation', comments: [] }
-              ]
-            }],
-            comments: []
-          }]
-        };
+        const { diff, review } = mockReviewDiff();
+        state.review = review;
         addToolCard({
           title: 'host.git.diff',
           subtitle: 'Completed',

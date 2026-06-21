@@ -745,13 +745,20 @@ public final class QuillCodeWorkspaceModel {
         lastError = nil
         refreshTopBar(agentStatus: "Running")
 
-        let result = ToolRouter(workspaceRoot: workspaceRoot).execute(call)
+        let router = ToolRouter(workspaceRoot: workspaceRoot)
+        let result = router.execute(call)
         appendToolRun(call: call, result: result)
+        let followUpResult = appendReviewDiffAfterPatchIfNeeded(
+            call: call,
+            result: result,
+            router: router
+        )
 
         if let thread = selectedThread {
             try? threadStore?.save(thread)
         }
-        refreshTopBar(agentStatus: result.ok ? "Idle" : "Failed")
+        let ok = result.ok && (followUpResult?.ok ?? true)
+        refreshTopBar(agentStatus: ok ? "Idle" : "Failed")
     }
 
     public func runTerminalCommand(workspaceRoot: URL) async {
@@ -969,6 +976,21 @@ public final class QuillCodeWorkspaceModel {
                 payloadJSON: resultJSON
             ))
         }
+    }
+
+    @discardableResult
+    private func appendReviewDiffAfterPatchIfNeeded(
+        call: ToolCall,
+        result: ToolResult,
+        router: ToolRouter
+    ) -> ToolResult? {
+        guard call.name == ToolDefinition.applyPatch.name, result.ok else {
+            return nil
+        }
+        let diffCall = ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}")
+        let diffResult = router.execute(diffCall)
+        appendToolRun(call: diffCall, result: diffResult)
+        return diffResult
     }
 
     private func toolArgumentsJSON(_ values: [String: Any]) -> String {

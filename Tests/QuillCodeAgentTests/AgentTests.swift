@@ -33,6 +33,48 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(result.thread.messages.last?.content, "Wrote `hello.txt`.")
     }
 
+    func testApplyPatchRefreshesReviewDiffInSameTurn() async throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        try "old\n".write(to: root.appendingPathComponent("hello.txt"), atomically: true, encoding: .utf8)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git add hello.txt && git commit -m initial", cwd: root)).ok)
+        let patch = """
+        diff --git a/hello.txt b/hello.txt
+        --- a/hello.txt
+        +++ b/hello.txt
+        @@ -1 +1 @@
+        -old
+        +new
+        """
+        let call = ToolCall(
+            name: ToolDefinition.applyPatch.name,
+            argumentsJSON: ToolArguments.json(["patch": patch])
+        )
+        let runner = AgentRunner(llm: FixedToolLLMClient(call: call))
+
+        let result = try await runner.send(
+            "apply this patch",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 2)
+        XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
+        XCTAssertEqual(result.thread.events.map(\.kind), [
+            .message,
+            .toolQueued,
+            .toolRunning,
+            .toolCompleted,
+            .toolQueued,
+            .toolRunning,
+            .toolCompleted,
+            .message
+        ])
+        XCTAssertEqual(result.thread.events.filter { $0.summary.contains("host.git.diff") }.count, 3)
+        XCTAssertTrue(result.toolResults[1].stdout.contains("+new"), result.toolResults[1].stdout)
+        XCTAssertEqual(result.thread.messages.last?.content, "Patch applied. Review the resulting diff below.")
+    }
+
     func testSendReportsIncrementalToolProgress() async throws {
         let root = try makeTempDirectory()
         let recorder = ProgressRecorder()
@@ -77,6 +119,23 @@ final class AgentTests: XCTestCase {
         )
         XCTAssertTrue(answer.contains("[truncated in chat; full output is in the tool card]"))
         XCTAssertLessThan(answer.count, 2_100)
+    }
+
+    func testApplyPatchFinalAnswerMentionsDiffRefreshFailure() throws {
+        let call = ToolCall(
+            name: ToolDefinition.applyPatch.name,
+            argumentsJSON: ToolArguments.json(["patch": "diff --git a/a b/a\n"])
+        )
+
+        let answer = AgentRunner.finalAnswer(
+            for: call,
+            result: ToolResult(ok: true, stdout: "Patch applied.\n"),
+            followUpReviewResult: ToolResult(ok: false, stderr: "not a git repository")
+        )
+
+        XCTAssertTrue(answer.contains("Patch applied"))
+        XCTAssertTrue(answer.contains("could not refresh the review diff"))
+        XCTAssertTrue(answer.contains("not a git repository"))
     }
 
     func testCommitChangesExecutesImmediately() async throws {
@@ -164,5 +223,13 @@ private actor ProgressRecorder {
 
     func eventKinds() -> [ThreadEventKind] {
         kinds
+    }
+}
+
+private struct FixedToolLLMClient: LLMClient {
+    var call: ToolCall
+
+    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        .tool(call)
     }
 }

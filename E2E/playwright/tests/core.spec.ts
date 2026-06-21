@@ -365,6 +365,22 @@ test('mock harness shows git review summary for diff flow', async ({ page }) => 
   await expect(rangeComment).toContainText('Keep the title adjacent to the import');
 });
 
+test('mock harness flows apply patch into review diff', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('apply patch to edit file');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('review-pane')).toBeVisible();
+  await expect(page.getByTestId('review-summary')).toHaveText('1 file changed, +1 -0');
+  await expect(page.getByTestId('review-line').first()).toContainText('let title = "QuillCode"');
+  await expect(page.getByTestId('tool-card-title')).toHaveText([
+    'host.apply_patch',
+    'host.git.diff'
+  ]);
+  await expect(page.getByText('Patch applied. Review the resulting diff below.')).toBeVisible();
+});
+
 test('mock harness stages a changed file from the review pane', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

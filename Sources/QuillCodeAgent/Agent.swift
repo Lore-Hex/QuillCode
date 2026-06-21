@@ -333,15 +333,52 @@ public struct AgentRunner: Sendable {
             summary: result.ok ? "\(call.name) completed" : "\(call.name) failed",
             payloadJSON: resultJSON
         ))
-        let finalAnswer = Self.finalAnswer(for: call, result: result)
+        var toolResults = [result]
+        var patchReviewResult: ToolResult?
+        if call.name == ToolDefinition.applyPatch.name, result.ok {
+            let diffCall = ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}")
+            let diffCallJSON = (try? JSONHelpers.encodePretty(diffCall)) ?? diffCall.argumentsJSON
+            next.events.append(.init(
+                kind: .toolQueued,
+                summary: "\(diffCall.name) queued",
+                payloadJSON: diffCallJSON
+            ))
+            next.updatedAt = Date()
+            await onProgress?(next)
+
+            next.events.append(.init(kind: .toolRunning, summary: "\(diffCall.name) running"))
+            next.updatedAt = Date()
+            await onProgress?(next)
+
+            try Task.checkCancellation()
+            let diffResult = router.execute(diffCall)
+            try Task.checkCancellation()
+            let diffResultJSON = (try? JSONHelpers.encodePretty(diffResult)) ?? "{}"
+            next.events.append(.init(
+                kind: diffResult.ok ? .toolCompleted : .toolFailed,
+                summary: diffResult.ok ? "\(diffCall.name) completed" : "\(diffCall.name) failed",
+                payloadJSON: diffResultJSON
+            ))
+            patchReviewResult = diffResult
+            toolResults.append(diffResult)
+        }
+        let finalAnswer = Self.finalAnswer(
+            for: call,
+            result: result,
+            followUpReviewResult: patchReviewResult
+        )
         next.messages.append(.init(role: .assistant, content: finalAnswer))
         next.events.append(.init(kind: .message, summary: finalAnswer))
         next.updatedAt = Date()
         await onProgress?(next)
-        return AgentRunResult(thread: next, toolResults: [result])
+        return AgentRunResult(thread: next, toolResults: toolResults)
     }
 
-    static func finalAnswer(for call: ToolCall, result: ToolResult) -> String {
+    static func finalAnswer(
+        for call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult: ToolResult? = nil
+    ) -> String {
         if !result.ok {
             let details = [result.error, result.stderr.trimmedNonEmpty]
                 .compactMap { $0 }
@@ -360,6 +397,21 @@ public struct AgentRunner: Sendable {
                 return "Wrote `\(path)`."
             }
             return "Wrote the file."
+        }
+
+        if call.name == ToolDefinition.applyPatch.name {
+            if let followUpReviewResult, !followUpReviewResult.ok {
+                let details = [followUpReviewResult.error, followUpReviewResult.stderr.trimmedNonEmpty]
+                    .compactMap { $0 }
+                    .joined(separator: "\n")
+                if details.isEmpty {
+                    return "Patch applied, but I could not refresh the review diff."
+                }
+                return "Patch applied, but I could not refresh the review diff:\n\(Self.truncated(details))"
+            }
+            return followUpReviewResult == nil
+                ? "Patch applied."
+                : "Patch applied. Review the resulting diff below."
         }
 
         if call.name == ToolDefinition.shellRun.name,
