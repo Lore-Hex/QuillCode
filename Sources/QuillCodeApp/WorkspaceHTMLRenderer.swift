@@ -596,22 +596,31 @@ public enum WorkspaceHTMLRenderer {
           \(item.launchCommand.map { #"<code data-testid="extension-command">\#(escape($0))</code>"# } ?? "")
           \(item.transportLabel.map { #"<span data-testid="extension-transport">\#(escape($0))</span>"# } ?? "")
           \(item.serverLabel.map { #"<span data-testid="extension-mcp-server">\#(escape($0))</span>"# } ?? "")
-          \(item.protocolLabel.map { #"<span data-testid="extension-mcp-protocol">\#(escape($0))</span>"# } ?? "")
-          \(item.toolCountLabel.map { #"<span data-testid="extension-mcp-tools-count">\#(escape($0))</span>"# } ?? "")
-          \(item.resourceCountLabel.map { #"<span data-testid="extension-mcp-resources-count">\#(escape($0))</span>"# } ?? "")
-          \(item.promptCountLabel.map { #"<span data-testid="extension-mcp-prompts-count">\#(escape($0))</span>"# } ?? "")
-          \(renderMCPNames(item.toolNames, groupTestID: "extension-mcp-tools", itemTestID: "extension-mcp-tool"))
-          \(renderMCPNames(item.resourceNames, groupTestID: "extension-mcp-resources", itemTestID: "extension-mcp-resource"))
-          \(renderMCPNames(item.promptNames, groupTestID: "extension-mcp-prompts", itemTestID: "extension-mcp-prompt"))
+          \(renderMCPMeta(item))
+          \(renderMCPNames("Tools", item.toolNames, groupTestID: "extension-mcp-tools", itemTestID: "extension-mcp-tool"))
+          \(renderMCPNames("Resources", item.resourceNames, groupTestID: "extension-mcp-resources", itemTestID: "extension-mcp-resource"))
+          \(renderMCPNames("Prompts", item.promptNames, groupTestID: "extension-mcp-prompts", itemTestID: "extension-mcp-prompt"))
           \(item.probeError.map { #"<p data-testid="extension-mcp-error">\#(escape($0))</p>"# } ?? "")
           \(renderExtensionActions(item))
         </article>
         """
     }
 
-    private static func renderMCPNames(_ names: [String], groupTestID: String, itemTestID: String) -> String {
+    private static func renderMCPMeta(_ item: ProjectExtensionManifestSurface) -> String {
+        let labels = [
+            item.protocolLabel.map { #"<span data-testid="extension-mcp-protocol">\#(escape($0))</span>"# },
+            item.toolCountLabel.map { #"<span data-testid="extension-mcp-tools-count">\#(escape($0))</span>"# },
+            item.resourceCountLabel.map { #"<span data-testid="extension-mcp-resources-count">\#(escape($0))</span>"# },
+            item.promptCountLabel.map { #"<span data-testid="extension-mcp-prompts-count">\#(escape($0))</span>"# }
+        ].compactMap { $0 }
+        guard !labels.isEmpty else { return "" }
+        return #"<div class="extension-mcp-meta" data-testid="extension-mcp-meta">\#(labels.joined(separator: " · "))</div>"#
+    }
+
+    private static func renderMCPNames(_ title: String, _ names: [String], groupTestID: String, itemTestID: String) -> String {
         guard !names.isEmpty else { return "" }
-        return #"<div data-testid="\#(escape(groupTestID))">\#(names.map { #"<span data-testid="\#(escape(itemTestID))">\#(escape($0))</span>"# }.joined())</div>"#
+        let chips = names.map { #"<span data-testid="\#(escape(itemTestID))">\#(escape($0))</span>"# }.joined()
+        return #"<div class="extension-mcp-group" data-testid="\#(escape(groupTestID))"><span class="extension-mcp-group-label" data-testid="extension-mcp-group-label">\#(escape(title))</span><div class="extension-mcp-chip-row">\#(chips)</div></div>"#
     }
 
     private static func renderExtensionActions(_ item: ProjectExtensionManifestSurface) -> String {

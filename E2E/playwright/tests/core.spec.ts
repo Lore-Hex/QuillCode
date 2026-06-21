@@ -985,6 +985,7 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await expect(page.getByTestId('extension-item').nth(2)).toContainText('Ready');
   await expect(page.getByTestId('extension-mcp-server')).toHaveText('Fixture MCP 1.0.0');
   await expect(page.getByTestId('extension-mcp-tools-count')).toHaveText('2 tools');
+  await expect(page.getByTestId('extension-mcp-group-label')).toContainText(['Tools', 'Resources', 'Prompts']);
   await expect(page.getByTestId('extension-mcp-tool')).toContainText(['read_file', 'write_file']);
   await expect(page.getByTestId('extension-mcp-resources-count')).toHaveText('2 resources');
   await expect(page.getByTestId('extension-mcp-resource')).toContainText(['README', 'Project config']);

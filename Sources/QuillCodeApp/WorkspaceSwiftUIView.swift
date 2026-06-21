@@ -2340,14 +2340,14 @@ private struct QuillCodeExtensionsPaneView: View {
                                 HStack(spacing: 6) {
                                     Text(item.kindLabel)
                                         .font(.caption2.weight(.bold))
-                                        .foregroundStyle(QuillCodePalette.blue)
-                                        .padding(.horizontal, 7)
-                                        .padding(.vertical, 3)
-                                        .background(QuillCodePalette.blue.opacity(0.14))
-                                        .clipShape(Capsule())
+                                        .foregroundStyle(QuillCodePalette.muted)
                                     Text(item.statusLabel)
                                         .font(.caption2.weight(.bold))
                                         .foregroundStyle(statusColor(for: item.statusLabel))
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 3)
+                                        .background(statusColor(for: item.statusLabel).opacity(0.14))
+                                        .clipShape(Capsule())
                                     Spacer()
                                 }
                                 Text(item.name)
@@ -2372,7 +2372,7 @@ private struct QuillCodeExtensionsPaneView: View {
                                 if let serverLabel = item.serverLabel {
                                     Text(serverLabel)
                                         .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(QuillCodePalette.green)
+                                        .foregroundStyle(QuillCodePalette.muted)
                                         .lineLimit(1)
                                 }
                                 if let probeError = item.probeError {
@@ -2438,50 +2438,53 @@ private struct QuillCodeExtensionsPaneView: View {
 
     @ViewBuilder
     private func probeMetadataCounts(for item: ProjectExtensionManifestSurface) -> some View {
-        let countLabels: [(label: String, color: Color)] = [
-            item.toolCountLabel.map { ($0, QuillCodePalette.green) },
-            item.resourceCountLabel.map { ($0, QuillCodePalette.blue) },
-            item.promptCountLabel.map { ($0, QuillCodePalette.yellow) }
+        let labels = [
+            item.protocolLabel,
+            item.toolCountLabel,
+            item.resourceCountLabel,
+            item.promptCountLabel
         ].compactMap { $0 }
 
-        if !countLabels.isEmpty || item.protocolLabel != nil {
-            HStack(spacing: 6) {
-                ForEach(Array(countLabels.enumerated()), id: \.offset) { _, count in
-                    Text(count.label)
-                        .font(.caption2.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(count.color)
-                        .lineLimit(1)
-                }
-                if let protocolLabel = item.protocolLabel {
-                    Text(protocolLabel)
-                        .font(.caption2.monospaced())
-                        .foregroundStyle(QuillCodePalette.muted)
-                        .lineLimit(1)
-                }
-            }
+        if !labels.isEmpty {
+            Text(labels.joined(separator: " · "))
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(QuillCodePalette.muted)
+                .lineLimit(2)
         }
     }
 
     @ViewBuilder
     private func probeMetadataChips(for item: ProjectExtensionManifestSurface) -> some View {
-        let chips: [(label: String, color: Color)] =
-            item.toolNames.map { ($0, QuillCodePalette.blue) }
-            + item.resourceNames.map { ($0, QuillCodePalette.green) }
-            + item.promptNames.map { ($0, QuillCodePalette.yellow) }
+        if !item.toolNames.isEmpty || !item.resourceNames.isEmpty || !item.promptNames.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                probeMetadataGroup(title: "Tools", values: item.toolNames)
+                probeMetadataGroup(title: "Resources", values: item.resourceNames)
+                probeMetadataGroup(title: "Prompts", values: item.promptNames)
+            }
+        }
+    }
 
-        if !chips.isEmpty {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 74), spacing: 5)], alignment: .leading, spacing: 5) {
-                ForEach(Array(chips.enumerated()), id: \.offset) { _, chip in
-                    Text(chip.label)
-                        .font(.caption2.monospaced())
-                        .foregroundStyle(chip.color)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(chip.color.opacity(0.12))
-                        .clipShape(Capsule())
+    @ViewBuilder
+    private func probeMetadataGroup(title: String, values: [String]) -> some View {
+        if !values.isEmpty {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(1)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 82), spacing: 5)], alignment: .leading, spacing: 5) {
+                    ForEach(Array(values.enumerated()), id: \.offset) { _, value in
+                        Text(value)
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(QuillCodePalette.blue)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(QuillCodePalette.blue.opacity(0.10))
+                            .clipShape(Capsule())
+                    }
                 }
             }
         }

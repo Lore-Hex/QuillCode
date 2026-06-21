@@ -746,6 +746,12 @@
       font-size: 11px;
       font-weight: 700;
     }
+    .extension-card [data-testid="extension-kind"] {
+      padding: 0;
+      color: var(--muted);
+      background: transparent;
+      border-color: transparent;
+    }
     .memories-add-button,
     .memory-delete-button {
       font: inherit;
@@ -780,41 +786,38 @@
       border-color: rgba(65,184,232,.22);
     }
     .extension-card [data-testid="extension-mcp-server"] {
-      color: var(--green);
+      color: var(--muted);
       font-size: 12px;
       font-weight: 700;
+    }
+    .extension-mcp-meta {
+      color: var(--muted);
+      font: 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      line-height: 1.35;
+      font-variant-numeric: tabular-nums;
     }
     .extension-card [data-testid="extension-mcp-protocol"],
     .extension-card [data-testid="extension-mcp-tools-count"],
     .extension-card [data-testid="extension-mcp-resources-count"],
     .extension-card [data-testid="extension-mcp-prompts-count"] {
-      width: fit-content;
-      padding: 3px 7px;
-      border-radius: 999px;
       color: var(--muted);
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(255,255,255,.08);
-      font: 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
-    .extension-card [data-testid="extension-mcp-tools"] {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
+    .extension-mcp-group {
+      display: grid;
+      gap: 4px;
     }
+    .extension-mcp-group-label {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .extension-mcp-chip-row,
+    .extension-card [data-testid="extension-mcp-tools"],
     .extension-card [data-testid="extension-mcp-resources"],
     .extension-card [data-testid="extension-mcp-prompts"] {
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
-    }
-    .extension-card [data-testid="extension-mcp-tools-count"] {
-      color: var(--green);
-    }
-    .extension-card [data-testid="extension-mcp-resources-count"] {
-      color: #b8ecff;
-    }
-    .extension-card [data-testid="extension-mcp-prompts-count"] {
-      color: #ffd894;
     }
     .extension-card [data-testid="extension-mcp-tool"],
     .extension-card [data-testid="extension-mcp-resource"],
@@ -828,17 +831,8 @@
       color: #b8ecff;
       background: rgba(65,184,232,.1);
       border: 1px solid rgba(65,184,232,.16);
-      font: 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    }
-    .extension-card [data-testid="extension-mcp-resource"] {
-      color: #bdf3c9;
-      background: rgba(82,210,115,.1);
-      border-color: rgba(82,210,115,.16);
-    }
-    .extension-card [data-testid="extension-mcp-prompt"] {
-      color: #ffd894;
-      background: rgba(247,184,79,.1);
-      border-color: rgba(247,184,79,.16);
+      font-size: 11px;
+      font-weight: 650;
     }
     .extension-card button {
       justify-self: start;
@@ -864,6 +858,7 @@
     .memories-empty {
       display: grid;
       gap: 7px;
+      align-content: start;
       padding: 12px;
       border-radius: 12px;
       background: rgba(0,0,0,.26);
@@ -4185,6 +4180,26 @@
 	        </section>`;
 	    }
 
+    function renderMCPMeta(item) {
+      const labels = [
+        item.protocolLabel ? `<span data-testid="extension-mcp-protocol">${escapeHTML(item.protocolLabel)}</span>` : '',
+        item.toolCountLabel ? `<span data-testid="extension-mcp-tools-count">${escapeHTML(item.toolCountLabel)}</span>` : '',
+        item.resourceCountLabel ? `<span data-testid="extension-mcp-resources-count">${escapeHTML(item.resourceCountLabel)}</span>` : '',
+        item.promptCountLabel ? `<span data-testid="extension-mcp-prompts-count">${escapeHTML(item.promptCountLabel)}</span>` : ''
+      ].filter(Boolean);
+      return labels.length
+        ? `<div class="extension-mcp-meta" data-testid="extension-mcp-meta">${labels.join(' · ')}</div>`
+        : '';
+    }
+
+    function renderMCPGroup(title, names, groupTestID, itemTestID) {
+      if (!names?.length) return '';
+      return `<div class="extension-mcp-group" data-testid="${escapeHTML(groupTestID)}">
+        <span class="extension-mcp-group-label" data-testid="extension-mcp-group-label">${escapeHTML(title)}</span>
+        <div class="extension-mcp-chip-row">${names.map(name => `<span data-testid="${escapeHTML(itemTestID)}">${escapeHTML(name)}</span>`).join('')}</div>
+      </div>`;
+    }
+
     function renderExtensionsPane() {
       const counts = `
         <span data-testid="extensions-count">${countLabel(state.extensions.pluginCount, 'plugin')}</span>
@@ -4204,13 +4219,10 @@
               ${item.launchCommand ? `<code data-testid="extension-command">${escapeHTML(item.launchCommand)}</code>` : ''}
               ${item.transportLabel ? `<span data-testid="extension-transport">${escapeHTML(item.transportLabel)}</span>` : ''}
               ${item.serverLabel ? `<span data-testid="extension-mcp-server">${escapeHTML(item.serverLabel)}</span>` : ''}
-              ${item.protocolLabel ? `<span data-testid="extension-mcp-protocol">${escapeHTML(item.protocolLabel)}</span>` : ''}
-              ${item.toolCountLabel ? `<span data-testid="extension-mcp-tools-count">${escapeHTML(item.toolCountLabel)}</span>` : ''}
-              ${item.resourceCountLabel ? `<span data-testid="extension-mcp-resources-count">${escapeHTML(item.resourceCountLabel)}</span>` : ''}
-              ${item.promptCountLabel ? `<span data-testid="extension-mcp-prompts-count">${escapeHTML(item.promptCountLabel)}</span>` : ''}
-              ${item.toolNames?.length ? `<div data-testid="extension-mcp-tools">${item.toolNames.map(toolName => `<span data-testid="extension-mcp-tool">${escapeHTML(toolName)}</span>`).join('')}</div>` : ''}
-              ${item.resourceNames?.length ? `<div data-testid="extension-mcp-resources">${item.resourceNames.map(resourceName => `<span data-testid="extension-mcp-resource">${escapeHTML(resourceName)}</span>`).join('')}</div>` : ''}
-              ${item.promptNames?.length ? `<div data-testid="extension-mcp-prompts">${item.promptNames.map(promptName => `<span data-testid="extension-mcp-prompt">${escapeHTML(promptName)}</span>`).join('')}</div>` : ''}
+              ${renderMCPMeta(item)}
+              ${renderMCPGroup('Tools', item.toolNames, 'extension-mcp-tools', 'extension-mcp-tool')}
+              ${renderMCPGroup('Resources', item.resourceNames, 'extension-mcp-resources', 'extension-mcp-resource')}
+              ${renderMCPGroup('Prompts', item.promptNames, 'extension-mcp-prompts', 'extension-mcp-prompt')}
               ${item.probeError ? `<p data-testid="extension-mcp-error">${escapeHTML(item.probeError)}</p>` : ''}
               ${item.stopCommandID ? `<button type="button" data-testid="extension-stop" data-command-id="${escapeHTML(item.stopCommandID)}">Stop</button>` : ''}
               ${item.startCommandID ? `<button type="button" data-testid="extension-start" data-command-id="${escapeHTML(item.startCommandID)}">Start</button>` : ''}
