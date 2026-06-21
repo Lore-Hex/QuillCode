@@ -66,6 +66,11 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(transcriptItems.nth(0)).toContainText('run whoami');
   await expect(transcriptItems.nth(1)).toContainText('host.shell.run');
   await expect(transcriptItems.nth(2)).toContainText('You are `mock-user` in this workspace.');
+  await expect(page.getByTestId('message-retry')).toHaveCount(1);
+  await page.getByTestId('message-retry').click();
+  await expect(page.getByTestId('tool-card')).toHaveCount(2);
+  await expect(page.getByTestId('message').filter({ hasText: 'You are `mock-user` in this workspace.' })).toHaveCount(2);
+  await expect(page.getByTestId('message-retry')).toHaveCount(1);
 });
 
 test('mock harness stops an active composer run from the composer', async ({ page }) => {

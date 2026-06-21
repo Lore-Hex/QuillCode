@@ -1930,6 +1930,9 @@
         ? findMatches[Math.min(state.find.activeIndex, findMatches.length - 1)]?.id
         : null;
       const activeClass = timelineID => activeFindID === timelineID ? ' find-active' : '';
+      const latestAssistantMessageID = [...state.transcript.messages]
+        .reverse()
+        .find(message => message.role === 'assistant')?.id || null;
       const copyButton = (testID, timelineID, label, extraActions = '') => {
         const copied = state.copiedTranscriptItemID === timelineID;
         return `<footer class="transcript-actions">
@@ -1943,10 +1946,15 @@
           <button type="button" class="transcript-feedback-button" data-testid="message-feedback-up" data-message-id="${escapeHTML(message.id || '')}" data-feedback-value="helpful" data-selected="${message.feedback === 'helpful' ? 'true' : 'false'}" aria-label="Mark response helpful">Helpful</button>
           <button type="button" class="transcript-feedback-button" data-testid="message-feedback-down" data-message-id="${escapeHTML(message.id || '')}" data-feedback-value="notHelpful" data-selected="${message.feedback === 'notHelpful' ? 'true' : 'false'}" aria-label="Mark response not helpful">Not helpful</button>`;
       };
+      const retryButton = message => {
+        const retryCommand = state.commands.find(command => command.id === 'retry-last-turn' && command.isEnabled);
+        if (!message || message.role !== 'assistant' || message.id !== latestAssistantMessageID || !retryCommand) return '';
+        return `<button type="button" class="transcript-feedback-button" data-testid="message-retry" data-command-id="${escapeHTML(retryCommand.id)}" aria-label="Retry last turn">Retry</button>`;
+      };
       const renderMessage = (message, timelineID = '') => `
         <article class="message ${escapeHTML(message.role)}${activeClass(timelineID)}" data-testid="message" data-timeline-id="${escapeHTML(timelineID)}" aria-label="${escapeHTML(message.role + ': ' + message.text)}">
           <p>${escapeHTML(message.text)}</p>
-          ${copyButton('message-copy', timelineID || message.id || `message-${message.text}`, 'Copy', feedbackButtons(message))}
+          ${copyButton('message-copy', timelineID || message.id || `message-${message.text}`, 'Copy', retryButton(message) + feedbackButtons(message))}
         </article>`;
       const renderArtifacts = artifacts => artifacts && artifacts.length ? `
           <div class="tool-artifacts" data-testid="tool-card-artifacts" aria-label="Artifacts">
@@ -2172,6 +2180,11 @@
             event.currentTarget.getAttribute('data-message-id'),
             event.currentTarget.getAttribute('data-feedback-value')
           );
+        });
+      });
+      document.querySelectorAll('[data-testid="message-retry"]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
       });
       document.querySelectorAll('[data-testid="slash-suggestion"]').forEach(button => {

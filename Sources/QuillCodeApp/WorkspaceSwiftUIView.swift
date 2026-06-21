@@ -143,6 +143,7 @@ public struct QuillCodeWorkspaceView: View {
                         contextBanner: surface.contextBanner,
                         runtimeIssue: surface.runtimeIssue,
                         review: surface.review,
+                        retryLastTurnCommand: surface.commands.first { $0.id == "retry-last-turn" && $0.isEnabled },
                         isFindPresented: $isFindPresented,
                         findQuery: $findQuery,
                         activeFindIndex: $activeFindIndex,
@@ -1396,6 +1397,7 @@ private struct QuillCodeTranscriptView: View {
     var contextBanner: ContextBannerSurface?
     var runtimeIssue: RuntimeIssueSurface?
     var review: WorkspaceReviewSurface
+    var retryLastTurnCommand: WorkspaceCommandSurface?
     @Binding var isFindPresented: Bool
     @Binding var findQuery: String
     @Binding var activeFindIndex: Int
@@ -1415,6 +1417,13 @@ private struct QuillCodeTranscriptView: View {
         guard !findMatches.isEmpty else { return nil }
         let boundedIndex = min(max(activeFindIndex, 0), findMatches.count - 1)
         return findMatches[boundedIndex]
+    }
+
+    private var latestAssistantMessageID: UUID? {
+        transcript.timelineItems
+            .compactMap(\.message)
+            .last(where: { $0.role == .assistant })?
+            .id
     }
 
     var body: some View {
@@ -1478,6 +1487,12 @@ private struct QuillCodeTranscriptView: View {
                                                 isCopied: copiedTranscriptItemID == item.id,
                                                 onCopy: {
                                                     onCopyTranscriptItem(item.id, message.text)
+                                                },
+                                                canRetry: message.id == latestAssistantMessageID && retryLastTurnCommand != nil,
+                                                onRetry: {
+                                                    if let retryLastTurnCommand {
+                                                        onContextCommand(retryLastTurnCommand)
+                                                    }
                                                 },
                                                 onFeedback: { value in
                                                     onMessageFeedback(message.id, value)
@@ -2608,6 +2623,8 @@ private struct QuillCodeMessageBubble: View {
     var timelineItemID: String
     var isCopied: Bool
     var onCopy: () -> Void
+    var canRetry: Bool
+    var onRetry: () -> Void
     var onFeedback: (MessageFeedbackValue) -> Void
 
     var body: some View {
@@ -2633,6 +2650,10 @@ private struct QuillCodeMessageBubble: View {
                     )
                     .accessibilityIdentifier("transcript-copy-\(timelineItemID)")
                     if message.role == .assistant {
+                        if canRetry {
+                            QuillCodeMessageRetryButton(action: onRetry)
+                                .accessibilityIdentifier("message-retry")
+                        }
                         QuillCodeMessageFeedbackButton(
                             label: "Helpful",
                             systemImage: "hand.thumbsup",
@@ -2663,6 +2684,24 @@ private struct QuillCodeMessageBubble: View {
         message.role == .user
             ? AnyShapeStyle(LinearGradient(colors: [QuillCodePalette.blue, QuillCodePalette.coral], startPoint: .leading, endPoint: .trailing))
             : AnyShapeStyle(QuillCodePalette.panel)
+    }
+}
+
+private struct QuillCodeMessageRetryButton: View {
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label("Retry", systemImage: "arrow.clockwise")
+                .labelStyle(.iconOnly)
+                .font(.caption2.weight(.semibold))
+                .frame(width: 24, height: 22)
+                .foregroundStyle(QuillCodePalette.blue)
+                .background(QuillCodePalette.blue.opacity(0.14))
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help("Retry last turn")
     }
 }
 

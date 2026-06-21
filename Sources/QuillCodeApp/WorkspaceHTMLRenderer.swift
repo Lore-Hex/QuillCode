@@ -8,7 +8,13 @@ public enum WorkspaceHTMLRenderer {
           <div class="workspace-grid">
             \(renderSidebar(projects: surface.projects, sidebar: surface.sidebar))
             <main class="transcript" data-testid="transcript">
-              \(renderTranscript(surface.transcript, contextBanner: surface.contextBanner, review: surface.review, runtimeIssue: surface.runtimeIssue))
+              \(renderTranscript(
+                surface.transcript,
+                contextBanner: surface.contextBanner,
+                review: surface.review,
+                runtimeIssue: surface.runtimeIssue,
+                retryLastTurnCommand: surface.commands.first { $0.id == "retry-last-turn" && $0.isEnabled }
+              ))
               \(renderExtensions(surface.extensions))
               \(renderMemories(surface.memories))
               \(renderBrowser(surface.browser))
@@ -113,12 +119,23 @@ public enum WorkspaceHTMLRenderer {
         _ transcript: TranscriptSurface,
         contextBanner: ContextBannerSurface?,
         review: WorkspaceReviewSurface,
-        runtimeIssue: RuntimeIssueSurface? = nil
+        runtimeIssue: RuntimeIssueSurface? = nil,
+        retryLastTurnCommand: WorkspaceCommandSurface? = nil
     ) -> String {
         let context = renderContextBanner(contextBanner)
         let issue = renderRuntimeIssue(runtimeIssue)
         let reviewPane = renderReview(review)
-        let timeline = transcript.timelineItems.map(renderTimelineItem).joined(separator: "\n")
+        let latestAssistantMessageID = transcript.timelineItems
+            .compactMap(\.message)
+            .last(where: { $0.role == .assistant })?
+            .id
+        let timeline = transcript.timelineItems.map {
+            renderTimelineItem(
+                $0,
+                latestAssistantMessageID: latestAssistantMessageID,
+                retryLastTurnCommand: retryLastTurnCommand
+            )
+        }.joined(separator: "\n")
         if context.isEmpty && issue.isEmpty && timeline.isEmpty && !review.isVisible {
             return """
             <section class="empty" data-testid="transcript-empty">
@@ -152,7 +169,11 @@ public enum WorkspaceHTMLRenderer {
         """
     }
 
-    private static func renderTimelineItem(_ item: TranscriptTimelineItemSurface) -> String {
+    private static func renderTimelineItem(
+        _ item: TranscriptTimelineItemSurface,
+        latestAssistantMessageID: UUID?,
+        retryLastTurnCommand: WorkspaceCommandSurface?
+    ) -> String {
         switch item.kind {
         case .message:
             guard let message = item.message else { return "" }
@@ -161,6 +182,7 @@ public enum WorkspaceHTMLRenderer {
               <p>\(escape(message.text))</p>
               <footer class="transcript-actions">
                 <button type="button" data-testid="message-copy" data-copy-id="\(escape(item.id))">Copy</button>
+                \(renderMessageRetryAction(message, latestAssistantMessageID: latestAssistantMessageID, command: retryLastTurnCommand))
                 \(renderMessageFeedbackActions(message))
               </footer>
             </article>
@@ -179,6 +201,18 @@ public enum WorkspaceHTMLRenderer {
         <button type="button" data-testid="message-feedback-up" data-message-id="\(message.id.uuidString)" data-selected="\(helpfulSelected)">Helpful</button>
         <button type="button" data-testid="message-feedback-down" data-message-id="\(message.id.uuidString)" data-selected="\(notHelpfulSelected)">Not helpful</button>
         """
+    }
+
+    private static func renderMessageRetryAction(
+        _ message: MessageSurface,
+        latestAssistantMessageID: UUID?,
+        command: WorkspaceCommandSurface?
+    ) -> String {
+        guard message.role == .assistant,
+              message.id == latestAssistantMessageID,
+              let command
+        else { return "" }
+        return #"<button type="button" data-testid="message-retry" data-command-id="\#(escape(command.id))">\#(escape(command.title))</button>"#
     }
 
     private static func renderContextBanner(_ banner: ContextBannerSurface?) -> String {
