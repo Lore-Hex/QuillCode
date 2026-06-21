@@ -419,6 +419,13 @@
       gap: 6px;
       align-items: center;
     }
+    .review-range-comment-form {
+      display: grid;
+      grid-template-columns: 68px 68px minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      margin: 0;
+    }
     .review-line-comment-form input {
       width: 150px;
       min-width: 0;
@@ -429,12 +436,27 @@
       padding: 5px 8px;
       font-family: var(--font);
     }
+    .review-range-comment-form input {
+      min-width: 0;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      color: var(--text);
+      padding: 6px 9px;
+    }
     .review-line-comment-form button {
       border-radius: 999px;
       border: 1px solid rgba(65,184,232,.28);
       background: rgba(65,184,232,.14);
       color: #b6eaff;
       padding: 5px 8px;
+    }
+    .review-range-comment-form button {
+      border-radius: 999px;
+      border: 1px solid rgba(65,184,232,.28);
+      background: rgba(65,184,232,.14);
+      color: #b6eaff;
+      padding: 6px 9px;
     }
     .review-line-comments {
       grid-column: 3 / -1;
@@ -917,6 +939,12 @@
                             <button type="button" data-testid="review-action" data-action="restore_hunk" data-path="${escapeHTML(file.path)}">Restore hunk</button>
                           </span>
                         </div>
+                        <form class="review-range-comment-form" data-testid="review-range-comment-form" data-path="${escapeHTML(file.path)}">
+                          <input data-testid="review-range-start" aria-label="Range note start for ${escapeHTML(file.path)}" placeholder="From" value="${escapeHTML((hunk.lines || [])[0]?.lineNumber || '')}">
+                          <input data-testid="review-range-end" aria-label="Range note end for ${escapeHTML(file.path)}" placeholder="To" value="${escapeHTML((hunk.lines || [])[1]?.lineNumber || (hunk.lines || [])[0]?.lineNumber || '')}">
+                          <input data-testid="review-range-comment-input" aria-label="Range note for ${escapeHTML(file.path)}" placeholder="Range note">
+                          <button type="submit">Add range note</button>
+                        </form>
                         <ol class="review-lines" data-testid="review-lines">
                           ${(hunk.lines || []).map(line => `
                             <li class="review-line" data-testid="review-line" data-line-kind="${escapeHTML(line.kind)}">
@@ -929,7 +957,7 @@
                               </form>
                               ${(line.comments || []).length ? `
                                 <div class="review-line-comments">
-                                  ${line.comments.map(comment => `<blockquote class="review-line-comment" data-testid="review-line-comment">${escapeHTML(comment.text)}</blockquote>`).join('')}
+                                  ${line.comments.map(comment => `<blockquote class="review-line-comment" data-testid="review-line-comment">${comment.endLineNumber && comment.endLineNumber !== comment.lineNumber ? `<strong>Lines ${escapeHTML(comment.lineNumber)}-${escapeHTML(comment.endLineNumber)}</strong> ` : comment.lineNumber ? `<strong>Line ${escapeHTML(comment.lineNumber)}</strong> ` : ''}${escapeHTML(comment.text)}</blockquote>`).join('')}
                                 </div>` : ''}
                             </li>`).join('')}
                         </ol>
@@ -1189,6 +1217,16 @@
           const lineKind = event.currentTarget.getAttribute('data-line-kind');
           const input = event.currentTarget.querySelector('[data-testid="review-line-comment-input"]');
           addReviewLineComment(path, lineNumber, lineKind, input.value);
+        });
+      });
+      document.querySelectorAll('[data-testid="review-range-comment-form"]').forEach(form => {
+        form.addEventListener('submit', event => {
+          event.preventDefault();
+          const path = event.currentTarget.getAttribute('data-path');
+          const start = Number(event.currentTarget.querySelector('[data-testid="review-range-start"]').value);
+          const end = Number(event.currentTarget.querySelector('[data-testid="review-range-end"]').value);
+          const input = event.currentTarget.querySelector('[data-testid="review-range-comment-input"]');
+          addReviewRangeComment(path, start, end, input.value);
         });
       });
       document.querySelector('[data-testid="settings-cancel"]')?.addEventListener('click', () => {
@@ -2078,6 +2116,29 @@
       if (!line) return;
       line.comments = line.comments || [];
       line.comments.push({ id: crypto.randomUUID(), path, lineNumber, lineKind, text: trimmed });
+      render();
+    }
+
+    function addReviewRangeComment(path, start, end, text) {
+      const trimmed = (text || '').trim();
+      if (!path || !start || !end || !trimmed) return;
+      const file = state.review.files.find(file => file.path === path);
+      if (!file) return;
+      const lower = Math.min(start, end);
+      const upper = Math.max(start, end);
+      const lines = (file.hunks || []).flatMap(hunk => hunk.lines || []);
+      const startLine = lines.find(line => line.lineNumber === lower);
+      const hasFullRange = Array.from({ length: upper - lower + 1 }, (_, index) => lower + index)
+        .every(lineNumber => lines.some(line => line.lineNumber === lineNumber));
+      if (!startLine || !hasFullRange) return;
+      startLine.comments = startLine.comments || [];
+      startLine.comments.push({
+        id: crypto.randomUUID(),
+        path,
+        lineNumber: lower,
+        endLineNumber: upper,
+        text: trimmed
+      });
       render();
     }
 

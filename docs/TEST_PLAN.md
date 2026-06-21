@@ -6,7 +6,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 
 - Config parsing, model catalog, auth state, secret store.
 - Thread reducers, tool schemas, shell/file/path safety.
-- Patch parser, diff parser, file and line review comments, Auto reviewer JSON, sandbox policy.
+- Patch parser, diff parser, file/line/range review comments, Auto reviewer JSON, sandbox policy.
 - Project instruction discovery, nested precedence, symlink/root bounds, and byte/file caps.
 - Shortcut registry, plugin/skill/MCP manifests, memory redaction.
 
@@ -34,7 +34,7 @@ Drive the QuillCode test harness with mock LLM:
 - run shell
 - chronological user/tool/answer transcript rendering
 - edit file
-- review diff and add file/line review notes
+- review diff and add file/line/range review notes
 - Auto approve/deny/clarify
 - browser preview
 - plugin install

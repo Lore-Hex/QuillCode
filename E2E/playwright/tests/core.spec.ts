@@ -358,6 +358,11 @@ test('mock harness shows git review summary for diff flow', async ({ page }) => 
   await page.getByLabel('Line note for Sources/App.swift:1').fill('This is a useful exported constant');
   await page.getByTestId('review-line-comment-form').first().getByRole('button', { name: 'Add' }).click();
   await expect(page.getByTestId('review-line-comment')).toContainText('This is a useful exported constant');
+
+  await page.getByLabel('Range note for Sources/App.swift').fill('Keep the title adjacent to the import');
+  await page.getByTestId('review-range-comment-form').getByRole('button', { name: 'Add range note' }).click();
+  const rangeComment = page.getByTestId('review-line-comment').filter({ hasText: 'Lines 1-2' });
+  await expect(rangeComment).toContainText('Keep the title adjacent to the import');
 });
 
 test('mock harness stages a changed file from the review pane', async ({ page }) => {

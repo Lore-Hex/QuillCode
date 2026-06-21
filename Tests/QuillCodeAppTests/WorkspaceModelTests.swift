@@ -942,10 +942,38 @@ final class WorkspaceModelTests: XCTestCase {
         ))
 
         XCTAssertTrue(model.addReviewComment(path: "hello.txt", text: "Keep this wording direct."))
+        XCTAssertTrue(model.addReviewComment(
+            path: "hello.txt",
+            lineNumber: 1,
+            lineKind: .insertion,
+            text: "Check the new line."
+        ))
+        XCTAssertTrue(model.addReviewComment(
+            path: "hello.txt",
+            lineNumber: 1,
+            endLineNumber: 2,
+            lineKind: nil,
+            text: "Keep these lines together."
+        ))
         XCTAssertFalse(model.addReviewComment(path: "README.md", text: "Stale file"))
+        XCTAssertFalse(model.addReviewComment(
+            path: "hello.txt",
+            lineNumber: 1,
+            endLineNumber: 4,
+            lineKind: nil,
+            text: "Invalid range"
+        ))
 
-        XCTAssertEqual(model.selectedThread?.events.filter { $0.kind == .reviewComment }.count, 1)
+        XCTAssertEqual(model.selectedThread?.events.filter { $0.kind == .reviewComment }.count, 3)
         XCTAssertEqual(model.surface().review.files.first?.comments.map(\.text), ["Keep this wording direct."])
+        XCTAssertEqual(
+            model.surface().review.files.first?.hunkItems.first?.lines.first?.comments.map(\.text),
+            ["Check the new line.", "Keep these lines together."]
+        )
+        XCTAssertEqual(
+            model.surface().review.files.first?.hunkItems.first?.lines.first?.comments.last?.lineRangeLabel,
+            "Lines 1-2"
+        )
     }
 
     func testRunReviewRestoreActionRestoresFileAndRefreshesDiff() throws {

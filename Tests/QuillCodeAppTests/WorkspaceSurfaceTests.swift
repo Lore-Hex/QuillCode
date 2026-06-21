@@ -387,6 +387,12 @@ final class WorkspaceSurfaceTests: XCTestCase {
             lineKind: .insertion,
             text: "This line should stay public."
         )
+        let rangeComment = WorkspaceReviewCommentState(
+            path: "Sources/App.swift",
+            lineNumber: 1,
+            endLineNumber: 2,
+            text: "Keep the title next to the import."
+        )
         let staleComment = WorkspaceReviewCommentState(path: "README.md", text: "This file is no longer in the diff.")
         let thread = ChatThread(
             title: "Review changes",
@@ -395,6 +401,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
                 ThreadEvent(kind: .toolCompleted, summary: "host.git.diff completed", payloadJSON: try JSONHelpers.encodePretty(result)),
                 ThreadEvent(kind: .reviewComment, summary: "Commented on Sources/App.swift", payloadJSON: try JSONHelpers.encodePretty(matchingComment)),
                 ThreadEvent(kind: .reviewComment, summary: "Commented on Sources/App.swift:1", payloadJSON: try JSONHelpers.encodePretty(lineComment)),
+                ThreadEvent(kind: .reviewComment, summary: "Commented on Sources/App.swift:1-2", payloadJSON: try JSONHelpers.encodePretty(rangeComment)),
                 ThreadEvent(kind: .reviewComment, summary: "Commented on README.md", payloadJSON: try JSONHelpers.encodePretty(staleComment))
             ]
         )
@@ -409,8 +416,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(review.files.first?.comments.map(\.text), ["Check the public API name."])
         XCTAssertEqual(
             review.files.first?.hunkItems.first?.lines.first?.comments.map(\.text),
-            ["This line should stay public."]
+            ["This line should stay public.", "Keep the title next to the import."]
         )
+        XCTAssertEqual(review.files.first?.hunkItems.first?.lines.first?.comments.last?.lineRangeLabel, "Lines 1-2")
     }
 
     func testGitDiffReviewSurfaceHidesStaleDiffWhenLatestDiffFailed() throws {

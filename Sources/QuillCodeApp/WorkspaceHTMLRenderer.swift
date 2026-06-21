@@ -206,7 +206,7 @@ public enum WorkspaceHTMLRenderer {
     private static func renderReviewLine(_ line: WorkspaceReviewLineSurface) -> String {
         let comments = line.comments.map { comment in
             """
-            <blockquote data-testid="review-line-comment">\(escape(comment.text))</blockquote>
+            <blockquote data-testid="review-line-comment">\(comment.lineRangeLabel.map { "<strong>\(escape($0))</strong> " } ?? "")\(escape(comment.text))</blockquote>
             """
         }.joined(separator: "\n")
         return """

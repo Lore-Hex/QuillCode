@@ -415,10 +415,17 @@ private final class QuillCodeDesktopController: ObservableObject {
     func addReviewComment(
         path: String,
         lineNumber: Int?,
+        endLineNumber: Int?,
         lineKind: WorkspaceReviewLineKind?,
         text: String
     ) {
-        _ = model.addReviewComment(path: path, lineNumber: lineNumber, lineKind: lineKind, text: text)
+        _ = model.addReviewComment(
+            path: path,
+            lineNumber: lineNumber,
+            endLineNumber: endLineNumber,
+            lineKind: lineKind,
+            text: text
+        )
         refresh()
     }
 
