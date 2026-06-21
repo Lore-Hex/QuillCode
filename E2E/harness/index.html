@@ -304,6 +304,7 @@
     .memories-counts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
     .extensions-counts span,
     .memories-counts span,
+    .memories-add-button,
     .extension-card [data-testid="extension-kind"],
     .extension-card [data-testid="extension-status"],
     .memory-card [data-testid="memory-scope"],
@@ -315,6 +316,10 @@
       border: 1px solid rgba(65,184,232,.18);
       font-size: 11px;
       font-weight: 700;
+    }
+    .memories-add-button {
+      font: inherit;
+      cursor: pointer;
     }
     .extension-card [data-testid="extension-status"] {
       color: var(--green);
@@ -857,6 +862,7 @@
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', category: 'Workspace', keywords: ['shell', 'command', 'pty'], isEnabled: true },
         { id: 'toggle-browser', title: 'Browser', shortcut: 'Cmd+Shift+B', category: 'Workspace', keywords: ['preview', 'web', 'localhost'], isEnabled: true },
         { id: 'toggle-memories', title: 'Memories', shortcut: '', category: 'Memories', keywords: ['memory', 'context', 'preferences', 'facts'], isEnabled: true },
+        { id: 'memory-add', title: 'Add memory', shortcut: '', category: 'Memories', keywords: ['remember', 'save', 'preference', 'fact'], isEnabled: true },
         { id: 'toggle-extensions', title: 'Extensions', shortcut: '', category: 'Extensions', keywords: ['plugins', 'skills', 'mcp', 'manifest'], isEnabled: true },
         { id: 'command-palette', title: 'Command palette', shortcut: 'Cmd+Shift+P', category: 'Navigation', keywords: ['commands', 'actions'], isEnabled: true },
         { id: 'git-pr-create', title: 'Create pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'review'], isEnabled: true },
@@ -910,6 +916,70 @@
         message
       });
       return message;
+    }
+
+    function renameSelectedThread(title) {
+      if (!state.sidebar.selectedThreadID) return;
+      state.sidebar.items = state.sidebar.items.map(item => (
+        item.id === state.sidebar.selectedThreadID ? { ...item, title } : item
+      ));
+      state.topBar.primaryTitle = title;
+    }
+
+    function memoryTitle(content) {
+      const firstLine = String(content).split(/\n/)[0] || 'Memory';
+      const cleaned = firstLine
+        .replace(/^remember\s+(that\s+)?/i, '')
+        .trim()
+        .slice(0, 60);
+      const words = cleaned || 'Memory';
+      return words
+        .split(/[^A-Za-z0-9]+/)
+        .filter(Boolean)
+        .slice(0, 8)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ') || 'Memory';
+    }
+
+    function refreshMemorySummary() {
+      const globalCount = state.memories.items.filter(item => item.scope === 'global').length;
+      const projectCount = state.memories.items.filter(item => item.scope === 'project').length;
+      state.memories.globalCount = globalCount;
+      state.memories.projectCount = projectCount;
+      state.memories.subtitle = `${countLabel(globalCount, 'global memory')} · ${countLabel(projectCount, 'project memory')}`;
+      const total = globalCount + projectCount;
+      state.topBar.memoryLabel = total === 1 ? '1 memory' : `${total} memories`;
+      state.topBar.memorySources = state.memories.items.map(item => item.relativePath);
+    }
+
+    function saveMemory(content) {
+      const trimmed = String(content).trim();
+      if (!trimmed) {
+        addMessage('assistant', 'Nothing to remember. Use `/remember a durable preference or fact`.');
+        return null;
+      }
+      if (/\b(password|passwd|passphrase|api[_ -]?key|secret|token|credential)\s*[:=]/i.test(trimmed)
+          || /\b(sk|pk|rk|ghp|github_pat|xox[baprs])[-_][A-Za-z0-9_=\-]{16,}/i.test(trimmed)
+          || /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(trimmed)) {
+        addMessage('assistant', 'Memory was not saved because it looks like it contains a credential, token, password, or private key.');
+        return null;
+      }
+      const title = memoryTitle(trimmed);
+      const id = `global:memories/manual-${Date.now()}-${state.memories.globalCount + 1}.md`;
+      const item = {
+        id,
+        scope: 'global',
+        scopeLabel: 'Global',
+        title,
+        preview: trimmed,
+        relativePath: id.replace('global:', ''),
+        byteCountLabel: `${new TextEncoder().encode(trimmed).length} bytes`
+      };
+      state.memories.items = [item, ...state.memories.items];
+      refreshMemorySummary();
+      renameSelectedThread(`Memory: ${title}`);
+      addMessage('assistant', `Saved memory: ${title}. It will be included as background context in future turns.`);
+      return item;
     }
 
     function addToolCard(card) {
@@ -988,7 +1058,9 @@
     }
 
     function countLabel(count, singular) {
-      return `${count} ${singular}${count === 1 ? '' : 's'}`;
+      if (count === 1) return `1 ${singular}`;
+      if (singular.endsWith('memory')) return `${count} ${singular.replace(/memory$/, 'memories')}`;
+      return `${count} ${singular}s`;
     }
 
     const contextTokenBudget = 32000;
@@ -1452,6 +1524,9 @@
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
       });
+      document.querySelector('[data-testid="memories-add"]')?.addEventListener('click', event => {
+        runCommand(event.currentTarget.getAttribute('data-command-id'));
+      });
 	      document.querySelector('[data-testid="terminal-button"]').addEventListener('click', () => {
 	        state.terminal.isVisible = !state.terminal.isVisible;
 	        render();
@@ -1914,6 +1989,7 @@
               <p data-testid="memories-subtitle">${escapeHTML(state.memories.subtitle)}</p>
             </div>
             <span class="memories-counts">${counts}</span>
+            <button class="memories-add-button" type="button" data-testid="memories-add" data-command-id="memory-add">Add memory</button>
           </header>
           ${content}
         </section>`;
@@ -2048,6 +2124,10 @@
       }
       if (commandID === 'toggle-memories') {
         state.memories.isVisible = !state.memories.isVisible;
+      }
+      if (commandID === 'memory-add') {
+        state.composer.draft = '/remember ';
+        state.composer.canSend = true;
       }
       if (commandID === 'toggle-extensions') {
         state.extensions.isVisible = !state.extensions.isVisible;
@@ -2450,7 +2530,15 @@
       } else if (/^\/(browser|preview)\b/i.test(text)) {
         state.browser.isVisible = !state.browser.isVisible;
         addMessage('assistant', state.browser.isVisible ? 'Browser opened.' : 'Browser hidden.');
-      } else if (/^\/(memor(y|ies)|remember)\b/i.test(text)) {
+      } else if (/^\/remember\b/i.test(text)) {
+        const memoryContent = text.replace(/^\/remember\b/i, '').trim();
+        if (memoryContent) {
+          saveMemory(memoryContent);
+        } else {
+          state.memories.isVisible = !state.memories.isVisible;
+          addMessage('assistant', state.memories.isVisible ? 'Memories opened.' : 'Memories hidden.');
+        }
+      } else if (/^\/memor(y|ies)\b/i.test(text)) {
         state.memories.isVisible = !state.memories.isVisible;
         addMessage('assistant', state.memories.isVisible ? 'Memories opened.' : 'Memories hidden.');
       } else if (/^\/(worktrees?|wt)\b/i.test(text)) {
@@ -2467,6 +2555,7 @@
           '/terminal',
           '/browser',
           '/memories',
+          '/remember text',
           '/worktrees',
           '/pr',
           '/mode auto|review|read-only',

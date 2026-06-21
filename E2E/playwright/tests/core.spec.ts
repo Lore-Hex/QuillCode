@@ -161,13 +161,34 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
   await expect(page.getByTestId('memory-item')).toHaveCount(2);
   await expect(page.getByTestId('memory-title').first()).toHaveText('Preferences');
   await expect(page.getByTestId('memory-path').first()).toHaveText('memories/preferences.md');
+  await expect(page.getByTestId('memories-add')).toBeVisible();
 
   await page.getByTestId('command-palette-button').click();
   await page.getByLabel('Search commands').fill('memories');
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
-  await page.getByTestId('command-palette-result').click();
+  await page.getByTestId('command-palette-result').filter({ hasText: 'Memories' }).click();
 
   await expect(page.getByTestId('memories-pane')).toHaveCount(0);
+
+  await page.getByTestId('command-palette-button').click();
+  await page.getByLabel('Search commands').fill('save');
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
+  await expect(page.getByTestId('command-palette-result')).toContainText('Add memory');
+  await page.getByTestId('command-palette-result').click();
+
+  await expect(page.getByLabel('Message')).toHaveValue('/remember ');
+  await page.getByLabel('Message').fill('/remember Prefer small reviewable commits');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByText('Saved memory: Prefer Small Reviewable Commits. It will be included as background context in future turns.')).toBeVisible();
+  await expect(page.getByTestId('project-memories-status')).toHaveText('3 memories');
+  await expect(page.getByTestId('top-bar-title')).toHaveText('Memory: Prefer Small Reviewable Commits');
+
+  await page.getByTestId('memories-button').click();
+  await expect(page.getByTestId('memories-pane')).toBeVisible();
+  await expect(page.getByTestId('memories-subtitle')).toHaveText('2 global memories · 1 project memory');
+  await expect(page.getByTestId('memory-item')).toHaveCount(3);
+  await expect(page.getByTestId('memory-title').first()).toHaveText('Prefer Small Reviewable Commits');
+  await expect(page.getByTestId('memory-path').first()).toContainText('memories/manual-');
 });
 
 test('mock harness dispatches workspace keyboard shortcuts', async ({ page }) => {

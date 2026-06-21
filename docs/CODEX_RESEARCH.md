@@ -9,7 +9,7 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 - Sandbox and Auto-review: enforce boundaries first, route eligible review requests through a reviewer model.
 - Remote connections: phone/host pairing, remote approvals, host-local files and tools.
 - Plugins, skills, MCP: reusable workflows and external tools; first expose project-local manifests clearly before enabling install/process lifecycle.
-- Memories and Chronicle: local recall layer, not a replacement for checked-in project rules. The first shippable slice should make loaded memory visible and auditable before enabling autonomous writes.
+- Memories and Chronicle: local recall layer, not a replacement for checked-in project rules. The first shippable slice should make loaded memory visible and auditable; explicit `/remember text` writes are acceptable with clear transcript feedback and credential rejection before enabling autonomous writes.
 
 ## Product Translation
 

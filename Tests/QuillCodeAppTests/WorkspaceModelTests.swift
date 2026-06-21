@@ -766,6 +766,61 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.surface().topBar.memoryLabel, "2 memories")
     }
 
+    func testSlashRememberWritesGlobalMemoryAndRefreshesThreadSurface() async throws {
+        let root = try makeTempDirectory()
+        let globalMemories = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(globalMemoryDirectory: globalMemories)
+        let projectID = model.addProject(path: root, name: "Memory Write Project")
+        model.selectProject(projectID)
+
+        model.setDraft("/remember Prefer small reviewable commits")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertEqual(model.root.globalMemories.count, 1)
+        let memory = try XCTUnwrap(model.root.globalMemories.first)
+        XCTAssertEqual(memory.content, "Prefer small reviewable commits")
+        XCTAssertTrue(memory.relativePath.hasPrefix("memories/manual-"))
+        XCTAssertTrue(memory.relativePath.hasSuffix("-prefer-small-reviewable-commits.md"))
+        XCTAssertEqual(model.selectedThread?.title, "Memory: \(memory.title)")
+        XCTAssertEqual(model.selectedThread?.memories.map(\.content), ["Prefer small reviewable commits"])
+        XCTAssertEqual(model.selectedThread?.events.last?.summary, "Saved memory: \(memory.title)")
+        XCTAssertEqual(model.selectedThread?.events.last?.payloadJSON, memory.relativePath)
+        XCTAssertEqual(model.selectedThread?.messages.last?.role, .assistant)
+        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("Saved memory: \(memory.title)") == true)
+        XCTAssertEqual(model.surface().topBar.memoryLabel, "1 memory")
+
+        let filename = memory.relativePath.replacingOccurrences(of: "memories/", with: "")
+        let savedURL = globalMemories.appendingPathComponent(filename)
+        XCTAssertEqual(try String(contentsOf: savedURL, encoding: .utf8), "Prefer small reviewable commits\n")
+    }
+
+    func testSlashRememberRejectsCredentialLikeMemory() async throws {
+        let root = try makeTempDirectory()
+        let globalMemories = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(globalMemoryDirectory: globalMemories)
+
+        model.setDraft("/remember api_key=sk-qc-v1-ob4rbJAb9WOqdNIhSsT8oumjqaLZUX8p2zLHr1WOGn8")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertEqual(model.root.globalMemories, [])
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: globalMemories.path)
+                .filter { $0.hasSuffix(".md") },
+            []
+        )
+        XCTAssertEqual(model.selectedThread?.title, "Memory not saved")
+        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("credential") == true)
+        XCTAssertEqual(model.surface().topBar.memoryLabel, "No memories")
+    }
+
+    func testMemoryAddWorkspaceCommandPrefillsRememberSlash() throws {
+        let model = QuillCodeWorkspaceModel()
+
+        XCTAssertTrue(model.runWorkspaceCommand("memory-add", workspaceRoot: try makeTempDirectory()))
+
+        XCTAssertEqual(model.composer.draft, "/remember ")
+    }
+
     func testMemoryNoteLoaderBoundsFilesAndRejectsSymlinkEscape() throws {
         let root = try makeTempDirectory()
         let outside = try makeTempDirectory().appendingPathComponent("outside.md")

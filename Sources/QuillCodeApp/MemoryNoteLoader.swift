@@ -1,6 +1,29 @@
 import Foundation
 import QuillCodeCore
 
+public enum MemoryNoteWriteError: Error, Equatable, LocalizedError {
+    case empty
+    case tooLarge(actual: Int, maximum: Int)
+    case sensitiveContent
+    case unavailable
+    case writeFailed
+
+    public var errorDescription: String? {
+        switch self {
+        case .empty:
+            return "Nothing to remember. Use `/remember a durable preference or fact`."
+        case .tooLarge(let actual, let maximum):
+            return "Memory is too large (\(actual) bytes). Keep explicit memories under \(maximum) bytes."
+        case .sensitiveContent:
+            return "Memory was not saved because it looks like it contains a credential, token, password, or private key."
+        case .unavailable:
+            return "Memory saving is unavailable in this runtime."
+        case .writeFailed:
+            return "Memory could not be written."
+        }
+    }
+}
+
 public enum MemoryNoteLoader {
     public static let projectRelativeDirectory = ".quillcode/memories"
     public static let supportedExtensions: Set<String> = ["md", "txt", "json"]
@@ -49,6 +72,46 @@ public enum MemoryNoteLoader {
             maxFileBytes: maxFileBytes,
             maxTotalBytes: maxTotalBytes
         )
+    }
+
+    public static func saveGlobal(
+        content rawContent: String,
+        to directory: URL,
+        now: Date = Date(),
+        maxBytes: Int = maxFileBytes
+    ) throws -> MemoryNote {
+        let content = rawContent.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !content.isEmpty else {
+            throw MemoryNoteWriteError.empty
+        }
+
+        let data = Data(content.utf8)
+        guard data.count <= maxBytes else {
+            throw MemoryNoteWriteError.tooLarge(actual: data.count, maximum: maxBytes)
+        }
+        guard !looksSensitive(content) else {
+            throw MemoryNoteWriteError.sensitiveContent
+        }
+
+        let root = directory.standardizedFileURL.resolvingSymlinksInPath()
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let filename = availableFilename(
+            in: root,
+            now: now,
+            title: title(from: titleBase(from: content))
+        )
+        let fileURL = root.appendingPathComponent(filename)
+        try content.appending("\n").write(to: fileURL, atomically: true, encoding: .utf8)
+        guard let note = loadFile(
+            root: root,
+            fileURL: fileURL,
+            scope: .global,
+            displayPrefix: "memories",
+            maxBytes: maxBytes
+        ) else {
+            throw MemoryNoteWriteError.writeFailed
+        }
+        return note
     }
 
     private static func load(
@@ -152,5 +215,63 @@ public enum MemoryNoteLoader {
                 return first.uppercased() + word.dropFirst()
             }
             .joined(separator: " ")
+    }
+
+    private static func titleBase(from content: String) -> String {
+        let firstLine = content
+            .split(whereSeparator: \.isNewline)
+            .first
+            .map(String.init) ?? "Memory"
+        var trimmed = firstLine
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let range = trimmed.range(
+            of: #"^remember\s+(that\s+)?"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) {
+            trimmed.removeSubrange(range)
+        }
+        trimmed = trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > 60 else { return trimmed.isEmpty ? "Memory" : trimmed }
+        let end = trimmed.index(trimmed.startIndex, offsetBy: 60)
+        return String(trimmed[..<end])
+    }
+
+    private static func availableFilename(in directory: URL, now: Date, title: String) -> String {
+        let timestamp = String(Int(now.timeIntervalSince1970))
+        let slug = slug(from: title)
+        let base = "manual-\(timestamp)-\(slug)"
+        var candidate = "\(base).md"
+        var index = 2
+        while FileManager.default.fileExists(atPath: directory.appendingPathComponent(candidate).path) {
+            candidate = "\(base)-\(index).md"
+            index += 1
+        }
+        return candidate
+    }
+
+    private static func slug(from title: String) -> String {
+        let lowercased = title.lowercased()
+        let scalars = lowercased.unicodeScalars.map { scalar -> Character in
+            if CharacterSet.alphanumerics.contains(scalar) {
+                return Character(scalar)
+            }
+            return "-"
+        }
+        let collapsed = String(scalars)
+            .split(separator: "-")
+            .prefix(8)
+            .joined(separator: "-")
+        return collapsed.isEmpty ? "memory" : collapsed
+    }
+
+    private static func looksSensitive(_ content: String) -> Bool {
+        let patterns = [
+            #"-----BEGIN [A-Z ]*PRIVATE KEY-----"#,
+            #"(?i)\b(password|passwd|passphrase|api[_ -]?key|secret|token|credential)\s*[:=]"#,
+            #"(?i)\b(sk|pk|rk|ghp|github_pat|xox[baprs])[-_][A-Za-z0-9_=\-]{16,}"#
+        ]
+        return patterns.contains { pattern in
+            content.range(of: pattern, options: .regularExpression) != nil
+        }
     }
 }

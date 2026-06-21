@@ -1289,6 +1289,12 @@ public extension QuillCodeWorkspaceModel {
                 keywords: ["memory", "context", "preferences", "facts"]
             ),
             WorkspaceCommandSurface(
+                id: "memory-add",
+                title: "Add memory",
+                category: WorkspaceCommandPalette.memoriesCategory,
+                keywords: ["remember", "save", "preference", "fact"]
+            ),
+            WorkspaceCommandSurface(
                 id: "toggle-extensions",
                 title: "Extensions",
                 category: WorkspaceCommandPalette.extensionsCategory,

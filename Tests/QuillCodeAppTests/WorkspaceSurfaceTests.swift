@@ -50,6 +50,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "toggle-terminal",
             "toggle-browser",
             "toggle-memories",
+            "memory-add",
             "toggle-extensions",
             "git-pr-create",
             "git-worktree-list",

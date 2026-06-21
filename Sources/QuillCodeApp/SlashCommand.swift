@@ -7,6 +7,7 @@ enum SlashCommand: Equatable {
     case newChat
     case mode(AgentMode)
     case model(String)
+    case remember(String)
     case workspaceCommand(String)
     case environmentAction(String?)
     case invalid(String)
@@ -38,8 +39,10 @@ enum SlashCommandParser {
             return .workspaceCommand("toggle-terminal")
         case "browser", "preview":
             return .workspaceCommand("toggle-browser")
-        case "memory", "memories", "remember":
+        case "memory", "memories":
             return .workspaceCommand("toggle-memories")
+        case "remember":
+            return argument.isEmpty ? .workspaceCommand("toggle-memories") : .remember(argument)
         case "worktree", "worktrees", "wt":
             return .workspaceCommand("git-worktree-list")
         case "pr", "pull-request", "pullrequest":

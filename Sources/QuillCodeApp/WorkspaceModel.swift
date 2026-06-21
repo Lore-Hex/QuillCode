@@ -807,6 +807,9 @@ public final class QuillCodeWorkspaceModel {
         case "toggle-memories":
             toggleMemories()
             return true
+        case "memory-add":
+            composer.draft = "/remember "
+            return true
         case "fork-from-last":
             return forkFromLast() != nil
         case "git-worktree-list":
@@ -1213,6 +1216,7 @@ public final class QuillCodeWorkspaceModel {
                 /terminal - show or hide the integrated terminal
                 /browser - show or hide the browser preview
                 /memories - show or hide loaded memories
+                /remember text - save an explicit global memory
                 /worktrees - list git worktrees for this project
                 /pr - prepare a pull request request
                 /env [name] - list or run a local environment action
@@ -1243,6 +1247,8 @@ public final class QuillCodeWorkspaceModel {
                 assistantText: "Model set to \(model).",
                 title: "Set model"
             )
+        case .remember(let content):
+            runRememberSlashCommand(content, originalPrompt: originalPrompt)
         case .workspaceCommand(let commandID):
             if !runWorkspaceCommand(commandID, workspaceRoot: workspaceRoot) {
                 appendLocalCommandTranscript(
@@ -1268,6 +1274,49 @@ public final class QuillCodeWorkspaceModel {
         }
         composer.isSending = false
         refreshTopBar(agentStatus: "Idle")
+    }
+
+    private func runRememberSlashCommand(_ content: String, originalPrompt: String) {
+        guard let globalMemoryDirectory else {
+            appendLocalCommandTranscript(
+                userText: originalPrompt,
+                assistantText: MemoryNoteWriteError.unavailable.localizedDescription,
+                title: "Memory not saved"
+            )
+            return
+        }
+
+        do {
+            let note = try MemoryNoteLoader.saveGlobal(content: content, to: globalMemoryDirectory)
+            root.globalMemories = MemoryNoteLoader.loadGlobal(from: globalMemoryDirectory)
+            let projectID = selectedThread?.projectID ?? root.selectedProjectID
+            let refreshedMemories = memoryNotes(for: projectID)
+            appendLocalCommandTranscript(
+                userText: originalPrompt,
+                assistantText: "Saved memory: \(note.title). It will be included as background context in future turns.",
+                title: "Memory: \(note.title)"
+            )
+            mutateSelectedThread { thread in
+                thread.memories = refreshedMemories
+                thread.events.append(ThreadEvent(
+                    kind: .notice,
+                    summary: "Saved memory: \(note.title)",
+                    payloadJSON: note.relativePath
+                ))
+            }
+        } catch let error as MemoryNoteWriteError {
+            appendLocalCommandTranscript(
+                userText: originalPrompt,
+                assistantText: error.localizedDescription,
+                title: "Memory not saved"
+            )
+        } catch {
+            appendLocalCommandTranscript(
+                userText: originalPrompt,
+                assistantText: MemoryNoteWriteError.writeFailed.localizedDescription,
+                title: "Memory not saved"
+            )
+        }
     }
 
     private func runEnvironmentSlashCommand(_ query: String?, originalPrompt: String, workspaceRoot: URL) {

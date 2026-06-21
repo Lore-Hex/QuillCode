@@ -131,7 +131,11 @@ public struct QuillCodeWorkspaceView: View {
                     }
                     if surface.memories.isVisible {
                         Divider()
-                        QuillCodeMemoriesPaneView(memories: surface.memories)
+                        QuillCodeMemoriesPaneView(memories: surface.memories) { commandID in
+                            if let command = surface.commands.first(where: { $0.id == commandID }) {
+                                handleCommand(command)
+                            }
+                        }
                     }
                     if surface.terminal.isVisible {
                         Divider()
@@ -423,7 +427,7 @@ private struct QuillCodeCommandPaletteView: View {
             return "terminal"
         case "toggle-browser":
             return "globe"
-        case "toggle-memories":
+        case "toggle-memories", "memory-add":
             return "brain.head.profile"
         case "toggle-extensions":
             return "puzzlepiece.extension"
@@ -1391,6 +1395,7 @@ private struct QuillCodeExtensionsPaneView: View {
 
 private struct QuillCodeMemoriesPaneView: View {
     var memories: WorkspaceMemoriesSurface
+    var onCommand: (String) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1409,6 +1414,13 @@ private struct QuillCodeMemoriesPaneView: View {
                     countPill(label: "Global", count: memories.globalCount)
                     countPill(label: "Project", count: memories.projectCount)
                 }
+                Button {
+                    onCommand("memory-add")
+                } label: {
+                    Label("Add", systemImage: "plus")
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
             }
 
             if memories.items.isEmpty {
