@@ -3543,7 +3543,7 @@ private struct QuillCodeSettingsView: View {
                     Text("TrustedRouter API base URL")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(QuillCodePalette.muted)
-                    TextField("https://api.quillrouter.com/v1", text: $draft.apiBaseURL)
+                    TextField("https://api.trustedrouter.com/v1", text: $draft.apiBaseURL)
                         .textFieldStyle(.roundedBorder)
                 }
 

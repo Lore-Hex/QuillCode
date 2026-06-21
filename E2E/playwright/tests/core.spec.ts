@@ -224,7 +224,7 @@ test('mock harness shows runtime diagnostics in settings', async ({ page }) => {
   await expect(settingsPanel.getByTestId('runtime-diagnostics')).toBeVisible();
   await expect(settingsPanel.getByTestId('runtime-diagnostic')).toHaveCount(6);
   await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(0)).toContainText('API base URL');
-  await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(0)).toContainText('https://api.quillrouter.com/v1');
+  await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(0)).toContainText('https://api.trustedrouter.com/v1');
   await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(1)).toContainText('TrustedRouter login');
   await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(2)).toContainText('Missing');
   await expect(settingsPanel.getByTestId('runtime-diagnostic').nth(3)).toContainText('trustedrouter/fast');
@@ -302,7 +302,17 @@ test('mock harness surfaces file artifacts from tool cards', async ({ page }) =>
   await expect(page.getByTestId('activity-artifact')).toContainText('/mock/QuillCode');
   await expect(page.getByTestId('activity-artifact')).not.toContainText('undefined');
   await expect(page.getByTestId('activity-source').first()).toContainText('AGENTS.md');
+  await expect(page.getByTestId('activity-handoff')).toContainText('Thread: Can you write a file');
+  await expect(page.getByTestId('activity-handoff')).toContainText('Tools: 1 tool (host.file.write)');
+  await expect(page.getByTestId('activity-handoff')).toContainText('Artifacts: 1 artifact (hello.txt)');
+  await expect(page.getByTestId('activity-handoff')).not.toContainText('\\n');
   await expect(page.getByTestId('activity-final-answer')).toContainText('Wrote `hello.txt`.');
+
+  await page.getByTestId('activity-handoff-section').getByTestId('activity-section-toggle').click();
+  await expect(page.getByTestId('activity-handoff-section')).toHaveAttribute('data-collapsed', 'true');
+  await expect(page.getByTestId('activity-handoff')).toHaveCount(0);
+  await page.getByTestId('activity-handoff-section').getByTestId('activity-section-toggle').click();
+  await expect(page.getByTestId('activity-handoff')).toContainText('Latest answer: Wrote `hello.txt`.');
 
   await page.getByTestId('activity-tool-section').getByTestId('activity-section-toggle').click();
   await expect(page.getByTestId('activity-tool-section')).toHaveAttribute('data-collapsed', 'true');

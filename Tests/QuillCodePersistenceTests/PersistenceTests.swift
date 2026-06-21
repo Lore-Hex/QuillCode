@@ -6,9 +6,10 @@ final class PersistenceTests: XCTestCase {
     func testConfigRoundTrips() throws {
         let root = try makeTempDirectory()
         let store = ConfigStore(fileURL: root.appendingPathComponent("config.toml"))
-        let config = AppConfig(defaultModel: "trustedrouter/fusion", mode: .auto, apiBaseURL: "https://api.quillrouter.com/v1", developerOverrideEnabled: true)
+        let config = AppConfig(defaultModel: "trustedrouter/fusion", mode: .auto, apiBaseURL: "https://api.trustedrouter.com/v1", developerOverrideEnabled: true)
         try store.save(config)
         XCTAssertEqual(try store.load(), config)
+        XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.fusionModel)
     }
 
     func testConfigDefaultsToOAuthAuthMode() throws {
@@ -25,9 +26,9 @@ final class PersistenceTests: XCTestCase {
         let root = try makeTempDirectory()
         let store = ConfigStore(fileURL: root.appendingPathComponent("config.toml"))
         let config = AppConfig(
-            defaultModel: "trustedrouter/fusion",
+            defaultModel: TrustedRouterDefaults.fusionModel,
             mode: .auto,
-            apiBaseURL: "https://api.quillrouter.com/v1",
+            apiBaseURL: "https://api.trustedrouter.com/v1",
             authMode: .oauth,
             trustedRouterAccount: TrustedRouterAccountProfile(
                 userID: "usr_123",
@@ -69,7 +70,7 @@ final class PersistenceTests: XCTestCase {
         try """
         default_model = "trustedrouter/fusion"
         mode = "auto"
-        api_base_url = "https://api.quillrouter.com/v1"
+        api_base_url = "https://api.trustedrouter.com/v1"
         auth_mode = "oauth"
         developer_override_enabled = true
         """.write(to: fileURL, atomically: true, encoding: .utf8)
@@ -77,6 +78,7 @@ final class PersistenceTests: XCTestCase {
         let loaded = try ConfigStore(fileURL: fileURL).load()
         XCTAssertEqual(loaded.authMode, .oauth)
         XCTAssertFalse(loaded.developerOverrideEnabled)
+        XCTAssertEqual(loaded.defaultModel, TrustedRouterDefaults.fusionModel)
     }
 
     func testThreadStoreRoundTrips() throws {

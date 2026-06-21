@@ -207,11 +207,15 @@ final class TrustedRouterAdapterTests: XCTestCase {
     func testModelCatalogAlwaysIncludesRankedRecommendedFallbacks() {
         let catalog = TrustedRouterModelCatalog(models: [
             .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
-            .init(id: TrustedRouterDefaults.fastModel, provider: "trustedrouter", displayName: "Fast Duplicate", category: "Recommended")
+            .init(id: TrustedRouterDefaults.fastModel, provider: "trustedrouter", displayName: "Fast Duplicate", category: "Recommended"),
+            .init(id: "trustedrouter/fusion", provider: "trustedrouter", displayName: "Fusion Alias", category: "Recommended")
         ])
 
         XCTAssertEqual(catalog.models.prefix(2).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
+        XCTAssertEqual(Array(catalog.categories().prefix(3)), ["Recommended", "Safety", "Coding"])
         XCTAssertEqual(catalog.models.filter { $0.id == TrustedRouterDefaults.fastModel }.count, 1)
+        XCTAssertEqual(catalog.models.filter { $0.id == TrustedRouterDefaults.fusionModel }.count, 1)
+        XCTAssertFalse(catalog.models.contains { $0.id == "trustedrouter/fusion" })
         XCTAssertTrue(catalog.models.contains { $0.id == "acme/code-pro" })
     }
 

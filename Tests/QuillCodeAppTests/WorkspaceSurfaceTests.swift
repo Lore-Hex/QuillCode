@@ -219,8 +219,14 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(activity.artifacts.map(\.label), ["quillcode-activity.png"])
         XCTAssertEqual(activity.sources.map(\.title), ["AGENTS.md", "Prefers concise diffs"])
         XCTAssertEqual(activity.finalAnswer, "Output: quill")
+        XCTAssertTrue(activity.handoffSummary?.contains("Thread: Run command") == true)
+        XCTAssertTrue(activity.handoffSummary?.contains("Latest request: run whoami") == true)
+        XCTAssertTrue(activity.handoffSummary?.contains("Tools: 1 tool (\(ToolDefinition.shellRun.name))") == true)
+        XCTAssertTrue(activity.handoffSummary?.contains("Artifacts: 1 artifact (quillcode-activity.png)") == true)
         XCTAssertTrue(activity.recentSteps.contains { $0.title == "Tool completed" && $0.statusLabel == "Done" })
-        XCTAssertEqual(activity.sections.map(\.kind), [.recent, .tools, .sources, .artifacts, .latestAnswer])
+        XCTAssertEqual(activity.sections.map(\.kind), [.recent, .handoff, .tools, .sources, .artifacts, .latestAnswer])
+        XCTAssertEqual(activity.sections.first { $0.kind == .handoff }?.bodyText, activity.handoffSummary)
+        XCTAssertEqual(activity.sections.first { $0.kind == .handoff }?.countLabel, "1 summary")
         XCTAssertEqual(activity.sections.first { $0.kind == .tools }?.items.map(\.title), [ToolDefinition.shellRun.name])
         XCTAssertEqual(activity.sections.first { $0.kind == .artifacts }?.artifacts.map(\.label), ["quillcode-activity.png"])
         XCTAssertEqual(activity.sections.first { $0.kind == .latestAnswer }?.bodyText, "Output: quill")
@@ -259,6 +265,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(model.runWorkspaceCommand("activity-toggle-section:tools", workspaceRoot: URL(fileURLWithPath: "/tmp")))
         XCTAssertEqual(model.surface().activity.sections.first { $0.kind == .tools }?.isCollapsed, true)
         XCTAssertTrue(model.surface().activity.isVisible)
+        XCTAssertTrue(model.runWorkspaceCommand("activity-toggle-section:handoff", workspaceRoot: URL(fileURLWithPath: "/tmp")))
+        XCTAssertEqual(model.surface().activity.sections.first { $0.kind == .handoff }?.isCollapsed, true)
         XCTAssertTrue(model.runWorkspaceCommand("activity-toggle-section:tools", workspaceRoot: URL(fileURLWithPath: "/tmp")))
         XCTAssertEqual(model.surface().activity.sections.first { $0.kind == .tools }?.isCollapsed, false)
         XCTAssertFalse(model.runWorkspaceCommand("activity-toggle-section:not-real", workspaceRoot: URL(fileURLWithPath: "/tmp")))
@@ -672,7 +680,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertEqual(surface.topBar.modelLabel, "custom/edge-model")
         XCTAssertEqual(current?.models.first?.id, "custom/edge-model")
-        XCTAssertEqual(current?.models.first?.displayName, "edge-model")
+        XCTAssertEqual(current?.models.first?.displayName, "Edge Model")
         XCTAssertTrue(current?.models.first?.isSelected == true)
     }
 

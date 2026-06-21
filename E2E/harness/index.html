@@ -500,6 +500,10 @@
       letter-spacing: 0;
       text-transform: none;
     }
+    [data-testid="activity-handoff"],
+    [data-testid="activity-final-answer"] {
+      white-space: pre-wrap;
+    }
     .activity-item,
     .activity-artifact {
       min-width: 0;
@@ -1410,7 +1414,7 @@
       },
       settings: {
         isOpen: false,
-        apiBaseURL: 'https://api.quillrouter.com/v1',
+        apiBaseURL: 'https://api.trustedrouter.com/v1',
         authMode: 'oauth',
         developerOverrideEnabled: false,
         hasStoredAPIKey: false,
@@ -3298,6 +3302,7 @@
     function activitySummary() {
       const messages = state.transcript.messages || [];
       const cards = state.transcript.toolCards || [];
+      const selectedThread = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
       const latestUser = [...messages].reverse().find(message => message.role === 'user');
       const latestAssistant = [...messages].reverse().find(message => message.role === 'assistant');
       const artifacts = uniqueBy(
@@ -3355,7 +3360,16 @@
           })),
           sources,
           artifacts,
-          finalAnswer: latestAssistant?.text || null
+          finalAnswer: latestAssistant?.text || null,
+          handoffSummary: handoffSummary({
+            threadTitle: selectedThread?.title || 'No task selected',
+            latestRequest: latestUser ? latestUser.text : 'No task selected',
+            status: state.topBar.agentStatus,
+            tools: cards,
+            sources,
+            artifacts,
+            finalAnswer: latestAssistant?.text || null
+          })
         })
       };
     }
@@ -3376,6 +3390,10 @@
           items: activity.steps,
           countLabel: countLabel(activity.steps.length, 'item')
         }),
+        section('handoff', 'Handoff Summary', 'activity-handoff', '', {
+          bodyText: activity.handoffSummary,
+          countLabel: activity.handoffSummary ? '1 summary' : '0 summaries'
+        }),
         section('tools', 'Tools', 'activity-tool', 'No tools used yet', {
           items: activity.tools,
           countLabel: countLabel(activity.tools.length, 'item')
@@ -3392,7 +3410,39 @@
           bodyText: activity.finalAnswer,
           countLabel: activity.finalAnswer ? '1 answer' : '0 answers'
         })
-      ].filter(section => section.id !== 'latestAnswer' || section.bodyText);
+      ].filter(section => (section.id !== 'latestAnswer' && section.id !== 'handoff') || section.bodyText);
+    }
+
+    function handoffSummary(activity) {
+      const toolNames = activity.tools.slice(-4).map(tool => tool.title);
+      const artifactNames = activity.artifacts.slice(-4).map(artifact => artifact.label);
+      const lines = [
+        `Thread: ${boundedLine(activity.threadTitle, 80)}`,
+        `Latest request: ${boundedLine(activity.latestRequest, 96)}`,
+        `Status: ${activity.status}`,
+        `Tools: ${countSummary(activity.tools.length, 'tool', toolNames)}`,
+        `Sources: ${countLabel(activity.sources.length, 'source')}`,
+        `Artifacts: ${countSummary(activity.artifacts.length, 'artifact', artifactNames)}`
+      ];
+      if (activity.finalAnswer) {
+        lines.push(`Latest answer: ${boundedLine(activity.finalAnswer, 160)}`);
+      }
+      return lines.join('\n');
+    }
+
+    function countSummary(count, singular, details) {
+      if (!count) return 'none';
+      const label = countLabel(count, singular);
+      return details.length ? `${label} (${details.join(', ')})` : label;
+    }
+
+    function boundedLine(value, limit) {
+      const normalized = String(value || '')
+        .split(/\\r?\\n/)
+        .map(part => part.trim())
+        .filter(Boolean)
+        .join(' ');
+      return normalized.length > limit ? `${normalized.slice(0, limit)}...` : normalized;
     }
 
     function uniqueBy(items, keyForItem) {

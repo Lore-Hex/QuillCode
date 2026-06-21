@@ -14,32 +14,21 @@ public struct TrustedRouterModelCatalog: Sendable {
     }
 
     public func categories() -> [String] {
-        Array(Set(models.map(\.category))).sorted()
+        Array(Set(models.map(\.category))).sorted(by: TrustedRouterDefaults.compareModelCategories)
     }
 
     public func models(inCategory category: String) -> [QuillCodeCore.ModelInfo] {
-        models.filter { $0.category == category }.sorted(by: Self.sortModels)
+        models.filter { $0.category == category }.sorted(by: TrustedRouterDefaults.compareModels)
     }
 
-    public static let defaultModels: [QuillCodeCore.ModelInfo] = TrustedRouterDefaults.bundledModelCatalog
+    public static let defaultModels: [QuillCodeCore.ModelInfo] = TrustedRouterDefaults.normalizedModelCatalog([])
 
     public static func normalized(_ models: [QuillCodeCore.ModelInfo]) -> [QuillCodeCore.ModelInfo] {
-        TrustedRouterDefaults.catalogIncludingBundledDefaults(models).sorted(by: sortModels)
+        TrustedRouterDefaults.normalizedModelCatalog(models)
     }
 
     public static func sortModels(_ lhs: QuillCodeCore.ModelInfo, _ rhs: QuillCodeCore.ModelInfo) -> Bool {
-        let lhsCategoryRank = categoryRank(lhs.category)
-        let rhsCategoryRank = categoryRank(rhs.category)
-        if lhsCategoryRank != rhsCategoryRank { return lhsCategoryRank < rhsCategoryRank }
-        return TrustedRouterDefaults.modelSortKey(
-            id: lhs.id,
-            provider: lhs.provider,
-            displayName: lhs.displayName
-        ) < TrustedRouterDefaults.modelSortKey(
-            id: rhs.id,
-            provider: rhs.provider,
-            displayName: rhs.displayName
-        )
+        TrustedRouterDefaults.compareModels(lhs, rhs)
     }
 
     public static func categoryRank(_ category: String) -> Int {
@@ -62,7 +51,7 @@ public struct TrustedRouterModelCatalogClient: Sendable {
         let models = response.data.map { model in
             let provider = Self.provider(from: model.id)
             return QuillCodeCore.ModelInfo(
-                id: model.id,
+                id: TrustedRouterDefaults.canonicalModelID(model.id),
                 provider: provider,
                 displayName: Self.displayName(from: model.id),
                 category: Self.category(for: model.id, provider: provider)
@@ -72,29 +61,15 @@ public struct TrustedRouterModelCatalogClient: Sendable {
     }
 
     public static func provider(from modelID: String) -> String {
-        if let prefix = modelID.split(separator: "/").first {
-            return TrustedRouterDefaults.canonicalProvider(String(prefix))
-        }
-        return TrustedRouterDefaults.trustedRouterProvider
+        TrustedRouterDefaults.provider(fromModelID: modelID)
     }
 
     public static func displayName(from modelID: String) -> String {
-        let raw = modelID.split(separator: "/").last.map(String.init) ?? modelID
-        return raw
-            .replacingOccurrences(of: "-", with: " ")
-            .split(separator: " ")
-            .map { $0.prefix(1).uppercased() + $0.dropFirst() }
-            .joined(separator: " ")
+        TrustedRouterDefaults.displayName(fromModelID: modelID)
     }
 
     public static func category(for modelID: String, provider: String) -> String {
-        if TrustedRouterDefaults.isRecommendedModel(modelID, provider: provider) {
-            return TrustedRouterDefaults.recommendedCategory
-        }
-        if TrustedRouterDefaults.isSafetyReviewerModel(modelID) {
-            return TrustedRouterDefaults.safetyCategory
-        }
-        return provider
+        TrustedRouterDefaults.category(forModelID: modelID, provider: provider)
     }
 }
 

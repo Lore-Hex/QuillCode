@@ -8,6 +8,8 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(TrustedRouterDefaults.defaultModel, TrustedRouterDefaults.fastModel)
         XCTAssertEqual(TrustedRouterDefaults.recommendedModelIDs, [TrustedRouterDefaults.fastModel, TrustedRouterDefaults.fusionModel])
         XCTAssertEqual(TrustedRouterDefaults.canonicalProvider("tr"), TrustedRouterDefaults.trustedRouterProvider)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/fusion"), TrustedRouterDefaults.fusionModel)
+        XCTAssertEqual(TrustedRouterDefaults.provider(fromModelID: "tr/fusion"), TrustedRouterDefaults.trustedRouterProvider)
         XCTAssertEqual(TrustedRouterDefaults.safetyPrimaryModel, "glm-5.2")
         XCTAssertEqual(TrustedRouterDefaults.safetyFallbackModel, "kimi-k2.6")
         XCTAssertLessThan(
@@ -41,6 +43,19 @@ final class CoreModelTests: XCTestCase {
         XCTAssertThrowsError(try args.requiredInt("z"))
     }
 
+    func testModelCatalogNormalizationDeduplicatesAliasesAndSortsDefaultsFirst() {
+        let catalog = TrustedRouterDefaults.normalizedModelCatalog([
+            .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
+            .init(id: "trustedrouter/fusion", provider: "trustedrouter", displayName: "Fusion Alias", category: "Recommended"),
+            .init(id: "tr/fast", provider: "tr", displayName: "Fast Alias", category: "Recommended")
+        ])
+
+        XCTAssertEqual(catalog.prefix(2).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
+        XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.fastModel }.count, 1)
+        XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.fusionModel }.count, 1)
+        XCTAssertTrue(catalog.contains { $0.id == "acme/code-pro" })
+    }
+
     func testAppConfigDecodesOlderPayloadWithoutFavorites() throws {
         let config = try JSONHelpers.decode(AppConfig.self, from: """
         {
@@ -52,7 +67,7 @@ final class CoreModelTests: XCTestCase {
         }
         """)
 
-        XCTAssertEqual(config.defaultModel, "trustedrouter/fusion")
+        XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.fusionModel)
         XCTAssertEqual(config.favoriteModels, [])
     }
 
@@ -87,6 +102,7 @@ final class CoreModelTests: XCTestCase {
           "updatedAt": "\(date)"
         }
         """)
+        XCTAssertEqual(thread.model, TrustedRouterDefaults.fusionModel)
         XCTAssertEqual(thread.instructions, [])
         XCTAssertEqual(thread.memories, [])
     }

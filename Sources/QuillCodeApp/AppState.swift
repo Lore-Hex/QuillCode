@@ -1,5 +1,4 @@
 import Foundation
-import QuillCodeAgent
 import QuillCodeCore
 import QuillCodePersistence
 import QuillComputerUseKit
@@ -78,7 +77,7 @@ public struct QuillCodeRootState: Sendable, Hashable {
         selectedThreadID: UUID? = nil,
         globalMemories: [MemoryNote] = [],
         topBar: TopBarState = TopBarState(),
-        modelCatalog: [ModelInfo] = TrustedRouterModelCatalog.defaultModels,
+        modelCatalog: [ModelInfo] = TrustedRouterDefaults.normalizedModelCatalog([]),
         trustedRouterAPIKeyConfigured: Bool = false
     ) {
         self.config = config

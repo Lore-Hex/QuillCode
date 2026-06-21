@@ -683,7 +683,7 @@ public enum WorkspaceHTMLRenderer {
         if section.isCollapsed {
             content = ""
         } else if let bodyText = section.bodyText {
-            content = #"<p data-testid="\#(escape(section.itemTestID))">\#(escape(bodyText))</p>"#
+            content = #"<p data-testid="\#(escape(section.itemTestID))" style="white-space: pre-wrap;">\#(escape(bodyText))</p>"#
         } else if !section.artifacts.isEmpty {
             content = section.artifacts.map { artifact in
                 """

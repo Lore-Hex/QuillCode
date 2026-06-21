@@ -40,7 +40,7 @@ public struct ConfigStore: Sendable {
             let value = Self.unquote(parts[1])
             switch key {
             case "default_model":
-                config.defaultModel = value
+                config.defaultModel = TrustedRouterDefaults.normalizedDefaultModelID(value)
             case "mode":
                 config.mode = AgentMode(rawValue: value) ?? config.mode
             case "api_base_url":

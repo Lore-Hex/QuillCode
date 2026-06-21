@@ -329,6 +329,9 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
     public var isSelected: Bool
     public var isFavorite: Bool
     public var badges: [String]
+    public var modelInfo: ModelInfo {
+        ModelInfo(id: id, provider: provider, displayName: displayName, category: category)
+    }
 
     public init(model: ModelInfo, selectedModelID: String, isFavorite: Bool = false, badges: [String] = []) {
         self.id = model.id
@@ -2081,12 +2084,9 @@ public extension QuillCodeWorkspaceModel {
 
     private func modelLabel(for id: String) -> String {
         guard let model = root.modelCatalog.first(where: { $0.id == id }) else {
-            return id
+            return TrustedRouterDefaults.canonicalModelID(id)
         }
-        if model.provider == "trustedrouter" {
-            return model.id
-        }
-        return "\(model.provider)/\(model.displayName)"
+        return TrustedRouterDefaults.displayLabel(for: model)
     }
 
     private func modelCategories(selectedModelID: String) -> [ModelCategorySurface] {
@@ -2176,12 +2176,7 @@ public extension QuillCodeWorkspaceModel {
     }
 
     private static func fallbackModelInfo(for id: String) -> ModelInfo {
-        let parts = id.split(separator: "/", maxSplits: 1).map(String.init)
-        if parts.count == 2 {
-            let provider = TrustedRouterDefaults.canonicalProvider(parts[0])
-            return ModelInfo(id: id, provider: provider, displayName: parts[1], category: "Current")
-        }
-        return ModelInfo(id: id, provider: "custom", displayName: id, category: "Current")
+        TrustedRouterDefaults.fallbackModelInfo(for: id)
     }
 
     private static func sortModelCategories(_ lhs: ModelCategorySurface, _ rhs: ModelCategorySurface) -> Bool {
@@ -2203,15 +2198,7 @@ public extension QuillCodeWorkspaceModel {
     }
 
     private static func sortModelOptions(_ lhs: ModelOptionSurface, _ rhs: ModelOptionSurface) -> Bool {
-        TrustedRouterDefaults.modelSortKey(
-            id: lhs.id,
-            provider: lhs.provider,
-            displayName: lhs.displayName
-        ) < TrustedRouterDefaults.modelSortKey(
-            id: rhs.id,
-            provider: rhs.provider,
-            displayName: rhs.displayName
-        )
+        TrustedRouterDefaults.compareModels(lhs.modelInfo, rhs.modelInfo)
     }
 
     private func commands() -> [WorkspaceCommandSurface] {

@@ -13,6 +13,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
     public var sources: [ActivityItemSurface]
     public var artifacts: [ToolArtifactState]
     public var finalAnswer: String?
+    public var handoffSummary: String?
     public var sections: [ActivitySectionSurface]
 
     public init(
@@ -27,6 +28,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         sources: [ActivityItemSurface] = [],
         artifacts: [ToolArtifactState] = [],
         finalAnswer: String? = nil,
+        handoffSummary: String? = nil,
         collapsedSectionIDs: Set<ActivitySectionKind> = []
     ) {
         self.isVisible = isVisible
@@ -40,12 +42,14 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         self.sources = sources
         self.artifacts = artifacts
         self.finalAnswer = finalAnswer
+        self.handoffSummary = handoffSummary
         self.sections = Self.sections(
             recentSteps: recentSteps,
             tools: tools,
             sources: sources,
             artifacts: artifacts,
             finalAnswer: finalAnswer,
+            handoffSummary: handoffSummary,
             collapsedSectionIDs: collapsedSectionIDs
         )
     }
@@ -70,6 +74,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
 
         let sources = Self.sourceItems(instructions: instructions, memories: memories)
         let artifacts = Self.uniqueArtifacts(from: toolCards)
+        let finalAnswer = Self.finalAnswer(for: thread)
         self.init(
             isVisible: isVisible,
             title: "Activity",
@@ -81,7 +86,15 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
             tools: Self.toolItems(from: toolCards),
             sources: sources,
             artifacts: artifacts,
-            finalAnswer: Self.finalAnswer(for: thread),
+            finalAnswer: finalAnswer,
+            handoffSummary: Self.handoffSummary(
+                for: thread,
+                toolCards: toolCards,
+                sources: sources,
+                artifacts: artifacts,
+                finalAnswer: finalAnswer,
+                agentStatus: agentStatus
+            ),
             collapsedSectionIDs: collapsedSectionIDs
         )
     }
@@ -98,6 +111,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         case sources
         case artifacts
         case finalAnswer
+        case handoffSummary
         case sections
     }
 
@@ -115,6 +129,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         self.sources = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .sources) ?? []
         self.artifacts = try container.decodeIfPresent([ToolArtifactState].self, forKey: .artifacts) ?? []
         self.finalAnswer = try container.decodeIfPresent(String.self, forKey: .finalAnswer)
+        self.handoffSummary = try container.decodeIfPresent(String.self, forKey: .handoffSummary)
         self.sections = try container.decodeIfPresent([ActivitySectionSurface].self, forKey: .sections)
             ?? Self.sections(
                 recentSteps: recentSteps,
@@ -122,6 +137,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
                 sources: sources,
                 artifacts: artifacts,
                 finalAnswer: finalAnswer,
+                handoffSummary: handoffSummary,
                 collapsedSectionIDs: []
             )
     }
@@ -209,6 +225,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         sources: [ActivityItemSurface],
         artifacts: [ToolArtifactState],
         finalAnswer: String?,
+        handoffSummary: String?,
         collapsedSectionIDs: Set<ActivitySectionKind>
     ) -> [ActivitySectionSurface] {
         [
@@ -216,6 +233,11 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
                 kind: .recent,
                 items: recentSteps,
                 isCollapsed: collapsedSectionIDs.contains(.recent)
+            ),
+            ActivitySectionSurface(
+                kind: .handoff,
+                bodyText: handoffSummary,
+                isCollapsed: collapsedSectionIDs.contains(.handoff)
             ),
             ActivitySectionSurface(
                 kind: .tools,
@@ -245,6 +267,37 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
             return nil
         }
         return boundedLine(answer, limit: 280)
+    }
+
+    private static func handoffSummary(
+        for thread: ChatThread,
+        toolCards: [ToolCardState],
+        sources: [ActivityItemSurface],
+        artifacts: [ToolArtifactState],
+        finalAnswer: String?,
+        agentStatus: String
+    ) -> String {
+        let toolNames = toolCards.suffix(4).map(\.title)
+        let artifactLabels = artifacts.suffix(4).map(\.label)
+        var lines = [
+            "Thread: \(boundedLine(thread.title, limit: 80))",
+            "Latest request: \(taskTitle(for: thread))",
+            "Status: \(agentStatus)",
+            "Tools: \(summary(count: toolCards.count, singular: "tool", details: toolNames))",
+            "Sources: \(countLabel(sources.count, singular: "source"))",
+            "Artifacts: \(summary(count: artifacts.count, singular: "artifact", details: artifactLabels))"
+        ]
+        if let finalAnswer {
+            lines.append("Latest answer: \(boundedLine(finalAnswer, limit: 160))")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private static func summary(count: Int, singular: String, details: [String]) -> String {
+        guard count > 0 else { return "none" }
+        let countText = countLabel(count, singular: singular)
+        guard !details.isEmpty else { return countText }
+        return "\(countText) (\(details.joined(separator: ", ")))"
     }
 
     private static func sourceTitle(_ path: String) -> String {
@@ -314,6 +367,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
 
 public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterable {
     case recent
+    case handoff
     case tools
     case sources
     case artifacts
@@ -323,6 +377,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
         switch self {
         case .recent:
             return "Recent"
+        case .handoff:
+            return "Handoff Summary"
         case .tools:
             return "Tools"
         case .sources:
@@ -338,6 +394,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
         switch self {
         case .recent:
             return "No task events yet"
+        case .handoff:
+            return ""
         case .tools:
             return "No tools used yet"
         case .sources:
@@ -353,6 +411,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
         switch self {
         case .recent:
             return "activity-step"
+        case .handoff:
+            return "activity-handoff"
         case .tools:
             return "activity-tool"
         case .sources:
@@ -366,7 +426,7 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
 
     public var alwaysVisible: Bool {
         switch self {
-        case .latestAnswer:
+        case .handoff, .latestAnswer:
             return false
         case .recent, .tools, .sources, .artifacts:
             return true
@@ -393,6 +453,7 @@ public struct ActivitySectionSurface: Codable, Sendable, Hashable, Identifiable 
     }
     public var countLabel: String {
         if let bodyText, !bodyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if kind == .handoff { return "1 summary" }
             return "1 answer"
         }
         if !artifacts.isEmpty {
