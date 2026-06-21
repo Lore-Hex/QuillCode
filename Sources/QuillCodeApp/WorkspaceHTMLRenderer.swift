@@ -545,11 +545,14 @@ public enum WorkspaceHTMLRenderer {
     }
 
     private static func renderComposer(_ composer: ComposerSurface) -> String {
-        """
+        let button = composer.isSending
+            ? #"<button type="button" data-testid="stop-button">Stop</button>"#
+            : #"<button type="submit" data-testid="send-button" \#(composer.canSend ? "" : "disabled")>Send</button>"#
+        return """
         <form class="composer" data-testid="composer">
           <label for="message">Message</label>
           <input id="message" aria-label="Message" placeholder="\(escape(composer.placeholder))" value="\(escape(composer.draft))" \(composer.isSending ? "disabled" : "")>
-          <button type="submit" data-testid="send-button" \(composer.canSend ? "" : "disabled")>Send</button>
+          \(button)
         </form>
         """
     }

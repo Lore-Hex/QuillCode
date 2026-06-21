@@ -1637,6 +1637,33 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(cards[0].isExpanded)
     }
 
+    func testToolCardsRepresentStoppedActiveToolAsFailed() throws {
+        let call = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "sleep 10"])
+        )
+        let callJSON = try JSONHelpers.encodePretty(call)
+        let thread = ChatThread(events: [
+            ThreadEvent(kind: .toolQueued, summary: "queued", payloadJSON: callJSON),
+            ThreadEvent(kind: .toolRunning, summary: "running"),
+            ThreadEvent(
+                kind: .toolFailed,
+                summary: "Stopped by user",
+                payloadJSON: #"{"ok":false,"error":"Stopped by user"}"#
+            ),
+            ThreadEvent(kind: .notice, summary: "Stopped by user")
+        ])
+
+        let cards = QuillCodeWorkspaceModel.toolCards(for: thread)
+        let timeline = QuillCodeWorkspaceModel.transcriptTimelineItems(for: thread)
+
+        XCTAssertEqual(cards.count, 1)
+        XCTAssertEqual(cards[0].status, .failed)
+        XCTAssertEqual(cards[0].subtitle, "Failed")
+        XCTAssertEqual(cards[0].outputJSON, #"{"ok":false,"error":"Stopped by user"}"#)
+        XCTAssertEqual(timeline.compactMap(\.toolCard).first?.status, .failed)
+    }
+
     func testBootstrapLoadsConfigAndPersistedThreads() throws {
         let root = try makeTempDirectory()
         let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))

@@ -2126,6 +2126,14 @@ public final class QuillCodeWorkspaceModel {
                 thread.messages.append(ChatMessage(role: .user, content: userPrompt))
             }
             let summary = "Stopped by user"
+            if let lastEvent = thread.events.last,
+               lastEvent.kind == .toolQueued || lastEvent.kind == .toolRunning {
+                thread.events.append(.init(
+                    kind: .toolFailed,
+                    summary: summary,
+                    payloadJSON: #"{"ok":false,"error":"Stopped by user"}"#
+                ))
+            }
             if thread.events.last?.kind != .notice || thread.events.last?.summary != summary {
                 thread.events.append(.init(kind: .notice, summary: summary))
             }

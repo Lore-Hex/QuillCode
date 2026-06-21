@@ -908,6 +908,8 @@
     .composer {
       display: grid;
       grid-template-columns: 1fr auto;
+      align-items: center;
+      align-self: end;
       gap: 10px;
       padding: 14px;
       border-top: 1px solid rgba(255,255,255,.1);
@@ -967,6 +969,12 @@
       margin-top: 2px;
     }
     .composer label { position: absolute; width: 1px; height: 1px; clip: rect(0 0 0 0); overflow: hidden; }
+    .composer input {
+      min-height: 46px;
+    }
+    .composer button {
+      min-height: 46px;
+    }
     input {
       min-width: 0;
       padding: 13px 15px;
@@ -984,6 +992,10 @@
       color: #041018;
       font-weight: 700;
       font: inherit;
+    }
+    .stop-button {
+      background: rgba(255,91,82,.9);
+      color: white;
     }
     .model-option {
       padding: 10px;
@@ -1259,6 +1271,7 @@
       nextThreadIndex: 1,
       nextTimelineIndex: 1
     };
+    let activeMockRun = null;
 
     function escapeHTML(value) {
       return String(value)
@@ -2039,7 +2052,9 @@
               <form class="composer" data-testid="composer">
                 <label for="message">Message</label>
                 <input id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" value="${escapeHTML(state.composer.draft)}" ${state.composer.isSending ? 'disabled' : ''}>
-                <button type="submit" data-testid="send-button" ${state.composer.canSend ? '' : 'disabled'}>Send</button>
+                ${state.composer.isSending
+                  ? '<button type="button" class="stop-button" data-testid="stop-button">Stop</button>'
+                  : `<button type="submit" data-testid="send-button" ${state.composer.canSend ? '' : 'disabled'}>Send</button>`}
               </form>
             </main>
           </div>
@@ -2087,6 +2102,9 @@
       form.addEventListener('submit', event => {
         event.preventDefault();
         sendMessage(input.value);
+      });
+      document.querySelector('[data-testid="stop-button"]')?.addEventListener('click', () => {
+        runCommand('stop-all');
       });
       document.querySelectorAll('[data-testid="slash-suggestion"]').forEach(button => {
         button.addEventListener('click', event => {
@@ -3264,8 +3282,20 @@
         return;
       }
       if (commandID === 'stop-all') {
+        if (activeMockRun?.timer) {
+          window.clearTimeout(activeMockRun.timer);
+          activeMockRun = null;
+        }
         state.composer.isSending = false;
         state.terminal.isRunning = false;
+        state.transcript.toolCards
+          .filter(card => card.status === 'queued' || card.status === 'running')
+          .forEach(card => {
+            card.status = 'failed';
+            card.subtitle = 'Stopped';
+            card.outputJSON = JSON.stringify({ ok: false, error: 'Stopped by user' }, null, 2);
+            card.artifacts = [];
+          });
         state.extensions.items
           .filter(item => item.kind === 'mcp_server' && ['Ready', 'Running', 'Probing'].includes(item.statusLabel))
           .forEach(item => setMCPStatus(item.id, 'Stopped'));
@@ -3744,7 +3774,32 @@
       state.composer.slashActiveIndex = 0;
       state.runtimeIssue = null;
       addMessage('user', text);
-      if (text.toLowerCase().includes('trigger rate limit')) {
+      if (text.toLowerCase().includes('slow task')) {
+        state.composer.isSending = true;
+        state.topBar.agentStatus = 'Running';
+        const card = addToolCard({
+          title: 'host.shell.run',
+          subtitle: 'Running',
+          status: 'running',
+          inputJSON: JSON.stringify({ cmd: 'sleep 10 && whoami' }, null, 2),
+          outputJSON: null
+        });
+        const runID = crypto.randomUUID();
+        const timer = window.setTimeout(() => {
+          if (!activeMockRun || activeMockRun.id !== runID) return;
+          card.subtitle = 'Completed';
+          card.status = 'done';
+          card.outputJSON = JSON.stringify({ ok: true, stdout: 'mock-user\\n', stderr: '', exitCode: 0 }, null, 2);
+          card.artifacts = artifactsFromOutput(card.outputJSON);
+          activeMockRun = null;
+          state.composer.isSending = false;
+          state.topBar.agentStatus = 'Idle';
+          addMessage('assistant', 'Long-running task completed.');
+          syncSelectedThreadSearchText();
+          render();
+        }, 2000);
+        activeMockRun = { id: runID, timer };
+      } else if (text.toLowerCase().includes('trigger rate limit')) {
         state.topBar.agentStatus = 'Failed';
         const lastError = 'TrustedRouter request failed with HTTP 429: Rate limit exceeded. Retry-After: 120. x-ratelimit-remaining: 0';
         state.runtimeIssue = makeRuntimeIssue({

@@ -52,6 +52,32 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(transcriptItems.nth(2)).toContainText('You are `mock-user` in this workspace.');
 });
 
+test('mock harness stops an active composer run from the composer', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('slow task');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('agent-status')).toHaveText('Running');
+  await expect(page.getByTestId('stop-button')).toBeVisible();
+  await expect(page.getByTestId('send-button')).toHaveCount(0);
+  await expect(page.getByLabel('Message')).toBeDisabled();
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'running');
+
+  await page.getByTestId('stop-button').click();
+
+  await expect(page.getByTestId('agent-status')).toHaveText('Stopped');
+  await expect(page.getByTestId('stop-button')).toHaveCount(0);
+  await expect(page.getByTestId('send-button')).toBeDisabled();
+  await expect(page.getByLabel('Message')).toBeEnabled();
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'failed');
+  await expect(page.getByTestId('tool-card')).toContainText('Stopped');
+
+  await page.waitForTimeout(2200);
+  await expect(page.getByText('Long-running task completed.')).toHaveCount(0);
+  await expect(page.getByTestId('agent-status')).toHaveText('Stopped');
+});
+
 test('mock harness shows actionable TrustedRouter runtime issue', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

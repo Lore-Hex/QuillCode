@@ -185,7 +185,8 @@ public struct QuillCodeWorkspaceView: View {
                     QuillCodeComposerView(
                         composer: surface.composer,
                         draft: $draft,
-                        onSend: onSend
+                        onSend: onSend,
+                        onStop: stopActiveRun
                     )
                 }
             }
@@ -342,6 +343,19 @@ public struct QuillCodeWorkspaceView: View {
             worktreeSheet = .remove
         } else {
             onCommand(command)
+        }
+    }
+
+    private func stopActiveRun() {
+        if let command = surface.commands.first(where: { $0.id == "stop-all" }) {
+            onCommand(command)
+        } else {
+            onCommand(WorkspaceCommandSurface(
+                id: "stop-all",
+                title: "Stop all",
+                category: WorkspaceCommandPalette.controlCategory,
+                keywords: ["cancel", "abort", "halt"]
+            ))
         }
     }
 
@@ -2788,6 +2802,7 @@ private struct QuillCodeComposerView: View {
     var composer: ComposerSurface
     @Binding var draft: String
     var onSend: () -> Void
+    var onStop: () -> Void
 
     @State private var activeSlashSuggestionIndex = 0
 
@@ -2828,15 +2843,26 @@ private struct QuillCodeComposerView: View {
                         return .handled
                     }
                     .onSubmit(onSend)
-                Button {
-                    onSend()
-                } label: {
-                    Image(systemName: "arrow.up")
-                        .font(.headline)
-                        .frame(width: 36, height: 36)
+                if composer.isSending {
+                    Button(action: onStop) {
+                        Label("Stop", systemImage: "stop.fill")
+                            .font(.headline)
+                            .frame(minWidth: 78, minHeight: 36)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(QuillCodePalette.red)
+                    .keyboardShortcut(.cancelAction)
+                } else {
+                    Button {
+                        onSend()
+                    } label: {
+                        Image(systemName: "arrow.up")
+                            .font(.headline)
+                            .frame(width: 36, height: 36)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || composer.isSending)
             }
         }
         .padding(14)

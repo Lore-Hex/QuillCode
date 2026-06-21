@@ -819,6 +819,18 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(html.contains("<script>alert(1)</script>"))
     }
 
+    func testHTMLRendererShowsStopButtonDuringActiveSend() {
+        let model = QuillCodeWorkspaceModel(composer: ComposerState(isSending: true))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="stop-button""#))
+        XCTAssertTrue(html.contains(">Stop</button>"))
+        XCTAssertTrue(html.contains(#"id="message" aria-label="Message""#))
+        XCTAssertTrue(html.contains("disabled"))
+        XCTAssertFalse(html.contains(#"data-testid="send-button""#))
+    }
+
     func testHTMLRendererIncludesContextBanner() throws {
         let thread = ChatThread(title: "Long context", messages: [
             .init(role: .user, content: String(repeating: "token ", count: 26_000))
