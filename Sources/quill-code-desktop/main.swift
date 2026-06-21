@@ -50,6 +50,9 @@ struct QuillCodeDesktopApp: App {
                     NotificationCenter.default.post(name: .quillCodeStopAll, object: nil)
                 }
                 .quillCodeShortcut("stop-all")
+                Button("Retry Last Turn") {
+                    NotificationCenter.default.post(name: .quillCodeRetryLastTurn, object: nil)
+                }
             }
         }
         MenuBarExtra {
@@ -130,6 +133,9 @@ private struct QuillCodeDesktopRootView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeStopAll)) { _ in
             controller.stopAll()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .quillCodeRetryLastTurn)) { _ in
+            controller.retryLastTurn()
         }
         .fileImporter(
             isPresented: $controller.isProjectImporterPresented,
@@ -348,6 +354,17 @@ private final class QuillCodeDesktopController: ObservableObject {
         model.setDraft(prompt)
         draft = ""
         refresh()
+        submitPreparedComposer()
+    }
+
+    func retryLastTurn() {
+        guard sendTask == nil, model.prepareRetryLastUserTurn() else { return }
+        draft = ""
+        refresh()
+        submitPreparedComposer()
+    }
+
+    private func submitPreparedComposer() {
         let taskID = UUID()
         sendTaskID = taskID
         sendTask = Task { @MainActor in
@@ -378,6 +395,8 @@ private final class QuillCodeDesktopController: ObservableObject {
             openCommandPalette()
         case "stop-all":
             stopAll()
+        case "retry-last-turn":
+            retryLastTurn()
         default:
             if model.runWorkspaceCommand(command.id, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot) {
                 draft = model.composer.draft
@@ -578,6 +597,7 @@ private extension Notification.Name {
     static let quillCodeToggleMemories = Notification.Name("QuillCodeToggleMemories")
     static let quillCodeOpenSettings = Notification.Name("QuillCodeOpenSettings")
     static let quillCodeStopAll = Notification.Name("QuillCodeStopAll")
+    static let quillCodeRetryLastTurn = Notification.Name("QuillCodeRetryLastTurn")
 }
 
 private extension View {

@@ -114,11 +114,7 @@ public struct QuillCodeWorkspaceView: View {
                         runtimeIssue: surface.runtimeIssue,
                         review: surface.review,
                         onContextCommand: handleCommand,
-                        onRuntimeIssueAction: runtimeIssueOpensSettings(surface.runtimeIssue) ? {
-                            if let command = surface.commands.first(where: { $0.id == "settings" }) {
-                                handleCommand(command)
-                            }
-                        } : nil,
+                        onRuntimeIssueAction: runtimeIssueAction(for: surface.runtimeIssue),
                         onReviewAction: onReviewAction,
                         onAddReviewComment: onAddReviewComment
                     )
@@ -271,9 +267,25 @@ public struct QuillCodeWorkspaceView: View {
         }
     }
 
-    private func runtimeIssueOpensSettings(_ issue: RuntimeIssueSurface?) -> Bool {
-        guard let actionLabel = issue?.actionLabel else { return false }
-        return ["Open Settings", "Add key", "Fix key"].contains(actionLabel)
+    private func runtimeIssueAction(for issue: RuntimeIssueSurface?) -> (() -> Void)? {
+        guard let actionLabel = issue?.actionLabel else { return nil }
+        let commandID: String?
+        if ["Open Settings", "Add key", "Fix key"].contains(actionLabel) {
+            commandID = "settings"
+        } else if actionLabel == "Retry" {
+            commandID = "retry-last-turn"
+        } else {
+            commandID = nil
+        }
+        guard let commandID,
+              let command = surface.commands.first(where: { $0.id == commandID }),
+              command.isEnabled
+        else {
+            return nil
+        }
+        return {
+            handleCommand(command)
+        }
     }
 }
 

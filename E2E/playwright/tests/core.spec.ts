@@ -72,6 +72,25 @@ test('mock harness shows actionable TrustedRouter runtime issue', async ({ page 
   await expect(settingsPanel.getByTestId('runtime-issue-title')).toHaveText('TrustedRouter sign-in needed');
 });
 
+test('mock harness retries the last user turn from a runtime issue', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('trigger network failure');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('runtime-issue')).toBeVisible();
+  await expect(page.getByTestId('runtime-issue-title')).toHaveText('TrustedRouter network issue');
+  await expect(page.getByTestId('runtime-issue-action')).toHaveText('Retry');
+
+  await page.getByTestId('runtime-issue-action').click();
+
+  await expect(page.getByTestId('runtime-issue')).toHaveCount(0);
+  await expect(page.getByText('Retry completed after reconnecting to TrustedRouter.')).toBeVisible();
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.shell.run');
+  await expect(page.getByTestId('tool-card-input')).toContainText('whoami');
+  await expect(page.getByTestId('message').filter({ hasText: 'trigger network failure' })).toHaveCount(2);
+});
+
 test('mock harness surfaces file artifacts from tool cards', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

@@ -1327,6 +1327,44 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(issue.actionLabel, "Switch model")
     }
 
+    func testPrepareRetryLastUserTurnUsesLatestUserPromptAndClearsError() throws {
+        let thread = ChatThread(messages: [
+            ChatMessage(role: .user, content: "run whoami"),
+            ChatMessage(role: .assistant, content: "Network failed."),
+            ChatMessage(role: .user, content: "run pwd")
+        ])
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+        model.setAgentStatus("Failed", lastError: "Network is unreachable")
+
+        XCTAssertTrue(model.prepareRetryLastUserTurn())
+
+        XCTAssertEqual(model.composer.draft, "run pwd")
+        XCTAssertNil(model.lastError)
+        XCTAssertNil(model.surface().runtimeIssue)
+    }
+
+    func testRetryLastTurnCommandReflectsTranscriptAvailability() throws {
+        let emptyModel = QuillCodeWorkspaceModel()
+        let emptyRetry = try XCTUnwrap(emptyModel.surface().commands.first { $0.id == "retry-last-turn" })
+        XCTAssertFalse(emptyRetry.isEnabled)
+
+        let thread = ChatThread(messages: [
+            ChatMessage(role: .assistant, content: "I can help."),
+            ChatMessage(role: .user, content: "run whoami")
+        ])
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let retry = try XCTUnwrap(model.surface().commands.first { $0.id == "retry-last-turn" })
+        XCTAssertTrue(retry.isEnabled)
+        XCTAssertEqual(retry.category, WorkspaceCommandPalette.controlCategory)
+    }
+
     func testToolCardsRepresentSafetyReview() {
         let event = ThreadEvent(kind: .approvalRequested, summary: "clarify: needs target")
         let thread = ChatThread(events: [event])

@@ -45,6 +45,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.map(\.id), [
             "new-chat",
             "fork-from-last",
+            "retry-last-turn",
             "search",
             "add-project",
             "toggle-terminal",

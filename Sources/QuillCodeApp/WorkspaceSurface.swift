@@ -1475,6 +1475,13 @@ public extension QuillCodeWorkspaceModel {
                 isEnabled: selectedThread?.messages.isEmpty == false
             ),
             WorkspaceCommandSurface(
+                id: "retry-last-turn",
+                title: "Retry last turn",
+                category: WorkspaceCommandPalette.controlCategory,
+                keywords: ["retry", "rerun", "again", "failed"],
+                isEnabled: canRetryLastUserTurn
+            ),
+            WorkspaceCommandSurface(
                 id: "search",
                 title: "Search",
                 shortcut: WorkspaceShortcutRegistry.label(for: "search"),

@@ -858,6 +858,7 @@
         computerUseLabel: 'Computer Use setup needed'
       },
       runtimeIssue: null,
+      mockRuntimeFailureConsumed: false,
       projects: {
         title: 'Projects',
         selectedProjectID: 'project-main',
@@ -1018,6 +1019,7 @@
       commands: [
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
         { id: 'fork-from-last', title: 'Fork from last', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'continue'], isEnabled: false },
+        { id: 'retry-last-turn', title: 'Retry last turn', shortcut: '', category: 'Control', keywords: ['retry', 'rerun', 'again', 'failed'], isEnabled: false },
         { id: 'search', title: 'Search', shortcut: 'Cmd+K', category: 'Navigation', keywords: ['find', 'threads', 'chat'], isEnabled: true },
         { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', category: 'Workspace', keywords: ['folder', 'workspace', 'repo'], isEnabled: true },
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', category: 'Workspace', keywords: ['shell', 'command', 'pty'], isEnabled: true },
@@ -1247,9 +1249,11 @@
 
     function updateDynamicCommands() {
       const hasMessages = Boolean(state.sidebar.selectedThreadID && state.transcript.messages.length);
+      const hasUserMessages = state.transcript.messages.some(message => message.role === 'user' && String(message.text || '').trim());
       const hasActiveWork = state.composer.isSending || state.terminal.isRunning;
       state.commands = state.commands.map(command => (
         command.id === 'fork-from-last' ? { ...command, isEnabled: hasMessages } :
+        command.id === 'retry-last-turn' ? { ...command, isEnabled: hasUserMessages && !state.composer.isSending } :
         command.id === 'stop-all' ? { ...command, isEnabled: hasActiveWork } :
         command
       ));
@@ -1705,6 +1709,8 @@
             state.settings.isOpen = true;
             state.settings.replacementAPIKey = '';
             render();
+          } else if (label === 'Retry') {
+            retryLastUserTurn();
           }
         });
       });
@@ -2356,6 +2362,10 @@
         forkFromLast();
         return;
       }
+      if (commandID === 'retry-last-turn') {
+        retryLastUserTurn();
+        return;
+      }
       if (commandID === 'search') {
         state.search.isOpen = true;
         state.search.query = '';
@@ -2838,8 +2848,30 @@
       ensureThread(text.split(/\s+/).slice(0, 6).join(' '));
       state.composer.draft = '';
       state.composer.canSend = false;
+      state.runtimeIssue = null;
       addMessage('user', text);
-      if (text.toLowerCase().startsWith('/mode ')) {
+      if (text.toLowerCase().includes('trigger network failure')) {
+        if (!state.mockRuntimeFailureConsumed) {
+          state.mockRuntimeFailureConsumed = true;
+          state.topBar.agentStatus = 'Failed';
+          state.runtimeIssue = {
+            severity: 'error',
+            title: 'TrustedRouter network issue',
+            message: 'QuillCode could not reach https://api.trustedrouter.test/v1. Check the network or API base URL, then retry.',
+            actionLabel: 'Retry'
+          };
+        } else {
+          state.topBar.agentStatus = 'Idle';
+          addToolCard({
+            title: 'host.shell.run',
+            subtitle: 'Completed',
+            status: 'done',
+            inputJSON: JSON.stringify({ cmd: 'whoami' }, null, 2),
+            outputJSON: JSON.stringify({ ok: true, stdout: 'mock-user\\n' }, null, 2)
+          });
+          addMessage('assistant', 'Retry completed after reconnecting to TrustedRouter.');
+        }
+      } else if (text.toLowerCase().startsWith('/mode ')) {
         const requestedMode = text.split(/\s+/)[1]?.toLowerCase();
         const modeMap = { auto: 'Auto', review: 'Review', 'read-only': 'Read-only', readonly: 'Read-only' };
         const nextMode = modeMap[requestedMode] || null;
@@ -2960,6 +2992,14 @@
       }
       syncSelectedThreadSearchText();
       render();
+    }
+
+    function retryLastUserTurn() {
+      const lastUserMessage = [...state.transcript.messages]
+        .reverse()
+        .find(message => message.role === 'user' && String(message.text || '').trim());
+      if (!lastUserMessage) return;
+      sendMessage(lastUserMessage.text);
     }
 
     function addReviewComment(path, text) {

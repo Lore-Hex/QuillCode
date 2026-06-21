@@ -544,8 +544,28 @@ public final class QuillCodeWorkspaceModel {
         selectedThread.map(Self.toolCards(for:)) ?? []
     }
 
+    public var canRetryLastUserTurn: Bool {
+        guard composer.isSending == false else { return false }
+        return selectedThread?.messages.contains {
+            $0.role == .user && !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        } == true
+    }
+
     public func setDraft(_ draft: String) {
         composer.draft = draft
+    }
+
+    @discardableResult
+    public func prepareRetryLastUserTurn() -> Bool {
+        guard let lastUserMessage = selectedThread?.messages.last(where: {
+            $0.role == .user && !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }) else {
+            return false
+        }
+        composer.draft = lastUserMessage.content
+        lastError = nil
+        refreshTopBar(agentStatus: "Idle")
+        return true
     }
 
     public func setTerminalDraft(_ draft: String) {
@@ -1017,6 +1037,8 @@ public final class QuillCodeWorkspaceModel {
         case "memory-add":
             composer.draft = "/remember "
             return true
+        case "retry-last-turn":
+            return prepareRetryLastUserTurn()
         case "fork-from-last":
             return forkFromLast() != nil
         case "git-worktree-list":
