@@ -635,6 +635,25 @@ final class WorkspaceModelTests: XCTestCase {
         )
     }
 
+    func testTerminalCommandPersistsEnvironmentAcrossCommands() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+        _ = model.addProject(path: root, name: "Terminal Project")
+
+        await model.runTerminalCommand("export QUILL_TERMINAL_TEST=from-session", workspaceRoot: root)
+        await model.runTerminalCommand("printf '%s' \"$QUILL_TERMINAL_TEST\"", workspaceRoot: root)
+
+        XCTAssertEqual(model.terminal.entries.last?.stdout, "from-session")
+        XCTAssertEqual(model.terminal.environmentOverrides["QUILL_TERMINAL_TEST"], "from-session")
+        XCTAssertNil(model.terminal.environmentOverrides["SHLVL"])
+        XCTAssertNil(model.terminal.environmentOverrides["PWD"])
+
+        await model.runTerminalCommand("unset QUILL_TERMINAL_TEST", workspaceRoot: root)
+        await model.runTerminalCommand("printf '%s' \"${QUILL_TERMINAL_TEST:-missing}\"", workspaceRoot: root)
+
+        XCTAssertEqual(model.terminal.entries.last?.stdout, "missing")
+    }
+
     func testTerminalCurrentDirectoryResetsWhenProjectChanges() async throws {
         let firstRoot = try makeTempDirectory()
         let firstNested = firstRoot.appendingPathComponent("nested")
@@ -650,6 +669,22 @@ final class WorkspaceModelTests: XCTestCase {
 
         XCTAssertEqual(model.surface().terminal.cwdLabel, secondRoot.standardizedFileURL.path)
         XCTAssertEqual(model.terminal.currentDirectoryPath, secondRoot.standardizedFileURL.path)
+    }
+
+    func testTerminalEnvironmentResetsWhenProjectChanges() async throws {
+        let firstRoot = try makeTempDirectory()
+        let secondRoot = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+        _ = model.addProject(path: firstRoot, name: "First")
+
+        await model.runTerminalCommand("export QUILL_TERMINAL_TEST=from-first-project", workspaceRoot: firstRoot)
+        XCTAssertEqual(model.terminal.environmentOverrides["QUILL_TERMINAL_TEST"], "from-first-project")
+
+        _ = model.addProject(path: secondRoot, name: "Second")
+        await model.runTerminalCommand("printf '%s' \"${QUILL_TERMINAL_TEST:-missing}\"", workspaceRoot: secondRoot)
+
+        XCTAssertEqual(model.terminal.environmentOverrides["QUILL_TERMINAL_TEST"], nil)
+        XCTAssertEqual(model.terminal.entries.last?.stdout, "missing")
     }
 
     func testTerminalCancellationMarksRunningEntryStopped() async throws {

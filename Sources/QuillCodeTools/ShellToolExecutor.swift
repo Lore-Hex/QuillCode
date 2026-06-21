@@ -5,11 +5,18 @@ public struct ShellExecutionRequest: Sendable {
     public var command: String
     public var cwd: URL
     public var timeoutSeconds: TimeInterval
+    public var environment: [String: String]?
 
-    public init(command: String, cwd: URL, timeoutSeconds: TimeInterval = 30) {
+    public init(
+        command: String,
+        cwd: URL,
+        timeoutSeconds: TimeInterval = 30,
+        environment: [String: String]? = nil
+    ) {
         self.command = command
         self.cwd = cwd
         self.timeoutSeconds = timeoutSeconds
+        self.environment = environment
     }
 }
 
@@ -71,6 +78,7 @@ public struct ShellToolExecutor: Sendable {
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
         process.arguments = ["-lc", trimmed]
         process.currentDirectoryURL = request.cwd
+        process.environment = request.environment
 
         let stdout = Pipe()
         let stderr = Pipe()
@@ -164,6 +172,7 @@ private final class StreamingShellProcess: @unchecked Sendable {
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
         process.arguments = ["-lc", trimmed]
         process.currentDirectoryURL = request.cwd
+        process.environment = request.environment
 
         let standardOutput = Pipe()
         let standardError = Pipe()

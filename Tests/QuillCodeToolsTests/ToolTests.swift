@@ -21,6 +21,18 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(result.error?.contains("No shell command") == true)
     }
 
+    func testShellUsesExplicitEnvironment() {
+        var environment = ProcessInfo.processInfo.environment
+        environment["QUILL_CODE_TEST_ENV"] = "from-shell-request"
+        let result = ShellToolExecutor().run(.init(
+            command: "printf '%s' \"$QUILL_CODE_TEST_ENV\"",
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            environment: environment
+        ))
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(result.stdout, "from-shell-request")
+    }
+
     func testCancellableShellStopsLongRunningCommand() async throws {
         let task = Task {
             await ShellToolExecutor().runCancellable(.init(

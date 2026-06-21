@@ -290,6 +290,8 @@ public struct WorkspaceWorktreeRemoveRequest: Sendable, Hashable {
 public struct TerminalState: Sendable, Hashable {
     public var projectID: UUID?
     public var currentDirectoryPath: String?
+    public var environmentOverrides: [String: String]
+    public var removedEnvironmentKeys: Set<String>
     public var isVisible: Bool
     public var draft: String
     public var isRunning: Bool
@@ -298,6 +300,8 @@ public struct TerminalState: Sendable, Hashable {
     public init(
         projectID: UUID? = nil,
         currentDirectoryPath: String? = nil,
+        environmentOverrides: [String: String] = [:],
+        removedEnvironmentKeys: Set<String> = [],
         isVisible: Bool = false,
         draft: String = "",
         isRunning: Bool = false,
@@ -305,6 +309,8 @@ public struct TerminalState: Sendable, Hashable {
     ) {
         self.projectID = projectID
         self.currentDirectoryPath = currentDirectoryPath
+        self.environmentOverrides = environmentOverrides
+        self.removedEnvironmentKeys = removedEnvironmentKeys
         self.isVisible = isVisible
         self.draft = draft
         self.isRunning = isRunning
@@ -654,6 +660,8 @@ public final class QuillCodeWorkspaceModel {
         guard terminal.projectID != selectedProjectID else { return }
         terminal.projectID = selectedProjectID
         terminal.currentDirectoryPath = selectedProject.map(\.path)
+        terminal.environmentOverrides = [:]
+        terminal.removedEnvironmentKeys = []
     }
 
     public var currentToolCards: [ToolCardState] {
@@ -1833,7 +1841,11 @@ public final class QuillCodeWorkspaceModel {
         let workingDirectory = terminalCurrentDirectoryURL ?? workspaceRoot.standardizedFileURL
         let executionContext = Self.terminalExecutionContext(
             command: command,
-            workingDirectory: workingDirectory
+            workingDirectory: workingDirectory,
+            environment: Self.effectiveTerminalEnvironment(
+                overrides: terminal.environmentOverrides,
+                removedKeys: terminal.removedEnvironmentKeys
+            )
         )
 
         let entryID = UUID()
@@ -1868,13 +1880,13 @@ public final class QuillCodeWorkspaceModel {
         }
 
         if terminal.entries.first(where: { $0.id == entryID })?.status == .stopped {
-            Self.removeTerminalMarker(at: executionContext.cwdMarkerURL)
+            Self.removeTerminalMarkers(executionContext.markerURLs)
             terminal.isRunning = false
             refreshTopBar(agentStatus: "Stopped")
             return
         }
         guard !Task.isCancelled, let result = finalResult else {
-            Self.removeTerminalMarker(at: executionContext.cwdMarkerURL)
+            Self.removeTerminalMarkers(executionContext.markerURLs)
             finishTerminalEntry(
                 id: entryID,
                 stdout: "",
@@ -1893,6 +1905,10 @@ public final class QuillCodeWorkspaceModel {
             markerURL: executionContext.cwdMarkerURL,
             fallback: workingDirectory
         )
+        if let environmentDelta = Self.terminalEnvironmentDelta(markerURL: executionContext.environmentMarkerURL) {
+            terminal.environmentOverrides = environmentDelta.overrides
+            terminal.removedEnvironmentKeys = environmentDelta.removedKeys
+        }
         finishTerminalEntry(
             id: entryID,
             stdout: result.stdout,
@@ -1917,24 +1933,39 @@ public final class QuillCodeWorkspaceModel {
     private struct TerminalExecutionContext {
         var request: ShellExecutionRequest
         var cwdMarkerURL: URL
+        var environmentMarkerURL: URL
+
+        var markerURLs: [URL] {
+            [cwdMarkerURL, environmentMarkerURL]
+        }
     }
 
     private static func terminalExecutionContext(
         command: String,
-        workingDirectory: URL
+        workingDirectory: URL,
+        environment: [String: String]
     ) -> TerminalExecutionContext {
-        let markerURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("quillcode-terminal-\(UUID().uuidString).cwd")
-        let markerPath = shellSingleQuoted(markerURL.path)
+        let markerID = UUID().uuidString
+        let markerDirectory = FileManager.default.temporaryDirectory
+        let cwdMarkerURL = markerDirectory.appendingPathComponent("quillcode-terminal-\(markerID).cwd")
+        let environmentMarkerURL = markerDirectory.appendingPathComponent("quillcode-terminal-\(markerID).env")
+        let cwdMarkerPath = shellSingleQuoted(cwdMarkerURL.path)
+        let environmentMarkerPath = shellSingleQuoted(environmentMarkerURL.path)
         let wrappedCommand = """
         \(command)
         status=$?
-        printf '%s\n' "$PWD" > \(markerPath)
+        printf '%s\n' "$PWD" > \(cwdMarkerPath)
+        /usr/bin/env -0 > \(environmentMarkerPath)
         exit "$status"
         """
         return TerminalExecutionContext(
-            request: ShellExecutionRequest(command: wrappedCommand, cwd: workingDirectory),
-            cwdMarkerURL: markerURL
+            request: ShellExecutionRequest(
+                command: wrappedCommand,
+                cwd: workingDirectory,
+                environment: environment
+            ),
+            cwdMarkerURL: cwdMarkerURL,
+            environmentMarkerURL: environmentMarkerURL
         )
     }
 
@@ -1948,6 +1979,70 @@ public final class QuillCodeWorkspaceModel {
             return fallback.standardizedFileURL.path
         }
         return URL(fileURLWithPath: path).standardizedFileURL.path
+    }
+
+    private struct TerminalEnvironmentDelta {
+        var overrides: [String: String]
+        var removedKeys: Set<String>
+    }
+
+    private static let ignoredTerminalEnvironmentDeltaKeys: Set<String> = [
+        "PWD",
+        "OLDPWD",
+        "SHLVL",
+        "_"
+    ]
+
+    private static func effectiveTerminalEnvironment(
+        overrides: [String: String],
+        removedKeys: Set<String>
+    ) -> [String: String] {
+        var environment = ProcessInfo.processInfo.environment
+        for key in removedKeys {
+            environment.removeValue(forKey: key)
+        }
+        for (key, value) in overrides {
+            environment[key] = value
+        }
+        return environment
+    }
+
+    private static func terminalEnvironmentDelta(markerURL: URL) -> TerminalEnvironmentDelta? {
+        defer { removeTerminalMarker(at: markerURL) }
+        guard let data = try? Data(contentsOf: markerURL) else {
+            return nil
+        }
+        let finalEnvironment = terminalEnvironment(from: data)
+        let baseEnvironment = ProcessInfo.processInfo.environment
+        var overrides: [String: String] = [:]
+        for (key, value) in finalEnvironment
+            where baseEnvironment[key] != value
+                && !ignoredTerminalEnvironmentDeltaKeys.contains(key) {
+            overrides[key] = value
+        }
+        let removedKeys = Set(baseEnvironment.keys.filter {
+            finalEnvironment[$0] == nil && !ignoredTerminalEnvironmentDeltaKeys.contains($0)
+        })
+        return TerminalEnvironmentDelta(overrides: overrides, removedKeys: removedKeys)
+    }
+
+    private static func terminalEnvironment(from data: Data) -> [String: String] {
+        var environment: [String: String] = [:]
+        for entry in data.split(separator: 0, omittingEmptySubsequences: true) {
+            let text = String(decoding: entry, as: UTF8.self)
+            guard let equalsIndex = text.firstIndex(of: "=") else { continue }
+            let key = String(text[..<equalsIndex])
+            let value = String(text[text.index(after: equalsIndex)...])
+            guard !key.isEmpty else { continue }
+            environment[key] = value
+        }
+        return environment
+    }
+
+    private static func removeTerminalMarkers(_ urls: [URL]) {
+        for url in urls {
+            removeTerminalMarker(at: url)
+        }
     }
 
     private static func removeTerminalMarker(at url: URL) {

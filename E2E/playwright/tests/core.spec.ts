@@ -733,6 +733,19 @@ test('mock harness runs a command in the integrated terminal', async ({ page }) 
   await page.getByTestId('terminal-run').click();
   await expect(page.getByTestId('terminal-stdout').last()).toContainText('/mock/QuillCode/Packages');
 
+  await page.getByLabel('Terminal command').fill('export QUILL_TERMINAL_TEST=from-harness');
+  await page.getByTestId('terminal-run').click();
+  await expect(page.getByTestId('terminal-status').last()).toHaveText('Done · exit 0');
+  await page.getByLabel('Terminal command').fill('printf \'%s\' "$QUILL_TERMINAL_TEST"');
+  await page.getByTestId('terminal-run').click();
+  await expect(page.getByTestId('terminal-stdout').last()).toHaveText('from-harness');
+  await page.getByLabel('Terminal command').fill('unset QUILL_TERMINAL_TEST');
+  await page.getByTestId('terminal-run').click();
+  await expect(page.getByTestId('terminal-status').last()).toHaveText('Done · exit 0');
+  await page.getByLabel('Terminal command').fill('printf \'%s\' "${QUILL_TERMINAL_TEST:-missing}"');
+  await page.getByTestId('terminal-run').click();
+  await expect(page.getByTestId('terminal-stdout').last()).toHaveText('missing');
+
   await page.getByLabel('Terminal command').fill('sleep 5');
   await page.getByTestId('terminal-run').click();
   await expect(page.getByTestId('terminal-status').last()).toHaveText('Running · running');

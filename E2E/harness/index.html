@@ -1372,6 +1372,7 @@
         draft: '',
         isRunning: false,
         cwdLabel: '/mock/QuillCode',
+        environment: {},
         entries: []
       },
       browser: {
@@ -3435,6 +3436,7 @@
         ...state.projects.items.map(item => ({ ...item, isSelected: false }))
       ];
       state.terminal.cwdLabel = project.path;
+      state.terminal.environment = {};
       state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
       render();
     }
@@ -3447,6 +3449,7 @@
       }));
       const project = state.projects.items.find(project => project.id === projectID);
       state.terminal.cwdLabel = project?.path || 'No project';
+      state.terminal.environment = {};
       state.topBar.subtitle = `${project?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
       render();
     }
@@ -3782,13 +3785,15 @@
         if (activeTerminalRun?.entry !== entry || terminalStatus(entry) !== 'running') {
           return;
         }
-        const output = terminalOutput(command, cwd);
+        const environment = { ...state.terminal.environment };
+        const output = terminalOutput(command, cwd, environment);
         entry.stdout = output.stdout;
         entry.stderr = output.stderr;
         entry.exitCode = output.exitCode;
         entry.ok = output.exitCode === 0;
         entry.status = entry.ok ? 'done' : 'failed';
         state.terminal.cwdLabel = output.cwd || cwd;
+        state.terminal.environment = output.environment || environment;
         state.terminal.isRunning = false;
         activeTerminalRun = null;
         updateDynamicCommands();
@@ -3797,27 +3802,55 @@
       activeTerminalRun = { entry, timer };
     }
 
-    function terminalOutput(command, cwd) {
+    function terminalOutput(command, cwd, environment) {
       if (command === 'stream-demo') {
-        return { stdout: 'stream-start\nstream-end\n', stderr: '', exitCode: 0, cwd };
+        return { stdout: 'stream-start\nstream-end\n', stderr: '', exitCode: 0, cwd, environment };
       }
       if (command === 'pwd') {
-        return { stdout: cwd + '\n', stderr: '', exitCode: 0, cwd };
+        return { stdout: cwd + '\n', stderr: '', exitCode: 0, cwd, environment };
       }
       if (/^cd(?:\s+|$)/.test(command)) {
         const target = command.replace(/^cd\s*/, '').trim() || '/mock/QuillCode';
-        return { stdout: '', stderr: '', exitCode: 0, cwd: normalizeMockTerminalPath(cwd, target) };
+        return { stdout: '', stderr: '', exitCode: 0, cwd: normalizeMockTerminalPath(cwd, target), environment };
+      }
+      if (/^export\s+[A-Za-z_][A-Za-z0-9_]*=/.test(command)) {
+        const assignment = command.replace(/^export\s+/, '');
+        const equalsIndex = assignment.indexOf('=');
+        const key = assignment.slice(0, equalsIndex);
+        const value = unquoteShellValue(assignment.slice(equalsIndex + 1));
+        environment[key] = value;
+        return { stdout: '', stderr: '', exitCode: 0, cwd, environment };
+      }
+      if (/^unset\s+[A-Za-z_][A-Za-z0-9_]*$/.test(command)) {
+        const key = command.replace(/^unset\s+/, '');
+        delete environment[key];
+        return { stdout: '', stderr: '', exitCode: 0, cwd, environment };
+      }
+      const printfVariable = command.match(/^printf\s+'%s'\s+"?\$([A-Za-z_][A-Za-z0-9_]*)"?$/);
+      if (printfVariable) {
+        return { stdout: environment[printfVariable[1]] || '', stderr: '', exitCode: 0, cwd, environment };
+      }
+      const printfFallback = command.match(/^printf\s+'%s'\s+"\$\{([A-Za-z_][A-Za-z0-9_]*):-(.*)\}"$/);
+      if (printfFallback) {
+        return { stdout: environment[printfFallback[1]] || printfFallback[2], stderr: '', exitCode: 0, cwd, environment };
       }
       if (command === 'whoami') {
-        return { stdout: 'mock-user\n', stderr: '', exitCode: 0, cwd };
+        return { stdout: 'mock-user\n', stderr: '', exitCode: 0, cwd, environment };
       }
       if (command.startsWith('printf ')) {
-        return { stdout: command.replace(/^printf\\s+/, ''), stderr: '', exitCode: 0, cwd };
+        return { stdout: command.replace(/^printf\\s+/, ''), stderr: '', exitCode: 0, cwd, environment };
       }
       if (command === 'false') {
-        return { stdout: '', stderr: '', exitCode: 1, cwd };
+        return { stdout: '', stderr: '', exitCode: 1, cwd, environment };
       }
-      return { stdout: 'ran: ' + command + '\n', stderr: '', exitCode: 0, cwd };
+      return { stdout: 'ran: ' + command + '\n', stderr: '', exitCode: 0, cwd, environment };
+    }
+
+    function unquoteShellValue(value) {
+      if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'))) {
+        return value.slice(1, -1);
+      }
+      return value;
     }
 
     function normalizeMockTerminalPath(cwd, target) {
@@ -4062,6 +4095,7 @@
         files: []
       };
       state.terminal.cwdLabel = path;
+      state.terminal.environment = {};
       state.topBar.primaryTitle = title;
       state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
       addMessage('assistant', `Opened worktree ${values.path} at ${path}.`);
