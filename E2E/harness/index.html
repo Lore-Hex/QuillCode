@@ -202,28 +202,41 @@
       border: 1px solid transparent;
       border-radius: 12px;
     }
+    .sidebar-item {
+      min-height: 60px;
+      padding-right: 88px;
+    }
     .sidebar-item.selected,
     .project-item.selected { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.14); }
     .sidebar-item small,
     .project-item small { color: var(--muted); }
     .sidebar-thread-row {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 6px;
-      align-items: start;
+      position: relative;
+      display: block;
+      margin-bottom: 8px;
     }
     .sidebar-thread-actions {
+      position: absolute;
+      top: 8px;
+      right: 8px;
       display: flex;
       gap: 4px;
+      opacity: .22;
+      transition: opacity .15s ease;
+    }
+    .sidebar-thread-row:hover .sidebar-thread-actions,
+    .sidebar-thread-row:focus-within .sidebar-thread-actions {
+      opacity: 1;
     }
     .sidebar-thread-actions button {
-      min-width: 30px;
-      height: 30px;
+      min-width: 0;
+      height: 24px;
+      padding: 0 7px;
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,.12);
       color: var(--blue);
       background: rgba(65,184,232,.12);
-      font-size: 12px;
+      font-size: 10px;
       font-weight: 700;
     }
     .transcript { display: grid; grid-template-rows: 1fr auto; overflow: hidden; }
@@ -1908,10 +1921,56 @@
         inputJSON: JSON.stringify(args, null, 2),
         outputJSON: JSON.stringify({ ok: true, stdout: `Preparing worktree (new branch '${values.branch || 'git-default'}')\\n`, artifacts: [`/mock/${values.path}`] }, null, 2)
       });
-      addMessage('assistant', `Created worktree ${values.path}.`);
       state.worktreeDialog.mode = null;
       syncSelectedThreadSearchText();
+      openCreatedWorktree(values);
       render();
+    }
+
+    function openCreatedWorktree(values) {
+      const path = `/mock/${values.path}`;
+      const existing = state.projects.items.find(project => project.path === path);
+      const project = existing || {
+        id: `project-${state.nextProjectIndex++}`,
+        name: values.path,
+        path,
+        isSelected: true
+      };
+      state.projects.selectedProjectID = project.id;
+      state.projects.items = [
+        { ...project, isSelected: true },
+        ...state.projects.items
+          .filter(item => item.id !== project.id)
+          .map(item => ({ ...item, isSelected: false }))
+      ];
+
+      const title = `Worktree: ${values.branch || values.path}`;
+      const threadID = `thread-${state.nextThreadIndex++}`;
+      state.sidebar.selectedThreadID = threadID;
+      state.sidebar.items = [{
+        id: threadID,
+        title,
+        subtitle: state.topBar.modelLabel,
+        searchText: '',
+        isSelected: true,
+        isPinned: false
+      }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
+      state.transcript.messages = [];
+      state.transcript.toolCards = [];
+      state.transcript.timelineItems = [];
+      state.review = {
+        title: 'Review changes',
+        subtitle: 'Latest git diff',
+        totalInsertions: 0,
+        totalDeletions: 0,
+        totalHunks: 0,
+        files: []
+      };
+      state.terminal.cwdLabel = path;
+      state.topBar.primaryTitle = title;
+      state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+      addMessage('assistant', `Opened worktree ${values.path} at ${path}.`);
+      syncSelectedThreadSearchText();
     }
 
     function removeWorktree(values) {

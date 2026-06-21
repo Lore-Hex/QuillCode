@@ -715,13 +715,16 @@ public final class QuillCodeWorkspaceModel {
         if !base.isEmpty {
             arguments["base"] = base
         }
-        runToolCall(
+        let result = runToolCall(
             ToolCall(
                 name: ToolDefinition.gitWorktreeCreate.name,
                 argumentsJSON: toolArgumentsJSON(arguments)
             ),
             workspaceRoot: workspaceRoot
         )
+        if result.ok {
+            openCreatedWorktree(result, request: request)
+        }
     }
 
     public func removeWorktree(_ request: WorkspaceWorktreeRemoveRequest, workspaceRoot: URL) {
@@ -737,9 +740,13 @@ public final class QuillCodeWorkspaceModel {
         )
     }
 
-    public func runToolCall(_ call: ToolCall, workspaceRoot: URL) {
+    @discardableResult
+    public func runToolCall(_ call: ToolCall, workspaceRoot: URL) -> ToolResult {
         if selectedThread == nil {
             _ = newChat()
+        }
+        guard selectedThread != nil else {
+            return ToolResult(ok: false, error: "No active thread")
         }
         refreshProjectInstructions(root.selectedProjectID)
         lastError = nil
@@ -759,6 +766,7 @@ public final class QuillCodeWorkspaceModel {
         }
         let ok = result.ok && (followUpResult?.ok ?? true)
         refreshTopBar(agentStatus: ok ? "Idle" : "Failed")
+        return result
     }
 
     public func runTerminalCommand(workspaceRoot: URL) async {
@@ -976,6 +984,51 @@ public final class QuillCodeWorkspaceModel {
                 payloadJSON: resultJSON
             ))
         }
+    }
+
+    private func openCreatedWorktree(_ result: ToolResult, request: WorkspaceWorktreeCreateRequest) {
+        guard let artifact = result.artifacts.first else { return }
+        let worktreeURL = URL(fileURLWithPath: artifact).standardizedFileURL
+        guard FileManager.default.fileExists(atPath: worktreeURL.path) else { return }
+
+        let projectID = addProject(path: worktreeURL, name: Self.defaultProjectName(for: worktreeURL))
+        refreshProjectMetadata(projectID)
+
+        let titleLabel = Self.worktreeThreadLabel(request: request, url: worktreeURL)
+        let messageText = "Opened worktree `\(worktreeURL.lastPathComponent)` at `\(worktreeURL.path)`."
+        let message = ChatMessage(role: .assistant, content: messageText)
+        let thread = ChatThread(
+            title: "Worktree: \(titleLabel)",
+            projectID: projectID,
+            mode: root.config.mode,
+            model: root.config.defaultModel,
+            messages: [message],
+            events: [
+                .init(
+                    kind: .notice,
+                    summary: "Opened worktree \(worktreeURL.lastPathComponent)",
+                    payloadJSON: worktreeURL.path
+                ),
+                .init(kind: .message, summary: messageText)
+            ],
+            instructions: instructions(for: projectID)
+        )
+
+        root.threads.insert(thread, at: 0)
+        root.selectedThreadID = thread.id
+        root.selectedProjectID = projectID
+        touchProject(projectID)
+        saveProjects()
+        try? threadStore?.save(thread)
+        refreshTopBar(agentStatus: "Idle")
+    }
+
+    private static func worktreeThreadLabel(request: WorkspaceWorktreeCreateRequest, url: URL) -> String {
+        let branch = request.branch.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !branch.isEmpty {
+            return branch
+        }
+        return defaultProjectName(for: url)
     }
 
     @discardableResult

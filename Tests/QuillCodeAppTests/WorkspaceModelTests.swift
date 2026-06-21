@@ -374,7 +374,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.composer.draft, "Remove git worktree at ")
     }
 
-    func testWorkspaceCreateAndRemoveWorktreeActionsRecordToolCards() throws {
+    func testWorkspaceCreateWorktreeOpensFocusedThreadAndKeepsToolAudit() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let parent = root.deletingLastPathComponent()
         let worktreeName = "quillcode-ui-\(UUID().uuidString)"
@@ -387,9 +387,23 @@ final class WorkspaceModelTests: XCTestCase {
         model.createWorktree(.init(path: worktreeName, branch: String(branch)), workspaceRoot: root)
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: worktree.path))
-        XCTAssertEqual(model.currentToolCards.last?.title, "host.git.worktree.create")
-        XCTAssertEqual(model.currentToolCards.last?.status, .done)
-        XCTAssertTrue(model.currentToolCards.last?.inputJSON?.contains(worktreeName) == true)
+        XCTAssertEqual(model.selectedProject?.path, worktree.path)
+        XCTAssertEqual(model.selectedProject?.name, worktreeName)
+        XCTAssertEqual(model.selectedThread?.projectID, model.selectedProject?.id)
+        XCTAssertEqual(model.selectedThread?.title, "Worktree: \(branch)")
+        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("Opened worktree `\(worktreeName)`") == true)
+        XCTAssertEqual(model.root.topBar.projectName, worktreeName)
+        XCTAssertEqual(model.root.topBar.threadTitle, "Worktree: \(branch)")
+
+        let createThread = try XCTUnwrap(model.root.threads.first { thread in
+            QuillCodeWorkspaceModel.toolCards(for: thread).contains { card in
+                card.title == "host.git.worktree.create"
+            }
+        })
+        XCTAssertNotEqual(createThread.id, model.selectedThread?.id)
+        let createCard = try XCTUnwrap(QuillCodeWorkspaceModel.toolCards(for: createThread).last)
+        XCTAssertEqual(createCard.status, .done)
+        XCTAssertTrue(createCard.inputJSON?.contains(worktreeName) == true)
 
         model.removeWorktree(.init(path: worktreeName), workspaceRoot: root)
 

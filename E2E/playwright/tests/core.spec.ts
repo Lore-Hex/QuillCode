@@ -235,9 +235,12 @@ test('mock harness creates and removes worktrees from dialogs', async ({ page })
   await page.getByTestId('worktree-create-submit').click();
 
   await expect(page.getByTestId('worktree-create-panel')).toHaveCount(0);
-  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.worktree.create');
-  await expect(page.getByTestId('tool-card-input').last()).toContainText('feature/quillcode');
-  await expect(page.getByTestId('message').last()).toContainText('Created worktree quillcode-feature.');
+  await expect(page.getByTestId('project-item').first()).toContainText('quillcode-feature');
+  await expect(page.getByTestId('project-item').first()).toContainText('/mock/quillcode-feature');
+  await expect(page.getByTestId('top-bar-title')).toHaveText('Worktree: feature/quillcode');
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('quillcode-feature - Auto - trustedrouter/fusion');
+  await expect(page.getByTestId('sidebar-item').first()).toContainText('Worktree: feature/quillcode');
+  await expect(page.getByTestId('message').last()).toContainText('Opened worktree quillcode-feature at /mock/quillcode-feature.');
 
   await page.getByTestId('command-palette-button').click();
   await page.getByLabel('Search commands').fill('remove worktree');
