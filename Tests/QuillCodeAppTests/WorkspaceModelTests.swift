@@ -1346,6 +1346,35 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(issue.actionLabel, "Switch model")
     }
 
+    func testRuntimeIssueNormalizesTrustedRouterRateLimit() throws {
+        let config = AppConfig(
+            defaultModel: "trustedrouter/fusion",
+            apiBaseURL: "https://api.trustedrouter.test/v1"
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            config: config,
+            topBar: TopBarState(model: "trustedrouter/fusion"),
+            trustedRouterAPIKeyConfigured: true
+        ))
+
+        model.setAgentStatus(
+            "Failed",
+            lastError: "TrustedRouter request failed with HTTP 429: Rate limit exceeded. Retry-After: 120. x-ratelimit-remaining: 0"
+        )
+
+        let issue = try XCTUnwrap(model.surface().runtimeIssue)
+        XCTAssertEqual(issue.severity, .warning)
+        XCTAssertEqual(issue.title, "TrustedRouter rate limit reached")
+        XCTAssertEqual(issue.actionLabel, "Switch model")
+        XCTAssertTrue(issue.message.contains("switch models"))
+
+        let diagnostics = Dictionary(uniqueKeysWithValues: issue.diagnostics.map { ($0.label, $0.value) })
+        XCTAssertEqual(diagnostics["Provider status"], "Rate limited")
+        XCTAssertEqual(diagnostics["Retry after"], "120s")
+        XCTAssertEqual(diagnostics["Rate limit remaining"], "0")
+        XCTAssertEqual(diagnostics["Last error"], "TrustedRouter request failed with HTTP 429: Rate limit exceeded. Retry-After: 120. x-ratelimit-remaining: 0")
+    }
+
     func testRuntimeIssueIncludesRedactedDiagnostics() throws {
         let config = AppConfig(
             defaultModel: "z-ai/glm-5.2",

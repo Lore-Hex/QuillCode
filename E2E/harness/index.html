@@ -1152,6 +1152,30 @@
         .slice(0, 260);
     }
 
+    function isRateLimitError(error) {
+      const normalized = String(error).toLowerCase();
+      return normalized.includes('429')
+        || normalized.includes('rate limit')
+        || normalized.includes('ratelimit')
+        || normalized.includes('quota exceeded')
+        || normalized.includes('usage limit')
+        || normalized.includes('too many requests');
+    }
+
+    function rateLimitDiagnostics(error) {
+      if (!isRateLimitError(error)) return [];
+      const diagnostics = [{ label: 'Provider status', value: 'Rate limited' }];
+      const retryAfter = String(error).match(/\bretry[- ]after\b\s*[:=]?\s*([0-9]+)\s*(?:s|sec|secs|second|seconds)?/i);
+      if (retryAfter) {
+        diagnostics.push({ label: 'Retry after', value: `${retryAfter[1]}s` });
+      }
+      const remaining = String(error).match(/\bx[-_]?ratelimit[-_]?remaining\b\s*[:=]?\s*([0-9]+)/i);
+      if (remaining) {
+        diagnostics.push({ label: 'Rate limit remaining', value: remaining[1] });
+      }
+      return diagnostics;
+    }
+
     function runtimeDiagnostics(lastError = null) {
       const diagnostics = [
         { label: 'API base URL', value: state.settings.apiBaseURL },
@@ -1161,6 +1185,7 @@
         { label: 'Agent status', value: state.topBar.agentStatus }
       ];
       if (lastError) {
+        diagnostics.push(...rateLimitDiagnostics(lastError));
         diagnostics.push({ label: 'Last error', value: redactedDiagnosticError(lastError) });
       }
       return diagnostics;
@@ -3046,7 +3071,16 @@
       state.composer.canSend = false;
       state.runtimeIssue = null;
       addMessage('user', text);
-      if (text.toLowerCase().includes('trigger network failure')) {
+      if (text.toLowerCase().includes('trigger rate limit')) {
+        state.topBar.agentStatus = 'Failed';
+        const lastError = 'TrustedRouter request failed with HTTP 429: Rate limit exceeded. Retry-After: 120. x-ratelimit-remaining: 0';
+        state.runtimeIssue = makeRuntimeIssue({
+          severity: 'warning',
+          title: 'TrustedRouter rate limit reached',
+          message: 'TrustedRouter or the selected provider is rate limiting this request. Wait for reset, retry later, or switch models.',
+          actionLabel: 'Switch model'
+        }, lastError);
+      } else if (text.toLowerCase().includes('trigger network failure')) {
         if (!state.mockRuntimeFailureConsumed) {
           state.mockRuntimeFailureConsumed = true;
           state.topBar.agentStatus = 'Failed';

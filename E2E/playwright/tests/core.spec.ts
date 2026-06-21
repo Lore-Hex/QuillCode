@@ -133,6 +133,29 @@ test('mock harness opens model picker from malformed model issue', async ({ page
   await expect(page.getByTestId('model-option')).toContainText('trustedrouter/fusion');
 });
 
+test('mock harness surfaces rate limits with model-switch recovery and diagnostics', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('trigger rate limit');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('runtime-issue')).toBeVisible();
+  await expect(page.getByTestId('runtime-issue')).toHaveAttribute('data-severity', 'warning');
+  await expect(page.getByTestId('runtime-issue-title')).toHaveText('TrustedRouter rate limit reached');
+  await expect(page.getByTestId('runtime-issue-message')).toContainText('switch models');
+  await expect(page.getByTestId('runtime-issue-action')).toHaveText('Switch model');
+
+  await page.getByTestId('runtime-issue-action').click();
+  await expect(page.getByTestId('model-browser')).toBeVisible();
+  await expect(page.getByTestId('model-search')).toBeFocused();
+
+  await page.getByTestId('settings-button').click();
+  const settingsPanel = page.getByTestId('settings-panel');
+  await expect(settingsPanel.getByTestId('runtime-diagnostic').filter({ hasText: 'Provider status' })).toContainText('Rate limited');
+  await expect(settingsPanel.getByTestId('runtime-diagnostic').filter({ hasText: 'Retry after' })).toContainText('120s');
+  await expect(settingsPanel.getByTestId('runtime-diagnostic').filter({ hasText: 'Rate limit remaining' })).toContainText('0');
+});
+
 test('mock harness surfaces file artifacts from tool cards', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

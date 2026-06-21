@@ -1396,9 +1396,43 @@ public extension QuillCodeWorkspaceModel {
             RuntimeDiagnosticSurface(label: "Agent status", value: root.topBar.agentStatus)
         ]
         if let lastError {
+            diagnostics.append(contentsOf: Self.rateLimitDiagnostics(from: lastError))
             diagnostics.append(RuntimeDiagnosticSurface(label: "Last error", value: Self.redactedDiagnosticError(lastError)))
         }
         return diagnostics
+    }
+
+    private static func rateLimitDiagnostics(from error: String) -> [RuntimeDiagnosticSurface] {
+        let normalized = error.lowercased()
+        guard isRateLimitError(normalized) else { return [] }
+        var diagnostics = [
+            RuntimeDiagnosticSurface(label: "Provider status", value: "Rate limited")
+        ]
+        if let retryAfter = firstCapture(
+            in: error,
+            pattern: #"(?i)\bretry[- ]after\b\s*[:=]?\s*([0-9]+)\s*(?:s|sec|secs|second|seconds)?"#
+        ) {
+            diagnostics.append(RuntimeDiagnosticSurface(label: "Retry after", value: "\(retryAfter)s"))
+        }
+        if let remaining = firstCapture(
+            in: error,
+            pattern: #"(?i)\bx[-_]?ratelimit[-_]?remaining\b\s*[:=]?\s*([0-9]+)"#
+        ) {
+            diagnostics.append(RuntimeDiagnosticSurface(label: "Rate limit remaining", value: remaining))
+        }
+        return diagnostics
+    }
+
+    private static func firstCapture(in text: String, pattern: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = regex.firstMatch(in: text, range: range),
+              match.numberOfRanges > 1,
+              let captureRange = Range(match.range(at: 1), in: text)
+        else {
+            return nil
+        }
+        return String(text[captureRange])
     }
 
     private static func authModeLabel(_ authMode: TrustedRouterAuthMode) -> String {
@@ -1446,6 +1480,14 @@ public extension QuillCodeWorkspaceModel {
                 actionLabel: "Fix key"
             )
         }
+        if isRateLimitError(normalized) {
+            return RuntimeIssueSurface(
+                severity: .warning,
+                title: "TrustedRouter rate limit reached",
+                message: "TrustedRouter or the selected provider is rate limiting this request. Wait for reset, retry later, or switch models.",
+                actionLabel: "Switch model"
+            )
+        }
         if normalized.contains("timed out") ||
             normalized.contains("not connected") ||
             normalized.contains("network is unreachable") ||
@@ -1481,6 +1523,15 @@ public extension QuillCodeWorkspaceModel {
             message: String(trimmed.prefix(260)),
             actionLabel: "Retry"
         )
+    }
+
+    private static func isRateLimitError(_ normalizedError: String) -> Bool {
+        normalizedError.contains("429") ||
+            normalizedError.contains("rate limit") ||
+            normalizedError.contains("ratelimit") ||
+            normalizedError.contains("quota exceeded") ||
+            normalizedError.contains("usage limit") ||
+            normalizedError.contains("too many requests")
     }
 
     private func topBarSubtitle(thread: ChatThread?) -> String {
