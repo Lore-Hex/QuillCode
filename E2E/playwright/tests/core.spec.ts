@@ -250,7 +250,7 @@ test('mock harness opens model picker from malformed model issue', async ({ page
   await expect(page.getByTestId('model-search')).toBeFocused();
   await page.getByTestId('model-search').fill('fusion');
   await expect(page.getByTestId('model-option')).toHaveCount(1);
-  await expect(page.getByTestId('model-option')).toContainText('trustedrouter/fusion');
+  await expect(page.getByTestId('model-option')).toContainText('tr/fusion');
 });
 
 test('mock harness surfaces rate limits with model-switch recovery and diagnostics', async ({ page }) => {

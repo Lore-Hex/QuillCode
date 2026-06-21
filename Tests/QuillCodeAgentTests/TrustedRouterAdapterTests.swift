@@ -185,12 +185,25 @@ final class TrustedRouterAdapterTests: XCTestCase {
 
     func testModelCatalogMapsProvidersAndCategories() {
         XCTAssertTrue(TrustedRouterModelCatalog.defaultModels.contains { $0.id == "trustedrouter/fast" })
-        XCTAssertTrue(TrustedRouterModelCatalog.defaultModels.contains { $0.id == "trustedrouter/fusion" })
+        XCTAssertTrue(TrustedRouterModelCatalog.defaultModels.contains { $0.id == "tr/fusion" })
         XCTAssertTrue(TrustedRouterModelCatalog.defaultModels.contains { $0.id == "z-ai/glm-5.2" })
         XCTAssertTrue(TrustedRouterModelCatalog.defaultModels.contains { $0.id == "moonshotai/kimi-k2.6" })
+        XCTAssertEqual(TrustedRouterModelCatalog.defaultModels.prefix(2).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
+        XCTAssertEqual(TrustedRouterModelCatalogClient.provider(from: "tr/fusion"), "trustedrouter")
         XCTAssertEqual(TrustedRouterModelCatalogClient.provider(from: "z-ai/glm-5.2"), "z-ai")
-        XCTAssertEqual(TrustedRouterModelCatalogClient.category(for: "trustedrouter/fusion", provider: "trustedrouter"), "Recommended")
+        XCTAssertEqual(TrustedRouterModelCatalogClient.category(for: "tr/fusion", provider: "trustedrouter"), "Recommended")
         XCTAssertEqual(TrustedRouterModelCatalogClient.category(for: "moonshotai/kimi-k2.6", provider: "moonshotai"), "Safety")
+    }
+
+    func testModelCatalogAlwaysIncludesRankedRecommendedFallbacks() {
+        let catalog = TrustedRouterModelCatalog(models: [
+            .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
+            .init(id: TrustedRouterDefaults.fastModel, provider: "trustedrouter", displayName: "Fast Duplicate", category: "Recommended")
+        ])
+
+        XCTAssertEqual(catalog.models.prefix(2).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
+        XCTAssertEqual(catalog.models.filter { $0.id == TrustedRouterDefaults.fastModel }.count, 1)
+        XCTAssertTrue(catalog.models.contains { $0.id == "acme/code-pro" })
     }
 
     func testMissingAPIKeyIsActionable() {

@@ -4,10 +4,20 @@ import XCTest
 final class CoreModelTests: XCTestCase {
     func testTrustedRouterDefaults() {
         XCTAssertEqual(TrustedRouterDefaults.fastModel, "trustedrouter/fast")
-        XCTAssertEqual(TrustedRouterDefaults.fusionModel, "trustedrouter/fusion")
+        XCTAssertEqual(TrustedRouterDefaults.fusionModel, "tr/fusion")
         XCTAssertEqual(TrustedRouterDefaults.defaultModel, TrustedRouterDefaults.fastModel)
+        XCTAssertEqual(TrustedRouterDefaults.recommendedModelIDs, [TrustedRouterDefaults.fastModel, TrustedRouterDefaults.fusionModel])
+        XCTAssertEqual(TrustedRouterDefaults.canonicalProvider("tr"), TrustedRouterDefaults.trustedRouterProvider)
         XCTAssertEqual(TrustedRouterDefaults.safetyPrimaryModel, "glm-5.2")
         XCTAssertEqual(TrustedRouterDefaults.safetyFallbackModel, "kimi-k2.6")
+        XCTAssertLessThan(
+            TrustedRouterDefaults.modelSortKey(id: TrustedRouterDefaults.fastModel, provider: "trustedrouter", displayName: "Fast"),
+            TrustedRouterDefaults.modelSortKey(id: TrustedRouterDefaults.fusionModel, provider: "tr", displayName: "Fusion")
+        )
+        XCTAssertLessThan(
+            TrustedRouterDefaults.modelCategoryRank(TrustedRouterDefaults.recommendedCategory),
+            TrustedRouterDefaults.modelCategoryRank(TrustedRouterDefaults.safetyCategory)
+        )
     }
 
     func testToolCallRoundTrips() throws {

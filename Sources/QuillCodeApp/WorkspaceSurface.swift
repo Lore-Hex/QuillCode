@@ -1828,7 +1828,7 @@ public extension QuillCodeWorkspaceModel {
             return RuntimeIssueSurface(
                 severity: .warning,
                 title: "Model response was malformed",
-                message: "The selected model did not follow QuillCode's action schema. Try trustedrouter/fast, trustedrouter/fusion, or another coding model.",
+                message: "The selected model did not follow QuillCode's action schema. Try \(TrustedRouterDefaults.fastModel), \(TrustedRouterDefaults.fusionModel), or another coding model.",
                 actionLabel: "Switch model"
             )
         }
@@ -1886,17 +1886,10 @@ public extension QuillCodeWorkspaceModel {
             .map { category, models in
                 ModelCategorySurface(
                     category: category,
-                    models: models.sorted { lhs, rhs in
-                        if lhs.provider != rhs.provider { return lhs.provider < rhs.provider }
-                        return lhs.displayName < rhs.displayName
-                    }
+                    models: models.sorted(by: Self.sortModelOptions)
                 )
             }
-            .sorted {
-                if $0.category == "Recommended" { return true }
-                if $1.category == "Recommended" { return false }
-                return $0.category < $1.category
-            }
+            .sorted(by: Self.sortModelCategories)
 
         let favoriteModels = favoriteModelIDs().compactMap { id -> ModelOptionSurface? in
             let model = catalog.first { $0.id == id } ?? Self.fallbackModelInfo(for: id)
@@ -1932,7 +1925,7 @@ public extension QuillCodeWorkspaceModel {
         if model.id == root.config.defaultModel {
             badges.append("Default")
         }
-        if model.id == TrustedRouterDefaults.defaultModel {
+        if TrustedRouterDefaults.recommendedRank(for: model.id) != nil {
             badges.append("Recommended")
         }
         return ModelOptionSurface(
@@ -1969,9 +1962,40 @@ public extension QuillCodeWorkspaceModel {
     private static func fallbackModelInfo(for id: String) -> ModelInfo {
         let parts = id.split(separator: "/", maxSplits: 1).map(String.init)
         if parts.count == 2 {
-            return ModelInfo(id: id, provider: parts[0], displayName: parts[1], category: "Current")
+            let provider = TrustedRouterDefaults.canonicalProvider(parts[0])
+            return ModelInfo(id: id, provider: provider, displayName: parts[1], category: "Current")
         }
         return ModelInfo(id: id, provider: "custom", displayName: id, category: "Current")
+    }
+
+    private static func sortModelCategories(_ lhs: ModelCategorySurface, _ rhs: ModelCategorySurface) -> Bool {
+        let lhsRank = modelCategoryRank(lhs.category)
+        let rhsRank = modelCategoryRank(rhs.category)
+        if lhsRank != rhsRank { return lhsRank < rhsRank }
+        return lhs.category < rhs.category
+    }
+
+    private static func modelCategoryRank(_ category: String) -> Int {
+        switch category {
+        case "Favorites":
+            return -2
+        case "Recent":
+            return -1
+        default:
+            return TrustedRouterDefaults.modelCategoryRank(category)
+        }
+    }
+
+    private static func sortModelOptions(_ lhs: ModelOptionSurface, _ rhs: ModelOptionSurface) -> Bool {
+        TrustedRouterDefaults.modelSortKey(
+            id: lhs.id,
+            provider: lhs.provider,
+            displayName: lhs.displayName
+        ) < TrustedRouterDefaults.modelSortKey(
+            id: rhs.id,
+            provider: rhs.provider,
+            displayName: rhs.displayName
+        )
     }
 
     private func commands() -> [WorkspaceCommandSurface] {

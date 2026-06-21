@@ -543,15 +543,101 @@ public struct ModelInfo: Codable, Sendable, Hashable, Identifiable {
     }
 }
 
+public struct ModelSortKey: Sendable, Hashable, Comparable {
+    public var recommendedRank: Int
+    public var provider: String
+    public var displayName: String
+    public var id: String
+
+    public init(recommendedRank: Int, provider: String, displayName: String, id: String) {
+        self.recommendedRank = recommendedRank
+        self.provider = provider
+        self.displayName = displayName
+        self.id = id
+    }
+
+    public static func < (lhs: ModelSortKey, rhs: ModelSortKey) -> Bool {
+        if lhs.recommendedRank != rhs.recommendedRank {
+            return lhs.recommendedRank < rhs.recommendedRank
+        }
+        if lhs.provider != rhs.provider { return lhs.provider < rhs.provider }
+        if lhs.displayName != rhs.displayName { return lhs.displayName < rhs.displayName }
+        return lhs.id < rhs.id
+    }
+}
+
 public enum TrustedRouterDefaults {
     public static let fastModel = "trustedrouter/fast"
-    public static let fusionModel = "trustedrouter/fusion"
+    public static let fusionModel = "tr/fusion"
     public static let defaultModel = fastModel
     public static let defaultAPIBaseURL = "https://api.quillrouter.com/v1"
     public static let signInURL = "https://trustedrouter.com/sign-in-with-trustedrouter"
     public static let loopbackCallbackURL = "http://localhost:3000/callback"
     public static let safetyPrimaryModel = "glm-5.2"
     public static let safetyFallbackModel = "kimi-k2.6"
+    public static let recommendedCategory = "Recommended"
+    public static let safetyCategory = "Safety"
+    public static let trustedRouterProvider = "trustedrouter"
+    public static let trustedRouterProviderAliases: [String: String] = ["tr": trustedRouterProvider]
+    public static let recommendedModelIDs = [fastModel, fusionModel]
+    public static let safetyPrimaryCatalogModel = "z-ai/glm-5.2"
+    public static let safetyFallbackCatalogModel = "moonshotai/kimi-k2.6"
+    public static let safetyReviewerModelIDs = [safetyPrimaryCatalogModel, safetyFallbackCatalogModel]
+
+    public static let bundledModelCatalog: [ModelInfo] = [
+        .init(id: fastModel, provider: trustedRouterProvider, displayName: "Fast", category: recommendedCategory),
+        .init(id: fusionModel, provider: trustedRouterProvider, displayName: "Fusion", category: recommendedCategory),
+        .init(id: safetyPrimaryCatalogModel, provider: "z-ai", displayName: "GLM 5.2", category: safetyCategory),
+        .init(id: safetyFallbackCatalogModel, provider: "moonshotai", displayName: "Kimi K2.6", category: safetyCategory)
+    ]
+
+    public static func canonicalProvider(_ provider: String) -> String {
+        trustedRouterProviderAliases[provider] ?? provider
+    }
+
+    public static func recommendedRank(for modelID: String) -> Int? {
+        recommendedModelIDs.firstIndex(of: modelID)
+    }
+
+    public static func modelSortKey(id: String, provider: String, displayName: String) -> ModelSortKey {
+        ModelSortKey(
+            recommendedRank: recommendedRank(for: id) ?? Int.max,
+            provider: canonicalProvider(provider),
+            displayName: displayName,
+            id: id
+        )
+    }
+
+    public static func modelCategoryRank(_ category: String) -> Int {
+        switch category {
+        case recommendedCategory:
+            return 0
+        case safetyCategory:
+            return 1
+        default:
+            return 2
+        }
+    }
+
+    public static func isRecommendedModel(_ modelID: String, provider: String) -> Bool {
+        recommendedModelIDs.contains(modelID) || canonicalProvider(provider) == trustedRouterProvider
+    }
+
+    public static func isSafetyReviewerModel(_ modelID: String) -> Bool {
+        safetyReviewerModelIDs.contains(modelID)
+            || modelID == safetyPrimaryModel
+            || modelID == safetyFallbackModel
+    }
+
+    public static func catalogIncludingBundledDefaults(_ models: [ModelInfo]) -> [ModelInfo] {
+        var seen = Set<String>()
+        var catalog: [ModelInfo] = []
+        for model in bundledModelCatalog + models {
+            guard seen.insert(model.id).inserted else { continue }
+            catalog.append(model)
+        }
+        return catalog
+    }
 }
 
 public enum TrustedRouterAuthMode: String, Codable, Sendable, CaseIterable, Hashable {

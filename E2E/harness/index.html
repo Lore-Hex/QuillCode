@@ -1134,7 +1134,7 @@
             category: 'Recommended',
             models: [
               { id: 'trustedrouter/fast', provider: 'trustedrouter', displayName: 'Fast', isSelected: true, isFavorite: false, badges: ['Current', 'Default', 'Recommended'] },
-              { id: 'trustedrouter/fusion', provider: 'trustedrouter', displayName: 'Fusion', isSelected: false, isFavorite: false, badges: [] }
+              { id: 'tr/fusion', provider: 'trustedrouter', displayName: 'Fusion', isSelected: false, isFavorite: false, badges: [] }
             ]
           },
           {
@@ -4333,7 +4333,7 @@
         state.runtimeIssue = makeRuntimeIssue({
           severity: 'warning',
           title: 'Model response was malformed',
-          message: "The selected model did not follow QuillCode's action schema. Try trustedrouter/fast, trustedrouter/fusion, or another coding model.",
+          message: "The selected model did not follow QuillCode's action schema. Try trustedrouter/fast, tr/fusion, or another coding model.",
           actionLabel: 'Switch model'
         }, 'Expected valid QuillCode action JSON but received an empty argument object.');
       } else if (/^\/(new|new-chat|newchat)\b/i.test(text)) {

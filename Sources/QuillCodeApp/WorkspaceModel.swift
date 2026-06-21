@@ -1135,7 +1135,7 @@ public final class QuillCodeWorkspaceModel {
 
     public func setModelCatalog(_ models: [ModelInfo]) {
         guard !models.isEmpty else { return }
-        root.modelCatalog = models
+        root.modelCatalog = TrustedRouterDefaults.catalogIncludingBundledDefaults(models)
     }
 
     public func applySettings(config: AppConfig, trustedRouterAPIKeyConfigured: Bool) {

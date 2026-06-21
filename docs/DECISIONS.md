@@ -4,7 +4,7 @@
 
 - Product and repository name: **QuillCode**.
 - License: Apache 2.0.
-- Default model: `trustedrouter/fast`; `trustedrouter/fusion` stays the next Recommended option and deterministic fallback.
+- Default model: `trustedrouter/fast`; `tr/fusion` stays the next Recommended option and deterministic fallback.
 - Auth: TrustedRouter OAuth first; hidden developer override for API key/base URL.
 - Tool modes: `Read-only`, `Review`, `Auto`; do not use the label `Full Access`.
 - Auto reviewer: primary `glm-5.2`, fallback `kimi-k2.6`.
@@ -14,7 +14,8 @@
 - Platform-specific code belongs in adapter packages, not the app target.
 - The first desktop executable is `quill-code-desktop`, built with SwiftUI over the same `WorkspaceSurface` contract used by the HTML/Playwright harness. This keeps native UI work testable before the full QuillUI adapter exists.
 - Desktop runtime selection defaults to mock LLM for no-key demos, switches to live TrustedRouter when an environment or stored secret key exists, and supports `QUILLCODE_USE_MOCK_LLM=true` for deterministic test runs.
-- The desktop model picker is data-driven from the TrustedRouter catalog. It keeps `trustedrouter/fast` first and `trustedrouter/fusion` adjacent as the deterministic fallback, groups options by category, and refreshes live catalog data only when an env or stored key exists.
+- The desktop model picker is data-driven from the TrustedRouter catalog. It keeps `trustedrouter/fast` first and `tr/fusion` adjacent as the deterministic fallback, groups options by category, and refreshes live catalog data only when an env or stored key exists.
+- TrustedRouter model defaults, provider aliases, bundled fallback catalog entries, and sort keys live in `QuillCodeCore`. The live TrustedRouter adapter and app picker both merge sparse catalogs with those bundled defaults, so the default/next-option ordering is consistent across CLI, SwiftUI, and Playwright harness surfaces.
 - Model picking uses the same provider/category/model search semantics in SwiftUI and the Playwright harness. Filtering is term-based across provider, category, model ID, and display name so users can type things like `moon k2`, `coding`, or `trusted fusion` without knowing the exact provider string.
 - The first project UX is a native project rail backed by explicit selected-project state and `~/.quillcode/projects.json`. The desktop app seeds the launch working directory as the initial project, and `Open project` uses a desktop folder picker while the surface contract keeps the project action as a platform-neutral command.
 - Native developer settings save the TrustedRouter API base URL in `config.toml` and the local API key through `QuillSecretStore`. Saving settings rebuilds the active desktop runtime immediately so the user does not need to relaunch to switch from mock to live mode.

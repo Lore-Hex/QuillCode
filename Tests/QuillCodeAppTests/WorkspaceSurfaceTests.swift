@@ -275,7 +275,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             topBar: TopBarState(model: "acme/code-pro")
         ))
         model.setModelCatalog([
-            .init(id: "trustedrouter/fusion", provider: "trustedrouter", displayName: "Fusion", category: "Recommended"),
+            .init(id: TrustedRouterDefaults.fusionModel, provider: "trustedrouter", displayName: "Fusion", category: "Recommended"),
             .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
             .init(id: "acme/fast", provider: "acme", displayName: "Fast", category: "Coding")
         ])
@@ -283,7 +283,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
         let surface = model.surface()
 
         XCTAssertEqual(surface.topBar.modelLabel, "acme/Code Pro")
-        XCTAssertEqual(surface.topBar.modelCategories.map(\.category), ["Recommended", "Coding"])
+        XCTAssertEqual(surface.topBar.modelCategories.map(\.category), ["Recommended", "Safety", "Coding"])
+        let recommended = surface.topBar.modelCategories.first { $0.category == "Recommended" }
+        XCTAssertEqual(recommended?.models.prefix(2).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
         let coding = surface.topBar.modelCategories.first { $0.category == "Coding" }
         XCTAssertEqual(coding?.models.map(\.id), ["acme/code-pro", "acme/fast"])
         XCTAssertTrue(coding?.models.first?.isSelected == true)
@@ -291,11 +293,11 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
     func testTopBarFiltersModelCatalogByProviderCategoryAndModel() {
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
-            config: AppConfig(defaultModel: "trustedrouter/fusion"),
-            topBar: TopBarState(model: "trustedrouter/fusion")
+            config: AppConfig(defaultModel: TrustedRouterDefaults.fusionModel),
+            topBar: TopBarState(model: TrustedRouterDefaults.fusionModel)
         ))
         model.setModelCatalog([
-            .init(id: "trustedrouter/fusion", provider: "trustedrouter", displayName: "Fusion", category: "Recommended"),
+            .init(id: TrustedRouterDefaults.fusionModel, provider: "trustedrouter", displayName: "Fusion", category: "Recommended"),
             .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
             .init(id: "moonshotai/kimi-k2.6", provider: "moonshotai", displayName: "Kimi K2.6", category: "Safety")
         ])
@@ -304,7 +306,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertEqual(topBar.filteredModelCategories(matching: "coding").flatMap(\.models).map(\.id), ["acme/code-pro"])
         XCTAssertEqual(topBar.filteredModelCategories(matching: "moon k2").flatMap(\.models).map(\.id), ["moonshotai/kimi-k2.6"])
-        XCTAssertEqual(topBar.filteredModelCategories(matching: "trusted fusion").flatMap(\.models).map(\.id), ["trustedrouter/fusion"])
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "trusted fusion").flatMap(\.models).map(\.id), [TrustedRouterDefaults.fusionModel])
         XCTAssertTrue(topBar.filteredModelCategories(matching: "does-not-exist").isEmpty)
     }
 
@@ -567,7 +569,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         )
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
             config: AppConfig(
-                defaultModel: "trustedrouter/fusion",
+                defaultModel: TrustedRouterDefaults.fusionModel,
                 favoriteModels: [" z-ai/glm-5.2 ", "z-ai/glm-5.2"]
             ),
             threads: [older, newer],
@@ -594,7 +596,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
     func testModelOptionDecodesOlderPayloadWithoutBadges() throws {
         let data = """
         {
-          "id": "trustedrouter/fusion",
+          "id": "tr/fusion",
           "provider": "trustedrouter",
           "displayName": "Fusion",
           "category": "Recommended",
@@ -604,7 +606,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         let option = try JSONDecoder().decode(ModelOptionSurface.self, from: data)
 
-        XCTAssertEqual(option.id, "trustedrouter/fusion")
+        XCTAssertEqual(option.id, TrustedRouterDefaults.fusionModel)
         XCTAssertTrue(option.isSelected)
         XCTAssertFalse(option.isFavorite)
         XCTAssertTrue(option.badges.isEmpty)
@@ -658,12 +660,12 @@ final class WorkspaceSurfaceTests: XCTestCase {
     }
 
     func testSidebarSearchFiltersByThreadTitleSubtitleAndTranscriptContent() {
-        let selectedThread = ChatThread(title: "Run whoami", model: "trustedrouter/fusion")
+        let selectedThread = ChatThread(title: "Run whoami", model: TrustedRouterDefaults.fusionModel)
         var otherThread = ChatThread(title: "Review git diff", model: "z-ai/glm-5.2", isPinned: true)
         otherThread.messages = [
             .init(role: .user, content: "Can you inspect the browser preview?")
         ]
-        var archivedThread = ChatThread(title: "Old release plan", model: "trustedrouter/fusion")
+        var archivedThread = ChatThread(title: "Old release plan", model: TrustedRouterDefaults.fusionModel)
         archivedThread.isArchived = true
         let surface = SidebarSurface(
             items: [
@@ -905,10 +907,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
     }
 
     func testHTMLRendererGroupsPinnedRecentAndArchivedChats() {
-        var pinned = ChatThread(title: "Pinned chat", model: "trustedrouter/fusion")
+        var pinned = ChatThread(title: "Pinned chat", model: TrustedRouterDefaults.fusionModel)
         pinned.isPinned = true
         let recent = ChatThread(title: "Recent chat", model: "z-ai/glm-5.2")
-        var archived = ChatThread(title: "Archived chat", model: "trustedrouter/fusion")
+        var archived = ChatThread(title: "Archived chat", model: TrustedRouterDefaults.fusionModel)
         archived.isArchived = true
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
             threads: [recent, pinned, archived],
