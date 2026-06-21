@@ -736,12 +736,18 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(defaultOption.badges.contains("Default"))
         XCTAssertTrue(defaultOption.badges.contains("Recommended"))
         XCTAssertEqual(defaultOption.metadataSummary, "Recommended · trustedrouter/fast")
+        XCTAssertEqual(defaultOption.detailTitle, "trustedrouter/Fast")
+        XCTAssertEqual(defaultOption.capabilitySummary, "Fast default for coding, shell, and file-editing turns.")
         XCTAssertTrue(defaultOption.metadataDetails.contains("Provider: trustedrouter"))
         XCTAssertTrue(defaultOption.metadataDetails.contains("Model ID: trustedrouter/fast"))
         XCTAssertTrue(defaultOption.metadataDetails.contains("Category: Recommended"))
+        XCTAssertEqual(defaultOption.metadataRows.map(\.label), ["Provider", "Model ID", "Category", "State"])
+        XCTAssertEqual(defaultOption.metadataRows.first { $0.label == "State" }?.value, "Default, Recommended")
 
         XCTAssertEqual(topBar.filteredModelCategories(matching: "moon k2").flatMap(\.models).map(\.id), ["moonshotai/kimi-k2.6"])
         XCTAssertEqual(topBar.filteredModelCategories(matching: "recent").first?.category, "Recent")
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "fast default").flatMap(\.models).map(\.id), [TrustedRouterDefaults.defaultModel])
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "default state").flatMap(\.models).map(\.id), [TrustedRouterDefaults.defaultModel])
     }
 
     func testModelPickerShowsFavoriteModelsBeforeRecent() throws {
@@ -799,10 +805,13 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(option.isFavorite)
         XCTAssertTrue(option.badges.isEmpty)
         XCTAssertEqual(option.metadataSummary, "Recommended · tr/fusion")
+        XCTAssertEqual(option.detailTitle, "trustedrouter/Fusion")
+        XCTAssertEqual(option.capabilitySummary, "Balanced TrustedRouter model for deeper coding and review turns.")
         XCTAssertTrue(option.metadataDetails.contains("Provider: trustedrouter"))
         XCTAssertTrue(option.metadataDetails.contains("Model ID: tr/fusion"))
         XCTAssertTrue(option.metadataDetails.contains("Category: Recommended"))
         XCTAssertTrue(option.metadataDetails.contains("Current selection"))
+        XCTAssertEqual(option.metadataRows.first { $0.label == "State" }?.value, "Current")
     }
 
     func testEmptySurfaceShowsCodexLikeEmptyState() {

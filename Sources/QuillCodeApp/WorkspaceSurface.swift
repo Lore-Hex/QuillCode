@@ -304,7 +304,9 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
                     option.detailTitle,
                     option.metadataSummary,
                     option.metadataDetails.joined(separator: " "),
-                    option.metadataRows.map(\.value).joined(separator: " "),
+                    option.metadataRows.map { row in
+                        row.label == "State" ? "state \(row.value)" : row.value
+                    }.joined(separator: " "),
                     option.badges.joined(separator: " ")
                 ].joined(separator: " ").lowercased()
                 return normalizedTerms.allSatisfy { haystack.contains($0) }

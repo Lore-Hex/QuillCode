@@ -87,7 +87,7 @@
     .model-panel {
       position: absolute;
       top: calc(100% + 8px);
-      right: 18px;
+      right: 0;
       z-index: 4;
       width: min(440px, calc(100vw - 36px));
       display: grid;
@@ -1377,15 +1377,19 @@
     }
     .model-option {
       padding: 10px;
-      border: 1px solid rgba(255,255,255,.06);
-      border-radius: 10px;
+      border: 0;
+      border-radius: 14px;
       background: rgba(0,0,0,.16);
       color: var(--text);
       font-weight: 400;
+      box-shadow: var(--shadow-border);
+      transition-property: transform, background-color, box-shadow;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
     }
     .model-option.selected {
       background: rgba(65,184,232,.13);
-      border-color: rgba(65,184,232,.32);
+      box-shadow: 0 0 0 1px rgba(65,184,232,.32);
     }
     button:disabled { opacity: .45; }
     @media (max-width: 760px) {
