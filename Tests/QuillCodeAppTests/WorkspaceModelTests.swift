@@ -463,6 +463,78 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertFalse(instructions[0].content.contains("outside rules"))
     }
 
+    func testProjectInstructionLoaderLoadsNestedInstructionsInPrecedenceOrder() throws {
+        let root = try makeTempDirectory()
+        try "Root rules\n".write(
+            to: root.appendingPathComponent("AGENTS.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let feature = root.appendingPathComponent("Sources/Feature")
+        try FileManager.default.createDirectory(at: feature, withIntermediateDirectories: true)
+        try "Sources rules\n".write(
+            to: root.appendingPathComponent("Sources/AGENTS.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "Feature rules\n".write(
+            to: feature.appendingPathComponent("AGENTS.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let featureQuillCode = feature.appendingPathComponent(".quillcode")
+        try FileManager.default.createDirectory(at: featureQuillCode, withIntermediateDirectories: true)
+        try "Feature QuillCode rules\n".write(
+            to: featureQuillCode.appendingPathComponent("rules.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let generated = root.appendingPathComponent(".build/generated")
+        try FileManager.default.createDirectory(at: generated, withIntermediateDirectories: true)
+        try "Generated rules should not load\n".write(
+            to: generated.appendingPathComponent("AGENTS.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let instructions = ProjectInstructionLoader.load(from: root)
+
+        XCTAssertEqual(instructions.map(\.path), [
+            "AGENTS.md",
+            "Sources/AGENTS.md",
+            "Sources/Feature/AGENTS.md",
+            "Sources/Feature/.quillcode/rules.md"
+        ])
+        XCTAssertTrue(instructions.last?.content.contains("Feature QuillCode rules") == true)
+        XCTAssertFalse(instructions.contains { $0.content.contains("Generated rules") })
+    }
+
+    func testProjectInstructionLoaderCapsNestedInstructionCount() throws {
+        let root = try makeTempDirectory()
+        for index in 0..<5 {
+            let directory = root.appendingPathComponent("Area\(index)")
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try "Rules \(index)\n".write(
+                to: directory.appendingPathComponent("AGENTS.md"),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+
+        let instructions = ProjectInstructionLoader.load(
+            from: root,
+            maxInstructionFiles: 2
+        )
+
+        XCTAssertEqual(instructions.map(\.path), [
+            "Area0/AGENTS.md",
+            "Area1/AGENTS.md"
+        ])
+    }
+
     func testLocalEnvironmentActionsLoadAndRunFromCommandPaletteIDs() throws {
         let root = try makeTempDirectory()
         let actionsDirectory = root.appendingPathComponent(".quillcode/actions")

@@ -10,19 +10,43 @@ public enum ProjectInstructionLoader {
 
     public static let maxFileBytes = 50_000
     public static let maxTotalBytes = 100_000
+    public static let maxScannedDirectories = 400
+    public static let maxInstructionFiles = 40
+
+    private static let ignoredDirectoryNames: Set<String> = [
+        ".build",
+        ".git",
+        ".hg",
+        ".svn",
+        ".quillcode",
+        "DerivedData",
+        "node_modules",
+        "Package.resolved"
+    ]
 
     public static func load(
         from projectRoot: URL,
         relativePaths: [String] = defaultRelativePaths,
         maxFileBytes: Int = maxFileBytes,
-        maxTotalBytes: Int = maxTotalBytes
+        maxTotalBytes: Int = maxTotalBytes,
+        includeNested: Bool = true,
+        maxScannedDirectories: Int = maxScannedDirectories,
+        maxInstructionFiles: Int = maxInstructionFiles
     ) -> [ProjectInstruction] {
         let root = projectRoot.standardizedFileURL.resolvingSymlinksInPath()
         var totalBytes = 0
         var instructions: [ProjectInstruction] = []
+        let candidatePaths = instructionCandidatePaths(
+            root: root,
+            baseRelativePaths: relativePaths,
+            includeNested: includeNested,
+            maxScannedDirectories: maxScannedDirectories
+        )
 
-        for relativePath in relativePaths {
-            guard totalBytes < maxTotalBytes else { break }
+        for relativePath in candidatePaths {
+            guard totalBytes < maxTotalBytes,
+                  instructions.count < maxInstructionFiles
+            else { break }
             let remainingBytes = maxTotalBytes - totalBytes
             let fileLimit = min(maxFileBytes, remainingBytes)
             guard let instruction = loadFile(
@@ -37,6 +61,82 @@ public enum ProjectInstructionLoader {
         }
 
         return instructions
+    }
+
+    private static func instructionCandidatePaths(
+        root: URL,
+        baseRelativePaths: [String],
+        includeNested: Bool,
+        maxScannedDirectories: Int
+    ) -> [String] {
+        var candidates = baseRelativePaths
+        guard includeNested, maxScannedDirectories > 0 else {
+            return candidates
+        }
+
+        let directories = nestedDirectoryPaths(root: root, maxScannedDirectories: maxScannedDirectories)
+        for directory in directories {
+            for relativePath in baseRelativePaths {
+                candidates.append("\(directory)/\(relativePath)")
+            }
+        }
+        return candidates
+    }
+
+    private static func nestedDirectoryPaths(root: URL, maxScannedDirectories: Int) -> [String] {
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+            options: [.skipsPackageDescendants]
+        ) else {
+            return []
+        }
+
+        var directories: [String] = []
+        for case let url as URL in enumerator {
+            guard directories.count < maxScannedDirectories else { break }
+            guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]),
+                  values.isDirectory == true
+            else {
+                continue
+            }
+
+            let directoryName = url.lastPathComponent
+            if values.isSymbolicLink == true || shouldSkipDirectory(named: directoryName) {
+                enumerator.skipDescendants()
+                continue
+            }
+
+            guard let relativePath = relativePath(from: root, to: url) else {
+                enumerator.skipDescendants()
+                continue
+            }
+            directories.append(relativePath)
+        }
+
+        return directories.sorted { lhs, rhs in
+            let lhsDepth = lhs.split(separator: "/").count
+            let rhsDepth = rhs.split(separator: "/").count
+            if lhsDepth != rhsDepth {
+                return lhsDepth < rhsDepth
+            }
+            return lhs.localizedStandardCompare(rhs) == .orderedAscending
+        }
+    }
+
+    private static func shouldSkipDirectory(named name: String) -> Bool {
+        ignoredDirectoryNames.contains(name) || name.hasPrefix(".")
+    }
+
+    private static func relativePath(from root: URL, to directory: URL) -> String? {
+        let rootPath = root.standardizedFileURL.path
+        let directoryPath = directory.standardizedFileURL.resolvingSymlinksInPath().path
+        guard directoryPath.hasPrefix(rootPath + "/") else {
+            return nil
+        }
+        let start = directoryPath.index(directoryPath.startIndex, offsetBy: rootPath.count + 1)
+        let relativePath = String(directoryPath[start...])
+        return relativePath.isEmpty ? nil : relativePath
     }
 
     private static func loadFile(root: URL, relativePath: String, maxBytes: Int) -> ProjectInstruction? {

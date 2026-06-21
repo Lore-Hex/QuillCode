@@ -102,7 +102,7 @@ public struct TrustedRouterLLMClient: LLMClient {
             """
         }.joined(separator: "\n\n")
         return """
-        Follow these project instructions while working in this project. Higher-priority system and safety instructions still apply.
+        Follow these project instructions while working in this project. They are listed from broadest to most specific; when instructions conflict, later nested instructions override earlier project-wide instructions. Higher-priority system and safety instructions still apply.
 
         \(blocks)
         """

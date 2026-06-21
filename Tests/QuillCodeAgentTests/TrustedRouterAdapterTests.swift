@@ -43,6 +43,12 @@ final class TrustedRouterAdapterTests: XCTestCase {
                     title: "Project AGENTS.md",
                     content: "Always run swift test before claiming completion.",
                     byteCount: 52
+                ),
+                ProjectInstruction(
+                    path: "Sources/Feature/AGENTS.md",
+                    title: "Sources/Feature/AGENTS.md",
+                    content: "Prefer feature-scoped tests for feature code.",
+                    byteCount: 42
                 )
             ]
         )
@@ -56,6 +62,8 @@ final class TrustedRouterAdapterTests: XCTestCase {
         XCTAssertEqual(messages[0]["role"] as? String, "system")
         XCTAssertEqual(messages[1]["role"] as? String, "system")
         XCTAssertTrue((messages[1]["content"] as? String)?.contains("AGENTS.md") == true)
+        XCTAssertTrue((messages[1]["content"] as? String)?.contains("broadest to most specific") == true)
+        XCTAssertTrue((messages[1]["content"] as? String)?.contains("Sources/Feature/AGENTS.md") == true)
         XCTAssertTrue((messages[1]["content"] as? String)?.contains("Always run swift test") == true)
     }
 

@@ -7,12 +7,13 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - Config parsing, model catalog, auth state, secret store.
 - Thread reducers, tool schemas, shell/file/path safety.
 - Patch parser, diff parser, Auto reviewer JSON, sandbox policy.
+- Project instruction discovery, nested precedence, symlink/root bounds, and byte/file caps.
 - Shortcut registry, plugin/skill/MCP manifests, memory redaction.
 
 ## Functional Tests
 
 - Mock TrustedRouter, mock LLM, fake shell, fake filesystem, fake git repo.
-- Cover login, model switch, new thread, incremental run progress, chronological transcript ordering, tool cards, file edit, command failure, cancellation, approvals, settings, top bar, search, slash commands, and slash-to-workspace-action routing.
+- Cover login, model switch, new thread, project instruction refresh before runs, incremental run progress, chronological transcript ordering, tool cards, file edit, command failure, cancellation, approvals, settings, top bar, search, slash commands, and slash-to-workspace-action routing.
 
 ## Integration Tests
 
