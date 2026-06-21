@@ -43,6 +43,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.transcript.messages.count, 2)
         XCTAssertEqual(surface.composer.placeholder, "Message QuillCode")
         XCTAssertTrue(surface.composer.canSend)
+        XCTAssertEqual(surface.composer.slashSuggestions, [])
         XCTAssertEqual(surface.commands.map(\.id), [
             "new-chat",
             "thread-rename",
@@ -89,6 +90,26 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(surface.browser.isVisible)
         XCTAssertFalse(surface.extensions.isVisible)
         XCTAssertFalse(surface.memories.isVisible)
+    }
+
+    func testComposerShowsFilteredSlashSuggestions() {
+        let model = QuillCodeWorkspaceModel()
+
+        model.setDraft("/")
+        var suggestions = model.surface().composer.slashSuggestions
+        XCTAssertEqual(suggestions.prefix(3).map(\.usage), ["/help", "/status", "/new"])
+
+        model.setDraft("/wor")
+        suggestions = model.surface().composer.slashSuggestions
+        XCTAssertEqual(suggestions.first?.usage, "/worktrees")
+        XCTAssertEqual(suggestions.first?.insertText, "/worktrees")
+
+        model.setDraft("/project r")
+        suggestions = model.surface().composer.slashSuggestions
+        XCTAssertEqual(suggestions.prefix(2).map(\.usage), ["/project refresh", "/project rename name"])
+
+        model.setDraft("run /help")
+        XCTAssertEqual(model.surface().composer.slashSuggestions, [])
     }
 
     func testSettingsSurfaceShowsTrustedRouterAccount() {

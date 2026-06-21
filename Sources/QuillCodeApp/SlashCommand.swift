@@ -1,6 +1,115 @@
 import Foundation
 import QuillCodeCore
 
+public struct SlashCommandSuggestionSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String { usage }
+    public var usage: String
+    public var title: String
+    public var detail: String
+    public var insertText: String
+
+    public init(usage: String, title: String, detail: String, insertText: String) {
+        self.usage = usage
+        self.title = title
+        self.detail = detail
+        self.insertText = insertText
+    }
+}
+
+struct SlashCommandDefinition: Sendable, Hashable {
+    var usage: String
+    var title: String
+    var detail: String
+    var insertText: String
+    var aliases: [String]
+
+    var searchableText: [String] {
+        [usage, title, detail] + aliases
+    }
+}
+
+enum SlashCommandCatalog {
+    static let definitions: [SlashCommandDefinition] = [
+        .init(usage: "/help", title: "Show slash commands", detail: "List the available composer commands.", insertText: "/help", aliases: ["?"]),
+        .init(usage: "/status", title: "Show status", detail: "Summarize the active project, mode, model, and loaded context.", insertText: "/status", aliases: []),
+        .init(usage: "/new", title: "New chat", detail: "Start a fresh thread in the selected project.", insertText: "/new", aliases: ["new-chat", "newchat"]),
+        .init(usage: "/rename title", title: "Rename chat", detail: "Rename the current thread.", insertText: "/rename ", aliases: ["rename-chat", "title"]),
+        .init(usage: "/duplicate", title: "Duplicate chat", detail: "Copy the current thread into a new one.", insertText: "/duplicate", aliases: ["duplicate-chat", "copy-chat"]),
+        .init(usage: "/archive", title: "Archive chat", detail: "Move the current thread out of the recent list.", insertText: "/archive", aliases: ["archive-chat"]),
+        .init(usage: "/unarchive", title: "Unarchive chat", detail: "Restore the current archived thread.", insertText: "/unarchive", aliases: ["unarchive-chat"]),
+        .init(usage: "/compact", title: "Compact context", detail: "Create a shorter continuation thread from the latest turns.", insertText: "/compact", aliases: ["compact-context", "context-compact"]),
+        .init(usage: "/project new", title: "Project new chat", detail: "Start a new thread in the selected project.", insertText: "/project new", aliases: ["project chat"]),
+        .init(usage: "/project refresh", title: "Refresh project context", detail: "Reload instructions, local actions, extensions, and memories.", insertText: "/project refresh", aliases: ["project reload", "project context"]),
+        .init(usage: "/project rename name", title: "Rename project", detail: "Rename the selected project in QuillCode.", insertText: "/project rename ", aliases: ["project title"]),
+        .init(usage: "/project remove", title: "Remove project", detail: "Forget the selected project from the sidebar without deleting files.", insertText: "/project remove", aliases: ["project forget"]),
+        .init(usage: "/terminal", title: "Toggle terminal", detail: "Show or hide the integrated workspace terminal.", insertText: "/terminal", aliases: ["term", "shell"]),
+        .init(usage: "/browser", title: "Toggle browser", detail: "Show or hide the browser preview panel.", insertText: "/browser", aliases: ["preview"]),
+        .init(usage: "/memories", title: "Show memories", detail: "Show loaded global and project memories.", insertText: "/memories", aliases: ["memory"]),
+        .init(usage: "/remember text", title: "Add memory", detail: "Save an explicit global memory after redaction checks.", insertText: "/remember ", aliases: []),
+        .init(usage: "/worktrees", title: "List worktrees", detail: "List git worktrees for the selected project.", insertText: "/worktrees", aliases: ["worktree", "wt"]),
+        .init(usage: "/pr", title: "Prepare pull request", detail: "Draft a pull request request in the composer.", insertText: "/pr", aliases: ["pull-request", "pullrequest"]),
+        .init(usage: "/env name", title: "Run local environment action", detail: "List or run project-local environment scripts.", insertText: "/env ", aliases: ["environment", "local-env"]),
+        .init(usage: "/mode auto|review|read-only", title: "Set approval mode", detail: "Switch between Auto, Review, and Read-only behavior.", insertText: "/mode ", aliases: []),
+        .init(usage: "/model provider/model", title: "Set model", detail: "Switch the active TrustedRouter model.", insertText: "/model ", aliases: [])
+    ]
+
+    static func helpText() -> String {
+        let commandLines = definitions.map { "\($0.usage) - \($0.detail)" }
+        return (["Slash commands:"] + commandLines).joined(separator: "\n")
+    }
+
+    static func suggestions(for draft: String, limit: Int = 6) -> [SlashCommandSuggestionSurface] {
+        let trimmedLeading = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedLeading.hasPrefix("/"), !trimmedLeading.contains("\n") else { return [] }
+        let query = normalize(String(trimmedLeading.dropFirst()))
+        let scored = definitions.enumerated().compactMap { index, definition -> (Int, SlashCommandDefinition, Int)? in
+            score(definition, query: query).map { (index, definition, $0) }
+        }
+        return scored
+            .sorted { lhs, rhs in
+                if lhs.2 != rhs.2 {
+                    return lhs.2 > rhs.2
+                }
+                return lhs.0 < rhs.0
+            }
+            .prefix(limit)
+            .map { _, definition, _ in
+                SlashCommandSuggestionSurface(
+                    usage: definition.usage,
+                    title: definition.title,
+                    detail: definition.detail,
+                    insertText: definition.insertText
+                )
+            }
+    }
+
+    private static func score(_ definition: SlashCommandDefinition, query: String) -> Int? {
+        guard !query.isEmpty else { return 100 }
+        let usage = normalize(String(definition.usage.dropFirst()))
+        if usage.hasPrefix(query) {
+            return 120
+        }
+        if definition.aliases.map(normalize).contains(where: { $0.hasPrefix(query) }) {
+            return 110
+        }
+        if usage.contains(query) {
+            return 90
+        }
+        if definition.searchableText.map(normalize).contains(where: { $0.contains(query) }) {
+            return 70
+        }
+        return nil
+    }
+
+    private static func normalize(_ value: String) -> String {
+        value
+            .lowercased()
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 enum SlashCommand: Equatable {
     case help
     case status

@@ -2790,27 +2790,83 @@ private struct QuillCodeComposerView: View {
     var onSend: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            TextField(composer.placeholder, text: $draft, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(1...5)
-                .padding(12)
-                .background(Color.black.opacity(0.18))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .disabled(composer.isSending)
-                .onSubmit(onSend)
-            Button {
-                onSend()
-            } label: {
-                Image(systemName: "arrow.up")
-                    .font(.headline)
-                    .frame(width: 36, height: 36)
+        VStack(alignment: .leading, spacing: 10) {
+            if !composer.slashSuggestions.isEmpty {
+                QuillCodeSlashSuggestionPanel(suggestions: composer.slashSuggestions) { suggestion in
+                    draft = suggestion.insertText
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || composer.isSending)
+            HStack(spacing: 10) {
+                TextField(composer.placeholder, text: $draft, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .lineLimit(1...5)
+                    .padding(12)
+                    .background(Color.black.opacity(0.18))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .disabled(composer.isSending)
+                    .onSubmit(onSend)
+                Button {
+                    onSend()
+                } label: {
+                    Image(systemName: "arrow.up")
+                        .font(.headline)
+                        .frame(width: 36, height: 36)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || composer.isSending)
+            }
         }
         .padding(14)
         .background(QuillCodePalette.panel)
+    }
+}
+
+private struct QuillCodeSlashSuggestionPanel: View {
+    var suggestions: [SlashCommandSuggestionSurface]
+    var onSelect: (SlashCommandSuggestionSurface) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Slash commands")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(QuillCodePalette.muted)
+                .textCase(.uppercase)
+            ForEach(suggestions) { suggestion in
+                Button {
+                    onSelect(suggestion)
+                } label: {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(suggestion.usage)
+                            .font(.system(.callout, design: .monospaced).weight(.semibold))
+                            .foregroundStyle(QuillCodePalette.text)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                            .frame(width: 230, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(suggestion.title)
+                                .font(.callout.weight(.semibold))
+                            Text(suggestion.detail)
+                                .font(.caption)
+                                .foregroundStyle(QuillCodePalette.muted)
+                                .lineLimit(1)
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 7)
+                    .padding(.horizontal, 10)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(suggestion.usage), \(suggestion.title)")
+            }
+        }
+        .padding(10)
+        .background(Color.black.opacity(0.16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

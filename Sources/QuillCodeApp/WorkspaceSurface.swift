@@ -1207,12 +1207,14 @@ public struct ComposerSurface: Codable, Sendable, Hashable {
     public var placeholder: String
     public var isSending: Bool
     public var canSend: Bool
+    public var slashSuggestions: [SlashCommandSuggestionSurface]
 
     public init(composer: ComposerState) {
         self.draft = composer.draft
         self.placeholder = composer.placeholder
         self.isSending = composer.isSending
         self.canSend = !composer.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !composer.isSending
+        self.slashSuggestions = SlashCommandCatalog.suggestions(for: composer.draft)
     }
 }
 

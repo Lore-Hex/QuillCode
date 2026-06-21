@@ -913,6 +913,58 @@
       border-top: 1px solid rgba(255,255,255,.1);
       background: rgba(25,41,48,.78);
     }
+    .slash-suggestions {
+      border-top: 1px solid rgba(255,255,255,.1);
+      background: rgba(25,41,48,.88);
+      padding: 12px 14px 0;
+    }
+    .slash-suggestions h3 {
+      margin: 0 0 7px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .slash-suggestion-list {
+      display: grid;
+      gap: 4px;
+      padding: 8px;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 13px;
+      background: rgba(0,0,0,.14);
+    }
+    .slash-suggestion {
+      display: grid;
+      grid-template-columns: minmax(220px, max-content) 1fr;
+      gap: 12px;
+      width: 100%;
+      padding: 9px 10px;
+      text-align: left;
+      background: transparent;
+      border-radius: 10px;
+      color: var(--text);
+    }
+    .slash-suggestion:hover,
+    .slash-suggestion:focus-visible {
+      background: rgba(65,184,232,.16);
+      outline: none;
+    }
+    .slash-usage {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-weight: 800;
+      color: #dff8ff;
+      white-space: nowrap;
+    }
+    .slash-title {
+      display: block;
+      font-weight: 800;
+    }
+    .slash-detail {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 2px;
+    }
     .composer label { position: absolute; width: 1px; height: 1px; clip: rect(0 0 0 0); overflow: hidden; }
     input {
       min-width: 0;
@@ -1213,6 +1265,57 @@
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#39;');
+    }
+
+    const slashCommandDefinitions = [
+      { usage: '/help', title: 'Show slash commands', detail: 'List the available composer commands.', insertText: '/help', aliases: ['?'] },
+      { usage: '/status', title: 'Show status', detail: 'Summarize the active project, mode, model, and loaded context.', insertText: '/status', aliases: [] },
+      { usage: '/new', title: 'New chat', detail: 'Start a fresh thread in the selected project.', insertText: '/new', aliases: ['new-chat', 'newchat'] },
+      { usage: '/rename title', title: 'Rename chat', detail: 'Rename the current thread.', insertText: '/rename ', aliases: ['rename-chat', 'title'] },
+      { usage: '/duplicate', title: 'Duplicate chat', detail: 'Copy the current thread into a new one.', insertText: '/duplicate', aliases: ['duplicate-chat', 'copy-chat'] },
+      { usage: '/archive', title: 'Archive chat', detail: 'Move the current thread out of the recent list.', insertText: '/archive', aliases: ['archive-chat'] },
+      { usage: '/unarchive', title: 'Unarchive chat', detail: 'Restore the current archived thread.', insertText: '/unarchive', aliases: ['unarchive-chat'] },
+      { usage: '/compact', title: 'Compact context', detail: 'Create a shorter continuation thread from the latest turns.', insertText: '/compact', aliases: ['compact-context', 'context-compact'] },
+      { usage: '/project new', title: 'Project new chat', detail: 'Start a new thread in the selected project.', insertText: '/project new', aliases: ['project chat'] },
+      { usage: '/project refresh', title: 'Refresh project context', detail: 'Reload instructions, local actions, extensions, and memories.', insertText: '/project refresh', aliases: ['project reload', 'project context'] },
+      { usage: '/project rename name', title: 'Rename project', detail: 'Rename the selected project in QuillCode.', insertText: '/project rename ', aliases: ['project title'] },
+      { usage: '/project remove', title: 'Remove project', detail: 'Forget the selected project from the sidebar without deleting files.', insertText: '/project remove', aliases: ['project forget'] },
+      { usage: '/terminal', title: 'Toggle terminal', detail: 'Show or hide the integrated workspace terminal.', insertText: '/terminal', aliases: ['term', 'shell'] },
+      { usage: '/browser', title: 'Toggle browser', detail: 'Show or hide the browser preview panel.', insertText: '/browser', aliases: ['preview'] },
+      { usage: '/memories', title: 'Show memories', detail: 'Show loaded global and project memories.', insertText: '/memories', aliases: ['memory'] },
+      { usage: '/remember text', title: 'Add memory', detail: 'Save an explicit global memory after redaction checks.', insertText: '/remember ', aliases: [] },
+      { usage: '/worktrees', title: 'List worktrees', detail: 'List git worktrees for the selected project.', insertText: '/worktrees', aliases: ['worktree', 'wt'] },
+      { usage: '/pr', title: 'Prepare pull request', detail: 'Draft a pull request request in the composer.', insertText: '/pr', aliases: ['pull-request', 'pullrequest'] },
+      { usage: '/env name', title: 'Run local environment action', detail: 'List or run project-local environment scripts.', insertText: '/env ', aliases: ['environment', 'local-env'] },
+      { usage: '/mode auto|review|read-only', title: 'Set approval mode', detail: 'Switch between Auto, Review, and Read-only behavior.', insertText: '/mode ', aliases: [] },
+      { usage: '/model provider/model', title: 'Set model', detail: 'Switch the active TrustedRouter model.', insertText: '/model ', aliases: [] }
+    ];
+
+    function normalizeSlashText(value) {
+      return String(value).toLowerCase().replaceAll('-', ' ').replaceAll('_', ' ').trim();
+    }
+
+    function slashSuggestions(draft, limit = 6) {
+      const text = String(draft).trimStart();
+      if (!text.startsWith('/') || text.includes('\n')) return [];
+      const query = normalizeSlashText(text.slice(1));
+      return slashCommandDefinitions
+        .map((definition, index) => ({ definition, index, score: slashSuggestionScore(definition, query) }))
+        .filter(entry => entry.score !== null)
+        .sort((left, right) => right.score - left.score || left.index - right.index)
+        .slice(0, limit)
+        .map(entry => entry.definition);
+    }
+
+    function slashSuggestionScore(definition, query) {
+      if (!query) return 100;
+      const usage = normalizeSlashText(definition.usage.slice(1));
+      if (usage.startsWith(query)) return 120;
+      if (definition.aliases.some(alias => normalizeSlashText(alias).startsWith(query))) return 110;
+      if (usage.includes(query)) return 90;
+      const searchable = [definition.usage, definition.title, definition.detail, ...definition.aliases]
+        .map(normalizeSlashText);
+      return searchable.some(value => value.includes(query)) ? 70 : null;
     }
 
     function authModeLabel(authMode) {
@@ -1891,6 +1994,7 @@
 	              ${state.extensions.isVisible ? renderExtensionsPane() : ''}
 	              ${state.memories.isVisible ? renderMemoriesPane() : ''}
 	              ${state.terminal.isVisible ? renderTerminalPane() : ''}
+              ${renderSlashSuggestions()}
               <form class="composer" data-testid="composer">
                 <label for="message">Message</label>
                 <input id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" value="${escapeHTML(state.composer.draft)}" ${state.composer.isSending ? 'disabled' : ''}>
@@ -1909,11 +2013,30 @@
       input.addEventListener('input', event => {
         state.composer.draft = event.target.value;
         state.composer.canSend = state.composer.draft.trim().length > 0;
-        document.querySelector('[data-testid="send-button"]').disabled = !state.composer.canSend;
+        const shouldRenderSuggestions = state.composer.draft.trimStart().startsWith('/');
+        if (shouldRenderSuggestions || document.querySelector('[data-testid="slash-suggestions"]')) {
+          const cursor = state.composer.draft.length;
+          render();
+          const nextInput = document.getElementById('message');
+          nextInput?.focus();
+          nextInput?.setSelectionRange(cursor, cursor);
+        } else {
+          document.querySelector('[data-testid="send-button"]').disabled = !state.composer.canSend;
+        }
       });
       form.addEventListener('submit', event => {
         event.preventDefault();
         sendMessage(input.value);
+      });
+      document.querySelectorAll('[data-testid="slash-suggestion"]').forEach(button => {
+        button.addEventListener('click', event => {
+          state.composer.draft = event.currentTarget.getAttribute('data-insert-text') || '';
+          state.composer.canSend = state.composer.draft.trim().length > 0;
+          render();
+          const nextInput = document.getElementById('message');
+          nextInput?.focus();
+          nextInput?.setSelectionRange(state.composer.draft.length, state.composer.draft.length);
+        });
       });
       document.querySelector('[data-testid="model-picker-button"]').addEventListener('click', () => {
         state.topBar.modelPickerOpen = !state.topBar.modelPickerOpen;
@@ -2468,6 +2591,30 @@
           <button type="button" data-testid="find-next" ${matches.length ? '' : 'disabled'}>↓</button>
           <button type="button" data-testid="find-close" aria-label="Close find">×</button>
         </form>`;
+    }
+
+    function renderSlashSuggestions() {
+      const suggestions = slashSuggestions(state.composer.draft);
+      if (!suggestions.length) return '';
+      const rows = suggestions.map(suggestion => `
+        <button
+          class="slash-suggestion"
+          type="button"
+          data-testid="slash-suggestion"
+          data-insert-text="${escapeHTML(suggestion.insertText)}"
+        >
+          <span class="slash-usage">${escapeHTML(suggestion.usage)}</span>
+          <span>
+            <span class="slash-title">${escapeHTML(suggestion.title)}</span>
+            <span class="slash-detail">${escapeHTML(suggestion.detail)}</span>
+          </span>
+        </button>
+      `).join('');
+      return `
+        <section class="slash-suggestions" data-testid="slash-suggestions" aria-label="Slash commands">
+          <h3>Slash commands</h3>
+          <div class="slash-suggestion-list">${rows}</div>
+        </section>`;
     }
 
     function renderCommandPalette() {
@@ -3639,21 +3786,7 @@
       } else if (text.toLowerCase().startsWith('/help')) {
         addMessage('assistant', [
           'Slash commands:',
-          '/new',
-          '/rename title',
-          '/duplicate',
-          '/archive',
-          '/unarchive',
-          '/compact',
-          '/status',
-          '/terminal',
-          '/browser',
-          '/memories',
-          '/remember text',
-          '/worktrees',
-          '/pr',
-          '/mode auto|review|read-only',
-          '/model provider/model'
+          ...slashCommandDefinitions.map(definition => `${definition.usage} - ${definition.detail}`)
         ].join('\n'));
       } else if (text.toLowerCase().includes('write a file') || text.toLowerCase().includes('make a file')) {
         const path = 'hello.txt';

@@ -1942,26 +1942,7 @@ public final class QuillCodeWorkspaceModel {
         case .help:
             appendLocalCommandTranscript(
                 userText: originalPrompt,
-                assistantText: """
-                Slash commands:
-                /new - start a new chat
-                /rename title - rename the current chat
-                /duplicate - duplicate the current chat
-                /archive - archive the current chat
-                /unarchive - restore the current chat from Archived
-                /project new|refresh|rename name|remove - manage the selected project
-                /compact - summarize older turns into a shorter continuation thread
-                /status - show current project, mode, and model
-                /terminal - show or hide the integrated terminal
-                /browser - show or hide the browser preview
-                /memories - show or hide loaded memories
-                /remember text - save an explicit global memory
-                /worktrees - list git worktrees for this project
-                /pr - prepare a pull request request
-                /env [name] - list or run a local environment action
-                /mode auto|review|read-only - switch approval behavior
-                /model provider/model - switch the active model
-                """,
+                assistantText: SlashCommandCatalog.helpText(),
                 title: "Slash commands"
             )
         case .status:
