@@ -19,6 +19,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onSetMode: (AgentMode) -> Void
     public var onSetModel: (String) -> Void
     public var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
+    public var onStartTrustedRouterSignIn: () -> Void
     public var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     public var onAddReviewComment: (String, String) -> Void
     public var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
@@ -51,6 +52,7 @@ public struct QuillCodeWorkspaceView: View {
         onSetMode: @escaping (AgentMode) -> Void,
         onSetModel: @escaping (String) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
+        onStartTrustedRouterSignIn: @escaping () -> Void,
         onReviewAction: @escaping (WorkspaceReviewActionSurface) -> Void,
         onAddReviewComment: @escaping (String, String) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
@@ -74,6 +76,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onSetMode = onSetMode
         self.onSetModel = onSetModel
         self.onSaveSettings = onSaveSettings
+        self.onStartTrustedRouterSignIn = onStartTrustedRouterSignIn
         self.onReviewAction = onReviewAction
         self.onAddReviewComment = onAddReviewComment
         self.onCreateWorktree = onCreateWorktree
@@ -152,6 +155,9 @@ public struct QuillCodeWorkspaceView: View {
                 onSave: {
                     onSaveSettings(settingsDraft.update)
                     isSettingsPresented = false
+                },
+                onStartTrustedRouterSignIn: {
+                    onStartTrustedRouterSignIn()
                 }
             )
         }
@@ -1536,6 +1542,7 @@ private struct QuillCodeSettingsView: View {
     @Binding var draft: QuillCodeSettingsDraft
     var onCancel: () -> Void
     var onSave: () -> Void
+    var onStartTrustedRouterSignIn: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -1575,9 +1582,17 @@ private struct QuillCodeSettingsView: View {
             }
 
             if draft.authMode == .oauth {
-                Text("OAuth browser login will use the TrustedRouter account flow. Developer keys stay hidden unless you switch modes.")
-                    .font(.caption)
-                    .foregroundStyle(QuillCodePalette.muted)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("OAuth browser login will use the TrustedRouter account flow. Developer keys stay hidden unless you switch modes.")
+                        .font(.caption)
+                        .foregroundStyle(QuillCodePalette.muted)
+                    Button("Sign in with TrustedRouter", action: onStartTrustedRouterSignIn)
+                        .buttonStyle(.borderedProminent)
+                    Text(settings.signInURL)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .textSelection(.enabled)
+                }
             } else {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Replace API key")

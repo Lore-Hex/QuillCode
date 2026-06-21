@@ -87,6 +87,7 @@ private struct QuillCodeDesktopRootView: View {
             onSetMode: controller.setMode,
             onSetModel: controller.setModel,
             onSaveSettings: controller.saveSettings,
+            onStartTrustedRouterSignIn: controller.startTrustedRouterSignIn,
             onReviewAction: controller.runReviewAction,
             onAddReviewComment: controller.addReviewComment,
             onCreateWorktree: controller.createWorktree,
@@ -245,6 +246,13 @@ private final class QuillCodeDesktopController: ObservableObject {
         Task {
             await refreshModelCatalog()
         }
+    }
+
+    func startTrustedRouterSignIn() {
+        guard let url = URL(string: TrustedRouterDefaults.signInURL) else {
+            return
+        }
+        NSWorkspace.shared.open(url)
     }
 
     func send() {

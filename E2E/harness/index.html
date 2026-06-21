@@ -476,10 +476,12 @@
         authMode: 'oauth',
         developerOverrideEnabled: false,
         hasStoredAPIKey: false,
+        signInURL: 'https://trustedrouter.com/sign-in-with-trustedrouter',
         apiKeyStatusLabel: 'Not signed in',
         loginStatusLabel: 'TrustedRouter login required',
         replacementAPIKey: ''
       },
+      lastOpenedURL: null,
       search: {
         isOpen: false,
         query: ''
@@ -975,6 +977,11 @@
         state.settings.developerOverrideEnabled = state.settings.authMode === 'developer-override';
         render();
       });
+      document.querySelector('[data-testid="settings-sign-in"]')?.addEventListener('click', () => {
+        state.lastOpenedURL = state.settings.signInURL;
+        state.settings.loginStatusLabel = 'Opening TrustedRouter sign in';
+        render();
+      });
       document.querySelector('[data-testid="settings-form"]')?.addEventListener('submit', event => {
         event.preventDefault();
         const form = event.currentTarget;
@@ -1120,7 +1127,12 @@
                 Replace API key
                 <input name="replacementAPIKey" aria-label="Replace API key" type="password" value="${escapeHTML(state.settings.replacementAPIKey)}">
               </label>
-            ` : '<p>OAuth browser login will use the TrustedRouter account flow.</p>'}
+            ` : `
+              <p>OAuth browser login will use the TrustedRouter account flow.</p>
+              <button type="button" data-testid="settings-sign-in">Sign in with TrustedRouter</button>
+              <p data-testid="settings-sign-in-url">${escapeHTML(state.settings.signInURL)}</p>
+              ${state.lastOpenedURL ? `<p data-testid="last-opened-url">${escapeHTML(state.lastOpenedURL)}</p>` : ''}
+            `}
             <div class="settings-actions">
               <button type="button" data-testid="settings-cancel">Cancel</button>
               <button type="submit" data-testid="settings-save">Save</button>

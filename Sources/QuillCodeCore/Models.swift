@@ -369,6 +369,7 @@ public struct ModelInfo: Codable, Sendable, Hashable, Identifiable {
 public enum TrustedRouterDefaults {
     public static let defaultModel = "trustedrouter/fusion"
     public static let defaultAPIBaseURL = "https://api.quillrouter.com/v1"
+    public static let signInURL = "https://trustedrouter.com/sign-in-with-trustedrouter"
     public static let safetyPrimaryModel = "glm-5.2"
     public static let safetyFallbackModel = "kimi-k2.6"
 }
