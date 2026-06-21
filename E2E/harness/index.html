@@ -298,6 +298,36 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 12px;
     }
+    .browser-snapshot {
+      display: grid;
+      gap: 5px;
+    }
+    .browser-snapshot [data-testid="browser-source"] {
+      justify-self: start;
+      color: var(--blue);
+      background: rgba(69,181,224,.14);
+      border: 1px solid rgba(69,181,224,.22);
+      border-radius: 999px;
+      padding: 3px 7px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .browser-snapshot p { margin: 0; }
+    .browser-snapshot ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .browser-snapshot li {
+      color: var(--muted);
+      background: rgba(255,255,255,.05);
+      border-radius: 999px;
+      padding: 4px 7px;
+      font: 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
     .extensions-pane header p,
     .memories-pane header p { margin: 3px 0 0; color: var(--muted); }
     .extensions-counts,
@@ -899,6 +929,7 @@
         currentURL: null,
         title: 'Browser preview',
         statusLabel: 'Ready',
+        snapshot: null,
         comments: []
       },
       nextProjectIndex: 2,
@@ -1922,11 +1953,17 @@
 	    }
 
 	    function renderBrowserPane() {
+        const snapshot = state.browser.snapshot ? `
+          <div class="browser-snapshot" data-testid="browser-snapshot">
+            <span data-testid="browser-source">${escapeHTML(state.browser.snapshot.sourceLabel)}</span>
+            <p data-testid="browser-snapshot-summary">${escapeHTML(state.browser.snapshot.summary)}</p>
+            <ul>${state.browser.snapshot.details.map(detail => `<li data-testid="browser-snapshot-detail">${escapeHTML(detail)}</li>`).join('')}</ul>
+          </div>` : '';
 	      const preview = state.browser.currentURL ? `
 	        <div class="browser-preview" data-testid="browser-preview">
 	          <strong data-testid="browser-title">${escapeHTML(state.browser.title)}</strong>
 	          <code data-testid="browser-current-url">${escapeHTML(state.browser.currentURL)}</code>
-	          <p data-testid="browser-status">${escapeHTML(state.browser.statusLabel)}</p>
+            ${snapshot}
 	        </div>` : `
 	        <div class="browser-preview" data-testid="browser-empty">
 	          <strong>Open a localhost, file, or web page inside QuillCode.</strong>
@@ -2253,16 +2290,46 @@
 	      return null;
 	    }
 
+      function browserSnapshot(url) {
+        const parsed = new URL(url);
+        if (parsed.protocol === 'file:') {
+          const fileName = decodeURIComponent(parsed.pathname.split('/').filter(Boolean).pop() || parsed.pathname);
+          return {
+            sourceLabel: /\\.html?$/i.test(fileName) ? 'Local HTML' : 'Local file',
+            summary: /\\.html?$/i.test(fileName)
+              ? 'HTML file is ready for browser review.'
+              : 'File is ready to open in the browser preview.',
+            details: [`File: ${fileName}`, `Path: ${decodeURIComponent(parsed.pathname)}`]
+          };
+        }
+        const host = parsed.hostname || parsed.href;
+        const isLocal = ['localhost', '127.0.0.1', '::1'].includes(host);
+        return {
+          sourceLabel: isLocal ? 'Local web app' : 'Web page',
+          summary: isLocal
+            ? 'Ready to inspect a local development page.'
+            : 'Ready to open in the browser preview.',
+          details: [
+            `Host: ${host}`,
+            `Scheme: ${parsed.protocol.replace(':', '').toUpperCase()}`,
+            `Path: ${parsed.pathname || '/'}`
+          ]
+        };
+      }
+
 	    function openBrowserPreview() {
 	      const url = normalizeBrowserURL(state.browser.addressDraft);
 	      state.browser.isVisible = true;
 	      if (!url) {
 	        state.browser.statusLabel = 'Invalid address';
+          state.browser.snapshot = null;
 	        render();
 	        return;
 	      }
+        const snapshot = browserSnapshot(url);
 	      state.browser.currentURL = url;
 	      state.browser.addressDraft = url;
+	      state.browser.snapshot = snapshot;
 	      state.browser.title = new URL(url).hostname || url;
 	      state.browser.statusLabel = 'Preview ready';
 	      render();

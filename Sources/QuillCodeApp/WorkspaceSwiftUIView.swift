@@ -1233,15 +1233,45 @@ private struct QuillCodeBrowserPaneView: View {
 
             if let currentURL = browser.currentURL {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(browser.title)
-                        .font(.callout.weight(.semibold))
+                    HStack(spacing: 8) {
+                        Text(browser.title)
+                            .font(.callout.weight(.semibold))
+                            .lineLimit(1)
+                        if let snapshot = browser.snapshot {
+                            Text(snapshot.sourceLabel)
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(QuillCodePalette.blue)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(QuillCodePalette.blue.opacity(0.14))
+                                .clipShape(Capsule())
+                        }
+                    }
                     Text(currentURL)
                         .font(.caption.monospaced())
                         .foregroundStyle(QuillCodePalette.muted)
                         .lineLimit(1)
-                    Text("Ready for page inspection.")
-                        .font(.caption)
-                        .foregroundStyle(QuillCodePalette.muted)
+                    if let snapshot = browser.snapshot {
+                        Text(snapshot.summary)
+                            .font(.caption)
+                            .foregroundStyle(QuillCodePalette.text)
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 6)], alignment: .leading, spacing: 6) {
+                            ForEach(snapshot.details, id: \.self) { detail in
+                                Text(detail)
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(QuillCodePalette.muted)
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 4)
+                                    .background(QuillCodePalette.panel.opacity(0.9))
+                                    .clipShape(Capsule())
+                            }
+                        }
+                    } else {
+                        Text("Ready for page inspection.")
+                            .font(.caption)
+                            .foregroundStyle(QuillCodePalette.muted)
+                    }
                 }
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1290,7 +1320,7 @@ private struct QuillCodeBrowserPaneView: View {
             }
         }
         .padding(14)
-        .frame(height: 260)
+        .frame(height: browser.snapshot == nil ? 260 : 300)
         .background(QuillCodePalette.panel)
     }
 

@@ -39,6 +39,7 @@ Drive the QuillCode test harness with mock LLM:
 - review diff, post-patch review refresh, and file/line/range review notes
 - Auto approve/deny/clarify
 - browser preview
+- browser source snapshots for localhost/web/file URLs, including bounded local HTML metadata
 - extension manifest discovery, with plugin/skill/MCP counts and disabled-state display
 - memories pane discovery, global/project labels, truncation status, top-bar memory pill, sidebar toggle, command-palette toggle, command-palette Add memory prefill, `/memories` slash command, `/remember text` save flow with refreshed counts, and global Forget action with refreshed counts/transcript
 - plugin install

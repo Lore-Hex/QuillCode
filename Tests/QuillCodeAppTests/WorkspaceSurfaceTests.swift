@@ -318,6 +318,13 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.browser.currentURL, "https://example.com")
         XCTAssertEqual(surface.browser.title, "example.com")
         XCTAssertEqual(surface.browser.statusLabel, "Comment added")
+        XCTAssertEqual(surface.browser.snapshot?.sourceLabel, "Web page")
+        XCTAssertEqual(surface.browser.snapshot?.summary, "Ready to open in the browser preview.")
+        XCTAssertEqual(surface.browser.snapshot?.details, [
+            "Host: example.com",
+            "Scheme: HTTPS",
+            "Path: /"
+        ])
         XCTAssertEqual(surface.browser.comments.first?.text, "Looks aligned")
         XCTAssertTrue(surface.browser.canOpen)
         XCTAssertTrue(surface.commands.contains { $0.id == "toggle-browser" && $0.title == "Browser" })
@@ -685,6 +692,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="browser-pane""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-preview""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-current-url""#))
+        XCTAssertTrue(html.contains(#"data-testid="browser-snapshot""#))
+        XCTAssertTrue(html.contains(#"data-testid="browser-source""#))
+        XCTAssertTrue(html.contains("Local web app"))
         XCTAssertTrue(html.contains("http://localhost:5173"))
         XCTAssertTrue(html.contains(#"data-testid="browser-comment""#))
         XCTAssertTrue(html.contains("Inspect responsive state"))

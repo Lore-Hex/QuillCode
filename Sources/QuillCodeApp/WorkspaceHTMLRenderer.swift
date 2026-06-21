@@ -324,13 +324,24 @@ public enum WorkspaceHTMLRenderer {
 
     private static func renderBrowser(_ browser: BrowserSurface) -> String {
         guard browser.isVisible else { return "" }
+        let snapshot = browser.snapshot.map { snapshot in
+            """
+            <div class="browser-snapshot" data-testid="browser-snapshot">
+              <span data-testid="browser-source">\(escape(snapshot.sourceLabel))</span>
+              <p data-testid="browser-snapshot-summary">\(escape(snapshot.summary))</p>
+              <ul>
+                \(snapshot.details.map { #"<li data-testid="browser-snapshot-detail">\#(escape($0))</li>"# }.joined(separator: "\n"))
+              </ul>
+            </div>
+            """
+        } ?? ""
         let preview: String
         if let currentURL = browser.currentURL {
             preview = """
             <div class="browser-preview" data-testid="browser-preview">
               <strong data-testid="browser-title">\(escape(browser.title))</strong>
               <code data-testid="browser-current-url">\(escape(currentURL))</code>
-              <p data-testid="browser-status">\(escape(browser.statusLabel))</p>
+              \(snapshot)
             </div>
             """
         } else {

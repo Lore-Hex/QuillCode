@@ -332,7 +332,18 @@ final class WorkspaceModelTests: XCTestCase {
     func testBrowserPreviewNormalizesURLsAndStoresComments() throws {
         let root = try makeTempDirectory()
         let previewFile = root.appendingPathComponent("preview.html")
-        try "<h1>Preview</h1>".write(to: previewFile, atomically: true, encoding: .utf8)
+        try """
+        <!doctype html>
+        <html>
+          <head><title>Preview Page</title><script src="/app.js"></script></head>
+          <body>
+            <h1>Hero Preview</h1>
+            <a href="/next">Next</a>
+            <img src="/hero.png" alt="">
+            <form><input name="email"></form>
+          </body>
+        </html>
+        """.write(to: previewFile, atomically: true, encoding: .utf8)
         let model = QuillCodeWorkspaceModel()
 
         XCTAssertTrue(model.runWorkspaceCommand("toggle-browser", workspaceRoot: root))
@@ -342,10 +353,26 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.browser.currentURL, "http://localhost:3000")
         XCTAssertEqual(model.browser.title, "localhost")
         XCTAssertEqual(model.browser.status, "Preview ready")
+        XCTAssertEqual(model.browser.snapshot?.sourceLabel, "Local web app")
+        XCTAssertEqual(model.browser.snapshot?.details, [
+            "Host: localhost",
+            "Scheme: HTTP",
+            "Path: /"
+        ])
 
         XCTAssertTrue(model.openBrowserPreview("preview.html", workspaceRoot: root))
         XCTAssertEqual(model.browser.currentURL, previewFile.standardizedFileURL.resolvingSymlinksInPath().absoluteString)
-        XCTAssertEqual(model.browser.title, "preview.html")
+        XCTAssertEqual(model.browser.title, "Preview Page")
+        XCTAssertEqual(model.browser.snapshot?.sourceLabel, "Local HTML")
+        XCTAssertEqual(model.browser.snapshot?.summary, "HTML snapshot captured for browser review.")
+        XCTAssertEqual(model.browser.snapshot?.details.filter { $0 == "Title: Preview Page" }.count, 1)
+        XCTAssertEqual(model.browser.snapshot?.details.filter { $0 == "Heading: Hero Preview" }.count, 1)
+        XCTAssertEqual(model.browser.snapshot.map { Array($0.details.suffix(4)) }, [
+            "Links: 1",
+            "Scripts: 1",
+            "Images: 1",
+            "Forms: 1"
+        ])
 
         XCTAssertTrue(model.addBrowserComment("Check the hero spacing"))
         XCTAssertEqual(model.browser.comments.count, 1)

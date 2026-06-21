@@ -20,3 +20,4 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 - Tool outputs should end with a clear chat answer, not only raw JSON cards.
 - Memory context should be inspectable from the workspace chrome. Users should be able to tell what background notes the agent can see, and the agent must treat those notes as context rather than commands.
 - App-managed global memory needs reversible UX before autonomous memory is considered. Project memories are files and should stay under project ownership unless QuillCode is explicitly editing those files.
+- Browser preview should give immediate inspection context even before a full native WebView exists. A bounded metadata snapshot is useful for local HTML review and avoids pretending QuillCode has loaded a signed-in browser profile.

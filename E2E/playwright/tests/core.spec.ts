@@ -402,7 +402,14 @@ test('mock harness opens browser preview and records comments', async ({ page })
   await page.getByTestId('browser-open').click();
 
   await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
-  await expect(page.getByTestId('browser-status')).toHaveText('Preview ready');
+  await expect(page.getByTestId('browser-status-label')).toHaveText('Preview ready');
+  await expect(page.getByTestId('browser-source')).toHaveText('Local web app');
+  await expect(page.getByTestId('browser-snapshot-summary')).toHaveText('Ready to inspect a local development page.');
+  await expect(page.getByTestId('browser-snapshot-detail')).toContainText([
+    'Host: localhost',
+    'Scheme: HTTP',
+    'Path: /'
+  ]);
 
   await page.getByLabel('Browser comment').fill('Check hero spacing');
   await expect(page.getByTestId('browser-add-comment')).toBeEnabled();

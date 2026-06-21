@@ -435,6 +435,7 @@ public struct BrowserSurface: Codable, Sendable, Hashable {
     public var currentURL: String?
     public var title: String
     public var statusLabel: String
+    public var snapshot: BrowserSnapshotSurface?
     public var comments: [BrowserCommentSurface]
     public var emptyTitle: String
     public var emptySubtitle: String
@@ -453,9 +454,22 @@ public struct BrowserSurface: Codable, Sendable, Hashable {
         self.currentURL = browser.currentURL
         self.title = browser.title
         self.statusLabel = browser.status
+        self.snapshot = browser.snapshot.map(BrowserSnapshotSurface.init)
         self.comments = browser.comments.map(BrowserCommentSurface.init)
         self.emptyTitle = emptyTitle
         self.emptySubtitle = emptySubtitle
+    }
+}
+
+public struct BrowserSnapshotSurface: Codable, Sendable, Hashable {
+    public var sourceLabel: String
+    public var summary: String
+    public var details: [String]
+
+    public init(snapshot: BrowserSnapshotState) {
+        self.sourceLabel = snapshot.sourceLabel
+        self.summary = snapshot.summary
+        self.details = snapshot.details
     }
 }
 
