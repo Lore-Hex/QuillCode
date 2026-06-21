@@ -2380,34 +2380,10 @@ private struct QuillCodeExtensionsPaneView: View {
                                         .font(.caption2)
                                         .foregroundStyle(QuillCodePalette.red)
                                         .lineLimit(2)
-                                } else if item.toolCountLabel != nil || item.protocolLabel != nil || !item.toolNames.isEmpty {
+                                } else if item.hasMCPProbeMetadata {
                                     VStack(alignment: .leading, spacing: 5) {
-                                        HStack(spacing: 6) {
-                                            if let toolCountLabel = item.toolCountLabel {
-                                                Text(toolCountLabel)
-                                                    .font(.caption2.monospacedDigit().weight(.semibold))
-                                                    .foregroundStyle(QuillCodePalette.green)
-                                            }
-                                            if let protocolLabel = item.protocolLabel {
-                                                Text(protocolLabel)
-                                                    .font(.caption2.monospaced())
-                                                    .foregroundStyle(QuillCodePalette.muted)
-                                            }
-                                        }
-                                        if !item.toolNames.isEmpty {
-                                            HStack(spacing: 5) {
-                                                ForEach(item.toolNames, id: \.self) { toolName in
-                                                    Text(toolName)
-                                                        .font(.caption2.monospaced())
-                                                        .foregroundStyle(QuillCodePalette.blue)
-                                                        .padding(.horizontal, 6)
-                                                        .padding(.vertical, 3)
-                                                        .background(QuillCodePalette.blue.opacity(0.12))
-                                                        .clipShape(Capsule())
-                                                        .lineLimit(1)
-                                                }
-                                            }
-                                        }
+                                        probeMetadataCounts(for: item)
+                                        probeMetadataChips(for: item)
                                     }
                                 }
                                 HStack(spacing: 8) {
@@ -2460,6 +2436,57 @@ private struct QuillCodeExtensionsPaneView: View {
             .clipShape(Capsule())
     }
 
+    @ViewBuilder
+    private func probeMetadataCounts(for item: ProjectExtensionManifestSurface) -> some View {
+        let countLabels: [(label: String, color: Color)] = [
+            item.toolCountLabel.map { ($0, QuillCodePalette.green) },
+            item.resourceCountLabel.map { ($0, QuillCodePalette.blue) },
+            item.promptCountLabel.map { ($0, QuillCodePalette.yellow) }
+        ].compactMap { $0 }
+
+        if !countLabels.isEmpty || item.protocolLabel != nil {
+            HStack(spacing: 6) {
+                ForEach(Array(countLabels.enumerated()), id: \.offset) { _, count in
+                    Text(count.label)
+                        .font(.caption2.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(count.color)
+                        .lineLimit(1)
+                }
+                if let protocolLabel = item.protocolLabel {
+                    Text(protocolLabel)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func probeMetadataChips(for item: ProjectExtensionManifestSurface) -> some View {
+        let chips: [(label: String, color: Color)] =
+            item.toolNames.map { ($0, QuillCodePalette.blue) }
+            + item.resourceNames.map { ($0, QuillCodePalette.green) }
+            + item.promptNames.map { ($0, QuillCodePalette.yellow) }
+
+        if !chips.isEmpty {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 74), spacing: 5)], alignment: .leading, spacing: 5) {
+                ForEach(Array(chips.enumerated()), id: \.offset) { _, chip in
+                    Text(chip.label)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(chip.color)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(chip.color.opacity(0.12))
+                        .clipShape(Capsule())
+                }
+            }
+        }
+    }
+
     private func statusColor(for status: String) -> Color {
         switch status {
         case "Discovered", "Running", "Ready":
@@ -2480,6 +2507,18 @@ private struct QuillCodeExtensionsPaneView: View {
             category: WorkspaceCommandPalette.extensionsCategory,
             keywords: ["mcp", "server", title]
         )
+    }
+}
+
+private extension ProjectExtensionManifestSurface {
+    var hasMCPProbeMetadata: Bool {
+        toolCountLabel != nil
+            || resourceCountLabel != nil
+            || promptCountLabel != nil
+            || protocolLabel != nil
+            || !toolNames.isEmpty
+            || !resourceNames.isEmpty
+            || !promptNames.isEmpty
     }
 }
 

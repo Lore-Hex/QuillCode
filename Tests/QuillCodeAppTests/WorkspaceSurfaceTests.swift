@@ -699,7 +699,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
                         protocolVersion: "2024-11-05",
                         serverName: "Fixture MCP",
                         serverVersion: "1.0.0",
-                        toolNames: ["read_file", "write_file"]
+                        toolNames: ["read_file", "write_file"],
+                        resourceNames: ["README", "Project config"],
+                        promptNames: ["summarize_project"]
                     )
                 ]
             )
@@ -712,11 +714,48 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.extensions.items.first?.protocolLabel, "MCP 2024-11-05")
         XCTAssertEqual(surface.extensions.items.first?.toolCountLabel, "2 tools")
         XCTAssertEqual(surface.extensions.items.first?.toolNames, ["read_file", "write_file"])
+        XCTAssertEqual(surface.extensions.items.first?.resourceCountLabel, "2 resources")
+        XCTAssertEqual(surface.extensions.items.first?.resourceNames, ["README", "Project config"])
+        XCTAssertEqual(surface.extensions.items.first?.promptCountLabel, "1 prompt")
+        XCTAssertEqual(surface.extensions.items.first?.promptNames, ["summarize_project"])
         XCTAssertNil(surface.extensions.items.first?.startCommandID)
         XCTAssertEqual(surface.extensions.items.first?.stopCommandID, "mcp-stop:mcp_server:filesystem")
         XCTAssertEqual(surface.commands.first { $0.id == "mcp-start:mcp_server:filesystem" }?.isEnabled, false)
         XCTAssertEqual(surface.commands.first { $0.id == "mcp-stop:mcp_server:filesystem" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "stop-all" }?.isEnabled, true)
+    }
+
+    func testProjectExtensionManifestSurfaceDecodesOlderPayloadWithoutMCPResourcesPrompts() throws {
+        let data = """
+        {
+          "id": "mcp_server:filesystem",
+          "kind": "mcp_server",
+          "kindLabel": "MCP",
+          "name": "Filesystem MCP",
+          "summary": "Workspace MCP server.",
+          "relativePath": ".quillcode/mcp/filesystem.json",
+          "statusLabel": "Ready",
+          "transportLabel": "STDIO",
+          "launchCommand": "quill-mcp --root .",
+          "serverLabel": "Fixture MCP 1.0.0",
+          "protocolLabel": "MCP 2024-11-05",
+          "toolCountLabel": "2 tools",
+          "toolNames": ["read_file", "write_file"],
+          "probeError": null,
+          "canStart": false,
+          "canStop": true,
+          "startCommandID": null,
+          "stopCommandID": "mcp-stop:mcp_server:filesystem"
+        }
+        """.data(using: .utf8)!
+
+        let surface = try JSONDecoder().decode(ProjectExtensionManifestSurface.self, from: data)
+
+        XCTAssertEqual(surface.toolNames, ["read_file", "write_file"])
+        XCTAssertEqual(surface.resourceNames, [])
+        XCTAssertEqual(surface.promptNames, [])
+        XCTAssertNil(surface.resourceCountLabel)
+        XCTAssertNil(surface.promptCountLabel)
     }
 
     func testSurfaceIncludesMemorySummariesAndCommand() {

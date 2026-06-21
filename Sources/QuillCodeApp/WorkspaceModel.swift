@@ -586,6 +586,8 @@ public struct MCPServerProbeSummary: Codable, Sendable, Hashable {
     public var serverName: String?
     public var serverVersion: String?
     public var toolNames: [String]
+    public var resourceNames: [String]
+    public var promptNames: [String]
     public var errorMessage: String?
 
     public init(
@@ -593,12 +595,16 @@ public struct MCPServerProbeSummary: Codable, Sendable, Hashable {
         serverName: String? = nil,
         serverVersion: String? = nil,
         toolNames: [String] = [],
+        resourceNames: [String] = [],
+        promptNames: [String] = [],
         errorMessage: String? = nil
     ) {
         self.protocolVersion = protocolVersion
         self.serverName = serverName
         self.serverVersion = serverVersion
         self.toolNames = toolNames
+        self.resourceNames = resourceNames
+        self.promptNames = promptNames
         self.errorMessage = errorMessage
     }
 
@@ -608,6 +614,8 @@ public struct MCPServerProbeSummary: Codable, Sendable, Hashable {
             serverName: result.serverName,
             serverVersion: result.serverVersion,
             toolNames: result.toolNames,
+            resourceNames: result.resourceNames,
+            promptNames: result.promptNames,
             errorMessage: nil
         )
     }
@@ -626,6 +634,16 @@ public struct MCPServerProbeSummary: Codable, Sendable, Hashable {
     public var toolCountLabel: String? {
         guard errorMessage == nil else { return nil }
         return "\(toolNames.count) tool\(toolNames.count == 1 ? "" : "s")"
+    }
+
+    public var resourceCountLabel: String? {
+        guard errorMessage == nil, !resourceNames.isEmpty else { return nil }
+        return "\(resourceNames.count) resource\(resourceNames.count == 1 ? "" : "s")"
+    }
+
+    public var promptCountLabel: String? {
+        guard errorMessage == nil, !promptNames.isEmpty else { return nil }
+        return "\(promptNames.count) prompt\(promptNames.count == 1 ? "" : "s")"
     }
 }
 
@@ -1904,7 +1922,7 @@ public final class QuillCodeWorkspaceModel {
             standardError.fileHandleForReading.readabilityHandler = { handle in
                 _ = handle.availableData
             }
-            appendNotice("MCP server \(manifest.name) ready\(mcpToolNoticeSuffix(for: result.toolNames))")
+            appendNotice("MCP server \(manifest.name) ready\(mcpProbeNoticeSuffix(for: result))")
         } catch {
             standardOutput.fileHandleForReading.readabilityHandler = nil
             standardError.fileHandleForReading.readabilityHandler = nil
@@ -1963,14 +1981,25 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: terminationStatus == 0 ? "Idle" : "Failed")
     }
 
-    private func mcpToolNoticeSuffix(for toolNames: [String]) -> String {
-        guard !toolNames.isEmpty else { return " (0 tools)" }
-        let preview = toolNames.prefix(3).joined(separator: ", ")
-        let remaining = toolNames.count - min(toolNames.count, 3)
-        if remaining > 0 {
-            return " (\(toolNames.count) tools: \(preview), +\(remaining) more)"
+    private func mcpProbeNoticeSuffix(for result: MCPServerProbeResult) -> String {
+        let toolPreview = result.toolNames.prefix(3).joined(separator: ", ")
+        let toolLabel: String
+        if result.toolNames.isEmpty {
+            toolLabel = "0 tools"
+        } else {
+            let remaining = result.toolNames.count - min(result.toolNames.count, 3)
+            toolLabel = remaining > 0
+                ? "\(result.toolNames.count) tools: \(toolPreview), +\(remaining) more"
+                : "\(result.toolNames.count) tools: \(toolPreview)"
         }
-        return " (\(toolNames.count) tools: \(preview))"
+        let resourceLabel = result.resourceNames.isEmpty
+            ? nil
+            : "\(result.resourceNames.count) resource\(result.resourceNames.count == 1 ? "" : "s")"
+        let promptLabel = result.promptNames.isEmpty
+            ? nil
+            : "\(result.promptNames.count) prompt\(result.promptNames.count == 1 ? "" : "s")"
+        let parts = [toolLabel, resourceLabel, promptLabel].compactMap { $0 }
+        return " (\(parts.joined(separator: "; ")))"
     }
 
     private func mcpToolDefinitionForReadyServers() -> ToolDefinition? {

@@ -1295,7 +1295,7 @@ final class WorkspaceModelTests: XCTestCase {
         let root = try makeTempDirectory()
         let mcpDirectory = root.appendingPathComponent(".quillcode/mcp")
         try FileManager.default.createDirectory(at: mcpDirectory, withIntermediateDirectories: true)
-        let server = try writeFixtureMCPServer(in: root)
+        let server = try writeFixtureMCPServer(in: root, includeResourcesAndPrompts: true)
         try #"{"id":"filesystem","name":"Filesystem MCP","command":""#
             .appending(server.path)
             .appending(#""}"#)
@@ -1320,10 +1320,14 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(surface.extensions.items.first?.protocolLabel, "MCP 2024-11-05")
         XCTAssertEqual(surface.extensions.items.first?.toolCountLabel, "2 tools")
         XCTAssertEqual(surface.extensions.items.first?.toolNames, ["read_file", "write_file"])
+        XCTAssertEqual(surface.extensions.items.first?.resourceCountLabel, "2 resources")
+        XCTAssertEqual(surface.extensions.items.first?.resourceNames, ["README", "Project config"])
+        XCTAssertEqual(surface.extensions.items.first?.promptCountLabel, "1 prompt")
+        XCTAssertEqual(surface.extensions.items.first?.promptNames, ["summarize_project"])
         XCTAssertEqual(surface.extensions.items.first?.stopCommandID, "mcp-stop:mcp_server:filesystem")
         XCTAssertEqual(surface.commands.first { $0.id == "stop-all" }?.isEnabled, true)
         XCTAssertTrue(model.selectedThread?.events.contains {
-            $0.summary == "MCP server Filesystem MCP ready (2 tools: read_file, write_file)"
+            $0.summary == "MCP server Filesystem MCP ready (2 tools: read_file, write_file; 2 resources; 1 prompt)"
         } == true)
 
         model.cancelActiveWork()
@@ -2436,10 +2440,24 @@ final class WorkspaceModelTests: XCTestCase {
         return root
     }
 
-    private func writeFixtureMCPServer(in root: URL, callText: String? = nil) throws -> URL {
+    private func writeFixtureMCPServer(
+        in root: URL,
+        callText: String? = nil,
+        includeResourcesAndPrompts: Bool = false
+    ) throws -> URL {
         let script = root.appendingPathComponent("fixture-mcp.sh")
+        let capabilities = includeResourcesAndPrompts
+            ? #""capabilities":{"tools":{},"resources":{},"prompts":{}}"#
+            : #""capabilities":{"tools":{}}"#
+        let resourceAndPromptResponses = includeResourcesAndPrompts
+            ? """
+        emit '{"jsonrpc":"2.0","id":3,"result":{"resources":[{"name":"README","uri":"file:///workspace/README.md"},{"name":"Project config","uri":"file:///workspace/.quillcode/config.toml"}]}}'
+        emit '{"jsonrpc":"2.0","id":4,"result":{"prompts":[{"name":"summarize_project"}]}}'
+        """
+            : ""
+        let callResponseID = includeResourcesAndPrompts ? 5 : 3
         let callResponse = callText.map {
-            "emit '{\"jsonrpc\":\"2.0\",\"id\":3,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"\($0)\"}],\"isError\":false}}'"
+            "emit '{\"jsonrpc\":\"2.0\",\"id\":\(callResponseID),\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"\($0)\"}],\"isError\":false}}'"
         } ?? ""
         let content = """
         #!/bin/sh
@@ -2448,8 +2466,9 @@ final class WorkspaceModelTests: XCTestCase {
           length=$(printf "%s" "$body" | wc -c | tr -d ' ')
           printf "Content-Length: %s\\r\\n\\r\\n%s" "$length" "$body"
         }
-        emit '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","serverInfo":{"name":"Fixture MCP","version":"1.0.0"},"capabilities":{"tools":{}}}}'
+        emit '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","serverInfo":{"name":"Fixture MCP","version":"1.0.0"},\(capabilities)}}'
         emit '{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"read_file","description":"Read a file","inputSchema":{"type":"object"}},{"name":"write_file","inputSchema":{"type":"object"}}]}}'
+        \(resourceAndPromptResponses)
         \(callResponse)
         sleep 60
         """

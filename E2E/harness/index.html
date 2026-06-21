@@ -785,7 +785,9 @@
       font-weight: 700;
     }
     .extension-card [data-testid="extension-mcp-protocol"],
-    .extension-card [data-testid="extension-mcp-tools-count"] {
+    .extension-card [data-testid="extension-mcp-tools-count"],
+    .extension-card [data-testid="extension-mcp-resources-count"],
+    .extension-card [data-testid="extension-mcp-prompts-count"] {
       width: fit-content;
       padding: 3px 7px;
       border-radius: 999px;
@@ -799,13 +801,44 @@
       flex-wrap: wrap;
       gap: 5px;
     }
-    .extension-card [data-testid="extension-mcp-tool"] {
+    .extension-card [data-testid="extension-mcp-resources"],
+    .extension-card [data-testid="extension-mcp-prompts"] {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .extension-card [data-testid="extension-mcp-tools-count"] {
+      color: var(--green);
+    }
+    .extension-card [data-testid="extension-mcp-resources-count"] {
+      color: #b8ecff;
+    }
+    .extension-card [data-testid="extension-mcp-prompts-count"] {
+      color: #ffd894;
+    }
+    .extension-card [data-testid="extension-mcp-tool"],
+    .extension-card [data-testid="extension-mcp-resource"],
+    .extension-card [data-testid="extension-mcp-prompt"] {
       padding: 3px 7px;
       border-radius: 999px;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       color: #b8ecff;
       background: rgba(65,184,232,.1);
       border: 1px solid rgba(65,184,232,.16);
       font: 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .extension-card [data-testid="extension-mcp-resource"] {
+      color: #bdf3c9;
+      background: rgba(82,210,115,.1);
+      border-color: rgba(82,210,115,.16);
+    }
+    .extension-card [data-testid="extension-mcp-prompt"] {
+      color: #ffd894;
+      background: rgba(247,184,79,.1);
+      border-color: rgba(247,184,79,.16);
     }
     .extension-card button {
       justify-self: start;
@@ -1623,6 +1656,10 @@
             protocolLabel: null,
             toolCountLabel: null,
             toolNames: [],
+            resourceCountLabel: null,
+            resourceNames: [],
+            promptCountLabel: null,
+            promptNames: [],
             probeError: null,
             startCommandID: 'mcp-start:mcp_server:filesystem',
             stopCommandID: null
@@ -4169,7 +4206,11 @@
               ${item.serverLabel ? `<span data-testid="extension-mcp-server">${escapeHTML(item.serverLabel)}</span>` : ''}
               ${item.protocolLabel ? `<span data-testid="extension-mcp-protocol">${escapeHTML(item.protocolLabel)}</span>` : ''}
               ${item.toolCountLabel ? `<span data-testid="extension-mcp-tools-count">${escapeHTML(item.toolCountLabel)}</span>` : ''}
+              ${item.resourceCountLabel ? `<span data-testid="extension-mcp-resources-count">${escapeHTML(item.resourceCountLabel)}</span>` : ''}
+              ${item.promptCountLabel ? `<span data-testid="extension-mcp-prompts-count">${escapeHTML(item.promptCountLabel)}</span>` : ''}
               ${item.toolNames?.length ? `<div data-testid="extension-mcp-tools">${item.toolNames.map(toolName => `<span data-testid="extension-mcp-tool">${escapeHTML(toolName)}</span>`).join('')}</div>` : ''}
+              ${item.resourceNames?.length ? `<div data-testid="extension-mcp-resources">${item.resourceNames.map(resourceName => `<span data-testid="extension-mcp-resource">${escapeHTML(resourceName)}</span>`).join('')}</div>` : ''}
+              ${item.promptNames?.length ? `<div data-testid="extension-mcp-prompts">${item.promptNames.map(promptName => `<span data-testid="extension-mcp-prompt">${escapeHTML(promptName)}</span>`).join('')}</div>` : ''}
               ${item.probeError ? `<p data-testid="extension-mcp-error">${escapeHTML(item.probeError)}</p>` : ''}
               ${item.stopCommandID ? `<button type="button" data-testid="extension-stop" data-command-id="${escapeHTML(item.stopCommandID)}">Stop</button>` : ''}
               ${item.startCommandID ? `<button type="button" data-testid="extension-start" data-command-id="${escapeHTML(item.startCommandID)}">Start</button>` : ''}
@@ -4679,7 +4720,7 @@
       }
       if (commandID?.startsWith('mcp-start:')) {
         setMCPStatus(commandID.slice('mcp-start:'.length), 'Ready');
-        addMessage('assistant', 'Filesystem MCP is ready with 2 tools.');
+        addMessage('assistant', 'Filesystem MCP is ready with 2 tools, 2 resources, and 1 prompt.');
         render();
         return;
       }
@@ -4780,6 +4821,10 @@
         item.protocolLabel = 'MCP 2024-11-05';
         item.toolCountLabel = '2 tools';
         item.toolNames = ['read_file', 'write_file'];
+        item.resourceCountLabel = '2 resources';
+        item.resourceNames = ['README', 'Project config'];
+        item.promptCountLabel = '1 prompt';
+        item.promptNames = ['summarize_project'];
         item.probeError = null;
         item.startCommandID = null;
         item.stopCommandID = `mcp-stop:${id}`;
@@ -4788,6 +4833,10 @@
         item.protocolLabel = null;
         item.toolCountLabel = null;
         item.toolNames = [];
+        item.resourceCountLabel = null;
+        item.resourceNames = [];
+        item.promptCountLabel = null;
+        item.promptNames = [];
         item.probeError = null;
         item.startCommandID = `mcp-start:${id}`;
         item.stopCommandID = null;

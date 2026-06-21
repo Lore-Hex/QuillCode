@@ -1281,11 +1281,40 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
     public var protocolLabel: String?
     public var toolCountLabel: String?
     public var toolNames: [String]
+    public var resourceCountLabel: String?
+    public var resourceNames: [String]
+    public var promptCountLabel: String?
+    public var promptNames: [String]
     public var probeError: String?
     public var canStart: Bool
     public var canStop: Bool
     public var startCommandID: String?
     public var stopCommandID: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case kind
+        case kindLabel
+        case name
+        case summary
+        case relativePath
+        case statusLabel
+        case transportLabel
+        case launchCommand
+        case serverLabel
+        case protocolLabel
+        case toolCountLabel
+        case toolNames
+        case resourceCountLabel
+        case resourceNames
+        case promptCountLabel
+        case promptNames
+        case probeError
+        case canStart
+        case canStop
+        case startCommandID
+        case stopCommandID
+    }
 
     public init(
         manifest: ProjectExtensionManifest,
@@ -1313,6 +1342,10 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         self.protocolLabel = probeSummary?.protocolVersion.map { "MCP \($0)" }
         self.toolCountLabel = probeSummary?.toolCountLabel
         self.toolNames = Array((probeSummary?.toolNames ?? []).prefix(4))
+        self.resourceCountLabel = probeSummary?.resourceCountLabel
+        self.resourceNames = Array((probeSummary?.resourceNames ?? []).prefix(4))
+        self.promptCountLabel = probeSummary?.promptCountLabel
+        self.promptNames = Array((probeSummary?.promptNames ?? []).prefix(4))
         self.probeError = probeSummary?.errorMessage
         self.canStart = manifest.kind == .mcpServer
             && manifest.isEnabled
@@ -1321,6 +1354,32 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         self.canStop = manifest.kind == .mcpServer && mcpServerStatus.isActive
         self.startCommandID = canStart ? "mcp-start:\(manifest.id)" : nil
         self.stopCommandID = canStop ? "mcp-stop:\(manifest.id)" : nil
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.kind = try container.decode(ProjectExtensionKind.self, forKey: .kind)
+        self.kindLabel = try container.decode(String.self, forKey: .kindLabel)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.summary = try container.decode(String.self, forKey: .summary)
+        self.relativePath = try container.decode(String.self, forKey: .relativePath)
+        self.statusLabel = try container.decode(String.self, forKey: .statusLabel)
+        self.transportLabel = try container.decodeIfPresent(String.self, forKey: .transportLabel)
+        self.launchCommand = try container.decodeIfPresent(String.self, forKey: .launchCommand)
+        self.serverLabel = try container.decodeIfPresent(String.self, forKey: .serverLabel)
+        self.protocolLabel = try container.decodeIfPresent(String.self, forKey: .protocolLabel)
+        self.toolCountLabel = try container.decodeIfPresent(String.self, forKey: .toolCountLabel)
+        self.toolNames = try container.decodeIfPresent([String].self, forKey: .toolNames) ?? []
+        self.resourceCountLabel = try container.decodeIfPresent(String.self, forKey: .resourceCountLabel)
+        self.resourceNames = try container.decodeIfPresent([String].self, forKey: .resourceNames) ?? []
+        self.promptCountLabel = try container.decodeIfPresent(String.self, forKey: .promptCountLabel)
+        self.promptNames = try container.decodeIfPresent([String].self, forKey: .promptNames) ?? []
+        self.probeError = try container.decodeIfPresent(String.self, forKey: .probeError)
+        self.canStart = try container.decode(Bool.self, forKey: .canStart)
+        self.canStop = try container.decode(Bool.self, forKey: .canStop)
+        self.startCommandID = try container.decodeIfPresent(String.self, forKey: .startCommandID)
+        self.stopCommandID = try container.decodeIfPresent(String.self, forKey: .stopCommandID)
     }
 }
 

@@ -11,17 +11,23 @@ public struct MCPServerProbeResult: Sendable, Hashable {
     public var serverName: String?
     public var serverVersion: String?
     public var toolNames: [String]
+    public var resourceNames: [String]
+    public var promptNames: [String]
 
     public init(
         protocolVersion: String? = nil,
         serverName: String? = nil,
         serverVersion: String? = nil,
-        toolNames: [String] = []
+        toolNames: [String] = [],
+        resourceNames: [String] = [],
+        promptNames: [String] = []
     ) {
         self.protocolVersion = protocolVersion
         self.serverName = serverName
         self.serverVersion = serverVersion
         self.toolNames = toolNames
+        self.resourceNames = resourceNames
+        self.promptNames = promptNames
     }
 }
 
@@ -149,12 +155,32 @@ public final class MCPStdioProber: @unchecked Sendable {
             .compactMap { ($0["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
 
+        let capabilities = initializeResult["capabilities"] as? [String: Any]
+        let resourceNames = capabilities?["resources"] == nil
+            ? []
+            : optionalListNames(
+                method: "resources/list",
+                resultKey: "resources",
+                nameKeys: ["name", "uri"],
+                deadline: deadline
+            )
+        let promptNames = capabilities?["prompts"] == nil
+            ? []
+            : optionalListNames(
+                method: "prompts/list",
+                resultKey: "prompts",
+                nameKeys: ["name"],
+                deadline: deadline
+            )
+
         let serverInfo = initializeResult["serverInfo"] as? [String: Any]
         return MCPServerProbeResult(
             protocolVersion: initializeResult["protocolVersion"] as? String,
             serverName: serverInfo?["name"] as? String,
             serverVersion: serverInfo?["version"] as? String,
-            toolNames: toolNames
+            toolNames: toolNames,
+            resourceNames: resourceNames,
+            promptNames: promptNames
         )
     }
 
@@ -246,6 +272,36 @@ public final class MCPStdioProber: @unchecked Sendable {
             throw MCPProbeError.invalidMessage("MCP response did not include a result object.")
         }
         return result
+    }
+
+    private func optionalListNames(
+        method: String,
+        resultKey: String,
+        nameKeys: [String],
+        deadline: Date
+    ) -> [String] {
+        do {
+            let requestID = nextID()
+            try write(method: method, id: requestID, params: [:])
+            let response = try readResponse(id: requestID, deadline: deadline)
+            let result = try resultDictionary(from: response)
+            let entries = (result[resultKey] as? [[String: Any]]) ?? []
+            return entries.compactMap { entry in
+                firstNonEmptyString(in: entry, keys: nameKeys)
+            }
+        } catch {
+            return []
+        }
+    }
+
+    private func firstNonEmptyString(in entry: [String: Any], keys: [String]) -> String? {
+        for key in keys {
+            let value = (entry[key] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let value, !value.isEmpty {
+                return value
+            }
+        }
+        return nil
     }
 
     private func readAvailableData(timeout: TimeInterval) throws -> Data? {

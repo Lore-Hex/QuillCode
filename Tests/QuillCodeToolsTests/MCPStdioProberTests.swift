@@ -83,6 +83,74 @@ final class MCPStdioProberTests: XCTestCase {
         XCTAssertEqual(result.serverName, "Fixture MCP")
         XCTAssertEqual(result.serverVersion, "1.0.0")
         XCTAssertEqual(result.toolNames, ["read_file", "write_file"])
+        XCTAssertEqual(result.resourceNames, [])
+        XCTAssertEqual(result.promptNames, [])
+    }
+
+    func testProbeReadsResourcesAndPromptsWhenAdvertised() throws {
+        let input = Pipe()
+        let output = Pipe()
+        defer {
+            try? input.fileHandleForWriting.close()
+            try? input.fileHandleForReading.close()
+            try? output.fileHandleForWriting.close()
+            try? output.fileHandleForReading.close()
+        }
+
+        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": [
+                "protocolVersion": "2024-11-05",
+                "serverInfo": [
+                    "name": "Fixture MCP",
+                    "version": "1.0.0"
+                ],
+                "capabilities": [
+                    "tools": [:],
+                    "resources": [:],
+                    "prompts": [:]
+                ]
+            ]
+        ]))
+        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": [
+                "tools": [
+                    ["name": "read_file"]
+                ]
+            ]
+        ]))
+        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": [
+                "resources": [
+                    ["name": "README", "uri": "file:///workspace/README.md"],
+                    ["uri": "file:///workspace/package.json"]
+                ]
+            ]
+        ]))
+        output.fileHandleForWriting.write(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": 4,
+            "result": [
+                "prompts": [
+                    ["name": "summarize_project"]
+                ]
+            ]
+        ]))
+        try output.fileHandleForWriting.close()
+
+        let result = try MCPStdioProber(
+            standardInput: input.fileHandleForWriting,
+            standardOutput: output.fileHandleForReading
+        ).probe(timeout: 1.0)
+
+        XCTAssertEqual(result.toolNames, ["read_file"])
+        XCTAssertEqual(result.resourceNames, ["README", "file:///workspace/package.json"])
+        XCTAssertEqual(result.promptNames, ["summarize_project"])
     }
 
     func testCallToolSendsToolsCallAndParsesTextContent() throws {
