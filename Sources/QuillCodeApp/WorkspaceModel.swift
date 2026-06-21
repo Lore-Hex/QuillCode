@@ -770,6 +770,67 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: "Idle")
     }
 
+    @discardableResult
+    public func renameProject(_ id: UUID, to name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let index = root.projects.firstIndex(where: { $0.id == id })
+        else {
+            return false
+        }
+        root.projects[index].name = trimmed
+        root.projects[index].lastOpenedAt = Date()
+        saveProjects()
+        refreshTopBar(agentStatus: "Idle")
+        return true
+    }
+
+    @discardableResult
+    public func refreshProjectContext(_ id: UUID) -> Bool {
+        guard root.projects.contains(where: { $0.id == id }) else {
+            return false
+        }
+        refreshProjectMetadata(id)
+        if selectedThread?.projectID == id || root.selectedProjectID == id {
+            let refreshedInstructions = instructions(for: id)
+            let refreshedMemories = memoryNotes(for: id)
+            mutateSelectedThread { thread in
+                guard thread.projectID == id else { return }
+                thread.instructions = refreshedInstructions
+                thread.memories = refreshedMemories
+                thread.events.append(ThreadEvent(
+                    kind: .notice,
+                    summary: "Refreshed project context",
+                    payloadJSON: id.uuidString
+                ))
+            }
+        }
+        touchProject(id)
+        saveProjects()
+        refreshTopBar(agentStatus: "Idle")
+        return true
+    }
+
+    @discardableResult
+    public func removeProject(_ id: UUID) -> Bool {
+        guard let index = root.projects.firstIndex(where: { $0.id == id }) else {
+            return false
+        }
+        root.projects.remove(at: index)
+        for threadIndex in root.threads.indices where root.threads[threadIndex].projectID == id {
+            root.threads[threadIndex].projectID = nil
+            try? threadStore?.save(root.threads[threadIndex])
+        }
+        if root.selectedProjectID == id {
+            root.selectedProjectID = nil
+        } else {
+            root.selectedProjectID = knownProjectID(root.selectedProjectID)
+        }
+        saveProjects()
+        refreshTopBar(agentStatus: "Idle")
+        return true
+    }
+
     public func togglePinSelectedThread() {
         guard let selectedThreadID = root.selectedThreadID else { return }
         togglePinThread(selectedThreadID)
@@ -1163,6 +1224,20 @@ public final class QuillCodeWorkspaceModel {
         case "memory-add":
             composer.draft = "/remember "
             return true
+        case "project-new-chat":
+            guard let projectID = root.selectedProjectID else { return false }
+            _ = newChat(projectID: projectID)
+            return true
+        case "project-refresh-context":
+            guard let projectID = root.selectedProjectID else { return false }
+            return refreshProjectContext(projectID)
+        case "project-rename":
+            guard let name = selectedProject?.name else { return false }
+            composer.draft = "/project rename \(name)"
+            return true
+        case "project-remove":
+            guard let projectID = root.selectedProjectID else { return false }
+            return removeProject(projectID)
         case "thread-rename":
             guard let title = selectedThread?.title else { return false }
             composer.draft = "/rename \(title)"
@@ -1874,6 +1949,7 @@ public final class QuillCodeWorkspaceModel {
                 /duplicate - duplicate the current chat
                 /archive - archive the current chat
                 /unarchive - restore the current chat from Archived
+                /project new|refresh|rename name|remove - manage the selected project
                 /compact - summarize older turns into a shorter continuation thread
                 /status - show current project, mode, and model
                 /terminal - show or hide the integrated terminal
@@ -1922,6 +1998,20 @@ public final class QuillCodeWorkspaceModel {
                     userText: originalPrompt,
                     assistantText: "Could not rename this chat. Try /rename New chat title.",
                     title: "Rename chat"
+                )
+            }
+        case .renameProject(let name):
+            if let id = root.selectedProjectID, renameProject(id, to: name) {
+                appendLocalCommandTranscript(
+                    userText: originalPrompt,
+                    assistantText: "Renamed project to \(name.trimmingCharacters(in: .whitespacesAndNewlines)).",
+                    title: "Rename project"
+                )
+            } else {
+                appendLocalCommandTranscript(
+                    userText: originalPrompt,
+                    assistantText: "Could not rename this project. Try /project rename New project name.",
+                    title: "Rename project"
                 )
             }
         case .remember(let content):

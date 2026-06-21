@@ -263,6 +263,13 @@
       gap: 4px;
       margin-bottom: 8px;
     }
+    .project-row {
+      position: relative;
+      margin-bottom: 8px;
+    }
+    .project-row .project-item {
+      padding-right: 44px;
+    }
     .sidebar-thread-menu {
       position: absolute;
       right: 8px;
@@ -292,7 +299,7 @@
       position: absolute;
       right: 0;
       top: 34px;
-      min-width: 132px;
+      min-width: 152px;
       display: grid;
       gap: 4px;
       padding: 6px;
@@ -307,6 +314,7 @@
       min-height: 28px;
       padding: 0 9px;
       text-align: left;
+      white-space: nowrap;
       border-radius: 8px;
       border: 1px solid rgba(255,255,255,.12);
       color: var(--blue);
@@ -1128,6 +1136,10 @@
         { id: 'retry-last-turn', title: 'Retry last turn', shortcut: '', category: 'Control', keywords: ['retry', 'rerun', 'again', 'failed'], isEnabled: false },
         { id: 'search', title: 'Search', shortcut: 'Cmd+K', category: 'Navigation', keywords: ['find', 'threads', 'chat'], isEnabled: true },
         { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', category: 'Workspace', keywords: ['folder', 'workspace', 'repo'], isEnabled: true },
+        { id: 'project-new-chat', title: 'New chat in project', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'thread', 'chat'], isEnabled: true },
+        { id: 'project-refresh-context', title: 'Refresh project context', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'instructions', 'memory', 'reload'], isEnabled: true },
+        { id: 'project-rename', title: 'Rename project', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'title', 'name'], isEnabled: true },
+        { id: 'project-remove', title: 'Remove project from list', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'forget', 'remove'], isEnabled: true },
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', category: 'Workspace', keywords: ['shell', 'command', 'pty'], isEnabled: true },
         { id: 'toggle-browser', title: 'Browser', shortcut: 'Cmd+Shift+B', category: 'Workspace', keywords: ['preview', 'web', 'localhost'], isEnabled: true },
         { id: 'toggle-memories', title: 'Memories', shortcut: '', category: 'Memories', keywords: ['memory', 'context', 'preferences', 'facts'], isEnabled: true },
@@ -1417,12 +1429,17 @@
       const hasMessages = Boolean(state.sidebar.selectedThreadID && state.transcript.messages.length);
       const hasUserMessages = state.transcript.messages.some(message => message.role === 'user' && String(message.text || '').trim());
       const hasActiveWork = state.composer.isSending || state.terminal.isRunning;
+      const hasProject = Boolean(state.projects.selectedProjectID);
       state.commands = state.commands.map(command => (
         command.id === 'thread-rename' ? { ...command, isEnabled: hasThread } :
         command.id === 'thread-duplicate' ? { ...command, isEnabled: hasThread } :
         command.id === 'thread-archive' ? { ...command, isEnabled: hasThread && !selectedThread.isArchived } :
         command.id === 'thread-unarchive' ? { ...command, isEnabled: hasThread && selectedThread.isArchived } :
         command.id === 'thread-delete' ? { ...command, isEnabled: hasThread } :
+        command.id === 'project-new-chat' ? { ...command, isEnabled: hasProject } :
+        command.id === 'project-refresh-context' ? { ...command, isEnabled: hasProject } :
+        command.id === 'project-rename' ? { ...command, isEnabled: hasProject } :
+        command.id === 'project-remove' ? { ...command, isEnabled: hasProject } :
         command.id === 'fork-from-last' ? { ...command, isEnabled: hasMessages } :
         command.id === 'compact-context' ? { ...command, isEnabled: hasMessages } :
         command.id === 'retry-last-turn' ? { ...command, isEnabled: hasUserMessages && !state.composer.isSending } :
@@ -1729,10 +1746,18 @@
         </section>`;
       const projectsContent = state.projects.items.length
         ? state.projects.items.map(item => `
-          <button class="project-item ${item.isSelected ? 'selected' : ''}" data-testid="project-item" data-project-id="${escapeHTML(item.id)}" aria-current="${item.isSelected ? 'true' : 'false'}">
-            <span>${escapeHTML(item.name)}</span>
-            <small>${escapeHTML(item.path)}</small>
-          </button>`).join('')
+          <div class="project-row" data-testid="project-row">
+            <button class="project-item ${item.isSelected ? 'selected' : ''}" data-testid="project-item" data-project-id="${escapeHTML(item.id)}" aria-current="${item.isSelected ? 'true' : 'false'}">
+              <span>${escapeHTML(item.name)}</span>
+              <small>${escapeHTML(item.path)}</small>
+            </button>
+            <details class="sidebar-thread-menu" data-testid="project-item-actions">
+              <summary aria-label="Actions for project ${escapeHTML(item.name)}">•••</summary>
+              <div class="sidebar-thread-menu-popover">
+                ${projectActionsFor(item).map(action => `<button type="button" data-testid="project-action" data-action="${escapeHTML(action.id)}" data-project-id="${escapeHTML(item.id)}">${escapeHTML(action.title)}</button>`).join('')}
+              </div>
+            </details>
+          </div>`).join('')
         : '<p data-testid="project-empty">No projects yet</p>';
       const renderSidebarSection = (title, items) => items.length ? `
         <section data-testid="sidebar-section">
@@ -1877,15 +1902,15 @@
       document.querySelectorAll('[data-testid="project-item"]').forEach(button => {
         button.addEventListener('click', event => {
           const id = event.currentTarget.getAttribute('data-project-id');
-          state.projects.selectedProjectID = id;
-          state.projects.items = state.projects.items.map(project => ({
-            ...project,
-            isSelected: project.id === id
-          }));
-          const project = state.projects.items.find(project => project.id === id);
-          state.terminal.cwdLabel = project?.path || 'No project';
-          state.topBar.subtitle = `${project?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
-          render();
+          selectProject(id);
+        });
+      });
+      document.querySelectorAll('[data-testid="project-action"]').forEach(button => {
+        button.addEventListener('click', event => {
+          runProjectAction(
+            event.currentTarget.getAttribute('data-action'),
+            event.currentTarget.getAttribute('data-project-id')
+          );
         });
       });
       document.querySelector('[data-testid="add-project-button"]').addEventListener('click', () => {
@@ -2529,6 +2554,15 @@
       ];
     }
 
+    function projectActionsFor() {
+      return [
+        { id: 'new-chat', title: 'New chat' },
+        { id: 'refresh-context', title: 'Refresh context' },
+        { id: 'rename', title: 'Rename' },
+        { id: 'remove', title: 'Remove from list' }
+      ];
+    }
+
     function ensureThread(title) {
       if (!state.sidebar.selectedThreadID) {
         const threadID = `thread-${state.nextThreadIndex++}`;
@@ -2691,6 +2725,78 @@
       render();
     }
 
+    function selectProject(projectID) {
+      state.projects.selectedProjectID = projectID;
+      state.projects.items = state.projects.items.map(project => ({
+        ...project,
+        isSelected: project.id === projectID
+      }));
+      const project = state.projects.items.find(project => project.id === projectID);
+      state.terminal.cwdLabel = project?.path || 'No project';
+      state.topBar.subtitle = `${project?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+      render();
+    }
+
+    function runProjectAction(action, projectID) {
+      const project = state.projects.items.find(item => item.id === projectID);
+      if (!project) return;
+      if (action === 'new-chat') {
+        selectProject(projectID);
+        const threadID = `thread-${state.nextThreadIndex++}`;
+        state.sidebar.selectedThreadID = threadID;
+        state.sidebar.items = [{
+          id: threadID,
+          title: 'New chat',
+          subtitle: state.topBar.modelLabel,
+          searchText: '',
+          isSelected: true,
+          isPinned: false,
+          isArchived: false
+        }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
+        state.transcript.messages = [];
+        state.transcript.toolCards = [];
+        state.transcript.timelineItems = [];
+        state.review.files = [];
+        state.topBar.primaryTitle = 'New chat';
+        state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+        render();
+        return;
+      }
+      if (action === 'refresh-context') {
+        selectProject(projectID);
+        addMessage('assistant', `Refreshed project context for ${project.name}.`);
+        render();
+        return;
+      }
+      if (action === 'rename') {
+        const nextName = window.prompt('Rename project', project.name);
+        if (nextName && nextName.trim()) {
+          state.projects.items = state.projects.items.map(item =>
+            item.id === projectID ? { ...item, name: nextName.trim() } : item
+          );
+          if (state.projects.selectedProjectID === projectID) {
+            state.topBar.subtitle = `${nextName.trim()} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+          }
+          render();
+        }
+        return;
+      }
+      if (action === 'remove') {
+        state.projects.items = state.projects.items.filter(item => item.id !== projectID);
+        if (state.projects.selectedProjectID === projectID) {
+          const next = state.projects.items[0] || null;
+          state.projects.selectedProjectID = next?.id || null;
+          state.projects.items = state.projects.items.map(item => ({
+            ...item,
+            isSelected: item.id === state.projects.selectedProjectID
+          }));
+          state.terminal.cwdLabel = next?.path || 'No project';
+          state.topBar.subtitle = `${next?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+        }
+        render();
+      }
+    }
+
     function runCommand(commandID) {
       if (commandID === 'command-palette') {
         openCommandPalette();
@@ -2744,6 +2850,22 @@
       }
       if (commandID === 'add-project') {
         addProject();
+        return;
+      }
+      if (commandID === 'project-new-chat') {
+        if (state.projects.selectedProjectID) runProjectAction('new-chat', state.projects.selectedProjectID);
+        return;
+      }
+      if (commandID === 'project-refresh-context') {
+        if (state.projects.selectedProjectID) runProjectAction('refresh-context', state.projects.selectedProjectID);
+        return;
+      }
+      if (commandID === 'project-rename') {
+        if (state.projects.selectedProjectID) runProjectAction('rename', state.projects.selectedProjectID);
+        return;
+      }
+      if (commandID === 'project-remove') {
+        if (state.projects.selectedProjectID) runProjectAction('remove', state.projects.selectedProjectID);
         return;
       }
       if (commandID === 'toggle-terminal') {

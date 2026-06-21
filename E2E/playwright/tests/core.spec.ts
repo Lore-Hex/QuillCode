@@ -497,8 +497,12 @@ test('mock harness manages chat lifecycle from the sidebar', async ({ page }) =>
   await expect(page.getByTestId('sidebar')).not.toContainText('Copy: Renamed whoami');
 });
 
-test('mock harness opens a new project from the sidebar', async ({ page }) => {
+test('mock harness manages projects from the sidebar', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
+  const clickProjectAction = async (row: Locator, name: string) => {
+    await row.getByLabel(/^Actions for project /).click();
+    await row.getByRole('button', { name }).click();
+  };
 
   await page.getByTestId('add-project-button').click();
 
@@ -510,6 +514,26 @@ test('mock harness opens a new project from the sidebar', async ({ page }) => {
 
   await page.getByTestId('terminal-button').click();
   await expect(page.getByTestId('terminal-cwd')).toHaveText('/mock/example-2');
+
+  const activeProjectRow = page.getByTestId('project-row').first();
+  page.once('dialog', async dialog => {
+    expect(dialog.message()).toContain('Rename project');
+    await dialog.accept('Renamed Project');
+  });
+  await clickProjectAction(activeProjectRow, 'Rename');
+  await expect(page.getByTestId('project-item').first()).toContainText('Renamed Project');
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('Renamed Project');
+
+  await clickProjectAction(page.getByTestId('project-row').first(), 'Refresh context');
+  await expect(page.getByTestId('message').last()).toContainText('Refreshed project context for Renamed Project.');
+
+  await clickProjectAction(page.getByTestId('project-row').first(), 'New chat');
+  await expect(page.getByTestId('top-bar-title')).toHaveText('New chat');
+  await expect(page.getByTestId('sidebar-item').first()).toContainText('New chat');
+
+  await clickProjectAction(page.getByTestId('project-row').first(), 'Remove from list');
+  await expect(page.getByTestId('project-item')).toHaveCount(1);
+  await expect(page.getByTestId('project-item').first()).toContainText('QuillCode');
 });
 
 test('mock harness runs a command in the integrated terminal', async ({ page }) => {

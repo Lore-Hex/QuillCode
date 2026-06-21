@@ -36,6 +36,36 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.root.topBar.projectName, "QuillCode")
     }
 
+    func testProjectLifecycleActionsRenameRefreshNewChatAndRemove() throws {
+        let root = try makeTempDirectory()
+        try "Use focused tests.".write(
+            to: root.appendingPathComponent("AGENTS.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Original")
+        let threadID = model.newChat(projectID: projectID)
+
+        XCTAssertTrue(model.renameProject(projectID, to: "Renamed Project"))
+        XCTAssertEqual(model.selectedProject?.name, "Renamed Project")
+        XCTAssertEqual(model.root.topBar.projectName, "Renamed Project")
+
+        XCTAssertTrue(model.refreshProjectContext(projectID))
+        XCTAssertEqual(model.selectedThread?.instructions.map(\.title), ["Project AGENTS.md"])
+        XCTAssertEqual(model.selectedThread?.events.last?.summary, "Refreshed project context")
+
+        XCTAssertTrue(model.runWorkspaceCommand("project-new-chat", workspaceRoot: root))
+        XCTAssertNotEqual(model.root.selectedThreadID, threadID)
+        XCTAssertEqual(model.selectedThread?.projectID, projectID)
+
+        XCTAssertTrue(model.runWorkspaceCommand("project-remove", workspaceRoot: root))
+        XCTAssertTrue(model.root.projects.isEmpty)
+        XCTAssertNil(model.root.selectedProjectID)
+        XCTAssertNil(model.selectedThread?.projectID)
+        XCTAssertNil(model.activeWorkspaceRoot)
+    }
+
     func testNewChatIgnoresUnknownProjectID() {
         let model = QuillCodeWorkspaceModel()
 
@@ -178,6 +208,15 @@ final class WorkspaceModelTests: XCTestCase {
         model.setDraft("/pr")
         await model.submitComposer(workspaceRoot: root)
         XCTAssertEqual(model.composer.draft, "Create a pull request titled ")
+
+        model.setDraft("/project rename Slash Renamed")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertEqual(model.selectedProject?.name, "Slash Renamed")
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Renamed project to Slash Renamed.")
+
+        model.setDraft("/project new")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertEqual(model.selectedThread?.projectID, projectID)
     }
 
     func testSlashEnvironmentActionListsAndRunsByName() async throws {

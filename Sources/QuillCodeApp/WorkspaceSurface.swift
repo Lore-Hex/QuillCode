@@ -138,13 +138,76 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var name: String
     public var path: String
+    public var actions: [ProjectItemActionSurface]
     public var isSelected: Bool
 
     public init(project: ProjectRef, selectedProjectID: UUID?) {
         self.id = project.id
         self.name = project.name
         self.path = project.path
+        self.actions = [
+            ProjectItemActionSurface(kind: .newChat, projectID: project.id),
+            ProjectItemActionSurface(kind: .refreshContext, projectID: project.id),
+            ProjectItemActionSurface(kind: .rename, projectID: project.id),
+            ProjectItemActionSurface(kind: .remove, projectID: project.id)
+        ]
         self.isSelected = project.id == selectedProjectID
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case path
+        case actions
+        case isSelected
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.path = try container.decode(String.self, forKey: .path)
+        self.actions = try container.decodeIfPresent([ProjectItemActionSurface].self, forKey: .actions) ?? [
+            ProjectItemActionSurface(kind: .newChat, projectID: id),
+            ProjectItemActionSurface(kind: .refreshContext, projectID: id),
+            ProjectItemActionSurface(kind: .rename, projectID: id),
+            ProjectItemActionSurface(kind: .remove, projectID: id)
+        ]
+        self.isSelected = try container.decode(Bool.self, forKey: .isSelected)
+    }
+}
+
+public enum ProjectItemActionKind: String, Codable, Sendable, Hashable {
+    case newChat
+    case refreshContext
+    case rename
+    case remove
+
+    public var title: String {
+        switch self {
+        case .newChat:
+            return "New chat"
+        case .refreshContext:
+            return "Refresh context"
+        case .rename:
+            return "Rename"
+        case .remove:
+            return "Remove from list"
+        }
+    }
+}
+
+public struct ProjectItemActionSurface: Codable, Sendable, Hashable, Identifiable {
+    public var kind: ProjectItemActionKind
+    public var projectID: UUID
+
+    public var id: String {
+        "\(projectID.uuidString)-\(kind.rawValue)"
+    }
+
+    public init(kind: ProjectItemActionKind, projectID: UUID) {
+        self.kind = kind
+        self.projectID = projectID
     }
 }
 
@@ -1888,6 +1951,34 @@ public extension QuillCodeWorkspaceModel {
                 shortcut: WorkspaceShortcutRegistry.label(for: "add-project"),
                 category: WorkspaceCommandPalette.workspaceCategory,
                 keywords: ["folder", "workspace", "repo"]
+            ),
+            WorkspaceCommandSurface(
+                id: "project-new-chat",
+                title: "New chat in project",
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["project", "workspace", "thread", "chat"],
+                isEnabled: selectedProject != nil
+            ),
+            WorkspaceCommandSurface(
+                id: "project-refresh-context",
+                title: "Refresh project context",
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["project", "workspace", "instructions", "memory", "reload"],
+                isEnabled: selectedProject != nil
+            ),
+            WorkspaceCommandSurface(
+                id: "project-rename",
+                title: "Rename project",
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["project", "workspace", "title", "name"],
+                isEnabled: selectedProject != nil
+            ),
+            WorkspaceCommandSurface(
+                id: "project-remove",
+                title: "Remove project from list",
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["project", "workspace", "forget", "remove"],
+                isEnabled: selectedProject != nil
             ),
             WorkspaceCommandSurface(
                 id: "toggle-terminal",

@@ -35,6 +35,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.projects.items[0].name, "QuillCode")
         XCTAssertEqual(surface.projects.items[0].path, "/tmp/QuillCode")
         XCTAssertTrue(surface.projects.items[0].isSelected)
+        XCTAssertEqual(surface.projects.items[0].actions.map(\.kind), [.newChat, .refreshContext, .rename, .remove])
         XCTAssertEqual(surface.sidebar.items.count, 1)
         XCTAssertEqual(surface.sidebar.items[0].title, "Run whoami")
         XCTAssertTrue(surface.sidebar.items[0].isSelected)
@@ -54,6 +55,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "retry-last-turn",
             "search",
             "add-project",
+            "project-new-chat",
+            "project-refresh-context",
+            "project-rename",
+            "project-remove",
             "toggle-terminal",
             "toggle-browser",
             "toggle-memories",
@@ -70,6 +75,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         ])
         XCTAssertEqual(surface.commands.first { $0.id == "fork-from-last" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "compact-context" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
         XCTAssertEqual(surface.settings.apiBaseURL, TrustedRouterDefaults.defaultAPIBaseURL)
         XCTAssertFalse(surface.settings.developerOverrideEnabled)
         XCTAssertFalse(surface.settings.hasStoredAPIKey)

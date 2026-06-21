@@ -17,6 +17,8 @@ public struct QuillCodeWorkspaceView: View {
     public var onThreadAction: (SidebarItemActionSurface) -> Void
     public var onRenameThread: (UUID, String) -> Void
     public var onSelectProject: (UUID?) -> Void
+    public var onProjectAction: (ProjectItemActionSurface) -> Void
+    public var onRenameProject: (UUID, String) -> Void
     public var onSetMode: (AgentMode) -> Void
     public var onSetModel: (String) -> Void
     public var onToggleModelFavorite: (String) -> Void
@@ -37,6 +39,7 @@ public struct QuillCodeWorkspaceView: View {
     @State private var createWorktreeDraft = QuillCodeWorktreeCreateDraft()
     @State private var removeWorktreeDraft = QuillCodeWorktreeRemoveDraft()
     @State private var renameThreadDraft: QuillCodeThreadRenameDraft?
+    @State private var renameProjectDraft: QuillCodeProjectRenameDraft?
 
     public init(
         surface: WorkspaceSurface,
@@ -54,6 +57,8 @@ public struct QuillCodeWorkspaceView: View {
         onThreadAction: @escaping (SidebarItemActionSurface) -> Void,
         onRenameThread: @escaping (UUID, String) -> Void,
         onSelectProject: @escaping (UUID?) -> Void,
+        onProjectAction: @escaping (ProjectItemActionSurface) -> Void,
+        onRenameProject: @escaping (UUID, String) -> Void,
         onSetMode: @escaping (AgentMode) -> Void,
         onSetModel: @escaping (String) -> Void,
         onToggleModelFavorite: @escaping (String) -> Void,
@@ -80,6 +85,8 @@ public struct QuillCodeWorkspaceView: View {
         self.onThreadAction = onThreadAction
         self.onRenameThread = onRenameThread
         self.onSelectProject = onSelectProject
+        self.onProjectAction = onProjectAction
+        self.onRenameProject = onRenameProject
         self.onSetMode = onSetMode
         self.onSetModel = onSetModel
         self.onToggleModelFavorite = onToggleModelFavorite
@@ -111,6 +118,7 @@ public struct QuillCodeWorkspaceView: View {
                     commands: surface.commands,
                     onSelectProject: onSelectProject,
                     onAddProjectRequested: onAddProjectRequested,
+                    onProjectAction: handleProjectAction,
                     onSelectThread: onSelectThread,
                     onThreadAction: handleThreadAction,
                     onCommand: handleCommand
@@ -264,6 +272,18 @@ public struct QuillCodeWorkspaceView: View {
                 }
             )
         }
+        .sheet(item: $renameProjectDraft) { draft in
+            QuillCodeProjectRenameView(
+                draft: draft,
+                onCancel: {
+                    renameProjectDraft = nil
+                },
+                onSave: { projectID, name in
+                    onRenameProject(projectID, name)
+                    renameProjectDraft = nil
+                }
+            )
+        }
     }
 
     private func handleThreadAction(_ action: SidebarItemActionSurface) {
@@ -273,6 +293,15 @@ public struct QuillCodeWorkspaceView: View {
             return
         }
         onThreadAction(action)
+    }
+
+    private func handleProjectAction(_ action: ProjectItemActionSurface) {
+        if action.kind == .rename,
+           let item = surface.projects.items.first(where: { $0.id == action.projectID }) {
+            renameProjectDraft = QuillCodeProjectRenameDraft(projectID: item.id, name: item.name)
+            return
+        }
+        onProjectAction(action)
     }
 
     private func handleCommand(_ command: WorkspaceCommandSurface) {
@@ -291,6 +320,11 @@ public struct QuillCodeWorkspaceView: View {
             if let selectedID = surface.sidebar.selectedThreadID,
                let item = surface.sidebar.items.first(where: { $0.id == selectedID }) {
                 renameThreadDraft = QuillCodeThreadRenameDraft(threadID: item.id, title: item.title)
+            }
+        } else if command.id == "project-rename" {
+            if let selectedID = surface.projects.selectedProjectID,
+               let item = surface.projects.items.first(where: { $0.id == selectedID }) {
+                renameProjectDraft = QuillCodeProjectRenameDraft(projectID: item.id, name: item.name)
             }
         } else if command.id == "git-worktree-create" {
             createWorktreeDraft = QuillCodeWorktreeCreateDraft()
@@ -381,6 +415,61 @@ private struct QuillCodeThreadRenameView: View {
                 Button("Cancel", action: onCancel)
                 Button("Save") {
                     onSave(draft.threadID, title)
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canSave)
+            }
+        }
+        .padding(22)
+        .frame(width: 380)
+    }
+}
+
+private struct QuillCodeProjectRenameDraft: Identifiable, Hashable {
+    var projectID: UUID
+    var name: String
+
+    var id: UUID { projectID }
+}
+
+private struct QuillCodeProjectRenameView: View {
+    var draft: QuillCodeProjectRenameDraft
+    var onCancel: () -> Void
+    var onSave: (UUID, String) -> Void
+
+    @State private var name: String
+
+    init(
+        draft: QuillCodeProjectRenameDraft,
+        onCancel: @escaping () -> Void,
+        onSave: @escaping (UUID, String) -> Void
+    ) {
+        self.draft = draft
+        self.onCancel = onCancel
+        self.onSave = onSave
+        self._name = State(initialValue: draft.name)
+    }
+
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Rename Project")
+                .font(.title2.weight(.semibold))
+            TextField("Project name", text: $name)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit {
+                    if canSave {
+                        onSave(draft.projectID, name)
+                    }
+                }
+            HStack {
+                Spacer()
+                Button("Cancel", action: onCancel)
+                Button("Save") {
+                    onSave(draft.projectID, name)
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!canSave)
@@ -551,6 +640,14 @@ private struct QuillCodeCommandPaletteView: View {
             return "magnifyingglass"
         case "add-project":
             return "folder.badge.plus"
+        case "project-new-chat":
+            return "plus.message"
+        case "project-refresh-context":
+            return "arrow.clockwise"
+        case "project-rename":
+            return "text.cursor"
+        case "project-remove":
+            return "minus.circle"
         case "toggle-terminal":
             return "terminal"
         case "toggle-browser":
@@ -896,6 +993,7 @@ private struct QuillCodeSidebarView: View {
     var commands: [WorkspaceCommandSurface]
     var onSelectProject: (UUID?) -> Void
     var onAddProjectRequested: () -> Void
+    var onProjectAction: (ProjectItemActionSurface) -> Void
     var onSelectThread: (UUID) -> Void
     var onThreadAction: (SidebarItemActionSurface) -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
@@ -907,7 +1005,8 @@ private struct QuillCodeSidebarView: View {
             QuillCodeProjectListView(
                 projects: projects,
                 onSelectProject: onSelectProject,
-                onAddProjectRequested: onAddProjectRequested
+                onAddProjectRequested: onAddProjectRequested,
+                onProjectAction: onProjectAction
             )
             Divider()
             Text(sidebar.title.uppercased())
@@ -1183,6 +1282,7 @@ private struct QuillCodeProjectListView: View {
     var projects: ProjectListSurface
     var onSelectProject: (UUID?) -> Void
     var onAddProjectRequested: () -> Void
+    var onProjectAction: (ProjectItemActionSurface) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1214,24 +1314,41 @@ private struct QuillCodeProjectListView: View {
                     .foregroundStyle(QuillCodePalette.muted)
             } else {
                 ForEach(projects.items) { project in
-                    Button {
-                        onSelectProject(project.id)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(project.name)
-                                .font(.callout.weight(.semibold))
-                                .lineLimit(1)
-                            Text(project.path)
-                                .font(.caption)
-                                .foregroundStyle(QuillCodePalette.muted)
-                                .lineLimit(1)
+                    HStack(spacing: 6) {
+                        Button {
+                            onSelectProject(project.id)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(project.name)
+                                    .font(.callout.weight(.semibold))
+                                    .lineLimit(1)
+                                Text(project.path)
+                                    .font(.caption)
+                                    .foregroundStyle(QuillCodePalette.muted)
+                                    .lineLimit(1)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(10)
-                        .background(project.isSelected ? QuillCodePalette.selection : Color.clear)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .buttonStyle(.plain)
+
+                        Menu {
+                            ForEach(project.actions) { action in
+                                Button(role: action.kind == .remove ? .destructive : nil) {
+                                    onProjectAction(action)
+                                } label: {
+                                    Text(action.kind.title)
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .frame(width: 24, height: 24)
+                                .foregroundStyle(QuillCodePalette.muted)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
+                    .padding(10)
+                    .background(project.isSelected ? QuillCodePalette.selection : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
             }
         }

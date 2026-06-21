@@ -98,6 +98,8 @@ private struct QuillCodeDesktopRootView: View {
             onThreadAction: controller.runThreadAction,
             onRenameThread: controller.renameThread,
             onSelectProject: controller.selectProject,
+            onProjectAction: controller.runProjectAction,
+            onRenameProject: controller.renameProject,
             onSetMode: controller.setMode,
             onSetModel: controller.setModel,
             onToggleModelFavorite: controller.toggleModelFavorite,
@@ -225,6 +227,25 @@ private final class QuillCodeDesktopController: ObservableObject {
 
     func selectProject(_ id: UUID?) {
         model.selectProject(id)
+        refresh()
+    }
+
+    func runProjectAction(_ action: ProjectItemActionSurface) {
+        switch action.kind {
+        case .newChat:
+            _ = model.newChat(projectID: action.projectID)
+        case .refreshContext:
+            _ = model.refreshProjectContext(action.projectID)
+        case .rename:
+            break
+        case .remove:
+            _ = model.removeProject(action.projectID)
+        }
+        refresh()
+    }
+
+    func renameProject(_ id: UUID, name: String) {
+        _ = model.renameProject(id, to: name)
         refresh()
     }
 
