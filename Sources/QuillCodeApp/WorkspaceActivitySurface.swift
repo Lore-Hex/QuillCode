@@ -1,6 +1,18 @@
 import Foundation
 import QuillCodeCore
 
+private enum ActivityStatusLabel {
+    static let checked = "Checked"
+    static let done = "Done"
+    static let failed = "Failed"
+    static let logged = "Logged"
+    static let optional = "Optional"
+    static let pending = "Pending"
+    static let queued = "Queued"
+    static let review = "Review"
+    static let running = "Running"
+}
+
 public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
     public var isVisible: Bool
     public var title: String
@@ -8,6 +20,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
     public var statusLabel: String
     public var taskTitle: String
     public var taskSubtitle: String
+    public var planItems: [ActivityItemSurface]
     public var recentSteps: [ActivityItemSurface]
     public var tools: [ActivityItemSurface]
     public var sources: [ActivityItemSurface]
@@ -23,6 +36,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         statusLabel: String = "Idle",
         taskTitle: String = "No task selected",
         taskSubtitle: String = "Start a chat to see task progress, tools, sources, and artifacts.",
+        planItems: [ActivityItemSurface] = [],
         recentSteps: [ActivityItemSurface] = [],
         tools: [ActivityItemSurface] = [],
         sources: [ActivityItemSurface] = [],
@@ -37,6 +51,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         self.statusLabel = statusLabel
         self.taskTitle = taskTitle
         self.taskSubtitle = taskSubtitle
+        self.planItems = planItems
         self.recentSteps = recentSteps
         self.tools = tools
         self.sources = sources
@@ -44,6 +59,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         self.finalAnswer = finalAnswer
         self.handoffSummary = handoffSummary
         self.sections = Self.sections(
+            planItems: planItems,
             recentSteps: recentSteps,
             tools: tools,
             sources: sources,
@@ -75,6 +91,14 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         let sources = Self.sourceItems(instructions: instructions, memories: memories)
         let artifacts = Self.uniqueArtifacts(from: toolCards)
         let finalAnswer = Self.finalAnswer(for: thread)
+        let planItems = Self.planItems(
+            for: thread,
+            toolCards: toolCards,
+            sources: sources,
+            artifacts: artifacts,
+            finalAnswer: finalAnswer,
+            agentStatus: agentStatus
+        )
         self.init(
             isVisible: isVisible,
             title: "Activity",
@@ -82,6 +106,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
             statusLabel: agentStatus,
             taskTitle: Self.taskTitle(for: thread),
             taskSubtitle: "\(thread.messages.count) message\(thread.messages.count == 1 ? "" : "s") - \(thread.events.count) event\(thread.events.count == 1 ? "" : "s")",
+            planItems: planItems,
             recentSteps: Self.recentSteps(for: thread),
             tools: Self.toolItems(from: toolCards),
             sources: sources,
@@ -106,6 +131,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         case statusLabel
         case taskTitle
         case taskSubtitle
+        case planItems
         case recentSteps
         case tools
         case sources
@@ -124,6 +150,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         self.taskTitle = try container.decodeIfPresent(String.self, forKey: .taskTitle) ?? "No task selected"
         self.taskSubtitle = try container.decodeIfPresent(String.self, forKey: .taskSubtitle)
             ?? "Start a chat to see task progress, tools, sources, and artifacts."
+        self.planItems = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .planItems) ?? []
         self.recentSteps = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .recentSteps) ?? []
         self.tools = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .tools) ?? []
         self.sources = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .sources) ?? []
@@ -132,6 +159,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         self.handoffSummary = try container.decodeIfPresent(String.self, forKey: .handoffSummary)
         self.sections = try container.decodeIfPresent([ActivitySectionSurface].self, forKey: .sections)
             ?? Self.sections(
+                planItems: planItems,
                 recentSteps: recentSteps,
                 tools: tools,
                 sources: sources,
@@ -220,6 +248,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
     }
 
     private static func sections(
+        planItems: [ActivityItemSurface],
         recentSteps: [ActivityItemSurface],
         tools: [ActivityItemSurface],
         sources: [ActivityItemSurface],
@@ -229,6 +258,11 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         collapsedSectionIDs: Set<ActivitySectionKind>
     ) -> [ActivitySectionSurface] {
         [
+            ActivitySectionSurface(
+                kind: .plan,
+                items: planItems,
+                isCollapsed: collapsedSectionIDs.contains(.plan)
+            ),
             ActivitySectionSurface(
                 kind: .recent,
                 items: recentSteps,
@@ -267,6 +301,97 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
             return nil
         }
         return boundedLine(answer, limit: 280)
+    }
+
+    private static func planItems(
+        for thread: ChatThread,
+        toolCards: [ToolCardState],
+        sources: [ActivityItemSurface],
+        artifacts: [ToolArtifactState],
+        finalAnswer: String?,
+        agentStatus: String
+    ) -> [ActivityItemSurface] {
+        let latestRequest = thread.messages.reversed().first(where: { $0.role == .user })?.content
+        let toolStatus = aggregateToolStatus(toolCards)
+        let answerStatus = finalAnswer == nil
+            ? (isActive(agentStatus) ? ActivityStatusLabel.running : ActivityStatusLabel.pending)
+            : ActivityStatusLabel.done
+        let reviewStatus: String
+        let reviewDetail: String
+        if toolCards.contains(where: { $0.status == .failed }) {
+            reviewStatus = ActivityStatusLabel.review
+            reviewDetail = "One or more tool calls failed and needs attention."
+        } else if finalAnswer != nil || toolCards.contains(where: { $0.status == .done }) {
+            reviewStatus = ActivityStatusLabel.done
+            reviewDetail = artifacts.isEmpty
+                ? "Reviewed completed tool results."
+                : "Reviewed \(countLabel(artifacts.count, singular: "artifact"))."
+        } else {
+            reviewStatus = ActivityStatusLabel.pending
+            reviewDetail = "Waiting for tool output or a final answer."
+        }
+
+        return [
+            ActivityItemSurface(
+                id: "plan-request",
+                title: "Understand request",
+                detail: latestRequest.map { boundedLine($0, limit: 120) } ?? "Waiting for the first user request.",
+                kind: "plan",
+                statusLabel: latestRequest == nil ? ActivityStatusLabel.pending : ActivityStatusLabel.done
+            ),
+            ActivityItemSurface(
+                id: "plan-context",
+                title: "Load context",
+                detail: sources.isEmpty ? "No instruction or memory sources attached." : "\(countLabel(sources.count, singular: "source")) attached.",
+                kind: "plan",
+                statusLabel: sources.isEmpty ? ActivityStatusLabel.optional : ActivityStatusLabel.done
+            ),
+            ActivityItemSurface(
+                id: "plan-tools",
+                title: "Use tools",
+                detail: toolPlanDetail(toolCards),
+                kind: "plan",
+                statusLabel: toolStatus
+            ),
+            ActivityItemSurface(
+                id: "plan-review",
+                title: "Review results",
+                detail: reviewDetail,
+                kind: "plan",
+                statusLabel: reviewStatus
+            ),
+            ActivityItemSurface(
+                id: "plan-answer",
+                title: "Answer user",
+                detail: finalAnswer.map { boundedLine($0, limit: 140) } ?? "Waiting for the final assistant response.",
+                kind: "plan",
+                statusLabel: answerStatus
+            )
+        ]
+    }
+
+    private static func aggregateToolStatus(_ toolCards: [ToolCardState]) -> String {
+        guard !toolCards.isEmpty else { return ActivityStatusLabel.optional }
+        if toolCards.contains(where: { $0.status == .failed }) { return ActivityStatusLabel.failed }
+        if toolCards.contains(where: { $0.status == .running }) { return ActivityStatusLabel.running }
+        if toolCards.contains(where: { $0.status == .queued || $0.status == .review }) { return ActivityStatusLabel.queued }
+        return ActivityStatusLabel.done
+    }
+
+    private static func toolPlanDetail(_ toolCards: [ToolCardState]) -> String {
+        guard !toolCards.isEmpty else {
+            return "No tool use needed yet."
+        }
+        let names = toolCards.suffix(3).map(\.title).joined(separator: ", ")
+        return "\(countLabel(toolCards.count, singular: "tool")): \(names)"
+    }
+
+    private static func isActive(_ agentStatus: String) -> Bool {
+        let normalized = agentStatus.lowercased()
+        return normalized.contains("running")
+            || normalized.contains("streaming")
+            || normalized.contains("queued")
+            || normalized.contains("terminal")
     }
 
     private static func handoffSummary(
@@ -344,19 +469,19 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
     private static func eventStatusLabel(_ kind: ThreadEventKind) -> String {
         switch kind {
         case .toolQueued:
-            return "Queued"
+            return ActivityStatusLabel.queued
         case .toolRunning:
-            return "Running"
+            return ActivityStatusLabel.running
         case .toolCompleted:
-            return "Done"
+            return ActivityStatusLabel.done
         case .toolFailed:
-            return "Failed"
+            return ActivityStatusLabel.failed
         case .approvalRequested:
-            return "Review"
+            return ActivityStatusLabel.review
         case .approvalDecided:
-            return "Checked"
+            return ActivityStatusLabel.checked
         case .message, .reviewComment, .notice, .messageFeedback:
-            return "Logged"
+            return ActivityStatusLabel.logged
         }
     }
 
@@ -366,6 +491,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
 }
 
 public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterable {
+    case plan
     case recent
     case handoff
     case tools
@@ -375,6 +501,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
 
     public var title: String {
         switch self {
+        case .plan:
+            return "Task Plan"
         case .recent:
             return "Recent"
         case .handoff:
@@ -392,6 +520,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
 
     public var emptyTitle: String {
         switch self {
+        case .plan:
+            return "No plan yet"
         case .recent:
             return "No task events yet"
         case .handoff:
@@ -409,6 +539,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
 
     public var itemTestID: String {
         switch self {
+        case .plan:
+            return "activity-plan"
         case .recent:
             return "activity-step"
         case .handoff:
@@ -426,6 +558,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
 
     public var alwaysVisible: Bool {
         switch self {
+        case .plan:
+            return true
         case .handoff, .latestAnswer:
             return false
         case .recent, .tools, .sources, .artifacts:

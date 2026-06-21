@@ -3309,6 +3309,12 @@
         cards.flatMap(card => card.artifacts || []),
         artifact => artifact.value || artifact.label || ''
       ).slice(-8);
+      const tools = cards.slice(-8).map(card => ({
+        id: card.id,
+        title: card.title,
+        detail: card.subtitle,
+        statusLabel: card.status
+      }));
       const steps = state.transcript.timelineItems.slice(-8).map(item => {
         if (item.kind === 'toolCard') {
           const card = item.toolCard;
@@ -3341,26 +3347,24 @@
         taskTitle: latestUser ? latestUser.text : 'No task selected',
         taskSubtitle: `${messages.length} ${messages.length === 1 ? 'message' : 'messages'} · ${state.transcript.timelineItems.length} timeline ${state.transcript.timelineItems.length === 1 ? 'item' : 'items'}`,
         steps,
-        tools: cards.slice(-8).map(card => ({
-          id: card.id,
-          title: card.title,
-          detail: card.subtitle,
-          statusLabel: card.status
-        })),
+        tools,
         sources,
         artifacts,
         finalAnswer: latestAssistant?.text || null,
         sections: activitySections({
           steps,
-          tools: cards.slice(-8).map(card => ({
-            id: card.id,
-            title: card.title,
-            detail: card.subtitle,
-            statusLabel: card.status
-          })),
+          tools,
           sources,
           artifacts,
           finalAnswer: latestAssistant?.text || null,
+          planItems: activityPlan({
+            latestRequest: latestUser ? latestUser.text : 'No task selected',
+            status: state.topBar.agentStatus,
+            tools,
+            sources,
+            artifacts,
+            finalAnswer: latestAssistant?.text || null
+          }),
           handoffSummary: handoffSummary({
             threadTitle: selectedThread?.title || 'No task selected',
             latestRequest: latestUser ? latestUser.text : 'No task selected',
@@ -3386,6 +3390,10 @@
         ...values
       });
       return [
+        section('plan', 'Task Plan', 'activity-plan', 'No plan yet', {
+          items: activity.planItems,
+          countLabel: countLabel(activity.planItems.length, 'item')
+        }),
         section('recent', 'Recent', 'activity-step', 'No task events yet', {
           items: activity.steps,
           countLabel: countLabel(activity.steps.length, 'item')
@@ -3411,6 +3419,74 @@
           countLabel: activity.finalAnswer ? '1 answer' : '0 answers'
         })
       ].filter(section => (section.id !== 'latestAnswer' && section.id !== 'handoff') || section.bodyText);
+    }
+
+    function activityPlan(activity) {
+      const hasRequest = activity.latestRequest && activity.latestRequest !== 'No task selected';
+      const hasFailedTool = activity.tools.some(tool => String(tool.statusLabel || '').toLowerCase() === 'failed');
+      const hasDoneTool = activity.tools.some(tool => String(tool.statusLabel || '').toLowerCase() === 'done');
+      const finalAnswer = activity.finalAnswer || '';
+      const reviewStatus = hasFailedTool ? 'Review' : (finalAnswer || hasDoneTool ? 'Done' : 'Pending');
+      const reviewDetail = hasFailedTool
+        ? 'One or more tool calls failed and needs attention.'
+        : (finalAnswer || hasDoneTool
+          ? (activity.artifacts.length ? `Reviewed ${countLabel(activity.artifacts.length, 'artifact')}.` : 'Reviewed completed tool results.')
+          : 'Waiting for tool output or a final answer.');
+      return [
+        {
+          id: 'plan-request',
+          title: 'Understand request',
+          detail: hasRequest ? boundedLine(activity.latestRequest, 120) : 'Waiting for the first user request.',
+          statusLabel: hasRequest ? 'Done' : 'Pending'
+        },
+        {
+          id: 'plan-context',
+          title: 'Load context',
+          detail: activity.sources.length ? `${countLabel(activity.sources.length, 'source')} attached.` : 'No instruction or memory sources attached.',
+          statusLabel: activity.sources.length ? 'Done' : 'Optional'
+        },
+        {
+          id: 'plan-tools',
+          title: 'Use tools',
+          detail: toolPlanDetail(activity.tools),
+          statusLabel: aggregateToolStatus(activity.tools)
+        },
+        {
+          id: 'plan-review',
+          title: 'Review results',
+          detail: reviewDetail,
+          statusLabel: reviewStatus
+        },
+        {
+          id: 'plan-answer',
+          title: 'Answer user',
+          detail: finalAnswer ? boundedLine(finalAnswer, 140) : 'Waiting for the final assistant response.',
+          statusLabel: finalAnswer ? 'Done' : (isActiveStatus(activity.status) ? 'Running' : 'Pending')
+        }
+      ];
+    }
+
+    function aggregateToolStatus(tools) {
+      if (!tools.length) return 'Optional';
+      const statuses = tools.map(tool => String(tool.statusLabel || '').toLowerCase());
+      if (statuses.includes('failed')) return 'Failed';
+      if (statuses.includes('running')) return 'Running';
+      if (statuses.includes('queued') || statuses.includes('review')) return 'Queued';
+      return 'Done';
+    }
+
+    function toolPlanDetail(tools) {
+      if (!tools.length) return 'No tool use needed yet.';
+      const names = tools.slice(-3).map(tool => tool.title).join(', ');
+      return `${countLabel(tools.length, 'tool')}: ${names}`;
+    }
+
+    function isActiveStatus(status) {
+      const normalized = String(status || '').toLowerCase();
+      return normalized.includes('running')
+        || normalized.includes('streaming')
+        || normalized.includes('queued')
+        || normalized.includes('terminal');
     }
 
     function handoffSummary(activity) {
