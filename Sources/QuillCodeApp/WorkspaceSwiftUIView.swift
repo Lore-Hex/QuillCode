@@ -944,7 +944,7 @@ private struct QuillCodeTranscriptView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 14) {
-                if transcript.messages.isEmpty && transcript.toolCards.isEmpty && !review.isVisible && contextBanner == nil {
+                if transcript.timelineItems.isEmpty && !review.isVisible && contextBanner == nil {
                     VStack(spacing: 8) {
                         Text(transcript.emptyTitle)
                             .font(.title3.weight(.semibold))
@@ -969,11 +969,17 @@ private struct QuillCodeTranscriptView: View {
                             onAddReviewComment: onAddReviewComment
                         )
                     }
-                    ForEach(transcript.messages) { message in
-                        QuillCodeMessageBubble(message: message)
-                    }
-                    ForEach(transcript.toolCards) { card in
-                        QuillCodeToolCardView(card: card)
+                    ForEach(transcript.timelineItems) { item in
+                        switch item.kind {
+                        case .message:
+                            if let message = item.message {
+                                QuillCodeMessageBubble(message: message)
+                            }
+                        case .toolCard:
+                            if let card = item.toolCard {
+                                QuillCodeToolCardView(card: card)
+                            }
+                        }
                     }
                 }
             }

@@ -48,7 +48,11 @@ final class AgentTests: XCTestCase {
 
         XCTAssertTrue(result.toolResults.first?.ok == true)
         let eventKinds = await recorder.eventKinds()
-        XCTAssertEqual(eventKinds, [.message, .toolQueued, .toolRunning, .toolCompleted])
+        XCTAssertEqual(eventKinds, [.message, .toolQueued, .toolRunning, .message])
+        XCTAssertEqual(
+            result.thread.events.map(\.kind),
+            [.message, .toolQueued, .toolRunning, .toolCompleted, .message]
+        )
     }
 
     func testOpenClawDiscoverySummarizesMissingBinary() throws {

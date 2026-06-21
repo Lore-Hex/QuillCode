@@ -12,7 +12,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 ## Functional Tests
 
 - Mock TrustedRouter, mock LLM, fake shell, fake filesystem, fake git repo.
-- Cover login, model switch, new thread, incremental run progress, tool cards, file edit, command failure, cancellation, approvals, settings, top bar, search, slash commands.
+- Cover login, model switch, new thread, incremental run progress, chronological transcript ordering, tool cards, file edit, command failure, cancellation, approvals, settings, top bar, search, slash commands.
 
 ## Integration Tests
 
@@ -30,6 +30,7 @@ Drive the QuillCode test harness with mock LLM:
 - login
 - open project
 - run shell
+- chronological user/tool/answer transcript rendering
 - edit file
 - review diff
 - Auto approve/deny/clarify

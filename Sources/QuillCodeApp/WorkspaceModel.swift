@@ -728,6 +728,17 @@ public final class QuillCodeWorkspaceModel {
 
     public static func toolCards(for thread: ChatThread) -> [ToolCardState] {
         var cards: [ToolCardState] = []
+        var activeToolCardIndex: Int?
+
+        func updateActiveToolCard(status: ToolCardStatus, subtitle: String, outputJSON: String? = nil) {
+            guard let index = activeToolCardIndex else {
+                return
+            }
+            updateCard(&cards, at: index, status: status, subtitle: subtitle, outputJSON: outputJSON)
+            if status == .done || status == .failed {
+                activeToolCardIndex = nil
+            }
+        }
 
         for event in thread.events {
             switch event.kind {
@@ -740,18 +751,17 @@ public final class QuillCodeWorkspaceModel {
                     status: .queued,
                     inputJSON: call?.argumentsJSON ?? event.payloadJSON
                 ))
+                activeToolCardIndex = cards.count - 1
             case .toolRunning:
-                updateLastOpenCard(&cards, status: .running, subtitle: "Running")
+                updateActiveToolCard(status: .running, subtitle: "Running")
             case .toolCompleted:
-                updateLastOpenCard(
-                    &cards,
+                updateActiveToolCard(
                     status: .done,
                     subtitle: "Completed",
                     outputJSON: event.payloadJSON
                 )
             case .toolFailed:
-                updateLastOpenCard(
-                    &cards,
+                updateActiveToolCard(
                     status: .failed,
                     subtitle: "Failed",
                     outputJSON: event.payloadJSON
@@ -771,6 +781,102 @@ public final class QuillCodeWorkspaceModel {
         }
 
         return cards
+    }
+
+    public static func transcriptTimelineItems(for thread: ChatThread) -> [TranscriptTimelineItemSurface] {
+        guard !thread.events.isEmpty else {
+            return thread.messages.map(MessageSurface.init).map(TranscriptTimelineItemSurface.message)
+                + toolCards(for: thread).map(TranscriptTimelineItemSurface.toolCard)
+        }
+
+        var consumedMessageIDs = Set<UUID>()
+        var items: [TranscriptTimelineItemSurface] = []
+        var activeToolItemIndex: Int?
+
+        func appendMessage(matching summary: String) {
+            guard let message = thread.messages.first(where: {
+                !consumedMessageIDs.contains($0.id) && $0.content == summary
+            }) else {
+                return
+            }
+            consumedMessageIDs.insert(message.id)
+            items.append(.message(MessageSurface(message: message)))
+        }
+
+        func appendToolCard(_ card: ToolCardState) {
+            items.append(.toolCard(card))
+            activeToolItemIndex = items.count - 1
+        }
+
+        func updateActiveToolCard(status: ToolCardStatus, subtitle: String, outputJSON: String? = nil) {
+            guard let index = activeToolItemIndex,
+                  var card = items[index].toolCard
+            else {
+                appendToolCard(ToolCardState(
+                    id: "orphan-\(UUID().uuidString)",
+                    title: "Tool",
+                    subtitle: subtitle,
+                    status: status,
+                    outputJSON: outputJSON
+                ))
+                return
+            }
+            card.status = status
+            card.subtitle = subtitle
+            if let outputJSON {
+                card.outputJSON = outputJSON
+            }
+            items[index] = .toolCard(card)
+            if status == .done || status == .failed {
+                activeToolItemIndex = nil
+            }
+        }
+
+        for event in thread.events {
+            switch event.kind {
+            case .message:
+                appendMessage(matching: event.summary)
+            case .toolQueued:
+                let call = decode(ToolCall.self, event.payloadJSON)
+                appendToolCard(ToolCardState(
+                    id: call?.id ?? event.id.uuidString,
+                    title: call?.name ?? "Tool",
+                    subtitle: "Queued",
+                    status: .queued,
+                    inputJSON: call?.argumentsJSON ?? event.payloadJSON
+                ))
+            case .toolRunning:
+                updateActiveToolCard(status: .running, subtitle: "Running")
+            case .toolCompleted:
+                updateActiveToolCard(
+                    status: .done,
+                    subtitle: "Completed",
+                    outputJSON: event.payloadJSON
+                )
+            case .toolFailed:
+                updateActiveToolCard(
+                    status: .failed,
+                    subtitle: "Failed",
+                    outputJSON: event.payloadJSON
+                )
+            case .approvalRequested:
+                items.append(.toolCard(ToolCardState(
+                    id: event.id.uuidString,
+                    title: "Safety Check",
+                    subtitle: event.summary,
+                    status: .review,
+                    inputJSON: event.payloadJSON,
+                    isExpanded: true
+                )))
+            case .approvalDecided, .reviewComment, .notice:
+                continue
+            }
+        }
+
+        for message in thread.messages where !consumedMessageIDs.contains(message.id) {
+            items.append(.message(MessageSurface(message: message)))
+        }
+        return items
     }
 
     private func appendToolRun(call: ToolCall, result: ToolResult) {
@@ -1084,22 +1190,14 @@ public final class QuillCodeWorkspaceModel {
         return url.host ?? url.absoluteString
     }
 
-    private static func updateLastOpenCard(
+    private static func updateCard(
         _ cards: inout [ToolCardState],
+        at index: Int,
         status: ToolCardStatus,
         subtitle: String,
         outputJSON: String? = nil
     ) {
-        guard let index = cards.lastIndex(where: { $0.status == .queued || $0.status == .running }) else {
-            cards.append(ToolCardState(
-                id: "tool-\(UUID().uuidString)",
-                title: "Tool",
-                subtitle: subtitle,
-                status: status,
-                outputJSON: outputJSON
-            ))
-            return
-        }
+        guard cards.indices.contains(index) else { return }
         cards[index].status = status
         cards[index].subtitle = subtitle
         if let outputJSON {

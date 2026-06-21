@@ -42,6 +42,11 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('tool-card-input')).toContainText('whoami');
   await expect(page.getByTestId('tool-card-output')).toContainText('mock-user');
   await expect(page.getByText('You are `mock-user` in this workspace.')).toBeVisible();
+
+  const transcriptItems = page.locator('[data-testid="message"], [data-testid="tool-card"]');
+  await expect(transcriptItems.nth(0)).toContainText('run whoami');
+  await expect(transcriptItems.nth(1)).toContainText('host.shell.run');
+  await expect(transcriptItems.nth(2)).toContainText('You are `mock-user` in this workspace.');
 });
 
 test('mock harness searches and reopens an existing chat', async ({ page }) => {

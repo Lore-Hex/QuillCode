@@ -315,6 +315,7 @@ public struct AgentRunner: Sendable {
                 summary: "\(review.verdict.rawValue): \(review.rationale)"
             ))
             next.messages.append(.init(role: .assistant, content: text))
+            next.events.append(.init(kind: .message, summary: text))
             next.updatedAt = Date()
             await onProgress?(next)
             return AgentRunResult(thread: next, toolResults: [])
@@ -332,10 +333,9 @@ public struct AgentRunner: Sendable {
             summary: result.ok ? "\(call.name) completed" : "\(call.name) failed",
             payloadJSON: resultJSON
         ))
-        next.messages.append(.init(
-            role: .assistant,
-            content: Self.finalAnswer(for: call, result: result)
-        ))
+        let finalAnswer = Self.finalAnswer(for: call, result: result)
+        next.messages.append(.init(role: .assistant, content: finalAnswer))
+        next.events.append(.init(kind: .message, summary: finalAnswer))
         next.updatedAt = Date()
         await onProgress?(next)
         return AgentRunResult(thread: next, toolResults: [result])

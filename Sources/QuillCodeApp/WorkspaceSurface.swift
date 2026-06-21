@@ -248,19 +248,51 @@ public struct SidebarItemActionSurface: Codable, Sendable, Hashable, Identifiabl
 public struct TranscriptSurface: Codable, Sendable, Hashable {
     public var messages: [MessageSurface]
     public var toolCards: [ToolCardState]
+    public var timelineItems: [TranscriptTimelineItemSurface]
     public var emptyTitle: String
     public var emptySubtitle: String
 
     public init(
         messages: [MessageSurface],
         toolCards: [ToolCardState],
+        timelineItems: [TranscriptTimelineItemSurface]? = nil,
         emptyTitle: String = "Ask QuillCode to inspect, edit, or run this project.",
         emptySubtitle: String = "Use Auto for normal coding work, Review for manual gates, or Read-only for exploration."
     ) {
         self.messages = messages
         self.toolCards = toolCards
+        self.timelineItems = timelineItems ?? messages.map(TranscriptTimelineItemSurface.message)
+            + toolCards.map(TranscriptTimelineItemSurface.toolCard)
         self.emptyTitle = emptyTitle
         self.emptySubtitle = emptySubtitle
+    }
+}
+
+public enum TranscriptTimelineItemKind: String, Codable, Sendable {
+    case message
+    case toolCard
+}
+
+public struct TranscriptTimelineItemSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var kind: TranscriptTimelineItemKind
+    public var message: MessageSurface?
+    public var toolCard: ToolCardState?
+
+    public static func message(_ message: MessageSurface) -> TranscriptTimelineItemSurface {
+        TranscriptTimelineItemSurface(
+            id: "message-\(message.id.uuidString)",
+            kind: .message,
+            message: message
+        )
+    }
+
+    public static func toolCard(_ toolCard: ToolCardState) -> TranscriptTimelineItemSurface {
+        TranscriptTimelineItemSurface(
+            id: "timeline-tool-\(toolCard.id)",
+            kind: .toolCard,
+            toolCard: toolCard
+        )
     }
 }
 
@@ -853,7 +885,8 @@ public extension QuillCodeWorkspaceModel {
             ),
             transcript: TranscriptSurface(
                 messages: (thread?.messages ?? []).map(MessageSurface.init),
-                toolCards: toolCards
+                toolCards: toolCards,
+                timelineItems: thread.map(Self.transcriptTimelineItems(for:))
             ),
             contextBanner: contextBanner(for: thread),
             review: reviewSurface(from: toolCards, events: thread?.events ?? []),

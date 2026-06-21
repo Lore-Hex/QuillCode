@@ -453,6 +453,7 @@
       transcript: {
         messages: [],
         toolCards: [],
+        timelineItems: [],
         emptyTitle: 'Ask QuillCode to inspect, edit, or run this project.',
         emptySubtitle: 'Use Auto for normal coding work, Review for manual gates, or Read-only for exploration.'
       },
@@ -533,7 +534,8 @@
         comments: []
       },
       nextProjectIndex: 2,
-      nextThreadIndex: 1
+      nextThreadIndex: 1,
+      nextTimelineIndex: 1
     };
 
     function escapeHTML(value) {
@@ -543,6 +545,35 @@
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#39;');
+    }
+
+    function addMessage(role, text) {
+      const message = {
+        id: `message-${state.nextTimelineIndex++}`,
+        role,
+        text
+      };
+      state.transcript.messages.push(message);
+      state.transcript.timelineItems.push({
+        id: `timeline-${state.nextTimelineIndex++}`,
+        kind: 'message',
+        message
+      });
+      return message;
+    }
+
+    function addToolCard(card) {
+      const toolCard = {
+        id: `tool-${state.nextTimelineIndex++}`,
+        ...card
+      };
+      state.transcript.toolCards.push(toolCard);
+      state.transcript.timelineItems.push({
+        id: `timeline-${state.nextTimelineIndex++}`,
+        kind: 'toolCard',
+        toolCard
+      });
+      return toolCard;
     }
 
     const contextTokenBudget = 32000;
@@ -760,11 +791,11 @@
               </li>`).join('')}
           </ul>
         </section>` : '';
-      const messages = state.transcript.messages.map(message => `
+      const renderMessage = message => `
         <article class="message ${escapeHTML(message.role)}" data-testid="message" aria-label="${escapeHTML(message.role + ': ' + message.text)}">
           ${escapeHTML(message.text)}
-        </article>`).join('');
-      const cards = state.transcript.toolCards.map(card => `
+        </article>`;
+      const renderToolCard = card => `
         <article class="tool-card ${escapeHTML(card.status)}" data-testid="tool-card" data-status="${escapeHTML(card.status)}">
           <header>
             <strong data-testid="tool-card-title">${escapeHTML(card.title)}</strong>
@@ -773,8 +804,16 @@
           <p>${escapeHTML(card.subtitle)}</p>
           ${card.inputJSON ? `<pre data-testid="tool-card-input">${escapeHTML(card.inputJSON)}</pre>` : ''}
           ${card.outputJSON ? `<pre data-testid="tool-card-output">${escapeHTML(card.outputJSON)}</pre>` : ''}
-        </article>`).join('');
-      const timeline = context || review || messages || cards ? context + review + messages + cards : `
+        </article>`;
+      const transcriptItems = state.transcript.timelineItems.length
+        ? state.transcript.timelineItems.map(item => (
+          item.kind === 'message'
+            ? renderMessage(item.message)
+            : renderToolCard(item.toolCard)
+        )).join('')
+        : state.transcript.messages.map(renderMessage).join('')
+          + state.transcript.toolCards.map(renderToolCard).join('');
+      const timeline = context || review || transcriptItems ? context + review + transcriptItems : `
         <section class="empty" data-testid="transcript-empty">
           <h1>${escapeHTML(state.transcript.emptyTitle)}</h1>
           <p>${escapeHTML(state.transcript.emptySubtitle)}</p>
@@ -1291,6 +1330,7 @@
       state.sidebar.items = state.sidebar.items.map(item => ({ ...item, isSelected: false }));
       state.transcript.messages = [];
       state.transcript.toolCards = [];
+      state.transcript.timelineItems = [];
       state.review = {
         title: 'Review changes',
         subtitle: 'Latest git diff',
@@ -1329,6 +1369,11 @@
       }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
       state.transcript.messages = copiedMessages;
       state.transcript.toolCards = [];
+      state.transcript.timelineItems = copiedMessages.map(message => ({
+        id: `timeline-${state.nextTimelineIndex++}`,
+        kind: 'message',
+        message
+      }));
       state.review = {
         title: 'Review changes',
         subtitle: 'Latest git diff',
@@ -1503,14 +1548,14 @@
       const relativePath = commandID.replace(/^local-env:/, '');
       const command = `sh '${relativePath.replaceAll("'", "'\\\\''")}'`;
       const output = `Local environment action completed: ${relativePath}\\n`;
-      state.transcript.toolCards.push({
+      addToolCard({
         title: 'host.shell.run',
         subtitle: 'Completed',
         status: 'done',
         inputJSON: JSON.stringify({ name: 'host.shell.run', argumentsJSON: JSON.stringify({ cmd: command }) }, null, 2),
         outputJSON: JSON.stringify({ ok: true, stdout: output, stderr: '', exitCode: 0 }, null, 2)
       });
-      state.transcript.messages.push({ role: 'assistant', text: `Local environment action completed: ${relativePath}.` });
+      addMessage('assistant', `Local environment action completed: ${relativePath}.`);
       render();
     }
 
@@ -1584,14 +1629,14 @@
         'HEAD def5678',
         'branch refs/heads/feature/quillcode'
       ].join('\\n') + '\\n';
-      state.transcript.toolCards.push({
+      addToolCard({
         title: 'host.git.worktree.list',
         subtitle: 'Completed',
         status: 'done',
         inputJSON: JSON.stringify({}, null, 2),
         outputJSON: JSON.stringify({ ok: true, stdout }, null, 2)
       });
-      state.transcript.messages.push({ role: 'assistant', text: 'Output:\\n' + stdout });
+      addMessage('assistant', 'Output:\\n' + stdout);
       syncSelectedThreadSearchText();
       render();
     }
@@ -1601,14 +1646,14 @@
       const args = { path: values.path };
       if (values.branch) args.branch = values.branch;
       if (values.base) args.base = values.base;
-      state.transcript.toolCards.push({
+      addToolCard({
         title: 'host.git.worktree.create',
         subtitle: 'Completed',
         status: 'done',
         inputJSON: JSON.stringify(args, null, 2),
         outputJSON: JSON.stringify({ ok: true, stdout: `Preparing worktree (new branch '${values.branch || 'git-default'}')\\n`, artifacts: [`/mock/${values.path}`] }, null, 2)
       });
-      state.transcript.messages.push({ role: 'assistant', text: `Created worktree ${values.path}.` });
+      addMessage('assistant', `Created worktree ${values.path}.`);
       state.worktreeDialog.mode = null;
       syncSelectedThreadSearchText();
       render();
@@ -1616,14 +1661,14 @@
 
     function removeWorktree(values) {
       ensureThread('Remove worktree');
-      state.transcript.toolCards.push({
+      addToolCard({
         title: 'host.git.worktree.remove',
         subtitle: 'Completed',
         status: 'done',
         inputJSON: JSON.stringify({ path: values.path, force: values.force }, null, 2),
         outputJSON: JSON.stringify({ ok: true, stdout: '' }, null, 2)
       });
-      state.transcript.messages.push({ role: 'assistant', text: `Removed worktree ${values.path}.` });
+      addMessage('assistant', `Removed worktree ${values.path}.`);
       state.worktreeDialog.mode = null;
       syncSelectedThreadSearchText();
       render();
@@ -1659,6 +1704,7 @@
           if (!state.sidebar.selectedThreadID) {
             state.transcript.messages = [];
             state.transcript.toolCards = [];
+            state.transcript.timelineItems = [];
           }
         }
       }
@@ -1687,24 +1733,21 @@
       ensureThread(text.split(/\s+/).slice(0, 6).join(' '));
       state.composer.draft = '';
       state.composer.canSend = false;
-      state.transcript.messages.push({ role: 'user', text });
+      addMessage('user', text);
       if (text.toLowerCase().startsWith('/mode ')) {
         const requestedMode = text.split(/\s+/)[1]?.toLowerCase();
         const modeMap = { auto: 'Auto', review: 'Review', 'read-only': 'Read-only', readonly: 'Read-only' };
         const nextMode = modeMap[requestedMode] || null;
         if (nextMode) {
           state.topBar.modeLabel = nextMode;
-          state.transcript.messages.push({ role: 'assistant', text: `Mode set to ${nextMode}.` });
+          addMessage('assistant', `Mode set to ${nextMode}.`);
           const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
           state.topBar.subtitle = `${selectedProject?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
         } else {
-          state.transcript.messages.push({ role: 'assistant', text: 'Usage: /mode auto, /mode review, or /mode read-only' });
+          addMessage('assistant', 'Usage: /mode auto, /mode review, or /mode read-only');
         }
       } else if (text.toLowerCase().startsWith('/help')) {
-        state.transcript.messages.push({
-          role: 'assistant',
-          text: 'Slash commands:\\n/new\\n/status\\n/mode auto|review|read-only\\n/model provider/model'
-        });
+        addMessage('assistant', 'Slash commands:\\n/new\\n/status\\n/mode auto|review|read-only\\n/model provider/model');
       } else if (text.toLowerCase().includes('git diff')) {
         const diff = [
           'diff --git a/Sources/App.swift b/Sources/App.swift',
@@ -1727,29 +1770,29 @@
             comments: []
           }]
         };
-        state.transcript.toolCards.push({
+        addToolCard({
           title: 'host.git.diff',
           subtitle: 'Completed',
           status: 'done',
           inputJSON: JSON.stringify({}, null, 2),
           outputJSON: JSON.stringify({ ok: true, stdout: diff }, null, 2)
         });
-        state.transcript.messages.push({ role: 'assistant', text: 'Output:\\n' + diff });
+        addMessage('assistant', 'Output:\\n' + diff);
       } else if (text.toLowerCase().includes('commit')) {
         const message = text.match(/message[: ]+(.+)$/i)?.[1]?.trim() || 'QuillCode changes';
         state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
-        state.transcript.toolCards.push({
+        addToolCard({
           title: 'host.git.commit',
           subtitle: 'Completed',
           status: 'done',
           inputJSON: JSON.stringify({ message }, null, 2),
           outputJSON: JSON.stringify({ ok: true, stdout: '[main abc1234] ' + message + '\\n' }, null, 2)
         });
-        state.transcript.messages.push({ role: 'assistant', text: 'Output:\\n[main abc1234] ' + message });
+        addMessage('assistant', 'Output:\\n[main abc1234] ' + message);
       } else if (text.toLowerCase().includes('run') || text.toLowerCase().includes('whoami')) {
         const cmd = text.match(/`([^`]+)`/)?.[1] || text.replace(/^run\s+/i, '') || 'whoami';
         state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
-        state.transcript.toolCards.push({
+        addToolCard({
           title: 'host.shell.run',
           subtitle: 'Completed',
           status: 'done',
@@ -1759,10 +1802,10 @@
         const answer = cmd.trim() === 'whoami'
           ? 'You are `mock-user` in this workspace.'
           : 'Output:\\nmock-user';
-        state.transcript.messages.push({ role: 'assistant', text: answer });
+        addMessage('assistant', answer);
       } else {
         state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
-        state.transcript.messages.push({ role: 'assistant', text: 'I can inspect and edit this project.' });
+        addMessage('assistant', 'I can inspect and edit this project.');
       }
       syncSelectedThreadSearchText();
       render();
@@ -1787,14 +1830,14 @@
       };
       const toolName = toolMap[action] || 'host.git.stage';
       state.topBar.agentStatus = 'Running';
-      state.transcript.toolCards.push({
+      addToolCard({
         title: toolName,
         subtitle: 'Completed',
         status: 'done',
         inputJSON: JSON.stringify({ path }, null, 2),
         outputJSON: JSON.stringify({ ok: true, stdout: '' }, null, 2)
       });
-      state.transcript.toolCards.push({
+      addToolCard({
         title: 'host.git.diff',
         subtitle: 'Completed',
         status: 'done',

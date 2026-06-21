@@ -156,6 +156,13 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(cards[0].status, .done)
         XCTAssertTrue(cards[0].inputJSON?.contains("whoami") == true)
         XCTAssertTrue(cards[0].outputJSON?.contains("\"ok\" : true") == true)
+
+        let thread = try XCTUnwrap(model.selectedThread)
+        let timeline = QuillCodeWorkspaceModel.transcriptTimelineItems(for: thread)
+        XCTAssertEqual(timeline.map(\.kind), [.message, .toolCard, .message])
+        XCTAssertEqual(timeline[0].message?.role, .user)
+        XCTAssertEqual(timeline[1].toolCard?.title, "host.shell.run")
+        XCTAssertEqual(timeline[2].message?.role, .assistant)
     }
 
     func testSubmitComposerStreamsQueuedToolBeforeCompletion() async throws {

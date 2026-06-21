@@ -111,15 +111,8 @@ public enum WorkspaceHTMLRenderer {
     ) -> String {
         let context = renderContextBanner(contextBanner)
         let reviewPane = renderReview(review)
-        let messages = transcript.messages.map { message in
-            """
-            <article class="message \(message.role.rawValue)" data-testid="message" aria-label="\(escape(message.accessibilityLabel))">
-              \(escape(message.text))
-            </article>
-            """
-        }.joined(separator: "\n")
-        let cards = transcript.toolCards.map(renderToolCard).joined(separator: "\n")
-        if context.isEmpty && messages.isEmpty && cards.isEmpty && !review.isVisible {
+        let timeline = transcript.timelineItems.map(renderTimelineItem).joined(separator: "\n")
+        if context.isEmpty && timeline.isEmpty && !review.isVisible {
             return """
             <section class="empty" data-testid="transcript-empty">
               <h1>\(escape(transcript.emptyTitle))</h1>
@@ -127,7 +120,22 @@ public enum WorkspaceHTMLRenderer {
             </section>
             """
         }
-        return context + "\n" + reviewPane + "\n" + messages + "\n" + cards
+        return context + "\n" + reviewPane + "\n" + timeline
+    }
+
+    private static func renderTimelineItem(_ item: TranscriptTimelineItemSurface) -> String {
+        switch item.kind {
+        case .message:
+            guard let message = item.message else { return "" }
+            return """
+            <article class="message \(message.role.rawValue)" data-testid="message" aria-label="\(escape(message.accessibilityLabel))">
+              \(escape(message.text))
+            </article>
+            """
+        case .toolCard:
+            guard let card = item.toolCard else { return "" }
+            return renderToolCard(card)
+        }
     }
 
     private static func renderContextBanner(_ banner: ContextBannerSurface?) -> String {

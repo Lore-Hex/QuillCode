@@ -496,6 +496,21 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-output""#))
     }
 
+    func testHTMLRendererKeepsToolCardsInTranscriptOrder() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+        model.setDraft("run whoami")
+        await model.submitComposer(workspaceRoot: root)
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+        let userIndex = try XCTUnwrap(html.range(of: "run whoami")?.lowerBound)
+        let toolIndex = try XCTUnwrap(html.range(of: "host.shell.run")?.lowerBound)
+        let answerIndex = try XCTUnwrap(html.range(of: "You are `")?.lowerBound)
+
+        XCTAssertLessThan(userIndex, toolIndex)
+        XCTAssertLessThan(toolIndex, answerIndex)
+    }
+
     func testHTMLRendererIncludesVisibleTerminalPane() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()
