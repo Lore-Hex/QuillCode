@@ -161,6 +161,7 @@ public enum WorkspaceHTMLRenderer {
               <p>\(escape(message.text))</p>
               <footer class="transcript-actions">
                 <button type="button" data-testid="message-copy" data-copy-id="\(escape(item.id))">Copy</button>
+                \(renderMessageFeedbackActions(message))
               </footer>
             </article>
             """
@@ -168,6 +169,16 @@ public enum WorkspaceHTMLRenderer {
             guard let card = item.toolCard else { return "" }
             return renderToolCard(card, timelineItemID: item.id)
         }
+    }
+
+    private static func renderMessageFeedbackActions(_ message: MessageSurface) -> String {
+        guard message.role == .assistant else { return "" }
+        let helpfulSelected = message.feedback == .helpful ? "true" : "false"
+        let notHelpfulSelected = message.feedback == .notHelpful ? "true" : "false"
+        return """
+        <button type="button" data-testid="message-feedback-up" data-message-id="\(message.id.uuidString)" data-selected="\(helpfulSelected)">Helpful</button>
+        <button type="button" data-testid="message-feedback-down" data-message-id="\(message.id.uuidString)" data-selected="\(notHelpfulSelected)">Not helpful</button>
+        """
     }
 
     private static func renderContextBanner(_ banner: ContextBannerSurface?) -> String {

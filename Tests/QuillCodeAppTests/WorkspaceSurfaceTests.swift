@@ -896,6 +896,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-status="done""#))
         XCTAssertTrue(html.contains("host.shell.run"))
         XCTAssertTrue(html.contains(#"data-testid="message-copy""#))
+        XCTAssertTrue(html.contains(#"data-testid="message-feedback-up""#))
+        XCTAssertTrue(html.contains(#"data-testid="message-feedback-down""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-copy""#))
         XCTAssertTrue(html.contains("Copy output"))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-output""#))

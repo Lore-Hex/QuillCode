@@ -111,6 +111,7 @@ private struct QuillCodeDesktopRootView: View {
             onCreateWorktree: controller.createWorktree,
             onRemoveWorktree: controller.removeWorktree,
             onCopyTranscriptItem: controller.copyTranscriptItem,
+            onMessageFeedback: controller.setMessageFeedback,
             onCommand: controller.runCommand
         )
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeNewChat)) { _ in
@@ -558,6 +559,11 @@ private final class QuillCodeDesktopController: ObservableObject {
                 }
             }
         }
+    }
+
+    func setMessageFeedback(messageID: UUID, value: MessageFeedbackValue) {
+        guard model.setMessageFeedback(messageID: messageID, value: value) else { return }
+        refresh()
     }
 
     private func persistConfig() {

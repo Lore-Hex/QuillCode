@@ -147,6 +147,7 @@ public enum ThreadEventKind: String, Codable, Sendable {
     case approvalDecided
     case reviewComment
     case notice
+    case messageFeedback
 }
 
 public struct ThreadEvent: Codable, Sendable, Hashable, Identifiable {
@@ -168,6 +169,21 @@ public struct ThreadEvent: Codable, Sendable, Hashable, Identifiable {
         self.createdAt = createdAt
         self.summary = summary
         self.payloadJSON = payloadJSON
+    }
+}
+
+public enum MessageFeedbackValue: String, Codable, Sendable, Hashable {
+    case helpful
+    case notHelpful
+}
+
+public struct MessageFeedback: Codable, Sendable, Hashable {
+    public var messageID: UUID
+    public var value: MessageFeedbackValue
+
+    public init(messageID: UUID, value: MessageFeedbackValue) {
+        self.messageID = messageID
+        self.value = value
     }
 }
 

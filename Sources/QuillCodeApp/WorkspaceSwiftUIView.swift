@@ -30,6 +30,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
     public var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
     public var onCopyTranscriptItem: (String, String) -> Void
+    public var onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
     public var onCommand: (WorkspaceCommandSurface) -> Void
 
     @State private var isSearchPresented = false
@@ -75,6 +76,7 @@ public struct QuillCodeWorkspaceView: View {
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
         onCopyTranscriptItem: @escaping (String, String) -> Void = { _, _ in },
+        onMessageFeedback: @escaping (UUID, MessageFeedbackValue) -> Void = { _, _ in },
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
     ) {
         self.surface = surface
@@ -105,6 +107,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onCreateWorktree = onCreateWorktree
         self.onRemoveWorktree = onRemoveWorktree
         self.onCopyTranscriptItem = onCopyTranscriptItem
+        self.onMessageFeedback = onMessageFeedback
         self.onCommand = onCommand
     }
 
@@ -148,7 +151,8 @@ public struct QuillCodeWorkspaceView: View {
                         onRuntimeIssueAction: runtimeIssueAction(for: surface.runtimeIssue),
                         onReviewAction: onReviewAction,
                         onAddReviewComment: onAddReviewComment,
-                        onCopyTranscriptItem: onCopyTranscriptItem
+                        onCopyTranscriptItem: onCopyTranscriptItem,
+                        onMessageFeedback: onMessageFeedback
                     )
                     if surface.browser.isVisible {
                         Divider()
@@ -1401,6 +1405,7 @@ private struct QuillCodeTranscriptView: View {
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     var onCopyTranscriptItem: (String, String) -> Void
+    var onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
 
     private var findMatches: [QuillCodeTranscriptFindMatch] {
         QuillCodeTranscriptFindMatch.matches(in: transcript, query: findQuery)
@@ -1473,6 +1478,9 @@ private struct QuillCodeTranscriptView: View {
                                                 isCopied: copiedTranscriptItemID == item.id,
                                                 onCopy: {
                                                     onCopyTranscriptItem(item.id, message.text)
+                                                },
+                                                onFeedback: { value in
+                                                    onMessageFeedback(message.id, value)
                                                 }
                                             )
                                         }
@@ -2600,6 +2608,7 @@ private struct QuillCodeMessageBubble: View {
     var timelineItemID: String
     var isCopied: Bool
     var onCopy: () -> Void
+    var onFeedback: (MessageFeedbackValue) -> Void
 
     var body: some View {
         HStack {
@@ -2615,13 +2624,30 @@ private struct QuillCodeMessageBubble: View {
                     .background(background)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .accessibilityLabel(message.accessibilityLabel)
-                QuillCodeTranscriptCopyButton(
-                    label: "Copy",
-                    copiedLabel: "Copied",
-                    isCopied: isCopied,
-                    action: onCopy
-                )
-                .accessibilityIdentifier("transcript-copy-\(timelineItemID)")
+                HStack(spacing: 6) {
+                    QuillCodeTranscriptCopyButton(
+                        label: "Copy",
+                        copiedLabel: "Copied",
+                        isCopied: isCopied,
+                        action: onCopy
+                    )
+                    .accessibilityIdentifier("transcript-copy-\(timelineItemID)")
+                    if message.role == .assistant {
+                        QuillCodeMessageFeedbackButton(
+                            label: "Helpful",
+                            systemImage: "hand.thumbsup",
+                            isSelected: message.feedback == .helpful,
+                            action: { onFeedback(.helpful) }
+                        )
+                        QuillCodeMessageFeedbackButton(
+                            label: "Not helpful",
+                            systemImage: "hand.thumbsdown",
+                            isSelected: message.feedback == .notHelpful,
+                            action: { onFeedback(.notHelpful) }
+                        )
+                    }
+                }
+                .accessibilityIdentifier("message-actions-\(timelineItemID)")
             }
             if message.role != .user {
                 Spacer(minLength: 80)
@@ -2637,6 +2663,27 @@ private struct QuillCodeMessageBubble: View {
         message.role == .user
             ? AnyShapeStyle(LinearGradient(colors: [QuillCodePalette.blue, QuillCodePalette.coral], startPoint: .leading, endPoint: .trailing))
             : AnyShapeStyle(QuillCodePalette.panel)
+    }
+}
+
+private struct QuillCodeMessageFeedbackButton: View {
+    var label: String
+    var systemImage: String
+    var isSelected: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(label, systemImage: systemImage)
+                .labelStyle(.iconOnly)
+                .font(.caption2.weight(.semibold))
+                .frame(width: 24, height: 22)
+                .foregroundStyle(isSelected ? QuillCodePalette.green : QuillCodePalette.muted)
+                .background((isSelected ? QuillCodePalette.green : Color.white).opacity(isSelected ? 0.16 : 0.08))
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(label)
     }
 }
 

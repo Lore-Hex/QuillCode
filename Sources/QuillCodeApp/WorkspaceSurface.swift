@@ -1193,12 +1193,14 @@ public struct MessageSurface: Codable, Sendable, Hashable, Identifiable {
     public var role: ChatRole
     public var text: String
     public var accessibilityLabel: String
+    public var feedback: MessageFeedbackValue?
 
-    public init(message: ChatMessage) {
+    public init(message: ChatMessage, feedback: MessageFeedbackValue? = nil) {
         self.id = message.id
         self.role = message.role
         self.text = message.content
         self.accessibilityLabel = "\(message.role.rawValue): \(message.content)"
+        self.feedback = feedback
     }
 }
 
@@ -1508,7 +1510,7 @@ public extension QuillCodeWorkspaceModel {
                 selectedThreadID: root.selectedThreadID
             ),
             transcript: TranscriptSurface(
-                messages: (thread?.messages ?? []).map(MessageSurface.init),
+                messages: thread.map(Self.messageSurfaces(for:)) ?? [],
                 toolCards: toolCards,
                 timelineItems: thread.map(Self.transcriptTimelineItems(for:))
             ),

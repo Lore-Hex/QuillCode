@@ -556,6 +556,32 @@ public final class QuillCodeWorkspaceModel {
     }
 
     @discardableResult
+    public func setMessageFeedback(messageID: UUID, value: MessageFeedbackValue) -> Bool {
+        guard selectedThread?.messages.contains(where: { $0.id == messageID && $0.role == .assistant }) == true else {
+            return false
+        }
+        let feedback = MessageFeedback(messageID: messageID, value: value)
+        guard let payloadJSON = try? JSONHelpers.encodePretty(feedback) else {
+            return false
+        }
+        let summary: String
+        switch value {
+        case .helpful:
+            summary = "Marked assistant response helpful"
+        case .notHelpful:
+            summary = "Marked assistant response not helpful"
+        }
+        mutateSelectedThread { thread in
+            thread.events.append(ThreadEvent(
+                kind: .messageFeedback,
+                summary: summary,
+                payloadJSON: payloadJSON
+            ))
+        }
+        return true
+    }
+
+    @discardableResult
     public func prepareRetryLastUserTurn() -> Bool {
         guard let lastUserMessage = selectedThread?.messages.last(where: {
             $0.role == .user && !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -1075,7 +1101,7 @@ public final class QuillCodeWorkspaceModel {
             return "Finishing"
         case .toolFailed:
             return "Failed"
-        case .message, .approvalDecided, .reviewComment, .notice, .none:
+        case .message, .messageFeedback, .approvalDecided, .reviewComment, .notice, .none:
             return "Running"
         }
     }
@@ -1744,7 +1770,7 @@ public final class QuillCodeWorkspaceModel {
                     inputJSON: event.payloadJSON,
                     isExpanded: true
                 ))
-            case .message, .approvalDecided, .reviewComment, .notice:
+            case .message, .messageFeedback, .approvalDecided, .reviewComment, .notice:
                 continue
             }
         }
@@ -1752,12 +1778,20 @@ public final class QuillCodeWorkspaceModel {
         return cards
     }
 
+    public static func messageSurfaces(for thread: ChatThread) -> [MessageSurface] {
+        let feedbackByMessageID = messageFeedbackByMessageID(for: thread)
+        return thread.messages.map { message in
+            MessageSurface(message: message, feedback: feedbackByMessageID[message.id])
+        }
+    }
+
     public static func transcriptTimelineItems(for thread: ChatThread) -> [TranscriptTimelineItemSurface] {
         guard !thread.events.isEmpty else {
-            return thread.messages.map(MessageSurface.init).map(TranscriptTimelineItemSurface.message)
+            return messageSurfaces(for: thread).map(TranscriptTimelineItemSurface.message)
                 + toolCards(for: thread).map(TranscriptTimelineItemSurface.toolCard)
         }
 
+        let feedbackByMessageID = messageFeedbackByMessageID(for: thread)
         var consumedMessageIDs = Set<UUID>()
         var items: [TranscriptTimelineItemSurface] = []
         var activeToolItemIndex: Int?
@@ -1769,7 +1803,7 @@ public final class QuillCodeWorkspaceModel {
                 return
             }
             consumedMessageIDs.insert(message.id)
-            items.append(.message(MessageSurface(message: message)))
+            items.append(.message(MessageSurface(message: message, feedback: feedbackByMessageID[message.id])))
         }
 
         func appendToolCard(_ card: ToolCardState) {
@@ -1839,15 +1873,24 @@ public final class QuillCodeWorkspaceModel {
                     inputJSON: event.payloadJSON,
                     isExpanded: true
                 )))
-            case .approvalDecided, .reviewComment, .notice:
+            case .messageFeedback, .approvalDecided, .reviewComment, .notice:
                 continue
             }
         }
 
         for message in thread.messages where !consumedMessageIDs.contains(message.id) {
-            items.append(.message(MessageSurface(message: message)))
+            items.append(.message(MessageSurface(message: message, feedback: feedbackByMessageID[message.id])))
         }
         return items
+    }
+
+    private static func messageFeedbackByMessageID(for thread: ChatThread) -> [UUID: MessageFeedbackValue] {
+        var feedbackByMessageID: [UUID: MessageFeedbackValue] = [:]
+        for event in thread.events where event.kind == .messageFeedback {
+            guard let feedback = decode(MessageFeedback.self, event.payloadJSON) else { continue }
+            feedbackByMessageID[feedback.messageID] = feedback.value
+        }
+        return feedbackByMessageID
     }
 
     private func appendToolRun(call: ToolCall, result: ToolResult) {
