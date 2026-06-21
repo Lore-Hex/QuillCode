@@ -188,6 +188,38 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(polish.titleTextWrap).toBe('balance');
   expect(polish.agentStatusNumbers).toContain('tabular-nums');
   expect(polish.sidebarRadius).toBeGreaterThanOrEqual(24);
+
+  await page.getByLabel('Message').fill('run whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+
+  const transcriptPolish = await page.evaluate(() => {
+    const styleFor = (selector: string) => getComputedStyle(document.querySelector(selector)!);
+    const toolCard = styleFor('[data-testid="tool-card"]');
+    const toolCardRect = document.querySelector('[data-testid="tool-card"]')!.getBoundingClientRect();
+    const toolStatus = styleFor('[data-testid="tool-card-status"]');
+    const toolCopyButton = styleFor('[data-testid="tool-card-copy"]');
+    const messageCopyButton = styleFor('[data-testid="message-copy"]');
+    const sidebarMenuRect = document.querySelector('[data-testid="sidebar-item-actions"] summary')!.getBoundingClientRect();
+
+    return {
+      toolCardMinHeight: parseFloat(toolCard.minHeight),
+      toolCardRenderedHeight: toolCardRect.height,
+      toolStatusNumbers: toolStatus.fontVariantNumeric,
+      toolCopyMinHeight: parseFloat(toolCopyButton.minHeight),
+      messageCopyMinHeight: parseFloat(messageCopyButton.minHeight),
+      sidebarMenuWidth: sidebarMenuRect.width,
+      sidebarMenuHeight: sidebarMenuRect.height
+    };
+  });
+
+  expect(transcriptPolish.toolCardMinHeight).toBeGreaterThanOrEqual(74);
+  expect(transcriptPolish.toolCardRenderedHeight).toBeGreaterThanOrEqual(74);
+  expect(transcriptPolish.toolStatusNumbers).toContain('tabular-nums');
+  expect(transcriptPolish.toolCopyMinHeight).toBeGreaterThanOrEqual(40);
+  expect(transcriptPolish.messageCopyMinHeight).toBeGreaterThanOrEqual(40);
+  expect(transcriptPolish.sidebarMenuWidth).toBeGreaterThanOrEqual(40);
+  expect(transcriptPolish.sidebarMenuHeight).toBeGreaterThanOrEqual(40);
 });
 
 test('mock harness stops an active composer run from the composer', async ({ page }) => {

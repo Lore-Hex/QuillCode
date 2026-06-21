@@ -1,6 +1,20 @@
 import SwiftUI
 import QuillCodeCore
 
+private enum QuillCodeMetrics {
+    static let minimumHitTarget: CGFloat = 40
+    static let toolCardMinimumHeight: CGFloat = 74
+    static let pressScale: CGFloat = 0.96
+}
+
+private func quillCodeWithAnimation(_ animation: Animation, reduceMotion: Bool, _ updates: () -> Void) {
+    if reduceMotion {
+        updates()
+    } else {
+        withAnimation(animation, updates)
+    }
+}
+
 public struct QuillCodeWorkspaceView: View {
     public var surface: WorkspaceSurface
     @Binding public var draft: String
@@ -999,6 +1013,7 @@ private struct QuillCodeModelPickerView: View {
     var onSetModel: (String) -> Void
     var onToggleModelFavorite: (String) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var searchText = ""
     @State private var expandedModelID: String?
     @FocusState private var isSearchFocused: Bool
@@ -1118,14 +1133,14 @@ private struct QuillCodeModelPickerView: View {
 
                 HStack(spacing: 6) {
                     Button {
-                        withAnimation(.easeOut(duration: 0.16)) {
+                        quillCodeWithAnimation(.easeOut(duration: 0.16), reduceMotion: reduceMotion) {
                             expandedModelID = isExpanded ? nil : option.id
                         }
                     } label: {
                         Image(systemName: isExpanded ? "info.circle.fill" : "info.circle")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(isExpanded ? QuillCodePalette.blue : QuillCodePalette.muted)
-                            .frame(width: 40, height: 40)
+                            .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
                             .background((isExpanded ? QuillCodePalette.blue : QuillCodePalette.muted).opacity(0.12))
                             .clipShape(Circle())
                     }
@@ -1139,7 +1154,7 @@ private struct QuillCodeModelPickerView: View {
                         Image(systemName: option.isFavorite ? "star.fill" : "star")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(option.isFavorite ? QuillCodePalette.yellow : QuillCodePalette.muted)
-                            .frame(width: 40, height: 40)
+                            .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
                             .background((option.isFavorite ? QuillCodePalette.yellow : QuillCodePalette.muted).opacity(0.12))
                             .clipShape(Circle())
                     }
@@ -1151,7 +1166,7 @@ private struct QuillCodeModelPickerView: View {
 
             if isExpanded {
                 modelDetails(option)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(10)
@@ -1337,7 +1352,7 @@ private struct QuillCodeSidebarBulkActionsView: View {
                     .font(.caption.weight(.semibold))
                     .padding(.vertical, 6)
                     .padding(.horizontal, 8)
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget)
                     .background((action.isDestructive ? QuillCodePalette.red : QuillCodePalette.panel).opacity(action.isEnabled ? 1 : 0.45))
                     .foregroundStyle(action.isDestructive ? Color.white : QuillCodePalette.text)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -1348,7 +1363,7 @@ private struct QuillCodeSidebarBulkActionsView: View {
         }
         .padding(8)
         .background(QuillCodePalette.background.opacity(0.55))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private func command(for action: SidebarBulkActionSurface) -> WorkspaceCommandSurface {
@@ -1409,7 +1424,8 @@ private struct QuillCodeSidebarThreadRowView: View {
                     Image(systemName: item.isBulkSelected ? "checkmark.circle.fill" : "circle")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(item.isBulkSelected ? QuillCodePalette.blue : QuillCodePalette.muted)
-                        .frame(width: 22, height: 22)
+                        .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(item.isBulkSelected ? "Deselect \(item.title)" : "Select \(item.title)")
@@ -1447,8 +1463,9 @@ private struct QuillCodeSidebarThreadRowView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .frame(width: 24, height: 24)
+                    .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
                     .foregroundStyle(QuillCodePalette.muted)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
@@ -1643,6 +1660,8 @@ private struct QuillCodeProjectListView: View {
                 Button(action: onAddProjectRequested) {
                     Image(systemName: "plus.circle")
                         .imageScale(.small)
+                        .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(QuillCodePalette.muted)
@@ -1652,6 +1671,8 @@ private struct QuillCodeProjectListView: View {
                 } label: {
                     Image(systemName: "xmark.circle")
                         .imageScale(.small)
+                        .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(QuillCodePalette.muted)
@@ -1690,8 +1711,9 @@ private struct QuillCodeProjectListView: View {
                             }
                         } label: {
                             Image(systemName: "ellipsis")
-                                .frame(width: 24, height: 24)
+                                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
                                 .foregroundStyle(QuillCodePalette.muted)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
@@ -1721,6 +1743,8 @@ private struct QuillCodeTranscriptView: View {
     var onCopyTranscriptItem: (String, String) -> Void
     var onUseMessageAsDraft: (String) -> Void
     var onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var findMatches: [QuillCodeTranscriptFindMatch] {
         QuillCodeTranscriptFindMatch.matches(in: transcript, query: findQuery)
@@ -1887,7 +1911,7 @@ private struct QuillCodeTranscriptView: View {
     private func scrollToActiveFindMatch(_ proxy: ScrollViewProxy) {
         guard isFindPresented, let activeFindMatch else { return }
         DispatchQueue.main.async {
-            withAnimation(.easeInOut(duration: 0.18)) {
+            quillCodeWithAnimation(.easeInOut(duration: 0.18), reduceMotion: reduceMotion) {
                 proxy.scrollTo(activeFindMatch.timelineItemID, anchor: .center)
             }
         }
@@ -3126,7 +3150,7 @@ private struct QuillCodeMessageDraftButton: View {
             Label("Use as draft", systemImage: "square.and.pencil")
                 .labelStyle(.iconOnly)
                 .font(.caption2.weight(.semibold))
-                .frame(width: 40, height: 32)
+                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
                 .foregroundStyle(QuillCodePalette.text)
                 .background(Color.white.opacity(0.1))
                 .clipShape(Capsule())
@@ -3144,7 +3168,7 @@ private struct QuillCodeMessageRetryButton: View {
             Label("Retry", systemImage: "arrow.clockwise")
                 .labelStyle(.iconOnly)
                 .font(.caption2.weight(.semibold))
-                .frame(width: 40, height: 32)
+                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
                 .foregroundStyle(QuillCodePalette.blue)
                 .background(QuillCodePalette.blue.opacity(0.14))
                 .clipShape(Capsule())
@@ -3165,7 +3189,7 @@ private struct QuillCodeMessageFeedbackButton: View {
             Label(label, systemImage: systemImage)
                 .labelStyle(.iconOnly)
                 .font(.caption2.weight(.semibold))
-                .frame(width: 40, height: 32)
+                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
                 .foregroundStyle(isSelected ? QuillCodePalette.green : QuillCodePalette.muted)
                 .background((isSelected ? QuillCodePalette.green : Color.white).opacity(isSelected ? 0.16 : 0.08))
                 .clipShape(Capsule())
@@ -3199,10 +3223,11 @@ private struct QuillCodeToolCardView: View {
                     Text(card.subtitle)
                         .font(.caption)
                         .foregroundStyle(QuillCodePalette.muted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
                 Text(card.status.rawValue.capitalized)
-                    .font(.caption.weight(.semibold))
+                    .font(.caption.monospacedDigit().weight(.semibold))
                     .padding(.horizontal, 9)
                     .padding(.vertical, 5)
                     .background(statusColor.opacity(0.16))
@@ -3292,7 +3317,7 @@ private struct QuillCodeToolCardView: View {
             }
         }
         .padding(14)
-        .frame(maxWidth: 760, alignment: .leading)
+        .frame(maxWidth: 760, minHeight: QuillCodeMetrics.toolCardMinimumHeight, alignment: .topLeading)
         .quillCodeSurface(
             fill: QuillCodePalette.panel,
             radius: 20,
@@ -3352,7 +3377,7 @@ private struct QuillCodeTranscriptCopyButton: View {
                 .lineLimit(1)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .frame(minHeight: 32)
+                .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
                 .foregroundStyle(isCopied ? QuillCodePalette.green : QuillCodePalette.muted)
                 .background((isCopied ? QuillCodePalette.green : Color.white).opacity(isCopied ? 0.16 : 0.08))
                 .clipShape(Capsule())
@@ -4089,10 +4114,12 @@ private struct QuillCodePill: View {
 }
 
 private struct QuillCodePressableButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.96 : 1)
-            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+            .scaleEffect(!reduceMotion && configuration.isPressed ? QuillCodeMetrics.pressScale : 1)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 

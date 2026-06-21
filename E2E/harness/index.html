@@ -38,7 +38,7 @@
     h1, h2, h3, strong { text-wrap: balance; }
     p, li, small, figcaption, .message { text-wrap: pretty; }
     [data-testid="agent-status"],
-    [data-testid="context-percent"],
+    [data-testid="context-banner-percent"],
     [data-testid="tool-card-status"],
     [data-testid="activity-section-count"],
     .topbar-pills span,
@@ -395,6 +395,7 @@
       gap: 6px;
     }
     .sidebar-bulk-action {
+      min-height: 40px;
       padding: 7px 10px;
       font-size: .78rem;
       font-weight: 700;
@@ -480,7 +481,7 @@
     .sidebar-thread-menu-popover button {
       width: 100%;
       min-width: 0;
-      min-height: 28px;
+      min-height: 40px;
       padding: 0 9px;
       text-align: left;
       white-space: nowrap;
@@ -900,6 +901,7 @@
     .message.user .transcript-actions { justify-content: flex-end; }
     .message.assistant .transcript-actions { justify-content: flex-start; }
     .transcript-copy-button {
+      min-height: 40px;
       border: 0;
       border-radius: 999px;
       padding: 5px 9px;
@@ -914,6 +916,7 @@
       background: rgba(82,210,115,.16);
     }
     .transcript-feedback-button {
+      min-height: 40px;
       border: 0;
       border-radius: 999px;
       padding: 5px 8px;
@@ -934,6 +937,7 @@
     .tool-card {
       align-self: flex-start;
       width: min(760px, 92%);
+      min-height: 74px;
       background: rgba(0,0,0,.22);
       border: 1px solid rgba(65,184,232,.25);
       box-shadow: 0 0 0 1px rgba(65,184,232,.18), 0 12px 34px rgba(0,0,0,.18);
@@ -948,7 +952,8 @@
     .tool-card.done { border-color: rgba(82,210,115,.34); }
     .tool-card.failed { border-color: rgba(255,93,82,.44); }
     .tool-card.review { border-color: rgba(248,184,78,.48); }
-    .tool-card header { display: flex; justify-content: space-between; gap: 14px; }
+    .tool-card header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+    .tool-card header [data-testid="tool-card-status"] { flex: none; }
     .tool-artifacts {
       display: flex;
       flex-wrap: wrap;
