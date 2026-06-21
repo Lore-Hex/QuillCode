@@ -907,19 +907,24 @@ test('mock harness opens browser preview and records comments', async ({ page })
   await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
   await expect(page.getByTestId('browser-status-label')).toHaveText('Preview ready');
   await expect(page.getByTestId('browser-source')).toHaveText('Local web app');
-  await expect(page.getByTestId('browser-inspection-depth')).toHaveText('Metadata only');
-  await expect(page.getByTestId('browser-inspection-depth')).toHaveAttribute('data-depth', 'metadata_only');
+  await expect(page.getByTestId('browser-inspection-depth')).toHaveText('Static HTML snapshot');
+  await expect(page.getByTestId('browser-inspection-depth')).toHaveAttribute('data-depth', 'static_html_snapshot');
   await expect(page.getByTestId('browser-snapshot-summary')).toHaveText(
-    'Live DOM capture is not attached yet; QuillCode has URL metadata for this local page.'
+    'Fetched an HTML snapshot for this local page.'
   );
   await expect(page.getByTestId('browser-snapshot-detail')).toContainText([
     'Host: localhost',
     'Scheme: HTTP',
-    'Path: /'
+    'Path: /',
+    'HTTP: 200',
+    'Title: Vite Preview',
+    'Heading: QuillCode Browser Preview'
   ]);
   await expect(page.getByTestId('browser-snapshot-outline-item')).toContainText([
-    'Page: localhost',
-    'Path: /'
+    'H1: QuillCode Browser Preview',
+    'Link: Dashboard -> /dashboard',
+    'Button: Launch',
+    'Input: Search workspace'
   ]);
   const outlineStyle = await page.getByTestId('browser-snapshot-outline-item').first().evaluate((element) => {
     const style = getComputedStyle(element);

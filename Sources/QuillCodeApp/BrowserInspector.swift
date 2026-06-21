@@ -7,7 +7,6 @@ enum BrowserInspector {
         var label: String
     }
 
-    private static let maxSnapshotBytes = 512_000
     private static let outlineLimit = 24
     private static let textSnippetLimit = 800
 
@@ -42,6 +41,41 @@ enum BrowserInspector {
                 "Page: \(host)",
                 "Path: \(path)"
             ]
+        )
+    }
+
+    static func snapshot(for fetchedPage: BrowserFetchedPage, originalURL: URL) -> BrowserSnapshotState {
+        let url = fetchedPage.finalURL
+        let sourceLabel = sourceLabel(for: originalURL)
+        let host = url.host ?? originalURL.host ?? url.absoluteString
+        let path = url.path.isEmpty ? "/" : url.path
+        var details = [
+            "Host: \(host)",
+            "Scheme: \((url.scheme ?? originalURL.scheme ?? "https").uppercased())",
+            "Path: \(path)"
+        ]
+        if originalURL.absoluteString != url.absoluteString {
+            details.append("Final URL: \(url.absoluteString)")
+        }
+        if let statusCode = fetchedPage.statusCode {
+            details.append("HTTP: \(statusCode)")
+        }
+        if let contentType = fetchedPage.contentType, !contentType.isEmpty {
+            details.append("Content-Type: \(contentType)")
+        }
+        details.append(
+            fetchedPage.wasTruncated
+                ? "Size: \(fetchedPage.byteCount) bytes (truncated)"
+                : "Size: \(fetchedPage.byteCount) bytes"
+        )
+
+        return htmlSnapshot(
+            sourceLabel: sourceLabel,
+            summary: sourceLabel == "Local web app"
+                ? "Fetched an HTML snapshot for this local page."
+                : "Fetched an HTML snapshot for browser review.",
+            details: details,
+            html: fetchedPage.html
         )
     }
 
@@ -97,7 +131,7 @@ enum BrowserInspector {
         }
 
         details.insert("Type: HTML", at: 1)
-        guard byteCount <= maxSnapshotBytes,
+        guard byteCount <= BrowserFetchedPage.defaultMaxHTMLBytes,
               let data = try? Data(contentsOf: url),
               let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .ascii)
         else {
@@ -111,6 +145,26 @@ enum BrowserInspector {
             )
         }
 
+        return htmlSnapshot(
+            sourceLabel: "Local HTML",
+            summary: "HTML snapshot captured for browser review.",
+            details: details,
+            html: html
+        )
+    }
+
+    private static func sourceLabel(for url: URL) -> String {
+        let host = url.host ?? url.absoluteString
+        return ["localhost", "127.0.0.1", "::1"].contains(host) ? "Local web app" : "Web page"
+    }
+
+    private static func htmlSnapshot(
+        sourceLabel: String,
+        summary: String,
+        details: [String],
+        html: String
+    ) -> BrowserSnapshotState {
+        var details = details
         if let title = firstHTMLCapture(in: html, pattern: #"<title[^>]*>(.*?)</title>"#) {
             details.append("Title: \(title)")
         }
@@ -123,9 +177,9 @@ enum BrowserInspector {
         details.append("Forms: \(htmlTagCount("form", in: html))")
 
         return BrowserSnapshotState(
-            sourceLabel: "Local HTML",
+            sourceLabel: sourceLabel,
             inspectionDepth: .staticHTMLSnapshot,
-            summary: "HTML snapshot captured for browser review.",
+            summary: summary,
             details: details,
             outline: htmlOutline(in: html),
             textSnippet: htmlTextSnippet(in: html)

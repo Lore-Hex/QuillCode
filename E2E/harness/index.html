@@ -4955,13 +4955,41 @@
         const host = parsed.hostname || parsed.href;
         const isLocal = ['localhost', '127.0.0.1', '::1'].includes(host);
         const path = parsed.pathname || '/';
+        if (isLocal) {
+          return {
+            sourceLabel: 'Local web app',
+            inspectionDepth: 'static_html_snapshot',
+            inspectionDepthLabel: 'Static HTML snapshot',
+            summary: 'Fetched an HTML snapshot for this local page.',
+            details: [
+              `Host: ${host}`,
+              `Scheme: ${parsed.protocol.replace(':', '').toUpperCase()}`,
+              `Path: ${path}`,
+              'HTTP: 200',
+              'Content-Type: text/html; charset=utf-8',
+              'Size: 512 bytes',
+              'Title: Vite Preview',
+              'Heading: QuillCode Browser Preview',
+              'Links: 1',
+              'Scripts: 1',
+              'Images: 0',
+              'Forms: 1'
+            ],
+            outline: [
+              'H1: QuillCode Browser Preview',
+              'Link: Dashboard -> /dashboard',
+              'Button: Launch',
+              'Input: Search workspace',
+              'Form: Search'
+            ],
+            textSnippet: 'QuillCode Browser Preview Dashboard Launch Search workspace'
+          };
+        }
         return {
-          sourceLabel: isLocal ? 'Local web app' : 'Web page',
+          sourceLabel: 'Web page',
           inspectionDepth: 'metadata_only',
           inspectionDepthLabel: 'Metadata only',
-          summary: isLocal
-            ? 'Live DOM capture is not attached yet; QuillCode has URL metadata for this local page.'
-            : 'Live DOM capture is not attached yet; QuillCode has URL metadata for this web page.',
+          summary: 'Live DOM capture is not attached yet; QuillCode has URL metadata for this web page.',
           details: [
             `Host: ${host}`,
             `Scheme: ${parsed.protocol.replace(':', '').toUpperCase()}`,
@@ -4985,7 +5013,9 @@
 	      state.browser.currentURL = url;
 	      state.browser.addressDraft = url;
 	      state.browser.snapshot = snapshot;
-	      state.browser.title = new URL(url).hostname || url;
+	      state.browser.title = snapshot.details.find((detail) => detail.startsWith('Title: '))?.replace('Title: ', '')
+	        || new URL(url).hostname
+	        || url;
 	      state.browser.statusLabel = 'Preview ready';
 	      render();
 	    }

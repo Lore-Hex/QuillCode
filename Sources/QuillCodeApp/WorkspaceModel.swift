@@ -944,6 +944,57 @@ public final class QuillCodeWorkspaceModel {
     }
 
     @discardableResult
+    public func openBrowserPreview(
+        _ input: String? = nil,
+        workspaceRoot: URL? = nil,
+        pageFetcher: any BrowserPageFetching
+    ) async -> Bool {
+        guard openBrowserPreview(input, workspaceRoot: workspaceRoot) else { return false }
+        _ = await refreshBrowserSnapshot(pageFetcher: pageFetcher)
+        return true
+    }
+
+    @discardableResult
+    public func refreshBrowserSnapshot(pageFetcher: any BrowserPageFetching) async -> Bool {
+        guard let currentURL = browser.currentURL,
+              let url = URL(string: currentURL),
+              Self.canFetchBrowserSnapshot(for: url)
+        else {
+            return false
+        }
+
+        browser.status = "Fetching snapshot"
+        refreshTopBar(agentStatus: "Idle")
+
+        do {
+            let fetchedPage = try await pageFetcher.fetchHTML(from: url)
+            guard browser.currentURL == currentURL else { return false }
+
+            browser.currentURL = fetchedPage.finalURL.absoluteString
+            browser.addressDraft = fetchedPage.finalURL.absoluteString
+            browser.snapshot = BrowserInspector.snapshot(for: fetchedPage, originalURL: url)
+            browser.title = browser.snapshot?.details
+                .first { $0.hasPrefix("Title: ") }
+                .map { String($0.dropFirst("Title: ".count)) }
+                ?? BrowserInspector.title(for: fetchedPage.finalURL)
+            browser.status = "Preview ready"
+            lastError = nil
+            refreshTopBar(agentStatus: "Idle")
+            return true
+        } catch {
+            guard browser.currentURL == currentURL else { return false }
+            if var snapshot = browser.snapshot {
+                snapshot.details.append("Snapshot fetch: \(Self.browserSnapshotFetchMessage(for: error))")
+                browser.snapshot = snapshot
+            }
+            browser.status = "Preview ready"
+            lastError = nil
+            refreshTopBar(agentStatus: "Idle")
+            return false
+        }
+    }
+
+    @discardableResult
     public func addBrowserComment(_ text: String) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let url = browser.currentURL else {
@@ -3231,6 +3282,18 @@ public final class QuillCodeWorkspaceModel {
         }
 
         return nil
+    }
+
+    private static func canFetchBrowserSnapshot(for url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        return scheme == "http" || scheme == "https"
+    }
+
+    private static func browserSnapshotFetchMessage(for error: any Error) -> String {
+        if let failure = error as? BrowserPageFetchFailure {
+            return failure.description
+        }
+        return error.localizedDescription
     }
 
     private static func projectFileBrowserURL(_ relativePath: String, workspaceRoot: URL) -> URL? {

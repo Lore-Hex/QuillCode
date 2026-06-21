@@ -6,6 +6,14 @@ import QuillCodeSafety
 import QuillComputerUseKit
 @testable import QuillCodeApp
 
+private struct FakeBrowserPageFetcher: BrowserPageFetching {
+    var result: Result<BrowserFetchedPage, BrowserPageFetchFailure>
+
+    func fetchHTML(from url: URL) async throws -> BrowserFetchedPage {
+        try result.get()
+    }
+}
+
 @MainActor
 final class WorkspaceModelTests: XCTestCase {
     func testNewChatSelectsThreadAndRefreshesTopBar() {
@@ -813,6 +821,67 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertFalse(model.openBrowserPreview("not-a-valid-target", workspaceRoot: root))
         XCTAssertEqual(model.browser.status, "Invalid address")
         XCTAssertEqual(model.lastError, "Enter an http, https, file, localhost, or project file URL.")
+    }
+
+    func testBrowserPreviewFetchesReachableHTMLSnapshot() async throws {
+        let model = QuillCodeWorkspaceModel()
+        let html = """
+        <!doctype html>
+        <html>
+          <head><title>Running App</title></head>
+          <body>
+            <h1>Dashboard</h1>
+            <a href="/settings">Settings</a>
+            <button>Launch</button>
+            <form aria-label="Search"><input placeholder="Find files"></form>
+          </body>
+        </html>
+        """
+        let fetcher = FakeBrowserPageFetcher(result: .success(BrowserFetchedPage(
+            finalURL: URL(string: "http://localhost:5173/dashboard")!,
+            statusCode: 200,
+            contentType: "text/html; charset=utf-8",
+            html: html,
+            byteCount: 512,
+            wasTruncated: false
+        )))
+
+        let didOpen = await model.openBrowserPreview("localhost:5173", pageFetcher: fetcher)
+        XCTAssertTrue(didOpen)
+
+        XCTAssertEqual(model.browser.currentURL, "http://localhost:5173/dashboard")
+        XCTAssertEqual(model.browser.addressDraft, "http://localhost:5173/dashboard")
+        XCTAssertEqual(model.browser.title, "Running App")
+        XCTAssertEqual(model.browser.status, "Preview ready")
+        XCTAssertEqual(model.browser.snapshot?.sourceLabel, "Local web app")
+        XCTAssertEqual(model.browser.snapshot?.inspectionDepth, .staticHTMLSnapshot)
+        XCTAssertEqual(model.browser.snapshot?.summary, "Fetched an HTML snapshot for this local page.")
+        XCTAssertTrue(model.browser.snapshot?.details.contains("HTTP: 200") == true)
+        XCTAssertTrue(model.browser.snapshot?.details.contains("Content-Type: text/html; charset=utf-8") == true)
+        XCTAssertTrue(model.browser.snapshot?.details.contains("Size: 512 bytes") == true)
+        XCTAssertTrue(model.browser.snapshot?.details.contains("Title: Running App") == true)
+        XCTAssertTrue(model.browser.snapshot?.outline.contains("H1: Dashboard") == true)
+        XCTAssertTrue(model.browser.snapshot?.outline.contains("Link: Settings -> /settings") == true)
+        XCTAssertTrue(model.browser.snapshot?.outline.contains("Button: Launch") == true)
+        XCTAssertTrue(model.browser.snapshot?.outline.contains("Input: Find files") == true)
+        XCTAssertTrue(model.browser.snapshot?.outline.contains("Form: Search") == true)
+        XCTAssertTrue(model.browser.snapshot?.textSnippet?.contains("Dashboard Settings Launch") == true)
+    }
+
+    func testBrowserPreviewKeepsMetadataSnapshotWhenHTMLFetchFails() async throws {
+        let model = QuillCodeWorkspaceModel()
+        let fetcher = FakeBrowserPageFetcher(result: .failure(.httpStatus(503)))
+
+        let didOpen = await model.openBrowserPreview("example.com", pageFetcher: fetcher)
+        XCTAssertTrue(didOpen)
+
+        XCTAssertEqual(model.browser.currentURL, "https://example.com")
+        XCTAssertEqual(model.browser.title, "example.com")
+        XCTAssertEqual(model.browser.status, "Preview ready")
+        XCTAssertEqual(model.browser.snapshot?.sourceLabel, "Web page")
+        XCTAssertEqual(model.browser.snapshot?.inspectionDepth, .metadataOnly)
+        XCTAssertTrue(model.browser.snapshot?.details.contains("Snapshot fetch: The page returned HTTP 503.") == true)
+        XCTAssertNil(model.lastError)
     }
 
     func testComposerCanInspectCurrentBrowserPage() async throws {
