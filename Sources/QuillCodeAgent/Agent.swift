@@ -798,6 +798,7 @@ public struct AgentRunner: Sendable {
     private static func browserInspectionAnswer(_ inspection: BrowserInspectionToolOutput) -> String {
         var lines = [
             "Inspected `\(inspection.title)` at \(inspection.url).",
+            "Inspection depth: \(inspection.inspectionDepth.label).",
             inspection.summary
         ]
         if !inspection.outline.isEmpty {

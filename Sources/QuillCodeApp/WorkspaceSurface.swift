@@ -1083,13 +1083,19 @@ public struct BrowserSurface: Codable, Sendable, Hashable {
 
 public struct BrowserSnapshotSurface: Codable, Sendable, Hashable {
     public var sourceLabel: String
+    public var inspectionDepth: BrowserInspectionDepth
     public var summary: String
     public var details: [String]
     public var outline: [String]
     public var textSnippet: String?
 
+    public var inspectionDepthLabel: String {
+        inspectionDepth.label
+    }
+
     private enum CodingKeys: String, CodingKey {
         case sourceLabel
+        case inspectionDepth
         case summary
         case details
         case outline
@@ -1098,6 +1104,7 @@ public struct BrowserSnapshotSurface: Codable, Sendable, Hashable {
 
     public init(snapshot: BrowserSnapshotState) {
         self.sourceLabel = snapshot.sourceLabel
+        self.inspectionDepth = snapshot.inspectionDepth
         self.summary = snapshot.summary
         self.details = snapshot.details
         self.outline = snapshot.outline
@@ -1107,6 +1114,10 @@ public struct BrowserSnapshotSurface: Codable, Sendable, Hashable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.sourceLabel = try container.decode(String.self, forKey: .sourceLabel)
+        self.inspectionDepth = try container.decodeIfPresent(
+            BrowserInspectionDepth.self,
+            forKey: .inspectionDepth
+        ) ?? .metadataOnly
         self.summary = try container.decode(String.self, forKey: .summary)
         self.details = try container.decodeIfPresent([String].self, forKey: .details) ?? []
         self.outline = try container.decodeIfPresent([String].self, forKey: .outline) ?? []

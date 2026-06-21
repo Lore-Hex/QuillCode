@@ -762,6 +762,11 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.browser.title, "localhost")
         XCTAssertEqual(model.browser.status, "Preview ready")
         XCTAssertEqual(model.browser.snapshot?.sourceLabel, "Local web app")
+        XCTAssertEqual(model.browser.snapshot?.inspectionDepth, .metadataOnly)
+        XCTAssertEqual(
+            model.browser.snapshot?.summary,
+            "Live DOM capture is not attached yet; QuillCode has URL metadata for this local page."
+        )
         XCTAssertEqual(model.browser.snapshot?.details, [
             "Host: localhost",
             "Scheme: HTTP",
@@ -772,6 +777,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.browser.currentURL, previewFile.standardizedFileURL.resolvingSymlinksInPath().absoluteString)
         XCTAssertEqual(model.browser.title, "Preview Page")
         XCTAssertEqual(model.browser.snapshot?.sourceLabel, "Local HTML")
+        XCTAssertEqual(model.browser.snapshot?.inspectionDepth, .staticHTMLSnapshot)
         XCTAssertEqual(model.browser.snapshot?.summary, "HTML snapshot captured for browser review.")
         XCTAssertEqual(model.browser.snapshot?.details.filter { $0 == "Title: Preview Page" }.count, 1)
         XCTAssertEqual(model.browser.snapshot?.details.filter { $0 == "Heading: Hero Preview" }.count, 1)
@@ -800,6 +806,7 @@ final class WorkspaceModelTests: XCTestCase {
         let inspection = try JSONHelpers.decode(BrowserInspectionToolOutput.self, from: inspectionResult.stdout)
         XCTAssertEqual(inspection.title, "Preview Page")
         XCTAssertEqual(inspection.sourceLabel, "Local HTML")
+        XCTAssertEqual(inspection.inspectionDepth, .staticHTMLSnapshot)
         XCTAssertTrue(inspection.outline.contains("H1: Hero Preview"))
         XCTAssertEqual(inspection.comments.map(\.text), ["Check the hero spacing"])
 

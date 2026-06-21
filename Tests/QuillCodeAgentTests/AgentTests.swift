@@ -251,7 +251,8 @@ final class AgentTests: XCTestCase {
             title: "Preview Page",
             status: "Preview ready",
             sourceLabel: "Local web app",
-            summary: "Ready to inspect a local development page.",
+            inspectionDepth: .metadataOnly,
+            summary: "Live DOM capture is not attached yet; QuillCode has URL metadata for this local page.",
             details: ["Host: localhost", "Scheme: HTTP", "Path: /"],
             outline: ["Page: localhost", "Path: /", "H1: Hero Preview"],
             textSnippet: "Hero Preview Buy now",
@@ -271,6 +272,7 @@ final class AgentTests: XCTestCase {
         )
 
         XCTAssertTrue(answer.contains("Inspected `Preview Page` at http://localhost:5173."))
+        XCTAssertTrue(answer.contains("Inspection depth: Metadata only."))
         XCTAssertTrue(answer.contains("Outline: Page: localhost; Path: /; H1: Hero Preview."))
         XCTAssertTrue(answer.contains("Text: Hero Preview Buy now"))
         XCTAssertTrue(answer.contains("Browser comments: Check the hero spacing."))

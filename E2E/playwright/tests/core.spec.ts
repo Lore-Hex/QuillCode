@@ -884,7 +884,11 @@ test('mock harness opens browser preview and records comments', async ({ page })
   await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
   await expect(page.getByTestId('browser-status-label')).toHaveText('Preview ready');
   await expect(page.getByTestId('browser-source')).toHaveText('Local web app');
-  await expect(page.getByTestId('browser-snapshot-summary')).toHaveText('Ready to inspect a local development page.');
+  await expect(page.getByTestId('browser-inspection-depth')).toHaveText('Metadata only');
+  await expect(page.getByTestId('browser-inspection-depth')).toHaveAttribute('data-depth', 'metadata_only');
+  await expect(page.getByTestId('browser-snapshot-summary')).toHaveText(
+    'Live DOM capture is not attached yet; QuillCode has URL metadata for this local page.'
+  );
   await expect(page.getByTestId('browser-snapshot-detail')).toContainText([
     'Host: localhost',
     'Scheme: HTTP',
@@ -894,6 +898,15 @@ test('mock harness opens browser preview and records comments', async ({ page })
     'Page: localhost',
     'Path: /'
   ]);
+  const outlineStyle = await page.getByTestId('browser-snapshot-outline-item').first().evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      backgroundColor: style.backgroundColor,
+      borderRadius: style.borderRadius
+    };
+  });
+  expect(outlineStyle.backgroundColor).toBe('rgba(0, 0, 0, 0)');
+  expect(outlineStyle.borderRadius).toBe('0px');
 
   await page.getByLabel('Browser comment').fill('Check hero spacing');
   await expect(page.getByTestId('browser-add-comment')).toBeEnabled();

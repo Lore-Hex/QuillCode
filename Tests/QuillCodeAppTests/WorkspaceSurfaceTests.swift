@@ -741,7 +741,12 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.browser.title, "example.com")
         XCTAssertEqual(surface.browser.statusLabel, "Comment added")
         XCTAssertEqual(surface.browser.snapshot?.sourceLabel, "Web page")
-        XCTAssertEqual(surface.browser.snapshot?.summary, "Ready to open in the browser preview.")
+        XCTAssertEqual(surface.browser.snapshot?.inspectionDepth, .metadataOnly)
+        XCTAssertEqual(surface.browser.snapshot?.inspectionDepthLabel, "Metadata only")
+        XCTAssertEqual(
+            surface.browser.snapshot?.summary,
+            "Live DOM capture is not attached yet; QuillCode has URL metadata for this web page."
+        )
         XCTAssertEqual(surface.browser.snapshot?.details, [
             "Host: example.com",
             "Scheme: HTTPS",
@@ -1336,9 +1341,12 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="browser-current-url""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-snapshot""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-source""#))
+        XCTAssertTrue(html.contains(#"data-testid="browser-inspection-depth""#))
+        XCTAssertTrue(html.contains(#"data-depth="metadata_only""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-snapshot-outline""#))
         XCTAssertTrue(html.contains("Page: localhost"))
         XCTAssertTrue(html.contains("Local web app"))
+        XCTAssertTrue(html.contains("Metadata only"))
         XCTAssertTrue(html.contains("http://localhost:5173"))
         XCTAssertTrue(html.contains(#"data-testid="browser-comment""#))
         XCTAssertTrue(html.contains("Inspect responsive state"))

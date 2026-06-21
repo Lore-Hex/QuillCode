@@ -645,15 +645,37 @@
       display: grid;
       gap: 5px;
     }
-    .browser-snapshot [data-testid="browser-source"] {
+    .browser-snapshot-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .browser-snapshot-badges span {
       justify-self: start;
-      color: var(--blue);
-      background: rgba(69,181,224,.14);
-      border: 1px solid rgba(69,181,224,.22);
       border-radius: 999px;
       padding: 3px 7px;
       font-size: 11px;
       font-weight: 700;
+    }
+    .browser-snapshot [data-testid="browser-source"] {
+      color: var(--blue);
+      background: rgba(69,181,224,.14);
+      border: 1px solid rgba(69,181,224,.22);
+    }
+    .browser-snapshot [data-testid="browser-inspection-depth"] {
+      color: var(--yellow);
+      background: rgba(248,184,78,.13);
+      border: 1px solid rgba(248,184,78,.24);
+    }
+    .browser-snapshot [data-testid="browser-inspection-depth"][data-depth="file_metadata"] {
+      color: var(--blue);
+      background: rgba(69,181,224,.14);
+      border-color: rgba(69,181,224,.22);
+    }
+    .browser-snapshot [data-testid="browser-inspection-depth"][data-depth="static_html_snapshot"] {
+      color: var(--green);
+      background: rgba(82,210,115,.13);
+      border-color: rgba(82,210,115,.24);
     }
     .browser-snapshot p { margin: 0; }
     .browser-snapshot ul {
@@ -664,12 +686,23 @@
       padding: 0;
       list-style: none;
     }
-    .browser-snapshot li {
+    .browser-snapshot ul li {
       color: var(--muted);
       background: rgba(255,255,255,.05);
       border-radius: 999px;
       padding: 4px 7px;
       font: 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .browser-snapshot ol {
+      margin: 0;
+      padding-left: 22px;
+      color: var(--muted);
+      font: 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .browser-snapshot ol li {
+      background: transparent;
+      border-radius: 0;
+      padding: 0 0 2px;
     }
     .extensions-pane header p,
     .memories-pane header p { margin: 3px 0 0; color: var(--muted); }
@@ -4004,7 +4037,10 @@
 	    function renderBrowserPane() {
         const snapshot = state.browser.snapshot ? `
           <div class="browser-snapshot" data-testid="browser-snapshot">
-            <span data-testid="browser-source">${escapeHTML(state.browser.snapshot.sourceLabel)}</span>
+            <div class="browser-snapshot-badges">
+              <span data-testid="browser-source">${escapeHTML(state.browser.snapshot.sourceLabel)}</span>
+              <span data-testid="browser-inspection-depth" data-depth="${escapeHTML(state.browser.snapshot.inspectionDepth)}">${escapeHTML(state.browser.snapshot.inspectionDepthLabel)}</span>
+            </div>
             <p data-testid="browser-snapshot-summary">${escapeHTML(state.browser.snapshot.summary)}</p>
             <ul>${state.browser.snapshot.details.map(detail => `<li data-testid="browser-snapshot-detail">${escapeHTML(detail)}</li>`).join('')}</ul>
             ${state.browser.snapshot.outline?.length ? `<ol data-testid="browser-snapshot-outline">${state.browser.snapshot.outline.map(item => `<li data-testid="browser-snapshot-outline-item">${escapeHTML(item)}</li>`).join('')}</ol>` : ''}
@@ -4838,6 +4874,8 @@
           const fileName = decodeURIComponent(parsed.pathname.split('/').filter(Boolean).pop() || parsed.pathname);
           return {
             sourceLabel: /\\.html?$/i.test(fileName) ? 'Local HTML' : 'Local file',
+            inspectionDepth: /\\.html?$/i.test(fileName) ? 'static_html_snapshot' : 'file_metadata',
+            inspectionDepthLabel: /\\.html?$/i.test(fileName) ? 'Static HTML snapshot' : 'File metadata',
             summary: /\\.html?$/i.test(fileName)
               ? 'HTML file is ready for browser review.'
               : 'File is ready to open in the browser preview.',
@@ -4853,9 +4891,11 @@
         const path = parsed.pathname || '/';
         return {
           sourceLabel: isLocal ? 'Local web app' : 'Web page',
+          inspectionDepth: 'metadata_only',
+          inspectionDepthLabel: 'Metadata only',
           summary: isLocal
-            ? 'Ready to inspect a local development page.'
-            : 'Ready to open in the browser preview.',
+            ? 'Live DOM capture is not attached yet; QuillCode has URL metadata for this local page.'
+            : 'Live DOM capture is not attached yet; QuillCode has URL metadata for this web page.',
           details: [
             `Host: ${host}`,
             `Scheme: ${parsed.protocol.replace(':', '').toUpperCase()}`,

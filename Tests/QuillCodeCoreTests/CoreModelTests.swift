@@ -66,6 +66,24 @@ final class CoreModelTests: XCTestCase {
         XCTAssertTrue(catalog.contains { $0.id == "acme/code-pro" })
     }
 
+    func testBrowserInspectionOutputDecodesOlderPayloadWithoutInspectionDepth() throws {
+        let output = try JSONHelpers.decode(BrowserInspectionToolOutput.self, from: """
+        {
+          "url": "http://localhost:5173",
+          "title": "Preview",
+          "status": "Preview ready",
+          "sourceLabel": "Local web app",
+          "summary": "Ready",
+          "details": ["Host: localhost"],
+          "outline": ["Page: localhost"],
+          "comments": []
+        }
+        """)
+
+        XCTAssertEqual(output.inspectionDepth, .metadataOnly)
+        XCTAssertEqual(output.inspectionDepth.label, "Metadata only")
+    }
+
     func testAppConfigDecodesOlderPayloadWithoutFavorites() throws {
         let config = try JSONHelpers.decode(AppConfig.self, from: """
         {

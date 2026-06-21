@@ -2152,13 +2152,11 @@ private struct QuillCodeBrowserPaneView: View {
                             .font(.callout.weight(.semibold))
                             .lineLimit(1)
                         if let snapshot = browser.snapshot {
-                            Text(snapshot.sourceLabel)
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(QuillCodePalette.blue)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 3)
-                                .background(QuillCodePalette.blue.opacity(0.14))
-                                .clipShape(Capsule())
+                            browserBadge(snapshot.sourceLabel, tint: QuillCodePalette.blue)
+                            browserBadge(
+                                snapshot.inspectionDepthLabel,
+                                tint: browserInspectionTint(snapshot.inspectionDepth)
+                            )
                         }
                     }
                     Text(currentURL)
@@ -2262,6 +2260,27 @@ private struct QuillCodeBrowserPaneView: View {
         guard !comment.isEmpty else { return }
         onAddComment(comment)
         commentDraft = ""
+    }
+
+    private func browserBadge(_ label: String, tint: Color) -> some View {
+        Text(label)
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(tint.opacity(0.14))
+            .clipShape(Capsule())
+    }
+
+    private func browserInspectionTint(_ depth: BrowserInspectionDepth) -> Color {
+        switch depth {
+        case .metadataOnly:
+            return QuillCodePalette.yellow
+        case .fileMetadata:
+            return QuillCodePalette.blue
+        case .staticHTMLSnapshot:
+            return QuillCodePalette.green
+        }
     }
 }
 

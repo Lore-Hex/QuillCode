@@ -485,7 +485,10 @@ public enum WorkspaceHTMLRenderer {
             } ?? ""
             return """
             <div class="browser-snapshot" data-testid="browser-snapshot">
-              <span data-testid="browser-source">\(escape(snapshot.sourceLabel))</span>
+              <div class="browser-snapshot-badges">
+                <span data-testid="browser-source">\(escape(snapshot.sourceLabel))</span>
+                <span data-testid="browser-inspection-depth" data-depth="\(escape(snapshot.inspectionDepth.rawValue))">\(escape(snapshot.inspectionDepthLabel))</span>
+              </div>
               <p data-testid="browser-snapshot-summary">\(escape(snapshot.summary))</p>
               <ul>
                 \(snapshot.details.map { #"<li data-testid="browser-snapshot-detail">\#(escape($0))</li>"# }.joined(separator: "\n"))

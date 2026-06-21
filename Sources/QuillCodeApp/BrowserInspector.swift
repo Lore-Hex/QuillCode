@@ -29,9 +29,10 @@ enum BrowserInspector {
         let path = url.path.isEmpty ? "/" : url.path
         return BrowserSnapshotState(
             sourceLabel: isLocal ? "Local web app" : "Web page",
+            inspectionDepth: .metadataOnly,
             summary: isLocal
-                ? "Ready to inspect a local development page."
-                : "Ready to open in the browser preview.",
+                ? "Live DOM capture is not attached yet; QuillCode has URL metadata for this local page."
+                : "Live DOM capture is not attached yet; QuillCode has URL metadata for this web page.",
             details: [
                 "Host: \(host)",
                 "Scheme: \(scheme)",
@@ -56,6 +57,7 @@ enum BrowserInspector {
             title: browser.title,
             status: browser.status,
             sourceLabel: snapshot.sourceLabel,
+            inspectionDepth: snapshot.inspectionDepth,
             summary: snapshot.summary,
             details: snapshot.details,
             outline: snapshot.outline,
@@ -87,6 +89,7 @@ enum BrowserInspector {
         guard isHTML else {
             return BrowserSnapshotState(
                 sourceLabel: "Local file",
+                inspectionDepth: .fileMetadata,
                 summary: "File is ready to open in the browser preview.",
                 details: details,
                 outline: ["File: \(fileName)"]
@@ -101,6 +104,7 @@ enum BrowserInspector {
             details.append("Snapshot: skipped because the file is too large or unreadable")
             return BrowserSnapshotState(
                 sourceLabel: "Local HTML",
+                inspectionDepth: .fileMetadata,
                 summary: "HTML file is ready to open; metadata snapshot was skipped.",
                 details: details,
                 outline: ["File: \(fileName)"]
@@ -120,6 +124,7 @@ enum BrowserInspector {
 
         return BrowserSnapshotState(
             sourceLabel: "Local HTML",
+            inspectionDepth: .staticHTMLSnapshot,
             summary: "HTML snapshot captured for browser review.",
             details: details,
             outline: htmlOutline(in: html),
