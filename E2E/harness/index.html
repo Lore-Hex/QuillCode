@@ -1090,6 +1090,7 @@
       commands: [
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
         { id: 'fork-from-last', title: 'Fork from last', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'continue'], isEnabled: false },
+        { id: 'compact-context', title: 'Compact context', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'summarize', 'compact'], isEnabled: false },
         { id: 'retry-last-turn', title: 'Retry last turn', shortcut: '', category: 'Control', keywords: ['retry', 'rerun', 'again', 'failed'], isEnabled: false },
         { id: 'search', title: 'Search', shortcut: 'Cmd+K', category: 'Navigation', keywords: ['find', 'threads', 'chat'], isEnabled: true },
         { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', category: 'Workspace', keywords: ['folder', 'workspace', 'repo'], isEnabled: true },
@@ -1382,6 +1383,7 @@
       const hasActiveWork = state.composer.isSending || state.terminal.isRunning;
       state.commands = state.commands.map(command => (
         command.id === 'fork-from-last' ? { ...command, isEnabled: hasMessages } :
+        command.id === 'compact-context' ? { ...command, isEnabled: hasMessages } :
         command.id === 'retry-last-turn' ? { ...command, isEnabled: hasUserMessages && !state.composer.isSending } :
         command.id === 'stop-all' ? { ...command, isEnabled: hasActiveWork } :
         command
@@ -1529,7 +1531,7 @@
       return {
         usedPercent,
         title: `${usedPercent >= 100 ? 'Context limit reached' : 'Approaching context limit'} (${usedPercent}% used)`,
-        subtitle: 'Older turns may drop out soon. Start a new thread or fork from the latest useful context.'
+        subtitle: 'Older turns may drop out soon. Compact the thread, start fresh, or fork from the latest useful context.'
       };
     }
 
@@ -1543,6 +1545,7 @@
           </header>
           <p data-testid="context-banner-subtitle">${escapeHTML(banner.subtitle)}</p>
           <div>
+            <button type="button" data-testid="context-compact" data-command-id="compact-context">Compact context</button>
             <button type="button" data-testid="context-new-thread" data-command-id="new-chat">New thread</button>
             <button type="button" data-testid="context-fork-last" data-command-id="fork-from-last">Fork from last</button>
           </div>
@@ -2546,6 +2549,66 @@
       render();
     }
 
+    function compactContext() {
+      if (!state.sidebar.selectedThreadID || !state.transcript.messages.length) return;
+      const source = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
+      const title = `Compact: ${source?.title || 'Chat'}`;
+      const latestUserIndex = state.transcript.messages
+        .map((message, index) => ({ message, index }))
+        .filter(entry => entry.message.role === 'user')
+        .at(-1)?.index ?? Math.max(0, state.transcript.messages.length - 4);
+      const recentMessages = state.transcript.messages.slice(latestUserIndex, latestUserIndex + 4);
+      const olderMessages = state.transcript.messages.slice(0, latestUserIndex);
+      const summaryLines = [
+        `Context compacted from "${source?.title || 'Chat'}".`,
+        `Kept ${recentMessages.length} latest message${recentMessages.length === 1 ? '' : 's'} and summarized ${olderMessages.length} earlier message${olderMessages.length === 1 ? '' : 's'}.`
+      ];
+      if (olderMessages.length) {
+        summaryLines.push('Earlier context:');
+        olderMessages.slice(-6).forEach(message => {
+          summaryLines.push(`- ${message.role}: ${String(message.text || '').replace(/\s+/g, ' ').trim().slice(0, 180)}`);
+        });
+      } else {
+        summaryLines.push('No earlier turns were dropped.');
+      }
+      summaryLines.push('Continue from the preserved latest turn below.');
+
+      const compactedMessages = [
+        { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text: summaryLines.join('\n') },
+        ...recentMessages
+      ];
+      const threadID = `thread-${state.nextThreadIndex++}`;
+
+      state.sidebar.selectedThreadID = threadID;
+      state.sidebar.items = [{
+        id: threadID,
+        title,
+        subtitle: state.topBar.modelLabel,
+        searchText: compactedMessages.map(message => message.text).join('\n'),
+        isSelected: true,
+        isPinned: false
+      }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
+      state.transcript.messages = compactedMessages;
+      state.transcript.toolCards = [];
+      state.transcript.timelineItems = compactedMessages.map(message => ({
+        id: `timeline-${state.nextTimelineIndex++}`,
+        kind: 'message',
+        message
+      }));
+      state.review = {
+        title: 'Review changes',
+        subtitle: 'Latest git diff',
+        totalInsertions: 0,
+        totalDeletions: 0,
+        totalHunks: 0,
+        files: []
+      };
+      state.topBar.primaryTitle = title;
+      const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
+      state.topBar.subtitle = `${selectedProject?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+      render();
+    }
+
     function addProject() {
       const index = state.nextProjectIndex++;
       const project = {
@@ -2581,6 +2644,10 @@
       }
       if (commandID === 'fork-from-last') {
         forkFromLast();
+        return;
+      }
+      if (commandID === 'compact-context') {
+        compactContext();
         return;
       }
       if (commandID === 'retry-last-turn') {
@@ -3125,6 +3192,9 @@
       } else if (/^\/(terminal|term|shell)\b/i.test(text)) {
         state.terminal.isVisible = !state.terminal.isVisible;
         addMessage('assistant', state.terminal.isVisible ? 'Terminal opened.' : 'Terminal hidden.');
+      } else if (/^\/(compact|compact-context|context-compact)\b/i.test(text)) {
+        compactContext();
+        return;
       } else if (/^\/(browser|preview)\b/i.test(text)) {
         state.browser.isVisible = !state.browser.isVisible;
         addMessage('assistant', state.browser.isVisible ? 'Browser opened.' : 'Browser hidden.');
@@ -3149,6 +3219,7 @@
         addMessage('assistant', [
           'Slash commands:',
           '/new',
+          '/compact',
           '/status',
           '/terminal',
           '/browser',

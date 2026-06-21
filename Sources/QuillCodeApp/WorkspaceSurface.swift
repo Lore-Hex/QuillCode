@@ -450,19 +450,67 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
     public var subtitle: String
     public var newThreadCommand: WorkspaceCommandSurface
     public var forkCommand: WorkspaceCommandSurface
+    public var compactCommand: WorkspaceCommandSurface
 
     public init(
         usedPercent: Int,
         title: String,
         subtitle: String,
         newThreadCommand: WorkspaceCommandSurface,
-        forkCommand: WorkspaceCommandSurface
+        forkCommand: WorkspaceCommandSurface,
+        compactCommand: WorkspaceCommandSurface = WorkspaceCommandSurface(
+            id: "compact-context",
+            title: "Compact context"
+        )
     ) {
         self.usedPercent = usedPercent
         self.title = title
         self.subtitle = subtitle
         self.newThreadCommand = newThreadCommand
         self.forkCommand = forkCommand
+        self.compactCommand = compactCommand
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case usedPercent
+        case title
+        case subtitle
+        case newThreadCommand
+        case forkCommand
+        case compactCommand
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let decodedUsedPercent = try container.decode(Int.self, forKey: .usedPercent)
+        let decodedTitle = try container.decode(String.self, forKey: .title)
+        let decodedSubtitle = try container.decode(String.self, forKey: .subtitle)
+        let decodedNewThreadCommand = try container.decode(WorkspaceCommandSurface.self, forKey: .newThreadCommand)
+        let decodedForkCommand = try container.decode(WorkspaceCommandSurface.self, forKey: .forkCommand)
+        let decodedCompactCommand = try container.decodeIfPresent(WorkspaceCommandSurface.self, forKey: .compactCommand)
+            ?? WorkspaceCommandSurface(
+                id: "compact-context",
+                title: "Compact context",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "context", "summarize", "compact"],
+                isEnabled: decodedForkCommand.isEnabled
+            )
+        self.usedPercent = decodedUsedPercent
+        self.title = decodedTitle
+        self.subtitle = decodedSubtitle
+        self.newThreadCommand = decodedNewThreadCommand
+        self.forkCommand = decodedForkCommand
+        self.compactCommand = decodedCompactCommand
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(usedPercent, forKey: .usedPercent)
+        try container.encode(title, forKey: .title)
+        try container.encode(subtitle, forKey: .subtitle)
+        try container.encode(newThreadCommand, forKey: .newThreadCommand)
+        try container.encode(forkCommand, forKey: .forkCommand)
+        try container.encode(compactCommand, forKey: .compactCommand)
     }
 }
 
@@ -1711,6 +1759,13 @@ public extension QuillCodeWorkspaceModel {
                 isEnabled: selectedThread?.messages.isEmpty == false
             ),
             WorkspaceCommandSurface(
+                id: "compact-context",
+                title: "Compact context",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "context", "summarize", "compact"],
+                isEnabled: selectedThread?.messages.isEmpty == false
+            ),
+            WorkspaceCommandSurface(
                 id: "retry-last-turn",
                 title: "Retry last turn",
                 category: WorkspaceCommandPalette.controlCategory,
@@ -1835,9 +1890,10 @@ public extension QuillCodeWorkspaceModel {
         return ContextBannerSurface(
             usedPercent: usedPercent,
             title: "\(isFull ? "Context limit reached" : "Approaching context limit") (\(usedPercent)% used)",
-            subtitle: "Older turns may drop out soon. Start a new thread or fork from the latest useful context.",
+            subtitle: "Older turns may drop out soon. Compact the thread, start fresh, or fork from the latest useful context.",
             newThreadCommand: WorkspaceCommandSurface(id: "new-chat", title: "New thread"),
-            forkCommand: WorkspaceCommandSurface(id: "fork-from-last", title: "Fork from last")
+            forkCommand: WorkspaceCommandSurface(id: "fork-from-last", title: "Fork from last"),
+            compactCommand: WorkspaceCommandSurface(id: "compact-context", title: "Compact context")
         )
     }
 

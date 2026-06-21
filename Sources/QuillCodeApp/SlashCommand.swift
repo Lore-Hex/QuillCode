@@ -35,6 +35,8 @@ enum SlashCommandParser {
             return .status
         case "new", "new-chat", "newchat":
             return .newChat
+        case "compact", "compact-context", "context-compact":
+            return .workspaceCommand("compact-context")
         case "terminal", "term", "shell":
             return .workspaceCommand("toggle-terminal")
         case "browser", "preview":

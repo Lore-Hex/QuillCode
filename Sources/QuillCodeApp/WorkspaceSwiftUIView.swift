@@ -1238,10 +1238,15 @@ private struct QuillCodeContextBannerView: View {
                     .font(.callout)
                     .foregroundStyle(QuillCodePalette.muted)
                 HStack(spacing: 8) {
+                    Button(banner.compactCommand.title) {
+                        onCommand(banner.compactCommand)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!banner.compactCommand.isEnabled)
                     Button(banner.newThreadCommand.title) {
                         onCommand(banner.newThreadCommand)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bordered)
                     Button(banner.forkCommand.title) {
                         onCommand(banner.forkCommand)
                     }

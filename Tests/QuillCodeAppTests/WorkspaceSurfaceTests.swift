@@ -45,6 +45,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.map(\.id), [
             "new-chat",
             "fork-from-last",
+            "compact-context",
             "retry-last-turn",
             "search",
             "add-project",
@@ -63,6 +64,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "computer-use-setup"
         ])
         XCTAssertEqual(surface.commands.first { $0.id == "fork-from-last" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "compact-context" }?.isEnabled, true)
         XCTAssertEqual(surface.settings.apiBaseURL, TrustedRouterDefaults.defaultAPIBaseURL)
         XCTAssertFalse(surface.settings.developerOverrideEnabled)
         XCTAssertFalse(surface.settings.hasStoredAPIKey)
@@ -166,6 +168,26 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertEqual(command.category, WorkspaceCommandPalette.workspaceCategory)
         XCTAssertEqual(command.keywords, [])
+    }
+
+    func testContextBannerDecodesOlderPayloadWithoutCompactCommand() throws {
+        let data = """
+        {
+          "usedPercent": 88,
+          "title": "Approaching context limit",
+          "subtitle": "Older turns may drop out soon.",
+          "newThreadCommand": {"id":"new-chat","title":"New thread"},
+          "forkCommand": {"id":"fork-from-last","title":"Fork from last","isEnabled":true}
+        }
+        """.data(using: .utf8)!
+
+        let banner = try JSONDecoder().decode(ContextBannerSurface.self, from: data)
+
+        XCTAssertEqual(banner.usedPercent, 88)
+        XCTAssertEqual(banner.compactCommand.id, "compact-context")
+        XCTAssertEqual(banner.compactCommand.title, "Compact context")
+        XCTAssertEqual(banner.compactCommand.category, WorkspaceCommandPalette.threadCategory)
+        XCTAssertEqual(banner.compactCommand.isEnabled, true)
     }
 
     func testSurfaceGroupsCustomModelCatalogByCategory() {
@@ -537,7 +559,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(banner.title.contains("Context"))
         XCTAssertEqual(banner.newThreadCommand.id, "new-chat")
         XCTAssertEqual(banner.forkCommand.id, "fork-from-last")
+        XCTAssertEqual(banner.compactCommand.id, "compact-context")
         XCTAssertEqual(surface.commands.first { $0.id == "fork-from-last" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "compact-context" }?.isEnabled, true)
     }
 
     func testContextBannerHiddenForShortThreadAndForkDisabledWithoutMessages() {
@@ -551,6 +575,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertNil(surface.contextBanner)
         XCTAssertEqual(surface.commands.first { $0.id == "fork-from-last" }?.isEnabled, false)
+        XCTAssertEqual(surface.commands.first { $0.id == "compact-context" }?.isEnabled, false)
     }
 
     func testSidebarSearchFiltersByThreadTitleSubtitleAndTranscriptContent() {
@@ -764,6 +789,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="context-banner""#))
         XCTAssertTrue(html.contains(#"data-testid="context-new-thread""#))
         XCTAssertTrue(html.contains(#"data-testid="context-fork-last""#))
+        XCTAssertTrue(html.contains(#"data-testid="context-compact""#))
     }
 
     func testHTMLRendererIncludesRuntimeIssue() throws {

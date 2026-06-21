@@ -108,6 +108,55 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.selectedThread?.messages.map(\.content), ["run whoami", "Output:\nquill"])
     }
 
+    func testWorkspaceCommandCompactContextCreatesBoundedThread() throws {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        let instructions = [
+            ProjectInstruction(
+                path: "AGENTS.md",
+                title: "Project AGENTS.md",
+                content: "Use Swift.",
+                byteCount: 10
+            )
+        ]
+        let source = ChatThread(
+            title: "Long context",
+            projectID: project.id,
+            mode: .review,
+            model: "z-ai/glm-5.2",
+            messages: [
+                .init(role: .user, content: "old question one"),
+                .init(role: .assistant, content: "old answer one"),
+                .init(role: .user, content: "old question two"),
+                .init(role: .assistant, content: "old answer two"),
+                .init(role: .user, content: "latest request"),
+                .init(role: .assistant, content: "latest answer")
+            ],
+            instructions: instructions
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
+            threads: [source],
+            selectedThreadID: source.id
+        ))
+
+        XCTAssertTrue(model.runWorkspaceCommand("compact-context", workspaceRoot: try makeTempDirectory()))
+        let compacted = try XCTUnwrap(model.selectedThread)
+
+        XCTAssertEqual(compacted.title, "Compact: Long context")
+        XCTAssertEqual(compacted.projectID, project.id)
+        XCTAssertEqual(compacted.mode, .review)
+        XCTAssertEqual(compacted.model, "z-ai/glm-5.2")
+        XCTAssertEqual(compacted.instructions, instructions)
+        XCTAssertEqual(compacted.messages.count, 3)
+        XCTAssertTrue(compacted.messages[0].content.contains("Context compacted from \"Long context\""))
+        XCTAssertTrue(compacted.messages[0].content.contains("summarized 4 earlier messages"))
+        XCTAssertEqual(compacted.messages[1].content, "latest request")
+        XCTAssertEqual(compacted.messages[2].content, "latest answer")
+        XCTAssertEqual(compacted.events.first?.kind, .notice)
+        XCTAssertEqual(compacted.events.first?.payloadJSON, source.id.uuidString)
+    }
+
     func testSlashCommandsRouteToWorkspaceActions() async throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let model = QuillCodeWorkspaceModel()
@@ -1153,6 +1202,26 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.selectedThread?.model, "z-ai/glm-5.2")
         XCTAssertEqual(model.selectedThread?.messages.last?.content, "Model set to z-ai/glm-5.2.")
         XCTAssertTrue(model.currentToolCards.isEmpty)
+    }
+
+    func testSlashCompactRoutesToContextCompaction() async throws {
+        let source = ChatThread(title: "Long slash thread", messages: [
+            .init(role: .user, content: "old question"),
+            .init(role: .assistant, content: "old answer"),
+            .init(role: .user, content: "latest question"),
+            .init(role: .assistant, content: "latest answer")
+        ])
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [source],
+            selectedThreadID: source.id
+        ))
+
+        model.setDraft("/compact")
+        await model.submitComposer(workspaceRoot: try makeTempDirectory())
+
+        XCTAssertEqual(model.selectedThread?.title, "Compact: Long slash thread")
+        XCTAssertEqual(Array(model.selectedThread?.messages.map(\.content).suffix(2) ?? []), ["latest question", "latest answer"])
+        XCTAssertTrue(model.selectedThread?.messages.first?.content.contains("Context compacted") == true)
     }
 
     func testSlashStatusReportsWorkspaceState() async throws {

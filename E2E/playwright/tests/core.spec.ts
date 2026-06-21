@@ -218,7 +218,7 @@ test('mock harness starts a new chat from the sidebar action', async ({ page }) 
   await expect(page.getByLabel('Message')).toHaveValue('');
 });
 
-test('mock harness shows context pressure banner and forks from latest turn', async ({ page }) => {
+test('mock harness shows context pressure banner and compacts or forks from latest turn', async ({ page }) => {
   test.setTimeout(60000);
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
@@ -230,6 +230,20 @@ test('mock harness shows context pressure banner and forks from latest turn', as
   await expect(page.getByTestId('context-banner-title')).toContainText(/context limit/i);
 
   await page.getByLabel('Message').fill('run whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('context-banner')).toBeVisible();
+
+  await page.getByTestId('context-compact').click();
+
+  await expect(page.getByTestId('top-bar-title')).toContainText('Compact:');
+  await expect(page.getByTestId('context-banner')).toHaveCount(0);
+  await expect(page.getByTestId('message').first()).toContainText('Context compacted from');
+  await expect(page.getByTestId('message').nth(1)).toContainText('run whoami');
+
+  await page.getByRole('textbox', { name: 'Message' }).fill('long context again ' + 'word '.repeat(22000));
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('context-banner')).toBeVisible();
+  await page.getByRole('textbox', { name: 'Message' }).fill('run whoami');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('context-banner')).toBeVisible();
 
@@ -685,6 +699,11 @@ test('mock harness routes slash commands to workspace actions', async ({ page })
   await page.getByLabel('Message').fill('/pr');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByLabel('Message')).toHaveValue('Create a pull request titled ');
+
+  await page.getByLabel('Message').fill('/compact');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('top-bar-title')).toContainText('Compact:');
+  await expect(page.getByTestId('message').first()).toContainText('Context compacted from');
 });
 
 test('mock harness searches and selects models from the top bar', async ({ page }) => {

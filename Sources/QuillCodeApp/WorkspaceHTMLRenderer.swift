@@ -176,6 +176,7 @@ public enum WorkspaceHTMLRenderer {
           </header>
           <p data-testid="context-banner-subtitle">\(escape(banner.subtitle))</p>
           <div>
+            <button type="button" data-testid="context-compact" data-command-id="\(escape(banner.compactCommand.id))">\(escape(banner.compactCommand.title))</button>
             <button type="button" data-testid="context-new-thread" data-command-id="\(escape(banner.newThreadCommand.id))">\(escape(banner.newThreadCommand.title))</button>
             <button type="button" data-testid="context-fork-last" data-command-id="\(escape(banner.forkCommand.id))">\(escape(banner.forkCommand.title))</button>
           </div>

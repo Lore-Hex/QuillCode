@@ -682,6 +682,36 @@ public final class QuillCodeWorkspaceModel {
         return fork.id
     }
 
+    @discardableResult
+    public func compactContext() -> UUID? {
+        guard let source = selectedThread, !source.messages.isEmpty else { return nil }
+        let copiedMessages = Self.compactSeedMessages(from: source)
+        let compacted = ChatThread(
+            title: "Compact: \(source.title)",
+            projectID: knownProjectID(source.projectID),
+            mode: source.mode,
+            model: source.model,
+            messages: copiedMessages,
+            events: [
+                .init(
+                    kind: .notice,
+                    summary: "Compacted context from \(source.title)",
+                    payloadJSON: source.id.uuidString
+                )
+            ],
+            instructions: source.instructions,
+            memories: source.memories
+        )
+        root.threads.insert(compacted, at: 0)
+        root.selectedThreadID = compacted.id
+        root.selectedProjectID = knownProjectID(source.projectID)
+        touchProject(root.selectedProjectID)
+        saveProjects()
+        try? threadStore?.save(compacted)
+        refreshTopBar(agentStatus: "Idle")
+        return compacted.id
+    }
+
     public func selectThread(_ id: UUID) {
         guard let thread = root.threads.first(where: { $0.id == id }) else { return }
         root.selectedThreadID = id
@@ -1053,6 +1083,8 @@ public final class QuillCodeWorkspaceModel {
             return prepareRetryLastUserTurn()
         case "fork-from-last":
             return forkFromLast() != nil
+        case "compact-context":
+            return compactContext() != nil
         case "git-worktree-list":
             runToolCall(
                 ToolCall(name: ToolDefinition.gitWorktreeList.name, argumentsJSON: "{}"),
@@ -1737,6 +1769,7 @@ public final class QuillCodeWorkspaceModel {
                 assistantText: """
                 Slash commands:
                 /new - start a new chat
+                /compact - summarize older turns into a shorter continuation thread
                 /status - show current project, mode, and model
                 /terminal - show or hide the integrated terminal
                 /browser - show or hide the browser preview
@@ -1920,6 +1953,61 @@ public final class QuillCodeWorkspaceModel {
             return Array(messages.suffix(4))
         }
         return Array(messages[lastUserIndex...].prefix(4))
+    }
+
+    private static func compactSeedMessages(from thread: ChatThread) -> [ChatMessage] {
+        let recentMessages = forkSeedMessages(from: thread.messages)
+        let recentIDs = Set(recentMessages.map(\.id))
+        let olderMessages = thread.messages.filter { !recentIDs.contains($0.id) }
+        return [compactSummaryMessage(
+            sourceTitle: thread.title,
+            olderMessages: olderMessages,
+            recentMessages: recentMessages
+        )] + recentMessages
+    }
+
+    private static func compactSummaryMessage(
+        sourceTitle: String,
+        olderMessages: [ChatMessage],
+        recentMessages: [ChatMessage]
+    ) -> ChatMessage {
+        let olderCount = olderMessages.count
+        let recentCount = recentMessages.count
+        var lines = [
+            "Context compacted from \"\(sourceTitle)\".",
+            "Kept \(recentCount) latest message\(recentCount == 1 ? "" : "s") and summarized \(olderCount) earlier message\(olderCount == 1 ? "" : "s")."
+        ]
+        if olderMessages.isEmpty {
+            lines.append("No earlier turns were dropped.")
+        } else {
+            lines.append("Earlier context:")
+            for message in olderMessages.suffix(6) {
+                lines.append("- \(roleLabel(message.role)): \(singleLineExcerpt(message.content, limit: 180))")
+            }
+        }
+        lines.append("Continue from the preserved latest turn below.")
+        return ChatMessage(role: .assistant, content: lines.joined(separator: "\n"))
+    }
+
+    private static func roleLabel(_ role: ChatRole) -> String {
+        switch role {
+        case .system:
+            return "System"
+        case .user:
+            return "User"
+        case .assistant:
+            return "Assistant"
+        case .tool:
+            return "Tool"
+        }
+    }
+
+    private static func singleLineExcerpt(_ text: String, limit: Int) -> String {
+        let collapsed = text
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard collapsed.count > limit else { return collapsed }
+        return String(collapsed.prefix(limit)).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
     }
 
     private func statusText() -> String {
