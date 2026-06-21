@@ -514,6 +514,14 @@ public struct MemoriesState: Sendable, Hashable {
     }
 }
 
+public struct ActivityState: Sendable, Hashable {
+    public var isVisible: Bool
+
+    public init(isVisible: Bool = false) {
+        self.isVisible = isVisible
+    }
+}
+
 private final class MCPServerProcessHandle: @unchecked Sendable {
     let process: Process
     let standardInput: Pipe
@@ -594,6 +602,7 @@ public final class QuillCodeWorkspaceModel {
     public private(set) var browser: BrowserState
     public private(set) var extensions: ExtensionsState
     public private(set) var memories: MemoriesState
+    public private(set) var activity: ActivityState
     public private(set) var lastError: String?
 
     private var runner: AgentRunner
@@ -610,6 +619,7 @@ public final class QuillCodeWorkspaceModel {
         browser: BrowserState = BrowserState(),
         extensions: ExtensionsState = ExtensionsState(),
         memories: MemoriesState = MemoriesState(),
+        activity: ActivityState = ActivityState(),
         runner: AgentRunner = AgentRunner(),
         threadStore: JSONThreadStore? = nil,
         projectStore: JSONProjectStore? = nil,
@@ -622,6 +632,7 @@ public final class QuillCodeWorkspaceModel {
         self.browser = browser
         self.extensions = extensions
         self.memories = memories
+        self.activity = activity
         self.runner = runner
         self.threadStore = threadStore
         self.projectStore = projectStore
@@ -754,6 +765,10 @@ public final class QuillCodeWorkspaceModel {
 
     public func toggleMemories() {
         memories.isVisible.toggle()
+    }
+
+    public func toggleActivity() {
+        activity.isVisible.toggle()
     }
 
     @discardableResult
@@ -1399,6 +1414,9 @@ public final class QuillCodeWorkspaceModel {
             return true
         case "toggle-memories":
             toggleMemories()
+            return true
+        case "toggle-activity":
+            toggleActivity()
             return true
         case "memory-add":
             composer.draft = "/remember "

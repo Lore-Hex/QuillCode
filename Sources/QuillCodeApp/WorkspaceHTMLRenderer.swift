@@ -19,6 +19,7 @@ public enum WorkspaceHTMLRenderer {
               \(renderMemories(surface.memories))
               \(renderBrowser(surface.browser))
               \(renderTerminal(surface.terminal))
+              \(renderActivity(surface.activity))
               \(renderComposer(surface.composer))
             </main>
           </div>
@@ -638,6 +639,74 @@ public enum WorkspaceHTMLRenderer {
             return "\(count) \(singular.dropLast("memory".count))memories"
         }
         return "\(count) \(singular)s"
+    }
+
+    private static func renderActivity(_ activity: WorkspaceActivitySurface) -> String {
+        guard activity.isVisible else { return "" }
+        return """
+        <section class="activity-pane" data-testid="activity-pane" aria-label="Task activity">
+          <header>
+            <div>
+              <strong data-testid="activity-title">\(escape(activity.title))</strong>
+              <p data-testid="activity-subtitle">\(escape(activity.subtitle))</p>
+            </div>
+            <span data-testid="activity-status">\(escape(activity.statusLabel))</span>
+          </header>
+          <article class="activity-task" data-testid="activity-task">
+            <strong data-testid="activity-task-title">\(escape(activity.taskTitle))</strong>
+            <p data-testid="activity-task-subtitle">\(escape(activity.taskSubtitle))</p>
+          </article>
+          \(renderActivityItems(title: "Recent", emptyTitle: "No task events yet", items: activity.recentSteps, testID: "activity-step"))
+          \(renderActivityItems(title: "Tools", emptyTitle: "No tools used yet", items: activity.tools, testID: "activity-tool"))
+          \(renderActivityItems(title: "Sources", emptyTitle: "No context sources attached", items: activity.sources, testID: "activity-source"))
+          \(renderActivityArtifacts(activity.artifacts))
+          \(activity.finalAnswer.map { #"<section data-testid="activity-final-answer"><h3>Latest Answer</h3><p>\#(escape($0))</p></section>"# } ?? "")
+        </section>
+        """
+    }
+
+    private static func renderActivityItems(
+        title: String,
+        emptyTitle: String,
+        items: [ActivityItemSurface],
+        testID: String
+    ) -> String {
+        let content = items.isEmpty
+            ? #"<p data-testid="\#(testID)-empty">\#(escape(emptyTitle))</p>"#
+            : items.map { item in
+                """
+                <article class="activity-item" data-testid="\(escape(testID))" data-kind="\(escape(item.kind))">
+                  <strong>\(escape(item.title))</strong>
+                  \(item.statusLabel.isEmpty ? "" : #"<span>\#(escape(item.statusLabel))</span>"#)
+                  \(item.detail.isEmpty ? "" : #"<p>\#(escape(item.detail))</p>"#)
+                </article>
+                """
+            }.joined(separator: "\n")
+        return """
+        <section class="activity-section" data-testid="\(escape(testID))-section">
+          <h3>\(escape(title))</h3>
+          \(content)
+        </section>
+        """
+    }
+
+    private static func renderActivityArtifacts(_ artifacts: [ToolArtifactState]) -> String {
+        let content = artifacts.isEmpty
+            ? #"<p data-testid="activity-artifact-empty">No artifacts produced yet</p>"#
+            : artifacts.map { artifact in
+                """
+                <article class="activity-artifact" data-testid="activity-artifact">
+                  <strong>\(escape(artifact.label))</strong>
+                  <p>\(escape(artifact.detail))</p>
+                </article>
+                """
+            }.joined(separator: "\n")
+        return """
+        <section class="activity-section" data-testid="activity-artifact-section">
+          <h3>Artifacts</h3>
+          \(content)
+        </section>
+        """
     }
 
     private static func renderComposer(_ composer: ComposerSurface) -> String {

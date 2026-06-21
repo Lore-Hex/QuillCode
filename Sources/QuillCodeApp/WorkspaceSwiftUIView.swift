@@ -141,77 +141,84 @@ public struct QuillCodeWorkspaceView: View {
                 )
                     .frame(width: 280)
                 Divider()
-                VStack(spacing: 0) {
-                    QuillCodeTranscriptView(
-                        transcript: surface.transcript,
-                        contextBanner: surface.contextBanner,
-                        runtimeIssue: surface.runtimeIssue,
-                        review: surface.review,
-                        retryLastTurnCommand: surface.commands.first { $0.id == "retry-last-turn" && $0.isEnabled },
-                        isFindPresented: $isFindPresented,
-                        findQuery: $findQuery,
-                        activeFindIndex: $activeFindIndex,
-                        copiedTranscriptItemID: copiedTranscriptItemID,
-                        onContextCommand: handleCommand,
-                        onRuntimeIssueAction: runtimeIssueAction(for: surface.runtimeIssue),
-                        onReviewAction: onReviewAction,
-                        onAddReviewComment: onAddReviewComment,
-                        onCopyTranscriptItem: onCopyTranscriptItem,
-                        onUseMessageAsDraft: useMessageAsDraft,
-                        onMessageFeedback: onMessageFeedback
-                    )
-                    if surface.browser.isVisible {
-                        Divider()
-                        QuillCodeBrowserPaneView(
-                            browser: surface.browser,
-                            addressDraft: $browserAddressDraft,
-                            onOpen: onOpenBrowserPreview,
-                            onAddComment: onAddBrowserComment
+                HStack(spacing: 0) {
+                    VStack(spacing: 0) {
+                        QuillCodeTranscriptView(
+                            transcript: surface.transcript,
+                            contextBanner: surface.contextBanner,
+                            runtimeIssue: surface.runtimeIssue,
+                            review: surface.review,
+                            retryLastTurnCommand: surface.commands.first { $0.id == "retry-last-turn" && $0.isEnabled },
+                            isFindPresented: $isFindPresented,
+                            findQuery: $findQuery,
+                            activeFindIndex: $activeFindIndex,
+                            copiedTranscriptItemID: copiedTranscriptItemID,
+                            onContextCommand: handleCommand,
+                            onRuntimeIssueAction: runtimeIssueAction(for: surface.runtimeIssue),
+                            onReviewAction: onReviewAction,
+                            onAddReviewComment: onAddReviewComment,
+                            onCopyTranscriptItem: onCopyTranscriptItem,
+                            onUseMessageAsDraft: useMessageAsDraft,
+                            onMessageFeedback: onMessageFeedback
                         )
-                    }
-                    if surface.extensions.isVisible {
-                        Divider()
-                        QuillCodeExtensionsPaneView(
-                            extensions: surface.extensions,
-                            onCommand: handleCommand
-                        )
-                    }
-                    if surface.memories.isVisible {
-                        Divider()
-                        QuillCodeMemoriesPaneView(memories: surface.memories) { commandID in
-                            if let command = surface.commands.first(where: { $0.id == commandID }) {
-                                handleCommand(command)
-                            } else if commandID.hasPrefix("memory-delete:") {
-                                handleCommand(WorkspaceCommandSurface(
-                                    id: commandID,
-                                    title: "Forget memory",
-                                    category: WorkspaceCommandPalette.memoriesCategory,
-                                    keywords: ["memory", "forget", "delete"]
-                                ))
+                        if surface.browser.isVisible {
+                            Divider()
+                            QuillCodeBrowserPaneView(
+                                browser: surface.browser,
+                                addressDraft: $browserAddressDraft,
+                                onOpen: onOpenBrowserPreview,
+                                onAddComment: onAddBrowserComment
+                            )
+                        }
+                        if surface.extensions.isVisible {
+                            Divider()
+                            QuillCodeExtensionsPaneView(
+                                extensions: surface.extensions,
+                                onCommand: handleCommand
+                            )
+                        }
+                        if surface.memories.isVisible {
+                            Divider()
+                            QuillCodeMemoriesPaneView(memories: surface.memories) { commandID in
+                                if let command = surface.commands.first(where: { $0.id == commandID }) {
+                                    handleCommand(command)
+                                } else if commandID.hasPrefix("memory-delete:") {
+                                    handleCommand(WorkspaceCommandSurface(
+                                        id: commandID,
+                                        title: "Forget memory",
+                                        category: WorkspaceCommandPalette.memoriesCategory,
+                                        keywords: ["memory", "forget", "delete"]
+                                    ))
+                                }
                             }
                         }
-                    }
-                    if surface.terminal.isVisible {
+                        if surface.terminal.isVisible {
+                            Divider()
+                            QuillCodeTerminalPaneView(
+                                terminal: surface.terminal,
+                                draft: $terminalDraft,
+                                onRun: onRunTerminalCommand,
+                                onStop: stopActiveRun
+                            )
+                        }
                         Divider()
-                        QuillCodeTerminalPaneView(
-                            terminal: surface.terminal,
-                            draft: $terminalDraft,
-                            onRun: onRunTerminalCommand,
+                        QuillCodeComposerView(
+                            composer: surface.composer,
+                            draft: $draft,
+                            isFocused: $isComposerFocused,
+                            onSend: onSend,
                             onStop: stopActiveRun
                         )
                     }
-                    Divider()
-                    QuillCodeComposerView(
-                        composer: surface.composer,
-                        draft: $draft,
-                        isFocused: $isComposerFocused,
-                        onSend: onSend,
-                        onStop: stopActiveRun
-                    )
+                    if surface.activity.isVisible {
+                        Divider()
+                        QuillCodeActivityPaneView(activity: surface.activity)
+                            .frame(width: 320)
+                    }
                 }
             }
         }
-        .frame(minWidth: 920, minHeight: 640)
+        .frame(minWidth: 980, minHeight: 640)
         .background(QuillCodePalette.background)
         .foregroundStyle(QuillCodePalette.text)
         .sheet(isPresented: $isSettingsPresented) {
@@ -714,6 +721,8 @@ private struct QuillCodeCommandPaletteView: View {
             return "terminal"
         case "toggle-browser":
             return "globe"
+        case "toggle-activity":
+            return "list.bullet.rectangle"
         case "toggle-memories", "memory-add":
             return "brain.head.profile"
         case "toggle-extensions":
@@ -1266,7 +1275,17 @@ private struct QuillCodeSidebarActionsView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     private var visibleCommands: [WorkspaceCommandSurface] {
-        commands.filter { ["new-chat", "search", "toggle-browser", "toggle-terminal", "toggle-memories", "toggle-extensions"].contains($0.id) }
+        commands.filter {
+            [
+                "new-chat",
+                "search",
+                "toggle-activity",
+                "toggle-browser",
+                "toggle-terminal",
+                "toggle-memories",
+                "toggle-extensions"
+            ].contains($0.id)
+        }
     }
 
     var body: some View {
@@ -1294,6 +1313,8 @@ private struct QuillCodeSidebarActionsView: View {
             return "square.and.pencil"
         case "search":
             return "magnifyingglass"
+        case "toggle-activity":
+            return "list.bullet.rectangle"
         case "toggle-terminal":
             return "terminal"
         case "toggle-browser":
@@ -3748,7 +3769,7 @@ private extension AgentMode {
     }
 }
 
-private enum QuillCodePalette {
+enum QuillCodePalette {
     static let background = Color(red: 0.03, green: 0.06, blue: 0.08)
     static let sidebar = Color(red: 0.07, green: 0.10, blue: 0.12)
     static let panel = Color(red: 0.10, green: 0.15, blue: 0.18)

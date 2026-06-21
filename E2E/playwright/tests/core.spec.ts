@@ -293,6 +293,16 @@ test('mock harness surfaces file artifacts from tool cards', async ({ page }) =>
   await expect.poll(() => page.getByTestId('tool-card-details').evaluate(element => (element as HTMLDetailsElement).open)).toBe(true);
   await expect(page.getByTestId('tool-card-output')).toContainText('/mock/QuillCode/hello.txt');
   await expect(page.getByText('Wrote `hello.txt`.')).toBeVisible();
+
+  await page.getByTestId('activity-button').click();
+  await expect(page.getByTestId('activity-pane')).toBeVisible();
+  await expect(page.getByTestId('activity-task-title')).toContainText('Can you write a file');
+  await expect(page.getByTestId('activity-tool')).toContainText('host.file.write');
+  await expect(page.getByTestId('activity-artifact')).toContainText('hello.txt');
+  await expect(page.getByTestId('activity-artifact')).toContainText('/mock/QuillCode');
+  await expect(page.getByTestId('activity-artifact')).not.toContainText('undefined');
+  await expect(page.getByTestId('activity-source').first()).toContainText('AGENTS.md');
+  await expect(page.getByTestId('activity-final-answer')).toContainText('Wrote `hello.txt`.');
 });
 
 test('mock harness renders image artifact previews from tool cards', async ({ page }) => {

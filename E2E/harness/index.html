@@ -225,7 +225,8 @@
     .permission-status-pill { flex: none; max-width: 180px; padding: 5px 10px; border-radius: 999px; color: var(--yellow); background: rgba(255,184,77,.14); font-size: 12px; font-weight: 800; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .permission-status-pill[data-available="true"] { color: var(--green); background: rgba(67,212,120,.14); }
     .permission-actions { display: flex; justify-content: flex-start; gap: 10px; }
-    .workspace-grid { min-height: 0; display: grid; grid-template-columns: 280px 1fr; gap: 18px; padding: 0 18px 18px; }
+    .workspace-grid { min-height: 0; display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 18px; padding: 0 18px 18px; }
+    .workspace-grid.with-activity { grid-template-columns: 280px minmax(0, 1fr) 320px; }
     .sidebar, .transcript {
       min-height: 0;
       border: 1px solid rgba(255,255,255,.1);
@@ -384,11 +385,69 @@
     .browser-pane header,
     .extensions-pane header,
     .memories-pane header,
+    .activity-pane header,
     .terminal-entry header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
+    }
+    .activity-pane {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      align-content: start;
+      gap: 10px;
+      padding: 14px;
+      overflow: auto;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 18px;
+      background: rgba(18,29,35,.84);
+    }
+    .activity-pane header span,
+    .activity-item span {
+      flex: none;
+      padding: 4px 8px;
+      border-radius: 999px;
+      color: #b6eaff;
+      background: rgba(65,184,232,.14);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .activity-task,
+    .activity-section {
+      display: grid;
+      gap: 7px;
+      padding: 10px;
+      border-radius: 12px;
+      background: rgba(0,0,0,.20);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .activity-task p,
+    .activity-section p {
+      margin: 0;
+      color: var(--muted);
+    }
+    .activity-section h3 {
+      margin: 0;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .activity-item,
+    .activity-artifact {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 3px 8px;
+      align-items: start;
+    }
+    .activity-item p,
+    .activity-artifact p {
+      grid-column: 1 / -1;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .terminal-pane code,
     .terminal-entry code,
@@ -1109,7 +1168,8 @@
     }
     button:disabled { opacity: .45; }
     @media (max-width: 760px) {
-      .workspace-grid { grid-template-columns: 1fr; }
+      .workspace-grid,
+      .workspace-grid.with-activity { grid-template-columns: 1fr; }
       .sidebar { display: none; }
       .topbar { align-items: flex-start; flex-direction: column; }
       .message, .tool-card { max-width: 100%; width: 100%; }
@@ -1348,6 +1408,7 @@
         { id: 'project-remove', title: 'Remove project from list', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'forget', 'remove'], isEnabled: true },
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', category: 'Workspace', keywords: ['shell', 'command', 'pty'], isEnabled: true },
         { id: 'toggle-browser', title: 'Browser', shortcut: 'Cmd+Shift+B', category: 'Workspace', keywords: ['preview', 'web', 'localhost'], isEnabled: true },
+        { id: 'toggle-activity', title: 'Activity', shortcut: '', category: 'Workspace', keywords: ['task', 'summary', 'sources', 'artifacts', 'tools'], isEnabled: true },
         { id: 'toggle-memories', title: 'Memories', shortcut: '', category: 'Memories', keywords: ['memory', 'context', 'preferences', 'facts'], isEnabled: true },
         { id: 'memory-add', title: 'Add memory', shortcut: '', category: 'Memories', keywords: ['remember', 'save', 'preference', 'fact'], isEnabled: true },
         { id: 'toggle-extensions', title: 'Extensions', shortcut: '', category: 'Extensions', keywords: ['plugins', 'skills', 'mcp', 'manifest'], isEnabled: true },
@@ -1383,6 +1444,9 @@
         statusLabel: 'Ready',
         snapshot: null,
         comments: []
+      },
+      activity: {
+        isVisible: false
       },
       nextProjectIndex: 2,
       nextThreadIndex: 1,
@@ -1695,7 +1759,8 @@
         label = parts.at(-1) || value;
       }
       const isImagePreview = artifactIsImagePreview(value, kind);
-      return { value, label, kind, isImagePreview, previewURL: isImagePreview ? artifactPreviewURL(value, kind) : null };
+      const artifact = { value, label, kind, isImagePreview, previewURL: isImagePreview ? artifactPreviewURL(value, kind) : null };
+      return { ...artifact, detail: artifactDetail(artifact) };
     }
 
     function artifactDetail(artifact) {
@@ -2207,11 +2272,12 @@
               <button type="button" data-testid="settings-button">Settings</button>
             </div>
           </header>
-          <div class="workspace-grid">
+          <div class="workspace-grid ${state.activity.isVisible ? 'with-activity' : ''}">
             <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
               <div class="sidebar-actions" aria-label="Primary chat actions">
 	                <button class="sidebar-action" type="button" data-testid="new-chat-button">New chat</button>
 	                <button class="sidebar-action" type="button" data-testid="sidebar-search-button">Search</button>
+	                <button class="sidebar-action" type="button" data-testid="activity-button">Activity</button>
 	                <button class="sidebar-action" type="button" data-testid="browser-button">Browser</button>
 	                <button class="sidebar-action" type="button" data-testid="terminal-button">Terminal</button>
 	                <button class="sidebar-action" type="button" data-testid="memories-button">Memories</button>
@@ -2241,6 +2307,7 @@
                   : `<button type="submit" data-testid="send-button" ${state.composer.canSend ? '' : 'disabled'}>Send</button>`}
               </form>
             </main>
+            ${state.activity.isVisible ? renderActivityPane() : ''}
           </div>
           ${state.settings.isOpen ? renderSettingsPanel() : ''}
           ${state.search.isOpen ? renderSearchPanel() : ''}
@@ -2395,6 +2462,9 @@
       });
       document.querySelector('[data-testid="new-chat-button"]').addEventListener('click', () => {
         newChat();
+      });
+      document.querySelector('[data-testid="activity-button"]').addEventListener('click', () => {
+        runCommand('toggle-activity');
       });
       document.querySelectorAll('[data-testid="context-banner"] [data-command-id]').forEach(button => {
         button.addEventListener('click', event => {
@@ -3103,6 +3173,115 @@
       return 'failed';
     }
 
+    function activitySummary() {
+      const messages = state.transcript.messages || [];
+      const cards = state.transcript.toolCards || [];
+      const latestUser = [...messages].reverse().find(message => message.role === 'user');
+      const latestAssistant = [...messages].reverse().find(message => message.role === 'assistant');
+      const artifacts = uniqueBy(
+        cards.flatMap(card => card.artifacts || []),
+        artifact => artifact.value || artifact.label || ''
+      ).slice(-8);
+      const steps = state.transcript.timelineItems.slice(-8).map(item => {
+        if (item.kind === 'toolCard') {
+          const card = item.toolCard;
+          return {
+            id: item.id,
+            title: card.title,
+            detail: card.subtitle,
+            statusLabel: card.status
+          };
+        }
+        return {
+          id: item.id,
+          title: item.message.role === 'user' ? 'User message' : 'Assistant message',
+          detail: item.message.text,
+          statusLabel: 'Logged'
+        };
+      });
+      const sources = [
+        { id: 'instruction-AGENTS.md', title: 'AGENTS.md', detail: '.quillcode/AGENTS.md', statusLabel: 'rules' },
+        ...state.memories.items.slice(0, 4).map(memory => ({
+          id: `memory-${memory.id}`,
+          title: memory.title,
+          detail: memory.relativePath,
+          statusLabel: memory.scopeLabel
+        }))
+      ];
+      return {
+        subtitle: `${countLabel(cards.length, 'tool')} · ${countLabel(sources.length, 'source')} · ${countLabel(artifacts.length, 'artifact')}`,
+        statusLabel: state.topBar.agentStatus,
+        taskTitle: latestUser ? latestUser.text : 'No task selected',
+        taskSubtitle: `${messages.length} ${messages.length === 1 ? 'message' : 'messages'} · ${state.transcript.timelineItems.length} timeline ${state.transcript.timelineItems.length === 1 ? 'item' : 'items'}`,
+        steps,
+        tools: cards.slice(-8).map(card => ({
+          id: card.id,
+          title: card.title,
+          detail: card.subtitle,
+          statusLabel: card.status
+        })),
+        sources,
+        artifacts,
+        finalAnswer: latestAssistant?.text || null
+      };
+    }
+
+    function uniqueBy(items, keyForItem) {
+      const seen = new Set();
+      return items.filter(item => {
+        const key = keyForItem(item);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    function renderActivityPane() {
+      const activity = activitySummary();
+      return `
+        <section class="activity-pane" data-testid="activity-pane" aria-label="Task activity">
+          <header>
+            <div>
+              <strong data-testid="activity-title">Activity</strong>
+              <p data-testid="activity-subtitle">${escapeHTML(activity.subtitle)}</p>
+            </div>
+            <span data-testid="activity-status">${escapeHTML(activity.statusLabel)}</span>
+          </header>
+          <article class="activity-task" data-testid="activity-task">
+            <strong data-testid="activity-task-title">${escapeHTML(activity.taskTitle)}</strong>
+            <p data-testid="activity-task-subtitle">${escapeHTML(activity.taskSubtitle)}</p>
+          </article>
+          ${renderActivityItems('Recent', activity.steps, 'activity-step', 'No task events yet')}
+          ${renderActivityItems('Tools', activity.tools, 'activity-tool', 'No tools used yet')}
+          ${renderActivityItems('Sources', activity.sources, 'activity-source', 'No context sources attached')}
+          ${renderActivityArtifacts(activity.artifacts)}
+          ${activity.finalAnswer ? `<section class="activity-section" data-testid="activity-final-answer"><h3>Latest Answer</h3><p>${escapeHTML(activity.finalAnswer)}</p></section>` : ''}
+        </section>`;
+    }
+
+    function renderActivityItems(title, items, testID, emptyTitle) {
+      const content = items.length
+        ? items.map(item => `
+          <article class="activity-item" data-testid="${testID}">
+            <strong>${escapeHTML(item.title)}</strong>
+            <span>${escapeHTML(item.statusLabel || '')}</span>
+            <p>${escapeHTML(item.detail || '')}</p>
+          </article>`).join('')
+        : `<p data-testid="${testID}-empty">${escapeHTML(emptyTitle)}</p>`;
+      return `<section class="activity-section" data-testid="${testID}-section"><h3>${escapeHTML(title)}</h3>${content}</section>`;
+    }
+
+    function renderActivityArtifacts(artifacts) {
+      const content = artifacts.length
+        ? artifacts.map(artifact => `
+          <article class="activity-artifact" data-testid="activity-artifact">
+            <strong>${escapeHTML(artifact.label)}</strong>
+            <p>${escapeHTML(artifact.detail)}</p>
+          </article>`).join('')
+        : '<p data-testid="activity-artifact-empty">No artifacts produced yet</p>';
+      return `<section class="activity-section" data-testid="activity-artifact-section"><h3>Artifacts</h3>${content}</section>`;
+    }
+
     function renderTerminalPane() {
       const entries = state.terminal.entries.length ? state.terminal.entries.map(entry => `
         <article class="terminal-entry" data-testid="terminal-entry">
@@ -3613,6 +3792,9 @@
       }
       if (commandID === 'toggle-browser') {
         state.browser.isVisible = !state.browser.isVisible;
+      }
+      if (commandID === 'toggle-activity') {
+        state.activity.isVisible = !state.activity.isVisible;
       }
       if (commandID === 'toggle-memories') {
         state.memories.isVisible = !state.memories.isVisible;

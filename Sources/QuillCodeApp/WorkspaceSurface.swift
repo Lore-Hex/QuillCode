@@ -13,6 +13,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var browser: BrowserSurface
     public var extensions: WorkspaceExtensionsSurface
     public var memories: WorkspaceMemoriesSurface
+    public var activity: WorkspaceActivitySurface
     public var composer: ComposerSurface
     public var commands: [WorkspaceCommandSurface]
     public var settings: WorkspaceSettingsSurface
@@ -30,6 +31,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         browser: BrowserSurface,
         extensions: WorkspaceExtensionsSurface = WorkspaceExtensionsSurface(),
         memories: WorkspaceMemoriesSurface = WorkspaceMemoriesSurface(),
+        activity: WorkspaceActivitySurface = WorkspaceActivitySurface(),
         composer: ComposerSurface,
         commands: [WorkspaceCommandSurface],
         settings: WorkspaceSettingsSurface,
@@ -46,6 +48,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.browser = browser
         self.extensions = extensions
         self.memories = memories
+        self.activity = activity
         self.composer = composer
         self.commands = commands
         self.settings = settings
@@ -1683,6 +1686,14 @@ public extension QuillCodeWorkspaceModel {
                 isVisible: memories.isVisible,
                 notes: activeMemories
             ),
+            activity: WorkspaceActivitySurface(
+                isVisible: activity.isVisible,
+                thread: thread,
+                toolCards: toolCards,
+                instructions: activeInstructions,
+                memories: activeMemories,
+                agentStatus: topBarState.agentStatus
+            ),
             composer: ComposerSurface(composer: composer),
             commands: commands(),
             settings: WorkspaceSettingsSurface(
@@ -2182,6 +2193,12 @@ public extension QuillCodeWorkspaceModel {
                 shortcut: WorkspaceShortcutRegistry.label(for: "toggle-browser"),
                 category: WorkspaceCommandPalette.workspaceCategory,
                 keywords: ["preview", "web", "localhost"]
+            ),
+            WorkspaceCommandSurface(
+                id: "toggle-activity",
+                title: "Activity",
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["task", "summary", "sources", "artifacts", "tools"]
             ),
             WorkspaceCommandSurface(
                 id: "toggle-memories",

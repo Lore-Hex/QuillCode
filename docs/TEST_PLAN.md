@@ -6,6 +6,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 
 - Config parsing, model catalog, auth state, secret store.
 - Thread reducers, tool schemas, shell/file/path safety.
+- Workspace activity reduction from thread events, tool cards, instructions, memories, artifacts, and latest assistant answers.
 - Multi-step agent tool continuation, hidden tool-feedback serialization, duplicate tool-call loop guards, max-step fallback, and user-visible filtering for sidebar search/fork/compaction.
 - Patch parser, diff parser, file/line/range review comments, Auto reviewer JSON, sandbox policy.
 - Project instruction discovery, nested precedence, symlink/root bounds, and byte/file caps.
@@ -17,7 +18,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 ## Functional Tests
 
 - Mock TrustedRouter, mock LLM, fake shell, fake filesystem, fake git repo.
-- Cover login, model switch, searchable model picker, persistent favorite model toggles, recent model sections, current/default/recommended/favorite model badges, duplicate-free model search, new thread, thread rename/duplicate/archive/unarchive/delete, project new-chat/refresh/rename/remove lifecycle, context compaction, project instruction and memory refresh before runs, explicit memory writes and forgetting, project extension manifest refresh, MCP start/probe/stop lifecycle state, MCP tool invocation from an agent turn, Computer Use screenshot/input invocation from an agent turn, browser inspection from an open preview, multi-step agent runs that chain tools before a final answer, incremental run progress, chronological transcript ordering, active-chat find state, transcript copy actions, user-message draft reuse, assistant response feedback, latest-assistant retry, tool cards, stopped queued/running tool-card resolution, terminal live stdout/stderr streaming, per-project cwd and environment persistence, and running/done/failed/stopped lifecycle, artifact preview chips, image artifact previews, collapsed successful-tool details, file edit, post-patch review refresh, review comments, command failure, rate-limit recovery, redacted runtime diagnostics, cancellation, approvals, settings, top bar, search, keyboard shortcut panel, slash command catalog/help/suggestions, slash-to-workspace-action routing, and worktree project/thread handoff.
+- Cover login, model switch, searchable model picker, persistent favorite model toggles, recent model sections, current/default/recommended/favorite model badges, duplicate-free model search, new thread, thread rename/duplicate/archive/unarchive/delete, project new-chat/refresh/rename/remove lifecycle, context compaction, project instruction and memory refresh before runs, explicit memory writes and forgetting, project extension manifest refresh, MCP start/probe/stop lifecycle state, MCP tool invocation from an agent turn, Computer Use screenshot/input invocation from an agent turn, browser inspection from an open preview, multi-step agent runs that chain tools before a final answer, incremental run progress, chronological transcript ordering, derived Activity pane task/source/tool/artifact/latest-answer rendering, active-chat find state, transcript copy actions, user-message draft reuse, assistant response feedback, latest-assistant retry, tool cards, stopped queued/running tool-card resolution, terminal live stdout/stderr streaming, per-project cwd and environment persistence, and running/done/failed/stopped lifecycle, artifact preview chips, image artifact previews, collapsed successful-tool details, file edit, post-patch review refresh, review comments, command failure, rate-limit recovery, redacted runtime diagnostics, cancellation, approvals, settings, top bar, search, keyboard shortcut panel, slash command catalog/help/suggestions, slash-to-workspace-action routing, and worktree project/thread handoff.
 
 ## Integration Tests
 
@@ -38,6 +39,7 @@ Drive the QuillCode test harness with mock LLM:
 - search and select a model, including current/default/recommended badges and duplicate-free search results
 - run shell
 - surface file/URL artifacts from tool-card output, with preview metadata visible and raw successful-tool JSON collapsed until opened
+- open the Activity pane and verify the current task, recent events, tools, sources, artifacts, and latest answer are reconstructed from the same transcript state
 - render image artifacts from screenshot/generated-media tool output as bounded previews below the artifact chips
 - chronological user/tool/answer transcript rendering
 - hidden agent tool-feedback messages never render as transcript bubbles, sidebar search hits, fork seed messages, or compaction summary content
@@ -67,7 +69,7 @@ Drive the QuillCode test harness with mock LLM:
 - Packaged macOS and Linux app launch.
 - Login/dev override.
 - Open repo, chat, run `whoami`, create file, confirm the created file appears as a tool-card artifact preview, capture or mock a screenshot artifact and confirm the image preview renders, confirm raw successful-tool details can be opened, review diff.
-- Terminal toggle, Memories toggle, Add memory and Forget memory flows, Extensions toggle, settings, Keyboard Shortcuts, top bar widget, quit/relaunch persistence.
+- Terminal toggle, Memories toggle, Activity toggle, Add memory and Forget memory flows, Extensions toggle, settings, Keyboard Shortcuts, top bar widget, quit/relaunch persistence.
 - Computer Use menu-bar status, System Settings setup affordance, and a permission-gated screenshot/input smoke pass on development machines with Screen Recording and Accessibility already granted.
 
 ## Release Gates

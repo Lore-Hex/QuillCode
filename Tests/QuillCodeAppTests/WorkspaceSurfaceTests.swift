@@ -70,6 +70,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "project-remove",
             "toggle-terminal",
             "toggle-browser",
+            "toggle-activity",
             "toggle-memories",
             "memory-add",
             "toggle-extensions",
@@ -106,6 +107,76 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(surface.browser.isVisible)
         XCTAssertFalse(surface.extensions.isVisible)
         XCTAssertFalse(surface.memories.isVisible)
+        XCTAssertFalse(surface.activity.isVisible)
+    }
+
+    func testActivitySurfaceSummarizesThreadToolsSourcesAndArtifacts() throws {
+        let instruction = ProjectInstruction(
+            path: ".quillcode/AGENTS.md",
+            title: "AGENTS.md",
+            content: "Use the repo patterns.",
+            byteCount: 22
+        )
+        let memory = MemoryNote(
+            id: "global-note",
+            scope: .global,
+            title: "Prefers concise diffs",
+            content: "Keep changes reviewable.",
+            relativePath: "preferences.md",
+            byteCount: 24
+        )
+        let call = ToolCall(
+            id: "tool-activity",
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"whoami"}"#
+        )
+        let result = ToolResult(
+            ok: true,
+            stdout: "quill\n",
+            artifacts: ["/tmp/quillcode-activity.png"]
+        )
+        let thread = ChatThread(
+            title: "Run command",
+            messages: [
+                .init(role: .user, content: "run whoami"),
+                .init(role: .assistant, content: "Output:\nquill")
+            ],
+            events: [
+                .init(kind: .message, summary: "run whoami"),
+                .init(kind: .toolQueued, summary: "host.shell.run queued", payloadJSON: try JSONHelpers.encodePretty(call)),
+                .init(kind: .toolRunning, summary: "host.shell.run running"),
+                .init(kind: .toolCompleted, summary: "host.shell.run completed", payloadJSON: try JSONHelpers.encodePretty(result)),
+                .init(kind: .message, summary: "Output:\nquill")
+            ],
+            instructions: [instruction],
+            memories: [memory]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                threads: [thread],
+                selectedThreadID: thread.id
+            ),
+            activity: ActivityState(isVisible: true)
+        )
+
+        let activity = model.surface().activity
+
+        XCTAssertTrue(activity.isVisible)
+        XCTAssertEqual(activity.taskTitle, "run whoami")
+        XCTAssertEqual(activity.tools.map(\.title), [ToolDefinition.shellRun.name])
+        XCTAssertEqual(activity.tools.first?.statusLabel, ToolCardStatus.done.rawValue)
+        XCTAssertEqual(activity.artifacts.map(\.label), ["quillcode-activity.png"])
+        XCTAssertEqual(activity.sources.map(\.title), ["AGENTS.md", "Prefers concise diffs"])
+        XCTAssertEqual(activity.finalAnswer, "Output: quill")
+        XCTAssertTrue(activity.recentSteps.contains { $0.title == "Tool completed" && $0.statusLabel == "Done" })
+    }
+
+    func testActivityCommandTogglesActivityPane() {
+        let model = QuillCodeWorkspaceModel()
+
+        XCTAssertFalse(model.surface().activity.isVisible)
+        XCTAssertTrue(model.runWorkspaceCommand("toggle-activity", workspaceRoot: URL(fileURLWithPath: "/tmp")))
+        XCTAssertTrue(model.surface().activity.isVisible)
     }
 
     func testSidebarSearchExcludesHiddenToolFeedback() {
