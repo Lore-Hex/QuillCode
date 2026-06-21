@@ -97,6 +97,40 @@ final class AgentTests: XCTestCase {
         )
     }
 
+    func testStreamingToolActionReportsStatusAndExecutes() async throws {
+        let root = try makeTempDirectory()
+        let recorder = ProgressRecorder()
+        let runner = AgentRunner(llm: StreamingActionLLMClient(chunks: [
+            #"{"type":"tool","#,
+            #""name":"host.shell.run","#,
+            #""arguments":{"cmd":"whoami"}}"#
+        ]))
+
+        let result = try await runner.send(
+            "run whoami",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root,
+            onProgress: { thread in
+                await recorder.record(thread)
+            }
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        let eventKinds = await recorder.eventKinds()
+        XCTAssertEqual(eventKinds, [.message, .notice, .toolQueued, .toolRunning, .message])
+        XCTAssertEqual(result.thread.events.map(\.kind), [
+            .message,
+            .notice,
+            .toolQueued,
+            .toolRunning,
+            .toolCompleted,
+            .message
+        ])
+        XCTAssertEqual(result.thread.events[1].summary, AgentRunner.streamingNotice)
+        XCTAssertTrue(result.thread.messages.last?.content.hasPrefix("You are `") == true)
+    }
+
     func testOpenClawDiscoverySummarizesMissingBinary() throws {
         let call = ToolCall(
             name: ToolDefinition.shellRun.name,
@@ -231,5 +265,30 @@ private struct FixedToolLLMClient: LLMClient {
 
     func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
         .tool(call)
+    }
+}
+
+private enum StreamingActionLLMError: Error {
+    case nonStreamingPathUsed
+}
+
+private struct StreamingActionLLMClient: StreamingLLMClient {
+    var chunks: [String]
+
+    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        throw StreamingActionLLMError.nonStreamingPathUsed
+    }
+
+    func actionTextStream(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) async throws -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            for chunk in chunks {
+                continuation.yield(chunk)
+            }
+            continuation.finish()
+        }
     }
 }

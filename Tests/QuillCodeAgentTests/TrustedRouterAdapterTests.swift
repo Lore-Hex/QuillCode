@@ -28,6 +28,29 @@ final class TrustedRouterAdapterTests: XCTestCase {
         XCTAssertEqual(action, .say("hello"))
     }
 
+    func testCollectActionParsesSplitStreamingText() async throws {
+        let action = try await TrustedRouterLLMClient.collectAction(from: stream([
+            #"{"type":"tool","#,
+            #""name":"host.shell.run","#,
+            #""arguments":{"cmd":"whoami"}}"#
+        ]))
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected streamed tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
+        XCTAssertTrue(call.argumentsJSON.contains("whoami"))
+    }
+
+    func testCollectActionRejectsEmptyStream() async {
+        do {
+            _ = try await TrustedRouterLLMClient.collectAction(from: stream([]))
+            XCTFail("Expected empty stream to throw")
+        } catch {
+            XCTAssertTrue(String(describing: error).contains("empty response"))
+        }
+    }
+
     func testPromptRequiresNonEmptyShellCommand() {
         let prompt = TrustedRouterLLMClient.systemPrompt(tools: [.shellRun, .fileWrite])
         XCTAssertTrue(prompt.contains("MUST include a non-empty \"cmd\""))
@@ -116,6 +139,15 @@ final class TrustedRouterAdapterTests: XCTestCase {
         let client = TrustedRouterLLMClient()
         XCTAssertThrowsError(try client.configuredAPIKey()) { error in
             XCTAssertTrue(String(describing: error).contains("Sign in"))
+        }
+    }
+
+    private func stream(_ chunks: [String]) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            for chunk in chunks {
+                continuation.yield(chunk)
+            }
+            continuation.finish()
         }
     }
 }

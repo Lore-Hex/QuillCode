@@ -12,6 +12,43 @@ public protocol LLMClient: Sendable {
     func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction
 }
 
+public protocol StreamingLLMClient: LLMClient {
+    func actionTextStream(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) async throws -> AsyncThrowingStream<String, Error>
+}
+
+public enum AgentError: Error, CustomStringConvertible {
+    case emptyStreamingResponse
+
+    public var description: String {
+        switch self {
+        case .emptyStreamingResponse:
+            return "The model stream finished without returning an action."
+        }
+    }
+}
+
+public enum AgentActionStreamCollector {
+    public static func collect(
+        from stream: AsyncThrowingStream<String, Error>,
+        emptyError: @autoclosure () -> any Error
+    ) async throws -> AgentAction {
+        var text = ""
+        for try await chunk in stream {
+            try Task.checkCancellation()
+            text.append(chunk)
+        }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw emptyError()
+        }
+        return try AgentActionJSONParser.parse(trimmed)
+    }
+}
+
 public struct MockLLMClient: LLMClient {
     public init() {}
 
@@ -224,6 +261,8 @@ public typealias AgentRunProgressHandler = @Sendable (ChatThread) async -> Void
 public typealias AgentToolExecutionOverride = @Sendable (ToolCall, URL) -> ToolResult?
 
 public struct AgentRunner: Sendable {
+    public static let streamingNotice = "Streaming model response"
+
     public var llm: LLMClient
     public var safety: SafetyReviewer
     public var additionalToolDefinitions: [ToolDefinition]
@@ -258,7 +297,12 @@ public struct AgentRunner: Sendable {
 
         try Task.checkCancellation()
         let tools = Self.mergedToolDefinitions(additionalToolDefinitions)
-        let action = try await llm.nextAction(thread: next, userMessage: userMessage, tools: tools)
+        let action = try await nextAction(
+            thread: &next,
+            userMessage: userMessage,
+            tools: tools,
+            onProgress: onProgress
+        )
         try Task.checkCancellation()
         switch action {
         case .say(let text):
@@ -277,6 +321,35 @@ public struct AgentRunner: Sendable {
                 onProgress: onProgress
             )
         }
+    }
+
+    private func nextAction(
+        thread: inout ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition],
+        onProgress: AgentRunProgressHandler?
+    ) async throws -> AgentAction {
+        guard let streamingLLM = llm as? any StreamingLLMClient else {
+            return try await llm.nextAction(thread: thread, userMessage: userMessage, tools: tools)
+        }
+
+        thread.events.append(.init(kind: .notice, summary: Self.streamingNotice))
+        thread.updatedAt = Date()
+        await onProgress?(thread)
+
+        let stream = try await streamingLLM.actionTextStream(
+            thread: thread,
+            userMessage: userMessage,
+            tools: tools
+        )
+        return try await Self.collectStreamingAction(from: stream)
+    }
+
+    static func collectStreamingAction(from stream: AsyncThrowingStream<String, Error>) async throws -> AgentAction {
+        try await AgentActionStreamCollector.collect(
+            from: stream,
+            emptyError: AgentError.emptyStreamingResponse
+        )
     }
 
     private func runTool(

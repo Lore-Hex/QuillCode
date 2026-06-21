@@ -23,7 +23,7 @@ public enum TrustedRouterAgentError: Error, CustomStringConvertible {
     }
 }
 
-public struct TrustedRouterLLMClient: LLMClient {
+public struct TrustedRouterLLMClient: StreamingLLMClient {
     public var sessionStore: (any TrustedRouterSessionStore)?
     public var apiKeyOverride: String?
     public var model: String
@@ -42,17 +42,26 @@ public struct TrustedRouterLLMClient: LLMClient {
     }
 
     public func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        let stream = try await actionTextStream(thread: thread, userMessage: userMessage, tools: tools)
+        return try await Self.collectAction(from: stream)
+    }
+
+    public func actionTextStream(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) async throws -> AsyncThrowingStream<String, Error> {
         let apiKey = try configuredAPIKey()
         let client = try TrustedRouter(options: .init(apiKey: apiKey, baseUrl: baseURL))
         let messages = Self.messages(thread: thread, userMessage: userMessage, tools: tools)
-        let completion = try await client.chatCompletions(model: model, messages: messages)
-        guard let text = completion.choices.first?.message.content?
-            .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines),
-              !text.isEmpty
-        else {
-            throw TrustedRouterAgentError.emptyResponse
-        }
-        return try AgentActionJSONParser.parse(text)
+        return try await client.chatCompletionsText(model: model, messages: messages)
+    }
+
+    public static func collectAction(from stream: AsyncThrowingStream<String, Error>) async throws -> AgentAction {
+        try await AgentActionStreamCollector.collect(
+            from: stream,
+            emptyError: TrustedRouterAgentError.emptyResponse
+        )
     }
 
     public func configuredAPIKey() throws -> String {

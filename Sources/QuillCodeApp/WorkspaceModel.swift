@@ -862,6 +862,8 @@ public final class QuillCodeWorkspaceModel {
             return "Running"
         case .approvalRequested:
             return "Review"
+        case .notice where thread.events.last?.summary == AgentRunner.streamingNotice:
+            return "Streaming"
         case .toolCompleted:
             return "Finishing"
         case .toolFailed:

@@ -257,6 +257,34 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
     }
 
+    func testComposerShowsStreamingStatusForStreamingLLM() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(runner: AgentRunner(
+            llm: DelayedStreamingSayLLMClient(chunks: [
+                #"{"type":"say","#,
+                #""text":"streamed response"}"#
+            ])
+        ))
+
+        model.setDraft("say hello")
+        let task = Task {
+            await model.submitComposer(workspaceRoot: root)
+        }
+
+        try await waitUntil(timeoutSeconds: 1) {
+            model.root.topBar.agentStatus == "Streaming"
+        }
+        XCTAssertTrue(model.composer.isSending)
+
+        await task.value
+
+        XCTAssertFalse(model.composer.isSending)
+        XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "streamed response")
+        XCTAssertEqual(model.selectedThread?.events.map(\.kind), [.message, .notice, .message])
+        XCTAssertEqual(model.selectedThread?.events[1].summary, AgentRunner.streamingNotice)
+    }
+
     func testCancellingComposerRunStopsStateAndRecordsNotice() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel(runner: AgentRunner(llm: SlowLLMClient()))
@@ -1636,6 +1664,38 @@ private struct SlowLLMClient: LLMClient {
     func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
         try await Task.sleep(nanoseconds: 5_000_000_000)
         return .say("late response")
+    }
+}
+
+private enum DelayedStreamingSayLLMError: Error {
+    case nonStreamingPathUsed
+}
+
+private struct DelayedStreamingSayLLMClient: StreamingLLMClient {
+    var chunks: [String]
+
+    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        throw DelayedStreamingSayLLMError.nonStreamingPathUsed
+    }
+
+    func actionTextStream(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) async throws -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    try await Task.sleep(nanoseconds: 150_000_000)
+                    for chunk in chunks {
+                        continuation.yield(chunk)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
     }
 }
 
