@@ -259,7 +259,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "toggle-extensions" }?.isEnabled, true)
     }
 
-    func testSurfaceShowsRunningMCPServerStopAction() {
+    func testSurfaceShowsReadyMCPServerProbeSummaryAndStopAction() {
         let project = ProjectRef(
             name: "QuillCode",
             path: "/tmp/QuillCode",
@@ -280,13 +280,25 @@ final class WorkspaceSurfaceTests: XCTestCase {
             root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
             extensions: ExtensionsState(
                 isVisible: true,
-                mcpServerStatuses: ["mcp_server:filesystem": .running]
+                mcpServerStatuses: ["mcp_server:filesystem": .ready],
+                mcpServerProbeSummaries: [
+                    "mcp_server:filesystem": MCPServerProbeSummary(
+                        protocolVersion: "2024-11-05",
+                        serverName: "Fixture MCP",
+                        serverVersion: "1.0.0",
+                        toolNames: ["read_file", "write_file"]
+                    )
+                ]
             )
         )
 
         let surface = model.surface()
 
-        XCTAssertEqual(surface.extensions.items.first?.statusLabel, "Running")
+        XCTAssertEqual(surface.extensions.items.first?.statusLabel, "Ready")
+        XCTAssertEqual(surface.extensions.items.first?.serverLabel, "Fixture MCP 1.0.0")
+        XCTAssertEqual(surface.extensions.items.first?.protocolLabel, "MCP 2024-11-05")
+        XCTAssertEqual(surface.extensions.items.first?.toolCountLabel, "2 tools")
+        XCTAssertEqual(surface.extensions.items.first?.toolNames, ["read_file", "write_file"])
         XCTAssertNil(surface.extensions.items.first?.startCommandID)
         XCTAssertEqual(surface.extensions.items.first?.stopCommandID, "mcp-stop:mcp_server:filesystem")
         XCTAssertEqual(surface.commands.first { $0.id == "mcp-start:mcp_server:filesystem" }?.isEnabled, false)

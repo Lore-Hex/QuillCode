@@ -376,6 +376,39 @@
       background: rgba(255,82,82,.1);
       border-color: rgba(255,82,82,.16);
     }
+    .extension-card[data-status="Probing"] [data-testid="extension-status"] {
+      color: #b8ecff;
+      background: rgba(65,184,232,.12);
+      border-color: rgba(65,184,232,.22);
+    }
+    .extension-card [data-testid="extension-mcp-server"] {
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .extension-card [data-testid="extension-mcp-protocol"],
+    .extension-card [data-testid="extension-mcp-tools-count"] {
+      width: fit-content;
+      padding: 3px 7px;
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.08);
+      font: 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .extension-card [data-testid="extension-mcp-tools"] {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .extension-card [data-testid="extension-mcp-tool"] {
+      padding: 3px 7px;
+      border-radius: 999px;
+      color: #b8ecff;
+      background: rgba(65,184,232,.1);
+      border: 1px solid rgba(65,184,232,.16);
+      font: 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
     .extension-card button {
       justify-self: start;
       padding: 7px 11px;
@@ -856,6 +889,11 @@
             statusLabel: 'Stopped',
             transportLabel: 'STDIO',
             launchCommand: 'quill-mcp-filesystem --root .',
+            serverLabel: null,
+            protocolLabel: null,
+            toolCountLabel: null,
+            toolNames: [],
+            probeError: null,
             startCommandID: 'mcp-start:mcp_server:filesystem',
             stopCommandID: null
           }
@@ -2052,6 +2090,11 @@
               <code data-testid="extension-path">${escapeHTML(item.relativePath)}</code>
               ${item.launchCommand ? `<code data-testid="extension-command">${escapeHTML(item.launchCommand)}</code>` : ''}
               ${item.transportLabel ? `<span data-testid="extension-transport">${escapeHTML(item.transportLabel)}</span>` : ''}
+              ${item.serverLabel ? `<span data-testid="extension-mcp-server">${escapeHTML(item.serverLabel)}</span>` : ''}
+              ${item.protocolLabel ? `<span data-testid="extension-mcp-protocol">${escapeHTML(item.protocolLabel)}</span>` : ''}
+              ${item.toolCountLabel ? `<span data-testid="extension-mcp-tools-count">${escapeHTML(item.toolCountLabel)}</span>` : ''}
+              ${item.toolNames?.length ? `<div data-testid="extension-mcp-tools">${item.toolNames.map(toolName => `<span data-testid="extension-mcp-tool">${escapeHTML(toolName)}</span>`).join('')}</div>` : ''}
+              ${item.probeError ? `<p data-testid="extension-mcp-error">${escapeHTML(item.probeError)}</p>` : ''}
               ${item.stopCommandID ? `<button type="button" data-testid="extension-stop" data-command-id="${escapeHTML(item.stopCommandID)}">Stop</button>` : ''}
               ${item.startCommandID ? `<button type="button" data-testid="extension-start" data-command-id="${escapeHTML(item.startCommandID)}">Start</button>` : ''}
             </article>`).join('')}
@@ -2252,8 +2295,8 @@
         state.extensions.isVisible = !state.extensions.isVisible;
       }
       if (commandID?.startsWith('mcp-start:')) {
-        setMCPStatus(commandID.slice('mcp-start:'.length), 'Running');
-        addMessage('assistant', 'Started Filesystem MCP.');
+        setMCPStatus(commandID.slice('mcp-start:'.length), 'Ready');
+        addMessage('assistant', 'Filesystem MCP is ready with 2 tools.');
         render();
         return;
       }
@@ -2295,7 +2338,7 @@
         state.composer.isSending = false;
         state.terminal.isRunning = false;
         state.extensions.items
-          .filter(item => item.kind === 'mcp_server' && item.statusLabel === 'Running')
+          .filter(item => item.kind === 'mcp_server' && ['Ready', 'Running', 'Probing'].includes(item.statusLabel))
           .forEach(item => setMCPStatus(item.id, 'Stopped'));
         state.topBar.agentStatus = 'Stopped';
       }
@@ -2310,22 +2353,33 @@
       const item = state.extensions.items.find(item => item.id === id && item.kind === 'mcp_server');
       if (!item) return;
       item.statusLabel = status;
-      if (status === 'Running') {
+      if (status === 'Ready' || status === 'Running' || status === 'Probing') {
+        item.serverLabel = 'Fixture MCP 1.0.0';
+        item.protocolLabel = 'MCP 2024-11-05';
+        item.toolCountLabel = '2 tools';
+        item.toolNames = ['read_file', 'write_file'];
+        item.probeError = null;
         item.startCommandID = null;
         item.stopCommandID = `mcp-stop:${id}`;
       } else {
+        item.serverLabel = null;
+        item.protocolLabel = null;
+        item.toolCountLabel = null;
+        item.toolNames = [];
+        item.probeError = null;
         item.startCommandID = `mcp-start:${id}`;
         item.stopCommandID = null;
       }
       const startCommand = state.commands.find(command => command.id === `mcp-start:${id}`);
       const stopCommand = state.commands.find(command => command.id === `mcp-stop:${id}`);
-      if (startCommand) startCommand.isEnabled = status !== 'Running';
-      if (stopCommand) stopCommand.isEnabled = status === 'Running';
+      const isActive = status === 'Ready' || status === 'Running' || status === 'Probing';
+      if (startCommand) startCommand.isEnabled = !isActive;
+      if (stopCommand) stopCommand.isEnabled = isActive;
       const stopAll = state.commands.find(command => command.id === 'stop-all');
       if (stopAll) {
         stopAll.isEnabled = state.composer.isSending
           || state.terminal.isRunning
-          || state.extensions.items.some(item => item.kind === 'mcp_server' && item.statusLabel === 'Running');
+          || state.extensions.items.some(item => item.kind === 'mcp_server' && ['Ready', 'Running', 'Probing'].includes(item.statusLabel));
       }
     }
 

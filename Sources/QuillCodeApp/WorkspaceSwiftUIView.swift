@@ -1408,6 +1408,47 @@ private struct QuillCodeExtensionsPaneView: View {
                                         .foregroundStyle(QuillCodePalette.muted)
                                         .lineLimit(1)
                                 }
+                                if let serverLabel = item.serverLabel {
+                                    Text(serverLabel)
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(QuillCodePalette.green)
+                                        .lineLimit(1)
+                                }
+                                if let probeError = item.probeError {
+                                    Text(probeError)
+                                        .font(.caption2)
+                                        .foregroundStyle(QuillCodePalette.red)
+                                        .lineLimit(2)
+                                } else if item.toolCountLabel != nil || item.protocolLabel != nil || !item.toolNames.isEmpty {
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        HStack(spacing: 6) {
+                                            if let toolCountLabel = item.toolCountLabel {
+                                                Text(toolCountLabel)
+                                                    .font(.caption2.monospacedDigit().weight(.semibold))
+                                                    .foregroundStyle(QuillCodePalette.green)
+                                            }
+                                            if let protocolLabel = item.protocolLabel {
+                                                Text(protocolLabel)
+                                                    .font(.caption2.monospaced())
+                                                    .foregroundStyle(QuillCodePalette.muted)
+                                            }
+                                        }
+                                        if !item.toolNames.isEmpty {
+                                            HStack(spacing: 5) {
+                                                ForEach(item.toolNames, id: \.self) { toolName in
+                                                    Text(toolName)
+                                                        .font(.caption2.monospaced())
+                                                        .foregroundStyle(QuillCodePalette.blue)
+                                                        .padding(.horizontal, 6)
+                                                        .padding(.vertical, 3)
+                                                        .background(QuillCodePalette.blue.opacity(0.12))
+                                                        .clipShape(Capsule())
+                                                        .lineLimit(1)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                                 HStack(spacing: 8) {
                                     if let transportLabel = item.transportLabel {
                                         Text(transportLabel)
@@ -1444,7 +1485,7 @@ private struct QuillCodeExtensionsPaneView: View {
             }
         }
         .padding(14)
-        .frame(height: extensions.items.isEmpty ? 170 : 220)
+        .frame(height: extensions.items.isEmpty ? 170 : 250)
         .background(QuillCodePalette.panel)
     }
 
@@ -1460,8 +1501,10 @@ private struct QuillCodeExtensionsPaneView: View {
 
     private func statusColor(for status: String) -> Color {
         switch status {
-        case "Discovered", "Running":
+        case "Discovered", "Running", "Ready":
             return QuillCodePalette.green
+        case "Probing":
+            return QuillCodePalette.blue
         case "Failed", "Missing command":
             return QuillCodePalette.red
         default:

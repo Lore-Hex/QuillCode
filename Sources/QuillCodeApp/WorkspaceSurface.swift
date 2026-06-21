@@ -501,6 +501,7 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
         isVisible: Bool = false,
         manifests: [ProjectExtensionManifest] = [],
         mcpServerStatuses: [String: MCPServerLifecycleStatus] = [:],
+        mcpServerProbeSummaries: [String: MCPServerProbeSummary] = [:],
         emptyTitle: String = "No extension manifests found",
         emptySubtitle: String = "Add JSON manifests under .quillcode/plugins, .quillcode/skills, or .quillcode/mcp."
     ) {
@@ -508,7 +509,8 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
         self.items = manifests.map {
             ProjectExtensionManifestSurface(
                 manifest: $0,
-                mcpServerStatus: mcpServerStatuses[$0.id] ?? .stopped
+                mcpServerStatus: mcpServerStatuses[$0.id] ?? .stopped,
+                probeSummary: mcpServerProbeSummaries[$0.id]
             )
         }
         self.emptyTitle = emptyTitle
@@ -623,6 +625,11 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
     public var statusLabel: String
     public var transportLabel: String?
     public var launchCommand: String?
+    public var serverLabel: String?
+    public var protocolLabel: String?
+    public var toolCountLabel: String?
+    public var toolNames: [String]
+    public var probeError: String?
     public var canStart: Bool
     public var canStop: Bool
     public var startCommandID: String?
@@ -630,7 +637,8 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
 
     public init(
         manifest: ProjectExtensionManifest,
-        mcpServerStatus: MCPServerLifecycleStatus = .stopped
+        mcpServerStatus: MCPServerLifecycleStatus = .stopped,
+        probeSummary: MCPServerProbeSummary? = nil
     ) {
         self.id = manifest.id
         self.kind = manifest.kind
@@ -649,11 +657,16 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         }
         self.transportLabel = manifest.transport?.rawValue.uppercased()
         self.launchCommand = manifest.launchCommand
+        self.serverLabel = probeSummary?.serverLabel
+        self.protocolLabel = probeSummary?.protocolVersion.map { "MCP \($0)" }
+        self.toolCountLabel = probeSummary?.toolCountLabel
+        self.toolNames = Array((probeSummary?.toolNames ?? []).prefix(4))
+        self.probeError = probeSummary?.errorMessage
         self.canStart = manifest.kind == .mcpServer
             && manifest.isEnabled
             && manifest.launchExecutable != nil
-            && mcpServerStatus != .running
-        self.canStop = manifest.kind == .mcpServer && mcpServerStatus == .running
+            && !mcpServerStatus.isActive
+        self.canStop = manifest.kind == .mcpServer && mcpServerStatus.isActive
         self.startCommandID = canStart ? "mcp-start:\(manifest.id)" : nil
         self.stopCommandID = canStop ? "mcp-stop:\(manifest.id)" : nil
     }
@@ -1208,7 +1221,8 @@ public extension QuillCodeWorkspaceModel {
             extensions: WorkspaceExtensionsSurface(
                 isVisible: extensions.isVisible,
                 manifests: selectedProject?.extensionManifests ?? [],
-                mcpServerStatuses: extensions.mcpServerStatuses
+                mcpServerStatuses: extensions.mcpServerStatuses,
+                mcpServerProbeSummaries: extensions.mcpServerProbeSummaries
             ),
             memories: WorkspaceMemoriesSurface(
                 isVisible: memories.isVisible,
@@ -1298,9 +1312,9 @@ public extension QuillCodeWorkspaceModel {
                 let status = extensions.mcpServerStatuses[manifest.id] ?? .stopped
                 let canStart = manifest.isEnabled
                     && manifest.launchExecutable != nil
-                    && status != .running
+                    && !status.isActive
                     && activeWorkspaceRoot != nil
-                let canStop = status == .running
+                let canStop = status.isActive
                 return [
                     WorkspaceCommandSurface(
                         id: "mcp-start:\(manifest.id)",
@@ -1417,7 +1431,7 @@ public extension QuillCodeWorkspaceModel {
                 keywords: ["cancel", "abort", "halt"],
                 isEnabled: composer.isSending
                     || terminal.isRunning
-                    || extensions.mcpServerStatuses.values.contains(.running)
+                    || extensions.mcpServerStatuses.values.contains { $0.isActive }
             ),
             WorkspaceCommandSurface(
                 id: "settings",

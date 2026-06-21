@@ -432,9 +432,19 @@ public enum WorkspaceHTMLRenderer {
           <code data-testid="extension-path">\(escape(item.relativePath))</code>
           \(item.launchCommand.map { #"<code data-testid="extension-command">\#(escape($0))</code>"# } ?? "")
           \(item.transportLabel.map { #"<span data-testid="extension-transport">\#(escape($0))</span>"# } ?? "")
+          \(item.serverLabel.map { #"<span data-testid="extension-mcp-server">\#(escape($0))</span>"# } ?? "")
+          \(item.protocolLabel.map { #"<span data-testid="extension-mcp-protocol">\#(escape($0))</span>"# } ?? "")
+          \(item.toolCountLabel.map { #"<span data-testid="extension-mcp-tools-count">\#(escape($0))</span>"# } ?? "")
+          \(renderMCPToolNames(item.toolNames))
+          \(item.probeError.map { #"<p data-testid="extension-mcp-error">\#(escape($0))</p>"# } ?? "")
           \(renderExtensionActions(item))
         </article>
         """
+    }
+
+    private static func renderMCPToolNames(_ toolNames: [String]) -> String {
+        guard !toolNames.isEmpty else { return "" }
+        return #"<div data-testid="extension-mcp-tools">\#(toolNames.map { #"<span data-testid="extension-mcp-tool">\#(escape($0))</span>"# }.joined())</div>"#
     }
 
     private static func renderExtensionActions(_ item: ProjectExtensionManifestSurface) -> String {

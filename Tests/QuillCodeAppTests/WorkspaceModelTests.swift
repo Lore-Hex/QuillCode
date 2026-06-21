@@ -767,7 +767,11 @@ final class WorkspaceModelTests: XCTestCase {
         let root = try makeTempDirectory()
         let mcpDirectory = root.appendingPathComponent(".quillcode/mcp")
         try FileManager.default.createDirectory(at: mcpDirectory, withIntermediateDirectories: true)
-        try #"{"id":"filesystem","name":"Filesystem MCP","command":"sleep","args":["60"]}"#.write(
+        let server = try writeFixtureMCPServer(in: root)
+        try #"{"id":"filesystem","name":"Filesystem MCP","command":""#
+            .appending(server.path)
+            .appending(#""}"#)
+            .write(
             to: mcpDirectory.appendingPathComponent("filesystem.json"),
             atomically: true,
             encoding: .utf8
@@ -783,10 +787,16 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(model.runWorkspaceCommand("mcp-start:mcp_server:filesystem", workspaceRoot: root))
 
         var surface = model.surface()
-        XCTAssertEqual(surface.extensions.items.first?.statusLabel, "Running")
+        XCTAssertEqual(surface.extensions.items.first?.statusLabel, "Ready")
+        XCTAssertEqual(surface.extensions.items.first?.serverLabel, "Fixture MCP 1.0.0")
+        XCTAssertEqual(surface.extensions.items.first?.protocolLabel, "MCP 2024-11-05")
+        XCTAssertEqual(surface.extensions.items.first?.toolCountLabel, "2 tools")
+        XCTAssertEqual(surface.extensions.items.first?.toolNames, ["read_file", "write_file"])
         XCTAssertEqual(surface.extensions.items.first?.stopCommandID, "mcp-stop:mcp_server:filesystem")
         XCTAssertEqual(surface.commands.first { $0.id == "stop-all" }?.isEnabled, true)
-        XCTAssertTrue(model.selectedThread?.events.contains { $0.summary == "MCP server Filesystem MCP started" } == true)
+        XCTAssertTrue(model.selectedThread?.events.contains {
+            $0.summary == "MCP server Filesystem MCP ready (2 tools: read_file, write_file)"
+        } == true)
 
         model.cancelActiveWork()
         surface = model.surface()
@@ -1483,6 +1493,24 @@ final class WorkspaceModelTests: XCTestCase {
         _ = try runGit(["add", "README.md"], cwd: root)
         _ = try runGit(["commit", "-m", "initial"], cwd: root)
         return root
+    }
+
+    private func writeFixtureMCPServer(in root: URL) throws -> URL {
+        let script = root.appendingPathComponent("fixture-mcp.sh")
+        let content = """
+        #!/bin/sh
+        emit() {
+          body="$1"
+          length=$(printf "%s" "$body" | wc -c | tr -d ' ')
+          printf "Content-Length: %s\\r\\n\\r\\n%s" "$length" "$body"
+        }
+        emit '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","serverInfo":{"name":"Fixture MCP","version":"1.0.0"},"capabilities":{"tools":{}}}}'
+        emit '{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"read_file","description":"Read a file","inputSchema":{"type":"object"}},{"name":"write_file","inputSchema":{"type":"object"}}]}}'
+        sleep 60
+        """
+        try content.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        return script
     }
 
     private func runGit(_ arguments: [String], cwd: URL) throws -> String {

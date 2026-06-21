@@ -305,30 +305,96 @@ public struct BrowserState: Sendable, Hashable {
 public struct ExtensionsState: Sendable, Hashable {
     public var isVisible: Bool
     public var mcpServerStatuses: [String: MCPServerLifecycleStatus]
+    public var mcpServerProbeSummaries: [String: MCPServerProbeSummary]
 
     public init(
         isVisible: Bool = false,
-        mcpServerStatuses: [String: MCPServerLifecycleStatus] = [:]
+        mcpServerStatuses: [String: MCPServerLifecycleStatus] = [:],
+        mcpServerProbeSummaries: [String: MCPServerProbeSummary] = [:]
     ) {
         self.isVisible = isVisible
         self.mcpServerStatuses = mcpServerStatuses
+        self.mcpServerProbeSummaries = mcpServerProbeSummaries
     }
 }
 
 public enum MCPServerLifecycleStatus: String, Sendable, Hashable {
     case stopped
+    case probing
     case running
+    case ready
     case failed
 
     public var title: String {
         switch self {
         case .stopped:
             return "Stopped"
+        case .probing:
+            return "Probing"
         case .running:
             return "Running"
+        case .ready:
+            return "Ready"
         case .failed:
             return "Failed"
         }
+    }
+
+    public var isActive: Bool {
+        switch self {
+        case .probing, .running, .ready:
+            return true
+        case .stopped, .failed:
+            return false
+        }
+    }
+}
+
+public struct MCPServerProbeSummary: Codable, Sendable, Hashable {
+    public var protocolVersion: String?
+    public var serverName: String?
+    public var serverVersion: String?
+    public var toolNames: [String]
+    public var errorMessage: String?
+
+    public init(
+        protocolVersion: String? = nil,
+        serverName: String? = nil,
+        serverVersion: String? = nil,
+        toolNames: [String] = [],
+        errorMessage: String? = nil
+    ) {
+        self.protocolVersion = protocolVersion
+        self.serverName = serverName
+        self.serverVersion = serverVersion
+        self.toolNames = toolNames
+        self.errorMessage = errorMessage
+    }
+
+    public init(result: MCPServerProbeResult) {
+        self.init(
+            protocolVersion: result.protocolVersion,
+            serverName: result.serverName,
+            serverVersion: result.serverVersion,
+            toolNames: result.toolNames,
+            errorMessage: nil
+        )
+    }
+
+    public var serverLabel: String? {
+        switch (serverName, serverVersion) {
+        case let (.some(name), .some(version)) where !version.isEmpty:
+            return "\(name) \(version)"
+        case let (.some(name), _):
+            return name
+        default:
+            return nil
+        }
+    }
+
+    public var toolCountLabel: String? {
+        guard errorMessage == nil else { return nil }
+        return "\(toolNames.count) tool\(toolNames.count == 1 ? "" : "s")"
     }
 }
 
@@ -337,6 +403,20 @@ public struct MemoriesState: Sendable, Hashable {
 
     public init(isVisible: Bool = false) {
         self.isVisible = isVisible
+    }
+}
+
+private final class MCPServerProcessHandle: @unchecked Sendable {
+    let process: Process
+    let standardInput: Pipe
+    let standardOutput: Pipe
+    let standardError: Pipe
+
+    init(process: Process, standardInput: Pipe, standardOutput: Pipe, standardError: Pipe) {
+        self.process = process
+        self.standardInput = standardInput
+        self.standardOutput = standardOutput
+        self.standardError = standardError
     }
 }
 
@@ -354,7 +434,7 @@ public final class QuillCodeWorkspaceModel {
     private let threadStore: JSONThreadStore?
     private let projectStore: JSONProjectStore?
     private let globalMemoryDirectory: URL?
-    private var mcpServerProcesses: [String: Process]
+    private var mcpServerProcesses: [String: MCPServerProcessHandle]
 
     public init(
         root: QuillCodeRootState = QuillCodeRootState(),
@@ -383,8 +463,8 @@ public final class QuillCodeWorkspaceModel {
     }
 
     deinit {
-        for process in mcpServerProcesses.values where process.isRunning {
-            process.terminate()
+        for handle in mcpServerProcesses.values where handle.process.isRunning {
+            handle.process.terminate()
         }
     }
 
@@ -913,8 +993,10 @@ public final class QuillCodeWorkspaceModel {
             extensions.mcpServerStatuses[id] = .failed
             return false
         }
-        if let process = mcpServerProcesses[id], process.isRunning {
-            extensions.mcpServerStatuses[id] = .running
+        if let handle = mcpServerProcesses[id], handle.process.isRunning {
+            if extensions.mcpServerStatuses[id]?.isActive != true {
+                extensions.mcpServerStatuses[id] = .running
+            }
             refreshTopBar(agentStatus: "Idle")
             return true
         }
@@ -936,12 +1018,6 @@ public final class QuillCodeWorkspaceModel {
         let standardInput = Pipe()
         let standardOutput = Pipe()
         let standardError = Pipe()
-        standardOutput.fileHandleForReading.readabilityHandler = { handle in
-            _ = handle.availableData
-        }
-        standardError.fileHandleForReading.readabilityHandler = { handle in
-            _ = handle.availableData
-        }
         process.standardInput = standardInput
         process.standardOutput = standardOutput
         process.standardError = standardError
@@ -963,11 +1039,48 @@ public final class QuillCodeWorkspaceModel {
             return false
         }
 
-        mcpServerProcesses[id] = process
-        extensions.mcpServerStatuses[id] = .running
+        let handle = MCPServerProcessHandle(
+            process: process,
+            standardInput: standardInput,
+            standardOutput: standardOutput,
+            standardError: standardError
+        )
+        mcpServerProcesses[id] = handle
+        extensions.mcpServerStatuses[id] = .probing
+        extensions.mcpServerProbeSummaries[id] = nil
         lastError = nil
         refreshTopBar(agentStatus: "Idle")
-        appendNotice("MCP server \(manifest.name) started")
+
+        do {
+            let result = try MCPStdioProber(
+                standardInput: standardInput.fileHandleForWriting,
+                standardOutput: standardOutput.fileHandleForReading
+            ).probe(timeout: 2.0)
+            extensions.mcpServerStatuses[id] = .ready
+            extensions.mcpServerProbeSummaries[id] = MCPServerProbeSummary(result: result)
+            standardOutput.fileHandleForReading.readabilityHandler = { handle in
+                _ = handle.availableData
+            }
+            standardError.fileHandleForReading.readabilityHandler = { handle in
+                _ = handle.availableData
+            }
+            appendNotice("MCP server \(manifest.name) ready\(mcpToolNoticeSuffix(for: result.toolNames))")
+        } catch {
+            standardOutput.fileHandleForReading.readabilityHandler = nil
+            standardError.fileHandleForReading.readabilityHandler = nil
+            process.terminationHandler = nil
+            if process.isRunning {
+                process.terminate()
+            }
+            mcpServerProcesses[id] = nil
+            let message = error.localizedDescription
+            lastError = "Could not verify \(manifest.name): \(message)"
+            extensions.mcpServerStatuses[id] = .failed
+            extensions.mcpServerProbeSummaries[id] = MCPServerProbeSummary(errorMessage: message)
+            refreshTopBar(agentStatus: "Failed")
+            appendNotice("MCP server \(manifest.name) probe failed: \(message)")
+            return false
+        }
         return true
     }
 
@@ -980,11 +1093,14 @@ public final class QuillCodeWorkspaceModel {
             return false
         }
 
-        if let process = mcpServerProcesses[id], process.isRunning {
-            process.terminate()
+        if let handle = mcpServerProcesses[id], handle.process.isRunning {
+            handle.standardOutput.fileHandleForReading.readabilityHandler = nil
+            handle.standardError.fileHandleForReading.readabilityHandler = nil
+            handle.process.terminate()
         }
         mcpServerProcesses[id] = nil
         extensions.mcpServerStatuses[id] = .stopped
+        extensions.mcpServerProbeSummaries[id] = nil
         lastError = nil
         refreshTopBar(agentStatus: "Idle")
         appendNotice("MCP server \(manifest.name) stopped")
@@ -997,7 +1113,24 @@ public final class QuillCodeWorkspaceModel {
             return
         }
         extensions.mcpServerStatuses[id] = terminationStatus == 0 ? .stopped : .failed
+        if terminationStatus != 0 {
+            extensions.mcpServerProbeSummaries[id] = MCPServerProbeSummary(
+                errorMessage: "Process exited with status \(terminationStatus)."
+            )
+        } else {
+            extensions.mcpServerProbeSummaries[id] = nil
+        }
         refreshTopBar(agentStatus: terminationStatus == 0 ? "Idle" : "Failed")
+    }
+
+    private func mcpToolNoticeSuffix(for toolNames: [String]) -> String {
+        guard !toolNames.isEmpty else { return " (0 tools)" }
+        let preview = toolNames.prefix(3).joined(separator: ", ")
+        let remaining = toolNames.count - min(toolNames.count, 3)
+        if remaining > 0 {
+            return " (\(toolNames.count) tools: \(preview), +\(remaining) more)"
+        }
+        return " (\(toolNames.count) tools: \(preview))"
     }
 
     private func appendNotice(_ summary: String) {
@@ -1172,16 +1305,19 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func cancelActiveWork() {
-        let runningMCPIDs = mcpServerProcesses.compactMap { id, process in
-            process.isRunning ? id : nil
+        let runningMCPIDs = mcpServerProcesses.compactMap { id, handle in
+            handle.process.isRunning ? id : nil
         }
         let hadActiveWork = composer.isSending || terminal.isRunning || !runningMCPIDs.isEmpty
         composer.isSending = false
         terminal.isRunning = false
         for id in runningMCPIDs {
-            mcpServerProcesses[id]?.terminate()
+            mcpServerProcesses[id]?.standardOutput.fileHandleForReading.readabilityHandler = nil
+            mcpServerProcesses[id]?.standardError.fileHandleForReading.readabilityHandler = nil
+            mcpServerProcesses[id]?.process.terminate()
             mcpServerProcesses[id] = nil
             extensions.mcpServerStatuses[id] = .stopped
+            extensions.mcpServerProbeSummaries[id] = nil
         }
         lastError = nil
         if hadActiveWork {
