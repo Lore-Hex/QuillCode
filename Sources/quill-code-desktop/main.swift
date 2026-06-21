@@ -89,6 +89,7 @@ private struct QuillCodeDesktopRootView: View {
             browserAddressDraft: $controller.browserAddressDraft,
             isCommandPalettePresented: $controller.isCommandPalettePresented,
             isSettingsPresented: $controller.isSettingsPresented,
+            copiedTranscriptItemID: controller.copiedTranscriptItemID,
             onSend: controller.send,
             onRunTerminalCommand: controller.runTerminalCommand,
             onOpenBrowserPreview: controller.openBrowserPreview,
@@ -109,6 +110,7 @@ private struct QuillCodeDesktopRootView: View {
             onAddReviewComment: controller.addReviewComment,
             onCreateWorktree: controller.createWorktree,
             onRemoveWorktree: controller.removeWorktree,
+            onCopyTranscriptItem: controller.copyTranscriptItem,
             onCommand: controller.runCommand
         )
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeNewChat)) { _ in
@@ -163,6 +165,7 @@ private final class QuillCodeDesktopController: ObservableObject {
     @Published var isCommandPalettePresented = false
     @Published var isSettingsPresented = false
     @Published var isProjectImporterPresented = false
+    @Published var copiedTranscriptItemID: String?
 
     private let model: QuillCodeWorkspaceModel
     private let bootstrap: QuillCodeWorkspaceBootstrap
@@ -538,6 +541,22 @@ private final class QuillCodeDesktopController: ObservableObject {
         }
         if browserAddressDraft != model.browser.addressDraft {
             browserAddressDraft = model.browser.addressDraft
+        }
+    }
+
+    func copyTranscriptItem(id: String, text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        copiedTranscriptItemID = id
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            await MainActor.run {
+                if self?.copiedTranscriptItemID == id {
+                    self?.copiedTranscriptItemID = nil
+                }
+            }
         }
     }
 

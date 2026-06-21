@@ -45,6 +45,14 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('tool-card-input')).toContainText('whoami');
   await expect(page.getByTestId('tool-card-output')).toContainText('mock-user');
   await expect(page.getByText('You are `mock-user` in this workspace.')).toBeVisible();
+  await expect(page.getByTestId('message-copy').first()).toHaveText('Copy');
+  await page.getByTestId('message-copy').first().click();
+  await expect(page.getByTestId('message-copy').first()).toHaveText('Copied');
+  await expect(page.getByTestId('message-copy').first()).toHaveAttribute('data-copied', 'true');
+  await expect(page.getByTestId('tool-card-copy')).toHaveText('Copy output');
+  await page.getByTestId('tool-card-copy').click();
+  await expect(page.getByTestId('tool-card-copy')).toHaveText('Copied');
+  await expect(page.getByTestId('tool-card-copy')).toHaveAttribute('data-copied', 'true');
 
   const transcriptItems = page.locator('[data-testid="message"], [data-testid="tool-card"]');
   await expect(transcriptItems.nth(0)).toContainText('run whoami');

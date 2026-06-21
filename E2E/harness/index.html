@@ -562,7 +562,31 @@
     }
     .message.user { align-self: flex-end; background: linear-gradient(135deg, #45bdec, #d16c5f); }
     .message.assistant { align-self: flex-start; background: rgba(255,255,255,.1); }
-    .message { white-space: pre-wrap; }
+    .message { white-space: normal; }
+    .message > p,
+    .tool-card > p { margin: 0; }
+    .message > p { white-space: pre-wrap; }
+    .transcript-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .message.user .transcript-actions { justify-content: flex-end; }
+    .message.assistant .transcript-actions { justify-content: flex-start; }
+    .transcript-copy-button {
+      border: 0;
+      border-radius: 999px;
+      padding: 5px 9px;
+      color: var(--muted);
+      background: rgba(255,255,255,.08);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .transcript-copy-button[data-copied="true"] {
+      color: #9af0ad;
+      background: rgba(82,210,115,.16);
+    }
     .find-active {
       outline: 2px solid rgba(65,184,232,.78);
       outline-offset: 3px;
@@ -1269,7 +1293,8 @@
       },
       nextProjectIndex: 2,
       nextThreadIndex: 1,
-      nextTimelineIndex: 1
+      nextTimelineIndex: 1,
+      copiedTranscriptItemID: null
     };
     let activeMockRun = null;
 
@@ -1890,9 +1915,16 @@
         ? findMatches[Math.min(state.find.activeIndex, findMatches.length - 1)]?.id
         : null;
       const activeClass = timelineID => activeFindID === timelineID ? ' find-active' : '';
+      const copyButton = (testID, timelineID, label) => {
+        const copied = state.copiedTranscriptItemID === timelineID;
+        return `<footer class="transcript-actions">
+          <button type="button" class="transcript-copy-button" data-testid="${testID}" data-copy-id="${escapeHTML(timelineID)}" data-copied="${copied ? 'true' : 'false'}">${copied ? 'Copied' : escapeHTML(label)}</button>
+        </footer>`;
+      };
       const renderMessage = (message, timelineID = '') => `
         <article class="message ${escapeHTML(message.role)}${activeClass(timelineID)}" data-testid="message" data-timeline-id="${escapeHTML(timelineID)}" aria-label="${escapeHTML(message.role + ': ' + message.text)}">
-          ${escapeHTML(message.text)}
+          <p>${escapeHTML(message.text)}</p>
+          ${copyButton('message-copy', timelineID || message.id || `message-${message.text}`, 'Copy')}
         </article>`;
       const renderArtifacts = artifacts => artifacts && artifacts.length ? `
           <div class="tool-artifacts" data-testid="tool-card-artifacts" aria-label="Artifacts">
@@ -1919,6 +1951,7 @@
             <span data-testid="tool-card-status">${escapeHTML(card.status)}</span>
           </header>
           <p>${escapeHTML(card.subtitle)}</p>
+          ${copyButton('tool-card-copy', timelineID || card.id, card.outputJSON ? 'Copy output' : card.inputJSON ? 'Copy input' : 'Copy')}
           ${renderArtifacts(card.artifacts)}
           ${renderToolDetails(card)}
         </article>`;
@@ -2105,6 +2138,11 @@
       });
       document.querySelector('[data-testid="stop-button"]')?.addEventListener('click', () => {
         runCommand('stop-all');
+      });
+      document.querySelectorAll('[data-copy-id]').forEach(button => {
+        button.addEventListener('click', event => {
+          copyTranscriptItem(event.currentTarget.getAttribute('data-copy-id'));
+        });
       });
       document.querySelectorAll('[data-testid="slash-suggestion"]').forEach(button => {
         button.addEventListener('click', event => {
@@ -2635,6 +2673,29 @@
         ...state.transcript.messages.map(message => ({ id: message.id || `message-${message.text}`, kind: 'message', message })),
         ...state.transcript.toolCards.map(card => ({ id: card.id, kind: 'toolCard', toolCard: card }))
       ];
+    }
+
+    function copyTranscriptItem(timelineID) {
+      const item = transcriptTimelineItems().find(entry => entry.id === timelineID);
+      const text = item ? transcriptCopyText(item) : '';
+      if (!text.trim()) return;
+      navigator.clipboard?.writeText(text).catch(() => {});
+      state.copiedTranscriptItemID = timelineID;
+      render();
+      setTimeout(() => {
+        if (state.copiedTranscriptItemID === timelineID) {
+          state.copiedTranscriptItemID = null;
+          render();
+        }
+      }, 1500);
+    }
+
+    function transcriptCopyText(item) {
+      if (item.kind === 'message') {
+        return item.message?.text || '';
+      }
+      const card = item.toolCard || {};
+      return card.outputJSON || card.inputJSON || [card.title, card.subtitle].filter(Boolean).join('\n');
     }
 
     function transcriptTimelineSearchText(item) {

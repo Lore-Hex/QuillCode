@@ -8,6 +8,7 @@ public struct QuillCodeWorkspaceView: View {
     @Binding public var browserAddressDraft: String
     @Binding public var isCommandPalettePresented: Bool
     @Binding public var isSettingsPresented: Bool
+    public var copiedTranscriptItemID: String?
     public var onSend: () -> Void
     public var onRunTerminalCommand: () -> Void
     public var onOpenBrowserPreview: () -> Void
@@ -28,6 +29,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     public var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
     public var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
+    public var onCopyTranscriptItem: (String, String) -> Void
     public var onCommand: (WorkspaceCommandSurface) -> Void
 
     @State private var isSearchPresented = false
@@ -51,6 +53,7 @@ public struct QuillCodeWorkspaceView: View {
         browserAddressDraft: Binding<String>,
         isCommandPalettePresented: Binding<Bool>,
         isSettingsPresented: Binding<Bool>,
+        copiedTranscriptItemID: String? = nil,
         onSend: @escaping () -> Void,
         onRunTerminalCommand: @escaping () -> Void,
         onOpenBrowserPreview: @escaping () -> Void,
@@ -71,6 +74,7 @@ public struct QuillCodeWorkspaceView: View {
         onAddReviewComment: @escaping (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
+        onCopyTranscriptItem: @escaping (String, String) -> Void = { _, _ in },
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
     ) {
         self.surface = surface
@@ -79,6 +83,7 @@ public struct QuillCodeWorkspaceView: View {
         self._browserAddressDraft = browserAddressDraft
         self._isCommandPalettePresented = isCommandPalettePresented
         self._isSettingsPresented = isSettingsPresented
+        self.copiedTranscriptItemID = copiedTranscriptItemID
         self.onSend = onSend
         self.onRunTerminalCommand = onRunTerminalCommand
         self.onOpenBrowserPreview = onOpenBrowserPreview
@@ -99,6 +104,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onAddReviewComment = onAddReviewComment
         self.onCreateWorktree = onCreateWorktree
         self.onRemoveWorktree = onRemoveWorktree
+        self.onCopyTranscriptItem = onCopyTranscriptItem
         self.onCommand = onCommand
     }
 
@@ -137,10 +143,12 @@ public struct QuillCodeWorkspaceView: View {
                         isFindPresented: $isFindPresented,
                         findQuery: $findQuery,
                         activeFindIndex: $activeFindIndex,
+                        copiedTranscriptItemID: copiedTranscriptItemID,
                         onContextCommand: handleCommand,
                         onRuntimeIssueAction: runtimeIssueAction(for: surface.runtimeIssue),
                         onReviewAction: onReviewAction,
-                        onAddReviewComment: onAddReviewComment
+                        onAddReviewComment: onAddReviewComment,
+                        onCopyTranscriptItem: onCopyTranscriptItem
                     )
                     if surface.browser.isVisible {
                         Divider()
@@ -1387,10 +1395,12 @@ private struct QuillCodeTranscriptView: View {
     @Binding var isFindPresented: Bool
     @Binding var findQuery: String
     @Binding var activeFindIndex: Int
+    var copiedTranscriptItemID: String?
     var onContextCommand: (WorkspaceCommandSurface) -> Void
     var onRuntimeIssueAction: (() -> Void)?
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
+    var onCopyTranscriptItem: (String, String) -> Void
 
     private var findMatches: [QuillCodeTranscriptFindMatch] {
         QuillCodeTranscriptFindMatch.matches(in: transcript, query: findQuery)
@@ -1457,11 +1467,24 @@ private struct QuillCodeTranscriptView: View {
                                     switch item.kind {
                                     case .message:
                                         if let message = item.message {
-                                            QuillCodeMessageBubble(message: message)
+                                            QuillCodeMessageBubble(
+                                                message: message,
+                                                timelineItemID: item.id,
+                                                isCopied: copiedTranscriptItemID == item.id,
+                                                onCopy: {
+                                                    onCopyTranscriptItem(item.id, message.text)
+                                                }
+                                            )
                                         }
                                     case .toolCard:
                                         if let card = item.toolCard {
-                                            QuillCodeToolCardView(card: card)
+                                            QuillCodeToolCardView(
+                                                card: card,
+                                                isCopied: copiedTranscriptItemID == item.id,
+                                                onCopy: {
+                                                    onCopyTranscriptItem(item.id, copyText(for: card))
+                                                }
+                                            )
                                         }
                                     }
                                 }
@@ -1491,6 +1514,19 @@ private struct QuillCodeTranscriptView: View {
             }
         }
         .background(QuillCodePalette.background)
+    }
+
+    private func copyText(for card: ToolCardState) -> String {
+        if let outputJSON = card.outputJSON, !outputJSON.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return outputJSON
+        }
+        if let inputJSON = card.inputJSON, !inputJSON.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return inputJSON
+        }
+        return [card.title, card.subtitle]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
     }
 
     private func selectPreviousFindMatch() {
@@ -2561,24 +2597,40 @@ private struct QuillCodeReviewActionButton: View {
 
 private struct QuillCodeMessageBubble: View {
     var message: MessageSurface
+    var timelineItemID: String
+    var isCopied: Bool
+    var onCopy: () -> Void
 
     var body: some View {
         HStack {
             if message.role == .user {
                 Spacer(minLength: 80)
             }
-            Text(message.text)
-                .font(.body)
-                .textSelection(.enabled)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
-                .background(background)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .accessibilityLabel(message.accessibilityLabel)
+            VStack(alignment: actionAlignment, spacing: 6) {
+                Text(message.text)
+                    .font(.body)
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+                    .background(background)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .accessibilityLabel(message.accessibilityLabel)
+                QuillCodeTranscriptCopyButton(
+                    label: "Copy",
+                    copiedLabel: "Copied",
+                    isCopied: isCopied,
+                    action: onCopy
+                )
+                .accessibilityIdentifier("transcript-copy-\(timelineItemID)")
+            }
             if message.role != .user {
                 Spacer(minLength: 80)
             }
         }
+    }
+
+    private var actionAlignment: HorizontalAlignment {
+        message.role == .user ? .trailing : .leading
     }
 
     private var background: some ShapeStyle {
@@ -2590,10 +2642,14 @@ private struct QuillCodeMessageBubble: View {
 
 private struct QuillCodeToolCardView: View {
     var card: ToolCardState
+    var isCopied: Bool
+    var onCopy: () -> Void
     @State private var isDetailsOpen: Bool
 
-    init(card: ToolCardState) {
+    init(card: ToolCardState, isCopied: Bool = false, onCopy: @escaping () -> Void = {}) {
         self.card = card
+        self.isCopied = isCopied
+        self.onCopy = onCopy
         self._isDetailsOpen = State(initialValue: card.isExpanded || card.status == .failed || card.status == .review)
     }
 
@@ -2616,6 +2672,15 @@ private struct QuillCodeToolCardView: View {
                     .padding(.vertical, 5)
                     .background(statusColor.opacity(0.16))
                     .clipShape(Capsule())
+            }
+            HStack {
+                QuillCodeTranscriptCopyButton(
+                    label: copyActionLabel,
+                    copiedLabel: "Copied",
+                    isCopied: isCopied,
+                    action: onCopy
+                )
+                Spacer()
             }
             if !card.artifacts.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
@@ -2702,6 +2767,38 @@ private struct QuillCodeToolCardView: View {
         case .review:
             return "shield.lefthalf.filled"
         }
+    }
+
+    private var copyActionLabel: String {
+        if card.outputJSON != nil {
+            return "Copy output"
+        }
+        if card.inputJSON != nil {
+            return "Copy input"
+        }
+        return "Copy"
+    }
+}
+
+private struct QuillCodeTranscriptCopyButton: View {
+    var label: String
+    var copiedLabel: String
+    var isCopied: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(isCopied ? copiedLabel : label, systemImage: isCopied ? "checkmark" : "doc.on.doc")
+                .font(.caption2.weight(.semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .foregroundStyle(isCopied ? QuillCodePalette.green : QuillCodePalette.muted)
+                .background((isCopied ? QuillCodePalette.green : Color.white).opacity(isCopied ? 0.16 : 0.08))
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(isCopied ? copiedLabel : label)
     }
 }
 

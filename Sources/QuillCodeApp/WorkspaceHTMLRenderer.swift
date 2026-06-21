@@ -157,13 +157,16 @@ public enum WorkspaceHTMLRenderer {
         case .message:
             guard let message = item.message else { return "" }
             return """
-            <article class="message \(message.role.rawValue)" data-testid="message" aria-label="\(escape(message.accessibilityLabel))">
-              \(escape(message.text))
+            <article class="message \(message.role.rawValue)" data-testid="message" data-timeline-id="\(escape(item.id))" aria-label="\(escape(message.accessibilityLabel))">
+              <p>\(escape(message.text))</p>
+              <footer class="transcript-actions">
+                <button type="button" data-testid="message-copy" data-copy-id="\(escape(item.id))">Copy</button>
+              </footer>
             </article>
             """
         case .toolCard:
             guard let card = item.toolCard else { return "" }
-            return renderToolCard(card)
+            return renderToolCard(card, timelineItemID: item.id)
         }
     }
 
@@ -255,18 +258,33 @@ public enum WorkspaceHTMLRenderer {
         """
     }
 
-    private static func renderToolCard(_ card: ToolCardState) -> String {
-        """
-        <article class="tool-card \(card.status.rawValue)" data-testid="tool-card" data-status="\(card.status.rawValue)">
+    private static func renderToolCard(_ card: ToolCardState, timelineItemID: String? = nil) -> String {
+        let timelineAttribute = timelineItemID.map { #" data-timeline-id="\#(escape($0))""# } ?? ""
+        let copyID = timelineItemID ?? card.id
+        return """
+        <article class="tool-card \(card.status.rawValue)" data-testid="tool-card" data-status="\(card.status.rawValue)"\(timelineAttribute)>
           <header>
             <strong data-testid="tool-card-title">\(escape(card.title))</strong>
             <span data-testid="tool-card-status">\(escape(card.status.rawValue))</span>
           </header>
           <p>\(escape(card.subtitle))</p>
+          <footer class="transcript-actions">
+            <button type="button" data-testid="tool-card-copy" data-copy-id="\(escape(copyID))">\(escape(copyActionLabel(for: card)))</button>
+          </footer>
           \(renderToolArtifacts(card.artifacts))
           \(renderToolDetails(card))
         </article>
         """
+    }
+
+    private static func copyActionLabel(for card: ToolCardState) -> String {
+        if card.outputJSON != nil {
+            return "Copy output"
+        }
+        if card.inputJSON != nil {
+            return "Copy input"
+        }
+        return "Copy"
     }
 
     private static func renderToolDetails(_ card: ToolCardState) -> String {
