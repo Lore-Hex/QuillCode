@@ -1224,6 +1224,38 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(model.selectedThread?.messages.first?.content.contains("Context compacted") == true)
     }
 
+    func testSlashThreadLifecycleCommands() async throws {
+        let source = ChatThread(title: "Original", messages: [
+            .init(role: .user, content: "run whoami")
+        ])
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [source],
+            selectedThreadID: source.id
+        ))
+        let root = try makeTempDirectory()
+
+        model.setDraft("/rename Better name")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertEqual(model.selectedThread?.title, "Better name")
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Renamed chat to Better name.")
+
+        model.setDraft("/duplicate")
+        await model.submitComposer(workspaceRoot: root)
+        let duplicateID = try XCTUnwrap(model.root.selectedThreadID)
+        XCTAssertEqual(model.selectedThread?.title, "Copy: Better name")
+
+        model.setDraft("/archive")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertEqual(model.root.selectedThreadID, source.id)
+        XCTAssertTrue(model.root.threads.first { $0.id == duplicateID }?.isArchived == true)
+
+        model.selectThread(duplicateID)
+        model.setDraft("/unarchive")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertEqual(model.root.selectedThreadID, duplicateID)
+        XCTAssertFalse(model.selectedThread?.isArchived ?? true)
+    }
+
     func testSlashStatusReportsWorkspaceState() async throws {
         let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
         let thread = ChatThread(title: "Status thread", projectID: project.id)
@@ -1295,6 +1327,49 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.root.selectedThreadID, second.id)
         XCTAssertTrue(try threadStore.load(second.id).isPinned)
         XCTAssertTrue(try threadStore.load(first.id).isArchived)
+    }
+
+    func testRenameDuplicateUnarchiveAndDeleteThreadLifecycle() throws {
+        let root = try makeTempDirectory()
+        let threadStore = JSONThreadStore(directory: root)
+        var archived = ChatThread(title: "Archived", messages: [
+            .init(role: .user, content: "old task")
+        ])
+        archived.isArchived = true
+        let active = ChatThread(title: "Active", messages: [
+            .init(role: .user, content: "run whoami"),
+            .init(role: .assistant, content: "quill")
+        ])
+        try threadStore.save(archived)
+        try threadStore.save(active)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                threads: [archived, active],
+                selectedThreadID: active.id
+            ),
+            threadStore: threadStore
+        )
+
+        XCTAssertTrue(model.renameThread(active.id, to: "Renamed Active"))
+        XCTAssertEqual(model.selectedThread?.title, "Renamed Active")
+        XCTAssertEqual(try threadStore.load(active.id).title, "Renamed Active")
+
+        let duplicateID = try XCTUnwrap(model.duplicateThread(active.id))
+        let duplicate = try threadStore.load(duplicateID)
+        XCTAssertEqual(duplicate.title, "Copy: Renamed Active")
+        XCTAssertEqual(duplicate.messages.map(\.content), ["run whoami", "quill"])
+        XCTAssertEqual(duplicate.events.last?.summary, "Duplicated from Renamed Active")
+        XCTAssertEqual(model.root.selectedThreadID, duplicateID)
+
+        XCTAssertTrue(model.unarchiveThread(archived.id))
+        XCTAssertEqual(model.root.selectedThreadID, archived.id)
+        XCTAssertFalse(try threadStore.load(archived.id).isArchived)
+        XCTAssertEqual(model.root.sidebarItems.map(\.title), ["Archived", "Copy: Renamed Active", "Renamed Active"])
+
+        XCTAssertTrue(model.deleteThread(archived.id))
+        XCTAssertThrowsError(try threadStore.load(archived.id))
+        XCTAssertFalse(model.root.threads.contains { $0.id == archived.id })
+        XCTAssertEqual(model.root.selectedThreadID, duplicateID)
     }
 
     func testModeAndModelUpdateSelectedThreadAndTopBar() {

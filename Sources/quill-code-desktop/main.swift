@@ -96,6 +96,7 @@ private struct QuillCodeDesktopRootView: View {
             onAddProjectRequested: controller.requestAddProject,
             onSelectThread: controller.selectThread,
             onThreadAction: controller.runThreadAction,
+            onRenameThread: controller.renameThread,
             onSelectProject: controller.selectProject,
             onSetMode: controller.setMode,
             onSetModel: controller.setModel,
@@ -201,11 +202,24 @@ private final class QuillCodeDesktopController: ObservableObject {
 
     func runThreadAction(_ action: SidebarItemActionSurface) {
         switch action.kind {
+        case .rename:
+            break
+        case .duplicate:
+            _ = model.duplicateThread(action.threadID)
         case .pin, .unpin:
             model.togglePinThread(action.threadID)
         case .archive:
             model.archiveThread(action.threadID)
+        case .unarchive:
+            model.unarchiveThread(action.threadID)
+        case .delete:
+            model.deleteThread(action.threadID)
         }
+        refresh()
+    }
+
+    func renameThread(_ id: UUID, title: String) {
+        _ = model.renameThread(id, to: title)
         refresh()
     }
 

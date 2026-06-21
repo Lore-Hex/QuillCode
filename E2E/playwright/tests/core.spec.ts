@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Locator } from '@playwright/test';
 
 test('mock harness executes simple command flow', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
@@ -447,8 +447,12 @@ test('mock harness creates and removes worktrees from dialogs', async ({ page })
   await expect(page.getByTestId('message').last()).toContainText('Removed worktree quillcode-feature.');
 });
 
-test('mock harness pins and archives chats from the sidebar', async ({ page }) => {
+test('mock harness manages chat lifecycle from the sidebar', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
+  const clickThreadAction = async (row: Locator, name: string) => {
+    await row.getByLabel(/^Actions for /).click();
+    await row.getByRole('button', { name }).click();
+  };
 
   await page.getByLabel('Message').fill('run whoami');
   await page.getByRole('button', { name: 'Send' }).click();
@@ -458,17 +462,39 @@ test('mock harness pins and archives chats from the sidebar', async ({ page }) =
 
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(2);
   const whoamiRow = page.getByTestId('sidebar-thread-row').filter({ hasText: 'run whoami' });
-  await whoamiRow.getByRole('button', { name: 'Pin' }).click();
+  await clickThreadAction(whoamiRow, 'Pin');
 
   await expect(page.getByTestId('sidebar-section-title')).toContainText(['Pinned', 'Recent']);
   await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('run whoami');
   await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('trustedrouter/fusion');
 
-  await page.getByTestId('sidebar-thread-row').first().getByRole('button', { name: 'Archive' }).click();
+  page.once('dialog', async dialog => {
+    expect(dialog.message()).toContain('Rename chat');
+    await dialog.accept('Renamed whoami');
+  });
+  await clickThreadAction(page.getByTestId('sidebar-thread-row').first(), 'Rename');
+  await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('Renamed whoami');
 
-  await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(1);
-  await expect(page.getByTestId('sidebar-thread-row')).toContainText('git diff');
-  await expect(page.getByTestId('top-bar-title')).toHaveText('git diff');
+  await clickThreadAction(page.getByTestId('sidebar-thread-row').first(), 'Duplicate');
+  await expect(page.getByTestId('top-bar-title')).toHaveText('Copy: Renamed whoami');
+  const copiedRow = page.getByTestId('sidebar-thread-row').filter({ hasText: 'Copy: Renamed whoami' });
+  await expect(copiedRow).toBeVisible();
+  await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(3);
+
+  await clickThreadAction(copiedRow, 'Archive');
+
+  await expect(page.getByTestId('sidebar-section-title')).toContainText(['Pinned', 'Recent', 'Archived']);
+  await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(3);
+  await expect(page.getByTestId('sidebar-thread-row').last()).toContainText('Copy: Renamed whoami');
+  await expect(page.getByTestId('top-bar-title')).toHaveText('Renamed whoami');
+
+  await clickThreadAction(page.getByTestId('sidebar-thread-row').last(), 'Unarchive');
+  await expect(page.getByTestId('top-bar-title')).toHaveText('Copy: Renamed whoami');
+  await expect(page.getByTestId('sidebar-section-title')).toContainText(['Pinned', 'Recent']);
+
+  await clickThreadAction(page.getByTestId('sidebar-thread-row').filter({ hasText: 'Copy: Renamed whoami' }), 'Delete');
+  await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(2);
+  await expect(page.getByTestId('sidebar')).not.toContainText('Copy: Renamed whoami');
 });
 
 test('mock harness opens a new project from the sidebar', async ({ page }) => {

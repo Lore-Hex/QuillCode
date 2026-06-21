@@ -250,7 +250,8 @@
     }
     .sidebar-item {
       min-height: 60px;
-      padding-right: 88px;
+      padding-right: 12px;
+      margin-bottom: 6px;
     }
     .sidebar-item.selected,
     .project-item.selected { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.14); }
@@ -258,31 +259,59 @@
     .project-item small { color: var(--muted); }
     .sidebar-thread-row {
       position: relative;
-      display: block;
+      display: grid;
+      gap: 4px;
       margin-bottom: 8px;
     }
-    .sidebar-thread-actions {
+    .sidebar-thread-menu {
       position: absolute;
-      top: 8px;
       right: 8px;
-      display: flex;
+      top: 8px;
+      z-index: 2;
+    }
+    .sidebar-thread-menu summary {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 9px;
+      border: 1px solid rgba(255,255,255,.1);
+      color: var(--muted);
+      background: rgba(255,255,255,.06);
+      cursor: pointer;
+      list-style: none;
+    }
+    .sidebar-thread-menu summary::-webkit-details-marker { display: none; }
+    .sidebar-thread-menu[open] summary,
+    .sidebar-thread-menu summary:hover {
+      color: var(--text);
+      border-color: rgba(255,255,255,.18);
+      background: rgba(255,255,255,.1);
+    }
+    .sidebar-thread-menu-popover {
+      position: absolute;
+      right: 0;
+      top: 34px;
+      min-width: 132px;
+      display: grid;
       gap: 4px;
-      opacity: .22;
-      transition: opacity .15s ease;
+      padding: 6px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(22,33,39,.98);
+      box-shadow: 0 14px 42px rgba(0,0,0,.35);
     }
-    .sidebar-thread-row:hover .sidebar-thread-actions,
-    .sidebar-thread-row:focus-within .sidebar-thread-actions {
-      opacity: 1;
-    }
-    .sidebar-thread-actions button {
+    .sidebar-thread-menu-popover button {
+      width: 100%;
       min-width: 0;
-      height: 24px;
-      padding: 0 7px;
-      border-radius: 999px;
+      min-height: 28px;
+      padding: 0 9px;
+      text-align: left;
+      border-radius: 8px;
       border: 1px solid rgba(255,255,255,.12);
       color: var(--blue);
       background: rgba(65,184,232,.12);
-      font-size: 10px;
+      font-size: 12px;
       font-weight: 700;
     }
     .transcript { display: grid; grid-template-rows: 1fr auto; overflow: hidden; }
@@ -1089,6 +1118,11 @@
       },
       commands: [
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
+        { id: 'thread-rename', title: 'Rename chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'title'], isEnabled: false },
+        { id: 'thread-duplicate', title: 'Duplicate chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'copy'], isEnabled: false },
+        { id: 'thread-archive', title: 'Archive chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'hide'], isEnabled: false },
+        { id: 'thread-unarchive', title: 'Unarchive chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'restore'], isEnabled: false },
+        { id: 'thread-delete', title: 'Delete chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'remove'], isEnabled: false },
         { id: 'fork-from-last', title: 'Fork from last', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'continue'], isEnabled: false },
         { id: 'compact-context', title: 'Compact context', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'summarize', 'compact'], isEnabled: false },
         { id: 'retry-last-turn', title: 'Retry last turn', shortcut: '', category: 'Control', keywords: ['retry', 'rerun', 'again', 'failed'], isEnabled: false },
@@ -1378,10 +1412,17 @@
     const contextWarningThresholdPercent = 80;
 
     function updateDynamicCommands() {
+      const selectedThread = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
+      const hasThread = Boolean(selectedThread);
       const hasMessages = Boolean(state.sidebar.selectedThreadID && state.transcript.messages.length);
       const hasUserMessages = state.transcript.messages.some(message => message.role === 'user' && String(message.text || '').trim());
       const hasActiveWork = state.composer.isSending || state.terminal.isRunning;
       state.commands = state.commands.map(command => (
+        command.id === 'thread-rename' ? { ...command, isEnabled: hasThread } :
+        command.id === 'thread-duplicate' ? { ...command, isEnabled: hasThread } :
+        command.id === 'thread-archive' ? { ...command, isEnabled: hasThread && !selectedThread.isArchived } :
+        command.id === 'thread-unarchive' ? { ...command, isEnabled: hasThread && selectedThread.isArchived } :
+        command.id === 'thread-delete' ? { ...command, isEnabled: hasThread } :
         command.id === 'fork-from-last' ? { ...command, isEnabled: hasMessages } :
         command.id === 'compact-context' ? { ...command, isEnabled: hasMessages } :
         command.id === 'retry-last-turn' ? { ...command, isEnabled: hasUserMessages && !state.composer.isSending } :
@@ -1702,16 +1743,19 @@
               <span>${escapeHTML(item.title)}</span>
               <small>${escapeHTML(item.subtitle)}</small>
             </button>
-            <span class="sidebar-thread-actions" data-testid="sidebar-item-actions">
-              <button type="button" data-testid="sidebar-thread-action" data-action="${item.isPinned ? 'unpin' : 'pin'}" data-thread-id="${escapeHTML(item.id)}">${item.isPinned ? 'Unpin' : 'Pin'}</button>
-              <button type="button" data-testid="sidebar-thread-action" data-action="archive" data-thread-id="${escapeHTML(item.id)}">Archive</button>
-            </span>
+            <details class="sidebar-thread-menu" data-testid="sidebar-item-actions">
+              <summary aria-label="Actions for ${escapeHTML(item.title)}">•••</summary>
+              <div class="sidebar-thread-menu-popover">
+                ${sidebarActionsFor(item).map(action => `<button type="button" data-testid="sidebar-thread-action" data-action="${escapeHTML(action.id)}" data-thread-id="${escapeHTML(item.id)}">${escapeHTML(action.title)}</button>`).join('')}
+              </div>
+            </details>
           </div>`).join('')}
         </section>` : '';
-      const pinnedItems = state.sidebar.items.filter(item => item.isPinned);
-      const recentItems = state.sidebar.items.filter(item => !item.isPinned);
+      const pinnedItems = state.sidebar.items.filter(item => item.isPinned && !item.isArchived);
+      const recentItems = state.sidebar.items.filter(item => !item.isPinned && !item.isArchived);
+      const archivedItems = state.sidebar.items.filter(item => item.isArchived);
       const sidebarContent = state.sidebar.items.length
-        ? renderSidebarSection('Pinned', pinnedItems) + renderSidebarSection('Recent', recentItems)
+        ? renderSidebarSection('Pinned', pinnedItems) + renderSidebarSection('Recent', recentItems) + renderSidebarSection('Archived', archivedItems)
         : '<p data-testid="sidebar-empty">No chats yet</p>';
       const filteredModelCategories = filterModelCategories(state.topBar.modelSearch);
       const modelResults = filteredModelCategories.length ? `
@@ -2266,7 +2310,8 @@
         return item.title.toLowerCase().includes(query)
           || item.subtitle.toLowerCase().includes(query)
           || (item.searchText || '').toLowerCase().includes(query)
-          || (item.isPinned ? 'pinned' : '').includes(query);
+          || (item.isPinned ? 'pinned' : '').includes(query)
+          || (item.isArchived ? 'archived' : '').includes(query);
       });
       return `
         <div class="search-panel" data-testid="search-panel">
@@ -2274,7 +2319,7 @@
             <header>
               <div>
                 <h2>Search chats</h2>
-                <p>Find a thread by title, model, or pinned state.</p>
+                <p>Find a thread by title, model, pinned state, archived state, or transcript text.</p>
               </div>
               <button type="button" data-testid="search-close">Close</button>
             </header>
@@ -2283,7 +2328,7 @@
               ${results.length ? results.map(item => `
                 <button class="search-result" type="button" data-testid="search-result" data-thread-id="${escapeHTML(item.id)}">
                   <span>${escapeHTML(item.title)}</span>
-                  <small>${escapeHTML(item.subtitle)}${item.isPinned ? ' · pinned' : ''}</small>
+                  <small>${escapeHTML(item.subtitle)}${item.isPinned ? ' · pinned' : ''}${item.isArchived ? ' · archived' : ''}</small>
                 </button>`).join('') : '<p data-testid="search-empty">No matching chats</p>'}
             </div>
           </section>
@@ -2468,6 +2513,22 @@
         </section>`;
     }
 
+    function sidebarActionsFor(item) {
+      if (item.isArchived) {
+        return [
+          { id: 'unarchive', title: 'Unarchive' },
+          { id: 'delete', title: 'Delete' }
+        ];
+      }
+      return [
+        { id: 'rename', title: 'Rename' },
+        { id: 'duplicate', title: 'Duplicate' },
+        { id: item.isPinned ? 'unpin' : 'pin', title: item.isPinned ? 'Unpin' : 'Pin' },
+        { id: 'archive', title: 'Archive' },
+        { id: 'delete', title: 'Delete' }
+      ];
+    }
+
     function ensureThread(title) {
       if (!state.sidebar.selectedThreadID) {
         const threadID = `thread-${state.nextThreadIndex++}`;
@@ -2478,7 +2539,8 @@
           subtitle: state.topBar.modelLabel,
           searchText: '',
           isSelected: true,
-          isPinned: false
+          isPinned: false,
+          isArchived: false
         }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
       }
       state.topBar.primaryTitle = title;
@@ -2526,7 +2588,8 @@
         subtitle: state.topBar.modelLabel,
         searchText: copiedMessages.map(message => message.text).join('\n'),
         isSelected: true,
-        isPinned: false
+        isPinned: false,
+        isArchived: false
       }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
       state.transcript.messages = copiedMessages;
       state.transcript.toolCards = [];
@@ -2586,7 +2649,8 @@
         subtitle: state.topBar.modelLabel,
         searchText: compactedMessages.map(message => message.text).join('\n'),
         isSelected: true,
-        isPinned: false
+        isPinned: false,
+        isArchived: false
       }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
       state.transcript.messages = compactedMessages;
       state.transcript.toolCards = [];
@@ -2640,6 +2704,26 @@
       state.commandPalette.isOpen = false;
       if (commandID === 'new-chat') {
         newChat();
+        return;
+      }
+      if (commandID === 'thread-rename') {
+        runSidebarThreadAction('rename', state.sidebar.selectedThreadID);
+        return;
+      }
+      if (commandID === 'thread-duplicate') {
+        runSidebarThreadAction('duplicate', state.sidebar.selectedThreadID);
+        return;
+      }
+      if (commandID === 'thread-archive') {
+        runSidebarThreadAction('archive', state.sidebar.selectedThreadID);
+        return;
+      }
+      if (commandID === 'thread-unarchive') {
+        runSidebarThreadAction('unarchive', state.sidebar.selectedThreadID);
+        return;
+      }
+      if (commandID === 'thread-delete') {
+        runSidebarThreadAction('delete', state.sidebar.selectedThreadID);
         return;
       }
       if (commandID === 'fork-from-last') {
@@ -3008,7 +3092,8 @@
         subtitle: state.topBar.modelLabel,
         searchText: '',
         isSelected: true,
-        isPinned: false
+        isPinned: false,
+        isArchived: false
       }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
       state.transcript.messages = [];
       state.transcript.toolCards = [];
@@ -3059,17 +3144,72 @@
 
     function runSidebarThreadAction(action, threadID) {
       if (!threadID) return;
+      const thread = state.sidebar.items.find(item => item.id === threadID);
+      if (!thread) return;
+      if (action === 'rename') {
+        const nextTitle = window.prompt('Rename chat', thread.title);
+        if (nextTitle && nextTitle.trim()) {
+          state.sidebar.items = state.sidebar.items.map(item => (
+            item.id === threadID ? { ...item, title: nextTitle.trim() } : item
+          ));
+          if (state.sidebar.selectedThreadID === threadID) {
+            state.topBar.primaryTitle = nextTitle.trim();
+          }
+        }
+      }
+      if (action === 'duplicate') {
+        const newThreadID = `thread-${state.nextThreadIndex++}`;
+        state.sidebar.selectedThreadID = newThreadID;
+        state.sidebar.items = sortSidebarItems([
+          {
+            ...thread,
+            id: newThreadID,
+            title: `Copy: ${thread.title}`,
+            isPinned: false,
+            isArchived: false,
+            isSelected: true
+          },
+          ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))
+        ]);
+        state.topBar.primaryTitle = `Copy: ${thread.title}`;
+      }
       if (action === 'pin' || action === 'unpin') {
         state.sidebar.items = sortSidebarItems(state.sidebar.items.map(item => (
           item.id === threadID ? { ...item, isPinned: !item.isPinned } : item
         )));
       }
       if (action === 'archive') {
+        state.sidebar.items = sortSidebarItems(state.sidebar.items.map(item => (
+          item.id === threadID ? { ...item, isArchived: true, isPinned: false, isSelected: false } : item
+        )));
+        if (state.sidebar.selectedThreadID === threadID) {
+          const next = state.sidebar.items.find(item => !item.isArchived);
+          state.sidebar.selectedThreadID = next?.id || null;
+          state.sidebar.items = state.sidebar.items.map(item => ({ ...item, isSelected: item.id === state.sidebar.selectedThreadID }));
+          state.topBar.primaryTitle = next?.title || 'QuillCode';
+          if (!state.sidebar.selectedThreadID) {
+            state.transcript.messages = [];
+            state.transcript.toolCards = [];
+            state.transcript.timelineItems = [];
+          }
+        }
+      }
+      if (action === 'unarchive') {
+        state.sidebar.selectedThreadID = threadID;
+        state.sidebar.items = sortSidebarItems(state.sidebar.items.map(item => (
+          item.id === threadID
+            ? { ...item, isArchived: false, isSelected: true }
+            : { ...item, isSelected: false }
+        )));
+        state.topBar.primaryTitle = thread.title;
+      }
+      if (action === 'delete') {
         state.sidebar.items = state.sidebar.items.filter(item => item.id !== threadID);
         if (state.sidebar.selectedThreadID === threadID) {
-          state.sidebar.selectedThreadID = state.sidebar.items[0]?.id || null;
-          state.sidebar.items = state.sidebar.items.map((item, index) => ({ ...item, isSelected: index === 0 }));
-          state.topBar.primaryTitle = state.sidebar.items[0]?.title || 'QuillCode';
+          const next = state.sidebar.items.find(item => !item.isArchived);
+          state.sidebar.selectedThreadID = next?.id || null;
+          state.sidebar.items = state.sidebar.items.map(item => ({ ...item, isSelected: item.id === state.sidebar.selectedThreadID }));
+          state.topBar.primaryTitle = next?.title || 'QuillCode';
           if (!state.sidebar.selectedThreadID) {
             state.transcript.messages = [];
             state.transcript.toolCards = [];
@@ -3081,7 +3221,11 @@
     }
 
     function sortSidebarItems(items) {
-      return [...items].sort((lhs, rhs) => Number(rhs.isPinned) - Number(lhs.isPinned));
+      return [...items].sort((lhs, rhs) => {
+        if (Boolean(lhs.isArchived) !== Boolean(rhs.isArchived)) return Number(lhs.isArchived) - Number(rhs.isArchived);
+        if (Boolean(lhs.isPinned) !== Boolean(rhs.isPinned)) return Number(rhs.isPinned) - Number(lhs.isPinned);
+        return 0;
+      });
     }
 
     function syncSelectedThreadSearchText() {
@@ -3177,6 +3321,9 @@
           message: "The selected model did not follow QuillCode's action schema. Try trustedrouter/fusion or another coding model.",
           actionLabel: 'Switch model'
         }, 'Expected valid QuillCode action JSON but received an empty argument object.');
+      } else if (/^\/(new|new-chat|newchat)\b/i.test(text)) {
+        newChat();
+        return;
       } else if (text.toLowerCase().startsWith('/mode ')) {
         const requestedMode = text.split(/\s+/)[1]?.toLowerCase();
         const modeMap = { auto: 'Auto', review: 'Review', 'read-only': 'Read-only', readonly: 'Read-only' };
@@ -3189,6 +3336,27 @@
         } else {
           addMessage('assistant', 'Usage: /mode auto, /mode review, or /mode read-only');
         }
+      } else if (/^\/(rename|rename-chat|title)\b/i.test(text)) {
+        const nextTitle = text.replace(/^\/(rename|rename-chat|title)\b/i, '').trim();
+        if (nextTitle) {
+          const selectedID = state.sidebar.selectedThreadID;
+          state.sidebar.items = state.sidebar.items.map(item => (
+            item.id === selectedID ? { ...item, title: nextTitle } : item
+          ));
+          state.topBar.primaryTitle = nextTitle;
+          addMessage('assistant', `Renamed chat to ${nextTitle}.`);
+        } else {
+          addMessage('assistant', 'Usage: /rename New chat title');
+        }
+      } else if (/^\/(duplicate|duplicate-chat|copy-chat)\b/i.test(text)) {
+        runSidebarThreadAction('duplicate', state.sidebar.selectedThreadID);
+        return;
+      } else if (/^\/(archive|archive-chat)\b/i.test(text)) {
+        runSidebarThreadAction('archive', state.sidebar.selectedThreadID);
+        return;
+      } else if (/^\/(unarchive|unarchive-chat)\b/i.test(text)) {
+        runSidebarThreadAction('unarchive', state.sidebar.selectedThreadID);
+        return;
       } else if (/^\/(terminal|term|shell)\b/i.test(text)) {
         state.terminal.isVisible = !state.terminal.isVisible;
         addMessage('assistant', state.terminal.isVisible ? 'Terminal opened.' : 'Terminal hidden.');
@@ -3219,6 +3387,10 @@
         addMessage('assistant', [
           'Slash commands:',
           '/new',
+          '/rename title',
+          '/duplicate',
+          '/archive',
+          '/unarchive',
           '/compact',
           '/status',
           '/terminal',

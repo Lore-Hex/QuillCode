@@ -61,7 +61,8 @@ public enum WorkspaceHTMLRenderer {
         } else {
             content = [
                 renderSidebarSection(title: "Pinned", items: sidebar.pinnedItems),
-                renderSidebarSection(title: "Recent", items: sidebar.recentItems)
+                renderSidebarSection(title: "Recent", items: sidebar.recentItems),
+                renderSidebarSection(title: "Archived", items: sidebar.archivedItems)
             ]
             .filter { !$0.isEmpty }
             .joined(separator: "\n")

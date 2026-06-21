@@ -24,6 +24,12 @@ public struct JSONThreadStore: Sendable {
         return try decoder.decode(ChatThread.self, from: data)
     }
 
+    public func delete(_ id: UUID) throws {
+        let url = fileURL(for: id)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        try FileManager.default.removeItem(at: url)
+    }
+
     public func list() throws -> [ChatThread] {
         guard FileManager.default.fileExists(atPath: directory.path) else { return [] }
         let urls = try FileManager.default.contentsOfDirectory(

@@ -94,10 +94,21 @@ public struct QuillCodeRootState: Sendable, Hashable {
     public var sidebarItems: [SidebarItem] {
         threads
             .filter { !$0.isArchived }
+            .sorted(by: Self.sidebarSort)
+            .map(SidebarItem.init)
+    }
+
+    public var allSidebarItems: [SidebarItem] {
+        threads
             .sorted {
-                if $0.isPinned != $1.isPinned { return $0.isPinned && !$1.isPinned }
-                return $0.updatedAt > $1.updatedAt
+                if $0.isArchived != $1.isArchived { return !$0.isArchived && $1.isArchived }
+                return Self.sidebarSort($0, $1)
             }
             .map(SidebarItem.init)
+    }
+
+    private static func sidebarSort(_ lhs: ChatThread, _ rhs: ChatThread) -> Bool {
+        if lhs.isPinned != rhs.isPinned { return lhs.isPinned && !rhs.isPinned }
+        return lhs.updatedAt > rhs.updatedAt
     }
 }

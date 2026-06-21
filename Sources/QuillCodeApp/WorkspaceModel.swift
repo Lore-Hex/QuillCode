@@ -780,6 +780,49 @@ public final class QuillCodeWorkspaceModel {
         archiveThread(selectedThreadID)
     }
 
+    @discardableResult
+    public func renameThread(_ id: UUID, to title: String) -> Bool {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        guard mutateThread(id, { thread in
+            thread.title = trimmed
+        }) != nil else {
+            return false
+        }
+        refreshTopBar(agentStatus: "Idle")
+        return true
+    }
+
+    @discardableResult
+    public func duplicateThread(_ id: UUID) -> UUID? {
+        guard let source = root.threads.first(where: { $0.id == id }) else { return nil }
+        var duplicate = ChatThread(
+            title: "Copy: \(source.title)",
+            projectID: knownProjectID(source.projectID),
+            mode: source.mode,
+            model: source.model,
+            messages: source.messages,
+            events: source.events,
+            isPinned: false,
+            isArchived: false,
+            instructions: source.instructions,
+            memories: source.memories
+        )
+        duplicate.events.append(.init(
+            kind: .notice,
+            summary: "Duplicated from \(source.title)",
+            payloadJSON: source.id.uuidString
+        ))
+        root.threads.insert(duplicate, at: 0)
+        root.selectedThreadID = duplicate.id
+        root.selectedProjectID = knownProjectID(source.projectID)
+        touchProject(root.selectedProjectID)
+        saveProjects()
+        try? threadStore?.save(duplicate)
+        refreshTopBar(agentStatus: "Idle")
+        return duplicate.id
+    }
+
     public func togglePinThread(_ id: UUID) {
         mutateThread(id) { thread in
             thread.isPinned.toggle()
@@ -799,6 +842,47 @@ public final class QuillCodeWorkspaceModel {
                 .id
         }
         refreshTopBar(agentStatus: "Idle")
+    }
+
+    @discardableResult
+    public func unarchiveThread(_ id: UUID) -> Bool {
+        guard let source = root.threads.first(where: { $0.id == id }),
+              mutateThread(id, { thread in
+                  thread.isArchived = false
+              }) != nil
+        else {
+            return false
+        }
+        root.selectedThreadID = id
+        root.selectedProjectID = knownProjectID(source.projectID)
+        touchProject(root.selectedProjectID)
+        saveProjects()
+        refreshTopBar(agentStatus: "Idle")
+        return true
+    }
+
+    @discardableResult
+    public func deleteThread(_ id: UUID) -> Bool {
+        guard let index = root.threads.firstIndex(where: { $0.id == id }) else {
+            return false
+        }
+        let removed = root.threads.remove(at: index)
+        try? threadStore?.delete(id)
+        if root.selectedThreadID == id {
+            root.selectedThreadID = root.threads
+                .filter { !$0.isArchived && $0.projectID == removed.projectID }
+                .sorted { $0.updatedAt > $1.updatedAt }
+                .first?
+                .id
+        }
+        if let selectedThread {
+            root.selectedProjectID = knownProjectID(selectedThread.projectID)
+        } else {
+            root.selectedProjectID = knownProjectID(root.selectedProjectID)
+        }
+        saveProjects()
+        refreshTopBar(agentStatus: "Idle")
+        return true
     }
 
     public func setMode(_ mode: AgentMode) {
@@ -1079,6 +1163,23 @@ public final class QuillCodeWorkspaceModel {
         case "memory-add":
             composer.draft = "/remember "
             return true
+        case "thread-rename":
+            guard let title = selectedThread?.title else { return false }
+            composer.draft = "/rename \(title)"
+            return true
+        case "thread-duplicate":
+            guard let selectedThreadID = root.selectedThreadID else { return false }
+            return duplicateThread(selectedThreadID) != nil
+        case "thread-archive":
+            guard let selectedThreadID = root.selectedThreadID else { return false }
+            archiveThread(selectedThreadID)
+            return true
+        case "thread-unarchive":
+            guard let selectedThreadID = root.selectedThreadID else { return false }
+            return unarchiveThread(selectedThreadID)
+        case "thread-delete":
+            guard let selectedThreadID = root.selectedThreadID else { return false }
+            return deleteThread(selectedThreadID)
         case "retry-last-turn":
             return prepareRetryLastUserTurn()
         case "fork-from-last":
@@ -1769,6 +1870,10 @@ public final class QuillCodeWorkspaceModel {
                 assistantText: """
                 Slash commands:
                 /new - start a new chat
+                /rename title - rename the current chat
+                /duplicate - duplicate the current chat
+                /archive - archive the current chat
+                /unarchive - restore the current chat from Archived
                 /compact - summarize older turns into a shorter continuation thread
                 /status - show current project, mode, and model
                 /terminal - show or hide the integrated terminal
@@ -1805,6 +1910,20 @@ public final class QuillCodeWorkspaceModel {
                 assistantText: "Model set to \(model).",
                 title: "Set model"
             )
+        case .renameThread(let title):
+            if let id = root.selectedThreadID, renameThread(id, to: title) {
+                appendLocalCommandTranscript(
+                    userText: originalPrompt,
+                    assistantText: "Renamed chat to \(title.trimmingCharacters(in: .whitespacesAndNewlines)).",
+                    title: "Rename chat"
+                )
+            } else {
+                appendLocalCommandTranscript(
+                    userText: originalPrompt,
+                    assistantText: "Could not rename this chat. Try /rename New chat title.",
+                    title: "Rename chat"
+                )
+            }
         case .remember(let content):
             runRememberSlashCommand(content, originalPrompt: originalPrompt)
         case .workspaceCommand(let commandID):

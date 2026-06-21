@@ -15,6 +15,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onAddProjectRequested: () -> Void
     public var onSelectThread: (UUID) -> Void
     public var onThreadAction: (SidebarItemActionSurface) -> Void
+    public var onRenameThread: (UUID, String) -> Void
     public var onSelectProject: (UUID?) -> Void
     public var onSetMode: (AgentMode) -> Void
     public var onSetModel: (String) -> Void
@@ -35,6 +36,7 @@ public struct QuillCodeWorkspaceView: View {
     @State private var settingsDraft = QuillCodeSettingsDraft()
     @State private var createWorktreeDraft = QuillCodeWorktreeCreateDraft()
     @State private var removeWorktreeDraft = QuillCodeWorktreeRemoveDraft()
+    @State private var renameThreadDraft: QuillCodeThreadRenameDraft?
 
     public init(
         surface: WorkspaceSurface,
@@ -50,6 +52,7 @@ public struct QuillCodeWorkspaceView: View {
         onAddProjectRequested: @escaping () -> Void,
         onSelectThread: @escaping (UUID) -> Void,
         onThreadAction: @escaping (SidebarItemActionSurface) -> Void,
+        onRenameThread: @escaping (UUID, String) -> Void,
         onSelectProject: @escaping (UUID?) -> Void,
         onSetMode: @escaping (AgentMode) -> Void,
         onSetModel: @escaping (String) -> Void,
@@ -75,6 +78,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onAddProjectRequested = onAddProjectRequested
         self.onSelectThread = onSelectThread
         self.onThreadAction = onThreadAction
+        self.onRenameThread = onRenameThread
         self.onSelectProject = onSelectProject
         self.onSetMode = onSetMode
         self.onSetModel = onSetModel
@@ -108,7 +112,7 @@ public struct QuillCodeWorkspaceView: View {
                     onSelectProject: onSelectProject,
                     onAddProjectRequested: onAddProjectRequested,
                     onSelectThread: onSelectThread,
-                    onThreadAction: onThreadAction,
+                    onThreadAction: handleThreadAction,
                     onCommand: handleCommand
                 )
                     .frame(width: 280)
@@ -248,6 +252,27 @@ public struct QuillCodeWorkspaceView: View {
                 )
             }
         }
+        .sheet(item: $renameThreadDraft) { draft in
+            QuillCodeThreadRenameView(
+                draft: draft,
+                onCancel: {
+                    renameThreadDraft = nil
+                },
+                onSave: { threadID, title in
+                    onRenameThread(threadID, title)
+                    renameThreadDraft = nil
+                }
+            )
+        }
+    }
+
+    private func handleThreadAction(_ action: SidebarItemActionSurface) {
+        if action.kind == .rename,
+           let item = surface.sidebar.items.first(where: { $0.id == action.threadID }) {
+            renameThreadDraft = QuillCodeThreadRenameDraft(threadID: item.id, title: item.title)
+            return
+        }
+        onThreadAction(action)
     }
 
     private func handleCommand(_ command: WorkspaceCommandSurface) {
@@ -262,6 +287,11 @@ public struct QuillCodeWorkspaceView: View {
         } else if command.id == "command-palette" {
             commandQuery = ""
             isCommandPalettePresented = true
+        } else if command.id == "thread-rename" {
+            if let selectedID = surface.sidebar.selectedThreadID,
+               let item = surface.sidebar.items.first(where: { $0.id == selectedID }) {
+                renameThreadDraft = QuillCodeThreadRenameDraft(threadID: item.id, title: item.title)
+            }
         } else if command.id == "git-worktree-create" {
             createWorktreeDraft = QuillCodeWorktreeCreateDraft()
             worktreeSheet = .create
@@ -304,6 +334,61 @@ private enum QuillCodeWorktreeSheet: String, Identifiable {
     case remove
 
     var id: String { rawValue }
+}
+
+private struct QuillCodeThreadRenameDraft: Identifiable, Hashable {
+    var threadID: UUID
+    var title: String
+
+    var id: UUID { threadID }
+}
+
+private struct QuillCodeThreadRenameView: View {
+    var draft: QuillCodeThreadRenameDraft
+    var onCancel: () -> Void
+    var onSave: (UUID, String) -> Void
+
+    @State private var title: String
+
+    init(
+        draft: QuillCodeThreadRenameDraft,
+        onCancel: @escaping () -> Void,
+        onSave: @escaping (UUID, String) -> Void
+    ) {
+        self.draft = draft
+        self.onCancel = onCancel
+        self.onSave = onSave
+        self._title = State(initialValue: draft.title)
+    }
+
+    private var canSave: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Rename Chat")
+                .font(.title2.weight(.semibold))
+            TextField("Chat title", text: $title)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit {
+                    if canSave {
+                        onSave(draft.threadID, title)
+                    }
+                }
+            HStack {
+                Spacer()
+                Button("Cancel", action: onCancel)
+                Button("Save") {
+                    onSave(draft.threadID, title)
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canSave)
+            }
+        }
+        .padding(22)
+        .frame(width: 380)
+    }
 }
 
 private struct QuillCodeCommandPaletteView: View {
@@ -513,7 +598,7 @@ private struct QuillCodeSearchView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Search chats")
                         .font(.title2.weight(.semibold))
-                    Text("Find a thread by title, model, pinned state, or transcript text.")
+                    Text("Find a thread by title, model, pinned state, archived state, or transcript text.")
                         .font(.callout)
                         .foregroundStyle(QuillCodePalette.muted)
                 }
@@ -552,7 +637,7 @@ private struct QuillCodeSearchView: View {
                                         Text(item.title)
                                             .font(.callout.weight(.semibold))
                                             .lineLimit(1)
-                                        Text(item.subtitle + (item.isPinned ? " - pinned" : ""))
+                                        Text(item.subtitle + (item.isPinned ? " - pinned" : "") + (item.isArchived ? " - archived" : ""))
                                             .font(.caption)
                                             .foregroundStyle(QuillCodePalette.muted)
                                             .lineLimit(1)
@@ -852,6 +937,14 @@ private struct QuillCodeSidebarView: View {
                                 onThreadAction: onThreadAction
                             )
                         }
+                        if !sidebar.archivedItems.isEmpty {
+                            QuillCodeSidebarThreadSectionView(
+                                title: "Archived",
+                                items: sidebar.archivedItems,
+                                onSelectThread: onSelectThread,
+                                onThreadAction: onThreadAction
+                            )
+                        }
                     }
                 }
             }
@@ -910,8 +1003,10 @@ private struct QuillCodeSidebarThreadRowView: View {
             .buttonStyle(.plain)
             Menu {
                 ForEach(item.actions) { action in
-                    Button(action.kind.title) {
+                    Button(role: action.kind == .delete ? .destructive : nil) {
                         onThreadAction(action)
+                    } label: {
+                        Text(action.kind.title)
                     }
                 }
             } label: {

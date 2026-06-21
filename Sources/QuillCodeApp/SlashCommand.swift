@@ -7,6 +7,7 @@ enum SlashCommand: Equatable {
     case newChat
     case mode(AgentMode)
     case model(String)
+    case renameThread(String)
     case remember(String)
     case workspaceCommand(String)
     case environmentAction(String?)
@@ -37,6 +38,14 @@ enum SlashCommandParser {
             return .newChat
         case "compact", "compact-context", "context-compact":
             return .workspaceCommand("compact-context")
+        case "rename", "rename-chat", "title":
+            return argument.isEmpty ? .invalid("Usage: /rename New chat title") : .renameThread(argument)
+        case "duplicate", "duplicate-chat", "copy-chat":
+            return .workspaceCommand("thread-duplicate")
+        case "archive", "archive-chat":
+            return .workspaceCommand("thread-archive")
+        case "unarchive", "unarchive-chat":
+            return .workspaceCommand("thread-unarchive")
         case "terminal", "term", "shell":
             return .workspaceCommand("toggle-terminal")
         case "browser", "preview":

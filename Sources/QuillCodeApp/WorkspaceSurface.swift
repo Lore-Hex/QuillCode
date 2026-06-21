@@ -320,19 +320,25 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         }
         return items.filter { item in
             let pinLabel = item.isPinned ? "pinned" : ""
+            let archivedLabel = item.isArchived ? "archived" : ""
             return item.title.localizedCaseInsensitiveContains(normalizedQuery)
                 || item.subtitle.localizedCaseInsensitiveContains(normalizedQuery)
                 || item.searchText.localizedCaseInsensitiveContains(normalizedQuery)
                 || pinLabel.localizedCaseInsensitiveContains(normalizedQuery)
+                || archivedLabel.localizedCaseInsensitiveContains(normalizedQuery)
         }
     }
 
     public var pinnedItems: [SidebarItemSurface] {
-        items.filter(\.isPinned)
+        items.filter { $0.isPinned && !$0.isArchived }
     }
 
     public var recentItems: [SidebarItemSurface] {
-        items.filter { !$0.isPinned }
+        items.filter { !$0.isPinned && !$0.isArchived }
+    }
+
+    public var archivedItems: [SidebarItemSurface] {
+        items.filter(\.isArchived)
     }
 }
 
@@ -344,37 +350,99 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var actions: [SidebarItemActionSurface]
     public var isSelected: Bool
     public var isPinned: Bool
+    public var isArchived: Bool
 
     public init(item: SidebarItem, selectedThreadID: UUID?) {
         self.id = item.id
         self.title = item.title
         self.subtitle = item.subtitle
         self.searchText = item.searchText
-        self.actions = [
+        self.actions = Self.actions(for: item)
+        self.isSelected = item.id == selectedThreadID
+        self.isPinned = item.isPinned
+        self.isArchived = item.isArchived
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case subtitle
+        case searchText
+        case actions
+        case isSelected
+        case isPinned
+        case isArchived
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.subtitle = try container.decode(String.self, forKey: .subtitle)
+        self.searchText = try container.decode(String.self, forKey: .searchText)
+        self.actions = try container.decodeIfPresent([SidebarItemActionSurface].self, forKey: .actions) ?? []
+        self.isSelected = try container.decode(Bool.self, forKey: .isSelected)
+        self.isPinned = try container.decode(Bool.self, forKey: .isPinned)
+        self.isArchived = try container.decodeIfPresent(Bool.self, forKey: .isArchived) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(subtitle, forKey: .subtitle)
+        try container.encode(searchText, forKey: .searchText)
+        try container.encode(actions, forKey: .actions)
+        try container.encode(isSelected, forKey: .isSelected)
+        try container.encode(isPinned, forKey: .isPinned)
+        try container.encode(isArchived, forKey: .isArchived)
+    }
+
+    private static func actions(for item: SidebarItem) -> [SidebarItemActionSurface] {
+        if item.isArchived {
+            return [
+                SidebarItemActionSurface(kind: .unarchive, threadID: item.id),
+                SidebarItemActionSurface(kind: .delete, threadID: item.id)
+            ]
+        }
+        return [
+            SidebarItemActionSurface(kind: .rename, threadID: item.id),
+            SidebarItemActionSurface(kind: .duplicate, threadID: item.id),
             SidebarItemActionSurface(
                 kind: item.isPinned ? .unpin : .pin,
                 threadID: item.id
             ),
-            SidebarItemActionSurface(kind: .archive, threadID: item.id)
+            SidebarItemActionSurface(kind: .archive, threadID: item.id),
+            SidebarItemActionSurface(kind: .delete, threadID: item.id)
         ]
-        self.isSelected = item.id == selectedThreadID
-        self.isPinned = item.isPinned
     }
 }
 
 public enum SidebarItemActionKind: String, Codable, Sendable, Hashable {
+    case rename
+    case duplicate
     case pin
     case unpin
     case archive
+    case unarchive
+    case delete
 
     public var title: String {
         switch self {
+        case .rename:
+            return "Rename"
+        case .duplicate:
+            return "Duplicate"
         case .pin:
             return "Pin"
         case .unpin:
             return "Unpin"
         case .archive:
             return "Archive"
+        case .unarchive:
+            return "Unarchive"
+        case .delete:
+            return "Delete"
         }
     }
 }
@@ -1371,7 +1439,7 @@ public extension QuillCodeWorkspaceModel {
                 selectedProjectID: root.selectedProjectID
             ),
             sidebar: SidebarSurface(
-                items: root.sidebarItems.map { SidebarItemSurface(item: $0, selectedThreadID: root.selectedThreadID) },
+                items: root.allSidebarItems.map { SidebarItemSurface(item: $0, selectedThreadID: root.selectedThreadID) },
                 selectedThreadID: root.selectedThreadID
             ),
             transcript: TranscriptSurface(
@@ -1750,6 +1818,41 @@ public extension QuillCodeWorkspaceModel {
                 shortcut: WorkspaceShortcutRegistry.label(for: "new-chat"),
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "conversation"]
+            ),
+            WorkspaceCommandSurface(
+                id: "thread-rename",
+                title: "Rename chat",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "title"],
+                isEnabled: selectedThread != nil
+            ),
+            WorkspaceCommandSurface(
+                id: "thread-duplicate",
+                title: "Duplicate chat",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "copy"],
+                isEnabled: selectedThread != nil
+            ),
+            WorkspaceCommandSurface(
+                id: "thread-archive",
+                title: "Archive chat",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "hide"],
+                isEnabled: selectedThread != nil && selectedThread?.isArchived == false
+            ),
+            WorkspaceCommandSurface(
+                id: "thread-unarchive",
+                title: "Unarchive chat",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "restore"],
+                isEnabled: selectedThread?.isArchived == true
+            ),
+            WorkspaceCommandSurface(
+                id: "thread-delete",
+                title: "Delete chat",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "chat", "remove"],
+                isEnabled: selectedThread != nil
             ),
             WorkspaceCommandSurface(
                 id: "fork-from-last",

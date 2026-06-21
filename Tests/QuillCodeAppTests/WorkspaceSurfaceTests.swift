@@ -38,12 +38,17 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.sidebar.items.count, 1)
         XCTAssertEqual(surface.sidebar.items[0].title, "Run whoami")
         XCTAssertTrue(surface.sidebar.items[0].isSelected)
-        XCTAssertEqual(surface.sidebar.items[0].actions.map(\.kind), [.pin, .archive])
+        XCTAssertEqual(surface.sidebar.items[0].actions.map(\.kind), [.rename, .duplicate, .pin, .archive, .delete])
         XCTAssertEqual(surface.transcript.messages.count, 2)
         XCTAssertEqual(surface.composer.placeholder, "Message QuillCode")
         XCTAssertTrue(surface.composer.canSend)
         XCTAssertEqual(surface.commands.map(\.id), [
             "new-chat",
+            "thread-rename",
+            "thread-duplicate",
+            "thread-archive",
+            "thread-unarchive",
+            "thread-delete",
             "fork-from-last",
             "compact-context",
             "retry-last-turn",
@@ -584,21 +589,27 @@ final class WorkspaceSurfaceTests: XCTestCase {
         otherThread.messages = [
             .init(role: .user, content: "Can you inspect the browser preview?")
         ]
+        var archivedThread = ChatThread(title: "Old release plan", model: "trustedrouter/fusion")
+        archivedThread.isArchived = true
         let surface = SidebarSurface(
             items: [
                 SidebarItemSurface(item: SidebarItem(thread: selectedThread), selectedThreadID: selectedThread.id),
-                SidebarItemSurface(item: SidebarItem(thread: otherThread), selectedThreadID: selectedThread.id)
+                SidebarItemSurface(item: SidebarItem(thread: otherThread), selectedThreadID: selectedThread.id),
+                SidebarItemSurface(item: SidebarItem(thread: archivedThread), selectedThreadID: selectedThread.id)
             ],
             selectedThreadID: selectedThread.id
         )
 
-        XCTAssertEqual(surface.filteredItems(matching: "").map(\.title), ["Run whoami", "Review git diff"])
+        XCTAssertEqual(surface.filteredItems(matching: "").map(\.title), ["Run whoami", "Review git diff", "Old release plan"])
         XCTAssertEqual(surface.filteredItems(matching: "who").map(\.title), ["Run whoami"])
         XCTAssertEqual(surface.filteredItems(matching: "GLM").map(\.title), ["Review git diff"])
         XCTAssertEqual(surface.filteredItems(matching: "browser preview").map(\.title), ["Review git diff"])
+        XCTAssertEqual(surface.filteredItems(matching: "archived").map(\.title), ["Old release plan"])
         XCTAssertTrue(surface.filteredItems(matching: "workspace manager").isEmpty)
         XCTAssertEqual(surface.pinnedItems.map(\.title), ["Review git diff"])
         XCTAssertEqual(surface.recentItems.map(\.title), ["Run whoami"])
+        XCTAssertEqual(surface.archivedItems.map(\.title), ["Old release plan"])
+        XCTAssertEqual(surface.archivedItems.first?.actions.map(\.kind), [.unarchive, .delete])
     }
 
     func testGitDiffReviewSurfaceSummarizesLatestCompletedDiff() throws {
@@ -807,12 +818,14 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="runtime-diagnostic-label">Last error"#))
     }
 
-    func testHTMLRendererGroupsPinnedAndRecentChats() {
+    func testHTMLRendererGroupsPinnedRecentAndArchivedChats() {
         var pinned = ChatThread(title: "Pinned chat", model: "trustedrouter/fusion")
         pinned.isPinned = true
         let recent = ChatThread(title: "Recent chat", model: "z-ai/glm-5.2")
+        var archived = ChatThread(title: "Archived chat", model: "trustedrouter/fusion")
+        archived.isArchived = true
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
-            threads: [recent, pinned],
+            threads: [recent, pinned, archived],
             selectedThreadID: recent.id
         ))
 
@@ -820,8 +833,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="sidebar-section-title">Pinned"#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar-section-title">Recent"#))
+        XCTAssertTrue(html.contains(#"data-testid="sidebar-section-title">Archived"#))
         XCTAssertTrue(html.contains("Pinned chat"))
         XCTAssertTrue(html.contains("Recent chat"))
+        XCTAssertTrue(html.contains("Archived chat"))
     }
 
     func testHTMLRendererIncludesToolCardOutput() async throws {
