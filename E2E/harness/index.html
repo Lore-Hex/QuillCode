@@ -243,7 +243,8 @@
     .timeline { padding: 22px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
     .terminal-pane,
     .browser-pane,
-    .extensions-pane {
+    .extensions-pane,
+    .memories-pane {
       display: grid;
       gap: 10px;
       padding: 14px;
@@ -253,6 +254,7 @@
     .terminal-pane header,
     .browser-pane header,
     .extensions-pane header,
+    .memories-pane header,
     .terminal-entry header {
       display: flex;
       align-items: center;
@@ -296,11 +298,16 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 12px;
     }
-    .extensions-pane header p { margin: 3px 0 0; color: var(--muted); }
-    .extensions-counts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+    .extensions-pane header p,
+    .memories-pane header p { margin: 3px 0 0; color: var(--muted); }
+    .extensions-counts,
+    .memories-counts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
     .extensions-counts span,
+    .memories-counts span,
     .extension-card [data-testid="extension-kind"],
-    .extension-card [data-testid="extension-status"] {
+    .extension-card [data-testid="extension-status"],
+    .memory-card [data-testid="memory-scope"],
+    .memory-card [data-testid="memory-size"] {
       padding: 4px 8px;
       border-radius: 999px;
       color: #b8ecff;
@@ -314,13 +321,16 @@
       background: rgba(82,210,115,.12);
       border-color: rgba(82,210,115,.22);
     }
-    .extensions-grid {
+    .extensions-grid,
+    .memories-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 10px;
     }
     .extension-card,
-    .extensions-empty {
+    .memory-card,
+    .extensions-empty,
+    .memories-empty {
       display: grid;
       gap: 7px;
       padding: 12px;
@@ -328,10 +338,14 @@
       background: rgba(0,0,0,.26);
       border: 1px solid rgba(255,255,255,.08);
     }
-    .extension-card header { justify-content: flex-start; }
+    .extension-card header,
+    .memory-card header { justify-content: flex-start; }
     .extension-card p,
-    .extensions-empty p { margin: 0; color: var(--muted); }
-    .extension-card code {
+    .memory-card p,
+    .extensions-empty p,
+    .memories-empty p { margin: 0; color: var(--muted); }
+    .extension-card code,
+    .memory-card code {
       color: var(--muted);
       font-size: 12px;
       overflow: hidden;
@@ -692,6 +706,8 @@
         ],
         modeLabel: 'Auto',
         agentStatus: 'Idle',
+        memoryLabel: '2 memories',
+        memorySources: ['memories/preferences.md', '.quillcode/memories/project.md'],
         computerUseLabel: 'Computer Use setup needed'
       },
       projects: {
@@ -768,6 +784,35 @@
           }
         ]
       },
+      memories: {
+        isVisible: false,
+        title: 'Memories',
+        subtitle: '1 global memory · 1 project memory',
+        globalCount: 1,
+        projectCount: 1,
+        emptyTitle: 'No memories loaded',
+        emptySubtitle: 'Add Markdown, text, or JSON notes under ~/.quillcode/memories or .quillcode/memories.',
+        items: [
+          {
+            id: 'global:memories/preferences.md',
+            scope: 'global',
+            scopeLabel: 'Global',
+            title: 'Preferences',
+            preview: 'Prefer focused tests, small reviewable commits, and direct status updates while work is running.',
+            relativePath: 'memories/preferences.md',
+            byteCountLabel: '91 bytes'
+          },
+          {
+            id: 'project:.quillcode/memories/project.md',
+            scope: 'project',
+            scopeLabel: 'Project',
+            title: 'Project',
+            preview: 'QuillCode should stay native Swift/SwiftUI and keep Codex parity decisions documented.',
+            relativePath: '.quillcode/memories/project.md',
+            byteCountLabel: '86 bytes'
+          }
+        ]
+      },
       composer: {
         draft: '',
         placeholder: 'Message QuillCode',
@@ -811,6 +856,7 @@
         { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', category: 'Workspace', keywords: ['folder', 'workspace', 'repo'], isEnabled: true },
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', category: 'Workspace', keywords: ['shell', 'command', 'pty'], isEnabled: true },
         { id: 'toggle-browser', title: 'Browser', shortcut: 'Cmd+Shift+B', category: 'Workspace', keywords: ['preview', 'web', 'localhost'], isEnabled: true },
+        { id: 'toggle-memories', title: 'Memories', shortcut: '', category: 'Memories', keywords: ['memory', 'context', 'preferences', 'facts'], isEnabled: true },
         { id: 'toggle-extensions', title: 'Extensions', shortcut: '', category: 'Extensions', keywords: ['plugins', 'skills', 'mcp', 'manifest'], isEnabled: true },
         { id: 'command-palette', title: 'Command palette', shortcut: 'Cmd+Shift+P', category: 'Navigation', keywords: ['commands', 'actions'], isEnabled: true },
         { id: 'git-pr-create', title: 'Create pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'review'], isEnabled: true },
@@ -1293,6 +1339,7 @@
               </div>
               <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
               <span data-testid="project-instructions-status" title="${escapeHTML(state.topBar.instructionSources.join(', '))}">${escapeHTML(state.topBar.instructionLabel)}</span>
+              <span data-testid="project-memories-status" title="${escapeHTML(state.topBar.memorySources.join(', '))}">${escapeHTML(state.topBar.memoryLabel)}</span>
               <span data-testid="agent-status">${escapeHTML(state.topBar.agentStatus)}</span>
               <span data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</span>
               <button type="button" data-testid="command-palette-button">Commands</button>
@@ -1307,6 +1354,7 @@
 	                <button class="sidebar-action" type="button" data-testid="sidebar-search-button">Search</button>
 	                <button class="sidebar-action" type="button" data-testid="browser-button">Browser</button>
 	                <button class="sidebar-action" type="button" data-testid="terminal-button">Terminal</button>
+	                <button class="sidebar-action" type="button" data-testid="memories-button">Memories</button>
 	                <button class="sidebar-action" type="button" data-testid="extensions-button">Extensions</button>
               </div>
               <div class="sidebar-section-title">
@@ -1321,6 +1369,7 @@
 	              <div class="timeline">${timeline}</div>
 	              ${state.browser.isVisible ? renderBrowserPane() : ''}
 	              ${state.extensions.isVisible ? renderExtensionsPane() : ''}
+	              ${state.memories.isVisible ? renderMemoriesPane() : ''}
 	              ${state.terminal.isVisible ? renderTerminalPane() : ''}
               <form class="composer" data-testid="composer">
                 <label for="message">Message</label>
@@ -1409,6 +1458,10 @@
 	      });
 	      document.querySelector('[data-testid="browser-button"]').addEventListener('click', () => {
 	        state.browser.isVisible = !state.browser.isVisible;
+	        render();
+	      });
+	      document.querySelector('[data-testid="memories-button"]').addEventListener('click', () => {
+	        state.memories.isVisible = !state.memories.isVisible;
 	        render();
 	      });
 	      document.querySelector('[data-testid="extensions-button"]').addEventListener('click', () => {
@@ -1832,6 +1885,40 @@
         </section>`;
     }
 
+    function renderMemoriesPane() {
+      const counts = `
+        <span data-testid="memories-count">${countLabel(state.memories.globalCount, 'global memory')}</span>
+        <span data-testid="memories-count">${countLabel(state.memories.projectCount, 'project memory')}</span>`;
+      const content = state.memories.items.length ? `
+        <div class="memories-grid" data-testid="memories-grid">
+          ${state.memories.items.map(item => `
+            <article class="memory-card" data-testid="memory-item" data-scope="${escapeHTML(item.scope)}">
+              <header>
+                <span data-testid="memory-scope">${escapeHTML(item.scopeLabel)}</span>
+                <span data-testid="memory-size">${escapeHTML(item.byteCountLabel)}</span>
+              </header>
+              <strong data-testid="memory-title">${escapeHTML(item.title)}</strong>
+              <p data-testid="memory-preview">${escapeHTML(item.preview)}</p>
+              <code data-testid="memory-path">${escapeHTML(item.relativePath)}</code>
+            </article>`).join('')}
+        </div>` : `
+        <div class="memories-empty" data-testid="memories-empty">
+          <strong>${escapeHTML(state.memories.emptyTitle)}</strong>
+          <p>${escapeHTML(state.memories.emptySubtitle)}</p>
+        </div>`;
+      return `
+        <section class="memories-pane" data-testid="memories-pane" aria-label="QuillCode memories">
+          <header>
+            <div>
+              <strong>${escapeHTML(state.memories.title)}</strong>
+              <p data-testid="memories-subtitle">${escapeHTML(state.memories.subtitle)}</p>
+            </div>
+            <span class="memories-counts">${counts}</span>
+          </header>
+          ${content}
+        </section>`;
+    }
+
     function ensureThread(title) {
       if (!state.sidebar.selectedThreadID) {
         const threadID = `thread-${state.nextThreadIndex++}`;
@@ -1958,6 +2045,9 @@
       }
       if (commandID === 'toggle-browser') {
         state.browser.isVisible = !state.browser.isVisible;
+      }
+      if (commandID === 'toggle-memories') {
+        state.memories.isVisible = !state.memories.isVisible;
       }
       if (commandID === 'toggle-extensions') {
         state.extensions.isVisible = !state.extensions.isVisible;
@@ -2360,6 +2450,9 @@
       } else if (/^\/(browser|preview)\b/i.test(text)) {
         state.browser.isVisible = !state.browser.isVisible;
         addMessage('assistant', state.browser.isVisible ? 'Browser opened.' : 'Browser hidden.');
+      } else if (/^\/(memor(y|ies)|remember)\b/i.test(text)) {
+        state.memories.isVisible = !state.memories.isVisible;
+        addMessage('assistant', state.memories.isVisible ? 'Memories opened.' : 'Memories hidden.');
       } else if (/^\/(worktrees?|wt)\b/i.test(text)) {
         listWorktrees();
         return;
@@ -2373,6 +2466,7 @@
           '/status',
           '/terminal',
           '/browser',
+          '/memories',
           '/worktrees',
           '/pr',
           '/mode auto|review|read-only',

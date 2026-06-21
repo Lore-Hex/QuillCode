@@ -150,6 +150,26 @@ test('mock harness runs a command from the command palette', async ({ page }) =>
   await expect(page.getByTestId('terminal-pane')).toBeVisible();
 });
 
+test('mock harness shows memories from sidebar and command palette', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await expect(page.getByTestId('project-memories-status')).toHaveText('2 memories');
+  await page.getByTestId('memories-button').click();
+
+  await expect(page.getByTestId('memories-pane')).toBeVisible();
+  await expect(page.getByTestId('memories-subtitle')).toHaveText('1 global memory · 1 project memory');
+  await expect(page.getByTestId('memory-item')).toHaveCount(2);
+  await expect(page.getByTestId('memory-title').first()).toHaveText('Preferences');
+  await expect(page.getByTestId('memory-path').first()).toHaveText('memories/preferences.md');
+
+  await page.getByTestId('command-palette-button').click();
+  await page.getByLabel('Search commands').fill('memories');
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
+  await page.getByTestId('command-palette-result').click();
+
+  await expect(page.getByTestId('memories-pane')).toHaveCount(0);
+});
+
 test('mock harness dispatches workspace keyboard shortcuts', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

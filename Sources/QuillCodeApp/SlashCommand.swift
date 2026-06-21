@@ -38,6 +38,8 @@ enum SlashCommandParser {
             return .workspaceCommand("toggle-terminal")
         case "browser", "preview":
             return .workspaceCommand("toggle-browser")
+        case "memory", "memories", "remember":
+            return .workspaceCommand("toggle-memories")
         case "worktree", "worktrees", "wt":
             return .workspaceCommand("git-worktree-list")
         case "pr", "pull-request", "pullrequest":

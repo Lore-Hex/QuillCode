@@ -8,12 +8,13 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - Thread reducers, tool schemas, shell/file/path safety.
 - Patch parser, diff parser, file/line/range review comments, Auto reviewer JSON, sandbox policy.
 - Project instruction discovery, nested precedence, symlink/root bounds, and byte/file caps.
-- Shortcut registry, plugin/skill/MCP manifest discovery, symlink/root bounds, duplicate ID handling, byte/count caps, malformed manifest skips, memory redaction.
+- Shortcut registry, plugin/skill/MCP manifest discovery, symlink/root bounds, duplicate ID handling, byte/count caps, malformed manifest skips.
+- Memory discovery from global and project roots, extension allow-listing, symlink/root bounds, unsupported file skips, count/file/total byte caps, truncation labels, thread snapshotting, TrustedRouter prompt injection as background context, and future memory redaction.
 
 ## Functional Tests
 
 - Mock TrustedRouter, mock LLM, fake shell, fake filesystem, fake git repo.
-- Cover login, model switch, searchable model picker, new thread, project instruction refresh before runs, project extension manifest refresh, incremental run progress, chronological transcript ordering, tool cards, artifact preview chips, collapsed successful-tool details, file edit, post-patch review refresh, review comments, command failure, cancellation, approvals, settings, top bar, search, slash commands, slash-to-workspace-action routing, and worktree project/thread handoff.
+- Cover login, model switch, searchable model picker, new thread, project instruction and memory refresh before runs, project extension manifest refresh, incremental run progress, chronological transcript ordering, tool cards, artifact preview chips, collapsed successful-tool details, file edit, post-patch review refresh, review comments, command failure, cancellation, approvals, settings, top bar, search, slash commands, slash-to-workspace-action routing, and worktree project/thread handoff.
 
 ## Integration Tests
 
@@ -39,6 +40,7 @@ Drive the QuillCode test harness with mock LLM:
 - Auto approve/deny/clarify
 - browser preview
 - extension manifest discovery, with plugin/skill/MCP counts and disabled-state display
+- memories pane discovery, global/project labels, truncation status, top-bar memory pill, sidebar toggle, command-palette toggle, and `/memories` slash command
 - plugin install
 - settings
 - top bar stop-all
@@ -52,7 +54,7 @@ Drive the QuillCode test harness with mock LLM:
 - Packaged macOS and Linux app launch.
 - Login/dev override.
 - Open repo, chat, run `whoami`, create file, confirm the created file appears as a tool-card artifact preview, confirm raw successful-tool details can be opened, review diff.
-- Terminal toggle, Extensions toggle, settings, top bar widget, quit/relaunch persistence.
+- Terminal toggle, Memories toggle, Extensions toggle, settings, top bar widget, quit/relaunch persistence.
 
 ## Release Gates
 

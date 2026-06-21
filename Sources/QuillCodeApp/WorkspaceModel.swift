@@ -295,6 +295,14 @@ public struct ExtensionsState: Sendable, Hashable {
     }
 }
 
+public struct MemoriesState: Sendable, Hashable {
+    public var isVisible: Bool
+
+    public init(isVisible: Bool = false) {
+        self.isVisible = isVisible
+    }
+}
+
 @MainActor
 public final class QuillCodeWorkspaceModel {
     public private(set) var root: QuillCodeRootState
@@ -302,11 +310,13 @@ public final class QuillCodeWorkspaceModel {
     public private(set) var terminal: TerminalState
     public private(set) var browser: BrowserState
     public private(set) var extensions: ExtensionsState
+    public private(set) var memories: MemoriesState
     public private(set) var lastError: String?
 
     private var runner: AgentRunner
     private let threadStore: JSONThreadStore?
     private let projectStore: JSONProjectStore?
+    private let globalMemoryDirectory: URL?
 
     public init(
         root: QuillCodeRootState = QuillCodeRootState(),
@@ -314,18 +324,22 @@ public final class QuillCodeWorkspaceModel {
         terminal: TerminalState = TerminalState(),
         browser: BrowserState = BrowserState(),
         extensions: ExtensionsState = ExtensionsState(),
+        memories: MemoriesState = MemoriesState(),
         runner: AgentRunner = AgentRunner(),
         threadStore: JSONThreadStore? = nil,
-        projectStore: JSONProjectStore? = nil
+        projectStore: JSONProjectStore? = nil,
+        globalMemoryDirectory: URL? = nil
     ) {
         self.root = root
         self.composer = composer
         self.terminal = terminal
         self.browser = browser
         self.extensions = extensions
+        self.memories = memories
         self.runner = runner
         self.threadStore = threadStore
         self.projectStore = projectStore
+        self.globalMemoryDirectory = globalMemoryDirectory
         refreshTopBar()
     }
 
@@ -375,6 +389,10 @@ public final class QuillCodeWorkspaceModel {
         extensions.isVisible.toggle()
     }
 
+    public func toggleMemories() {
+        memories.isVisible.toggle()
+    }
+
     @discardableResult
     public func openBrowserPreview(_ input: String? = nil, workspaceRoot: URL? = nil) -> Bool {
         let rawValue = input ?? browser.addressDraft
@@ -410,12 +428,13 @@ public final class QuillCodeWorkspaceModel {
     @discardableResult
     public func newChat(projectID: UUID? = nil) -> UUID {
         let effectiveProjectID = knownProjectID(projectID ?? root.selectedProjectID)
-        refreshProjectInstructions(effectiveProjectID)
+        refreshProjectMetadata(effectiveProjectID)
         let thread = ChatThread(
             projectID: effectiveProjectID,
             mode: root.config.mode,
             model: root.config.defaultModel,
-            instructions: instructions(for: effectiveProjectID)
+            instructions: instructions(for: effectiveProjectID),
+            memories: memoryNotes(for: effectiveProjectID)
         )
         root.threads.insert(thread, at: 0)
         root.selectedThreadID = thread.id
@@ -443,7 +462,8 @@ public final class QuillCodeWorkspaceModel {
                     payloadJSON: source.id.uuidString
                 )
             ],
-            instructions: source.instructions
+            instructions: source.instructions,
+            memories: source.memories
         )
         root.threads.insert(fork, at: 0)
         root.selectedThreadID = fork.id
@@ -473,6 +493,7 @@ public final class QuillCodeWorkspaceModel {
             root.projects[index].instructions = ProjectInstructionLoader.load(from: standardized)
             root.projects[index].localActions = LocalEnvironmentActionLoader.load(from: standardized)
             root.projects[index].extensionManifests = ProjectExtensionManifestLoader.load(from: standardized)
+            root.projects[index].memories = MemoryNoteLoader.loadProject(from: standardized)
             root.projects[index].lastOpenedAt = Date()
             root.selectedProjectID = root.projects[index].id
             saveProjects()
@@ -486,7 +507,8 @@ public final class QuillCodeWorkspaceModel {
             lastOpenedAt: Date(),
             instructions: ProjectInstructionLoader.load(from: standardized),
             localActions: LocalEnvironmentActionLoader.load(from: standardized),
-            extensionManifests: ProjectExtensionManifestLoader.load(from: standardized)
+            extensionManifests: ProjectExtensionManifestLoader.load(from: standardized),
+            memories: MemoryNoteLoader.loadProject(from: standardized)
         )
         root.projects.insert(project, at: 0)
         root.selectedProjectID = project.id
@@ -598,7 +620,7 @@ public final class QuillCodeWorkspaceModel {
             _ = newChat()
         }
         guard var thread = selectedThread else { return }
-        syncInstructions(into: &thread)
+        syncThreadContext(into: &thread)
         let threadID = thread.id
 
         composer.draft = ""
@@ -782,6 +804,9 @@ public final class QuillCodeWorkspaceModel {
         case "toggle-extensions":
             toggleExtensions()
             return true
+        case "toggle-memories":
+            toggleMemories()
+            return true
         case "fork-from-last":
             return forkFromLast() != nil
         case "git-worktree-list":
@@ -863,7 +888,14 @@ public final class QuillCodeWorkspaceModel {
         guard selectedThread != nil else {
             return ToolResult(ok: false, error: "No active thread")
         }
-        refreshProjectInstructions(root.selectedProjectID)
+        let contextProjectID = selectedThread?.projectID ?? root.selectedProjectID
+        refreshProjectMetadata(contextProjectID)
+        let refreshedMemories = memoryNotes(for: contextProjectID)
+        let refreshedInstructions = instructions(for: contextProjectID)
+        mutateSelectedThread { thread in
+            thread.memories = refreshedMemories
+            thread.instructions = refreshedInstructions
+        }
         lastError = nil
         refreshTopBar(agentStatus: "Running")
 
@@ -1128,7 +1160,8 @@ public final class QuillCodeWorkspaceModel {
                 ),
                 .init(kind: .message, summary: messageText)
             ],
-            instructions: instructions(for: projectID)
+            instructions: instructions(for: projectID),
+            memories: memoryNotes(for: projectID)
         )
 
         root.threads.insert(thread, at: 0)
@@ -1179,6 +1212,7 @@ public final class QuillCodeWorkspaceModel {
                 /status - show current project, mode, and model
                 /terminal - show or hide the integrated terminal
                 /browser - show or hide the browser preview
+                /memories - show or hide loaded memories
                 /worktrees - list git worktrees for this project
                 /pr - prepare a pull request request
                 /env [name] - list or run a local environment action
@@ -1318,10 +1352,12 @@ public final class QuillCodeWorkspaceModel {
         let project = selectedProject?.name ?? root.topBar.projectName ?? "No project"
         let thread = selectedThread?.title ?? "No chat"
         let instructionLabel = Self.instructionStatusLabel(for: selectedProject?.instructions ?? selectedThread?.instructions ?? [])
+        let memoryLabel = Self.memoryStatusLabel(for: selectedThread?.memories ?? memoryNotes(for: root.selectedProjectID))
         return """
         Project: \(project)
         Thread: \(thread)
         Instructions: \(instructionLabel)
+        Memories: \(memoryLabel)
         Mode: \(Self.modeLabel(root.topBar.mode))
         Model: \(root.topBar.model)
         Agent: \(root.topBar.agentStatus)
@@ -1363,11 +1399,18 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func refreshSelectedProjectInstructions() {
+        refreshSelectedProjectContext()
+    }
+
+    public func refreshSelectedProjectContext() {
         let projectID = selectedThread?.projectID ?? root.selectedProjectID
-        refreshProjectInstructions(projectID)
+        refreshGlobalMemories()
+        refreshProjectMetadata(projectID)
         let refreshedInstructions = instructions(for: projectID)
+        let refreshedMemories = memoryNotes(for: projectID)
         mutateSelectedThread { thread in
             thread.instructions = refreshedInstructions
+            thread.memories = refreshedMemories
         }
         saveProjects()
     }
@@ -1395,20 +1438,29 @@ public final class QuillCodeWorkspaceModel {
         guard let id, let index = root.projects.firstIndex(where: { $0.id == id }) else { return }
         let rootURL = URL(fileURLWithPath: root.projects[index].path)
         root.projects[index].instructions = ProjectInstructionLoader.load(from: rootURL)
+        root.projects[index].memories = MemoryNoteLoader.loadProject(from: rootURL)
     }
 
     private func refreshProjectMetadata(_ id: UUID?) {
+        refreshGlobalMemories()
         guard let id, let index = root.projects.firstIndex(where: { $0.id == id }) else { return }
         let rootURL = URL(fileURLWithPath: root.projects[index].path)
         root.projects[index].instructions = ProjectInstructionLoader.load(from: rootURL)
         root.projects[index].localActions = LocalEnvironmentActionLoader.load(from: rootURL)
         root.projects[index].extensionManifests = ProjectExtensionManifestLoader.load(from: rootURL)
+        root.projects[index].memories = MemoryNoteLoader.loadProject(from: rootURL)
     }
 
-    private func syncInstructions(into thread: inout ChatThread) {
+    private func refreshGlobalMemories() {
+        guard let globalMemoryDirectory else { return }
+        root.globalMemories = MemoryNoteLoader.loadGlobal(from: globalMemoryDirectory)
+    }
+
+    private func syncThreadContext(into thread: inout ChatThread) {
         let projectID = thread.projectID ?? root.selectedProjectID
-        refreshProjectInstructions(projectID)
+        refreshProjectMetadata(projectID)
         thread.instructions = instructions(for: projectID)
+        thread.memories = memoryNotes(for: projectID)
     }
 
     private func instructions(for projectID: UUID?) -> [ProjectInstruction] {
@@ -1418,6 +1470,17 @@ public final class QuillCodeWorkspaceModel {
             return []
         }
         return project.instructions
+    }
+
+    private func memoryNotes(for projectID: UUID?) -> [MemoryNote] {
+        let projectMemories: [MemoryNote]
+        if let projectID,
+           let project = root.projects.first(where: { $0.id == projectID }) {
+            projectMemories = project.memories
+        } else {
+            projectMemories = []
+        }
+        return root.globalMemories + projectMemories
     }
 
     private func localAction(withID id: String) -> LocalEnvironmentAction? {
@@ -1445,6 +1508,12 @@ public final class QuillCodeWorkspaceModel {
         guard !instructions.isEmpty else { return "No project instructions" }
         let truncated = instructions.contains { $0.wasTruncated } ? ", truncated" : ""
         return "\(instructions.count) instruction file\(instructions.count == 1 ? "" : "s") loaded\(truncated)"
+    }
+
+    static func memoryStatusLabel(for memories: [MemoryNote]) -> String {
+        guard !memories.isEmpty else { return "No memories" }
+        let truncated = memories.contains { $0.wasTruncated } ? ", truncated" : ""
+        return "\(memories.count) memor\(memories.count == 1 ? "y" : "ies")\(truncated)"
     }
 
     private func knownProjectID(_ id: UUID?) -> UUID? {

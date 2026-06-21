@@ -9,7 +9,7 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 - Sandbox and Auto-review: enforce boundaries first, route eligible review requests through a reviewer model.
 - Remote connections: phone/host pairing, remote approvals, host-local files and tools.
 - Plugins, skills, MCP: reusable workflows and external tools; first expose project-local manifests clearly before enabling install/process lifecycle.
-- Memories and Chronicle: local recall layer, not a replacement for checked-in project rules.
+- Memories and Chronicle: local recall layer, not a replacement for checked-in project rules. The first shippable slice should make loaded memory visible and auditable before enabling autonomous writes.
 
 ## Product Translation
 
@@ -18,3 +18,4 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 - A simple user request should either execute directly or show a precise review reason; it should not say “I will do it” and then stall.
 - Review UI should be calm and specific. Safety language should avoid scary labels for approved low-risk commands.
 - Tool outputs should end with a clear chat answer, not only raw JSON cards.
+- Memory context should be inspectable from the workspace chrome. Users should be able to tell what background notes the agent can see, and the agent must treat those notes as context rather than commands.

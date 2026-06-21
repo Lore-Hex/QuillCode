@@ -129,6 +129,10 @@ public struct QuillCodeWorkspaceView: View {
                         Divider()
                         QuillCodeExtensionsPaneView(extensions: surface.extensions)
                     }
+                    if surface.memories.isVisible {
+                        Divider()
+                        QuillCodeMemoriesPaneView(memories: surface.memories)
+                    }
                     if surface.terminal.isVisible {
                         Divider()
                         QuillCodeTerminalPaneView(
@@ -419,6 +423,8 @@ private struct QuillCodeCommandPaletteView: View {
             return "terminal"
         case "toggle-browser":
             return "globe"
+        case "toggle-memories":
+            return "brain.head.profile"
         case "toggle-extensions":
             return "puzzlepiece.extension"
         case "git-pr-create":
@@ -564,6 +570,8 @@ private struct QuillCodeTopBarView: View {
             QuillCodePill(text: topBar.agentStatus, systemImage: "waveform.path")
             QuillCodePill(text: topBar.instructionLabel, systemImage: topBar.instructionSources.isEmpty ? "doc" : "doc.text.magnifyingglass")
                 .help(topBar.instructionSources.isEmpty ? topBar.instructionLabel : topBar.instructionSources.joined(separator: "\n"))
+            QuillCodePill(text: topBar.memoryLabel, systemImage: topBar.memorySources.isEmpty ? "brain" : "brain.head.profile")
+                .help(topBar.memorySources.isEmpty ? topBar.memoryLabel : topBar.memorySources.joined(separator: "\n"))
             Menu {
                 ForEach(commands) { command in
                     Button(command.title) {
@@ -803,7 +811,7 @@ private struct QuillCodeSidebarActionsView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     private var visibleCommands: [WorkspaceCommandSurface] {
-        commands.filter { ["new-chat", "search", "toggle-browser", "toggle-terminal", "toggle-extensions"].contains($0.id) }
+        commands.filter { ["new-chat", "search", "toggle-browser", "toggle-terminal", "toggle-memories", "toggle-extensions"].contains($0.id) }
     }
 
     var body: some View {
@@ -835,6 +843,8 @@ private struct QuillCodeSidebarActionsView: View {
             return "terminal"
         case "toggle-browser":
             return "globe"
+        case "toggle-memories":
+            return "brain.head.profile"
         case "toggle-extensions":
             return "puzzlepiece.extension"
         default:
@@ -1365,6 +1375,95 @@ private struct QuillCodeExtensionsPaneView: View {
         }
         .padding(14)
         .frame(height: extensions.items.isEmpty ? 170 : 220)
+        .background(QuillCodePalette.panel)
+    }
+
+    private func countPill(label: String, count: Int) -> some View {
+        Text("\(count) \(label)")
+            .font(.caption2.monospacedDigit().weight(.semibold))
+            .foregroundStyle(QuillCodePalette.blue)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(QuillCodePalette.blue.opacity(0.12))
+            .clipShape(Capsule())
+    }
+}
+
+private struct QuillCodeMemoriesPaneView: View {
+    var memories: WorkspaceMemoriesSurface
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "brain.head.profile")
+                    .foregroundStyle(QuillCodePalette.blue)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(memories.title)
+                        .font(.headline)
+                    Text(memories.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                Spacer()
+                HStack(spacing: 6) {
+                    countPill(label: "Global", count: memories.globalCount)
+                    countPill(label: "Project", count: memories.projectCount)
+                }
+            }
+
+            if memories.items.isEmpty {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(memories.emptyTitle)
+                        .font(.callout.weight(.semibold))
+                    Text(memories.emptySubtitle)
+                        .font(.caption)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(QuillCodePalette.background.opacity(0.7))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            } else {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 10) {
+                        ForEach(memories.items) { item in
+                            VStack(alignment: .leading, spacing: 7) {
+                                HStack(spacing: 6) {
+                                    Text(item.scopeLabel)
+                                        .font(.caption2.weight(.bold))
+                                        .foregroundStyle(QuillCodePalette.blue)
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 3)
+                                        .background(QuillCodePalette.blue.opacity(0.14))
+                                        .clipShape(Capsule())
+                                    Text(item.byteCountLabel)
+                                        .font(.caption2)
+                                        .foregroundStyle(QuillCodePalette.muted)
+                                    Spacer()
+                                }
+                                Text(item.title)
+                                    .font(.callout.weight(.semibold))
+                                    .lineLimit(1)
+                                Text(item.preview)
+                                    .font(.caption)
+                                    .foregroundStyle(QuillCodePalette.muted)
+                                    .lineLimit(3)
+                                Text(item.relativePath)
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(QuillCodePalette.muted)
+                                    .lineLimit(1)
+                            }
+                            .padding(12)
+                            .frame(width: 300, alignment: .topLeading)
+                            .background(QuillCodePalette.background.opacity(0.7))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(height: memories.items.isEmpty ? 170 : 220)
         .background(QuillCodePalette.panel)
     }
 

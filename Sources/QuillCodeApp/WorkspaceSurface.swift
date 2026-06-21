@@ -11,6 +11,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var terminal: TerminalSurface
     public var browser: BrowserSurface
     public var extensions: WorkspaceExtensionsSurface
+    public var memories: WorkspaceMemoriesSurface
     public var composer: ComposerSurface
     public var commands: [WorkspaceCommandSurface]
     public var settings: WorkspaceSettingsSurface
@@ -26,6 +27,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         terminal: TerminalSurface,
         browser: BrowserSurface,
         extensions: WorkspaceExtensionsSurface = WorkspaceExtensionsSurface(),
+        memories: WorkspaceMemoriesSurface = WorkspaceMemoriesSurface(),
         composer: ComposerSurface,
         commands: [WorkspaceCommandSurface],
         settings: WorkspaceSettingsSurface,
@@ -40,6 +42,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.terminal = terminal
         self.browser = browser
         self.extensions = extensions
+        self.memories = memories
         self.composer = composer
         self.commands = commands
         self.settings = settings
@@ -86,6 +89,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     public var subtitle: String
     public var instructionLabel: String
     public var instructionSources: [String]
+    public var memoryLabel: String
+    public var memorySources: [String]
     public var modelLabel: String
     public var selectedModelID: String
     public var modelCategories: [ModelCategorySurface]
@@ -100,6 +105,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         subtitle: String,
         instructionLabel: String,
         instructionSources: [String],
+        memoryLabel: String,
+        memorySources: [String],
         modelLabel: String,
         selectedModelID: String,
         modelCategories: [ModelCategorySurface],
@@ -113,6 +120,8 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.subtitle = subtitle
         self.instructionLabel = instructionLabel
         self.instructionSources = instructionSources
+        self.memoryLabel = memoryLabel
+        self.memorySources = memorySources
         self.modelLabel = modelLabel
         self.selectedModelID = selectedModelID
         self.modelCategories = modelCategories
@@ -504,6 +513,78 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
     }
 }
 
+public struct WorkspaceMemoriesSurface: Codable, Sendable, Hashable {
+    public var isVisible: Bool
+    public var title: String
+    public var subtitle: String
+    public var items: [MemoryNoteSurface]
+    public var emptyTitle: String
+    public var emptySubtitle: String
+
+    public var globalCount: Int { items.filter { $0.scope == .global }.count }
+    public var projectCount: Int { items.filter { $0.scope == .project }.count }
+
+    public init(
+        isVisible: Bool = false,
+        notes: [MemoryNote] = [],
+        emptyTitle: String = "No memories loaded",
+        emptySubtitle: String = "Add Markdown, text, or JSON notes under ~/.quillcode/memories or .quillcode/memories."
+    ) {
+        self.isVisible = isVisible
+        self.items = notes.map(MemoryNoteSurface.init)
+        self.emptyTitle = emptyTitle
+        self.emptySubtitle = emptySubtitle
+        self.title = "Memories"
+        if notes.isEmpty {
+            self.subtitle = "No global or project memories are attached to this thread"
+        } else {
+            let globalCount = notes.filter { $0.scope == .global }.count
+            let projectCount = notes.filter { $0.scope == .project }.count
+            self.subtitle = [
+                Self.countLabel(globalCount, singular: "global memory"),
+                Self.countLabel(projectCount, singular: "project memory")
+            ].joined(separator: " · ")
+        }
+    }
+
+    private static func countLabel(_ count: Int, singular: String) -> String {
+        "\(count) \(singular)\(count == 1 ? "" : "s")"
+    }
+}
+
+public struct MemoryNoteSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var scope: MemoryScope
+    public var scopeLabel: String
+    public var title: String
+    public var preview: String
+    public var relativePath: String
+    public var byteCountLabel: String
+
+    public init(note: MemoryNote) {
+        self.id = note.id
+        self.scope = note.scope
+        self.scopeLabel = note.scope.title
+        self.title = note.title
+        self.preview = Self.preview(note.content, wasTruncated: note.wasTruncated)
+        self.relativePath = note.relativePath
+        self.byteCountLabel = note.wasTruncated
+            ? "\(note.byteCount) bytes, truncated"
+            : "\(note.byteCount) bytes"
+    }
+
+    private static func preview(_ content: String, wasTruncated: Bool) -> String {
+        let normalized = content
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        guard normalized.count > 180 else { return normalized }
+        let end = normalized.index(normalized.startIndex, offsetBy: 180)
+        return "\(normalized[..<end])..."
+    }
+}
+
 public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var kind: ProjectExtensionKind
@@ -850,11 +931,13 @@ public enum WorkspaceCommandPalette {
     public static let controlCategory = "Control"
     public static let computerUseCategory = "Computer Use"
     public static let extensionsCategory = "Extensions"
+    public static let memoriesCategory = "Memories"
 
     public static let categoryOrder = [
         threadCategory,
         navigationCategory,
         workspaceCategory,
+        memoriesCategory,
         extensionsCategory,
         gitCategory,
         environmentCategory,
@@ -1027,6 +1110,12 @@ public extension QuillCodeWorkspaceModel {
         } else {
             activeInstructions = selectedProject?.instructions ?? []
         }
+        let activeMemories: [MemoryNote]
+        if let thread, !thread.memories.isEmpty {
+            activeMemories = thread.memories
+        } else {
+            activeMemories = root.globalMemories + (selectedProject?.memories ?? [])
+        }
         return WorkspaceSurface(
             topBar: TopBarSurface(
                 appName: topBarState.appName,
@@ -1034,6 +1123,8 @@ public extension QuillCodeWorkspaceModel {
                 subtitle: topBarSubtitle(thread: thread),
                 instructionLabel: Self.instructionStatusLabel(for: activeInstructions),
                 instructionSources: activeInstructions.map(\.path),
+                memoryLabel: Self.memoryStatusLabel(for: activeMemories),
+                memorySources: activeMemories.map(\.relativePath),
                 modelLabel: modelLabel(for: topBarState.model),
                 selectedModelID: topBarState.model,
                 modelCategories: modelCategories(selectedModelID: topBarState.model),
@@ -1065,6 +1156,10 @@ public extension QuillCodeWorkspaceModel {
             extensions: WorkspaceExtensionsSurface(
                 isVisible: extensions.isVisible,
                 manifests: selectedProject?.extensionManifests ?? []
+            ),
+            memories: WorkspaceMemoriesSurface(
+                isVisible: memories.isVisible,
+                notes: activeMemories
             ),
             composer: ComposerSurface(composer: composer),
             commands: commands(),
@@ -1186,6 +1281,12 @@ public extension QuillCodeWorkspaceModel {
                 shortcut: WorkspaceShortcutRegistry.label(for: "toggle-browser"),
                 category: WorkspaceCommandPalette.workspaceCategory,
                 keywords: ["preview", "web", "localhost"]
+            ),
+            WorkspaceCommandSurface(
+                id: "toggle-memories",
+                title: "Memories",
+                category: WorkspaceCommandPalette.memoriesCategory,
+                keywords: ["memory", "context", "preferences", "facts"]
             ),
             WorkspaceCommandSurface(
                 id: "toggle-extensions",

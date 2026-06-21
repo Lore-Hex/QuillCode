@@ -178,6 +178,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
     public var instructions: [ProjectInstruction]
     public var localActions: [LocalEnvironmentAction]
     public var extensionManifests: [ProjectExtensionManifest]
+    public var memories: [MemoryNote]
     public var lastOpenedAt: Date
 
     public init(
@@ -187,7 +188,8 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         lastOpenedAt: Date = Date(),
         instructions: [ProjectInstruction] = [],
         localActions: [LocalEnvironmentAction] = [],
-        extensionManifests: [ProjectExtensionManifest]
+        extensionManifests: [ProjectExtensionManifest],
+        memories: [MemoryNote] = []
     ) {
         self.id = id
         self.name = name
@@ -195,6 +197,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         self.instructions = instructions
         self.localActions = localActions
         self.extensionManifests = extensionManifests
+        self.memories = memories
         self.lastOpenedAt = lastOpenedAt
     }
 
@@ -213,7 +216,29 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
             lastOpenedAt: lastOpenedAt,
             instructions: instructions,
             localActions: localActions,
-            extensionManifests: []
+            extensionManifests: [],
+            memories: []
+        )
+    }
+
+    public init(
+        id: UUID = UUID(),
+        name: String,
+        path: String,
+        lastOpenedAt: Date = Date(),
+        instructions: [ProjectInstruction] = [],
+        localActions: [LocalEnvironmentAction] = [],
+        memories: [MemoryNote]
+    ) {
+        self.init(
+            id: id,
+            name: name,
+            path: path,
+            lastOpenedAt: lastOpenedAt,
+            instructions: instructions,
+            localActions: localActions,
+            extensionManifests: [],
+            memories: memories
         )
     }
 
@@ -224,6 +249,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         case instructions
         case localActions
         case extensionManifests
+        case memories
         case lastOpenedAt
     }
 
@@ -235,6 +261,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         self.instructions = try container.decodeIfPresent([ProjectInstruction].self, forKey: .instructions) ?? []
         self.localActions = try container.decodeIfPresent([LocalEnvironmentAction].self, forKey: .localActions) ?? []
         self.extensionManifests = try container.decodeIfPresent([ProjectExtensionManifest].self, forKey: .extensionManifests) ?? []
+        self.memories = try container.decodeIfPresent([MemoryNote].self, forKey: .memories) ?? []
         self.lastOpenedAt = try container.decode(Date.self, forKey: .lastOpenedAt)
     }
 
@@ -246,6 +273,7 @@ public struct ProjectRef: Codable, Sendable, Hashable, Identifiable {
         try container.encode(instructions, forKey: .instructions)
         try container.encode(localActions, forKey: .localActions)
         try container.encode(extensionManifests, forKey: .extensionManifests)
+        try container.encode(memories, forKey: .memories)
         try container.encode(lastOpenedAt, forKey: .lastOpenedAt)
     }
 }
@@ -332,11 +360,54 @@ public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiabl
     }
 }
 
+public enum MemoryScope: String, Codable, Sendable, Hashable {
+    case global
+    case project
+
+    public var title: String {
+        switch self {
+        case .global:
+            return "Global"
+        case .project:
+            return "Project"
+        }
+    }
+}
+
+public struct MemoryNote: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var scope: MemoryScope
+    public var title: String
+    public var content: String
+    public var relativePath: String
+    public var byteCount: Int
+    public var wasTruncated: Bool
+
+    public init(
+        id: String,
+        scope: MemoryScope,
+        title: String,
+        content: String,
+        relativePath: String,
+        byteCount: Int,
+        wasTruncated: Bool = false
+    ) {
+        self.id = id
+        self.scope = scope
+        self.title = title
+        self.content = content
+        self.relativePath = relativePath
+        self.byteCount = byteCount
+        self.wasTruncated = wasTruncated
+    }
+}
+
 public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var title: String
     public var projectID: UUID?
     public var instructions: [ProjectInstruction]
+    public var memories: [MemoryNote]
     public var mode: AgentMode
     public var model: String
     public var messages: [ChatMessage]
@@ -358,12 +429,14 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         isArchived: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
-        instructions: [ProjectInstruction] = []
+        instructions: [ProjectInstruction] = [],
+        memories: [MemoryNote] = []
     ) {
         self.id = id
         self.title = title
         self.projectID = projectID
         self.instructions = instructions
+        self.memories = memories
         self.mode = mode
         self.model = model
         self.messages = messages
@@ -379,6 +452,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         case title
         case projectID
         case instructions
+        case memories
         case mode
         case model
         case messages
@@ -395,6 +469,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.title = try container.decode(String.self, forKey: .title)
         self.projectID = try container.decodeIfPresent(UUID.self, forKey: .projectID)
         self.instructions = try container.decodeIfPresent([ProjectInstruction].self, forKey: .instructions) ?? []
+        self.memories = try container.decodeIfPresent([MemoryNote].self, forKey: .memories) ?? []
         self.mode = try container.decode(AgentMode.self, forKey: .mode)
         self.model = try container.decode(String.self, forKey: .model)
         self.messages = try container.decode([ChatMessage].self, forKey: .messages)
@@ -411,6 +486,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         try container.encode(title, forKey: .title)
         try container.encodeIfPresent(projectID, forKey: .projectID)
         try container.encode(instructions, forKey: .instructions)
+        try container.encode(memories, forKey: .memories)
         try container.encode(mode, forKey: .mode)
         try container.encode(model, forKey: .model)
         try container.encode(messages, forKey: .messages)

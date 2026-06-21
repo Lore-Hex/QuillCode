@@ -34,6 +34,7 @@ final class CoreModelTests: XCTestCase {
         """)
         XCTAssertEqual(project.instructions, [])
         XCTAssertEqual(project.localActions, [])
+        XCTAssertEqual(project.memories, [])
 
         let threadID = UUID()
         let thread = try JSONHelpers.decode(ChatThread.self, from: """
@@ -52,5 +53,6 @@ final class CoreModelTests: XCTestCase {
         }
         """)
         XCTAssertEqual(thread.instructions, [])
+        XCTAssertEqual(thread.memories, [])
     }
 }

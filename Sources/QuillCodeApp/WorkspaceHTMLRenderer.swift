@@ -10,6 +10,7 @@ public enum WorkspaceHTMLRenderer {
             <main class="transcript" data-testid="transcript">
               \(renderTranscript(surface.transcript, contextBanner: surface.contextBanner, review: surface.review))
               \(renderExtensions(surface.extensions))
+              \(renderMemories(surface.memories))
               \(renderBrowser(surface.browser))
               \(renderTerminal(surface.terminal))
               \(renderComposer(surface.composer))
@@ -30,6 +31,7 @@ public enum WorkspaceHTMLRenderer {
             <span data-testid="model-pill">\(escape(topBar.modelLabel))</span>
             <span data-testid="mode-pill">\(escape(topBar.modeLabel))</span>
             <span data-testid="project-instructions-status" title="\(escape(topBar.instructionSources.joined(separator: ", ")))">\(escape(topBar.instructionLabel))</span>
+            <span data-testid="project-memories-status" title="\(escape(topBar.memorySources.joined(separator: ", ")))">\(escape(topBar.memoryLabel))</span>
             <span data-testid="agent-status">\(escape(topBar.agentStatus))</span>
             <span data-testid="computer-use-status">\(escape(topBar.computerUseLabel))</span>
           </div>
@@ -418,6 +420,57 @@ public enum WorkspaceHTMLRenderer {
           \(item.summary.isEmpty ? "" : #"<p data-testid="extension-summary">\#(escape(item.summary))</p>"#)
           <code data-testid="extension-path">\(escape(item.relativePath))</code>
           \(item.launchCommand.map { #"<code data-testid="extension-command">\#(escape($0))</code>"# } ?? "")
+        </article>
+        """
+    }
+
+    private static func renderMemories(_ memories: WorkspaceMemoriesSurface) -> String {
+        guard memories.isVisible else { return "" }
+        let counts = """
+        <span data-testid="memories-count">\(countLabel(memories.globalCount, singular: "global memory"))</span>
+        <span data-testid="memories-count">\(countLabel(memories.projectCount, singular: "project memory"))</span>
+        """
+        let content: String
+        if memories.items.isEmpty {
+            content = """
+            <div class="memories-empty" data-testid="memories-empty">
+              <strong>\(escape(memories.emptyTitle))</strong>
+              <p>\(escape(memories.emptySubtitle))</p>
+            </div>
+            """
+        } else {
+            content = """
+            <div class="memories-grid" data-testid="memories-grid">
+              \(memories.items.map(renderMemoryItem).joined(separator: "\n"))
+            </div>
+            """
+        }
+        return """
+        <section class="memories-pane" data-testid="memories-pane" aria-label="QuillCode memories">
+          <header>
+            <div>
+              <strong>\(escape(memories.title))</strong>
+              <p data-testid="memories-subtitle">\(escape(memories.subtitle))</p>
+            </div>
+            <span class="memories-counts">
+              \(counts)
+            </span>
+          </header>
+          \(content)
+        </section>
+        """
+    }
+
+    private static func renderMemoryItem(_ item: MemoryNoteSurface) -> String {
+        """
+        <article class="memory-card" data-testid="memory-item" data-scope="\(escape(item.scope.rawValue))">
+          <header>
+            <span data-testid="memory-scope">\(escape(item.scopeLabel))</span>
+            <span data-testid="memory-size">\(escape(item.byteCountLabel))</span>
+          </header>
+          <strong data-testid="memory-title">\(escape(item.title))</strong>
+          <p data-testid="memory-preview">\(escape(item.preview))</p>
+          <code data-testid="memory-path">\(escape(item.relativePath))</code>
         </article>
         """
     }

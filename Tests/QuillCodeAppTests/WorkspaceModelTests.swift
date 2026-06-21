@@ -733,6 +733,73 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(extensions.items.first?.relativePath, ".quillcode/plugins/github.json")
     }
 
+    func testMemoryNotesLoadGlobalAndProjectIntoThreadAndSurface() async throws {
+        let root = try makeTempDirectory()
+        let globalMemories = try makeTempDirectory()
+        try "Prefer concise progress updates.\n".write(
+            to: globalMemories.appendingPathComponent("preferences.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let projectMemoryDirectory = root.appendingPathComponent(".quillcode/memories")
+        try FileManager.default.createDirectory(at: projectMemoryDirectory, withIntermediateDirectories: true)
+        try "This project uses SwiftUI.\n".write(
+            to: projectMemoryDirectory.appendingPathComponent("project.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let model = QuillCodeWorkspaceModel(globalMemoryDirectory: globalMemories)
+        let projectID = model.addProject(path: root, name: "Memory Project")
+        let threadID = model.newChat(projectID: projectID)
+
+        XCTAssertEqual(model.root.globalMemories.map(\.relativePath), ["memories/preferences.md"])
+        XCTAssertEqual(model.root.projects.first?.memories.map(\.relativePath), [".quillcode/memories/project.md"])
+        XCTAssertEqual(model.root.threads.first { $0.id == threadID }?.memories.map(\.title), ["Preferences", "Project"])
+
+        XCTAssertTrue(model.runWorkspaceCommand("toggle-memories", workspaceRoot: root))
+        let memories = model.surface().memories
+        XCTAssertTrue(memories.isVisible)
+        XCTAssertEqual(memories.globalCount, 1)
+        XCTAssertEqual(memories.projectCount, 1)
+        XCTAssertEqual(memories.items.map { $0.scope }, [MemoryScope.global, .project])
+        XCTAssertEqual(model.surface().topBar.memoryLabel, "2 memories")
+    }
+
+    func testMemoryNoteLoaderBoundsFilesAndRejectsSymlinkEscape() throws {
+        let root = try makeTempDirectory()
+        let outside = try makeTempDirectory().appendingPathComponent("outside.md")
+        try "outside memory\n".write(to: outside, atomically: true, encoding: .utf8)
+        let memoryDirectory = root.appendingPathComponent(".quillcode/memories")
+        try FileManager.default.createDirectory(at: memoryDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: memoryDirectory.appendingPathComponent("outside.md"),
+            withDestinationURL: outside
+        )
+        try String(repeating: "x", count: 64).write(
+            to: memoryDirectory.appendingPathComponent("one.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "ignored binary".write(
+            to: memoryDirectory.appendingPathComponent("ignored.bin"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let notes = MemoryNoteLoader.loadProject(
+            from: root,
+            maxNotes: 1,
+            maxFileBytes: 12,
+            maxTotalBytes: 12
+        )
+
+        XCTAssertEqual(notes.map(\.relativePath), [".quillcode/memories/one.md"])
+        XCTAssertTrue(notes[0].wasTruncated)
+        XCTAssertTrue(notes[0].content.contains("truncated"))
+        XCTAssertFalse(notes[0].content.contains("outside memory"))
+    }
+
     func testEmptyDraftDoesNotCreateThread() async throws {
         let model = QuillCodeWorkspaceModel()
         model.setDraft("   ")

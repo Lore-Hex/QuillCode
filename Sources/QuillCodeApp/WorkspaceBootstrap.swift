@@ -35,6 +35,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
                 selectedProjectID: selectedProjectID,
                 threads: threads,
                 selectedThreadID: selectedThreadID,
+                globalMemories: MemoryNoteLoader.loadGlobal(from: paths.memoriesDirectory),
                 topBar: TopBarState(
                     model: selectedThreadID.flatMap { id in
                         threads.first { $0.id == id }?.model
@@ -48,7 +49,8 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             ),
             runner: runtime.runner,
             threadStore: threadStore,
-            projectStore: projectStore
+            projectStore: projectStore,
+            globalMemoryDirectory: paths.memoriesDirectory
         )
         model.refreshSelectedProjectInstructions()
         return model

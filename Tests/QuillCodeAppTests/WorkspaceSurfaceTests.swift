@@ -29,6 +29,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.topBar.modeLabel, "Auto")
         XCTAssertEqual(surface.topBar.instructionLabel, "No project instructions")
         XCTAssertEqual(surface.topBar.instructionSources, [])
+        XCTAssertEqual(surface.topBar.memoryLabel, "No memories")
+        XCTAssertEqual(surface.topBar.memorySources, [])
         XCTAssertEqual(surface.projects.items.count, 1)
         XCTAssertEqual(surface.projects.items[0].name, "QuillCode")
         XCTAssertEqual(surface.projects.items[0].path, "/tmp/QuillCode")
@@ -47,6 +49,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "add-project",
             "toggle-terminal",
             "toggle-browser",
+            "toggle-memories",
             "toggle-extensions",
             "git-pr-create",
             "git-worktree-list",
@@ -68,6 +71,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.terminal.cwdLabel, "/tmp/QuillCode")
         XCTAssertFalse(surface.browser.isVisible)
         XCTAssertFalse(surface.extensions.isVisible)
+        XCTAssertFalse(surface.memories.isVisible)
     }
 
     func testSettingsSurfaceShowsTrustedRouterAccount() {
@@ -246,6 +250,50 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.extensions.items.last?.launchCommand, "quill-mcp --root .")
         XCTAssertEqual(surface.commands.first { $0.id == "toggle-extensions" }?.category, WorkspaceCommandPalette.extensionsCategory)
         XCTAssertEqual(surface.commands.first { $0.id == "toggle-extensions" }?.isEnabled, true)
+    }
+
+    func testSurfaceIncludesMemorySummariesAndCommand() {
+        let project = ProjectRef(
+            name: "QuillCode",
+            path: "/tmp/QuillCode",
+            memories: [
+                MemoryNote(
+                    id: "project:.quillcode/memories/project.md",
+                    scope: .project,
+                    title: "Project",
+                    content: "QuillCode should stay native Swift and document major decisions.",
+                    relativePath: ".quillcode/memories/project.md",
+                    byteCount: 63
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                globalMemories: [
+                    MemoryNote(
+                        id: "global:memories/preferences.md",
+                        scope: .global,
+                        title: "Preferences",
+                        content: "Prefer focused tests and small reviewable commits.",
+                        relativePath: "memories/preferences.md",
+                        byteCount: 48
+                    )
+                ]
+            ),
+            memories: MemoriesState(isVisible: true)
+        )
+
+        let surface = model.surface()
+
+        XCTAssertTrue(surface.memories.isVisible)
+        XCTAssertEqual(surface.memories.globalCount, 1)
+        XCTAssertEqual(surface.memories.projectCount, 1)
+        XCTAssertEqual(surface.memories.items.map { $0.scope }, [MemoryScope.global, .project])
+        XCTAssertEqual(surface.memories.items.first?.title, "Preferences")
+        XCTAssertEqual(surface.topBar.memoryLabel, "2 memories")
+        XCTAssertEqual(surface.commands.first { $0.id == "toggle-memories" }?.category, WorkspaceCommandPalette.memoriesCategory)
     }
 
     func testStopAllCommandIsEnabledForTerminalRuns() {
@@ -666,6 +714,34 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="extension-item""#))
         XCTAssertTrue(html.contains("Code Review"))
         XCTAssertTrue(html.contains(".quillcode/skills/review.json"))
+    }
+
+    func testHTMLRendererIncludesVisibleMemoriesPane() throws {
+        let project = ProjectRef(
+            name: "QuillCode",
+            path: "/tmp/QuillCode",
+            memories: [
+                MemoryNote(
+                    id: "project:.quillcode/memories/project.md",
+                    scope: .project,
+                    title: "Project",
+                    content: "Use SwiftUI surfaces for visible state.",
+                    relativePath: ".quillcode/memories/project.md",
+                    byteCount: 38
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            memories: MemoriesState(isVisible: true)
+        )
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="memories-pane""#))
+        XCTAssertTrue(html.contains(#"data-testid="memory-item""#))
+        XCTAssertTrue(html.contains("Project"))
+        XCTAssertTrue(html.contains(".quillcode/memories/project.md"))
     }
 
     func testHTMLRendererIncludesGitReviewPane() throws {
