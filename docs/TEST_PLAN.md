@@ -41,6 +41,7 @@ Drive the QuillCode test harness with mock LLM:
 
 ## Native Smoke Tests
 
+- `./scripts/smoke.sh` runs Swift tests, mock CLI `run whoami`, mock CLI file creation in a temp workspace, and Playwright E2E when local node modules are installed.
 - Packaged macOS and Linux app launch.
 - Login/dev override.
 - Open repo, chat, run `whoami`, create file, review diff.
@@ -50,7 +51,7 @@ Drive the QuillCode test harness with mock LLM:
 
 - All unit tests pass on macOS and Linux.
 - Playwright mock-LLM E2E passes for core agent, tools, approvals, settings, top bar, and browser harness.
+- `./scripts/smoke.sh` passes from a clean checkout after dependencies are installed.
 - Native app smoke tests pass on packaged macOS and Linux builds.
 - No app target contains `#if linux`; CI enforces this.
 - `docs/CODEX_PARITY_MATRIX.md` marks each feature as implemented, deferred with reason, or not applicable.
-
