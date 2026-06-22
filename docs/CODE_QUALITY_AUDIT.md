@@ -43,7 +43,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 1. Extract workspace command execution from `WorkspaceModel`.
 2. Extract automation runners from `WorkspaceModel`.
-3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, top bar, sidebar, and review pane are now extracted; next targets are transcript/tool-card controls.
+3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, top bar, sidebar, and review pane are now extracted; shared design primitives now live in `QuillCodeDesignSystem.swift`, so the next targets are transcript/tool-card controls.
 4. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
 5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
 
@@ -114,3 +114,15 @@ Interface polish changes:
 - File-level, hunk-level, and line-level note actions use the same press feedback contract instead of borderless static controls.
 - Range and line note inputs keep a 40 pt minimum height, so text entry does not feel cramped beside the action buttons.
 - The review hunk count uses tabular numerals, preventing subtle width shifts as review data changes.
+
+## 2026-06-22 Design System Refactor Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+Shared visual primitives moved out of `WorkspaceSwiftUIView.swift` into `QuillCodeDesignSystem.swift`. The workspace shell no longer owns palette constants, hit-target metrics, press feedback, surface styling, or image outlines. That keeps the monolithic file shrinking and gives extracted native controls one stable place to pull UI primitives from.
+
+Interface polish changes:
+
+- The shared 40 pt hit-target metrics now have design-system ownership instead of workspace-shell ownership.
+- The shared `0.96` press feedback lives beside the metrics it depends on, making tactile button behavior harder to fork.
+- Surface and image-outline modifiers are reusable outside the workspace file while preserving the pure-white dark-mode outline and existing continuous radii.
