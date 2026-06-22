@@ -3125,15 +3125,15 @@ public final class QuillCodeWorkspaceModel {
             return
         }
 
-        terminal.currentDirectoryPath = Self.terminalCurrentDirectoryPath(for: executionContext)
-        if let environmentMarkerURL = executionContext.environmentMarkerURL,
-           let environmentDelta = Self.terminalEnvironmentDelta(markerURL: environmentMarkerURL) {
+        let terminalResult = Self.terminalSessionResult(for: executionContext, stdout: result.stdout)
+        terminal.currentDirectoryPath = terminalResult.currentDirectoryPath
+        if let environmentDelta = terminalResult.environmentDelta {
             terminal.environmentOverrides = environmentDelta.overrides
             terminal.removedEnvironmentKeys = environmentDelta.removedKeys
         }
         finishTerminalEntry(
             id: entryID,
-            stdout: result.stdout,
+            stdout: terminalResult.stdout,
             stderr: result.stderr,
             exitCode: result.exitCode,
             ok: result.ok,
@@ -3161,6 +3161,8 @@ public final class QuillCodeWorkspaceModel {
         var request: ShellExecutionRequest
         var cwdMarkerURL: URL?
         var environmentMarkerURL: URL?
+        var remoteMarker: String?
+        var remoteConnection: ProjectConnection?
         var fallbackCurrentDirectoryPath: String
         var surface: ExecutionContextSurface
 
@@ -3173,16 +3175,21 @@ public final class QuillCodeWorkspaceModel {
         command: String,
         workspaceRoot: URL
     ) -> TerminalExecutionContext? {
-        let environment = Self.effectiveTerminalEnvironment(
-            overrides: terminal.environmentOverrides,
-            removedKeys: terminal.removedEnvironmentKeys
-        )
-
         if let selectedProject, selectedProject.isRemote {
+            let connection = Self.remoteTerminalConnection(
+                for: selectedProject,
+                terminalCurrentDirectoryPath: terminal.currentDirectoryPath
+            )
+            let marker = Self.remoteTerminalMarker()
+            let wrappedCommand = Self.remoteTerminalWrappedCommand(
+                command,
+                marker: marker,
+                environmentOverrides: terminal.environmentOverrides,
+                removedEnvironmentKeys: terminal.removedEnvironmentKeys
+            )
             guard let request = sshRemoteShellExecutor.request(
-                command: command,
-                connection: selectedProject.connection,
-                environment: environment
+                command: wrappedCommand,
+                connection: connection
             ) else {
                 return nil
             }
@@ -3190,11 +3197,17 @@ public final class QuillCodeWorkspaceModel {
                 request: request,
                 cwdMarkerURL: nil,
                 environmentMarkerURL: nil,
-                fallbackCurrentDirectoryPath: selectedProject.displayPath,
+                remoteMarker: marker,
+                remoteConnection: connection,
+                fallbackCurrentDirectoryPath: connection.displayLabel,
                 surface: .project(selectedProject)
             )
         }
 
+        let environment = Self.effectiveTerminalEnvironment(
+            overrides: terminal.environmentOverrides,
+            removedKeys: terminal.removedEnvironmentKeys
+        )
         let workingDirectory = terminalCurrentDirectoryURL ?? workspaceRoot.standardizedFileURL
         return Self.localTerminalExecutionContext(
             command: command,
@@ -3231,9 +3244,210 @@ public final class QuillCodeWorkspaceModel {
             ),
             cwdMarkerURL: cwdMarkerURL,
             environmentMarkerURL: environmentMarkerURL,
+            remoteMarker: nil,
+            remoteConnection: nil,
             fallbackCurrentDirectoryPath: workingDirectory.standardizedFileURL.path,
             surface: executionContext
         )
+    }
+
+    private static func remoteTerminalConnection(
+        for project: ProjectRef,
+        terminalCurrentDirectoryPath: String?
+    ) -> ProjectConnection {
+        var connection = project.connection
+        let current = terminalCurrentDirectoryPath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !current.isEmpty else { return connection }
+        if current.hasPrefix("/") || current == "~" || current.hasPrefix("~/") {
+            connection.path = current
+            return connection
+        }
+        guard let prefix = remoteTerminalDisplayPrefix(for: connection),
+              current.hasPrefix(prefix) else {
+            return connection
+        }
+        let path = String(current.dropFirst(prefix.count))
+        connection.path = path.isEmpty ? "/" : path
+        return connection
+    }
+
+    private static func remoteTerminalDisplayPrefix(for connection: ProjectConnection) -> String? {
+        guard connection.kind == .ssh,
+              let host = connection.host?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !host.isEmpty else {
+            return nil
+        }
+        let userPrefix = connection.user.map { "\($0)@" } ?? ""
+        let portSuffix = connection.port.map { ":\($0)" } ?? ""
+        return "ssh://\(userPrefix)\(host)\(portSuffix)"
+    }
+
+    private static func remoteTerminalMarker() -> String {
+        "__QUILLCODE_TERMINAL_\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))__"
+    }
+
+    private static func remoteTerminalWrappedCommand(
+        _ command: String,
+        marker: String,
+        environmentOverrides: [String: String],
+        removedEnvironmentKeys: Set<String>
+    ) -> String {
+        let environmentPreamble = remoteTerminalEnvironmentPreamble(
+            overrides: environmentOverrides,
+            removedKeys: removedEnvironmentKeys
+        )
+        return """
+        __quillcode_base_env="$(/usr/bin/env -0 | od -An -tx1 | tr -d ' \\n')"
+        \(environmentPreamble)
+        \(command)
+        __quillcode_status=$?
+        printf '\\n\(marker):cwd\\n%s\\n' "$PWD"
+        printf '\(marker):base-env\\n%s\\n' "$__quillcode_base_env"
+        printf '\(marker):final-env\\n'
+        /usr/bin/env -0 | od -An -tx1 | tr -d ' \\n'
+        printf '\\n\(marker):end\\n'
+        exit "$__quillcode_status"
+        """
+    }
+
+    private static func remoteTerminalEnvironmentPreamble(
+        overrides: [String: String],
+        removedKeys: Set<String>
+    ) -> String {
+        let unsetLines = removedKeys
+            .filter(isValidShellEnvironmentKey)
+            .sorted()
+            .map { "unset \($0)" }
+        let exportLines = overrides
+            .filter { isValidShellEnvironmentKey($0.key) }
+            .sorted { $0.key < $1.key }
+            .map { "export \($0.key)=\(shellSingleQuoted($0.value))" }
+        return (unsetLines + exportLines).joined(separator: "\n")
+    }
+
+    private static func isValidShellEnvironmentKey(_ value: String) -> Bool {
+        guard let first = value.unicodeScalars.first,
+              first == "_" || CharacterSet.letters.contains(first) else {
+            return false
+        }
+        return value.unicodeScalars.dropFirst().allSatisfy {
+            $0 == "_" || CharacterSet.alphanumerics.contains($0)
+        }
+    }
+
+    private struct TerminalSessionResult {
+        var stdout: String
+        var currentDirectoryPath: String
+        var environmentDelta: TerminalEnvironmentDelta?
+    }
+
+    private static func terminalSessionResult(
+        for context: TerminalExecutionContext,
+        stdout: String
+    ) -> TerminalSessionResult {
+        if let marker = context.remoteMarker,
+           let connection = context.remoteConnection,
+           let metadata = remoteTerminalMetadata(from: stdout, marker: marker) {
+            var updated = connection
+            if !metadata.cwd.isEmpty {
+                updated.path = metadata.cwd
+            }
+            return TerminalSessionResult(
+                stdout: metadata.stdout,
+                currentDirectoryPath: updated.displayLabel,
+                environmentDelta: remoteTerminalEnvironmentDelta(metadata)
+            )
+        }
+
+        let environmentDelta: TerminalEnvironmentDelta?
+        if let environmentMarkerURL = context.environmentMarkerURL {
+            environmentDelta = terminalEnvironmentDelta(markerURL: environmentMarkerURL)
+        } else {
+            environmentDelta = nil
+        }
+        return TerminalSessionResult(
+            stdout: stdout,
+            currentDirectoryPath: terminalCurrentDirectoryPath(for: context),
+            environmentDelta: environmentDelta
+        )
+    }
+
+    private struct RemoteTerminalMetadata {
+        var stdout: String
+        var cwd: String
+        var baseEnvironment: [String: String]?
+        var finalEnvironment: [String: String]?
+    }
+
+    private static func remoteTerminalMetadata(from stdout: String, marker: String) -> RemoteTerminalMetadata? {
+        let cwdToken = "\n\(marker):cwd\n"
+        let baseToken = "\n\(marker):base-env\n"
+        let finalToken = "\n\(marker):final-env\n"
+        let endToken = "\n\(marker):end\n"
+        guard let cwdRange = stdout.range(of: cwdToken) else {
+            return nil
+        }
+
+        let visibleStdout = String(stdout[..<cwdRange.lowerBound])
+        let afterCWDToken = stdout[cwdRange.upperBound...]
+        guard let baseRange = afterCWDToken.range(of: baseToken) else {
+            return RemoteTerminalMetadata(
+                stdout: visibleStdout,
+                cwd: String(afterCWDToken).trimmingCharacters(in: .whitespacesAndNewlines),
+                baseEnvironment: nil,
+                finalEnvironment: nil
+            )
+        }
+        let cwd = String(afterCWDToken[..<baseRange.lowerBound])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let afterBaseToken = afterCWDToken[baseRange.upperBound...]
+        guard let finalRange = afterBaseToken.range(of: finalToken) else {
+            return RemoteTerminalMetadata(
+                stdout: visibleStdout,
+                cwd: cwd,
+                baseEnvironment: nil,
+                finalEnvironment: nil
+            )
+        }
+        let baseHex = String(afterBaseToken[..<finalRange.lowerBound])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let afterFinalToken = afterBaseToken[finalRange.upperBound...]
+        guard let endRange = afterFinalToken.range(of: endToken) else {
+            return RemoteTerminalMetadata(
+                stdout: visibleStdout,
+                cwd: cwd,
+                baseEnvironment: nil,
+                finalEnvironment: nil
+            )
+        }
+        let finalHex = String(afterFinalToken[..<endRange.lowerBound])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return RemoteTerminalMetadata(
+            stdout: visibleStdout,
+            cwd: cwd,
+            baseEnvironment: terminalEnvironment(fromHex: baseHex),
+            finalEnvironment: terminalEnvironment(fromHex: finalHex)
+        )
+    }
+
+    private static func remoteTerminalEnvironmentDelta(
+        _ metadata: RemoteTerminalMetadata
+    ) -> TerminalEnvironmentDelta? {
+        guard let baseEnvironment = metadata.baseEnvironment,
+              let finalEnvironment = metadata.finalEnvironment else {
+            return nil
+        }
+        var overrides: [String: String] = [:]
+        for (key, value) in finalEnvironment
+            where baseEnvironment[key] != value
+                && !ignoredTerminalEnvironmentDeltaKeys.contains(key) {
+            overrides[key] = value
+        }
+        let removedKeys = Set(baseEnvironment.keys.filter {
+            finalEnvironment[$0] == nil && !ignoredTerminalEnvironmentDeltaKeys.contains($0)
+        })
+        return TerminalEnvironmentDelta(overrides: overrides, removedKeys: removedKeys)
     }
 
     private static func terminalCurrentDirectoryPath(for context: TerminalExecutionContext) -> String {
@@ -3307,6 +3521,21 @@ public final class QuillCodeWorkspaceModel {
             environment[key] = value
         }
         return environment
+    }
+
+    private static func terminalEnvironment(fromHex hex: String) -> [String: String]? {
+        let scalars = Array(hex.trimmingCharacters(in: .whitespacesAndNewlines).unicodeScalars)
+        guard scalars.count.isMultiple(of: 2) else { return nil }
+        var bytes: [UInt8] = []
+        bytes.reserveCapacity(scalars.count / 2)
+        var index = 0
+        while index < scalars.count {
+            let pair = String(String.UnicodeScalarView([scalars[index], scalars[index + 1]]))
+            guard let byte = UInt8(pair, radix: 16) else { return nil }
+            bytes.append(byte)
+            index += 2
+        }
+        return terminalEnvironment(from: Data(bytes))
     }
 
     private static func removeTerminalMarkers(_ urls: [URL]) {

@@ -900,19 +900,52 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(surface.terminal.entries.first?.executionContext?.label, "SSH Remote")
         XCTAssertEqual(surface.terminal.entries.first?.executionContext?.detail, "feather.local")
         let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
-            .split(separator: "\n")
-            .map(String.init)
-        XCTAssertEqual(arguments, [
-            "-T",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "ConnectTimeout=4",
-            "-p",
-            "2222",
-            "quill@feather.local",
-            "cd '/srv/quill repo' && printf remote-terminal"
-        ])
+        XCTAssertTrue(arguments.contains("-T\n-o\nBatchMode=yes\n-o\nConnectTimeout=4\n-p\n2222\nquill@feather.local\n"))
+        XCTAssertTrue(arguments.contains("cd '/srv/quill repo' &&"))
+        XCTAssertTrue(arguments.contains("printf remote-terminal"))
+        XCTAssertTrue(arguments.contains("__QUILLCODE_TERMINAL_"))
+    }
+
+    func testTerminalCommandPersistsSSHRemoteCWDAndEnvironment() async throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = root.appendingPathComponent("remote repo")
+        try FileManager.default.createDirectory(at: remoteRoot, withIntermediateDirectories: true)
+        let argumentsFile = root.appendingPathComponent("ssh-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(
+            path: remoteRoot.path,
+            host: "feather.local",
+            user: "quill"
+        )
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        await model.runTerminalCommand(
+            "mkdir -p nested && cd nested && export QUILL_REMOTE_TERMINAL=works && printf remote-one",
+            workspaceRoot: root
+        )
+
+        let nestedPath = remoteRoot.appendingPathComponent("nested").path
+        XCTAssertEqual(model.terminal.entries[0].status, .done)
+        XCTAssertEqual(model.terminal.entries[0].stdout, "remote-one")
+        XCTAssertEqual(model.terminal.currentDirectoryPath, "ssh://quill@feather.local\(nestedPath)")
+        XCTAssertEqual(model.terminal.environmentOverrides["QUILL_REMOTE_TERMINAL"], "works")
+
+        await model.runTerminalCommand(
+            #"pwd && printf ':' && printf "$QUILL_REMOTE_TERMINAL""#,
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(model.terminal.entries[1].status, .done)
+        XCTAssertEqual(model.terminal.entries[1].stdout, "\(nestedPath)\n:works")
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+        XCTAssertTrue(arguments.contains("cd '\(nestedPath.replacingOccurrences(of: "'", with: "'\\''"))' &&"))
     }
 
     func testTerminalCommandPersistsCurrentDirectoryAcrossCommands() async throws {
@@ -2891,6 +2924,23 @@ final class WorkspaceModelTests: XCTestCase {
         #!/bin/sh
         printf '%s\\n' "$@" > '\(argumentsPath)'
         echo 'remote-terminal'
+        """.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        return script
+    }
+
+    private func makeExecutingFakeSSH(in root: URL, argumentsFile: URL) throws -> URL {
+        let script = root.appendingPathComponent("fake-executing-ssh")
+        let argumentsPath = argumentsFile.path.replacingOccurrences(of: "'", with: "'\\''")
+        try """
+        #!/bin/sh
+        : > '\(argumentsPath)'
+        last=''
+        for arg in "$@"; do
+          printf '%s\\n' "$arg" >> '\(argumentsPath)'
+          last="$arg"
+        done
+        /bin/sh -lc "$last"
         """.write(to: script, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
         return script
