@@ -9,6 +9,7 @@ block_label="${MERGE_TRAIN_BLOCK_LABEL:-do-not-merge}"
 merge_method="${MERGE_TRAIN_METHOD:-squash}"
 delete_branch="${MERGE_TRAIN_DELETE_BRANCH:-true}"
 ignored_check_re="${MERGE_TRAIN_IGNORED_CHECK_RE:-^(Merge Train|train)$}"
+post_merge_workflow="${MERGE_TRAIN_POST_MERGE_WORKFLOW:-}"
 dry_run="${MERGE_TRAIN_DRY_RUN:-false}"
 
 case "$merge_method" in
@@ -134,4 +135,13 @@ if [[ "$dry_run" == "true" ]]; then
   printf '\n'
 else
   gh "${merge_args[@]}"
+fi
+
+if [[ -n "$post_merge_workflow" ]]; then
+  echo "Dispatching post-merge workflow $post_merge_workflow on $base_branch."
+  if [[ "$dry_run" == "true" ]]; then
+    echo "DRY RUN: gh workflow run $post_merge_workflow --repo $repo --ref $base_branch"
+  else
+    gh workflow run "$post_merge_workflow" --repo "$repo" --ref "$base_branch"
+  fi
 fi
