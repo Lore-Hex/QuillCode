@@ -43,7 +43,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 1. Extract workspace command execution from `WorkspaceModel`.
 2. Extract automation runners from `WorkspaceModel`.
-3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, and top bar are now extracted; next targets are the sidebar and review controls.
+3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, top bar, and sidebar are now extracted; next targets are transcript/review controls.
 4. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
 5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
 
@@ -88,3 +88,16 @@ Interface polish changes:
 - The overflow menu keeps the shared 40 pt hit target while adding a quiet selected-surface background and 10 pt continuous radius.
 - Runtime issue pills stay inside the top-bar file because they are specific to top-bar status density and use tabular caption numerals for stable changing labels.
 - The identity cluster is a single bounded accessibility element, so long project/thread metadata remains available without visually crowding the bar.
+
+## 2026-06-22 Sidebar Refactor Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+The native sidebar moved out of `WorkspaceSwiftUIView.swift` into `QuillCodeSidebarView.swift`. The new file owns primary navigation actions, thread grouping, bulk selection, project rows, and the compact tools/settings footer together, which keeps the Codex-like left rail away from transcript, review, and sheet code.
+
+Interface polish changes:
+
+- Primary sidebar actions now use the shared `0.96` press feedback and a guaranteed 40 pt hit target.
+- Thread rows use a shared selection-toggle helper instead of duplicating command construction in two button handlers.
+- Thread and project row buttons keep 40 pt minimum interactive height while preserving the compact left-rail density.
+- Bulk action buttons, project header icons, row overflow menus, Tools, and Settings now use the same press feedback contract as the composer/model/top-bar controls.
