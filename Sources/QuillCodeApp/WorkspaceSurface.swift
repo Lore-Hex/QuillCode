@@ -1136,6 +1136,9 @@ public struct BrowserSurface: Codable, Sendable, Hashable {
     public var isVisible: Bool
     public var addressDraft: String
     public var currentURL: String?
+    public var canGoBack: Bool
+    public var canGoForward: Bool
+    public var canReload: Bool
     public var title: String
     public var statusLabel: String
     public var snapshot: BrowserSnapshotSurface?
@@ -1155,6 +1158,9 @@ public struct BrowserSurface: Codable, Sendable, Hashable {
         self.isVisible = browser.isVisible
         self.addressDraft = browser.addressDraft
         self.currentURL = browser.currentURL
+        self.canGoBack = browser.canGoBack
+        self.canGoForward = browser.canGoForward
+        self.canReload = browser.canReload
         self.title = browser.title
         self.statusLabel = browser.status
         self.snapshot = browser.snapshot.map(BrowserSnapshotSurface.init)
@@ -3101,6 +3107,27 @@ public extension QuillCodeWorkspaceModel {
                 shortcut: WorkspaceShortcutRegistry.label(for: "toggle-browser"),
                 category: WorkspaceCommandPalette.workspaceCategory,
                 keywords: ["preview", "web", "localhost"]
+            ),
+            WorkspaceCommandSurface(
+                id: "browser-back",
+                title: "Browser: Back",
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["preview", "web", "history", "back"],
+                isEnabled: browser.canGoBack
+            ),
+            WorkspaceCommandSurface(
+                id: "browser-forward",
+                title: "Browser: Forward",
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["preview", "web", "history", "forward"],
+                isEnabled: browser.canGoForward
+            ),
+            WorkspaceCommandSurface(
+                id: "browser-reload",
+                title: "Browser: Reload",
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["preview", "web", "refresh", "reload"],
+                isEnabled: browser.canReload
             ),
             WorkspaceCommandSurface(
                 id: "toggle-activity",

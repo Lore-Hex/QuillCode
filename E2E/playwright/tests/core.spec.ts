@@ -1291,8 +1291,7 @@ test('mock harness opens browser preview and records comments', async ({ page })
 
   await page.getByTestId('command-palette-button').click();
   await page.getByLabel('Search commands').fill('>browser');
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
-  await page.getByTestId('command-palette-result').click();
+  await page.getByTestId('command-palette-result').first().click();
 
   await expect(page.getByTestId('browser-pane')).toBeVisible();
   await expect(page.getByTestId('browser-empty')).toBeVisible();
@@ -1303,6 +1302,9 @@ test('mock harness opens browser preview and records comments', async ({ page })
 
   await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
   await expect(page.getByTestId('browser-status-label')).toHaveText('Preview ready');
+  await expect(page.getByTestId('browser-back')).toBeDisabled();
+  await expect(page.getByTestId('browser-forward')).toBeDisabled();
+  await expect(page.getByTestId('browser-reload')).toBeEnabled();
   await expect(page.getByTestId('browser-source')).toHaveText('Local web app');
   await expect(page.getByTestId('browser-inspection-depth')).toHaveText('Static HTML snapshot');
   await expect(page.getByTestId('browser-inspection-depth')).toHaveAttribute('data-depth', 'static_html_snapshot');
@@ -1332,6 +1334,22 @@ test('mock harness opens browser preview and records comments', async ({ page })
   });
   expect(outlineStyle.backgroundColor).toBe('rgba(0, 0, 0, 0)');
   expect(outlineStyle.borderRadius).toBe('0px');
+
+  await page.getByLabel('Browser address').fill('example.com/docs');
+  await page.getByTestId('browser-open').click();
+  await expect(page.getByTestId('browser-current-url')).toHaveText('https://example.com/docs');
+  await expect(page.getByTestId('browser-back')).toBeEnabled();
+  await expect(page.getByTestId('browser-forward')).toBeDisabled();
+
+  await page.getByTestId('browser-back').click();
+  await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
+  await expect(page.getByTestId('browser-back')).toBeDisabled();
+  await expect(page.getByTestId('browser-forward')).toBeEnabled();
+
+  await page.getByTestId('browser-forward').click();
+  await expect(page.getByTestId('browser-current-url')).toHaveText('https://example.com/docs');
+  await page.getByTestId('browser-reload').click();
+  await expect(page.getByTestId('browser-status-label')).toHaveText('Reloaded');
 
   await page.getByLabel('Browser comment').fill('Check hero spacing');
   await expect(page.getByTestId('browser-add-comment')).toBeEnabled();

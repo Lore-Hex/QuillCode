@@ -668,6 +668,9 @@ public enum WorkspaceHTMLRenderer {
             <span data-testid="browser-status-label">\(escape(browser.statusLabel))</span>
           </header>
           <form data-testid="browser-form">
+            <button type="button" data-testid="browser-back" \(browser.canGoBack ? "" : "disabled")>Back</button>
+            <button type="button" data-testid="browser-forward" \(browser.canGoForward ? "" : "disabled")>Forward</button>
+            <button type="button" data-testid="browser-reload" \(browser.canReload ? "" : "disabled")>Reload</button>
             <input aria-label="Browser address" value="\(escape(browser.addressDraft))">
             <button type="submit" data-testid="browser-open" \(browser.canOpen ? "" : "disabled")>Open</button>
           </form>

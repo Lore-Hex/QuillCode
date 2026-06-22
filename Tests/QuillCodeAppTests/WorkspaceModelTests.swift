@@ -1323,6 +1323,50 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.lastError, "Enter an http, https, file, localhost, or project file URL.")
     }
 
+    func testBrowserPreviewSupportsHistoryNavigationAndReload() throws {
+        let model = QuillCodeWorkspaceModel()
+
+        XCTAssertTrue(model.openBrowserPreview("localhost:3000"))
+        XCTAssertEqual(model.browser.currentURL, "http://localhost:3000")
+        XCTAssertFalse(model.browser.canGoBack)
+        XCTAssertFalse(model.browser.canGoForward)
+        XCTAssertTrue(model.browser.canReload)
+
+        XCTAssertTrue(model.openBrowserPreview("localhost:5173/dashboard"))
+        XCTAssertEqual(model.browser.currentURL, "http://localhost:5173/dashboard")
+        XCTAssertEqual(model.browser.history, [
+            "http://localhost:3000",
+            "http://localhost:5173/dashboard"
+        ])
+        XCTAssertEqual(model.browser.historyIndex, 1)
+        XCTAssertTrue(model.browser.canGoBack)
+        XCTAssertFalse(model.browser.canGoForward)
+
+        XCTAssertTrue(model.goBackInBrowser())
+        XCTAssertEqual(model.browser.currentURL, "http://localhost:3000")
+        XCTAssertEqual(model.browser.historyIndex, 0)
+        XCTAssertFalse(model.browser.canGoBack)
+        XCTAssertTrue(model.browser.canGoForward)
+
+        XCTAssertTrue(model.reloadBrowserPreview())
+        XCTAssertEqual(model.browser.currentURL, "http://localhost:3000")
+        XCTAssertEqual(model.browser.status, "Reloaded")
+        XCTAssertEqual(model.browser.history, [
+            "http://localhost:3000",
+            "http://localhost:5173/dashboard"
+        ])
+        XCTAssertEqual(model.browser.historyIndex, 0)
+
+        XCTAssertTrue(model.openBrowserPreview("example.com"))
+        XCTAssertEqual(model.browser.currentURL, "https://example.com")
+        XCTAssertEqual(model.browser.history, [
+            "http://localhost:3000",
+            "https://example.com"
+        ])
+        XCTAssertEqual(model.browser.historyIndex, 1)
+        XCTAssertFalse(model.browser.canGoForward)
+    }
+
     func testBrowserPreviewFetchesReachableHTMLSnapshot() async throws {
         let model = QuillCodeWorkspaceModel()
         let html = """

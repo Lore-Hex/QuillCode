@@ -93,6 +93,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "project-remove",
             "toggle-terminal",
             "toggle-browser",
+            "browser-back",
+            "browser-forward",
+            "browser-reload",
             "toggle-activity",
             "toggle-automations",
             "automation-create-thread-follow-up",
@@ -1678,6 +1681,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="browser-pane""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="browser-back" disabled"#))
+        XCTAssertTrue(html.contains(#"data-testid="browser-forward" disabled"#))
+        XCTAssertTrue(html.contains(#"data-testid="browser-reload" "#))
         XCTAssertTrue(html.contains(#"data-testid="browser-current-url""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-snapshot""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-source""#))

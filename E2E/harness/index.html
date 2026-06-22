@@ -951,7 +951,33 @@
     .terminal-status.stopped { color: var(--muted); }
     .terminal-status.failed { color: var(--red); }
     .terminal-form { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
-    .browser-form,
+    .browser-form {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .browser-nav-controls {
+      display: grid;
+      grid-template-columns: repeat(3, 40px);
+      gap: 6px;
+      align-items: center;
+    }
+    .browser-nav-button {
+      min-width: 40px;
+      width: 40px;
+      padding: 0;
+      border-radius: 11px;
+      background: rgba(255,255,255,.08);
+      color: var(--text);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+    }
+    .browser-nav-button:not(:disabled):hover {
+      background: rgba(255,255,255,.12);
+    }
+    .browser-open-button {
+      min-width: 78px;
+    }
     .browser-comment-form { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
     .browser-preview,
     .browser-comment {
@@ -2296,6 +2322,9 @@
         { id: 'project-remove', title: 'Remove project from list', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'forget', 'remove'], isEnabled: true },
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', category: 'Workspace', keywords: ['shell', 'command', 'pty'], isEnabled: true },
         { id: 'toggle-browser', title: 'Browser', shortcut: 'Cmd+Shift+B', category: 'Workspace', keywords: ['preview', 'web', 'localhost'], isEnabled: true },
+        { id: 'browser-back', title: 'Browser: Back', shortcut: '', category: 'Workspace', keywords: ['preview', 'web', 'history', 'back'], isEnabled: false },
+        { id: 'browser-forward', title: 'Browser: Forward', shortcut: '', category: 'Workspace', keywords: ['preview', 'web', 'history', 'forward'], isEnabled: false },
+        { id: 'browser-reload', title: 'Browser: Reload', shortcut: '', category: 'Workspace', keywords: ['preview', 'web', 'refresh', 'reload'], isEnabled: false },
         { id: 'toggle-activity', title: 'Activity', shortcut: '', category: 'Workspace', keywords: ['task', 'summary', 'sources', 'artifacts', 'tools'], isEnabled: true },
         { id: 'toggle-automations', title: 'Automations', shortcut: '', category: 'Workspace', keywords: ['automation', 'schedule', 'recurring', 'monitor', 'follow-up', 'heartbeat'], isEnabled: true },
         { id: 'automation-create-thread-follow-up', title: 'Create thread follow-up', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule'], isEnabled: false },
@@ -2332,6 +2361,8 @@
         isVisible: false,
         addressDraft: '',
         currentURL: null,
+        history: [],
+        historyIndex: null,
         title: 'Browser preview',
         statusLabel: 'Ready',
         snapshot: null,
@@ -4180,6 +4211,15 @@
       document.querySelector('[data-testid="terminal-stop"]')?.addEventListener('click', () => {
         runCommand('stop-all');
       });
+	      document.querySelector('[data-testid="browser-back"]')?.addEventListener('click', () => {
+	        browserBack();
+	      });
+	      document.querySelector('[data-testid="browser-forward"]')?.addEventListener('click', () => {
+	        browserForward();
+	      });
+	      document.querySelector('[data-testid="browser-reload"]')?.addEventListener('click', () => {
+	        browserReload();
+	      });
 	      document.querySelector('[data-testid="browser-address"]')?.addEventListener('input', event => {
 	        state.browser.addressDraft = event.target.value;
 	        document.querySelector('[data-testid="browser-open"]').disabled = !state.browser.addressDraft.trim();
@@ -5123,8 +5163,13 @@
 	            <span data-testid="browser-status-label">${escapeHTML(state.browser.statusLabel)}</span>
 	          </header>
 	          <form class="browser-form" data-testid="browser-form">
+            <div class="browser-nav-controls" aria-label="Browser navigation">
+              <button class="browser-nav-button" type="button" data-testid="browser-back" aria-label="Back" ${browserCanGoBack() ? '' : 'disabled'}>&lt;</button>
+              <button class="browser-nav-button" type="button" data-testid="browser-forward" aria-label="Forward" ${browserCanGoForward() ? '' : 'disabled'}>&gt;</button>
+              <button class="browser-nav-button" type="button" data-testid="browser-reload" aria-label="Reload" ${browserCanReload() ? '' : 'disabled'}>R</button>
+            </div>
 	            <input data-testid="browser-address" aria-label="Browser address" placeholder="localhost:3000 or https://example.com" value="${escapeHTML(state.browser.addressDraft)}">
-	            <button type="submit" data-testid="browser-open" ${state.browser.addressDraft.trim() ? '' : 'disabled'}>Open</button>
+	            <button class="browser-open-button" type="submit" data-testid="browser-open" ${state.browser.addressDraft.trim() ? '' : 'disabled'}>Open</button>
 	          </form>
 	          ${preview}
 	          <form class="browser-comment-form" data-testid="browser-comment-form">
@@ -5868,6 +5913,18 @@
       if (commandID === 'toggle-browser') {
         state.browser.isVisible = !state.browser.isVisible;
       }
+      if (commandID === 'browser-back') {
+        browserBack();
+        return;
+      }
+      if (commandID === 'browser-forward') {
+        browserForward();
+        return;
+      }
+      if (commandID === 'browser-reload') {
+        browserReload();
+        return;
+      }
       if (commandID === 'toggle-activity') {
         state.activity.isVisible = !state.activity.isVisible;
       }
@@ -6242,6 +6299,84 @@
       return null;
     }
 
+    function browserCanGoBack() {
+      return Number.isInteger(state.browser.historyIndex)
+        && state.browser.historyIndex > 0
+        && state.browser.historyIndex < state.browser.history.length;
+    }
+
+    function browserCanGoForward() {
+      return Number.isInteger(state.browser.historyIndex)
+        && state.browser.historyIndex >= 0
+        && state.browser.historyIndex + 1 < state.browser.history.length;
+    }
+
+    function browserCanReload() {
+      return Boolean(state.browser.currentURL);
+    }
+
+    function syncBrowserCommandStates() {
+      const enabled = new Map([
+        ['browser-back', browserCanGoBack()],
+        ['browser-forward', browserCanGoForward()],
+        ['browser-reload', browserCanReload()]
+      ]);
+      state.commands = state.commands.map(command => (
+        enabled.has(command.id) ? { ...command, isEnabled: enabled.get(command.id) } : command
+      ));
+    }
+
+    function appendBrowserHistory(url) {
+      if (
+        Number.isInteger(state.browser.historyIndex)
+        && state.browser.history[state.browser.historyIndex] === url
+      ) {
+        return;
+      }
+      const prefixLength = Number.isInteger(state.browser.historyIndex)
+        ? state.browser.historyIndex + 1
+        : 0;
+      state.browser.history = state.browser.history.slice(0, prefixLength);
+      state.browser.history.push(url);
+      state.browser.historyIndex = state.browser.history.length - 1;
+    }
+
+    function setBrowserPage(url, { updateHistory = true, statusLabel = 'Preview ready' } = {}) {
+      const snapshot = browserSnapshot(url);
+      state.browser.isVisible = true;
+      state.browser.currentURL = url;
+      state.browser.addressDraft = url;
+      state.browser.snapshot = snapshot;
+      state.browser.title = snapshot.details.find((detail) => detail.startsWith('Title: '))?.replace('Title: ', '')
+        || new URL(url).hostname
+        || url;
+      state.browser.statusLabel = statusLabel;
+      if (updateHistory) {
+        appendBrowserHistory(url);
+      }
+      syncBrowserCommandStates();
+    }
+
+    function browserBack() {
+      if (!browserCanGoBack()) return;
+      state.browser.historyIndex -= 1;
+      setBrowserPage(state.browser.history[state.browser.historyIndex], { updateHistory: false });
+      render();
+    }
+
+    function browserForward() {
+      if (!browserCanGoForward()) return;
+      state.browser.historyIndex += 1;
+      setBrowserPage(state.browser.history[state.browser.historyIndex], { updateHistory: false });
+      render();
+    }
+
+    function browserReload() {
+      if (!browserCanReload()) return;
+      setBrowserPage(state.browser.currentURL, { updateHistory: false, statusLabel: 'Reloaded' });
+      render();
+    }
+
       function browserSnapshot(url) {
         const parsed = new URL(url);
         if (parsed.protocol === 'file:') {
@@ -6314,17 +6449,11 @@
 	      if (!url) {
 	        state.browser.statusLabel = 'Invalid address';
           state.browser.snapshot = null;
+          syncBrowserCommandStates();
 	        render();
 	        return;
 	      }
-        const snapshot = browserSnapshot(url);
-	      state.browser.currentURL = url;
-	      state.browser.addressDraft = url;
-	      state.browser.snapshot = snapshot;
-	      state.browser.title = snapshot.details.find((detail) => detail.startsWith('Title: '))?.replace('Title: ', '')
-	        || new URL(url).hostname
-	        || url;
-	      state.browser.statusLabel = 'Preview ready';
+        setBrowserPage(url);
 	      render();
 	    }
 

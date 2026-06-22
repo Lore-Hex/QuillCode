@@ -197,7 +197,8 @@ public struct QuillCodeWorkspaceView: View {
                                 browser: surface.browser,
                                 addressDraft: $browserAddressDraft,
                                 onOpen: onOpenBrowserPreview,
-                                onAddComment: onAddBrowserComment
+                                onAddComment: onAddBrowserComment,
+                                onCommand: runCommand(id:)
                             )
                         }
                         if surface.extensions.isVisible {
@@ -429,6 +430,11 @@ public struct QuillCodeWorkspaceView: View {
                 }
             }
         }
+    }
+
+    private func runCommand(id: String) {
+        guard let command = surface.commands.first(where: { $0.id == id }) else { return }
+        handleCommand(command)
     }
 
     private func stopActiveRun() {
@@ -2341,6 +2347,7 @@ private struct QuillCodeBrowserPaneView: View {
     @Binding var addressDraft: String
     var onOpen: () -> Void
     var onAddComment: (String) -> Void
+    var onCommand: (String) -> Void
 
     @State private var commentDraft = ""
 
@@ -2358,6 +2365,27 @@ private struct QuillCodeBrowserPaneView: View {
             }
 
             HStack(spacing: 8) {
+                browserNavigationButton(
+                    systemName: "chevron.left",
+                    label: "Back",
+                    isEnabled: browser.canGoBack
+                ) {
+                    onCommand("browser-back")
+                }
+                browserNavigationButton(
+                    systemName: "chevron.right",
+                    label: "Forward",
+                    isEnabled: browser.canGoForward
+                ) {
+                    onCommand("browser-forward")
+                }
+                browserNavigationButton(
+                    systemName: "arrow.clockwise",
+                    label: "Reload",
+                    isEnabled: browser.canReload
+                ) {
+                    onCommand("browser-reload")
+                }
                 TextField("localhost:3000, docs/page.html, or https://example.com", text: $addressDraft)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit(onOpen)
@@ -2481,6 +2509,25 @@ private struct QuillCodeBrowserPaneView: View {
         .padding(14)
         .frame(height: browser.snapshot == nil ? 260 : 300)
         .background(QuillCodePalette.panel)
+    }
+
+    private func browserNavigationButton(
+        systemName: String,
+        label: String,
+        isEnabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .frame(
+                    minWidth: QuillCodeMetrics.minimumHitTarget,
+                    minHeight: QuillCodeMetrics.minimumHitTarget
+                )
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .disabled(!isEnabled)
+        .accessibilityLabel(label)
     }
 
     private func addComment() {

@@ -734,15 +734,33 @@ public struct BrowserState: Sendable, Hashable {
     public var isVisible: Bool
     public var addressDraft: String
     public var currentURL: String?
+    public var history: [String]
+    public var historyIndex: Int?
     public var title: String
     public var status: String
     public var snapshot: BrowserSnapshotState?
     public var comments: [BrowserCommentState]
 
+    public var canGoBack: Bool {
+        guard let historyIndex else { return false }
+        return history.indices.contains(historyIndex) && historyIndex > history.startIndex
+    }
+
+    public var canGoForward: Bool {
+        guard let historyIndex else { return false }
+        return history.indices.contains(historyIndex) && history.index(after: historyIndex) < history.endIndex
+    }
+
+    public var canReload: Bool {
+        currentURL != nil
+    }
+
     public init(
         isVisible: Bool = false,
         addressDraft: String = "",
         currentURL: String? = nil,
+        history: [String] = [],
+        historyIndex: Int? = nil,
         title: String = "Browser preview",
         status: String = "Ready",
         snapshot: BrowserSnapshotState? = nil,
@@ -751,6 +769,8 @@ public struct BrowserState: Sendable, Hashable {
         self.isVisible = isVisible
         self.addressDraft = addressDraft
         self.currentURL = currentURL
+        self.history = history
+        self.historyIndex = historyIndex
         self.title = title
         self.status = status
         self.snapshot = snapshot
@@ -1436,6 +1456,54 @@ public final class QuillCodeWorkspaceModel {
             return false
         }
 
+        setBrowserPage(url, updateHistory: true)
+        return true
+    }
+
+    @discardableResult
+    public func goBackInBrowser() -> Bool {
+        guard browser.canGoBack,
+              let historyIndex = browser.historyIndex
+        else {
+            return false
+        }
+        return openBrowserHistoryEntry(at: historyIndex - 1)
+    }
+
+    @discardableResult
+    public func goForwardInBrowser() -> Bool {
+        guard browser.canGoForward,
+              let historyIndex = browser.historyIndex
+        else {
+            return false
+        }
+        return openBrowserHistoryEntry(at: historyIndex + 1)
+    }
+
+    @discardableResult
+    public func reloadBrowserPreview() -> Bool {
+        guard let currentURL = browser.currentURL,
+              let url = URL(string: currentURL)
+        else {
+            return false
+        }
+        setBrowserPage(url, updateHistory: false)
+        browser.status = "Reloaded"
+        return true
+    }
+
+    private func openBrowserHistoryEntry(at index: Int) -> Bool {
+        guard browser.history.indices.contains(index),
+              let url = URL(string: browser.history[index])
+        else {
+            return false
+        }
+        browser.historyIndex = index
+        setBrowserPage(url, updateHistory: false)
+        return true
+    }
+
+    private func setBrowserPage(_ url: URL, updateHistory: Bool) {
         browser.isVisible = true
         browser.currentURL = url.absoluteString
         browser.addressDraft = url.absoluteString
@@ -1445,9 +1513,40 @@ public final class QuillCodeWorkspaceModel {
             .map { String($0.dropFirst("Title: ".count)) }
             ?? BrowserInspector.title(for: url)
         browser.status = "Preview ready"
+        if updateHistory {
+            appendBrowserHistory(url.absoluteString)
+        }
         lastError = nil
         refreshTopBar(agentStatus: "Idle")
-        return true
+    }
+
+    private func appendBrowserHistory(_ url: String) {
+        if let historyIndex = browser.historyIndex,
+           browser.history.indices.contains(historyIndex),
+           browser.history[historyIndex] == url {
+            return
+        }
+
+        let preservedHistory: ArraySlice<String>
+        if let historyIndex = browser.historyIndex,
+           browser.history.indices.contains(historyIndex) {
+            preservedHistory = browser.history.prefix(through: historyIndex)
+        } else {
+            preservedHistory = []
+        }
+
+        browser.history = Array(preservedHistory) + [url]
+        browser.historyIndex = browser.history.indices.last
+    }
+
+    private func replaceCurrentBrowserHistory(with url: String) {
+        guard let historyIndex = browser.historyIndex,
+              browser.history.indices.contains(historyIndex)
+        else {
+            appendBrowserHistory(url)
+            return
+        }
+        browser.history[historyIndex] = url
     }
 
     @discardableResult
@@ -1479,6 +1578,7 @@ public final class QuillCodeWorkspaceModel {
 
             browser.currentURL = fetchedPage.finalURL.absoluteString
             browser.addressDraft = fetchedPage.finalURL.absoluteString
+            replaceCurrentBrowserHistory(with: fetchedPage.finalURL.absoluteString)
             browser.snapshot = BrowserInspector.snapshot(for: fetchedPage, originalURL: url)
             browser.title = browser.snapshot?.details
                 .first { $0.hasPrefix("Title: ") }
@@ -2306,6 +2406,12 @@ public final class QuillCodeWorkspaceModel {
         case "toggle-browser":
             toggleBrowser()
             return true
+        case "browser-back":
+            return goBackInBrowser()
+        case "browser-forward":
+            return goForwardInBrowser()
+        case "browser-reload":
+            return reloadBrowserPreview()
         case "toggle-extensions":
             toggleExtensions()
             return true
