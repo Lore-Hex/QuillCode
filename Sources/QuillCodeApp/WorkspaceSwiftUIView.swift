@@ -608,6 +608,7 @@ private struct QuillCodeCommandPaletteView: View {
     var onClose: () -> Void
 
     @State private var selectedCommandID: String?
+    @FocusState private var isSearchFocused: Bool
 
     private var results: [WorkspaceCommandSurface] {
         WorkspaceCommandPalette.rankedCommands(commands, matching: query)
@@ -639,6 +640,7 @@ private struct QuillCodeCommandPaletteView: View {
             HStack(spacing: 10) {
                 TextField("Search commands, > actions, / slash", text: $query)
                     .textFieldStyle(.roundedBorder)
+                    .focused($isSearchFocused)
                     .onSubmit(selectHighlightedCommand)
                 if let label = activeScopeLabel {
                     Text(label)
@@ -684,7 +686,15 @@ private struct QuillCodeCommandPaletteView: View {
         .padding(20)
         .frame(width: 560, height: 520)
         .background(QuillCodePalette.background)
-        .onAppear(perform: ensureSelection)
+        .onAppear {
+            ensureSelection()
+            DispatchQueue.main.async {
+                isSearchFocused = true
+            }
+        }
+        .onDisappear {
+            isSearchFocused = false
+        }
         .onChange(of: query) { _, _ in
             ensureSelection()
         }
@@ -925,6 +935,8 @@ private struct QuillCodeSearchView: View {
     var onSelectThread: (UUID) -> Void
     var onClose: () -> Void
 
+    @FocusState private var isSearchFocused: Bool
+
     private var results: [SidebarItemSurface] {
         sidebar.filteredItems(matching: query)
     }
@@ -946,6 +958,12 @@ private struct QuillCodeSearchView: View {
 
             TextField("Search chats", text: $query)
                 .textFieldStyle(.roundedBorder)
+                .focused($isSearchFocused)
+                .onSubmit {
+                    if let firstResult = results.first {
+                        onSelectThread(firstResult.id)
+                    }
+                }
 
             if results.isEmpty {
                 VStack(spacing: 8) {
@@ -998,6 +1016,14 @@ private struct QuillCodeSearchView: View {
         .padding(20)
         .frame(width: 560, height: 520)
         .background(QuillCodePalette.background)
+        .onAppear {
+            DispatchQueue.main.async {
+                isSearchFocused = true
+            }
+        }
+        .onDisappear {
+            isSearchFocused = false
+        }
     }
 }
 

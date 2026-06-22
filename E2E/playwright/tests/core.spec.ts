@@ -25,6 +25,11 @@ async function openSettings(page: Page) {
   await page.getByTestId('top-bar-overflow-settings').click();
 }
 
+async function replaceFocusedText(page: Page, text: string) {
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.type(text);
+}
+
 test('mock harness executes simple command flow', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
   await expect(page.getByTestId('workspace')).toBeVisible();
@@ -124,7 +129,18 @@ test('mock harness opens utilities from the top-bar overflow', async ({ page }) 
   await openTopBarOverflow(page);
   await page.getByTestId('top-bar-overflow-search').click();
   await expect(page.getByTestId('search-panel')).toBeVisible();
+  await expect(page.getByTestId('search-input')).toBeFocused();
+  await page.keyboard.type('Nike');
+  await expect(page.getByTestId('search-input')).toHaveValue('Nike');
   await page.getByTestId('search-close').click();
+
+  await openTopBarOverflow(page);
+  await page.getByTestId('top-bar-overflow-command-palette').click();
+  await expect(page.getByTestId('command-palette-panel')).toBeVisible();
+  await expect(page.getByTestId('command-palette-input')).toBeFocused();
+  await page.keyboard.type('>search');
+  await expect(page.getByTestId('command-palette-input')).toHaveValue('>search');
+  await page.getByTestId('command-palette-close').click();
 
   await openTopBarOverflow(page);
   await expect(page.getByTestId('top-bar-overflow-stop-all')).toBeDisabled();
@@ -869,13 +885,16 @@ test('mock harness searches and reopens an existing chat', async ({ page }) => {
 
   await page.getByTestId('sidebar-search-button').click();
   await expect(page.getByTestId('search-panel')).toBeVisible();
+  await expect(page.getByTestId('search-input')).toBeFocused();
   await expect(page.getByTestId('search-result')).toContainText('run whoami');
 
-  await page.getByTestId('search-input').fill('whoami');
+  await page.keyboard.type('whoami');
+  await expect(page.getByTestId('search-input')).toHaveValue('whoami');
   await expect(page.getByTestId('search-result')).toHaveCount(1);
   await expect(page.getByTestId('search-result')).toContainText('Nike 1.0');
 
-  await page.getByTestId('search-input').fill('mock-user');
+  await replaceFocusedText(page, 'mock-user');
+  await expect(page.getByTestId('search-input')).toHaveValue('mock-user');
   await expect(page.getByTestId('search-result')).toHaveCount(1);
   await expect(page.getByTestId('search-result')).toContainText('run whoami');
 
@@ -945,7 +964,9 @@ test('mock harness runs a command from the command palette', async ({ page }) =>
 
   await clickSidebarTool(page, 'command-palette-button');
   await expect(page.getByTestId('command-palette-panel')).toBeVisible();
-  await page.getByLabel('Search commands').fill('>terminal');
+  await expect(page.getByTestId('command-palette-input')).toBeFocused();
+  await page.keyboard.type('>terminal');
+  await expect(page.getByTestId('command-palette-input')).toHaveValue('>terminal');
   await page.locator('[data-testid="command-palette-result"][data-command-id="toggle-terminal"]').click();
 
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);

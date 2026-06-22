@@ -25,6 +25,10 @@ public enum TrustedRouterAgentError: Error, CustomStringConvertible {
 }
 
 public struct TrustedRouterLLMClient: StreamingLLMClient {
+    public static var jsonObjectResponseParameters: [String: Any] {
+        ["response_format": ["type": "json_object"]]
+    }
+
     public var sessionStore: (any TrustedRouterSessionStore)?
     public var apiKeyOverride: String?
     public var model: String
@@ -55,7 +59,11 @@ public struct TrustedRouterLLMClient: StreamingLLMClient {
         let apiKey = try configuredAPIKey()
         let client = try TrustedRouter(options: .init(apiKey: apiKey, baseUrl: baseURL))
         let messages = Self.messages(thread: thread, userMessage: userMessage, tools: tools)
-        return try await client.chatCompletionsText(model: model, messages: messages)
+        return try await client.chatCompletionsText(
+            model: model,
+            messages: messages,
+            params: Self.jsonObjectResponseParameters
+        )
     }
 
     public static func collectAction(from stream: AsyncThrowingStream<String, Error>) async throws -> AgentAction {
@@ -184,9 +192,7 @@ public struct TrustedRouterLLMClient: StreamingLLMClient {
 public enum AgentActionJSONParser {
     public static func parse(_ text: String) throws -> AgentAction {
         let trimmed = stripFences(text.trimmingCharacters(in: .whitespacesAndNewlines))
-        guard let data = trimmed.data(using: .utf8),
-              let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else {
+        guard let object = actionObject(in: trimmed) else {
             throw TrustedRouterAgentError.invalidActionJSON(text)
         }
         let rawType = (object["type"] as? String) ?? (toolName(in: object) == nil ? nil : "tool")
@@ -215,6 +221,72 @@ public enum AgentActionJSONParser {
         default:
             throw TrustedRouterAgentError.invalidActionJSON(text)
         }
+    }
+
+    private static func actionObject(in text: String) -> [String: Any]? {
+        if let object = parseObject(text), looksLikeActionObject(object) {
+            return object
+        }
+        for candidate in jsonObjectCandidates(in: text) {
+            guard let object = parseObject(candidate), looksLikeActionObject(object) else { continue }
+            return object
+        }
+        return nil
+    }
+
+    private static func parseObject(_ text: String) -> [String: Any]? {
+        guard let data = text.data(using: .utf8) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+
+    private static func looksLikeActionObject(_ object: [String: Any]) -> Bool {
+        object["type"] is String || toolName(in: object) != nil
+    }
+
+    private static func jsonObjectCandidates(in text: String) -> [String] {
+        var candidates: [String] = []
+        var startIndex: String.Index?
+        var depth = 0
+        var isInsideString = false
+        var isEscaping = false
+
+        for index in text.indices {
+            let character = text[index]
+            guard let start = startIndex else {
+                if character == "{" {
+                    startIndex = index
+                    depth = 1
+                    isInsideString = false
+                    isEscaping = false
+                }
+                continue
+            }
+
+            if isInsideString {
+                if isEscaping {
+                    isEscaping = false
+                } else if character == "\\" {
+                    isEscaping = true
+                } else if character == "\"" {
+                    isInsideString = false
+                }
+                continue
+            }
+
+            if character == "\"" {
+                isInsideString = true
+            } else if character == "{" {
+                depth += 1
+            } else if character == "}" {
+                depth -= 1
+                if depth == 0 {
+                    candidates.append(String(text[start...index]))
+                    startIndex = nil
+                }
+            }
+        }
+
+        return candidates
     }
 
     private static func toolName(in object: [String: Any]) -> String? {
@@ -515,7 +587,8 @@ public struct TrustedRouterSafetyModelClient: SafetyModelClient {
             messages: [
                 ["role": "system", "content": "Return only the requested JSON object."],
                 ["role": "user", "content": prompt]
-            ]
+            ],
+            params: TrustedRouterLLMClient.jsonObjectResponseParameters
         )
         guard let text = completion.choices.first?.message.content,
               !text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).isEmpty
