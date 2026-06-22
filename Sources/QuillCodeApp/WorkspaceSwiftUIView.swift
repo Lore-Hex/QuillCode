@@ -981,28 +981,26 @@ private struct QuillCodeTopBarView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
             identityCluster
                 .layoutPriority(3)
             Spacer(minLength: 10)
-            primaryControls
+            modelControls
                 .layoutPriority(2)
-            contextControls
-                .frame(maxWidth: 620, alignment: .trailing)
-                .layoutPriority(1)
+            statusControls
             commandMenu
         }
-        .padding(16)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
         .background(QuillCodePalette.panel)
     }
 
     private var identityCluster: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "sparkles")
-                .font(.title2)
-                .frame(width: 42, height: 42)
-                .background(QuillCodePalette.blue.opacity(0.18))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        HStack(spacing: 10) {
+            Image(systemName: "pin.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(QuillCodePalette.muted)
+                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
             VStack(alignment: .leading, spacing: 3) {
                 Text(topBar.primaryTitle)
                     .font(.headline)
@@ -1019,7 +1017,7 @@ private struct QuillCodeTopBarView: View {
         .frame(minWidth: 0, alignment: .leading)
     }
 
-    private var primaryControls: some View {
+    private var modelControls: some View {
         HStack(spacing: 8) {
             QuillCodeModelPickerView(
                 topBar: topBar,
@@ -1041,9 +1039,9 @@ private struct QuillCodeTopBarView: View {
         .fixedSize(horizontal: true, vertical: false)
     }
 
-    private var contextControls: some View {
+    private var statusControls: some View {
         HStack(spacing: 8) {
-            QuillCodePill(text: topBar.agentStatus, systemImage: "waveform.path", maxWidth: 150, layoutPriority: 2)
+            QuillCodePill(text: topBar.agentStatus, systemImage: "circle.fill", maxWidth: 120, layoutPriority: 2)
             if let runtimeIssueLabel = topBar.runtimeIssueLabel {
                 QuillCodePill(
                     text: runtimeIssueLabel,
@@ -1054,28 +1052,50 @@ private struct QuillCodeTopBarView: View {
                 )
                 .help(runtimeIssueLabel)
             }
-            QuillCodePill(
-                text: topBar.instructionLabel,
-                systemImage: topBar.instructionSources.isEmpty ? "doc" : "doc.text.magnifyingglass",
-                maxWidth: 190
+            topBarCommandButton(
+                commandID: "command-palette",
+                systemImage: "command",
+                fallbackTitle: "Command palette"
             )
-                .help(topBar.instructionSources.isEmpty ? topBar.instructionLabel : topBar.instructionSources.joined(separator: "\n"))
-            QuillCodePill(
-                text: topBar.memoryLabel,
-                systemImage: topBar.memorySources.isEmpty ? "brain" : "brain.head.profile",
-                maxWidth: 160
+            topBarCommandButton(
+                commandID: "search",
+                systemImage: "magnifyingglass",
+                fallbackTitle: "Search"
             )
-                .help(topBar.memorySources.isEmpty ? topBar.memoryLabel : topBar.memorySources.joined(separator: "\n"))
-            QuillCodePill(
-                text: topBar.computerUseLabel,
-                systemImage: topBar.showsComputerUseSetup ? "rectangle.badge.exclamationmark" : "display",
-                tint: topBar.showsComputerUseSetup ? QuillCodePalette.yellow : QuillCodePalette.blue,
-                maxWidth: 230
+            topBarCommandButton(
+                commandID: topBar.showsComputerUseSetup ? "computer-use-setup" : "settings",
+                systemImage: topBar.showsComputerUseSetup ? "display.badge.exclamationmark" : "gearshape",
+                fallbackTitle: topBar.showsComputerUseSetup ? topBar.computerUseLabel : "Settings"
             )
-            .help(topBar.computerUseLabel)
         }
         .frame(minWidth: 0, alignment: .trailing)
-        .clipped()
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private func topBarCommandButton(
+        commandID: String,
+        systemImage: String,
+        fallbackTitle: String
+    ) -> some View {
+        let command = commands.first { $0.id == commandID } ?? WorkspaceCommandSurface(
+            id: commandID,
+            title: fallbackTitle,
+            category: WorkspaceCommandPalette.workspaceCategory,
+            keywords: []
+        )
+        return Button {
+            onCommand(command)
+        } label: {
+            Image(systemName: systemImage)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(command.isEnabled ? QuillCodePalette.muted : QuillCodePalette.muted.opacity(0.45))
+                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .disabled(!command.isEnabled)
+        .help(command.title)
+        .accessibilityLabel(command.title)
     }
 
     private var commandMenu: some View {
@@ -1335,13 +1355,7 @@ private struct QuillCodeSidebarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             QuillCodeSidebarActionsView(commands: commands, onCommand: onCommand)
-            Divider()
-            QuillCodeProjectListView(
-                projects: projects,
-                onSelectProject: onSelectProject,
-                onAddProjectRequested: onAddProjectRequested,
-                onProjectAction: onProjectAction
-            )
+            QuillCodeSidebarUtilityActionsView(commands: commands, onCommand: onCommand)
             Divider()
             HStack {
                 Text(sidebar.title.uppercased())
@@ -1408,6 +1422,13 @@ private struct QuillCodeSidebarView: View {
                     }
                 }
             }
+            Divider()
+            QuillCodeProjectListView(
+                projects: projects,
+                onSelectProject: onSelectProject,
+                onAddProjectRequested: onAddProjectRequested,
+                onProjectAction: onProjectAction
+            )
             Spacer(minLength: 0)
         }
         .padding(14)
@@ -1575,9 +1596,6 @@ private struct QuillCodeSidebarActionsView: View {
                 "new-chat",
                 "search",
                 "toggle-activity",
-                "toggle-browser",
-                "toggle-terminal",
-                "toggle-memories",
                 "toggle-extensions"
             ].contains($0.id)
         }
@@ -1589,16 +1607,27 @@ private struct QuillCodeSidebarActionsView: View {
                 Button {
                     onCommand(command)
                 } label: {
-                    Label(command.title, systemImage: systemImage(for: command.id))
+                    Label(displayTitle(for: command), systemImage: systemImage(for: command.id))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 8)
                         .padding(.horizontal, 10)
-                        .background(QuillCodePalette.panel)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .background(command.id == "new-chat" ? QuillCodePalette.panel.opacity(0.74) : Color.clear)
+                        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .disabled(!command.isEnabled)
             }
+        }
+    }
+
+    private func displayTitle(for command: WorkspaceCommandSurface) -> String {
+        switch command.id {
+        case "toggle-extensions":
+            return "Plugins"
+        case "toggle-activity":
+            return "Automations"
+        default:
+            return command.title
         }
     }
 
@@ -1609,15 +1638,57 @@ private struct QuillCodeSidebarActionsView: View {
         case "search":
             return "magnifyingglass"
         case "toggle-activity":
-            return "list.bullet.rectangle"
+            return "clock.arrow.circlepath"
+        case "toggle-extensions":
+            return "puzzlepiece.extension"
+        default:
+            return "circle"
+        }
+    }
+}
+
+private struct QuillCodeSidebarUtilityActionsView: View {
+    var commands: [WorkspaceCommandSurface]
+    var onCommand: (WorkspaceCommandSurface) -> Void
+
+    private var visibleCommands: [WorkspaceCommandSurface] {
+        commands.filter {
+            [
+                "toggle-terminal",
+                "toggle-browser",
+                "toggle-memories"
+            ].contains($0.id)
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(visibleCommands) { command in
+                Button {
+                    onCommand(command)
+                } label: {
+                    Image(systemName: systemImage(for: command.id))
+                        .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+                        .foregroundStyle(command.isEnabled ? QuillCodePalette.muted : QuillCodePalette.muted.opacity(0.45))
+                        .background(QuillCodePalette.panel.opacity(0.42))
+                        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(!command.isEnabled)
+                .help(command.title)
+                .accessibilityLabel(command.title)
+            }
+        }
+    }
+
+    private func systemImage(for commandID: String) -> String {
+        switch commandID {
         case "toggle-terminal":
             return "terminal"
         case "toggle-browser":
             return "globe"
         case "toggle-memories":
             return "brain.head.profile"
-        case "toggle-extensions":
-            return "puzzlepiece.extension"
         default:
             return "circle"
         }

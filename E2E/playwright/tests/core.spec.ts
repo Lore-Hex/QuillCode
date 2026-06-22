@@ -217,7 +217,7 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(polish.sidebarActionMinHeight).toBeGreaterThanOrEqual(40);
   expect(polish.titleTextWrap).toContain('balance');
   expect(polish.agentStatusNumbers).toContain('tabular-nums');
-  expect(polish.sidebarRadius).toBeGreaterThanOrEqual(24);
+  expect(polish.sidebarRadius).toBeLessThanOrEqual(4);
 
   await page.getByLabel('Message').fill('run whoami');
   await page.getByRole('button', { name: 'Send' }).click();
@@ -297,8 +297,8 @@ test('mock harness bounds top bar status clusters under long labels', async ({ p
   });
 
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.viewportWidth);
-  expect(metrics.clustersDisplay).toBe('grid');
-  expect(metrics.clustersColumns.split(' ').length).toBe(3);
+  expect(metrics.clustersDisplay).toBe('flex');
+  expect(metrics.clustersColumns).toBe('none');
   expect(metrics.contextOverflow).toBe('hidden');
   expect(metrics.instructionOverflow).toBe('hidden');
   expect(metrics.instructionTextOverflow).toBe('ellipsis');

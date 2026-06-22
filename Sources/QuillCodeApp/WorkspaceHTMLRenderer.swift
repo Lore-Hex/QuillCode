@@ -32,8 +32,10 @@ public enum WorkspaceHTMLRenderer {
         """
         <header class="topbar" data-testid="top-bar" aria-label="QuillCode top bar">
           <div class="topbar-title-group" data-testid="top-bar-title-group">
-            <strong data-testid="top-bar-title">\(escape(topBar.primaryTitle))</strong>
-            <p data-testid="top-bar-subtitle">\(escape(topBar.subtitle))</p>
+            <span>
+              <strong data-testid="top-bar-title">\(escape(topBar.primaryTitle))</strong>
+              <p data-testid="top-bar-subtitle">\(escape(topBar.subtitle))</p>
+            </span>
           </div>
           <div class="topbar-clusters" data-testid="top-bar-clusters">
             <div class="topbar-cluster topbar-primary-cluster" data-testid="top-bar-primary-cluster">
@@ -46,6 +48,11 @@ public enum WorkspaceHTMLRenderer {
               <span data-testid="project-instructions-status" title="\(escape(topBar.instructionSources.joined(separator: ", ")))">\(escape(topBar.instructionLabel))</span>
               <span data-testid="project-memories-status" title="\(escape(topBar.memorySources.joined(separator: ", ")))">\(escape(topBar.memoryLabel))</span>
               <span data-testid="computer-use-status">\(escape(topBar.computerUseLabel))</span>
+            </div>
+            <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
+              <span aria-label="Command palette">K</span>
+              <span aria-label="Search">/</span>
+              <span aria-label="Settings">...</span>
             </div>
           </div>
         </header>
@@ -81,14 +88,25 @@ public enum WorkspaceHTMLRenderer {
         }
         return """
         <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
+          <div class="sidebar-actions" aria-label="Primary chat actions">
+            <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true">New chat</button>
+            <button class="sidebar-action" type="button" data-testid="sidebar-search-button" data-primary="true">Search</button>
+            <button class="sidebar-action" type="button" data-testid="extensions-button" data-primary="true">Plugins</button>
+            <button class="sidebar-action" type="button" data-testid="activity-button" data-primary="true">Automations</button>
+          </div>
+          <div class="sidebar-utility-row" aria-label="Workspace tools">
+            <button class="sidebar-action" type="button" data-testid="terminal-button" data-secondary="true" aria-label="Terminal">Term</button>
+            <button class="sidebar-action" type="button" data-testid="browser-button" data-secondary="true" aria-label="Browser">Web</button>
+            <button class="sidebar-action" type="button" data-testid="memories-button" data-secondary="true" aria-label="Memories">Mem</button>
+          </div>
+          <h2>\(escape(sidebar.title))</h2>
+          \(renderSidebarBulkToolbar(sidebar))
+          \(content)
           <div class="sidebar-section-title">
             <h2>\(escape(projects.title))</h2>
             <button type="button" data-testid="add-project-button" aria-label="Open project">+</button>
           </div>
           \(projectContent)
-          <h2>\(escape(sidebar.title))</h2>
-          \(renderSidebarBulkToolbar(sidebar))
-          \(content)
         </aside>
         """
     }

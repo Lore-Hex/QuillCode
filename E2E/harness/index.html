@@ -48,20 +48,32 @@
     .quillcode-workspace { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
     .topbar {
       position: relative;
-      margin: 18px;
       display: grid;
       grid-template-columns: minmax(180px, 1fr) minmax(0, auto);
       align-items: center;
-      gap: 16px;
-      padding: 16px 18px;
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 24px;
-      background: color-mix(in srgb, var(--panel-2) 86%, transparent);
-      box-shadow: var(--shadow-panel);
+      gap: 14px;
+      min-height: 58px;
+      padding: 10px 16px 10px 18px;
+      border-bottom: 1px solid rgba(255,255,255,.10);
+      background: rgba(12, 18, 22, .94);
     }
-    .topbar-title-group { min-width: 0; }
-    .topbar strong { font-size: 20px; }
-    .topbar p { margin: 3px 0 0; color: var(--muted); }
+    .topbar-title-group {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+    }
+    .topbar-title-group::before {
+      content: "";
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      background: linear-gradient(135deg, #d9f5ff, #72cef2);
+      box-shadow: 0 0 0 1px rgba(255,255,255,.22), 0 6px 18px rgba(65,184,232,.18);
+    }
+    .topbar strong { font-size: 17px; }
+    .topbar p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
     .topbar-title-group strong,
     .topbar-title-group p {
       display: block;
@@ -73,10 +85,10 @@
     .topbar-clusters {
       min-width: 0;
       max-width: 100%;
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
+      display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: flex-end;
+      gap: 6px;
     }
     .topbar-cluster {
       min-width: 0;
@@ -91,10 +103,11 @@
     .topbar-context-cluster {
       justify-content: flex-end;
       overflow: hidden;
+      max-width: min(42vw, 440px);
     }
     .topbar-context-cluster > span {
       min-width: 0;
-      max-width: 190px;
+      max-width: 150px;
       flex: 1 1 auto;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -106,20 +119,47 @@
       max-width: 150px;
     }
     .topbar-context-cluster > [data-testid="computer-use-status"] {
-      max-width: 230px;
+      max-width: 180px;
+    }
+    .topbar-context-cluster > [data-testid="project-instructions-status"],
+    .topbar-context-cluster > [data-testid="project-memories-status"],
+    .topbar-context-cluster > [data-testid="computer-use-status"] {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      border: 0;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+      background: transparent;
     }
     .topbar-cluster span,
     .topbar-cluster select,
     .topbar-cluster button {
-      padding: 6px 10px;
+      min-height: 34px;
+      padding: 5px 9px;
       border-radius: 999px;
-      background: rgba(65,184,232,.14);
-      color: #b6eaff;
-      border: 1px solid rgba(65,184,232,.22);
-      font-size: 13px;
+      background: rgba(255,255,255,.055);
+      color: rgba(238,247,250,.88);
+      border: 1px solid rgba(255,255,255,.10);
+      font-size: 12px;
     }
     .topbar-cluster select { max-width: 230px; }
     .topbar-cluster button { font-weight: 600; }
+    .topbar-action-cluster button {
+      width: 38px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      background: transparent;
+    }
+    .topbar-action-cluster button:hover {
+      color: var(--text);
+      background: rgba(255,255,255,.07);
+    }
     .topbar-cluster [data-testid="runtime-issue-pill"] {
       color: #ffe2a3;
       background: rgba(248,184,78,.14);
@@ -368,16 +408,22 @@
     .permission-status-pill { flex: none; max-width: 180px; padding: 5px 10px; border-radius: 999px; color: var(--yellow); background: rgba(255,184,77,.14); font-size: 12px; font-weight: 800; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .permission-status-pill[data-available="true"] { color: var(--green); background: rgba(67,212,120,.14); }
     .permission-actions { display: flex; justify-content: flex-start; gap: 10px; }
-    .workspace-grid { min-height: 0; display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 18px; padding: 0 18px 18px; }
-    .workspace-grid.with-activity { grid-template-columns: 280px minmax(0, 1fr) 320px; }
+    .workspace-grid { min-height: 0; display: grid; grid-template-columns: 272px minmax(0, 1fr); gap: 16px; padding: 14px 18px 18px 0; }
+    .workspace-grid.with-activity { grid-template-columns: 272px minmax(0, 1fr) 320px; }
     .sidebar, .transcript {
       min-height: 0;
+    }
+    .transcript {
       border: 1px solid rgba(255,255,255,.1);
       border-radius: 26px;
       background: rgba(18,29,35,.84);
       box-shadow: var(--shadow-border);
     }
-    .sidebar { padding: 14px; overflow: auto; }
+    .sidebar {
+      padding: 8px 8px 8px 18px;
+      overflow: auto;
+      border-right: 1px solid rgba(255,255,255,.07);
+    }
     .sidebar h2 { margin: 0 0 12px; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
     .sidebar h3 { margin: 10px 0 8px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
     .sidebar-section-title {
@@ -397,20 +443,43 @@
     }
     .sidebar-actions {
       display: grid;
-      gap: 8px;
-      margin-bottom: 14px;
+      gap: 4px;
+      margin-bottom: 16px;
     }
     .sidebar-action {
       width: 100%;
-      padding: 11px 12px;
+      min-height: 40px;
+      padding: 8px 12px;
       text-align: left;
       color: var(--text);
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.1);
-      box-shadow: var(--shadow-border);
+      background: transparent;
+      border: 1px solid transparent;
+      box-shadow: none;
       transition-property: transform, background-color, box-shadow, border-color;
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
+    }
+    .sidebar-action[data-primary="true"] {
+      color: var(--text);
+      font-weight: 700;
+    }
+    .sidebar-action[data-secondary="true"] {
+      color: var(--muted);
+    }
+    .sidebar-utility-row {
+      display: flex;
+      gap: 6px;
+      margin: -6px 0 14px;
+      padding-left: 2px;
+    }
+    .sidebar-utility-row .sidebar-action {
+      width: 40px;
+      min-width: 40px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      font-size: 12px;
     }
     .sidebar-item,
     .project-item {
@@ -433,6 +502,7 @@
     .project-item:not(:disabled):hover {
       transform: translateY(-1px);
       box-shadow: var(--shadow-border-hover);
+      background: rgba(255,255,255,.06);
     }
     .sidebar-item {
       min-height: 60px;
@@ -3309,8 +3379,10 @@
         <section class="quillcode-workspace" data-testid="workspace">
           <header class="topbar" data-testid="top-bar" aria-label="QuillCode top bar">
             <div class="topbar-title-group" data-testid="top-bar-title-group">
-              <strong data-testid="top-bar-title">${escapeHTML(state.topBar.primaryTitle)}</strong>
-              <p data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
+              <span>
+                <strong data-testid="top-bar-title">${escapeHTML(state.topBar.primaryTitle)}</strong>
+                <p data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
+              </span>
             </div>
             <div class="topbar-clusters" data-testid="top-bar-clusters">
               <div class="topbar-cluster topbar-primary-cluster" data-testid="top-bar-primary-cluster">
@@ -3328,30 +3400,32 @@
                 <span data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</span>
               </div>
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
-                <button type="button" data-testid="command-palette-button">Commands</button>
-                <button type="button" data-testid="search-button">Search</button>
-                <button type="button" data-testid="settings-button">Settings</button>
+                <button type="button" data-testid="command-palette-button" aria-label="Command palette" title="Command palette">K</button>
+                <button type="button" data-testid="search-button" aria-label="Search" title="Search">/</button>
+                <button type="button" data-testid="settings-button" aria-label="Settings" title="Settings">...</button>
               </div>
             </div>
           </header>
           <div class="workspace-grid ${state.activity.isVisible ? 'with-activity' : ''}">
             <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
               <div class="sidebar-actions" aria-label="Primary chat actions">
-	                <button class="sidebar-action" type="button" data-testid="new-chat-button">New chat</button>
-	                <button class="sidebar-action" type="button" data-testid="sidebar-search-button">Search</button>
-	                <button class="sidebar-action" type="button" data-testid="activity-button">Activity</button>
-	                <button class="sidebar-action" type="button" data-testid="browser-button">Browser</button>
-	                <button class="sidebar-action" type="button" data-testid="terminal-button">Terminal</button>
-	                <button class="sidebar-action" type="button" data-testid="memories-button">Memories</button>
-	                <button class="sidebar-action" type="button" data-testid="extensions-button">Extensions</button>
+                <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true">New chat</button>
+                <button class="sidebar-action" type="button" data-testid="sidebar-search-button" data-primary="true">Search</button>
+                <button class="sidebar-action" type="button" data-testid="extensions-button" data-primary="true">Plugins</button>
+                <button class="sidebar-action" type="button" data-testid="activity-button" data-primary="true">Automations</button>
               </div>
+              <div class="sidebar-utility-row" aria-label="Workspace tools">
+                <button class="sidebar-action" type="button" data-testid="terminal-button" data-secondary="true" aria-label="Terminal" title="Terminal">Term</button>
+                <button class="sidebar-action" type="button" data-testid="browser-button" data-secondary="true" aria-label="Browser" title="Browser">Web</button>
+                <button class="sidebar-action" type="button" data-testid="memories-button" data-secondary="true" aria-label="Memories" title="Memories">Mem</button>
+              </div>
+              <h2>${escapeHTML(state.sidebar.title)}</h2>
+              ${sidebarContent}
               <div class="sidebar-section-title">
                 <h2>${escapeHTML(state.projects.title)}</h2>
                 <button class="sidebar-icon-button" type="button" data-testid="add-project-button" aria-label="Open project">+</button>
               </div>
               ${projectsContent}
-              <h2>${escapeHTML(state.sidebar.title)}</h2>
-              ${sidebarContent}
             </aside>
 	            <main class="transcript" data-testid="transcript">
                 ${state.find.isOpen ? renderFindBar(findMatches) : ''}
