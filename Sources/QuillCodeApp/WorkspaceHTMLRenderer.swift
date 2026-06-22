@@ -31,18 +31,22 @@ public enum WorkspaceHTMLRenderer {
     private static func renderTopBar(_ topBar: TopBarSurface) -> String {
         """
         <header class="topbar" data-testid="top-bar" aria-label="QuillCode top bar">
-          <div>
+          <div class="topbar-title-group" data-testid="top-bar-title-group">
             <strong data-testid="top-bar-title">\(escape(topBar.primaryTitle))</strong>
             <p data-testid="top-bar-subtitle">\(escape(topBar.subtitle))</p>
           </div>
-          <div class="topbar-pills">
-            <span data-testid="model-pill">\(escape(topBar.modelLabel))</span>
-            <span data-testid="mode-pill">\(escape(topBar.modeLabel))</span>
-            <span data-testid="project-instructions-status" title="\(escape(topBar.instructionSources.joined(separator: ", ")))">\(escape(topBar.instructionLabel))</span>
-            <span data-testid="project-memories-status" title="\(escape(topBar.memorySources.joined(separator: ", ")))">\(escape(topBar.memoryLabel))</span>
-            <span data-testid="agent-status">\(escape(topBar.agentStatus))</span>
-            \(topBar.runtimeIssueLabel.map { #"<span data-testid="runtime-issue-pill" data-severity="\#(escape(topBar.runtimeIssueSeverity?.rawValue ?? "warning"))">\#(escape($0))</span>"# } ?? "")
-            <span data-testid="computer-use-status">\(escape(topBar.computerUseLabel))</span>
+          <div class="topbar-clusters" data-testid="top-bar-clusters">
+            <div class="topbar-cluster topbar-primary-cluster" data-testid="top-bar-primary-cluster">
+              <span data-testid="model-pill">\(escape(topBar.modelLabel))</span>
+              <span data-testid="mode-pill">\(escape(topBar.modeLabel))</span>
+            </div>
+            <div class="topbar-cluster topbar-context-cluster" data-testid="top-bar-context-cluster">
+              <span data-testid="agent-status">\(escape(topBar.agentStatus))</span>
+              \(topBar.runtimeIssueLabel.map { #"<span data-testid="runtime-issue-pill" data-severity="\#(escape(topBar.runtimeIssueSeverity?.rawValue ?? "warning"))">\#(escape($0))</span>"# } ?? "")
+              <span data-testid="project-instructions-status" title="\(escape(topBar.instructionSources.joined(separator: ", ")))">\(escape(topBar.instructionLabel))</span>
+              <span data-testid="project-memories-status" title="\(escape(topBar.memorySources.joined(separator: ", ")))">\(escape(topBar.memoryLabel))</span>
+              <span data-testid="computer-use-status">\(escape(topBar.computerUseLabel))</span>
+            </div>
           </div>
         </header>
         """

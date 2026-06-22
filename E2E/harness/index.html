@@ -41,7 +41,7 @@
     [data-testid="context-banner-percent"],
     [data-testid="tool-card-status"],
     [data-testid="activity-section-count"],
-    .topbar-pills span,
+    .topbar-cluster span,
     .activity-item span {
       font-variant-numeric: tabular-nums;
     }
@@ -49,22 +49,68 @@
     .topbar {
       position: relative;
       margin: 18px;
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) minmax(0, auto);
       align-items: center;
-      justify-content: space-between;
-      gap: 24px;
+      gap: 16px;
       padding: 16px 18px;
       border: 1px solid rgba(255,255,255,.12);
       border-radius: 24px;
       background: color-mix(in srgb, var(--panel-2) 86%, transparent);
       box-shadow: var(--shadow-panel);
     }
+    .topbar-title-group { min-width: 0; }
     .topbar strong { font-size: 20px; }
     .topbar p { margin: 3px 0 0; color: var(--muted); }
-    .topbar-pills { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-    .topbar-pills span,
-    .topbar-pills select,
-    .topbar-pills button {
+    .topbar-title-group strong,
+    .topbar-title-group p {
+      display: block;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .topbar-clusters {
+      min-width: 0;
+      max-width: 100%;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+    }
+    .topbar-cluster {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .topbar-primary-cluster,
+    .topbar-action-cluster {
+      flex-wrap: nowrap;
+    }
+    .topbar-context-cluster {
+      justify-content: flex-end;
+      overflow: hidden;
+    }
+    .topbar-context-cluster > span {
+      min-width: 0;
+      max-width: 190px;
+      flex: 1 1 auto;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .topbar-context-cluster > [data-testid="agent-status"],
+    .topbar-context-cluster > [data-testid="runtime-issue-pill"] {
+      flex: 0 0 auto;
+      max-width: 150px;
+    }
+    .topbar-context-cluster > [data-testid="computer-use-status"] {
+      max-width: 230px;
+    }
+    .topbar-cluster span,
+    .topbar-cluster select,
+    .topbar-cluster button {
       padding: 6px 10px;
       border-radius: 999px;
       background: rgba(65,184,232,.14);
@@ -72,14 +118,14 @@
       border: 1px solid rgba(65,184,232,.22);
       font-size: 13px;
     }
-    .topbar-pills select { max-width: 230px; }
-    .topbar-pills button { font-weight: 600; }
-    .topbar-pills [data-testid="runtime-issue-pill"] {
+    .topbar-cluster select { max-width: 230px; }
+    .topbar-cluster button { font-weight: 600; }
+    .topbar-cluster [data-testid="runtime-issue-pill"] {
       color: #ffe2a3;
       background: rgba(248,184,78,.14);
       border-color: rgba(248,184,78,.28);
     }
-    .topbar-pills [data-testid="runtime-issue-pill"][data-severity="error"] {
+    .topbar-cluster [data-testid="runtime-issue-pill"][data-severity="error"] {
       color: #ffc4c0;
       background: rgba(255,93,82,.14);
       border-color: rgba(255,93,82,.30);
@@ -1648,7 +1694,21 @@
       .workspace-grid,
       .workspace-grid.with-activity { grid-template-columns: 1fr; }
       .sidebar { display: none; }
-      .topbar { align-items: flex-start; flex-direction: column; }
+      .topbar {
+        grid-template-columns: 1fr;
+        align-items: flex-start;
+      }
+      .topbar-clusters {
+        width: 100%;
+        grid-template-columns: 1fr;
+        justify-items: start;
+      }
+      .topbar-cluster {
+        flex-wrap: wrap;
+      }
+      .topbar-context-cluster {
+        justify-content: flex-start;
+      }
       .message, .tool-card { max-width: 100%; width: 100%; }
     }
   </style>
@@ -3044,24 +3104,30 @@
       document.getElementById('app').innerHTML = `
         <section class="quillcode-workspace" data-testid="workspace">
           <header class="topbar" data-testid="top-bar" aria-label="QuillCode top bar">
-            <div>
+            <div class="topbar-title-group" data-testid="top-bar-title-group">
               <strong data-testid="top-bar-title">${escapeHTML(state.topBar.primaryTitle)}</strong>
               <p data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
             </div>
-            <div class="topbar-pills">
-              <div class="model-picker-wrap">
-                <button type="button" aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" data-testid="model-picker-button">${escapeHTML(state.topBar.modelLabel)}</button>
-                ${modelBrowser}
+            <div class="topbar-clusters" data-testid="top-bar-clusters">
+              <div class="topbar-cluster topbar-primary-cluster" data-testid="top-bar-primary-cluster">
+                <div class="model-picker-wrap">
+                  <button type="button" aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" data-testid="model-picker-button">${escapeHTML(state.topBar.modelLabel)}</button>
+                  ${modelBrowser}
+                </div>
+                <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
               </div>
-              <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
-              <span data-testid="project-instructions-status" title="${escapeHTML(state.topBar.instructionSources.join(', '))}">${escapeHTML(state.topBar.instructionLabel)}</span>
-              <span data-testid="project-memories-status" title="${escapeHTML(state.topBar.memorySources.join(', '))}">${escapeHTML(state.topBar.memoryLabel)}</span>
-              <span data-testid="agent-status">${escapeHTML(state.topBar.agentStatus)}</span>
-              ${state.runtimeIssue ? `<span data-testid="runtime-issue-pill" data-severity="${escapeHTML(state.runtimeIssue.severity || 'warning')}">${escapeHTML(state.runtimeIssue.title)}</span>` : ''}
-              <span data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</span>
-              <button type="button" data-testid="command-palette-button">Commands</button>
-              <button type="button" data-testid="search-button">Search</button>
-              <button type="button" data-testid="settings-button">Settings</button>
+              <div class="topbar-cluster topbar-context-cluster" data-testid="top-bar-context-cluster">
+                <span data-testid="agent-status">${escapeHTML(state.topBar.agentStatus)}</span>
+                ${state.runtimeIssue ? `<span data-testid="runtime-issue-pill" data-severity="${escapeHTML(state.runtimeIssue.severity || 'warning')}">${escapeHTML(state.runtimeIssue.title)}</span>` : ''}
+                <span data-testid="project-instructions-status" title="${escapeHTML(state.topBar.instructionSources.join(', '))}">${escapeHTML(state.topBar.instructionLabel)}</span>
+                <span data-testid="project-memories-status" title="${escapeHTML(state.topBar.memorySources.join(', '))}">${escapeHTML(state.topBar.memoryLabel)}</span>
+                <span data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</span>
+              </div>
+              <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
+                <button type="button" data-testid="command-palette-button">Commands</button>
+                <button type="button" data-testid="search-button">Search</button>
+                <button type="button" data-testid="settings-button">Settings</button>
+              </div>
             </div>
           </header>
           <div class="workspace-grid ${state.activity.isVisible ? 'with-activity' : ''}">

@@ -1223,6 +1223,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
         let html = WorkspaceHTMLRenderer.render(model.surface())
 
         XCTAssertTrue(html.contains(#"data-testid="top-bar""#))
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-title-group""#))
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-clusters""#))
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-primary-cluster""#))
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-context-cluster""#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar""#))
         XCTAssertTrue(html.contains(#"data-testid="add-project-button""#))
         XCTAssertTrue(html.contains(#"data-testid="project-item""#))
@@ -1231,6 +1235,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="project-instructions-status""#))
         XCTAssertTrue(html.contains("1 instruction file loaded"))
         XCTAssertTrue(html.contains("AGENTS.md"))
+        XCTAssertTrue(html.contains(#"data-testid="computer-use-status""#))
         XCTAssertTrue(html.contains("Unsafe &lt;title&gt;"))
         XCTAssertTrue(html.contains("Unsafe &lt;project&gt;"))
         XCTAssertFalse(html.contains("<script>alert(1)</script>"))

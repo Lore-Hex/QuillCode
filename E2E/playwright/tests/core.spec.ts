@@ -210,7 +210,7 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(polish.sidebarActionTransitionProperty).toContain('box-shadow');
   expect(polish.sidebarActionTransitionProperty).not.toContain('all');
   expect(polish.sidebarActionMinHeight).toBeGreaterThanOrEqual(40);
-  expect(polish.titleTextWrap).toBe('balance');
+  expect(polish.titleTextWrap).toContain('balance');
   expect(polish.agentStatusNumbers).toContain('tabular-nums');
   expect(polish.sidebarRadius).toBeGreaterThanOrEqual(24);
 
@@ -246,6 +246,62 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(transcriptPolish.messageCopyMinHeight).toBeGreaterThanOrEqual(40);
   expect(transcriptPolish.sidebarMenuWidth).toBeGreaterThanOrEqual(40);
   expect(transcriptPolish.sidebarMenuHeight).toBeGreaterThanOrEqual(40);
+});
+
+test('mock harness bounds top bar status clusters under long labels', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 760 });
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('project-instructions-status').evaluate(element => {
+    element.textContent = '12 instruction files loaded from deeply nested project rule sources';
+  });
+  await page.getByTestId('project-memories-status').evaluate(element => {
+    element.textContent = '29 memories from this project and global profile';
+  });
+  await page.getByTestId('computer-use-status').evaluate(element => {
+    element.textContent = 'Needs Screen Recording + Accessibility';
+  });
+  await page.getByTestId('agent-status').evaluate(element => {
+    element.textContent = 'Idle';
+  });
+
+  const metrics = await page.evaluate(() => {
+    const styleFor = (selector: string) => getComputedStyle(document.querySelector(selector)!);
+    const rectFor = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
+    const instruction = document.querySelector('[data-testid="project-instructions-status"]')!;
+    const agent = document.querySelector('[data-testid="agent-status"]')!;
+    const topBarRect = rectFor('[data-testid="top-bar"]');
+    const actionRect = rectFor('[data-testid="top-bar-action-cluster"]');
+    return {
+      viewportWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      clustersDisplay: styleFor('[data-testid="top-bar-clusters"]').display,
+      clustersColumns: styleFor('[data-testid="top-bar-clusters"]').gridTemplateColumns,
+      contextOverflow: styleFor('[data-testid="top-bar-context-cluster"]').overflow,
+      instructionOverflow: styleFor('[data-testid="project-instructions-status"]').overflow,
+      instructionTextOverflow: styleFor('[data-testid="project-instructions-status"]').textOverflow,
+      instructionWidth: instruction.getBoundingClientRect().width,
+      instructionScrollWidth: instruction.scrollWidth,
+      agentText: agent.textContent,
+      agentFlexShrink: styleFor('[data-testid="agent-status"]').flexShrink,
+      agentWidth: agent.getBoundingClientRect().width,
+      agentScrollWidth: agent.scrollWidth,
+      actionRight: actionRect.right,
+      topBarRight: topBarRect.right
+    };
+  });
+
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.viewportWidth);
+  expect(metrics.clustersDisplay).toBe('grid');
+  expect(metrics.clustersColumns.split(' ').length).toBe(3);
+  expect(metrics.contextOverflow).toBe('hidden');
+  expect(metrics.instructionOverflow).toBe('hidden');
+  expect(metrics.instructionTextOverflow).toBe('ellipsis');
+  expect(metrics.instructionScrollWidth).toBeGreaterThan(metrics.instructionWidth);
+  expect(metrics.agentText).toBe('Idle');
+  expect(metrics.agentFlexShrink).toBe('0');
+  expect(metrics.agentWidth).toBeGreaterThanOrEqual(metrics.agentScrollWidth - 1);
+  expect(metrics.actionRight).toBeLessThanOrEqual(metrics.topBarRight);
 });
 
 test('mock harness preserves transcript scroll intent as new events append', async ({ page }) => {

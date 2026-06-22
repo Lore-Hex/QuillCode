@@ -944,6 +944,22 @@ private struct QuillCodeTopBarView: View {
 
     var body: some View {
         HStack(spacing: 14) {
+            identityCluster
+                .layoutPriority(3)
+            Spacer(minLength: 10)
+            primaryControls
+                .layoutPriority(2)
+            contextControls
+                .frame(maxWidth: 620, alignment: .trailing)
+                .layoutPriority(1)
+            commandMenu
+        }
+        .padding(16)
+        .background(QuillCodePalette.panel)
+    }
+
+    private var identityCluster: some View {
+        HStack(spacing: 12) {
             Image(systemName: "sparkles")
                 .font(.title2)
                 .frame(width: 42, height: 42)
@@ -953,12 +969,20 @@ private struct QuillCodeTopBarView: View {
                 Text(topBar.primaryTitle)
                     .font(.headline)
                     .lineLimit(1)
+                    .truncationMode(.tail)
                 Text(topBar.subtitle)
                     .font(.caption)
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
+                    .truncationMode(.tail)
             }
-            Spacer()
+            .frame(minWidth: 0, alignment: .leading)
+        }
+        .frame(minWidth: 0, alignment: .leading)
+    }
+
+    private var primaryControls: some View {
+        HStack(spacing: 8) {
             QuillCodeModelPickerView(
                 topBar: topBar,
                 isPresented: $isModelPickerPresented,
@@ -975,37 +999,63 @@ private struct QuillCodeTopBarView: View {
                 QuillCodePill(text: topBar.modeLabel, systemImage: "shield")
             }
             .buttonStyle(.borderless)
-            QuillCodePill(text: topBar.agentStatus, systemImage: "waveform.path")
+        }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var contextControls: some View {
+        HStack(spacing: 8) {
+            QuillCodePill(text: topBar.agentStatus, systemImage: "waveform.path", maxWidth: 150, layoutPriority: 2)
             if let runtimeIssueLabel = topBar.runtimeIssueLabel {
                 QuillCodePill(
                     text: runtimeIssueLabel,
                     systemImage: "exclamationmark.triangle",
-                    tint: topBar.runtimeIssueSeverity == .error ? QuillCodePalette.red : QuillCodePalette.yellow
+                    tint: topBar.runtimeIssueSeverity == .error ? QuillCodePalette.red : QuillCodePalette.yellow,
+                    maxWidth: 180,
+                    layoutPriority: 2
                 )
                 .help(runtimeIssueLabel)
             }
-            QuillCodePill(text: topBar.instructionLabel, systemImage: topBar.instructionSources.isEmpty ? "doc" : "doc.text.magnifyingglass")
+            QuillCodePill(
+                text: topBar.instructionLabel,
+                systemImage: topBar.instructionSources.isEmpty ? "doc" : "doc.text.magnifyingglass",
+                maxWidth: 190
+            )
                 .help(topBar.instructionSources.isEmpty ? topBar.instructionLabel : topBar.instructionSources.joined(separator: "\n"))
-            QuillCodePill(text: topBar.memoryLabel, systemImage: topBar.memorySources.isEmpty ? "brain" : "brain.head.profile")
+            QuillCodePill(
+                text: topBar.memoryLabel,
+                systemImage: topBar.memorySources.isEmpty ? "brain" : "brain.head.profile",
+                maxWidth: 160
+            )
                 .help(topBar.memorySources.isEmpty ? topBar.memoryLabel : topBar.memorySources.joined(separator: "\n"))
-            Menu {
-                ForEach(commands) { command in
-                    Button(command.title) {
-                        onCommand(command)
-                    }
-                    .disabled(!command.isEnabled)
-                    if let shortcut = command.shortcut {
-                        Text(shortcut)
-                    }
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .frame(width: 40, height: 40)
-            }
-            .buttonStyle(.borderless)
+            QuillCodePill(
+                text: topBar.computerUseLabel,
+                systemImage: topBar.showsComputerUseSetup ? "rectangle.badge.exclamationmark" : "display",
+                tint: topBar.showsComputerUseSetup ? QuillCodePalette.yellow : QuillCodePalette.blue,
+                maxWidth: 230
+            )
+            .help(topBar.computerUseLabel)
         }
-        .padding(16)
-        .background(QuillCodePalette.panel)
+        .frame(minWidth: 0, alignment: .trailing)
+        .clipped()
+    }
+
+    private var commandMenu: some View {
+        Menu {
+            ForEach(commands) { command in
+                Button(command.title) {
+                    onCommand(command)
+                }
+                .disabled(!command.isEnabled)
+                if let shortcut = command.shortcut {
+                    Text(shortcut)
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .frame(width: 40, height: 40)
+        }
+        .buttonStyle(.borderless)
     }
 }
 
@@ -4258,14 +4308,18 @@ private struct QuillCodePill: View {
     var text: String
     var systemImage: String
     var tint: Color = QuillCodePalette.blue
+    var maxWidth: CGFloat?
+    var layoutPriority: Double = 0
 
     var body: some View {
         Label(text, systemImage: systemImage)
             .font(.caption.monospacedDigit().weight(.medium))
             .lineLimit(1)
+            .truncationMode(.tail)
             .padding(.horizontal, 9)
             .padding(.vertical, 6)
-            .frame(minHeight: 32)
+            .frame(maxWidth: maxWidth, minHeight: 32)
+            .layoutPriority(layoutPriority)
             .background(tint.opacity(0.14))
             .foregroundStyle(tint)
             .overlay(
