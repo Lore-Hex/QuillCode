@@ -43,7 +43,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 1. Extract workspace command execution from `WorkspaceModel`.
 2. Extract automation runners from `WorkspaceModel`.
-3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, top bar, sidebar, and review pane are now extracted; shared design primitives now live in `QuillCodeDesignSystem.swift`, so the next targets are transcript/tool-card controls.
+3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, top bar, sidebar, review pane, design primitives, and transcript message bubbles are now extracted; the next target is the tool-card/artifact-preview family.
 4. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
 5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
 
@@ -126,3 +126,15 @@ Interface polish changes:
 - The shared 40 pt hit-target metrics now have design-system ownership instead of workspace-shell ownership.
 - The shared `0.96` press feedback lives beside the metrics it depends on, making tactile button behavior harder to fork.
 - Surface and image-outline modifiers are reusable outside the workspace file while preserving the pure-white dark-mode outline and existing continuous radii.
+
+## 2026-06-22 Transcript Message Refactor Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+Transcript message bubbles moved out of `WorkspaceSwiftUIView.swift` into `QuillCodeTranscriptMessageView.swift`. User and assistant message rendering, retry/use-as-draft controls, feedback controls, and the shared transcript copy button now live beside each other instead of being embedded between terminal and tool-card code.
+
+Interface polish changes:
+
+- Message action controls keep the shared 40 pt minimum hit target and `0.96` press feedback in one focused file.
+- The transcript copy button is now shared from the transcript-message component file, so message bubbles and tool cards do not need separate copy affordance implementations.
+- The workspace shell shrank by another focused chunk, reducing the risk that future transcript edits accidentally touch terminal, settings, or browser panes.
