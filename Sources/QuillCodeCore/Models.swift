@@ -710,6 +710,7 @@ public struct LocalEnvironmentAction: Codable, Sendable, Hashable, Identifiable 
     public var relativePath: String
     public var command: String
     public var sortOrder: Int?
+    public var environment: [String: String]?
 
     public init(
         id: String,
@@ -717,7 +718,8 @@ public struct LocalEnvironmentAction: Codable, Sendable, Hashable, Identifiable 
         detail: String? = nil,
         relativePath: String,
         command: String,
-        sortOrder: Int? = nil
+        sortOrder: Int? = nil,
+        environment: [String: String]? = nil
     ) {
         self.id = id
         self.title = title
@@ -725,6 +727,7 @@ public struct LocalEnvironmentAction: Codable, Sendable, Hashable, Identifiable 
         self.relativePath = relativePath
         self.command = command
         self.sortOrder = sortOrder
+        self.environment = environment
     }
 }
 

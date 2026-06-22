@@ -2895,7 +2895,7 @@ public extension QuillCodeWorkspaceModel {
                 "bootstrap",
                 action.title,
                 action.relativePath
-            ]
+            ] + (action.environment?.keys.sorted() ?? [])
             return WorkspaceCommandSurface(
                 id: action.id,
                 title: "Run \(action.title)",

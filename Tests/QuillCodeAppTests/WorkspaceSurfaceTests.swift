@@ -747,7 +747,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
                     title: "Bootstrap",
                     detail: "Install dependencies and warm caches.",
                     relativePath: ".quillcode/actions/bootstrap.sh",
-                    command: "sh '.quillcode/actions/bootstrap.sh'"
+                    command: "sh '.quillcode/actions/bootstrap.sh'",
+                    environment: ["QUILL_ENV": "dev"]
                 )
             ]
         )
@@ -763,6 +764,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(command?.title, "Run Bootstrap")
         XCTAssertEqual(command?.isEnabled, true)
         XCTAssertTrue(command?.keywords.contains("Install dependencies and warm caches.") == true)
+        XCTAssertTrue(command?.keywords.contains("QUILL_ENV") == true)
     }
 
     func testSurfaceIncludesProjectExtensionSummaryAndCommand() {

@@ -1835,6 +1835,55 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(actions[0].command, #"sh '.quillcode/actions/a-first.sh'"#)
     }
 
+    func testLocalEnvironmentActionMetadataInjectsBoundedEnvironment() throws {
+        let root = try makeTempDirectory()
+        let actionsDirectory = root.appendingPathComponent(".quillcode/actions")
+        try FileManager.default.createDirectory(at: actionsDirectory, withIntermediateDirectories: true)
+        try #"printf "%s|%s|%s|%s" "$QUILL_ENV" "$CACHE_DIR" "$QUOTED_VALUE" "$(printenv BAD-KEY || true)""#.write(
+            to: actionsDirectory.appendingPathComponent("env-check.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try """
+        {
+          "title": "Environment Check",
+          "environment": {
+            "QUILL_ENV": "dev",
+            "CACHE_DIR": ".cache/quill",
+            "QUOTED_VALUE": "it's ok",
+            "BAD-KEY": "ignored",
+            "MULTILINE": "bad\\nvalue"
+          }
+        }
+        """.write(
+            to: actionsDirectory.appendingPathComponent("env-check.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Local Env Metadata Project")
+        model.selectProject(projectID)
+
+        let action = try XCTUnwrap(model.selectedProject?.localActions.first)
+        XCTAssertEqual(action.title, "Environment Check")
+        XCTAssertEqual(action.environment, [
+            "CACHE_DIR": ".cache/quill",
+            "QUILL_ENV": "dev",
+            "QUOTED_VALUE": "it's ok"
+        ])
+        XCTAssertEqual(
+            action.command,
+            #"env CACHE_DIR='.cache/quill' QUILL_ENV='dev' QUOTED_VALUE='it'\''s ok' sh '.quillcode/actions/env-check.sh'"#
+        )
+        XCTAssertTrue(model.runWorkspaceCommand(action.id, workspaceRoot: root))
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        let outputJSON = try XCTUnwrap(card.outputJSON)
+        let result = try JSONHelpers.decode(ToolResult.self, from: outputJSON)
+        XCTAssertEqual(result.stdout, "dev|.cache/quill|it's ok|")
+    }
+
     func testSlashEnvironmentActionListShowsMetadataDescription() async throws {
         let root = try makeTempDirectory()
         let actionsDirectory = root.appendingPathComponent(".quillcode/actions")
