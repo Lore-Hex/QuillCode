@@ -1007,7 +1007,13 @@ private struct QuillCodeTopBarView: View {
             identityCluster
                 .layoutPriority(3)
             Spacer(minLength: 10)
-            modelControls
+            QuillCodeModelPickerView(
+                topBar: topBar,
+                isPresented: $isModelPickerPresented,
+                onSetMode: onSetMode,
+                onSetModel: onSetModel,
+                onToggleModelFavorite: onToggleModelFavorite
+            )
                 .layoutPriority(2)
             statusIndicator
             commandMenu
@@ -1018,11 +1024,7 @@ private struct QuillCodeTopBarView: View {
     }
 
     private var identityCluster: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "pin.fill")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(QuillCodePalette.muted)
-                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+        HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(topBar.primaryTitle)
                     .font(.headline)
@@ -1035,35 +1037,15 @@ private struct QuillCodeTopBarView: View {
         .frame(minWidth: 0, alignment: .leading)
     }
 
-    private var modelControls: some View {
-        HStack(spacing: 8) {
-            QuillCodeModelPickerView(
-                topBar: topBar,
-                isPresented: $isModelPickerPresented,
-                onSetModel: onSetModel,
-                onToggleModelFavorite: onToggleModelFavorite
-            )
-            Menu {
-                ForEach(AgentMode.allCases, id: \.rawValue) { mode in
-                    Button(mode.title) {
-                        onSetMode(mode)
-                    }
-                }
-            } label: {
-                QuillCodePill(text: topBar.modeLabel, systemImage: "shield")
-            }
-            .buttonStyle(.borderless)
-        }
-        .fixedSize(horizontal: true, vertical: false)
-    }
-
     private var statusIndicator: some View {
         HStack(spacing: 8) {
-            Circle()
-                .fill(statusTint)
-                .frame(width: 8, height: 8)
-                .help(topBar.agentStatus)
-                .accessibilityLabel("Agent status: \(topBar.agentStatus)")
+            if showsStatusDot {
+                Circle()
+                    .fill(statusTint)
+                    .frame(width: 8, height: 8)
+                    .help(topBar.agentStatus)
+                    .accessibilityLabel("Agent status: \(topBar.agentStatus)")
+            }
             if let runtimeIssueLabel = topBar.runtimeIssueLabel {
                 QuillCodePill(
                     text: runtimeIssueLabel,
@@ -1077,6 +1059,14 @@ private struct QuillCodeTopBarView: View {
         }
         .frame(minWidth: 0, alignment: .trailing)
         .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var showsStatusDot: Bool {
+        let lowercasedStatus = topBar.agentStatus.lowercased()
+        return lowercasedStatus.contains("fail")
+            || lowercasedStatus.contains("error")
+            || lowercasedStatus.contains("run")
+            || lowercasedStatus.contains("work")
     }
 
     private var statusTint: Color {
@@ -1122,6 +1112,7 @@ private struct QuillCodeTopBarView: View {
 private struct QuillCodeModelPickerView: View {
     var topBar: TopBarSurface
     @Binding var isPresented: Bool
+    var onSetMode: (AgentMode) -> Void
     var onSetModel: (String) -> Void
     var onToggleModelFavorite: (String) -> Void
 
@@ -1145,7 +1136,7 @@ private struct QuillCodeModelPickerView: View {
         Button {
             isPresented.toggle()
         } label: {
-            QuillCodePill(text: topBar.modelLabel, systemImage: "cpu")
+            QuillCodePill(text: "\(topBar.modelLabel) · \(topBar.modeLabel)", systemImage: "cpu")
         }
         .buttonStyle(.borderless)
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
@@ -1160,6 +1151,12 @@ private struct QuillCodeModelPickerView: View {
                     }
                     Spacer()
                 }
+                Picker("Mode", selection: modeBinding) {
+                    ForEach(AgentMode.allCases, id: \.rawValue) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
                 TextField("Search models", text: $searchText)
                     .textFieldStyle(.roundedBorder)
                     .focused($isSearchFocused)
@@ -1208,6 +1205,17 @@ private struct QuillCodeModelPickerView: View {
                 isSearchFocused = false
             }
         }
+    }
+
+    private var modeBinding: Binding<AgentMode> {
+        Binding(
+            get: {
+                AgentMode.allCases.first { $0.title == topBar.modeLabel } ?? .auto
+            },
+            set: { mode in
+                onSetMode(mode)
+            }
+        )
     }
 
     private func modelRow(_ option: ModelOptionSurface) -> some View {
@@ -1593,7 +1601,7 @@ private struct QuillCodeSidebarActionsView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     private var visibleCommands: [WorkspaceCommandSurface] {
-        ["new-chat", "search"].compactMap { id in
+        ["new-chat", "search", "toggle-extensions", "toggle-automations"].compactMap { id in
             commands.first { $0.id == id }
         }
     }
@@ -1648,41 +1656,37 @@ private struct QuillCodeSidebarUtilityActionsView: View {
 
     private var visibleCommands: [WorkspaceCommandSurface] {
         [
-            "toggle-extensions",
-            "toggle-automations",
             "toggle-terminal",
             "toggle-browser",
             "toggle-memories",
             "toggle-activity",
-            "command-palette"
+            "command-palette",
+            "settings"
         ].compactMap { id in
             commands.first { $0.id == id }
         }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Workspace")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(QuillCodePalette.muted)
-                .textCase(.uppercase)
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 40), spacing: 6), count: 3), spacing: 6) {
             ForEach(visibleCommands) { command in
                 Button {
                     onCommand(command)
                 } label: {
-                    Label(displayTitle(for: command), systemImage: systemImage(for: command.id))
-                        .font(.caption.weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)
-                        .padding(.horizontal, 8)
+                    Image(systemName: systemImage(for: command.id))
+                        .font(.system(size: 15, weight: .semibold))
+                        .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget)
                         .foregroundStyle(command.isEnabled ? QuillCodePalette.muted : QuillCodePalette.muted.opacity(0.45))
+                        .background(QuillCodePalette.panel.opacity(0.52))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .disabled(!command.isEnabled)
-                .help(command.title)
-                .accessibilityLabel(command.title)
+                .help(displayTitle(for: command))
+                .accessibilityLabel(displayTitle(for: command))
             }
         }
-        .padding(.top, 8)
+        .padding(.top, 10)
     }
 
     private func displayTitle(for command: WorkspaceCommandSurface) -> String {
@@ -1699,6 +1703,8 @@ private struct QuillCodeSidebarUtilityActionsView: View {
             return "Activity"
         case "command-palette":
             return "Command palette"
+        case "settings":
+            return "Settings"
         default:
             return command.title
         }
@@ -1722,6 +1728,8 @@ private struct QuillCodeSidebarUtilityActionsView: View {
             return "waveform.path.ecg"
         case "command-palette":
             return "command"
+        case "settings":
+            return "gearshape"
         default:
             return "circle"
         }

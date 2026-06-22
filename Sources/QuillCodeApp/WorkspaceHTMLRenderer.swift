@@ -40,8 +40,8 @@ public enum WorkspaceHTMLRenderer {
           </div>
           <div class="topbar-clusters" data-testid="top-bar-clusters">
             <div class="topbar-cluster topbar-primary-cluster" data-testid="top-bar-primary-cluster">
-              <span data-testid="model-pill">\(escape(topBar.modelLabel))</span>
-              <span data-testid="mode-pill">\(escape(topBar.modeLabel))</span>
+              <span data-testid="model-pill">\(escape(topBar.modelLabel)) · \(escape(topBar.modeLabel))</span>
+              <span class="visually-hidden" data-testid="mode-pill">\(escape(topBar.modeLabel))</span>
             </div>
             <div class="topbar-cluster topbar-context-cluster" data-testid="top-bar-context-cluster" aria-label="Workspace state">
               <span class="agent-status-dot" data-testid="agent-status" title="\(escape(topBar.agentStatus))">\(escape(topBar.agentStatus))</span>
@@ -114,6 +114,8 @@ public enum WorkspaceHTMLRenderer {
           <div class="sidebar-actions" aria-label="Primary chat actions">
             <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true">New chat</button>
             <button class="sidebar-action" type="button" data-testid="sidebar-search-button" data-primary="true">Search</button>
+            <button class="sidebar-action" type="button" data-testid="extensions-button" data-primary="true">Plugins</button>
+            <button class="sidebar-action" type="button" data-testid="automations-button" data-primary="true">Automations</button>
           </div>
           <div class="sidebar-title-row">
             <h2>\(escape(sidebar.title))</h2>
@@ -126,15 +128,12 @@ public enum WorkspaceHTMLRenderer {
             <button type="button" data-testid="add-project-button" aria-label="Open project">+</button>
           </div>
           \(projectContent)
-          <div class="sidebar-workspace-actions" aria-label="Workspace tools">
-            <h2>Workspace</h2>
-            <button class="sidebar-action" type="button" data-testid="extensions-button" data-secondary="true">Plugins</button>
-            <button class="sidebar-action" type="button" data-testid="automations-button" data-secondary="true">Automations</button>
-            <button class="sidebar-action" type="button" data-testid="terminal-button" data-secondary="true" aria-label="Terminal">Terminal</button>
-            <button class="sidebar-action" type="button" data-testid="browser-button" data-secondary="true" aria-label="Browser">Browser</button>
-            <button class="sidebar-action" type="button" data-testid="memories-button" data-secondary="true" aria-label="Memories">Memories</button>
-            <button class="sidebar-action" type="button" data-testid="activity-button" data-secondary="true" aria-label="Activity">Activity</button>
-            <button class="sidebar-action" type="button" data-testid="command-palette-button" data-secondary="true" aria-label="Command palette">Command palette</button>
+          <div class="sidebar-utility-strip" aria-label="Workspace tools">
+            <button class="sidebar-action" type="button" data-testid="terminal-button" data-secondary="true" aria-label="Terminal" title="Terminal">Term</button>
+            <button class="sidebar-action" type="button" data-testid="browser-button" data-secondary="true" aria-label="Browser" title="Browser">Web</button>
+            <button class="sidebar-action" type="button" data-testid="memories-button" data-secondary="true" aria-label="Memories" title="Memories">Mem</button>
+            <button class="sidebar-action" type="button" data-testid="activity-button" data-secondary="true" aria-label="Activity" title="Activity">Act</button>
+            <button class="sidebar-action" type="button" data-testid="command-palette-button" data-secondary="true" aria-label="Command palette" title="Command palette">Cmd</button>
           </div>
         </aside>
         """

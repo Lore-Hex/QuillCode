@@ -23,7 +23,7 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('project-item')).toContainText('QuillCode');
   await expect(page.getByTestId('project-item')).toHaveAttribute('aria-current', 'true');
   await expect(page.getByTestId('transcript-empty')).toBeVisible();
-  await expect(page.getByTestId('model-picker-button')).toHaveText('trustedrouter/fast');
+  await expect(page.getByTestId('model-picker-button')).toHaveText('trustedrouter/fast · Auto');
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-category')).toHaveCount(2);
   await page.getByTestId('model-picker-button').click();
@@ -53,7 +53,7 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await page.getByTestId('model-picker-button').click();
   await page.getByTestId('model-search').fill('glm');
   await page.getByTestId('model-option').click();
-  await expect(page.getByTestId('model-picker-button')).toHaveText('z-ai/glm-5.2');
+  await expect(page.getByTestId('model-picker-button')).toHaveText('z-ai/glm-5.2 · Auto');
 
   await page.getByLabel('Message').fill('run whoami');
   await expect(page.getByTestId('send-button')).toBeEnabled();
@@ -1626,7 +1626,7 @@ test('mock harness searches and selects models from the top bar', async ({ page 
   await expect(page.getByTestId('model-option')).toContainText('moonshotai/Kimi K2.6');
 
   await page.getByTestId('model-option').click();
-  await expect(page.getByTestId('model-picker-button')).toHaveText('moonshotai/kimi-k2.6');
+  await expect(page.getByTestId('model-picker-button')).toHaveText('moonshotai/kimi-k2.6 · Auto');
   await expect(page.getByTestId('model-browser')).toHaveCount(0);
 
   await page.getByTestId('model-picker-button').click();

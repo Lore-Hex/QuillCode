@@ -24,6 +24,17 @@
       --shadow-surface-hover: 0 0 0 1px rgba(255,255,255,.14), 0 12px 30px rgba(0,0,0,.18);
     }
     * { box-sizing: border-box; }
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      border: 0;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
     html {
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
@@ -589,22 +600,22 @@
       text-align: center;
       font-size: 12px;
     }
-    .sidebar-workspace-actions {
+    .sidebar-utility-strip {
       display: grid;
-      gap: 2px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 6px;
       margin-top: auto;
       padding-top: 14px;
       border-top: 1px solid rgba(255,255,255,.07);
     }
-    .sidebar-workspace-actions h2 {
-      margin: 0 0 4px;
-    }
-    .sidebar-workspace-actions .sidebar-action {
+    .sidebar-utility-strip .sidebar-action {
       min-height: 40px;
-      padding: 7px 10px;
+      padding: 0;
       color: var(--muted);
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 650;
+      text-align: center;
+      border-radius: 12px;
     }
     .sidebar-item,
     .project-item {
@@ -3690,10 +3701,10 @@
             <div class="topbar-clusters" data-testid="top-bar-clusters">
               <div class="topbar-cluster topbar-primary-cluster" data-testid="top-bar-primary-cluster">
                 <div class="model-picker-wrap">
-                  <button type="button" aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" data-testid="model-picker-button">${escapeHTML(state.topBar.modelLabel)}</button>
+                  <button type="button" aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" data-testid="model-picker-button">${escapeHTML(state.topBar.modelLabel)} · ${escapeHTML(state.topBar.modeLabel)}</button>
                   ${modelBrowser}
                 </div>
-                <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
+                <span class="visually-hidden" data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
               </div>
               <div class="topbar-cluster topbar-context-cluster" data-testid="top-bar-context-cluster">
                 <span data-testid="agent-status" title="${escapeHTML(state.topBar.agentStatus)}">${escapeHTML(state.topBar.agentStatus)}</span>
@@ -3717,6 +3728,8 @@
               <div class="sidebar-actions" aria-label="Primary chat actions">
                 <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true">New chat</button>
                 <button class="sidebar-action" type="button" data-testid="sidebar-search-button" data-primary="true">Search</button>
+                <button class="sidebar-action" type="button" data-testid="extensions-button" data-primary="true">Plugins</button>
+                <button class="sidebar-action" type="button" data-testid="automations-button" data-primary="true">Automations</button>
               </div>
               <div class="sidebar-title-row">
                 <h2>${escapeHTML(state.sidebar.title)}</h2>
@@ -3728,15 +3741,12 @@
                 <button class="sidebar-icon-button" type="button" data-testid="add-project-button" aria-label="Open project">+</button>
               </div>
               ${projectsContent}
-              <div class="sidebar-workspace-actions" aria-label="Workspace tools">
-                <h2>Workspace</h2>
-                <button class="sidebar-action" type="button" data-testid="extensions-button" data-secondary="true">Plugins</button>
-                <button class="sidebar-action" type="button" data-testid="automations-button" data-secondary="true">Automations</button>
-                <button class="sidebar-action" type="button" data-testid="terminal-button" data-secondary="true" aria-label="Terminal" title="Terminal">Terminal</button>
-                <button class="sidebar-action" type="button" data-testid="browser-button" data-secondary="true" aria-label="Browser" title="Browser">Browser</button>
-                <button class="sidebar-action" type="button" data-testid="memories-button" data-secondary="true" aria-label="Memories" title="Memories">Memories</button>
-                <button class="sidebar-action" type="button" data-testid="activity-button" data-secondary="true" aria-label="Activity" title="Activity">Activity</button>
-                <button class="sidebar-action" type="button" data-testid="command-palette-button" data-secondary="true" aria-label="Command palette" title="Command palette">Command palette</button>
+              <div class="sidebar-utility-strip" aria-label="Workspace tools">
+                <button class="sidebar-action" type="button" data-testid="terminal-button" data-secondary="true" aria-label="Terminal" title="Terminal">Term</button>
+                <button class="sidebar-action" type="button" data-testid="browser-button" data-secondary="true" aria-label="Browser" title="Browser">Web</button>
+                <button class="sidebar-action" type="button" data-testid="memories-button" data-secondary="true" aria-label="Memories" title="Memories">Mem</button>
+                <button class="sidebar-action" type="button" data-testid="activity-button" data-secondary="true" aria-label="Activity" title="Activity">Act</button>
+                <button class="sidebar-action" type="button" data-testid="command-palette-button" data-secondary="true" aria-label="Command palette" title="Command palette">Cmd</button>
               </div>
             </aside>
 	            <main class="transcript" data-testid="transcript">
