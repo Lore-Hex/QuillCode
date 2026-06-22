@@ -112,10 +112,10 @@ public enum WorkspaceHTMLRenderer {
         return """
         <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
           <div class="sidebar-actions" aria-label="Primary chat actions">
-            <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true">New chat</button>
-            <button class="sidebar-action" type="button" data-testid="sidebar-search-button" data-primary="true">Search</button>
-            <button class="sidebar-action" type="button" data-testid="extensions-button" data-primary="true">Plugins</button>
-            <button class="sidebar-action" type="button" data-testid="automations-button" data-primary="true">Automations</button>
+            <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true" data-icon="new">New chat</button>
+            <button class="sidebar-action" type="button" data-testid="sidebar-search-button" data-primary="true" data-icon="search">Search</button>
+            <button class="sidebar-action" type="button" data-testid="extensions-button" data-primary="true" data-icon="plugins">Plugins</button>
+            <button class="sidebar-action" type="button" data-testid="automations-button" data-primary="true" data-icon="automations">Automations</button>
           </div>
           <div class="sidebar-title-row">
             <h2>\(escape(sidebar.title))</h2>

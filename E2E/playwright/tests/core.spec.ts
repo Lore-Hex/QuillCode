@@ -1124,12 +1124,35 @@ test('mock harness prepares pull request creation from the command palette', asy
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
   await clickSidebarTool(page, 'command-palette-button');
-  await page.getByLabel('Search commands').fill('>pull request');
+  await page.getByLabel('Search commands').fill('>create pull request');
   await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
   await page.getByRole('button', { name: /Create pull request/ }).click();
 
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
   await expect(page.getByLabel('Message')).toHaveValue('Create a pull request titled ');
+});
+
+test('mock harness views pull request details and checks from the command palette', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await page.getByLabel('Search commands').fill('>view pull request');
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
+  await page.getByRole('button', { name: /View pull request/ }).click();
+
+  await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.pr.view');
+  await expect(page.getByTestId('message').last()).toContainText('Current pull request');
+  await expect(page.getByTestId('tool-card-artifact-label')).toContainText('github.com/Lore-Hex/QuillCode/pull/42');
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await page.getByLabel('Search commands').fill('>pr checks');
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
+  await page.getByRole('button', { name: /Pull request checks/ }).click();
+
+  await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.pr.checks');
+  await expect(page.getByTestId('message').last()).toContainText('QuillCode Tests');
 });
 
 test('mock harness runs local environment action from the command palette', async ({ page }) => {

@@ -1999,6 +1999,10 @@ private struct QuillCodeTranscriptView: View {
             .id
     }
 
+    private var isEmptyStateVisible: Bool {
+        transcript.timelineItems.isEmpty && !review.isVisible && contextBanner == nil && runtimeIssue == nil
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if isFindPresented {
@@ -2012,21 +2016,14 @@ private struct QuillCodeTranscriptView: View {
                 )
                 Divider()
             }
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 14) {
-                        if transcript.timelineItems.isEmpty && !review.isVisible && contextBanner == nil && runtimeIssue == nil {
-                            VStack(spacing: 8) {
-                                Text(transcript.emptyTitle)
-                                    .font(.title3.weight(.semibold))
-                                Text(transcript.emptySubtitle)
-                                    .font(.callout)
-                                    .foregroundStyle(QuillCodePalette.muted)
-                            }
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: 540)
-                            .padding(.top, 180)
-                        } else {
+            if isEmptyStateVisible {
+                Spacer(minLength: 0)
+                emptyState
+                    .padding(.bottom, 20)
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 14) {
                             if let contextBanner {
                                 QuillCodeContextBannerView(
                                     banner: contextBanner,
@@ -2094,25 +2091,40 @@ private struct QuillCodeTranscriptView: View {
                                 .id(item.id)
                             }
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding(22)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(22)
-                }
-                .onChange(of: activeFindIndex) { _, _ in
-                    scrollToActiveFindMatch(proxy)
-                }
-                .onChange(of: findQuery) { _, _ in
-                    activeFindIndex = 0
-                    scrollToActiveFindMatch(proxy)
-                }
-                .onChange(of: isFindPresented) { _, isPresented in
-                    if isPresented {
+                    .onChange(of: activeFindIndex) { _, _ in
                         scrollToActiveFindMatch(proxy)
+                    }
+                    .onChange(of: findQuery) { _, _ in
+                        activeFindIndex = 0
+                        scrollToActiveFindMatch(proxy)
+                    }
+                    .onChange(of: isFindPresented) { _, isPresented in
+                        if isPresented {
+                            scrollToActiveFindMatch(proxy)
+                        }
                     }
                 }
             }
         }
         .background(QuillCodePalette.background)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 8) {
+            Text(transcript.emptyTitle)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(QuillCodePalette.text)
+            Text(transcript.emptySubtitle)
+                .font(.callout)
+                .foregroundStyle(QuillCodePalette.muted)
+        }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: 540)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 22)
     }
 
     private func copyText(for card: ToolCardState) -> String {

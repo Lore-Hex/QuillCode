@@ -301,6 +301,8 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(surface.projects.items.first?.actions.first { $0.kind == .refreshContext }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-create" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-view" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-checks" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-list" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-create" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-remove" }?.isEnabled, true)
@@ -421,6 +423,8 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitCommit.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPush.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestCreate.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestView.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestChecks.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitWorktreeList.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitWorktreeCreate.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitWorktreeRemove.name))
@@ -1932,6 +1936,48 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains(remoteRoot.standardizedFileURL.path), result.stdout)
         let sshArguments = try String(contentsOf: argumentsFile, encoding: .utf8)
         XCTAssertTrue(sshArguments.contains("git worktree list --porcelain"), sshArguments)
+    }
+
+    func testRemoteWorkspaceCommandsViewPullRequestAndChecksThroughSSH() throws {
+        let root = try makeTempDirectory()
+        let bin = root.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        let ghArgumentsFile = root.appendingPathComponent("gh-args.txt")
+        _ = try makeFakeGitHubCLI(in: bin, argumentsFile: ghArgumentsFile)
+        let sshArgumentsFile = root.appendingPathComponent("ssh-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: sshArgumentsFile, pathPrefix: bin)
+        let remoteRoot = try makeTempGitRepoWithInitialCommit()
+        let connection = ProjectConnection.ssh(
+            path: remoteRoot.path,
+            host: "feather.local",
+            user: "quill",
+            port: 2222
+        )
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        XCTAssertTrue(model.runWorkspaceCommand("git-pr-view", workspaceRoot: root))
+        var card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.gitPullRequestView.name)
+        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
+        XCTAssertEqual(card.status, .done)
+        XCTAssertEqual(card.artifacts.map(\.value), ["https://github.com/example/repo/pull/456"])
+        var ghArguments = try String(contentsOf: ghArgumentsFile, encoding: .utf8)
+        XCTAssertEqual(ghArguments.split(separator: "\n").map(String.init), ["pr", "view", "--comments"])
+
+        XCTAssertTrue(model.runWorkspaceCommand("git-pr-checks", workspaceRoot: root))
+        card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.gitPullRequestChecks.name)
+        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
+        XCTAssertEqual(card.status, .done)
+        ghArguments = try String(contentsOf: ghArgumentsFile, encoding: .utf8)
+        XCTAssertEqual(ghArguments.split(separator: "\n").map(String.init), ["pr", "checks"])
     }
 
     func testWorkspaceWorktreeCommandsPrefillComposer() throws {

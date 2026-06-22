@@ -1326,6 +1326,8 @@ public final class QuillCodeWorkspaceModel {
             || toolName == ToolDefinition.gitCommit.name
             || toolName == ToolDefinition.gitPush.name
             || toolName == ToolDefinition.gitPullRequestCreate.name
+            || toolName == ToolDefinition.gitPullRequestView.name
+            || toolName == ToolDefinition.gitPullRequestChecks.name
             || toolName == ToolDefinition.gitWorktreeList.name
             || toolName == ToolDefinition.gitWorktreeCreate.name
             || toolName == ToolDefinition.gitWorktreeRemove.name
@@ -2878,6 +2880,18 @@ public final class QuillCodeWorkspaceModel {
                 workspaceRoot: workspaceRoot
             )
             return true
+        case "git-pr-view":
+            runToolCall(
+                ToolCall(name: ToolDefinition.gitPullRequestView.name, argumentsJSON: "{}"),
+                workspaceRoot: workspaceRoot
+            )
+            return true
+        case "git-pr-checks":
+            runToolCall(
+                ToolCall(name: ToolDefinition.gitPullRequestChecks.name, argumentsJSON: "{}"),
+                workspaceRoot: workspaceRoot
+            )
+            return true
         case "thread-rename":
             guard let title = selectedThread?.title else { return false }
             composer.draft = "/rename \(title)"
@@ -3339,6 +3353,8 @@ public final class QuillCodeWorkspaceModel {
         .gitCommit,
         .gitPush,
         .gitPullRequestCreate,
+        .gitPullRequestView,
+        .gitPullRequestChecks,
         .gitWorktreeList,
         .gitWorktreeCreate,
         .gitWorktreeRemove
@@ -3354,6 +3370,8 @@ public final class QuillCodeWorkspaceModel {
         ToolDefinition.gitCommit.name,
         ToolDefinition.gitPush.name,
         ToolDefinition.gitPullRequestCreate.name,
+        ToolDefinition.gitPullRequestView.name,
+        ToolDefinition.gitPullRequestChecks.name,
         ToolDefinition.gitWorktreeList.name,
         ToolDefinition.gitWorktreeCreate.name,
         ToolDefinition.gitWorktreeRemove.name
@@ -3490,6 +3508,10 @@ public final class QuillCodeWorkspaceModel {
                     draft: args.bool("draft") ?? false,
                     fill: args.bool("fill") ?? false
                 )
+            case ToolDefinition.gitPullRequestView.name:
+                command = try remoteGitPullRequestViewCommand(selector: args.string("selector"))
+            case ToolDefinition.gitPullRequestChecks.name:
+                command = try remoteGitPullRequestChecksCommand(selector: args.string("selector"))
             case ToolDefinition.gitWorktreeList.name:
                 command = "git worktree list --porcelain"
             case ToolDefinition.gitWorktreeCreate.name:
@@ -3520,7 +3542,10 @@ public final class QuillCodeWorkspaceModel {
                 return ToolResult(ok: false, error: "SSH Remote project is missing a usable host.")
             }
             var result = ShellToolExecutor().run(request)
-            if call.name == ToolDefinition.gitPullRequestCreate.name, result.ok {
+            if [
+                ToolDefinition.gitPullRequestCreate.name,
+                ToolDefinition.gitPullRequestView.name
+            ].contains(call.name), result.ok {
                 result.artifacts = GitToolExecutor.extractURLs(from: result.stdout)
             } else if result.ok, !artifacts.isEmpty {
                 result.artifacts = artifacts
@@ -3585,6 +3610,23 @@ public final class QuillCodeWorkspaceModel {
         }
         if fill {
             arguments.append("--fill")
+        }
+        return arguments.map(shellSingleQuoted).joined(separator: " ")
+    }
+
+    private nonisolated static func remoteGitPullRequestViewCommand(selector: String?) throws -> String {
+        var arguments = ["gh", "pr", "view"]
+        if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
+            arguments.append(selector)
+        }
+        arguments.append("--comments")
+        return arguments.map(shellSingleQuoted).joined(separator: " ")
+    }
+
+    private nonisolated static func remoteGitPullRequestChecksCommand(selector: String?) throws -> String {
+        var arguments = ["gh", "pr", "checks"]
+        if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
+            arguments.append(selector)
         }
         return arguments.map(shellSingleQuoted).joined(separator: " ")
     }

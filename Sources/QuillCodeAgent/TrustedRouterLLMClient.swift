@@ -160,6 +160,9 @@ public struct TrustedRouterLLMClient: StreamingLLMClient {
         - If the user asks to push or publish a git branch, use host.git.push instead of host.shell.run.
         - If the user asks to open or create a pull request/PR, use host.git.pr.create instead of host.shell.run.
         - host.git.pr.create should include a non-empty "title" unless you set "fill": true.
+        - If the user asks to view, inspect, summarize, or read comments/reviews on the current pull request/PR, use host.git.pr.view.
+        - If the user asks about pull request/PR checks, CI, or status, use host.git.pr.checks.
+        - host.git.pr.view and host.git.pr.checks may omit "selector" for the current branch, or include a PR number, URL, or branch as "selector".
         - Do not say "I'll do it" unless you are returning the tool call that does it.
         - Keep commands bounded to the current project unless the user explicitly asks otherwise.
         - After a tool output is provided, return a concise final {"type":"say","text":"..."} answer if the request is satisfied.
@@ -262,6 +265,14 @@ public enum AgentActionJSONParser {
                 aliases: ["name", "subject"],
                 topLevelObject: object
             )
+        case ToolDefinition.gitPullRequestView.name,
+            ToolDefinition.gitPullRequestChecks.name:
+            normalizeStringArgument(
+                &arguments,
+                canonicalKey: "selector",
+                aliases: ["number", "pr", "pullRequest", "pull_request", "url", "branch"],
+                topLevelObject: object
+            )
         case ToolDefinition.gitWorktreeCreate.name:
             normalizeStringArgument(
                 &arguments,
@@ -333,6 +344,8 @@ public enum AgentActionJSONParser {
         switch toolName {
         case ToolDefinition.gitStatus.name,
             ToolDefinition.gitDiff.name,
+            ToolDefinition.gitPullRequestView.name,
+            ToolDefinition.gitPullRequestChecks.name,
             ToolDefinition.gitWorktreeList.name,
             ToolDefinition.browserInspect.name,
             ToolDefinition.computerScreenshot.name:

@@ -3404,7 +3404,21 @@ public extension QuillCodeWorkspaceModel {
                 id: "git-pr-create",
                 title: "Create pull request",
                 category: WorkspaceCommandPalette.gitCategory,
-                keywords: ["github", "pr", "review"],
+                keywords: ["github", "pr", "pull request", "review"],
+                isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
+            ),
+            WorkspaceCommandSurface(
+                id: "git-pr-view",
+                title: "View pull request",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["github", "pr", "view", "comments", "review"],
+                isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
+            ),
+            WorkspaceCommandSurface(
+                id: "git-pr-checks",
+                title: "Pull request checks",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["github", "pr", "checks", "ci", "status"],
                 isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
             ),
             WorkspaceCommandSurface(

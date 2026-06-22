@@ -262,6 +262,20 @@ public struct MockLLMClient: LLMClient {
             return .tool(.init(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}"))
         }
 
+        if Self.isPullRequestChecksRequest(lower) {
+            return .tool(.init(
+                name: ToolDefinition.gitPullRequestChecks.name,
+                argumentsJSON: ToolArguments.json(Self.extractPullRequestSelectorArguments(from: request))
+            ))
+        }
+
+        if Self.isPullRequestViewRequest(lower) {
+            return .tool(.init(
+                name: ToolDefinition.gitPullRequestView.name,
+                argumentsJSON: ToolArguments.json(Self.extractPullRequestSelectorArguments(from: request))
+            ))
+        }
+
         if Self.isPullRequestRequest(lower) {
             return .tool(.init(
                 name: ToolDefinition.gitPullRequestCreate.name,
@@ -361,14 +375,45 @@ public struct MockLLMClient: LLMClient {
     }
 
     static func isPullRequestRequest(_ lowercasedRequest: String) -> Bool {
-        if lowercasedRequest.contains("pull request") {
-            return true
-        }
         let tokens = lowercasedRequest
             .split { !$0.isLetter && !$0.isNumber }
             .map(String.init)
-        return tokens.contains("pr")
-            && (tokens.contains("create") || tokens.contains("open") || tokens.contains("submit"))
+        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
+        let creationTerms = tokens.contains("create")
+            || tokens.contains("submit")
+            || tokens.contains("new")
+            || (tokens.contains("open") && !tokens.contains("current") && !tokens.contains("existing"))
+        return mentionsPullRequest && creationTerms
+    }
+
+    static func isPullRequestChecksRequest(_ lowercasedRequest: String) -> Bool {
+        let tokens = lowercasedRequest
+            .split { !$0.isLetter && !$0.isNumber }
+            .map(String.init)
+        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
+        let checkTerms = tokens.contains("check")
+            || tokens.contains("checks")
+            || tokens.contains("ci")
+            || tokens.contains("status")
+        return mentionsPullRequest && checkTerms
+    }
+
+    static func isPullRequestViewRequest(_ lowercasedRequest: String) -> Bool {
+        let tokens = lowercasedRequest
+            .split { !$0.isLetter && !$0.isNumber }
+            .map(String.init)
+        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
+        let viewTerms = tokens.contains("view")
+            || tokens.contains("show")
+            || tokens.contains("inspect")
+            || tokens.contains("current")
+            || tokens.contains("comments")
+            || tokens.contains("reviews")
+            || tokens.contains("review")
+        let createTerms = tokens.contains("create")
+            || tokens.contains("submit")
+            || tokens.contains("new")
+        return mentionsPullRequest && viewTerms && !createTerms
     }
 
     static func isBrowserInspectionRequest(_ lowercasedRequest: String) -> Bool {
@@ -400,6 +445,30 @@ public struct MockLLMClient: LLMClient {
             arguments["head"] = tokens[tokens.index(after: headIndex)]
         }
         return arguments
+    }
+
+    static func extractPullRequestSelectorArguments(from request: String) -> [String: String] {
+        guard let selector = extractPullRequestSelector(from: request) else { return [:] }
+        return ["selector": selector]
+    }
+
+    static func extractPullRequestSelector(from request: String) -> String? {
+        let tokens = request
+            .split { character in
+                character.isWhitespace
+                    || [",", ":", ";", "(", ")", "[", "]", "{", "}", "\"", "'"].contains(character)
+            }
+            .map(String.init)
+        for token in tokens {
+            let cleaned = token.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            if cleaned.range(of: #"^#?\d+$"#, options: .regularExpression) != nil {
+                return cleaned.hasPrefix("#") ? String(cleaned.dropFirst()) : cleaned
+            }
+            if cleaned.hasPrefix("https://github.com/"), cleaned.contains("/pull/") {
+                return cleaned
+            }
+        }
+        return nil
     }
 
     static func extractPullRequestTitle(from request: String) -> String? {

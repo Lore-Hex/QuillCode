@@ -6,6 +6,7 @@ public enum GitToolError: Error, CustomStringConvertible {
     case emptyPatch
     case emptyCommitMessage
     case emptyPullRequestTitle
+    case invalidPullRequestSelector(String)
     case emptyBranch
     case invalidGitName(String)
     case noCurrentBranch
@@ -25,6 +26,8 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "Git commit message is required."
         case .emptyPullRequestTitle:
             return "Git pull request title is required unless fill is enabled."
+        case .invalidPullRequestSelector(let value):
+            return "GitHub pull request selector is unsupported: \(value)"
         case .emptyBranch:
             return "Git branch is required."
         case .invalidGitName(let value):
@@ -182,6 +185,39 @@ public struct GitToolExecutor: Sendable {
         }
     }
 
+    public func viewPullRequest(cwd: URL, selector: String? = nil) -> ToolResult {
+        do {
+            var arguments = ["pr", "view"]
+            if let selector = try Self.safePullRequestSelector(selector) {
+                arguments.append(selector)
+            }
+            arguments.append("--comments")
+            let result = runGitHub(arguments, cwd: cwd, timeoutSeconds: 45)
+            guard result.ok else { return result }
+            return ToolResult(
+                ok: true,
+                stdout: result.stdout,
+                stderr: result.stderr,
+                exitCode: result.exitCode,
+                artifacts: Self.extractURLs(from: result.stdout)
+            )
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
+    public func pullRequestChecks(cwd: URL, selector: String? = nil) -> ToolResult {
+        do {
+            var arguments = ["pr", "checks"]
+            if let selector = try Self.safePullRequestSelector(selector) {
+                arguments.append(selector)
+            }
+            return runGitHub(arguments, cwd: cwd, timeoutSeconds: 45)
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
     public func listWorktrees(cwd: URL) -> ToolResult {
         runGit(["worktree", "list", "--porcelain"], cwd: cwd, timeoutSeconds: 20)
     }
@@ -294,6 +330,20 @@ public struct GitToolExecutor: Sendable {
               !trimmed.contains("..")
         else {
             throw GitToolError.invalidGitName(value)
+        }
+        return trimmed
+    }
+
+    public static func safePullRequestSelector(_ value: String?) throws -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard trimmed.count <= 300,
+              !trimmed.hasPrefix("-"),
+              trimmed.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
+              trimmed.rangeOfCharacter(from: .controlCharacters) == nil
+        else {
+            throw GitToolError.invalidPullRequestSelector(value)
         }
         return trimmed
     }
@@ -602,6 +652,22 @@ public extension ToolDefinition {
         parametersJSON: #"{"type":"object","properties":{"title":{"type":"string"},"body":{"type":"string"},"base":{"type":"string"},"head":{"type":"string"},"draft":{"type":"boolean"},"fill":{"type":"boolean"}}}"#,
         host: .local,
         risk: .append
+    )
+
+    static let gitPullRequestView = ToolDefinition(
+        name: "host.git.pr.view",
+        description: "View the current or selected GitHub pull request, including comments, using GitHub CLI. Optional selector may be a PR number, URL, or branch.",
+        parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."}}}"#,
+        host: .local,
+        risk: .read
+    )
+
+    static let gitPullRequestChecks = ToolDefinition(
+        name: "host.git.pr.checks",
+        description: "Show CI/check status for the current or selected GitHub pull request using GitHub CLI. Optional selector may be a PR number, URL, or branch.",
+        parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."}}}"#,
+        host: .local,
+        risk: .read
     )
 
     static let gitWorktreeList = ToolDefinition(

@@ -115,6 +115,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "git-status",
             "git-diff",
             "git-pr-create",
+            "git-pr-view",
+            "git-pr-checks",
             "git-worktree-list",
             "git-worktree-create",
             "git-worktree-remove",
@@ -194,6 +196,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "git-status" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-diff" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-create" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-view" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-checks" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-list" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-create" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-remove" }?.isEnabled, true)
@@ -707,8 +711,12 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "find-in-chat"
         )
         XCTAssertEqual(
-            WorkspaceCommandPalette.rankedCommands(commands, matching: "pull").first?.id,
+            WorkspaceCommandPalette.rankedCommands(commands, matching: "create pull").first?.id,
             "git-pr-create"
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPalette.rankedCommands(commands, matching: "checks").first?.id,
+            "git-pr-checks"
         )
         XCTAssertEqual(
             WorkspaceCommandPalette.rankedCommands(commands, matching: "cmd+/").first?.id,
@@ -1469,8 +1477,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="top-bar-primary-cluster""#))
         XCTAssertTrue(html.contains(#"data-testid="top-bar-context-cluster""#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar""#))
-        XCTAssertTrue(html.contains(#"data-testid="extensions-button" data-primary="true">Plugins"#))
-        XCTAssertTrue(html.contains(#"data-testid="automations-button" data-primary="true">Automations"#))
+        XCTAssertTrue(html.contains(#"data-testid="extensions-button" data-primary="true" data-icon="plugins">Plugins"#))
+        XCTAssertTrue(html.contains(#"data-testid="automations-button" data-primary="true" data-icon="automations">Automations"#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar-tools-menu""#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar-tools-button""#))
         XCTAssertTrue(html.contains(#"data-testid="settings-button""#))

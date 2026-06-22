@@ -199,7 +199,7 @@
       transition-timing-function: var(--ease-out);
     }
     .model-picker-wrap [data-testid="model-picker-button"]::after {
-      content: "v";
+      content: "▾";
       margin-left: 6px;
       color: var(--muted);
       font-size: 12px;
@@ -566,12 +566,15 @@
     .sidebar-actions {
       display: grid;
       gap: 4px;
-      margin-bottom: 16px;
+      margin-bottom: 10px;
     }
     .sidebar-action {
       width: 100%;
       min-height: 40px;
-      padding: 8px 12px;
+      padding: 7px 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
       text-align: left;
       color: var(--text);
       background: transparent;
@@ -588,6 +591,24 @@
     .sidebar-action[data-secondary="true"] {
       color: var(--muted);
     }
+    .sidebar-action::before,
+    .sidebar-tools-menu summary::before {
+      flex: 0 0 auto;
+      width: 20px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 16px;
+      line-height: 1;
+    }
+    .sidebar-action:hover::before,
+    .sidebar-tools-menu summary:hover::before {
+      color: var(--text);
+    }
+    .sidebar-action[data-icon="new"]::before { content: "✎"; }
+    .sidebar-action[data-icon="search"]::before { content: "⌕"; }
+    .sidebar-action[data-icon="plugins"]::before { content: "◌"; }
+    .sidebar-action[data-icon="automations"]::before { content: "◷"; }
+    .sidebar-tools-menu summary::before { content: "⌘"; }
     .sidebar-utility-row {
       display: flex;
       gap: 6px;
@@ -629,8 +650,10 @@
       transition-timing-function: var(--ease-out);
     }
     .sidebar-tools-menu summary {
-      display: grid;
-      place-items: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
       width: 100%;
       padding: 0 12px;
       border-radius: 10px;
@@ -649,12 +672,12 @@
       line-height: 1;
     }
     .sidebar-settings-button::before {
-      content: "S";
+      content: "⚙";
       display: grid;
       place-items: center;
       width: 100%;
       height: 100%;
-      font-size: 15px;
+      font-size: 16px;
     }
     .sidebar-tools-menu[open] summary,
     .sidebar-tools-menu summary:hover,
@@ -852,7 +875,7 @@
       font-size: 12px;
       font-weight: 700;
     }
-    .transcript { display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
+    .transcript { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
     .find-bar {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
@@ -871,7 +894,19 @@
       font-size: 12px;
       font-variant-numeric: tabular-nums;
     }
-    .timeline { padding: 22px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
+    .timeline {
+      grid-row: 2;
+      min-height: 0;
+      height: 100%;
+      padding: 22px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .find-bar + .timeline { grid-row: 2; }
+    .transcript > .timeline:first-child { grid-row: 1 / 3; }
+    .timeline:has(.empty) { justify-content: flex-end; }
     .terminal-pane,
     .browser-pane,
     .extensions-pane,
@@ -1957,7 +1992,26 @@
       padding: 7px 10px;
     }
     pre { overflow: auto; white-space: pre-wrap; background: rgba(0,0,0,.38); border-radius: 10px; padding: 10px; color: #dff8ff; }
-    .empty { margin: auto; max-width: 560px; color: var(--muted); text-align: center; }
+    .empty {
+      margin: 0 auto;
+      max-width: 560px;
+      padding: 32px 0 20px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .empty h1 {
+      margin: 0 0 10px;
+      color: var(--text);
+      font-size: 28px;
+      line-height: 1.15;
+      letter-spacing: 0;
+      font-weight: 750;
+    }
+    .empty p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.35;
+    }
     .composer {
       display: grid;
       grid-template-columns: 1fr auto;
@@ -2507,7 +2561,9 @@
         { id: 'keyboard-shortcuts', title: 'Keyboard shortcuts', shortcut: 'Cmd+/', category: 'Navigation', keywords: ['keyboard', 'shortcuts', 'help', 'commands'], isEnabled: true },
         { id: 'git-status', title: 'Git status', shortcut: '', category: 'Git', keywords: ['git', 'status', 'changes', 'remote'], isEnabled: true },
         { id: 'git-diff', title: 'Review diff', shortcut: '', category: 'Git', keywords: ['git', 'diff', 'review', 'changes', 'remote'], isEnabled: true },
-        { id: 'git-pr-create', title: 'Create pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'review'], isEnabled: true },
+        { id: 'git-pr-create', title: 'Create pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'pull request', 'review'], isEnabled: true },
+        { id: 'git-pr-view', title: 'View pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'view', 'comments', 'review'], isEnabled: true },
+        { id: 'git-pr-checks', title: 'Pull request checks', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'checks', 'ci', 'status'], isEnabled: true },
         { id: 'git-worktree-list', title: 'List worktrees', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
         { id: 'git-worktree-create', title: 'Create worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
         { id: 'git-worktree-remove', title: 'Remove worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace', 'delete'], isEnabled: true },
@@ -2986,6 +3042,8 @@
         'host.git.commit',
         'host.git.push',
         'host.git.pr.create',
+        'host.git.pr.view',
+        'host.git.pr.checks',
         'host.git.worktree.list',
         'host.git.worktree.create',
         'host.git.worktree.remove'
@@ -3929,10 +3987,10 @@
           <div class="workspace-grid ${state.activity.isVisible ? 'with-activity' : ''}">
             <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
               <div class="sidebar-actions" aria-label="Primary chat actions">
-                <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true">New chat</button>
-                <button class="sidebar-action" type="button" data-testid="sidebar-search-button" data-primary="true">Search</button>
-                <button class="sidebar-action" type="button" data-testid="extensions-button" data-primary="true">Plugins</button>
-                <button class="sidebar-action" type="button" data-testid="automations-button" data-primary="true">Automations</button>
+                <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true" data-icon="new">New chat</button>
+                <button class="sidebar-action" type="button" data-testid="sidebar-search-button" data-primary="true" data-icon="search">Search</button>
+                <button class="sidebar-action" type="button" data-testid="extensions-button" data-primary="true" data-icon="plugins">Plugins</button>
+                <button class="sidebar-action" type="button" data-testid="automations-button" data-primary="true" data-icon="automations">Automations</button>
               </div>
               <div class="sidebar-title-row">
                 <h2>${escapeHTML(state.sidebar.title)}</h2>
@@ -5951,6 +6009,52 @@
       render();
     }
 
+    function runGitPullRequestViewAction() {
+      ensureThread('View pull request');
+      const stdout = [
+        'title: Add project extension update lifecycle',
+        'url: https://github.com/Lore-Hex/QuillCode/pull/42',
+        'state: OPEN',
+        'author: quill',
+        '',
+        'comments:',
+        '- reviewer: Please keep this scoped and add harness coverage.'
+      ].join('\n') + '\n';
+      addToolCard({
+        title: 'host.git.pr.view',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({}, null, 2),
+        outputJSON: JSON.stringify({
+          ok: true,
+          stdout,
+          artifacts: ['https://github.com/Lore-Hex/QuillCode/pull/42']
+        }, null, 2)
+      });
+      addMessage('assistant', 'Current pull request:\n' + stdout);
+      syncSelectedThreadSearchText();
+      render();
+    }
+
+    function runGitPullRequestChecksAction() {
+      ensureThread('Pull request checks');
+      const stdout = [
+        'QuillCode Tests\tpass\t2m13s',
+        'Playwright Harness\tpass\t48s',
+        'Swift Format\tpass\t7s'
+      ].join('\n') + '\n';
+      addToolCard({
+        title: 'host.git.pr.checks',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({}, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout }, null, 2)
+      });
+      addMessage('assistant', 'Pull request checks:\n' + stdout);
+      syncSelectedThreadSearchText();
+      render();
+    }
+
     function openFindInChat() {
       state.find.isOpen = true;
       state.find.query = '';
@@ -6492,6 +6596,14 @@
       }
       if (commandID === 'git-pr-create') {
         state.composer.draft = 'Create a pull request titled ';
+      }
+      if (commandID === 'git-pr-view') {
+        runGitPullRequestViewAction();
+        return;
+      }
+      if (commandID === 'git-pr-checks') {
+        runGitPullRequestChecksAction();
+        return;
       }
       if (commandID === 'git-worktree-list') {
         listWorktrees();
