@@ -5,6 +5,7 @@ import QuillCodeTools
 private enum QuillCodeMetrics {
     static let minimumHitTarget: CGFloat = 40
     static let toolCardMinimumHeight: CGFloat = 74
+    static let compactToolCardMinimumHeight: CGFloat = 58
     static let pressScale: CGFloat = 0.96
 }
 
@@ -3244,7 +3245,7 @@ private struct QuillCodeToolCardView: View {
         self.card = card
         self.isCopied = isCopied
         self.onCopy = onCopy
-        self._isDetailsOpen = State(initialValue: card.isExpanded || card.status == .failed || card.status == .review)
+        self._isDetailsOpen = State(initialValue: card.opensDetailsByDefault)
     }
 
     var body: some View {
@@ -3341,7 +3342,7 @@ private struct QuillCodeToolCardView: View {
                     .padding(.top, 4)
                 } label: {
                     HStack(spacing: 6) {
-                        Text(isDetailsOpen ? "Hide details" : "Show details")
+                        Text(isDetailsOpen ? "Hide details" : "Show raw details")
                         if !isDetailsOpen, card.status == .done {
                             Text("Raw tool data")
                                 .foregroundStyle(QuillCodePalette.muted)
@@ -3352,19 +3353,15 @@ private struct QuillCodeToolCardView: View {
                 }
                 .tint(QuillCodePalette.blue)
                 .onChange(of: card.status) { _, status in
-                    if status == .failed || status == .review || card.isExpanded {
-                        isDetailsOpen = true
-                    }
+                    isDetailsOpen = ToolCardState.defaultDensity(status: status, isExpanded: card.isExpanded) == .expanded
                 }
-                .onChange(of: card.isExpanded) { _, expanded in
-                    if expanded {
-                        isDetailsOpen = true
-                    }
+                .onChange(of: card.density) { _, density in
+                    isDetailsOpen = density == .expanded
                 }
             }
         }
         .padding(14)
-        .frame(maxWidth: 760, minHeight: QuillCodeMetrics.toolCardMinimumHeight, alignment: .topLeading)
+        .frame(maxWidth: 760, minHeight: minimumHeight, alignment: .topLeading)
         .quillCodeSurface(
             fill: QuillCodePalette.panel,
             radius: 20,
@@ -3372,6 +3369,14 @@ private struct QuillCodeToolCardView: View {
             shadow: true
         )
         .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(card.title), \(card.status.rawValue), \(card.densityAccessibilityLabel)")
+    }
+
+    private var minimumHeight: CGFloat {
+        card.density == .collapsed
+            ? QuillCodeMetrics.compactToolCardMinimumHeight
+            : QuillCodeMetrics.toolCardMinimumHeight
     }
 
     private var statusColor: Color {

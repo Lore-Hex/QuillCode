@@ -13,6 +13,12 @@ public enum ToolCardStatus: String, Codable, Sendable, Hashable {
     case review
 }
 
+public enum ToolCardDensity: String, Codable, Sendable, Hashable {
+    case collapsed
+    case peek
+    case expanded
+}
+
 public enum ToolArtifactKind: String, Codable, Sendable, Hashable {
     case file
     case url
@@ -363,6 +369,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
     public var outputJSON: String?
     public var artifacts: [ToolArtifactState]
     public var isExpanded: Bool
+    public var density: ToolCardDensity
 
     public init(
         id: String,
@@ -372,7 +379,8 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         inputJSON: String? = nil,
         outputJSON: String? = nil,
         artifacts: [ToolArtifactState] = [],
-        isExpanded: Bool = false
+        isExpanded: Bool = false,
+        density: ToolCardDensity? = nil
     ) {
         self.id = id
         self.title = title
@@ -382,6 +390,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         self.outputJSON = outputJSON
         self.artifacts = artifacts
         self.isExpanded = isExpanded
+        self.density = density ?? Self.defaultDensity(status: status, isExpanded: isExpanded)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -393,6 +402,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         case outputJSON
         case artifacts
         case isExpanded
+        case density
     }
 
     public init(from decoder: Decoder) throws {
@@ -404,7 +414,38 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         self.inputJSON = try container.decodeIfPresent(String.self, forKey: .inputJSON)
         self.outputJSON = try container.decodeIfPresent(String.self, forKey: .outputJSON)
         self.artifacts = try container.decodeIfPresent([ToolArtifactState].self, forKey: .artifacts) ?? []
-        self.isExpanded = try container.decode(Bool.self, forKey: .isExpanded)
+        self.isExpanded = try container.decodeIfPresent(Bool.self, forKey: .isExpanded) ?? false
+        self.density = try container.decodeIfPresent(ToolCardDensity.self, forKey: .density)
+            ?? Self.defaultDensity(status: status, isExpanded: isExpanded)
+    }
+
+    public static func defaultDensity(status: ToolCardStatus, isExpanded: Bool = false) -> ToolCardDensity {
+        if isExpanded {
+            return .expanded
+        }
+        switch status {
+        case .queued, .running:
+            return .peek
+        case .done:
+            return .collapsed
+        case .failed, .review:
+            return .expanded
+        }
+    }
+
+    public var opensDetailsByDefault: Bool {
+        density == .expanded
+    }
+
+    public var densityAccessibilityLabel: String {
+        switch density {
+        case .collapsed:
+            return "collapsed"
+        case .peek:
+            return "preview"
+        case .expanded:
+            return "expanded"
+        }
     }
 
     public var imagePreviewArtifacts: [ToolArtifactState] {
@@ -3058,6 +3099,8 @@ public final class QuillCodeWorkspaceModel {
             }
             card.status = status
             card.subtitle = subtitle
+            card.density = ToolCardState.defaultDensity(status: status, isExpanded: card.isExpanded)
+            card.isExpanded = card.density == .expanded
             if let outputJSON {
                 card.outputJSON = outputJSON
                 card.artifacts = Self.artifacts(from: outputJSON)
@@ -3799,6 +3842,8 @@ public final class QuillCodeWorkspaceModel {
         guard cards.indices.contains(index) else { return }
         cards[index].status = status
         cards[index].subtitle = subtitle
+        cards[index].density = ToolCardState.defaultDensity(status: status, isExpanded: cards[index].isExpanded)
+        cards[index].isExpanded = cards[index].density == .expanded
         if let outputJSON {
             cards[index].outputJSON = outputJSON
             cards[index].artifacts = artifacts(from: outputJSON)

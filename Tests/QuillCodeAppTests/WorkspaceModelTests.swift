@@ -2238,6 +2238,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(cards[0].title, "Safety Check")
         XCTAssertEqual(cards[0].status, .review)
         XCTAssertTrue(cards[0].isExpanded)
+        XCTAssertEqual(cards[0].density, .expanded)
     }
 
     func testToolCardsRepresentStoppedActiveToolAsFailed() throws {
@@ -2263,8 +2264,10 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(cards.count, 1)
         XCTAssertEqual(cards[0].status, .failed)
         XCTAssertEqual(cards[0].subtitle, "Failed")
+        XCTAssertEqual(cards[0].density, .expanded)
         XCTAssertEqual(cards[0].outputJSON, #"{"ok":false,"error":"Stopped by user"}"#)
         XCTAssertEqual(timeline.compactMap(\.toolCard).first?.status, .failed)
+        XCTAssertEqual(timeline.compactMap(\.toolCard).first?.density, .expanded)
     }
 
     func testBootstrapLoadsConfigAndPersistedThreads() throws {

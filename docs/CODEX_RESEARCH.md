@@ -24,7 +24,7 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 
 ## Claude CLI Design Review Notes
 
-- Tool cards should have three density states: collapsed, peek, and expanded. Completed successful tools should collapse by default so the transcript reads like a conversation, while failed and review cards stay more open for diagnosis.
+- Tool cards should have three density states: collapsed, peek, and expanded. Completed successful tools should collapse by default so the transcript reads like a conversation, while queued/running cards peek and failed/review cards stay more open for diagnosis. QuillCode now carries this as explicit surface data so native and harness renderers stay aligned.
 - The top bar must use fixed-width numeric/status zones with tabular digits so token counts, model names, and connection status never cause layout jitter.
 - Safety review should be inline and calm. Approved low-risk actions should read as ordinary progress, while red and modal treatment should be reserved for actual denials or destructive actions.
 - MCP schemas should default to a compact name/description/argument-count presentation, with richer argument detail available on expansion. Dense schema text is useful, but it should not dominate the first view.

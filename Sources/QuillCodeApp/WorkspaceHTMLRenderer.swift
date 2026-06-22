@@ -332,12 +332,12 @@ public enum WorkspaceHTMLRenderer {
         let timelineAttribute = timelineItemID.map { #" data-timeline-id="\#(escape($0))""# } ?? ""
         let copyID = timelineItemID ?? card.id
         return """
-        <article class="tool-card \(card.status.rawValue)" data-testid="tool-card" data-status="\(card.status.rawValue)"\(timelineAttribute)>
+        <article class="tool-card \(card.status.rawValue)" data-testid="tool-card" data-status="\(card.status.rawValue)" data-density="\(card.density.rawValue)" aria-label="\(escape(card.title)), \(escape(card.status.rawValue)), \(escape(card.densityAccessibilityLabel))"\(timelineAttribute)>
           <header>
             <strong data-testid="tool-card-title">\(escape(card.title))</strong>
             <span data-testid="tool-card-status">\(escape(card.status.rawValue))</span>
           </header>
-          <p>\(escape(card.subtitle))</p>
+          <p data-testid="tool-card-subtitle">\(escape(card.subtitle))</p>
           <footer class="transcript-actions">
             <button type="button" data-testid="tool-card-copy" data-copy-id="\(escape(copyID))">\(escape(copyActionLabel(for: card)))</button>
           </footer>
@@ -362,10 +362,10 @@ public enum WorkspaceHTMLRenderer {
 
     private static func renderToolDetails(_ card: ToolCardState) -> String {
         guard card.inputJSON != nil || card.outputJSON != nil else { return "" }
-        let isOpen = card.isExpanded || card.status == .failed || card.status == .review
+        let isOpen = card.opensDetailsByDefault
         return """
         <details data-testid="tool-card-details"\(isOpen ? " open" : "")>
-          <summary>\(isOpen ? "Hide details" : "Show details")</summary>
+          <summary>\(isOpen ? "Hide details" : "Show raw details")</summary>
           \(card.inputJSON.map { #"<pre data-testid="tool-card-input">\#(escape($0))</pre>"# } ?? "")
           \(card.outputJSON.map { #"<pre data-testid="tool-card-output">\#(escape($0))</pre>"# } ?? "")
         </details>

@@ -42,8 +42,10 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('top-bar-subtitle')).toContainText('QuillCode - Auto');
   await expect(page.getByTestId('tool-card-title')).toHaveText('host.shell.run');
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-density', 'collapsed');
   await expect(page.getByTestId('tool-card-input')).toContainText('whoami');
   await expect(page.getByTestId('tool-card-output')).toContainText('mock-user');
+  await expect(page.getByTestId('tool-card-details')).not.toHaveAttribute('open', '');
   await expect(page.getByText('You are `mock-user` in this workspace.')).toBeVisible();
   await expect(page.getByTestId('message-copy').first()).toHaveText('Copy');
   await page.getByTestId('message-copy').first().click();
@@ -192,6 +194,7 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   await page.getByLabel('Message').fill('run whoami');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-density', 'collapsed');
 
   const transcriptPolish = await page.evaluate(() => {
     const styleFor = (selector: string) => getComputedStyle(document.querySelector(selector)!);
@@ -213,8 +216,8 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
     };
   });
 
-  expect(transcriptPolish.toolCardMinHeight).toBeGreaterThanOrEqual(74);
-  expect(transcriptPolish.toolCardRenderedHeight).toBeGreaterThanOrEqual(74);
+  expect(transcriptPolish.toolCardMinHeight).toBeGreaterThanOrEqual(58);
+  expect(transcriptPolish.toolCardRenderedHeight).toBeGreaterThanOrEqual(58);
   expect(transcriptPolish.toolStatusNumbers).toContain('tabular-nums');
   expect(transcriptPolish.toolCopyMinHeight).toBeGreaterThanOrEqual(40);
   expect(transcriptPolish.messageCopyMinHeight).toBeGreaterThanOrEqual(40);

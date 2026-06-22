@@ -976,6 +976,9 @@
     .tool-card.done { border-color: rgba(82,210,115,.34); }
     .tool-card.failed { border-color: rgba(255,93,82,.44); }
     .tool-card.review { border-color: rgba(248,184,78,.48); }
+    .tool-card[data-density="collapsed"] {
+      min-height: 58px;
+    }
     .tool-card header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
     .tool-card header [data-testid="tool-card-status"] { flex: none; }
     .tool-artifacts {
@@ -2203,7 +2206,8 @@
       const toolCard = {
         id: `tool-${state.nextTimelineIndex++}`,
         artifacts: artifactsFromOutput(card.outputJSON),
-        ...card
+        ...card,
+        density: card.density || toolCardDensity(card.status, card.isExpanded)
       };
       state.transcript.toolCards.push(toolCard);
       state.transcript.timelineItems.push({
@@ -2212,6 +2216,20 @@
         toolCard
       });
       return toolCard;
+    }
+
+    function toolCardDensity(status, isExpanded = false) {
+      if (isExpanded) return 'expanded';
+      if (status === 'queued' || status === 'running') return 'peek';
+      if (status === 'failed' || status === 'review') return 'expanded';
+      return 'collapsed';
+    }
+
+    function updateToolCardLifecycle(card, status, subtitle) {
+      card.status = status;
+      card.subtitle = subtitle;
+      card.density = toolCardDensity(status, card.isExpanded);
+      card.isExpanded = card.density === 'expanded';
     }
 
     function artifactsFromOutput(outputJSON) {
@@ -2780,18 +2798,18 @@
           </div>` : '';
       };
       const renderToolDetails = card => card.inputJSON || card.outputJSON ? `
-          <details class="tool-details" data-testid="tool-card-details" ${card.isExpanded || card.status === 'failed' || card.status === 'review' ? 'open' : ''}>
-            <summary>${card.isExpanded || card.status === 'failed' || card.status === 'review' ? 'Hide details' : 'Show details'}</summary>
+          <details class="tool-details" data-testid="tool-card-details" ${card.density === 'expanded' ? 'open' : ''}>
+            <summary>${card.density === 'expanded' ? 'Hide details' : 'Show raw details'}</summary>
             ${card.inputJSON ? `<pre data-testid="tool-card-input">${escapeHTML(card.inputJSON)}</pre>` : ''}
             ${card.outputJSON ? `<pre data-testid="tool-card-output">${escapeHTML(card.outputJSON)}</pre>` : ''}
           </details>` : '';
       const renderToolCard = (card, timelineID = '') => `
-        <article class="tool-card ${escapeHTML(card.status)}${activeClass(timelineID)}" data-testid="tool-card" data-status="${escapeHTML(card.status)}" data-timeline-id="${escapeHTML(timelineID)}">
+        <article class="tool-card ${escapeHTML(card.status)}${activeClass(timelineID)}" data-testid="tool-card" data-status="${escapeHTML(card.status)}" data-density="${escapeHTML(card.density || toolCardDensity(card.status, card.isExpanded))}" data-timeline-id="${escapeHTML(timelineID)}" aria-label="${escapeHTML(card.title)}, ${escapeHTML(card.status)}, ${escapeHTML(card.density || toolCardDensity(card.status, card.isExpanded))}">
           <header>
             <strong data-testid="tool-card-title">${escapeHTML(card.title)}</strong>
             <span data-testid="tool-card-status">${escapeHTML(card.status)}</span>
           </header>
-          <p>${escapeHTML(card.subtitle)}</p>
+          <p data-testid="tool-card-subtitle">${escapeHTML(card.subtitle)}</p>
           ${copyButton('tool-card-copy', timelineID || card.id, card.outputJSON ? 'Copy output' : card.inputJSON ? 'Copy input' : 'Copy')}
           ${renderArtifacts(card.artifacts)}
           ${renderTextPreviews(card.artifacts)}
@@ -4967,8 +4985,7 @@
         state.transcript.toolCards
           .filter(card => card.status === 'queued' || card.status === 'running')
           .forEach(card => {
-            card.status = 'failed';
-            card.subtitle = 'Stopped';
+            updateToolCardLifecycle(card, 'failed', 'Stopped');
             card.outputJSON = JSON.stringify({ ok: false, error: 'Stopped by user' }, null, 2);
             card.artifacts = [];
           });
@@ -5740,8 +5757,7 @@
         const runID = crypto.randomUUID();
         const timer = window.setTimeout(() => {
           if (!activeMockRun || activeMockRun.id !== runID) return;
-          card.subtitle = 'Completed';
-          card.status = 'done';
+          updateToolCardLifecycle(card, 'done', 'Completed');
           card.outputJSON = JSON.stringify({ ok: true, stdout: 'mock-user\\n', stderr: '', exitCode: 0 }, null, 2);
           card.artifacts = artifactsFromOutput(card.outputJSON);
           activeMockRun = null;

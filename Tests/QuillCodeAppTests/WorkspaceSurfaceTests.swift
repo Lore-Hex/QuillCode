@@ -1311,6 +1311,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="tool-card""#))
         XCTAssertTrue(html.contains(#"data-status="done""#))
+        XCTAssertTrue(html.contains(#"data-density="collapsed""#))
         XCTAssertTrue(html.contains("host.shell.run"))
         XCTAssertTrue(html.contains(#"data-testid="message-copy""#))
         XCTAssertTrue(html.contains(#"data-testid="message-use-as-draft""#))
@@ -1321,6 +1322,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-copy""#))
         XCTAssertTrue(html.contains("Copy output"))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-output""#))
+        XCTAssertTrue(html.contains("Show raw details"))
     }
 
     func testHTMLRendererIncludesToolCardArtifacts() async throws {
@@ -1340,6 +1342,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-content""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-details""#))
+        XCTAssertTrue(html.contains(#"data-density="collapsed""#))
         XCTAssertFalse(html.contains(#"data-testid="tool-card-details" open"#))
         XCTAssertTrue(html.contains(#"data-kind="file""#))
         XCTAssertTrue(html.contains("hello.txt"))
