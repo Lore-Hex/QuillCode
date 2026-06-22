@@ -2973,14 +2973,28 @@ private struct QuillCodeAutomationsPaneView: View {
                         .lineLimit(2)
                 }
                 Spacer()
-                if let createCommand = automations.createThreadFollowUpCommand {
-                    Button {
-                        onCommand(createCommand)
+                if automations.createThreadFollowUpCommand != nil
+                    || !automations.scheduleThreadFollowUpCommands.isEmpty {
+                    Menu {
+                        if let createCommand = automations.createThreadFollowUpCommand {
+                            Button(createCommand.title) {
+                                onCommand(createCommand)
+                            }
+                            .disabled(!createCommand.isEnabled)
+                        }
+                        if !automations.scheduleThreadFollowUpCommands.isEmpty {
+                            Divider()
+                            ForEach(automations.scheduleThreadFollowUpCommands, id: \.id) { command in
+                                Button(command.title) {
+                                    onCommand(command)
+                                }
+                                .disabled(!command.isEnabled)
+                            }
+                        }
                     } label: {
                         Label("Follow-up", systemImage: "plus")
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(!createCommand.isEnabled)
                 }
                 Text(automations.statusLabel)
                     .font(.caption.weight(.semibold))

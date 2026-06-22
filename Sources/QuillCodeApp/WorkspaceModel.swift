@@ -1414,7 +1414,11 @@ public final class QuillCodeWorkspaceModel {
     }
 
     @discardableResult
-    public func createThreadFollowUpAutomation() -> QuillAutomation? {
+    public func createThreadFollowUpAutomation(
+        scheduleDescription: String = "Manual follow-up",
+        nextRunAt: Date? = nil,
+        now: Date = Date()
+    ) -> QuillAutomation? {
         guard let thread = selectedThread else { return nil }
         let title = thread.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let automation = QuillAutomation(
@@ -1422,13 +1426,38 @@ public final class QuillCodeWorkspaceModel {
             detail: "Resume this thread with the same project, model, and context.",
             kind: .threadFollowUp,
             scheduleKind: .heartbeat,
-            scheduleDescription: "Manual follow-up",
+            scheduleDescription: scheduleDescription,
             projectID: thread.projectID ?? root.selectedProjectID,
-            threadID: thread.id
+            threadID: thread.id,
+            createdAt: now,
+            updatedAt: now,
+            nextRunAt: nextRunAt
         )
         setAutomations(automations.items + [automation])
         automations.isVisible = true
         return automation
+    }
+
+    @discardableResult
+    public func createThreadFollowUpAutomation(after seconds: TimeInterval, now: Date = Date()) -> QuillAutomation? {
+        guard seconds > 0 else { return nil }
+        return createThreadFollowUpAutomation(
+            scheduleDescription: Self.followUpDelayDescription(seconds: seconds),
+            nextRunAt: now.addingTimeInterval(seconds),
+            now: now
+        )
+    }
+
+    @discardableResult
+    public func createTomorrowMorningThreadFollowUpAutomation(
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> QuillAutomation? {
+        createThreadFollowUpAutomation(
+            scheduleDescription: "Tomorrow at 9:00 AM",
+            nextRunAt: Self.tomorrowMorning(from: now, calendar: calendar),
+            now: now
+        )
     }
 
     public func updateAutomationStatus(id: UUID, status: QuillAutomationStatus) -> Bool {
@@ -1528,6 +1557,28 @@ public final class QuillCodeWorkspaceModel {
         lastError = nil
         refreshTopBar(agentStatus: "Idle")
         return followUp.id
+    }
+
+    private static func followUpDelayDescription(seconds: TimeInterval) -> String {
+        let roundedSeconds = Int(seconds.rounded())
+        if roundedSeconds % 3_600 == 0 {
+            let hours = roundedSeconds / 3_600
+            return hours == 1 ? "In 1 hour" : "In \(hours) hours"
+        }
+        if roundedSeconds % 60 == 0 {
+            let minutes = roundedSeconds / 60
+            return minutes == 1 ? "In 1 minute" : "In \(minutes) minutes"
+        }
+        return "In \(roundedSeconds) seconds"
+    }
+
+    private static func tomorrowMorning(from date: Date, calendar: Calendar) -> Date {
+        var components = calendar.dateComponents([.year, .month, .day], from: date)
+        components.day = (components.day ?? 0) + 1
+        components.hour = 9
+        components.minute = 0
+        components.second = 0
+        return calendar.date(from: components) ?? date.addingTimeInterval(24 * 60 * 60)
     }
 
     public func toggleActivitySection(_ section: ActivitySectionKind) {
@@ -2485,6 +2536,11 @@ public final class QuillCodeWorkspaceModel {
             guard let id = UUID(uuidString: rawID) else { return false }
             return deleteAutomation(id: id)
         }
+        if commandID.hasPrefix("automation-create-thread-follow-up-after:") {
+            let rawSeconds = String(commandID.dropFirst("automation-create-thread-follow-up-after:".count))
+            guard let seconds = TimeInterval(rawSeconds) else { return false }
+            return createThreadFollowUpAutomation(after: seconds) != nil
+        }
         if commandID.hasPrefix("mcp-start:") {
             let id = String(commandID.dropFirst("mcp-start:".count))
             return startMCPServer(id: id, workspaceRoot: workspaceRoot)
@@ -2538,6 +2594,8 @@ public final class QuillCodeWorkspaceModel {
             return true
         case "automation-create-thread-follow-up":
             return createThreadFollowUpAutomation() != nil
+        case "automation-create-thread-follow-up-tomorrow":
+            return createTomorrowMorningThreadFollowUpAutomation() != nil
         case "memory-add":
             composer.draft = "/remember "
             return true

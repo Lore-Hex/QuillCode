@@ -1083,9 +1083,16 @@
     .automations-pane header p { margin: 3px 0 0; color: var(--muted); }
     .extensions-counts,
     .memories-counts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+    .automation-create-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+    }
     .extensions-counts span,
     .memories-counts span,
     .automations-pane header > span,
+    .automation-create-actions button,
     .memories-add-button,
     .memory-delete-button,
     .extension-card [data-testid="extension-kind"],
@@ -2340,6 +2347,9 @@
         { id: 'toggle-activity', title: 'Activity', shortcut: '', category: 'Workspace', keywords: ['task', 'summary', 'sources', 'artifacts', 'tools'], isEnabled: true },
         { id: 'toggle-automations', title: 'Automations', shortcut: '', category: 'Workspace', keywords: ['automation', 'schedule', 'recurring', 'monitor', 'follow-up', 'heartbeat'], isEnabled: true },
         { id: 'automation-create-thread-follow-up', title: 'Create thread follow-up', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule'], isEnabled: false },
+        { id: 'automation-create-thread-follow-up-after:600', title: 'In 10 minutes', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule', 'ten minutes'], isEnabled: false },
+        { id: 'automation-create-thread-follow-up-after:3600', title: 'In 1 hour', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule', 'hour'], isEnabled: false },
+        { id: 'automation-create-thread-follow-up-tomorrow', title: 'Tomorrow morning', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule', 'tomorrow', 'morning'], isEnabled: false },
         { id: 'toggle-memories', title: 'Memories', shortcut: '', category: 'Memories', keywords: ['memory', 'context', 'preferences', 'facts'], isEnabled: true },
         { id: 'memory-add', title: 'Add memory', shortcut: '', category: 'Memories', keywords: ['remember', 'save', 'preference', 'fact'], isEnabled: true },
         { id: 'toggle-extensions', title: 'Extensions', shortcut: '', category: 'Extensions', keywords: ['plugins', 'skills', 'mcp', 'manifest'], isEnabled: true },
@@ -2395,6 +2405,11 @@
           title: 'Create thread follow-up',
           isEnabled: false
         },
+        scheduleThreadFollowUpCommands: [
+          { id: 'automation-create-thread-follow-up-after:600', title: 'In 10 minutes', isEnabled: false },
+          { id: 'automation-create-thread-follow-up-after:3600', title: 'In 1 hour', isEnabled: false },
+          { id: 'automation-create-thread-follow-up-tomorrow', title: 'Tomorrow morning', isEnabled: false }
+        ],
         configuredWorkflows: [],
         plannedWorkflows: [
           {
@@ -3119,6 +3134,8 @@
         command.id === 'retry-last-turn' ? { ...command, isEnabled: hasUserMessages && !state.composer.isSending } :
         command.id === 'find-in-chat' ? { ...command, isEnabled: hasThread } :
         command.id === 'automation-create-thread-follow-up' ? { ...command, isEnabled: hasThread } :
+        command.id?.startsWith('automation-create-thread-follow-up-after:') ? { ...command, isEnabled: hasThread } :
+        command.id === 'automation-create-thread-follow-up-tomorrow' ? { ...command, isEnabled: hasThread } :
         command.id === 'stop-all' ? { ...command, isEnabled: hasActiveWork } :
         command
       ));
@@ -3134,6 +3151,11 @@
         title: 'Create thread follow-up',
         isEnabled: Boolean(selectedThread)
       };
+      state.automations.scheduleThreadFollowUpCommands = [
+        { id: 'automation-create-thread-follow-up-after:600', title: 'In 10 minutes', isEnabled: Boolean(selectedThread) },
+        { id: 'automation-create-thread-follow-up-after:3600', title: 'In 1 hour', isEnabled: Boolean(selectedThread) },
+        { id: 'automation-create-thread-follow-up-tomorrow', title: 'Tomorrow morning', isEnabled: Boolean(selectedThread) }
+      ];
       if (!configured.length) {
         state.automations.statusLabel = `${state.automations.plannedWorkflows.length} planned`;
         state.automations.workflows = state.automations.plannedWorkflows;
@@ -3958,7 +3980,7 @@
       document.querySelector('[data-testid="automation-create-follow-up"]')?.addEventListener('click', event => {
         runCommand(event.currentTarget.getAttribute('data-command-id'));
       });
-      document.querySelectorAll('[data-testid="automation-run"], [data-testid="automation-primary-action"], [data-testid="automation-delete"]').forEach(button => {
+      document.querySelectorAll('[data-testid="automation-schedule-follow-up"], [data-testid="automation-run"], [data-testid="automation-primary-action"], [data-testid="automation-delete"]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
@@ -5333,6 +5355,9 @@
         }
         return actions.length ? `<div class="automation-actions">${actions.join('')}</div>` : '';
       };
+      const scheduleButtons = (state.automations.scheduleThreadFollowUpCommands || []).map(command => `
+        <button type="button" data-testid="automation-schedule-follow-up" data-command-id="${escapeHTML(command.id)}" ${command.isEnabled ? '' : 'disabled'}>${escapeHTML(command.title)}</button>
+      `).join('');
       const content = workflows.length ? `
         <div class="automation-grid" data-testid="automation-grid">
           ${workflows.map(workflow => `
@@ -5357,7 +5382,10 @@
               <strong data-testid="automations-title">${escapeHTML(state.automations.title)}</strong>
               <p data-testid="automations-subtitle">${escapeHTML(state.automations.subtitle)}</p>
             </div>
-            <button type="button" data-testid="automation-create-follow-up" data-command-id="${escapeHTML(state.automations.createThreadFollowUpCommand.id)}" ${state.automations.createThreadFollowUpCommand.isEnabled ? '' : 'disabled'}>${escapeHTML(state.automations.createThreadFollowUpCommand.title)}</button>
+            <div class="automation-create-actions">
+              <button type="button" data-testid="automation-create-follow-up" data-command-id="${escapeHTML(state.automations.createThreadFollowUpCommand.id)}" ${state.automations.createThreadFollowUpCommand.isEnabled ? '' : 'disabled'}>${escapeHTML(state.automations.createThreadFollowUpCommand.title)}</button>
+              ${scheduleButtons}
+            </div>
             <span data-testid="automations-status">${escapeHTML(state.automations.statusLabel)}</span>
           </header>
           ${content}
@@ -5740,7 +5768,19 @@
       return state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID) || null;
     }
 
-    function createThreadFollowUpAutomation() {
+    function followUpDelayDescription(seconds) {
+      if (seconds % 3600 === 0) {
+        const hours = seconds / 3600;
+        return hours === 1 ? 'In 1 hour' : `In ${hours} hours`;
+      }
+      if (seconds % 60 === 0) {
+        const minutes = seconds / 60;
+        return minutes === 1 ? 'In 1 minute' : `In ${minutes} minutes`;
+      }
+      return `In ${seconds} seconds`;
+    }
+
+    function createThreadFollowUpAutomation(scheduleLabel = 'Manual follow-up') {
       const thread = selectedThread();
       if (!thread) return;
       const id = `automation-${state.nextAutomationIndex++}`;
@@ -5750,7 +5790,7 @@
           title: `Follow up: ${thread.title}`,
           detail: 'Resume this thread with the same project, model, and context.',
           statusLabel: 'Active',
-          scheduleLabel: 'Manual follow-up',
+          scheduleLabel,
           sourceThreadID: thread.id,
           runActionTitle: 'Run now',
           runCommandID: `automation-run:${id}`,
@@ -5840,6 +5880,17 @@
       }
       if (commandID === 'automation-create-thread-follow-up') {
         createThreadFollowUpAutomation();
+        return;
+      }
+      if (commandID?.startsWith('automation-create-thread-follow-up-after:')) {
+        const seconds = Number(commandID.slice('automation-create-thread-follow-up-after:'.length));
+        if (Number.isFinite(seconds) && seconds > 0) {
+          createThreadFollowUpAutomation(followUpDelayDescription(seconds));
+        }
+        return;
+      }
+      if (commandID === 'automation-create-thread-follow-up-tomorrow') {
+        createThreadFollowUpAutomation('Tomorrow at 9:00 AM');
         return;
       }
       if (commandID?.startsWith('automation-pause:')) {

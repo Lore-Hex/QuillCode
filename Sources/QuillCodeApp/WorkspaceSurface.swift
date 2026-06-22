@@ -1332,11 +1332,13 @@ public struct WorkspaceAutomationsSurface: Codable, Sendable, Hashable {
     public var emptySubtitle: String
     public var workflows: [AutomationWorkflowSurface]
     public var createThreadFollowUpCommand: WorkspaceCommandSurface?
+    public var scheduleThreadFollowUpCommands: [WorkspaceCommandSurface]
 
     public init(
         isVisible: Bool = false,
         automations: [QuillAutomation] = [],
         createThreadFollowUpCommand: WorkspaceCommandSurface? = nil,
+        scheduleThreadFollowUpCommands: [WorkspaceCommandSurface] = [],
         workflows: [AutomationWorkflowSurface] = AutomationWorkflowSurface.plannedWorkflows,
         emptyTitle: String = "No automations yet",
         emptySubtitle: String = "Create scheduled follow-ups, workspace checks, and monitors once the automation runtime lands."
@@ -1358,6 +1360,7 @@ public struct WorkspaceAutomationsSurface: Codable, Sendable, Hashable {
         self.emptySubtitle = emptySubtitle
         self.workflows = configuredWorkflows.isEmpty ? workflows : configuredWorkflows
         self.createThreadFollowUpCommand = createThreadFollowUpCommand
+        self.scheduleThreadFollowUpCommands = scheduleThreadFollowUpCommands
     }
 
     private static func statusLabel(
@@ -1997,6 +2000,32 @@ public extension WorkspaceCommandSurface {
         )
     }
 
+    static func automationScheduleThreadFollowUpCommands(isEnabled: Bool) -> [WorkspaceCommandSurface] {
+        [
+            WorkspaceCommandSurface(
+                id: "automation-create-thread-follow-up-after:600",
+                title: "In 10 minutes",
+                category: WorkspaceCommandPalette.automationsCategory,
+                keywords: ["automation", "follow-up", "thread", "heartbeat", "schedule", "ten minutes"],
+                isEnabled: isEnabled
+            ),
+            WorkspaceCommandSurface(
+                id: "automation-create-thread-follow-up-after:3600",
+                title: "In 1 hour",
+                category: WorkspaceCommandPalette.automationsCategory,
+                keywords: ["automation", "follow-up", "thread", "heartbeat", "schedule", "hour"],
+                isEnabled: isEnabled
+            ),
+            WorkspaceCommandSurface(
+                id: "automation-create-thread-follow-up-tomorrow",
+                title: "Tomorrow morning",
+                category: WorkspaceCommandPalette.automationsCategory,
+                keywords: ["automation", "follow-up", "thread", "heartbeat", "schedule", "tomorrow", "morning"],
+                isEnabled: isEnabled
+            )
+        ]
+    }
+
     static func computerUseSetup(isEnabled: Bool) -> WorkspaceCommandSurface {
         WorkspaceCommandSurface(
             id: "computer-use-setup",
@@ -2535,6 +2564,9 @@ public extension QuillCodeWorkspaceModel {
                 automations: automations.items,
                 createThreadFollowUpCommand: .automationCreateThreadFollowUp(
                     isEnabled: thread != nil
+                ),
+                scheduleThreadFollowUpCommands: WorkspaceCommandSurface.automationScheduleThreadFollowUpCommands(
+                    isEnabled: thread != nil
                 )
             ),
             composer: ComposerSurface(composer: composer),
@@ -2960,6 +2992,9 @@ public extension QuillCodeWorkspaceModel {
                     )
                 ]
             }
+        let automationScheduleCommands = WorkspaceCommandSurface.automationScheduleThreadFollowUpCommands(
+            isEnabled: selectedThread != nil
+        )
         return [
             WorkspaceCommandSurface(
                 id: "new-chat",
@@ -3191,6 +3226,9 @@ public extension QuillCodeWorkspaceModel {
                 keywords: ["automation", "schedule", "recurring", "monitor", "follow-up", "heartbeat"]
             ),
             .automationCreateThreadFollowUp(isEnabled: selectedThread != nil),
+            automationScheduleCommands[0],
+            automationScheduleCommands[1],
+            automationScheduleCommands[2],
             WorkspaceCommandSurface(
                 id: "toggle-memories",
                 title: "Memories",

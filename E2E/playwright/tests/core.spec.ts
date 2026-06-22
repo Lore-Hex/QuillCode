@@ -645,6 +645,21 @@ test('mock harness creates and manages a thread follow-up automation', async ({ 
   await expect(page.getByTestId('automation-card')).toHaveCount(3);
 });
 
+test('mock harness schedules a thread follow-up from quick actions', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('new-chat-button').click();
+  await page.getByLabel('Message').fill('check tomorrow');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByTestId('automations-button').click();
+  await page.getByTestId('automation-schedule-follow-up').filter({ hasText: 'In 10 minutes' }).click();
+
+  await expect(page.getByTestId('automations-status')).toHaveText('1 active');
+  await expect(page.getByTestId('automation-card')).toHaveCount(1);
+  await expect(page.getByTestId('automation-card')).toContainText('Follow up: check tomorrow');
+  await expect(page.getByTestId('automation-card')).toContainText('In 10 minutes');
+});
+
 test('mock harness renders image artifact previews from tool cards', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

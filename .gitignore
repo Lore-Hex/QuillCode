@@ -1,6 +1,7 @@
 .build/
 .swiftpm/
 DerivedData/
+.artifacts/
 
 E2E/playwright/node_modules/
 E2E/playwright/playwright-report/

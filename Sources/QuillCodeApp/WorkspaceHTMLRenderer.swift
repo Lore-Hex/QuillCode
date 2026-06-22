@@ -899,6 +899,12 @@ public enum WorkspaceHTMLRenderer {
         let createButton = automations.createThreadFollowUpCommand.map { command in
             #"<button type="button" data-testid="automation-create-follow-up" data-command-id="\#(escape(command.id))" \#(command.isEnabled ? "" : "disabled")>\#(escape(command.title))</button>"#
         } ?? ""
+        let scheduleButtons = automations.scheduleThreadFollowUpCommands.map { command in
+            #"<button type="button" data-testid="automation-schedule-follow-up" data-command-id="\#(escape(command.id))" \#(command.isEnabled ? "" : "disabled")>\#(escape(command.title))</button>"#
+        }.joined(separator: "\n")
+        let createActions = [createButton, scheduleButtons]
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
         return """
         <section class="automations-pane" data-testid="automations-pane" aria-label="Automations">
           <header>
@@ -906,7 +912,9 @@ public enum WorkspaceHTMLRenderer {
               <strong data-testid="automations-title">\(escape(automations.title))</strong>
               <p data-testid="automations-subtitle">\(escape(automations.subtitle))</p>
             </div>
-            \(createButton)
+            <div class="automation-create-actions">
+              \(createActions)
+            </div>
             <span data-testid="automations-status">\(escape(automations.statusLabel))</span>
           </header>
           <div class="automation-grid">

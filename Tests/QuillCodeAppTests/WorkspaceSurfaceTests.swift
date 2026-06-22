@@ -100,6 +100,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "toggle-activity",
             "toggle-automations",
             "automation-create-thread-follow-up",
+            "automation-create-thread-follow-up-after:600",
+            "automation-create-thread-follow-up-after:3600",
+            "automation-create-thread-follow-up-tomorrow",
             "toggle-memories",
             "memory-add",
             "toggle-extensions",
@@ -459,7 +462,19 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(automations.createThreadFollowUpCommand?.id, "automation-create-thread-follow-up")
         XCTAssertEqual(automations.createThreadFollowUpCommand?.category, WorkspaceCommandPalette.automationsCategory)
         XCTAssertEqual(automations.createThreadFollowUpCommand?.isEnabled, true)
+        XCTAssertEqual(automations.scheduleThreadFollowUpCommands.map(\.id), [
+            "automation-create-thread-follow-up-after:600",
+            "automation-create-thread-follow-up-after:3600",
+            "automation-create-thread-follow-up-tomorrow"
+        ])
+        XCTAssertEqual(automations.scheduleThreadFollowUpCommands.map(\.isEnabled), [true, true, true])
         XCTAssertEqual(model.surface().commands.first { $0.id == "automation-create-thread-follow-up" }?.isEnabled, true)
+        XCTAssertEqual(
+            model.surface().commands
+                .filter { $0.id.hasPrefix("automation-create-thread-follow-up-after:") }
+                .map(\.isEnabled),
+            [true, true]
+        )
     }
 
     func testActivitySectionToggleCollapsesSharedSurfaceSection() throws {

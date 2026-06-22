@@ -3705,6 +3705,48 @@ final class WorkspaceModelTests: XCTestCase {
         ])
     }
 
+    func testScheduledThreadFollowUpsPersistConcreteRunTimes() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let thread = ChatThread(title: "Launch plan")
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            automationStore: automationStore
+        )
+        let now = Date(timeIntervalSince1970: 1_000)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+
+        let tenMinute = try XCTUnwrap(model.createThreadFollowUpAutomation(after: 600, now: now))
+        let tomorrow = try XCTUnwrap(model.createTomorrowMorningThreadFollowUpAutomation(
+            now: now,
+            calendar: calendar
+        ))
+
+        XCTAssertEqual(tenMinute.scheduleDescription, "In 10 minutes")
+        XCTAssertEqual(tenMinute.nextRunAt, now.addingTimeInterval(600))
+        XCTAssertEqual(tomorrow.scheduleDescription, "Tomorrow at 9:00 AM")
+        XCTAssertEqual(
+            tomorrow.nextRunAt,
+            calendar.date(from: DateComponents(
+                calendar: calendar,
+                timeZone: calendar.timeZone,
+                year: 1970,
+                month: 1,
+                day: 2,
+                hour: 9,
+                minute: 0,
+                second: 0
+            ))
+        )
+
+        let saved = try automationStore.load()
+        XCTAssertEqual(saved.map(\.scheduleDescription), ["In 10 minutes", "Tomorrow at 9:00 AM"])
+        XCTAssertEqual(saved.map(\.threadID), [thread.id, thread.id])
+    }
+
     func testAutomationRunCreatesFollowUpThreadAndPersistsRunMetadata() throws {
         let root = try makeTempDirectory()
         let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
