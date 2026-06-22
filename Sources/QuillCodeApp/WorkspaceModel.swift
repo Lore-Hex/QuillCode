@@ -4287,7 +4287,8 @@ public final class QuillCodeWorkspaceModel {
                 let rows = actions
                     .map { action in
                         let detail = action.detail.map { " — \($0)" } ?? ""
-                        return "- `/env \(action.title)` — \(action.relativePath)\(detail)"
+                        let cwd = action.workingDirectory.map { " — cwd: \($0)" } ?? ""
+                        return "- `/env \(action.title)` — \(action.relativePath)\(cwd)\(detail)"
                     }
                     .joined(separator: "\n")
                 message = "Local environment actions:\n\(rows)"

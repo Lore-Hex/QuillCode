@@ -1884,6 +1884,79 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(result.stdout, "dev|.cache/quill|it's ok|")
     }
 
+    func testLocalEnvironmentActionMetadataRunsFromBoundedWorkingDirectory() throws {
+        let root = try makeTempDirectory()
+        let appDirectory = root.appendingPathComponent("app")
+        let actionsDirectory = root.appendingPathComponent(".quillcode/actions")
+        try FileManager.default.createDirectory(at: appDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: actionsDirectory, withIntermediateDirectories: true)
+        try "marker-ok".write(
+            to: appDirectory.appendingPathComponent("marker.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try #"printf "%s|%s" "$(basename "$PWD")" "$(cat marker.txt)""#.write(
+            to: actionsDirectory.appendingPathComponent("cwd-check.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try """
+        {
+          "title": "CWD Check",
+          "workingDirectory": "app"
+        }
+        """.write(
+            to: actionsDirectory.appendingPathComponent("cwd-check.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Local Env CWD Project")
+        model.selectProject(projectID)
+
+        let action = try XCTUnwrap(model.selectedProject?.localActions.first)
+        XCTAssertEqual(action.workingDirectory, "app")
+        XCTAssertEqual(action.command, #"cd 'app' && sh '../.quillcode/actions/cwd-check.sh'"#)
+        XCTAssertTrue(model.runWorkspaceCommand(action.id, workspaceRoot: root))
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        let outputJSON = try XCTUnwrap(card.outputJSON)
+        let result = try JSONHelpers.decode(ToolResult.self, from: outputJSON)
+        XCTAssertEqual(result.stdout, "app|marker-ok")
+    }
+
+    func testLocalEnvironmentActionLoaderRejectsUnsafeWorkingDirectory() throws {
+        let root = try makeTempDirectory()
+        let outsideDirectory = try makeTempDirectory()
+        let actionsDirectory = root.appendingPathComponent(".quillcode/actions")
+        try FileManager.default.createDirectory(at: actionsDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("escape"),
+            withDestinationURL: outsideDirectory
+        )
+        try "printf safe".write(
+            to: actionsDirectory.appendingPathComponent("safe.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try """
+        {
+          "title": "Safe",
+          "workingDirectory": "escape"
+        }
+        """.write(
+            to: actionsDirectory.appendingPathComponent("safe.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let action = try XCTUnwrap(LocalEnvironmentActionLoader.load(from: root).first)
+
+        XCTAssertNil(action.workingDirectory)
+        XCTAssertEqual(action.command, #"sh '.quillcode/actions/safe.sh'"#)
+    }
+
     func testSlashEnvironmentActionListShowsMetadataDescription() async throws {
         let root = try makeTempDirectory()
         let actionsDirectory = root.appendingPathComponent(".quillcode/actions")

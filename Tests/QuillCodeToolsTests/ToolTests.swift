@@ -496,6 +496,53 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.worktree.remove"))
     }
 
+    func testToolRouterShellAllowsWorkspaceRelativeCWD() throws {
+        let root = try makeTempDirectory()
+        let subdirectory = root.appendingPathComponent("subdir")
+        try FileManager.default.createDirectory(at: subdirectory, withIntermediateDirectories: true)
+
+        let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"basename \"$PWD\"","cwd":"subdir"}"#
+        ))
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(
+            result.stdout.trimmingCharacters(in: .whitespacesAndNewlines),
+            subdirectory.lastPathComponent
+        )
+    }
+
+    func testToolRouterShellRejectsCWDOutsideWorkspace() throws {
+        let root = try makeTempDirectory()
+        let outside = try makeTempDirectory()
+
+        let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"pwd","cwd":"\#(outside.path)"}"#
+        ))
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(result.error, "Shell cwd must stay inside the current workspace.")
+    }
+
+    func testToolRouterShellRejectsSymlinkCWDEscape() throws {
+        let root = try makeTempDirectory()
+        let outside = try makeTempDirectory()
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("escape"),
+            withDestinationURL: outside
+        )
+
+        let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"pwd","cwd":"escape"}"#
+        ))
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(result.error, "Shell cwd must stay inside the current workspace.")
+    }
+
     func testToolRouterRoutesGitWorktreeList() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let result = ToolRouter(workspaceRoot: root).execute(ToolCall(

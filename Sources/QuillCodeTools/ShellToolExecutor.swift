@@ -386,7 +386,7 @@ public extension ToolDefinition {
     static let shellRun = ToolDefinition(
         name: "host.shell.run",
         description: "Run a shell command in the current project workspace.",
-        parametersJSON: #"{"type":"object","properties":{"cmd":{"type":"string"},"cwd":{"type":"string"}},"required":["cmd"]}"#,
+        parametersJSON: #"{"type":"object","properties":{"cmd":{"type":"string"},"cwd":{"type":"string","description":"Optional workspace-relative working directory. It must resolve inside the current project."}},"required":["cmd"]}"#,
         host: .local,
         risk: .destructive
     )

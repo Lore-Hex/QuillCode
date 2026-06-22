@@ -49,8 +49,12 @@ public struct ToolRouter: Sendable {
             switch call.name {
             case ToolDefinition.shellRun.name:
                 let command = try args.requiredString("cmd")
-                let cwd = args.string("cwd").map { URL(fileURLWithPath: $0) } ?? workspaceRoot
-                return shell.run(.init(command: command, cwd: cwd))
+                switch shellWorkingDirectory(args.string("cwd")) {
+                case let .allowed(cwd):
+                    return shell.run(.init(command: command, cwd: cwd))
+                case let .denied(error):
+                    return ToolResult(ok: false, error: error)
+                }
             case ToolDefinition.fileRead.name:
                 return files.read(path: try args.requiredString("path"))
             case ToolDefinition.fileWrite.name:
@@ -124,5 +128,45 @@ public struct ToolRouter: Sendable {
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
+    }
+
+    private func shellWorkingDirectory(_ rawValue: String?) -> WorkingDirectoryResolution {
+        let root = workspaceRoot.standardizedFileURL.resolvingSymlinksInPath()
+        guard let rawValue else {
+            return .allowed(root)
+        }
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return .allowed(root)
+        }
+        guard !trimmed.contains("\0"),
+              trimmed.rangeOfCharacter(from: .newlines) == nil
+        else {
+            return .denied("Shell cwd must be a single project-relative or in-project path.")
+        }
+
+        let candidate = trimmed.hasPrefix("/")
+            ? URL(fileURLWithPath: trimmed)
+            : root.appendingPathComponent(trimmed)
+        let resolved = candidate.standardizedFileURL.resolvingSymlinksInPath()
+        guard Self.isPath(resolved.path, inside: root.path) else {
+            return .denied("Shell cwd must stay inside the current workspace.")
+        }
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: resolved.path, isDirectory: &isDirectory),
+              isDirectory.boolValue
+        else {
+            return .denied("Shell cwd does not exist or is not a directory.")
+        }
+        return .allowed(resolved)
+    }
+
+    private static func isPath(_ path: String, inside rootPath: String) -> Bool {
+        path == rootPath || path.hasPrefix(rootPath + "/")
+    }
+
+    private enum WorkingDirectoryResolution {
+        case allowed(URL)
+        case denied(String)
     }
 }

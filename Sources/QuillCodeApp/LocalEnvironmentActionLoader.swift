@@ -12,6 +12,7 @@ public enum LocalEnvironmentActionLoader {
     private static let maxEnvironmentVariables = 16
     private static let maxEnvironmentKeyLength = 64
     private static let maxEnvironmentValueLength = 512
+    private static let maxWorkingDirectoryLength = 240
 
     public static func load(
         from projectRoot: URL,
@@ -68,14 +69,20 @@ public enum LocalEnvironmentActionLoader {
         let id = "local-env:\(relativePath)"
         let metadata = metadata(root: root, scriptURL: resolved)
         let environment = metadata?.environment ?? [:]
+        let workingDirectory = metadata?.workingDirectory
         return LocalEnvironmentAction(
             id: id,
             title: metadata?.title ?? title(from: resolved.deletingPathExtension().lastPathComponent),
             detail: metadata?.description,
             relativePath: relativePath,
-            command: command(relativePath: relativePath, environment: environment),
+            command: command(
+                relativePath: relativePath,
+                environment: environment,
+                workingDirectory: workingDirectory
+            ),
             sortOrder: metadata?.order,
-            environment: environment.isEmpty ? nil : environment
+            environment: environment.isEmpty ? nil : environment,
+            workingDirectory: workingDirectory
         )
     }
 
@@ -111,7 +118,8 @@ public enum LocalEnvironmentActionLoader {
             title: normalized(decoded.title, maxLength: 80),
             description: normalized(decoded.description, maxLength: 200),
             order: decoded.order,
-            environment: normalizedEnvironment(decoded.environment)
+            environment: normalizedEnvironment(decoded.environment),
+            workingDirectory: normalizedWorkingDirectory(decoded.workingDirectory, root: root)
         )
     }
 
@@ -139,14 +147,35 @@ public enum LocalEnvironmentActionLoader {
             .joined(separator: " ")
     }
 
-    private static func command(relativePath: String, environment: [String: String]) -> String {
-        guard !environment.isEmpty else {
-            return "sh \(shellQuote(relativePath))"
+    private static func command(
+        relativePath: String,
+        environment: [String: String],
+        workingDirectory: String?
+    ) -> String {
+        let scriptPath = scriptPath(relativePath: relativePath, from: workingDirectory)
+        let shellCommand: String
+        if environment.isEmpty {
+            shellCommand = "sh \(shellQuote(scriptPath))"
+        } else {
+            let variables = environment.keys.sorted()
+                .map { "\($0)=\(shellQuote(environment[$0] ?? ""))" }
+                .joined(separator: " ")
+            shellCommand = "env \(variables) sh \(shellQuote(scriptPath))"
         }
-        let variables = environment.keys.sorted()
-            .map { "\($0)=\(shellQuote(environment[$0] ?? ""))" }
-            .joined(separator: " ")
-        return "env \(variables) sh \(shellQuote(relativePath))"
+        return workingDirectory.map { "cd \(shellQuote($0)) && \(shellCommand)" } ?? shellCommand
+    }
+
+    private static func scriptPath(relativePath: String, from workingDirectory: String?) -> String {
+        guard let workingDirectory else {
+            return relativePath
+        }
+        let depth = workingDirectory
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .count
+        guard depth > 0 else {
+            return relativePath
+        }
+        return Array(repeating: "..", count: depth).joined(separator: "/") + "/\(relativePath)"
     }
 
     private static func normalizedEnvironment(_ environment: [String: String]?) -> [String: String] {
@@ -189,6 +218,48 @@ public enum LocalEnvironmentActionLoader {
             && value.rangeOfCharacter(from: .newlines) == nil
     }
 
+    private static func normalizedWorkingDirectory(_ value: String?, root: URL) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count <= maxWorkingDirectoryLength,
+              !trimmed.hasPrefix("/"),
+              !trimmed.contains("\0"),
+              trimmed.rangeOfCharacter(from: .newlines) == nil
+        else {
+            return nil
+        }
+
+        let components = trimmed
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .map(String.init)
+        guard !components.isEmpty,
+              components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." })
+        else {
+            return nil
+        }
+
+        let relativePath = components.joined(separator: "/")
+        let directoryURL = root
+            .appendingPathComponent(relativePath)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        guard isPath(directoryURL.path, inside: root.path) else {
+            return nil
+        }
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory),
+              isDirectory.boolValue
+        else {
+            return nil
+        }
+        return relativePath
+    }
+
+    private static func isPath(_ path: String, inside rootPath: String) -> Bool {
+        path == rootPath || path.hasPrefix(rootPath + "/")
+    }
+
     private static func shellQuote(_ value: String) -> String {
         "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
     }
@@ -198,6 +269,26 @@ public enum LocalEnvironmentActionLoader {
         var description: String?
         var order: Int?
         var environment: [String: String]?
+        var workingDirectory: String?
+
+        enum CodingKeys: String, CodingKey {
+            case title
+            case description
+            case order
+            case environment
+            case workingDirectory
+            case workingDirectorySnake = "working_directory"
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            title = try container.decodeIfPresent(String.self, forKey: .title)
+            description = try container.decodeIfPresent(String.self, forKey: .description)
+            order = try container.decodeIfPresent(Int.self, forKey: .order)
+            environment = try container.decodeIfPresent([String: String].self, forKey: .environment)
+            workingDirectory = try container.decodeIfPresent(String.self, forKey: .workingDirectory)
+                ?? container.decodeIfPresent(String.self, forKey: .workingDirectorySnake)
+        }
     }
 
     private struct ActionMetadata {
@@ -205,5 +296,6 @@ public enum LocalEnvironmentActionLoader {
         var description: String?
         var order: Int?
         var environment: [String: String]
+        var workingDirectory: String?
     }
 }
