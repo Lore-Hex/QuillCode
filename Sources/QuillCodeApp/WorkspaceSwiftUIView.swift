@@ -1136,9 +1136,22 @@ private struct QuillCodeModelPickerView: View {
         Button {
             isPresented.toggle()
         } label: {
-            QuillCodePill(text: "\(topBar.modelLabel) · \(topBar.modeLabel)", systemImage: "cpu")
+            HStack(spacing: 6) {
+                Text("\(topBar.modelLabel) · \(topBar.modeLabel)")
+                    .font(.callout.weight(.semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(QuillCodePalette.muted)
+            }
+            .foregroundStyle(QuillCodePalette.text)
+            .padding(.horizontal, 8)
+            .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.borderless)
+        .help("Choose model and mode")
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
@@ -1660,30 +1673,53 @@ private struct QuillCodeSidebarUtilityActionsView: View {
             "toggle-browser",
             "toggle-memories",
             "toggle-activity",
-            "command-palette",
-            "settings"
+            "command-palette"
         ].compactMap { id in
             commands.first { $0.id == id }
         }
     }
 
+    private var settingsCommand: WorkspaceCommandSurface? {
+        commands.first { $0.id == "settings" }
+    }
+
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 40), spacing: 6), count: 3), spacing: 6) {
-            ForEach(visibleCommands) { command in
+        HStack(spacing: 8) {
+            Menu {
+                ForEach(visibleCommands) { command in
+                    Button {
+                        onCommand(command)
+                    } label: {
+                        Label(displayTitle(for: command), systemImage: systemImage(for: command.id))
+                    }
+                    .disabled(!command.isEnabled)
+                }
+            } label: {
+                Label("Tools", systemImage: "wrench.and.screwdriver")
+                    .font(.callout.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget)
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .background(QuillCodePalette.panel.opacity(0.50))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .help("Tools")
+
+            if let settingsCommand {
                 Button {
-                    onCommand(command)
+                    onCommand(settingsCommand)
                 } label: {
-                    Image(systemName: systemImage(for: command.id))
+                    Image(systemName: systemImage(for: settingsCommand.id))
                         .font(.system(size: 15, weight: .semibold))
-                        .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget)
-                        .foregroundStyle(command.isEnabled ? QuillCodePalette.muted : QuillCodePalette.muted.opacity(0.45))
-                        .background(QuillCodePalette.panel.opacity(0.52))
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+                        .foregroundStyle(settingsCommand.isEnabled ? QuillCodePalette.muted : QuillCodePalette.muted.opacity(0.45))
+                        .background(QuillCodePalette.panel.opacity(0.50))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
                 .buttonStyle(.plain)
-                .disabled(!command.isEnabled)
-                .help(displayTitle(for: command))
-                .accessibilityLabel(displayTitle(for: command))
+                .disabled(!settingsCommand.isEnabled)
+                .help(displayTitle(for: settingsCommand))
+                .accessibilityLabel(displayTitle(for: settingsCommand))
             }
         }
         .padding(.top, 10)

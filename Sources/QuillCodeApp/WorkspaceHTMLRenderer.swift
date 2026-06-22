@@ -128,12 +128,18 @@ public enum WorkspaceHTMLRenderer {
             <button type="button" data-testid="add-project-button" aria-label="Open project">+</button>
           </div>
           \(projectContent)
-          <div class="sidebar-utility-strip" aria-label="Workspace tools">
-            <button class="sidebar-action" type="button" data-testid="terminal-button" data-secondary="true" aria-label="Terminal" title="Terminal">Term</button>
-            <button class="sidebar-action" type="button" data-testid="browser-button" data-secondary="true" aria-label="Browser" title="Browser">Web</button>
-            <button class="sidebar-action" type="button" data-testid="memories-button" data-secondary="true" aria-label="Memories" title="Memories">Mem</button>
-            <button class="sidebar-action" type="button" data-testid="activity-button" data-secondary="true" aria-label="Activity" title="Activity">Act</button>
-            <button class="sidebar-action" type="button" data-testid="command-palette-button" data-secondary="true" aria-label="Command palette" title="Command palette">Cmd</button>
+          <div class="sidebar-footer" aria-label="Workspace tools">
+            <details class="sidebar-tools-menu" data-testid="sidebar-tools-menu">
+              <summary data-testid="sidebar-tools-button" aria-label="Tools" title="Tools">Tools</summary>
+              <div class="sidebar-tools-popover" role="menu">
+                <button class="sidebar-tool-action" type="button" data-testid="terminal-button" aria-label="Terminal" title="Terminal">Terminal</button>
+                <button class="sidebar-tool-action" type="button" data-testid="browser-button" aria-label="Browser" title="Browser">Browser</button>
+                <button class="sidebar-tool-action" type="button" data-testid="memories-button" aria-label="Memories" title="Memories">Memories</button>
+                <button class="sidebar-tool-action" type="button" data-testid="activity-button" aria-label="Activity" title="Activity">Activity</button>
+                <button class="sidebar-tool-action" type="button" data-testid="command-palette-button" aria-label="Command palette" title="Command palette">Command palette</button>
+              </div>
+            </details>
+            <button class="sidebar-settings-button" type="button" data-testid="settings-button" aria-label="Settings" title="Settings">Settings</button>
           </div>
         </aside>
         """

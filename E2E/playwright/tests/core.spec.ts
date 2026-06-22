@@ -10,6 +10,16 @@ async function openTopBarOverflow(page: Page) {
   await expect(page.getByTestId('top-bar-overflow-menu')).toHaveAttribute('open', '');
 }
 
+async function openSidebarTools(page: Page) {
+  await page.getByTestId('sidebar-tools-button').click();
+  await expect(page.getByTestId('sidebar-tools-menu')).toHaveAttribute('open', '');
+}
+
+async function clickSidebarTool(page: Page, testID: string) {
+  await openSidebarTools(page);
+  await page.getByTestId(testID).click();
+}
+
 async function openSettings(page: Page) {
   await openTopBarOverflow(page);
   await page.getByTestId('top-bar-overflow-settings').click();
@@ -223,6 +233,8 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
     const title = styleFor('[data-testid="top-bar-title"]');
     const agentStatus = styleFor('[data-testid="agent-status"]');
     const sidebar = styleFor('[data-testid="sidebar"]');
+    const sidebarToolsButton = styleFor('[data-testid="sidebar-tools-button"]');
+    const sidebarSettingsButton = styleFor('[data-testid="settings-button"]');
 
     return {
       rootFontSmoothing: getComputedStyle(document.documentElement).webkitFontSmoothing,
@@ -235,6 +247,10 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
       agentStatusNumbers: agentStatus.fontVariantNumeric,
       addProjectWidth: parseFloat(addProjectButton.width),
       addProjectHeight: parseFloat(addProjectButton.height),
+      sidebarToolsMinHeight: parseFloat(sidebarToolsButton.minHeight),
+      sidebarToolsTransitionProperty: sidebarToolsButton.transitionProperty,
+      sidebarSettingsWidth: parseFloat(sidebarSettingsButton.width),
+      sidebarSettingsMinHeight: parseFloat(sidebarSettingsButton.minHeight),
       sidebarRadius: parseFloat(sidebar.borderRadius)
     };
   });
@@ -250,6 +266,11 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(polish.sidebarActionTransitionProperty).toContain('box-shadow');
   expect(polish.sidebarActionTransitionProperty).not.toContain('all');
   expect(polish.sidebarActionMinHeight).toBeGreaterThanOrEqual(40);
+  expect(polish.sidebarToolsMinHeight).toBeGreaterThanOrEqual(40);
+  expect(polish.sidebarToolsTransitionProperty).toContain('transform');
+  expect(polish.sidebarToolsTransitionProperty).not.toContain('all');
+  expect(polish.sidebarSettingsWidth).toBeGreaterThanOrEqual(40);
+  expect(polish.sidebarSettingsMinHeight).toBeGreaterThanOrEqual(40);
   expect(polish.titleTextWrap).toContain('balance');
   expect(polish.agentStatusNumbers).toContain('tabular-nums');
   expect(polish.sidebarRadius).toBeLessThanOrEqual(4);
@@ -535,7 +556,7 @@ test('mock harness surfaces file artifacts from tool cards', async ({ page }) =>
   await expect(page.getByTestId('tool-card-output')).toContainText('/mock/QuillCode/hello.txt');
   await expect(page.getByText('Wrote `hello.txt`.')).toBeVisible();
 
-  await page.getByTestId('activity-button').click();
+  await clickSidebarTool(page, 'activity-button');
   await expect(page.getByTestId('activity-pane')).toBeVisible();
   await expect(page.getByTestId('activity-task-title')).toContainText('Can you write a file');
   await expect(page.getByTestId('activity-tool')).toContainText('host.file.write');
@@ -583,7 +604,7 @@ test('mock harness shows model-authored task plan in Activity', async ({ page })
   await expect(page.getByTestId('tool-card-title')).toHaveText('host.plan.update');
   await expect(page.getByText('Updated the task plan.')).toBeVisible();
 
-  await page.getByTestId('activity-button').click();
+  await clickSidebarTool(page, 'activity-button');
   await expect(page.getByTestId('activity-pane')).toBeVisible();
   await expect(page.getByTestId('activity-plan')).toHaveCount(3);
   await expect(page.getByTestId('activity-plan').nth(0)).toContainText('Inspect current state');
@@ -606,7 +627,7 @@ test('mock harness separates Automations from Activity in the sidebar', async ({
   await expect(page.getByTestId('automation-card').first()).toContainText('Thread follow-ups');
   await expect(page.getByTestId('activity-pane')).toHaveCount(0);
 
-  await page.getByTestId('activity-button').click();
+  await clickSidebarTool(page, 'activity-button');
   await expect(page.getByTestId('activity-pane')).toBeVisible();
   await expect(page.getByTestId('automations-pane')).toBeVisible();
   await expect(page.getByTestId('activity-title')).toHaveText('Activity');
@@ -890,7 +911,7 @@ test('mock harness shows context pressure banner and compacts or forks from late
 test('mock harness runs a command from the command palette', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('command-palette-button').click();
+  await clickSidebarTool(page, 'command-palette-button');
   await expect(page.getByTestId('command-palette-panel')).toBeVisible();
   await page.getByLabel('Search commands').fill('>terminal');
   await page.locator('[data-testid="command-palette-result"][data-command-id="toggle-terminal"]').click();
@@ -902,7 +923,7 @@ test('mock harness runs a command from the command palette', async ({ page }) =>
 test('mock harness command palette scopes actions and slash commands', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('command-palette-button').click();
+  await clickSidebarTool(page, 'command-palette-button');
   await expect(page.getByTestId('command-palette-panel')).toBeVisible();
   await expect(page.getByText('> actions · / slash')).toBeVisible();
 
@@ -926,7 +947,7 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
   await expect(page.getByTestId('project-memories-status')).toHaveText('2 memories');
-  await page.getByTestId('memories-button').click();
+  await clickSidebarTool(page, 'memories-button');
 
   await expect(page.getByTestId('memories-pane')).toBeVisible();
   await expect(page.getByTestId('memories-subtitle')).toHaveText('1 global memory · 1 project memory');
@@ -936,13 +957,13 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
   await expect(page.getByTestId('memory-delete')).toHaveCount(1);
   await expect(page.getByTestId('memories-add')).toBeVisible();
 
-  await page.getByTestId('command-palette-button').click();
+  await clickSidebarTool(page, 'command-palette-button');
   await page.getByLabel('Search commands').fill('>memories');
   await page.getByTestId('command-palette-result').filter({ hasText: 'Memories' }).click();
 
   await expect(page.getByTestId('memories-pane')).toHaveCount(0);
 
-  await page.getByTestId('command-palette-button').click();
+  await clickSidebarTool(page, 'command-palette-button');
   await page.getByLabel('Search commands').fill('>save');
   await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
   await expect(page.getByTestId('command-palette-result')).toContainText('Add memory');
@@ -956,7 +977,7 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
   await expect(page.getByTestId('project-memories-status')).toHaveText('3 memories');
   await expect(page.getByTestId('top-bar-title')).toHaveText('Memory: Prefer Small Reviewable Commits');
 
-  await page.getByTestId('memories-button').click();
+  await clickSidebarTool(page, 'memories-button');
   await expect(page.getByTestId('memories-pane')).toBeVisible();
   await expect(page.getByTestId('memories-subtitle')).toHaveText('2 global memories · 1 project memory');
   await expect(page.getByTestId('memory-item')).toHaveCount(3);
@@ -1022,7 +1043,7 @@ test('mock harness dispatches workspace keyboard shortcuts', async ({ page }) =>
 test('mock harness ranks and navigates command palette with keyboard', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('command-palette-button').click();
+  await clickSidebarTool(page, 'command-palette-button');
   await expect(page.getByTestId('command-palette-group').first()).toContainText('Thread');
 
   await page.getByLabel('Search commands').fill('>shell');
@@ -1055,7 +1076,7 @@ test('mock harness ranks and navigates command palette with keyboard', async ({ 
 test('mock harness lists worktrees from the command palette', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('command-palette-button').click();
+  await clickSidebarTool(page, 'command-palette-button');
   await page.getByLabel('Search commands').fill('>worktree');
 
   await expect(page.getByTestId('command-palette-result')).toHaveCount(3);
@@ -1070,7 +1091,7 @@ test('mock harness lists worktrees from the command palette', async ({ page }) =
 test('mock harness prepares pull request creation from the command palette', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('command-palette-button').click();
+  await clickSidebarTool(page, 'command-palette-button');
   await page.getByLabel('Search commands').fill('>pull request');
   await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
   await page.getByRole('button', { name: /Create pull request/ }).click();
@@ -1082,7 +1103,7 @@ test('mock harness prepares pull request creation from the command palette', asy
 test('mock harness runs local environment action from the command palette', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('command-palette-button').click();
+  await clickSidebarTool(page, 'command-palette-button');
   await page.getByLabel('Search commands').fill('>QUILL_ENV');
   await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
   await page.getByLabel('Search commands').fill('>warm caches');
@@ -1102,7 +1123,7 @@ test('mock harness runs local environment action from the command palette', asyn
 test('mock harness creates and removes worktrees from dialogs', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('command-palette-button').click();
+  await clickSidebarTool(page, 'command-palette-button');
   await page.getByLabel('Search commands').fill('>create worktree');
   await page.getByRole('button', { name: /Create worktree/ }).click();
   await expect(page.getByTestId('worktree-create-panel')).toBeVisible();
@@ -1122,7 +1143,7 @@ test('mock harness creates and removes worktrees from dialogs', async ({ page })
   await expect(page.getByTestId('sidebar-item').first()).toContainText('Worktree: feature/quillcode');
   await expect(page.getByTestId('message').last()).toContainText('Opened worktree quillcode-feature at /mock/quillcode-feature.');
 
-  await page.getByTestId('command-palette-button').click();
+  await clickSidebarTool(page, 'command-palette-button');
   await page.getByLabel('Search commands').fill('>remove worktree');
   await page.getByRole('button', { name: /Remove worktree/ }).click();
   await expect(page.getByTestId('worktree-remove-panel')).toBeVisible();
@@ -1232,7 +1253,7 @@ test('mock harness manages projects from the sidebar', async ({ page }) => {
   await expect(page.getByTestId('project-item').first()).toHaveAttribute('aria-current', 'true');
   await expect(page.getByTestId('top-bar-subtitle')).toContainText('Example Project 2');
 
-  await page.getByTestId('terminal-button').click();
+  await clickSidebarTool(page, 'terminal-button');
   await expect(page.getByTestId('terminal-cwd')).toHaveText('/mock/example-2');
 
   const activeProjectRow = page.getByTestId('project-row').first();
@@ -1259,7 +1280,7 @@ test('mock harness manages projects from the sidebar', async ({ page }) => {
 test('mock harness adds an SSH remote project from command palette and slash command', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('command-palette-button').click();
+  await clickSidebarTool(page, 'command-palette-button');
   await page.getByLabel('Search commands').fill('>ssh');
   await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
   await expect(page.getByTestId('command-palette-result')).toContainText('Project: Add SSH Remote');
@@ -1279,7 +1300,7 @@ test('mock harness adds an SSH remote project from command palette and slash com
   await clickProjectAction(remoteProject, 'Refresh context');
   await expect(page.getByTestId('message').last()).toContainText('Refreshed project context for feather.local · quill.');
 
-  await page.getByTestId('terminal-button').click();
+  await clickSidebarTool(page, 'terminal-button');
   await expect(page.getByTestId('terminal-pane')).toBeVisible();
   await expect(page.getByTestId('terminal-cwd')).toHaveText('ssh://quill@feather.local/srv/quill');
   await page.getByTestId('terminal-input').fill('pwd');
@@ -1297,7 +1318,7 @@ test('mock harness adds an SSH remote project from command palette and slash com
   await expect(page.getByTestId('tool-card-output').last()).toContainText('quill');
   await expect(page.getByText('You are `quill` in this workspace.')).toBeVisible();
 
-  await page.getByTestId('command-palette-button').click();
+  await clickSidebarTool(page, 'command-palette-button');
   await page.getByLabel('Search commands').fill('>git status');
   await page.getByTestId('command-palette-result').filter({ hasText: 'Git status' }).click();
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.status');
@@ -1305,7 +1326,7 @@ test('mock harness adds an SSH remote project from command palette and slash com
   await expect(page.getByTestId('tool-card-execution-context').last()).toHaveText('SSH Remote · feather.local');
   await expect(page.getByTestId('tool-card-output').last()).toContainText('ssh://quill@feather.local/srv/quill');
 
-  await page.getByTestId('command-palette-button').click();
+  await clickSidebarTool(page, 'command-palette-button');
   await page.getByLabel('Search commands').fill('>review diff');
   await page.getByTestId('command-palette-result').filter({ hasText: 'Review diff' }).click();
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.diff');
@@ -1324,7 +1345,7 @@ test('mock harness adds an SSH remote project from command palette and slash com
 test('mock harness runs a command in the integrated terminal', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('terminal-button').click();
+  await clickSidebarTool(page, 'terminal-button');
   await expect(page.getByTestId('terminal-pane')).toBeVisible();
   await expect(page.getByTestId('terminal-cwd')).toHaveText('/mock/QuillCode');
   await expect(page.getByTestId('terminal-empty')).toBeVisible();
@@ -1384,7 +1405,7 @@ test('mock harness runs a command in the integrated terminal', async ({ page }) 
 test('mock harness opens browser preview and records comments', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('command-palette-button').click();
+  await clickSidebarTool(page, 'command-palette-button');
   await page.getByLabel('Search commands').fill('>browser');
   await page.getByTestId('command-palette-result').first().click();
 
@@ -1490,7 +1511,7 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await page.getByTestId('extensions-button').click();
   await expect(page.getByTestId('extensions-pane')).toHaveCount(0);
 
-  await page.getByTestId('command-palette-button').click();
+  await clickSidebarTool(page, 'command-palette-button');
   await page.getByLabel('Search commands').fill('>manifest');
   await expect(page.getByTestId('command-palette-group')).toContainText('Extensions');
   await page.getByTestId('command-palette-result').click();

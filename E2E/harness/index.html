@@ -183,6 +183,31 @@
     }
     .topbar-cluster select { max-width: 230px; }
     .topbar-cluster button { font-weight: 600; }
+    .model-picker-wrap [data-testid="model-picker-button"] {
+      min-height: 40px;
+      padding: 0 8px;
+      border-color: transparent;
+      background: transparent;
+      color: rgba(238,247,250,.92);
+      font-size: 13px;
+      max-width: min(260px, 34vw);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      transition-property: background-color, color;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .model-picker-wrap [data-testid="model-picker-button"]::after {
+      content: "v";
+      margin-left: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .model-picker-wrap [data-testid="model-picker-button"]:hover {
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+    }
     .topbar-action-cluster button {
       width: 40px;
       min-height: 40px;
@@ -600,22 +625,100 @@
       text-align: center;
       font-size: 12px;
     }
-    .sidebar-utility-strip {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 6px;
+    .sidebar-footer {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 8px;
       margin-top: auto;
       padding-top: 14px;
       border-top: 1px solid rgba(255,255,255,.07);
     }
-    .sidebar-utility-strip .sidebar-action {
+    .sidebar-tools-menu {
+      position: relative;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .sidebar-tools-menu summary,
+    .sidebar-settings-button {
       min-height: 40px;
-      padding: 0;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.045);
       color: var(--muted);
-      font-size: 11px;
-      font-weight: 650;
-      text-align: center;
+      cursor: pointer;
+      transition-property: transform, background-color, border-color, color;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .sidebar-tools-menu summary {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      padding: 0 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      list-style: none;
+    }
+    .sidebar-tools-menu summary::-webkit-details-marker { display: none; }
+    .sidebar-settings-button {
+      flex: 0 0 40px;
+      width: 40px;
+      padding: 0;
+      overflow: hidden;
+      border-radius: 10px;
+      font-size: 0;
+      line-height: 1;
+    }
+    .sidebar-settings-button::before {
+      content: "S";
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 100%;
+      font-size: 15px;
+    }
+    .sidebar-tools-menu[open] summary,
+    .sidebar-tools-menu summary:hover,
+    .sidebar-settings-button:hover {
+      color: var(--text);
+      background: rgba(255,255,255,.075);
+      border-color: rgba(255,255,255,.14);
+    }
+    .sidebar-tools-menu summary:active,
+    .sidebar-settings-button:active {
+      transform: scale(.97);
+    }
+    .sidebar-tools-popover {
+      position: absolute;
+      left: 0;
+      bottom: calc(100% + 8px);
+      z-index: 9;
+      display: grid;
+      gap: 4px;
+      min-width: 190px;
+      padding: 8px;
       border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(18, 29, 35, .98);
+      box-shadow: var(--shadow-panel);
+    }
+    .sidebar-tool-action {
+      min-height: 38px;
+      padding: 7px 10px;
+      text-align: left;
+      color: var(--text);
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      font-weight: 650;
+      transition-property: background-color, color, border-color;
+      transition-duration: 130ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .sidebar-tool-action:hover {
+      background: rgba(255,255,255,.075);
+      border-color: rgba(255,255,255,.10);
     }
     .sidebar-item,
     .project-item {
@@ -3804,12 +3907,18 @@
                 <button class="sidebar-icon-button" type="button" data-testid="add-project-button" aria-label="Open project">+</button>
               </div>
               ${projectsContent}
-              <div class="sidebar-utility-strip" aria-label="Workspace tools">
-                <button class="sidebar-action" type="button" data-testid="terminal-button" data-secondary="true" aria-label="Terminal" title="Terminal">Term</button>
-                <button class="sidebar-action" type="button" data-testid="browser-button" data-secondary="true" aria-label="Browser" title="Browser">Web</button>
-                <button class="sidebar-action" type="button" data-testid="memories-button" data-secondary="true" aria-label="Memories" title="Memories">Mem</button>
-                <button class="sidebar-action" type="button" data-testid="activity-button" data-secondary="true" aria-label="Activity" title="Activity">Act</button>
-                <button class="sidebar-action" type="button" data-testid="command-palette-button" data-secondary="true" aria-label="Command palette" title="Command palette">Cmd</button>
+              <div class="sidebar-footer" aria-label="Workspace tools">
+                <details class="sidebar-tools-menu" data-testid="sidebar-tools-menu">
+                  <summary data-testid="sidebar-tools-button" aria-label="Tools" title="Tools">Tools</summary>
+                  <div class="sidebar-tools-popover" role="menu">
+                    <button class="sidebar-tool-action" type="button" data-testid="terminal-button" aria-label="Terminal" title="Terminal">Terminal</button>
+                    <button class="sidebar-tool-action" type="button" data-testid="browser-button" aria-label="Browser" title="Browser">Browser</button>
+                    <button class="sidebar-tool-action" type="button" data-testid="memories-button" aria-label="Memories" title="Memories">Memories</button>
+                    <button class="sidebar-tool-action" type="button" data-testid="activity-button" aria-label="Activity" title="Activity">Activity</button>
+                    <button class="sidebar-tool-action" type="button" data-testid="command-palette-button" aria-label="Command palette" title="Command palette">Command palette</button>
+                  </div>
+                </details>
+                <button class="sidebar-settings-button" type="button" data-testid="settings-button" aria-label="Settings" title="Settings">Settings</button>
               </div>
             </aside>
 	            <main class="transcript" data-testid="transcript">
@@ -3992,6 +4101,9 @@
       });
       document.querySelector('[data-testid="command-palette-button"]').addEventListener('click', () => {
         openCommandPalette();
+      });
+      document.querySelector('[data-testid="settings-button"]')?.addEventListener('click', () => {
+        runCommand('settings');
       });
       document.querySelector('[data-testid="sidebar-search-button"]').addEventListener('click', () => {
         state.search.isOpen = true;
