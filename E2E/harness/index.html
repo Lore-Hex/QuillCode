@@ -243,6 +243,12 @@
       background: rgba(255,255,255,.08);
       border-color: rgba(255,255,255,.12);
     }
+    .topbar-overflow-popover button:disabled {
+      cursor: default;
+      color: rgba(159,176,184,.45);
+      background: transparent;
+      border-color: transparent;
+    }
     .topbar-cluster [data-testid="runtime-issue-pill"] {
       color: #ffe2a3;
       background: rgba(248,184,78,.14);
@@ -2390,6 +2396,28 @@
         .replaceAll("'", '&#39;');
     }
 
+    function commandByID(commandID) {
+      return state.commands.find(command => command.id === commandID);
+    }
+
+    function topBarOverflowTestID(commandID) {
+      return commandID === 'computer-use-setup'
+        ? 'top-bar-overflow-computer-use'
+        : `top-bar-overflow-${commandID}`;
+    }
+
+    function renderTopBarOverflowCommand(command) {
+      const title = command.shortcut ? `${command.title} (${command.shortcut})` : command.title;
+      return `
+        <button
+          type="button"
+          data-testid="${escapeHTML(topBarOverflowTestID(command.id))}"
+          data-command-id="${escapeHTML(command.id)}"
+          title="${escapeHTML(title)}"
+          ${command.isEnabled ? '' : 'disabled aria-disabled="true"'}
+        >${escapeHTML(command.title)}</button>`;
+    }
+
     const slashCommandDefinitions = [
       { usage: '/help', title: 'Show slash commands', detail: 'List the available composer commands.', insertText: '/help', aliases: ['?'] },
       { usage: '/status', title: 'Show status', detail: 'Summarize the active project, mode, model, and loaded context.', insertText: '/status', aliases: [] },
@@ -3604,6 +3632,17 @@
           <input data-testid="model-search" aria-label="Search models" placeholder="Search models" value="${escapeHTML(state.topBar.modelSearch)}">
           ${modelResults}
         </section>` : '';
+      const topBarOverflowCommandIDs = [
+        'command-palette',
+        'search',
+        ...(state.settings.computerUseStatus.available ? [] : ['computer-use-setup']),
+        'settings',
+        'keyboard-shortcuts',
+        'stop-all'
+      ];
+      const topBarOverflowCommands = topBarOverflowCommandIDs
+        .map(commandByID)
+        .filter(Boolean);
 
       document.getElementById('app').innerHTML = `
         <section class="quillcode-workspace" data-testid="workspace">
@@ -3633,10 +3672,7 @@
                 <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
                   <summary data-testid="top-bar-overflow-button" aria-label="More" title="More">...</summary>
                   <div class="topbar-overflow-popover">
-                    <button type="button" data-testid="top-bar-overflow-command-palette" data-command-id="command-palette">Command palette</button>
-                    <button type="button" data-testid="top-bar-overflow-search" data-command-id="search">Search</button>
-                    ${state.settings.computerUseStatus.available ? '' : '<button type="button" data-testid="top-bar-overflow-computer-use" data-command-id="computer-use-setup">Computer Use setup</button>'}
-                    <button type="button" data-testid="top-bar-overflow-settings" data-command-id="settings">Settings</button>
+                    ${topBarOverflowCommands.map(renderTopBarOverflowCommand).join('')}
                   </div>
                 </details>
               </div>
@@ -3820,21 +3856,10 @@
       document.querySelector('[data-testid="add-project-button"]').addEventListener('click', () => {
         addProject();
       });
-      document.querySelector('[data-testid="top-bar-overflow-command-palette"]')?.addEventListener('click', () => {
-        openCommandPalette();
-      });
-      document.querySelector('[data-testid="top-bar-overflow-search"]')?.addEventListener('click', () => {
-        state.search.isOpen = true;
-        state.search.query = '';
-        render();
-      });
-      document.querySelector('[data-testid="top-bar-overflow-computer-use"]')?.addEventListener('click', event => {
-        runCommand(event.currentTarget.getAttribute('data-command-id'));
-      });
-      document.querySelector('[data-testid="top-bar-overflow-settings"]')?.addEventListener('click', () => {
-        state.settings.isOpen = true;
-        state.settings.replacementAPIKey = '';
-        render();
+      document.querySelectorAll('.topbar-overflow-popover [data-command-id]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
+        });
       });
       document.querySelectorAll('[data-testid="runtime-issue-action"]').forEach(button => {
         button.addEventListener('click', event => {

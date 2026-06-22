@@ -35,6 +35,9 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('top-bar-overflow-search')).toBeVisible();
   await expect(page.getByTestId('top-bar-overflow-computer-use')).toBeVisible();
   await expect(page.getByTestId('top-bar-overflow-settings')).toBeVisible();
+  await expect(page.getByTestId('top-bar-overflow-keyboard-shortcuts')).toBeVisible();
+  await expect(page.getByTestId('top-bar-overflow-stop-all')).toBeVisible();
+  await expect(page.getByTestId('top-bar-overflow-stop-all')).toBeDisabled();
   await page.getByTestId('top-bar-overflow-settings').click();
   await expect(page.getByTestId('settings-panel')).toBeVisible();
   await expect(page.getByTestId('settings-key-status')).toHaveText('Not signed in');
@@ -98,6 +101,23 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('message').filter({ hasText: 'You are `mock-user` in this workspace.' })).toHaveCount(2);
   await expect(page.getByTestId('message-retry')).toHaveCount(1);
   await expect(page.getByTestId('message-use-as-draft')).toHaveCount(2);
+});
+
+test('mock harness opens utilities from the top-bar overflow', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await openTopBarOverflow(page);
+  await page.getByTestId('top-bar-overflow-keyboard-shortcuts').click();
+  await expect(page.getByTestId('keyboard-shortcuts-panel')).toBeVisible();
+  await page.getByTestId('keyboard-shortcuts-close').click();
+
+  await openTopBarOverflow(page);
+  await page.getByTestId('top-bar-overflow-search').click();
+  await expect(page.getByTestId('search-panel')).toBeVisible();
+  await page.getByTestId('search-close').click();
+
+  await openTopBarOverflow(page);
+  await expect(page.getByTestId('top-bar-overflow-stop-all')).toBeDisabled();
 });
 
 test('mock harness shows actionable Computer Use setup in settings', async ({ page }) => {

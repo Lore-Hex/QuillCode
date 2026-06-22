@@ -1082,21 +1082,10 @@ private struct QuillCodeTopBarView: View {
     }
 
     private var overflowCommands: [WorkspaceCommandSurface] {
-        var commandIDs = [
-            "command-palette",
-            "search"
-        ]
-        if topBar.showsComputerUseSetup {
-            commandIDs.append("computer-use-setup")
-        }
-        commandIDs.append(contentsOf: [
-            "settings",
-            "keyboard-shortcuts",
-            "stop-all"
-        ])
-        return commandIDs.compactMap { commandID in
-            commands.first { $0.id == commandID }
-        }
+        TopBarOverflowCommandCatalog.commands(
+            from: commands,
+            showsComputerUseSetup: topBar.showsComputerUseSetup
+        )
     }
 
     private var commandMenu: some View {

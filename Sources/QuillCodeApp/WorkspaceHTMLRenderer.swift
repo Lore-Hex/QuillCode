@@ -5,7 +5,7 @@ public enum WorkspaceHTMLRenderer {
     public static func render(_ surface: WorkspaceSurface) -> String {
         """
         <section class="quillcode-workspace" data-testid="workspace">
-          \(renderTopBar(surface.topBar))
+          \(renderTopBar(surface.topBar, commands: surface.commands))
           <div class="workspace-grid">
             \(renderSidebar(projects: surface.projects, sidebar: surface.sidebar))
             <main class="transcript" data-testid="transcript">
@@ -29,7 +29,7 @@ public enum WorkspaceHTMLRenderer {
         """
     }
 
-    private static func renderTopBar(_ topBar: TopBarSurface) -> String {
+    private static func renderTopBar(_ topBar: TopBarSurface, commands: [WorkspaceCommandSurface]) -> String {
         """
         <header class="topbar" data-testid="top-bar" aria-label="QuillCode top bar">
           <div class="topbar-title-group" data-testid="top-bar-title-group">
@@ -54,16 +54,32 @@ public enum WorkspaceHTMLRenderer {
               <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
                 <summary data-testid="top-bar-overflow-button" aria-label="More" title="More">...</summary>
                 <div class="topbar-overflow-popover">
-                  <button type="button" data-testid="top-bar-overflow-command-palette" data-command-id="command-palette">Command palette</button>
-                  <button type="button" data-testid="top-bar-overflow-search" data-command-id="search">Search</button>
-                  \(topBar.showsComputerUseSetup ? #"<button type="button" data-testid="top-bar-overflow-computer-use" data-command-id="computer-use-setup">Computer Use setup</button>"# : "")
-                  <button type="button" data-testid="top-bar-overflow-settings" data-command-id="settings">Settings</button>
+                  \(renderTopBarOverflow(commands: commands, showsComputerUseSetup: topBar.showsComputerUseSetup))
                 </div>
               </details>
             </div>
           </div>
         </header>
         """
+    }
+
+    private static func renderTopBarOverflow(
+        commands: [WorkspaceCommandSurface],
+        showsComputerUseSetup: Bool
+    ) -> String {
+        TopBarOverflowCommandCatalog.commands(
+            from: commands,
+            showsComputerUseSetup: showsComputerUseSetup
+        )
+        .map(renderTopBarOverflowButton)
+        .joined(separator: "\n")
+    }
+
+    private static func renderTopBarOverflowButton(_ command: WorkspaceCommandSurface) -> String {
+        let testID = TopBarOverflowCommandCatalog.testID(for: command.id)
+        let disabledAttribute = command.isEnabled ? "" : #" disabled aria-disabled="true""#
+        let title = command.shortcut.map { "\(command.title) (\($0))" } ?? command.title
+        return #"<button type="button" data-testid="\#(escape(testID))" data-command-id="\#(escape(command.id))" title="\#(escape(title))"\#(disabledAttribute)>\#(escape(command.title))</button>"#
     }
 
     private static func renderSidebar(projects: ProjectListSurface, sidebar: SidebarSurface) -> String {

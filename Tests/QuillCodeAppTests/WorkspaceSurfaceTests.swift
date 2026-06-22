@@ -1371,6 +1371,31 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(html.contains("<script>alert(1)</script>"))
     }
 
+    func testHTMLRendererTopBarOverflowUsesCommandAvailability() {
+        let idleHTML = WorkspaceHTMLRenderer.render(QuillCodeWorkspaceModel().surface())
+        XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-command-palette""#))
+        XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-search""#))
+        XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-settings""#))
+        XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-keyboard-shortcuts""#))
+        XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-stop-all""#))
+        let idleStopAllSnippet = stopAllOverflowSnippet(in: idleHTML)
+        XCTAssertTrue(idleStopAllSnippet.contains("disabled"))
+
+        let activeHTML = WorkspaceHTMLRenderer.render(
+            QuillCodeWorkspaceModel(composer: ComposerState(isSending: true)).surface()
+        )
+        let activeStopAllSnippet = stopAllOverflowSnippet(in: activeHTML)
+        XCTAssertFalse(activeStopAllSnippet.contains("disabled"))
+    }
+
+    private func stopAllOverflowSnippet(in html: String) -> String {
+        guard let range = html.range(of: #"data-testid="top-bar-overflow-stop-all""#) else {
+            XCTFail("Expected top-bar Stop All overflow button")
+            return ""
+        }
+        return String(html[range.lowerBound...].prefix(180))
+    }
+
     func testHTMLRendererShowsStopButtonDuringActiveSend() {
         let model = QuillCodeWorkspaceModel(composer: ComposerState(isSending: true))
 

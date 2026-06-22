@@ -1917,6 +1917,42 @@ public struct WorkspaceCommandSurface: Codable, Sendable, Hashable, Identifiable
     }
 }
 
+public enum TopBarOverflowCommandCatalog {
+    public static func commandIDs(showsComputerUseSetup: Bool) -> [String] {
+        var commandIDs = [
+            "command-palette",
+            "search"
+        ]
+        if showsComputerUseSetup {
+            commandIDs.append("computer-use-setup")
+        }
+        commandIDs.append(contentsOf: [
+            "settings",
+            "keyboard-shortcuts",
+            "stop-all"
+        ])
+        return commandIDs
+    }
+
+    public static func commands(
+        from commands: [WorkspaceCommandSurface],
+        showsComputerUseSetup: Bool
+    ) -> [WorkspaceCommandSurface] {
+        commandIDs(showsComputerUseSetup: showsComputerUseSetup).compactMap { commandID in
+            commands.first { $0.id == commandID }
+        }
+    }
+
+    public static func testID(for commandID: String) -> String {
+        switch commandID {
+        case "computer-use-setup":
+            return "top-bar-overflow-computer-use"
+        default:
+            return "top-bar-overflow-\(commandID)"
+        }
+    }
+}
+
 public extension WorkspaceCommandSurface {
     static func automationCreateThreadFollowUp(isEnabled: Bool) -> WorkspaceCommandSurface {
         WorkspaceCommandSurface(
