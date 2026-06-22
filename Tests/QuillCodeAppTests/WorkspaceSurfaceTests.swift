@@ -1243,9 +1243,23 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="stop-button""#))
         XCTAssertTrue(html.contains(">Stop</button>"))
-        XCTAssertTrue(html.contains(#"id="message" aria-label="Message""#))
+        XCTAssertTrue(html.contains(#"<textarea id="message" aria-label="Message""#))
+        XCTAssertTrue(html.contains(#"rows="1""#))
         XCTAssertTrue(html.contains("disabled"))
         XCTAssertFalse(html.contains(#"data-testid="send-button""#))
+    }
+
+    func testHTMLRendererUsesMultilineComposer() {
+        let model = QuillCodeWorkspaceModel(composer: ComposerState(
+            draft: "first line\nsecond line"
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"<textarea id="message" aria-label="Message""#))
+        XCTAssertTrue(html.contains(#"rows="1""#))
+        XCTAssertTrue(html.contains("first line\nsecond line</textarea>"))
+        XCTAssertFalse(html.contains(#"<input id="message""#))
     }
 
     func testHTMLRendererIncludesContextBanner() throws {

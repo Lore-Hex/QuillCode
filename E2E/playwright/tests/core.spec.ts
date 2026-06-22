@@ -99,6 +99,29 @@ test('mock harness shows actionable Computer Use setup in settings', async ({ pa
   await expect(page.getByTestId('computer-use-status')).toHaveText('Needs Screen Recording + Accessibility');
 });
 
+test('mock harness composer supports multiline editing and Enter-to-send', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  const message = page.getByLabel('Message');
+  await expect(message).toHaveJSProperty('tagName', 'TEXTAREA');
+  await message.fill('first line');
+  const initialHeight = await message.evaluate((element: HTMLTextAreaElement) => element.clientHeight);
+
+  await message.press('Shift+Enter');
+  await page.keyboard.type('second line');
+
+  await expect(message).toHaveValue('first line\nsecond line');
+  const expandedHeight = await message.evaluate((element: HTMLTextAreaElement) => element.clientHeight);
+  expect(expandedHeight).toBeGreaterThan(initialHeight);
+  await expect(page.getByTestId('message')).toHaveCount(0);
+
+  await message.press('Enter');
+
+  await expect(message).toHaveValue('');
+  await expect(page.getByTestId('message').first()).toContainText('first line');
+  await expect(page.getByTestId('message').first()).toContainText('second line');
+});
+
 test('mock harness avoids horizontal clipping in key desktop and mobile flows', async ({ browser }) => {
   const viewports = [
     { name: 'desktop', width: 1440, height: 1000 },

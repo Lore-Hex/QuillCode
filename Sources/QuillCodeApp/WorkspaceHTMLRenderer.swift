@@ -826,7 +826,7 @@ public enum WorkspaceHTMLRenderer {
         return """
         <form class="composer" data-testid="composer">
           <label for="message">Message</label>
-          <input id="message" aria-label="Message" placeholder="\(escape(composer.placeholder))" value="\(escape(composer.draft))" \(composer.isSending ? "disabled" : "")>
+          <textarea id="message" aria-label="Message" placeholder="\(escape(composer.placeholder))" rows="1" \(composer.isSending ? "disabled" : "")>\(escape(composer.draft))</textarea>
           \(button)
         </form>
         """

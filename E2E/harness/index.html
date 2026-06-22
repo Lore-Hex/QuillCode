@@ -1474,7 +1474,7 @@
     .composer {
       display: grid;
       grid-template-columns: 1fr auto;
-      align-items: center;
+      align-items: end;
       align-self: end;
       gap: 10px;
       padding: 14px;
@@ -1535,13 +1535,18 @@
       margin-top: 2px;
     }
     .composer label { position: absolute; width: 1px; height: 1px; clip: rect(0 0 0 0); overflow: hidden; }
-    .composer input {
+    .composer textarea {
       min-height: 46px;
+      max-height: 138px;
+      line-height: 1.42;
+      resize: none;
+      overflow: auto;
     }
     .composer button {
       min-height: 46px;
     }
-    input {
+    input,
+    textarea {
       min-width: 0;
       min-height: 40px;
       padding: 13px 15px;
@@ -1554,7 +1559,8 @@
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
     }
-    input:focus-visible {
+    input:focus-visible,
+    textarea:focus-visible {
       outline: 0;
       border-color: rgba(65,184,232,.62);
       box-shadow: 0 0 0 3px rgba(65,184,232,.18);
@@ -1612,6 +1618,7 @@
     @media (prefers-reduced-motion: reduce) {
       button,
       input,
+      textarea,
       .sidebar-action,
       .sidebar-item,
       .project-item,
@@ -2043,7 +2050,9 @@
       const current = state.composer.slashActiveIndex || 0;
       state.composer.slashActiveIndex = (current + delta + suggestions.length) % suggestions.length;
       render();
-      document.getElementById('message')?.focus();
+      const input = document.getElementById('message');
+      input?.focus();
+      resizeComposerInput(input);
       return true;
     }
 
@@ -2062,7 +2071,17 @@
       const input = document.getElementById('message');
       input?.focus();
       input?.setSelectionRange(state.composer.draft.length, state.composer.draft.length);
+      resizeComposerInput(input);
       return true;
+    }
+
+    function resizeComposerInput(input) {
+      if (!input || input.tagName !== 'TEXTAREA') return;
+      input.style.height = 'auto';
+      const maxHeight = parseFloat(getComputedStyle(input).maxHeight) || 138;
+      const nextHeight = Math.min(input.scrollHeight, maxHeight);
+      input.style.height = `${nextHeight}px`;
+      input.style.overflowY = input.scrollHeight > maxHeight ? 'auto' : 'hidden';
     }
 
     function authModeLabel(authMode) {
@@ -3074,7 +3093,7 @@
               ${renderSlashSuggestions()}
               <form class="composer" data-testid="composer">
                 <label for="message">Message</label>
-                <input id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" value="${escapeHTML(state.composer.draft)}" ${state.composer.isSending ? 'disabled' : ''}>
+                <textarea id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" rows="1" ${state.composer.isSending ? 'disabled' : ''}>${escapeHTML(state.composer.draft)}</textarea>
                 ${state.composer.isSending
                   ? '<button type="button" class="stop-button" data-testid="stop-button">Stop</button>'
                   : `<button type="submit" data-testid="send-button" ${state.composer.canSend ? '' : 'disabled'}>Send</button>`}
@@ -3093,10 +3112,12 @@
 
       const form = document.querySelector('[data-testid="composer"]');
       const input = document.getElementById('message');
+      resizeComposerInput(input);
       input.addEventListener('input', event => {
         state.composer.draft = event.target.value;
         state.composer.canSend = state.composer.draft.trim().length > 0;
         state.composer.slashActiveIndex = 0;
+        resizeComposerInput(event.target);
         const shouldRenderSuggestions = state.composer.draft.trimStart().startsWith('/');
         if (shouldRenderSuggestions || document.querySelector('[data-testid="slash-suggestions"]')) {
           const cursor = state.composer.draft.length;
@@ -3104,26 +3125,30 @@
           const nextInput = document.getElementById('message');
           nextInput?.focus();
           nextInput?.setSelectionRange(cursor, cursor);
+          resizeComposerInput(nextInput);
         } else {
           document.querySelector('[data-testid="send-button"]').disabled = !state.composer.canSend;
         }
       });
       input.addEventListener('keydown', event => {
         const suggestions = slashSuggestions(state.composer.draft);
-        if (!suggestions.length) return;
-        if (event.key === 'ArrowDown') {
+        if (suggestions.length && event.key === 'ArrowDown') {
           event.preventDefault();
           moveSlashSuggestion(1);
-        } else if (event.key === 'ArrowUp') {
+        } else if (suggestions.length && event.key === 'ArrowUp') {
           event.preventDefault();
           moveSlashSuggestion(-1);
-        } else if (event.key === 'Tab') {
+        } else if (suggestions.length && event.key === 'Tab') {
           event.preventDefault();
           acceptSlashSuggestion({ force: true });
         } else if (event.key === 'Enter') {
-          if (acceptSlashSuggestion({ force: false })) {
+          if (event.shiftKey) return;
+          if (suggestions.length && acceptSlashSuggestion({ force: false })) {
             event.preventDefault();
+            return;
           }
+          event.preventDefault();
+          sendMessage(input.value);
         }
       });
       form.addEventListener('submit', event => {
@@ -3946,9 +3971,10 @@
       state.composer.canSend = state.composer.draft.trim().length > 0;
       state.composer.slashActiveIndex = 0;
       render();
-      const input = document.querySelector('[data-testid="composer"] input');
+      const input = document.querySelector('[data-testid="composer"] textarea');
       input?.focus();
       input?.setSelectionRange(state.composer.draft.length, state.composer.draft.length);
+      resizeComposerInput(input);
     }
 
     function transcriptTimelineSearchText(item) {
