@@ -273,6 +273,7 @@ private final class QuillCodeDesktopController: ObservableObject {
     private var sendTask: Task<Void, Never>?
     private var terminalTask: Task<Void, Never>?
     private var browserPreviewTask: Task<Void, Never>?
+    private var automationTickTask: Task<Void, Never>?
     private var sendTaskID: UUID?
     private var terminalTaskID: UUID?
     private var browserPreviewTaskID: UUID?
@@ -299,6 +300,12 @@ private final class QuillCodeDesktopController: ObservableObject {
         self.draft = model.composer.draft
         self.terminalDraft = model.terminal.draft
         self.browserAddressDraft = model.browser.addressDraft
+        runDueAutomations()
+        startAutomationTicker()
+    }
+
+    deinit {
+        automationTickTask?.cancel()
     }
 
     func newChat() {
@@ -526,6 +533,24 @@ private final class QuillCodeDesktopController: ObservableObject {
             }
             refresh()
         }
+    }
+
+    private func startAutomationTicker() {
+        automationTickTask?.cancel()
+        automationTickTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 30_000_000_000)
+                await MainActor.run {
+                    guard let self, !Task.isCancelled else { return }
+                    self.runDueAutomations()
+                }
+            }
+        }
+    }
+
+    private func runDueAutomations() {
+        guard !model.runDueAutomations().isEmpty else { return }
+        refresh()
     }
 
     func runCommand(_ command: WorkspaceCommandSurface) {

@@ -1455,6 +1455,20 @@ public final class QuillCodeWorkspaceModel {
         }
     }
 
+    @discardableResult
+    public func runDueAutomations(now: Date = Date(), limit: Int = 5) -> [UUID] {
+        let dueAutomationIDs = automations.items
+            .filter { automation in
+                automation.status == .active
+                    && automation.kind == .threadFollowUp
+                    && automation.nextRunAt.map { $0 <= now } == true
+            }
+            .prefix(max(0, limit))
+            .map(\.id)
+
+        return dueAutomationIDs.compactMap(runAutomation)
+    }
+
     public func deleteAutomation(id: UUID) -> Bool {
         let initialCount = automations.items.count
         automations.items.removeAll { $0.id == id }

@@ -3752,6 +3752,112 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.surface().automations.statusLabel, "1 active")
     }
 
+    func testRunDueAutomationsOnlyRunsActiveDueThreadFollowUps() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let now = Date(timeIntervalSince1970: 100)
+        let source = ChatThread(title: "Due follow-up", messages: [
+            .init(role: .user, content: "summarize tomorrow"),
+            .init(role: .assistant, content: "I will follow up.")
+        ])
+        let due = QuillAutomation(
+            title: "Due follow-up",
+            detail: "Resume this thread.",
+            kind: .threadFollowUp,
+            scheduleKind: .heartbeat,
+            scheduleDescription: "Now",
+            threadID: source.id,
+            nextRunAt: Date(timeIntervalSince1970: 90)
+        )
+        let future = QuillAutomation(
+            title: "Future follow-up",
+            detail: "Resume later.",
+            kind: .threadFollowUp,
+            scheduleKind: .heartbeat,
+            scheduleDescription: "Later",
+            threadID: source.id,
+            nextRunAt: Date(timeIntervalSince1970: 120)
+        )
+        let paused = QuillAutomation(
+            title: "Paused follow-up",
+            detail: "Do not run.",
+            kind: .threadFollowUp,
+            status: .paused,
+            scheduleKind: .heartbeat,
+            scheduleDescription: "Now",
+            threadID: source.id,
+            nextRunAt: Date(timeIntervalSince1970: 80)
+        )
+        let unsupported = QuillAutomation(
+            title: "Due monitor",
+            detail: "Monitor runner pending.",
+            kind: .monitor,
+            scheduleKind: .event,
+            scheduleDescription: "Now",
+            nextRunAt: Date(timeIntervalSince1970: 70)
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [source], selectedThreadID: source.id),
+            automationStore: automationStore
+        )
+        model.setAutomations([future, paused, unsupported, due])
+
+        let followUpIDs = model.runDueAutomations(now: now)
+
+        XCTAssertEqual(followUpIDs.count, 1)
+        let followUp = try XCTUnwrap(model.root.threads.first { $0.id == followUpIDs[0] })
+        XCTAssertEqual(followUp.title, "Follow-up: Due follow-up")
+        XCTAssertEqual(model.root.selectedThreadID, followUp.id)
+
+        let savedAutomations = try automationStore.load()
+        let savedDue = try XCTUnwrap(savedAutomations.first { $0.id == due.id })
+        XCTAssertNotNil(savedDue.lastRunAt)
+        XCTAssertNil(savedDue.nextRunAt)
+        XCTAssertEqual(savedAutomations.first { $0.id == future.id }?.nextRunAt, future.nextRunAt)
+        XCTAssertEqual(savedAutomations.first { $0.id == paused.id }?.nextRunAt, paused.nextRunAt)
+        XCTAssertEqual(savedAutomations.first { $0.id == unsupported.id }?.nextRunAt, unsupported.nextRunAt)
+    }
+
+    func testRunDueAutomationsHonorsLimit() throws {
+        let now = Date(timeIntervalSince1970: 100)
+        let source = ChatThread(title: "Launch plan", messages: [
+            .init(role: .user, content: "follow up"),
+            .init(role: .assistant, content: "Noted.")
+        ])
+        let first = QuillAutomation(
+            title: "First follow-up",
+            detail: "Resume this thread.",
+            kind: .threadFollowUp,
+            scheduleKind: .heartbeat,
+            scheduleDescription: "Now",
+            threadID: source.id,
+            nextRunAt: Date(timeIntervalSince1970: 80)
+        )
+        let second = QuillAutomation(
+            title: "Second follow-up",
+            detail: "Resume this thread.",
+            kind: .threadFollowUp,
+            scheduleKind: .heartbeat,
+            scheduleDescription: "Now",
+            threadID: source.id,
+            nextRunAt: Date(timeIntervalSince1970: 90)
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [source],
+            selectedThreadID: source.id
+        ))
+        model.setAutomations([second, first])
+
+        let followUpIDs = model.runDueAutomations(now: now, limit: 1)
+
+        XCTAssertEqual(followUpIDs.count, 1)
+        XCTAssertEqual(model.automations.items.first { $0.id == first.id }?.lastRunAt != nil, true)
+        XCTAssertNil(model.automations.items.first { $0.id == first.id }?.nextRunAt)
+        XCTAssertEqual(model.automations.items.first { $0.id == second.id }?.nextRunAt, second.nextRunAt)
+    }
+
     func testBootstrapPersistsAndClearsTrustedRouterAPIKey() throws {
         let paths = QuillCodePaths(home: try makeTempDirectory())
         let bootstrap = QuillCodeWorkspaceBootstrap(paths: paths)
