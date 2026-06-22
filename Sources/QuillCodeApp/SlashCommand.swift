@@ -61,6 +61,7 @@ enum SlashCommandCatalog {
         .init(usage: "/pr comment body", title: "Comment on pull request", detail: "Post a top-level comment on the current pull request.", insertText: "/pr comment ", aliases: ["pr reply"]),
         .init(usage: "/pr review approve|comment|request_changes", title: "Review pull request", detail: "Submit an approve, comment, or request_changes review.", insertText: "/pr review approve", aliases: ["pr approve", "request changes"]),
         .init(usage: "/pr reviewers add|remove login", title: "Manage pull request reviewers", detail: "Request or remove pull request reviewers.", insertText: "/pr reviewers add ", aliases: ["request reviewer", "remove reviewer"]),
+        .init(usage: "/pr labels add|remove label", title: "Manage pull request labels", detail: "Add or remove pull request labels. Use commas for labels with spaces.", insertText: "/pr labels add ", aliases: ["pr label", "triage label"]),
         .init(usage: "/pr merge [squash|merge|rebase]", title: "Merge pull request", detail: "Merge or enable auto-merge for the current pull request.", insertText: "/pr merge squash", aliases: ["automerge", "merge train"]),
         .init(usage: "/env name", title: "Run local environment action", detail: "List or run project-local environment scripts.", insertText: "/env ", aliases: ["environment", "local-env"]),
         .init(usage: "/mode auto|review|read-only", title: "Set approval mode", detail: "Switch between Auto, Review, and Read-only behavior.", insertText: "/mode ", aliases: []),
@@ -318,10 +319,12 @@ enum SlashCommandParser {
             )
         case "reviewers", "reviewer":
             return parsePullRequestReviewers(rest)
+        case "labels", "label":
+            return parsePullRequestLabels(rest)
         case "merge", "automerge", "auto_merge":
             return parsePullRequestMerge(rest, autoByDefault: subcommand != "merge")
         default:
-            return .invalid("Unknown pull request command '\(rawSubcommand)'. Use create, view, checks, checkout, comment, review, reviewers, or merge.")
+            return .invalid("Unknown pull request command '\(rawSubcommand)'. Use create, view, checks, checkout, comment, review, reviewers, labels, or merge.")
         }
     }
 
@@ -373,6 +376,28 @@ enum SlashCommandParser {
         return pullRequestTool(.gitPullRequestReviewers, arguments: [key: reviewers])
     }
 
+    private static func parsePullRequestLabels(_ argument: String) -> SlashCommand {
+        let parts = argument.split(maxSplits: 1, whereSeparator: \.isWhitespace)
+        guard let rawAction = parts.first?.lowercased(),
+              ["add", "apply", "remove", "delete"].contains(rawAction)
+        else {
+            return .invalid("Usage: /pr labels add label[, label] or /pr labels remove label")
+        }
+        let rest = parts.count > 1
+            ? String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+            : ""
+        let parsed = selectorAndBody(from: rest)
+        let labels = pullRequestLabels(from: parsed.body)
+        guard !labels.isEmpty else {
+            return .invalid("Usage: /pr labels add label[, label] or /pr labels remove label")
+        }
+        let key = (rawAction == "remove" || rawAction == "delete") ? "remove" : "add"
+        return pullRequestTool(
+            .gitPullRequestLabels,
+            arguments: compact(["selector": parsed.selector, key: labels])
+        )
+    }
+
     private static func parsePullRequestMerge(_ argument: String, autoByDefault: Bool) -> SlashCommand {
         let tokens = argument.split(whereSeparator: \.isWhitespace).map(String.init)
         var selector: String?
@@ -419,6 +444,17 @@ enum SlashCommandParser {
         let bodyStart = trimmed.index(trimmed.startIndex, offsetBy: firstToken.count)
         let body = String(trimmed[bodyStart...]).trimmingCharacters(in: .whitespacesAndNewlines)
         return (normalizedPullRequestSelector(firstToken), body)
+    }
+
+    private static func pullRequestLabels(from body: String) -> [String] {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+        if trimmed.contains(",") {
+            return trimmed.split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+        }
+        return trimmed.split(whereSeparator: \.isWhitespace).map(String.init)
     }
 
     private static func looksLikePullRequestSelector(_ token: String) -> Bool {

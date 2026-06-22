@@ -598,6 +598,11 @@ final class WorkspaceSurfaceTests: XCTestCase {
         suggestions = model.surface().composer.slashSuggestions
         XCTAssertEqual(suggestions.prefix(2).map(\.usage), ["/project refresh", "/project rename name"])
 
+        model.setDraft("/pr l")
+        suggestions = model.surface().composer.slashSuggestions
+        XCTAssertEqual(suggestions.first?.usage, "/pr labels add|remove label")
+        XCTAssertEqual(suggestions.first?.insertText, "/pr labels add ")
+
         model.setDraft("run /help")
         XCTAssertEqual(model.surface().composer.slashSuggestions, [])
     }
