@@ -416,9 +416,9 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitRestoreHunk.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitCommit.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPush.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestCreate.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.planUpdate.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.browserInspect.name))
-        XCTAssertFalse(toolNames.contains(ToolDefinition.gitPullRequestCreate.name))
         XCTAssertFalse(toolNames.contains(ToolDefinition.gitWorktreeCreate.name))
         XCTAssertFalse(toolNames.contains(ToolDefinition.gitWorktreeRemove.name))
     }
@@ -889,27 +889,85 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: argumentsFile.path))
     }
 
-    func testRemoteProjectRejectsUnavailablePullRequestTool() async throws {
+    func testRemoteProjectAgentCreatesPullRequestThroughSSH() async throws {
         let root = try makeTempDirectory()
-        let connection = ProjectConnection.ssh(path: "/srv/quill", host: "feather.local", user: "quill")
+        let remoteRoot = try makeTempGitRepoWithInitialCommit()
+        let bin = root.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        let sshArgumentsFile = root.appendingPathComponent("ssh-agent-args.txt")
+        let ghArgumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: sshArgumentsFile, pathPrefix: bin)
+        _ = try makeFakeGitHubCLI(in: bin, argumentsFile: ghArgumentsFile)
+        let connection = ProjectConnection.ssh(path: remoteRoot.path, host: "feather.local", user: "quill")
         let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
         let model = QuillCodeWorkspaceModel(
             root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
             runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
                 name: ToolDefinition.gitPullRequestCreate.name,
-                argumentsJSON: ToolArguments.json(["title": "Ship it"])
-            )))
+                argumentsJSON: """
+                {
+                    "title": "Add remote PR",
+                    "body": "Remote body",
+                    "base": "main",
+                    "head": "feature/remote",
+                    "draft": true
+                }
+                """
+            ))),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
         )
 
         model.setDraft("Create a PR")
         await model.submitComposer(workspaceRoot: root)
 
         let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.gitPullRequestCreate.name)
+        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
         let outputJSON = try XCTUnwrap(card.outputJSON)
         let result = try JSONHelpers.decode(ToolResult.self, from: outputJSON)
+        XCTAssertTrue(result.ok, result.error ?? result.stderr)
+        XCTAssertEqual(result.artifacts, ["https://github.com/example/repo/pull/456"])
+
+        let ghArguments = try String(contentsOf: ghArgumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(ghArguments, [
+            "pr",
+            "create",
+            "--title",
+            "Add remote PR",
+            "--body",
+            "Remote body",
+            "--base",
+            "main",
+            "--head",
+            "feature/remote",
+            "--draft"
+        ])
+    }
+
+    func testRemoteProjectRejectsUnavailableWorktreeTool() async throws {
+        let root = try makeTempDirectory()
+        let connection = ProjectConnection.ssh(path: "/srv/quill", host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
+                name: ToolDefinition.gitWorktreeCreate.name,
+                argumentsJSON: ToolArguments.json(["path": "../feature"])
+            )))
+        )
+
+        model.setDraft("Create a worktree")
+        await model.submitComposer(workspaceRoot: root)
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        let result = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(card.outputJSON))
         XCTAssertFalse(result.ok)
         XCTAssertTrue(result.error?.contains("Tool is not available") == true, result.error ?? "")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("hello.txt").path))
     }
 
     func testSelectingProjectSelectsNewestThreadForThatProject() {
@@ -3965,9 +4023,10 @@ final class WorkspaceModelTests: XCTestCase {
         return script
     }
 
-    private func makeExecutingFakeSSH(in root: URL, argumentsFile: URL) throws -> URL {
+    private func makeExecutingFakeSSH(in root: URL, argumentsFile: URL, pathPrefix: URL? = nil) throws -> URL {
         let script = root.appendingPathComponent("fake-executing-ssh")
         let argumentsPath = argumentsFile.path.replacingOccurrences(of: "'", with: "'\\''")
+        let pathExport = pathPrefix.map { "export PATH='\($0.path.replacingOccurrences(of: "'", with: "'\\''"))':$PATH" } ?? ":"
         try """
         #!/bin/sh
         : > '\(argumentsPath)'
@@ -3976,7 +4035,20 @@ final class WorkspaceModelTests: XCTestCase {
           printf '%s\\n' "$arg" >> '\(argumentsPath)'
           last="$arg"
         done
+        \(pathExport)
         /bin/sh -lc "$last"
+        """.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        return script
+    }
+
+    private func makeFakeGitHubCLI(in root: URL, argumentsFile: URL) throws -> URL {
+        let script = root.appendingPathComponent("gh")
+        let argumentsPath = argumentsFile.path.replacingOccurrences(of: "'", with: "'\\''")
+        try """
+        #!/bin/sh
+        printf '%s\\n' "$@" > '\(argumentsPath)'
+        echo 'https://github.com/example/repo/pull/456'
         """.write(to: script, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
         return script

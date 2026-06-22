@@ -173,7 +173,7 @@ public struct GitToolExecutor: Sendable {
                     stdout: result.stdout,
                     stderr: result.stderr,
                     exitCode: result.exitCode,
-                    artifacts: extractURLs(from: result.stdout)
+                    artifacts: Self.extractURLs(from: result.stdout)
                 )
             }
             return result
@@ -310,7 +310,7 @@ public struct GitToolExecutor: Sendable {
         return try Self.safeGitName(branch)
     }
 
-    private func extractURLs(from output: String) -> [String] {
+    public static func extractURLs(from output: String) -> [String] {
         output
             .split { $0.isWhitespace }
             .map(String.init)

@@ -2941,7 +2941,8 @@ public final class QuillCodeWorkspaceModel {
         .gitStageHunk,
         .gitRestoreHunk,
         .gitCommit,
-        .gitPush
+        .gitPush,
+        .gitPullRequestCreate
     ]
 
     private nonisolated static let remoteProjectGitToolNames: Set<String> = [
@@ -2952,7 +2953,8 @@ public final class QuillCodeWorkspaceModel {
         ToolDefinition.gitStageHunk.name,
         ToolDefinition.gitRestoreHunk.name,
         ToolDefinition.gitCommit.name,
-        ToolDefinition.gitPush.name
+        ToolDefinition.gitPush.name,
+        ToolDefinition.gitPullRequestCreate.name
     ]
 
     private func remoteProjectToolExecutionOverride(project: ProjectRef?) -> AgentToolExecutionOverride? {
@@ -3076,6 +3078,15 @@ public final class QuillCodeWorkspaceModel {
                     branch: args.string("branch"),
                     setUpstream: args.bool("setUpstream") ?? false
                 )
+            case ToolDefinition.gitPullRequestCreate.name:
+                command = try remoteGitPullRequestCommand(
+                    title: args.string("title"),
+                    body: args.string("body"),
+                    base: args.string("base"),
+                    head: args.string("head"),
+                    draft: args.bool("draft") ?? false,
+                    fill: args.bool("fill") ?? false
+                )
             default:
                 return ToolResult(ok: false, error: "Tool is not available for SSH Remote projects: \(call.name)")
             }
@@ -3083,7 +3094,11 @@ public final class QuillCodeWorkspaceModel {
             guard let request = executor.request(command: command, connection: connection) else {
                 return ToolResult(ok: false, error: "SSH Remote project is missing a usable host.")
             }
-            return ShellToolExecutor().run(request)
+            var result = ShellToolExecutor().run(request)
+            if call.name == ToolDefinition.gitPullRequestCreate.name, result.ok {
+                result.artifacts = GitToolExecutor.extractURLs(from: result.stdout)
+            }
+            return result
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
@@ -3110,6 +3125,41 @@ public final class QuillCodeWorkspaceModel {
             "case \"$branch\" in -*|*..*|*[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._/-]*) printf '%s\\n' \(invalidBranchMessage) >&2; exit 1;; esac",
             "git push \(upstreamArguments)\(shellSingleQuoted(remoteName)) \"$branch\""
         ].joined(separator: " && ")
+    }
+
+    private nonisolated static func remoteGitPullRequestCommand(
+        title: String?,
+        body: String?,
+        base: String?,
+        head: String?,
+        draft: Bool,
+        fill: Bool
+    ) throws -> String {
+        let trimmedTitle = GitToolExecutor.trimmedNonEmpty(title)
+        guard fill || trimmedTitle != nil else {
+            throw GitToolError.emptyPullRequestTitle
+        }
+
+        var arguments = ["gh", "pr", "create"]
+        if let trimmedTitle {
+            arguments += ["--title", trimmedTitle]
+        }
+        if let body = GitToolExecutor.trimmedNonEmpty(body) {
+            arguments += ["--body", body]
+        }
+        if let base = GitToolExecutor.trimmedNonEmpty(base) {
+            arguments += ["--base", try GitToolExecutor.safeGitName(base)]
+        }
+        if let head = GitToolExecutor.trimmedNonEmpty(head) {
+            arguments += ["--head", try GitToolExecutor.safeGitName(head)]
+        }
+        if draft {
+            arguments.append("--draft")
+        }
+        if fill {
+            arguments.append("--fill")
+        }
+        return arguments.map(shellSingleQuoted).joined(separator: " ")
     }
 
     private nonisolated static func remoteGitHunkCommand(
