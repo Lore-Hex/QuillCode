@@ -48,6 +48,25 @@ final class TrustedRouterAdapterTests: XCTestCase {
         XCTAssertTrue(call.argumentsJSON.contains(#""cmd":"git status --short""#))
     }
 
+    func testActionParserExtractsActionObjectFromProse() throws {
+        let action = try AgentActionJSONParser.parse("""
+        I will run the command now.
+        {"type":"tool","name":"host.shell.run","arguments":{"cmd":"whoami"}}
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
+        XCTAssertTrue(call.argumentsJSON.contains(#""cmd":"whoami""#))
+    }
+
+    func testActionParserKeepsMalformedTextActionable() {
+        XCTAssertThrowsError(try AgentActionJSONParser.parse("I will do it, but no JSON.")) { error in
+            XCTAssertTrue(String(describing: error).contains("valid QuillCode action JSON object"))
+        }
+    }
+
     func testActionParserNormalizesFileWriteAliases() throws {
         let action = try AgentActionJSONParser.parse("""
         {"type":"tool","toolName":"host.file.write","args":{"filename":"hello.txt","text":"hello world\\n"}}

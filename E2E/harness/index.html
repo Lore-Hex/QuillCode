@@ -3500,11 +3500,28 @@
       state.commandPalette.selectedCommandID = enabled[0]?.id || null;
     }
 
+    function focusInputByTestID(testID) {
+      requestAnimationFrame(() => {
+        const input = document.querySelector(`[data-testid="${testID}"]`);
+        if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement)) return;
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      });
+    }
+
     function openCommandPalette() {
       state.commandPalette.isOpen = true;
       state.commandPalette.query = '';
       ensureCommandPaletteSelection();
       render();
+      focusInputByTestID('command-palette-input');
+    }
+
+    function openSearchPanel() {
+      state.search.isOpen = true;
+      state.search.query = '';
+      render();
+      focusInputByTestID('search-input');
     }
 
     function moveCommandPaletteSelection(delta) {
@@ -4192,9 +4209,7 @@
         });
       });
       document.querySelector('[data-testid="search-button"]')?.addEventListener('click', () => {
-        state.search.isOpen = true;
-        state.search.query = '';
-        render();
+        openSearchPanel();
       });
       document.querySelector('[data-testid="command-palette-button"]').addEventListener('click', () => {
         openCommandPalette();
@@ -4203,9 +4218,7 @@
         runCommand('settings');
       });
       document.querySelector('[data-testid="sidebar-search-button"]').addEventListener('click', () => {
-        state.search.isOpen = true;
-        state.search.query = '';
-        render();
+        openSearchPanel();
       });
       document.querySelector('[data-testid="new-chat-button"]').addEventListener('click', () => {
         newChat();
