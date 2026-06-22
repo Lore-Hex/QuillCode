@@ -2491,6 +2491,7 @@
       { usage: '/archive', title: 'Archive chat', detail: 'Move the current thread out of the recent list.', insertText: '/archive', aliases: ['archive-chat'] },
       { usage: '/unarchive', title: 'Unarchive chat', detail: 'Restore the current archived thread.', insertText: '/unarchive', aliases: ['unarchive-chat'] },
       { usage: '/compact', title: 'Compact context', detail: 'Create a shorter continuation thread from the latest turns.', insertText: '/compact', aliases: ['compact-context', 'context-compact'] },
+      { usage: '/follow-up when', title: 'Schedule follow-up', detail: 'Create a scheduled follow-up for this thread, for example in 30 minutes or tomorrow at 9 AM.', insertText: '/follow-up in ', aliases: ['followup', 'schedule follow-up', 'remind', 'automation'] },
       { usage: '/project new', title: 'Project new chat', detail: 'Start a new thread in the selected project.', insertText: '/project new', aliases: ['project chat'] },
       { usage: '/project refresh', title: 'Refresh project context', detail: 'Reload instructions, local actions, extensions, and memories.', insertText: '/project refresh', aliases: ['project reload', 'project context'] },
       { usage: '/project rename name', title: 'Rename project', detail: 'Rename the selected project in QuillCode.', insertText: '/project rename ', aliases: ['project title'] },
@@ -5769,6 +5770,10 @@
     }
 
     function followUpDelayDescription(seconds) {
+      if (seconds % 86400 === 0) {
+        const days = seconds / 86400;
+        return days === 1 ? 'In 1 day' : `In ${days} days`;
+      }
       if (seconds % 3600 === 0) {
         const hours = seconds / 3600;
         return hours === 1 ? 'In 1 hour' : `In ${hours} hours`;
@@ -5778,6 +5783,66 @@
         return minutes === 1 ? 'In 1 minute' : `In ${minutes} minutes`;
       }
       return `In ${seconds} seconds`;
+    }
+
+    function clockDescription(hour, minute) {
+      const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+      const meridiem = hour < 12 ? 'AM' : 'PM';
+      return `${hour12}:${String(minute).padStart(2, '0')} ${meridiem}`;
+    }
+
+    function parseFollowUpClock(value) {
+      let text = String(value).toLowerCase().replaceAll('.', '').replaceAll(' ', '');
+      let meridiem = null;
+      if (text.endsWith('am')) {
+        meridiem = 'am';
+        text = text.slice(0, -2);
+      } else if (text.endsWith('pm')) {
+        meridiem = 'pm';
+        text = text.slice(0, -2);
+      }
+      const pieces = text.split(':');
+      if (pieces.length < 1 || pieces.length > 2) return null;
+      const rawHour = Number(pieces[0]);
+      if (!Number.isInteger(rawHour) || rawHour < 0 || rawHour > 23) return null;
+      const minute = pieces.length === 2 ? Number(pieces[1]) : 0;
+      if (!Number.isInteger(minute) || minute < 0 || minute > 59) return null;
+      if (pieces.length === 2 && !/^\d{2}$/.test(pieces[1])) return null;
+      let hour = rawHour;
+      if (meridiem === 'pm' && hour < 12) hour += 12;
+      if (meridiem === 'am' && hour === 12) hour = 0;
+      return hour < 24 ? { hour, minute } : null;
+    }
+
+    function naturalFollowUpScheduleLabel(value) {
+      const normalized = String(value)
+        .toLowerCase()
+        .replaceAll('-', ' ')
+        .replaceAll('_', ' ')
+        .trim()
+        .replace(/[.!?]+$/, '');
+      const relative = normalized.match(/^(?:in\s+)?(\d+)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days)\b/);
+      if (relative) {
+        const amount = Number(relative[1]);
+        const unit = relative[2];
+        const multiplier = unit.startsWith('s') ? 1
+          : unit.startsWith('m') ? 60
+            : unit.startsWith('h') ? 3600
+              : 86400;
+        return amount > 0 ? followUpDelayDescription(amount * multiplier) : null;
+      }
+      if (normalized === 'tomorrow') {
+        return 'Tomorrow at 9:00 AM';
+      }
+      if (normalized.startsWith('tomorrow ')) {
+        const remainder = normalized.slice('tomorrow'.length).trim();
+        if (remainder === 'morning') return 'Tomorrow at 9:00 AM';
+        if (remainder === 'afternoon') return 'Tomorrow at 1:00 PM';
+        if (remainder === 'evening') return 'Tomorrow at 5:00 PM';
+        const clock = parseFollowUpClock(remainder.replace(/^at\s+/, '').replace(/^around\s+/, ''));
+        return clock ? `Tomorrow at ${clockDescription(clock.hour, clock.minute)}` : null;
+      }
+      return null;
     }
 
     function createThreadFollowUpAutomation(scheduleLabel = 'Manual follow-up') {
@@ -7157,6 +7222,15 @@
       } else if (/^\/(compact|compact-context|context-compact)\b/i.test(text)) {
         compactContext();
         return;
+      } else if (/^\/(follow-up|followup|schedule|remind)\b/i.test(text)) {
+        const scheduleText = text.replace(/^\/(follow-up|followup|schedule|remind)\b/i, '').trim();
+        const scheduleLabel = naturalFollowUpScheduleLabel(scheduleText);
+        if (scheduleLabel) {
+          createThreadFollowUpAutomation(scheduleLabel);
+          addMessage('assistant', `Scheduled a thread follow-up for ${scheduleLabel}.`);
+        } else {
+          addMessage('assistant', 'Usage: /follow-up in 30 minutes or /follow-up tomorrow at 9 AM');
+        }
       } else if (/^\/(browser|preview)\b/i.test(text)) {
         state.browser.isVisible = !state.browser.isVisible;
         addMessage('assistant', state.browser.isVisible ? 'Browser opened.' : 'Browser hidden.');

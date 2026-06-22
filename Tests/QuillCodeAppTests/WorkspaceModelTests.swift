@@ -3747,6 +3747,76 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(saved.map(\.threadID), [thread.id, thread.id])
     }
 
+    func testNaturalLanguageScheduledThreadFollowUpsPersistConcreteRunTimes() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let thread = ChatThread(title: "Launch plan")
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            automationStore: automationStore
+        )
+        let now = Date(timeIntervalSince1970: 1_000)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+
+        let relative = try XCTUnwrap(model.createThreadFollowUpAutomation(
+            matching: "in 45 minutes",
+            now: now,
+            calendar: calendar
+        ))
+        let tomorrow = try XCTUnwrap(model.createThreadFollowUpAutomation(
+            matching: "tomorrow at 9:30 PM",
+            now: now,
+            calendar: calendar
+        ))
+
+        XCTAssertEqual(relative.scheduleDescription, "In 45 minutes")
+        XCTAssertEqual(relative.nextRunAt, now.addingTimeInterval(45 * 60))
+        XCTAssertEqual(tomorrow.scheduleDescription, "Tomorrow at 9:30 PM")
+        XCTAssertEqual(
+            tomorrow.nextRunAt,
+            calendar.date(from: DateComponents(
+                calendar: calendar,
+                timeZone: calendar.timeZone,
+                year: 1970,
+                month: 1,
+                day: 2,
+                hour: 21,
+                minute: 30,
+                second: 0
+            ))
+        )
+
+        let saved = try automationStore.load()
+        XCTAssertEqual(saved.map(\.scheduleDescription), ["In 45 minutes", "Tomorrow at 9:30 PM"])
+        XCTAssertEqual(saved.map(\.threadID), [thread.id, thread.id])
+    }
+
+    func testSlashFollowUpSchedulesCurrentThread() async throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let thread = ChatThread(title: "Launch plan")
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            automationStore: automationStore
+        )
+
+        model.setDraft("/follow-up in 45 minutes")
+        await model.submitComposer(workspaceRoot: root)
+
+        let saved = try automationStore.load()
+        XCTAssertEqual(saved.count, 1)
+        XCTAssertEqual(saved.first?.title, "Follow up: Launch plan")
+        XCTAssertEqual(saved.first?.scheduleDescription, "In 45 minutes")
+        XCTAssertNotNil(saved.first?.nextRunAt)
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Scheduled a thread follow-up for In 45 minutes.")
+        XCTAssertEqual(model.surface().automations.statusLabel, "1 active")
+    }
+
     func testAutomationRunCreatesFollowUpThreadAndPersistsRunMetadata() throws {
         let root = try makeTempDirectory()
         let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))

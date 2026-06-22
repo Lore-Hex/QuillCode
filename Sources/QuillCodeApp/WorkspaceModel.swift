@@ -1462,8 +1462,30 @@ public final class QuillCodeWorkspaceModel {
     public func createThreadFollowUpAutomation(after seconds: TimeInterval, now: Date = Date()) -> QuillAutomation? {
         guard seconds > 0 else { return nil }
         return createThreadFollowUpAutomation(
-            scheduleDescription: Self.followUpDelayDescription(seconds: seconds),
+            scheduleDescription: ThreadFollowUpScheduleParser.relativeDescription(seconds: seconds),
             nextRunAt: now.addingTimeInterval(seconds),
+            now: now
+        )
+    }
+
+    @discardableResult
+    public func createThreadFollowUpAutomation(
+        matching scheduleText: String,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> QuillAutomation? {
+        guard let schedule = ThreadFollowUpScheduleParser.parse(
+            scheduleText,
+            now: now,
+            calendar: calendar
+        ) else {
+            lastError = "Could not understand that follow-up schedule. Try `/follow-up in 30 minutes` or `/follow-up tomorrow at 9 AM`."
+            refreshTopBar(agentStatus: "Idle")
+            return nil
+        }
+        return createThreadFollowUpAutomation(
+            scheduleDescription: schedule.scheduleDescription,
+            nextRunAt: schedule.nextRunAt,
             now: now
         )
     }
@@ -1592,19 +1614,6 @@ public final class QuillCodeWorkspaceModel {
             title: "QuillCode follow-up ready",
             body: "\(followUp.title) was created from \(source.title)."
         )
-    }
-
-    private static func followUpDelayDescription(seconds: TimeInterval) -> String {
-        let roundedSeconds = Int(seconds.rounded())
-        if roundedSeconds % 3_600 == 0 {
-            let hours = roundedSeconds / 3_600
-            return hours == 1 ? "In 1 hour" : "In \(hours) hours"
-        }
-        if roundedSeconds % 60 == 0 {
-            let minutes = roundedSeconds / 60
-            return minutes == 1 ? "In 1 minute" : "In \(minutes) minutes"
-        }
-        return "In \(roundedSeconds) seconds"
     }
 
     private static func tomorrowMorning(from date: Date, calendar: Calendar) -> Date {
@@ -4908,6 +4917,20 @@ public final class QuillCodeWorkspaceModel {
             }
         case .remember(let content):
             runRememberSlashCommand(content, originalPrompt: originalPrompt)
+        case .threadFollowUp(let scheduleText):
+            if let automation = createThreadFollowUpAutomation(matching: scheduleText) {
+                appendLocalCommandTranscript(
+                    userText: originalPrompt,
+                    assistantText: "Scheduled a thread follow-up for \(automation.scheduleDescription).",
+                    title: "Schedule follow-up"
+                )
+            } else {
+                appendLocalCommandTranscript(
+                    userText: originalPrompt,
+                    assistantText: lastError ?? "Could not schedule this follow-up.",
+                    title: "Schedule follow-up"
+                )
+            }
         case .workspaceCommand(let commandID):
             if !runWorkspaceCommand(commandID, workspaceRoot: workspaceRoot) {
                 appendLocalCommandTranscript(

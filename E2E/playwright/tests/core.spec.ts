@@ -660,6 +660,24 @@ test('mock harness schedules a thread follow-up from quick actions', async ({ pa
   await expect(page.getByTestId('automation-card')).toContainText('In 10 minutes');
 });
 
+test('mock harness schedules a thread follow-up from slash text', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('new-chat-button').click();
+  await page.getByLabel('Message').fill('review the launch notes');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await page.getByLabel('Message').fill('/follow-up tomorrow at 9:30 PM');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('automations-pane')).toBeVisible();
+  await expect(page.getByTestId('automations-status')).toHaveText('1 active');
+  await expect(page.getByTestId('automation-card')).toHaveCount(1);
+  await expect(page.getByTestId('automation-card')).toContainText('Follow up: review the launch notes');
+  await expect(page.getByTestId('automation-card')).toContainText('Tomorrow at 9:30 PM');
+  await expect(page.getByText('Scheduled a thread follow-up for Tomorrow at 9:30 PM.')).toBeVisible();
+});
+
 test('mock harness renders image artifact previews from tool cards', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
@@ -1597,6 +1615,11 @@ test('mock harness suggests slash commands in the composer', async ({ page }) =>
   await expect(page.locator('[data-testid="slash-suggestion"][data-selected="true"]')).toContainText('/project rename name');
   await page.keyboard.press('Tab');
   await expect(message).toHaveValue('/project rename ');
+
+  await message.fill('/fol');
+  await expect(page.getByTestId('slash-suggestion').first()).toContainText('/follow-up when');
+  await page.keyboard.press('Enter');
+  await expect(message).toHaveValue('/follow-up in ');
 
   await message.fill('/wor');
   await page.getByTestId('slash-suggestion').first().click();

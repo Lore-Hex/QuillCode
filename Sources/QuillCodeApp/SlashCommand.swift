@@ -40,6 +40,7 @@ enum SlashCommandCatalog {
         .init(usage: "/archive", title: "Archive chat", detail: "Move the current thread out of the recent list.", insertText: "/archive", aliases: ["archive-chat"]),
         .init(usage: "/unarchive", title: "Unarchive chat", detail: "Restore the current archived thread.", insertText: "/unarchive", aliases: ["unarchive-chat"]),
         .init(usage: "/compact", title: "Compact context", detail: "Create a shorter continuation thread from the latest turns.", insertText: "/compact", aliases: ["compact-context", "context-compact"]),
+        .init(usage: "/follow-up when", title: "Schedule follow-up", detail: "Create a scheduled follow-up for this thread, for example in 30 minutes or tomorrow at 9 AM.", insertText: "/follow-up in ", aliases: ["followup", "schedule follow-up", "remind", "automation"]),
         .init(usage: "/project new", title: "Project new chat", detail: "Start a new thread in the selected project.", insertText: "/project new", aliases: ["project chat"]),
         .init(usage: "/project refresh", title: "Refresh project context", detail: "Reload instructions, local actions, extensions, and memories.", insertText: "/project refresh", aliases: ["project reload", "project context"]),
         .init(usage: "/project rename name", title: "Rename project", detail: "Rename the selected project in QuillCode.", insertText: "/project rename ", aliases: ["project title"]),
@@ -146,6 +147,7 @@ enum SlashCommand: Equatable {
     case renameProject(String)
     case sshProject(String)
     case remember(String)
+    case threadFollowUp(String)
     case workspaceCommand(String)
     case environmentAction(String?)
     case invalid(String)
@@ -175,6 +177,10 @@ enum SlashCommandParser {
             return .newChat
         case "compact", "compact-context", "context-compact":
             return .workspaceCommand("compact-context")
+        case "follow-up", "followup", "schedule", "remind":
+            return argument.isEmpty
+                ? .invalid("Usage: /follow-up in 30 minutes or /follow-up tomorrow at 9 AM")
+                : .threadFollowUp(argument)
         case "rename", "rename-chat", "title":
             return argument.isEmpty ? .invalid("Usage: /rename New chat title") : .renameThread(argument)
         case "duplicate", "duplicate-chat", "copy-chat":
