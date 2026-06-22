@@ -1804,19 +1804,6 @@ public final class QuillCodeWorkspaceModel {
         return calendar.date(from: components) ?? date.addingTimeInterval(24 * 60 * 60)
     }
 
-    private static func commandRecurrence(_ value: String) -> QuillAutomationRecurrence? {
-        switch value {
-        case "hourly":
-            return QuillAutomationRecurrence(interval: 1, unit: .hours)
-        case "daily":
-            return QuillAutomationRecurrence(interval: 1, unit: .days)
-        case "weekly":
-            return QuillAutomationRecurrence(interval: 1, unit: .weeks)
-        default:
-            return nil
-        }
-    }
-
     public func toggleActivitySection(_ section: ActivitySectionKind) {
         activity.isVisible = true
         if activity.collapsedSectionIDs.contains(section) {
@@ -2745,240 +2732,142 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func runWorkspaceCommand(_ commandID: String, workspaceRoot: URL) -> Bool {
-        if commandID.hasPrefix("local-env:") {
-            return runLocalEnvironmentAction(commandID, workspaceRoot: workspaceRoot)
-        }
-        if commandID.hasPrefix("memory-delete:") {
-            let id = String(commandID.dropFirst("memory-delete:".count))
+        guard let plan = WorkspaceCommandPlan(commandID: commandID) else { return false }
+        switch plan {
+        case .localEnvironmentAction(let actionID):
+            return runLocalEnvironmentAction(actionID, workspaceRoot: workspaceRoot)
+        case .deleteMemory(let id):
             return deleteGlobalMemory(id: id)
-        }
-        if commandID.hasPrefix("automation-pause:") {
-            let rawID = String(commandID.dropFirst("automation-pause:".count))
-            guard let id = UUID(uuidString: rawID) else { return false }
-            return updateAutomationStatus(id: id, status: .paused)
-        }
-        if commandID.hasPrefix("automation-resume:") {
-            let rawID = String(commandID.dropFirst("automation-resume:".count))
-            guard let id = UUID(uuidString: rawID) else { return false }
-            return updateAutomationStatus(id: id, status: .active)
-        }
-        if commandID.hasPrefix("automation-run:") {
-            let rawID = String(commandID.dropFirst("automation-run:".count))
-            guard let id = UUID(uuidString: rawID) else { return false }
+        case .updateAutomationStatus(let id, let status):
+            return updateAutomationStatus(id: id, status: status)
+        case .runAutomation(let id):
             return runAutomation(id: id) != nil
-        }
-        if commandID.hasPrefix("automation-delete:") {
-            let rawID = String(commandID.dropFirst("automation-delete:".count))
-            guard let id = UUID(uuidString: rawID) else { return false }
+        case .deleteAutomation(let id):
             return deleteAutomation(id: id)
-        }
-        if commandID.hasPrefix("automation-create-thread-follow-up-after:") {
-            let rawSeconds = String(commandID.dropFirst("automation-create-thread-follow-up-after:".count))
-            guard let seconds = TimeInterval(rawSeconds) else { return false }
+        case .createThreadFollowUpAfter(let seconds):
             return createThreadFollowUpAutomation(after: seconds) != nil
-        }
-        if commandID.hasPrefix("automation-create-workspace-schedule-after:") {
-            let rawSeconds = String(commandID.dropFirst("automation-create-workspace-schedule-after:".count))
-            guard let seconds = TimeInterval(rawSeconds) else { return false }
+        case .createWorkspaceScheduleAfter(let seconds):
             return createWorkspaceScheduleAutomation(after: seconds) != nil
-        }
-        if commandID.hasPrefix("automation-create-thread-follow-up-every:") {
-            let rawRecurrence = String(commandID.dropFirst("automation-create-thread-follow-up-every:".count))
-            guard let recurrence = Self.commandRecurrence(rawRecurrence) else { return false }
+        case .createThreadFollowUpEvery(let recurrence):
             return createThreadFollowUpAutomation(every: recurrence) != nil
-        }
-        if commandID.hasPrefix("automation-create-workspace-schedule-every:") {
-            let rawRecurrence = String(commandID.dropFirst("automation-create-workspace-schedule-every:".count))
-            guard let recurrence = Self.commandRecurrence(rawRecurrence) else { return false }
+        case .createWorkspaceScheduleEvery(let recurrence):
             return createWorkspaceScheduleAutomation(every: recurrence) != nil
-        }
-        if commandID.hasPrefix("mcp-start:") {
-            let id = String(commandID.dropFirst("mcp-start:".count))
+        case .startMCPServer(let id):
             return startMCPServer(id: id, workspaceRoot: workspaceRoot)
-        }
-        if commandID.hasPrefix("mcp-stop:") {
-            let id = String(commandID.dropFirst("mcp-stop:".count))
+        case .stopMCPServer(let id):
             return stopMCPServer(id: id)
-        }
-        if commandID.hasPrefix("extension-update:") {
-            let id = String(commandID.dropFirst("extension-update:".count))
+        case .updateExtension(let id):
             return runProjectExtensionUpdate(id: id, workspaceRoot: workspaceRoot)
-        }
-        if commandID.hasPrefix("thread-selection-toggle:") {
-            let rawID = String(commandID.dropFirst("thread-selection-toggle:".count))
-            guard let id = UUID(uuidString: rawID) else { return false }
+        case .toggleThreadSelection(let id):
             toggleSidebarThreadSelection(id)
             return true
-        }
-        if commandID.hasPrefix("activity-toggle-section:") {
-            let rawKind = String(commandID.dropFirst("activity-toggle-section:".count))
-            guard let section = ActivitySectionKind(rawValue: rawKind) else { return false }
+        case .toggleActivitySection(let section):
             toggleActivitySection(section)
             return true
-        }
-        if let slashInsertText = SlashCommandCatalog.insertText(forCommandPaletteID: commandID) {
-            composer.draft = slashInsertText
+        case .setDraft(let draft):
+            setDraft(draft)
             return true
+        case .runTool(let toolName):
+            runToolCall(
+                ToolCall(name: toolName, argumentsJSON: "{}"),
+                workspaceRoot: workspaceRoot
+            )
+            return true
+        case .action(let action):
+            return runWorkspaceCommandAction(action)
         }
-        switch commandID {
-        case "toggle-terminal":
+    }
+
+    @discardableResult
+    private func runWorkspaceCommandAction(_ action: WorkspaceCommandAction) -> Bool {
+        switch action {
+        case .toggleTerminal:
             toggleTerminal()
             return true
-        case "terminal-clear":
+        case .clearTerminal:
             return clearTerminalHistory()
-        case "toggle-browser":
+        case .toggleBrowser:
             toggleBrowser()
             return true
-        case "browser-back":
+        case .browserBack:
             return goBackInBrowser()
-        case "browser-forward":
+        case .browserForward:
             return goForwardInBrowser()
-        case "browser-reload":
+        case .browserReload:
             return reloadBrowserPreview()
-        case "toggle-extensions":
+        case .toggleExtensions:
             toggleExtensions()
             return true
-        case "toggle-memories":
+        case .toggleMemories:
             toggleMemories()
             return true
-        case "toggle-activity":
+        case .toggleActivity:
             toggleActivity()
             return true
-        case "toggle-automations":
+        case .toggleAutomations:
             toggleAutomations()
             return true
-        case "automation-create-thread-follow-up":
+        case .createThreadFollowUp:
             return createThreadFollowUpAutomation() != nil
-        case "automation-create-workspace-schedule":
+        case .createWorkspaceSchedule:
             return createWorkspaceScheduleAutomation() != nil
-        case "automation-create-thread-follow-up-tomorrow":
+        case .createThreadFollowUpTomorrow:
             return createTomorrowMorningThreadFollowUpAutomation() != nil
-        case "automation-create-workspace-schedule-tomorrow":
+        case .createWorkspaceScheduleTomorrow:
             return createTomorrowMorningWorkspaceScheduleAutomation() != nil
-        case "memory-add":
-            composer.draft = "/remember "
-            return true
-        case "add-ssh-project":
-            composer.draft = "/ssh user@host:/absolute/path"
-            return true
-        case "project-new-chat":
+        case .projectNewChat:
             guard let projectID = root.selectedProjectID else { return false }
             _ = newChat(projectID: projectID)
             return true
-        case "project-refresh-context":
+        case .projectRefreshContext:
             guard let projectID = root.selectedProjectID else { return false }
             return refreshProjectContext(projectID)
-        case "project-rename":
+        case .projectRename:
             guard let name = selectedProject?.name else { return false }
-            composer.draft = "/project rename \(name)"
+            setDraft("/project rename \(name)")
             return true
-        case "project-remove":
+        case .projectRemove:
             guard let projectID = root.selectedProjectID else { return false }
             return removeProject(projectID)
-        case "git-status":
-            runToolCall(
-                ToolCall(name: ToolDefinition.gitStatus.name, argumentsJSON: "{}"),
-                workspaceRoot: workspaceRoot
-            )
-            return true
-        case "git-diff":
-            runToolCall(
-                ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}"),
-                workspaceRoot: workspaceRoot
-            )
-            return true
-        case "git-pr-view":
-            runToolCall(
-                ToolCall(name: ToolDefinition.gitPullRequestView.name, argumentsJSON: "{}"),
-                workspaceRoot: workspaceRoot
-            )
-            return true
-        case "git-pr-checks":
-            runToolCall(
-                ToolCall(name: ToolDefinition.gitPullRequestChecks.name, argumentsJSON: "{}"),
-                workspaceRoot: workspaceRoot
-            )
-            return true
-        case "git-pr-diff":
-            runToolCall(
-                ToolCall(name: ToolDefinition.gitPullRequestDiff.name, argumentsJSON: "{}"),
-                workspaceRoot: workspaceRoot
-            )
-            return true
-        case "git-pr-checkout":
-            setDraft("Checkout pull request ")
-            return true
-        case "git-pr-reviewers":
-            setDraft("Request reviewers for the current pull request: ")
-            return true
-        case "git-pr-comment":
-            setDraft("Comment on the current pull request: ")
-            return true
-        case "git-pr-review":
-            setDraft("Review the current pull request: approve")
-            return true
-        case "git-pr-labels":
-            setDraft("Label the current pull request: ")
-            return true
-        case "git-pr-merge":
-            setDraft("Merge the current pull request with squash")
-            return true
-        case "thread-rename":
+        case .threadRename:
             guard let title = selectedThread?.title else { return false }
-            composer.draft = "/rename \(title)"
+            setDraft("/rename \(title)")
             return true
-        case "thread-duplicate":
+        case .threadDuplicate:
             guard let selectedThreadID = root.selectedThreadID else { return false }
             return duplicateThread(selectedThreadID) != nil
-        case "thread-archive":
+        case .threadArchive:
             guard let selectedThreadID = root.selectedThreadID else { return false }
             archiveThread(selectedThreadID)
             return true
-        case "thread-unarchive":
+        case .threadUnarchive:
             guard let selectedThreadID = root.selectedThreadID else { return false }
             return unarchiveThread(selectedThreadID)
-        case "thread-delete":
+        case .threadDelete:
             guard let selectedThreadID = root.selectedThreadID else { return false }
             return deleteThread(selectedThreadID)
-        case "thread-selection-start":
+        case .threadSelectionStart:
             return performSidebarBulkAction(.select)
-        case "thread-selection-select-all":
+        case .threadSelectionSelectAll:
             return performSidebarBulkAction(.selectAll)
-        case "thread-selection-clear":
+        case .threadSelectionClear:
             return performSidebarBulkAction(.clearSelection)
-        case "thread-bulk-pin":
+        case .threadBulkPin:
             return performSidebarBulkAction(.pin)
-        case "thread-bulk-unpin":
+        case .threadBulkUnpin:
             return performSidebarBulkAction(.unpin)
-        case "thread-bulk-archive":
+        case .threadBulkArchive:
             return performSidebarBulkAction(.archive)
-        case "thread-bulk-unarchive":
+        case .threadBulkUnarchive:
             return performSidebarBulkAction(.unarchive)
-        case "thread-bulk-delete":
+        case .threadBulkDelete:
             return performSidebarBulkAction(.delete)
-        case "retry-last-turn":
+        case .retryLastTurn:
             return prepareRetryLastUserTurn()
-        case "fork-from-last":
+        case .forkFromLast:
             return forkFromLast() != nil
-        case "compact-context":
+        case .compactContext:
             return compactContext() != nil
-        case "git-worktree-list":
-            runToolCall(
-                ToolCall(name: ToolDefinition.gitWorktreeList.name, argumentsJSON: "{}"),
-                workspaceRoot: workspaceRoot
-            )
-            return true
-        case "git-pr-create":
-            setDraft("Create a pull request titled ")
-            return true
-        case "git-worktree-create":
-            setDraft("Create a git worktree named ")
-            return true
-        case "git-worktree-remove":
-            setDraft("Remove git worktree at ")
-            return true
-        default:
-            return false
         }
     }
 
