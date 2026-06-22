@@ -561,6 +561,22 @@ test('mock harness shows model-authored task plan in Activity', async ({ page })
   await expect(page.getByTestId('activity-plan-section')).toContainText('3 items');
 });
 
+test('mock harness separates Automations from Activity in the sidebar', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('automations-button').click();
+  await expect(page.getByTestId('automations-pane')).toBeVisible();
+  await expect(page.getByTestId('automations-title')).toHaveText('Automations');
+  await expect(page.getByTestId('automation-card')).toHaveCount(3);
+  await expect(page.getByTestId('automation-card').first()).toContainText('Thread follow-ups');
+  await expect(page.getByTestId('activity-pane')).toHaveCount(0);
+
+  await page.getByTestId('activity-button').click();
+  await expect(page.getByTestId('activity-pane')).toBeVisible();
+  await expect(page.getByTestId('automations-pane')).toBeVisible();
+  await expect(page.getByTestId('activity-title')).toHaveText('Activity');
+});
+
 test('mock harness renders image artifact previews from tool cards', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

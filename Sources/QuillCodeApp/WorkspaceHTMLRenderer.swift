@@ -9,6 +9,7 @@ public enum WorkspaceHTMLRenderer {
           <div class="workspace-grid">
             \(renderSidebar(projects: surface.projects, sidebar: surface.sidebar))
             <main class="transcript" data-testid="transcript">
+              \(renderAutomations(surface.automations))
               \(renderTranscript(
                 surface.transcript,
                 contextBanner: surface.contextBanner,
@@ -92,12 +93,13 @@ public enum WorkspaceHTMLRenderer {
             <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true">New chat</button>
             <button class="sidebar-action" type="button" data-testid="sidebar-search-button" data-primary="true">Search</button>
             <button class="sidebar-action" type="button" data-testid="extensions-button" data-primary="true">Plugins</button>
-            <button class="sidebar-action" type="button" data-testid="activity-button" data-primary="true">Automations</button>
+            <button class="sidebar-action" type="button" data-testid="automations-button" data-primary="true">Automations</button>
           </div>
           <div class="sidebar-utility-row" aria-label="Workspace tools">
             <button class="sidebar-action" type="button" data-testid="terminal-button" data-secondary="true" aria-label="Terminal">Term</button>
             <button class="sidebar-action" type="button" data-testid="browser-button" data-secondary="true" aria-label="Browser">Web</button>
             <button class="sidebar-action" type="button" data-testid="memories-button" data-secondary="true" aria-label="Memories">Mem</button>
+            <button class="sidebar-action" type="button" data-testid="activity-button" data-secondary="true" aria-label="Activity">Act</button>
           </div>
           <h2>\(escape(sidebar.title))</h2>
           \(renderSidebarBulkToolbar(sidebar))
@@ -825,6 +827,46 @@ public enum WorkspaceHTMLRenderer {
             <p data-testid="activity-task-subtitle">\(escape(activity.taskSubtitle))</p>
           </article>
           \(activity.sections.map(renderActivitySection).joined(separator: "\n"))
+        </section>
+        """
+    }
+
+    private static func renderAutomations(_ automations: WorkspaceAutomationsSurface) -> String {
+        guard automations.isVisible else { return "" }
+        let content: String
+        if automations.workflows.isEmpty {
+            content = """
+            <article class="automation-empty" data-testid="automations-empty">
+              <strong>\(escape(automations.emptyTitle))</strong>
+              <p>\(escape(automations.emptySubtitle))</p>
+            </article>
+            """
+        } else {
+            content = automations.workflows.map { workflow in
+                """
+                <article class="automation-card" data-testid="automation-card">
+                  <div>
+                    <span data-testid="automation-schedule">\(escape(workflow.scheduleLabel))</span>
+                    <span data-testid="automation-status">\(escape(workflow.statusLabel))</span>
+                  </div>
+                  <strong>\(escape(workflow.title))</strong>
+                  <p>\(escape(workflow.detail))</p>
+                </article>
+                """
+            }.joined(separator: "\n")
+        }
+        return """
+        <section class="automations-pane" data-testid="automations-pane" aria-label="Automations">
+          <header>
+            <div>
+              <strong data-testid="automations-title">\(escape(automations.title))</strong>
+              <p data-testid="automations-subtitle">\(escape(automations.subtitle))</p>
+            </div>
+            <span data-testid="automations-status">\(escape(automations.statusLabel))</span>
+          </header>
+          <div class="automation-grid">
+            \(content)
+          </div>
         </section>
         """
     }

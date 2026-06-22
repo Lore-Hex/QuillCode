@@ -658,7 +658,8 @@
     .terminal-pane,
     .browser-pane,
     .extensions-pane,
-    .memories-pane {
+    .memories-pane,
+    .automations-pane {
       display: grid;
       gap: 10px;
       padding: 14px;
@@ -669,6 +670,7 @@
     .browser-pane header,
     .extensions-pane header,
     .memories-pane header,
+    .automations-pane header,
     .activity-pane header,
     .terminal-entry header {
       display: flex;
@@ -915,17 +917,20 @@
       padding: 0 0 2px;
     }
     .extensions-pane header p,
-    .memories-pane header p { margin: 3px 0 0; color: var(--muted); }
+    .memories-pane header p,
+    .automations-pane header p { margin: 3px 0 0; color: var(--muted); }
     .extensions-counts,
     .memories-counts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
     .extensions-counts span,
     .memories-counts span,
+    .automations-pane header > span,
     .memories-add-button,
     .memory-delete-button,
     .extension-card [data-testid="extension-kind"],
     .extension-card [data-testid="extension-status"],
     .memory-card [data-testid="memory-scope"],
-    .memory-card [data-testid="memory-size"] {
+    .memory-card [data-testid="memory-size"],
+    .automation-card span {
       padding: 4px 8px;
       border-radius: 999px;
       color: #b8ecff;
@@ -1059,15 +1064,18 @@
       cursor: pointer;
     }
     .extensions-grid,
-    .memories-grid {
+    .memories-grid,
+    .automation-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 10px;
     }
     .extension-card,
     .memory-card,
+    .automation-card,
     .extensions-empty,
-    .memories-empty {
+    .memories-empty,
+    .automation-empty {
       display: grid;
       gap: 7px;
       align-content: start;
@@ -1078,10 +1086,17 @@
     }
     .extension-card header,
     .memory-card header { justify-content: flex-start; }
+    .automation-card div {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
     .extension-card p,
     .memory-card p,
+    .automation-card p,
     .extensions-empty p,
-    .memories-empty p { margin: 0; color: var(--muted); }
+    .memories-empty p,
+    .automation-empty p { margin: 0; color: var(--muted); }
     .extension-card code,
     .extension-card [data-testid="extension-transport"],
     .memory-card code {
@@ -2130,6 +2145,7 @@
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', category: 'Workspace', keywords: ['shell', 'command', 'pty'], isEnabled: true },
         { id: 'toggle-browser', title: 'Browser', shortcut: 'Cmd+Shift+B', category: 'Workspace', keywords: ['preview', 'web', 'localhost'], isEnabled: true },
         { id: 'toggle-activity', title: 'Activity', shortcut: '', category: 'Workspace', keywords: ['task', 'summary', 'sources', 'artifacts', 'tools'], isEnabled: true },
+        { id: 'toggle-automations', title: 'Automations', shortcut: '', category: 'Workspace', keywords: ['automation', 'schedule', 'recurring', 'monitor', 'follow-up', 'heartbeat'], isEnabled: true },
         { id: 'toggle-memories', title: 'Memories', shortcut: '', category: 'Memories', keywords: ['memory', 'context', 'preferences', 'facts'], isEnabled: true },
         { id: 'memory-add', title: 'Add memory', shortcut: '', category: 'Memories', keywords: ['remember', 'save', 'preference', 'fact'], isEnabled: true },
         { id: 'toggle-extensions', title: 'Extensions', shortcut: '', category: 'Extensions', keywords: ['plugins', 'skills', 'mcp', 'manifest'], isEnabled: true },
@@ -2172,6 +2188,35 @@
         isVisible: false,
         collapsedSections: [],
         authoredPlan: null
+      },
+      automations: {
+        isVisible: false,
+        title: 'Automations',
+        subtitle: 'Recurring work, follow-ups, monitors, and long-running agent jobs',
+        statusLabel: '3 planned',
+        workflows: [
+          {
+            id: 'thread-followups',
+            title: 'Thread follow-ups',
+            detail: 'Wake a conversation later with the same project, model, and context.',
+            statusLabel: 'Planned',
+            scheduleLabel: 'Heartbeat'
+          },
+          {
+            id: 'workspace-schedules',
+            title: 'Workspace schedules',
+            detail: 'Run repeatable repo checks, local environment actions, or reports.',
+            statusLabel: 'Planned',
+            scheduleLabel: 'Cron'
+          },
+          {
+            id: 'monitors',
+            title: 'Monitors',
+            detail: 'Watch CI, PRs, endpoints, or files and surface actionable changes.',
+            statusLabel: 'Planned',
+            scheduleLabel: 'Event'
+          }
+        ]
       },
       nextProjectIndex: 2,
       nextThreadIndex: 1,
@@ -3280,7 +3325,9 @@
         )).join('')
         : state.transcript.messages.map(renderMessage).join('')
           + state.transcript.toolCards.map(renderToolCard).join('');
-      const timeline = context || runtimeIssue || review || transcriptItems ? context + runtimeIssue + review + transcriptItems : `
+      const hasTimelineContent = Boolean(context || runtimeIssue || review || transcriptItems);
+      const shouldHideEmptyTranscript = state.automations.isVisible && !hasTimelineContent;
+      const timeline = hasTimelineContent ? context + runtimeIssue + review + transcriptItems : shouldHideEmptyTranscript ? '' : `
         <section class="empty" data-testid="transcript-empty">
           <h1>${escapeHTML(state.transcript.emptyTitle)}</h1>
           <p>${escapeHTML(state.transcript.emptySubtitle)}</p>
@@ -3412,12 +3459,13 @@
                 <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true">New chat</button>
                 <button class="sidebar-action" type="button" data-testid="sidebar-search-button" data-primary="true">Search</button>
                 <button class="sidebar-action" type="button" data-testid="extensions-button" data-primary="true">Plugins</button>
-                <button class="sidebar-action" type="button" data-testid="activity-button" data-primary="true">Automations</button>
+                <button class="sidebar-action" type="button" data-testid="automations-button" data-primary="true">Automations</button>
               </div>
               <div class="sidebar-utility-row" aria-label="Workspace tools">
                 <button class="sidebar-action" type="button" data-testid="terminal-button" data-secondary="true" aria-label="Terminal" title="Terminal">Term</button>
                 <button class="sidebar-action" type="button" data-testid="browser-button" data-secondary="true" aria-label="Browser" title="Browser">Web</button>
                 <button class="sidebar-action" type="button" data-testid="memories-button" data-secondary="true" aria-label="Memories" title="Memories">Mem</button>
+                <button class="sidebar-action" type="button" data-testid="activity-button" data-secondary="true" aria-label="Activity" title="Activity">Act</button>
               </div>
               <h2>${escapeHTML(state.sidebar.title)}</h2>
               ${sidebarContent}
@@ -3429,6 +3477,7 @@
             </aside>
 	            <main class="transcript" data-testid="transcript">
                 ${state.find.isOpen ? renderFindBar(findMatches) : ''}
+	              ${state.automations.isVisible ? renderAutomationsPane() : ''}
 	              <div class="timeline" data-testid="timeline">${timeline}</div>
 	              ${state.browser.isVisible ? renderBrowserPane() : ''}
 	              ${state.extensions.isVisible ? renderExtensionsPane() : ''}
@@ -3614,6 +3663,9 @@
       });
       document.querySelector('[data-testid="new-chat-button"]').addEventListener('click', () => {
         newChat();
+      });
+      document.querySelector('[data-testid="automations-button"]').addEventListener('click', () => {
+        runCommand('toggle-automations');
       });
       document.querySelector('[data-testid="activity-button"]').addEventListener('click', () => {
         runCommand('toggle-activity');
@@ -4960,6 +5012,37 @@
         </section>`;
     }
 
+    function renderAutomationsPane() {
+      const workflows = state.automations.workflows || [];
+      const content = workflows.length ? `
+        <div class="automation-grid" data-testid="automation-grid">
+          ${workflows.map(workflow => `
+            <article class="automation-card" data-testid="automation-card">
+              <div>
+                <span data-testid="automation-schedule">${escapeHTML(workflow.scheduleLabel)}</span>
+                <span data-testid="automation-status">${escapeHTML(workflow.statusLabel)}</span>
+              </div>
+              <strong>${escapeHTML(workflow.title)}</strong>
+              <p>${escapeHTML(workflow.detail)}</p>
+            </article>`).join('')}
+        </div>` : `
+        <div class="automation-empty" data-testid="automations-empty">
+          <strong>No automations yet</strong>
+          <p>Create scheduled follow-ups, workspace checks, and monitors once the automation runtime lands.</p>
+        </div>`;
+      return `
+        <section class="automations-pane" data-testid="automations-pane" aria-label="Automations">
+          <header>
+            <div>
+              <strong data-testid="automations-title">${escapeHTML(state.automations.title)}</strong>
+              <p data-testid="automations-subtitle">${escapeHTML(state.automations.subtitle)}</p>
+            </div>
+            <span data-testid="automations-status">${escapeHTML(state.automations.statusLabel)}</span>
+          </header>
+          ${content}
+        </section>`;
+    }
+
     function sidebarActionsFor(item) {
       if (item.isArchived) {
         return [
@@ -5476,6 +5559,9 @@
       }
       if (commandID === 'toggle-activity') {
         state.activity.isVisible = !state.activity.isVisible;
+      }
+      if (commandID === 'toggle-automations') {
+        state.automations.isVisible = !state.automations.isVisible;
       }
       if (commandID?.startsWith('activity-toggle-section:')) {
         state.activity.isVisible = true;

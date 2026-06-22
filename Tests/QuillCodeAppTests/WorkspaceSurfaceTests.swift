@@ -94,6 +94,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "toggle-terminal",
             "toggle-browser",
             "toggle-activity",
+            "toggle-automations",
             "toggle-memories",
             "memory-add",
             "toggle-extensions",
@@ -357,6 +358,24 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(model.surface().activity.isVisible)
         XCTAssertTrue(model.runWorkspaceCommand("toggle-activity", workspaceRoot: URL(fileURLWithPath: "/tmp")))
         XCTAssertTrue(model.surface().activity.isVisible)
+    }
+
+    func testAutomationsCommandTogglesAutomationsPaneWithoutActivity() {
+        let model = QuillCodeWorkspaceModel()
+
+        XCTAssertFalse(model.surface().automations.isVisible)
+        XCTAssertFalse(model.surface().activity.isVisible)
+        XCTAssertTrue(model.runWorkspaceCommand("toggle-automations", workspaceRoot: URL(fileURLWithPath: "/tmp")))
+
+        let surface = model.surface()
+        XCTAssertTrue(surface.automations.isVisible)
+        XCTAssertFalse(surface.activity.isVisible)
+        XCTAssertEqual(surface.automations.title, "Automations")
+        XCTAssertEqual(surface.automations.workflows.map(\.title), [
+            "Thread follow-ups",
+            "Workspace schedules",
+            "Monitors"
+        ])
     }
 
     func testActivitySectionToggleCollapsesSharedSurfaceSection() throws {

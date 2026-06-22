@@ -162,24 +162,32 @@ public struct QuillCodeWorkspaceView: View {
                 Divider()
                 HStack(spacing: 0) {
                     VStack(spacing: 0) {
-                        QuillCodeTranscriptView(
-                            transcript: surface.transcript,
-                            contextBanner: surface.contextBanner,
-                            runtimeIssue: surface.runtimeIssue,
-                            review: surface.review,
-                            retryLastTurnCommand: surface.commands.first { $0.id == "retry-last-turn" && $0.isEnabled },
-                            isFindPresented: $isFindPresented,
-                            findQuery: $findQuery,
-                            activeFindIndex: $activeFindIndex,
-                            copiedTranscriptItemID: copiedTranscriptItemID,
-                            onContextCommand: handleCommand,
-                            onRuntimeIssueAction: runtimeIssueAction(for: surface.runtimeIssue),
-                            onReviewAction: onReviewAction,
-                            onAddReviewComment: onAddReviewComment,
-                            onCopyTranscriptItem: onCopyTranscriptItem,
-                            onUseMessageAsDraft: useMessageAsDraft,
-                            onMessageFeedback: onMessageFeedback
-                        )
+                        if surface.automations.isVisible {
+                            QuillCodeAutomationsPaneView(automations: surface.automations)
+                            Divider()
+                        }
+                        if !surface.automations.isVisible || !surface.transcript.timelineItems.isEmpty {
+                            QuillCodeTranscriptView(
+                                transcript: surface.transcript,
+                                contextBanner: surface.contextBanner,
+                                runtimeIssue: surface.runtimeIssue,
+                                review: surface.review,
+                                retryLastTurnCommand: surface.commands.first { $0.id == "retry-last-turn" && $0.isEnabled },
+                                isFindPresented: $isFindPresented,
+                                findQuery: $findQuery,
+                                activeFindIndex: $activeFindIndex,
+                                copiedTranscriptItemID: copiedTranscriptItemID,
+                                onContextCommand: handleCommand,
+                                onRuntimeIssueAction: runtimeIssueAction(for: surface.runtimeIssue),
+                                onReviewAction: onReviewAction,
+                                onAddReviewComment: onAddReviewComment,
+                                onCopyTranscriptItem: onCopyTranscriptItem,
+                                onUseMessageAsDraft: useMessageAsDraft,
+                                onMessageFeedback: onMessageFeedback
+                            )
+                        } else {
+                            Spacer(minLength: 0)
+                        }
                         if surface.browser.isVisible {
                             Divider()
                             QuillCodeBrowserPaneView(
@@ -784,6 +792,8 @@ private struct QuillCodeCommandPaletteView: View {
             return "globe"
         case "toggle-activity":
             return "list.bullet.rectangle"
+        case "toggle-automations":
+            return "clock.arrow.circlepath"
         case "toggle-memories", "memory-add":
             return "brain.head.profile"
         case "toggle-extensions":
@@ -1591,13 +1601,8 @@ private struct QuillCodeSidebarActionsView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     private var visibleCommands: [WorkspaceCommandSurface] {
-        commands.filter {
-            [
-                "new-chat",
-                "search",
-                "toggle-activity",
-                "toggle-extensions"
-            ].contains($0.id)
+        ["new-chat", "search", "toggle-extensions", "toggle-automations"].compactMap { id in
+            commands.first { $0.id == id }
         }
     }
 
@@ -1624,8 +1629,6 @@ private struct QuillCodeSidebarActionsView: View {
         switch command.id {
         case "toggle-extensions":
             return "Plugins"
-        case "toggle-activity":
-            return "Automations"
         default:
             return command.title
         }
@@ -1637,7 +1640,7 @@ private struct QuillCodeSidebarActionsView: View {
             return "square.and.pencil"
         case "search":
             return "magnifyingglass"
-        case "toggle-activity":
+        case "toggle-automations":
             return "clock.arrow.circlepath"
         case "toggle-extensions":
             return "puzzlepiece.extension"
@@ -1652,12 +1655,8 @@ private struct QuillCodeSidebarUtilityActionsView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     private var visibleCommands: [WorkspaceCommandSurface] {
-        commands.filter {
-            [
-                "toggle-terminal",
-                "toggle-browser",
-                "toggle-memories"
-            ].contains($0.id)
+        ["toggle-terminal", "toggle-browser", "toggle-memories", "toggle-activity"].compactMap { id in
+            commands.first { $0.id == id }
         }
     }
 
@@ -1689,6 +1688,8 @@ private struct QuillCodeSidebarUtilityActionsView: View {
             return "globe"
         case "toggle-memories":
             return "brain.head.profile"
+        case "toggle-activity":
+            return "waveform.path.ecg"
         default:
             return "circle"
         }
@@ -2862,6 +2863,80 @@ private struct QuillCodeMemoriesPaneView: View {
             .padding(.vertical, 4)
             .background(QuillCodePalette.blue.opacity(0.12))
             .clipShape(Capsule())
+    }
+}
+
+private struct QuillCodeAutomationsPaneView: View {
+    var automations: WorkspaceAutomationsSurface
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: "clock.arrow.circlepath")
+                    .foregroundStyle(QuillCodePalette.blue)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(automations.title)
+                        .font(.headline)
+                    Text(automations.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(2)
+                }
+                Spacer()
+                Text(automations.statusLabel)
+                    .font(.caption.weight(.semibold))
+                    .fontDesign(.rounded)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(QuillCodePalette.blue.opacity(0.14))
+                    .foregroundStyle(QuillCodePalette.blue)
+                    .clipShape(Capsule())
+            }
+
+            if automations.workflows.isEmpty {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(automations.emptyTitle)
+                        .font(.callout.weight(.semibold))
+                    Text(automations.emptySubtitle)
+                        .font(.caption)
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(QuillCodePalette.background.opacity(0.7))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            } else {
+                HStack(spacing: 10) {
+                    ForEach(automations.workflows) { workflow in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Text(workflow.scheduleLabel)
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(QuillCodePalette.blue)
+                                Spacer()
+                                Text(workflow.statusLabel)
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(QuillCodePalette.muted)
+                            }
+                            Text(workflow.title)
+                                .font(.callout.weight(.semibold))
+                                .lineLimit(1)
+                            Text(workflow.detail)
+                                .font(.caption)
+                                .foregroundStyle(QuillCodePalette.muted)
+                                .lineLimit(3)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .padding(12)
+                        .background(QuillCodePalette.background.opacity(0.7))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(minHeight: 190)
+        .background(QuillCodePalette.panel)
     }
 }
 

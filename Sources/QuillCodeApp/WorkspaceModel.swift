@@ -932,6 +932,14 @@ public struct ActivityState: Sendable, Hashable {
     }
 }
 
+public struct AutomationsState: Sendable, Hashable {
+    public var isVisible: Bool
+
+    public init(isVisible: Bool = false) {
+        self.isVisible = isVisible
+    }
+}
+
 public struct SidebarSelectionState: Sendable, Hashable {
     public var isActive: Bool
     public var selectedThreadIDs: Set<UUID>
@@ -1116,6 +1124,7 @@ public final class QuillCodeWorkspaceModel {
     public private(set) var extensions: ExtensionsState
     public private(set) var memories: MemoriesState
     public private(set) var activity: ActivityState
+    public private(set) var automations: AutomationsState
     public private(set) var sidebarSelection: SidebarSelectionState
     public private(set) var lastError: String?
 
@@ -1135,6 +1144,7 @@ public final class QuillCodeWorkspaceModel {
         extensions: ExtensionsState = ExtensionsState(),
         memories: MemoriesState = MemoriesState(),
         activity: ActivityState = ActivityState(),
+        automations: AutomationsState = AutomationsState(),
         sidebarSelection: SidebarSelectionState = SidebarSelectionState(),
         runner: AgentRunner = AgentRunner(),
         threadStore: JSONThreadStore? = nil,
@@ -1150,6 +1160,7 @@ public final class QuillCodeWorkspaceModel {
         self.extensions = extensions
         self.memories = memories
         self.activity = activity
+        self.automations = automations
         self.sidebarSelection = sidebarSelection
         self.runner = runner
         self.threadStore = threadStore
@@ -1355,6 +1366,10 @@ public final class QuillCodeWorkspaceModel {
 
     public func toggleActivity() {
         activity.isVisible.toggle()
+    }
+
+    public func toggleAutomations() {
+        automations.isVisible.toggle()
     }
 
     public func toggleActivitySection(_ section: ActivitySectionKind) {
@@ -2240,6 +2255,9 @@ public final class QuillCodeWorkspaceModel {
             return true
         case "toggle-activity":
             toggleActivity()
+            return true
+        case "toggle-automations":
+            toggleAutomations()
             return true
         case "memory-add":
             composer.draft = "/remember "

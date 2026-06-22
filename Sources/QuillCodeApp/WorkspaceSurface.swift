@@ -15,6 +15,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var extensions: WorkspaceExtensionsSurface
     public var memories: WorkspaceMemoriesSurface
     public var activity: WorkspaceActivitySurface
+    public var automations: WorkspaceAutomationsSurface
     public var composer: ComposerSurface
     public var commands: [WorkspaceCommandSurface]
     public var settings: WorkspaceSettingsSurface
@@ -33,6 +34,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         extensions: WorkspaceExtensionsSurface = WorkspaceExtensionsSurface(),
         memories: WorkspaceMemoriesSurface = WorkspaceMemoriesSurface(),
         activity: WorkspaceActivitySurface = WorkspaceActivitySurface(),
+        automations: WorkspaceAutomationsSurface = WorkspaceAutomationsSurface(),
         composer: ComposerSurface,
         commands: [WorkspaceCommandSurface],
         settings: WorkspaceSettingsSurface,
@@ -50,6 +52,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.extensions = extensions
         self.memories = memories
         self.activity = activity
+        self.automations = automations
         self.composer = composer
         self.commands = commands
         self.settings = settings
@@ -1310,6 +1313,77 @@ public struct WorkspaceMemoriesSurface: Codable, Sendable, Hashable {
     }
 }
 
+public struct WorkspaceAutomationsSurface: Codable, Sendable, Hashable {
+    public var isVisible: Bool
+    public var title: String
+    public var subtitle: String
+    public var statusLabel: String
+    public var emptyTitle: String
+    public var emptySubtitle: String
+    public var workflows: [AutomationWorkflowSurface]
+
+    public init(
+        isVisible: Bool = false,
+        workflows: [AutomationWorkflowSurface] = AutomationWorkflowSurface.plannedWorkflows,
+        emptyTitle: String = "No automations yet",
+        emptySubtitle: String = "Create scheduled follow-ups, workspace checks, and monitors once the automation runtime lands."
+    ) {
+        self.isVisible = isVisible
+        self.title = "Automations"
+        self.subtitle = "Recurring work, follow-ups, monitors, and long-running agent jobs"
+        self.statusLabel = workflows.isEmpty ? "Empty" : "\(workflows.count) planned"
+        self.emptyTitle = emptyTitle
+        self.emptySubtitle = emptySubtitle
+        self.workflows = workflows
+    }
+}
+
+public struct AutomationWorkflowSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var title: String
+    public var detail: String
+    public var statusLabel: String
+    public var scheduleLabel: String
+
+    public init(
+        id: String,
+        title: String,
+        detail: String,
+        statusLabel: String,
+        scheduleLabel: String
+    ) {
+        self.id = id
+        self.title = title
+        self.detail = detail
+        self.statusLabel = statusLabel
+        self.scheduleLabel = scheduleLabel
+    }
+
+    public static let plannedWorkflows: [AutomationWorkflowSurface] = [
+        AutomationWorkflowSurface(
+            id: "thread-followups",
+            title: "Thread follow-ups",
+            detail: "Wake a conversation later with the same project, model, and context.",
+            statusLabel: "Planned",
+            scheduleLabel: "Heartbeat"
+        ),
+        AutomationWorkflowSurface(
+            id: "workspace-schedules",
+            title: "Workspace schedules",
+            detail: "Run repeatable repo checks, local environment actions, or reports.",
+            statusLabel: "Planned",
+            scheduleLabel: "Cron"
+        ),
+        AutomationWorkflowSurface(
+            id: "monitors",
+            title: "Monitors",
+            detail: "Watch CI, PRs, endpoints, or files and surface actionable changes.",
+            statusLabel: "Planned",
+            scheduleLabel: "Event"
+        )
+    ]
+}
+
 public struct MemoryNoteSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var scope: MemoryScope
@@ -2321,6 +2395,9 @@ public extension QuillCodeWorkspaceModel {
                 agentStatus: topBarState.agentStatus,
                 collapsedSectionIDs: activity.collapsedSectionIDs
             ),
+            automations: WorkspaceAutomationsSurface(
+                isVisible: automations.isVisible
+            ),
             composer: ComposerSurface(composer: composer),
             commands: commands(),
             settings: WorkspaceSettingsSurface(
@@ -2924,6 +3001,12 @@ public extension QuillCodeWorkspaceModel {
                 title: "Activity",
                 category: WorkspaceCommandPalette.workspaceCategory,
                 keywords: ["task", "summary", "sources", "artifacts", "tools"]
+            ),
+            WorkspaceCommandSurface(
+                id: "toggle-automations",
+                title: "Automations",
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["automation", "schedule", "recurring", "monitor", "follow-up", "heartbeat"]
             ),
             WorkspaceCommandSurface(
                 id: "toggle-memories",
