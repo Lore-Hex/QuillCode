@@ -5,6 +5,8 @@ final class CoreModelTests: XCTestCase {
     func testTrustedRouterDefaults() {
         XCTAssertEqual(TrustedRouterDefaults.fastModel, "trustedrouter/fast")
         XCTAssertEqual(TrustedRouterDefaults.fusionModel, "tr/fusion")
+        XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.fastModel), "Nike 1.0")
+        XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.fusionModel), "Prometheus 1.0")
         XCTAssertEqual(TrustedRouterDefaults.defaultModel, TrustedRouterDefaults.fastModel)
         XCTAssertEqual(TrustedRouterDefaults.recommendedModelIDs, [TrustedRouterDefaults.fastModel, TrustedRouterDefaults.fusionModel])
         XCTAssertEqual(TrustedRouterDefaults.canonicalProvider("tr"), TrustedRouterDefaults.trustedRouterProvider)
@@ -13,8 +15,8 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(TrustedRouterDefaults.safetyPrimaryModel, "glm-5.2")
         XCTAssertEqual(TrustedRouterDefaults.safetyFallbackModel, "kimi-k2.6")
         XCTAssertLessThan(
-            TrustedRouterDefaults.modelSortKey(id: TrustedRouterDefaults.fastModel, provider: "trustedrouter", displayName: "Fast"),
-            TrustedRouterDefaults.modelSortKey(id: TrustedRouterDefaults.fusionModel, provider: "tr", displayName: "Fusion")
+            TrustedRouterDefaults.modelSortKey(id: TrustedRouterDefaults.fastModel, provider: "trustedrouter", displayName: "Nike 1.0"),
+            TrustedRouterDefaults.modelSortKey(id: TrustedRouterDefaults.fusionModel, provider: "tr", displayName: "Prometheus 1.0")
         )
         XCTAssertLessThan(
             TrustedRouterDefaults.modelCategoryRank(TrustedRouterDefaults.recommendedCategory),

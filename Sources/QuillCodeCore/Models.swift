@@ -1094,6 +1094,8 @@ public enum TrustedRouterDefaults {
     public static let safetyCategory = "Safety"
     public static let currentCategory = "Current"
     public static let trustedRouterProvider = "trustedrouter"
+    public static let fastModelDisplayName = "Nike 1.0"
+    public static let fusionModelDisplayName = "Prometheus 1.0"
     public static let trustedRouterProviderAliases: [String: String] = ["tr": trustedRouterProvider]
     public static let recommendedModelIDs = [fastModel, fusionModel]
     public static let modelIDAliases: [String: String] = [
@@ -1105,10 +1107,15 @@ public enum TrustedRouterDefaults {
     public static let safetyReviewerModelIDs = [safetyPrimaryCatalogModel, safetyFallbackCatalogModel]
 
     public static let bundledModelCatalog: [ModelInfo] = [
-        .init(id: fastModel, provider: trustedRouterProvider, displayName: "Fast", category: recommendedCategory),
-        .init(id: fusionModel, provider: trustedRouterProvider, displayName: "Fusion", category: recommendedCategory),
+        .init(id: fastModel, provider: trustedRouterProvider, displayName: fastModelDisplayName, category: recommendedCategory),
+        .init(id: fusionModel, provider: trustedRouterProvider, displayName: fusionModelDisplayName, category: recommendedCategory),
         .init(id: safetyPrimaryCatalogModel, provider: "z-ai", displayName: "GLM 5.2", category: safetyCategory),
         .init(id: safetyFallbackCatalogModel, provider: "moonshotai", displayName: "Kimi K2.6", category: safetyCategory)
+    ]
+
+    public static let recommendedDisplayNames: [String: String] = [
+        fastModel: fastModelDisplayName,
+        fusionModel: fusionModelDisplayName
     ]
 
     public static func canonicalProvider(_ provider: String) -> String {
@@ -1135,6 +1142,9 @@ public enum TrustedRouterDefaults {
     }
 
     public static func displayName(fromModelID modelID: String) -> String {
+        if let displayName = recommendedDisplayNames[canonicalModelID(modelID)] {
+            return displayName
+        }
         let raw = canonicalModelID(modelID).split(separator: "/").last.map(String.init) ?? modelID
         return raw
             .replacingOccurrences(of: "-", with: " ")
@@ -1154,6 +1164,9 @@ public enum TrustedRouterDefaults {
     }
 
     public static func displayLabel(for model: ModelInfo) -> String {
+        if let displayName = recommendedDisplayNames[canonicalModelID(model.id)] {
+            return displayName
+        }
         if canonicalProvider(model.provider) == trustedRouterProvider {
             return model.id
         }

@@ -2185,7 +2185,7 @@
         subtitle: 'QuillCode - Not started',
         instructionLabel: '1 instruction file loaded',
         instructionSources: ['AGENTS.md'],
-        modelLabel: 'trustedrouter/fast',
+        modelLabel: 'Nike 1.0',
         selectedModelID: 'trustedrouter/fast',
         modelPickerOpen: false,
         expandedModelID: null,
@@ -2194,8 +2194,8 @@
           {
             category: 'Recommended',
             models: [
-              { id: 'trustedrouter/fast', provider: 'trustedrouter', displayName: 'Fast', isSelected: true, isFavorite: false, badges: ['Current', 'Default', 'Recommended'] },
-              { id: 'tr/fusion', provider: 'trustedrouter', displayName: 'Fusion', isSelected: false, isFavorite: false, badges: [] }
+              { id: 'trustedrouter/fast', provider: 'trustedrouter', displayName: 'Nike 1.0', isSelected: true, isFavorite: false, badges: ['Current', 'Default', 'Recommended'] },
+              { id: 'tr/fusion', provider: 'trustedrouter', displayName: 'Prometheus 1.0', isSelected: false, isFavorite: false, badges: [] }
             ]
           },
           {
@@ -4477,7 +4477,7 @@
       const selected = allModels.find(model => model.id === selectedID);
       if (!selected) return;
       state.topBar.selectedModelID = selected.id;
-      state.topBar.modelLabel = selected.id;
+      state.topBar.modelLabel = modelDisplayLabel(selected);
       state.topBar.modelPickerOpen = false;
       state.topBar.modelSearch = '';
       state.topBar.expandedModelID = null;
@@ -4494,6 +4494,13 @@
         })
       }));
       render();
+    }
+
+    function modelDisplayLabel(model) {
+      if (model.id === 'trustedrouter/fast') return 'Nike 1.0';
+      if (model.id === 'tr/fusion') return 'Prometheus 1.0';
+      if (model.provider === 'trustedrouter') return model.id;
+      return `${model.provider}/${model.displayName}`;
     }
 
     function toggleModelFavorite(modelID) {
@@ -4542,13 +4549,13 @@
     }
 
     function modelMetadataSummary(model, categoryName) {
-      return model.metadataSummary || `${model.category || categoryName || 'Models'} · ${model.id}`;
+      return model.metadataSummary || `${model.category || categoryName || 'Models'} · ${modelDisplayLabel(model)}`;
     }
 
     function modelCapabilitySummary(model, categoryName) {
       if (model.capabilitySummary) return model.capabilitySummary;
-      if (model.id === 'trustedrouter/fast') return 'Fast default for coding, shell, and file-editing turns.';
-      if (model.id === 'tr/fusion') return 'Balanced TrustedRouter model for deeper coding and review turns.';
+      if (model.id === 'trustedrouter/fast') return 'Nike 1.0 is the fast default for coding, shell, and file-editing turns.';
+      if (model.id === 'tr/fusion') return 'Prometheus 1.0 is the balanced model for deeper coding and review turns.';
       if ((model.badges || []).includes('Recommended')) return 'Recommended model profile available through TrustedRouter.';
       const category = model.category || categoryName || 'Models';
       if (category === 'Safety') return 'Lightweight reviewer model for Auto safety decisions.';
@@ -7460,7 +7467,7 @@
         state.runtimeIssue = makeRuntimeIssue({
           severity: 'warning',
           title: 'Model response was malformed',
-          message: "The selected model did not follow QuillCode's action schema. Try trustedrouter/fast, tr/fusion, or another coding model.",
+          message: "The selected model did not follow QuillCode's action schema. Try Nike 1.0, Prometheus 1.0, or another coding model.",
           actionLabel: 'Switch model'
         }, 'Expected valid QuillCode action JSON but received an empty argument object.');
       } else if (/^\/(new|new-chat|newchat)\b/i.test(text)) {

@@ -24,7 +24,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         let surface = model.surface()
 
         XCTAssertEqual(surface.topBar.primaryTitle, "Run whoami")
-        XCTAssertEqual(surface.topBar.modelLabel, TrustedRouterDefaults.defaultModel)
+        XCTAssertEqual(surface.topBar.modelLabel, TrustedRouterDefaults.fastModelDisplayName)
         XCTAssertEqual(surface.topBar.selectedModelID, TrustedRouterDefaults.defaultModel)
         XCTAssertTrue(surface.topBar.modelCategories.contains { $0.category == "Recommended" })
         XCTAssertTrue(surface.topBar.modelCategories.flatMap(\.models).contains { $0.id == TrustedRouterDefaults.defaultModel && $0.isSelected })
@@ -37,7 +37,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         let defaultOption = surface.topBar.modelCategories
             .flatMap(\.models)
             .first { $0.id == TrustedRouterDefaults.defaultModel }
-        XCTAssertEqual(defaultOption?.metadataSummary, "Recommended · trustedrouter/fast")
+        XCTAssertEqual(defaultOption?.metadataSummary, "Recommended · Nike 1.0")
         XCTAssertTrue(defaultOption?.metadataDetails.contains("Default model") == true)
         XCTAssertTrue(defaultOption?.metadataDetails.contains("Recommended by QuillCode") == true)
         XCTAssertEqual(surface.topBar.modeLabel, "Auto")
@@ -787,7 +787,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             topBar: TopBarState(model: "acme/code-pro")
         ))
         model.setModelCatalog([
-            .init(id: TrustedRouterDefaults.fusionModel, provider: "trustedrouter", displayName: "Fusion", category: "Recommended"),
+            .init(id: TrustedRouterDefaults.fusionModel, provider: "trustedrouter", displayName: TrustedRouterDefaults.fusionModelDisplayName, category: "Recommended"),
             .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
             .init(id: "acme/fast", provider: "acme", displayName: "Fast", category: "Coding")
         ])
@@ -809,7 +809,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             topBar: TopBarState(model: TrustedRouterDefaults.fusionModel)
         ))
         model.setModelCatalog([
-            .init(id: TrustedRouterDefaults.fusionModel, provider: "trustedrouter", displayName: "Fusion", category: "Recommended"),
+            .init(id: TrustedRouterDefaults.fusionModel, provider: "trustedrouter", displayName: TrustedRouterDefaults.fusionModelDisplayName, category: "Recommended"),
             .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
             .init(id: "moonshotai/kimi-k2.6", provider: "moonshotai", displayName: "Kimi K2.6", category: "Safety")
         ])
@@ -818,7 +818,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertEqual(topBar.filteredModelCategories(matching: "coding").flatMap(\.models).map(\.id), ["acme/code-pro"])
         XCTAssertEqual(topBar.filteredModelCategories(matching: "moon k2").flatMap(\.models).map(\.id), ["moonshotai/kimi-k2.6"])
-        XCTAssertEqual(topBar.filteredModelCategories(matching: "trusted fusion").flatMap(\.models).map(\.id), [TrustedRouterDefaults.fusionModel])
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "prometheus").flatMap(\.models).map(\.id), [TrustedRouterDefaults.fusionModel])
         XCTAssertEqual(topBar.filteredModelCategories(matching: "default model").flatMap(\.models).map(\.id), [TrustedRouterDefaults.fusionModel])
         XCTAssertTrue(topBar.filteredModelCategories(matching: "does-not-exist").isEmpty)
     }
@@ -1135,9 +1135,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
             .first { $0.id == TrustedRouterDefaults.defaultModel })
         XCTAssertTrue(defaultOption.badges.contains("Default"))
         XCTAssertTrue(defaultOption.badges.contains("Recommended"))
-        XCTAssertEqual(defaultOption.metadataSummary, "Recommended · trustedrouter/fast")
-        XCTAssertEqual(defaultOption.detailTitle, "trustedrouter/Fast")
-        XCTAssertEqual(defaultOption.capabilitySummary, "Fast default for coding, shell, and file-editing turns.")
+        XCTAssertEqual(defaultOption.metadataSummary, "Recommended · Nike 1.0")
+        XCTAssertEqual(defaultOption.detailTitle, "trustedrouter/Nike 1.0")
+        XCTAssertEqual(defaultOption.capabilitySummary, "Nike 1.0 is the fast default for coding, shell, and file-editing turns.")
         XCTAssertTrue(defaultOption.metadataDetails.contains("Provider: trustedrouter"))
         XCTAssertTrue(defaultOption.metadataDetails.contains("Model ID: trustedrouter/fast"))
         XCTAssertTrue(defaultOption.metadataDetails.contains("Category: Recommended"))
@@ -1146,7 +1146,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertEqual(topBar.filteredModelCategories(matching: "moon k2").flatMap(\.models).map(\.id), ["moonshotai/kimi-k2.6"])
         XCTAssertEqual(topBar.filteredModelCategories(matching: "recent").first?.category, "Recent")
-        XCTAssertEqual(topBar.filteredModelCategories(matching: "fast default").flatMap(\.models).map(\.id), [TrustedRouterDefaults.defaultModel])
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "nike default").flatMap(\.models).map(\.id), [TrustedRouterDefaults.defaultModel])
         XCTAssertEqual(topBar.filteredModelCategories(matching: "default state").flatMap(\.models).map(\.id), [TrustedRouterDefaults.defaultModel])
     }
 
@@ -1192,7 +1192,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         {
           "id": "tr/fusion",
           "provider": "trustedrouter",
-          "displayName": "Fusion",
+          "displayName": "Prometheus 1.0",
           "category": "Recommended",
           "isSelected": true
         }
@@ -1204,9 +1204,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(option.isSelected)
         XCTAssertFalse(option.isFavorite)
         XCTAssertTrue(option.badges.isEmpty)
-        XCTAssertEqual(option.metadataSummary, "Recommended · tr/fusion")
-        XCTAssertEqual(option.detailTitle, "trustedrouter/Fusion")
-        XCTAssertEqual(option.capabilitySummary, "Balanced TrustedRouter model for deeper coding and review turns.")
+        XCTAssertEqual(option.metadataSummary, "Recommended · Prometheus 1.0")
+        XCTAssertEqual(option.detailTitle, "trustedrouter/Prometheus 1.0")
+        XCTAssertEqual(option.capabilitySummary, "Prometheus 1.0 is the balanced model for deeper coding and review turns.")
         XCTAssertTrue(option.metadataDetails.contains("Provider: trustedrouter"))
         XCTAssertTrue(option.metadataDetails.contains("Model ID: tr/fusion"))
         XCTAssertTrue(option.metadataDetails.contains("Category: Recommended"))

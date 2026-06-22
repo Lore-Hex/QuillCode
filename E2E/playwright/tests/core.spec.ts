@@ -33,7 +33,7 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('project-item')).toContainText('QuillCode');
   await expect(page.getByTestId('project-item')).toHaveAttribute('aria-current', 'true');
   await expect(page.getByTestId('transcript-empty')).toBeVisible();
-  await expect(page.getByTestId('model-picker-button')).toHaveText('trustedrouter/fast · Auto');
+  await expect(page.getByTestId('model-picker-button')).toHaveText('Nike 1.0 · Auto');
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-category')).toHaveCount(2);
   await page.getByTestId('model-picker-button').click();
@@ -63,14 +63,14 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await page.getByTestId('model-picker-button').click();
   await page.getByTestId('model-search').fill('glm');
   await page.getByTestId('model-option').click();
-  await expect(page.getByTestId('model-picker-button')).toHaveText('z-ai/glm-5.2 · Auto');
+  await expect(page.getByTestId('model-picker-button')).toHaveText('z-ai/GLM 5.2 · Auto');
 
   await page.getByLabel('Message').fill('run whoami');
   await expect(page.getByTestId('send-button')).toBeEnabled();
   await page.getByRole('button', { name: 'Send' }).click();
 
   await expect(page.getByTestId('sidebar-item')).toContainText('run whoami');
-  await expect(page.getByTestId('sidebar-item')).toContainText('z-ai/glm-5.2');
+  await expect(page.getByTestId('sidebar-item')).toContainText('z-ai/GLM 5.2');
   await expect(page.getByTestId('top-bar-title')).toHaveText('run whoami');
   await expect(page.getByTestId('top-bar-subtitle')).toContainText('QuillCode - Auto');
   await expect(page.getByTestId('tool-card-title')).toHaveText('host.shell.run');
@@ -500,16 +500,16 @@ test('mock harness opens model picker from malformed model issue', async ({ page
 
   await expect(page.getByTestId('runtime-issue')).toBeVisible();
   await expect(page.getByTestId('runtime-issue-title')).toHaveText('Model response was malformed');
-  await expect(page.getByTestId('runtime-issue-message')).toContainText('Try trustedrouter/fast');
+  await expect(page.getByTestId('runtime-issue-message')).toContainText('Try Nike 1.0');
   await expect(page.getByTestId('runtime-issue-action')).toHaveText('Switch model');
 
   await page.getByTestId('runtime-issue-action').click();
 
   await expect(page.getByTestId('model-browser')).toBeVisible();
   await expect(page.getByTestId('model-search')).toBeFocused();
-  await page.getByTestId('model-search').fill('fusion');
+  await page.getByTestId('model-search').fill('prometheus');
   await expect(page.getByTestId('model-option')).toHaveCount(1);
-  await expect(page.getByTestId('model-option')).toContainText('tr/fusion');
+  await expect(page.getByTestId('model-option')).toContainText('Prometheus 1.0');
 });
 
 test('mock harness surfaces rate limits with model-switch recovery and diagnostics', async ({ page }) => {
@@ -873,7 +873,7 @@ test('mock harness searches and reopens an existing chat', async ({ page }) => {
 
   await page.getByTestId('search-input').fill('whoami');
   await expect(page.getByTestId('search-result')).toHaveCount(1);
-  await expect(page.getByTestId('search-result')).toContainText('trustedrouter/fast');
+  await expect(page.getByTestId('search-result')).toContainText('Nike 1.0');
 
   await page.getByTestId('search-input').fill('mock-user');
   await expect(page.getByTestId('search-result')).toHaveCount(1);
@@ -1171,7 +1171,7 @@ test('mock harness creates and removes worktrees from dialogs', async ({ page })
   await expect(page.getByTestId('project-item').first()).toContainText('quillcode-feature');
   await expect(page.getByTestId('project-item').first()).toContainText('/mock/quillcode-feature');
   await expect(page.getByTestId('top-bar-title')).toHaveText('Worktree: feature/quillcode');
-  await expect(page.getByTestId('top-bar-subtitle')).toContainText('quillcode-feature - Auto - trustedrouter/fast');
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('quillcode-feature - Auto - Nike 1.0');
   await expect(page.getByTestId('sidebar-item').first()).toContainText('Worktree: feature/quillcode');
   await expect(page.getByTestId('message').last()).toContainText('Opened worktree quillcode-feature at /mock/quillcode-feature.');
 
@@ -1209,7 +1209,7 @@ test('mock harness manages chat lifecycle from the sidebar', async ({ page }) =>
 
   await expect(page.getByTestId('sidebar-section-title')).toContainText(['Pinned', 'Recent']);
   await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('run whoami');
-  await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('trustedrouter/fast');
+  await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('Nike 1.0');
 
   page.once('dialog', async dialog => {
     expect(dialog.message()).toContain('Rename chat');
@@ -1736,11 +1736,11 @@ test('mock harness searches and selects models from the top bar', async ({ page 
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-browser')).toBeVisible();
   await expect(page.getByTestId('model-badge').filter({ hasText: 'Current' }).first()).toBeVisible();
-  await expect(page.getByTestId('model-option-summary').first()).toContainText('Recommended · trustedrouter/fast');
+  await expect(page.getByTestId('model-option-summary').first()).toContainText('Recommended · Nike 1.0');
   await expect(page.getByTestId('model-option-detail').filter({ hasText: 'Provider: trustedrouter' }).first()).toBeVisible();
   await expect(page.getByTestId('model-option-detail').filter({ hasText: 'Category: Recommended' }).first()).toBeVisible();
   await expect(page.getByTestId('model-detail-button').first()).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.getByTestId('model-capability')).toContainText('Fast default for coding');
+  await expect(page.getByTestId('model-capability')).toContainText('Nike 1.0 is the fast default');
   await expect(page.getByTestId('model-metadata-row').filter({ hasText: 'trustedrouter/fast' })).toBeVisible();
   await expect(page.getByTestId('model-metadata-row').filter({ hasText: 'Current, Default, Recommended' })).toBeVisible();
   await expect(page.getByTestId('model-badge').filter({ hasText: 'Default' }).first()).toBeVisible();
@@ -1749,12 +1749,12 @@ test('mock harness searches and selects models from the top bar', async ({ page 
 
   await page.getByTestId('model-detail-button').nth(1).click();
   await expect(page.getByTestId('model-detail-button').nth(1)).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.getByTestId('model-capability')).toContainText('Balanced TrustedRouter model');
+  await expect(page.getByTestId('model-capability')).toContainText('Prometheus 1.0 is the balanced model');
   await expect(page.getByTestId('model-metadata-row').filter({ hasText: 'tr/fusion' })).toBeVisible();
 
   await page.getByTestId('model-search').fill('default model');
   await expect(page.getByTestId('model-option')).toHaveCount(1);
-  await expect(page.getByTestId('model-option')).toContainText('trustedrouter/Fast');
+  await expect(page.getByTestId('model-option')).toContainText('Nike 1.0');
   await page.getByTestId('model-search').fill('');
 
   await page.getByTestId('model-favorite-button').nth(1).click();
@@ -1773,7 +1773,7 @@ test('mock harness searches and selects models from the top bar', async ({ page 
   await expect(page.getByTestId('model-option')).toContainText('moonshotai/Kimi K2.6');
 
   await page.getByTestId('model-option').click();
-  await expect(page.getByTestId('model-picker-button')).toHaveText('moonshotai/kimi-k2.6 · Auto');
+  await expect(page.getByTestId('model-picker-button')).toHaveText('moonshotai/Kimi K2.6 · Auto');
   await expect(page.getByTestId('model-browser')).toHaveCount(0);
 
   await page.getByTestId('model-picker-button').click();

@@ -1,0 +1,48 @@
+# Code Quality Audit
+
+## 2026-06-22 Pass
+
+Overall grade: **A- foundation, B+ product surface maturity**.
+
+The architecture is moving in the right direction: core state is value typed, persistence and runtime adapters are separated, tools use explicit schemas, and SwiftUI plus the Playwright harness render from the same surface contract. The main drag on the grade is file size and feature density in the workspace layer, not a broken abstraction boundary.
+
+## Component Grades
+
+| Component | Grade | Notes |
+| --- | --- | --- |
+| `QuillCodeCore` | A- | Stable models, canonical TrustedRouter IDs, branded display names, and compatibility decoding. Keep pushing presentation-only naming into helpers instead of scattering strings. |
+| `QuillCodeAgent` | A- | Runtime/tool loop is well covered and keeps tool feedback hidden from user transcript surfaces. Next grade step is richer retry/cancellation telemetry. |
+| `QuillCodeTools` | A- | Shell/file/git/MCP executors are bounded and testable. Git and MCP files are necessarily dense; keep extracting parsers/policies when behavior grows. |
+| `QuillCodeSafety` | A- | Small, explicit policy layer. Needs more production prompt telemetry once live Auto reviewer tuning begins. |
+| `QuillCodePersistence` | A | Focused stores, compatibility tests, and clear path ownership. |
+| `QuillComputerUseKit` | B+ | Protocol shape is good and macOS adapter is isolated. Linux adapter, app approvals, and visual feedback loops are still parity gaps. |
+| `QuillCodeApp` surface contracts | B+ | Strong shared surface model and broad tests. The main risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
+| Playwright harness | B+ | Valuable parity harness with broad coverage. It intentionally duplicates rendering behavior, so keep it thin and derived from stable surface concepts. |
+
+## File Hotspots
+
+| File | Grade | Next Improvement |
+| --- | --- | --- |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | B | Split command handling, automation runners, terminal state, and project actions into focused coordinators. |
+| `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B | Extract large panes and reusable controls as native QuillUI components before visual polish work expands. |
+| `Sources/QuillCodeApp/WorkspaceSurface.swift` | B+ | Surface assembly is valuable but large. Keep moving small ranking/formatting helpers out or make them single-pass builders. |
+| `Sources/quill-code-desktop/main.swift` | B | Desktop bootstrap mixes app lifecycle, menu-bar status, OAuth, and commands. Extract coordinator types before adding more platform behavior. |
+| `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
+| `Sources/QuillCodeCore/Models.swift` | A- | Central source of truth for model IDs, branding, and compatibility. Watch for model/persistence surface bloat. |
+
+## Changes From This Pass
+
+- Kept `trustedrouter/fast` and `tr/fusion` as stable API/config IDs while branding them as **Nike 1.0** and **Prometheus 1.0** in user-facing model surfaces.
+- Centralized the branded default names in `TrustedRouterDefaults`, with tests proving canonical IDs and display names separately.
+- Removed dead provider plumbing from model metadata summary generation.
+- Refactored model-category construction to compute favorite IDs once and pass a `Set` through option building instead of recomputing favorites for every model.
+- Updated the Playwright harness to preserve branded labels after model selection.
+- Fixed stale decisions documentation that still described recurring automation as deferred.
+
+## Current Refactor Priority
+
+1. Extract workspace command execution from `WorkspaceModel`.
+2. Extract automation runners from `WorkspaceModel`.
+3. Split `WorkspaceSwiftUIView` into pane/control files matching the surface structs.
+4. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
+5. Keep the parity matrix updated whenever a feature moves from planned to implemented.

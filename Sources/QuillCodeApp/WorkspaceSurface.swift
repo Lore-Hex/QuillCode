@@ -445,7 +445,7 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         self.isSelected = model.id == selectedModelID
         self.isFavorite = isFavorite
         self.badges = badges
-        self.metadataSummary = Self.metadataSummary(provider: model.provider, modelID: model.id, category: model.category)
+        self.metadataSummary = Self.metadataSummary(modelID: model.id, category: model.category)
         self.detailTitle = "\(model.provider)/\(model.displayName)"
         self.capabilitySummary = Self.capabilitySummary(modelID: model.id, category: model.category, badges: badges)
         self.metadataRows = Self.metadataRows(
@@ -491,7 +491,7 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         self.isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         self.badges = try container.decodeIfPresent([String].self, forKey: .badges) ?? []
         self.metadataSummary = try container.decodeIfPresent(String.self, forKey: .metadataSummary)
-            ?? Self.metadataSummary(provider: provider, modelID: id, category: category)
+            ?? Self.metadataSummary(modelID: id, category: category)
         self.detailTitle = try container.decodeIfPresent(String.self, forKey: .detailTitle)
             ?? "\(provider)/\(displayName)"
         self.capabilitySummary = try container.decodeIfPresent(String.self, forKey: .capabilitySummary)
@@ -516,16 +516,17 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
             )
     }
 
-    private static func metadataSummary(provider: String, modelID: String, category: String) -> String {
-        "\(category) · \(modelID)"
+    private static func metadataSummary(modelID: String, category: String) -> String {
+        let modelName = TrustedRouterDefaults.recommendedDisplayNames[TrustedRouterDefaults.canonicalModelID(modelID)] ?? modelID
+        return "\(category) · \(modelName)"
     }
 
     private static func capabilitySummary(modelID: String, category: String, badges: [String]) -> String {
         if modelID == TrustedRouterDefaults.defaultModel {
-            return "Fast default for coding, shell, and file-editing turns."
+            return "\(TrustedRouterDefaults.fastModelDisplayName) is the fast default for coding, shell, and file-editing turns."
         }
         if modelID == TrustedRouterDefaults.fusionModel {
-            return "Balanced TrustedRouter model for deeper coding and review turns."
+            return "\(TrustedRouterDefaults.fusionModelDisplayName) is the balanced model for deeper coding and review turns."
         }
         if badges.contains("Recommended") {
             return "Recommended model profile available through TrustedRouter."
@@ -2797,7 +2798,7 @@ public extension QuillCodeWorkspaceModel {
             return RuntimeIssueSurface(
                 severity: .warning,
                 title: "Model response was malformed",
-                message: "The selected model did not follow QuillCode's action schema. Try \(TrustedRouterDefaults.fastModel), \(TrustedRouterDefaults.fusionModel), or another coding model.",
+                message: "The selected model did not follow QuillCode's action schema. Try \(TrustedRouterDefaults.fastModelDisplayName), \(TrustedRouterDefaults.fusionModelDisplayName), or another coding model.",
                 actionLabel: "Switch model"
             )
         }
@@ -2889,9 +2890,11 @@ public extension QuillCodeWorkspaceModel {
         if !catalog.contains(where: { $0.id == selectedModelID }) {
             catalog.insert(Self.fallbackModelInfo(for: selectedModelID), at: 0)
         }
+        let favoriteIDs = favoriteModelIDs()
+        let favoriteIDSet = Set(favoriteIDs)
 
         let options = catalog.map {
-            modelOption(for: $0, selectedModelID: selectedModelID)
+            modelOption(for: $0, selectedModelID: selectedModelID, favoriteIDs: favoriteIDSet)
         }
         var categories = Dictionary(grouping: options, by: \.category)
             .map { category, models in
@@ -2902,17 +2905,27 @@ public extension QuillCodeWorkspaceModel {
             }
             .sorted(by: Self.sortModelCategories)
 
-        let favoriteModels = favoriteModelIDs().compactMap { id -> ModelOptionSurface? in
+        let favoriteModels = favoriteIDs.compactMap { id -> ModelOptionSurface? in
             let model = catalog.first { $0.id == id } ?? Self.fallbackModelInfo(for: id)
-            return modelOption(for: model, selectedModelID: selectedModelID, extraBadges: ["Favorite"])
+            return modelOption(
+                for: model,
+                selectedModelID: selectedModelID,
+                favoriteIDs: favoriteIDSet,
+                extraBadges: ["Favorite"]
+            )
         }
         if !favoriteModels.isEmpty {
             categories.insert(ModelCategorySurface(category: "Favorites", models: favoriteModels), at: 0)
         }
 
-        let recentModels = recentModelIDs(limit: 4).compactMap { id -> ModelOptionSurface? in
+        let recentModels = recentModelIDs(limit: 4, excluding: favoriteIDSet).compactMap { id -> ModelOptionSurface? in
             let model = catalog.first { $0.id == id } ?? Self.fallbackModelInfo(for: id)
-            return modelOption(for: model, selectedModelID: selectedModelID, extraBadges: ["Recent"])
+            return modelOption(
+                for: model,
+                selectedModelID: selectedModelID,
+                favoriteIDs: favoriteIDSet,
+                extraBadges: ["Recent"]
+            )
         }
         if !recentModels.isEmpty {
             categories.insert(ModelCategorySurface(category: "Recent", models: recentModels), at: favoriteModels.isEmpty ? 0 : 1)
@@ -2923,10 +2936,11 @@ public extension QuillCodeWorkspaceModel {
     private func modelOption(
         for model: ModelInfo,
         selectedModelID: String,
+        favoriteIDs: Set<String>,
         extraBadges: [String] = []
     ) -> ModelOptionSurface {
         var badges = extraBadges
-        let isFavorite = favoriteModelIDs().contains(model.id)
+        let isFavorite = favoriteIDs.contains(model.id)
         if isFavorite {
             badges.append("Favorite")
         }
@@ -2951,8 +2965,7 @@ public extension QuillCodeWorkspaceModel {
         Self.unique(root.config.favoriteModels)
     }
 
-    private func recentModelIDs(limit: Int) -> [String] {
-        let favoriteIDs = Set(favoriteModelIDs())
+    private func recentModelIDs(limit: Int, excluding favoriteIDs: Set<String>) -> [String] {
         let modelIDs = root.threads
             .filter { !$0.isArchived }
             .sorted { $0.updatedAt > $1.updatedAt }
