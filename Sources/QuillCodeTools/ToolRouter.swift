@@ -39,6 +39,7 @@ public struct ToolRouter: Sendable {
         .gitPullRequestView,
         .gitPullRequestChecks,
         .gitPullRequestCheckout,
+        .gitPullRequestReviewers,
         .gitPullRequestComment,
         .gitPullRequestReview,
         .gitPullRequestMerge,
@@ -139,6 +140,13 @@ public struct ToolRouter: Sendable {
                     cwd: workspaceRoot,
                     selector: args.string("selector"),
                     branch: args.string("branch")
+                )
+            case ToolDefinition.gitPullRequestReviewers.name:
+                return git.updatePullRequestReviewers(
+                    cwd: workspaceRoot,
+                    selector: args.string("selector"),
+                    add: args.stringArray("add"),
+                    remove: args.stringArray("remove")
                 )
             case ToolDefinition.gitPullRequestComment.name:
                 return git.commentOnPullRequest(

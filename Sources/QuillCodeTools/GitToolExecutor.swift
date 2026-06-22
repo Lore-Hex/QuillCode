@@ -8,9 +8,11 @@ public enum GitToolError: Error, CustomStringConvertible {
     case emptyPullRequestTitle
     case emptyPullRequestComment
     case emptyPullRequestReviewBody
+    case emptyPullRequestReviewers
     case invalidPullRequestReviewAction(String)
     case invalidPullRequestMergeMethod(String)
     case invalidPullRequestSelector(String)
+    case invalidPullRequestReviewer(String)
     case emptyBranch
     case invalidGitName(String)
     case noCurrentBranch
@@ -34,12 +36,16 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "Git pull request comment body is required."
         case .emptyPullRequestReviewBody:
             return "Git pull request review body is required for comment and request_changes actions."
+        case .emptyPullRequestReviewers:
+            return "At least one GitHub pull request reviewer to add or remove is required."
         case .invalidPullRequestReviewAction(let value):
             return "GitHub pull request review action is unsupported: \(value)"
         case .invalidPullRequestMergeMethod(let value):
             return "GitHub pull request merge method is unsupported: \(value)"
         case .invalidPullRequestSelector(let value):
             return "GitHub pull request selector is unsupported: \(value)"
+        case .invalidPullRequestReviewer(let value):
+            return "GitHub pull request reviewer is unsupported: \(value)"
         case .emptyBranch:
             return "Git branch is required."
         case .invalidGitName(let value):
@@ -240,6 +246,44 @@ public struct GitToolExecutor: Sendable {
                 arguments += ["--branch", try Self.safeGitName(branch)]
             }
             return runGitHub(arguments, cwd: cwd, timeoutSeconds: 120)
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
+    public func updatePullRequestReviewers(
+        cwd: URL,
+        selector: String? = nil,
+        add: [String]? = nil,
+        remove: [String]? = nil
+    ) -> ToolResult {
+        do {
+            let reviewersToAdd = try Self.safePullRequestReviewers(add)
+            let reviewersToRemove = try Self.safePullRequestReviewers(remove)
+            guard !reviewersToAdd.isEmpty || !reviewersToRemove.isEmpty else {
+                throw GitToolError.emptyPullRequestReviewers
+            }
+
+            var arguments = ["pr", "edit"]
+            if let selector = try Self.safePullRequestSelector(selector) {
+                arguments.append(selector)
+            }
+            if !reviewersToAdd.isEmpty {
+                arguments += ["--add-reviewer", reviewersToAdd.joined(separator: ",")]
+            }
+            if !reviewersToRemove.isEmpty {
+                arguments += ["--remove-reviewer", reviewersToRemove.joined(separator: ",")]
+            }
+
+            let result = runGitHub(arguments, cwd: cwd, timeoutSeconds: 60)
+            guard result.ok else { return result }
+            return ToolResult(
+                ok: true,
+                stdout: result.stdout,
+                stderr: result.stderr,
+                exitCode: result.exitCode,
+                artifacts: Self.extractURLs(from: result.stdout)
+            )
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
@@ -469,6 +513,49 @@ public struct GitToolExecutor: Sendable {
             throw GitToolError.invalidPullRequestSelector(value)
         }
         return trimmed
+    }
+
+    public static func safePullRequestReviewers(_ values: [String]?) throws -> [String] {
+        var reviewers: [String] = []
+        var seen = Set<String>()
+        for value in values ?? [] {
+            let reviewer = try safePullRequestReviewer(value)
+            guard seen.insert(reviewer).inserted else { continue }
+            reviewers.append(reviewer)
+        }
+        return reviewers
+    }
+
+    public static func safePullRequestReviewer(_ value: String) throws -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count <= 80,
+              trimmed.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
+              trimmed.rangeOfCharacter(from: .controlCharacters) == nil,
+              !trimmed.hasPrefix("-")
+        else {
+            throw GitToolError.invalidPullRequestReviewer(value)
+        }
+        if trimmed == "@copilot" {
+            return trimmed
+        }
+        let parts = trimmed.split(separator: "/", omittingEmptySubsequences: false)
+        guard (1...2).contains(parts.count),
+              parts.allSatisfy({ Self.isSafeGitHubReviewerComponent(String($0)) })
+        else {
+            throw GitToolError.invalidPullRequestReviewer(value)
+        }
+        return trimmed
+    }
+
+    private static func isSafeGitHubReviewerComponent(_ value: String) -> Bool {
+        guard !value.isEmpty,
+              value.count <= 39,
+              value.range(of: #"^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$|^[A-Za-z0-9]$"#, options: .regularExpression) != nil
+        else {
+            return false
+        }
+        return true
     }
 
     public static func safePullRequestReviewFlag(_ value: String) throws -> String {
@@ -828,6 +915,14 @@ public extension ToolDefinition {
         name: "host.git.pr.checkout",
         description: "Check out the current or selected GitHub pull request branch using GitHub CLI. Optional selector may be a PR number, URL, or branch.",
         parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."},"branch":{"type":"string","description":"Optional local branch name to use for the checkout."}}}"#,
+        host: .local,
+        risk: .append
+    )
+
+    static let gitPullRequestReviewers = ToolDefinition(
+        name: "host.git.pr.reviewers",
+        description: "Request or remove reviewers on the current or selected GitHub pull request using GitHub CLI. Optional selector may be a PR number, URL, or branch.",
+        parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."},"add":{"type":"array","items":{"type":"string"},"description":"Reviewer logins or org/team slugs to request."},"remove":{"type":"array","items":{"type":"string"},"description":"Reviewer logins or org/team slugs to remove."}}}"#,
         host: .local,
         risk: .append
     )

@@ -1329,6 +1329,7 @@ public final class QuillCodeWorkspaceModel {
             || toolName == ToolDefinition.gitPullRequestView.name
             || toolName == ToolDefinition.gitPullRequestChecks.name
             || toolName == ToolDefinition.gitPullRequestCheckout.name
+            || toolName == ToolDefinition.gitPullRequestReviewers.name
             || toolName == ToolDefinition.gitPullRequestComment.name
             || toolName == ToolDefinition.gitPullRequestReview.name
             || toolName == ToolDefinition.gitPullRequestMerge.name
@@ -2899,6 +2900,9 @@ public final class QuillCodeWorkspaceModel {
         case "git-pr-checkout":
             setDraft("Checkout pull request ")
             return true
+        case "git-pr-reviewers":
+            setDraft("Request reviewers for the current pull request: ")
+            return true
         case "git-pr-merge":
             setDraft("Merge the current pull request with squash")
             return true
@@ -3366,6 +3370,7 @@ public final class QuillCodeWorkspaceModel {
         .gitPullRequestView,
         .gitPullRequestChecks,
         .gitPullRequestCheckout,
+        .gitPullRequestReviewers,
         .gitPullRequestComment,
         .gitPullRequestReview,
         .gitPullRequestMerge,
@@ -3387,6 +3392,7 @@ public final class QuillCodeWorkspaceModel {
         ToolDefinition.gitPullRequestView.name,
         ToolDefinition.gitPullRequestChecks.name,
         ToolDefinition.gitPullRequestCheckout.name,
+        ToolDefinition.gitPullRequestReviewers.name,
         ToolDefinition.gitPullRequestComment.name,
         ToolDefinition.gitPullRequestReview.name,
         ToolDefinition.gitPullRequestMerge.name,
@@ -3535,6 +3541,12 @@ public final class QuillCodeWorkspaceModel {
                     selector: args.string("selector"),
                     branch: args.string("branch")
                 )
+            case ToolDefinition.gitPullRequestReviewers.name:
+                command = try remoteGitPullRequestReviewersCommand(
+                    selector: args.string("selector"),
+                    add: args.stringArray("add"),
+                    remove: args.stringArray("remove")
+                )
             case ToolDefinition.gitPullRequestComment.name:
                 command = try remoteGitPullRequestCommentCommand(
                     selector: args.string("selector"),
@@ -3587,6 +3599,7 @@ public final class QuillCodeWorkspaceModel {
                 ToolDefinition.gitPullRequestCreate.name,
                 ToolDefinition.gitPullRequestView.name,
                 ToolDefinition.gitPullRequestCheckout.name,
+                ToolDefinition.gitPullRequestReviewers.name,
                 ToolDefinition.gitPullRequestComment.name,
                 ToolDefinition.gitPullRequestReview.name,
                 ToolDefinition.gitPullRequestMerge.name
@@ -3683,6 +3696,30 @@ public final class QuillCodeWorkspaceModel {
         }
         if let branch = GitToolExecutor.trimmedNonEmpty(branch) {
             arguments += ["--branch", try GitToolExecutor.safeGitName(branch)]
+        }
+        return arguments.map(shellSingleQuoted).joined(separator: " ")
+    }
+
+    private nonisolated static func remoteGitPullRequestReviewersCommand(
+        selector: String?,
+        add: [String]?,
+        remove: [String]?
+    ) throws -> String {
+        let reviewersToAdd = try GitToolExecutor.safePullRequestReviewers(add)
+        let reviewersToRemove = try GitToolExecutor.safePullRequestReviewers(remove)
+        guard !reviewersToAdd.isEmpty || !reviewersToRemove.isEmpty else {
+            throw GitToolError.emptyPullRequestReviewers
+        }
+
+        var arguments = ["gh", "pr", "edit"]
+        if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
+            arguments.append(selector)
+        }
+        if !reviewersToAdd.isEmpty {
+            arguments += ["--add-reviewer", reviewersToAdd.joined(separator: ",")]
+        }
+        if !reviewersToRemove.isEmpty {
+            arguments += ["--remove-reviewer", reviewersToRemove.joined(separator: ",")]
         }
         return arguments.map(shellSingleQuoted).joined(separator: " ")
     }
@@ -5296,7 +5333,7 @@ public final class QuillCodeWorkspaceModel {
                let project = root.projects.first(where: { $0.id == projectID }) {
                 appendLocalCommandTranscript(
                     userText: originalPrompt,
-                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Shell, file read/write, apply patch, git status/diff/stage/restore/commit/push/PR checkout/merge/worktree, and project context refresh run through SSH.",
+                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Shell, file read/write, apply patch, git status/diff/stage/restore/commit/push/PR checkout/reviewers/merge/worktree, and project context refresh run through SSH.",
                     title: "Add SSH Remote"
                 )
             } else {
