@@ -104,9 +104,11 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "automation-create-thread-follow-up-after:600",
             "automation-create-thread-follow-up-after:3600",
             "automation-create-thread-follow-up-tomorrow",
+            "automation-create-thread-follow-up-every:daily",
             "automation-create-workspace-schedule-after:600",
             "automation-create-workspace-schedule-after:3600",
             "automation-create-workspace-schedule-tomorrow",
+            "automation-create-workspace-schedule-every:daily",
             "toggle-memories",
             "memory-add",
             "toggle-extensions",
@@ -473,9 +475,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(automations.scheduleThreadFollowUpCommands.map(\.id), [
             "automation-create-thread-follow-up-after:600",
             "automation-create-thread-follow-up-after:3600",
-            "automation-create-thread-follow-up-tomorrow"
+            "automation-create-thread-follow-up-tomorrow",
+            "automation-create-thread-follow-up-every:daily"
         ])
-        XCTAssertEqual(automations.scheduleThreadFollowUpCommands.map(\.isEnabled), [true, true, true])
+        XCTAssertEqual(automations.scheduleThreadFollowUpCommands.map(\.isEnabled), [true, true, true, true])
         XCTAssertEqual(model.surface().commands.first { $0.id == "automation-create-thread-follow-up" }?.isEnabled, true)
         XCTAssertEqual(
             model.surface().commands
@@ -489,9 +492,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(automations.scheduleWorkspaceScheduleCommands.map(\.id), [
             "automation-create-workspace-schedule-after:600",
             "automation-create-workspace-schedule-after:3600",
-            "automation-create-workspace-schedule-tomorrow"
+            "automation-create-workspace-schedule-tomorrow",
+            "automation-create-workspace-schedule-every:daily"
         ])
-        XCTAssertEqual(automations.scheduleWorkspaceScheduleCommands.map(\.isEnabled), [true, true, true])
+        XCTAssertEqual(automations.scheduleWorkspaceScheduleCommands.map(\.isEnabled), [true, true, true, true])
         XCTAssertEqual(model.surface().commands.first { $0.id == "automation-create-workspace-schedule" }?.isEnabled, true)
         XCTAssertEqual(
             model.surface().commands

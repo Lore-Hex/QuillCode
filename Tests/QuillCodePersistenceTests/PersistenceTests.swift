@@ -148,7 +148,8 @@ final class PersistenceTests: XCTestCase {
             scheduleKind: .cron,
             scheduleDescription: "Daily",
             updatedAt: Date(timeIntervalSince1970: 2),
-            nextRunAt: Date(timeIntervalSince1970: 20)
+            nextRunAt: Date(timeIntervalSince1970: 20),
+            recurrence: QuillAutomationRecurrence(interval: 1, unit: .days)
         )
         let sooner = QuillAutomation(
             title: "Sooner",
@@ -163,6 +164,10 @@ final class PersistenceTests: XCTestCase {
         try store.save([paused, later, sooner])
 
         XCTAssertEqual(try store.load().map(\.title), ["Sooner", "Later", "Paused monitor"])
+        XCTAssertEqual(
+            try store.load().first { $0.title == "Later" }?.recurrence,
+            QuillAutomationRecurrence(interval: 1, unit: .days)
+        )
     }
 
     func testAutomationStoreReturnsEmptyListWhenMissing() throws {

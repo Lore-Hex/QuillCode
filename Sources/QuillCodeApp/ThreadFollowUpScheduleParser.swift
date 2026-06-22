@@ -1,8 +1,10 @@
 import Foundation
+import QuillCodeCore
 
 struct ThreadFollowUpSchedule: Equatable, Sendable {
     var scheduleDescription: String
     var nextRunAt: Date
+    var recurrence: QuillAutomationRecurrence?
 }
 
 enum ThreadFollowUpScheduleParser {
@@ -16,10 +18,20 @@ enum ThreadFollowUpScheduleParser {
         let normalized = normalize(value)
         guard !normalized.isEmpty else { return nil }
 
+        if let recurrence = recurrence(from: normalized),
+           recurrence.intervalSeconds <= maximumDelay {
+            return ThreadFollowUpSchedule(
+                scheduleDescription: recurrence.scheduleDescription,
+                nextRunAt: recurrence.nextRun(after: now),
+                recurrence: recurrence
+            )
+        }
+
         if let delay = relativeDelay(from: normalized), delay > 0, delay <= maximumDelay {
             return ThreadFollowUpSchedule(
                 scheduleDescription: relativeDescription(seconds: delay),
-                nextRunAt: now.addingTimeInterval(delay)
+                nextRunAt: now.addingTimeInterval(delay),
+                recurrence: nil
             )
         }
 
@@ -31,7 +43,8 @@ enum ThreadFollowUpScheduleParser {
                     hour: tomorrowTime.hour,
                     minute: tomorrowTime.minute,
                     calendar: calendar
-                )
+                ),
+                recurrence: nil
             )
         }
 
@@ -53,6 +66,48 @@ enum ThreadFollowUpScheduleParser {
             return minutes == 1 ? "In 1 minute" : "In \(minutes) minutes"
         }
         return "In \(roundedSeconds) seconds"
+    }
+
+    private static func recurrence(from value: String) -> QuillAutomationRecurrence? {
+        switch value {
+        case "hourly", "every hour":
+            return QuillAutomationRecurrence(interval: 1, unit: .hours)
+        case "daily", "every day":
+            return QuillAutomationRecurrence(interval: 1, unit: .days)
+        case "weekly", "every week":
+            return QuillAutomationRecurrence(interval: 1, unit: .weeks)
+        default:
+            break
+        }
+
+        guard value.hasPrefix("every ") else { return nil }
+        let tokens = value.dropFirst("every ".count).split(separator: " ").map(String.init)
+        if tokens.count == 1, let unit = recurrenceUnit(from: tokens[0]) {
+            return QuillAutomationRecurrence(interval: 1, unit: unit)
+        }
+        guard tokens.count >= 2,
+              let amount = Int(tokens[0]),
+              amount > 0,
+              let unit = recurrenceUnit(from: tokens[1])
+        else {
+            return nil
+        }
+        return QuillAutomationRecurrence(interval: amount, unit: unit)
+    }
+
+    private static func recurrenceUnit(from value: String) -> QuillAutomationRecurrenceUnit? {
+        switch value {
+        case "m", "min", "mins", "minute", "minutes":
+            return .minutes
+        case "h", "hr", "hrs", "hour", "hours":
+            return .hours
+        case "d", "day", "days":
+            return .days
+        case "w", "wk", "wks", "week", "weeks":
+            return .weeks
+        default:
+            return nil
+        }
     }
 
     private static func relativeDelay(from value: String) -> TimeInterval? {

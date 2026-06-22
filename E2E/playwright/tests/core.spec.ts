@@ -712,6 +712,24 @@ test('mock harness schedules a workspace check from quick actions', async ({ pag
   await expect(page.getByTestId('automation-card')).toContainText('In 10 minutes');
 });
 
+test('mock harness keeps recurring workspace schedules active after running', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('automations-button').click();
+  await page.getByTestId('automation-schedule-workspace').filter({ hasText: 'Check daily' }).click();
+
+  await expect(page.getByTestId('automations-status')).toHaveText('1 active');
+  await expect(page.getByTestId('automation-card')).toHaveCount(1);
+  await expect(page.getByTestId('automation-card')).toContainText('Workspace check: QuillCode');
+  await expect(page.getByTestId('automation-card')).toContainText('Every day');
+
+  await page.getByTestId('automation-run').click();
+
+  await expect(page.getByTestId('sidebar-item').first()).toContainText('Scheduled check: QuillCode');
+  await expect(page.getByTestId('automation-card')).toContainText('Active');
+  await expect(page.getByTestId('automation-card')).toContainText('Every day');
+});
+
 test('mock harness schedules a thread follow-up from slash text', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
@@ -742,6 +760,20 @@ test('mock harness schedules a workspace check from slash text', async ({ page }
   await expect(page.getByTestId('automation-card')).toContainText('Workspace check: QuillCode');
   await expect(page.getByTestId('automation-card')).toContainText('Tomorrow at 8:15 AM');
   await expect(page.getByText('Scheduled a workspace check for Tomorrow at 8:15 AM.')).toBeVisible();
+});
+
+test('mock harness schedules a recurring workspace check from slash text', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('/workspace-check every 2 hours');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('automations-pane')).toBeVisible();
+  await expect(page.getByTestId('automations-status')).toHaveText('1 active');
+  await expect(page.getByTestId('automation-card')).toHaveCount(1);
+  await expect(page.getByTestId('automation-card')).toContainText('Workspace check: QuillCode');
+  await expect(page.getByTestId('automation-card')).toContainText('Every 2 hours');
+  await expect(page.getByText('Scheduled a workspace check for Every 2 hours.')).toBeVisible();
 });
 
 test('mock harness renders image artifact previews from tool cards', async ({ page }) => {

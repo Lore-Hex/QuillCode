@@ -456,6 +456,64 @@ public enum QuillAutomationScheduleKind: String, Codable, Sendable, Hashable, Ca
     }
 }
 
+public enum QuillAutomationRecurrenceUnit: String, Codable, Sendable, Hashable, CaseIterable {
+    case minutes
+    case hours
+    case days
+    case weeks
+
+    public var seconds: Int {
+        switch self {
+        case .minutes:
+            return 60
+        case .hours:
+            return 3_600
+        case .days:
+            return 86_400
+        case .weeks:
+            return 604_800
+        }
+    }
+
+    public func label(count: Int) -> String {
+        switch self {
+        case .minutes:
+            return count == 1 ? "minute" : "minutes"
+        case .hours:
+            return count == 1 ? "hour" : "hours"
+        case .days:
+            return count == 1 ? "day" : "days"
+        case .weeks:
+            return count == 1 ? "week" : "weeks"
+        }
+    }
+}
+
+public struct QuillAutomationRecurrence: Codable, Sendable, Hashable {
+    public var interval: Int
+    public var unit: QuillAutomationRecurrenceUnit
+
+    public init(interval: Int, unit: QuillAutomationRecurrenceUnit) {
+        self.interval = max(1, interval)
+        self.unit = unit
+    }
+
+    public var intervalSeconds: TimeInterval {
+        TimeInterval(interval * unit.seconds)
+    }
+
+    public var scheduleDescription: String {
+        if interval == 1 {
+            return "Every \(unit.label(count: 1))"
+        }
+        return "Every \(interval) \(unit.label(count: interval))"
+    }
+
+    public func nextRun(after date: Date) -> Date {
+        date.addingTimeInterval(intervalSeconds)
+    }
+}
+
 public struct QuillAutomation: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var title: String
@@ -470,6 +528,7 @@ public struct QuillAutomation: Codable, Sendable, Hashable, Identifiable {
     public var updatedAt: Date
     public var lastRunAt: Date?
     public var nextRunAt: Date?
+    public var recurrence: QuillAutomationRecurrence?
 
     public init(
         id: UUID = UUID(),
@@ -484,7 +543,8 @@ public struct QuillAutomation: Codable, Sendable, Hashable, Identifiable {
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         lastRunAt: Date? = nil,
-        nextRunAt: Date? = nil
+        nextRunAt: Date? = nil,
+        recurrence: QuillAutomationRecurrence? = nil
     ) {
         self.id = id
         self.title = title
@@ -499,6 +559,7 @@ public struct QuillAutomation: Codable, Sendable, Hashable, Identifiable {
         self.updatedAt = updatedAt
         self.lastRunAt = lastRunAt
         self.nextRunAt = nextRunAt
+        self.recurrence = recurrence
     }
 
     public static func sortedForDisplay(_ automations: [QuillAutomation]) -> [QuillAutomation] {

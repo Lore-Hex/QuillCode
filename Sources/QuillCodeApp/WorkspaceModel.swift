@@ -1437,6 +1437,7 @@ public final class QuillCodeWorkspaceModel {
     public func createThreadFollowUpAutomation(
         scheduleDescription: String = "Manual follow-up",
         nextRunAt: Date? = nil,
+        recurrence: QuillAutomationRecurrence? = nil,
         now: Date = Date()
     ) -> QuillAutomation? {
         guard let thread = selectedThread else { return nil }
@@ -1451,7 +1452,8 @@ public final class QuillCodeWorkspaceModel {
             threadID: thread.id,
             createdAt: now,
             updatedAt: now,
-            nextRunAt: nextRunAt
+            nextRunAt: nextRunAt,
+            recurrence: recurrence
         )
         setAutomations(automations.items + [automation])
         automations.isVisible = true
@@ -1479,13 +1481,27 @@ public final class QuillCodeWorkspaceModel {
             now: now,
             calendar: calendar
         ) else {
-            lastError = "Could not understand that follow-up schedule. Try `/follow-up in 30 minutes` or `/follow-up tomorrow at 9 AM`."
+            lastError = "Could not understand that follow-up schedule. Try `/follow-up in 30 minutes`, `/follow-up tomorrow at 9 AM`, or `/follow-up daily`."
             refreshTopBar(agentStatus: "Idle")
             return nil
         }
         return createThreadFollowUpAutomation(
             scheduleDescription: schedule.scheduleDescription,
             nextRunAt: schedule.nextRunAt,
+            recurrence: schedule.recurrence,
+            now: now
+        )
+    }
+
+    @discardableResult
+    public func createThreadFollowUpAutomation(
+        every recurrence: QuillAutomationRecurrence,
+        now: Date = Date()
+    ) -> QuillAutomation? {
+        createThreadFollowUpAutomation(
+            scheduleDescription: recurrence.scheduleDescription,
+            nextRunAt: recurrence.nextRun(after: now),
+            recurrence: recurrence,
             now: now
         )
     }
@@ -1506,6 +1522,7 @@ public final class QuillCodeWorkspaceModel {
     public func createWorkspaceScheduleAutomation(
         scheduleDescription: String = "Manual workspace check",
         nextRunAt: Date? = nil,
+        recurrence: QuillAutomationRecurrence? = nil,
         now: Date = Date()
     ) -> QuillAutomation? {
         guard let project = selectedProject else { return nil }
@@ -1518,7 +1535,8 @@ public final class QuillCodeWorkspaceModel {
             projectID: project.id,
             createdAt: now,
             updatedAt: now,
-            nextRunAt: nextRunAt
+            nextRunAt: nextRunAt,
+            recurrence: recurrence
         )
         setAutomations(automations.items + [automation])
         automations.isVisible = true
@@ -1546,13 +1564,27 @@ public final class QuillCodeWorkspaceModel {
             now: now,
             calendar: calendar
         ) else {
-            lastError = "Could not understand that workspace-check schedule. Try `/workspace-check in 1 hour` or `/workspace-check tomorrow at 9 AM`."
+            lastError = "Could not understand that workspace-check schedule. Try `/workspace-check in 1 hour`, `/workspace-check tomorrow at 9 AM`, or `/workspace-check every 2 hours`."
             refreshTopBar(agentStatus: "Idle")
             return nil
         }
         return createWorkspaceScheduleAutomation(
             scheduleDescription: schedule.scheduleDescription,
             nextRunAt: schedule.nextRunAt,
+            recurrence: schedule.recurrence,
+            now: now
+        )
+    }
+
+    @discardableResult
+    public func createWorkspaceScheduleAutomation(
+        every recurrence: QuillAutomationRecurrence,
+        now: Date = Date()
+    ) -> QuillAutomation? {
+        createWorkspaceScheduleAutomation(
+            scheduleDescription: recurrence.scheduleDescription,
+            nextRunAt: recurrence.nextRun(after: now),
+            recurrence: recurrence,
             now: now
         )
     }
@@ -1583,16 +1615,16 @@ public final class QuillCodeWorkspaceModel {
     }
 
     @discardableResult
-    public func runAutomationReport(id: UUID) -> AutomationRunReport? {
+    public func runAutomationReport(id: UUID, now: Date = Date()) -> AutomationRunReport? {
         guard let index = automations.items.firstIndex(where: { $0.id == id }) else { return nil }
         let automation = automations.items[index]
         guard automation.status == .active else { return nil }
 
         switch automation.kind {
         case .threadFollowUp:
-            return runThreadFollowUpAutomation(automation, at: index)
+            return runThreadFollowUpAutomation(automation, at: index, now: now)
         case .workspaceSchedule:
-            return runWorkspaceScheduleAutomation(automation, at: index)
+            return runWorkspaceScheduleAutomation(automation, at: index, now: now)
         case .monitor:
             lastError = "Monitor automations can be configured, but monitor runners are not available yet."
             refreshTopBar(agentStatus: "Idle")
@@ -1616,7 +1648,7 @@ public final class QuillCodeWorkspaceModel {
             .prefix(max(0, limit))
             .map(\.id)
 
-        return dueAutomationIDs.compactMap(runAutomationReport)
+        return dueAutomationIDs.compactMap { runAutomationReport(id: $0, now: now) }
     }
 
     public func deleteAutomation(id: UUID) -> Bool {
@@ -1627,7 +1659,11 @@ public final class QuillCodeWorkspaceModel {
         return true
     }
 
-    private func runThreadFollowUpAutomation(_ automation: QuillAutomation, at index: Int) -> AutomationRunReport? {
+    private func runThreadFollowUpAutomation(
+        _ automation: QuillAutomation,
+        at index: Int,
+        now: Date
+    ) -> AutomationRunReport? {
         guard let threadID = automation.threadID,
               let source = root.threads.first(where: { $0.id == threadID })
         else {
@@ -1661,11 +1697,7 @@ public final class QuillCodeWorkspaceModel {
             memories: source.memories
         )
 
-        let now = Date()
-        automations.items[index].lastRunAt = now
-        automations.items[index].nextRunAt = nil
-        automations.items[index].updatedAt = now
-        setAutomations(automations.items)
+        recordAutomationRun(at: index, now: now)
 
         root.threads.insert(followUp, at: 0)
         root.selectedThreadID = followUp.id
@@ -1685,7 +1717,11 @@ public final class QuillCodeWorkspaceModel {
         )
     }
 
-    private func runWorkspaceScheduleAutomation(_ automation: QuillAutomation, at index: Int) -> AutomationRunReport? {
+    private func runWorkspaceScheduleAutomation(
+        _ automation: QuillAutomation,
+        at index: Int,
+        now: Date
+    ) -> AutomationRunReport? {
         guard let projectID = automation.projectID,
               let project = project(id: projectID)
         else {
@@ -1723,11 +1759,7 @@ public final class QuillCodeWorkspaceModel {
             memories: memoryNotes(for: projectID)
         )
 
-        let now = Date()
-        automations.items[index].lastRunAt = now
-        automations.items[index].nextRunAt = nil
-        automations.items[index].updatedAt = now
-        setAutomations(automations.items)
+        recordAutomationRun(at: index, now: now)
 
         root.threads.insert(thread, at: 0)
         root.selectedThreadID = thread.id
@@ -1747,6 +1779,13 @@ public final class QuillCodeWorkspaceModel {
         )
     }
 
+    private func recordAutomationRun(at index: Int, now: Date) {
+        automations.items[index].lastRunAt = now
+        automations.items[index].nextRunAt = automations.items[index].recurrence?.nextRun(after: now)
+        automations.items[index].updatedAt = now
+        setAutomations(automations.items)
+    }
+
     private static func tomorrowMorning(from date: Date, calendar: Calendar) -> Date {
         var components = calendar.dateComponents([.year, .month, .day], from: date)
         components.day = (components.day ?? 0) + 1
@@ -1754,6 +1793,19 @@ public final class QuillCodeWorkspaceModel {
         components.minute = 0
         components.second = 0
         return calendar.date(from: components) ?? date.addingTimeInterval(24 * 60 * 60)
+    }
+
+    private static func commandRecurrence(_ value: String) -> QuillAutomationRecurrence? {
+        switch value {
+        case "hourly":
+            return QuillAutomationRecurrence(interval: 1, unit: .hours)
+        case "daily":
+            return QuillAutomationRecurrence(interval: 1, unit: .days)
+        case "weekly":
+            return QuillAutomationRecurrence(interval: 1, unit: .weeks)
+        default:
+            return nil
+        }
     }
 
     public func toggleActivitySection(_ section: ActivitySectionKind) {
@@ -2720,6 +2772,16 @@ public final class QuillCodeWorkspaceModel {
             let rawSeconds = String(commandID.dropFirst("automation-create-workspace-schedule-after:".count))
             guard let seconds = TimeInterval(rawSeconds) else { return false }
             return createWorkspaceScheduleAutomation(after: seconds) != nil
+        }
+        if commandID.hasPrefix("automation-create-thread-follow-up-every:") {
+            let rawRecurrence = String(commandID.dropFirst("automation-create-thread-follow-up-every:".count))
+            guard let recurrence = Self.commandRecurrence(rawRecurrence) else { return false }
+            return createThreadFollowUpAutomation(every: recurrence) != nil
+        }
+        if commandID.hasPrefix("automation-create-workspace-schedule-every:") {
+            let rawRecurrence = String(commandID.dropFirst("automation-create-workspace-schedule-every:".count))
+            guard let recurrence = Self.commandRecurrence(rawRecurrence) else { return false }
+            return createWorkspaceScheduleAutomation(every: recurrence) != nil
         }
         if commandID.hasPrefix("mcp-start:") {
             let id = String(commandID.dropFirst("mcp-start:".count))

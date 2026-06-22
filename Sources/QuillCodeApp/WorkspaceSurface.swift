@@ -1449,7 +1449,7 @@ public struct AutomationWorkflowSurface: Codable, Sendable, Hashable, Identifiab
         if let nextRunAt = automation.nextRunAt, nextRunAt <= Date() {
             return "Due"
         }
-        if automation.lastRunAt != nil {
+        if automation.lastRunAt != nil, automation.nextRunAt == nil {
             return "Ran"
         }
         return automation.status.label
@@ -2038,6 +2038,13 @@ public extension WorkspaceCommandSurface {
                 category: WorkspaceCommandPalette.automationsCategory,
                 keywords: ["automation", "follow-up", "thread", "heartbeat", "schedule", "tomorrow", "morning"],
                 isEnabled: isEnabled
+            ),
+            WorkspaceCommandSurface(
+                id: "automation-create-thread-follow-up-every:daily",
+                title: "Daily follow-up",
+                category: WorkspaceCommandPalette.automationsCategory,
+                keywords: ["automation", "follow-up", "thread", "heartbeat", "schedule", "daily", "recurring"],
+                isEnabled: isEnabled
             )
         ]
     }
@@ -2063,6 +2070,13 @@ public extension WorkspaceCommandSurface {
                 title: "Check tomorrow morning",
                 category: WorkspaceCommandPalette.automationsCategory,
                 keywords: ["automation", "workspace", "schedule", "repo", "check", "tomorrow", "morning"],
+                isEnabled: isEnabled
+            ),
+            WorkspaceCommandSurface(
+                id: "automation-create-workspace-schedule-every:daily",
+                title: "Check daily",
+                category: WorkspaceCommandPalette.automationsCategory,
+                keywords: ["automation", "workspace", "schedule", "repo", "check", "daily", "recurring", "cron"],
                 isEnabled: isEnabled
             )
         ]
@@ -3277,13 +3291,8 @@ public extension QuillCodeWorkspaceModel {
                 keywords: ["automation", "schedule", "recurring", "monitor", "follow-up", "heartbeat"]
             ),
             .automationCreateThreadFollowUp(isEnabled: selectedThread != nil),
-            .automationCreateWorkspaceSchedule(isEnabled: selectedProject != nil),
-            automationScheduleCommands[0],
-            automationScheduleCommands[1],
-            automationScheduleCommands[2],
-            workspaceScheduleCommands[0],
-            workspaceScheduleCommands[1],
-            workspaceScheduleCommands[2],
+            .automationCreateWorkspaceSchedule(isEnabled: selectedProject != nil)
+        ] + automationScheduleCommands + workspaceScheduleCommands + [
             WorkspaceCommandSurface(
                 id: "toggle-memories",
                 title: "Memories",

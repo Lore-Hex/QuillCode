@@ -3887,6 +3887,33 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(saved.map(\.projectID), [project.id, project.id])
     }
 
+    func testNaturalLanguageRecurringWorkspaceChecksPersistRecurrence() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let project = ProjectRef(name: "QuillCode", path: root.path)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            automationStore: automationStore
+        )
+        let now = Date(timeIntervalSince1970: 1_000)
+
+        let recurring = try XCTUnwrap(model.createWorkspaceScheduleAutomation(
+            matching: "every 2 hours",
+            now: now
+        ))
+
+        XCTAssertEqual(recurring.scheduleDescription, "Every 2 hours")
+        XCTAssertEqual(recurring.recurrence, QuillAutomationRecurrence(interval: 2, unit: .hours))
+        XCTAssertEqual(recurring.nextRunAt, now.addingTimeInterval(2 * 60 * 60))
+
+        let saved = try XCTUnwrap(try automationStore.load().first)
+        XCTAssertEqual(saved.scheduleDescription, "Every 2 hours")
+        XCTAssertEqual(saved.recurrence, QuillAutomationRecurrence(interval: 2, unit: .hours))
+        XCTAssertEqual(saved.nextRunAt, now.addingTimeInterval(2 * 60 * 60))
+    }
+
     func testSlashFollowUpSchedulesCurrentThread() async throws {
         let root = try makeTempDirectory()
         let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
@@ -3932,6 +3959,31 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(saved.first?.scheduleDescription, "Tomorrow at 8:15 AM")
         XCTAssertNotNil(saved.first?.nextRunAt)
         XCTAssertEqual(model.selectedThread?.messages.last?.content, "Scheduled a workspace check for Tomorrow at 8:15 AM.")
+        XCTAssertEqual(model.surface().automations.statusLabel, "1 active")
+    }
+
+    func testSlashWorkspaceCheckSchedulesRecurringProjectAutomation() async throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let project = ProjectRef(name: "QuillCode", path: root.path)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            automationStore: automationStore
+        )
+
+        model.setDraft("/workspace-check daily")
+        await model.submitComposer(workspaceRoot: root)
+
+        let saved = try XCTUnwrap(try automationStore.load().first)
+        XCTAssertEqual(saved.title, "Workspace check: QuillCode")
+        XCTAssertEqual(saved.projectID, project.id)
+        XCTAssertEqual(saved.kind, .workspaceSchedule)
+        XCTAssertEqual(saved.scheduleDescription, "Every day")
+        XCTAssertEqual(saved.recurrence, QuillAutomationRecurrence(interval: 1, unit: .days))
+        XCTAssertNotNil(saved.nextRunAt)
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Scheduled a workspace check for Every day.")
         XCTAssertEqual(model.surface().automations.statusLabel, "1 active")
     }
 
@@ -4141,6 +4193,49 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(savedAutomations.first { $0.id == future.id }?.nextRunAt, future.nextRunAt)
         XCTAssertEqual(savedAutomations.first { $0.id == paused.id }?.nextRunAt, paused.nextRunAt)
         XCTAssertEqual(savedAutomations.first { $0.id == unsupported.id }?.nextRunAt, unsupported.nextRunAt)
+    }
+
+    func testDueRecurringWorkspaceScheduleRunsAndAdvancesNextRun() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let runAt = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970) + 60)
+        let project = ProjectRef(name: "QuillCode", path: root.path)
+        let recurrence = QuillAutomationRecurrence(interval: 2, unit: .hours)
+        let recurring = QuillAutomation(
+            title: "Recurring workspace check",
+            detail: "Check workspace.",
+            kind: .workspaceSchedule,
+            scheduleKind: .cron,
+            scheduleDescription: recurrence.scheduleDescription,
+            projectID: project.id,
+            nextRunAt: runAt.addingTimeInterval(-10),
+            recurrence: recurrence
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            automationStore: automationStore
+        )
+        model.setAutomations([recurring])
+
+        let reports = model.runDueAutomationReports(now: runAt)
+
+        XCTAssertEqual(reports.count, 1)
+        XCTAssertEqual(model.root.threads.filter { $0.title == "Scheduled check: QuillCode" }.count, 1)
+        let saved = try XCTUnwrap(try automationStore.load().first)
+        XCTAssertNotNil(saved.lastRunAt)
+        XCTAssertEqual(
+            try XCTUnwrap(saved.nextRunAt).timeIntervalSince1970,
+            recurrence.nextRun(after: runAt).timeIntervalSince1970,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(saved.recurrence, recurrence)
+        XCTAssertEqual(model.surface().automations.workflows.first?.statusLabel, "Active")
+
+        _ = model.runDueAutomations(now: runAt.addingTimeInterval(60))
+
+        XCTAssertEqual(model.root.threads.filter { $0.title == "Scheduled check: QuillCode" }.count, 1)
     }
 
     func testRunDueAutomationReportsDescribeCreatedFollowUps() throws {
