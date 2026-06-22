@@ -346,7 +346,7 @@ public struct GitToolExecutor: Sendable {
             guard !trimmedPatch.isEmpty else {
                 throw GitToolError.emptyPatch
             }
-            if let mismatch = mismatchedPatchPath(in: patch, expectedPath: relativePath) {
+            if let mismatch = Self.mismatchedPatchPath(in: patch, expectedPath: relativePath) {
                 throw GitToolError.patchPathMismatch(mismatch)
             }
 
@@ -375,7 +375,7 @@ public struct GitToolExecutor: Sendable {
         }
     }
 
-    private func mismatchedPatchPath(in patch: String, expectedPath: String) -> String? {
+    public static func mismatchedPatchPath(in patch: String, expectedPath: String) -> String? {
         for line in patch.components(separatedBy: .newlines) {
             guard line.hasPrefix("--- ") || line.hasPrefix("+++ ") || line.hasPrefix("diff --git ") else {
                 continue
@@ -391,7 +391,7 @@ public struct GitToolExecutor: Sendable {
         return nil
     }
 
-    private func pathsInDiffMetadataLine(_ line: String) -> [String] {
+    private static func pathsInDiffMetadataLine(_ line: String) -> [String] {
         if line.hasPrefix("diff --git ") {
             return pathsInDiffGitHeader(String(line.dropFirst("diff --git ".count)))
         }
@@ -402,7 +402,7 @@ public struct GitToolExecutor: Sendable {
             .map { [String($0)] } ?? []
     }
 
-    private func pathsInDiffGitHeader(_ header: String) -> [String] {
+    private static func pathsInDiffGitHeader(_ header: String) -> [String] {
         if header.hasPrefix("\"") {
             return quotedPaths(in: header)
         }
@@ -414,7 +414,7 @@ public struct GitToolExecutor: Sendable {
         return [first, second]
     }
 
-    private func quotedPaths(in header: String) -> [String] {
+    private static func quotedPaths(in header: String) -> [String] {
         var paths: [String] = []
         var current = ""
         var isInQuote = false
@@ -445,7 +445,7 @@ public struct GitToolExecutor: Sendable {
         return paths
     }
 
-    private func normalizedPatchPath(_ rawPath: String) -> String {
+    private static func normalizedPatchPath(_ rawPath: String) -> String {
         var path = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
         if path.hasPrefix("\"") {
             path.removeFirst()

@@ -410,9 +410,12 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(toolNames.contains(ToolDefinition.applyPatch.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitStatus.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitDiff.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitStage.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitRestore.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitStageHunk.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitRestoreHunk.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.planUpdate.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.browserInspect.name))
-        XCTAssertFalse(toolNames.contains(ToolDefinition.gitStage.name))
         XCTAssertFalse(toolNames.contains(ToolDefinition.gitCommit.name))
         XCTAssertFalse(toolNames.contains(ToolDefinition.gitPush.name))
     }
@@ -798,19 +801,19 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: argumentsFile.path))
     }
 
-    func testRemoteProjectRejectsUnavailableMutatingGitTool() async throws {
+    func testRemoteProjectRejectsUnavailableCommitTool() async throws {
         let root = try makeTempDirectory()
         let connection = ProjectConnection.ssh(path: "/srv/quill", host: "feather.local", user: "quill")
         let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
         let model = QuillCodeWorkspaceModel(
             root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
             runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
-                name: ToolDefinition.gitStage.name,
-                argumentsJSON: ToolArguments.json(["path": "hello.txt"])
+                name: ToolDefinition.gitCommit.name,
+                argumentsJSON: ToolArguments.json(["message": "ship it"])
             )))
         )
 
-        model.setDraft("Stage hello.txt")
+        model.setDraft("Commit the change")
         await model.submitComposer(workspaceRoot: root)
 
         let card = try XCTUnwrap(model.currentToolCards.last)
@@ -3508,6 +3511,55 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(try runGit(["status", "--short"], cwd: root), "M  hello.txt\n")
     }
 
+    func testRemoteProjectReviewStageActionRunsThroughSSHAndRefreshesDiff() throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = try makeTempGitRepoWithInitialCommit()
+        try "old\n".write(
+            to: remoteRoot.appendingPathComponent("hello.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        _ = try runGit(["add", "hello.txt"], cwd: remoteRoot)
+        _ = try runGit(["commit", "-m", "add hello"], cwd: remoteRoot)
+        try "new\n".write(
+            to: remoteRoot.appendingPathComponent("hello.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let argumentsFile = root.appendingPathComponent("ssh-review-stage-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(path: remoteRoot.path, host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let thread = ChatThread(title: "Remote Review", projectID: project.id)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                threads: [thread],
+                selectedThreadID: thread.id
+            ),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(sshExecutable: fakeSSH.path)
+        )
+
+        model.runReviewAction(
+            WorkspaceReviewActionSurface(kind: .stage, path: "hello.txt"),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
+        let cards = model.currentToolCards
+        XCTAssertEqual(cards.map(\.title), [
+            ToolDefinition.gitStage.name,
+            ToolDefinition.gitDiff.name
+        ])
+        XCTAssertEqual(cards.map(\.executionContext?.kind), [ExecutionContextKind.sshRemote, .sshRemote])
+        XCTAssertTrue(cards.allSatisfy { $0.status == ToolCardStatus.done })
+        XCTAssertEqual(try runGit(["status", "--short"], cwd: remoteRoot), "M  hello.txt\n")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("hello.txt").path))
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+        XCTAssertTrue(arguments.contains("git diff"), arguments)
+    }
+
     func testAddReviewCommentAppendsThreadEventForVisibleDiffFile() throws {
         let diff = """
         diff --git a/hello.txt b/hello.txt
@@ -3596,6 +3648,49 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertFalse(model.surface().review.isVisible)
     }
 
+    func testRemoteProjectReviewRestoreActionRunsThroughSSHAndRefreshesDiff() throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = try makeTempGitRepoWithInitialCommit()
+        let remoteFileURL = remoteRoot.appendingPathComponent("hello.txt")
+        try "old\n".write(to: remoteFileURL, atomically: true, encoding: .utf8)
+        _ = try runGit(["add", "hello.txt"], cwd: remoteRoot)
+        _ = try runGit(["commit", "-m", "add hello"], cwd: remoteRoot)
+        try "new\n".write(to: remoteFileURL, atomically: true, encoding: .utf8)
+        let argumentsFile = root.appendingPathComponent("ssh-review-restore-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(path: remoteRoot.path, host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let thread = ChatThread(title: "Remote Review", projectID: project.id)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                threads: [thread],
+                selectedThreadID: thread.id
+            ),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(sshExecutable: fakeSSH.path)
+        )
+
+        model.runReviewAction(
+            WorkspaceReviewActionSurface(kind: .restore, path: "hello.txt"),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
+        let cards = model.currentToolCards
+        XCTAssertEqual(cards.map(\.title), [
+            ToolDefinition.gitRestore.name,
+            ToolDefinition.gitDiff.name
+        ])
+        XCTAssertEqual(cards.map(\.executionContext?.kind), [ExecutionContextKind.sshRemote, .sshRemote])
+        XCTAssertTrue(cards.allSatisfy { $0.status == ToolCardStatus.done })
+        XCTAssertEqual(try String(contentsOf: remoteFileURL, encoding: .utf8), "old\n")
+        XCTAssertEqual(try runGit(["status", "--short"], cwd: remoteRoot), "")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("hello.txt").path))
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+        XCTAssertTrue(arguments.contains("git diff"), arguments)
+    }
+
     func testRunReviewStageHunkActionStagesPatchAndRefreshesDiff() throws {
         let root = try makeTempDirectory()
         try initializeGitRepository(at: root)
@@ -3638,6 +3733,63 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(model.currentToolCards.allSatisfy { $0.status == .done })
         XCTAssertTrue(try runGit(["diff", "--staged"], cwd: root).contains("+TWO"))
         XCTAssertFalse(model.surface().review.isVisible)
+    }
+
+    func testRemoteProjectReviewStageHunkActionRunsThroughSSHAndRefreshesDiff() throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = try makeTempGitRepoWithInitialCommit()
+        let remoteFileURL = remoteRoot.appendingPathComponent("hello.txt")
+        try "one\ntwo\nthree\n".write(to: remoteFileURL, atomically: true, encoding: .utf8)
+        _ = try runGit(["add", "hello.txt"], cwd: remoteRoot)
+        _ = try runGit(["commit", "-m", "add hello"], cwd: remoteRoot)
+        try "one\nTWO\nthree\n".write(to: remoteFileURL, atomically: true, encoding: .utf8)
+        let patch = """
+        diff --git a/hello.txt b/hello.txt
+        --- a/hello.txt
+        +++ b/hello.txt
+        @@ -1,3 +1,3 @@
+         one
+        -two
+        +TWO
+         three
+        """
+        let argumentsFile = root.appendingPathComponent("ssh-review-stage-hunk-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(path: remoteRoot.path, host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let thread = ChatThread(title: "Remote Review", projectID: project.id)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                threads: [thread],
+                selectedThreadID: thread.id
+            ),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(sshExecutable: fakeSSH.path)
+        )
+
+        model.runReviewAction(
+            WorkspaceReviewActionSurface(
+                kind: .stageHunk,
+                path: "hello.txt",
+                patch: patch,
+                targetID: "hello.txt:hunk-1"
+            ),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
+        let cards = model.currentToolCards
+        XCTAssertEqual(cards.map(\.title), [
+            ToolDefinition.gitStageHunk.name,
+            ToolDefinition.gitDiff.name
+        ])
+        XCTAssertEqual(cards.map(\.executionContext?.kind), [ExecutionContextKind.sshRemote, .sshRemote])
+        XCTAssertTrue(cards.allSatisfy { $0.status == ToolCardStatus.done })
+        XCTAssertTrue(try runGit(["diff", "--staged"], cwd: remoteRoot).contains("+TWO"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("hello.txt").path))
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+        XCTAssertTrue(arguments.contains("git diff"), arguments)
     }
 
     func testRuntimeFactoryModelCatalogFallsBackWithoutKey() async throws {

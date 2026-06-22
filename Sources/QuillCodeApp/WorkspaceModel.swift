@@ -2258,17 +2258,28 @@ public final class QuillCodeWorkspaceModel {
 
         let router = ToolRouter(workspaceRoot: workspaceRoot)
         let actionCall = action.toolCall
-        let actionResult = router.execute(actionCall)
+        let actionResult = executeReviewGitToolCall(actionCall, router: router)
         appendToolRun(call: actionCall, result: actionResult)
 
         let diffCall = ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}")
-        let diffResult = router.execute(diffCall)
+        let diffResult = executeReviewGitToolCall(diffCall, router: router)
         appendToolRun(call: diffCall, result: diffResult)
 
         if let thread = selectedThread {
             try? threadStore?.save(thread)
         }
         refreshTopBar(agentStatus: actionResult.ok && diffResult.ok ? "Idle" : "Failed")
+    }
+
+    private func executeReviewGitToolCall(_ call: ToolCall, router: ToolRouter) -> ToolResult {
+        guard let project = selectedProject, project.isRemote else {
+            return router.execute(call)
+        }
+        return Self.executeRemoteGitToolCall(
+            call,
+            connection: project.connection,
+            executor: sshRemoteShellExecutor
+        )
     }
 
     @discardableResult
@@ -2924,7 +2935,20 @@ public final class QuillCodeWorkspaceModel {
         .fileWrite,
         .applyPatch,
         .gitStatus,
-        .gitDiff
+        .gitDiff,
+        .gitStage,
+        .gitRestore,
+        .gitStageHunk,
+        .gitRestoreHunk
+    ]
+
+    private nonisolated static let remoteProjectGitToolNames: Set<String> = [
+        ToolDefinition.gitStatus.name,
+        ToolDefinition.gitDiff.name,
+        ToolDefinition.gitStage.name,
+        ToolDefinition.gitRestore.name,
+        ToolDefinition.gitStageHunk.name,
+        ToolDefinition.gitRestoreHunk.name
     ]
 
     private func remoteProjectToolExecutionOverride(project: ProjectRef?) -> AgentToolExecutionOverride? {
@@ -2951,7 +2975,7 @@ public final class QuillCodeWorkspaceModel {
                     connection: connection,
                     executor: executor
                 )
-            case ToolDefinition.gitStatus.name, ToolDefinition.gitDiff.name:
+            case let name where Self.remoteProjectGitToolNames.contains(name):
                 return Self.executeRemoteGitToolCall(
                     call,
                     connection: connection,
@@ -3015,6 +3039,27 @@ public final class QuillCodeWorkspaceModel {
                 command = "git status --short --branch"
             case ToolDefinition.gitDiff.name:
                 command = args.bool("staged") == true ? "git diff --staged" : "git diff"
+            case ToolDefinition.gitStage.name:
+                let path = try remoteProjectRelativePath(try args.requiredString("path"))
+                command = "git add -- \(shellSingleQuoted(path))"
+            case ToolDefinition.gitRestore.name:
+                let path = try remoteProjectRelativePath(try args.requiredString("path"))
+                let stagedFlag = args.bool("staged") == true ? " --staged" : ""
+                command = "git restore\(stagedFlag) -- \(shellSingleQuoted(path))"
+            case ToolDefinition.gitStageHunk.name:
+                command = try remoteGitHunkCommand(
+                    path: try args.requiredString("path"),
+                    patch: try args.requiredString("patch"),
+                    applyArguments: ["--cached", "--whitespace=nowarn"],
+                    successMessage: "Hunk staged.\\n"
+                )
+            case ToolDefinition.gitRestoreHunk.name:
+                command = try remoteGitHunkCommand(
+                    path: try args.requiredString("path"),
+                    patch: try args.requiredString("patch"),
+                    applyArguments: ["--reverse", "--whitespace=nowarn"],
+                    successMessage: "Hunk restored.\\n"
+                )
             default:
                 return ToolResult(ok: false, error: "Tool is not available for SSH Remote projects: \(call.name)")
             }
@@ -3026,6 +3071,40 @@ public final class QuillCodeWorkspaceModel {
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
+    }
+
+    private nonisolated static func remoteGitHunkCommand(
+        path: String,
+        patch: String,
+        applyArguments: [String],
+        successMessage: String
+    ) throws -> String {
+        let relativePath = try remoteProjectRelativePath(path)
+        var normalizedPatch = patch
+        let trimmedPatch = normalizedPatch.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPatch.isEmpty else {
+            throw GitToolError.emptyPatch
+        }
+        if let mismatch = GitToolExecutor.mismatchedPatchPath(
+            in: normalizedPatch,
+            expectedPath: relativePath
+        ) {
+            throw GitToolError.patchPathMismatch(mismatch)
+        }
+        if !normalizedPatch.hasSuffix("\n") {
+            normalizedPatch.append("\n")
+        }
+
+        let encoded = Data(normalizedPatch.utf8).base64EncodedString()
+        let flags = applyArguments.map(shellSingleQuoted).joined(separator: " ")
+        return [
+            "patch_file=\"${TMPDIR:-/tmp}/quillcode-hunk.$$.patch\"",
+            "trap 'rm -f \"$patch_file\"' EXIT",
+            "printf %s \(shellSingleQuoted(encoded)) | base64 --decode > \"$patch_file\"",
+            "git apply \(flags) --check \"$patch_file\"",
+            "git apply \(flags) \"$patch_file\"",
+            "printf \(shellSingleQuoted(successMessage))"
+        ].joined(separator: " && ")
     }
 
     private nonisolated static func executeRemoteFileToolCall(
@@ -3446,7 +3525,7 @@ public final class QuillCodeWorkspaceModel {
                 executor: sshRemoteShellExecutor
             )
         } else if selectedProject?.isRemote == true,
-                  (call.name == ToolDefinition.gitStatus.name || call.name == ToolDefinition.gitDiff.name),
+                  Self.remoteProjectGitToolNames.contains(call.name),
                   let project = selectedProject {
             result = Self.executeRemoteGitToolCall(
                 call,
@@ -4362,7 +4441,7 @@ public final class QuillCodeWorkspaceModel {
                let project = root.projects.first(where: { $0.id == projectID }) {
                 appendLocalCommandTranscript(
                     userText: originalPrompt,
-                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Shell, file read/write, apply patch, read-only git status/diff, and project context refresh run through SSH; mutating git actions remain local-only for now.",
+                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Shell, file read/write, apply patch, git status/diff/stage/restore, and project context refresh run through SSH; commit, push, PR, and worktree actions remain local-only for now.",
                     title: "Add SSH Remote"
                 )
             } else {
