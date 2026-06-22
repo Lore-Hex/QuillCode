@@ -154,7 +154,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(surface.activity.isVisible)
     }
 
-    func testSurfaceMarksSSHProjectsAndDisablesLocalOnlyCommands() throws {
+    func testSurfaceMarksSSHProjectsAndEnablesRemoteGitCommands() throws {
         let connection = ProjectConnection.ssh(
             path: "/srv/quill",
             host: "feather.local",
@@ -184,8 +184,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-status" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-diff" }?.isEnabled, true)
-        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-create" }?.isEnabled, false)
-        XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-list" }?.isEnabled, false)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-create" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-list" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-create" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-remove" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "add-ssh-project" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "add-ssh-project" }?.title, "Project: Add SSH Remote...")
         XCTAssertEqual(surface.terminal.cwdLabel, "ssh://quill@feather.local:2222/srv/quill")

@@ -3206,28 +3206,28 @@ public extension QuillCodeWorkspaceModel {
                 title: "Create pull request",
                 category: WorkspaceCommandPalette.gitCategory,
                 keywords: ["github", "pr", "review"],
-                isEnabled: activeWorkspaceRoot != nil && selectedProject?.isRemote != true
+                isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
             ),
             WorkspaceCommandSurface(
                 id: "git-worktree-list",
                 title: "List worktrees",
                 category: WorkspaceCommandPalette.gitCategory,
                 keywords: ["branch", "git", "workspace"],
-                isEnabled: activeWorkspaceRoot != nil && selectedProject?.isRemote != true
+                isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
             ),
             WorkspaceCommandSurface(
                 id: "git-worktree-create",
                 title: "Create worktree",
                 category: WorkspaceCommandPalette.gitCategory,
                 keywords: ["branch", "git", "workspace"],
-                isEnabled: activeWorkspaceRoot != nil && selectedProject?.isRemote != true
+                isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
             ),
             WorkspaceCommandSurface(
                 id: "git-worktree-remove",
                 title: "Remove worktree",
                 category: WorkspaceCommandPalette.gitCategory,
                 keywords: ["branch", "git", "workspace", "delete"],
-                isEnabled: activeWorkspaceRoot != nil && selectedProject?.isRemote != true
+                isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
             ),
         ] + localActionCommands + mcpLifecycleCommands + [
             WorkspaceCommandSurface(

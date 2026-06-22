@@ -2942,7 +2942,10 @@ public final class QuillCodeWorkspaceModel {
         .gitRestoreHunk,
         .gitCommit,
         .gitPush,
-        .gitPullRequestCreate
+        .gitPullRequestCreate,
+        .gitWorktreeList,
+        .gitWorktreeCreate,
+        .gitWorktreeRemove
     ]
 
     private nonisolated static let remoteProjectGitToolNames: Set<String> = [
@@ -2954,7 +2957,10 @@ public final class QuillCodeWorkspaceModel {
         ToolDefinition.gitRestoreHunk.name,
         ToolDefinition.gitCommit.name,
         ToolDefinition.gitPush.name,
-        ToolDefinition.gitPullRequestCreate.name
+        ToolDefinition.gitPullRequestCreate.name,
+        ToolDefinition.gitWorktreeList.name,
+        ToolDefinition.gitWorktreeCreate.name,
+        ToolDefinition.gitWorktreeRemove.name
     ]
 
     private func remoteProjectToolExecutionOverride(project: ProjectRef?) -> AgentToolExecutionOverride? {
@@ -3040,6 +3046,7 @@ public final class QuillCodeWorkspaceModel {
         do {
             let args = try ToolArguments(call.argumentsJSON)
             let command: String
+            var artifacts: [String] = []
             switch call.name {
             case ToolDefinition.gitStatus.name:
                 command = "git status --short --branch"
@@ -3087,6 +3094,28 @@ public final class QuillCodeWorkspaceModel {
                     draft: args.bool("draft") ?? false,
                     fill: args.bool("fill") ?? false
                 )
+            case ToolDefinition.gitWorktreeList.name:
+                command = "git worktree list --porcelain"
+            case ToolDefinition.gitWorktreeCreate.name:
+                let worktreePath = try remoteGitWorktreePath(
+                    try args.requiredString("path"),
+                    connection: connection
+                )
+                command = remoteGitWorktreeCreateCommand(
+                    worktreePath: worktreePath,
+                    branch: args.string("branch"),
+                    base: args.string("base")
+                )
+                artifacts = [remoteArtifactPath(connection: connection, absolutePath: worktreePath)]
+            case ToolDefinition.gitWorktreeRemove.name:
+                let worktreePath = try remoteGitWorktreePath(
+                    try args.requiredString("path"),
+                    connection: connection
+                )
+                command = remoteGitWorktreeRemoveCommand(
+                    worktreePath: worktreePath,
+                    force: args.bool("force") ?? false
+                )
             default:
                 return ToolResult(ok: false, error: "Tool is not available for SSH Remote projects: \(call.name)")
             }
@@ -3097,6 +3126,8 @@ public final class QuillCodeWorkspaceModel {
             var result = ShellToolExecutor().run(request)
             if call.name == ToolDefinition.gitPullRequestCreate.name, result.ok {
                 result.artifacts = GitToolExecutor.extractURLs(from: result.stdout)
+            } else if result.ok, !artifacts.isEmpty {
+                result.artifacts = artifacts
             }
             return result
         } catch {
@@ -3160,6 +3191,96 @@ public final class QuillCodeWorkspaceModel {
             arguments.append("--fill")
         }
         return arguments.map(shellSingleQuoted).joined(separator: " ")
+    }
+
+    private nonisolated static func remoteGitWorktreeCreateCommand(
+        worktreePath: String,
+        branch: String?,
+        base: String?
+    ) -> String {
+        var arguments = ["git", "worktree", "add"]
+        if let branch = GitToolExecutor.trimmedNonEmpty(branch) {
+            arguments += ["-b", branch]
+        }
+        arguments.append(worktreePath)
+        if let base = GitToolExecutor.trimmedNonEmpty(base) {
+            arguments.append(base)
+        }
+        return arguments.map(shellSingleQuoted).joined(separator: " ")
+    }
+
+    private nonisolated static func remoteGitWorktreeRemoveCommand(
+        worktreePath: String,
+        force: Bool
+    ) -> String {
+        let forceFlag = force ? " --force" : ""
+        return [
+            "worktree=\(shellSingleQuoted(worktreePath))",
+            "git worktree list --porcelain | grep -F -x -- \"worktree $worktree\" >/dev/null || { printf 'Git worktree is not registered: %s\\n' \"$worktree\" >&2; exit 1; }",
+            "git worktree remove\(forceFlag) -- \"$worktree\""
+        ].joined(separator: " && ")
+    }
+
+    private nonisolated static func remoteGitWorktreePath(
+        _ rawPath: String,
+        connection: ProjectConnection
+    ) throws -> String {
+        let trimmed = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              !trimmed.hasPrefix("~"),
+              !trimmed.contains("\0"),
+              trimmed.rangeOfCharacter(from: .newlines) == nil
+        else {
+            throw GitToolError.emptyPath
+        }
+        guard let workspace = normalizedAbsolutePOSIXPath(connection.path) else {
+            throw GitToolError.outsideWorkspace(connection.path)
+        }
+        let parent = posixParentPath(workspace)
+        let candidateRaw = trimmed.hasPrefix("/") ? trimmed : "\(parent)/\(trimmed)"
+        guard let candidate = normalizedAbsolutePOSIXPath(candidateRaw),
+              isPOSIXPath(candidate, inside: parent) else {
+            throw GitToolError.outsideWorkspace(rawPath)
+        }
+        guard candidate != workspace else {
+            throw GitToolError.mainWorkspaceWorktreePath
+        }
+        return candidate
+    }
+
+    private nonisolated static func normalizedAbsolutePOSIXPath(_ rawPath: String) -> String? {
+        let trimmed = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("/"),
+              !trimmed.contains("\0"),
+              trimmed.rangeOfCharacter(from: .newlines) == nil else {
+            return nil
+        }
+        var components: [String] = []
+        for component in trimmed.split(separator: "/", omittingEmptySubsequences: true).map(String.init) {
+            switch component {
+            case ".":
+                continue
+            case "..":
+                guard !components.isEmpty else { return nil }
+                components.removeLast()
+            default:
+                components.append(component)
+            }
+        }
+        return components.isEmpty ? "/" : "/\(components.joined(separator: "/"))"
+    }
+
+    private nonisolated static func posixParentPath(_ path: String) -> String {
+        let components = path.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
+        guard components.count > 1 else { return "/" }
+        return "/\(components.dropLast().joined(separator: "/"))"
+    }
+
+    private nonisolated static func isPOSIXPath(_ path: String, inside parent: String) -> Bool {
+        if parent == "/" {
+            return path.hasPrefix("/")
+        }
+        return path == parent || path.hasPrefix("\(parent)/")
     }
 
     private nonisolated static func remoteGitHunkCommand(
@@ -3335,6 +3456,15 @@ public final class QuillCodeWorkspaceModel {
     ) -> String {
         var copy = connection
         copy.path = remotePath(connection.path, appending: relativePath)
+        return copy.displayLabel
+    }
+
+    private nonisolated static func remoteArtifactPath(
+        connection: ProjectConnection,
+        absolutePath: String
+    ) -> String {
+        var copy = connection
+        copy.path = absolutePath
         return copy.displayLabel
     }
 
@@ -4393,6 +4523,10 @@ public final class QuillCodeWorkspaceModel {
 
     private func openCreatedWorktree(_ result: ToolResult, request: WorkspaceWorktreeCreateRequest) {
         guard let artifact = result.artifacts.first else { return }
+        if selectedProject?.isRemote == true {
+            openCreatedRemoteWorktree(artifact, request: request)
+            return
+        }
         let worktreeURL = URL(fileURLWithPath: artifact).standardizedFileURL
         guard FileManager.default.fileExists(atPath: worktreeURL.path) else { return }
 
@@ -4430,12 +4564,63 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: "Idle")
     }
 
+    private func openCreatedRemoteWorktree(_ artifact: String, request: WorkspaceWorktreeCreateRequest) {
+        guard let connection = ProjectConnection.parseSSH(artifact),
+              let projectID = addSSHProject(artifact, name: Self.defaultSSHProjectName(for: connection)) else {
+            return
+        }
+
+        let titleLabel = Self.worktreeThreadLabel(request: request, path: connection.path)
+        let pathName = URL(fileURLWithPath: connection.path).lastPathComponent
+        let displayName = pathName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? connection.displayLabel
+            : pathName
+        let messageText = "Opened remote worktree `\(displayName)` at `\(connection.displayLabel)`."
+        let message = ChatMessage(role: .assistant, content: messageText)
+        let thread = ChatThread(
+            title: "Worktree: \(titleLabel)",
+            projectID: projectID,
+            mode: root.config.mode,
+            model: root.config.defaultModel,
+            messages: [message],
+            events: [
+                .init(
+                    kind: .notice,
+                    summary: "Opened remote worktree \(displayName)",
+                    payloadJSON: connection.displayLabel
+                ),
+                .init(kind: .message, summary: messageText)
+            ],
+            instructions: instructions(for: projectID),
+            memories: memoryNotes(for: projectID)
+        )
+
+        root.threads.insert(thread, at: 0)
+        root.selectedThreadID = thread.id
+        root.selectedProjectID = projectID
+        syncTerminalSessionToSelectedProject()
+        touchProject(projectID)
+        saveProjects()
+        try? threadStore?.save(thread)
+        refreshTopBar(agentStatus: "Idle")
+    }
+
     private static func worktreeThreadLabel(request: WorkspaceWorktreeCreateRequest, url: URL) -> String {
         let branch = request.branch.trimmingCharacters(in: .whitespacesAndNewlines)
         if !branch.isEmpty {
             return branch
         }
         return defaultProjectName(for: url)
+    }
+
+    private static func worktreeThreadLabel(request: WorkspaceWorktreeCreateRequest, path: String) -> String {
+        let branch = request.branch.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !branch.isEmpty {
+            return branch
+        }
+        let lastPathComponent = URL(fileURLWithPath: path).lastPathComponent
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return lastPathComponent.isEmpty ? path : lastPathComponent
     }
 
     @discardableResult
@@ -4530,7 +4715,7 @@ public final class QuillCodeWorkspaceModel {
                let project = root.projects.first(where: { $0.id == projectID }) {
                 appendLocalCommandTranscript(
                     userText: originalPrompt,
-                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Shell, file read/write, apply patch, git status/diff/stage/restore/commit/push, and project context refresh run through SSH; PR and worktree actions remain local-only for now.",
+                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Shell, file read/write, apply patch, git status/diff/stage/restore/commit/push/PR/worktree, and project context refresh run through SSH.",
                     title: "Add SSH Remote"
                 )
             } else {

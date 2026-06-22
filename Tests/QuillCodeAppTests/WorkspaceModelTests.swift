@@ -281,7 +281,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(result.stdout, "slash-env-ok")
     }
 
-    func testSlashSSHAddsRemoteProjectAndDisablesLocalOnlyActions() async throws {
+    func testSlashSSHAddsRemoteProjectAndEnablesRemoteGitActions() async throws {
         let model = QuillCodeWorkspaceModel()
 
         model.setDraft("/ssh quill@feather.local:/srv/quill")
@@ -300,8 +300,12 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(surface.projects.items.first?.connectionKindLabel, "SSH Remote")
         XCTAssertEqual(surface.projects.items.first?.actions.first { $0.kind == .refreshContext }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
-        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-create" }?.isEnabled, false)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-create" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-list" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-create" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-remove" }?.isEnabled, true)
         XCTAssertEqual(model.selectedThread?.messages.last?.content.contains("Added SSH Remote"), true)
+        XCTAssertEqual(model.selectedThread?.messages.last?.content.contains("PR/worktree"), true)
     }
 
     func testRefreshProjectContextLoadsSSHRemoteInstructionsAndMemories() throws {
@@ -417,10 +421,11 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitCommit.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPush.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestCreate.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitWorktreeList.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitWorktreeCreate.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitWorktreeRemove.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.planUpdate.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.browserInspect.name))
-        XCTAssertFalse(toolNames.contains(ToolDefinition.gitWorktreeCreate.name))
-        XCTAssertFalse(toolNames.contains(ToolDefinition.gitWorktreeRemove.name))
     }
 
     func testRemoteProjectAgentRunsShellThroughSSH() async throws {
@@ -949,25 +954,73 @@ final class WorkspaceModelTests: XCTestCase {
         ])
     }
 
-    func testRemoteProjectRejectsUnavailableWorktreeTool() async throws {
+    func testRemoteProjectAgentCreatesWorktreeThroughSSH() async throws {
         let root = try makeTempDirectory()
-        let connection = ProjectConnection.ssh(path: "/srv/quill", host: "feather.local", user: "quill")
+        let remoteRoot = try makeTempGitRepoWithInitialCommit()
+        let worktreeName = "remote-agent-\(UUID().uuidString)"
+        let branch = "remote-agent-\(UUID().uuidString.prefix(8))"
+        let worktree = remoteRoot.deletingLastPathComponent()
+            .appendingPathComponent(worktreeName)
+            .standardizedFileURL
+        let argumentsFile = root.appendingPathComponent("ssh-agent-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(path: remoteRoot.path, host: "feather.local", user: "quill")
         let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
         let model = QuillCodeWorkspaceModel(
             root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
             runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
                 name: ToolDefinition.gitWorktreeCreate.name,
-                argumentsJSON: ToolArguments.json(["path": "../feature"])
-            )))
+                argumentsJSON: ToolArguments.json([
+                    "path": worktreeName,
+                    "branch": String(branch)
+                ])
+            ))),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
         )
 
         model.setDraft("Create a worktree")
         await model.submitComposer(workspaceRoot: root)
 
         let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.gitWorktreeCreate.name)
+        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
         let result = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(card.outputJSON))
+        XCTAssertTrue(result.ok, result.error ?? result.stderr)
+        XCTAssertEqual(result.artifacts, ["ssh://quill@feather.local\(worktree.path)"])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: worktree.path))
+
+        let sshArguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+        XCTAssertTrue(sshArguments.contains("'git' 'worktree' 'add' '-b' '\(branch)' '\(worktree.path)'"), sshArguments)
+    }
+
+    func testRemoteProjectRejectsUnsafeWorktreePathBeforeSSH() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("ssh-agent-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(path: "/srv/quill", host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        let result = model.runToolCall(
+            ToolCall(
+                name: ToolDefinition.gitWorktreeCreate.name,
+                argumentsJSON: ToolArguments.json(["path": "../../etc"])
+            ),
+            workspaceRoot: root
+        )
+
         XCTAssertFalse(result.ok)
-        XCTAssertTrue(result.error?.contains("Tool is not available") == true, result.error ?? "")
+        XCTAssertTrue(result.error?.contains("outside the workspace") == true, result.error ?? "")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: argumentsFile.path))
     }
 
     func testSelectingProjectSelectsNewestThreadForThatProject() {
@@ -1849,6 +1902,38 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
     }
 
+    func testRemoteWorkspaceCommandListsGitWorktreesThroughSSH() throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = try makeTempGitRepoWithInitialCommit()
+        let argumentsFile = root.appendingPathComponent("ssh-agent-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(
+            path: remoteRoot.path,
+            host: "feather.local",
+            user: "quill",
+            port: 2222
+        )
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        XCTAssertTrue(model.runWorkspaceCommand("git-worktree-list", workspaceRoot: root))
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.gitWorktreeList.name)
+        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
+        XCTAssertEqual(card.status, .done)
+        let result = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(card.outputJSON))
+        XCTAssertTrue(result.stdout.contains(remoteRoot.standardizedFileURL.path), result.stdout)
+        let sshArguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+        XCTAssertTrue(sshArguments.contains("git worktree list --porcelain"), sshArguments)
+    }
+
     func testWorkspaceWorktreeCommandsPrefillComposer() throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()
@@ -1899,6 +1984,55 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: worktree.path))
         XCTAssertEqual(model.currentToolCards.last?.title, "host.git.worktree.remove")
         XCTAssertEqual(model.currentToolCards.last?.status, .done)
+    }
+
+    func testRemoteWorkspaceCreateWorktreeOpensSSHProjectAndKeepsToolAudit() throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = try makeTempGitRepoWithInitialCommit()
+        let parent = remoteRoot.deletingLastPathComponent()
+        let worktreeName = "remote-ui-\(UUID().uuidString)"
+        let branch = "remote-ui-\(UUID().uuidString.prefix(8))"
+        let worktree = parent.appendingPathComponent(worktreeName).standardizedFileURL
+        let argumentsFile = root.appendingPathComponent("ssh-agent-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(
+            path: remoteRoot.path,
+            host: "feather.local",
+            user: "quill",
+            port: 2222
+        )
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        model.createWorktree(.init(path: worktreeName, branch: String(branch)), workspaceRoot: root)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: worktree.path))
+        XCTAssertEqual(model.selectedProject?.connection.kind, .ssh)
+        XCTAssertEqual(model.selectedProject?.connection.host, "feather.local")
+        XCTAssertEqual(model.selectedProject?.connection.user, "quill")
+        XCTAssertEqual(model.selectedProject?.connection.port, 2222)
+        XCTAssertEqual(model.selectedProject?.connection.path, worktree.path)
+        XCTAssertEqual(model.selectedThread?.projectID, model.selectedProject?.id)
+        XCTAssertEqual(model.selectedThread?.title, "Worktree: \(branch)")
+        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("Opened remote worktree `\(worktreeName)`") == true)
+        XCTAssertEqual(model.root.topBar.projectName, "feather.local · \(worktreeName)")
+
+        let createThread = try XCTUnwrap(model.root.threads.first { thread in
+            QuillCodeWorkspaceModel.toolCards(for: thread).contains { card in
+                card.title == ToolDefinition.gitWorktreeCreate.name
+            }
+        })
+        XCTAssertNotEqual(createThread.id, model.selectedThread?.id)
+        let createCard = try XCTUnwrap(QuillCodeWorkspaceModel.toolCards(for: createThread).last)
+        XCTAssertEqual(createCard.status, .done)
+        let createResult = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(createCard.outputJSON))
+        XCTAssertEqual(createResult.artifacts, ["ssh://quill@feather.local:2222\(worktree.path)"])
     }
 
     func testApplyPatchToolRunRefreshesReviewDiff() throws {
