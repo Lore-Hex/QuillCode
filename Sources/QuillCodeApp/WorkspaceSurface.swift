@@ -3422,6 +3422,13 @@ public extension QuillCodeWorkspaceModel {
                 isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
             ),
             WorkspaceCommandSurface(
+                id: "git-pr-checkout",
+                title: "Checkout pull request",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["github", "pr", "checkout", "switch", "branch"],
+                isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
+            ),
+            WorkspaceCommandSurface(
                 id: "git-pr-merge",
                 title: "Merge pull request",
                 category: WorkspaceCommandPalette.gitCategory,

@@ -45,6 +45,13 @@ final class SafetyTests: XCTestCase {
         host: .local,
         risk: .append
     )
+    private let gitPullRequestCheckout = ToolDefinition(
+        name: "host.git.pr.checkout",
+        description: "Checkout pull request",
+        parametersJSON: "{}",
+        host: .local,
+        risk: .append
+    )
     private let gitPullRequestReview = ToolDefinition(
         name: "host.git.pr.review",
         description: "Review pull request",
@@ -187,6 +194,22 @@ final class SafetyTests: XCTestCase {
             toolCall: call,
             toolDefinition: gitPullRequestComment,
             recentMessages: [.init(role: .user, content: "comment on PR 42 saying Ready for review.")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoApprovesUserRequestedPullRequestCheckout() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: gitPullRequestCheckout.name,
+            argumentsJSON: #"{"selector":"42"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "checkout PR 42",
+            toolCall: call,
+            toolDefinition: gitPullRequestCheckout,
+            recentMessages: [.init(role: .user, content: "checkout PR 42")]
         ))
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }
