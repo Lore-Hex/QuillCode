@@ -405,11 +405,12 @@ final class WorkspaceModelTests: XCTestCase {
 
         let toolNames = Set(recorder.tools.map(\.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.shellRun.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.fileRead.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.fileWrite.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitStatus.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitDiff.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.planUpdate.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.browserInspect.name))
-        XCTAssertFalse(toolNames.contains(ToolDefinition.fileWrite.name))
         XCTAssertFalse(toolNames.contains(ToolDefinition.applyPatch.name))
         XCTAssertFalse(toolNames.contains(ToolDefinition.gitStage.name))
         XCTAssertFalse(toolNames.contains(ToolDefinition.gitCommit.name))
@@ -590,12 +591,13 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(arguments.last, "cd '/srv/quill/releases/current' && pwd")
     }
 
-    func testRemoteProjectMockFileRequestUsesSSHShell() async throws {
+    func testRemoteProjectMockFileRequestUsesSSHFileWrite() async throws {
         let root = try makeTempDirectory()
+        let remoteRoot = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("ssh-agent-file-args.txt")
-        let fakeSSH = try makeFakeSSH(in: root, argumentsFile: argumentsFile)
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
         let connection = ProjectConnection.ssh(
-            path: "/srv/quill",
+            path: remoteRoot.path,
             host: "feather.local",
             user: "quill"
         )
@@ -612,33 +614,110 @@ final class WorkspaceModelTests: XCTestCase {
         await model.submitComposer(workspaceRoot: root)
 
         let card = try XCTUnwrap(model.currentToolCards.last)
-        XCTAssertEqual(card.title, ToolDefinition.shellRun.name)
+        XCTAssertEqual(card.title, ToolDefinition.fileWrite.name)
         let outputJSON = try XCTUnwrap(card.outputJSON)
         let result = try JSONHelpers.decode(ToolResult.self, from: outputJSON)
         XCTAssertTrue(result.ok, result.error ?? "")
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("hello.txt").path))
+        XCTAssertEqual(
+            try String(contentsOf: remoteRoot.appendingPathComponent("hello.txt"), encoding: .utf8),
+            "hello world\n"
+        )
+        XCTAssertEqual(result.artifacts.first, "ssh://quill@feather.local\(remoteRoot.path)/hello.txt")
         let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
         XCTAssertTrue(arguments.contains("quill@feather.local"), arguments)
-        XCTAssertTrue(arguments.contains("cd '/srv/quill' && printf %s 'hello world"), arguments)
-        XCTAssertTrue(arguments.contains("' > hello.txt"), arguments)
+        XCTAssertTrue(arguments.contains("cd '\(remoteRoot.path)' && mkdir -p -- '.'"), arguments)
+        XCTAssertTrue(arguments.contains("| base64 --decode > 'hello.txt'"), arguments)
     }
 
-    func testRemoteProjectRejectsUnavailableLocalFileTool() async throws {
+    func testRemoteProjectAgentReadsRemoteFilesThroughSSH() async throws {
         let root = try makeTempDirectory()
-        let connection = ProjectConnection.ssh(path: "/srv/quill", host: "feather.local", user: "quill")
+        let remoteRoot = try makeTempDirectory()
+        try FileManager.default.createDirectory(
+            at: remoteRoot.appendingPathComponent("docs"),
+            withIntermediateDirectories: true
+        )
+        try "remote notes\n".write(
+            to: remoteRoot.appendingPathComponent("docs/notes.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let argumentsFile = root.appendingPathComponent("ssh-agent-file-read-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(path: remoteRoot.path, host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "docs/notes.md"])
+            ))),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        model.setDraft("Read docs/notes.md")
+        await model.submitComposer(workspaceRoot: root)
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.fileRead.name)
+        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
+        let result = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(card.outputJSON))
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(result.stdout, "remote notes\n")
+        XCTAssertEqual(result.artifacts.first, "ssh://quill@feather.local\(remoteRoot.path)/docs/notes.md")
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+        XCTAssertTrue(arguments.contains("cat -- 'docs/notes.md'"), arguments)
+    }
+
+    func testRemoteProjectRejectsUnsafeRemoteFilePath() async throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("ssh-agent-unsafe-file-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(path: remoteRoot.path, host: "feather.local", user: "quill")
         let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
         let model = QuillCodeWorkspaceModel(
             root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
             runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
                 name: ToolDefinition.fileWrite.name,
                 argumentsJSON: ToolArguments.json([
-                    "path": "hello.txt",
-                    "content": "should not be local\n"
+                    "path": "../escape.txt",
+                    "content": "should not be written\n"
                 ])
+            ))),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        model.setDraft("Write outside remote root")
+        await model.submitComposer(workspaceRoot: root)
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        let result = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(card.outputJSON))
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("outside the workspace") == true, result.error ?? "")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: remoteRoot.deletingLastPathComponent().appendingPathComponent("escape.txt").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: argumentsFile.path))
+    }
+
+    func testRemoteProjectRejectsUnavailableLocalApplyPatchTool() async throws {
+        let root = try makeTempDirectory()
+        let connection = ProjectConnection.ssh(path: "/srv/quill", host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
+                name: ToolDefinition.applyPatch.name,
+                argumentsJSON: ToolArguments.json(["patch": "diff --git a/a.txt b/a.txt\n"])
             )))
         )
 
-        model.setDraft("Write hello.txt")
+        model.setDraft("Apply this patch")
         await model.submitComposer(workspaceRoot: root)
 
         let card = try XCTUnwrap(model.currentToolCards.last)
