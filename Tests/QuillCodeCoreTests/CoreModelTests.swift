@@ -75,6 +75,17 @@ final class CoreModelTests: XCTestCase {
         XCTAssertNil(args.bool("missing"))
     }
 
+    func testToolArgumentsParseStringDictionaries() throws {
+        let args = try ToolArguments(#"{"environment":{"QUILL_ENV":"dev","CACHE_DIR":".cache/quill"},"ignored":{"count":1}}"#)
+
+        XCTAssertEqual(args.stringDictionary("environment"), [
+            "CACHE_DIR": ".cache/quill",
+            "QUILL_ENV": "dev"
+        ])
+        XCTAssertNil(args.stringDictionary("ignored"))
+        XCTAssertNil(args.stringDictionary("missing"))
+    }
+
     func testModelCatalogNormalizationDeduplicatesAliasesAndSortsDefaultsFirst() {
         let catalog = TrustedRouterDefaults.normalizedModelCatalog([
             .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),

@@ -568,6 +568,42 @@ final class ToolTests: XCTestCase {
         XCTAssertEqual(result.error, "Shell timeoutSeconds must be between 1 and 1800.")
     }
 
+    func testToolRouterShellUsesStructuredEnvironmentOverrides() throws {
+        let root = try makeTempDirectory()
+
+        let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"printf '%s' \"$QUILL_TOOL_ENV\"","environment":{"QUILL_TOOL_ENV":"from-tool"}}"#
+        ))
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(result.stdout, "from-tool")
+    }
+
+    func testToolRouterShellRejectsUnsafeEnvironmentOverrides() throws {
+        let root = try makeTempDirectory()
+
+        let badKey = ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"pwd","environment":{"BAD-KEY":"value"}}"#
+        ))
+        XCTAssertFalse(badKey.ok)
+        XCTAssertEqual(
+            badKey.error,
+            "Shell environment keys must be ASCII identifiers up to 64 characters."
+        )
+
+        let badValue = ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"pwd","environment":{"QUILL_ENV":"bad\nvalue"}}"#
+        ))
+        XCTAssertFalse(badValue.ok)
+        XCTAssertEqual(
+            badValue.error,
+            "Shell environment values must be single-line strings up to 512 characters."
+        )
+    }
+
     func testToolRouterRoutesGitWorktreeList() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let result = ToolRouter(workspaceRoot: root).execute(ToolCall(

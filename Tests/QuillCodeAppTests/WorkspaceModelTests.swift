@@ -1874,11 +1874,13 @@ final class WorkspaceModelTests: XCTestCase {
         ])
         XCTAssertEqual(
             action.command,
-            #"env CACHE_DIR='.cache/quill' QUILL_ENV='dev' QUOTED_VALUE='it'\''s ok' sh '.quillcode/actions/env-check.sh'"#
+            #"sh '.quillcode/actions/env-check.sh'"#
         )
         XCTAssertTrue(model.runWorkspaceCommand(action.id, workspaceRoot: root))
 
         let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertTrue(card.inputJSON?.contains(#""environment""#) == true)
+        XCTAssertTrue(card.inputJSON?.contains("QUILL_ENV") == true)
         let outputJSON = try XCTUnwrap(card.outputJSON)
         let result = try JSONHelpers.decode(ToolResult.self, from: outputJSON)
         XCTAssertEqual(result.stdout, "dev|.cache/quill|it's ok|")

@@ -3209,6 +3209,9 @@ public final class QuillCodeWorkspaceModel {
             return false
         }
         var arguments: [String: Any] = ["cmd": action.command]
+        if let environment = action.environment {
+            arguments["environment"] = environment
+        }
         if let timeoutSeconds = action.timeoutSeconds {
             arguments["timeoutSeconds"] = timeoutSeconds
         }

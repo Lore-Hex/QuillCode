@@ -55,11 +55,17 @@ public struct ToolRouter: Sendable {
                 case let .allowed(cwd):
                     switch shellTimeoutSeconds(args) {
                     case let .allowed(timeoutSeconds):
-                        var request = ShellExecutionRequest(command: command, cwd: cwd)
-                        if let timeoutSeconds {
-                            request.timeoutSeconds = timeoutSeconds
+                        switch shellEnvironment(args) {
+                        case let .allowed(environment):
+                            var request = ShellExecutionRequest(command: command, cwd: cwd)
+                            if let timeoutSeconds {
+                                request.timeoutSeconds = timeoutSeconds
+                            }
+                            request.environment = environment
+                            return shell.run(request)
+                        case let .denied(error):
+                            return ToolResult(ok: false, error: error)
                         }
-                        return shell.run(request)
                     case let .denied(error):
                         return ToolResult(ok: false, error: error)
                     }
@@ -187,6 +193,23 @@ public struct ToolRouter: Sendable {
         return .allowed(TimeInterval(value))
     }
 
+    private func shellEnvironment(_ args: ToolArguments) -> EnvironmentResolution {
+        let rawEnvironment = args.stringDictionary("environment") ?? args.stringDictionary("env")
+        switch EnvironmentOverridePolicy.validateOverrides(rawEnvironment) {
+        case let .allowed(overrides):
+            guard !overrides.isEmpty else {
+                return .allowed(nil)
+            }
+            var environment = ProcessInfo.processInfo.environment
+            for (key, value) in overrides {
+                environment[key] = value
+            }
+            return .allowed(environment)
+        case let .denied(error):
+            return .denied(error)
+        }
+    }
+
     private static func isPath(_ path: String, inside rootPath: String) -> Bool {
         path == rootPath || path.hasPrefix(rootPath + "/")
     }
@@ -198,6 +221,11 @@ public struct ToolRouter: Sendable {
 
     private enum TimeoutResolution {
         case allowed(TimeInterval?)
+        case denied(String)
+    }
+
+    private enum EnvironmentResolution {
+        case allowed([String: String]?)
         case denied(String)
     }
 }

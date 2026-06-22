@@ -9,9 +9,6 @@ public enum LocalEnvironmentActionLoader {
 
     public static let maxActions = 16
     private static let maxMetadataBytes = 16 * 1024
-    private static let maxEnvironmentVariables = 16
-    private static let maxEnvironmentKeyLength = 64
-    private static let maxEnvironmentValueLength = 512
     private static let maxWorkingDirectoryLength = 240
     private static let minTimeoutSeconds = 1
     private static let maxTimeoutSeconds = 1_800
@@ -79,7 +76,6 @@ public enum LocalEnvironmentActionLoader {
             relativePath: relativePath,
             command: command(
                 relativePath: relativePath,
-                environment: environment,
                 workingDirectory: workingDirectory
             ),
             sortOrder: metadata?.order,
@@ -121,7 +117,7 @@ public enum LocalEnvironmentActionLoader {
             title: normalized(decoded.title, maxLength: 80),
             description: normalized(decoded.description, maxLength: 200),
             order: decoded.order,
-            environment: normalizedEnvironment(decoded.environment),
+            environment: EnvironmentOverridePolicy.normalizedMetadata(decoded.environment),
             workingDirectory: normalizedWorkingDirectory(decoded.workingDirectory, root: root),
             timeoutSeconds: normalizedTimeoutSeconds(decoded.timeoutSeconds)
         )
@@ -153,19 +149,10 @@ public enum LocalEnvironmentActionLoader {
 
     private static func command(
         relativePath: String,
-        environment: [String: String],
         workingDirectory: String?
     ) -> String {
         let scriptPath = scriptPath(relativePath: relativePath, from: workingDirectory)
-        let shellCommand: String
-        if environment.isEmpty {
-            shellCommand = "sh \(shellQuote(scriptPath))"
-        } else {
-            let variables = environment.keys.sorted()
-                .map { "\($0)=\(shellQuote(environment[$0] ?? ""))" }
-                .joined(separator: " ")
-            shellCommand = "env \(variables) sh \(shellQuote(scriptPath))"
-        }
+        let shellCommand = "sh \(shellQuote(scriptPath))"
         return workingDirectory.map { "cd \(shellQuote($0)) && \(shellCommand)" } ?? shellCommand
     }
 
@@ -180,46 +167,6 @@ public enum LocalEnvironmentActionLoader {
             return relativePath
         }
         return Array(repeating: "..", count: depth).joined(separator: "/") + "/\(relativePath)"
-    }
-
-    private static func normalizedEnvironment(_ environment: [String: String]?) -> [String: String] {
-        guard let environment else { return [:] }
-        let pairs = environment.keys.sorted().compactMap { key -> (String, String)? in
-            guard isValidEnvironmentKey(key),
-                  let value = environment[key],
-                  isValidEnvironmentValue(value)
-            else {
-                return nil
-            }
-            return (key, String(value.prefix(maxEnvironmentValueLength)))
-        }
-        return Dictionary(uniqueKeysWithValues: pairs.prefix(maxEnvironmentVariables))
-    }
-
-    private static func isValidEnvironmentKey(_ key: String) -> Bool {
-        guard !key.isEmpty,
-              key.count <= maxEnvironmentKeyLength,
-              let first = key.unicodeScalars.first,
-              first == "_" || isASCIILetter(first)
-        else {
-            return false
-        }
-        return key.unicodeScalars.allSatisfy {
-            $0 == "_" || isASCIILetter($0) || isASCIIDigit($0)
-        }
-    }
-
-    private static func isASCIILetter(_ scalar: UnicodeScalar) -> Bool {
-        (65...90).contains(Int(scalar.value)) || (97...122).contains(Int(scalar.value))
-    }
-
-    private static func isASCIIDigit(_ scalar: UnicodeScalar) -> Bool {
-        (48...57).contains(Int(scalar.value))
-    }
-
-    private static func isValidEnvironmentValue(_ value: String) -> Bool {
-        !value.contains("\0")
-            && value.rangeOfCharacter(from: .newlines) == nil
     }
 
     private static func normalizedWorkingDirectory(_ value: String?, root: URL) -> String? {
