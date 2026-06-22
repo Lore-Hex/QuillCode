@@ -43,17 +43,15 @@ public enum WorkspaceHTMLRenderer {
               <span data-testid="model-pill">\(escape(topBar.modelLabel))</span>
               <span data-testid="mode-pill">\(escape(topBar.modeLabel))</span>
             </div>
-            <div class="topbar-cluster topbar-context-cluster" data-testid="top-bar-context-cluster">
-              <span data-testid="agent-status">\(escape(topBar.agentStatus))</span>
+            <div class="topbar-cluster topbar-context-cluster" data-testid="top-bar-context-cluster" aria-label="Workspace state">
+              <span class="agent-status-dot" data-testid="agent-status" title="\(escape(topBar.agentStatus))">\(escape(topBar.agentStatus))</span>
               \(topBar.runtimeIssueLabel.map { #"<span data-testid="runtime-issue-pill" data-severity="\#(escape(topBar.runtimeIssueSeverity?.rawValue ?? "warning"))">\#(escape($0))</span>"# } ?? "")
               <span data-testid="project-instructions-status" title="\(escape(topBar.instructionSources.joined(separator: ", ")))">\(escape(topBar.instructionLabel))</span>
               <span data-testid="project-memories-status" title="\(escape(topBar.memorySources.joined(separator: ", ")))">\(escape(topBar.memoryLabel))</span>
               <span data-testid="computer-use-status">\(escape(topBar.computerUseLabel))</span>
             </div>
             <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
-              <span aria-label="Command palette">K</span>
-              <span aria-label="Search">/</span>
-              <span aria-label="Settings">...</span>
+              <button type="button" data-testid="settings-button" aria-label="Settings" title="Settings">...</button>
             </div>
           </div>
         </header>
@@ -92,16 +90,11 @@ public enum WorkspaceHTMLRenderer {
           <div class="sidebar-actions" aria-label="Primary chat actions">
             <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true">New chat</button>
             <button class="sidebar-action" type="button" data-testid="sidebar-search-button" data-primary="true">Search</button>
-            <button class="sidebar-action" type="button" data-testid="extensions-button" data-primary="true">Plugins</button>
-            <button class="sidebar-action" type="button" data-testid="automations-button" data-primary="true">Automations</button>
           </div>
-          <div class="sidebar-utility-row" aria-label="Workspace tools">
-            <button class="sidebar-action" type="button" data-testid="terminal-button" data-secondary="true" aria-label="Terminal">Term</button>
-            <button class="sidebar-action" type="button" data-testid="browser-button" data-secondary="true" aria-label="Browser">Web</button>
-            <button class="sidebar-action" type="button" data-testid="memories-button" data-secondary="true" aria-label="Memories">Mem</button>
-            <button class="sidebar-action" type="button" data-testid="activity-button" data-secondary="true" aria-label="Activity">Act</button>
+          <div class="sidebar-title-row">
+            <h2>\(escape(sidebar.title))</h2>
+            \(renderSidebarSelectionHeaderAction(sidebar))
           </div>
-          <h2>\(escape(sidebar.title))</h2>
           \(renderSidebarBulkToolbar(sidebar))
           \(content)
           <div class="sidebar-section-title">
@@ -109,6 +102,16 @@ public enum WorkspaceHTMLRenderer {
             <button type="button" data-testid="add-project-button" aria-label="Open project">+</button>
           </div>
           \(projectContent)
+          <div class="sidebar-workspace-actions" aria-label="Workspace tools">
+            <h2>Workspace</h2>
+            <button class="sidebar-action" type="button" data-testid="extensions-button" data-secondary="true">Plugins</button>
+            <button class="sidebar-action" type="button" data-testid="automations-button" data-secondary="true">Automations</button>
+            <button class="sidebar-action" type="button" data-testid="terminal-button" data-secondary="true" aria-label="Terminal">Terminal</button>
+            <button class="sidebar-action" type="button" data-testid="browser-button" data-secondary="true" aria-label="Browser">Browser</button>
+            <button class="sidebar-action" type="button" data-testid="memories-button" data-secondary="true" aria-label="Memories">Memories</button>
+            <button class="sidebar-action" type="button" data-testid="activity-button" data-secondary="true" aria-label="Activity">Activity</button>
+            <button class="sidebar-action" type="button" data-testid="command-palette-button" data-secondary="true" aria-label="Command palette">Command palette</button>
+          </div>
         </aside>
         """
     }
@@ -138,7 +141,7 @@ public enum WorkspaceHTMLRenderer {
     }
 
     private static func renderSidebarBulkToolbar(_ sidebar: SidebarSurface) -> String {
-        guard !sidebar.bulkActions.isEmpty else { return "" }
+        guard sidebar.isSelectionMode, !sidebar.bulkActions.isEmpty else { return "" }
         let actions = sidebar.bulkActions.map { action in
             """
             <button type="button" data-testid="sidebar-bulk-action" data-command-id="\(escape(action.commandID))" data-action="\(escape(action.kind.rawValue))" data-destructive="\(action.isDestructive)" \(action.isEnabled ? "" : "disabled")>\(escape(action.title))</button>
@@ -149,6 +152,15 @@ public enum WorkspaceHTMLRenderer {
           <span data-testid="sidebar-selection-label">\(escape(sidebar.selectionLabel))</span>
           \(actions)
         </div>
+        """
+    }
+
+    private static func renderSidebarSelectionHeaderAction(_ sidebar: SidebarSurface) -> String {
+        guard !sidebar.isSelectionMode,
+              let action = sidebar.bulkActions.first(where: { $0.kind == .select })
+        else { return "" }
+        return """
+        <button type="button" data-testid="sidebar-bulk-action" data-command-id="\(escape(action.commandID))" data-action="\(escape(action.kind.rawValue))" data-destructive="\(action.isDestructive)" \(action.isEnabled ? "" : "disabled")>\(escape(action.title))</button>
         """
     }
 

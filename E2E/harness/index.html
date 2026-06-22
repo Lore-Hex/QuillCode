@@ -73,7 +73,17 @@
       box-shadow: 0 0 0 1px rgba(255,255,255,.22), 0 6px 18px rgba(65,184,232,.18);
     }
     .topbar strong { font-size: 17px; }
-    .topbar p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+    .topbar p {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      border: 0;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
     .topbar-title-group strong,
     .topbar-title-group p {
       display: block;
@@ -102,8 +112,8 @@
     }
     .topbar-context-cluster {
       justify-content: flex-end;
-      overflow: hidden;
-      max-width: min(42vw, 440px);
+      overflow: visible;
+      max-width: min(32vw, 300px);
     }
     .topbar-context-cluster > span {
       min-width: 0;
@@ -120,6 +130,20 @@
     }
     .topbar-context-cluster > [data-testid="computer-use-status"] {
       max-width: 180px;
+    }
+    .topbar-context-cluster > [data-testid="agent-status"] {
+      width: 10px;
+      min-width: 10px;
+      max-width: 10px;
+      height: 10px;
+      min-height: 10px;
+      padding: 0;
+      overflow: hidden;
+      color: transparent;
+      border-radius: 999px;
+      background: var(--green);
+      border-color: rgba(82, 210, 115, 0.42);
+      box-shadow: 0 0 0 3px rgba(82, 210, 115, 0.12);
     }
     .topbar-context-cluster > [data-testid="project-instructions-status"],
     .topbar-context-cluster > [data-testid="project-memories-status"],
@@ -149,7 +173,8 @@
     .topbar-cluster select { max-width: 230px; }
     .topbar-cluster button { font-weight: 600; }
     .topbar-action-cluster button {
-      width: 38px;
+      width: 40px;
+      min-height: 40px;
       padding: 0;
       display: grid;
       place-items: center;
@@ -423,6 +448,8 @@
       padding: 8px 8px 8px 18px;
       overflow: auto;
       border-right: 1px solid rgba(255,255,255,.07);
+      display: flex;
+      flex-direction: column;
     }
     .sidebar h2 { margin: 0 0 12px; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
     .sidebar h3 { margin: 10px 0 8px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
@@ -431,6 +458,23 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+    }
+    .sidebar-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .sidebar-title-row h2 {
+      margin-bottom: 0;
+    }
+    .sidebar-title-row .sidebar-bulk-action {
+      min-height: 32px;
+      padding: 4px 9px;
+      font-size: 12px;
+      color: var(--muted);
+      background: transparent;
+      border-color: rgba(255,255,255,.08);
     }
     .sidebar-icon-button {
       width: 40px;
@@ -480,6 +524,23 @@
       place-items: center;
       text-align: center;
       font-size: 12px;
+    }
+    .sidebar-workspace-actions {
+      display: grid;
+      gap: 2px;
+      margin-top: auto;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,.07);
+    }
+    .sidebar-workspace-actions h2 {
+      margin: 0 0 4px;
+    }
+    .sidebar-workspace-actions .sidebar-action {
+      min-height: 40px;
+      padding: 7px 10px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
     }
     .sidebar-item,
     .project-item {
@@ -3430,7 +3491,10 @@
       const recentItems = state.sidebar.items.filter(item => !item.isPinned && !item.isArchived);
       const archivedItems = state.sidebar.items.filter(item => item.isArchived);
       const bulkActions = sidebarBulkActions();
-      const bulkToolbar = bulkActions.length ? `
+      const sidebarHeaderAction = !state.sidebar.isSelectionMode && bulkActions.length ? `
+        <button class="sidebar-bulk-action" type="button" data-testid="sidebar-bulk-action" data-command-id="${escapeHTML(bulkActions[0].commandID)}" data-action="${escapeHTML(bulkActions[0].id)}" data-destructive="false" ${bulkActions[0].enabled ? '' : 'disabled'}>${escapeHTML(bulkActions[0].title)}</button>
+      ` : '';
+      const bulkToolbar = state.sidebar.isSelectionMode && bulkActions.length ? `
         <div class="sidebar-selection" data-testid="sidebar-selection" data-active="${state.sidebar.isSelectionMode ? 'true' : 'false'}" data-selected-count="${normalizedSidebarSelectionIDs().length}">
           <span data-testid="sidebar-selection-label">${escapeHTML(sidebarSelectionLabel())}</span>
           <div class="sidebar-selection-actions">
@@ -3501,15 +3565,13 @@
                 <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
               </div>
               <div class="topbar-cluster topbar-context-cluster" data-testid="top-bar-context-cluster">
-                <span data-testid="agent-status">${escapeHTML(state.topBar.agentStatus)}</span>
+                <span data-testid="agent-status" title="${escapeHTML(state.topBar.agentStatus)}">${escapeHTML(state.topBar.agentStatus)}</span>
                 ${state.runtimeIssue ? `<span data-testid="runtime-issue-pill" data-severity="${escapeHTML(state.runtimeIssue.severity || 'warning')}">${escapeHTML(state.runtimeIssue.title)}</span>` : ''}
                 <span data-testid="project-instructions-status" title="${escapeHTML(state.topBar.instructionSources.join(', '))}">${escapeHTML(state.topBar.instructionLabel)}</span>
                 <span data-testid="project-memories-status" title="${escapeHTML(state.topBar.memorySources.join(', '))}">${escapeHTML(state.topBar.memoryLabel)}</span>
                 <span data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</span>
               </div>
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
-                <button type="button" data-testid="command-palette-button" aria-label="Command palette" title="Command palette">K</button>
-                <button type="button" data-testid="search-button" aria-label="Search" title="Search">/</button>
                 <button type="button" data-testid="settings-button" aria-label="Settings" title="Settings">...</button>
               </div>
             </div>
@@ -3519,22 +3581,27 @@
               <div class="sidebar-actions" aria-label="Primary chat actions">
                 <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true">New chat</button>
                 <button class="sidebar-action" type="button" data-testid="sidebar-search-button" data-primary="true">Search</button>
-                <button class="sidebar-action" type="button" data-testid="extensions-button" data-primary="true">Plugins</button>
-                <button class="sidebar-action" type="button" data-testid="automations-button" data-primary="true">Automations</button>
               </div>
-              <div class="sidebar-utility-row" aria-label="Workspace tools">
-                <button class="sidebar-action" type="button" data-testid="terminal-button" data-secondary="true" aria-label="Terminal" title="Terminal">Term</button>
-                <button class="sidebar-action" type="button" data-testid="browser-button" data-secondary="true" aria-label="Browser" title="Browser">Web</button>
-                <button class="sidebar-action" type="button" data-testid="memories-button" data-secondary="true" aria-label="Memories" title="Memories">Mem</button>
-                <button class="sidebar-action" type="button" data-testid="activity-button" data-secondary="true" aria-label="Activity" title="Activity">Act</button>
+              <div class="sidebar-title-row">
+                <h2>${escapeHTML(state.sidebar.title)}</h2>
+                ${sidebarHeaderAction}
               </div>
-              <h2>${escapeHTML(state.sidebar.title)}</h2>
               ${sidebarContent}
               <div class="sidebar-section-title">
                 <h2>${escapeHTML(state.projects.title)}</h2>
                 <button class="sidebar-icon-button" type="button" data-testid="add-project-button" aria-label="Open project">+</button>
               </div>
               ${projectsContent}
+              <div class="sidebar-workspace-actions" aria-label="Workspace tools">
+                <h2>Workspace</h2>
+                <button class="sidebar-action" type="button" data-testid="extensions-button" data-secondary="true">Plugins</button>
+                <button class="sidebar-action" type="button" data-testid="automations-button" data-secondary="true">Automations</button>
+                <button class="sidebar-action" type="button" data-testid="terminal-button" data-secondary="true" aria-label="Terminal" title="Terminal">Terminal</button>
+                <button class="sidebar-action" type="button" data-testid="browser-button" data-secondary="true" aria-label="Browser" title="Browser">Browser</button>
+                <button class="sidebar-action" type="button" data-testid="memories-button" data-secondary="true" aria-label="Memories" title="Memories">Memories</button>
+                <button class="sidebar-action" type="button" data-testid="activity-button" data-secondary="true" aria-label="Activity" title="Activity">Activity</button>
+                <button class="sidebar-action" type="button" data-testid="command-palette-button" data-secondary="true" aria-label="Command palette" title="Command palette">Command palette</button>
+              </div>
             </aside>
 	            <main class="transcript" data-testid="transcript">
                 ${state.find.isOpen ? renderFindBar(findMatches) : ''}
@@ -3709,7 +3776,7 @@
           }
         });
       });
-      document.querySelector('[data-testid="search-button"]').addEventListener('click', () => {
+      document.querySelector('[data-testid="search-button"]')?.addEventListener('click', () => {
         state.search.isOpen = true;
         state.search.query = '';
         render();

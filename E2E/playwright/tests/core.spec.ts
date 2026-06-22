@@ -299,13 +299,13 @@ test('mock harness bounds top bar status clusters under long labels', async ({ p
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.viewportWidth);
   expect(metrics.clustersDisplay).toBe('flex');
   expect(metrics.clustersColumns).toBe('none');
-  expect(metrics.contextOverflow).toBe('hidden');
+  expect(metrics.contextOverflow).toBe('visible');
   expect(metrics.instructionOverflow).toBe('hidden');
   expect(metrics.instructionTextOverflow).toBe('ellipsis');
   expect(metrics.instructionScrollWidth).toBeGreaterThan(metrics.instructionWidth);
   expect(metrics.agentText).toBe('Idle');
   expect(metrics.agentFlexShrink).toBe('0');
-  expect(metrics.agentWidth).toBeGreaterThanOrEqual(metrics.agentScrollWidth - 1);
+  expect(metrics.agentWidth).toBeLessThanOrEqual(12);
   expect(metrics.actionRight).toBeLessThanOrEqual(metrics.topBarRight);
 });
 
@@ -1081,7 +1081,7 @@ test('mock harness bulk-selects chats from the sidebar', async ({ page }) => {
   await expect(page.getByTestId('sidebar-selection-label')).toHaveText('2 chats selected');
 
   await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Archive$/ }).click();
-  await expect(page.getByTestId('sidebar-selection')).toHaveAttribute('data-active', 'false');
+  await expect(page.getByTestId('sidebar-selection')).toHaveCount(0);
   const sidebarSection = (title: string) => page.getByTestId('sidebar-section').filter({
     has: page.getByTestId('sidebar-section-title').filter({ hasText: new RegExp(`^${title}$`) })
   });
