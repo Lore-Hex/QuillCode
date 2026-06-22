@@ -362,6 +362,9 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(imageFile.href, "file:///tmp/quillcode/screenshot.png")
         XCTAssertTrue(imageFile.isImagePreview)
         XCTAssertEqual(imageFile.previewURL, imageFile.href)
+        XCTAssertEqual(imageFile.imagePreview?.typeLabel, "Image")
+        XCTAssertEqual(imageFile.imagePreview?.extensionLabel, "PNG")
+        XCTAssertEqual(imageFile.imagePreview?.detail, "/tmp/quillcode")
 
         let imageURL = ToolArtifactState(value: "https://example.com/assets/mock.webp?size=large")
         XCTAssertEqual(imageURL.kind, .url)
@@ -369,6 +372,8 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(imageURL.label, "example.com/assets/mock.webp")
         XCTAssertTrue(imageURL.isImagePreview)
         XCTAssertEqual(imageURL.previewURL, imageURL.href)
+        XCTAssertEqual(imageURL.imagePreview?.extensionLabel, "WEBP")
+        XCTAssertEqual(imageURL.imagePreview?.detail, "example.com/assets/mock.webp")
 
         let inlineImage = ToolArtifactState(value: "data:image/png;base64,AAAA")
         XCTAssertEqual(inlineImage.kind, .url)
@@ -376,6 +381,8 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(inlineImage.detail, "Image artifact")
         XCTAssertTrue(inlineImage.isImagePreview)
         XCTAssertEqual(inlineImage.previewURL, "data:image/png;base64,AAAA")
+        XCTAssertEqual(inlineImage.imagePreview?.extensionLabel, "PNG")
+        XCTAssertEqual(inlineImage.imagePreview?.detail, "Image artifact")
         XCTAssertNil(inlineImage.textPreview)
 
         let nonImageData = ToolArtifactState(value: "data:text/plain;base64,SGVsbG8=")
@@ -383,6 +390,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(nonImageData.label, "data:text/plain;base64,SGVsbG8=")
         XCTAssertFalse(nonImageData.isImagePreview)
         XCTAssertNil(nonImageData.previewURL)
+        XCTAssertNil(nonImageData.imagePreview)
         XCTAssertNil(nonImageData.href)
         XCTAssertNil(nonImageData.textPreview)
     }

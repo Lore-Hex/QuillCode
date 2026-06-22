@@ -1371,6 +1371,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview""#))
         XCTAssertTrue(html.contains(#"src="file:///tmp/quillcode-preview/screenshot.png""#))
         XCTAssertTrue(html.contains(#"alt="screenshot.png""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-type">Image · PNG"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-label">screenshot.png"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-detail">/tmp/quillcode-preview"#))
     }
 
     func testHTMLRendererIncludesDocumentArtifactPreview() throws {

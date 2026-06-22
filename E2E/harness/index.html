@@ -1155,12 +1155,28 @@
       outline-offset: -1px;
     }
     .artifact-preview figcaption {
-      color: var(--text);
-      font-size: 12px;
-      font-weight: 700;
+      min-width: 0;
+      display: grid;
+      gap: 3px;
+    }
+    .artifact-preview strong,
+    .artifact-preview small {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .artifact-preview strong {
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .artifact-preview small {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 650;
+    }
+    .artifact-preview small:first-child {
+      color: #75d7ff;
     }
     .tool-details {
       margin-top: 6px;
@@ -2280,6 +2296,7 @@
       return {
         ...artifact,
         detail,
+        imagePreview: artifactImagePreview(value, kind, detail),
         documentPreview: artifactDocumentPreview(value, kind, detail)
       };
     }
@@ -2322,6 +2339,32 @@
       if (kind === 'file' && value.startsWith('/')) return `file://${value}`;
       if (kind === 'file' && value.startsWith('file://')) return value;
       return null;
+    }
+
+    function artifactImagePreview(value, kind, detail) {
+      if (!artifactIsImagePreview(value, kind)) return null;
+      return {
+        typeLabel: 'Image',
+        extensionLabel: artifactImageExtension(value),
+        detail
+      };
+    }
+
+    function artifactImageExtension(value) {
+      const lower = value.toLowerCase();
+      if (lower.startsWith('data:image/')) {
+        const subtype = lower.slice('data:image/'.length).split(/[;,]/)[0];
+        return normalizedImageExtension(subtype || 'image');
+      }
+      const extension = artifactPathExtension(value);
+      return extension ? normalizedImageExtension(extension) : 'IMAGE';
+    }
+
+    function normalizedImageExtension(value) {
+      const base = String(value || 'image').toLowerCase().split('+')[0];
+      if (base === 'jpeg') return 'JPG';
+      if (base === 'x-icon') return 'ICO';
+      return base.toUpperCase();
     }
 
     const documentPreviewKinds = new Map([
@@ -2809,13 +2852,17 @@
             }).join('')}
           </div>` : '';
       const renderImagePreviews = artifacts => {
-        const previews = (artifacts || []).filter(artifact => artifact.isImagePreview && artifact.previewURL);
+        const previews = (artifacts || []).filter(artifact => artifact.isImagePreview && artifact.previewURL && artifact.imagePreview);
         return previews.length ? `
           <div class="tool-artifact-previews" data-testid="tool-card-image-previews" aria-label="Image previews">
             ${previews.map(artifact => `
-              <figure class="artifact-preview" data-testid="tool-card-image-preview">
+              <figure class="artifact-preview" data-testid="tool-card-image-preview" data-kind="image">
                 <img src="${escapeHTML(artifact.previewURL)}" alt="${escapeHTML(artifact.label)}" loading="lazy">
-                <figcaption>${escapeHTML(artifact.label)}</figcaption>
+                <figcaption>
+                  <small data-testid="tool-card-image-preview-type">${escapeHTML(artifact.imagePreview.typeLabel)} · ${escapeHTML(artifact.imagePreview.extensionLabel)}</small>
+                  <strong data-testid="tool-card-image-preview-label">${escapeHTML(artifact.label)}</strong>
+                  <small data-testid="tool-card-image-preview-detail">${escapeHTML(artifact.imagePreview.detail)}</small>
+                </figcaption>
               </figure>
             `).join('')}
           </div>` : '';

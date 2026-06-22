@@ -487,6 +487,10 @@ test('mock harness renders image artifact previews from tool cards', async ({ pa
   await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('screenshot.png');
   await expect(page.getByTestId('tool-card-image-previews')).toBeVisible();
   await expect(page.getByTestId('tool-card-image-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-image-preview')).toHaveAttribute('data-kind', 'image');
+  await expect(page.getByTestId('tool-card-image-preview-type')).toHaveText('Image · PNG');
+  await expect(page.getByTestId('tool-card-image-preview-label')).toHaveText('screenshot.png');
+  await expect(page.getByTestId('tool-card-image-preview-detail')).toHaveText('/mock/QuillCode/screenshots');
   await expect(page.getByTestId('tool-card-image-preview').locator('img')).toHaveAttribute('src', 'file:///mock/QuillCode/screenshots/screenshot.png');
   const imageSurface = await page.getByTestId('tool-card-image-preview').evaluate((element) => {
     const cardStyle = getComputedStyle(element);

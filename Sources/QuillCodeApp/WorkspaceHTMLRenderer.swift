@@ -440,11 +440,17 @@ public enum WorkspaceHTMLRenderer {
         let imageArtifacts = artifacts.filter(\.isImagePreview)
         guard !imageArtifacts.isEmpty else { return "" }
         let previews = imageArtifacts.compactMap { artifact -> String? in
-            guard let src = artifact.previewURL else { return nil }
+            guard let src = artifact.previewURL,
+                  let preview = artifact.imagePreview
+            else { return nil }
             return """
-            <figure class="artifact-preview" data-testid="tool-card-image-preview">
+            <figure class="artifact-preview" data-testid="tool-card-image-preview" data-kind="image">
               <img src="\(escape(src))" alt="\(escape(artifact.label))" loading="lazy">
-              <figcaption>\(escape(artifact.label))</figcaption>
+              <figcaption>
+                <small data-testid="tool-card-image-preview-type">\(escape(preview.typeLabel)) · \(escape(preview.extensionLabel))</small>
+                <strong data-testid="tool-card-image-preview-label">\(escape(artifact.label))</strong>
+                <small data-testid="tool-card-image-preview-detail">\(escape(preview.detail))</small>
+              </figcaption>
             </figure>
             """
         }.joined(separator: "\n")

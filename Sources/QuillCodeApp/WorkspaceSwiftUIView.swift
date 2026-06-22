@@ -3613,10 +3613,27 @@ private struct QuillCodeArtifactImagePreview: View {
             } else {
                 fallback
             }
-            Text(artifact.label)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(QuillCodePalette.text)
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 3) {
+                if let preview = artifact.imagePreview {
+                    Text("\(preview.typeLabel) · \(preview.extensionLabel)")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(QuillCodePalette.blue)
+                        .lineLimit(1)
+                    Text(artifact.label)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.text)
+                        .lineLimit(1)
+                    Text(preview.detail)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(1)
+                } else {
+                    Text(artifact.label)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.text)
+                        .lineLimit(1)
+                }
+            }
         }
         .padding(8)
         .quillCodeSurface(
@@ -3626,11 +3643,18 @@ private struct QuillCodeArtifactImagePreview: View {
             shadow: false
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Image preview \(artifact.label)")
+        .accessibilityLabel(accessibilityLabel)
     }
 
     private var previewURL: URL? {
         artifact.previewURL.flatMap(URL.init(string:))
+    }
+
+    private var accessibilityLabel: String {
+        guard let preview = artifact.imagePreview else {
+            return "Image preview \(artifact.label)"
+        }
+        return "\(preview.typeLabel) \(preview.extensionLabel) preview \(artifact.label)"
     }
 
     private var fallback: some View {

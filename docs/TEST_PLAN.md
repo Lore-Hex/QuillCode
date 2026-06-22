@@ -41,7 +41,7 @@ Drive the QuillCode test harness with mock LLM:
 - run shell
 - surface file/URL artifacts from tool-card output, with source/text preview metadata visible and raw successful-tool JSON collapsed until opened
 - open the Activity pane and verify the deterministic task plan, current task, recent events, tools, sources, artifacts, latest answer, handoff summary, and collapsible section state are reconstructed from the same transcript state
-- render image artifacts from screenshot/generated-media tool output as bounded previews below the artifact chips
+- render image artifacts from screenshot/generated-media tool output as bounded previews with visible type, extension, and source metadata below the artifact chips
 - chronological user/tool/answer transcript rendering
 - hidden agent tool-feedback messages never render as transcript bubbles, sidebar search hits, fork seed messages, or compaction summary content
 - bulk-select multiple chats from the sidebar, archive selected chats, select all across recent/archived sections, and delete selected chats through the shared command path
