@@ -3024,9 +3024,16 @@ private struct QuillCodeAutomationsPaneView: View {
                                 .font(.caption)
                                 .foregroundStyle(QuillCodePalette.muted)
                                 .lineLimit(3)
-                            if workflow.primaryCommandID != nil || workflow.deleteCommandID != nil {
+                            if workflow.runCommandID != nil || workflow.primaryCommandID != nil || workflow.deleteCommandID != nil {
                                 Divider()
                                 HStack(spacing: 8) {
+                                    if let commandID = workflow.runCommandID,
+                                       let actionTitle = workflow.runActionTitle {
+                                        Button(actionTitle) {
+                                            onCommand(automationCommand(id: commandID, title: actionTitle))
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                    }
                                     if let commandID = workflow.primaryCommandID,
                                        let actionTitle = workflow.primaryActionTitle {
                                         Button(actionTitle) {

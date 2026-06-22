@@ -1439,12 +1439,81 @@ public final class QuillCodeWorkspaceModel {
         return true
     }
 
+    @discardableResult
+    public func runAutomation(id: UUID) -> UUID? {
+        guard let index = automations.items.firstIndex(where: { $0.id == id }) else { return nil }
+        let automation = automations.items[index]
+        guard automation.status == .active else { return nil }
+
+        switch automation.kind {
+        case .threadFollowUp:
+            return runThreadFollowUpAutomation(automation, at: index)
+        case .workspaceSchedule, .monitor:
+            lastError = "\(automation.kind.label) automations can be configured, but only thread follow-ups can run manually today."
+            refreshTopBar(agentStatus: "Idle")
+            return nil
+        }
+    }
+
     public func deleteAutomation(id: UUID) -> Bool {
         let initialCount = automations.items.count
         automations.items.removeAll { $0.id == id }
         guard automations.items.count != initialCount else { return false }
         setAutomations(automations.items)
         return true
+    }
+
+    private func runThreadFollowUpAutomation(_ automation: QuillAutomation, at index: Int) -> UUID? {
+        guard let threadID = automation.threadID,
+              let source = root.threads.first(where: { $0.id == threadID })
+        else {
+            lastError = "The original thread for \(automation.title) is no longer available."
+            refreshTopBar(agentStatus: "Idle")
+            return nil
+        }
+
+        clearSidebarSelection()
+        let projectID = knownProjectID(automation.projectID ?? source.projectID)
+        let copiedMessages = Self.forkSeedMessages(from: source.messages)
+        let followUp = ChatThread(
+            title: "Follow-up: \(source.title)",
+            projectID: projectID,
+            mode: source.mode,
+            model: source.model,
+            messages: copiedMessages,
+            events: [
+                .init(
+                    kind: .notice,
+                    summary: "Automation ran: \(automation.title)",
+                    payloadJSON: automation.id.uuidString
+                ),
+                .init(
+                    kind: .notice,
+                    summary: "Followed up from \(source.title)",
+                    payloadJSON: source.id.uuidString
+                )
+            ],
+            instructions: source.instructions,
+            memories: source.memories
+        )
+
+        let now = Date()
+        automations.items[index].lastRunAt = now
+        automations.items[index].nextRunAt = nil
+        automations.items[index].updatedAt = now
+        setAutomations(automations.items)
+
+        root.threads.insert(followUp, at: 0)
+        root.selectedThreadID = followUp.id
+        root.selectedProjectID = projectID
+        syncTerminalSessionToSelectedProject()
+        touchProject(projectID)
+        saveProjects()
+        try? threadStore?.save(followUp)
+        automations.isVisible = true
+        lastError = nil
+        refreshTopBar(agentStatus: "Idle")
+        return followUp.id
     }
 
     public func toggleActivitySection(_ section: ActivitySectionKind) {
@@ -2391,6 +2460,11 @@ public final class QuillCodeWorkspaceModel {
             let rawID = String(commandID.dropFirst("automation-resume:".count))
             guard let id = UUID(uuidString: rawID) else { return false }
             return updateAutomationStatus(id: id, status: .active)
+        }
+        if commandID.hasPrefix("automation-run:") {
+            let rawID = String(commandID.dropFirst("automation-run:".count))
+            guard let id = UUID(uuidString: rawID) else { return false }
+            return runAutomation(id: id) != nil
         }
         if commandID.hasPrefix("automation-delete:") {
             let rawID = String(commandID.dropFirst("automation-delete:".count))

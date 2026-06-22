@@ -468,6 +468,7 @@ public struct QuillAutomation: Codable, Sendable, Hashable, Identifiable {
     public var threadID: UUID?
     public var createdAt: Date
     public var updatedAt: Date
+    public var lastRunAt: Date?
     public var nextRunAt: Date?
 
     public init(
@@ -482,6 +483,7 @@ public struct QuillAutomation: Codable, Sendable, Hashable, Identifiable {
         threadID: UUID? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
+        lastRunAt: Date? = nil,
         nextRunAt: Date? = nil
     ) {
         self.id = id
@@ -495,6 +497,7 @@ public struct QuillAutomation: Codable, Sendable, Hashable, Identifiable {
         self.threadID = threadID
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.lastRunAt = lastRunAt
         self.nextRunAt = nextRunAt
     }
 

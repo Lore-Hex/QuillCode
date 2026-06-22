@@ -918,6 +918,10 @@ public enum WorkspaceHTMLRenderer {
 
     private static func renderAutomationActions(_ workflow: AutomationWorkflowSurface) -> String {
         var buttons: [String] = []
+        if let commandID = workflow.runCommandID,
+           let title = workflow.runActionTitle {
+            buttons.append(#"<button type="button" data-testid="automation-run" data-command-id="\#(escape(commandID))">\#(escape(title))</button>"#)
+        }
         if let commandID = workflow.primaryCommandID,
            let title = workflow.primaryActionTitle {
             buttons.append(#"<button type="button" data-testid="automation-primary-action" data-command-id="\#(escape(commandID))">\#(escape(title))</button>"#)

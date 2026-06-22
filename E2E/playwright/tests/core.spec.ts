@@ -624,7 +624,13 @@ test('mock harness creates and manages a thread follow-up automation', async ({ 
   await expect(page.getByTestId('automations-status')).toHaveText('1 active');
   await expect(page.getByTestId('automation-card')).toHaveCount(1);
   await expect(page.getByTestId('automation-card')).toContainText('Follow up: plan the launch');
+  await expect(page.getByTestId('automation-run')).toHaveText('Run now');
   await expect(page.getByTestId('automation-primary-action')).toHaveText('Pause');
+
+  await page.getByTestId('automation-run').click();
+  await expect(page.getByTestId('sidebar-item').first()).toContainText('Follow-up: plan the launch');
+  await expect(page.getByTestId('automation-card')).toContainText('Ran');
+  await expect(page.getByTestId('automations-status')).toHaveText('1 active');
 
   await page.getByTestId('automation-primary-action').click();
   await expect(page.getByTestId('automations-status')).toHaveText('1 paused');

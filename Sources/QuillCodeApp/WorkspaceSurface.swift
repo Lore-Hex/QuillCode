@@ -1383,6 +1383,8 @@ public struct AutomationWorkflowSurface: Codable, Sendable, Hashable, Identifiab
     public var detail: String
     public var statusLabel: String
     public var scheduleLabel: String
+    public var runActionTitle: String?
+    public var runCommandID: String?
     public var primaryActionTitle: String?
     public var primaryCommandID: String?
     public var deleteCommandID: String?
@@ -1393,6 +1395,8 @@ public struct AutomationWorkflowSurface: Codable, Sendable, Hashable, Identifiab
         detail: String,
         statusLabel: String,
         scheduleLabel: String,
+        runActionTitle: String? = nil,
+        runCommandID: String? = nil,
         primaryActionTitle: String? = nil,
         primaryCommandID: String? = nil,
         deleteCommandID: String? = nil
@@ -1402,6 +1406,8 @@ public struct AutomationWorkflowSurface: Codable, Sendable, Hashable, Identifiab
         self.detail = detail
         self.statusLabel = statusLabel
         self.scheduleLabel = scheduleLabel
+        self.runActionTitle = runActionTitle
+        self.runCommandID = runCommandID
         self.primaryActionTitle = primaryActionTitle
         self.primaryCommandID = primaryCommandID
         self.deleteCommandID = deleteCommandID
@@ -1412,15 +1418,32 @@ public struct AutomationWorkflowSurface: Codable, Sendable, Hashable, Identifiab
         self.id = automation.id.uuidString
         self.title = automation.title
         self.detail = automation.detail
-        self.statusLabel = automation.status.label
+        self.statusLabel = Self.statusLabel(for: automation)
         self.scheduleLabel = automation.scheduleDescription.isEmpty
             ? automation.scheduleKind.label
             : automation.scheduleDescription
+        self.runActionTitle = automation.status == .active && automation.kind == .threadFollowUp
+            ? "Run now"
+            : nil
+        self.runCommandID = automation.status == .active && automation.kind == .threadFollowUp
+            ? "automation-run:\(uuid)"
+            : nil
         self.primaryActionTitle = automation.status == .active ? "Pause" : "Resume"
         self.primaryCommandID = automation.status == .active
             ? "automation-pause:\(uuid)"
             : "automation-resume:\(uuid)"
         self.deleteCommandID = "automation-delete:\(uuid)"
+    }
+
+    private static func statusLabel(for automation: QuillAutomation) -> String {
+        guard automation.status == .active else { return automation.status.label }
+        if let nextRunAt = automation.nextRunAt, nextRunAt <= Date() {
+            return "Due"
+        }
+        if automation.lastRunAt != nil {
+            return "Ran"
+        }
+        return automation.status.label
     }
 
     public static let plannedWorkflows: [AutomationWorkflowSurface] = [

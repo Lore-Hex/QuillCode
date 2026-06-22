@@ -2402,21 +2402,27 @@
             title: 'Thread follow-ups',
             detail: 'Wake a conversation later with the same project, model, and context.',
             statusLabel: 'Planned',
-            scheduleLabel: 'Heartbeat'
+            scheduleLabel: 'Heartbeat',
+            runActionTitle: null,
+            runCommandID: null
           },
           {
             id: 'workspace-schedules',
             title: 'Workspace schedules',
             detail: 'Run repeatable repo checks, local environment actions, or reports.',
             statusLabel: 'Planned',
-            scheduleLabel: 'Cron'
+            scheduleLabel: 'Cron',
+            runActionTitle: null,
+            runCommandID: null
           },
           {
             id: 'monitors',
             title: 'Monitors',
             detail: 'Watch CI, PRs, endpoints, or files and surface actionable changes.',
             statusLabel: 'Planned',
-            scheduleLabel: 'Event'
+            scheduleLabel: 'Event',
+            runActionTitle: null,
+            runCommandID: null
           }
         ],
         workflows: []
@@ -3121,7 +3127,7 @@
     function syncAutomationsSurface() {
       const selectedThread = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
       const configured = state.automations.configuredWorkflows || [];
-      const activeCount = configured.filter(workflow => workflow.statusLabel === 'Active').length;
+      const activeCount = configured.filter(workflow => ['Active', 'Due', 'Ran'].includes(workflow.statusLabel)).length;
       const pausedCount = configured.filter(workflow => workflow.statusLabel === 'Paused').length;
       state.automations.createThreadFollowUpCommand = {
         id: 'automation-create-thread-follow-up',
@@ -3952,7 +3958,7 @@
       document.querySelector('[data-testid="automation-create-follow-up"]')?.addEventListener('click', event => {
         runCommand(event.currentTarget.getAttribute('data-command-id'));
       });
-      document.querySelectorAll('[data-testid="automation-primary-action"], [data-testid="automation-delete"]').forEach(button => {
+      document.querySelectorAll('[data-testid="automation-run"], [data-testid="automation-primary-action"], [data-testid="automation-delete"]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
@@ -5316,6 +5322,9 @@
       const workflows = state.automations.workflows || [];
       const renderActions = workflow => {
         const actions = [];
+        if (workflow.runCommandID && workflow.runActionTitle) {
+          actions.push(`<button type="button" data-testid="automation-run" data-command-id="${escapeHTML(workflow.runCommandID)}">${escapeHTML(workflow.runActionTitle)}</button>`);
+        }
         if (workflow.primaryCommandID && workflow.primaryActionTitle) {
           actions.push(`<button type="button" data-testid="automation-primary-action" data-command-id="${escapeHTML(workflow.primaryCommandID)}">${escapeHTML(workflow.primaryActionTitle)}</button>`);
         }
@@ -5742,6 +5751,9 @@
           detail: 'Resume this thread with the same project, model, and context.',
           statusLabel: 'Active',
           scheduleLabel: 'Manual follow-up',
+          sourceThreadID: thread.id,
+          runActionTitle: 'Run now',
+          runCommandID: `automation-run:${id}`,
           primaryActionTitle: 'Pause',
           primaryCommandID: `automation-pause:${id}`,
           deleteCommandID: `automation-delete:${id}`
@@ -5763,6 +5775,40 @@
           primaryCommandID: `${statusLabel === 'Active' ? 'automation-pause' : 'automation-resume'}:${id}`
         };
       });
+      render();
+    }
+
+    function runAutomation(commandID) {
+      const id = commandID.split(':')[1];
+      const workflow = state.automations.configuredWorkflows.find(candidate => candidate.id === id);
+      if (!workflow || workflow.statusLabel === 'Paused') return;
+      const source = state.sidebar.items.find(item => item.id === (workflow.sourceThreadID || state.sidebar.selectedThreadID));
+      if (!source) return;
+      const threadID = `thread-${state.nextThreadIndex++}`;
+      const copiedMessages = state.transcript.messages.slice(-4);
+      const title = `Follow-up: ${source.title}`;
+      state.sidebar.selectedThreadID = threadID;
+      state.sidebar.items = [{
+        id: threadID,
+        title,
+        subtitle: state.topBar.modelLabel,
+        searchText: copiedMessages.map(message => message.text).join('\n'),
+        isSelected: true,
+        isPinned: false,
+        isArchived: false
+      }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
+      state.transcript.messages = copiedMessages;
+      state.transcript.toolCards = [];
+      state.transcript.timelineItems = copiedMessages.map(message => ({
+        id: `timeline-${state.nextTimelineIndex++}`,
+        kind: 'message',
+        message
+      }));
+      state.topBar.primaryTitle = title;
+      state.automations.configuredWorkflows = state.automations.configuredWorkflows.map(candidate => (
+        candidate.id === id ? { ...candidate, statusLabel: 'Ran', scheduleLabel: 'Manual follow-up' } : candidate
+      ));
+      state.automations.isVisible = true;
       render();
     }
 
@@ -5802,6 +5848,10 @@
       }
       if (commandID?.startsWith('automation-resume:')) {
         updateAutomationStatus(commandID, 'Active');
+        return;
+      }
+      if (commandID?.startsWith('automation-run:')) {
+        runAutomation(commandID);
         return;
       }
       if (commandID?.startsWith('automation-delete:')) {

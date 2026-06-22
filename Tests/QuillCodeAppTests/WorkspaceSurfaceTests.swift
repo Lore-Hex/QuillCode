@@ -410,11 +410,41 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(automations.workflows.map(\.title), ["Nightly repo check", "Paused PR monitor"])
         XCTAssertEqual(automations.workflows.map(\.statusLabel), ["Active", "Paused"])
         XCTAssertEqual(automations.workflows.first?.scheduleLabel, "Every weekday at 6:00 PM")
+        XCTAssertNil(automations.workflows.first?.runActionTitle)
         XCTAssertEqual(automations.workflows.first?.primaryActionTitle, "Pause")
         XCTAssertTrue(automations.workflows.first?.primaryCommandID?.hasPrefix("automation-pause:") == true)
         XCTAssertTrue(automations.workflows.first?.deleteCommandID?.hasPrefix("automation-delete:") == true)
         XCTAssertEqual(automations.workflows.last?.primaryActionTitle, "Resume")
         XCTAssertTrue(automations.workflows.last?.primaryCommandID?.hasPrefix("automation-resume:") == true)
+    }
+
+    func testThreadFollowUpAutomationsExposeRunNowAction() {
+        let model = QuillCodeWorkspaceModel(automations: AutomationsState(items: [
+            QuillAutomation(
+                title: "Launch follow-up",
+                detail: "Resume the launch thread.",
+                kind: .threadFollowUp,
+                scheduleKind: .heartbeat,
+                scheduleDescription: "Manual follow-up",
+                threadID: UUID()
+            ),
+            QuillAutomation(
+                title: "Paused follow-up",
+                detail: "Resume later.",
+                kind: .threadFollowUp,
+                status: .paused,
+                scheduleKind: .heartbeat,
+                scheduleDescription: "Manual follow-up",
+                threadID: UUID()
+            )
+        ]))
+
+        let automations = model.surface().automations
+
+        XCTAssertEqual(automations.workflows.first?.runActionTitle, "Run now")
+        XCTAssertTrue(automations.workflows.first?.runCommandID?.hasPrefix("automation-run:") == true)
+        XCTAssertNil(automations.workflows.last?.runActionTitle)
+        XCTAssertNil(automations.workflows.last?.runCommandID)
     }
 
     func testAutomationsSurfaceExposesCreateFollowUpCommandForSelectedThread() {

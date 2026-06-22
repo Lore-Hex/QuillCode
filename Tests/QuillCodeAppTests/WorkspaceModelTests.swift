@@ -3705,6 +3705,53 @@ final class WorkspaceModelTests: XCTestCase {
         ])
     }
 
+    func testAutomationRunCreatesFollowUpThreadAndPersistsRunMetadata() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let threadStore = JSONThreadStore(directory: paths.threadsDirectory)
+        let source = ChatThread(title: "Launch plan", messages: [
+            .init(role: .user, content: "latest question"),
+            .init(role: .tool, content: #"{"internal":"skip"}"#),
+            .init(role: .assistant, content: "latest answer")
+        ])
+        let automation = QuillAutomation(
+            title: "Follow up: Launch plan",
+            detail: "Resume this thread with the same project, model, and context.",
+            kind: .threadFollowUp,
+            scheduleKind: .heartbeat,
+            scheduleDescription: "Manual follow-up",
+            threadID: source.id,
+            nextRunAt: Date(timeIntervalSince1970: 1)
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [source], selectedThreadID: source.id),
+            threadStore: threadStore,
+            automationStore: automationStore
+        )
+        model.setAutomations([automation])
+
+        XCTAssertTrue(model.runWorkspaceCommand("automation-run:\(automation.id.uuidString)", workspaceRoot: root))
+
+        let followUpID = try XCTUnwrap(model.root.selectedThreadID)
+        XCTAssertNotEqual(followUpID, source.id)
+        let followUp = try XCTUnwrap(model.root.threads.first { $0.id == followUpID })
+        XCTAssertEqual(followUp.title, "Follow-up: Launch plan")
+        XCTAssertEqual(followUp.messages.map(\.content), ["latest question", "latest answer"])
+        XCTAssertFalse(followUp.messages.contains { $0.role == .tool })
+        XCTAssertEqual(followUp.events.first?.summary, "Automation ran: Follow up: Launch plan")
+        XCTAssertEqual(followUp.events.first?.payloadJSON, automation.id.uuidString)
+
+        let savedThread = try threadStore.load(followUpID)
+        XCTAssertEqual(savedThread.title, "Follow-up: Launch plan")
+        let savedAutomation = try XCTUnwrap(try automationStore.load().first)
+        XCTAssertNotNil(savedAutomation.lastRunAt)
+        XCTAssertNil(savedAutomation.nextRunAt)
+        XCTAssertEqual(model.surface().automations.workflows.first?.statusLabel, "Ran")
+        XCTAssertEqual(model.surface().automations.statusLabel, "1 active")
+    }
+
     func testBootstrapPersistsAndClearsTrustedRouterAPIKey() throws {
         let paths = QuillCodePaths(home: try makeTempDirectory())
         let bootstrap = QuillCodeWorkspaceBootstrap(paths: paths)
