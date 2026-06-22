@@ -4285,7 +4285,10 @@ public final class QuillCodeWorkspaceModel {
                 message = "No local environment actions found. Add scripts under `.quillcode/actions` or `.quillcode/local-env`."
             } else {
                 let rows = actions
-                    .map { "- `/env \($0.title)` — \($0.relativePath)" }
+                    .map { action in
+                        let detail = action.detail.map { " — \($0)" } ?? ""
+                        return "- `/env \(action.title)` — \(action.relativePath)\(detail)"
+                    }
                     .joined(separator: "\n")
                 message = "Local environment actions:\n\(rows)"
             }

@@ -999,8 +999,9 @@ test('mock harness runs local environment action from the command palette', asyn
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
   await page.getByTestId('command-palette-button').click();
-  await page.getByLabel('Search commands').fill('>bootstrap');
+  await page.getByLabel('Search commands').fill('>warm caches');
   await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
+  await expect(page.getByTestId('command-palette-result')).toContainText('Install dependencies and warm caches.');
   await page.getByRole('button', { name: /Run Bootstrap/ }).click();
 
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);

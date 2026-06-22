@@ -706,14 +706,25 @@ public struct ProjectInstruction: Codable, Sendable, Hashable, Identifiable {
 public struct LocalEnvironmentAction: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var title: String
+    public var detail: String?
     public var relativePath: String
     public var command: String
+    public var sortOrder: Int?
 
-    public init(id: String, title: String, relativePath: String, command: String) {
+    public init(
+        id: String,
+        title: String,
+        detail: String? = nil,
+        relativePath: String,
+        command: String,
+        sortOrder: Int? = nil
+    ) {
         self.id = id
         self.title = title
+        self.detail = detail
         self.relativePath = relativePath
         self.command = command
+        self.sortOrder = sortOrder
     }
 }
 

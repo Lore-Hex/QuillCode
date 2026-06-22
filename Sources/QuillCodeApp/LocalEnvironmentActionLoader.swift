@@ -8,6 +8,7 @@ public enum LocalEnvironmentActionLoader {
     ]
 
     public static let maxActions = 16
+    private static let maxMetadataBytes = 16 * 1024
 
     public static func load(
         from projectRoot: URL,
@@ -18,8 +19,7 @@ public enum LocalEnvironmentActionLoader {
         var actions: [LocalEnvironmentAction] = []
 
         for directory in directories {
-            guard actions.count < maxActions,
-                  !directory.contains("..")
+            guard !directory.contains("..")
             else {
                 break
             }
@@ -39,8 +39,7 @@ public enum LocalEnvironmentActionLoader {
             )) ?? []
 
             for fileURL in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-                guard actions.count < maxActions,
-                      let action = action(root: root, directory: directory, fileURL: fileURL)
+                guard let action = action(root: root, directory: directory, fileURL: fileURL)
                 else {
                     continue
                 }
@@ -49,6 +48,9 @@ public enum LocalEnvironmentActionLoader {
         }
 
         return actions
+            .sorted(by: sortActions)
+            .prefix(maxActions)
+            .map { $0 }
     }
 
     private static func action(root: URL, directory: String, fileURL: URL) -> LocalEnvironmentAction? {
@@ -61,12 +63,60 @@ public enum LocalEnvironmentActionLoader {
 
         let relativePath = "\(directory)/\(resolved.lastPathComponent)"
         let id = "local-env:\(relativePath)"
+        let metadata = metadata(root: root, scriptURL: resolved)
         return LocalEnvironmentAction(
             id: id,
-            title: title(from: resolved.deletingPathExtension().lastPathComponent),
+            title: metadata?.title ?? title(from: resolved.deletingPathExtension().lastPathComponent),
+            detail: metadata?.description,
             relativePath: relativePath,
-            command: "sh \(shellQuote(relativePath))"
+            command: "sh \(shellQuote(relativePath))",
+            sortOrder: metadata?.order
         )
+    }
+
+    private static func sortActions(_ lhs: LocalEnvironmentAction, _ rhs: LocalEnvironmentAction) -> Bool {
+        switch (lhs.sortOrder, rhs.sortOrder) {
+        case let (left?, right?) where left != right:
+            return left < right
+        case (.some, nil):
+            return true
+        case (nil, .some):
+            return false
+        default:
+            return lhs.relativePath.localizedStandardCompare(rhs.relativePath) == .orderedAscending
+        }
+    }
+
+    private static func metadata(root: URL, scriptURL: URL) -> ActionMetadata? {
+        let metadataURL = scriptURL.deletingPathExtension().appendingPathExtension("json")
+        let resolvedMetadataURL = metadataURL.standardizedFileURL.resolvingSymlinksInPath()
+        guard resolvedMetadataURL.path.hasPrefix(root.path + "/"),
+              resolvedMetadataURL.pathExtension == "json",
+              let values = try? resolvedMetadataURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
+              values.isRegularFile == true,
+              let size = values.fileSize,
+              size <= maxMetadataBytes,
+              let data = try? Data(contentsOf: resolvedMetadataURL),
+              let decoded = try? JSONDecoder().decode(ActionMetadataFile.self, from: data)
+        else {
+            return nil
+        }
+
+        return ActionMetadata(
+            title: normalized(decoded.title, maxLength: 80),
+            description: normalized(decoded.description, maxLength: 200),
+            order: decoded.order
+        )
+    }
+
+    private static func normalized(_ value: String?, maxLength: Int) -> String? {
+        guard let value else { return nil }
+        let collapsed = value
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !collapsed.isEmpty else { return nil }
+        return String(collapsed.prefix(maxLength))
     }
 
     private static func title(from baseName: String) -> String {
@@ -85,5 +135,17 @@ public enum LocalEnvironmentActionLoader {
 
     private static func shellQuote(_ value: String) -> String {
         "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
+    }
+
+    private struct ActionMetadataFile: Decodable {
+        var title: String?
+        var description: String?
+        var order: Int?
+    }
+
+    private struct ActionMetadata {
+        var title: String?
+        var description: String?
+        var order: Int?
     }
 }
