@@ -414,10 +414,13 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitRestore.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitStageHunk.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitRestoreHunk.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitCommit.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitPush.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.planUpdate.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.browserInspect.name))
-        XCTAssertFalse(toolNames.contains(ToolDefinition.gitCommit.name))
-        XCTAssertFalse(toolNames.contains(ToolDefinition.gitPush.name))
+        XCTAssertFalse(toolNames.contains(ToolDefinition.gitPullRequestCreate.name))
+        XCTAssertFalse(toolNames.contains(ToolDefinition.gitWorktreeCreate.name))
+        XCTAssertFalse(toolNames.contains(ToolDefinition.gitWorktreeRemove.name))
     }
 
     func testRemoteProjectAgentRunsShellThroughSSH() async throws {
@@ -520,6 +523,91 @@ final class WorkspaceModelTests: XCTestCase {
             arguments.contains("cd '\(remoteRoot.path.replacingOccurrences(of: "'", with: "'\\''"))' && git status --short --branch"),
             arguments
         )
+    }
+
+    func testRemoteProjectAgentCommitsThroughSSH() async throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = try makeTempGitRepoWithInitialCommit()
+        try "remote\n".write(
+            to: remoteRoot.appendingPathComponent("remote.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        _ = try runGit(["add", "remote.txt"], cwd: remoteRoot)
+        let argumentsFile = root.appendingPathComponent("ssh-agent-commit-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(path: remoteRoot.path, host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
+                name: ToolDefinition.gitCommit.name,
+                argumentsJSON: ToolArguments.json(["message": "Add remote file"])
+            ))),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(sshExecutable: fakeSSH.path)
+        )
+
+        model.setDraft("Commit staged changes")
+        await model.submitComposer(workspaceRoot: root)
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.gitCommit.name)
+        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
+        let result = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(card.outputJSON))
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertTrue(try runGit(["log", "--oneline", "-1"], cwd: remoteRoot).contains("Add remote file"))
+        XCTAssertEqual(try runGit(["status", "--short"], cwd: remoteRoot), "")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("remote.txt").path))
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+        XCTAssertTrue(arguments.contains("git commit -m 'Add remote file'"), arguments)
+    }
+
+    func testRemoteProjectAgentPushesCurrentBranchThroughSSH() async throws {
+        let root = try makeTempDirectory()
+        let parent = try makeTempDirectory()
+        let remoteRoot = parent.appendingPathComponent("repo")
+        let bareRemote = parent.appendingPathComponent("origin.git")
+        try FileManager.default.createDirectory(at: remoteRoot, withIntermediateDirectories: true)
+        try initializeGitRepository(at: remoteRoot)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git init --bare '\(bareRemote.path)'", cwd: parent)).ok)
+        XCTAssertTrue(ShellToolExecutor().run(.init(command: "git remote add origin '\(bareRemote.path)'", cwd: remoteRoot)).ok)
+        try "remote\n".write(
+            to: remoteRoot.appendingPathComponent("remote.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        _ = try runGit(["add", "remote.txt"], cwd: remoteRoot)
+        _ = try runGit(["commit", "-m", "Add remote file"], cwd: remoteRoot)
+        let branch = try currentBranchName(in: remoteRoot)
+        let argumentsFile = root.appendingPathComponent("ssh-agent-push-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(path: remoteRoot.path, host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
+                name: ToolDefinition.gitPush.name,
+                argumentsJSON: #"{"remote":"origin","setUpstream":true}"#
+            ))),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(sshExecutable: fakeSSH.path)
+        )
+
+        model.setDraft("Push current branch")
+        await model.submitComposer(workspaceRoot: root)
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.gitPush.name)
+        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
+        let result = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(card.outputJSON))
+        XCTAssertTrue(result.ok, result.error ?? "")
+        let remoteHead = ShellToolExecutor().run(.init(
+            command: "git --git-dir='\(bareRemote.path)' rev-parse \(branch)",
+            cwd: parent
+        ))
+        XCTAssertTrue(remoteHead.ok, "\(remoteHead.error ?? "") \(remoteHead.stderr)")
+        XCTAssertFalse(remoteHead.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+        XCTAssertTrue(arguments.contains("git push -u 'origin' \"$branch\""), arguments)
     }
 
     func testRemoteProjectWorkspaceCommandsRunReadOnlyGitThroughSSH() throws {
@@ -801,19 +889,19 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: argumentsFile.path))
     }
 
-    func testRemoteProjectRejectsUnavailableCommitTool() async throws {
+    func testRemoteProjectRejectsUnavailablePullRequestTool() async throws {
         let root = try makeTempDirectory()
         let connection = ProjectConnection.ssh(path: "/srv/quill", host: "feather.local", user: "quill")
         let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
         let model = QuillCodeWorkspaceModel(
             root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
             runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
-                name: ToolDefinition.gitCommit.name,
-                argumentsJSON: ToolArguments.json(["message": "ship it"])
+                name: ToolDefinition.gitPullRequestCreate.name,
+                argumentsJSON: ToolArguments.json(["title": "Ship it"])
             )))
         )
 
-        model.setDraft("Commit the change")
+        model.setDraft("Create a PR")
         await model.submitComposer(workspaceRoot: root)
 
         let card = try XCTUnwrap(model.currentToolCards.last)
@@ -3977,6 +4065,13 @@ final class WorkspaceModelTests: XCTestCase {
             )
         }
         return out
+    }
+
+    private func currentBranchName(in root: URL) throws -> String {
+        let branch = try runGit(["branch", "--show-current"], cwd: root)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        XCTAssertFalse(branch.isEmpty)
+        return branch
     }
 
     private func waitUntil(

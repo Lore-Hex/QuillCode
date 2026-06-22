@@ -2939,7 +2939,9 @@ public final class QuillCodeWorkspaceModel {
         .gitStage,
         .gitRestore,
         .gitStageHunk,
-        .gitRestoreHunk
+        .gitRestoreHunk,
+        .gitCommit,
+        .gitPush
     ]
 
     private nonisolated static let remoteProjectGitToolNames: Set<String> = [
@@ -2948,7 +2950,9 @@ public final class QuillCodeWorkspaceModel {
         ToolDefinition.gitStage.name,
         ToolDefinition.gitRestore.name,
         ToolDefinition.gitStageHunk.name,
-        ToolDefinition.gitRestoreHunk.name
+        ToolDefinition.gitRestoreHunk.name,
+        ToolDefinition.gitCommit.name,
+        ToolDefinition.gitPush.name
     ]
 
     private func remoteProjectToolExecutionOverride(project: ProjectRef?) -> AgentToolExecutionOverride? {
@@ -3060,6 +3064,18 @@ public final class QuillCodeWorkspaceModel {
                     applyArguments: ["--reverse", "--whitespace=nowarn"],
                     successMessage: "Hunk restored.\\n"
                 )
+            case ToolDefinition.gitCommit.name:
+                let message = try args.requiredString("message").trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !message.isEmpty else {
+                    throw GitToolError.emptyCommitMessage
+                }
+                command = "git commit -m \(shellSingleQuoted(message))"
+            case ToolDefinition.gitPush.name:
+                command = try remoteGitPushCommand(
+                    remote: args.string("remote"),
+                    branch: args.string("branch"),
+                    setUpstream: args.bool("setUpstream") ?? false
+                )
             default:
                 return ToolResult(ok: false, error: "Tool is not available for SSH Remote projects: \(call.name)")
             }
@@ -3071,6 +3087,29 @@ public final class QuillCodeWorkspaceModel {
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
+    }
+
+    private nonisolated static func remoteGitPushCommand(
+        remote: String?,
+        branch: String?,
+        setUpstream: Bool
+    ) throws -> String {
+        let remoteName = try GitToolExecutor.safeGitName(
+            GitToolExecutor.trimmedNonEmpty(remote) ?? "origin"
+        )
+        let upstreamArguments = setUpstream ? "-u " : ""
+        if let branch = GitToolExecutor.trimmedNonEmpty(branch) {
+            let branchName = try GitToolExecutor.safeGitName(branch)
+            return "git push \(upstreamArguments)\(shellSingleQuoted(remoteName)) \(shellSingleQuoted(branchName))"
+        }
+
+        let invalidBranchMessage = shellSingleQuoted(String(describing: GitToolError.invalidGitName("$branch")))
+        return [
+            "branch=$(git branch --show-current)",
+            "test -n \"$branch\" || { printf '%s\\n' \(shellSingleQuoted(String(describing: GitToolError.noCurrentBranch))) >&2; exit 1; }",
+            "case \"$branch\" in -*|*..*|*[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._/-]*) printf '%s\\n' \(invalidBranchMessage) >&2; exit 1;; esac",
+            "git push \(upstreamArguments)\(shellSingleQuoted(remoteName)) \"$branch\""
+        ].joined(separator: " && ")
     }
 
     private nonisolated static func remoteGitHunkCommand(
@@ -4441,7 +4480,7 @@ public final class QuillCodeWorkspaceModel {
                let project = root.projects.first(where: { $0.id == projectID }) {
                 appendLocalCommandTranscript(
                     userText: originalPrompt,
-                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Shell, file read/write, apply patch, git status/diff/stage/restore, and project context refresh run through SSH; commit, push, PR, and worktree actions remain local-only for now.",
+                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Shell, file read/write, apply patch, git status/diff/stage/restore/commit/push, and project context refresh run through SSH; PR and worktree actions remain local-only for now.",
                     title: "Add SSH Remote"
                 )
             } else {

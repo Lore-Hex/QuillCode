@@ -109,10 +109,10 @@ public struct GitToolExecutor: Sendable {
         setUpstream: Bool = false
     ) -> ToolResult {
         do {
-            let remoteName = try safeGitName(trimmedNonEmpty(remote) ?? "origin")
+            let remoteName = try Self.safeGitName(Self.trimmedNonEmpty(remote) ?? "origin")
             let branchName: String
-            if let branch = trimmedNonEmpty(branch) {
-                branchName = try safeGitName(branch)
+            if let branch = Self.trimmedNonEmpty(branch) {
+                branchName = try Self.safeGitName(branch)
             } else {
                 branchName = try currentBranchName(cwd: cwd)
             }
@@ -141,7 +141,7 @@ public struct GitToolExecutor: Sendable {
         fill: Bool = false
     ) -> ToolResult {
         do {
-            let trimmedTitle = trimmedNonEmpty(title)
+            let trimmedTitle = Self.trimmedNonEmpty(title)
             guard fill || trimmedTitle != nil else {
                 throw GitToolError.emptyPullRequestTitle
             }
@@ -150,14 +150,14 @@ public struct GitToolExecutor: Sendable {
             if let trimmedTitle {
                 arguments += ["--title", trimmedTitle]
             }
-            if let body = trimmedNonEmpty(body) {
+            if let body = Self.trimmedNonEmpty(body) {
                 arguments += ["--body", body]
             }
-            if let base = trimmedNonEmpty(base) {
-                arguments += ["--base", try safeGitName(base)]
+            if let base = Self.trimmedNonEmpty(base) {
+                arguments += ["--base", try Self.safeGitName(base)]
             }
-            if let head = trimmedNonEmpty(head) {
-                arguments += ["--head", try safeGitName(head)]
+            if let head = Self.trimmedNonEmpty(head) {
+                arguments += ["--head", try Self.safeGitName(head)]
             }
             if draft {
                 arguments.append("--draft")
@@ -189,12 +189,12 @@ public struct GitToolExecutor: Sendable {
     public func createWorktree(cwd: URL, path: String, branch: String? = nil, base: String? = nil) -> ToolResult {
         do {
             var arguments = ["worktree", "add"]
-            if let branch = trimmedNonEmpty(branch) {
+            if let branch = Self.trimmedNonEmpty(branch) {
                 arguments += ["-b", branch]
             }
             let worktreePath = try safeWorktreePath(path, cwd: cwd)
             arguments.append(worktreePath)
-            if let base = trimmedNonEmpty(base) {
+            if let base = Self.trimmedNonEmpty(base) {
                 arguments.append(base)
             }
             let result = runGit(arguments, cwd: cwd, timeoutSeconds: 45)
@@ -278,12 +278,12 @@ public struct GitToolExecutor: Sendable {
         return standardized.path
     }
 
-    private func trimmedNonEmpty(_ value: String?) -> String? {
+    public static func trimmedNonEmpty(_ value: String?) -> String? {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? nil : trimmed
     }
 
-    private func safeGitName(_ value: String) throws -> String {
+    public static func safeGitName(_ value: String) throws -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             throw GitToolError.emptyBranch
@@ -307,7 +307,7 @@ public struct GitToolExecutor: Sendable {
         guard !branch.isEmpty else {
             throw GitToolError.noCurrentBranch
         }
-        return try safeGitName(branch)
+        return try Self.safeGitName(branch)
     }
 
     private func extractURLs(from output: String) -> [String] {
