@@ -1,0 +1,44 @@
+name: Merge Train
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  pull_request_target:
+    types: [labeled, unlabeled, synchronize, reopened, ready_for_review]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+  statuses: read
+
+concurrency:
+  group: merge-train-main
+  cancel-in-progress: false
+
+jobs:
+  train:
+    if: >-
+      github.event_name != 'pull_request_target' ||
+      contains(github.event.pull_request.labels.*.name, 'merge-train') ||
+      contains(github.event.pull_request.labels.*.name, 'automerge')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run merge train
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          MERGE_TRAIN_BASE_BRANCH: main
+          MERGE_TRAIN_LABEL: merge-train
+          MERGE_TRAIN_ALT_LABEL: automerge
+          MERGE_TRAIN_BLOCK_LABEL: do-not-merge
+          MERGE_TRAIN_METHOD: squash
+          MERGE_TRAIN_DELETE_BRANCH: "true"
+          MERGE_TRAIN_IGNORED_CHECK_RE: "^(Merge Train|train)$"
+        run: ./scripts/merge-train.sh

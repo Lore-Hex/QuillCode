@@ -7,7 +7,7 @@
 - Auto safety policy and reviewer protocol.
 - Persistence and secret-store API.
 - Unit tests for direct command execution and safety behavior.
-- Current status: shell, file read/write, apply patch, git status/diff, file/hunk-level git stage/restore, local git commit, named-remote git push, GitHub PR creation, PR view/comments, PR checks, and git worktree list/create/remove are implemented with unit coverage.
+- Current status: shell, file read/write, apply patch, git status/diff, file/hunk-level git stage/restore, local git commit, named-remote git push, GitHub PR creation, PR view/comments, PR checks, and git worktree list/create/remove are implemented with unit coverage. CI runs on pushes, pull requests, and merge-group candidates, and a serialized merge-train workflow is available for agent PRs labeled `merge-train`.
 
 ## Milestone 1: Native Workspace UI
 
