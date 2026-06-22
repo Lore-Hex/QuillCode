@@ -4741,7 +4741,7 @@
           id: 'refresh-context',
           title: 'Refresh context',
           isEnabled: !project.isRemote,
-          disabledReason: project.isRemote ? 'SSH Remote context refresh needs the remote executor first.' : ''
+          disabledReason: project.isRemote ? 'SSH Remote context refresh needs remote file sync first.' : ''
         },
         { id: 'rename', title: 'Rename' },
         { id: 'remove', title: 'Remove from list' }
@@ -4941,7 +4941,7 @@
       state.terminal.cwdLabel = label;
       state.terminal.environment = {};
       state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
-      addMessage('assistant', `Added SSH Remote ${project.name} at ${label}. Remote command execution is pending; local-only actions are disabled for this project.`);
+      addMessage('assistant', `Added SSH Remote ${project.name} at ${label}. Terminal commands run through SSH; context refresh, file tools, and git actions remain local-only for now.`);
       render();
     }
 
@@ -5388,6 +5388,9 @@
     }
 
     function terminalOutput(command, cwd, environment) {
+      if (isSSHRemoteLabel(cwd)) {
+        return remoteTerminalOutput(command, cwd, environment);
+      }
       if (command === 'stream-demo') {
         return { stdout: 'stream-start\nstream-end\n', stderr: '', exitCode: 0, cwd, environment };
       }
@@ -5423,12 +5426,61 @@
         return { stdout: 'mock-user\n', stderr: '', exitCode: 0, cwd, environment };
       }
       if (command.startsWith('printf ')) {
-        return { stdout: command.replace(/^printf\\s+/, ''), stderr: '', exitCode: 0, cwd, environment };
+        return { stdout: command.replace(/^printf\s+/, ''), stderr: '', exitCode: 0, cwd, environment };
       }
       if (command === 'false') {
         return { stdout: '', stderr: '', exitCode: 1, cwd, environment };
       }
       return { stdout: 'ran: ' + command + '\n', stderr: '', exitCode: 0, cwd, environment };
+    }
+
+    function remoteTerminalOutput(command, cwd, environment) {
+      if (command === 'pwd') {
+        return { stdout: sshRemotePath(cwd) + '\n', stderr: '', exitCode: 0, cwd, environment };
+      }
+      if (/^cd(?:\s+|$)/.test(command)) {
+        const target = command.replace(/^cd\s*/, '').trim() || '~';
+        return {
+          stdout: '',
+          stderr: '',
+          exitCode: 0,
+          cwd: sshRemoteLabelWithPath(cwd, normalizeMockTerminalPath(sshRemotePath(cwd), target)),
+          environment
+        };
+      }
+      if (command.startsWith('printf ')) {
+        return { stdout: command.replace(/^printf\s+/, ''), stderr: '', exitCode: 0, cwd, environment };
+      }
+      return {
+        stdout: `ssh ${cwd}: ran: ${command}\n`,
+        stderr: '',
+        exitCode: 0,
+        cwd,
+        environment
+      };
+    }
+
+    function isSSHRemoteLabel(value) {
+      return /^ssh:\/\//.test(String(value));
+    }
+
+    function sshRemotePath(label) {
+      try {
+        return new URL(label).pathname || '/';
+      } catch {
+        const match = String(label).match(/^ssh:\/\/[^/]+(?<path>\/.*)$/);
+        return match?.groups?.path || '/';
+      }
+    }
+
+    function sshRemoteLabelWithPath(label, path) {
+      try {
+        const url = new URL(label);
+        url.pathname = path;
+        return url.toString().replace(/\/$/, path === '/' ? '/' : '');
+      } catch {
+        return label;
+      }
     }
 
     function unquoteShellValue(value) {

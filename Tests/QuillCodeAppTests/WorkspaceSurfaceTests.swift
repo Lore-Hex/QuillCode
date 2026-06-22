@@ -174,7 +174,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(item.actions.first { $0.kind == .refreshContext }?.isEnabled, false)
         XCTAssertEqual(
             item.actions.first { $0.kind == .refreshContext }?.disabledReason,
-            "SSH Remote context refresh needs the remote executor first."
+            "SSH Remote context refresh needs remote file sync first."
         )
         XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, false)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-list" }?.isEnabled, false)

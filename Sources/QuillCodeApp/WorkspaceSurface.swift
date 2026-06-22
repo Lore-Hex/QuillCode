@@ -155,7 +155,7 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.connectionKindLabel = project.connection.kindLabel
         self.isRemote = project.isRemote
         let remoteContextReason = project.isRemote
-            ? "SSH Remote context refresh needs the remote executor first."
+            ? "SSH Remote context refresh needs remote file sync first."
             : nil
         self.actions = [
             ProjectItemActionSurface(kind: .newChat, projectID: project.id),

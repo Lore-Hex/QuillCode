@@ -3,6 +3,7 @@ import QuillCodeAgent
 import QuillCodeCore
 import QuillCodePersistence
 import QuillCodeSafety
+import QuillCodeTools
 import QuillComputerUseKit
 @testable import QuillCodeApp
 
@@ -698,6 +699,48 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertFalse(model.terminal.isRunning)
         XCTAssertEqual(model.terminal.entries.first?.status, .done)
         XCTAssertTrue(model.terminal.entries.first?.stdout.contains("terminal-end") == true)
+    }
+
+    func testTerminalCommandRunsThroughSSHRemoteProject() async throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("ssh-args.txt")
+        let fakeSSH = try makeFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(
+            path: "/srv/quill repo",
+            host: "feather.local",
+            user: "quill",
+            port: 2222
+        )
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        await model.runTerminalCommand("printf remote-terminal", workspaceRoot: root)
+
+        XCTAssertEqual(model.terminal.entries.count, 1)
+        XCTAssertEqual(model.terminal.entries[0].status, .done)
+        XCTAssertEqual(model.terminal.entries[0].stdout, "remote-terminal\n")
+        XCTAssertEqual(model.terminal.currentDirectoryPath, "ssh://quill@feather.local:2222/srv/quill repo")
+        XCTAssertEqual(model.surface().terminal.cwdLabel, "ssh://quill@feather.local:2222/srv/quill repo")
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, [
+            "-T",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=4",
+            "-p",
+            "2222",
+            "quill@feather.local",
+            "cd '/srv/quill repo' && printf remote-terminal"
+        ])
     }
 
     func testTerminalCommandPersistsCurrentDirectoryAcrossCommands() async throws {
@@ -2667,6 +2710,18 @@ final class WorkspaceModelTests: XCTestCase {
             .appendingPathComponent("QuillCodeAppTests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+
+    private func makeFakeSSH(in root: URL, argumentsFile: URL) throws -> URL {
+        let script = root.appendingPathComponent("fake-ssh")
+        let argumentsPath = argumentsFile.path.replacingOccurrences(of: "'", with: "'\\''")
+        try """
+        #!/bin/sh
+        printf '%s\\n' "$@" > '\(argumentsPath)'
+        echo 'remote-terminal'
+        """.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        return script
     }
 
     private func initializeGitRepository(at root: URL) throws {

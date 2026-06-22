@@ -1116,6 +1116,7 @@ public final class QuillCodeWorkspaceModel {
     private let projectStore: JSONProjectStore?
     private let globalMemoryDirectory: URL?
     private var computerUseBackend: (any ComputerUseBackend)?
+    private let sshRemoteShellExecutor: SSHRemoteShellExecutor
     private var mcpServerProcesses: [String: MCPServerProcessHandle]
 
     public init(
@@ -1131,7 +1132,8 @@ public final class QuillCodeWorkspaceModel {
         threadStore: JSONThreadStore? = nil,
         projectStore: JSONProjectStore? = nil,
         globalMemoryDirectory: URL? = nil,
-        computerUseBackend: (any ComputerUseBackend)? = nil
+        computerUseBackend: (any ComputerUseBackend)? = nil,
+        sshRemoteShellExecutor: SSHRemoteShellExecutor = SSHRemoteShellExecutor()
     ) {
         self.root = root
         self.composer = composer
@@ -1146,6 +1148,7 @@ public final class QuillCodeWorkspaceModel {
         self.projectStore = projectStore
         self.globalMemoryDirectory = globalMemoryDirectory
         self.computerUseBackend = computerUseBackend
+        self.sshRemoteShellExecutor = sshRemoteShellExecutor
         self.mcpServerProcesses = [:]
         if let computerUseBackend {
             self.root.topBar.computerUseStatus = computerUseBackend.status
@@ -2859,16 +2862,6 @@ public final class QuillCodeWorkspaceModel {
         guard !command.isEmpty, !terminal.isRunning else { return }
         syncTerminalSessionToSelectedProject()
 
-        let workingDirectory = terminalCurrentDirectoryURL ?? workspaceRoot.standardizedFileURL
-        let executionContext = Self.terminalExecutionContext(
-            command: command,
-            workingDirectory: workingDirectory,
-            environment: Self.effectiveTerminalEnvironment(
-                overrides: terminal.environmentOverrides,
-                removedKeys: terminal.removedEnvironmentKeys
-            )
-        )
-
         let entryID = UUID()
         terminal.draft = ""
         terminal.isVisible = true
@@ -2884,6 +2877,20 @@ public final class QuillCodeWorkspaceModel {
         ))
         lastError = nil
         refreshTopBar(agentStatus: "Terminal")
+
+        guard let executionContext = terminalExecutionContext(command: command, workspaceRoot: workspaceRoot) else {
+            finishTerminalEntry(
+                id: entryID,
+                stdout: "",
+                stderr: "SSH Remote project is missing a usable host.",
+                exitCode: nil,
+                ok: false,
+                status: .failed
+            )
+            terminal.isRunning = false
+            refreshTopBar(agentStatus: "Failed")
+            return
+        }
 
         var finalResult: ToolResult?
         for await event in ShellToolExecutor().runStreaming(executionContext.request) {
@@ -2922,11 +2929,9 @@ public final class QuillCodeWorkspaceModel {
             return
         }
 
-        terminal.currentDirectoryPath = Self.terminalCurrentDirectoryPath(
-            markerURL: executionContext.cwdMarkerURL,
-            fallback: workingDirectory
-        )
-        if let environmentDelta = Self.terminalEnvironmentDelta(markerURL: executionContext.environmentMarkerURL) {
+        terminal.currentDirectoryPath = Self.terminalCurrentDirectoryPath(for: executionContext)
+        if let environmentMarkerURL = executionContext.environmentMarkerURL,
+           let environmentDelta = Self.terminalEnvironmentDelta(markerURL: environmentMarkerURL) {
             terminal.environmentOverrides = environmentDelta.overrides
             terminal.removedEnvironmentKeys = environmentDelta.removedKeys
         }
@@ -2953,15 +2958,49 @@ public final class QuillCodeWorkspaceModel {
 
     private struct TerminalExecutionContext {
         var request: ShellExecutionRequest
-        var cwdMarkerURL: URL
-        var environmentMarkerURL: URL
+        var cwdMarkerURL: URL?
+        var environmentMarkerURL: URL?
+        var fallbackCurrentDirectoryPath: String
 
         var markerURLs: [URL] {
-            [cwdMarkerURL, environmentMarkerURL]
+            [cwdMarkerURL, environmentMarkerURL].compactMap { $0 }
         }
     }
 
-    private static func terminalExecutionContext(
+    private func terminalExecutionContext(
+        command: String,
+        workspaceRoot: URL
+    ) -> TerminalExecutionContext? {
+        let environment = Self.effectiveTerminalEnvironment(
+            overrides: terminal.environmentOverrides,
+            removedKeys: terminal.removedEnvironmentKeys
+        )
+
+        if let selectedProject, selectedProject.isRemote {
+            guard let request = sshRemoteShellExecutor.request(
+                command: command,
+                connection: selectedProject.connection,
+                environment: environment
+            ) else {
+                return nil
+            }
+            return TerminalExecutionContext(
+                request: request,
+                cwdMarkerURL: nil,
+                environmentMarkerURL: nil,
+                fallbackCurrentDirectoryPath: selectedProject.displayPath
+            )
+        }
+
+        let workingDirectory = terminalCurrentDirectoryURL ?? workspaceRoot.standardizedFileURL
+        return Self.localTerminalExecutionContext(
+            command: command,
+            workingDirectory: workingDirectory,
+            environment: environment
+        )
+    }
+
+    private static func localTerminalExecutionContext(
         command: String,
         workingDirectory: URL,
         environment: [String: String]
@@ -2986,18 +3025,22 @@ public final class QuillCodeWorkspaceModel {
                 environment: environment
             ),
             cwdMarkerURL: cwdMarkerURL,
-            environmentMarkerURL: environmentMarkerURL
+            environmentMarkerURL: environmentMarkerURL,
+            fallbackCurrentDirectoryPath: workingDirectory.standardizedFileURL.path
         )
     }
 
-    private static func terminalCurrentDirectoryPath(markerURL: URL, fallback: URL) -> String {
+    private static func terminalCurrentDirectoryPath(for context: TerminalExecutionContext) -> String {
+        guard let markerURL = context.cwdMarkerURL else {
+            return context.fallbackCurrentDirectoryPath
+        }
         defer { removeTerminalMarker(at: markerURL) }
         guard let rawPath = try? String(contentsOf: markerURL, encoding: .utf8) else {
-            return fallback.standardizedFileURL.path
+            return context.fallbackCurrentDirectoryPath
         }
         let path = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !path.isEmpty else {
-            return fallback.standardizedFileURL.path
+            return context.fallbackCurrentDirectoryPath
         }
         return URL(fileURLWithPath: path).standardizedFileURL.path
     }
@@ -3449,7 +3492,7 @@ public final class QuillCodeWorkspaceModel {
                let project = root.projects.first(where: { $0.id == projectID }) {
                 appendLocalCommandTranscript(
                     userText: originalPrompt,
-                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Remote command execution is pending; local-only actions are disabled for this project.",
+                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Terminal commands run through SSH; context refresh, file tools, and git actions remain local-only for now.",
                     title: "Add SSH Remote"
                 )
             } else {

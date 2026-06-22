@@ -80,6 +80,75 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("stream-end"))
     }
 
+    func testSSHRemoteShellBuildsNonInteractiveRequest() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("ssh-args.txt")
+        let fakeSSH = try makeFakeSSH(in: root, argumentsFile: argumentsFile)
+        let request = try XCTUnwrap(SSHRemoteShellExecutor(
+            sshExecutable: fakeSSH.path,
+            connectTimeoutSeconds: 7
+        ).request(
+            command: "printf 'hi there'",
+            connection: .ssh(
+                path: "/srv/quill repo",
+                host: "feather.local",
+                user: "quill",
+                port: 2222
+            ),
+            timeoutSeconds: 5
+        ))
+
+        let result = ShellToolExecutor().run(request)
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(result.stdout, "remote-ok\n")
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, [
+            "-T",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=7",
+            "-p",
+            "2222",
+            "quill@feather.local",
+            "cd '/srv/quill repo' && printf 'hi there'"
+        ])
+    }
+
+    func testSSHRemoteShellSupportsHomeRelativeRemoteRoots() throws {
+        let request = try XCTUnwrap(SSHRemoteShellExecutor(
+            sshExecutable: "ssh-test",
+            connectTimeoutSeconds: 3
+        ).request(
+            command: "pwd",
+            connection: .ssh(path: "~/Quill Projects", host: "feather.local")
+        ))
+
+        XCTAssertTrue(request.command.contains("'ssh-test'"))
+        XCTAssertTrue(request.command.contains("'ConnectTimeout=3'"))
+        XCTAssertTrue(request.command.contains("'feather.local'"))
+        XCTAssertTrue(request.command.contains("cd ~/"))
+        XCTAssertTrue(request.command.contains("'Quill Projects'"))
+    }
+
+    func testSSHRemoteShellRejectsUnsafeDestinationFields() {
+        XCTAssertNil(SSHRemoteShellExecutor().request(
+            command: "pwd",
+            connection: .ssh(path: "/srv/quill", host: "bad host", user: "quill")
+        ))
+        XCTAssertNil(SSHRemoteShellExecutor().request(
+            command: "pwd",
+            connection: .ssh(path: "/srv/quill", host: "feather.local", user: "bad user")
+        ))
+        XCTAssertNil(SSHRemoteShellExecutor().request(
+            command: "pwd",
+            connection: .ssh(path: "/srv/quill", host: "feather.local", port: 70_000)
+        ))
+    }
+
     func testFileWriteStaysInsideWorkspace() throws {
         let root = try makeTempDirectory()
         let files = FileToolExecutor(workspaceRoot: root)
@@ -519,6 +588,18 @@ final class ToolTests: XCTestCase {
         #!/bin/sh
         printf '%s\\n' "$@" > '\(argumentsPath)'
         echo 'https://github.com/example/repo/pull/123'
+        """.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        return script
+    }
+
+    private func makeFakeSSH(in root: URL, argumentsFile: URL) throws -> URL {
+        let script = root.appendingPathComponent("fake-ssh")
+        let argumentsPath = argumentsFile.path.replacingOccurrences(of: "'", with: "'\\''")
+        try """
+        #!/bin/sh
+        printf '%s\\n' "$@" > '\(argumentsPath)'
+        echo 'remote-ok'
         """.write(to: script, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
         return script

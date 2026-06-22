@@ -1087,6 +1087,14 @@ test('mock harness adds an SSH remote project from command palette and slash com
 
   await remoteProject.getByLabel(/^Actions for project /).click();
   await expect(remoteProject.getByRole('button', { name: 'Refresh context' })).toBeDisabled();
+
+  await page.getByTestId('terminal-button').click();
+  await expect(page.getByTestId('terminal-pane')).toBeVisible();
+  await expect(page.getByTestId('terminal-cwd')).toHaveText('ssh://quill@feather.local/srv/quill');
+  await page.getByTestId('terminal-input').fill('pwd');
+  await page.getByTestId('terminal-run').click();
+  await expect(page.getByTestId('terminal-status')).toHaveText('Done · exit 0');
+  await expect(page.getByTestId('terminal-stdout')).toHaveText('/srv/quill\n');
 });
 
 test('mock harness runs a command in the integrated terminal', async ({ page }) => {
