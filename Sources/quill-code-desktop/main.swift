@@ -3,6 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import AppKit
 import Network
+import UserNotifications
 import QuillCodeAgent
 import QuillCodeApp
 import QuillCodeCore
@@ -253,6 +254,49 @@ private final class URLSessionBrowserPageFetcher: BrowserPageFetching, @unchecke
     }
 }
 
+private protocol QuillCodeAutomationNotifying: Sendable {
+    func deliver(_ report: AutomationRunReport)
+}
+
+private struct MacAutomationNotifier: QuillCodeAutomationNotifying {
+    func deliver(_ report: AutomationRunReport) {
+        Task {
+            let center = UNUserNotificationCenter.current()
+            guard await Self.ensureAuthorization(center: center) else { return }
+
+            let content = UNMutableNotificationContent()
+            content.title = report.title
+            content.body = report.body
+            content.sound = .default
+
+            let request = UNNotificationRequest(
+                identifier: "quillcode-automation-\(report.automationID.uuidString)-\(report.followUpThreadID.uuidString)",
+                content: content,
+                trigger: nil
+            )
+            try? await center.add(request)
+        }
+    }
+
+    private static func ensureAuthorization(center: UNUserNotificationCenter) async -> Bool {
+        let settings = await center.notificationSettings()
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            return true
+        case .denied:
+            return false
+        case .notDetermined:
+            do {
+                return try await center.requestAuthorization(options: [.alert, .sound])
+            } catch {
+                return false
+            }
+        @unknown default:
+            return false
+        }
+    }
+}
+
 @MainActor
 private final class QuillCodeDesktopController: ObservableObject {
     @Published var surface: WorkspaceSurface
@@ -269,6 +313,7 @@ private final class QuillCodeDesktopController: ObservableObject {
     private let bootstrap: QuillCodeWorkspaceBootstrap
     private let computerUseBackend: MacComputerUseBackend
     private let browserPageFetcher: any BrowserPageFetching
+    private let automationNotifier: any QuillCodeAutomationNotifying
     private let workspaceRoot: URL
     private var sendTask: Task<Void, Never>?
     private var terminalTask: Task<Void, Never>?
@@ -281,11 +326,13 @@ private final class QuillCodeDesktopController: ObservableObject {
     init(
         bootstrap: QuillCodeWorkspaceBootstrap = QuillCodeWorkspaceBootstrap(),
         browserPageFetcher: any BrowserPageFetching = URLSessionBrowserPageFetcher(),
+        automationNotifier: any QuillCodeAutomationNotifying = MacAutomationNotifier(),
         workspaceRoot: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     ) {
         self.bootstrap = bootstrap
         self.computerUseBackend = MacComputerUseBackend()
         self.browserPageFetcher = browserPageFetcher
+        self.automationNotifier = automationNotifier
         do {
             self.model = try bootstrap.makeModel()
         } catch {
@@ -549,7 +596,9 @@ private final class QuillCodeDesktopController: ObservableObject {
     }
 
     private func runDueAutomations() {
-        guard !model.runDueAutomations().isEmpty else { return }
+        let reports = model.runDueAutomationReports()
+        guard !reports.isEmpty else { return }
+        reports.forEach(automationNotifier.deliver)
         refresh()
     }
 

@@ -1137,6 +1137,26 @@ private enum MCPPromptGetRequestError: Error, CustomStringConvertible {
     }
 }
 
+public struct AutomationRunReport: Codable, Sendable, Hashable, Identifiable {
+    public var id: UUID { followUpThreadID }
+    public var automationID: UUID
+    public var followUpThreadID: UUID
+    public var title: String
+    public var body: String
+
+    public init(
+        automationID: UUID,
+        followUpThreadID: UUID,
+        title: String,
+        body: String
+    ) {
+        self.automationID = automationID
+        self.followUpThreadID = followUpThreadID
+        self.title = title
+        self.body = body
+    }
+}
+
 @MainActor
 public final class QuillCodeWorkspaceModel {
     public private(set) var root: QuillCodeRootState
@@ -1470,6 +1490,11 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func runAutomation(id: UUID) -> UUID? {
+        runAutomationReport(id: id)?.followUpThreadID
+    }
+
+    @discardableResult
+    public func runAutomationReport(id: UUID) -> AutomationRunReport? {
         guard let index = automations.items.firstIndex(where: { $0.id == id }) else { return nil }
         let automation = automations.items[index]
         guard automation.status == .active else { return nil }
@@ -1486,6 +1511,11 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func runDueAutomations(now: Date = Date(), limit: Int = 5) -> [UUID] {
+        runDueAutomationReports(now: now, limit: limit).map(\.followUpThreadID)
+    }
+
+    @discardableResult
+    public func runDueAutomationReports(now: Date = Date(), limit: Int = 5) -> [AutomationRunReport] {
         let dueAutomationIDs = automations.items
             .filter { automation in
                 automation.status == .active
@@ -1495,7 +1525,7 @@ public final class QuillCodeWorkspaceModel {
             .prefix(max(0, limit))
             .map(\.id)
 
-        return dueAutomationIDs.compactMap(runAutomation)
+        return dueAutomationIDs.compactMap(runAutomationReport)
     }
 
     public func deleteAutomation(id: UUID) -> Bool {
@@ -1506,7 +1536,7 @@ public final class QuillCodeWorkspaceModel {
         return true
     }
 
-    private func runThreadFollowUpAutomation(_ automation: QuillAutomation, at index: Int) -> UUID? {
+    private func runThreadFollowUpAutomation(_ automation: QuillAutomation, at index: Int) -> AutomationRunReport? {
         guard let threadID = automation.threadID,
               let source = root.threads.first(where: { $0.id == threadID })
         else {
@@ -1556,7 +1586,12 @@ public final class QuillCodeWorkspaceModel {
         automations.isVisible = true
         lastError = nil
         refreshTopBar(agentStatus: "Idle")
-        return followUp.id
+        return AutomationRunReport(
+            automationID: automation.id,
+            followUpThreadID: followUp.id,
+            title: "QuillCode follow-up ready",
+            body: "\(followUp.title) was created from \(source.title)."
+        )
     }
 
     private static func followUpDelayDescription(seconds: TimeInterval) -> String {

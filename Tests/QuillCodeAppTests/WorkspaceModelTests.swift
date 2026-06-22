@@ -3862,6 +3862,47 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(savedAutomations.first { $0.id == unsupported.id }?.nextRunAt, unsupported.nextRunAt)
     }
 
+    func testRunDueAutomationReportsDescribeCreatedFollowUps() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let now = Date(timeIntervalSince1970: 100)
+        let source = ChatThread(title: "Due follow-up", messages: [
+            .init(role: .user, content: "summarize tomorrow"),
+            .init(role: .assistant, content: "I will follow up.")
+        ])
+        let due = QuillAutomation(
+            title: "Due follow-up",
+            detail: "Resume this thread.",
+            kind: .threadFollowUp,
+            scheduleKind: .heartbeat,
+            scheduleDescription: "Now",
+            threadID: source.id,
+            nextRunAt: Date(timeIntervalSince1970: 90)
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [source], selectedThreadID: source.id),
+            automationStore: automationStore
+        )
+        model.setAutomations([due])
+
+        let reports = model.runDueAutomationReports(now: now)
+
+        let report = try XCTUnwrap(reports.first)
+        XCTAssertEqual(reports.count, 1)
+        XCTAssertEqual(report.automationID, due.id)
+        XCTAssertEqual(report.title, "QuillCode follow-up ready")
+        XCTAssertEqual(report.body, "Follow-up: Due follow-up was created from Due follow-up.")
+        XCTAssertEqual(model.root.selectedThreadID, report.followUpThreadID)
+        XCTAssertEqual(model.root.threads.first?.id, report.followUpThreadID)
+        XCTAssertEqual(model.root.threads.first?.title, "Follow-up: Due follow-up")
+
+        let savedDue = try XCTUnwrap(try automationStore.load().first { $0.id == due.id })
+        XCTAssertNotNil(savedDue.lastRunAt)
+        XCTAssertNil(savedDue.nextRunAt)
+    }
+
     func testRunDueAutomationsHonorsLimit() throws {
         let now = Date(timeIntervalSince1970: 100)
         let source = ChatThread(title: "Launch plan", messages: [

@@ -68,4 +68,18 @@ final class ParityGateTests: XCTestCase {
             "Desktop sign-in should not regress to opening the static sign-in documentation page."
         )
     }
+
+    func testDesktopNotifiesWhenDueAutomationsRun() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let desktopSource = root.appendingPathComponent("Sources/quill-code-desktop/main.swift")
+        let text = try String(contentsOf: desktopSource, encoding: .utf8)
+
+        XCTAssertTrue(text.contains("UNUserNotificationCenter"), "Desktop app should use native notifications for due automations.")
+        XCTAssertTrue(text.contains("MacAutomationNotifier"), "Desktop app should isolate notification delivery behind an adapter.")
+        XCTAssertTrue(text.contains("runDueAutomationReports"), "Desktop app should consume structured automation run reports.")
+        XCTAssertTrue(text.contains("automationNotifier.deliver"), "Desktop app should deliver a notification for each due automation report.")
+    }
 }
