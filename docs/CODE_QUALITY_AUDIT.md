@@ -43,7 +43,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 1. Extract workspace command execution from `WorkspaceModel`.
 2. Extract automation runners from `WorkspaceModel`.
-3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, top bar, and sidebar are now extracted; next targets are transcript/review controls.
+3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, top bar, sidebar, and review pane are now extracted; next targets are transcript/tool-card controls.
 4. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
 5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
 
@@ -101,3 +101,16 @@ Interface polish changes:
 - Thread rows use a shared selection-toggle helper instead of duplicating command construction in two button handlers.
 - Thread and project row buttons keep 40 pt minimum interactive height while preserving the compact left-rail density.
 - Bulk action buttons, project header icons, row overflow menus, Tools, and Settings now use the same press feedback contract as the composer/model/top-bar controls.
+
+## 2026-06-22 Review Pane Refactor Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+The native git review pane moved out of `WorkspaceSwiftUIView.swift` into `QuillCodeReviewPaneView.swift`. Review summary, file rows, hunk rows, inline comments, range notes, and review action buttons now live beside each other in one focused component, which keeps future diff-review work away from the transcript shell.
+
+Interface polish changes:
+
+- Review action icon buttons now use the shared `0.96` press feedback and a guaranteed 40 pt hit target.
+- File-level, hunk-level, and line-level note actions use the same press feedback contract instead of borderless static controls.
+- Range and line note inputs keep a 40 pt minimum height, so text entry does not feel cramped beside the action buttons.
+- The review hunk count uses tabular numerals, preventing subtle width shifts as review data changes.
