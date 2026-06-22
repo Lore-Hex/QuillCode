@@ -2274,10 +2274,32 @@ public enum WorkspaceCommandPalette {
         if id.contains(query) || keywords.contains(where: { $0.contains(query) }) {
             return 560
         }
+        let tokens = queryTokens(query)
+        if tokens.count > 1 {
+            let searchableTokens = commandTokens(title: title, id: id, category: category, keywords: keywords)
+            if tokens.allSatisfy({ token in searchableTokens.contains(where: { $0.hasPrefix(token) }) }) {
+                return 520
+            }
+        }
         if category.contains(query) {
             return 440
         }
         return nil
+    }
+
+    private static func queryTokens(_ query: String) -> [Substring] {
+        query.split(whereSeparator: \.isWhitespace)
+    }
+
+    private static func commandTokens(
+        title: String,
+        id: String,
+        category: String,
+        keywords: [String]
+    ) -> [Substring] {
+        ([title, id, category] + keywords)
+            .joined(separator: " ")
+            .split(whereSeparator: \.isWhitespace)
     }
 
     private struct QueryRequest {
@@ -3447,6 +3469,13 @@ public extension QuillCodeWorkspaceModel {
                 title: "Review pull request",
                 category: WorkspaceCommandPalette.gitCategory,
                 keywords: ["github", "pr", "review", "approve", "approve pr", "request changes"],
+                isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
+            ),
+            WorkspaceCommandSurface(
+                id: "git-pr-labels",
+                title: "Label pull request",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["github", "pr", "label", "labels", "triage"],
                 isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
             ),
             WorkspaceCommandSurface(

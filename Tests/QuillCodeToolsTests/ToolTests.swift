@@ -502,6 +502,48 @@ final class ToolTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: argumentsFile.path))
     }
 
+    func testGitPullRequestLabelsUsesGitHubCLIArguments() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        let git = GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+
+        let result = git.updatePullRequestLabels(
+            cwd: root,
+            selector: "123",
+            add: ["merge-train", "needs review", "merge-train"],
+            remove: ["blocked"]
+        )
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(result.artifacts, ["https://github.com/example/repo/pull/123"])
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, [
+            "pr",
+            "edit",
+            "123",
+            "--add-label",
+            "merge-train,needs review",
+            "--remove-label",
+            "blocked"
+        ])
+    }
+
+    func testGitPullRequestLabelsRequireLabelAndValidateNames() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        let git = GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+
+        XCTAssertFalse(git.updatePullRequestLabels(cwd: root, selector: "123").ok)
+        XCTAssertFalse(git.updatePullRequestLabels(cwd: root, selector: "123", add: ["-bad"]).ok)
+        XCTAssertFalse(git.updatePullRequestLabels(cwd: root, selector: "123", add: ["bad,label"]).ok)
+        XCTAssertFalse(git.updatePullRequestLabels(cwd: root, selector: "123", add: ["bad\nlabel"]).ok)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: argumentsFile.path))
+    }
+
     func testGitPullRequestCommentUsesGitHubCLIArguments() throws {
         let root = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("gh-args.txt")
@@ -632,6 +674,7 @@ final class ToolTests: XCTestCase {
         XCTAssertFalse(git.checkoutPullRequest(cwd: root, selector: "123 --web").ok)
         XCTAssertFalse(git.checkoutPullRequest(cwd: root, selector: "123", branch: "--bad").ok)
         XCTAssertFalse(git.updatePullRequestReviewers(cwd: root, selector: "123 --web", add: ["alice"]).ok)
+        XCTAssertFalse(git.updatePullRequestLabels(cwd: root, selector: "123 --web", add: ["merge-train"]).ok)
         XCTAssertFalse(git.commentOnPullRequest(cwd: root, selector: "123 --web", body: "Comment").ok)
         XCTAssertFalse(git.reviewPullRequest(cwd: root, selector: "123 --web", action: "approve").ok)
         XCTAssertFalse(git.mergePullRequest(cwd: root, selector: "123 --web").ok)
@@ -719,6 +762,7 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.pr.checks"))
         XCTAssertTrue(definitions.contains("host.git.pr.checkout"))
         XCTAssertTrue(definitions.contains("host.git.pr.reviewers"))
+        XCTAssertTrue(definitions.contains("host.git.pr.labels"))
         XCTAssertTrue(definitions.contains("host.git.pr.comment"))
         XCTAssertTrue(definitions.contains("host.git.pr.review"))
         XCTAssertTrue(definitions.contains("host.git.pr.merge"))
@@ -942,6 +986,24 @@ final class ToolTests: XCTestCase {
             "alice,myorg/team-name",
             "--remove-reviewer",
             "bob"
+        ])
+
+        let labels = router.execute(ToolCall(
+            name: ToolDefinition.gitPullRequestLabels.name,
+            argumentsJSON: #"{"selector":"123","add":["merge-train","needs review"],"remove":"blocked"}"#
+        ))
+        XCTAssertTrue(labels.ok, "\(labels.error ?? "") \(labels.stderr)")
+        arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, [
+            "pr",
+            "edit",
+            "123",
+            "--add-label",
+            "merge-train,needs review",
+            "--remove-label",
+            "blocked"
         ])
 
         let comment = router.execute(ToolCall(

@@ -130,6 +130,21 @@ final class TrustedRouterAdapterTests: XCTestCase {
         XCTAssertEqual(arguments.stringArray("remove"), ["bob"])
     }
 
+    func testActionParserNormalizesPullRequestLabelAliases() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {"type":"tool","name":"host.git.pr.labels","arguments":{"pr":"42","labels":["merge-train","needs review"],"removeLabels":"blocked"}}
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.gitPullRequestLabels.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(arguments.string("selector"), "42")
+        XCTAssertEqual(arguments.stringArray("add"), ["merge-train", "needs review"])
+        XCTAssertEqual(arguments.stringArray("remove"), ["blocked"])
+    }
+
     func testActionParserAllowsNoArgumentTools() throws {
         let gitAction = try AgentActionJSONParser.parse("""
         {"type":"tool","name":"host.git.status","arguments":{}}

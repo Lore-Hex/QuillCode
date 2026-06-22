@@ -469,6 +469,23 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(arguments["add"], "alice,myorg/team-name")
     }
 
+    func testPullRequestLabelRequestUsesStructuredToolCall() async throws {
+        let action = try await MockLLMClient().nextAction(
+            thread: ChatThread(mode: .auto),
+            userMessage: "label PR #42 merge-train",
+            tools: ToolRouter.definitions
+        )
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected a tool action.")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.gitPullRequestLabels.name)
+        let data = try XCTUnwrap(call.argumentsJSON.data(using: .utf8))
+        let arguments = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: String])
+        XCTAssertEqual(arguments["selector"], "42")
+        XCTAssertEqual(arguments["add"], "merge-train")
+    }
+
     func testPullRequestCommentUsesStructuredToolCall() async throws {
         let action = try await MockLLMClient().nextAction(
             thread: ChatThread(mode: .auto),

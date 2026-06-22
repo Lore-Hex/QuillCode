@@ -9,10 +9,12 @@ public enum GitToolError: Error, CustomStringConvertible {
     case emptyPullRequestComment
     case emptyPullRequestReviewBody
     case emptyPullRequestReviewers
+    case emptyPullRequestLabels
     case invalidPullRequestReviewAction(String)
     case invalidPullRequestMergeMethod(String)
     case invalidPullRequestSelector(String)
     case invalidPullRequestReviewer(String)
+    case invalidPullRequestLabel(String)
     case emptyBranch
     case invalidGitName(String)
     case noCurrentBranch
@@ -38,6 +40,8 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "Git pull request review body is required for comment and request_changes actions."
         case .emptyPullRequestReviewers:
             return "At least one GitHub pull request reviewer to add or remove is required."
+        case .emptyPullRequestLabels:
+            return "At least one GitHub pull request label to add or remove is required."
         case .invalidPullRequestReviewAction(let value):
             return "GitHub pull request review action is unsupported: \(value)"
         case .invalidPullRequestMergeMethod(let value):
@@ -46,6 +50,8 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "GitHub pull request selector is unsupported: \(value)"
         case .invalidPullRequestReviewer(let value):
             return "GitHub pull request reviewer is unsupported: \(value)"
+        case .invalidPullRequestLabel(let value):
+            return "GitHub pull request label is unsupported: \(value)"
         case .emptyBranch:
             return "Git branch is required."
         case .invalidGitName(let value):
@@ -273,6 +279,44 @@ public struct GitToolExecutor: Sendable {
             }
             if !reviewersToRemove.isEmpty {
                 arguments += ["--remove-reviewer", reviewersToRemove.joined(separator: ",")]
+            }
+
+            let result = runGitHub(arguments, cwd: cwd, timeoutSeconds: 60)
+            guard result.ok else { return result }
+            return ToolResult(
+                ok: true,
+                stdout: result.stdout,
+                stderr: result.stderr,
+                exitCode: result.exitCode,
+                artifacts: Self.extractURLs(from: result.stdout)
+            )
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
+    public func updatePullRequestLabels(
+        cwd: URL,
+        selector: String? = nil,
+        add: [String]? = nil,
+        remove: [String]? = nil
+    ) -> ToolResult {
+        do {
+            let labelsToAdd = try Self.safePullRequestLabels(add)
+            let labelsToRemove = try Self.safePullRequestLabels(remove)
+            guard !labelsToAdd.isEmpty || !labelsToRemove.isEmpty else {
+                throw GitToolError.emptyPullRequestLabels
+            }
+
+            var arguments = ["pr", "edit"]
+            if let selector = try Self.safePullRequestSelector(selector) {
+                arguments.append(selector)
+            }
+            if !labelsToAdd.isEmpty {
+                arguments += ["--add-label", labelsToAdd.joined(separator: ",")]
+            }
+            if !labelsToRemove.isEmpty {
+                arguments += ["--remove-label", labelsToRemove.joined(separator: ",")]
             }
 
             let result = runGitHub(arguments, cwd: cwd, timeoutSeconds: 60)
@@ -556,6 +600,31 @@ public struct GitToolExecutor: Sendable {
             return false
         }
         return true
+    }
+
+    public static func safePullRequestLabels(_ values: [String]?) throws -> [String] {
+        var labels: [String] = []
+        var seen = Set<String>()
+        for value in values ?? [] {
+            let label = try safePullRequestLabel(value)
+            guard seen.insert(label).inserted else { continue }
+            labels.append(label)
+        }
+        return labels
+    }
+
+    public static func safePullRequestLabel(_ value: String) throws -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count <= 100,
+              trimmed.rangeOfCharacter(from: .newlines) == nil,
+              trimmed.rangeOfCharacter(from: .controlCharacters) == nil,
+              !trimmed.contains(","),
+              !trimmed.hasPrefix("-")
+        else {
+            throw GitToolError.invalidPullRequestLabel(value)
+        }
+        return trimmed
     }
 
     public static func safePullRequestReviewFlag(_ value: String) throws -> String {
@@ -923,6 +992,14 @@ public extension ToolDefinition {
         name: "host.git.pr.reviewers",
         description: "Request or remove reviewers on the current or selected GitHub pull request using GitHub CLI. Optional selector may be a PR number, URL, or branch.",
         parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."},"add":{"type":"array","items":{"type":"string"},"description":"Reviewer logins or org/team slugs to request."},"remove":{"type":"array","items":{"type":"string"},"description":"Reviewer logins or org/team slugs to remove."}}}"#,
+        host: .local,
+        risk: .append
+    )
+
+    static let gitPullRequestLabels = ToolDefinition(
+        name: "host.git.pr.labels",
+        description: "Add or remove labels on the current or selected GitHub pull request using GitHub CLI. Optional selector may be a PR number, URL, or branch.",
+        parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."},"add":{"type":"array","items":{"type":"string"},"description":"Labels to add."},"remove":{"type":"array","items":{"type":"string"},"description":"Labels to remove."}}}"#,
         host: .local,
         risk: .append
     )
