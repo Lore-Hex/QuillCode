@@ -899,10 +899,13 @@ public enum WorkspaceHTMLRenderer {
         let createButton = automations.createThreadFollowUpCommand.map { command in
             #"<button type="button" data-testid="automation-create-follow-up" data-command-id="\#(escape(command.id))" \#(command.isEnabled ? "" : "disabled")>\#(escape(command.title))</button>"#
         } ?? ""
+        let createWorkspaceButton = automations.createWorkspaceScheduleCommand.map { command in
+            #"<button type="button" data-testid="automation-create-workspace-schedule" data-command-id="\#(escape(command.id))" \#(command.isEnabled ? "" : "disabled")>\#(escape(command.title))</button>"#
+        } ?? ""
         let scheduleButtons = automations.scheduleThreadFollowUpCommands.map { command in
             #"<button type="button" data-testid="automation-schedule-follow-up" data-command-id="\#(escape(command.id))" \#(command.isEnabled ? "" : "disabled")>\#(escape(command.title))</button>"#
         }.joined(separator: "\n")
-        let createActions = [createButton, scheduleButtons]
+        let createActions = [createButton, createWorkspaceButton, scheduleButtons]
             .filter { !$0.isEmpty }
             .joined(separator: "\n")
         return """

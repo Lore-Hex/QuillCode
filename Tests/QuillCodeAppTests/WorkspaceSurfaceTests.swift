@@ -100,6 +100,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "toggle-activity",
             "toggle-automations",
             "automation-create-thread-follow-up",
+            "automation-create-workspace-schedule",
             "automation-create-thread-follow-up-after:600",
             "automation-create-thread-follow-up-after:3600",
             "automation-create-thread-follow-up-tomorrow",
@@ -413,7 +414,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(automations.workflows.map(\.title), ["Nightly repo check", "Paused PR monitor"])
         XCTAssertEqual(automations.workflows.map(\.statusLabel), ["Active", "Paused"])
         XCTAssertEqual(automations.workflows.first?.scheduleLabel, "Every weekday at 6:00 PM")
-        XCTAssertNil(automations.workflows.first?.runActionTitle)
+        XCTAssertEqual(automations.workflows.first?.runActionTitle, "Run now")
+        XCTAssertTrue(automations.workflows.first?.runCommandID?.hasPrefix("automation-run:") == true)
         XCTAssertEqual(automations.workflows.first?.primaryActionTitle, "Pause")
         XCTAssertTrue(automations.workflows.first?.primaryCommandID?.hasPrefix("automation-pause:") == true)
         XCTAssertTrue(automations.workflows.first?.deleteCommandID?.hasPrefix("automation-delete:") == true)
@@ -450,9 +452,12 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertNil(automations.workflows.last?.runCommandID)
     }
 
-    func testAutomationsSurfaceExposesCreateFollowUpCommandForSelectedThread() {
-        let thread = ChatThread(title: "Ship QuillCode")
+    func testAutomationsSurfaceExposesCreateCommandsForSelectedThreadAndProject() {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        let thread = ChatThread(title: "Ship QuillCode", projectID: project.id)
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
             threads: [thread],
             selectedThreadID: thread.id
         ))
@@ -475,6 +480,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
                 .map(\.isEnabled),
             [true, true]
         )
+        XCTAssertEqual(automations.createWorkspaceScheduleCommand?.id, "automation-create-workspace-schedule")
+        XCTAssertEqual(automations.createWorkspaceScheduleCommand?.category, WorkspaceCommandPalette.automationsCategory)
+        XCTAssertEqual(automations.createWorkspaceScheduleCommand?.isEnabled, true)
+        XCTAssertEqual(model.surface().commands.first { $0.id == "automation-create-workspace-schedule" }?.isEnabled, true)
     }
 
     func testActivitySectionToggleCollapsesSharedSurfaceSection() throws {

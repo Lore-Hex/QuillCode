@@ -1275,7 +1275,8 @@
       border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
     .automation-actions button,
-    [data-testid="automation-create-follow-up"] {
+    [data-testid="automation-create-follow-up"],
+    [data-testid="automation-create-workspace-schedule"] {
       min-height: 34px;
       border: 1px solid var(--line);
       border-radius: 999px;
@@ -1288,8 +1289,10 @@
       transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
     }
     .automation-actions button:active,
-    [data-testid="automation-create-follow-up"]:active { transform: scale(0.96); }
-    [data-testid="automation-create-follow-up"]:disabled {
+    [data-testid="automation-create-follow-up"]:active,
+    [data-testid="automation-create-workspace-schedule"]:active { transform: scale(0.96); }
+    [data-testid="automation-create-follow-up"]:disabled,
+    [data-testid="automation-create-workspace-schedule"]:disabled {
       opacity: 0.44;
       cursor: not-allowed;
     }
@@ -2347,6 +2350,7 @@
         { id: 'toggle-activity', title: 'Activity', shortcut: '', category: 'Workspace', keywords: ['task', 'summary', 'sources', 'artifacts', 'tools'], isEnabled: true },
         { id: 'toggle-automations', title: 'Automations', shortcut: '', category: 'Workspace', keywords: ['automation', 'schedule', 'recurring', 'monitor', 'follow-up', 'heartbeat'], isEnabled: true },
         { id: 'automation-create-thread-follow-up', title: 'Create thread follow-up', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule'], isEnabled: false },
+        { id: 'automation-create-workspace-schedule', title: 'Create workspace schedule', shortcut: '', category: 'Automations', keywords: ['automation', 'workspace', 'schedule', 'repo', 'check', 'cron'], isEnabled: true },
         { id: 'automation-create-thread-follow-up-after:600', title: 'In 10 minutes', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule', 'ten minutes'], isEnabled: false },
         { id: 'automation-create-thread-follow-up-after:3600', title: 'In 1 hour', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule', 'hour'], isEnabled: false },
         { id: 'automation-create-thread-follow-up-tomorrow', title: 'Tomorrow morning', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule', 'tomorrow', 'morning'], isEnabled: false },
@@ -2404,6 +2408,11 @@
           id: 'automation-create-thread-follow-up',
           title: 'Create thread follow-up',
           isEnabled: false
+        },
+        createWorkspaceScheduleCommand: {
+          id: 'automation-create-workspace-schedule',
+          title: 'Create workspace schedule',
+          isEnabled: true
         },
         scheduleThreadFollowUpCommands: [
           { id: 'automation-create-thread-follow-up-after:600', title: 'In 10 minutes', isEnabled: false },
@@ -3135,6 +3144,7 @@
         command.id === 'retry-last-turn' ? { ...command, isEnabled: hasUserMessages && !state.composer.isSending } :
         command.id === 'find-in-chat' ? { ...command, isEnabled: hasThread } :
         command.id === 'automation-create-thread-follow-up' ? { ...command, isEnabled: hasThread } :
+        command.id === 'automation-create-workspace-schedule' ? { ...command, isEnabled: hasProject } :
         command.id?.startsWith('automation-create-thread-follow-up-after:') ? { ...command, isEnabled: hasThread } :
         command.id === 'automation-create-thread-follow-up-tomorrow' ? { ...command, isEnabled: hasThread } :
         command.id === 'stop-all' ? { ...command, isEnabled: hasActiveWork } :
@@ -3151,6 +3161,11 @@
         id: 'automation-create-thread-follow-up',
         title: 'Create thread follow-up',
         isEnabled: Boolean(selectedThread)
+      };
+      state.automations.createWorkspaceScheduleCommand = {
+        id: 'automation-create-workspace-schedule',
+        title: 'Create workspace schedule',
+        isEnabled: Boolean(state.projects.selectedProjectID)
       };
       state.automations.scheduleThreadFollowUpCommands = [
         { id: 'automation-create-thread-follow-up-after:600', title: 'In 10 minutes', isEnabled: Boolean(selectedThread) },
@@ -3978,8 +3993,10 @@
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
       });
-      document.querySelector('[data-testid="automation-create-follow-up"]')?.addEventListener('click', event => {
-        runCommand(event.currentTarget.getAttribute('data-command-id'));
+      document.querySelectorAll('[data-testid="automation-create-follow-up"], [data-testid="automation-create-workspace-schedule"]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
+        });
       });
       document.querySelectorAll('[data-testid="automation-schedule-follow-up"], [data-testid="automation-run"], [data-testid="automation-primary-action"], [data-testid="automation-delete"]').forEach(button => {
         button.addEventListener('click', event => {
@@ -5359,6 +5376,9 @@
       const scheduleButtons = (state.automations.scheduleThreadFollowUpCommands || []).map(command => `
         <button type="button" data-testid="automation-schedule-follow-up" data-command-id="${escapeHTML(command.id)}" ${command.isEnabled ? '' : 'disabled'}>${escapeHTML(command.title)}</button>
       `).join('');
+      const workspaceButton = state.automations.createWorkspaceScheduleCommand ? `
+        <button type="button" data-testid="automation-create-workspace-schedule" data-command-id="${escapeHTML(state.automations.createWorkspaceScheduleCommand.id)}" ${state.automations.createWorkspaceScheduleCommand.isEnabled ? '' : 'disabled'}>${escapeHTML(state.automations.createWorkspaceScheduleCommand.title)}</button>
+      ` : '';
       const content = workflows.length ? `
         <div class="automation-grid" data-testid="automation-grid">
           ${workflows.map(workflow => `
@@ -5385,6 +5405,7 @@
             </div>
             <div class="automation-create-actions">
               <button type="button" data-testid="automation-create-follow-up" data-command-id="${escapeHTML(state.automations.createThreadFollowUpCommand.id)}" ${state.automations.createThreadFollowUpCommand.isEnabled ? '' : 'disabled'}>${escapeHTML(state.automations.createThreadFollowUpCommand.title)}</button>
+              ${workspaceButton}
               ${scheduleButtons}
             </div>
             <span data-testid="automations-status">${escapeHTML(state.automations.statusLabel)}</span>
@@ -5869,6 +5890,31 @@
       render();
     }
 
+    function createWorkspaceScheduleAutomation(scheduleLabel = 'Manual workspace check') {
+      const project = selectedProject();
+      if (!project) return;
+      const id = `automation-${state.nextAutomationIndex++}`;
+      state.automations.configuredWorkflows = [
+        {
+          id,
+          kind: 'workspaceSchedule',
+          title: `Workspace check: ${project.name}`,
+          detail: `Create a scheduled workspace-check thread for ${project.name}.`,
+          statusLabel: 'Active',
+          scheduleLabel,
+          sourceProjectID: project.id,
+          runActionTitle: 'Run now',
+          runCommandID: `automation-run:${id}`,
+          primaryActionTitle: 'Pause',
+          primaryCommandID: `automation-pause:${id}`,
+          deleteCommandID: `automation-delete:${id}`
+        },
+        ...state.automations.configuredWorkflows
+      ];
+      state.automations.isVisible = true;
+      render();
+    }
+
     function updateAutomationStatus(commandID, statusLabel) {
       const id = commandID.split(':')[1];
       state.automations.configuredWorkflows = state.automations.configuredWorkflows.map(workflow => {
@@ -5887,6 +5933,48 @@
       const id = commandID.split(':')[1];
       const workflow = state.automations.configuredWorkflows.find(candidate => candidate.id === id);
       if (!workflow || workflow.statusLabel === 'Paused') return;
+      if (workflow.kind === 'workspaceSchedule') {
+        const project = state.projects.items.find(candidate => candidate.id === (workflow.sourceProjectID || state.projects.selectedProjectID));
+        if (!project) return;
+        const threadID = `thread-${state.nextThreadIndex++}`;
+        const title = `Scheduled check: ${project.name}`;
+        const message = {
+          id: `message-${state.nextTimelineIndex++}`,
+          role: 'user',
+          text: `Run the scheduled workspace check for ${project.name}. Start with project status, recent changes, local actions, and anything needing attention.`
+        };
+        state.projects.selectedProjectID = project.id;
+        state.projects.items = state.projects.items.map(item => ({
+          ...item,
+          isSelected: item.id === project.id
+        }));
+        state.terminal.cwdLabel = project.path;
+        state.sidebar.selectedThreadID = threadID;
+        state.sidebar.items = [{
+          id: threadID,
+          title,
+          subtitle: state.topBar.modelLabel,
+          searchText: message.text,
+          isSelected: true,
+          isPinned: false,
+          isArchived: false
+        }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
+        state.transcript.messages = [message];
+        state.transcript.toolCards = [];
+        state.transcript.timelineItems = [{
+          id: `timeline-${state.nextTimelineIndex++}`,
+          kind: 'message',
+          message
+        }];
+        state.topBar.primaryTitle = title;
+        state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+        state.automations.configuredWorkflows = state.automations.configuredWorkflows.map(candidate => (
+          candidate.id === id ? { ...candidate, statusLabel: 'Ran', scheduleLabel: workflow.scheduleLabel || 'Manual workspace check' } : candidate
+        ));
+        state.automations.isVisible = true;
+        render();
+        return;
+      }
       const source = state.sidebar.items.find(item => item.id === (workflow.sourceThreadID || state.sidebar.selectedThreadID));
       if (!source) return;
       const threadID = `thread-${state.nextThreadIndex++}`;
@@ -5945,6 +6033,10 @@
       }
       if (commandID === 'automation-create-thread-follow-up') {
         createThreadFollowUpAutomation();
+        return;
+      }
+      if (commandID === 'automation-create-workspace-schedule') {
+        createWorkspaceScheduleAutomation();
         return;
       }
       if (commandID?.startsWith('automation-create-thread-follow-up-after:')) {

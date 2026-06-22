@@ -3864,12 +3864,86 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.surface().automations.statusLabel, "1 active")
     }
 
-    func testRunDueAutomationsOnlyRunsActiveDueThreadFollowUps() throws {
+    func testCreateWorkspaceScheduleCommandPersistsSelectedProjectAutomation() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let project = ProjectRef(name: "QuillCode", path: root.path)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            automationStore: automationStore
+        )
+
+        XCTAssertTrue(model.runWorkspaceCommand("automation-create-workspace-schedule", workspaceRoot: root))
+
+        let automation = try XCTUnwrap(model.automations.items.first)
+        XCTAssertEqual(automation.title, "Workspace check: QuillCode")
+        XCTAssertEqual(automation.detail, "Create a scheduled workspace-check thread for QuillCode.")
+        XCTAssertEqual(automation.kind, .workspaceSchedule)
+        XCTAssertEqual(automation.scheduleKind, .cron)
+        XCTAssertEqual(automation.scheduleDescription, "Manual workspace check")
+        XCTAssertEqual(automation.projectID, project.id)
+        XCTAssertNil(automation.threadID)
+        XCTAssertNil(automation.nextRunAt)
+        XCTAssertTrue(model.surface().automations.isVisible)
+
+        let saved = try XCTUnwrap(try automationStore.load().first)
+        XCTAssertEqual(saved.id, automation.id)
+        XCTAssertEqual(saved.projectID, project.id)
+        XCTAssertEqual(saved.kind, .workspaceSchedule)
+    }
+
+    func testRunWorkspaceScheduleCreatesScheduledProjectThread() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let threadStore = JSONThreadStore(directory: paths.threadsDirectory)
+        let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let project = ProjectRef(name: "QuillCode", path: root.path)
+        let automation = QuillAutomation(
+            title: "Workspace check: QuillCode",
+            detail: "Create a scheduled workspace-check thread for QuillCode.",
+            kind: .workspaceSchedule,
+            scheduleKind: .cron,
+            scheduleDescription: "Manual workspace check",
+            projectID: project.id
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            threadStore: threadStore,
+            automationStore: automationStore
+        )
+        model.setAutomations([automation])
+
+        XCTAssertTrue(model.runWorkspaceCommand("automation-run:\(automation.id.uuidString)", workspaceRoot: root))
+
+        let scheduledID: UUID = try XCTUnwrap(model.root.selectedThreadID)
+        let scheduled: ChatThread = try XCTUnwrap(model.root.threads.first { $0.id == scheduledID })
+        XCTAssertEqual(scheduled.title, "Scheduled check: QuillCode")
+        XCTAssertEqual(scheduled.projectID, project.id)
+        XCTAssertEqual(scheduled.messages.map(\.content), [
+            "Run the scheduled workspace check for QuillCode. Start with project status, recent changes, local actions, and anything needing attention."
+        ])
+        XCTAssertEqual(scheduled.events.first?.summary, "Automation ran: Workspace check: QuillCode")
+        XCTAssertEqual(scheduled.events.first?.payloadJSON, automation.id.uuidString)
+
+        let savedThread = try threadStore.load(scheduledID)
+        XCTAssertEqual(savedThread.title, "Scheduled check: QuillCode")
+        let savedAutomation = try XCTUnwrap(try automationStore.load().first)
+        XCTAssertNotNil(savedAutomation.lastRunAt)
+        XCTAssertNil(savedAutomation.nextRunAt)
+        XCTAssertEqual(model.surface().automations.workflows.first?.statusLabel, "Ran")
+        XCTAssertEqual(model.surface().automations.statusLabel, "1 active")
+    }
+
+    func testRunDueAutomationsRunsActiveDueThreadAndWorkspaceSchedules() throws {
         let root = try makeTempDirectory()
         let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
         try paths.ensure()
         let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
         let now = Date(timeIntervalSince1970: 100)
+        let project = ProjectRef(name: "QuillCode", path: root.path)
         let source = ChatThread(title: "Due follow-up", messages: [
             .init(role: .user, content: "summarize tomorrow"),
             .init(role: .assistant, content: "I will follow up.")
@@ -3882,6 +3956,15 @@ final class WorkspaceModelTests: XCTestCase {
             scheduleDescription: "Now",
             threadID: source.id,
             nextRunAt: Date(timeIntervalSince1970: 90)
+        )
+        let workspaceDue = QuillAutomation(
+            title: "Due workspace check",
+            detail: "Check workspace.",
+            kind: .workspaceSchedule,
+            scheduleKind: .cron,
+            scheduleDescription: "Now",
+            projectID: project.id,
+            nextRunAt: Date(timeIntervalSince1970: 85)
         )
         let future = QuillAutomation(
             title: "Future follow-up",
@@ -3911,22 +3994,32 @@ final class WorkspaceModelTests: XCTestCase {
             nextRunAt: Date(timeIntervalSince1970: 70)
         )
         let model = QuillCodeWorkspaceModel(
-            root: QuillCodeRootState(threads: [source], selectedThreadID: source.id),
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                threads: [source],
+                selectedThreadID: source.id
+            ),
             automationStore: automationStore
         )
-        model.setAutomations([future, paused, unsupported, due])
+        model.setAutomations([future, paused, unsupported, due, workspaceDue])
 
         let followUpIDs = model.runDueAutomations(now: now)
 
-        XCTAssertEqual(followUpIDs.count, 1)
-        let followUp = try XCTUnwrap(model.root.threads.first { $0.id == followUpIDs[0] })
+        XCTAssertEqual(followUpIDs.count, 2)
+        let followUp = try XCTUnwrap(model.root.threads.first { $0.title == "Follow-up: Due follow-up" })
         XCTAssertEqual(followUp.title, "Follow-up: Due follow-up")
-        XCTAssertEqual(model.root.selectedThreadID, followUp.id)
+        let workspaceCheck = try XCTUnwrap(model.root.threads.first { $0.title == "Scheduled check: QuillCode" })
+        XCTAssertEqual(workspaceCheck.projectID, project.id)
+        XCTAssertTrue([followUp.id, workspaceCheck.id].contains(try XCTUnwrap(model.root.selectedThreadID)))
 
         let savedAutomations = try automationStore.load()
         let savedDue = try XCTUnwrap(savedAutomations.first { $0.id == due.id })
         XCTAssertNotNil(savedDue.lastRunAt)
         XCTAssertNil(savedDue.nextRunAt)
+        let savedWorkspaceDue = try XCTUnwrap(savedAutomations.first { $0.id == workspaceDue.id })
+        XCTAssertNotNil(savedWorkspaceDue.lastRunAt)
+        XCTAssertNil(savedWorkspaceDue.nextRunAt)
         XCTAssertEqual(savedAutomations.first { $0.id == future.id }?.nextRunAt, future.nextRunAt)
         XCTAssertEqual(savedAutomations.first { $0.id == paused.id }?.nextRunAt, paused.nextRunAt)
         XCTAssertEqual(savedAutomations.first { $0.id == unsupported.id }?.nextRunAt, unsupported.nextRunAt)

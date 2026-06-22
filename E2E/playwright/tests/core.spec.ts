@@ -645,6 +645,25 @@ test('mock harness creates and manages a thread follow-up automation', async ({ 
   await expect(page.getByTestId('automation-card')).toHaveCount(3);
 });
 
+test('mock harness creates and runs a workspace schedule automation', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('automations-button').click();
+  await page.getByTestId('automation-create-workspace-schedule').click();
+
+  await expect(page.getByTestId('automations-status')).toHaveText('1 active');
+  await expect(page.getByTestId('automation-card')).toHaveCount(1);
+  await expect(page.getByTestId('automation-card')).toContainText('Workspace check: QuillCode');
+  await expect(page.getByTestId('automation-card')).toContainText('Manual workspace check');
+  await expect(page.getByTestId('automation-run')).toHaveText('Run now');
+
+  await page.getByTestId('automation-run').click();
+  await expect(page.getByTestId('sidebar-item').first()).toContainText('Scheduled check: QuillCode');
+  await expect(page.getByTestId('message').first()).toContainText('Run the scheduled workspace check for QuillCode.');
+  await expect(page.getByTestId('automation-card')).toContainText('Ran');
+  await expect(page.getByTestId('automations-status')).toHaveText('1 active');
+});
+
 test('mock harness schedules a thread follow-up from quick actions', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

@@ -1332,12 +1332,14 @@ public struct WorkspaceAutomationsSurface: Codable, Sendable, Hashable {
     public var emptySubtitle: String
     public var workflows: [AutomationWorkflowSurface]
     public var createThreadFollowUpCommand: WorkspaceCommandSurface?
+    public var createWorkspaceScheduleCommand: WorkspaceCommandSurface?
     public var scheduleThreadFollowUpCommands: [WorkspaceCommandSurface]
 
     public init(
         isVisible: Bool = false,
         automations: [QuillAutomation] = [],
         createThreadFollowUpCommand: WorkspaceCommandSurface? = nil,
+        createWorkspaceScheduleCommand: WorkspaceCommandSurface? = nil,
         scheduleThreadFollowUpCommands: [WorkspaceCommandSurface] = [],
         workflows: [AutomationWorkflowSurface] = AutomationWorkflowSurface.plannedWorkflows,
         emptyTitle: String = "No automations yet",
@@ -1360,6 +1362,7 @@ public struct WorkspaceAutomationsSurface: Codable, Sendable, Hashable {
         self.emptySubtitle = emptySubtitle
         self.workflows = configuredWorkflows.isEmpty ? workflows : configuredWorkflows
         self.createThreadFollowUpCommand = createThreadFollowUpCommand
+        self.createWorkspaceScheduleCommand = createWorkspaceScheduleCommand
         self.scheduleThreadFollowUpCommands = scheduleThreadFollowUpCommands
     }
 
@@ -1425,10 +1428,10 @@ public struct AutomationWorkflowSurface: Codable, Sendable, Hashable, Identifiab
         self.scheduleLabel = automation.scheduleDescription.isEmpty
             ? automation.scheduleKind.label
             : automation.scheduleDescription
-        self.runActionTitle = automation.status == .active && automation.kind == .threadFollowUp
+        self.runActionTitle = automation.status == .active && automation.kind != .monitor
             ? "Run now"
             : nil
-        self.runCommandID = automation.status == .active && automation.kind == .threadFollowUp
+        self.runCommandID = automation.status == .active && automation.kind != .monitor
             ? "automation-run:\(uuid)"
             : nil
         self.primaryActionTitle = automation.status == .active ? "Pause" : "Resume"
@@ -2000,6 +2003,16 @@ public extension WorkspaceCommandSurface {
         )
     }
 
+    static func automationCreateWorkspaceSchedule(isEnabled: Bool) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: "automation-create-workspace-schedule",
+            title: "Create workspace schedule",
+            category: WorkspaceCommandPalette.automationsCategory,
+            keywords: ["automation", "workspace", "schedule", "repo", "check", "cron"],
+            isEnabled: isEnabled
+        )
+    }
+
     static func automationScheduleThreadFollowUpCommands(isEnabled: Bool) -> [WorkspaceCommandSurface] {
         [
             WorkspaceCommandSurface(
@@ -2564,6 +2577,9 @@ public extension QuillCodeWorkspaceModel {
                 automations: automations.items,
                 createThreadFollowUpCommand: .automationCreateThreadFollowUp(
                     isEnabled: thread != nil
+                ),
+                createWorkspaceScheduleCommand: .automationCreateWorkspaceSchedule(
+                    isEnabled: selectedProject != nil
                 ),
                 scheduleThreadFollowUpCommands: WorkspaceCommandSurface.automationScheduleThreadFollowUpCommands(
                     isEnabled: thread != nil
@@ -3226,6 +3242,7 @@ public extension QuillCodeWorkspaceModel {
                 keywords: ["automation", "schedule", "recurring", "monitor", "follow-up", "heartbeat"]
             ),
             .automationCreateThreadFollowUp(isEnabled: selectedThread != nil),
+            .automationCreateWorkspaceSchedule(isEnabled: selectedProject != nil),
             automationScheduleCommands[0],
             automationScheduleCommands[1],
             automationScheduleCommands[2],

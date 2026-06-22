@@ -2974,9 +2974,16 @@ private struct QuillCodeAutomationsPaneView: View {
                 }
                 Spacer()
                 if automations.createThreadFollowUpCommand != nil
+                    || automations.createWorkspaceScheduleCommand != nil
                     || !automations.scheduleThreadFollowUpCommands.isEmpty {
                     Menu {
                         if let createCommand = automations.createThreadFollowUpCommand {
+                            Button(createCommand.title) {
+                                onCommand(createCommand)
+                            }
+                            .disabled(!createCommand.isEnabled)
+                        }
+                        if let createCommand = automations.createWorkspaceScheduleCommand {
                             Button(createCommand.title) {
                                 onCommand(createCommand)
                             }
@@ -2992,7 +2999,7 @@ private struct QuillCodeAutomationsPaneView: View {
                             }
                         }
                     } label: {
-                        Label("Follow-up", systemImage: "plus")
+                        Label("Create", systemImage: "plus")
                     }
                     .buttonStyle(.borderedProminent)
                 }
