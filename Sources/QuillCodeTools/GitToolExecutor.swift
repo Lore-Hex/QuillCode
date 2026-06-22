@@ -242,6 +242,18 @@ public struct GitToolExecutor: Sendable {
         }
     }
 
+    public func diffPullRequest(cwd: URL, selector: String? = nil) -> ToolResult {
+        do {
+            var arguments = ["pr", "diff"]
+            if let selector = try Self.safePullRequestSelector(selector) {
+                arguments.append(selector)
+            }
+            return runGitHub(arguments, cwd: cwd, timeoutSeconds: 45)
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
     public func checkoutPullRequest(cwd: URL, selector: String? = nil, branch: String? = nil) -> ToolResult {
         do {
             var arguments = ["pr", "checkout"]
@@ -975,6 +987,14 @@ public extension ToolDefinition {
     static let gitPullRequestChecks = ToolDefinition(
         name: "host.git.pr.checks",
         description: "Show CI/check status for the current or selected GitHub pull request using GitHub CLI. Optional selector may be a PR number, URL, or branch.",
+        parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."}}}"#,
+        host: .local,
+        risk: .read
+    )
+
+    static let gitPullRequestDiff = ToolDefinition(
+        name: "host.git.pr.diff",
+        description: "Show the unified diff for the current or selected GitHub pull request using GitHub CLI. Optional selector may be a PR number, URL, or branch.",
         parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."}}}"#,
         host: .local,
         risk: .read

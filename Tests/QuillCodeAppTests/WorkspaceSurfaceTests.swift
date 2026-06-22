@@ -117,6 +117,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "git-pr-create",
             "git-pr-view",
             "git-pr-checks",
+            "git-pr-diff",
             "git-pr-checkout",
             "git-pr-reviewers",
             "git-pr-comment",
@@ -204,6 +205,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-create" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-view" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-checks" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-diff" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-checkout" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-reviewers" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-comment" }?.isEnabled, true)
@@ -734,6 +736,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(
             WorkspaceCommandPalette.rankedCommands(commands, matching: "checks").first?.id,
             "git-pr-checks"
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPalette.rankedCommands(commands, matching: "pr diff").first?.id,
+            "git-pr-diff"
         )
         XCTAssertEqual(
             WorkspaceCommandPalette.rankedCommands(commands, matching: "checkout pull").first?.id,

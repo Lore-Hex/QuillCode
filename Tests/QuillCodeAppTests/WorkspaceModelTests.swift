@@ -303,6 +303,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-create" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-view" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-checks" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-diff" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-checkout" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-reviewers" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-comment" }?.isEnabled, true)
@@ -2261,6 +2262,14 @@ final class WorkspaceModelTests: XCTestCase {
         ghArguments = try String(contentsOf: ghArgumentsFile, encoding: .utf8)
         XCTAssertEqual(ghArguments.split(separator: "\n").map(String.init), ["pr", "checks"])
 
+        XCTAssertTrue(model.runWorkspaceCommand("git-pr-diff", workspaceRoot: root))
+        card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.gitPullRequestDiff.name)
+        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
+        XCTAssertEqual(card.status, .done)
+        ghArguments = try String(contentsOf: ghArgumentsFile, encoding: .utf8)
+        XCTAssertEqual(ghArguments.split(separator: "\n").map(String.init), ["pr", "diff"])
+
         XCTAssertTrue(model.runWorkspaceCommand("git-pr-checkout", workspaceRoot: root))
         XCTAssertEqual(model.composer.draft, "Checkout pull request ")
     }
@@ -2300,6 +2309,11 @@ final class WorkspaceModelTests: XCTestCase {
         await model.submitComposer(workspaceRoot: root)
         XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.gitPullRequestChecks.name)
         XCTAssertEqual(try ghArguments(), ["pr", "checks", "456"])
+
+        model.setDraft("/pr diff 456")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.gitPullRequestDiff.name)
+        XCTAssertEqual(try ghArguments(), ["pr", "diff", "456"])
 
         model.setDraft("/pr checkout 456")
         await model.submitComposer(workspaceRoot: root)

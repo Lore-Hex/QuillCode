@@ -445,6 +445,21 @@ final class ToolTests: XCTestCase {
         XCTAssertEqual(arguments, ["pr", "checks", "https://github.com/example/repo/pull/123"])
     }
 
+    func testGitPullRequestDiffUsesGitHubCLIArguments() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        let git = GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+
+        let result = git.diffPullRequest(cwd: root, selector: "123")
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, ["pr", "diff", "123"])
+    }
+
     func testGitPullRequestCheckoutUsesGitHubCLIArguments() throws {
         let root = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("gh-args.txt")
@@ -671,6 +686,7 @@ final class ToolTests: XCTestCase {
 
         XCTAssertFalse(git.viewPullRequest(cwd: root, selector: "--json").ok)
         XCTAssertFalse(git.pullRequestChecks(cwd: root, selector: "feature branch").ok)
+        XCTAssertFalse(git.diffPullRequest(cwd: root, selector: "--patch").ok)
         XCTAssertFalse(git.checkoutPullRequest(cwd: root, selector: "123 --web").ok)
         XCTAssertFalse(git.checkoutPullRequest(cwd: root, selector: "123", branch: "--bad").ok)
         XCTAssertFalse(git.updatePullRequestReviewers(cwd: root, selector: "123 --web", add: ["alice"]).ok)
@@ -760,6 +776,7 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.pr.create"))
         XCTAssertTrue(definitions.contains("host.git.pr.view"))
         XCTAssertTrue(definitions.contains("host.git.pr.checks"))
+        XCTAssertTrue(definitions.contains("host.git.pr.diff"))
         XCTAssertTrue(definitions.contains("host.git.pr.checkout"))
         XCTAssertTrue(definitions.contains("host.git.pr.reviewers"))
         XCTAssertTrue(definitions.contains("host.git.pr.labels"))
@@ -931,7 +948,7 @@ final class ToolTests: XCTestCase {
         XCTAssertEqual(arguments, ["pr", "create", "--title", "Add PR route", "--base", "main", "--draft"])
     }
 
-    func testToolRouterRoutesGitPullRequestViewAndChecks() throws {
+    func testToolRouterRoutesGitPullRequestViewChecksAndDiff() throws {
         let root = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("gh-args.txt")
         let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
@@ -959,6 +976,16 @@ final class ToolTests: XCTestCase {
             .split(separator: "\n")
             .map(String.init)
         XCTAssertEqual(arguments, ["pr", "checks", "123"])
+
+        let diff = router.execute(ToolCall(
+            name: ToolDefinition.gitPullRequestDiff.name,
+            argumentsJSON: #"{"selector":"123"}"#
+        ))
+        XCTAssertTrue(diff.ok, "\(diff.error ?? "") \(diff.stderr)")
+        arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, ["pr", "diff", "123"])
 
         let checkout = router.execute(ToolCall(
             name: ToolDefinition.gitPullRequestCheckout.name,

@@ -162,13 +162,14 @@ public struct TrustedRouterLLMClient: StreamingLLMClient {
         - host.git.pr.create should include a non-empty "title" unless you set "fill": true.
         - If the user asks to view, inspect, summarize, or read comments/reviews on the current pull request/PR, use host.git.pr.view.
         - If the user asks about pull request/PR checks, CI, or status, use host.git.pr.checks.
+        - If the user asks to view, inspect, summarize, or review a pull request/PR diff or changes, use host.git.pr.diff.
         - If the user asks to check out, switch to, or open a pull request/PR branch, use host.git.pr.checkout.
         - If the user asks to request, add, re-request, or remove pull request/PR reviewers, use host.git.pr.reviewers with "add" and/or "remove" arrays.
         - If the user asks to add, apply, remove, or update pull request/PR labels, use host.git.pr.labels with "add" and/or "remove" arrays.
         - If the user asks to add, leave, post, or reply with a top-level pull request/PR comment, use host.git.pr.comment with a non-empty "body".
         - If the user asks to approve, request changes, or submit a pull request/PR review, use host.git.pr.review with "action" equal to "approve", "comment", or "request_changes".
         - If the user asks to merge or auto-merge a pull request/PR, use host.git.pr.merge with optional "selector", "method" ("squash", "merge", or "rebase"), "auto", and "deleteBranch".
-        - host.git.pr.view, host.git.pr.checks, host.git.pr.checkout, host.git.pr.reviewers, host.git.pr.labels, host.git.pr.comment, host.git.pr.review, and host.git.pr.merge may omit "selector" for the current branch, or include a PR number, URL, or branch as "selector".
+        - host.git.pr.view, host.git.pr.checks, host.git.pr.diff, host.git.pr.checkout, host.git.pr.reviewers, host.git.pr.labels, host.git.pr.comment, host.git.pr.review, and host.git.pr.merge may omit "selector" for the current branch, or include a PR number, URL, or branch as "selector".
         - Do not say "I'll do it" unless you are returning the tool call that does it.
         - Keep commands bounded to the current project unless the user explicitly asks otherwise.
         - After a tool output is provided, return a concise final {"type":"say","text":"..."} answer if the request is satisfied.
@@ -273,6 +274,7 @@ public enum AgentActionJSONParser {
             )
         case ToolDefinition.gitPullRequestView.name,
             ToolDefinition.gitPullRequestChecks.name,
+            ToolDefinition.gitPullRequestDiff.name,
             ToolDefinition.gitPullRequestCheckout.name,
             ToolDefinition.gitPullRequestReviewers.name,
             ToolDefinition.gitPullRequestLabels.name,

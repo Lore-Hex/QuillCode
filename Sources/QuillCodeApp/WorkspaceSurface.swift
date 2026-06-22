@@ -3444,6 +3444,13 @@ public extension QuillCodeWorkspaceModel {
                 isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
             ),
             WorkspaceCommandSurface(
+                id: "git-pr-diff",
+                title: "Pull request diff",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["github", "pr", "pr diff", "pull request diff", "diff", "review", "changes"],
+                isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
+            ),
+            WorkspaceCommandSurface(
                 id: "git-pr-checkout",
                 title: "Checkout pull request",
                 category: WorkspaceCommandPalette.gitCategory,
