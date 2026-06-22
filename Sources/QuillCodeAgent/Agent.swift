@@ -671,7 +671,8 @@ public struct AgentRunner: Sendable {
     ) async throws -> ToolStep {
         let router = ToolRouter(workspaceRoot: workspaceRoot)
         let definition = toolDefinitions.first { $0.name == call.name }
-        let callJSON = (try? JSONHelpers.encodePretty(call)) ?? call.argumentsJSON
+        let transcriptCall = call.redactedForTranscript()
+        let callJSON = (try? JSONHelpers.encodePretty(transcriptCall)) ?? transcriptCall.argumentsJSON
         thread.events.append(.init(
             kind: .toolQueued,
             summary: "\(call.name) queued",
@@ -748,7 +749,8 @@ public struct AgentRunner: Sendable {
         var patchReviewResult: ToolResult?
         if call.name == ToolDefinition.applyPatch.name, result.ok {
             let diffCall = ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}")
-            let diffCallJSON = (try? JSONHelpers.encodePretty(diffCall)) ?? diffCall.argumentsJSON
+            let diffCallJSON = (try? JSONHelpers.encodePretty(diffCall.redactedForTranscript()))
+                ?? diffCall.argumentsJSON
             thread.events.append(.init(
                 kind: .toolQueued,
                 summary: "\(diffCall.name) queued",

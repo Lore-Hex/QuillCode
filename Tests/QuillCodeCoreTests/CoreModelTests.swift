@@ -30,6 +30,26 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(decoded.argumentsJSON, call.argumentsJSON)
     }
 
+    func testToolCallRedactsEnvironmentValuesForTranscript() {
+        let call = ToolCall(
+            id: "tool-redact",
+            name: "host.shell.run",
+            argumentsJSON: #"{"cmd":"printf ok","environment":{"QUILL_TOKEN":"secret-value","CACHE_DIR":".cache/quill"}}"#
+        )
+
+        let redacted = call.redactedForTranscript()
+
+        XCTAssertEqual(redacted.id, call.id)
+        XCTAssertEqual(redacted.name, call.name)
+        XCTAssertTrue(redacted.argumentsJSON.contains(#""cmd""#))
+        XCTAssertTrue(redacted.argumentsJSON.contains("printf ok"))
+        XCTAssertTrue(redacted.argumentsJSON.contains("QUILL_TOKEN"))
+        XCTAssertTrue(redacted.argumentsJSON.contains("CACHE_DIR"))
+        XCTAssertTrue(redacted.argumentsJSON.contains(ToolCall.redactedEnvironmentValue))
+        XCTAssertFalse(redacted.argumentsJSON.contains("secret-value"))
+        XCTAssertFalse(redacted.argumentsJSON.contains(".cache/quill"))
+    }
+
     func testAgentPlanUpdateRoundTrips() throws {
         let update = AgentPlanUpdate(
             explanation: "Keep the user informed.",

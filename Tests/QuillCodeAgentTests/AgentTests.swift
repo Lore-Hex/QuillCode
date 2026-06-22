@@ -1,5 +1,6 @@
 import XCTest
 import QuillCodeCore
+import QuillCodeSafety
 import QuillCodeTools
 @testable import QuillCodeAgent
 
@@ -119,6 +120,31 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(result.toolResults.count, 1)
         XCTAssertEqual(result.thread.events.filter { $0.summary.contains("host.shell.run") }.count, 3)
         XCTAssertTrue(result.thread.messages.last?.content.hasPrefix("You are `") == true)
+    }
+
+    func testAgentRedactsEnvironmentValuesInQueuedToolEventButExecutesRawValues() async throws {
+        let root = try makeTempDirectory()
+        let call = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"printf '%s' \"$QUILL_AGENT_SECRET\"","environment":{"QUILL_AGENT_SECRET":"agent-secret-value"}}"#
+        )
+        let runner = AgentRunner(
+            llm: FixedToolLLMClient(call: call),
+            safety: AlwaysApprovingSafetyReviewer()
+        )
+
+        let result = try await runner.send(
+            "run the environment command",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.first?.stdout, "agent-secret-value")
+        let queued = try XCTUnwrap(result.thread.events.first { $0.kind == .toolQueued })
+        let payload = try XCTUnwrap(queued.payloadJSON)
+        XCTAssertTrue(payload.contains("QUILL_AGENT_SECRET"))
+        XCTAssertTrue(payload.contains(ToolCall.redactedEnvironmentValue))
+        XCTAssertFalse(payload.contains("agent-secret-value"))
     }
 
     func testApplyPatchRefreshesReviewDiffInSameTurn() async throws {
@@ -420,6 +446,12 @@ private struct FixedToolLLMClient: LLMClient {
 
     func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
         .tool(call)
+    }
+}
+
+private struct AlwaysApprovingSafetyReviewer: SafetyReviewer {
+    func review(_ context: SafetyContext) async -> SafetyReview {
+        SafetyReview(verdict: .approve, rationale: "Approved for transcript redaction test.")
     }
 }
 

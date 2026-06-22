@@ -1009,6 +1009,9 @@ test('mock harness runs local environment action from the command palette', asyn
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
   await expect(page.getByTestId('tool-card-title')).toHaveText('host.shell.run');
   await expect(page.getByTestId('tool-card-input')).toContainText(".quillcode/actions/bootstrap.sh");
+  await expect(page.getByTestId('tool-card-input')).toContainText('QUILL_ENV');
+  await expect(page.getByTestId('tool-card-input')).toContainText('<redacted>');
+  await expect(page.getByTestId('tool-card-input')).not.toContainText('"dev"');
   await expect(page.getByTestId('message').last()).toContainText('Local environment action completed');
 });
 
