@@ -7,6 +7,8 @@ public enum GitToolError: Error, CustomStringConvertible {
     case emptyCommitMessage
     case emptyPullRequestTitle
     case emptyPullRequestComment
+    case emptyPullRequestReviewBody
+    case invalidPullRequestReviewAction(String)
     case invalidPullRequestSelector(String)
     case emptyBranch
     case invalidGitName(String)
@@ -29,6 +31,10 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "Git pull request title is required unless fill is enabled."
         case .emptyPullRequestComment:
             return "Git pull request comment body is required."
+        case .emptyPullRequestReviewBody:
+            return "Git pull request review body is required for comment and request_changes actions."
+        case .invalidPullRequestReviewAction(let value):
+            return "GitHub pull request review action is unsupported: \(value)"
         case .invalidPullRequestSelector(let value):
             return "GitHub pull request selector is unsupported: \(value)"
         case .emptyBranch:
@@ -247,6 +253,42 @@ public struct GitToolExecutor: Sendable {
         }
     }
 
+    public func reviewPullRequest(
+        cwd: URL,
+        selector: String? = nil,
+        action: String,
+        body: String? = nil
+    ) -> ToolResult {
+        do {
+            let flag = try Self.safePullRequestReviewFlag(action)
+            let body = Self.trimmedNonEmpty(body)
+            guard flag == "--approve" || body != nil else {
+                throw GitToolError.emptyPullRequestReviewBody
+            }
+
+            var arguments = ["pr", "review"]
+            if let selector = try Self.safePullRequestSelector(selector) {
+                arguments.append(selector)
+            }
+            arguments.append(flag)
+            if let body {
+                arguments += ["--body", body]
+            }
+
+            let result = runGitHub(arguments, cwd: cwd, timeoutSeconds: 60)
+            guard result.ok else { return result }
+            return ToolResult(
+                ok: true,
+                stdout: result.stdout,
+                stderr: result.stderr,
+                exitCode: result.exitCode,
+                artifacts: Self.extractURLs(from: result.stdout)
+            )
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
     public func listWorktrees(cwd: URL) -> ToolResult {
         runGit(["worktree", "list", "--porcelain"], cwd: cwd, timeoutSeconds: 20)
     }
@@ -375,6 +417,21 @@ public struct GitToolExecutor: Sendable {
             throw GitToolError.invalidPullRequestSelector(value)
         }
         return trimmed
+    }
+
+    public static func safePullRequestReviewFlag(_ value: String) throws -> String {
+        switch value.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .replacingOccurrences(of: "-", with: "_") {
+        case "approve", "approved":
+            return "--approve"
+        case "comment", "comments":
+            return "--comment"
+        case "request_changes", "request_change", "changes":
+            return "--request-changes"
+        default:
+            throw GitToolError.invalidPullRequestReviewAction(value)
+        }
     }
 
     private func currentBranchName(cwd: URL) throws -> String {
@@ -703,6 +760,14 @@ public extension ToolDefinition {
         name: "host.git.pr.comment",
         description: "Add a top-level comment to the current or selected GitHub pull request using GitHub CLI. Optional selector may be a PR number, URL, or branch.",
         parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."},"body":{"type":"string","description":"Comment body to post."}},"required":["body"]}"#,
+        host: .local,
+        risk: .append
+    )
+
+    static let gitPullRequestReview = ToolDefinition(
+        name: "host.git.pr.review",
+        description: "Submit a GitHub pull request review using GitHub CLI. Action must be approve, comment, or request_changes. Optional selector may be a PR number, URL, or branch.",
+        parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."},"action":{"type":"string","enum":["approve","comment","request_changes"]},"body":{"type":"string","description":"Review body. Required for comment and request_changes."}},"required":["action"]}"#,
         host: .local,
         risk: .append
     )

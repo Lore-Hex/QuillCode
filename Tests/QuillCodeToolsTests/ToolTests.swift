@@ -474,6 +474,53 @@ final class ToolTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: argumentsFile.path))
     }
 
+    func testGitPullRequestReviewUsesGitHubCLIArguments() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        let git = GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+
+        let result = git.reviewPullRequest(
+            cwd: root,
+            selector: "123",
+            action: "request_changes",
+            body: "Please add tests."
+        )
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(result.artifacts, ["https://github.com/example/repo/pull/123"])
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, ["pr", "review", "123", "--request-changes", "--body", "Please add tests."])
+    }
+
+    func testGitPullRequestReviewAllowsApprovalWithoutBody() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        let git = GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+
+        let result = git.reviewPullRequest(cwd: root, selector: "123", action: "approve")
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, ["pr", "review", "123", "--approve"])
+    }
+
+    func testGitPullRequestReviewRequiresValidActionAndBodyWhenNeeded() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        let git = GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+
+        XCTAssertFalse(git.reviewPullRequest(cwd: root, selector: "123", action: "merge", body: "ok").ok)
+        XCTAssertFalse(git.reviewPullRequest(cwd: root, selector: "123", action: "comment", body: " ").ok)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: argumentsFile.path))
+    }
+
     func testGitPullRequestToolsRejectUnsafeSelector() throws {
         let root = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("gh-args.txt")
@@ -483,6 +530,7 @@ final class ToolTests: XCTestCase {
         XCTAssertFalse(git.viewPullRequest(cwd: root, selector: "--json").ok)
         XCTAssertFalse(git.pullRequestChecks(cwd: root, selector: "feature branch").ok)
         XCTAssertFalse(git.commentOnPullRequest(cwd: root, selector: "123 --web", body: "Comment").ok)
+        XCTAssertFalse(git.reviewPullRequest(cwd: root, selector: "123 --web", action: "approve").ok)
         XCTAssertThrowsError(try GitToolExecutor.safePullRequestSelector("--web"))
     }
 
@@ -566,6 +614,7 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.pr.view"))
         XCTAssertTrue(definitions.contains("host.git.pr.checks"))
         XCTAssertTrue(definitions.contains("host.git.pr.comment"))
+        XCTAssertTrue(definitions.contains("host.git.pr.review"))
         XCTAssertTrue(definitions.contains("host.git.worktree.list"))
         XCTAssertTrue(definitions.contains("host.git.worktree.create"))
         XCTAssertTrue(definitions.contains("host.git.worktree.remove"))
@@ -769,6 +818,16 @@ final class ToolTests: XCTestCase {
             .split(separator: "\n")
             .map(String.init)
         XCTAssertEqual(arguments, ["pr", "comment", "123", "--body", "Ready for review."])
+
+        let review = router.execute(ToolCall(
+            name: ToolDefinition.gitPullRequestReview.name,
+            argumentsJSON: #"{"selector":"123","action":"approve"}"#
+        ))
+        XCTAssertTrue(review.ok, "\(review.error ?? "") \(review.stderr)")
+        arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, ["pr", "review", "123", "--approve"])
     }
 
     private func makeTempDirectory() throws -> URL {
