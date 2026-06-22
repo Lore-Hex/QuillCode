@@ -101,6 +101,20 @@ final class TrustedRouterAdapterTests: XCTestCase {
         XCTAssertEqual(arguments.bool("deleteBranch"), true)
     }
 
+    func testActionParserNormalizesPullRequestCheckoutAliases() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {"type":"tool","name":"host.git.pr.checkout","arguments":{"pr":"42","localBranch":"review/pr-42"}}
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.gitPullRequestCheckout.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(arguments.string("selector"), "42")
+        XCTAssertEqual(arguments.string("branch"), "review/pr-42")
+    }
+
     func testActionParserAllowsNoArgumentTools() throws {
         let gitAction = try AgentActionJSONParser.parse("""
         {"type":"tool","name":"host.git.status","arguments":{}}
@@ -137,6 +151,15 @@ final class TrustedRouterAdapterTests: XCTestCase {
         }
         XCTAssertEqual(mergeCall.name, ToolDefinition.gitPullRequestMerge.name)
         XCTAssertEqual(mergeCall.argumentsJSON, "{}")
+
+        let checkoutAction = try AgentActionJSONParser.parse("""
+        {"type":"tool","name":"host.git.pr.checkout","arguments":{}}
+        """)
+        guard case .tool(let checkoutCall) = checkoutAction else {
+            return XCTFail("Expected PR checkout tool action")
+        }
+        XCTAssertEqual(checkoutCall.name, ToolDefinition.gitPullRequestCheckout.name)
+        XCTAssertEqual(checkoutCall.argumentsJSON, "{}")
     }
 
     func testActionParserParsesSay() throws {

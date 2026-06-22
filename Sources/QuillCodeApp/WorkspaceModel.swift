@@ -1328,6 +1328,7 @@ public final class QuillCodeWorkspaceModel {
             || toolName == ToolDefinition.gitPullRequestCreate.name
             || toolName == ToolDefinition.gitPullRequestView.name
             || toolName == ToolDefinition.gitPullRequestChecks.name
+            || toolName == ToolDefinition.gitPullRequestCheckout.name
             || toolName == ToolDefinition.gitPullRequestComment.name
             || toolName == ToolDefinition.gitPullRequestReview.name
             || toolName == ToolDefinition.gitPullRequestMerge.name
@@ -2895,6 +2896,9 @@ public final class QuillCodeWorkspaceModel {
                 workspaceRoot: workspaceRoot
             )
             return true
+        case "git-pr-checkout":
+            setDraft("Checkout pull request ")
+            return true
         case "git-pr-merge":
             setDraft("Merge the current pull request with squash")
             return true
@@ -3361,6 +3365,7 @@ public final class QuillCodeWorkspaceModel {
         .gitPullRequestCreate,
         .gitPullRequestView,
         .gitPullRequestChecks,
+        .gitPullRequestCheckout,
         .gitPullRequestComment,
         .gitPullRequestReview,
         .gitPullRequestMerge,
@@ -3381,6 +3386,7 @@ public final class QuillCodeWorkspaceModel {
         ToolDefinition.gitPullRequestCreate.name,
         ToolDefinition.gitPullRequestView.name,
         ToolDefinition.gitPullRequestChecks.name,
+        ToolDefinition.gitPullRequestCheckout.name,
         ToolDefinition.gitPullRequestComment.name,
         ToolDefinition.gitPullRequestReview.name,
         ToolDefinition.gitPullRequestMerge.name,
@@ -3524,6 +3530,11 @@ public final class QuillCodeWorkspaceModel {
                 command = try remoteGitPullRequestViewCommand(selector: args.string("selector"))
             case ToolDefinition.gitPullRequestChecks.name:
                 command = try remoteGitPullRequestChecksCommand(selector: args.string("selector"))
+            case ToolDefinition.gitPullRequestCheckout.name:
+                command = try remoteGitPullRequestCheckoutCommand(
+                    selector: args.string("selector"),
+                    branch: args.string("branch")
+                )
             case ToolDefinition.gitPullRequestComment.name:
                 command = try remoteGitPullRequestCommentCommand(
                     selector: args.string("selector"),
@@ -3575,6 +3586,7 @@ public final class QuillCodeWorkspaceModel {
             if [
                 ToolDefinition.gitPullRequestCreate.name,
                 ToolDefinition.gitPullRequestView.name,
+                ToolDefinition.gitPullRequestCheckout.name,
                 ToolDefinition.gitPullRequestComment.name,
                 ToolDefinition.gitPullRequestReview.name,
                 ToolDefinition.gitPullRequestMerge.name
@@ -3660,6 +3672,17 @@ public final class QuillCodeWorkspaceModel {
         var arguments = ["gh", "pr", "checks"]
         if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
             arguments.append(selector)
+        }
+        return arguments.map(shellSingleQuoted).joined(separator: " ")
+    }
+
+    private nonisolated static func remoteGitPullRequestCheckoutCommand(selector: String?, branch: String?) throws -> String {
+        var arguments = ["gh", "pr", "checkout"]
+        if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
+            arguments.append(selector)
+        }
+        if let branch = GitToolExecutor.trimmedNonEmpty(branch) {
+            arguments += ["--branch", try GitToolExecutor.safeGitName(branch)]
         }
         return arguments.map(shellSingleQuoted).joined(separator: " ")
     }
@@ -5273,7 +5296,7 @@ public final class QuillCodeWorkspaceModel {
                let project = root.projects.first(where: { $0.id == projectID }) {
                 appendLocalCommandTranscript(
                     userText: originalPrompt,
-                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Shell, file read/write, apply patch, git status/diff/stage/restore/commit/push/PR merge/worktree, and project context refresh run through SSH.",
+                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Shell, file read/write, apply patch, git status/diff/stage/restore/commit/push/PR checkout/merge/worktree, and project context refresh run through SSH.",
                     title: "Add SSH Remote"
                 )
             } else {

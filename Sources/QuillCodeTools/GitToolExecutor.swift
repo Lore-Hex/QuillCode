@@ -230,6 +230,21 @@ public struct GitToolExecutor: Sendable {
         }
     }
 
+    public func checkoutPullRequest(cwd: URL, selector: String? = nil, branch: String? = nil) -> ToolResult {
+        do {
+            var arguments = ["pr", "checkout"]
+            if let selector = try Self.safePullRequestSelector(selector) {
+                arguments.append(selector)
+            }
+            if let branch = Self.trimmedNonEmpty(branch) {
+                arguments += ["--branch", try Self.safeGitName(branch)]
+            }
+            return runGitHub(arguments, cwd: cwd, timeoutSeconds: 120)
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
     public func commentOnPullRequest(cwd: URL, selector: String? = nil, body: String) -> ToolResult {
         do {
             guard let body = Self.trimmedNonEmpty(body) else {
@@ -807,6 +822,14 @@ public extension ToolDefinition {
         parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."}}}"#,
         host: .local,
         risk: .read
+    )
+
+    static let gitPullRequestCheckout = ToolDefinition(
+        name: "host.git.pr.checkout",
+        description: "Check out the current or selected GitHub pull request branch using GitHub CLI. Optional selector may be a PR number, URL, or branch.",
+        parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."},"branch":{"type":"string","description":"Optional local branch name to use for the checkout."}}}"#,
+        host: .local,
+        risk: .append
     )
 
     static let gitPullRequestComment = ToolDefinition(

@@ -269,6 +269,13 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
+        if Self.isPullRequestCheckoutRequest(lower) {
+            return .tool(.init(
+                name: ToolDefinition.gitPullRequestCheckout.name,
+                argumentsJSON: ToolArguments.json(Self.extractPullRequestSelectorArguments(from: request))
+            ))
+        }
+
         if Self.isPullRequestReviewActionRequest(lower) {
             return .tool(.init(
                 name: ToolDefinition.gitPullRequestReview.name,
@@ -445,6 +452,18 @@ public struct MockLLMClient: LLMClient {
             || tokens.contains("automerge")
             || lowercasedRequest.contains("auto merge")
             || lowercasedRequest.contains("merge train")
+    }
+
+    static func isPullRequestCheckoutRequest(_ lowercasedRequest: String) -> Bool {
+        let tokens = lowercasedRequest
+            .split { !$0.isLetter && !$0.isNumber }
+            .map(String.init)
+        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
+        guard mentionsPullRequest else { return false }
+        return tokens.contains("checkout")
+            || lowercasedRequest.contains("check out")
+            || tokens.contains("switch")
+            || tokens.contains("open")
     }
 
     static func isPullRequestReviewActionRequest(_ lowercasedRequest: String) -> Bool {

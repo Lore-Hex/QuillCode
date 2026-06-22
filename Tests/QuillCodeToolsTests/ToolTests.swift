@@ -445,6 +445,21 @@ final class ToolTests: XCTestCase {
         XCTAssertEqual(arguments, ["pr", "checks", "https://github.com/example/repo/pull/123"])
     }
 
+    func testGitPullRequestCheckoutUsesGitHubCLIArguments() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        let git = GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+
+        let result = git.checkoutPullRequest(cwd: root, selector: "123", branch: "review/pr-123")
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, ["pr", "checkout", "123", "--branch", "review/pr-123"])
+    }
+
     func testGitPullRequestCommentUsesGitHubCLIArguments() throws {
         let root = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("gh-args.txt")
@@ -572,6 +587,8 @@ final class ToolTests: XCTestCase {
 
         XCTAssertFalse(git.viewPullRequest(cwd: root, selector: "--json").ok)
         XCTAssertFalse(git.pullRequestChecks(cwd: root, selector: "feature branch").ok)
+        XCTAssertFalse(git.checkoutPullRequest(cwd: root, selector: "123 --web").ok)
+        XCTAssertFalse(git.checkoutPullRequest(cwd: root, selector: "123", branch: "--bad").ok)
         XCTAssertFalse(git.commentOnPullRequest(cwd: root, selector: "123 --web", body: "Comment").ok)
         XCTAssertFalse(git.reviewPullRequest(cwd: root, selector: "123 --web", action: "approve").ok)
         XCTAssertFalse(git.mergePullRequest(cwd: root, selector: "123 --web").ok)
@@ -657,6 +674,7 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.pr.create"))
         XCTAssertTrue(definitions.contains("host.git.pr.view"))
         XCTAssertTrue(definitions.contains("host.git.pr.checks"))
+        XCTAssertTrue(definitions.contains("host.git.pr.checkout"))
         XCTAssertTrue(definitions.contains("host.git.pr.comment"))
         XCTAssertTrue(definitions.contains("host.git.pr.review"))
         XCTAssertTrue(definitions.contains("host.git.pr.merge"))
@@ -853,6 +871,16 @@ final class ToolTests: XCTestCase {
             .split(separator: "\n")
             .map(String.init)
         XCTAssertEqual(arguments, ["pr", "checks", "123"])
+
+        let checkout = router.execute(ToolCall(
+            name: ToolDefinition.gitPullRequestCheckout.name,
+            argumentsJSON: #"{"selector":"123","branch":"review/pr-123"}"#
+        ))
+        XCTAssertTrue(checkout.ok, "\(checkout.error ?? "") \(checkout.stderr)")
+        arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, ["pr", "checkout", "123", "--branch", "review/pr-123"])
 
         let comment = router.execute(ToolCall(
             name: ToolDefinition.gitPullRequestComment.name,
