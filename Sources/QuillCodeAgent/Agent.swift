@@ -764,7 +764,7 @@ public struct AgentRunner: Sendable {
             await onProgress?(thread)
 
             try Task.checkCancellation()
-            let diffResult = router.execute(diffCall)
+            let diffResult = await toolExecutionOverride?(diffCall, workspaceRoot) ?? router.execute(diffCall)
             try Task.checkCancellation()
             let diffResultJSON = (try? JSONHelpers.encodePretty(diffResult)) ?? "{}"
             thread.events.append(.init(

@@ -32,7 +32,7 @@ public struct PatchToolExecutor: Sendable {
         guard !trimmed.isEmpty else {
             return ToolResult(ok: false, error: String(describing: PatchToolError.emptyPatch))
         }
-        if let unsafe = unsafePath(in: patch) {
+        if let unsafe = Self.unsafePath(in: patch) {
             return ToolResult(ok: false, error: String(describing: PatchToolError.unsafePath(unsafe)))
         }
 
@@ -73,7 +73,7 @@ public struct PatchToolExecutor: Sendable {
         return apply
     }
 
-    public func unsafePath(in patch: String) -> String? {
+    public static func unsafePath(in patch: String) -> String? {
         for line in patch.components(separatedBy: .newlines) {
             guard line.hasPrefix("--- ") || line.hasPrefix("+++ ") || line.hasPrefix("diff --git ") else {
                 continue
@@ -86,7 +86,7 @@ public struct PatchToolExecutor: Sendable {
         return nil
     }
 
-    private func pathsInDiffMetadataLine(_ line: String) -> [String] {
+    private static func pathsInDiffMetadataLine(_ line: String) -> [String] {
         if line.hasPrefix("diff --git ") {
             return line
                 .dropFirst("diff --git ".count)
@@ -100,7 +100,7 @@ public struct PatchToolExecutor: Sendable {
             .map { [String($0)] } ?? []
     }
 
-    private func isUnsafeDiffPath(_ rawPath: String) -> Bool {
+    private static func isUnsafeDiffPath(_ rawPath: String) -> Bool {
         if rawPath == "/dev/null" { return false }
         var path = rawPath
         if path.hasPrefix("a/") || path.hasPrefix("b/") {

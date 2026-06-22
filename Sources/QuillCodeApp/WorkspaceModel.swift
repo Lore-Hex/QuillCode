@@ -2922,6 +2922,7 @@ public final class QuillCodeWorkspaceModel {
         .shellRun,
         .fileRead,
         .fileWrite,
+        .applyPatch,
         .gitStatus,
         .gitDiff
     ]
@@ -2940,6 +2941,12 @@ public final class QuillCodeWorkspaceModel {
                 )
             case ToolDefinition.fileRead.name, ToolDefinition.fileWrite.name:
                 return Self.executeRemoteFileToolCall(
+                    call,
+                    connection: connection,
+                    executor: executor
+                )
+            case ToolDefinition.applyPatch.name:
+                return Self.executeRemotePatchToolCall(
                     call,
                     connection: connection,
                     executor: executor
@@ -3054,6 +3061,47 @@ public final class QuillCodeWorkspaceModel {
                 result.artifacts = [remoteArtifactPath(connection: connection, relativePath: relativePath)]
             }
             return result
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
+    private nonisolated static func executeRemotePatchToolCall(
+        _ call: ToolCall,
+        connection: ProjectConnection,
+        executor: SSHRemoteShellExecutor
+    ) -> ToolResult {
+        do {
+            let args = try ToolArguments(call.argumentsJSON)
+            var patch = try args.requiredString("patch")
+            let trimmedPatch = patch.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedPatch.isEmpty else {
+                return ToolResult(ok: false, error: String(describing: PatchToolError.emptyPatch))
+            }
+            if let unsafePath = PatchToolExecutor.unsafePath(in: patch) {
+                return ToolResult(
+                    ok: false,
+                    error: String(describing: PatchToolError.unsafePath(unsafePath))
+                )
+            }
+            if !patch.hasSuffix("\n") {
+                patch.append("\n")
+            }
+
+            let encoded = Data(patch.utf8).base64EncodedString()
+            let command = [
+                "patch_file=\"${TMPDIR:-/tmp}/quillcode.$$.patch\"",
+                "trap 'rm -f \"$patch_file\"' EXIT",
+                "printf %s \(shellSingleQuoted(encoded)) | base64 --decode > \"$patch_file\"",
+                "git apply --check \"$patch_file\"",
+                "git apply \"$patch_file\"",
+                "printf 'Patch applied.\\n'"
+            ].joined(separator: " && ")
+
+            guard let request = executor.request(command: command, connection: connection) else {
+                return ToolResult(ok: false, error: "SSH Remote project is missing a usable host.")
+            }
+            return ShellToolExecutor().run(request)
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
@@ -3385,6 +3433,14 @@ public final class QuillCodeWorkspaceModel {
                   (call.name == ToolDefinition.fileRead.name || call.name == ToolDefinition.fileWrite.name),
                   let project = selectedProject {
             result = Self.executeRemoteFileToolCall(
+                call,
+                connection: project.connection,
+                executor: sshRemoteShellExecutor
+            )
+        } else if selectedProject?.isRemote == true,
+                  call.name == ToolDefinition.applyPatch.name,
+                  let project = selectedProject {
+            result = Self.executeRemotePatchToolCall(
                 call,
                 connection: project.connection,
                 executor: sshRemoteShellExecutor
@@ -4224,7 +4280,16 @@ public final class QuillCodeWorkspaceModel {
             return nil
         }
         let diffCall = ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}")
-        let diffResult = router.execute(diffCall)
+        let diffResult: ToolResult
+        if let project = selectedProject, project.isRemote {
+            diffResult = Self.executeRemoteGitToolCall(
+                diffCall,
+                connection: project.connection,
+                executor: sshRemoteShellExecutor
+            )
+        } else {
+            diffResult = router.execute(diffCall)
+        }
         appendToolRun(call: diffCall, result: diffResult)
         return diffResult
     }
@@ -4297,7 +4362,7 @@ public final class QuillCodeWorkspaceModel {
                let project = root.projects.first(where: { $0.id == projectID }) {
                 appendLocalCommandTranscript(
                     userText: originalPrompt,
-                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Shell, file read/write, read-only git status/diff, and project context refresh run through SSH; patch editing and mutating git actions remain local-only for now.",
+                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Shell, file read/write, apply patch, read-only git status/diff, and project context refresh run through SSH; mutating git actions remain local-only for now.",
                     title: "Add SSH Remote"
                 )
             } else {
