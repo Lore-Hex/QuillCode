@@ -43,7 +43,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 1. Extract workspace command execution from `WorkspaceModel`.
 2. Extract automation runners from `WorkspaceModel`.
-3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, top bar, sidebar, review pane, design primitives, transcript message bubbles, tool-card/artifact-preview family, and settings/runtime issue family are now extracted; the next targets are terminal/browser panes, extensions/memories/automations panes, and workspace command execution.
+3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, top bar, sidebar, review pane, design primitives, transcript message bubbles, tool-card/artifact-preview family, settings/runtime issue family, and terminal/browser pane family are now extracted; the next targets are extensions/memories/automations panes and workspace command execution.
 4. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
 5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
 
@@ -163,3 +163,15 @@ Interface polish changes:
 - Computer Use setup keeps its permission/status rows together and uses named subviews for header, requirements, next action, restart hint, and refresh action.
 - Permission action rows preserve the shared 40 pt minimum hit target through `QuillCodeMetrics.minimumHitTarget`.
 - Runtime issue callouts remain reusable from transcript and settings surfaces, with diagnostics bounded in the same component.
+
+## 2026-06-22 Terminal And Browser Pane Refactor Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+The native terminal and browser panes moved out of `WorkspaceSwiftUIView.swift` into `QuillCodeTerminalBrowserPaneView.swift`. Terminal command entry rendering, execution-context chips/rails, browser navigation, page snapshots, outline metadata, and browser comments now live beside the controls they support instead of being embedded in the workspace shell.
+
+Interface polish changes:
+
+- Terminal and browser panes now use named header, content, and input subviews, making future parity work safer to localize.
+- Browser snapshot rendering keeps bounded detail chips, page outline truncation, and comments in one focused component.
+- Terminal entries keep execution-context accessibility labels and status coloring in the same file as the terminal pane.
