@@ -1330,6 +1330,7 @@ public final class QuillCodeWorkspaceModel {
             || toolName == ToolDefinition.gitPullRequestChecks.name
             || toolName == ToolDefinition.gitPullRequestComment.name
             || toolName == ToolDefinition.gitPullRequestReview.name
+            || toolName == ToolDefinition.gitPullRequestMerge.name
             || toolName == ToolDefinition.gitWorktreeList.name
             || toolName == ToolDefinition.gitWorktreeCreate.name
             || toolName == ToolDefinition.gitWorktreeRemove.name
@@ -2894,6 +2895,9 @@ public final class QuillCodeWorkspaceModel {
                 workspaceRoot: workspaceRoot
             )
             return true
+        case "git-pr-merge":
+            setDraft("Merge the current pull request with squash")
+            return true
         case "thread-rename":
             guard let title = selectedThread?.title else { return false }
             composer.draft = "/rename \(title)"
@@ -3359,6 +3363,7 @@ public final class QuillCodeWorkspaceModel {
         .gitPullRequestChecks,
         .gitPullRequestComment,
         .gitPullRequestReview,
+        .gitPullRequestMerge,
         .gitWorktreeList,
         .gitWorktreeCreate,
         .gitWorktreeRemove
@@ -3378,6 +3383,7 @@ public final class QuillCodeWorkspaceModel {
         ToolDefinition.gitPullRequestChecks.name,
         ToolDefinition.gitPullRequestComment.name,
         ToolDefinition.gitPullRequestReview.name,
+        ToolDefinition.gitPullRequestMerge.name,
         ToolDefinition.gitWorktreeList.name,
         ToolDefinition.gitWorktreeCreate.name,
         ToolDefinition.gitWorktreeRemove.name
@@ -3529,6 +3535,13 @@ public final class QuillCodeWorkspaceModel {
                     action: try args.requiredString("action"),
                     body: args.string("body")
                 )
+            case ToolDefinition.gitPullRequestMerge.name:
+                command = try remoteGitPullRequestMergeCommand(
+                    selector: args.string("selector"),
+                    method: args.string("method"),
+                    auto: args.bool("auto") ?? false,
+                    deleteBranch: args.bool("deleteBranch") ?? false
+                )
             case ToolDefinition.gitWorktreeList.name:
                 command = "git worktree list --porcelain"
             case ToolDefinition.gitWorktreeCreate.name:
@@ -3563,7 +3576,8 @@ public final class QuillCodeWorkspaceModel {
                 ToolDefinition.gitPullRequestCreate.name,
                 ToolDefinition.gitPullRequestView.name,
                 ToolDefinition.gitPullRequestComment.name,
-                ToolDefinition.gitPullRequestReview.name
+                ToolDefinition.gitPullRequestReview.name,
+                ToolDefinition.gitPullRequestMerge.name
             ].contains(call.name), result.ok {
                 result.artifacts = GitToolExecutor.extractURLs(from: result.stdout)
             } else if result.ok, !artifacts.isEmpty {
@@ -3684,6 +3698,26 @@ public final class QuillCodeWorkspaceModel {
         arguments.append(flag)
         if let body {
             arguments += ["--body", body]
+        }
+        return arguments.map(shellSingleQuoted).joined(separator: " ")
+    }
+
+    private nonisolated static func remoteGitPullRequestMergeCommand(
+        selector: String?,
+        method: String?,
+        auto: Bool,
+        deleteBranch: Bool
+    ) throws -> String {
+        var arguments = ["gh", "pr", "merge"]
+        if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
+            arguments.append(selector)
+        }
+        arguments.append(try GitToolExecutor.safePullRequestMergeFlag(method))
+        if auto {
+            arguments.append("--auto")
+        }
+        if deleteBranch {
+            arguments.append("--delete-branch")
         }
         return arguments.map(shellSingleQuoted).joined(separator: " ")
     }
@@ -5239,7 +5273,7 @@ public final class QuillCodeWorkspaceModel {
                let project = root.projects.first(where: { $0.id == projectID }) {
                 appendLocalCommandTranscript(
                     userText: originalPrompt,
-                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Shell, file read/write, apply patch, git status/diff/stage/restore/commit/push/PR/worktree, and project context refresh run through SSH.",
+                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Shell, file read/write, apply patch, git status/diff/stage/restore/commit/push/PR merge/worktree, and project context refresh run through SSH.",
                     title: "Add SSH Remote"
                 )
             } else {

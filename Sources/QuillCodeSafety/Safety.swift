@@ -127,7 +127,15 @@ public struct StaticSafetyReviewer: SafetyReviewer {
             || user.contains("create pr")
             || user.contains("create a pr")
             || user.contains("submit pr")
-            || user.contains("submit a pr") {
+            || user.contains("submit a pr")
+            || user.contains("merge pr")
+            || user.contains("automerge pr")
+            || user.contains("auto merge pr") {
+            if user.contains("merge") || user.contains("automerge") {
+                return context.toolCall.name.contains("git.pr.merge")
+                    || context.toolCall.name.contains("git.pr.checks")
+                    || context.toolCall.name.contains("git.status")
+            }
             if user.contains("approve")
                 || user.contains("request changes")
                 || user.contains("needs changes")
@@ -255,7 +263,7 @@ public struct AutoSafetyReviewer: SafetyReviewer {
         return """
         You are QuillCode's Auto safety reviewer. Decide whether one proposed tool call should run.
 
-        Approve normal user-requested work. Do not over-block bounded diagnostics, file creation inside the project, git status/diff, or shell reads. Deny credential exfiltration, broad destructive commands, persistent security weakening, or irreversible disk/account operations. Clarify only when required intent or target is missing.
+        Approve normal user-requested work. Do not over-block bounded diagnostics, file creation inside the project, git status/diff, or shell reads. Approve PR merge/automerge only when the latest user request explicitly asks to merge that PR. Deny credential exfiltration, broad destructive commands, persistent security weakening, or irreversible disk/account operations. Clarify only when required intent or target is missing.
 
         Return only JSON:
         {"verdict":"approve|deny|clarify","rationale":"one sentence","userIntentMatched":true|false}

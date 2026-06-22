@@ -85,6 +85,22 @@ final class TrustedRouterAdapterTests: XCTestCase {
         XCTAssertEqual(arguments.string("body"), "Looks good.")
     }
 
+    func testActionParserNormalizesPullRequestMergeAliases() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {"type":"tool","name":"host.git.pr.merge","arguments":{"pr":"42","strategy":"rebase","auto":true,"deleteBranch":true}}
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.gitPullRequestMerge.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(arguments.string("selector"), "42")
+        XCTAssertEqual(arguments.string("method"), "rebase")
+        XCTAssertEqual(arguments.bool("auto"), true)
+        XCTAssertEqual(arguments.bool("deleteBranch"), true)
+    }
+
     func testActionParserAllowsNoArgumentTools() throws {
         let gitAction = try AgentActionJSONParser.parse("""
         {"type":"tool","name":"host.git.status","arguments":{}}
@@ -112,6 +128,15 @@ final class TrustedRouterAdapterTests: XCTestCase {
         }
         XCTAssertEqual(browserCall.name, ToolDefinition.browserInspect.name)
         XCTAssertEqual(browserCall.argumentsJSON, "{}")
+
+        let mergeAction = try AgentActionJSONParser.parse("""
+        {"type":"tool","name":"host.git.pr.merge","arguments":{}}
+        """)
+        guard case .tool(let mergeCall) = mergeAction else {
+            return XCTFail("Expected PR merge tool action")
+        }
+        XCTAssertEqual(mergeCall.name, ToolDefinition.gitPullRequestMerge.name)
+        XCTAssertEqual(mergeCall.argumentsJSON, "{}")
     }
 
     func testActionParserParsesSay() throws {

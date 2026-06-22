@@ -164,7 +164,8 @@ public struct TrustedRouterLLMClient: StreamingLLMClient {
         - If the user asks about pull request/PR checks, CI, or status, use host.git.pr.checks.
         - If the user asks to add, leave, post, or reply with a top-level pull request/PR comment, use host.git.pr.comment with a non-empty "body".
         - If the user asks to approve, request changes, or submit a pull request/PR review, use host.git.pr.review with "action" equal to "approve", "comment", or "request_changes".
-        - host.git.pr.view, host.git.pr.checks, host.git.pr.comment, and host.git.pr.review may omit "selector" for the current branch, or include a PR number, URL, or branch as "selector".
+        - If the user asks to merge or auto-merge a pull request/PR, use host.git.pr.merge with optional "selector", "method" ("squash", "merge", or "rebase"), "auto", and "deleteBranch".
+        - host.git.pr.view, host.git.pr.checks, host.git.pr.comment, host.git.pr.review, and host.git.pr.merge may omit "selector" for the current branch, or include a PR number, URL, or branch as "selector".
         - Do not say "I'll do it" unless you are returning the tool call that does it.
         - Keep commands bounded to the current project unless the user explicitly asks otherwise.
         - After a tool output is provided, return a concise final {"type":"say","text":"..."} answer if the request is satisfied.
@@ -270,7 +271,8 @@ public enum AgentActionJSONParser {
         case ToolDefinition.gitPullRequestView.name,
             ToolDefinition.gitPullRequestChecks.name,
             ToolDefinition.gitPullRequestComment.name,
-            ToolDefinition.gitPullRequestReview.name:
+            ToolDefinition.gitPullRequestReview.name,
+            ToolDefinition.gitPullRequestMerge.name:
             normalizeStringArgument(
                 &arguments,
                 canonicalKey: "selector",
@@ -291,6 +293,14 @@ public enum AgentActionJSONParser {
                     &arguments,
                     canonicalKey: "action",
                     aliases: ["review", "verdict", "decision"],
+                    topLevelObject: object
+                )
+            }
+            if toolName == ToolDefinition.gitPullRequestMerge.name {
+                normalizeStringArgument(
+                    &arguments,
+                    canonicalKey: "method",
+                    aliases: ["strategy", "mergeMethod", "merge_method"],
                     topLevelObject: object
                 )
             }
@@ -367,6 +377,7 @@ public enum AgentActionJSONParser {
             ToolDefinition.gitDiff.name,
             ToolDefinition.gitPullRequestView.name,
             ToolDefinition.gitPullRequestChecks.name,
+            ToolDefinition.gitPullRequestMerge.name,
             ToolDefinition.gitWorktreeList.name,
             ToolDefinition.browserInspect.name,
             ToolDefinition.computerScreenshot.name:

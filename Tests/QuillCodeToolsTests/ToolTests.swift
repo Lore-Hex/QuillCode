@@ -521,6 +521,49 @@ final class ToolTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: argumentsFile.path))
     }
 
+    func testGitPullRequestMergeUsesGitHubCLIArguments() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        let git = GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+
+        let result = git.mergePullRequest(
+            cwd: root,
+            selector: "123",
+            method: "rebase",
+            auto: true,
+            deleteBranch: true
+        )
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(result.artifacts, ["https://github.com/example/repo/pull/123"])
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, ["pr", "merge", "123", "--rebase", "--auto", "--delete-branch"])
+    }
+
+    func testGitPullRequestMergeDefaultsToSquashAndRejectsInvalidMethod() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        let git = GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+
+        let result = git.mergePullRequest(cwd: root, selector: "123")
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        var arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, ["pr", "merge", "123", "--squash"])
+
+        XCTAssertFalse(git.mergePullRequest(cwd: root, selector: "123", method: "octopus").ok)
+        arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, ["pr", "merge", "123", "--squash"])
+    }
+
     func testGitPullRequestToolsRejectUnsafeSelector() throws {
         let root = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("gh-args.txt")
@@ -531,6 +574,7 @@ final class ToolTests: XCTestCase {
         XCTAssertFalse(git.pullRequestChecks(cwd: root, selector: "feature branch").ok)
         XCTAssertFalse(git.commentOnPullRequest(cwd: root, selector: "123 --web", body: "Comment").ok)
         XCTAssertFalse(git.reviewPullRequest(cwd: root, selector: "123 --web", action: "approve").ok)
+        XCTAssertFalse(git.mergePullRequest(cwd: root, selector: "123 --web").ok)
         XCTAssertThrowsError(try GitToolExecutor.safePullRequestSelector("--web"))
     }
 
@@ -615,6 +659,7 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.pr.checks"))
         XCTAssertTrue(definitions.contains("host.git.pr.comment"))
         XCTAssertTrue(definitions.contains("host.git.pr.review"))
+        XCTAssertTrue(definitions.contains("host.git.pr.merge"))
         XCTAssertTrue(definitions.contains("host.git.worktree.list"))
         XCTAssertTrue(definitions.contains("host.git.worktree.create"))
         XCTAssertTrue(definitions.contains("host.git.worktree.remove"))
@@ -828,6 +873,16 @@ final class ToolTests: XCTestCase {
             .split(separator: "\n")
             .map(String.init)
         XCTAssertEqual(arguments, ["pr", "review", "123", "--approve"])
+
+        let merge = router.execute(ToolCall(
+            name: ToolDefinition.gitPullRequestMerge.name,
+            argumentsJSON: #"{"selector":"123","method":"squash","auto":"true","deleteBranch":true}"#
+        ))
+        XCTAssertTrue(merge.ok, "\(merge.error ?? "") \(merge.stderr)")
+        arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, ["pr", "merge", "123", "--squash", "--auto", "--delete-branch"])
     }
 
     private func makeTempDirectory() throws -> URL {
