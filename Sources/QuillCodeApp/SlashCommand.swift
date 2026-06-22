@@ -57,6 +57,7 @@ enum SlashCommandCatalog {
         .init(usage: "/pr create", title: "Create pull request", detail: "Draft a pull request request in the composer.", insertText: "/pr create", aliases: ["pull-request", "pullrequest"]),
         .init(usage: "/pr view [selector]", title: "View pull request", detail: "View the current or selected pull request with comments.", insertText: "/pr view ", aliases: ["pr show", "pull request view"]),
         .init(usage: "/pr checks [selector]", title: "Pull request checks", detail: "Show CI status for the current or selected pull request.", insertText: "/pr checks ", aliases: ["pr ci", "pull request status"]),
+        .init(usage: "/pr diff [selector]", title: "Pull request diff", detail: "Show the unified diff for the current or selected pull request.", insertText: "/pr diff ", aliases: ["pr changes", "pull request diff"]),
         .init(usage: "/pr checkout selector", title: "Checkout pull request", detail: "Check out a pull request branch.", insertText: "/pr checkout ", aliases: ["pr switch"]),
         .init(usage: "/pr comment body", title: "Comment on pull request", detail: "Post a top-level comment on the current pull request.", insertText: "/pr comment ", aliases: ["pr reply"]),
         .init(usage: "/pr review approve|comment|request_changes", title: "Review pull request", detail: "Submit an approve, comment, or request_changes review.", insertText: "/pr review approve", aliases: ["pr approve", "request changes"]),
@@ -286,6 +287,8 @@ enum SlashCommandParser {
             return pullRequestTool(.gitPullRequestView, selector: rest)
         case "checks", "ci", "status":
             return pullRequestTool(.gitPullRequestChecks, selector: rest)
+        case "diff", "changes":
+            return pullRequestTool(.gitPullRequestDiff, selector: rest)
         case "checkout", "switch":
             guard !rest.isEmpty else {
                 return .workspaceCommand("git-pr-checkout")
@@ -308,7 +311,7 @@ enum SlashCommandParser {
                 .gitPullRequestReview,
                 arguments: compact(["selector": parsed.selector, "action": "approve", "body": parsed.body])
             )
-        case "request_changes", "changes":
+        case "request_changes":
             let parsed = selectorAndBody(from: rest)
             guard !parsed.body.isEmpty else {
                 return .invalid("Usage: /pr review request_changes OptionalPRSelector review body")
@@ -324,7 +327,7 @@ enum SlashCommandParser {
         case "merge", "automerge", "auto_merge":
             return parsePullRequestMerge(rest, autoByDefault: subcommand != "merge")
         default:
-            return .invalid("Unknown pull request command '\(rawSubcommand)'. Use create, view, checks, checkout, comment, review, reviewers, labels, or merge.")
+            return .invalid("Unknown pull request command '\(rawSubcommand)'. Use create, view, checks, diff, checkout, comment, review, reviewers, labels, or merge.")
         }
     }
 

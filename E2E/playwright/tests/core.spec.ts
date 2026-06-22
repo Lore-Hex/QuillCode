@@ -1132,7 +1132,7 @@ test('mock harness prepares pull request creation from the command palette', asy
   await expect(page.getByLabel('Message')).toHaveValue('Create a pull request titled ');
 });
 
-test('mock harness views pull request details and checks from the command palette', async ({ page }) => {
+test('mock harness views pull request details, checks, and diff from the command palette', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
   await clickSidebarTool(page, 'command-palette-button');
@@ -1153,6 +1153,15 @@ test('mock harness views pull request details and checks from the command palett
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.pr.checks');
   await expect(page.getByTestId('message').last()).toContainText('QuillCode Tests');
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await page.getByLabel('Search commands').fill('>pr diff');
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
+  await page.getByRole('button', { name: /Pull request diff/ }).click();
+
+  await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.pr.diff');
+  await expect(page.getByTestId('message').last()).toContainText('PR diff preview from GitHub CLI');
 });
 
 test('mock harness runs local environment action from the command palette', async ({ page }) => {

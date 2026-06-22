@@ -2564,6 +2564,7 @@
         { id: 'git-pr-create', title: 'Create pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'pull request', 'review'], isEnabled: true },
         { id: 'git-pr-view', title: 'View pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'view', 'comments', 'review'], isEnabled: true },
         { id: 'git-pr-checks', title: 'Pull request checks', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'checks', 'ci', 'status'], isEnabled: true },
+        { id: 'git-pr-diff', title: 'Pull request diff', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'pr diff', 'pull request diff', 'diff', 'review', 'changes'], isEnabled: true },
         { id: 'git-worktree-list', title: 'List worktrees', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
         { id: 'git-worktree-create', title: 'Create worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
         { id: 'git-worktree-remove', title: 'Remove worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace', 'delete'], isEnabled: true },
@@ -3044,6 +3045,7 @@
         'host.git.pr.create',
         'host.git.pr.view',
         'host.git.pr.checks',
+        'host.git.pr.diff',
         'host.git.worktree.list',
         'host.git.worktree.create',
         'host.git.worktree.remove'
@@ -6055,6 +6057,27 @@
       render();
     }
 
+    function runGitPullRequestDiffAction() {
+      ensureThread('Pull request diff');
+      const stdout = [
+        'diff --git a/Sources/QuillCodeApp/WorkspaceSurface.swift b/Sources/QuillCodeApp/WorkspaceSurface.swift',
+        '--- a/Sources/QuillCodeApp/WorkspaceSurface.swift',
+        '+++ b/Sources/QuillCodeApp/WorkspaceSurface.swift',
+        '@@ -1,3 +1,4 @@',
+        '+// PR diff preview from GitHub CLI'
+      ].join('\n') + '\n';
+      addToolCard({
+        title: 'host.git.pr.diff',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({}, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout }, null, 2)
+      });
+      addMessage('assistant', 'Pull request diff:\n' + stdout);
+      syncSelectedThreadSearchText();
+      render();
+    }
+
     function openFindInChat() {
       state.find.isOpen = true;
       state.find.query = '';
@@ -6603,6 +6626,10 @@
       }
       if (commandID === 'git-pr-checks') {
         runGitPullRequestChecksAction();
+        return;
+      }
+      if (commandID === 'git-pr-diff') {
+        runGitPullRequestDiffAction();
         return;
       }
       if (commandID === 'git-worktree-list') {

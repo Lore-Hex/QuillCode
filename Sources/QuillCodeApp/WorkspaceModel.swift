@@ -1328,6 +1328,7 @@ public final class QuillCodeWorkspaceModel {
             || toolName == ToolDefinition.gitPullRequestCreate.name
             || toolName == ToolDefinition.gitPullRequestView.name
             || toolName == ToolDefinition.gitPullRequestChecks.name
+            || toolName == ToolDefinition.gitPullRequestDiff.name
             || toolName == ToolDefinition.gitPullRequestCheckout.name
             || toolName == ToolDefinition.gitPullRequestReviewers.name
             || toolName == ToolDefinition.gitPullRequestLabels.name
@@ -2898,6 +2899,12 @@ public final class QuillCodeWorkspaceModel {
                 workspaceRoot: workspaceRoot
             )
             return true
+        case "git-pr-diff":
+            runToolCall(
+                ToolCall(name: ToolDefinition.gitPullRequestDiff.name, argumentsJSON: "{}"),
+                workspaceRoot: workspaceRoot
+            )
+            return true
         case "git-pr-checkout":
             setDraft("Checkout pull request ")
             return true
@@ -3379,6 +3386,7 @@ public final class QuillCodeWorkspaceModel {
         .gitPullRequestCreate,
         .gitPullRequestView,
         .gitPullRequestChecks,
+        .gitPullRequestDiff,
         .gitPullRequestCheckout,
         .gitPullRequestReviewers,
         .gitPullRequestLabels,
@@ -3402,6 +3410,7 @@ public final class QuillCodeWorkspaceModel {
         ToolDefinition.gitPullRequestCreate.name,
         ToolDefinition.gitPullRequestView.name,
         ToolDefinition.gitPullRequestChecks.name,
+        ToolDefinition.gitPullRequestDiff.name,
         ToolDefinition.gitPullRequestCheckout.name,
         ToolDefinition.gitPullRequestReviewers.name,
         ToolDefinition.gitPullRequestLabels.name,
@@ -3548,6 +3557,8 @@ public final class QuillCodeWorkspaceModel {
                 command = try remoteGitPullRequestViewCommand(selector: args.string("selector"))
             case ToolDefinition.gitPullRequestChecks.name:
                 command = try remoteGitPullRequestChecksCommand(selector: args.string("selector"))
+            case ToolDefinition.gitPullRequestDiff.name:
+                command = try remoteGitPullRequestDiffCommand(selector: args.string("selector"))
             case ToolDefinition.gitPullRequestCheckout.name:
                 command = try remoteGitPullRequestCheckoutCommand(
                     selector: args.string("selector"),
@@ -3616,6 +3627,7 @@ public final class QuillCodeWorkspaceModel {
             if [
                 ToolDefinition.gitPullRequestCreate.name,
                 ToolDefinition.gitPullRequestView.name,
+                ToolDefinition.gitPullRequestDiff.name,
                 ToolDefinition.gitPullRequestCheckout.name,
                 ToolDefinition.gitPullRequestReviewers.name,
                 ToolDefinition.gitPullRequestLabels.name,
@@ -3702,6 +3714,14 @@ public final class QuillCodeWorkspaceModel {
 
     private nonisolated static func remoteGitPullRequestChecksCommand(selector: String?) throws -> String {
         var arguments = ["gh", "pr", "checks"]
+        if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
+            arguments.append(selector)
+        }
+        return arguments.map(shellSingleQuoted).joined(separator: " ")
+    }
+
+    private nonisolated static func remoteGitPullRequestDiffCommand(selector: String?) throws -> String {
+        var arguments = ["gh", "pr", "diff"]
         if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
             arguments.append(selector)
         }
