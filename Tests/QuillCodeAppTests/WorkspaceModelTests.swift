@@ -1926,6 +1926,42 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(result.stdout, "app|marker-ok")
     }
 
+    func testLocalEnvironmentActionMetadataPassesBoundedTimeout() throws {
+        let root = try makeTempDirectory()
+        let actionsDirectory = root.appendingPathComponent(".quillcode/actions")
+        try FileManager.default.createDirectory(at: actionsDirectory, withIntermediateDirectories: true)
+        try "sleep 2; printf should-not-print".write(
+            to: actionsDirectory.appendingPathComponent("slow.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try """
+        {
+          "title": "Slow Check",
+          "timeoutSeconds": 1
+        }
+        """.write(
+            to: actionsDirectory.appendingPathComponent("slow.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Local Env Timeout Project")
+        model.selectProject(projectID)
+
+        let action = try XCTUnwrap(model.selectedProject?.localActions.first)
+        XCTAssertEqual(action.timeoutSeconds, 1)
+        XCTAssertTrue(model.runWorkspaceCommand(action.id, workspaceRoot: root))
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.status, .failed)
+        let outputJSON = try XCTUnwrap(card.outputJSON)
+        let result = try JSONHelpers.decode(ToolResult.self, from: outputJSON)
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(result.error, "Command timed out after 1s.")
+    }
+
     func testLocalEnvironmentActionLoaderRejectsUnsafeWorkingDirectory() throws {
         let root = try makeTempDirectory()
         let outsideDirectory = try makeTempDirectory()
@@ -1955,6 +1991,31 @@ final class WorkspaceModelTests: XCTestCase {
 
         XCTAssertNil(action.workingDirectory)
         XCTAssertEqual(action.command, #"sh '.quillcode/actions/safe.sh'"#)
+    }
+
+    func testLocalEnvironmentActionLoaderRejectsUnsafeTimeoutSeconds() throws {
+        let root = try makeTempDirectory()
+        let actionsDirectory = root.appendingPathComponent(".quillcode/actions")
+        try FileManager.default.createDirectory(at: actionsDirectory, withIntermediateDirectories: true)
+        try "printf safe".write(
+            to: actionsDirectory.appendingPathComponent("safe.sh"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try """
+        {
+          "title": "Safe",
+          "timeout_seconds": 1801
+        }
+        """.write(
+            to: actionsDirectory.appendingPathComponent("safe.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let action = try XCTUnwrap(LocalEnvironmentActionLoader.load(from: root).first)
+
+        XCTAssertNil(action.timeoutSeconds)
     }
 
     func testSlashEnvironmentActionListShowsMetadataDescription() async throws {

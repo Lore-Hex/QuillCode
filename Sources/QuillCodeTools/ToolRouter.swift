@@ -7,6 +7,8 @@ public struct ToolRouter: Sendable {
     public var files: FileToolExecutor
     public var git: GitToolExecutor
     public var patch: PatchToolExecutor
+    private static let minShellTimeoutSeconds = 1
+    private static let maxShellTimeoutSeconds = 1_800
 
     public init(
         workspaceRoot: URL,
@@ -51,7 +53,16 @@ public struct ToolRouter: Sendable {
                 let command = try args.requiredString("cmd")
                 switch shellWorkingDirectory(args.string("cwd")) {
                 case let .allowed(cwd):
-                    return shell.run(.init(command: command, cwd: cwd))
+                    switch shellTimeoutSeconds(args) {
+                    case let .allowed(timeoutSeconds):
+                        var request = ShellExecutionRequest(command: command, cwd: cwd)
+                        if let timeoutSeconds {
+                            request.timeoutSeconds = timeoutSeconds
+                        }
+                        return shell.run(request)
+                    case let .denied(error):
+                        return ToolResult(ok: false, error: error)
+                    }
                 case let .denied(error):
                     return ToolResult(ok: false, error: error)
                 }
@@ -161,12 +172,32 @@ public struct ToolRouter: Sendable {
         return .allowed(resolved)
     }
 
+    private func shellTimeoutSeconds(_ args: ToolArguments) -> TimeoutResolution {
+        guard let rawValue = args.string("timeoutSeconds") ?? args.string("timeout_seconds") else {
+            return .allowed(nil)
+        }
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Int(trimmed),
+              (Self.minShellTimeoutSeconds...Self.maxShellTimeoutSeconds).contains(value)
+        else {
+            return .denied(
+                "Shell timeoutSeconds must be between \(Self.minShellTimeoutSeconds) and \(Self.maxShellTimeoutSeconds)."
+            )
+        }
+        return .allowed(TimeInterval(value))
+    }
+
     private static func isPath(_ path: String, inside rootPath: String) -> Bool {
         path == rootPath || path.hasPrefix(rootPath + "/")
     }
 
     private enum WorkingDirectoryResolution {
         case allowed(URL)
+        case denied(String)
+    }
+
+    private enum TimeoutResolution {
+        case allowed(TimeInterval?)
         case denied(String)
     }
 }

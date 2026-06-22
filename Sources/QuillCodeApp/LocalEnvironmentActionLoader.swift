@@ -13,6 +13,8 @@ public enum LocalEnvironmentActionLoader {
     private static let maxEnvironmentKeyLength = 64
     private static let maxEnvironmentValueLength = 512
     private static let maxWorkingDirectoryLength = 240
+    private static let minTimeoutSeconds = 1
+    private static let maxTimeoutSeconds = 1_800
 
     public static func load(
         from projectRoot: URL,
@@ -82,7 +84,8 @@ public enum LocalEnvironmentActionLoader {
             ),
             sortOrder: metadata?.order,
             environment: environment.isEmpty ? nil : environment,
-            workingDirectory: workingDirectory
+            workingDirectory: workingDirectory,
+            timeoutSeconds: metadata?.timeoutSeconds
         )
     }
 
@@ -119,7 +122,8 @@ public enum LocalEnvironmentActionLoader {
             description: normalized(decoded.description, maxLength: 200),
             order: decoded.order,
             environment: normalizedEnvironment(decoded.environment),
-            workingDirectory: normalizedWorkingDirectory(decoded.workingDirectory, root: root)
+            workingDirectory: normalizedWorkingDirectory(decoded.workingDirectory, root: root),
+            timeoutSeconds: normalizedTimeoutSeconds(decoded.timeoutSeconds)
         )
     }
 
@@ -260,6 +264,15 @@ public enum LocalEnvironmentActionLoader {
         path == rootPath || path.hasPrefix(rootPath + "/")
     }
 
+    private static func normalizedTimeoutSeconds(_ value: Int?) -> Int? {
+        guard let value,
+              (minTimeoutSeconds...maxTimeoutSeconds).contains(value)
+        else {
+            return nil
+        }
+        return value
+    }
+
     private static func shellQuote(_ value: String) -> String {
         "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
     }
@@ -270,6 +283,7 @@ public enum LocalEnvironmentActionLoader {
         var order: Int?
         var environment: [String: String]?
         var workingDirectory: String?
+        var timeoutSeconds: Int?
 
         enum CodingKeys: String, CodingKey {
             case title
@@ -278,6 +292,8 @@ public enum LocalEnvironmentActionLoader {
             case environment
             case workingDirectory
             case workingDirectorySnake = "working_directory"
+            case timeoutSeconds
+            case timeoutSecondsSnake = "timeout_seconds"
         }
 
         init(from decoder: Decoder) throws {
@@ -288,6 +304,8 @@ public enum LocalEnvironmentActionLoader {
             environment = try container.decodeIfPresent([String: String].self, forKey: .environment)
             workingDirectory = try container.decodeIfPresent(String.self, forKey: .workingDirectory)
                 ?? container.decodeIfPresent(String.self, forKey: .workingDirectorySnake)
+            timeoutSeconds = try container.decodeIfPresent(Int.self, forKey: .timeoutSeconds)
+                ?? container.decodeIfPresent(Int.self, forKey: .timeoutSecondsSnake)
         }
     }
 
@@ -297,5 +315,6 @@ public enum LocalEnvironmentActionLoader {
         var order: Int?
         var environment: [String: String]
         var workingDirectory: String?
+        var timeoutSeconds: Int?
     }
 }

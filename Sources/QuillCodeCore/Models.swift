@@ -712,6 +712,7 @@ public struct LocalEnvironmentAction: Codable, Sendable, Hashable, Identifiable 
     public var sortOrder: Int?
     public var environment: [String: String]?
     public var workingDirectory: String?
+    public var timeoutSeconds: Int?
 
     public init(
         id: String,
@@ -721,7 +722,8 @@ public struct LocalEnvironmentAction: Codable, Sendable, Hashable, Identifiable 
         command: String,
         sortOrder: Int? = nil,
         environment: [String: String]? = nil,
-        workingDirectory: String? = nil
+        workingDirectory: String? = nil,
+        timeoutSeconds: Int? = nil
     ) {
         self.id = id
         self.title = title
@@ -731,6 +733,7 @@ public struct LocalEnvironmentAction: Codable, Sendable, Hashable, Identifiable 
         self.sortOrder = sortOrder
         self.environment = environment
         self.workingDirectory = workingDirectory
+        self.timeoutSeconds = timeoutSeconds
     }
 }
 

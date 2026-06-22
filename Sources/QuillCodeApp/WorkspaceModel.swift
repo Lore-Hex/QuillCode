@@ -3208,10 +3208,14 @@ public final class QuillCodeWorkspaceModel {
         guard let action = localAction(withID: actionID) else {
             return false
         }
+        var arguments: [String: Any] = ["cmd": action.command]
+        if let timeoutSeconds = action.timeoutSeconds {
+            arguments["timeoutSeconds"] = timeoutSeconds
+        }
         runToolCall(
             ToolCall(
                 name: ToolDefinition.shellRun.name,
-                argumentsJSON: toolArgumentsJSON(["cmd": action.command])
+                argumentsJSON: toolArgumentsJSON(arguments)
             ),
             workspaceRoot: workspaceRoot
         )
@@ -4288,7 +4292,8 @@ public final class QuillCodeWorkspaceModel {
                     .map { action in
                         let detail = action.detail.map { " — \($0)" } ?? ""
                         let cwd = action.workingDirectory.map { " — cwd: \($0)" } ?? ""
-                        return "- `/env \(action.title)` — \(action.relativePath)\(cwd)\(detail)"
+                        let timeout = action.timeoutSeconds.map { " — timeout: \($0)s" } ?? ""
+                        return "- `/env \(action.title)` — \(action.relativePath)\(cwd)\(timeout)\(detail)"
                     }
                     .joined(separator: "\n")
                 message = "Local environment actions:\n\(rows)"

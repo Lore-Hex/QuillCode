@@ -2888,14 +2888,21 @@ public extension QuillCodeWorkspaceModel {
         let hasArchivedSidebarSelection = selectedSidebarThreads.contains { $0.isArchived }
         let hasAnySidebarThread = !root.allSidebarItems.isEmpty
         let localActionCommands = (selectedProject?.localActions ?? []).map { action in
-            let keywords = [
+            let baseKeywords = [
                 "local environment",
                 "script"
             ] + [action.detail].compactMap { $0 } + [
                 "bootstrap",
                 action.title,
                 action.relativePath
-            ] + [action.workingDirectory].compactMap { $0 } + (action.environment?.keys.sorted() ?? [])
+            ]
+            let workingDirectoryKeywords = [action.workingDirectory].compactMap { $0 }
+            let timeoutKeywords = action.timeoutSeconds.map { ["timeout", "\($0)s"] } ?? []
+            let environmentKeywords = action.environment?.keys.sorted() ?? []
+            let keywords = baseKeywords
+                + workingDirectoryKeywords
+                + timeoutKeywords
+                + environmentKeywords
             return WorkspaceCommandSurface(
                 id: action.id,
                 title: "Run \(action.title)",

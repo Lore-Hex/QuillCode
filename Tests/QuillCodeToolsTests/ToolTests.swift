@@ -543,6 +543,31 @@ final class ToolTests: XCTestCase {
         XCTAssertEqual(result.error, "Shell cwd must stay inside the current workspace.")
     }
 
+    func testToolRouterShellHonorsTimeoutSeconds() throws {
+        let root = try makeTempDirectory()
+
+        let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"sleep 2; echo should-not-print","timeoutSeconds":1}"#
+        ))
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(result.error, "Command timed out after 1s.")
+        XCTAssertFalse(result.stdout.contains("should-not-print"))
+    }
+
+    func testToolRouterShellRejectsUnsafeTimeoutSeconds() throws {
+        let root = try makeTempDirectory()
+
+        let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"pwd","timeout_seconds":1801}"#
+        ))
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(result.error, "Shell timeoutSeconds must be between 1 and 1800.")
+    }
+
     func testToolRouterRoutesGitWorktreeList() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
