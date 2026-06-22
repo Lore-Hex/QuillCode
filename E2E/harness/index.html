@@ -5438,6 +5438,12 @@
       if (command === 'pwd') {
         return { stdout: sshRemotePath(cwd) + '\n', stderr: '', exitCode: 0, cwd, environment };
       }
+      if (command === 'whoami') {
+        return { stdout: 'quill\n', stderr: '', exitCode: 0, cwd, environment };
+      }
+      if (command === "command -v openclaw || which openclaw || echo 'not found'") {
+        return { stdout: '/usr/local/bin/openclaw\n', stderr: '', exitCode: 0, cwd, environment };
+      }
       if (/^cd(?:\s+|$)/.test(command)) {
         const target = command.replace(/^cd\s*/, '').trim() || '~';
         return {
@@ -5488,6 +5494,10 @@
         return value.slice(1, -1);
       }
       return value;
+    }
+
+    function shellSingleQuoted(value) {
+      return `'${String(value).replaceAll("'", "'\"'\"'")}'`;
     }
 
     function normalizeMockTerminalPath(cwd, target) {
@@ -6058,6 +6068,8 @@
       state.composer.slashActiveIndex = 0;
       state.runtimeIssue = null;
       addMessage('user', text);
+      const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
+      const isRemoteProject = Boolean(selectedProject?.isRemote);
       if (text.toLowerCase().includes('slow task')) {
         state.composer.isSending = true;
         state.topBar.agentStatus = 'Running';
@@ -6263,15 +6275,27 @@
         addMessage('assistant', 'Captured appshot `checkout.appshot.json`.');
       } else if (text.toLowerCase().includes('write a file') || text.toLowerCase().includes('make a file')) {
         const path = 'hello.txt';
-        state.mockFiles[`/mock/QuillCode/${path}`] = 'hello world\n';
-        addToolCard({
-          title: 'host.file.write',
-          subtitle: 'Completed',
-          status: 'done',
-          inputJSON: JSON.stringify({ path, content: 'hello world\n' }, null, 2),
-          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote /mock/QuillCode/${path}\n`, artifacts: [`/mock/QuillCode/${path}`] }, null, 2)
-        });
-        addMessage('assistant', `Wrote \`${path}\`.`);
+        if (isRemoteProject) {
+          const cmd = `printf %s ${shellSingleQuoted('hello world\n')} > ${path}`;
+          addToolCard({
+            title: 'host.shell.run',
+            subtitle: 'Completed',
+            status: 'done',
+            inputJSON: JSON.stringify({ cmd }, null, 2),
+            outputJSON: JSON.stringify({ ok: true, stdout: `ssh ${selectedProject.path}: wrote ${path}\n`, stderr: '', exitCode: 0 }, null, 2)
+          });
+          addMessage('assistant', `Wrote \`${path}\` on ${selectedProject.name}.`);
+        } else {
+          state.mockFiles[`/mock/QuillCode/${path}`] = 'hello world\n';
+          addToolCard({
+            title: 'host.file.write',
+            subtitle: 'Completed',
+            status: 'done',
+            inputJSON: JSON.stringify({ path, content: 'hello world\n' }, null, 2),
+            outputJSON: JSON.stringify({ ok: true, stdout: `Wrote /mock/QuillCode/${path}\n`, artifacts: [`/mock/QuillCode/${path}`] }, null, 2)
+          });
+          addMessage('assistant', `Wrote \`${path}\`.`);
+        }
       } else if (text.toLowerCase().includes('screenshot')) {
         const path = '/mock/QuillCode/screenshots/screenshot.png';
         addToolCard({
@@ -6324,19 +6348,48 @@
           outputJSON: JSON.stringify({ ok: true, stdout: '[main abc1234] ' + message + '\\n' }, null, 2)
         });
         addMessage('assistant', 'Output:\n[main abc1234] ' + message);
+      } else if (text.toLowerCase().includes('how much hd') || text.toLowerCase().includes('disk') || text.toLowerCase().includes('storage')) {
+        const cmd = 'df -h / /Quill 2>/dev/null || df -h /';
+        const stdout = isRemoteProject
+          ? 'Filesystem      Size  Used Avail Use% Mounted on\n/dev/root        62G   11G   51G  18% /\n/dev/nvme0n1p1  916G  42G  828G   5% /Quill\n'
+          : 'Filesystem      Size  Used Avail Use% Mounted on\n/dev/mock        80G   12G   68G  15% /mock/QuillCode\n';
+        addToolCard({
+          title: 'host.shell.run',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ cmd }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout, stderr: '', exitCode: 0 }, null, 2)
+        });
+        addMessage('assistant', isRemoteProject
+          ? `${selectedProject.name} storage: / is 18% used; /Quill is 5% used.`
+          : 'Workspace storage: 15% used.');
+      } else if (text.toLowerCase().includes('openclaw')) {
+        const cmd = "command -v openclaw || which openclaw || echo 'not found'";
+        const stdout = isRemoteProject ? '/usr/local/bin/openclaw\n' : 'not found\n';
+        addToolCard({
+          title: 'host.shell.run',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ cmd }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout, stderr: '', exitCode: 0 }, null, 2)
+        });
+        addMessage('assistant', stdout.includes('not found') ? 'OpenClaw is not installed.' : `OpenClaw is installed at \`${stdout.trim()}\`.`);
       } else if (text.toLowerCase().includes('run') || text.toLowerCase().includes('whoami')) {
         const cmd = text.match(/`([^`]+)`/)?.[1] || text.replace(/^run\s+/i, '') || 'whoami';
+        const output = isRemoteProject
+          ? remoteTerminalOutput(cmd.trim(), selectedProject.path, {})
+          : { stdout: 'mock-user\n', stderr: '', exitCode: 0 };
         state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
         addToolCard({
           title: 'host.shell.run',
           subtitle: 'Completed',
           status: 'done',
           inputJSON: JSON.stringify({ cmd }, null, 2),
-          outputJSON: JSON.stringify({ ok: true, stdout: 'mock-user\\n' }, null, 2)
+          outputJSON: JSON.stringify({ ok: output.exitCode === 0, stdout: output.stdout, stderr: output.stderr || '', exitCode: output.exitCode }, null, 2)
         });
         const answer = cmd.trim() === 'whoami'
-          ? 'You are `mock-user` in this workspace.'
-          : 'Output:\nmock-user';
+          ? `You are \`${isRemoteProject ? 'quill' : 'mock-user'}\` in this workspace.`
+          : `Output:\n${output.stdout.trim() || '(no output)'}`;
         addMessage('assistant', answer);
       } else {
         state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };

@@ -229,6 +229,22 @@ public struct MockLLMClient: LLMClient {
         if (lower.contains("make") || lower.contains("create") || lower.contains("write")),
            lower.contains("file") {
             let content = lower.contains("hello world") ? "hello world\n" : "\(request)\n"
+            if tools.contains(where: { $0.name == ToolDefinition.fileWrite.name }) {
+                return .tool(.init(
+                    name: ToolDefinition.fileWrite.name,
+                    argumentsJSON: ToolArguments.json([
+                        "path": "hello.txt",
+                        "content": content
+                    ])
+                ))
+            }
+            if tools.contains(where: { $0.name == ToolDefinition.shellRun.name }) {
+                let command = "printf %s \(Self.shellSingleQuoted(content)) > hello.txt"
+                return .tool(.init(
+                    name: ToolDefinition.shellRun.name,
+                    argumentsJSON: ToolArguments.json(["cmd": command])
+                ))
+            }
             return .tool(.init(
                 name: ToolDefinition.fileWrite.name,
                 argumentsJSON: ToolArguments.json([
@@ -419,6 +435,10 @@ public struct MockLLMClient: LLMClient {
             .min() ?? title.endIndex
         return String(title[..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
+
+    private static func shellSingleQuoted(_ value: String) -> String {
+        "'\(value.replacingOccurrences(of: "'", with: "'\"'\"'"))'"
+    }
 }
 
 public struct AgentRunResult: Sendable {
@@ -452,6 +472,7 @@ public struct AgentRunner: Sendable {
 
     public var llm: LLMClient
     public var safety: SafetyReviewer
+    public var baseToolDefinitions: [ToolDefinition]
     public var additionalToolDefinitions: [ToolDefinition]
     public var toolExecutionOverride: AgentToolExecutionOverride?
     public var maxToolSteps: Int
@@ -459,12 +480,14 @@ public struct AgentRunner: Sendable {
     public init(
         llm: LLMClient = MockLLMClient(),
         safety: SafetyReviewer = AutoSafetyReviewer(),
+        baseToolDefinitions: [ToolDefinition] = ToolRouter.definitions,
         additionalToolDefinitions: [ToolDefinition] = [],
         toolExecutionOverride: AgentToolExecutionOverride? = nil,
         maxToolSteps: Int = AgentRunner.defaultMaxToolSteps
     ) {
         self.llm = llm
         self.safety = safety
+        self.baseToolDefinitions = baseToolDefinitions
         self.additionalToolDefinitions = additionalToolDefinitions
         self.toolExecutionOverride = toolExecutionOverride
         self.maxToolSteps = maxToolSteps
@@ -486,7 +509,7 @@ public struct AgentRunner: Sendable {
         await onProgress?(next)
 
         try Task.checkCancellation()
-        let tools = Self.mergedToolDefinitions(additionalToolDefinitions)
+        let tools = Self.mergedToolDefinitions(baseToolDefinitions, additionalToolDefinitions)
         var toolResults: [ToolResult] = []
         var lastExecutedCall: ToolCall?
         var lastCompletion: ToolStepCompletion?
@@ -647,7 +670,7 @@ public struct AgentRunner: Sendable {
         onProgress: AgentRunProgressHandler?
     ) async throws -> ToolStep {
         let router = ToolRouter(workspaceRoot: workspaceRoot)
-        let definition = toolDefinitions.first { $0.name == call.name } ?? router.definition(named: call.name)
+        let definition = toolDefinitions.first { $0.name == call.name }
         let callJSON = (try? JSONHelpers.encodePretty(call)) ?? call.argumentsJSON
         thread.events.append(.init(
             kind: .toolQueued,
@@ -656,6 +679,27 @@ public struct AgentRunner: Sendable {
         ))
         thread.updatedAt = Date()
         await onProgress?(thread)
+
+        guard let definition else {
+            let result = ToolResult(
+                ok: false,
+                error: "Tool is not available in this workspace: \(call.name)"
+            )
+            let resultJSON = (try? JSONHelpers.encodePretty(result)) ?? "{}"
+            thread.events.append(.init(
+                kind: .toolFailed,
+                summary: "\(call.name) unavailable",
+                payloadJSON: resultJSON
+            ))
+            thread.updatedAt = Date()
+            await onProgress?(thread)
+            return .completed(ToolStepCompletion(
+                call: call,
+                result: result,
+                followUpReviewResult: nil,
+                toolResults: [result]
+            ))
+        }
 
         try Task.checkCancellation()
         let review = await safety.review(.init(
@@ -760,10 +804,13 @@ public struct AgentRunner: Sendable {
         thread.updatedAt = Date()
     }
 
-    private static func mergedToolDefinitions(_ additional: [ToolDefinition]) -> [ToolDefinition] {
+    private static func mergedToolDefinitions(
+        _ base: [ToolDefinition],
+        _ additional: [ToolDefinition]
+    ) -> [ToolDefinition] {
         var seen = Set<String>()
         var definitions: [ToolDefinition] = []
-        for definition in ToolRouter.definitions + additional {
+        for definition in base + additional {
             guard !seen.contains(definition.name) else { continue }
             seen.insert(definition.name)
             definitions.append(definition)

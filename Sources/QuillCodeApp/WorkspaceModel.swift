@@ -1936,7 +1936,9 @@ public final class QuillCodeWorkspaceModel {
             let activeComputerExecutor = computerUseToolExecutionOverride()
             let activeMemoryDefinitions = globalMemoryDirectory == nil ? [] : [ToolDefinition.memoryRemember]
             let activeMemoryExecutor = memoryToolExecutionOverride()
+            let activeRemoteShellExecutor = remoteShellToolExecutionOverride(project: selectedProject)
             var activeRunner = runner
+            activeRunner.baseToolDefinitions = baseToolDefinitionsForSelectedProject()
             activeRunner.additionalToolDefinitions = activePlanDefinitions
                 + activeBrowserDefinitions
                 + activeComputerDefinitions
@@ -1947,7 +1949,8 @@ public final class QuillCodeWorkspaceModel {
                 browser: activeBrowserExecutor,
                 computerUse: activeComputerExecutor,
                 memory: activeMemoryExecutor,
-                mcp: activeMCPExecutor
+                mcp: activeMCPExecutor,
+                remoteShell: activeRemoteShellExecutor
             )
 
             let result = try await activeRunner.send(
@@ -2620,16 +2623,47 @@ public final class QuillCodeWorkspaceModel {
         }
     }
 
+    private func baseToolDefinitionsForSelectedProject() -> [ToolDefinition] {
+        selectedProject?.isRemote == true
+            ? [ToolDefinition.shellRun]
+            : ToolRouter.definitions
+    }
+
+    private func remoteShellToolExecutionOverride(project: ProjectRef?) -> AgentToolExecutionOverride? {
+        guard let project, project.isRemote else { return nil }
+        let connection = project.connection
+        let executor = sshRemoteShellExecutor
+        return { call, _ in
+            guard call.name == ToolDefinition.shellRun.name else { return nil }
+            return Self.executeRemoteShellToolCall(
+                call,
+                connection: connection,
+                executor: executor
+            )
+        }
+    }
+
     private func combinedToolExecutionOverride(
         plan: AgentToolExecutionOverride?,
         browser: AgentToolExecutionOverride?,
         computerUse: AgentToolExecutionOverride?,
         memory: AgentToolExecutionOverride?,
-        mcp: AgentToolExecutionOverride?
+        mcp: AgentToolExecutionOverride?,
+        remoteShell: AgentToolExecutionOverride?
     ) -> AgentToolExecutionOverride? {
-        guard plan != nil || browser != nil || computerUse != nil || memory != nil || mcp != nil else { return nil }
+        guard plan != nil
+                || browser != nil
+                || computerUse != nil
+                || memory != nil
+                || mcp != nil
+                || remoteShell != nil else {
+            return nil
+        }
         return { call, workspaceRoot in
             if let result = await plan?(call, workspaceRoot) {
+                return result
+            }
+            if let result = await remoteShell?(call, workspaceRoot) {
                 return result
             }
             if let result = await browser?(call, workspaceRoot) {
@@ -2646,6 +2680,84 @@ public final class QuillCodeWorkspaceModel {
             }
             return nil
         }
+    }
+
+    private nonisolated static func executeRemoteShellToolCall(
+        _ call: ToolCall,
+        connection: ProjectConnection,
+        executor: SSHRemoteShellExecutor
+    ) -> ToolResult {
+        do {
+            let args = try ToolArguments(call.argumentsJSON)
+            let command = try args.requiredString("cmd")
+            let requestConnection = remoteShellConnection(
+                connection,
+                cwd: args.string("cwd")
+            )
+            guard let request = executor.request(command: command, connection: requestConnection) else {
+                return ToolResult(ok: false, error: "SSH Remote project is missing a usable host.")
+            }
+            return ShellToolExecutor().run(request)
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
+    private nonisolated static func remoteShellConnection(
+        _ connection: ProjectConnection,
+        cwd: String?
+    ) -> ProjectConnection {
+        let trimmedCWD = cwd?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmedCWD.isEmpty else { return connection }
+        var copy = connection
+        if trimmedCWD.hasPrefix("/") || trimmedCWD.hasPrefix("~") {
+            copy.path = trimmedCWD
+        } else {
+            copy.path = remotePath(connection.path, appending: trimmedCWD)
+        }
+        return copy
+    }
+
+    private nonisolated static func remotePath(_ base: String, appending relativePath: String) -> String {
+        let trimmedBase = base.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedRelative = relativePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedRelative.isEmpty else { return trimmedBase.isEmpty ? "~" : trimmedBase }
+
+        let isAbsolute = trimmedBase.hasPrefix("/")
+        let isHome = trimmedBase == "~" || trimmedBase.hasPrefix("~/")
+        let baseRemainder: String
+        if isAbsolute {
+            baseRemainder = trimmedBase.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        } else if isHome {
+            baseRemainder = String(trimmedBase.dropFirst()).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        } else {
+            baseRemainder = trimmedBase.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        }
+
+        var components: [String] = []
+        for component in ([baseRemainder, trimmedRelative].filter { !$0.isEmpty }.joined(separator: "/")).split(separator: "/") {
+            switch component {
+            case "", ".":
+                continue
+            case "..":
+                if !components.isEmpty {
+                    components.removeLast()
+                } else if !isAbsolute && !isHome {
+                    components.append(String(component))
+                }
+            default:
+                components.append(String(component))
+            }
+        }
+
+        let suffix = components.joined(separator: "/")
+        if isAbsolute {
+            return "/" + suffix
+        }
+        if isHome || trimmedBase.isEmpty {
+            return suffix.isEmpty ? "~" : "~/" + suffix
+        }
+        return suffix.isEmpty ? "." : suffix
     }
 
     private nonisolated static func executeMemoryRememberTool(_ call: ToolCall, directory: URL) -> ToolResult {
@@ -2835,6 +2947,16 @@ public final class QuillCodeWorkspaceModel {
             result = BrowserInspector.toolResult(from: browser)
         } else if call.name == ToolDefinition.planUpdate.name {
             result = PlanUpdateToolExecutor.execute(call)
+        } else if selectedProject?.isRemote == true,
+                  call.name == ToolDefinition.shellRun.name,
+                  let project = selectedProject {
+            result = Self.executeRemoteShellToolCall(
+                call,
+                connection: project.connection,
+                executor: sshRemoteShellExecutor
+            )
+        } else if selectedProject?.isRemote == true {
+            result = ToolResult(ok: false, error: "Tool is not available for SSH Remote projects: \(call.name)")
         } else {
             result = router.execute(call)
         }

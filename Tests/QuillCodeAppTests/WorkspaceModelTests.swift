@@ -298,6 +298,169 @@ final class WorkspaceModelTests: XCTestCase {
         )
     }
 
+    func testRemoteProjectAgentOffersOnlyRemoteSafeBaseTools() async throws {
+        let root = try makeTempDirectory()
+        let connection = ProjectConnection.ssh(path: "/srv/quill", host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let recorder = ToolDefinitionRecorder()
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            runner: AgentRunner(llm: RecordingLLMClient(recorder: recorder))
+        )
+
+        model.setDraft("What can you do here?")
+        await model.submitComposer(workspaceRoot: root)
+
+        let toolNames = Set(recorder.tools.map(\.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.shellRun.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.planUpdate.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.browserInspect.name))
+        XCTAssertFalse(toolNames.contains(ToolDefinition.fileWrite.name))
+        XCTAssertFalse(toolNames.contains(ToolDefinition.applyPatch.name))
+        XCTAssertFalse(toolNames.contains(ToolDefinition.gitStatus.name))
+    }
+
+    func testRemoteProjectAgentRunsShellThroughSSH() async throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("ssh-agent-args.txt")
+        let fakeSSH = try makeFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(
+            path: "/srv/quill",
+            host: "feather.local",
+            user: "quill",
+            port: 2222
+        )
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json(["cmd": "pwd"])
+            ))),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        model.setDraft("Run pwd")
+        await model.submitComposer(workspaceRoot: root)
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        let outputJSON = try XCTUnwrap(card.outputJSON)
+        let result = try JSONHelpers.decode(ToolResult.self, from: outputJSON)
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(result.stdout, "remote-terminal\n")
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, [
+            "-T",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=4",
+            "-p",
+            "2222",
+            "quill@feather.local",
+            "cd '/srv/quill' && pwd"
+        ])
+        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("remote-terminal") == true)
+    }
+
+    func testRemoteProjectShellCWDNormalizesRelativePaths() async throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("ssh-agent-cwd-args.txt")
+        let fakeSSH = try makeFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(
+            path: "/srv/quill",
+            host: "feather.local",
+            user: "quill"
+        )
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json([
+                    "cmd": "pwd",
+                    "cwd": "logs/../releases/./current"
+                ])
+            ))),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        model.setDraft("Run pwd in releases current")
+        await model.submitComposer(workspaceRoot: root)
+
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments.last, "cd '/srv/quill/releases/current' && pwd")
+    }
+
+    func testRemoteProjectMockFileRequestUsesSSHShell() async throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("ssh-agent-file-args.txt")
+        let fakeSSH = try makeFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(
+            path: "/srv/quill",
+            host: "feather.local",
+            user: "quill"
+        )
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        model.setDraft("Can you write a file that says hello world")
+        await model.submitComposer(workspaceRoot: root)
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.shellRun.name)
+        let outputJSON = try XCTUnwrap(card.outputJSON)
+        let result = try JSONHelpers.decode(ToolResult.self, from: outputJSON)
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("hello.txt").path))
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+        XCTAssertTrue(arguments.contains("quill@feather.local"), arguments)
+        XCTAssertTrue(arguments.contains("cd '/srv/quill' && printf %s 'hello world"), arguments)
+        XCTAssertTrue(arguments.contains("' > hello.txt"), arguments)
+    }
+
+    func testRemoteProjectRejectsUnavailableLocalFileTool() async throws {
+        let root = try makeTempDirectory()
+        let connection = ProjectConnection.ssh(path: "/srv/quill", host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "hello.txt",
+                    "content": "should not be local\n"
+                ])
+            )))
+        )
+
+        model.setDraft("Write hello.txt")
+        await model.submitComposer(workspaceRoot: root)
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        let outputJSON = try XCTUnwrap(card.outputJSON)
+        let result = try JSONHelpers.decode(ToolResult.self, from: outputJSON)
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("Tool is not available") == true, result.error ?? "")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("hello.txt").path))
+    }
+
     func testSelectingProjectSelectsNewestThreadForThatProject() {
         let firstProject = ProjectRef(name: "One", path: "/tmp/one")
         let secondProject = ProjectRef(name: "Two", path: "/tmp/two")

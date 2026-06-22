@@ -1095,6 +1095,18 @@ test('mock harness adds an SSH remote project from command palette and slash com
   await page.getByTestId('terminal-run').click();
   await expect(page.getByTestId('terminal-status')).toHaveText('Done · exit 0');
   await expect(page.getByTestId('terminal-stdout')).toHaveText('/srv/quill\n');
+
+  await page.getByLabel('Message').fill('whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.shell.run');
+  await expect(page.getByTestId('tool-card-output').last()).toContainText('quill');
+  await expect(page.getByText('You are `quill` in this workspace.')).toBeVisible();
+
+  await page.getByLabel('Message').fill('Can you write a file that says hello world');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.shell.run');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('printf %s');
+  await expect(page.getByText('Wrote `hello.txt` on feather.local · quill.')).toBeVisible();
 });
 
 test('mock harness runs a command in the integrated terminal', async ({ page }) => {
