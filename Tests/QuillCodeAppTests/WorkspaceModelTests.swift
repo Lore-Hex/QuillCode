@@ -2321,6 +2321,16 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.gitPullRequestReviewers.name)
         XCTAssertEqual(try ghArguments(), ["pr", "edit", "--add-reviewer", "alice,bob"])
 
+        model.setDraft("/pr labels add 456 merge-train, needs review")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.gitPullRequestLabels.name)
+        XCTAssertEqual(try ghArguments(), ["pr", "edit", "456", "--add-label", "merge-train,needs review"])
+
+        model.setDraft("/pr labels remove stale")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.gitPullRequestLabels.name)
+        XCTAssertEqual(try ghArguments(), ["pr", "edit", "--remove-label", "stale"])
+
         model.setDraft("/pr merge 456 rebase auto delete-branch")
         await model.submitComposer(workspaceRoot: root)
         XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.gitPullRequestMerge.name)
