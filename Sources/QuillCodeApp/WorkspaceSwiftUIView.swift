@@ -229,7 +229,8 @@ public struct QuillCodeWorkspaceView: View {
                                 terminal: surface.terminal,
                                 draft: $terminalDraft,
                                 onRun: onRunTerminalCommand,
-                                onStop: stopActiveRun
+                                onStop: stopActiveRun,
+                                onClear: { runCommand(id: "terminal-clear") }
                             )
                         }
                         Divider()
@@ -797,6 +798,8 @@ private struct QuillCodeCommandPaletteView: View {
             return "minus.circle"
         case "toggle-terminal":
             return "terminal"
+        case "terminal-clear":
+            return "clear"
         case "toggle-browser":
             return "globe"
         case "toggle-activity":
@@ -1709,6 +1712,8 @@ private struct QuillCodeSidebarUtilityActionsView: View {
             return "clock.arrow.circlepath"
         case "toggle-terminal":
             return "terminal"
+        case "terminal-clear":
+            return "clear"
         case "toggle-browser":
             return "globe"
         case "toggle-memories":
@@ -2285,6 +2290,7 @@ private struct QuillCodeTerminalPaneView: View {
     @Binding var draft: String
     var onRun: () -> Void
     var onStop: () -> Void
+    var onClear: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -2298,6 +2304,9 @@ private struct QuillCodeTerminalPaneView: View {
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
                 Spacer()
+                Button("Clear", action: onClear)
+                    .controlSize(.small)
+                    .disabled(!terminal.canClear)
                 if terminal.isRunning {
                     ProgressView()
                         .controlSize(.small)

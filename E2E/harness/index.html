@@ -2321,6 +2321,7 @@
         { id: 'project-rename', title: 'Rename project', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'title', 'name'], isEnabled: true },
         { id: 'project-remove', title: 'Remove project from list', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'forget', 'remove'], isEnabled: true },
         { id: 'toggle-terminal', title: 'Terminal', shortcut: 'Ctrl+`', category: 'Workspace', keywords: ['shell', 'command', 'pty'], isEnabled: true },
+        { id: 'terminal-clear', title: 'Terminal: Clear history', shortcut: '', category: 'Workspace', keywords: ['shell', 'command', 'clear', 'history'], isEnabled: false },
         { id: 'toggle-browser', title: 'Browser', shortcut: 'Cmd+Shift+B', category: 'Workspace', keywords: ['preview', 'web', 'localhost'], isEnabled: true },
         { id: 'browser-back', title: 'Browser: Back', shortcut: '', category: 'Workspace', keywords: ['preview', 'web', 'history', 'back'], isEnabled: false },
         { id: 'browser-forward', title: 'Browser: Forward', shortcut: '', category: 'Workspace', keywords: ['preview', 'web', 'history', 'forward'], isEnabled: false },
@@ -2464,6 +2465,7 @@
       { usage: '/project remove', title: 'Remove project', detail: 'Forget the selected project from the sidebar without deleting files.', insertText: '/project remove', aliases: ['project forget'] },
       { usage: '/ssh user@host:/path', title: 'Add SSH Remote', detail: 'Register an SSH Remote workspace in the project sidebar.', insertText: '/ssh ', aliases: ['remote', 'ssh project'] },
       { usage: '/terminal', title: 'Toggle terminal', detail: 'Show or hide the integrated workspace terminal.', insertText: '/terminal', aliases: ['term', 'shell'] },
+      { usage: '/terminal clear', title: 'Clear terminal history', detail: 'Clear completed integrated-terminal history without resetting cwd or environment.', insertText: '/terminal clear', aliases: ['term clear', 'shell clear'] },
       { usage: '/browser', title: 'Toggle browser', detail: 'Show or hide the browser preview panel.', insertText: '/browser', aliases: ['preview'] },
       { usage: '/memories', title: 'Show memories', detail: 'Show loaded global and project memories.', insertText: '/memories', aliases: ['memory'] },
       { usage: '/remember text', title: 'Add memory', detail: 'Save an explicit global memory after redaction checks.', insertText: '/remember ', aliases: [] },
@@ -3088,6 +3090,7 @@
         command.id === 'project-refresh-context' ? { ...command, isEnabled: hasProject } :
         command.id === 'project-rename' ? { ...command, isEnabled: hasProject } :
         command.id === 'project-remove' ? { ...command, isEnabled: hasProject } :
+        command.id === 'terminal-clear' ? { ...command, isEnabled: state.terminal.entries.length > 0 && !state.terminal.isRunning } :
         command.id === 'git-status' ? { ...command, isEnabled: hasProject } :
         command.id === 'git-diff' ? { ...command, isEnabled: hasProject } :
         command.id === 'git-pr-create' ? { ...command, isEnabled: hasLocalProject } :
@@ -4211,6 +4214,9 @@
       document.querySelector('[data-testid="terminal-stop"]')?.addEventListener('click', () => {
         runCommand('stop-all');
       });
+      document.querySelector('[data-testid="terminal-clear"]')?.addEventListener('click', () => {
+        runCommand('terminal-clear');
+      });
 	      document.querySelector('[data-testid="browser-back"]')?.addEventListener('click', () => {
 	        browserBack();
 	      });
@@ -5118,6 +5124,7 @@
           <header>
             <strong>Terminal</strong>
             <code data-testid="terminal-cwd">${escapeHTML(state.terminal.cwdLabel)}</code>
+            <button type="button" data-testid="terminal-clear" ${state.terminal.entries.length && !state.terminal.isRunning ? '' : 'disabled'}>Clear</button>
             ${state.terminal.isRunning ? '<button type="button" data-testid="terminal-stop">Stop</button>' : ''}
           </header>
           <div class="terminal-history" data-testid="terminal-history">${entries}</div>
@@ -5909,6 +5916,15 @@
       }
       if (commandID === 'toggle-terminal') {
         state.terminal.isVisible = !state.terminal.isVisible;
+      }
+      if (commandID === 'terminal-clear') {
+        if (!state.terminal.isRunning) {
+          state.terminal.entries = [];
+          state.terminal.isVisible = true;
+          updateDynamicCommands();
+          render();
+        }
+        return;
       }
       if (commandID === 'toggle-browser') {
         state.browser.isVisible = !state.browser.isVisible;
@@ -7012,6 +7028,12 @@
         runSidebarThreadAction('unarchive', state.sidebar.selectedThreadID);
         return;
       } else if (/^\/(terminal|term|shell)\b/i.test(text)) {
+        const argument = text.replace(/^\/(terminal|term|shell)\b/i, '').trim().toLowerCase();
+        if (argument === 'clear' || argument === 'reset') {
+          runCommand('terminal-clear');
+          addMessage('assistant', state.terminal.entries.length ? 'Terminal is still running.' : 'Terminal history cleared.');
+          return;
+        }
         state.terminal.isVisible = !state.terminal.isVisible;
         addMessage('assistant', state.terminal.isVisible ? 'Terminal opened.' : 'Terminal hidden.');
       } else if (/^\/(compact|compact-context|context-compact)\b/i.test(text)) {

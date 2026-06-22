@@ -46,6 +46,7 @@ enum SlashCommandCatalog {
         .init(usage: "/project remove", title: "Remove project", detail: "Forget the selected project from the sidebar without deleting files.", insertText: "/project remove", aliases: ["project forget"]),
         .init(usage: "/ssh user@host:/path", title: "Add SSH Remote", detail: "Register an SSH Remote workspace in the project sidebar.", insertText: "/ssh ", aliases: ["remote", "ssh project"]),
         .init(usage: "/terminal", title: "Toggle terminal", detail: "Show or hide the integrated workspace terminal.", insertText: "/terminal", aliases: ["term", "shell"]),
+        .init(usage: "/terminal clear", title: "Clear terminal history", detail: "Clear completed integrated-terminal history without resetting cwd or environment.", insertText: "/terminal clear", aliases: ["term clear", "shell clear"]),
         .init(usage: "/browser", title: "Toggle browser", detail: "Show or hide the browser preview panel.", insertText: "/browser", aliases: ["preview"]),
         .init(usage: "/memories", title: "Show memories", detail: "Show loaded global and project memories.", insertText: "/memories", aliases: ["memory"]),
         .init(usage: "/remember text", title: "Add memory", detail: "Save an explicit global memory after redaction checks.", insertText: "/remember ", aliases: []),
@@ -187,7 +188,7 @@ enum SlashCommandParser {
         case "ssh", "remote":
             return argument.isEmpty ? .invalid("Usage: /ssh user@host:/absolute/path") : .sshProject(argument)
         case "terminal", "term", "shell":
-            return .workspaceCommand("toggle-terminal")
+            return parseTerminal(argument)
         case "browser", "preview":
             return .workspaceCommand("toggle-browser")
         case "memory", "memories":
@@ -209,6 +210,18 @@ enum SlashCommandParser {
             return .model(argument)
         default:
             return .unknown(name)
+        }
+    }
+
+    private static func parseTerminal(_ argument: String) -> SlashCommand {
+        guard !argument.isEmpty else {
+            return .workspaceCommand("toggle-terminal")
+        }
+        switch argument.lowercased() {
+        case "clear", "reset":
+            return .workspaceCommand("terminal-clear")
+        default:
+            return .invalid("Usage: /terminal or /terminal clear")
         }
     }
 

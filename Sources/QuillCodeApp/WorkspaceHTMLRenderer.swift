@@ -585,6 +585,7 @@ public enum WorkspaceHTMLRenderer {
           <header>
             <strong>Terminal</strong>
             <code data-testid="terminal-cwd">\(escape(terminal.cwdLabel))</code>
+            <button type="button" data-testid="terminal-clear" \(terminal.canClear ? "" : "disabled")>Clear</button>
           </header>
           <div data-testid="terminal-history">
             \(entries)

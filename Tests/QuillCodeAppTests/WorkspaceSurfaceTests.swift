@@ -92,6 +92,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "project-rename",
             "project-remove",
             "toggle-terminal",
+            "terminal-clear",
             "toggle-browser",
             "browser-back",
             "browser-forward",
@@ -1636,6 +1637,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="terminal-pane""#))
         XCTAssertTrue(html.contains(#"data-testid="terminal-cwd""#))
         XCTAssertTrue(html.contains(#"data-testid="terminal-entry""#))
+        XCTAssertTrue(html.contains(#"data-testid="terminal-clear""#))
         XCTAssertTrue(html.contains("renderer-ok"))
     }
 

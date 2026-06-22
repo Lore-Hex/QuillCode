@@ -224,6 +224,13 @@ final class WorkspaceModelTests: XCTestCase {
         await model.submitComposer(workspaceRoot: root)
         XCTAssertTrue(model.terminal.isVisible)
 
+        await model.runTerminalCommand("printf slash-clear", workspaceRoot: root)
+        XCTAssertFalse(model.terminal.entries.isEmpty)
+        model.setDraft("/terminal clear")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertTrue(model.terminal.entries.isEmpty)
+        XCTAssertTrue(model.terminal.isVisible)
+
         model.setDraft("/browser")
         await model.submitComposer(workspaceRoot: root)
         XCTAssertTrue(model.browser.isVisible)
@@ -1164,6 +1171,52 @@ final class WorkspaceModelTests: XCTestCase {
         await model.runTerminalCommand("printf '%s' \"${QUILL_TERMINAL_TEST:-missing}\"", workspaceRoot: root)
 
         XCTAssertEqual(model.terminal.entries.last?.stdout, "missing")
+    }
+
+    func testTerminalClearHistoryKeepsSessionContextAndDraft() async throws {
+        let root = try makeTempDirectory()
+        let nested = root.appendingPathComponent("nested")
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        let model = QuillCodeWorkspaceModel()
+        _ = model.addProject(path: root, name: "Terminal Project")
+
+        await model.runTerminalCommand(
+            "cd nested && export QUILL_TERMINAL_TEST=from-clear",
+            workspaceRoot: root
+        )
+        model.setTerminalDraft("pwd")
+
+        XCTAssertTrue(model.surface().terminal.canClear)
+        XCTAssertTrue(model.clearTerminalHistory())
+
+        XCTAssertTrue(model.terminal.isVisible)
+        XCTAssertTrue(model.terminal.entries.isEmpty)
+        XCTAssertEqual(model.terminal.draft, "pwd")
+        XCTAssertEqual(model.terminal.currentDirectoryPath, nested.standardizedFileURL.path)
+        XCTAssertEqual(model.terminal.environmentOverrides["QUILL_TERMINAL_TEST"], "from-clear")
+        XCTAssertFalse(model.surface().terminal.canClear)
+        XCTAssertEqual(model.surface().terminal.cwdLabel, nested.standardizedFileURL.path)
+    }
+
+    func testTerminalClearHistoryDoesNotHideRunningCommand() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+
+        let task = Task {
+            await model.runTerminalCommand("sleep 5", workspaceRoot: root)
+        }
+        try await waitUntil(timeoutSeconds: 1) {
+            model.terminal.entries.first?.status == .running
+        }
+
+        XCTAssertFalse(model.clearTerminalHistory())
+        XCTAssertEqual(model.terminal.entries.count, 1)
+        XCTAssertEqual(model.terminal.entries.first?.status, .running)
+        XCTAssertFalse(model.surface().terminal.canClear)
+
+        task.cancel()
+        model.cancelActiveWork()
+        await task.value
     }
 
     func testTerminalCurrentDirectoryResetsWhenProjectChanges() async throws {

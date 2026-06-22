@@ -1373,6 +1373,17 @@ public final class QuillCodeWorkspaceModel {
         terminal.isVisible.toggle()
     }
 
+    @discardableResult
+    public func clearTerminalHistory() -> Bool {
+        guard !terminal.isRunning else {
+            return false
+        }
+        terminal.entries.removeAll()
+        terminal.isVisible = true
+        lastError = nil
+        return true
+    }
+
     public func setBrowserAddressDraft(_ draft: String) {
         browser.addressDraft = draft
     }
@@ -2403,6 +2414,8 @@ public final class QuillCodeWorkspaceModel {
         case "toggle-terminal":
             toggleTerminal()
             return true
+        case "terminal-clear":
+            return clearTerminalHistory()
         case "toggle-browser":
             toggleBrowser()
             return true

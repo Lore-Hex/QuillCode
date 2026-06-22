@@ -1068,6 +1068,10 @@ public struct TerminalSurface: Codable, Sendable, Hashable {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isRunning
     }
 
+    public var canClear: Bool {
+        !entries.isEmpty && !isRunning
+    }
+
     public init(
         terminal: TerminalState,
         cwd: URL?,
@@ -3100,6 +3104,13 @@ public extension QuillCodeWorkspaceModel {
                 shortcut: WorkspaceShortcutRegistry.label(for: "toggle-terminal"),
                 category: WorkspaceCommandPalette.workspaceCategory,
                 keywords: ["shell", "command", "pty"]
+            ),
+            WorkspaceCommandSurface(
+                id: "terminal-clear",
+                title: "Terminal: Clear history",
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["shell", "command", "clear", "history"],
+                isEnabled: !terminal.entries.isEmpty && !terminal.isRunning
             ),
             WorkspaceCommandSurface(
                 id: "toggle-browser",

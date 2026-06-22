@@ -809,8 +809,7 @@ test('mock harness runs a command from the command palette', async ({ page }) =>
   await page.getByTestId('command-palette-button').click();
   await expect(page.getByTestId('command-palette-panel')).toBeVisible();
   await page.getByLabel('Search commands').fill('>terminal');
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
-  await page.getByTestId('command-palette-result').click();
+  await page.locator('[data-testid="command-palette-result"][data-command-id="toggle-terminal"]').click();
 
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
   await expect(page.getByTestId('terminal-pane')).toBeVisible();
@@ -1284,6 +1283,12 @@ test('mock harness runs a command in the integrated terminal', async ({ page }) 
   await page.getByTestId('terminal-stop').click();
   await expect(page.getByTestId('terminal-status').last()).toHaveText('Stopped · stopped');
   await expect(page.getByTestId('terminal-stderr').last()).toContainText('Command stopped.');
+
+  await expect(page.getByTestId('terminal-clear')).toBeEnabled();
+  await page.getByTestId('terminal-clear').click();
+  await expect(page.getByTestId('terminal-entry')).toHaveCount(0);
+  await expect(page.getByTestId('terminal-empty')).toBeVisible();
+  await expect(page.getByTestId('terminal-clear')).toBeDisabled();
 });
 
 test('mock harness opens browser preview and records comments', async ({ page }) => {
