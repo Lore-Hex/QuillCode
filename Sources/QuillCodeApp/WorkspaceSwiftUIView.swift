@@ -6,6 +6,9 @@ private enum QuillCodeMetrics {
     static let minimumHitTarget: CGFloat = 40
     static let toolCardMinimumHeight: CGFloat = 74
     static let compactToolCardMinimumHeight: CGFloat = 58
+    static let toolCardHeaderHeight: CGFloat = 44
+    static let toolCardRawDetailsMaxHeight: CGFloat = 240
+    static let toolCardRadius: CGFloat = 20
     static let pressScale: CGFloat = 0.96
 }
 
@@ -3322,6 +3325,7 @@ private struct QuillCodeToolCardView: View {
     var isCopied: Bool
     var onCopy: () -> Void
     @State private var isDetailsOpen: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(card: ToolCardState, isCopied: Bool = false, onCopy: @escaping () -> Void = {}) {
         self.card = card
@@ -3332,30 +3336,7 @@ private struct QuillCodeToolCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Image(systemName: iconName)
-                    .foregroundStyle(statusColor)
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 8) {
-                        Text(card.title)
-                            .font(.headline)
-                        if let executionContext = card.executionContext {
-                            QuillCodeExecutionContextChip(context: executionContext)
-                        }
-                    }
-                    Text(card.subtitle)
-                        .font(.caption)
-                        .foregroundStyle(QuillCodePalette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer()
-                Text(card.status.rawValue.capitalized)
-                    .font(.caption.monospacedDigit().weight(.semibold))
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 5)
-                    .background(statusColor.opacity(0.16))
-                    .clipShape(Capsule())
-            }
+            toolHeader
             HStack {
                 QuillCodeTranscriptCopyButton(
                     label: copyActionLabel,
@@ -3451,18 +3432,59 @@ private struct QuillCodeToolCardView: View {
         .frame(maxWidth: 760, minHeight: minimumHeight, alignment: .topLeading)
         .quillCodeSurface(
             fill: QuillCodePalette.panel,
-            radius: 20,
-            stroke: statusColor.opacity(0.35),
+            radius: QuillCodeMetrics.toolCardRadius,
+            stroke: cardStrokeColor,
             shadow: true
         )
         .overlay(alignment: .leading) {
             if let executionContext = card.executionContext {
                 QuillCodeExecutionRail(context: executionContext)
+            } else if card.status == .done {
+                QuillCodeToolStatusRail(color: QuillCodePalette.green, opacity: 0.55)
             }
         }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isDetailsOpen)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var toolHeader: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: iconName)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(statusColor)
+                .frame(width: 34, height: 34)
+                .background(statusColor.opacity(0.14))
+                .clipShape(Circle())
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 8) {
+                    Text(card.title)
+                        .font(.headline)
+                        .lineLimit(1)
+                    if let executionContext = card.executionContext {
+                        QuillCodeExecutionContextChip(context: executionContext)
+                    }
+                }
+                Text(card.subtitle)
+                    .font(.caption)
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(minWidth: 0, alignment: .leading)
+
+            Spacer(minLength: 10)
+
+            QuillCodeToolStatusBadge(
+                status: card.status,
+                tint: statusColor,
+                iconName: statusBadgeIconName
+            )
+        }
+        .frame(minHeight: QuillCodeMetrics.toolCardHeaderHeight, alignment: .top)
     }
 
     private var minimumHeight: CGFloat {
@@ -3484,6 +3506,17 @@ private struct QuillCodeToolCardView: View {
         }
     }
 
+    private var cardStrokeColor: Color {
+        switch card.status {
+        case .done:
+            return Color.white.opacity(0.09)
+        case .queued, .running:
+            return statusColor.opacity(0.32)
+        case .failed, .review:
+            return statusColor.opacity(0.42)
+        }
+    }
+
     private var iconName: String {
         switch card.status {
         case .queued, .running:
@@ -3494,6 +3527,21 @@ private struct QuillCodeToolCardView: View {
             return "xmark.octagon.fill"
         case .review:
             return "shield.lefthalf.filled"
+        }
+    }
+
+    private var statusBadgeIconName: String {
+        switch card.status {
+        case .queued:
+            return "clock.fill"
+        case .running:
+            return "arrow.triangle.2.circlepath"
+        case .done:
+            return "checkmark.circle.fill"
+        case .failed:
+            return "xmark.circle.fill"
+        case .review:
+            return "checkmark.shield.fill"
         }
     }
 
@@ -3512,6 +3560,44 @@ private struct QuillCodeToolCardView: View {
             ", \($0.label) \($0.detail)"
         } ?? ""
         return "\(card.title), \(card.status.rawValue), \(card.densityAccessibilityLabel)\(context)"
+    }
+}
+
+private struct QuillCodeToolStatusBadge: View {
+    var status: ToolCardStatus
+    var tint: Color
+    var iconName: String
+
+    var body: some View {
+        Label(status.rawValue.capitalized, systemImage: iconName)
+            .font(.caption.monospacedDigit().weight(.semibold))
+            .lineLimit(1)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .foregroundStyle(tint)
+            .background(tint.opacity(0.15))
+            .overlay(
+                Capsule()
+                    .stroke(tint.opacity(0.22), lineWidth: 1)
+            )
+            .clipShape(Capsule())
+            .help(status.rawValue.capitalized)
+            .accessibilityLabel("Tool status \(status.rawValue)")
+    }
+}
+
+private struct QuillCodeToolStatusRail: View {
+    var color: Color
+    var opacity: Double
+
+    var body: some View {
+        Rectangle()
+            .fill(color.opacity(opacity))
+            .frame(width: 3)
+            .padding(.vertical, 8)
+            .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
+            .padding(.leading, 1)
+            .accessibilityHidden(true)
     }
 }
 
@@ -3902,14 +3988,19 @@ private struct QuillCodeCodeBlock: View {
             Text(title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)
-            ScrollView(.horizontal) {
+            ScrollView([.horizontal, .vertical]) {
                 Text(text)
                     .font(.system(.caption, design: .monospaced))
                     .textSelection(.enabled)
                     .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
             }
+            .frame(maxHeight: QuillCodeMetrics.toolCardRawDetailsMaxHeight, alignment: .topLeading)
             .background(Color.black.opacity(0.35))
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
             .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
     }
