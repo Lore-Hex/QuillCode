@@ -23,6 +23,53 @@ final class TrustedRouterAdapterTests: XCTestCase {
         }
     }
 
+    func testActionParserNormalizesShellCommandAliases() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {"type":"tool","name":"host.shell.run","arguments":{"command":"whoami"}}
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
+        XCTAssertTrue(call.argumentsJSON.contains(#""cmd":"whoami""#))
+        XCTAssertFalse(call.argumentsJSON.contains(#""command""#))
+    }
+
+    func testActionParserHoistsTopLevelShellCommandAlias() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {"type":"tool_call","tool":"host.shell.run","command":"git status --short"}
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
+        XCTAssertTrue(call.argumentsJSON.contains(#""cmd":"git status --short""#))
+    }
+
+    func testActionParserNormalizesFileWriteAliases() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {"type":"tool","toolName":"host.file.write","args":{"filename":"hello.txt","text":"hello world\\n"}}
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.fileWrite.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("path"), "hello.txt")
+        XCTAssertEqual(try arguments.requiredString("content"), "hello world\n")
+        XCTAssertFalse(call.argumentsJSON.contains(#""filename""#))
+        XCTAssertFalse(call.argumentsJSON.contains(#""text""#))
+    }
+
+    func testActionParserNormalizesSayMessageAlias() throws {
+        let action = try AgentActionJSONParser.parse(#"{"type":"say","message":"done"}"#)
+
+        XCTAssertEqual(action, .say("done"))
+    }
+
     func testActionParserAllowsNoArgumentTools() throws {
         let gitAction = try AgentActionJSONParser.parse("""
         {"type":"tool","name":"host.git.status","arguments":{}}
@@ -92,6 +139,8 @@ final class TrustedRouterAdapterTests: XCTestCase {
     func testPromptRequiresNonEmptyShellCommand() {
         let prompt = TrustedRouterLLMClient.systemPrompt(tools: [.shellRun, .fileWrite])
         XCTAssertTrue(prompt.contains("MUST include a non-empty \"cmd\""))
+        XCTAssertTrue(prompt.contains("canonical argument keys"))
+        XCTAssertTrue(prompt.contains("do not use \"command\""))
         XCTAssertTrue(prompt.contains("Do not say \"I'll do it\""))
     }
 

@@ -151,6 +151,9 @@ public struct TrustedRouterLLMClient: StreamingLLMClient {
         {"type":"tool","name":"host.shell.run","arguments":{"cmd":"whoami"}}
 
         Requirements:
+        - Use the exact tool names and canonical argument keys from the tool schemas below.
+        - For shell commands, the argument key is "cmd"; do not use "command", "script", or top-level arguments.
+        - For file writes, the argument keys are "path" and "content"; do not use "filename" or "text".
         - If the user asks to run a command, create a host.shell.run action immediately.
         - host.shell.run MUST include a non-empty "cmd" string. Never emit {} for shell arguments.
         - If the user asks to create or write a file, use host.file.write with non-empty "path" and "content".
@@ -172,19 +175,22 @@ public enum AgentActionJSONParser {
     public static func parse(_ text: String) throws -> AgentAction {
         let trimmed = stripFences(text.trimmingCharacters(in: .whitespacesAndNewlines))
         guard let data = trimmed.data(using: .utf8),
-              let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let type = object["type"] as? String
+              let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         else {
+            throw TrustedRouterAgentError.invalidActionJSON(text)
+        }
+        let rawType = (object["type"] as? String) ?? (toolName(in: object) == nil ? nil : "tool")
+        guard let type = rawType?.lowercased() else {
             throw TrustedRouterAgentError.invalidActionJSON(text)
         }
         switch type {
         case "say":
-            return .say((object["text"] as? String) ?? "")
-        case "tool":
-            guard let name = object["name"] as? String else {
+            return .say(stringValue(in: object, keys: ["text", "message", "content"]) ?? "")
+        case "tool", "tool_call", "call_tool":
+            guard let name = toolName(in: object) else {
                 throw TrustedRouterAgentError.invalidActionJSON(text)
             }
-            let arguments = object["arguments"] as? [String: Any] ?? [:]
+            let arguments = canonicalArguments(for: name, in: object)
             if arguments.isEmpty && Self.requiresNonEmptyArguments(name) {
                 throw TrustedRouterAgentError.emptyToolArguments(name)
             }
@@ -199,6 +205,115 @@ public enum AgentActionJSONParser {
         default:
             throw TrustedRouterAgentError.invalidActionJSON(text)
         }
+    }
+
+    private static func toolName(in object: [String: Any]) -> String? {
+        stringValue(in: object, keys: ["name", "tool", "toolName", "tool_name"])
+    }
+
+    private static func canonicalArguments(for toolName: String, in object: [String: Any]) -> [String: Any] {
+        var arguments = argumentObject(for: toolName, in: object)
+        switch toolName {
+        case ToolDefinition.shellRun.name:
+            normalizeStringArgument(
+                &arguments,
+                canonicalKey: "cmd",
+                aliases: ["command", "shellCommand", "shell_command", "script"],
+                topLevelObject: object
+            )
+        case ToolDefinition.fileWrite.name:
+            normalizeStringArgument(
+                &arguments,
+                canonicalKey: "path",
+                aliases: ["file", "filename", "fileName", "filepath", "filePath"],
+                topLevelObject: object
+            )
+            normalizeStringArgument(
+                &arguments,
+                canonicalKey: "content",
+                aliases: ["text", "contents", "body"],
+                topLevelObject: object
+            )
+        case ToolDefinition.fileRead.name:
+            normalizeStringArgument(
+                &arguments,
+                canonicalKey: "path",
+                aliases: ["file", "filename", "fileName", "filepath", "filePath"],
+                topLevelObject: object
+            )
+        case ToolDefinition.applyPatch.name:
+            normalizeStringArgument(
+                &arguments,
+                canonicalKey: "patch",
+                aliases: ["diff"],
+                topLevelObject: object
+            )
+        case ToolDefinition.memoryRemember.name:
+            normalizeStringArgument(
+                &arguments,
+                canonicalKey: "content",
+                aliases: ["memory", "note", "text"],
+                topLevelObject: object
+            )
+        case ToolDefinition.gitPullRequestCreate.name:
+            normalizeStringArgument(
+                &arguments,
+                canonicalKey: "title",
+                aliases: ["name", "subject"],
+                topLevelObject: object
+            )
+        case ToolDefinition.gitWorktreeCreate.name:
+            normalizeStringArgument(
+                &arguments,
+                canonicalKey: "path",
+                aliases: ["folder", "directory"],
+                topLevelObject: object
+            )
+        default:
+            break
+        }
+        return arguments
+    }
+
+    private static func argumentObject(for toolName: String, in object: [String: Any]) -> [String: Any] {
+        if let arguments = object["arguments"] as? [String: Any] {
+            return arguments
+        }
+        if let arguments = object["args"] as? [String: Any] {
+            return arguments
+        }
+        if toolName == ToolDefinition.shellRun.name,
+           let command = stringValue(in: object, keys: ["arguments", "args"]) {
+            return ["cmd": command]
+        }
+        return [:]
+    }
+
+    private static func normalizeStringArgument(
+        _ arguments: inout [String: Any],
+        canonicalKey: String,
+        aliases: [String],
+        topLevelObject: [String: Any]
+    ) {
+        let keys = [canonicalKey] + aliases
+        let value = stringValue(in: arguments, keys: keys)
+            ?? stringValue(in: topLevelObject, keys: keys)
+        for alias in aliases {
+            arguments.removeValue(forKey: alias)
+        }
+        if let value {
+            arguments[canonicalKey] = value
+        }
+    }
+
+    private static func stringValue(in object: [String: Any], keys: [String]) -> String? {
+        for key in keys {
+            guard let value = object[key] as? String else { continue }
+            if !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return value
+            }
+        }
+        return nil
     }
 
     private static func stripFences(_ text: String) -> String {
