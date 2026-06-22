@@ -3794,6 +3794,99 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(saved.map(\.threadID), [thread.id, thread.id])
     }
 
+    func testScheduledWorkspaceChecksPersistConcreteRunTimes() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let project = ProjectRef(name: "QuillCode", path: root.path)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            automationStore: automationStore
+        )
+        let now = Date(timeIntervalSince1970: 1_000)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+
+        let tenMinute = try XCTUnwrap(model.createWorkspaceScheduleAutomation(after: 600, now: now))
+        let tomorrow = try XCTUnwrap(model.createTomorrowMorningWorkspaceScheduleAutomation(
+            now: now,
+            calendar: calendar
+        ))
+
+        XCTAssertEqual(tenMinute.title, "Workspace check: QuillCode")
+        XCTAssertEqual(tenMinute.scheduleDescription, "In 10 minutes")
+        XCTAssertEqual(tenMinute.nextRunAt, now.addingTimeInterval(600))
+        XCTAssertEqual(tomorrow.scheduleDescription, "Tomorrow at 9:00 AM")
+        XCTAssertEqual(
+            tomorrow.nextRunAt,
+            calendar.date(from: DateComponents(
+                calendar: calendar,
+                timeZone: calendar.timeZone,
+                year: 1970,
+                month: 1,
+                day: 2,
+                hour: 9,
+                minute: 0,
+                second: 0
+            ))
+        )
+
+        let saved = try automationStore.load()
+        XCTAssertEqual(saved.map(\.kind), [.workspaceSchedule, .workspaceSchedule])
+        XCTAssertEqual(saved.map(\.scheduleDescription), ["In 10 minutes", "Tomorrow at 9:00 AM"])
+        XCTAssertEqual(saved.map(\.projectID), [project.id, project.id])
+        XCTAssertEqual(saved.map(\.threadID), [nil, nil])
+    }
+
+    func testNaturalLanguageScheduledWorkspaceChecksPersistConcreteRunTimes() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let project = ProjectRef(name: "QuillCode", path: root.path)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            automationStore: automationStore
+        )
+        let now = Date(timeIntervalSince1970: 1_000)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+
+        let relative = try XCTUnwrap(model.createWorkspaceScheduleAutomation(
+            matching: "in 2 hours",
+            now: now,
+            calendar: calendar
+        ))
+        let tomorrow = try XCTUnwrap(model.createWorkspaceScheduleAutomation(
+            matching: "tomorrow at 8:15 AM",
+            now: now,
+            calendar: calendar
+        ))
+
+        XCTAssertEqual(relative.scheduleDescription, "In 2 hours")
+        XCTAssertEqual(relative.nextRunAt, now.addingTimeInterval(2 * 60 * 60))
+        XCTAssertEqual(tomorrow.scheduleDescription, "Tomorrow at 8:15 AM")
+        XCTAssertEqual(
+            tomorrow.nextRunAt,
+            calendar.date(from: DateComponents(
+                calendar: calendar,
+                timeZone: calendar.timeZone,
+                year: 1970,
+                month: 1,
+                day: 2,
+                hour: 8,
+                minute: 15,
+                second: 0
+            ))
+        )
+
+        let saved = try automationStore.load()
+        XCTAssertEqual(saved.map(\.kind), [.workspaceSchedule, .workspaceSchedule])
+        XCTAssertEqual(saved.map(\.scheduleDescription), ["In 2 hours", "Tomorrow at 8:15 AM"])
+        XCTAssertEqual(saved.map(\.projectID), [project.id, project.id])
+    }
+
     func testSlashFollowUpSchedulesCurrentThread() async throws {
         let root = try makeTempDirectory()
         let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
@@ -3814,6 +3907,31 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(saved.first?.scheduleDescription, "In 45 minutes")
         XCTAssertNotNil(saved.first?.nextRunAt)
         XCTAssertEqual(model.selectedThread?.messages.last?.content, "Scheduled a thread follow-up for In 45 minutes.")
+        XCTAssertEqual(model.surface().automations.statusLabel, "1 active")
+    }
+
+    func testSlashWorkspaceCheckSchedulesSelectedProject() async throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let project = ProjectRef(name: "QuillCode", path: root.path)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            automationStore: automationStore
+        )
+
+        model.setDraft("/workspace-check tomorrow at 8:15 AM")
+        await model.submitComposer(workspaceRoot: root)
+
+        let saved = try automationStore.load()
+        XCTAssertEqual(saved.count, 1)
+        XCTAssertEqual(saved.first?.title, "Workspace check: QuillCode")
+        XCTAssertEqual(saved.first?.projectID, project.id)
+        XCTAssertEqual(saved.first?.kind, .workspaceSchedule)
+        XCTAssertEqual(saved.first?.scheduleDescription, "Tomorrow at 8:15 AM")
+        XCTAssertNotNil(saved.first?.nextRunAt)
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Scheduled a workspace check for Tomorrow at 8:15 AM.")
         XCTAssertEqual(model.surface().automations.statusLabel, "1 active")
     }
 

@@ -1334,6 +1334,7 @@ public struct WorkspaceAutomationsSurface: Codable, Sendable, Hashable {
     public var createThreadFollowUpCommand: WorkspaceCommandSurface?
     public var createWorkspaceScheduleCommand: WorkspaceCommandSurface?
     public var scheduleThreadFollowUpCommands: [WorkspaceCommandSurface]
+    public var scheduleWorkspaceScheduleCommands: [WorkspaceCommandSurface]
 
     public init(
         isVisible: Bool = false,
@@ -1341,6 +1342,7 @@ public struct WorkspaceAutomationsSurface: Codable, Sendable, Hashable {
         createThreadFollowUpCommand: WorkspaceCommandSurface? = nil,
         createWorkspaceScheduleCommand: WorkspaceCommandSurface? = nil,
         scheduleThreadFollowUpCommands: [WorkspaceCommandSurface] = [],
+        scheduleWorkspaceScheduleCommands: [WorkspaceCommandSurface] = [],
         workflows: [AutomationWorkflowSurface] = AutomationWorkflowSurface.plannedWorkflows,
         emptyTitle: String = "No automations yet",
         emptySubtitle: String = "Create scheduled follow-ups, workspace checks, and monitors once the automation runtime lands."
@@ -1364,6 +1366,7 @@ public struct WorkspaceAutomationsSurface: Codable, Sendable, Hashable {
         self.createThreadFollowUpCommand = createThreadFollowUpCommand
         self.createWorkspaceScheduleCommand = createWorkspaceScheduleCommand
         self.scheduleThreadFollowUpCommands = scheduleThreadFollowUpCommands
+        self.scheduleWorkspaceScheduleCommands = scheduleWorkspaceScheduleCommands
     }
 
     private static func statusLabel(
@@ -2039,6 +2042,32 @@ public extension WorkspaceCommandSurface {
         ]
     }
 
+    static func automationScheduleWorkspaceScheduleCommands(isEnabled: Bool) -> [WorkspaceCommandSurface] {
+        [
+            WorkspaceCommandSurface(
+                id: "automation-create-workspace-schedule-after:600",
+                title: "Check in 10 minutes",
+                category: WorkspaceCommandPalette.automationsCategory,
+                keywords: ["automation", "workspace", "schedule", "repo", "check", "ten minutes"],
+                isEnabled: isEnabled
+            ),
+            WorkspaceCommandSurface(
+                id: "automation-create-workspace-schedule-after:3600",
+                title: "Check in 1 hour",
+                category: WorkspaceCommandPalette.automationsCategory,
+                keywords: ["automation", "workspace", "schedule", "repo", "check", "hour"],
+                isEnabled: isEnabled
+            ),
+            WorkspaceCommandSurface(
+                id: "automation-create-workspace-schedule-tomorrow",
+                title: "Check tomorrow morning",
+                category: WorkspaceCommandPalette.automationsCategory,
+                keywords: ["automation", "workspace", "schedule", "repo", "check", "tomorrow", "morning"],
+                isEnabled: isEnabled
+            )
+        ]
+    }
+
     static func computerUseSetup(isEnabled: Bool) -> WorkspaceCommandSurface {
         WorkspaceCommandSurface(
             id: "computer-use-setup",
@@ -2583,6 +2612,9 @@ public extension QuillCodeWorkspaceModel {
                 ),
                 scheduleThreadFollowUpCommands: WorkspaceCommandSurface.automationScheduleThreadFollowUpCommands(
                     isEnabled: thread != nil
+                ),
+                scheduleWorkspaceScheduleCommands: WorkspaceCommandSurface.automationScheduleWorkspaceScheduleCommands(
+                    isEnabled: selectedProject != nil
                 )
             ),
             composer: ComposerSurface(composer: composer),
@@ -3011,6 +3043,9 @@ public extension QuillCodeWorkspaceModel {
         let automationScheduleCommands = WorkspaceCommandSurface.automationScheduleThreadFollowUpCommands(
             isEnabled: selectedThread != nil
         )
+        let workspaceScheduleCommands = WorkspaceCommandSurface.automationScheduleWorkspaceScheduleCommands(
+            isEnabled: selectedProject != nil
+        )
         return [
             WorkspaceCommandSurface(
                 id: "new-chat",
@@ -3246,6 +3281,9 @@ public extension QuillCodeWorkspaceModel {
             automationScheduleCommands[0],
             automationScheduleCommands[1],
             automationScheduleCommands[2],
+            workspaceScheduleCommands[0],
+            workspaceScheduleCommands[1],
+            workspaceScheduleCommands[2],
             WorkspaceCommandSurface(
                 id: "toggle-memories",
                 title: "Memories",

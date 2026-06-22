@@ -104,6 +104,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "automation-create-thread-follow-up-after:600",
             "automation-create-thread-follow-up-after:3600",
             "automation-create-thread-follow-up-tomorrow",
+            "automation-create-workspace-schedule-after:600",
+            "automation-create-workspace-schedule-after:3600",
+            "automation-create-workspace-schedule-tomorrow",
             "toggle-memories",
             "memory-add",
             "toggle-extensions",
@@ -483,7 +486,20 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(automations.createWorkspaceScheduleCommand?.id, "automation-create-workspace-schedule")
         XCTAssertEqual(automations.createWorkspaceScheduleCommand?.category, WorkspaceCommandPalette.automationsCategory)
         XCTAssertEqual(automations.createWorkspaceScheduleCommand?.isEnabled, true)
+        XCTAssertEqual(automations.scheduleWorkspaceScheduleCommands.map(\.id), [
+            "automation-create-workspace-schedule-after:600",
+            "automation-create-workspace-schedule-after:3600",
+            "automation-create-workspace-schedule-tomorrow"
+        ])
+        XCTAssertEqual(automations.scheduleWorkspaceScheduleCommands.map(\.isEnabled), [true, true, true])
         XCTAssertEqual(model.surface().commands.first { $0.id == "automation-create-workspace-schedule" }?.isEnabled, true)
+        XCTAssertEqual(
+            model.surface().commands
+                .filter { $0.id.hasPrefix("automation-create-workspace-schedule-after:") }
+                .map(\.isEnabled),
+            [true, true]
+        )
+        XCTAssertEqual(model.surface().commands.first { $0.id == "automation-create-workspace-schedule-tomorrow" }?.isEnabled, true)
     }
 
     func testActivitySectionToggleCollapsesSharedSurfaceSection() throws {
@@ -543,7 +559,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         var suggestions = model.surface().composer.slashSuggestions
         XCTAssertEqual(suggestions.prefix(3).map(\.usage), ["/help", "/status", "/new"])
 
-        model.setDraft("/wor")
+        model.setDraft("/workt")
         suggestions = model.surface().composer.slashSuggestions
         XCTAssertEqual(suggestions.first?.usage, "/worktrees")
         XCTAssertEqual(suggestions.first?.insertText, "/worktrees")
@@ -552,6 +568,11 @@ final class WorkspaceSurfaceTests: XCTestCase {
         suggestions = model.surface().composer.slashSuggestions
         XCTAssertEqual(suggestions.first?.usage, "/follow-up when")
         XCTAssertEqual(suggestions.first?.insertText, "/follow-up in ")
+
+        model.setDraft("/workspace-c")
+        suggestions = model.surface().composer.slashSuggestions
+        XCTAssertEqual(suggestions.first?.usage, "/workspace-check when")
+        XCTAssertEqual(suggestions.first?.insertText, "/workspace-check in ")
 
         model.setDraft("/project r")
         suggestions = model.surface().composer.slashSuggestions

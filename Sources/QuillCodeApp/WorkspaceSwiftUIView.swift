@@ -2975,7 +2975,8 @@ private struct QuillCodeAutomationsPaneView: View {
                 Spacer()
                 if automations.createThreadFollowUpCommand != nil
                     || automations.createWorkspaceScheduleCommand != nil
-                    || !automations.scheduleThreadFollowUpCommands.isEmpty {
+                    || !automations.scheduleThreadFollowUpCommands.isEmpty
+                    || !automations.scheduleWorkspaceScheduleCommands.isEmpty {
                     Menu {
                         if let createCommand = automations.createThreadFollowUpCommand {
                             Button(createCommand.title) {
@@ -2992,6 +2993,15 @@ private struct QuillCodeAutomationsPaneView: View {
                         if !automations.scheduleThreadFollowUpCommands.isEmpty {
                             Divider()
                             ForEach(automations.scheduleThreadFollowUpCommands, id: \.id) { command in
+                                Button(command.title) {
+                                    onCommand(command)
+                                }
+                                .disabled(!command.isEnabled)
+                            }
+                        }
+                        if !automations.scheduleWorkspaceScheduleCommands.isEmpty {
+                            Divider()
+                            ForEach(automations.scheduleWorkspaceScheduleCommands, id: \.id) { command in
                                 Button(command.title) {
                                     onCommand(command)
                                 }

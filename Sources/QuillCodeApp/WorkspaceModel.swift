@@ -1525,6 +1525,50 @@ public final class QuillCodeWorkspaceModel {
         return automation
     }
 
+    @discardableResult
+    public func createWorkspaceScheduleAutomation(after seconds: TimeInterval, now: Date = Date()) -> QuillAutomation? {
+        guard seconds > 0 else { return nil }
+        return createWorkspaceScheduleAutomation(
+            scheduleDescription: ThreadFollowUpScheduleParser.relativeDescription(seconds: seconds),
+            nextRunAt: now.addingTimeInterval(seconds),
+            now: now
+        )
+    }
+
+    @discardableResult
+    public func createWorkspaceScheduleAutomation(
+        matching scheduleText: String,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> QuillAutomation? {
+        guard let schedule = ThreadFollowUpScheduleParser.parse(
+            scheduleText,
+            now: now,
+            calendar: calendar
+        ) else {
+            lastError = "Could not understand that workspace-check schedule. Try `/workspace-check in 1 hour` or `/workspace-check tomorrow at 9 AM`."
+            refreshTopBar(agentStatus: "Idle")
+            return nil
+        }
+        return createWorkspaceScheduleAutomation(
+            scheduleDescription: schedule.scheduleDescription,
+            nextRunAt: schedule.nextRunAt,
+            now: now
+        )
+    }
+
+    @discardableResult
+    public func createTomorrowMorningWorkspaceScheduleAutomation(
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> QuillAutomation? {
+        createWorkspaceScheduleAutomation(
+            scheduleDescription: "Tomorrow at 9:00 AM",
+            nextRunAt: Self.tomorrowMorning(from: now, calendar: calendar),
+            now: now
+        )
+    }
+
     public func updateAutomationStatus(id: UUID, status: QuillAutomationStatus) -> Bool {
         guard let index = automations.items.firstIndex(where: { $0.id == id }) else { return false }
         automations.items[index].status = status
@@ -2672,6 +2716,11 @@ public final class QuillCodeWorkspaceModel {
             guard let seconds = TimeInterval(rawSeconds) else { return false }
             return createThreadFollowUpAutomation(after: seconds) != nil
         }
+        if commandID.hasPrefix("automation-create-workspace-schedule-after:") {
+            let rawSeconds = String(commandID.dropFirst("automation-create-workspace-schedule-after:".count))
+            guard let seconds = TimeInterval(rawSeconds) else { return false }
+            return createWorkspaceScheduleAutomation(after: seconds) != nil
+        }
         if commandID.hasPrefix("mcp-start:") {
             let id = String(commandID.dropFirst("mcp-start:".count))
             return startMCPServer(id: id, workspaceRoot: workspaceRoot)
@@ -2729,6 +2778,8 @@ public final class QuillCodeWorkspaceModel {
             return createWorkspaceScheduleAutomation() != nil
         case "automation-create-thread-follow-up-tomorrow":
             return createTomorrowMorningThreadFollowUpAutomation() != nil
+        case "automation-create-workspace-schedule-tomorrow":
+            return createTomorrowMorningWorkspaceScheduleAutomation() != nil
         case "memory-add":
             composer.draft = "/remember "
             return true
@@ -5018,6 +5069,20 @@ public final class QuillCodeWorkspaceModel {
                     userText: originalPrompt,
                     assistantText: lastError ?? "Could not schedule this follow-up.",
                     title: "Schedule follow-up"
+                )
+            }
+        case .workspaceSchedule(let scheduleText):
+            if let automation = createWorkspaceScheduleAutomation(matching: scheduleText) {
+                appendLocalCommandTranscript(
+                    userText: originalPrompt,
+                    assistantText: "Scheduled a workspace check for \(automation.scheduleDescription).",
+                    title: "Schedule workspace check"
+                )
+            } else {
+                appendLocalCommandTranscript(
+                    userText: originalPrompt,
+                    assistantText: lastError ?? "Could not schedule this workspace check.",
+                    title: "Schedule workspace check"
                 )
             }
         case .workspaceCommand(let commandID):

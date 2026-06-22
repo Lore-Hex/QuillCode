@@ -1276,7 +1276,8 @@
     }
     .automation-actions button,
     [data-testid="automation-create-follow-up"],
-    [data-testid="automation-create-workspace-schedule"] {
+    [data-testid="automation-create-workspace-schedule"],
+    [data-testid="automation-schedule-workspace"] {
       min-height: 34px;
       border: 1px solid var(--line);
       border-radius: 999px;
@@ -1290,9 +1291,11 @@
     }
     .automation-actions button:active,
     [data-testid="automation-create-follow-up"]:active,
-    [data-testid="automation-create-workspace-schedule"]:active { transform: scale(0.96); }
+    [data-testid="automation-create-workspace-schedule"]:active,
+    [data-testid="automation-schedule-workspace"]:active { transform: scale(0.96); }
     [data-testid="automation-create-follow-up"]:disabled,
-    [data-testid="automation-create-workspace-schedule"]:disabled {
+    [data-testid="automation-create-workspace-schedule"]:disabled,
+    [data-testid="automation-schedule-workspace"]:disabled {
       opacity: 0.44;
       cursor: not-allowed;
     }
@@ -2354,6 +2357,9 @@
         { id: 'automation-create-thread-follow-up-after:600', title: 'In 10 minutes', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule', 'ten minutes'], isEnabled: false },
         { id: 'automation-create-thread-follow-up-after:3600', title: 'In 1 hour', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule', 'hour'], isEnabled: false },
         { id: 'automation-create-thread-follow-up-tomorrow', title: 'Tomorrow morning', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule', 'tomorrow', 'morning'], isEnabled: false },
+        { id: 'automation-create-workspace-schedule-after:600', title: 'Check in 10 minutes', shortcut: '', category: 'Automations', keywords: ['automation', 'workspace', 'schedule', 'repo', 'check', 'ten minutes'], isEnabled: true },
+        { id: 'automation-create-workspace-schedule-after:3600', title: 'Check in 1 hour', shortcut: '', category: 'Automations', keywords: ['automation', 'workspace', 'schedule', 'repo', 'check', 'hour'], isEnabled: true },
+        { id: 'automation-create-workspace-schedule-tomorrow', title: 'Check tomorrow morning', shortcut: '', category: 'Automations', keywords: ['automation', 'workspace', 'schedule', 'repo', 'check', 'tomorrow', 'morning'], isEnabled: true },
         { id: 'toggle-memories', title: 'Memories', shortcut: '', category: 'Memories', keywords: ['memory', 'context', 'preferences', 'facts'], isEnabled: true },
         { id: 'memory-add', title: 'Add memory', shortcut: '', category: 'Memories', keywords: ['remember', 'save', 'preference', 'fact'], isEnabled: true },
         { id: 'toggle-extensions', title: 'Extensions', shortcut: '', category: 'Extensions', keywords: ['plugins', 'skills', 'mcp', 'manifest'], isEnabled: true },
@@ -2418,6 +2424,11 @@
           { id: 'automation-create-thread-follow-up-after:600', title: 'In 10 minutes', isEnabled: false },
           { id: 'automation-create-thread-follow-up-after:3600', title: 'In 1 hour', isEnabled: false },
           { id: 'automation-create-thread-follow-up-tomorrow', title: 'Tomorrow morning', isEnabled: false }
+        ],
+        scheduleWorkspaceScheduleCommands: [
+          { id: 'automation-create-workspace-schedule-after:600', title: 'Check in 10 minutes', isEnabled: true },
+          { id: 'automation-create-workspace-schedule-after:3600', title: 'Check in 1 hour', isEnabled: true },
+          { id: 'automation-create-workspace-schedule-tomorrow', title: 'Check tomorrow morning', isEnabled: true }
         ],
         configuredWorkflows: [],
         plannedWorkflows: [
@@ -2501,6 +2512,7 @@
       { usage: '/unarchive', title: 'Unarchive chat', detail: 'Restore the current archived thread.', insertText: '/unarchive', aliases: ['unarchive-chat'] },
       { usage: '/compact', title: 'Compact context', detail: 'Create a shorter continuation thread from the latest turns.', insertText: '/compact', aliases: ['compact-context', 'context-compact'] },
       { usage: '/follow-up when', title: 'Schedule follow-up', detail: 'Create a scheduled follow-up for this thread, for example in 30 minutes or tomorrow at 9 AM.', insertText: '/follow-up in ', aliases: ['followup', 'schedule follow-up', 'remind', 'automation'] },
+      { usage: '/workspace-check when', title: 'Schedule workspace check', detail: 'Create a scheduled check for the selected project, for example in 1 hour or tomorrow morning.', insertText: '/workspace-check in ', aliases: ['workspace schedule', 'schedule workspace', 'project check', 'repo check', 'automation workspace'] },
       { usage: '/project new', title: 'Project new chat', detail: 'Start a new thread in the selected project.', insertText: '/project new', aliases: ['project chat'] },
       { usage: '/project refresh', title: 'Refresh project context', detail: 'Reload instructions, local actions, extensions, and memories.', insertText: '/project refresh', aliases: ['project reload', 'project context'] },
       { usage: '/project rename name', title: 'Rename project', detail: 'Rename the selected project in QuillCode.', insertText: '/project rename ', aliases: ['project title'] },
@@ -3147,6 +3159,8 @@
         command.id === 'automation-create-workspace-schedule' ? { ...command, isEnabled: hasProject } :
         command.id?.startsWith('automation-create-thread-follow-up-after:') ? { ...command, isEnabled: hasThread } :
         command.id === 'automation-create-thread-follow-up-tomorrow' ? { ...command, isEnabled: hasThread } :
+        command.id?.startsWith('automation-create-workspace-schedule-after:') ? { ...command, isEnabled: hasProject } :
+        command.id === 'automation-create-workspace-schedule-tomorrow' ? { ...command, isEnabled: hasProject } :
         command.id === 'stop-all' ? { ...command, isEnabled: hasActiveWork } :
         command
       ));
@@ -3171,6 +3185,11 @@
         { id: 'automation-create-thread-follow-up-after:600', title: 'In 10 minutes', isEnabled: Boolean(selectedThread) },
         { id: 'automation-create-thread-follow-up-after:3600', title: 'In 1 hour', isEnabled: Boolean(selectedThread) },
         { id: 'automation-create-thread-follow-up-tomorrow', title: 'Tomorrow morning', isEnabled: Boolean(selectedThread) }
+      ];
+      state.automations.scheduleWorkspaceScheduleCommands = [
+        { id: 'automation-create-workspace-schedule-after:600', title: 'Check in 10 minutes', isEnabled: Boolean(state.projects.selectedProjectID) },
+        { id: 'automation-create-workspace-schedule-after:3600', title: 'Check in 1 hour', isEnabled: Boolean(state.projects.selectedProjectID) },
+        { id: 'automation-create-workspace-schedule-tomorrow', title: 'Check tomorrow morning', isEnabled: Boolean(state.projects.selectedProjectID) }
       ];
       if (!configured.length) {
         state.automations.statusLabel = `${state.automations.plannedWorkflows.length} planned`;
@@ -3998,7 +4017,7 @@
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
       });
-      document.querySelectorAll('[data-testid="automation-schedule-follow-up"], [data-testid="automation-run"], [data-testid="automation-primary-action"], [data-testid="automation-delete"]').forEach(button => {
+      document.querySelectorAll('[data-testid="automation-schedule-follow-up"], [data-testid="automation-schedule-workspace"], [data-testid="automation-run"], [data-testid="automation-primary-action"], [data-testid="automation-delete"]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
@@ -5379,6 +5398,9 @@
       const workspaceButton = state.automations.createWorkspaceScheduleCommand ? `
         <button type="button" data-testid="automation-create-workspace-schedule" data-command-id="${escapeHTML(state.automations.createWorkspaceScheduleCommand.id)}" ${state.automations.createWorkspaceScheduleCommand.isEnabled ? '' : 'disabled'}>${escapeHTML(state.automations.createWorkspaceScheduleCommand.title)}</button>
       ` : '';
+      const workspaceScheduleButtons = (state.automations.scheduleWorkspaceScheduleCommands || []).map(command => `
+        <button type="button" data-testid="automation-schedule-workspace" data-command-id="${escapeHTML(command.id)}" ${command.isEnabled ? '' : 'disabled'}>${escapeHTML(command.title)}</button>
+      `).join('');
       const content = workflows.length ? `
         <div class="automation-grid" data-testid="automation-grid">
           ${workflows.map(workflow => `
@@ -5407,6 +5429,7 @@
               <button type="button" data-testid="automation-create-follow-up" data-command-id="${escapeHTML(state.automations.createThreadFollowUpCommand.id)}" ${state.automations.createThreadFollowUpCommand.isEnabled ? '' : 'disabled'}>${escapeHTML(state.automations.createThreadFollowUpCommand.title)}</button>
               ${workspaceButton}
               ${scheduleButtons}
+              ${workspaceScheduleButtons}
             </div>
             <span data-testid="automations-status">${escapeHTML(state.automations.statusLabel)}</span>
           </header>
@@ -6037,6 +6060,17 @@
       }
       if (commandID === 'automation-create-workspace-schedule') {
         createWorkspaceScheduleAutomation();
+        return;
+      }
+      if (commandID?.startsWith('automation-create-workspace-schedule-after:')) {
+        const seconds = Number(commandID.slice('automation-create-workspace-schedule-after:'.length));
+        if (Number.isFinite(seconds) && seconds > 0) {
+          createWorkspaceScheduleAutomation(followUpDelayDescription(seconds));
+        }
+        return;
+      }
+      if (commandID === 'automation-create-workspace-schedule-tomorrow') {
+        createWorkspaceScheduleAutomation('Tomorrow at 9:00 AM');
         return;
       }
       if (commandID?.startsWith('automation-create-thread-follow-up-after:')) {
@@ -7322,6 +7356,15 @@
           addMessage('assistant', `Scheduled a thread follow-up for ${scheduleLabel}.`);
         } else {
           addMessage('assistant', 'Usage: /follow-up in 30 minutes or /follow-up tomorrow at 9 AM');
+        }
+      } else if (/^\/(workspace-check|workspacecheck|workspace-schedule|project-check|repo-check)\b/i.test(text)) {
+        const scheduleText = text.replace(/^\/(workspace-check|workspacecheck|workspace-schedule|project-check|repo-check)\b/i, '').trim();
+        const scheduleLabel = naturalFollowUpScheduleLabel(scheduleText);
+        if (scheduleLabel) {
+          createWorkspaceScheduleAutomation(scheduleLabel);
+          addMessage('assistant', `Scheduled a workspace check for ${scheduleLabel}.`);
+        } else {
+          addMessage('assistant', 'Usage: /workspace-check in 1 hour or /workspace-check tomorrow at 9 AM');
         }
       } else if (/^\/(browser|preview)\b/i.test(text)) {
         state.browser.isVisible = !state.browser.isVisible;
