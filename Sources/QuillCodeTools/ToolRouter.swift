@@ -39,6 +39,7 @@ public struct ToolRouter: Sendable {
         .gitPullRequestView,
         .gitPullRequestChecks,
         .gitPullRequestComment,
+        .gitPullRequestReview,
         .gitWorktreeList,
         .gitWorktreeCreate,
         .gitWorktreeRemove
@@ -136,6 +137,13 @@ public struct ToolRouter: Sendable {
                     cwd: workspaceRoot,
                     selector: args.string("selector"),
                     body: try args.requiredString("body")
+                )
+            case ToolDefinition.gitPullRequestReview.name:
+                return git.reviewPullRequest(
+                    cwd: workspaceRoot,
+                    selector: args.string("selector"),
+                    action: try args.requiredString("action"),
+                    body: args.string("body")
                 )
             case ToolDefinition.gitWorktreeList.name:
                 return git.listWorktrees(cwd: workspaceRoot)

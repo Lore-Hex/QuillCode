@@ -70,6 +70,21 @@ final class TrustedRouterAdapterTests: XCTestCase {
         XCTAssertEqual(action, .say("done"))
     }
 
+    func testActionParserNormalizesPullRequestReviewAliases() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {"type":"tool","name":"host.git.pr.review","arguments":{"pr":"42","decision":"approve","message":"Looks good."}}
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.gitPullRequestReview.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(arguments.string("selector"), "42")
+        XCTAssertEqual(arguments.string("action"), "approve")
+        XCTAssertEqual(arguments.string("body"), "Looks good.")
+    }
+
     func testActionParserAllowsNoArgumentTools() throws {
         let gitAction = try AgentActionJSONParser.parse("""
         {"type":"tool","name":"host.git.status","arguments":{}}

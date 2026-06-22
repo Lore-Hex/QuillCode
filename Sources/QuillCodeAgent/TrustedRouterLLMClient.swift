@@ -163,7 +163,8 @@ public struct TrustedRouterLLMClient: StreamingLLMClient {
         - If the user asks to view, inspect, summarize, or read comments/reviews on the current pull request/PR, use host.git.pr.view.
         - If the user asks about pull request/PR checks, CI, or status, use host.git.pr.checks.
         - If the user asks to add, leave, post, or reply with a top-level pull request/PR comment, use host.git.pr.comment with a non-empty "body".
-        - host.git.pr.view, host.git.pr.checks, and host.git.pr.comment may omit "selector" for the current branch, or include a PR number, URL, or branch as "selector".
+        - If the user asks to approve, request changes, or submit a pull request/PR review, use host.git.pr.review with "action" equal to "approve", "comment", or "request_changes".
+        - host.git.pr.view, host.git.pr.checks, host.git.pr.comment, and host.git.pr.review may omit "selector" for the current branch, or include a PR number, URL, or branch as "selector".
         - Do not say "I'll do it" unless you are returning the tool call that does it.
         - Keep commands bounded to the current project unless the user explicitly asks otherwise.
         - After a tool output is provided, return a concise final {"type":"say","text":"..."} answer if the request is satisfied.
@@ -268,18 +269,28 @@ public enum AgentActionJSONParser {
             )
         case ToolDefinition.gitPullRequestView.name,
             ToolDefinition.gitPullRequestChecks.name,
-            ToolDefinition.gitPullRequestComment.name:
+            ToolDefinition.gitPullRequestComment.name,
+            ToolDefinition.gitPullRequestReview.name:
             normalizeStringArgument(
                 &arguments,
                 canonicalKey: "selector",
                 aliases: ["number", "pr", "pullRequest", "pull_request", "url", "branch"],
                 topLevelObject: object
             )
-            if toolName == ToolDefinition.gitPullRequestComment.name {
+            if toolName == ToolDefinition.gitPullRequestComment.name
+                || toolName == ToolDefinition.gitPullRequestReview.name {
                 normalizeStringArgument(
                     &arguments,
                     canonicalKey: "body",
                     aliases: ["comment", "message", "text", "content"],
+                    topLevelObject: object
+                )
+            }
+            if toolName == ToolDefinition.gitPullRequestReview.name {
+                normalizeStringArgument(
+                    &arguments,
+                    canonicalKey: "action",
+                    aliases: ["review", "verdict", "decision"],
                     topLevelObject: object
                 )
             }

@@ -262,6 +262,13 @@ public struct MockLLMClient: LLMClient {
             return .tool(.init(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}"))
         }
 
+        if Self.isPullRequestReviewActionRequest(lower) {
+            return .tool(.init(
+                name: ToolDefinition.gitPullRequestReview.name,
+                argumentsJSON: ToolArguments.json(Self.extractPullRequestReviewArguments(from: request))
+            ))
+        }
+
         if Self.isPullRequestCommentRequest(lower) {
             return .tool(.init(
                 name: ToolDefinition.gitPullRequestComment.name,
@@ -421,6 +428,24 @@ public struct MockLLMClient: LLMClient {
         return mentionsPullRequest && commentTerms && !readTerms
     }
 
+    static func isPullRequestReviewActionRequest(_ lowercasedRequest: String) -> Bool {
+        let tokens = lowercasedRequest
+            .split { !$0.isLetter && !$0.isNumber }
+            .map(String.init)
+        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
+        guard mentionsPullRequest else { return false }
+        if tokens.contains("approve") || tokens.contains("approved") {
+            return true
+        }
+        if lowercasedRequest.contains("request changes")
+            || lowercasedRequest.contains("needs changes")
+            || lowercasedRequest.contains("reject pr") {
+            return true
+        }
+        return (tokens.contains("submit") || tokens.contains("leave") || tokens.contains("add"))
+            && tokens.contains("review")
+    }
+
     static func isPullRequestViewRequest(_ lowercasedRequest: String) -> Bool {
         let tokens = lowercasedRequest
             .split { !$0.isLetter && !$0.isNumber }
@@ -479,6 +504,31 @@ public struct MockLLMClient: LLMClient {
         var arguments = extractPullRequestSelectorArguments(from: request)
         arguments["body"] = extractPullRequestCommentBody(from: request) ?? request
         return arguments
+    }
+
+    static func extractPullRequestReviewArguments(from request: String) -> [String: String] {
+        var arguments = extractPullRequestSelectorArguments(from: request)
+        let action = extractPullRequestReviewAction(from: request)
+        arguments["action"] = action
+        if let body = extractPullRequestCommentBody(from: request) {
+            arguments["body"] = body
+        } else if action != "approve" {
+            arguments["body"] = request
+        }
+        return arguments
+    }
+
+    static func extractPullRequestReviewAction(from request: String) -> String {
+        let lower = request.lowercased()
+        if lower.contains("request changes")
+            || lower.contains("needs changes")
+            || lower.contains("reject pr") {
+            return "request_changes"
+        }
+        if lower.contains("approve") || lower.contains("approved") {
+            return "approve"
+        }
+        return "comment"
     }
 
     static func extractPullRequestCommentBody(from request: String) -> String? {
