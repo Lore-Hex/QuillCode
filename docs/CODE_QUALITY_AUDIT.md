@@ -43,7 +43,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 1. Extract workspace command execution from `WorkspaceModel`.
 2. Extract automation runners from `WorkspaceModel`.
-3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer is now extracted; next targets are the model picker, sidebar, and review controls.
+3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer and model picker are now extracted; next targets are the sidebar and review controls.
 4. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
 5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
 
@@ -60,3 +60,18 @@ Interface polish changes:
 - The command usage chip no longer relies on a fixed 230 pt row column; long command names truncate in the chip instead of squeezing row detail text first.
 - The panel includes a quiet keyboard hint for Up/Down and Tab so command discovery feels more self-explanatory.
 - Composer input and send/stop controls use matching 15 pt continuous radii and 46 pt minimum height for a more concentric, tactile bottom bar.
+
+## 2026-06-22 Model Picker Refactor Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+The native model picker moved out of `WorkspaceSwiftUIView.swift` into `QuillCodeModelPickerView.swift`. Model picking now has named subviews for the trigger, popover body, category sections, rows, action buttons, and expanded metadata, which keeps future model-catalog and provider-capability work away from the already-large workspace shell.
+
+Interface polish changes:
+
+- The model trigger now uses the shared `0.96` press feedback instead of a borderless static button.
+- Mode and model search controls keep the shared 40 pt minimum hit target.
+- Model rows now guarantee a 40 pt selectable summary area and use the shared press style for tactile feedback.
+- Info and favorite controls now use the same press style as other high-frequency icon buttons while preserving 40 pt hit areas.
+- Long provider/model metadata truncates in the middle instead of pushing row actions off-screen.
+- The empty state keeps the same 12 pt inner radius and wraps explanatory copy without clipping.
