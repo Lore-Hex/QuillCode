@@ -199,17 +199,9 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.path = project.displayPath
         self.connectionKindLabel = project.connection.kindLabel
         self.isRemote = project.isRemote
-        let remoteContextReason = project.isRemote
-            ? "SSH Remote context refresh needs remote file sync first."
-            : nil
         self.actions = [
             ProjectItemActionSurface(kind: .newChat, projectID: project.id),
-            ProjectItemActionSurface(
-                kind: .refreshContext,
-                projectID: project.id,
-                isEnabled: !project.isRemote,
-                disabledReason: remoteContextReason
-            ),
+            ProjectItemActionSurface(kind: .refreshContext, projectID: project.id),
             ProjectItemActionSurface(kind: .rename, projectID: project.id),
             ProjectItemActionSurface(kind: .remove, projectID: project.id)
         ]
@@ -2857,7 +2849,7 @@ public extension QuillCodeWorkspaceModel {
                 title: "Refresh project context",
                 category: WorkspaceCommandPalette.workspaceCategory,
                 keywords: ["project", "workspace", "instructions", "memory", "reload"],
-                isEnabled: selectedProject != nil && selectedProject?.isRemote == false
+                isEnabled: selectedProject != nil
             ),
             WorkspaceCommandSurface(
                 id: "project-rename",

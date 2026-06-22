@@ -1757,11 +1757,13 @@ public final class QuillCodeWorkspaceModel {
         guard let project = root.projects.first(where: { $0.id == id }) else {
             return false
         }
-        guard !project.isRemote else {
-            lastError = "Remote project context refresh is pending SSH executor support."
-            return false
+        if project.isRemote {
+            guard refreshRemoteProjectContext(id) else {
+                return false
+            }
+        } else {
+            refreshProjectMetadata(id)
         }
-        refreshProjectMetadata(id)
         if selectedThread?.projectID == id || root.selectedProjectID == id {
             let refreshedInstructions = instructions(for: id)
             let refreshedMemories = memoryNotes(for: id)
@@ -3927,7 +3929,7 @@ public final class QuillCodeWorkspaceModel {
                let project = root.projects.first(where: { $0.id == projectID }) {
                 appendLocalCommandTranscript(
                     userText: originalPrompt,
-                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Terminal commands run through SSH; context refresh, file tools, and git actions remain local-only for now.",
+                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Terminal commands and project context refresh run through SSH; file tools and git actions remain local-only for now.",
                     title: "Add SSH Remote"
                 )
             } else {
@@ -4309,6 +4311,31 @@ public final class QuillCodeWorkspaceModel {
         root.projects[index].localActions = LocalEnvironmentActionLoader.load(from: rootURL)
         root.projects[index].extensionManifests = ProjectExtensionManifestLoader.load(from: rootURL)
         root.projects[index].memories = MemoryNoteLoader.loadProject(from: rootURL)
+    }
+
+    private func refreshRemoteProjectContext(_ id: UUID) -> Bool {
+        refreshGlobalMemories()
+        guard let index = root.projects.firstIndex(where: { $0.id == id }),
+              root.projects[index].isRemote
+        else {
+            return false
+        }
+
+        do {
+            let context = try SSHRemoteProjectContextLoader.load(
+                connection: root.projects[index].connection,
+                executor: sshRemoteShellExecutor
+            )
+            root.projects[index].instructions = context.instructions
+            root.projects[index].memories = context.memories
+            root.projects[index].localActions = []
+            root.projects[index].extensionManifests = []
+            lastError = nil
+            return true
+        } catch {
+            lastError = error.localizedDescription
+            return false
+        }
     }
 
     private func refreshGlobalMemories() {

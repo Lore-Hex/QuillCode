@@ -171,12 +171,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(item.connectionKindLabel, "SSH Remote")
         XCTAssertTrue(item.isRemote)
         XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .rename, .remove])
-        XCTAssertEqual(item.actions.first { $0.kind == .refreshContext }?.isEnabled, false)
-        XCTAssertEqual(
-            item.actions.first { $0.kind == .refreshContext }?.disabledReason,
-            "SSH Remote context refresh needs remote file sync first."
-        )
-        XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, false)
+        XCTAssertEqual(item.actions.first { $0.kind == .refreshContext }?.isEnabled, true)
+        XCTAssertNil(item.actions.first { $0.kind == .refreshContext }?.disabledReason)
+        XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-list" }?.isEnabled, false)
         XCTAssertEqual(surface.commands.first { $0.id == "add-ssh-project" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "add-ssh-project" }?.title, "Project: Add SSH Remote...")

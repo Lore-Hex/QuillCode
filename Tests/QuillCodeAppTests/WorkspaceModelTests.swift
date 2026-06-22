@@ -279,10 +279,83 @@ final class WorkspaceModelTests: XCTestCase {
         let surface = model.surface()
         XCTAssertEqual(surface.terminal.cwdLabel, "ssh://quill@feather.local/srv/quill")
         XCTAssertEqual(surface.projects.items.first?.connectionKindLabel, "SSH Remote")
-        XCTAssertEqual(surface.projects.items.first?.actions.first { $0.kind == .refreshContext }?.isEnabled, false)
-        XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, false)
+        XCTAssertEqual(surface.projects.items.first?.actions.first { $0.kind == .refreshContext }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-create" }?.isEnabled, false)
         XCTAssertEqual(model.selectedThread?.messages.last?.content.contains("Added SSH Remote"), true)
+    }
+
+    func testRefreshProjectContextLoadsSSHRemoteInstructionsAndMemories() throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = root.appendingPathComponent("remote repo")
+        try FileManager.default.createDirectory(
+            at: remoteRoot.appendingPathComponent(".quillcode/memories"),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: remoteRoot.appendingPathComponent("Sources/Feature"),
+            withIntermediateDirectories: true
+        )
+        try "Root agent rules".write(
+            to: remoteRoot.appendingPathComponent("AGENTS.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "Remote project rules".write(
+            to: remoteRoot.appendingPathComponent(".quillcode/rules.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "Feature-scoped rules".write(
+            to: remoteRoot.appendingPathComponent("Sources/Feature/AGENTS.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "Prefer short final answers.".write(
+            to: remoteRoot.appendingPathComponent(".quillcode/memories/team-note.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let argumentsFile = root.appendingPathComponent("ssh-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(
+            path: remoteRoot.path,
+            host: "feather.local",
+            user: "quill"
+        )
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+        _ = model.newChat(projectID: project.id)
+
+        XCTAssertTrue(model.refreshProjectContext(project.id), model.lastError ?? "")
+
+        let refreshedProject = try XCTUnwrap(model.root.projects.first)
+        XCTAssertEqual(
+            refreshedProject.instructions.map(\.path),
+            ["AGENTS.md", ".quillcode/rules.md", "Sources/Feature/AGENTS.md"]
+        )
+        XCTAssertEqual(refreshedProject.instructions.map(\.content), [
+            "Root agent rules",
+            "Remote project rules",
+            "Feature-scoped rules"
+        ])
+        XCTAssertEqual(refreshedProject.memories.map(\.relativePath), [".quillcode/memories/team-note.md"])
+        XCTAssertEqual(refreshedProject.memories.first?.title, "Team Note")
+        XCTAssertEqual(refreshedProject.memories.first?.content, "Prefer short final answers.")
+        XCTAssertEqual(model.selectedThread?.instructions.map(\.path), refreshedProject.instructions.map(\.path))
+        XCTAssertEqual(model.selectedThread?.memories.map(\.relativePath), refreshedProject.memories.map(\.relativePath))
+        XCTAssertEqual(model.selectedThread?.events.last?.summary, "Refreshed project context")
+
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+        XCTAssertTrue(arguments.contains("cd '\(remoteRoot.path.replacingOccurrences(of: "'", with: "'\\''"))' &&"))
+        XCTAssertTrue(arguments.contains("QUILLCODE_CONTEXT_"))
     }
 
     func testSlashSSHRejectsMalformedAddress() async throws {

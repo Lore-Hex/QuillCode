@@ -1,5 +1,10 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 
+async function clickProjectAction(row: Locator, name: string) {
+  await row.getByLabel(/^Actions for project /).click();
+  await row.getByRole('button', { name }).click();
+}
+
 test('mock harness executes simple command flow', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
   await expect(page.getByTestId('workspace')).toBeVisible();
@@ -1028,10 +1033,6 @@ test('mock harness bulk-selects chats from the sidebar', async ({ page }) => {
 
 test('mock harness manages projects from the sidebar', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
-  const clickProjectAction = async (row: Locator, name: string) => {
-    await row.getByLabel(/^Actions for project /).click();
-    await row.getByRole('button', { name }).click();
-  };
 
   await page.getByTestId('add-project-button').click();
 
@@ -1085,8 +1086,8 @@ test('mock harness adds an SSH remote project from command palette and slash com
   await expect(page.getByTestId('top-bar-subtitle')).toContainText('feather.local · quill');
   await expect(page.getByTestId('message').last()).toContainText('Added SSH Remote');
 
-  await remoteProject.getByLabel(/^Actions for project /).click();
-  await expect(remoteProject.getByRole('button', { name: 'Refresh context' })).toBeDisabled();
+  await clickProjectAction(remoteProject, 'Refresh context');
+  await expect(page.getByTestId('message').last()).toContainText('Refreshed project context for feather.local · quill.');
 
   await page.getByTestId('terminal-button').click();
   await expect(page.getByTestId('terminal-pane')).toBeVisible();

@@ -2726,7 +2726,7 @@
         command.id === 'thread-bulk-unarchive' ? { ...command, isEnabled: hasArchivedBulkSelection } :
         command.id === 'thread-bulk-delete' ? { ...command, isEnabled: hasBulkSelection } :
         command.id === 'project-new-chat' ? { ...command, isEnabled: hasProject } :
-        command.id === 'project-refresh-context' ? { ...command, isEnabled: hasLocalProject } :
+        command.id === 'project-refresh-context' ? { ...command, isEnabled: hasProject } :
         command.id === 'project-rename' ? { ...command, isEnabled: hasProject } :
         command.id === 'project-remove' ? { ...command, isEnabled: hasProject } :
         command.id === 'git-pr-create' ? { ...command, isEnabled: hasLocalProject } :
@@ -4875,8 +4875,8 @@
         {
           id: 'refresh-context',
           title: 'Refresh context',
-          isEnabled: !project.isRemote,
-          disabledReason: project.isRemote ? 'SSH Remote context refresh needs remote file sync first.' : ''
+          isEnabled: true,
+          disabledReason: ''
         },
         { id: 'rename', title: 'Rename' },
         { id: 'remove', title: 'Remove from list' }
@@ -5076,7 +5076,7 @@
       state.terminal.cwdLabel = label;
       state.terminal.environment = {};
       state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
-      addMessage('assistant', `Added SSH Remote ${project.name} at ${label}. Terminal commands run through SSH; context refresh, file tools, and git actions remain local-only for now.`);
+      addMessage('assistant', `Added SSH Remote ${project.name} at ${label}. Terminal commands and project context refresh run through SSH; file tools and git actions remain local-only for now.`);
       render();
     }
 
