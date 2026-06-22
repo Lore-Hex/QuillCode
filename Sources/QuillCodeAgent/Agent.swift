@@ -262,13 +262,6 @@ public struct MockLLMClient: LLMClient {
             return .tool(.init(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}"))
         }
 
-        if Self.isPullRequestMergeRequest(lower) {
-            return .tool(.init(
-                name: ToolDefinition.gitPullRequestMerge.name,
-                argumentsJSON: ToolArguments.json(Self.extractPullRequestMergeArguments(from: request))
-            ))
-        }
-
         if Self.isPullRequestCheckoutRequest(lower) {
             return .tool(.init(
                 name: ToolDefinition.gitPullRequestCheckout.name,
@@ -280,6 +273,20 @@ public struct MockLLMClient: LLMClient {
             return .tool(.init(
                 name: ToolDefinition.gitPullRequestReviewers.name,
                 argumentsJSON: ToolArguments.json(Self.extractPullRequestReviewerArguments(from: request))
+            ))
+        }
+
+        if Self.isPullRequestLabelRequest(lower) {
+            return .tool(.init(
+                name: ToolDefinition.gitPullRequestLabels.name,
+                argumentsJSON: ToolArguments.json(Self.extractPullRequestLabelArguments(from: request))
+            ))
+        }
+
+        if Self.isPullRequestMergeRequest(lower) {
+            return .tool(.init(
+                name: ToolDefinition.gitPullRequestMerge.name,
+                argumentsJSON: ToolArguments.json(Self.extractPullRequestMergeArguments(from: request))
             ))
         }
 
@@ -511,6 +518,26 @@ public struct MockLLMClient: LLMClient {
             && (tokens.contains("request") || tokens.contains("add") || tokens.contains("remove"))
     }
 
+    static func isPullRequestLabelRequest(_ lowercasedRequest: String) -> Bool {
+        let tokens = lowercasedRequest
+            .split { !$0.isLetter && !$0.isNumber }
+            .map(String.init)
+        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
+        guard mentionsPullRequest else { return false }
+        if lowercasedRequest.contains("add label")
+            || lowercasedRequest.contains("add labels")
+            || lowercasedRequest.contains("remove label")
+            || lowercasedRequest.contains("remove labels")
+            || lowercasedRequest.contains("label this")
+            || lowercasedRequest.contains("label the pr")
+            || lowercasedRequest.contains("label pr")
+            || lowercasedRequest.contains("unlabel") {
+            return true
+        }
+        return (tokens.contains("label") || tokens.contains("labels"))
+            && (tokens.contains("add") || tokens.contains("remove") || tokens.contains("set"))
+    }
+
     static func isPullRequestViewRequest(_ lowercasedRequest: String) -> Bool {
         let tokens = lowercasedRequest
             .split { !$0.isLetter && !$0.isNumber }
@@ -619,6 +646,57 @@ public struct MockLLMClient: LLMClient {
         return arguments
     }
 
+    static func extractPullRequestLabelArguments(from request: String) -> [String: String] {
+        var arguments = extractPullRequestSelectorArguments(from: request)
+        let labels = extractPullRequestLabels(from: request)
+        if request.lowercased().contains("remove label")
+            || request.lowercased().contains("remove labels")
+            || request.lowercased().contains("unlabel") {
+            arguments["remove"] = labels.joined(separator: ",")
+        } else {
+            arguments["add"] = labels.joined(separator: ",")
+        }
+        return arguments
+    }
+
+    static func extractPullRequestLabels(from request: String) -> [String] {
+        let lower = request.lowercased()
+        let markers = [
+            "add labels ",
+            "add label ",
+            "remove labels ",
+            "remove label ",
+            "label this ",
+            "label the pr ",
+            "label pr ",
+            "labels ",
+            "label "
+        ]
+        let rawList: String
+        if let range = markers.compactMap({ lower.range(of: $0) }).min(by: { $0.lowerBound < $1.lowerBound }) {
+            rawList = String(request[range.upperBound...])
+        } else {
+            rawList = request
+        }
+        let pullRequestTrimmed = trimLeadingPullRequestReference(
+            from: trimTrailingPullRequestReference(from: rawList)
+        )
+        let labels = pullRequestTrimmed
+            .replacingOccurrences(of: " and ", with: ",", options: [.caseInsensitive])
+            .split(separator: ",")
+            .map { String($0).trimmingCharacters(in: CharacterSet(charactersIn: ".:;\"' ").union(.whitespacesAndNewlines)) }
+            .filter { !$0.isEmpty }
+            .filter { $0.range(of: #"^#?\d+$"#, options: .regularExpression) == nil }
+            .filter { label in
+                let lowercasedLabel = label.lowercased()
+                return lowercasedLabel != "pr"
+                    && lowercasedLabel != "pull request"
+                    && lowercasedLabel != "pull"
+                    && lowercasedLabel != "request"
+            }
+        return labels.isEmpty ? ["needs review"] : labels
+    }
+
     static func extractPullRequestReviewers(from request: String) -> [String] {
         let lower = request.lowercased()
         let markers = [
@@ -638,8 +716,10 @@ public struct MockLLMClient: LLMClient {
         } else {
             rawList = request
         }
-        let trimmedAtPullRequest = trimTrailingPullRequestReference(from: rawList)
-        let reviewers = trimmedAtPullRequest
+        let pullRequestTrimmed = trimLeadingPullRequestReference(
+            from: trimTrailingPullRequestReference(from: rawList)
+        )
+        let reviewers = pullRequestTrimmed
             .replacingOccurrences(of: " and ", with: ",", options: [.caseInsensitive])
             .split { character in
                 character == "," || character.isWhitespace
@@ -658,11 +738,25 @@ public struct MockLLMClient: LLMClient {
 
     private static func trimTrailingPullRequestReference(from text: String) -> String {
         let lower = text.lowercased()
-        let markers = [" on pr", " for pr", " on pull request", " for pull request"]
+        let markers = [" on pr", " for pr", " to pr", " on pull request", " for pull request", " to pull request"]
         let end = markers
             .compactMap { lower.range(of: $0)?.lowerBound }
             .min() ?? text.endIndex
         return String(text[..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func trimLeadingPullRequestReference(from text: String) -> String {
+        var trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = trimmed.lowercased()
+        if lower.hasPrefix("pull request ") {
+            trimmed = String(trimmed.dropFirst("pull request ".count))
+        } else if lower.hasPrefix("pr ") {
+            trimmed = String(trimmed.dropFirst("pr ".count))
+        }
+        if let range = trimmed.range(of: #"^#?\d+\s+"#, options: .regularExpression) {
+            trimmed.removeSubrange(range)
+        }
+        return trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     static func extractPullRequestReviewAction(from request: String) -> String {

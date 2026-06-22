@@ -816,6 +816,8 @@ private struct QuillCodeCommandPaletteView: View {
             return "arrow.down.doc"
         case "git-pr-reviewers":
             return "person.2.badge.gearshape"
+        case "git-pr-labels":
+            return "tag"
         case "git-pr-merge":
             return "arrow.triangle.merge"
         case "git-worktree-list":

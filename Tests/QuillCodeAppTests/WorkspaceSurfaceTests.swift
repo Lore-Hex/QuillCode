@@ -121,6 +121,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "git-pr-reviewers",
             "git-pr-comment",
             "git-pr-review",
+            "git-pr-labels",
             "git-pr-merge",
             "git-worktree-list",
             "git-worktree-create",
@@ -207,6 +208,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-reviewers" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-comment" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-review" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-labels" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-merge" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-list" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-create" }?.isEnabled, true)
@@ -743,6 +745,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(
             WorkspaceCommandPalette.rankedCommands(commands, matching: "approve pr").first?.id,
             "git-pr-review"
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPalette.rankedCommands(commands, matching: "label pr").first?.id,
+            "git-pr-labels"
         )
         XCTAssertEqual(
             WorkspaceCommandPalette.rankedCommands(commands, matching: "merge pull").first?.id,
