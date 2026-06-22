@@ -452,6 +452,27 @@ public struct QuillAutomation: Codable, Sendable, Hashable, Identifiable {
         self.updatedAt = updatedAt
         self.nextRunAt = nextRunAt
     }
+
+    public static func sortedForDisplay(_ automations: [QuillAutomation]) -> [QuillAutomation] {
+        automations.sorted { lhs, rhs in
+            if lhs.status != rhs.status {
+                return lhs.status == .active
+            }
+            switch (lhs.nextRunAt, rhs.nextRunAt) {
+            case let (lhsRun?, rhsRun?) where lhsRun != rhsRun:
+                return lhsRun < rhsRun
+            case (.some, nil):
+                return true
+            case (nil, .some):
+                return false
+            default:
+                if lhs.updatedAt != rhs.updatedAt {
+                    return lhs.updatedAt > rhs.updatedAt
+                }
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+        }
+    }
 }
 
 public enum ProjectConnectionKind: String, Codable, Sendable, Hashable, CaseIterable {

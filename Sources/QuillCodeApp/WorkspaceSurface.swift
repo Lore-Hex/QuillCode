@@ -1321,15 +1321,18 @@ public struct WorkspaceAutomationsSurface: Codable, Sendable, Hashable {
     public var emptyTitle: String
     public var emptySubtitle: String
     public var workflows: [AutomationWorkflowSurface]
+    public var createThreadFollowUpCommand: WorkspaceCommandSurface?
 
     public init(
         isVisible: Bool = false,
         automations: [QuillAutomation] = [],
+        createThreadFollowUpCommand: WorkspaceCommandSurface? = nil,
         workflows: [AutomationWorkflowSurface] = AutomationWorkflowSurface.plannedWorkflows,
         emptyTitle: String = "No automations yet",
         emptySubtitle: String = "Create scheduled follow-ups, workspace checks, and monitors once the automation runtime lands."
     ) {
-        let configuredWorkflows = automations.map(AutomationWorkflowSurface.init)
+        let sortedAutomations = QuillAutomation.sortedForDisplay(automations)
+        let configuredWorkflows = sortedAutomations.map(AutomationWorkflowSurface.init)
         let activeCount = automations.filter { $0.status == .active }.count
         let pausedCount = automations.filter { $0.status == .paused }.count
         self.isVisible = isVisible
@@ -1344,6 +1347,7 @@ public struct WorkspaceAutomationsSurface: Codable, Sendable, Hashable {
         self.emptyTitle = emptyTitle
         self.emptySubtitle = emptySubtitle
         self.workflows = configuredWorkflows.isEmpty ? workflows : configuredWorkflows
+        self.createThreadFollowUpCommand = createThreadFollowUpCommand
     }
 
     private static func statusLabel(
@@ -1369,22 +1373,32 @@ public struct AutomationWorkflowSurface: Codable, Sendable, Hashable, Identifiab
     public var detail: String
     public var statusLabel: String
     public var scheduleLabel: String
+    public var primaryActionTitle: String?
+    public var primaryCommandID: String?
+    public var deleteCommandID: String?
 
     public init(
         id: String,
         title: String,
         detail: String,
         statusLabel: String,
-        scheduleLabel: String
+        scheduleLabel: String,
+        primaryActionTitle: String? = nil,
+        primaryCommandID: String? = nil,
+        deleteCommandID: String? = nil
     ) {
         self.id = id
         self.title = title
         self.detail = detail
         self.statusLabel = statusLabel
         self.scheduleLabel = scheduleLabel
+        self.primaryActionTitle = primaryActionTitle
+        self.primaryCommandID = primaryCommandID
+        self.deleteCommandID = deleteCommandID
     }
 
     public init(automation: QuillAutomation) {
+        let uuid = automation.id.uuidString
         self.id = automation.id.uuidString
         self.title = automation.title
         self.detail = automation.detail
@@ -1392,6 +1406,11 @@ public struct AutomationWorkflowSurface: Codable, Sendable, Hashable, Identifiab
         self.scheduleLabel = automation.scheduleDescription.isEmpty
             ? automation.scheduleKind.label
             : automation.scheduleDescription
+        self.primaryActionTitle = automation.status == .active ? "Pause" : "Resume"
+        self.primaryCommandID = automation.status == .active
+            ? "automation-pause:\(uuid)"
+            : "automation-resume:\(uuid)"
+        self.deleteCommandID = "automation-delete:\(uuid)"
     }
 
     public static let plannedWorkflows: [AutomationWorkflowSurface] = [
@@ -1899,6 +1918,16 @@ public struct WorkspaceCommandSurface: Codable, Sendable, Hashable, Identifiable
 }
 
 public extension WorkspaceCommandSurface {
+    static func automationCreateThreadFollowUp(isEnabled: Bool) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: "automation-create-thread-follow-up",
+            title: "Create thread follow-up",
+            category: WorkspaceCommandPalette.automationsCategory,
+            keywords: ["automation", "follow-up", "thread", "heartbeat", "schedule"],
+            isEnabled: isEnabled
+        )
+    }
+
     static func computerUseSetup(isEnabled: Bool) -> WorkspaceCommandSurface {
         WorkspaceCommandSurface(
             id: "computer-use-setup",
@@ -1952,6 +1981,7 @@ public enum WorkspaceCommandPalette {
     public static let environmentCategory = "Environment"
     public static let controlCategory = "Control"
     public static let computerUseCategory = "Computer Use"
+    public static let automationsCategory = "Automations"
     public static let extensionsCategory = "Extensions"
     public static let memoriesCategory = "Memories"
 
@@ -1960,6 +1990,7 @@ public enum WorkspaceCommandPalette {
         navigationCategory,
         workspaceCategory,
         slashCategory,
+        automationsCategory,
         memoriesCategory,
         extensionsCategory,
         gitCategory,
@@ -2432,7 +2463,10 @@ public extension QuillCodeWorkspaceModel {
             ),
             automations: WorkspaceAutomationsSurface(
                 isVisible: automations.isVisible,
-                automations: automations.items
+                automations: automations.items,
+                createThreadFollowUpCommand: .automationCreateThreadFollowUp(
+                    isEnabled: thread != nil
+                )
             ),
             composer: ComposerSurface(composer: composer),
             commands: commands(),
@@ -3044,6 +3078,7 @@ public extension QuillCodeWorkspaceModel {
                 category: WorkspaceCommandPalette.workspaceCategory,
                 keywords: ["automation", "schedule", "recurring", "monitor", "follow-up", "heartbeat"]
             ),
+            .automationCreateThreadFollowUp(isEnabled: selectedThread != nil),
             WorkspaceCommandSurface(
                 id: "toggle-memories",
                 title: "Memories",

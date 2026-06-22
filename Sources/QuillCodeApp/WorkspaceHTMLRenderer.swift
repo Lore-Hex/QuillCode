@@ -843,7 +843,8 @@ public enum WorkspaceHTMLRenderer {
             """
         } else {
             content = automations.workflows.map { workflow in
-                """
+                let actions = renderAutomationActions(workflow)
+                return """
                 <article class="automation-card" data-testid="automation-card">
                   <div>
                     <span data-testid="automation-schedule">\(escape(workflow.scheduleLabel))</span>
@@ -851,10 +852,14 @@ public enum WorkspaceHTMLRenderer {
                   </div>
                   <strong>\(escape(workflow.title))</strong>
                   <p>\(escape(workflow.detail))</p>
+                  \(actions)
                 </article>
                 """
             }.joined(separator: "\n")
         }
+        let createButton = automations.createThreadFollowUpCommand.map { command in
+            #"<button type="button" data-testid="automation-create-follow-up" data-command-id="\#(escape(command.id))" \#(command.isEnabled ? "" : "disabled")>\#(escape(command.title))</button>"#
+        } ?? ""
         return """
         <section class="automations-pane" data-testid="automations-pane" aria-label="Automations">
           <header>
@@ -862,6 +867,7 @@ public enum WorkspaceHTMLRenderer {
               <strong data-testid="automations-title">\(escape(automations.title))</strong>
               <p data-testid="automations-subtitle">\(escape(automations.subtitle))</p>
             </div>
+            \(createButton)
             <span data-testid="automations-status">\(escape(automations.statusLabel))</span>
           </header>
           <div class="automation-grid">
@@ -869,6 +875,19 @@ public enum WorkspaceHTMLRenderer {
           </div>
         </section>
         """
+    }
+
+    private static func renderAutomationActions(_ workflow: AutomationWorkflowSurface) -> String {
+        var buttons: [String] = []
+        if let commandID = workflow.primaryCommandID,
+           let title = workflow.primaryActionTitle {
+            buttons.append(#"<button type="button" data-testid="automation-primary-action" data-command-id="\#(escape(commandID))">\#(escape(title))</button>"#)
+        }
+        if let commandID = workflow.deleteCommandID {
+            buttons.append(#"<button type="button" data-testid="automation-delete" data-command-id="\#(escape(commandID))">Delete</button>"#)
+        }
+        guard !buttons.isEmpty else { return "" }
+        return #"<div class="automation-actions">\#(buttons.joined(separator: "\n"))</div>"#
     }
 
     private static func renderActivitySection(_ section: ActivitySectionSurface) -> String {

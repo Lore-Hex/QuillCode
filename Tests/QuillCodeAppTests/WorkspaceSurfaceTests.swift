@@ -95,6 +95,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "toggle-browser",
             "toggle-activity",
             "toggle-automations",
+            "automation-create-thread-follow-up",
             "toggle-memories",
             "memory-add",
             "toggle-extensions",
@@ -403,6 +404,26 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(automations.workflows.map(\.title), ["Nightly repo check", "Paused PR monitor"])
         XCTAssertEqual(automations.workflows.map(\.statusLabel), ["Active", "Paused"])
         XCTAssertEqual(automations.workflows.first?.scheduleLabel, "Every weekday at 6:00 PM")
+        XCTAssertEqual(automations.workflows.first?.primaryActionTitle, "Pause")
+        XCTAssertTrue(automations.workflows.first?.primaryCommandID?.hasPrefix("automation-pause:") == true)
+        XCTAssertTrue(automations.workflows.first?.deleteCommandID?.hasPrefix("automation-delete:") == true)
+        XCTAssertEqual(automations.workflows.last?.primaryActionTitle, "Resume")
+        XCTAssertTrue(automations.workflows.last?.primaryCommandID?.hasPrefix("automation-resume:") == true)
+    }
+
+    func testAutomationsSurfaceExposesCreateFollowUpCommandForSelectedThread() {
+        let thread = ChatThread(title: "Ship QuillCode")
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let automations = model.surface().automations
+
+        XCTAssertEqual(automations.createThreadFollowUpCommand?.id, "automation-create-thread-follow-up")
+        XCTAssertEqual(automations.createThreadFollowUpCommand?.category, WorkspaceCommandPalette.automationsCategory)
+        XCTAssertEqual(automations.createThreadFollowUpCommand?.isEnabled, true)
+        XCTAssertEqual(model.surface().commands.first { $0.id == "automation-create-thread-follow-up" }?.isEnabled, true)
     }
 
     func testActivitySectionToggleCollapsesSharedSurfaceSection() throws {

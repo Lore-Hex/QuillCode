@@ -577,6 +577,33 @@ test('mock harness separates Automations from Activity in the sidebar', async ({
   await expect(page.getByTestId('activity-title')).toHaveText('Activity');
 });
 
+test('mock harness creates and manages a thread follow-up automation', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('new-chat-button').click();
+  await page.getByLabel('Message').fill('plan the launch');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByTestId('automations-button').click();
+  await page.getByTestId('automation-create-follow-up').click();
+
+  await expect(page.getByTestId('automations-status')).toHaveText('1 active');
+  await expect(page.getByTestId('automation-card')).toHaveCount(1);
+  await expect(page.getByTestId('automation-card')).toContainText('Follow up: plan the launch');
+  await expect(page.getByTestId('automation-primary-action')).toHaveText('Pause');
+
+  await page.getByTestId('automation-primary-action').click();
+  await expect(page.getByTestId('automations-status')).toHaveText('1 paused');
+  await expect(page.getByTestId('automation-primary-action')).toHaveText('Resume');
+
+  await page.getByTestId('automation-primary-action').click();
+  await expect(page.getByTestId('automations-status')).toHaveText('1 active');
+  await expect(page.getByTestId('automation-primary-action')).toHaveText('Pause');
+
+  await page.getByTestId('automation-delete').click();
+  await expect(page.getByTestId('automations-status')).toHaveText('3 planned');
+  await expect(page.getByTestId('automation-card')).toHaveCount(3);
+});
+
 test('mock harness renders image artifact previews from tool cards', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

@@ -2837,6 +2837,42 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(try automationStore.load().map(\.title), ["Morning check"])
     }
 
+    func testAutomationCommandsCreatePauseResumeAndDeletePersistedFollowUp() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let thread = ChatThread(title: "Launch plan")
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            automationStore: automationStore
+        )
+
+        XCTAssertTrue(model.runWorkspaceCommand("automation-create-thread-follow-up", workspaceRoot: root))
+
+        let created = try XCTUnwrap(try automationStore.load().first)
+        XCTAssertEqual(created.title, "Follow up: Launch plan")
+        XCTAssertEqual(created.threadID, thread.id)
+        XCTAssertEqual(created.status, .active)
+        XCTAssertEqual(model.surface().automations.statusLabel, "1 active")
+
+        XCTAssertTrue(model.runWorkspaceCommand("automation-pause:\(created.id.uuidString)", workspaceRoot: root))
+        XCTAssertEqual(try automationStore.load().first?.status, .paused)
+        XCTAssertEqual(model.surface().automations.workflows.first?.primaryActionTitle, "Resume")
+
+        XCTAssertTrue(model.runWorkspaceCommand("automation-resume:\(created.id.uuidString)", workspaceRoot: root))
+        XCTAssertEqual(try automationStore.load().first?.status, .active)
+        XCTAssertEqual(model.surface().automations.workflows.first?.primaryActionTitle, "Pause")
+
+        XCTAssertTrue(model.runWorkspaceCommand("automation-delete:\(created.id.uuidString)", workspaceRoot: root))
+        XCTAssertEqual(try automationStore.load(), [])
+        XCTAssertEqual(model.surface().automations.workflows.map(\.title), [
+            "Thread follow-ups",
+            "Workspace schedules",
+            "Monitors"
+        ])
+    }
+
     func testBootstrapPersistsAndClearsTrustedRouterAPIKey() throws {
         let paths = QuillCodePaths(home: try makeTempDirectory())
         let bootstrap = QuillCodeWorkspaceBootstrap(paths: paths)

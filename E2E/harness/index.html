@@ -1097,6 +1097,33 @@
     .extensions-empty p,
     .memories-empty p,
     .automation-empty p { margin: 0; color: var(--muted); }
+    .automation-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 4px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .automation-actions button,
+    [data-testid="automation-create-follow-up"] {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(92, 200, 255, 0.12);
+      color: var(--accent);
+      padding: 0 12px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+    }
+    .automation-actions button:active,
+    [data-testid="automation-create-follow-up"]:active { transform: scale(0.96); }
+    [data-testid="automation-create-follow-up"]:disabled {
+      opacity: 0.44;
+      cursor: not-allowed;
+    }
     .extension-card code,
     .extension-card [data-testid="extension-transport"],
     .memory-card code {
@@ -2146,6 +2173,7 @@
         { id: 'toggle-browser', title: 'Browser', shortcut: 'Cmd+Shift+B', category: 'Workspace', keywords: ['preview', 'web', 'localhost'], isEnabled: true },
         { id: 'toggle-activity', title: 'Activity', shortcut: '', category: 'Workspace', keywords: ['task', 'summary', 'sources', 'artifacts', 'tools'], isEnabled: true },
         { id: 'toggle-automations', title: 'Automations', shortcut: '', category: 'Workspace', keywords: ['automation', 'schedule', 'recurring', 'monitor', 'follow-up', 'heartbeat'], isEnabled: true },
+        { id: 'automation-create-thread-follow-up', title: 'Create thread follow-up', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule'], isEnabled: false },
         { id: 'toggle-memories', title: 'Memories', shortcut: '', category: 'Memories', keywords: ['memory', 'context', 'preferences', 'facts'], isEnabled: true },
         { id: 'memory-add', title: 'Add memory', shortcut: '', category: 'Memories', keywords: ['remember', 'save', 'preference', 'fact'], isEnabled: true },
         { id: 'toggle-extensions', title: 'Extensions', shortcut: '', category: 'Extensions', keywords: ['plugins', 'skills', 'mcp', 'manifest'], isEnabled: true },
@@ -2194,7 +2222,13 @@
         title: 'Automations',
         subtitle: 'Recurring work, follow-ups, monitors, and long-running agent jobs',
         statusLabel: '3 planned',
-        workflows: [
+        createThreadFollowUpCommand: {
+          id: 'automation-create-thread-follow-up',
+          title: 'Create thread follow-up',
+          isEnabled: false
+        },
+        configuredWorkflows: [],
+        plannedWorkflows: [
           {
             id: 'thread-followups',
             title: 'Thread follow-ups',
@@ -2216,10 +2250,12 @@
             statusLabel: 'Planned',
             scheduleLabel: 'Event'
           }
-        ]
+        ],
+        workflows: []
       },
       nextProjectIndex: 2,
       nextThreadIndex: 1,
+      nextAutomationIndex: 1,
       nextTimelineIndex: 1,
       copiedTranscriptItemID: null
     };
@@ -2884,12 +2920,36 @@
         command.id === 'compact-context' ? { ...command, isEnabled: hasMessages } :
         command.id === 'retry-last-turn' ? { ...command, isEnabled: hasUserMessages && !state.composer.isSending } :
         command.id === 'find-in-chat' ? { ...command, isEnabled: hasThread } :
+        command.id === 'automation-create-thread-follow-up' ? { ...command, isEnabled: hasThread } :
         command.id === 'stop-all' ? { ...command, isEnabled: hasActiveWork } :
         command
       ));
     }
 
-    const commandCategoryOrder = ['Thread', 'Navigation', 'Workspace', 'Slash Commands', 'Memories', 'Extensions', 'Git', 'Environment', 'Control', 'Computer Use'];
+    function syncAutomationsSurface() {
+      const selectedThread = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
+      const configured = state.automations.configuredWorkflows || [];
+      const activeCount = configured.filter(workflow => workflow.statusLabel === 'Active').length;
+      const pausedCount = configured.filter(workflow => workflow.statusLabel === 'Paused').length;
+      state.automations.createThreadFollowUpCommand = {
+        id: 'automation-create-thread-follow-up',
+        title: 'Create thread follow-up',
+        isEnabled: Boolean(selectedThread)
+      };
+      if (!configured.length) {
+        state.automations.statusLabel = `${state.automations.plannedWorkflows.length} planned`;
+        state.automations.workflows = state.automations.plannedWorkflows;
+      } else {
+        state.automations.statusLabel = activeCount && pausedCount
+          ? `${activeCount} active · ${pausedCount} paused`
+          : activeCount
+            ? `${activeCount} active`
+            : `${pausedCount} paused`;
+        state.automations.workflows = configured;
+      }
+    }
+
+    const commandCategoryOrder = ['Thread', 'Navigation', 'Workspace', 'Slash Commands', 'Automations', 'Memories', 'Extensions', 'Git', 'Environment', 'Control', 'Computer Use'];
 
     function normalizeCommandText(value) {
       return String(value || '').trim().toLowerCase();
@@ -3135,6 +3195,7 @@
     function render() {
       const scrollSnapshot = captureTranscriptScroll();
       updateDynamicCommands();
+      syncAutomationsSurface();
       const context = renderContextBanner(contextBanner());
       const runtimeIssue = renderRuntimeIssue(state.runtimeIssue);
       const review = state.review.files.length ? `
@@ -3671,6 +3732,14 @@
         runCommand('toggle-activity');
       });
       document.querySelectorAll('[data-testid="activity-section-toggle"]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
+        });
+      });
+      document.querySelector('[data-testid="automation-create-follow-up"]')?.addEventListener('click', event => {
+        runCommand(event.currentTarget.getAttribute('data-command-id'));
+      });
+      document.querySelectorAll('[data-testid="automation-primary-action"], [data-testid="automation-delete"]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
@@ -5014,6 +5083,16 @@
 
     function renderAutomationsPane() {
       const workflows = state.automations.workflows || [];
+      const renderActions = workflow => {
+        const actions = [];
+        if (workflow.primaryCommandID && workflow.primaryActionTitle) {
+          actions.push(`<button type="button" data-testid="automation-primary-action" data-command-id="${escapeHTML(workflow.primaryCommandID)}">${escapeHTML(workflow.primaryActionTitle)}</button>`);
+        }
+        if (workflow.deleteCommandID) {
+          actions.push(`<button type="button" data-testid="automation-delete" data-command-id="${escapeHTML(workflow.deleteCommandID)}">Delete</button>`);
+        }
+        return actions.length ? `<div class="automation-actions">${actions.join('')}</div>` : '';
+      };
       const content = workflows.length ? `
         <div class="automation-grid" data-testid="automation-grid">
           ${workflows.map(workflow => `
@@ -5024,6 +5103,7 @@
               </div>
               <strong>${escapeHTML(workflow.title)}</strong>
               <p>${escapeHTML(workflow.detail)}</p>
+              ${renderActions(workflow)}
             </article>`).join('')}
         </div>` : `
         <div class="automation-empty" data-testid="automations-empty">
@@ -5037,6 +5117,7 @@
               <strong data-testid="automations-title">${escapeHTML(state.automations.title)}</strong>
               <p data-testid="automations-subtitle">${escapeHTML(state.automations.subtitle)}</p>
             </div>
+            <button type="button" data-testid="automation-create-follow-up" data-command-id="${escapeHTML(state.automations.createThreadFollowUpCommand.id)}" ${state.automations.createThreadFollowUpCommand.isEnabled ? '' : 'disabled'}>${escapeHTML(state.automations.createThreadFollowUpCommand.title)}</button>
             <span data-testid="automations-status">${escapeHTML(state.automations.statusLabel)}</span>
           </header>
           ${content}
@@ -5415,6 +5496,51 @@
       render();
     }
 
+    function selectedThread() {
+      return state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID) || null;
+    }
+
+    function createThreadFollowUpAutomation() {
+      const thread = selectedThread();
+      if (!thread) return;
+      const id = `automation-${state.nextAutomationIndex++}`;
+      state.automations.configuredWorkflows = [
+        {
+          id,
+          title: `Follow up: ${thread.title}`,
+          detail: 'Resume this thread with the same project, model, and context.',
+          statusLabel: 'Active',
+          scheduleLabel: 'Manual follow-up',
+          primaryActionTitle: 'Pause',
+          primaryCommandID: `automation-pause:${id}`,
+          deleteCommandID: `automation-delete:${id}`
+        },
+        ...state.automations.configuredWorkflows
+      ];
+      state.automations.isVisible = true;
+      render();
+    }
+
+    function updateAutomationStatus(commandID, statusLabel) {
+      const id = commandID.split(':')[1];
+      state.automations.configuredWorkflows = state.automations.configuredWorkflows.map(workflow => {
+        if (workflow.id !== id) return workflow;
+        return {
+          ...workflow,
+          statusLabel,
+          primaryActionTitle: statusLabel === 'Active' ? 'Pause' : 'Resume',
+          primaryCommandID: `${statusLabel === 'Active' ? 'automation-pause' : 'automation-resume'}:${id}`
+        };
+      });
+      render();
+    }
+
+    function deleteAutomation(commandID) {
+      const id = commandID.split(':')[1];
+      state.automations.configuredWorkflows = state.automations.configuredWorkflows.filter(workflow => workflow.id !== id);
+      render();
+    }
+
     function runCommand(commandID) {
       if (commandID === 'command-palette') {
         openCommandPalette();
@@ -5433,6 +5559,22 @@
       if (commandID?.startsWith('memory-delete:')) {
         deleteMemory(commandID.slice('memory-delete:'.length));
         render();
+        return;
+      }
+      if (commandID === 'automation-create-thread-follow-up') {
+        createThreadFollowUpAutomation();
+        return;
+      }
+      if (commandID?.startsWith('automation-pause:')) {
+        updateAutomationStatus(commandID, 'Paused');
+        return;
+      }
+      if (commandID?.startsWith('automation-resume:')) {
+        updateAutomationStatus(commandID, 'Active');
+        return;
+      }
+      if (commandID?.startsWith('automation-delete:')) {
+        deleteAutomation(commandID);
         return;
       }
       if (commandID?.startsWith('thread-selection-toggle:')) {

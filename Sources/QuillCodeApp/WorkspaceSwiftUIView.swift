@@ -163,7 +163,10 @@ public struct QuillCodeWorkspaceView: View {
                 HStack(spacing: 0) {
                     VStack(spacing: 0) {
                         if surface.automations.isVisible {
-                            QuillCodeAutomationsPaneView(automations: surface.automations)
+                            QuillCodeAutomationsPaneView(
+                                automations: surface.automations,
+                                onCommand: handleCommand
+                            )
                             Divider()
                         }
                         if !surface.automations.isVisible || !surface.transcript.timelineItems.isEmpty {
@@ -2868,6 +2871,11 @@ private struct QuillCodeMemoriesPaneView: View {
 
 private struct QuillCodeAutomationsPaneView: View {
     var automations: WorkspaceAutomationsSurface
+    var onCommand: (WorkspaceCommandSurface) -> Void
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 220), spacing: 10, alignment: .top)
+    ]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -2883,6 +2891,15 @@ private struct QuillCodeAutomationsPaneView: View {
                         .lineLimit(2)
                 }
                 Spacer()
+                if let createCommand = automations.createThreadFollowUpCommand {
+                    Button {
+                        onCommand(createCommand)
+                    } label: {
+                        Label("Follow-up", systemImage: "plus")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!createCommand.isEnabled)
+                }
                 Text(automations.statusLabel)
                     .font(.caption.weight(.semibold))
                     .fontDesign(.rounded)
@@ -2906,7 +2923,7 @@ private struct QuillCodeAutomationsPaneView: View {
                 .background(QuillCodePalette.background.opacity(0.7))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             } else {
-                HStack(spacing: 10) {
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
                     ForEach(automations.workflows) { workflow in
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(alignment: .firstTextBaseline) {
@@ -2925,6 +2942,25 @@ private struct QuillCodeAutomationsPaneView: View {
                                 .font(.caption)
                                 .foregroundStyle(QuillCodePalette.muted)
                                 .lineLimit(3)
+                            if workflow.primaryCommandID != nil || workflow.deleteCommandID != nil {
+                                Divider()
+                                HStack(spacing: 8) {
+                                    if let commandID = workflow.primaryCommandID,
+                                       let actionTitle = workflow.primaryActionTitle {
+                                        Button(actionTitle) {
+                                            onCommand(automationCommand(id: commandID, title: actionTitle))
+                                        }
+                                        .buttonStyle(.bordered)
+                                    }
+                                    if let commandID = workflow.deleteCommandID {
+                                        Button("Delete", role: .destructive) {
+                                            onCommand(automationCommand(id: commandID, title: "Delete automation"))
+                                        }
+                                        .buttonStyle(.bordered)
+                                    }
+                                }
+                                .font(.caption.weight(.semibold))
+                            }
                         }
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                         .padding(12)
@@ -2937,6 +2973,15 @@ private struct QuillCodeAutomationsPaneView: View {
         .padding(14)
         .frame(minHeight: 190)
         .background(QuillCodePalette.panel)
+    }
+
+    private func automationCommand(id: String, title: String) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: id,
+            title: title,
+            category: WorkspaceCommandPalette.automationsCategory,
+            keywords: ["automation", "schedule", "follow-up"]
+        )
     }
 }
 

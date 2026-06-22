@@ -1378,8 +1378,42 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func setAutomations(_ items: [QuillAutomation]) {
-        automations.items = items
+        automations.items = QuillAutomation.sortedForDisplay(items)
         saveAutomations()
+    }
+
+    @discardableResult
+    public func createThreadFollowUpAutomation() -> QuillAutomation? {
+        guard let thread = selectedThread else { return nil }
+        let title = thread.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let automation = QuillAutomation(
+            title: title.isEmpty ? "Thread follow-up" : "Follow up: \(title)",
+            detail: "Resume this thread with the same project, model, and context.",
+            kind: .threadFollowUp,
+            scheduleKind: .heartbeat,
+            scheduleDescription: "Manual follow-up",
+            projectID: thread.projectID ?? root.selectedProjectID,
+            threadID: thread.id
+        )
+        setAutomations(automations.items + [automation])
+        automations.isVisible = true
+        return automation
+    }
+
+    public func updateAutomationStatus(id: UUID, status: QuillAutomationStatus) -> Bool {
+        guard let index = automations.items.firstIndex(where: { $0.id == id }) else { return false }
+        automations.items[index].status = status
+        automations.items[index].updatedAt = Date()
+        setAutomations(automations.items)
+        return true
+    }
+
+    public func deleteAutomation(id: UUID) -> Bool {
+        let initialCount = automations.items.count
+        automations.items.removeAll { $0.id == id }
+        guard automations.items.count != initialCount else { return false }
+        setAutomations(automations.items)
+        return true
     }
 
     public func toggleActivitySection(_ section: ActivitySectionKind) {
@@ -2226,6 +2260,21 @@ public final class QuillCodeWorkspaceModel {
             let id = String(commandID.dropFirst("memory-delete:".count))
             return deleteGlobalMemory(id: id)
         }
+        if commandID.hasPrefix("automation-pause:") {
+            let rawID = String(commandID.dropFirst("automation-pause:".count))
+            guard let id = UUID(uuidString: rawID) else { return false }
+            return updateAutomationStatus(id: id, status: .paused)
+        }
+        if commandID.hasPrefix("automation-resume:") {
+            let rawID = String(commandID.dropFirst("automation-resume:".count))
+            guard let id = UUID(uuidString: rawID) else { return false }
+            return updateAutomationStatus(id: id, status: .active)
+        }
+        if commandID.hasPrefix("automation-delete:") {
+            let rawID = String(commandID.dropFirst("automation-delete:".count))
+            guard let id = UUID(uuidString: rawID) else { return false }
+            return deleteAutomation(id: id)
+        }
         if commandID.hasPrefix("mcp-start:") {
             let id = String(commandID.dropFirst("mcp-start:".count))
             return startMCPServer(id: id, workspaceRoot: workspaceRoot)
@@ -2269,6 +2318,8 @@ public final class QuillCodeWorkspaceModel {
         case "toggle-automations":
             toggleAutomations()
             return true
+        case "automation-create-thread-follow-up":
+            return createThreadFollowUpAutomation() != nil
         case "memory-add":
             composer.draft = "/remember "
             return true
