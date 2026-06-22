@@ -2654,7 +2654,48 @@
         </section>`;
     }
 
+    function captureTranscriptScroll() {
+      const timeline = document.querySelector('[data-testid="timeline"]');
+      const documentElement = document.documentElement;
+      const maxWindowScrollY = Math.max(0, documentElement.scrollHeight - window.innerHeight);
+      const windowDistanceFromBottom = maxWindowScrollY - window.scrollY;
+      if (!timeline) {
+        return {
+          windowScrollY: window.scrollY,
+          wasWindowPinnedToBottom: windowDistanceFromBottom <= 24
+        };
+      }
+      const maxTimelineScrollTop = Math.max(0, timeline.scrollHeight - timeline.clientHeight);
+      const timelineDistanceFromBottom = maxTimelineScrollTop - timeline.scrollTop;
+      return {
+        windowScrollY: window.scrollY,
+        wasWindowPinnedToBottom: windowDistanceFromBottom <= 24,
+        timelineScrollTop: timeline.scrollTop,
+        wasTimelinePinnedToBottom: timelineDistanceFromBottom <= 24
+      };
+    }
+
+    function restoreTranscriptScroll(snapshot) {
+      if (!snapshot) return;
+      const documentElement = document.documentElement;
+      if (snapshot.wasWindowPinnedToBottom) {
+        window.scrollTo(0, documentElement.scrollHeight);
+      } else {
+        const maxWindowScrollY = Math.max(0, documentElement.scrollHeight - window.innerHeight);
+        window.scrollTo(0, Math.min(snapshot.windowScrollY || 0, maxWindowScrollY));
+      }
+      const timeline = document.querySelector('[data-testid="timeline"]');
+      if (!timeline) return;
+      if (snapshot.wasTimelinePinnedToBottom) {
+        timeline.scrollTop = timeline.scrollHeight;
+        return;
+      }
+      const maxScrollTop = Math.max(0, timeline.scrollHeight - timeline.clientHeight);
+      timeline.scrollTop = Math.min(snapshot.timelineScrollTop || 0, maxScrollTop);
+    }
+
     function render() {
+      const scrollSnapshot = captureTranscriptScroll();
       updateDynamicCommands();
       const context = renderContextBanner(contextBanner());
       const runtimeIssue = renderRuntimeIssue(state.runtimeIssue);
@@ -2978,7 +3019,7 @@
             </aside>
 	            <main class="transcript" data-testid="transcript">
                 ${state.find.isOpen ? renderFindBar(findMatches) : ''}
-	              <div class="timeline">${timeline}</div>
+	              <div class="timeline" data-testid="timeline">${timeline}</div>
 	              ${state.browser.isVisible ? renderBrowserPane() : ''}
 	              ${state.extensions.isVisible ? renderExtensionsPane() : ''}
 	              ${state.memories.isVisible ? renderMemoriesPane() : ''}
@@ -3000,6 +3041,8 @@
           ${state.shortcuts.isOpen ? renderKeyboardShortcutsPanel() : ''}
           ${state.worktreeDialog.mode ? renderWorktreeDialog() : ''}
         </section>`;
+
+      restoreTranscriptScroll(scrollSnapshot);
 
       const form = document.querySelector('[data-testid="composer"]');
       const input = document.getElementById('message');

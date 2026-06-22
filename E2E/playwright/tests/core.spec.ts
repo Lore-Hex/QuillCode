@@ -225,6 +225,46 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(transcriptPolish.sidebarMenuHeight).toBeGreaterThanOrEqual(40);
 });
 
+test('mock harness preserves transcript scroll intent as new events append', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.evaluate(() => {
+    const harness = window as unknown as { sendMessage: (value: string) => void };
+    for (let index = 0; index < 24; index += 1) {
+      harness.sendMessage(`run whoami ${index}`);
+    }
+  });
+
+  const timeline = page.getByTestId('timeline');
+  await expect(timeline).toBeVisible();
+  const scrollable = await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight);
+  expect(scrollable).toBe(true);
+
+  const midScroll = await page.evaluate(() => {
+    const nextScrollY = Math.floor((document.documentElement.scrollHeight - window.innerHeight) / 2);
+    window.scrollTo(0, nextScrollY);
+    return window.scrollY;
+  });
+  await page.evaluate(() => {
+    const harness = window as unknown as { sendMessage: (value: string) => void };
+    harness.sendMessage('run whoami while reading history');
+  });
+  const afterMidAppend = await page.evaluate(() => window.scrollY);
+  expect(Math.abs(afterMidAppend - midScroll)).toBeLessThanOrEqual(1);
+
+  await page.evaluate(() => {
+    window.scrollTo(0, document.documentElement.scrollHeight);
+  });
+  await page.evaluate(() => {
+    const harness = window as unknown as { sendMessage: (value: string) => void };
+    harness.sendMessage('run whoami at bottom');
+  });
+  const bottomDistance = await page.evaluate(() =>
+    Math.max(0, document.documentElement.scrollHeight - window.innerHeight - window.scrollY)
+  );
+  expect(bottomDistance).toBeLessThanOrEqual(1);
+});
+
 test('mock harness stops an active composer run from the composer', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
