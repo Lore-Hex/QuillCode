@@ -4,6 +4,7 @@ import QuillCodeCore
 public struct QuillCodePaths: Sendable, Hashable {
     public var home: URL
     public var configFile: URL { home.appendingPathComponent("config.toml") }
+    public var automationsFile: URL { home.appendingPathComponent("automations.json") }
     public var projectsFile: URL { home.appendingPathComponent("projects.json") }
     public var threadsDirectory: URL { home.appendingPathComponent("threads") }
     public var memoriesDirectory: URL { home.appendingPathComponent("memories") }

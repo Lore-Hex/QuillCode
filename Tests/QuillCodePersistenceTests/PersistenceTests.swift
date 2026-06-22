@@ -129,6 +129,49 @@ final class PersistenceTests: XCTestCase {
         XCTAssertTrue(loaded.isRemote)
     }
 
+    func testAutomationStoreRoundTripsSortedByStatusAndNextRun() throws {
+        let root = try makeTempDirectory()
+        let store = JSONAutomationStore(fileURL: root.appendingPathComponent("automations.json"))
+        let paused = QuillAutomation(
+            title: "Paused monitor",
+            detail: "Watch later.",
+            kind: .monitor,
+            status: .paused,
+            scheduleKind: .event,
+            scheduleDescription: "Event",
+            updatedAt: Date(timeIntervalSince1970: 3)
+        )
+        let later = QuillAutomation(
+            title: "Later",
+            detail: "Run later.",
+            kind: .workspaceSchedule,
+            scheduleKind: .cron,
+            scheduleDescription: "Daily",
+            updatedAt: Date(timeIntervalSince1970: 2),
+            nextRunAt: Date(timeIntervalSince1970: 20)
+        )
+        let sooner = QuillAutomation(
+            title: "Sooner",
+            detail: "Run soon.",
+            kind: .threadFollowUp,
+            scheduleKind: .heartbeat,
+            scheduleDescription: "In 10 minutes",
+            updatedAt: Date(timeIntervalSince1970: 1),
+            nextRunAt: Date(timeIntervalSince1970: 10)
+        )
+
+        try store.save([paused, later, sooner])
+
+        XCTAssertEqual(try store.load().map(\.title), ["Sooner", "Later", "Paused monitor"])
+    }
+
+    func testAutomationStoreReturnsEmptyListWhenMissing() throws {
+        let root = try makeTempDirectory()
+        let store = JSONAutomationStore(fileURL: root.appendingPathComponent("automations.json"))
+
+        XCTAssertEqual(try store.load(), [])
+    }
+
     func testProjectStoreDecodesLegacyProjectAsLocalConnection() throws {
         let root = try makeTempDirectory()
         let fileURL = root.appendingPathComponent("projects.json")

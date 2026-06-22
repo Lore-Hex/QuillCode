@@ -2773,6 +2773,18 @@ final class WorkspaceModelTests: XCTestCase {
         )
         try store.save(older)
         try store.save(newer)
+        try JSONAutomationStore(fileURL: paths.automationsFile).save([
+            QuillAutomation(
+                title: "Ship follow-up",
+                detail: "Check whether the release branch is ready.",
+                kind: .threadFollowUp,
+                scheduleKind: .heartbeat,
+                scheduleDescription: "Tomorrow at 9:00 AM",
+                projectID: project.id,
+                threadID: newer.id,
+                nextRunAt: Date(timeIntervalSince1970: 10)
+            )
+        ])
 
         let model = try QuillCodeWorkspaceBootstrap(paths: paths).makeModel()
 
@@ -2784,6 +2796,9 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.root.selectedThreadID, newer.id)
         XCTAssertEqual(model.surface().topBar.primaryTitle, "Newer")
         XCTAssertEqual(model.surface().topBar.subtitle, "QuillCode - Review - trustedrouter/glm-5.2")
+        XCTAssertEqual(model.surface().automations.statusLabel, "1 active")
+        XCTAssertEqual(model.surface().automations.workflows.map(\.title), ["Ship follow-up"])
+        XCTAssertEqual(model.surface().automations.workflows.first?.scheduleLabel, "Tomorrow at 9:00 AM")
 
         let nextConfig = AppConfig(defaultModel: TrustedRouterDefaults.fusionModel, mode: .auto)
         try QuillCodeWorkspaceBootstrap(paths: paths).saveConfig(nextConfig)
@@ -2800,6 +2815,26 @@ final class WorkspaceModelTests: XCTestCase {
         _ = model.addProject(path: root, name: "QuillCode")
 
         XCTAssertEqual(try projectStore.load().map(\.name), ["QuillCode"])
+    }
+
+    func testModelPersistsAutomationChanges() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
+        let model = QuillCodeWorkspaceModel(automationStore: automationStore)
+
+        model.setAutomations([
+            QuillAutomation(
+                title: "Morning check",
+                detail: "Summarize the repo state.",
+                kind: .workspaceSchedule,
+                scheduleKind: .cron,
+                scheduleDescription: "Every morning"
+            )
+        ])
+
+        XCTAssertEqual(try automationStore.load().map(\.title), ["Morning check"])
     }
 
     func testBootstrapPersistsAndClearsTrustedRouterAPIKey() throws {

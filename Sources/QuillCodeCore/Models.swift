@@ -363,6 +363,97 @@ public struct MessageFeedback: Codable, Sendable, Hashable {
     }
 }
 
+public enum QuillAutomationKind: String, Codable, Sendable, Hashable, CaseIterable {
+    case threadFollowUp = "thread_follow_up"
+    case workspaceSchedule = "workspace_schedule"
+    case monitor
+
+    public var label: String {
+        switch self {
+        case .threadFollowUp:
+            return "Thread follow-up"
+        case .workspaceSchedule:
+            return "Workspace schedule"
+        case .monitor:
+            return "Monitor"
+        }
+    }
+}
+
+public enum QuillAutomationStatus: String, Codable, Sendable, Hashable, CaseIterable {
+    case active
+    case paused
+
+    public var label: String {
+        switch self {
+        case .active:
+            return "Active"
+        case .paused:
+            return "Paused"
+        }
+    }
+}
+
+public enum QuillAutomationScheduleKind: String, Codable, Sendable, Hashable, CaseIterable {
+    case heartbeat
+    case cron
+    case event
+
+    public var label: String {
+        switch self {
+        case .heartbeat:
+            return "Heartbeat"
+        case .cron:
+            return "Cron"
+        case .event:
+            return "Event"
+        }
+    }
+}
+
+public struct QuillAutomation: Codable, Sendable, Hashable, Identifiable {
+    public var id: UUID
+    public var title: String
+    public var detail: String
+    public var kind: QuillAutomationKind
+    public var status: QuillAutomationStatus
+    public var scheduleKind: QuillAutomationScheduleKind
+    public var scheduleDescription: String
+    public var projectID: UUID?
+    public var threadID: UUID?
+    public var createdAt: Date
+    public var updatedAt: Date
+    public var nextRunAt: Date?
+
+    public init(
+        id: UUID = UUID(),
+        title: String,
+        detail: String,
+        kind: QuillAutomationKind,
+        status: QuillAutomationStatus = .active,
+        scheduleKind: QuillAutomationScheduleKind,
+        scheduleDescription: String,
+        projectID: UUID? = nil,
+        threadID: UUID? = nil,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        nextRunAt: Date? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.detail = detail
+        self.kind = kind
+        self.status = status
+        self.scheduleKind = scheduleKind
+        self.scheduleDescription = scheduleDescription
+        self.projectID = projectID
+        self.threadID = threadID
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.nextRunAt = nextRunAt
+    }
+}
+
 public enum ProjectConnectionKind: String, Codable, Sendable, Hashable, CaseIterable {
     case local
     case ssh

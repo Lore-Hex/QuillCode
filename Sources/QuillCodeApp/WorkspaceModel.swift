@@ -934,9 +934,11 @@ public struct ActivityState: Sendable, Hashable {
 
 public struct AutomationsState: Sendable, Hashable {
     public var isVisible: Bool
+    public var items: [QuillAutomation]
 
-    public init(isVisible: Bool = false) {
+    public init(isVisible: Bool = false, items: [QuillAutomation] = []) {
         self.isVisible = isVisible
+        self.items = items
     }
 }
 
@@ -1131,6 +1133,7 @@ public final class QuillCodeWorkspaceModel {
     private var runner: AgentRunner
     private let threadStore: JSONThreadStore?
     private let projectStore: JSONProjectStore?
+    private let automationStore: JSONAutomationStore?
     private let globalMemoryDirectory: URL?
     private var computerUseBackend: (any ComputerUseBackend)?
     private let sshRemoteShellExecutor: SSHRemoteShellExecutor
@@ -1149,6 +1152,7 @@ public final class QuillCodeWorkspaceModel {
         runner: AgentRunner = AgentRunner(),
         threadStore: JSONThreadStore? = nil,
         projectStore: JSONProjectStore? = nil,
+        automationStore: JSONAutomationStore? = nil,
         globalMemoryDirectory: URL? = nil,
         computerUseBackend: (any ComputerUseBackend)? = nil,
         sshRemoteShellExecutor: SSHRemoteShellExecutor = SSHRemoteShellExecutor()
@@ -1165,6 +1169,7 @@ public final class QuillCodeWorkspaceModel {
         self.runner = runner
         self.threadStore = threadStore
         self.projectStore = projectStore
+        self.automationStore = automationStore
         self.globalMemoryDirectory = globalMemoryDirectory
         self.computerUseBackend = computerUseBackend
         self.sshRemoteShellExecutor = sshRemoteShellExecutor
@@ -1370,6 +1375,11 @@ public final class QuillCodeWorkspaceModel {
 
     public func toggleAutomations() {
         automations.isVisible.toggle()
+    }
+
+    public func setAutomations(_ items: [QuillAutomation]) {
+        automations.items = items
+        saveAutomations()
     }
 
     public func toggleActivitySection(_ section: ActivitySectionKind) {
@@ -4500,6 +4510,10 @@ public final class QuillCodeWorkspaceModel {
 
     private func saveProjects() {
         try? projectStore?.save(root.projects)
+    }
+
+    private func saveAutomations() {
+        try? automationStore?.save(automations.items)
     }
 
     private static func defaultProjectName(for url: URL) -> String {

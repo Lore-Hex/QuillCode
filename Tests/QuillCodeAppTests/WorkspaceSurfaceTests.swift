@@ -378,6 +378,33 @@ final class WorkspaceSurfaceTests: XCTestCase {
         ])
     }
 
+    func testAutomationsSurfaceUsesConfiguredAutomationRowsWhenPresent() {
+        let model = QuillCodeWorkspaceModel(automations: AutomationsState(items: [
+            QuillAutomation(
+                title: "Nightly repo check",
+                detail: "Run tests and summarize failures.",
+                kind: .workspaceSchedule,
+                scheduleKind: .cron,
+                scheduleDescription: "Every weekday at 6:00 PM"
+            ),
+            QuillAutomation(
+                title: "Paused PR monitor",
+                detail: "Watch the launch PR after review starts.",
+                kind: .monitor,
+                status: .paused,
+                scheduleKind: .event,
+                scheduleDescription: "PR events"
+            )
+        ]))
+
+        let automations = model.surface().automations
+
+        XCTAssertEqual(automations.statusLabel, "1 active · 1 paused")
+        XCTAssertEqual(automations.workflows.map(\.title), ["Nightly repo check", "Paused PR monitor"])
+        XCTAssertEqual(automations.workflows.map(\.statusLabel), ["Active", "Paused"])
+        XCTAssertEqual(automations.workflows.first?.scheduleLabel, "Every weekday at 6:00 PM")
+    }
+
     func testActivitySectionToggleCollapsesSharedSurfaceSection() throws {
         let call = ToolCall(
             id: "tool-activity",

@@ -1324,17 +1324,42 @@ public struct WorkspaceAutomationsSurface: Codable, Sendable, Hashable {
 
     public init(
         isVisible: Bool = false,
+        automations: [QuillAutomation] = [],
         workflows: [AutomationWorkflowSurface] = AutomationWorkflowSurface.plannedWorkflows,
         emptyTitle: String = "No automations yet",
         emptySubtitle: String = "Create scheduled follow-ups, workspace checks, and monitors once the automation runtime lands."
     ) {
+        let configuredWorkflows = automations.map(AutomationWorkflowSurface.init)
+        let activeCount = automations.filter { $0.status == .active }.count
+        let pausedCount = automations.filter { $0.status == .paused }.count
         self.isVisible = isVisible
         self.title = "Automations"
         self.subtitle = "Recurring work, follow-ups, monitors, and long-running agent jobs"
-        self.statusLabel = workflows.isEmpty ? "Empty" : "\(workflows.count) planned"
+        self.statusLabel = Self.statusLabel(
+            configuredCount: configuredWorkflows.count,
+            activeCount: activeCount,
+            pausedCount: pausedCount,
+            plannedCount: workflows.count
+        )
         self.emptyTitle = emptyTitle
         self.emptySubtitle = emptySubtitle
-        self.workflows = workflows
+        self.workflows = configuredWorkflows.isEmpty ? workflows : configuredWorkflows
+    }
+
+    private static func statusLabel(
+        configuredCount: Int,
+        activeCount: Int,
+        pausedCount: Int,
+        plannedCount: Int
+    ) -> String {
+        guard configuredCount > 0 else { return plannedCount == 0 ? "Empty" : "\(plannedCount) planned" }
+        if activeCount > 0, pausedCount > 0 {
+            return "\(activeCount) active · \(pausedCount) paused"
+        }
+        if activeCount > 0 {
+            return activeCount == 1 ? "1 active" : "\(activeCount) active"
+        }
+        return pausedCount == 1 ? "1 paused" : "\(pausedCount) paused"
     }
 }
 
@@ -1357,6 +1382,16 @@ public struct AutomationWorkflowSurface: Codable, Sendable, Hashable, Identifiab
         self.detail = detail
         self.statusLabel = statusLabel
         self.scheduleLabel = scheduleLabel
+    }
+
+    public init(automation: QuillAutomation) {
+        self.id = automation.id.uuidString
+        self.title = automation.title
+        self.detail = automation.detail
+        self.statusLabel = automation.status.label
+        self.scheduleLabel = automation.scheduleDescription.isEmpty
+            ? automation.scheduleKind.label
+            : automation.scheduleDescription
     }
 
     public static let plannedWorkflows: [AutomationWorkflowSurface] = [
@@ -2396,7 +2431,8 @@ public extension QuillCodeWorkspaceModel {
                 collapsedSectionIDs: activity.collapsedSectionIDs
             ),
             automations: WorkspaceAutomationsSurface(
-                isVisible: automations.isVisible
+                isVisible: automations.isVisible,
+                automations: automations.items
             ),
             composer: ComposerSurface(composer: composer),
             commands: commands(),
