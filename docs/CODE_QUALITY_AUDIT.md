@@ -43,7 +43,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 1. Extract workspace command execution from `WorkspaceModel`.
 2. Extract automation runners from `WorkspaceModel`.
-3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, top bar, sidebar, review pane, design primitives, transcript message bubbles, tool-card/artifact-preview family, settings/runtime issue family, and terminal/browser pane family are now extracted; the next targets are extensions/memories/automations panes and workspace command execution.
+3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, top bar, sidebar, review pane, design primitives, transcript message bubbles, tool-card/artifact-preview family, settings/runtime issue family, terminal/browser pane family, and secondary utility panes are now extracted; the next native-view targets are command palette/search/worktree dialogs, then workspace command execution.
 4. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
 5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
 
@@ -175,3 +175,16 @@ Interface polish changes:
 - Terminal and browser panes now use named header, content, and input subviews, making future parity work safer to localize.
 - Browser snapshot rendering keeps bounded detail chips, page outline truncation, and comments in one focused component.
 - Terminal entries keep execution-context accessibility labels and status coloring in the same file as the terminal pane.
+
+## 2026-06-22 Secondary Utility Pane Refactor Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+Extensions, Memories, and Automations moved out of `WorkspaceSwiftUIView.swift` into `QuillCodeSecondaryPanesView.swift`. These panes share the same secondary utility shape: a compact header, count/status pills, empty state, and bounded cards. Keeping them together makes plugin/MCP, memory, and automation UX work easier to evolve without expanding the workspace shell again.
+
+Interface polish changes:
+
+- Extensions, Memories, and Automations now use named header/content/card/action subviews instead of one long nested body per pane.
+- Extensions and Memories share a single count-pill component, preserving tabular numbers while removing duplicated visual code.
+- All three panes share one empty-state component, keeping secondary-pane copy density, padding, and inner radius consistent.
+- WorkspaceSwiftUIView now only decides pane placement and action routing; pane-specific draft, row, and card rendering is isolated.

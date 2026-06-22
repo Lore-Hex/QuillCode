@@ -13,7 +13,7 @@ This initial repository contains the compile-stable foundation:
 - deterministic mock LLM agent runner
 - `quill-code` CLI harness
 - `quill-code-desktop` SwiftUI workspace shell with persisted config/thread bootstrap, project rail, grouped model picker, and developer settings
-- Playwright mock UI harness
+- Playwright mock UI harness (test-only; any `node_modules` lives under `E2E/playwright` and is ignored)
 - parity, roadmap, decision, and test-plan docs
 
 ## Try It
