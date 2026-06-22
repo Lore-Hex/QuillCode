@@ -1344,6 +1344,10 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(surface.extensions.items.first?.protocolLabel, "MCP 2024-11-05")
         XCTAssertEqual(surface.extensions.items.first?.toolCountLabel, "2 tools")
         XCTAssertEqual(surface.extensions.items.first?.toolNames, ["read_file", "write_file"])
+        XCTAssertEqual(surface.extensions.items.first?.toolDescriptors.map(\.schemaSummary), [
+            "required: path:string",
+            "required: content:string, path:string; optional: overwrite:boolean"
+        ])
         XCTAssertEqual(surface.extensions.items.first?.resourceCountLabel, "2 resources")
         XCTAssertEqual(surface.extensions.items.first?.resourceNames, ["README", "Project config"])
         XCTAssertEqual(surface.extensions.items.first?.promptCountLabel, "1 prompt")
@@ -1404,6 +1408,35 @@ final class WorkspaceModelTests: XCTestCase {
             .message
         ])
         XCTAssertEqual(model.selectedThread?.messages.last?.content, "Output:\nhello from MCP")
+    }
+
+    func testReadyMCPToolDescriptionIncludesSchemasForLLM() async throws {
+        let root = try makeTempDirectory()
+        let mcpDirectory = root.appendingPathComponent(".quillcode/mcp")
+        try FileManager.default.createDirectory(at: mcpDirectory, withIntermediateDirectories: true)
+        let server = try writeFixtureMCPServer(in: root)
+        try #"{"id":"filesystem","name":"Filesystem MCP","command":""#
+            .appending(server.path)
+            .appending(#""}"#)
+            .write(
+                to: mcpDirectory.appendingPathComponent("filesystem.json"),
+                atomically: true,
+                encoding: .utf8
+            )
+
+        let recorder = ToolDefinitionRecorder()
+        let model = QuillCodeWorkspaceModel(runner: AgentRunner(llm: RecordingLLMClient(recorder: recorder)))
+        let projectID = model.addProject(path: root, name: "MCP Project")
+        model.selectProject(projectID)
+        _ = model.newChat(projectID: projectID)
+
+        XCTAssertTrue(model.runWorkspaceCommand("mcp-start:mcp_server:filesystem", workspaceRoot: root))
+        model.setDraft("use the MCP filesystem tool")
+        await model.submitComposer(workspaceRoot: root)
+
+        let mcpCall = try XCTUnwrap(recorder.tools.first { $0.name == ToolDefinition.mcpCall.name })
+        XCTAssertTrue(mcpCall.description.contains("read_file [required: path:string; Read a file]"))
+        XCTAssertTrue(mcpCall.description.contains("write_file [required: content:string, path:string; optional: overwrite:boolean]"))
     }
 
     func testReadyMCPResourceCanBeReadFromAgentTurn() async throws {
@@ -2631,7 +2664,7 @@ final class WorkspaceModelTests: XCTestCase {
           printf "Content-Length: %s\\r\\n\\r\\n%s" "$length" "$body"
         }
         emit '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","serverInfo":{"name":"Fixture MCP","version":"1.0.0"},\(capabilities)}}'
-        emit '{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"read_file","description":"Read a file","inputSchema":{"type":"object"}},{"name":"write_file","inputSchema":{"type":"object"}}]}}'
+        emit '{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"read_file","description":"Read a file","inputSchema":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}},{"name":"write_file","inputSchema":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"},"overwrite":{"type":"boolean"}},"required":["path","content"]}}]}}'
         \(resourceAndPromptResponses)
         \(callResponse)
         sleep 60
@@ -2737,6 +2770,32 @@ private struct FixedToolLLMClient: LLMClient {
 
     func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
         .tool(call)
+    }
+}
+
+private final class ToolDefinitionRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var recordedTools: [ToolDefinition] = []
+
+    var tools: [ToolDefinition] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedTools
+    }
+
+    func record(_ tools: [ToolDefinition]) {
+        lock.lock()
+        recordedTools = tools
+        lock.unlock()
+    }
+}
+
+private struct RecordingLLMClient: LLMClient {
+    var recorder: ToolDefinitionRecorder
+
+    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        recorder.record(tools)
+        return .say("Recorded tool definitions.")
     }
 }
 

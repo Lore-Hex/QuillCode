@@ -835,6 +835,30 @@
       font-size: 11px;
       font-weight: 650;
     }
+    .extension-card [data-testid="extension-mcp-tool"] {
+      display: grid;
+      gap: 2px;
+      min-width: 104px;
+      border-radius: 8px;
+      white-space: normal;
+    }
+    .extension-card [data-testid="extension-mcp-tool-name"],
+    .extension-card [data-testid="extension-mcp-tool-schema"] {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .extension-card [data-testid="extension-mcp-tool-name"] {
+      white-space: nowrap;
+      font-weight: 750;
+    }
+    .extension-card [data-testid="extension-mcp-tool-schema"] {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.25;
+    }
     .extension-card button {
       justify-self: start;
       padding: 7px 11px;
@@ -1725,6 +1749,7 @@
             serverLabel: null,
             protocolLabel: null,
             toolCountLabel: null,
+            toolDescriptors: [],
             toolNames: [],
             resourceCountLabel: null,
             resourceNames: [],
@@ -4328,6 +4353,20 @@
         : '';
     }
 
+    function renderMCPTools(tools) {
+      if (!tools?.length) return '';
+      return `<div class="extension-mcp-group" data-testid="extension-mcp-tools">
+        <span class="extension-mcp-group-label" data-testid="extension-mcp-group-label">Tools</span>
+        <div class="extension-mcp-chip-row">${tools.map(tool => {
+          const detail = [tool.schemaSummary, tool.description].filter(Boolean).join(' · ');
+          return `<span data-testid="extension-mcp-tool">
+            <strong data-testid="extension-mcp-tool-name">${escapeHTML(tool.name)}</strong>
+            ${detail ? `<small data-testid="extension-mcp-tool-schema">${escapeHTML(detail)}</small>` : ''}
+          </span>`;
+        }).join('')}</div>
+      </div>`;
+    }
+
     function renderMCPGroup(title, names, groupTestID, itemTestID) {
       if (!names?.length) return '';
       return `<div class="extension-mcp-group" data-testid="${escapeHTML(groupTestID)}">
@@ -4356,7 +4395,7 @@
               ${item.transportLabel ? `<span data-testid="extension-transport">${escapeHTML(item.transportLabel)}</span>` : ''}
               ${item.serverLabel ? `<span data-testid="extension-mcp-server">${escapeHTML(item.serverLabel)}</span>` : ''}
               ${renderMCPMeta(item)}
-              ${renderMCPGroup('Tools', item.toolNames, 'extension-mcp-tools', 'extension-mcp-tool')}
+              ${renderMCPTools(item.toolDescriptors)}
               ${renderMCPGroup('Resources', item.resourceNames, 'extension-mcp-resources', 'extension-mcp-resource')}
               ${renderMCPGroup('Prompts', item.promptNames, 'extension-mcp-prompts', 'extension-mcp-prompt')}
               ${item.probeError ? `<p data-testid="extension-mcp-error">${escapeHTML(item.probeError)}</p>` : ''}
@@ -4968,6 +5007,22 @@
         item.serverLabel = 'Fixture MCP 1.0.0';
         item.protocolLabel = 'MCP 2024-11-05';
         item.toolCountLabel = '2 tools';
+        item.toolDescriptors = [
+          {
+            name: 'read_file',
+            description: 'Read a workspace file.',
+            requiredArguments: ['path'],
+            optionalArguments: [],
+            schemaSummary: 'required: path:string'
+          },
+          {
+            name: 'write_file',
+            description: 'Write a workspace file.',
+            requiredArguments: ['path', 'content'],
+            optionalArguments: ['overwrite'],
+            schemaSummary: 'required: content:string, path:string; optional: overwrite:boolean'
+          }
+        ];
         item.toolNames = ['read_file', 'write_file'];
         item.resourceCountLabel = '2 resources';
         item.resourceNames = ['README', 'Project config'];
@@ -4980,6 +5035,7 @@
         item.serverLabel = null;
         item.protocolLabel = null;
         item.toolCountLabel = null;
+        item.toolDescriptors = [];
         item.toolNames = [];
         item.resourceCountLabel = null;
         item.resourceNames = [];

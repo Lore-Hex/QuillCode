@@ -10,6 +10,7 @@ public struct MCPServerProbeResult: Sendable, Hashable {
     public var protocolVersion: String?
     public var serverName: String?
     public var serverVersion: String?
+    public var toolDescriptors: [MCPToolDescriptor]
     public var toolNames: [String]
     public var resourceNames: [String]
     public var resourceURIs: [String]
@@ -19,6 +20,7 @@ public struct MCPServerProbeResult: Sendable, Hashable {
         protocolVersion: String? = nil,
         serverName: String? = nil,
         serverVersion: String? = nil,
+        toolDescriptors: [MCPToolDescriptor] = [],
         toolNames: [String] = [],
         resourceNames: [String] = [],
         resourceURIs: [String] = [],
@@ -27,10 +29,38 @@ public struct MCPServerProbeResult: Sendable, Hashable {
         self.protocolVersion = protocolVersion
         self.serverName = serverName
         self.serverVersion = serverVersion
-        self.toolNames = toolNames
+        self.toolDescriptors = toolDescriptors.isEmpty
+            ? toolNames.map { MCPToolDescriptor(name: $0) }
+            : toolDescriptors
+        self.toolNames = toolNames.isEmpty
+            ? self.toolDescriptors.map(\.name)
+            : toolNames
         self.resourceNames = resourceNames
         self.resourceURIs = resourceURIs
         self.promptNames = promptNames
+    }
+}
+
+public struct MCPToolDescriptor: Codable, Sendable, Hashable, Identifiable {
+    public var id: String { name }
+    public var name: String
+    public var description: String
+    public var requiredArguments: [String]
+    public var optionalArguments: [String]
+    public var schemaSummary: String
+
+    public init(
+        name: String,
+        description: String = "",
+        requiredArguments: [String] = [],
+        optionalArguments: [String] = [],
+        schemaSummary: String = ""
+    ) {
+        self.name = name
+        self.description = description
+        self.requiredArguments = requiredArguments
+        self.optionalArguments = optionalArguments
+        self.schemaSummary = schemaSummary
     }
 }
 
@@ -154,9 +184,7 @@ public final class MCPStdioProber: @unchecked Sendable {
         let toolsList = try readResponse(id: toolsListID, deadline: deadline)
         let toolsResult = try resultDictionary(from: toolsList)
         let tools = (toolsResult["tools"] as? [[String: Any]]) ?? []
-        let toolNames = tools
-            .compactMap { ($0["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        let toolDescriptors = Self.toolDescriptors(from: tools)
 
         let capabilities = initializeResult["capabilities"] as? [String: Any]
         let resources = capabilities?["resources"] == nil
@@ -176,7 +204,7 @@ public final class MCPStdioProber: @unchecked Sendable {
             protocolVersion: initializeResult["protocolVersion"] as? String,
             serverName: serverInfo?["name"] as? String,
             serverVersion: serverInfo?["version"] as? String,
-            toolNames: toolNames,
+            toolDescriptors: toolDescriptors,
             resourceNames: resources.map(\.displayName),
             resourceURIs: resources.map(\.uri),
             promptNames: promptNames
@@ -365,6 +393,107 @@ public final class MCPStdioProber: @unchecked Sendable {
             }
         }
         return nil
+    }
+
+    private static func toolDescriptors(from tools: [[String: Any]]) -> [MCPToolDescriptor] {
+        tools.compactMap { tool in
+            guard let name = (tool["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !name.isEmpty
+            else {
+                return nil
+            }
+            let description = (tool["description"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let schema = (tool["inputSchema"] as? [String: Any])
+                ?? (tool["input_schema"] as? [String: Any])
+            let arguments = schemaArguments(from: schema)
+            return MCPToolDescriptor(
+                name: name,
+                description: description,
+                requiredArguments: arguments.required,
+                optionalArguments: arguments.optional,
+                schemaSummary: arguments.summary
+            )
+        }
+    }
+
+    private static func schemaArguments(from schema: [String: Any]?) -> (
+        required: [String],
+        optional: [String],
+        summary: String
+    ) {
+        guard let schema else { return ([], [], "") }
+        let requiredNames = ((schema["required"] as? [String]) ?? [])
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        let requiredSet = Set(requiredNames)
+        let properties = (schema["properties"] as? [String: Any]) ?? [:]
+        let propertySummaries = properties
+            .compactMap { name, value -> (name: String, summary: String, isRequired: Bool)? in
+                let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return nil }
+                return (
+                    name: trimmed,
+                    summary: "\(trimmed):\(schemaTypeLabel(from: value))",
+                    isRequired: requiredSet.contains(trimmed)
+                )
+            }
+
+        let required = propertySummaries
+            .filter(\.isRequired)
+            .sorted { $0.name < $1.name }
+        let optional = propertySummaries
+            .filter { !$0.isRequired }
+            .sorted { $0.name < $1.name }
+        let missingRequired = requiredNames
+            .filter { name in !propertySummaries.contains { $0.name == name } }
+            .sorted()
+            .map { (name: $0, summary: "\($0):any", isRequired: true) }
+
+        let requiredSummaries = (required + missingRequired).map(\.summary)
+        let optionalSummaries = optional.map(\.summary)
+        var parts: [String] = []
+        if !requiredSummaries.isEmpty {
+            parts.append("required: \(boundedSchemaList(requiredSummaries))")
+        }
+        if !optionalSummaries.isEmpty {
+            parts.append("optional: \(boundedSchemaList(optionalSummaries))")
+        }
+        return (
+            required: (required.map(\.name) + missingRequired.map(\.name)),
+            optional: optional.map(\.name),
+            summary: parts.joined(separator: "; ")
+        )
+    }
+
+    private static func schemaTypeLabel(from value: Any) -> String {
+        guard let property = value as? [String: Any] else { return "any" }
+        if let type = property["type"] as? String,
+           !type.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return type.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if let types = property["type"] as? [String],
+           let type = types.first(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+            return type.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if property["enum"] != nil {
+            return "enum"
+        }
+        if property["items"] != nil {
+            return "array"
+        }
+        if property["properties"] != nil {
+            return "object"
+        }
+        return "any"
+    }
+
+    private static func boundedSchemaList(_ summaries: [String]) -> String {
+        let visible = summaries.prefix(5)
+        let remaining = summaries.count - visible.count
+        let joined = visible.joined(separator: ", ")
+        guard remaining > 0 else { return joined }
+        return "\(joined), +\(remaining) more"
     }
 
     private func readAvailableData(timeout: TimeInterval) throws -> Data? {

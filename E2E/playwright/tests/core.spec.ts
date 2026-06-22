@@ -1051,6 +1051,10 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await expect(page.getByTestId('extension-mcp-tools-count')).toHaveText('2 tools');
   await expect(page.getByTestId('extension-mcp-group-label')).toContainText(['Tools', 'Resources', 'Prompts']);
   await expect(page.getByTestId('extension-mcp-tool')).toContainText(['read_file', 'write_file']);
+  await expect(page.getByTestId('extension-mcp-tool-schema')).toContainText([
+    'required: path:string',
+    'required: content:string, path:string; optional: overwrite:boolean'
+  ]);
   await expect(page.getByTestId('extension-mcp-resources-count')).toHaveText('2 resources');
   await expect(page.getByTestId('extension-mcp-resource')).toContainText(['README', 'Project config']);
   await expect(page.getByTestId('extension-mcp-prompts-count')).toHaveText('1 prompt');

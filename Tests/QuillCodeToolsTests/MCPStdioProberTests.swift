@@ -63,11 +63,26 @@ final class MCPStdioProberTests: XCTestCase {
                     [
                         "name": "read_file",
                         "description": "Read a file",
-                        "inputSchema": ["type": "object"]
+                        "inputSchema": [
+                            "type": "object",
+                            "properties": [
+                                "path": ["type": "string"],
+                                "encoding": ["type": "string"]
+                            ],
+                            "required": ["path"]
+                        ]
                     ],
                     [
                         "name": "write_file",
-                        "inputSchema": ["type": "object"]
+                        "inputSchema": [
+                            "type": "object",
+                            "properties": [
+                                "path": ["type": "string"],
+                                "content": ["type": "string"],
+                                "overwrite": ["type": "boolean"]
+                            ],
+                            "required": ["path", "content"]
+                        ]
                     ]
                 ]
             ]
@@ -83,6 +98,14 @@ final class MCPStdioProberTests: XCTestCase {
         XCTAssertEqual(result.serverName, "Fixture MCP")
         XCTAssertEqual(result.serverVersion, "1.0.0")
         XCTAssertEqual(result.toolNames, ["read_file", "write_file"])
+        XCTAssertEqual(result.toolDescriptors.map(\.name), ["read_file", "write_file"])
+        XCTAssertEqual(result.toolDescriptors[0].description, "Read a file")
+        XCTAssertEqual(result.toolDescriptors[0].requiredArguments, ["path"])
+        XCTAssertEqual(result.toolDescriptors[0].optionalArguments, ["encoding"])
+        XCTAssertEqual(result.toolDescriptors[0].schemaSummary, "required: path:string; optional: encoding:string")
+        XCTAssertEqual(result.toolDescriptors[1].requiredArguments, ["content", "path"])
+        XCTAssertEqual(result.toolDescriptors[1].optionalArguments, ["overwrite"])
+        XCTAssertEqual(result.toolDescriptors[1].schemaSummary, "required: content:string, path:string; optional: overwrite:boolean")
         XCTAssertEqual(result.resourceNames, [])
         XCTAssertEqual(result.promptNames, [])
     }

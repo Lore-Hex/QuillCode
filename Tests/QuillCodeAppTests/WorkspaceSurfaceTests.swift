@@ -1,6 +1,7 @@
 import XCTest
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodeTools
 import QuillComputerUseKit
 @testable import QuillCodeApp
 
@@ -699,7 +700,20 @@ final class WorkspaceSurfaceTests: XCTestCase {
                         protocolVersion: "2024-11-05",
                         serverName: "Fixture MCP",
                         serverVersion: "1.0.0",
-                        toolNames: ["read_file", "write_file"],
+                        toolDescriptors: [
+                            MCPToolDescriptor(
+                                name: "read_file",
+                                description: "Read a file",
+                                requiredArguments: ["path"],
+                                schemaSummary: "required: path:string"
+                            ),
+                            MCPToolDescriptor(
+                                name: "write_file",
+                                requiredArguments: ["content", "path"],
+                                optionalArguments: ["overwrite"],
+                                schemaSummary: "required: content:string, path:string; optional: overwrite:boolean"
+                            )
+                        ],
                         resourceNames: ["README", "Project config"],
                         promptNames: ["summarize_project"]
                     )
@@ -714,6 +728,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.extensions.items.first?.protocolLabel, "MCP 2024-11-05")
         XCTAssertEqual(surface.extensions.items.first?.toolCountLabel, "2 tools")
         XCTAssertEqual(surface.extensions.items.first?.toolNames, ["read_file", "write_file"])
+        XCTAssertEqual(surface.extensions.items.first?.toolDescriptors.map(\.schemaSummary), [
+            "required: path:string",
+            "required: content:string, path:string; optional: overwrite:boolean"
+        ])
         XCTAssertEqual(surface.extensions.items.first?.resourceCountLabel, "2 resources")
         XCTAssertEqual(surface.extensions.items.first?.resourceNames, ["README", "Project config"])
         XCTAssertEqual(surface.extensions.items.first?.promptCountLabel, "1 prompt")
@@ -752,6 +770,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
         let surface = try JSONDecoder().decode(ProjectExtensionManifestSurface.self, from: data)
 
         XCTAssertEqual(surface.toolNames, ["read_file", "write_file"])
+        XCTAssertEqual(surface.toolDescriptors.map(\.name), ["read_file", "write_file"])
+        XCTAssertEqual(surface.toolDescriptors.map(\.schemaSummary), ["", ""])
         XCTAssertEqual(surface.resourceNames, [])
         XCTAssertEqual(surface.promptNames, [])
         XCTAssertNil(surface.resourceCountLabel)
@@ -1481,7 +1501,25 @@ final class WorkspaceSurfaceTests: XCTestCase {
         )
         let model = QuillCodeWorkspaceModel(
             root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
-            extensions: ExtensionsState(isVisible: true)
+            extensions: ExtensionsState(
+                isVisible: true,
+                mcpServerStatuses: ["mcp_server:filesystem": .ready],
+                mcpServerProbeSummaries: [
+                    "mcp_server:filesystem": MCPServerProbeSummary(
+                        protocolVersion: "2024-11-05",
+                        serverName: "Fixture MCP",
+                        serverVersion: "1.0.0",
+                        toolDescriptors: [
+                            MCPToolDescriptor(
+                                name: "read_file",
+                                description: "Read a file",
+                                requiredArguments: ["path"],
+                                schemaSummary: "required: path:string"
+                            )
+                        ]
+                    )
+                ]
+            )
         )
 
         let html = WorkspaceHTMLRenderer.render(model.surface())
@@ -1490,7 +1528,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="extension-item""#))
         XCTAssertTrue(html.contains("Filesystem MCP"))
         XCTAssertTrue(html.contains(#"data-testid="extension-transport""#))
-        XCTAssertTrue(html.contains(#"data-testid="extension-start""#))
+        XCTAssertTrue(html.contains(#"data-testid="extension-stop""#))
+        XCTAssertTrue(html.contains(#"data-testid="extension-mcp-tool-schema">required: path:string · Read a file"#))
         XCTAssertTrue(html.contains(".quillcode/mcp/filesystem.json"))
     }
 

@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeTools
 
 public enum WorkspaceHTMLRenderer {
     public static func render(_ surface: WorkspaceSurface) -> String {
@@ -639,7 +640,7 @@ public enum WorkspaceHTMLRenderer {
           \(item.transportLabel.map { #"<span data-testid="extension-transport">\#(escape($0))</span>"# } ?? "")
           \(item.serverLabel.map { #"<span data-testid="extension-mcp-server">\#(escape($0))</span>"# } ?? "")
           \(renderMCPMeta(item))
-          \(renderMCPNames("Tools", item.toolNames, groupTestID: "extension-mcp-tools", itemTestID: "extension-mcp-tool"))
+          \(renderMCPTools(item.toolDescriptors))
           \(renderMCPNames("Resources", item.resourceNames, groupTestID: "extension-mcp-resources", itemTestID: "extension-mcp-resource"))
           \(renderMCPNames("Prompts", item.promptNames, groupTestID: "extension-mcp-prompts", itemTestID: "extension-mcp-prompt"))
           \(item.probeError.map { #"<p data-testid="extension-mcp-error">\#(escape($0))</p>"# } ?? "")
@@ -657,6 +658,22 @@ public enum WorkspaceHTMLRenderer {
         ].compactMap { $0 }
         guard !labels.isEmpty else { return "" }
         return #"<div class="extension-mcp-meta" data-testid="extension-mcp-meta">\#(labels.joined(separator: " · "))</div>"#
+    }
+
+    private static func renderMCPTools(_ tools: [MCPToolDescriptor]) -> String {
+        guard !tools.isEmpty else { return "" }
+        let chips = tools.map { tool in
+            let details = [tool.schemaSummary, tool.description]
+                .filter { !$0.isEmpty }
+                .joined(separator: " · ")
+            return """
+            <span class="extension-mcp-tool-chip" data-testid="extension-mcp-tool">
+              <strong data-testid="extension-mcp-tool-name">\(escape(tool.name))</strong>
+              \(details.isEmpty ? "" : #"<small data-testid="extension-mcp-tool-schema">\#(escape(details))</small>"#)
+            </span>
+            """
+        }.joined()
+        return #"<div class="extension-mcp-group" data-testid="extension-mcp-tools"><span class="extension-mcp-group-label" data-testid="extension-mcp-group-label">Tools</span><div class="extension-mcp-chip-row">\#(chips)</div></div>"#
     }
 
     private static func renderMCPNames(_ title: String, _ names: [String], groupTestID: String, itemTestID: String) -> String {

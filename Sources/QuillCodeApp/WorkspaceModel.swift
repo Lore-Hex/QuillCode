@@ -674,6 +674,7 @@ public struct MCPServerProbeSummary: Codable, Sendable, Hashable {
     public var protocolVersion: String?
     public var serverName: String?
     public var serverVersion: String?
+    public var toolDescriptors: [MCPToolDescriptor]
     public var toolNames: [String]
     public var resourceNames: [String]
     public var resourceURIs: [String]
@@ -684,6 +685,7 @@ public struct MCPServerProbeSummary: Codable, Sendable, Hashable {
         case protocolVersion
         case serverName
         case serverVersion
+        case toolDescriptors
         case toolNames
         case resourceNames
         case resourceURIs
@@ -695,6 +697,7 @@ public struct MCPServerProbeSummary: Codable, Sendable, Hashable {
         protocolVersion: String? = nil,
         serverName: String? = nil,
         serverVersion: String? = nil,
+        toolDescriptors: [MCPToolDescriptor] = [],
         toolNames: [String] = [],
         resourceNames: [String] = [],
         resourceURIs: [String] = [],
@@ -704,7 +707,12 @@ public struct MCPServerProbeSummary: Codable, Sendable, Hashable {
         self.protocolVersion = protocolVersion
         self.serverName = serverName
         self.serverVersion = serverVersion
-        self.toolNames = toolNames
+        self.toolDescriptors = toolDescriptors.isEmpty
+            ? toolNames.map { MCPToolDescriptor(name: $0) }
+            : toolDescriptors
+        self.toolNames = toolNames.isEmpty
+            ? self.toolDescriptors.map(\.name)
+            : toolNames
         self.resourceNames = resourceNames
         self.resourceURIs = resourceURIs
         self.promptNames = promptNames
@@ -716,7 +724,14 @@ public struct MCPServerProbeSummary: Codable, Sendable, Hashable {
         self.protocolVersion = try container.decodeIfPresent(String.self, forKey: .protocolVersion)
         self.serverName = try container.decodeIfPresent(String.self, forKey: .serverName)
         self.serverVersion = try container.decodeIfPresent(String.self, forKey: .serverVersion)
+        self.toolDescriptors = try container.decodeIfPresent([MCPToolDescriptor].self, forKey: .toolDescriptors) ?? []
         self.toolNames = try container.decodeIfPresent([String].self, forKey: .toolNames) ?? []
+        if self.toolDescriptors.isEmpty {
+            self.toolDescriptors = self.toolNames.map { MCPToolDescriptor(name: $0) }
+        }
+        if self.toolNames.isEmpty {
+            self.toolNames = self.toolDescriptors.map(\.name)
+        }
         self.resourceNames = try container.decodeIfPresent([String].self, forKey: .resourceNames) ?? []
         self.resourceURIs = try container.decodeIfPresent([String].self, forKey: .resourceURIs) ?? []
         self.promptNames = try container.decodeIfPresent([String].self, forKey: .promptNames) ?? []
@@ -728,7 +743,7 @@ public struct MCPServerProbeSummary: Codable, Sendable, Hashable {
             protocolVersion: result.protocolVersion,
             serverName: result.serverName,
             serverVersion: result.serverVersion,
-            toolNames: result.toolNames,
+            toolDescriptors: result.toolDescriptors,
             resourceNames: result.resourceNames,
             resourceURIs: result.resourceURIs,
             promptNames: result.promptNames,
@@ -2262,8 +2277,21 @@ public final class QuillCodeWorkspaceModel {
                     && mcpServerProcesses[manifest.id]?.process.isRunning == true
             }
             .compactMap { manifest -> String? in
-                let tools = extensions.mcpServerProbeSummaries[manifest.id]?.toolNames ?? []
-                guard !tools.isEmpty else { return nil }
+                guard let summary = extensions.mcpServerProbeSummaries[manifest.id],
+                      !summary.toolDescriptors.isEmpty
+                else { return nil }
+                let tools = summary.toolDescriptors.map { descriptor in
+                    var details: [String] = []
+                    if !descriptor.schemaSummary.isEmpty {
+                        details.append(descriptor.schemaSummary)
+                    }
+                    if !descriptor.description.isEmpty {
+                        details.append(descriptor.description)
+                    }
+                    return details.isEmpty
+                        ? descriptor.name
+                        : "\(descriptor.name) [\(details.joined(separator: "; "))]"
+                }
                 return "- \(manifest.id) (\(manifest.name)): \(tools.joined(separator: ", "))"
             }
     }

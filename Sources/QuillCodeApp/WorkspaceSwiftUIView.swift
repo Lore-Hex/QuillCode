@@ -1,5 +1,6 @@
 import SwiftUI
 import QuillCodeCore
+import QuillCodeTools
 
 private enum QuillCodeMetrics {
     static let minimumHitTarget: CGFloat = 40
@@ -2481,9 +2482,43 @@ private struct QuillCodeExtensionsPaneView: View {
     private func probeMetadataChips(for item: ProjectExtensionManifestSurface) -> some View {
         if !item.toolNames.isEmpty || !item.resourceNames.isEmpty || !item.promptNames.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                probeMetadataGroup(title: "Tools", values: item.toolNames)
+                probeMetadataToolGroup(tools: item.toolDescriptors)
                 probeMetadataGroup(title: "Resources", values: item.resourceNames)
                 probeMetadataGroup(title: "Prompts", values: item.promptNames)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func probeMetadataToolGroup(tools: [MCPToolDescriptor]) -> some View {
+        if !tools.isEmpty {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Tools")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(1)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 5)], alignment: .leading, spacing: 5) {
+                    ForEach(Array(tools.enumerated()), id: \.offset) { _, tool in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(tool.name)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(QuillCodePalette.blue)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            if !tool.schemaSummary.isEmpty || !tool.description.isEmpty {
+                                Text([tool.schemaSummary, tool.description].filter { !$0.isEmpty }.joined(separator: " · "))
+                                    .font(.caption2)
+                                    .foregroundStyle(QuillCodePalette.muted)
+                                    .lineLimit(2)
+                            }
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(QuillCodePalette.blue.opacity(0.10))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                }
             }
         }
     }
@@ -2543,7 +2578,7 @@ private extension ProjectExtensionManifestSurface {
             || resourceCountLabel != nil
             || promptCountLabel != nil
             || protocolLabel != nil
-            || !toolNames.isEmpty
+            || !toolDescriptors.isEmpty
             || !resourceNames.isEmpty
             || !promptNames.isEmpty
     }

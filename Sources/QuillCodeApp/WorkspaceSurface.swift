@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeTools
 import QuillComputerUseKit
 
 public struct WorkspaceSurface: Codable, Sendable, Hashable {
@@ -1280,6 +1281,7 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
     public var serverLabel: String?
     public var protocolLabel: String?
     public var toolCountLabel: String?
+    public var toolDescriptors: [MCPToolDescriptor]
     public var toolNames: [String]
     public var resourceCountLabel: String?
     public var resourceNames: [String]
@@ -1304,6 +1306,7 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         case serverLabel
         case protocolLabel
         case toolCountLabel
+        case toolDescriptors
         case toolNames
         case resourceCountLabel
         case resourceNames
@@ -1341,7 +1344,11 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         self.serverLabel = probeSummary?.serverLabel
         self.protocolLabel = probeSummary?.protocolVersion.map { "MCP \($0)" }
         self.toolCountLabel = probeSummary?.toolCountLabel
-        self.toolNames = Array((probeSummary?.toolNames ?? []).prefix(4))
+        let descriptors = Array((probeSummary?.toolDescriptors ?? []).prefix(4))
+        self.toolDescriptors = descriptors
+        self.toolNames = descriptors.isEmpty
+            ? Array((probeSummary?.toolNames ?? []).prefix(4))
+            : descriptors.map(\.name)
         self.resourceCountLabel = probeSummary?.resourceCountLabel
         self.resourceNames = Array((probeSummary?.resourceNames ?? []).prefix(4))
         self.promptCountLabel = probeSummary?.promptCountLabel
@@ -1370,7 +1377,14 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         self.serverLabel = try container.decodeIfPresent(String.self, forKey: .serverLabel)
         self.protocolLabel = try container.decodeIfPresent(String.self, forKey: .protocolLabel)
         self.toolCountLabel = try container.decodeIfPresent(String.self, forKey: .toolCountLabel)
+        self.toolDescriptors = try container.decodeIfPresent([MCPToolDescriptor].self, forKey: .toolDescriptors) ?? []
         self.toolNames = try container.decodeIfPresent([String].self, forKey: .toolNames) ?? []
+        if self.toolDescriptors.isEmpty {
+            self.toolDescriptors = self.toolNames.map { MCPToolDescriptor(name: $0) }
+        }
+        if self.toolNames.isEmpty {
+            self.toolNames = self.toolDescriptors.map(\.name)
+        }
         self.resourceCountLabel = try container.decodeIfPresent(String.self, forKey: .resourceCountLabel)
         self.resourceNames = try container.decodeIfPresent([String].self, forKey: .resourceNames) ?? []
         self.promptCountLabel = try container.decodeIfPresent(String.self, forKey: .promptCountLabel)
