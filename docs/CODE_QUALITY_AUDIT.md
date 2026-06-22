@@ -43,7 +43,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 1. Extract workspace command execution from `WorkspaceModel`.
 2. Extract automation runners from `WorkspaceModel`.
-3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, top bar, sidebar, review pane, design primitives, transcript message bubbles, and tool-card/artifact-preview family are now extracted; the next targets are settings, runtime issue panels, terminal/browser panes, and workspace command execution.
+3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, top bar, sidebar, review pane, design primitives, transcript message bubbles, tool-card/artifact-preview family, and settings/runtime issue family are now extracted; the next targets are terminal/browser panes, extensions/memories/automations panes, and workspace command execution.
 4. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
 5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
 
@@ -150,3 +150,16 @@ Interface polish changes:
 - Tool-card header density, status rails, and bounded raw details preserve the existing rhythm while making future polish safer to localize.
 - Artifact chips and previews preserve 40 pt minimum hit areas, pure-white image outline behavior through the design system, and bounded raw JSON/details.
 - The shared transcript copy button is reused from transcript message controls so message and tool-card copy affordances stay consistent.
+
+## 2026-06-22 Settings Refactor Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+Settings, runtime issue callouts, Computer Use permission onboarding, and settings draft state moved out of `WorkspaceSwiftUIView.swift` into `QuillCodeSettingsView.swift`. The workspace shell now opens the sheet and applies settings updates, while the settings file owns authentication mode controls, developer override fields, permission rows, diagnostics, and the reusable runtime issue callout used in the transcript.
+
+Interface polish changes:
+
+- Settings now has named subviews for header, authentication picker, API base URL field, OAuth/developer override sections, and footer, reducing body density without changing the visible flow.
+- Computer Use setup keeps its permission/status rows together and uses named subviews for header, requirements, next action, restart hint, and refresh action.
+- Permission action rows preserve the shared 40 pt minimum hit target through `QuillCodeMetrics.minimumHitTarget`.
+- Runtime issue callouts remain reusable from transcript and settings surfaces, with diagnostics bounded in the same component.
