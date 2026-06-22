@@ -138,6 +138,12 @@ public struct StaticSafetyReviewer: SafetyReviewer {
                 return context.toolCall.name.contains("git.pr.checkout")
                     || context.toolCall.name.contains("git.status")
             }
+            if user.contains("reviewer")
+                || user.contains("reviewers")
+                || user.contains("request review from") {
+                return context.toolCall.name.contains("git.pr.reviewers")
+                    || context.toolCall.name.contains("git.status")
+            }
             if user.contains("merge") || user.contains("automerge") {
                 return context.toolCall.name.contains("git.pr.merge")
                     || context.toolCall.name.contains("git.pr.checks")

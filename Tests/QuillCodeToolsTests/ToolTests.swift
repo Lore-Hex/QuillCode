@@ -460,6 +460,48 @@ final class ToolTests: XCTestCase {
         XCTAssertEqual(arguments, ["pr", "checkout", "123", "--branch", "review/pr-123"])
     }
 
+    func testGitPullRequestReviewersUsesGitHubCLIArguments() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        let git = GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+
+        let result = git.updatePullRequestReviewers(
+            cwd: root,
+            selector: "123",
+            add: ["alice", "myorg/platform-team", "alice"],
+            remove: ["bob"]
+        )
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(result.artifacts, ["https://github.com/example/repo/pull/123"])
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, [
+            "pr",
+            "edit",
+            "123",
+            "--add-reviewer",
+            "alice,myorg/platform-team",
+            "--remove-reviewer",
+            "bob"
+        ])
+    }
+
+    func testGitPullRequestReviewersRequireReviewerAndValidateNames() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        let git = GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+
+        XCTAssertFalse(git.updatePullRequestReviewers(cwd: root, selector: "123").ok)
+        XCTAssertFalse(git.updatePullRequestReviewers(cwd: root, selector: "123", add: ["bad reviewer"]).ok)
+        XCTAssertFalse(git.updatePullRequestReviewers(cwd: root, selector: "123", add: ["-bad"]).ok)
+        XCTAssertFalse(git.updatePullRequestReviewers(cwd: root, selector: "123", add: ["org/team/extra"]).ok)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: argumentsFile.path))
+    }
+
     func testGitPullRequestCommentUsesGitHubCLIArguments() throws {
         let root = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("gh-args.txt")
@@ -589,6 +631,7 @@ final class ToolTests: XCTestCase {
         XCTAssertFalse(git.pullRequestChecks(cwd: root, selector: "feature branch").ok)
         XCTAssertFalse(git.checkoutPullRequest(cwd: root, selector: "123 --web").ok)
         XCTAssertFalse(git.checkoutPullRequest(cwd: root, selector: "123", branch: "--bad").ok)
+        XCTAssertFalse(git.updatePullRequestReviewers(cwd: root, selector: "123 --web", add: ["alice"]).ok)
         XCTAssertFalse(git.commentOnPullRequest(cwd: root, selector: "123 --web", body: "Comment").ok)
         XCTAssertFalse(git.reviewPullRequest(cwd: root, selector: "123 --web", action: "approve").ok)
         XCTAssertFalse(git.mergePullRequest(cwd: root, selector: "123 --web").ok)
@@ -675,6 +718,7 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.pr.view"))
         XCTAssertTrue(definitions.contains("host.git.pr.checks"))
         XCTAssertTrue(definitions.contains("host.git.pr.checkout"))
+        XCTAssertTrue(definitions.contains("host.git.pr.reviewers"))
         XCTAssertTrue(definitions.contains("host.git.pr.comment"))
         XCTAssertTrue(definitions.contains("host.git.pr.review"))
         XCTAssertTrue(definitions.contains("host.git.pr.merge"))
@@ -881,6 +925,24 @@ final class ToolTests: XCTestCase {
             .split(separator: "\n")
             .map(String.init)
         XCTAssertEqual(arguments, ["pr", "checkout", "123", "--branch", "review/pr-123"])
+
+        let reviewers = router.execute(ToolCall(
+            name: ToolDefinition.gitPullRequestReviewers.name,
+            argumentsJSON: #"{"selector":"123","add":["alice","myorg/team-name"],"remove":"bob"}"#
+        ))
+        XCTAssertTrue(reviewers.ok, "\(reviewers.error ?? "") \(reviewers.stderr)")
+        arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, [
+            "pr",
+            "edit",
+            "123",
+            "--add-reviewer",
+            "alice,myorg/team-name",
+            "--remove-reviewer",
+            "bob"
+        ])
 
         let comment = router.execute(ToolCall(
             name: ToolDefinition.gitPullRequestComment.name,

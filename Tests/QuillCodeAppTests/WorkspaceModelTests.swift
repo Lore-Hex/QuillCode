@@ -304,12 +304,13 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-view" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-checks" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-checkout" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-reviewers" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-merge" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-list" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-create" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-remove" }?.isEnabled, true)
         XCTAssertEqual(model.selectedThread?.messages.last?.content.contains("Added SSH Remote"), true)
-        XCTAssertEqual(model.selectedThread?.messages.last?.content.contains("PR checkout/merge"), true)
+        XCTAssertEqual(model.selectedThread?.messages.last?.content.contains("PR checkout/reviewers/merge"), true)
     }
 
     func testRefreshProjectContextLoadsSSHRemoteInstructionsAndMemories() throws {
@@ -428,6 +429,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestView.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestChecks.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestCheckout.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestReviewers.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestComment.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestReview.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestMerge.name))
@@ -1137,6 +1139,53 @@ final class WorkspaceModelTests: XCTestCase {
             "456",
             "--branch",
             "review/pr-456"
+        ])
+    }
+
+    func testRemoteProjectAgentRequestsPullRequestReviewersThroughSSH() async throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = try makeTempGitRepoWithInitialCommit()
+        let bin = root.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        let sshArgumentsFile = root.appendingPathComponent("ssh-agent-args.txt")
+        let ghArgumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: sshArgumentsFile, pathPrefix: bin)
+        _ = try makeFakeGitHubCLI(in: bin, argumentsFile: ghArgumentsFile)
+        let connection = ProjectConnection.ssh(path: remoteRoot.path, host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
+                name: ToolDefinition.gitPullRequestReviewers.name,
+                argumentsJSON: #"{"selector":"456","add":["alice","myorg/team-name"],"remove":"bob"}"#
+            ))),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        model.setDraft("Request reviewers on PR 456.")
+        await model.submitComposer(workspaceRoot: root)
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.gitPullRequestReviewers.name)
+        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
+        let result = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(card.outputJSON))
+        XCTAssertTrue(result.ok, result.error ?? result.stderr)
+        XCTAssertEqual(result.artifacts, ["https://github.com/example/repo/pull/456"])
+
+        let ghArguments = try String(contentsOf: ghArgumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(ghArguments, [
+            "pr",
+            "edit",
+            "456",
+            "--add-reviewer",
+            "alice,myorg/team-name",
+            "--remove-reviewer",
+            "bob"
         ])
     }
 
@@ -2174,6 +2223,9 @@ final class WorkspaceModelTests: XCTestCase {
 
         XCTAssertTrue(model.runWorkspaceCommand("git-pr-checkout", workspaceRoot: root))
         XCTAssertEqual(model.composer.draft, "Checkout pull request ")
+
+        XCTAssertTrue(model.runWorkspaceCommand("git-pr-reviewers", workspaceRoot: root))
+        XCTAssertEqual(model.composer.draft, "Request reviewers for the current pull request: ")
 
         XCTAssertTrue(model.runWorkspaceCommand("git-pr-merge", workspaceRoot: root))
         XCTAssertEqual(model.composer.draft, "Merge the current pull request with squash")

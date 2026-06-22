@@ -41,6 +41,8 @@ public struct ToolArguments: Sendable {
                 values[key] = number
             case .object(let object):
                 values[key] = object
+            case .array(let array):
+                values[key] = array
             case .unsupported:
                 continue
             }
@@ -53,6 +55,7 @@ public struct ToolArguments: Sendable {
         case bool(Bool)
         case number(String)
         case object([String: String])
+        case array([String])
         case unsupported
 
         init(from decoder: Decoder) throws {
@@ -69,6 +72,8 @@ public struct ToolArguments: Sendable {
                 self = .string(string)
             } else if let object = try? container.decode([String: String].self) {
                 self = .object(object)
+            } else if let array = try? container.decode([String].self) {
+                self = .array(array)
             } else {
                 self = .unsupported
             }
@@ -114,6 +119,21 @@ public struct ToolArguments: Sendable {
 
     public func stringDictionary(_ key: String) -> [String: String]? {
         values[key] as? [String: String]
+    }
+
+    public func stringArray(_ key: String) -> [String]? {
+        if let array = values[key] as? [String] {
+            let normalized = array
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            return normalized.isEmpty ? nil : normalized
+        }
+        guard let string = string(key) else { return nil }
+        let normalized = string
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return normalized.isEmpty ? nil : normalized
     }
 
     public static func json(_ values: [String: String]) -> String {

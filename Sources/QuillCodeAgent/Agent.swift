@@ -276,6 +276,13 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
+        if Self.isPullRequestReviewerRequest(lower) {
+            return .tool(.init(
+                name: ToolDefinition.gitPullRequestReviewers.name,
+                argumentsJSON: ToolArguments.json(Self.extractPullRequestReviewerArguments(from: request))
+            ))
+        }
+
         if Self.isPullRequestReviewActionRequest(lower) {
             return .tool(.init(
                 name: ToolDefinition.gitPullRequestReview.name,
@@ -484,6 +491,26 @@ public struct MockLLMClient: LLMClient {
             && tokens.contains("review")
     }
 
+    static func isPullRequestReviewerRequest(_ lowercasedRequest: String) -> Bool {
+        let tokens = lowercasedRequest
+            .split { !$0.isLetter && !$0.isNumber }
+            .map(String.init)
+        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
+        guard mentionsPullRequest else { return false }
+        if lowercasedRequest.contains("request review from")
+            || lowercasedRequest.contains("request reviewer")
+            || lowercasedRequest.contains("request reviewers")
+            || lowercasedRequest.contains("add reviewer")
+            || lowercasedRequest.contains("add reviewers")
+            || lowercasedRequest.contains("re-request reviewer")
+            || lowercasedRequest.contains("remove reviewer")
+            || lowercasedRequest.contains("remove reviewers") {
+            return true
+        }
+        return (tokens.contains("reviewer") || tokens.contains("reviewers"))
+            && (tokens.contains("request") || tokens.contains("add") || tokens.contains("remove"))
+    }
+
     static func isPullRequestViewRequest(_ lowercasedRequest: String) -> Bool {
         let tokens = lowercasedRequest
             .split { !$0.isLetter && !$0.isNumber }
@@ -577,6 +604,65 @@ public struct MockLLMClient: LLMClient {
             arguments["body"] = request
         }
         return arguments
+    }
+
+    static func extractPullRequestReviewerArguments(from request: String) -> [String: String] {
+        var arguments = extractPullRequestSelectorArguments(from: request)
+        let reviewers = extractPullRequestReviewers(from: request)
+        if request.lowercased().contains("remove reviewer")
+            || request.lowercased().contains("remove reviewers")
+            || request.lowercased().contains("unrequest") {
+            arguments["remove"] = reviewers.joined(separator: ",")
+        } else {
+            arguments["add"] = reviewers.joined(separator: ",")
+        }
+        return arguments
+    }
+
+    static func extractPullRequestReviewers(from request: String) -> [String] {
+        let lower = request.lowercased()
+        let markers = [
+            "request review from ",
+            "request reviewers ",
+            "request reviewer ",
+            "add reviewers ",
+            "add reviewer ",
+            "remove reviewers ",
+            "remove reviewer ",
+            "reviewers ",
+            "reviewer "
+        ]
+        let rawList: String
+        if let range = markers.compactMap({ lower.range(of: $0) }).min(by: { $0.lowerBound < $1.lowerBound }) {
+            rawList = String(request[range.upperBound...])
+        } else {
+            rawList = request
+        }
+        let trimmedAtPullRequest = trimTrailingPullRequestReference(from: rawList)
+        let reviewers = trimmedAtPullRequest
+            .replacingOccurrences(of: " and ", with: ",", options: [.caseInsensitive])
+            .split { character in
+                character == "," || character.isWhitespace
+            }
+            .map { String($0).trimmingCharacters(in: CharacterSet(charactersIn: ".:;\"'")) }
+            .filter { !$0.isEmpty }
+            .filter { $0.range(of: #"^#?\d+$"#, options: .regularExpression) == nil }
+            .filter { token in
+                let lowercasedToken = token.lowercased()
+                return lowercasedToken != "pr"
+                    && lowercasedToken != "pull"
+                    && lowercasedToken != "request"
+            }
+        return reviewers.isEmpty ? ["@copilot"] : reviewers
+    }
+
+    private static func trimTrailingPullRequestReference(from text: String) -> String {
+        let lower = text.lowercased()
+        let markers = [" on pr", " for pr", " on pull request", " for pull request"]
+        let end = markers
+            .compactMap { lower.range(of: $0)?.lowerBound }
+            .min() ?? text.endIndex
+        return String(text[..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     static func extractPullRequestReviewAction(from request: String) -> String {
