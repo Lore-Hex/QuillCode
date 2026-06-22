@@ -2903,6 +2903,12 @@ public final class QuillCodeWorkspaceModel {
         case "git-pr-reviewers":
             setDraft("Request reviewers for the current pull request: ")
             return true
+        case "git-pr-comment":
+            setDraft("Comment on the current pull request: ")
+            return true
+        case "git-pr-review":
+            setDraft("Review the current pull request: approve")
+            return true
         case "git-pr-merge":
             setDraft("Merge the current pull request with squash")
             return true
@@ -5381,6 +5387,8 @@ public final class QuillCodeWorkspaceModel {
                     title: "Slash command"
                 )
             }
+        case .toolCall(let call):
+            _ = runToolCall(call, workspaceRoot: workspaceRoot)
         case .environmentAction(let query):
             runEnvironmentSlashCommand(query, originalPrompt: originalPrompt, workspaceRoot: workspaceRoot)
         case .invalid(let message):

@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeTools
 
 public struct SlashCommandSuggestionSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: String { usage }
@@ -53,7 +54,14 @@ enum SlashCommandCatalog {
         .init(usage: "/memories", title: "Show memories", detail: "Show loaded global and project memories.", insertText: "/memories", aliases: ["memory"]),
         .init(usage: "/remember text", title: "Add memory", detail: "Save an explicit global memory after redaction checks.", insertText: "/remember ", aliases: []),
         .init(usage: "/worktrees", title: "List worktrees", detail: "List git worktrees for the selected project.", insertText: "/worktrees", aliases: ["worktree", "wt"]),
-        .init(usage: "/pr", title: "Prepare pull request", detail: "Draft a pull request request in the composer.", insertText: "/pr", aliases: ["pull-request", "pullrequest"]),
+        .init(usage: "/pr create", title: "Create pull request", detail: "Draft a pull request request in the composer.", insertText: "/pr create", aliases: ["pull-request", "pullrequest"]),
+        .init(usage: "/pr view [selector]", title: "View pull request", detail: "View the current or selected pull request with comments.", insertText: "/pr view ", aliases: ["pr show", "pull request view"]),
+        .init(usage: "/pr checks [selector]", title: "Pull request checks", detail: "Show CI status for the current or selected pull request.", insertText: "/pr checks ", aliases: ["pr ci", "pull request status"]),
+        .init(usage: "/pr checkout selector", title: "Checkout pull request", detail: "Check out a pull request branch.", insertText: "/pr checkout ", aliases: ["pr switch"]),
+        .init(usage: "/pr comment body", title: "Comment on pull request", detail: "Post a top-level comment on the current pull request.", insertText: "/pr comment ", aliases: ["pr reply"]),
+        .init(usage: "/pr review approve|comment|request_changes", title: "Review pull request", detail: "Submit an approve, comment, or request_changes review.", insertText: "/pr review approve", aliases: ["pr approve", "request changes"]),
+        .init(usage: "/pr reviewers add|remove login", title: "Manage pull request reviewers", detail: "Request or remove pull request reviewers.", insertText: "/pr reviewers add ", aliases: ["request reviewer", "remove reviewer"]),
+        .init(usage: "/pr merge [squash|merge|rebase]", title: "Merge pull request", detail: "Merge or enable auto-merge for the current pull request.", insertText: "/pr merge squash", aliases: ["automerge", "merge train"]),
         .init(usage: "/env name", title: "Run local environment action", detail: "List or run project-local environment scripts.", insertText: "/env ", aliases: ["environment", "local-env"]),
         .init(usage: "/mode auto|review|read-only", title: "Set approval mode", detail: "Switch between Auto, Review, and Read-only behavior.", insertText: "/mode ", aliases: []),
         .init(usage: "/model provider/model", title: "Set model", detail: "Switch the active TrustedRouter model.", insertText: "/model ", aliases: [])
@@ -151,6 +159,7 @@ enum SlashCommand: Equatable {
     case threadFollowUp(String)
     case workspaceSchedule(String)
     case workspaceCommand(String)
+    case toolCall(ToolCall)
     case environmentAction(String?)
     case invalid(String)
     case unknown(String)
@@ -210,7 +219,7 @@ enum SlashCommandParser {
         case "worktree", "worktrees", "wt":
             return .workspaceCommand("git-worktree-list")
         case "pr", "pull-request", "pullrequest":
-            return .workspaceCommand("git-pr-create")
+            return parsePullRequest(argument)
         case "env", "environment", "local-env":
             return .environmentAction(argument.isEmpty ? nil : argument)
         case "mode":
@@ -257,6 +266,198 @@ enum SlashCommandParser {
         default:
             return .invalid("Unknown project command '\(subcommand)'. Use new, refresh, rename, or remove.")
         }
+    }
+
+    private static func parsePullRequest(_ argument: String) -> SlashCommand {
+        let parts = argument.split(maxSplits: 1, whereSeparator: \.isWhitespace)
+        guard let rawSubcommand = parts.first?.lowercased() else {
+            return .workspaceCommand("git-pr-create")
+        }
+        let rest = parts.count > 1
+            ? String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+            : ""
+        let subcommand = rawSubcommand.replacingOccurrences(of: "-", with: "_")
+
+        switch subcommand {
+        case "create", "new", "open":
+            return .workspaceCommand("git-pr-create")
+        case "view", "show", "inspect", "comments":
+            return pullRequestTool(.gitPullRequestView, selector: rest)
+        case "checks", "ci", "status":
+            return pullRequestTool(.gitPullRequestChecks, selector: rest)
+        case "checkout", "switch":
+            guard !rest.isEmpty else {
+                return .workspaceCommand("git-pr-checkout")
+            }
+            return pullRequestTool(.gitPullRequestCheckout, selector: rest)
+        case "comment", "reply":
+            let parsed = selectorAndBody(from: rest)
+            guard !parsed.body.isEmpty else {
+                return .invalid("Usage: /pr comment OptionalPRSelector comment text")
+            }
+            return pullRequestTool(
+                .gitPullRequestComment,
+                arguments: compact(["selector": parsed.selector, "body": parsed.body])
+            )
+        case "review":
+            return parsePullRequestReview(rest)
+        case "approve", "approved":
+            let parsed = selectorAndBody(from: rest)
+            return pullRequestTool(
+                .gitPullRequestReview,
+                arguments: compact(["selector": parsed.selector, "action": "approve", "body": parsed.body])
+            )
+        case "request_changes", "changes":
+            let parsed = selectorAndBody(from: rest)
+            guard !parsed.body.isEmpty else {
+                return .invalid("Usage: /pr review request_changes OptionalPRSelector review body")
+            }
+            return pullRequestTool(
+                .gitPullRequestReview,
+                arguments: compact(["selector": parsed.selector, "action": "request_changes", "body": parsed.body])
+            )
+        case "reviewers", "reviewer":
+            return parsePullRequestReviewers(rest)
+        case "merge", "automerge", "auto_merge":
+            return parsePullRequestMerge(rest, autoByDefault: subcommand != "merge")
+        default:
+            return .invalid("Unknown pull request command '\(rawSubcommand)'. Use create, view, checks, checkout, comment, review, reviewers, or merge.")
+        }
+    }
+
+    private static func parsePullRequestReview(_ argument: String) -> SlashCommand {
+        let parts = argument.split(maxSplits: 1, whereSeparator: \.isWhitespace)
+        guard let rawAction = parts.first?.lowercased() else {
+            return .invalid("Usage: /pr review approve, /pr review comment body, or /pr review request_changes body")
+        }
+        let rest = parts.count > 1
+            ? String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+            : ""
+        let action = rawAction.replacingOccurrences(of: "-", with: "_")
+        let normalizedAction: String
+        switch action {
+        case "approve", "approved":
+            normalizedAction = "approve"
+        case "comment", "comments":
+            normalizedAction = "comment"
+        case "request_changes", "request_change":
+            normalizedAction = "request_changes"
+        default:
+            return .invalid("Unknown pull request review action '\(rawAction)'. Use approve, comment, or request_changes.")
+        }
+
+        let parsed = selectorAndBody(from: rest)
+        if normalizedAction != "approve", parsed.body.isEmpty {
+            return .invalid("Usage: /pr review \(normalizedAction) OptionalPRSelector review body")
+        }
+        return pullRequestTool(
+            .gitPullRequestReview,
+            arguments: compact(["selector": parsed.selector, "action": normalizedAction, "body": parsed.body])
+        )
+    }
+
+    private static func parsePullRequestReviewers(_ argument: String) -> SlashCommand {
+        let parts = argument.split(maxSplits: 1, whereSeparator: \.isWhitespace)
+        guard let rawAction = parts.first?.lowercased(),
+              ["add", "request", "remove", "delete"].contains(rawAction)
+        else {
+            return .invalid("Usage: /pr reviewers add alice bob or /pr reviewers remove alice")
+        }
+        let reviewers = parts.count > 1
+            ? String(parts[1]).split(whereSeparator: \.isWhitespace).map(String.init)
+            : []
+        guard !reviewers.isEmpty else {
+            return .invalid("Usage: /pr reviewers add alice bob or /pr reviewers remove alice")
+        }
+        let key = (rawAction == "remove" || rawAction == "delete") ? "remove" : "add"
+        return pullRequestTool(.gitPullRequestReviewers, arguments: [key: reviewers])
+    }
+
+    private static func parsePullRequestMerge(_ argument: String, autoByDefault: Bool) -> SlashCommand {
+        let tokens = argument.split(whereSeparator: \.isWhitespace).map(String.init)
+        var selector: String?
+        var method: String?
+        var auto = autoByDefault
+        var deleteBranch = false
+
+        for token in tokens {
+            let normalized = token.lowercased().replacingOccurrences(of: "-", with: "_")
+            switch normalized {
+            case "squash", "merge", "rebase":
+                method = normalized
+            case "auto", "automerge", "auto_merge":
+                auto = true
+            case "delete_branch", "delete":
+                deleteBranch = true
+            default:
+                if selector == nil {
+                    selector = normalizedPullRequestSelector(token)
+                }
+            }
+        }
+
+        return pullRequestTool(
+            .gitPullRequestMerge,
+            arguments: compact([
+                "selector": selector,
+                "method": method ?? "squash",
+                "auto": auto,
+                "deleteBranch": deleteBranch
+            ])
+        )
+    }
+
+    private static func selectorAndBody(from argument: String) -> (selector: String?, body: String) {
+        let trimmed = argument.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.split(maxSplits: 1, whereSeparator: \.isWhitespace).first else {
+            return (nil, "")
+        }
+        let firstToken = String(first)
+        guard looksLikePullRequestSelector(firstToken) else {
+            return (nil, trimmed)
+        }
+        let bodyStart = trimmed.index(trimmed.startIndex, offsetBy: firstToken.count)
+        let body = String(trimmed[bodyStart...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        return (normalizedPullRequestSelector(firstToken), body)
+    }
+
+    private static func looksLikePullRequestSelector(_ token: String) -> Bool {
+        let normalized = normalizedPullRequestSelector(token)
+        guard !normalized.isEmpty else { return false }
+        if normalized.allSatisfy(\.isNumber) {
+            return true
+        }
+        if normalized.hasPrefix("http://") || normalized.hasPrefix("https://") {
+            return true
+        }
+        return normalized.contains("/") && !normalized.hasPrefix("-")
+    }
+
+    private static func normalizedPullRequestSelector(_ token: String) -> String {
+        token.trimmingCharacters(in: CharacterSet(charactersIn: "#").union(.whitespacesAndNewlines))
+    }
+
+    private static func pullRequestTool(_ definition: ToolDefinition, selector: String) -> SlashCommand {
+        pullRequestTool(definition, arguments: compact(["selector": selector]))
+    }
+
+    private static func pullRequestTool(_ definition: ToolDefinition, arguments: [String: Any]) -> SlashCommand {
+        .toolCall(ToolCall(name: definition.name, argumentsJSON: json(arguments)))
+    }
+
+    private static func compact(_ values: [String: Any?]) -> [String: Any] {
+        values.compactMapValues { value in
+            if let string = value as? String {
+                let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : trimmed
+            }
+            return value
+        }
+    }
+
+    private static func json(_ values: [String: Any]) -> String {
+        let data = try? JSONSerialization.data(withJSONObject: values, options: [.sortedKeys])
+        return data.map { String(decoding: $0, as: UTF8.self) } ?? "{}"
     }
 
     private static func parseMode(_ argument: String) -> SlashCommand {

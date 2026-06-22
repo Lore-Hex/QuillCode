@@ -2184,11 +2184,11 @@ public enum WorkspaceCommandPalette {
         threadCategory,
         navigationCategory,
         workspaceCategory,
-        slashCategory,
         automationsCategory,
         memoriesCategory,
         extensionsCategory,
         gitCategory,
+        slashCategory,
         environmentCategory,
         controlCategory,
         computerUseCategory
@@ -3433,6 +3433,20 @@ public extension QuillCodeWorkspaceModel {
                 title: "Request pull request reviewers",
                 category: WorkspaceCommandPalette.gitCategory,
                 keywords: ["github", "pr", "reviewer", "reviewers", "request review"],
+                isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
+            ),
+            WorkspaceCommandSurface(
+                id: "git-pr-comment",
+                title: "Comment on pull request",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["github", "pr", "comment", "comment pull", "reply", "discussion"],
+                isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
+            ),
+            WorkspaceCommandSurface(
+                id: "git-pr-review",
+                title: "Review pull request",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["github", "pr", "review", "approve", "approve pr", "request changes"],
                 isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
             ),
             WorkspaceCommandSurface(
