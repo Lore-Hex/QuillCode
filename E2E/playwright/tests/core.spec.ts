@@ -1065,6 +1065,30 @@ test('mock harness manages projects from the sidebar', async ({ page }) => {
   await expect(page.getByTestId('project-item').first()).toContainText('QuillCode');
 });
 
+test('mock harness adds an SSH remote project from command palette and slash command', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('command-palette-button').click();
+  await page.getByLabel('Search commands').fill('ssh');
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
+  await expect(page.getByTestId('command-palette-result')).toContainText('Project: Add SSH Remote');
+  await page.getByTestId('command-palette-result').click();
+  await expect(page.getByLabel('Message')).toHaveValue('/ssh user@host:/absolute/path');
+
+  await page.getByLabel('Message').fill('/ssh quill@feather.local:/srv/quill');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  const remoteProject = page.getByTestId('project-row').first();
+  await expect(remoteProject.getByTestId('project-item')).toContainText('feather.local · quill');
+  await expect(remoteProject.getByTestId('project-item')).toContainText('ssh://quill@feather.local/srv/quill');
+  await expect(remoteProject.getByTestId('project-connection-kind')).toHaveText('SSH Remote');
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('feather.local · quill');
+  await expect(page.getByTestId('message').last()).toContainText('Added SSH Remote');
+
+  await remoteProject.getByLabel(/^Actions for project /).click();
+  await expect(remoteProject.getByRole('button', { name: 'Refresh context' })).toBeDisabled();
+});
+
 test('mock harness runs a command in the integrated terminal', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

@@ -48,8 +48,11 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.projects.items.count, 1)
         XCTAssertEqual(surface.projects.items[0].name, "QuillCode")
         XCTAssertEqual(surface.projects.items[0].path, "/tmp/QuillCode")
+        XCTAssertEqual(surface.projects.items[0].connectionKindLabel, "Local")
+        XCTAssertFalse(surface.projects.items[0].isRemote)
         XCTAssertTrue(surface.projects.items[0].isSelected)
         XCTAssertEqual(surface.projects.items[0].actions.map(\.kind), [.newChat, .refreshContext, .rename, .remove])
+        XCTAssertTrue(surface.projects.items[0].actions.allSatisfy(\.isEnabled))
         XCTAssertEqual(surface.sidebar.items.count, 1)
         XCTAssertEqual(surface.sidebar.items[0].title, "Run whoami")
         XCTAssertTrue(surface.sidebar.items[0].isSelected)
@@ -83,6 +86,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "search",
             "find-in-chat",
             "add-project",
+            "add-ssh-project",
             "project-new-chat",
             "project-refresh-context",
             "project-rename",
@@ -140,6 +144,43 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertFalse(surface.extensions.isVisible)
         XCTAssertFalse(surface.memories.isVisible)
         XCTAssertFalse(surface.activity.isVisible)
+    }
+
+    func testSurfaceMarksSSHProjectsAndDisablesLocalOnlyCommands() throws {
+        let connection = ProjectConnection.ssh(
+            path: "/srv/quill",
+            host: "feather.local",
+            user: "quill",
+            port: 2222
+        )
+        let project = ProjectRef(
+            name: "Feather",
+            path: connection.path,
+            connection: connection
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id
+        ))
+
+        let surface = model.surface()
+        let item = try XCTUnwrap(surface.projects.items.first)
+
+        XCTAssertEqual(item.name, "Feather")
+        XCTAssertEqual(item.path, "ssh://quill@feather.local:2222/srv/quill")
+        XCTAssertEqual(item.connectionKindLabel, "SSH Remote")
+        XCTAssertTrue(item.isRemote)
+        XCTAssertEqual(item.actions.map(\.kind), [.newChat, .refreshContext, .rename, .remove])
+        XCTAssertEqual(item.actions.first { $0.kind == .refreshContext }?.isEnabled, false)
+        XCTAssertEqual(
+            item.actions.first { $0.kind == .refreshContext }?.disabledReason,
+            "SSH Remote context refresh needs the remote executor first."
+        )
+        XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, false)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-list" }?.isEnabled, false)
+        XCTAssertEqual(surface.commands.first { $0.id == "add-ssh-project" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "add-ssh-project" }?.title, "Project: Add SSH Remote...")
+        XCTAssertEqual(surface.terminal.cwdLabel, "ssh://quill@feather.local:2222/srv/quill")
     }
 
     func testSidebarBulkSelectionArchivesAndDeletesChats() {

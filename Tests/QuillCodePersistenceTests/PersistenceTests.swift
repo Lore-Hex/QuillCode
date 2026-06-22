@@ -110,6 +110,50 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(try store.load().map(\.name), ["Newer", "Older"])
     }
 
+    func testProjectStoreRoundTripsSSHProjectConnection() throws {
+        let root = try makeTempDirectory()
+        let store = JSONProjectStore(fileURL: root.appendingPathComponent("projects.json"))
+        let connection = ProjectConnection.ssh(
+            path: "/srv/quill",
+            host: "feather.local",
+            user: "quill",
+            port: 2222
+        )
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+
+        try store.save([project])
+        let loaded = try XCTUnwrap(store.load().first)
+
+        XCTAssertEqual(loaded.connection, connection)
+        XCTAssertEqual(loaded.displayPath, "ssh://quill@feather.local:2222/srv/quill")
+        XCTAssertTrue(loaded.isRemote)
+    }
+
+    func testProjectStoreDecodesLegacyProjectAsLocalConnection() throws {
+        let root = try makeTempDirectory()
+        let fileURL = root.appendingPathComponent("projects.json")
+        try """
+        [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "name": "Legacy",
+            "path": "/tmp/legacy",
+            "instructions": [],
+            "localActions": [],
+            "extensionManifests": [],
+            "memories": [],
+            "lastOpenedAt": "1970-01-01T00:00:01Z"
+          }
+        ]
+        """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        let loaded = try XCTUnwrap(JSONProjectStore(fileURL: fileURL).load().first)
+
+        XCTAssertEqual(loaded.connection, .local(path: "/tmp/legacy"))
+        XCTAssertFalse(loaded.isRemote)
+        XCTAssertEqual(loaded.displayPath, "/tmp/legacy")
+    }
+
     func testFileSecretStoreRoundTrips() throws {
         let root = try makeTempDirectory()
         let store = FileSecretStore(directory: root)

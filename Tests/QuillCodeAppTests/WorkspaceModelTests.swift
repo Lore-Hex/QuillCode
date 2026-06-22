@@ -261,6 +261,42 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(result.stdout, "slash-env-ok")
     }
 
+    func testSlashSSHAddsRemoteProjectAndDisablesLocalOnlyActions() async throws {
+        let model = QuillCodeWorkspaceModel()
+
+        model.setDraft("/ssh quill@feather.local:/srv/quill")
+        await model.submitComposer(workspaceRoot: URL(fileURLWithPath: "/tmp/local"))
+
+        let project = try XCTUnwrap(model.selectedProject)
+        XCTAssertEqual(project.name, "feather.local · quill")
+        XCTAssertEqual(project.connection, .ssh(path: "/srv/quill", host: "feather.local", user: "quill"))
+        XCTAssertEqual(project.displayPath, "ssh://quill@feather.local/srv/quill")
+        XCTAssertTrue(project.isRemote)
+        XCTAssertNil(model.activeWorkspaceRoot)
+        XCTAssertEqual(model.terminal.currentDirectoryPath, "ssh://quill@feather.local/srv/quill")
+
+        let surface = model.surface()
+        XCTAssertEqual(surface.terminal.cwdLabel, "ssh://quill@feather.local/srv/quill")
+        XCTAssertEqual(surface.projects.items.first?.connectionKindLabel, "SSH Remote")
+        XCTAssertEqual(surface.projects.items.first?.actions.first { $0.kind == .refreshContext }?.isEnabled, false)
+        XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, false)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-create" }?.isEnabled, false)
+        XCTAssertEqual(model.selectedThread?.messages.last?.content.contains("Added SSH Remote"), true)
+    }
+
+    func testSlashSSHRejectsMalformedAddress() async throws {
+        let model = QuillCodeWorkspaceModel()
+
+        model.setDraft("/ssh feather.local relative/path")
+        await model.submitComposer(workspaceRoot: URL(fileURLWithPath: "/tmp/local"))
+
+        XCTAssertTrue(model.root.projects.isEmpty)
+        XCTAssertEqual(
+            model.selectedThread?.messages.last?.content,
+            "Use SSH format user@host:/path or ssh://user@host/path."
+        )
+    }
+
     func testSelectingProjectSelectsNewestThreadForThatProject() {
         let firstProject = ProjectRef(name: "One", path: "/tmp/one")
         let secondProject = ProjectRef(name: "Two", path: "/tmp/two")

@@ -473,6 +473,18 @@
     }
     .sidebar-item small,
     .project-item small { color: var(--muted); }
+    .project-connection-kind {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 6px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      color: #b6eaff;
+      background: rgba(65,184,232,.14);
+      border: 1px solid rgba(65,184,232,.22);
+      font-size: 11px;
+      font-weight: 700;
+    }
     .sidebar-thread-row {
       position: relative;
       display: grid;
@@ -1759,6 +1771,8 @@
             id: 'project-main',
             name: 'QuillCode',
             path: '/mock/QuillCode',
+            connectionKindLabel: 'Local',
+            isRemote: false,
             isSelected: true
           }
         ]
@@ -1977,6 +1991,7 @@
         { id: 'search', title: 'Search', shortcut: 'Cmd+K', category: 'Navigation', keywords: ['find', 'threads', 'chat'], isEnabled: true },
         { id: 'find-in-chat', title: 'Find in chat', shortcut: 'Cmd+F', category: 'Navigation', keywords: ['find', 'current', 'transcript', 'message'], isEnabled: false },
         { id: 'add-project', title: 'Open project', shortcut: 'Cmd+O', category: 'Workspace', keywords: ['folder', 'workspace', 'repo'], isEnabled: true },
+        { id: 'add-ssh-project', title: 'Project: Add SSH Remote...', shortcut: '', category: 'Workspace', keywords: ['remote', 'ssh', 'server', 'workspace', '/ssh user@host:/path'], isEnabled: true },
         { id: 'project-new-chat', title: 'New chat in project', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'thread', 'chat'], isEnabled: true },
         { id: 'project-refresh-context', title: 'Refresh project context', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'instructions', 'memory', 'reload'], isEnabled: true },
         { id: 'project-rename', title: 'Rename project', shortcut: '', category: 'Workspace', keywords: ['project', 'workspace', 'title', 'name'], isEnabled: true },
@@ -2055,6 +2070,7 @@
       { usage: '/project refresh', title: 'Refresh project context', detail: 'Reload instructions, local actions, extensions, and memories.', insertText: '/project refresh', aliases: ['project reload', 'project context'] },
       { usage: '/project rename name', title: 'Rename project', detail: 'Rename the selected project in QuillCode.', insertText: '/project rename ', aliases: ['project title'] },
       { usage: '/project remove', title: 'Remove project', detail: 'Forget the selected project from the sidebar without deleting files.', insertText: '/project remove', aliases: ['project forget'] },
+      { usage: '/ssh user@host:/path', title: 'Add SSH Remote', detail: 'Register an SSH Remote workspace in the project sidebar.', insertText: '/ssh ', aliases: ['remote', 'ssh project'] },
       { usage: '/terminal', title: 'Toggle terminal', detail: 'Show or hide the integrated workspace terminal.', insertText: '/terminal', aliases: ['term', 'shell'] },
       { usage: '/browser', title: 'Toggle browser', detail: 'Show or hide the browser preview panel.', insertText: '/browser', aliases: ['preview'] },
       { usage: '/memories', title: 'Show memories', detail: 'Show loaded global and project memories.', insertText: '/memories', aliases: ['memory'] },
@@ -2557,6 +2573,8 @@
       const hasUserMessages = state.transcript.messages.some(message => message.role === 'user' && String(message.text || '').trim());
       const hasActiveWork = state.composer.isSending || state.terminal.isRunning;
       const hasProject = Boolean(state.projects.selectedProjectID);
+      const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
+      const hasLocalProject = hasProject && !selectedProject?.isRemote;
       const selectedThreadIDs = new Set(state.sidebar.selectedThreadIDs);
       const selectedThreads = state.sidebar.items.filter(item => selectedThreadIDs.has(item.id));
       const hasBulkSelection = selectedThreads.length > 0;
@@ -2579,9 +2597,13 @@
         command.id === 'thread-bulk-unarchive' ? { ...command, isEnabled: hasArchivedBulkSelection } :
         command.id === 'thread-bulk-delete' ? { ...command, isEnabled: hasBulkSelection } :
         command.id === 'project-new-chat' ? { ...command, isEnabled: hasProject } :
-        command.id === 'project-refresh-context' ? { ...command, isEnabled: hasProject } :
+        command.id === 'project-refresh-context' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'project-rename' ? { ...command, isEnabled: hasProject } :
         command.id === 'project-remove' ? { ...command, isEnabled: hasProject } :
+        command.id === 'git-pr-create' ? { ...command, isEnabled: hasLocalProject } :
+        command.id === 'git-worktree-list' ? { ...command, isEnabled: hasLocalProject } :
+        command.id === 'git-worktree-create' ? { ...command, isEnabled: hasLocalProject } :
+        command.id === 'git-worktree-remove' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'fork-from-last' ? { ...command, isEnabled: hasMessages } :
         command.id === 'compact-context' ? { ...command, isEnabled: hasMessages } :
         command.id === 'retry-last-turn' ? { ...command, isEnabled: hasUserMessages && !state.composer.isSending } :
@@ -3015,13 +3037,13 @@
         ? state.projects.items.map(item => `
           <div class="project-row" data-testid="project-row">
             <button class="project-item ${item.isSelected ? 'selected' : ''}" data-testid="project-item" data-project-id="${escapeHTML(item.id)}" aria-current="${item.isSelected ? 'true' : 'false'}">
-              <span>${escapeHTML(item.name)}</span>
+              <span>${escapeHTML(item.name)}${item.isRemote ? ` <small class="project-connection-kind" data-testid="project-connection-kind">${escapeHTML(item.connectionKindLabel || 'SSH')}</small>` : ''}</span>
               <small>${escapeHTML(item.path)}</small>
             </button>
             <details class="sidebar-thread-menu" data-testid="project-item-actions">
               <summary aria-label="Actions for project ${escapeHTML(item.name)}">•••</summary>
               <div class="sidebar-thread-menu-popover">
-                ${projectActionsFor(item).map(action => `<button type="button" data-testid="project-action" data-action="${escapeHTML(action.id)}" data-project-id="${escapeHTML(item.id)}">${escapeHTML(action.title)}</button>`).join('')}
+                ${projectActionsFor(item).map(action => `<button type="button" data-testid="project-action" data-action="${escapeHTML(action.id)}" data-project-id="${escapeHTML(item.id)}" title="${escapeHTML(action.disabledReason || action.title)}" ${action.isEnabled === false ? 'disabled' : ''}>${escapeHTML(action.title)}</button>`).join('')}
               </div>
             </details>
           </div>`).join('')
@@ -4712,10 +4734,15 @@
       ];
     }
 
-    function projectActionsFor() {
+    function projectActionsFor(project = {}) {
       return [
         { id: 'new-chat', title: 'New chat' },
-        { id: 'refresh-context', title: 'Refresh context' },
+        {
+          id: 'refresh-context',
+          title: 'Refresh context',
+          isEnabled: !project.isRemote,
+          disabledReason: project.isRemote ? 'SSH Remote context refresh needs the remote executor first.' : ''
+        },
         { id: 'rename', title: 'Rename' },
         { id: 'remove', title: 'Remove from list' }
       ];
@@ -4874,6 +4901,8 @@
         id: `project-${index}`,
         name: `Example Project ${index}`,
         path: `/mock/example-${index}`,
+        connectionKindLabel: 'Local',
+        isRemote: false,
         isSelected: true
       };
       state.projects.selectedProjectID = project.id;
@@ -4884,6 +4913,35 @@
       state.terminal.cwdLabel = project.path;
       state.terminal.environment = {};
       state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+      render();
+    }
+
+    function addSSHProject(address) {
+      const match = String(address).trim().match(/^(?:ssh:\/\/)?(?:(?<user>[^@/:]+)@)?(?<host>[^/:]+)(?::(?<port>\d+))?[:/](?<path>\/?[^\s]*)$/);
+      if (!match?.groups?.host || !match.groups.path) {
+        addMessage('assistant', 'Use SSH format user@host:/path or ssh://user@host/path.');
+        return;
+      }
+      const host = match.groups.host;
+      const remotePath = match.groups.path.startsWith('/') ? match.groups.path : `/${match.groups.path}`;
+      const label = `ssh://${match.groups.user ? `${match.groups.user}@` : ''}${host}${match.groups.port ? `:${match.groups.port}` : ''}${remotePath}`;
+      const project = {
+        id: `project-${state.nextProjectIndex++}`,
+        name: `${host} · ${remotePath.split('/').filter(Boolean).pop() || 'remote'}`,
+        path: label,
+        connectionKindLabel: 'SSH Remote',
+        isRemote: true,
+        isSelected: true
+      };
+      state.projects.selectedProjectID = project.id;
+      state.projects.items = [
+        project,
+        ...state.projects.items.map(item => ({ ...item, isSelected: false }))
+      ];
+      state.terminal.cwdLabel = label;
+      state.terminal.environment = {};
+      state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+      addMessage('assistant', `Added SSH Remote ${project.name} at ${label}. Remote command execution is pending; local-only actions are disabled for this project.`);
       render();
     }
 
@@ -5071,6 +5129,12 @@
       }
       if (commandID === 'add-project') {
         addProject();
+        return;
+      }
+      if (commandID === 'add-ssh-project') {
+        state.composer.draft = '/ssh user@host:/absolute/path';
+        state.composer.canSend = true;
+        render();
         return;
       }
       if (commandID === 'project-new-chat') {
@@ -5623,6 +5687,8 @@
         id: `project-${state.nextProjectIndex++}`,
         name: values.path,
         path,
+        connectionKindLabel: 'Local',
+        isRemote: false,
         isSelected: true
       };
       state.projects.selectedProjectID = project.id;
@@ -6048,6 +6114,13 @@
       } else if (/^\/(browser|preview)\b/i.test(text)) {
         state.browser.isVisible = !state.browser.isVisible;
         addMessage('assistant', state.browser.isVisible ? 'Browser opened.' : 'Browser hidden.');
+      } else if (/^\/(ssh|remote)\b/i.test(text)) {
+        const address = text.replace(/^\/(ssh|remote)\b/i, '').trim();
+        if (address) {
+          addSSHProject(address);
+          return;
+        }
+        addMessage('assistant', 'Usage: /ssh user@host:/absolute/path');
       } else if (/^\/remember\b/i.test(text)) {
         const memoryContent = text.replace(/^\/remember\b/i, '').trim();
         if (memoryContent) {

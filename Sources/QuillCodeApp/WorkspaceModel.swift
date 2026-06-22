@@ -1171,10 +1171,12 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public var activeWorkspaceRoot: URL? {
-        selectedProject.map { URL(fileURLWithPath: $0.path) }
+        guard let selectedProject, !selectedProject.isRemote else { return nil }
+        return URL(fileURLWithPath: selectedProject.path)
     }
 
     var terminalCurrentDirectoryURL: URL? {
+        guard selectedProject?.isRemote != true else { return nil }
         guard terminal.projectID == knownProjectID(root.selectedProjectID) else {
             return activeWorkspaceRoot
         }
@@ -1188,7 +1190,7 @@ public final class QuillCodeWorkspaceModel {
         let selectedProjectID = knownProjectID(root.selectedProjectID)
         guard terminal.projectID != selectedProjectID else { return }
         terminal.projectID = selectedProjectID
-        terminal.currentDirectoryPath = selectedProject.map(\.path)
+        terminal.currentDirectoryPath = selectedProject?.displayPath
         terminal.environmentOverrides = [:]
         terminal.removedEnvironmentKeys = []
     }
@@ -1607,6 +1609,41 @@ public final class QuillCodeWorkspaceModel {
         return project.id
     }
 
+    @discardableResult
+    public func addSSHProject(_ address: String, name: String? = nil) -> UUID? {
+        guard let connection = ProjectConnection.parseSSH(address) else {
+            lastError = "Use SSH format user@host:/path or ssh://user@host/path."
+            return nil
+        }
+        let projectName = name ?? Self.defaultSSHProjectName(for: connection)
+        if let index = root.projects.firstIndex(where: { $0.connection == connection }) {
+            root.projects[index].name = projectName
+            root.projects[index].lastOpenedAt = Date()
+            root.selectedProjectID = root.projects[index].id
+            syncTerminalSessionToSelectedProject()
+            saveProjects()
+            refreshTopBar(agentStatus: "Idle")
+            return root.projects[index].id
+        }
+
+        let project = ProjectRef(
+            name: projectName,
+            path: connection.path,
+            connection: connection,
+            lastOpenedAt: Date(),
+            instructions: [],
+            localActions: [],
+            extensionManifests: [],
+            memories: []
+        )
+        root.projects.insert(project, at: 0)
+        root.selectedProjectID = project.id
+        syncTerminalSessionToSelectedProject()
+        saveProjects()
+        refreshTopBar(agentStatus: "Idle")
+        return project.id
+    }
+
     public func selectProject(_ id: UUID?) {
         if let id {
             guard root.projects.contains(where: { $0.id == id }) else { return }
@@ -1641,7 +1678,11 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func refreshProjectContext(_ id: UUID) -> Bool {
-        guard root.projects.contains(where: { $0.id == id }) else {
+        guard let project = root.projects.first(where: { $0.id == id }) else {
+            return false
+        }
+        guard !project.isRemote else {
+            lastError = "Remote project context refresh is pending SSH executor support."
             return false
         }
         refreshProjectMetadata(id)
@@ -2117,6 +2158,9 @@ public final class QuillCodeWorkspaceModel {
             return true
         case "memory-add":
             composer.draft = "/remember "
+            return true
+        case "add-ssh-project":
+            composer.draft = "/ssh user@host:/absolute/path"
             return true
         case "project-new-chat":
             guard let projectID = root.selectedProjectID else { return false }
@@ -3400,6 +3444,21 @@ public final class QuillCodeWorkspaceModel {
                     title: "Rename project"
                 )
             }
+        case .sshProject(let address):
+            if let projectID = addSSHProject(address),
+               let project = root.projects.first(where: { $0.id == projectID }) {
+                appendLocalCommandTranscript(
+                    userText: originalPrompt,
+                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Remote command execution is pending; local-only actions are disabled for this project.",
+                    title: "Add SSH Remote"
+                )
+            } else {
+                appendLocalCommandTranscript(
+                    userText: originalPrompt,
+                    assistantText: lastError ?? "Use SSH format user@host:/path or ssh://user@host/path.",
+                    title: "Add SSH Remote"
+                )
+            }
         case .remember(let content):
             runRememberSlashCommand(content, originalPrompt: originalPrompt)
         case .workspaceCommand(let commandID):
@@ -3757,6 +3816,7 @@ public final class QuillCodeWorkspaceModel {
 
     private func refreshProjectInstructions(_ id: UUID?) {
         guard let id, let index = root.projects.firstIndex(where: { $0.id == id }) else { return }
+        guard !root.projects[index].isRemote else { return }
         let rootURL = URL(fileURLWithPath: root.projects[index].path)
         root.projects[index].instructions = ProjectInstructionLoader.load(from: rootURL)
         root.projects[index].memories = MemoryNoteLoader.loadProject(from: rootURL)
@@ -3765,6 +3825,7 @@ public final class QuillCodeWorkspaceModel {
     private func refreshProjectMetadata(_ id: UUID?) {
         refreshGlobalMemories()
         guard let id, let index = root.projects.firstIndex(where: { $0.id == id }) else { return }
+        guard !root.projects[index].isRemote else { return }
         let rootURL = URL(fileURLWithPath: root.projects[index].path)
         root.projects[index].instructions = ProjectInstructionLoader.load(from: rootURL)
         root.projects[index].localActions = LocalEnvironmentActionLoader.load(from: rootURL)
@@ -3855,6 +3916,19 @@ public final class QuillCodeWorkspaceModel {
     private static func defaultProjectName(for url: URL) -> String {
         let lastPathComponent = url.lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
         return lastPathComponent.isEmpty ? url.path : lastPathComponent
+    }
+
+    private static func defaultSSHProjectName(for connection: ProjectConnection) -> String {
+        let pathName = URL(fileURLWithPath: connection.path).lastPathComponent
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let host = connection.host?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let host, !host.isEmpty, !pathName.isEmpty {
+            return "\(host) · \(pathName)"
+        }
+        if let host, !host.isEmpty {
+            return host
+        }
+        return connection.displayLabel
     }
 
     private static func normalizedBrowserURL(_ rawValue: String, workspaceRoot: URL?) -> URL? {

@@ -60,7 +60,7 @@ public enum WorkspaceHTMLRenderer {
             projectContent = projects.items.map { project in
                 """
                 <button class="project-item\(project.isSelected ? " selected" : "")" data-testid="project-item" data-project-id="\(project.id.uuidString)" aria-current="\(project.isSelected ? "true" : "false")">
-                  <span>\(escape(project.name))</span>
+                  <span>\(escape(project.name))\(project.isRemote ? #" <small data-testid="project-connection-kind">SSH Remote</small>"# : "")</span>
                   <small>\(escape(project.path))</small>
                 </button>
                 """

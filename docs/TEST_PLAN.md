@@ -5,6 +5,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 ## Unit Tests
 
 - Config parsing, model catalog, auth state, secret store.
+- Project connection parsing, typed local/SSH Remote persistence, legacy project decoding, and remote display labels.
 - Thread reducers, tool schemas, shell/file/path safety.
 - Workspace activity reduction from thread events, tool cards, instructions, memories, artifacts, latest assistant answers, deterministic task plans, deterministic handoff summaries, and collapsible shared section state.
 - Multi-step agent tool continuation, hidden tool-feedback serialization, duplicate tool-call loop guards, max-step fallback, and user-visible filtering for sidebar search/fork/compaction.
@@ -18,7 +19,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 ## Functional Tests
 
 - Mock TrustedRouter, mock LLM, fake shell, fake filesystem, fake git repo.
-- Cover login, model switch, searchable model picker, persistent favorite model toggles, recent model sections, current/default/recommended/favorite model badges, provider/category/model/default/recommended/favorite metadata rows, inline model detail browsing, duplicate-free model search over metadata, new thread, thread rename/duplicate/archive/unarchive/delete, sidebar bulk select/select-all/pin/unpin/archive/unarchive/delete, project new-chat/refresh/rename/remove lifecycle, context compaction, project instruction and memory refresh before runs, explicit slash and agent-callable memory writes and forgetting, project extension manifest refresh, MCP start/probe/stop lifecycle state, MCP tool invocation from an agent turn, Computer Use screenshot/input invocation from an agent turn, browser inspection from an open preview, multi-step agent runs that chain tools before a final answer, incremental run progress, chronological transcript ordering, transcript scroll anchoring while reading older turns versus bottom-pinned appends, derived Activity pane task-plan/task/source/tool/artifact/latest-answer/handoff rendering, Activity section collapse/expand commands, active-chat find state, transcript copy actions, user-message draft reuse, assistant response feedback, latest-assistant retry, multiline composer editing with Shift+Enter newlines and Enter-to-send, tool cards, stopped queued/running tool-card resolution, terminal live stdout/stderr streaming, per-project cwd and environment persistence, and running/done/failed/stopped lifecycle, artifact preview chips, text artifact previews, image artifact previews, collapsed successful-tool details, file edit, post-patch review refresh, review comments, command failure, rate-limit recovery, redacted runtime diagnostics, cancellation, approvals, settings, clustered top bar labels/status/action layout, search, keyboard shortcut panel, slash command catalog/help/suggestions, slash-to-workspace-action routing, and worktree project/thread handoff.
+- Cover login, model switch, searchable model picker, persistent favorite model toggles, recent model sections, current/default/recommended/favorite model badges, provider/category/model/default/recommended/favorite metadata rows, inline model detail browsing, duplicate-free model search over metadata, new thread, thread rename/duplicate/archive/unarchive/delete, sidebar bulk select/select-all/pin/unpin/archive/unarchive/delete, project new-chat/refresh/rename/remove lifecycle, SSH Remote registration and local-only disabled action states, context compaction, project instruction and memory refresh before runs, explicit slash and agent-callable memory writes and forgetting, project extension manifest refresh, MCP start/probe/stop lifecycle state, MCP tool invocation from an agent turn, Computer Use screenshot/input invocation from an agent turn, browser inspection from an open preview, multi-step agent runs that chain tools before a final answer, incremental run progress, chronological transcript ordering, transcript scroll anchoring while reading older turns versus bottom-pinned appends, derived Activity pane task-plan/task/source/tool/artifact/latest-answer/handoff rendering, Activity section collapse/expand commands, active-chat find state, transcript copy actions, user-message draft reuse, assistant response feedback, latest-assistant retry, multiline composer editing with Shift+Enter newlines and Enter-to-send, tool cards, stopped queued/running tool-card resolution, terminal live stdout/stderr streaming, per-project cwd and environment persistence, and running/done/failed/stopped lifecycle, artifact preview chips, text artifact previews, image artifact previews, collapsed successful-tool details, file edit, post-patch review refresh, review comments, command failure, rate-limit recovery, redacted runtime diagnostics, cancellation, approvals, settings, clustered top bar labels/status/action layout, search, keyboard shortcut panel, slash command catalog/help/suggestions, slash-to-workspace-action routing, and worktree project/thread handoff.
 
 ## Integration Tests
 
@@ -36,6 +37,7 @@ Drive the QuillCode test harness with mock LLM:
 - login
 - interface polish primitives: root font smoothing, balanced headings, pretty short text, tabular dynamic numbers, 40px hit areas, explicit transitions without `all`, tactile `scale(0.96)` press feedback, concentric panel radii, and image outlines
 - open project, rename it, refresh context, start a project-scoped chat, and remove it from the project list
+- add an SSH Remote from `Project: Add SSH Remote...`, complete `/ssh user@host:/path`, verify sidebar badge/path/top-bar context, and verify local-only actions are disabled with a reason
 - find within the active chat with `Cmd+F`, focused input, result counts, next/previous navigation, and close behavior
 - search and select a model, including current/default/recommended badges, provider/category/model metadata rows, metadata-backed search, and duplicate-free search results
 - run shell
@@ -64,7 +66,7 @@ Drive the QuillCode test harness with mock LLM:
 - `Cmd+/` Keyboard Shortcuts panel, plus command-palette access to the same panel
 - slash commands for mode, compact context, terminal, browser, worktrees, and PR prep, plus multiline composer behavior, Shift+Enter newline handling, Enter-to-send, composer slash suggestion filtering, selected-row keyboard navigation, Enter/Tab accept behavior, click-to-insert, focus retention, and send-through-existing-command-path behavior
 - worktree create handoff into the selected worktree project and thread
-- remote-pairing mock
+- remote-pairing mock and SSH Remote registration mock
 
 ## Native Smoke Tests
 

@@ -694,6 +694,7 @@ private struct QuillCodeCommandPaletteView: View {
         }
         .buttonStyle(.plain)
         .disabled(!command.isEnabled)
+        .help(command.keywords.last ?? command.title)
     }
 
     private func ensureSelection() {
@@ -1741,9 +1742,20 @@ private struct QuillCodeProjectListView: View {
                             onSelectProject(project.id)
                         } label: {
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(project.name)
-                                    .font(.callout.weight(.semibold))
-                                    .lineLimit(1)
+                                HStack(spacing: 6) {
+                                    Text(project.name)
+                                        .font(.callout.weight(.semibold))
+                                        .lineLimit(1)
+                                    if project.isRemote {
+                                        Text(project.connectionKindLabel)
+                                            .font(.caption2.weight(.bold))
+                                            .foregroundStyle(QuillCodePalette.blue)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(QuillCodePalette.blue.opacity(0.14))
+                                            .clipShape(Capsule())
+                                    }
+                                }
                                 Text(project.path)
                                     .font(.caption)
                                     .foregroundStyle(QuillCodePalette.muted)
@@ -1760,6 +1772,8 @@ private struct QuillCodeProjectListView: View {
                                 } label: {
                                     Text(action.kind.title)
                                 }
+                                .disabled(!action.isEnabled)
+                                .help(action.disabledReason ?? action.kind.title)
                             }
                         } label: {
                             Image(systemName: "ellipsis")

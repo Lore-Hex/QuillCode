@@ -42,6 +42,7 @@ enum SlashCommandCatalog {
         .init(usage: "/project refresh", title: "Refresh project context", detail: "Reload instructions, local actions, extensions, and memories.", insertText: "/project refresh", aliases: ["project reload", "project context"]),
         .init(usage: "/project rename name", title: "Rename project", detail: "Rename the selected project in QuillCode.", insertText: "/project rename ", aliases: ["project title"]),
         .init(usage: "/project remove", title: "Remove project", detail: "Forget the selected project from the sidebar without deleting files.", insertText: "/project remove", aliases: ["project forget"]),
+        .init(usage: "/ssh user@host:/path", title: "Add SSH Remote", detail: "Register an SSH Remote workspace in the project sidebar.", insertText: "/ssh ", aliases: ["remote", "ssh project"]),
         .init(usage: "/terminal", title: "Toggle terminal", detail: "Show or hide the integrated workspace terminal.", insertText: "/terminal", aliases: ["term", "shell"]),
         .init(usage: "/browser", title: "Toggle browser", detail: "Show or hide the browser preview panel.", insertText: "/browser", aliases: ["preview"]),
         .init(usage: "/memories", title: "Show memories", detail: "Show loaded global and project memories.", insertText: "/memories", aliases: ["memory"]),
@@ -118,6 +119,7 @@ enum SlashCommand: Equatable {
     case model(String)
     case renameThread(String)
     case renameProject(String)
+    case sshProject(String)
     case remember(String)
     case workspaceCommand(String)
     case environmentAction(String?)
@@ -158,6 +160,8 @@ enum SlashCommandParser {
             return .workspaceCommand("thread-unarchive")
         case "project":
             return parseProject(argument)
+        case "ssh", "remote":
+            return argument.isEmpty ? .invalid("Usage: /ssh user@host:/absolute/path") : .sshProject(argument)
         case "terminal", "term", "shell":
             return .workspaceCommand("toggle-terminal")
         case "browser", "preview":

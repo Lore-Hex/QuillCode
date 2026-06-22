@@ -143,16 +143,28 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var name: String
     public var path: String
+    public var connectionKindLabel: String
+    public var isRemote: Bool
     public var actions: [ProjectItemActionSurface]
     public var isSelected: Bool
 
     public init(project: ProjectRef, selectedProjectID: UUID?) {
         self.id = project.id
         self.name = project.name
-        self.path = project.path
+        self.path = project.displayPath
+        self.connectionKindLabel = project.connection.kindLabel
+        self.isRemote = project.isRemote
+        let remoteContextReason = project.isRemote
+            ? "SSH Remote context refresh needs the remote executor first."
+            : nil
         self.actions = [
             ProjectItemActionSurface(kind: .newChat, projectID: project.id),
-            ProjectItemActionSurface(kind: .refreshContext, projectID: project.id),
+            ProjectItemActionSurface(
+                kind: .refreshContext,
+                projectID: project.id,
+                isEnabled: !project.isRemote,
+                disabledReason: remoteContextReason
+            ),
             ProjectItemActionSurface(kind: .rename, projectID: project.id),
             ProjectItemActionSurface(kind: .remove, projectID: project.id)
         ]
@@ -163,6 +175,8 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
         case id
         case name
         case path
+        case connectionKindLabel
+        case isRemote
         case actions
         case isSelected
     }
@@ -172,6 +186,8 @@ public struct ProjectItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.id = try container.decode(UUID.self, forKey: .id)
         self.name = try container.decode(String.self, forKey: .name)
         self.path = try container.decode(String.self, forKey: .path)
+        self.connectionKindLabel = try container.decodeIfPresent(String.self, forKey: .connectionKindLabel) ?? "Local"
+        self.isRemote = try container.decodeIfPresent(Bool.self, forKey: .isRemote) ?? false
         self.actions = try container.decodeIfPresent([ProjectItemActionSurface].self, forKey: .actions) ?? [
             ProjectItemActionSurface(kind: .newChat, projectID: id),
             ProjectItemActionSurface(kind: .refreshContext, projectID: id),
@@ -205,14 +221,38 @@ public enum ProjectItemActionKind: String, Codable, Sendable, Hashable {
 public struct ProjectItemActionSurface: Codable, Sendable, Hashable, Identifiable {
     public var kind: ProjectItemActionKind
     public var projectID: UUID
+    public var isEnabled: Bool
+    public var disabledReason: String?
 
     public var id: String {
         "\(projectID.uuidString)-\(kind.rawValue)"
     }
 
-    public init(kind: ProjectItemActionKind, projectID: UUID) {
+    public init(
+        kind: ProjectItemActionKind,
+        projectID: UUID,
+        isEnabled: Bool = true,
+        disabledReason: String? = nil
+    ) {
         self.kind = kind
         self.projectID = projectID
+        self.isEnabled = isEnabled
+        self.disabledReason = disabledReason
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case projectID
+        case isEnabled
+        case disabledReason
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.kind = try container.decode(ProjectItemActionKind.self, forKey: .kind)
+        self.projectID = try container.decode(UUID.self, forKey: .projectID)
+        self.isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+        self.disabledReason = try container.decodeIfPresent(String.self, forKey: .disabledReason)
     }
 }
 
@@ -996,7 +1036,7 @@ public struct TerminalSurface: Codable, Sendable, Hashable {
         self.isVisible = terminal.isVisible
         self.draft = terminal.draft
         self.isRunning = terminal.isRunning
-        self.cwdLabel = cwd?.path ?? "No project"
+        self.cwdLabel = cwd?.path ?? terminal.currentDirectoryPath ?? "No project"
         self.entries = terminal.entries.map(TerminalCommandSurface.init)
         self.emptyTitle = emptyTitle
     }
@@ -2753,6 +2793,12 @@ public extension QuillCodeWorkspaceModel {
                 keywords: ["folder", "workspace", "repo"]
             ),
             WorkspaceCommandSurface(
+                id: "add-ssh-project",
+                title: "Project: Add SSH Remote...",
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["remote", "ssh", "server", "workspace", "/ssh user@host:/path"]
+            ),
+            WorkspaceCommandSurface(
                 id: "project-new-chat",
                 title: "New chat in project",
                 category: WorkspaceCommandPalette.workspaceCategory,
@@ -2764,7 +2810,7 @@ public extension QuillCodeWorkspaceModel {
                 title: "Refresh project context",
                 category: WorkspaceCommandPalette.workspaceCategory,
                 keywords: ["project", "workspace", "instructions", "memory", "reload"],
-                isEnabled: selectedProject != nil
+                isEnabled: selectedProject != nil && selectedProject?.isRemote == false
             ),
             WorkspaceCommandSurface(
                 id: "project-rename",
@@ -2824,28 +2870,28 @@ public extension QuillCodeWorkspaceModel {
                 title: "Create pull request",
                 category: WorkspaceCommandPalette.gitCategory,
                 keywords: ["github", "pr", "review"],
-                isEnabled: activeWorkspaceRoot != nil
+                isEnabled: activeWorkspaceRoot != nil && selectedProject?.isRemote != true
             ),
             WorkspaceCommandSurface(
                 id: "git-worktree-list",
                 title: "List worktrees",
                 category: WorkspaceCommandPalette.gitCategory,
                 keywords: ["branch", "git", "workspace"],
-                isEnabled: activeWorkspaceRoot != nil
+                isEnabled: activeWorkspaceRoot != nil && selectedProject?.isRemote != true
             ),
             WorkspaceCommandSurface(
                 id: "git-worktree-create",
                 title: "Create worktree",
                 category: WorkspaceCommandPalette.gitCategory,
                 keywords: ["branch", "git", "workspace"],
-                isEnabled: activeWorkspaceRoot != nil
+                isEnabled: activeWorkspaceRoot != nil && selectedProject?.isRemote != true
             ),
             WorkspaceCommandSurface(
                 id: "git-worktree-remove",
                 title: "Remove worktree",
                 category: WorkspaceCommandPalette.gitCategory,
                 keywords: ["branch", "git", "workspace", "delete"],
-                isEnabled: activeWorkspaceRoot != nil
+                isEnabled: activeWorkspaceRoot != nil && selectedProject?.isRemote != true
             ),
         ] + localActionCommands + mcpLifecycleCommands + [
             WorkspaceCommandSurface(

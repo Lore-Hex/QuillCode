@@ -88,6 +88,22 @@ final class CoreModelTests: XCTestCase {
         XCTAssertTrue(catalog.contains { $0.id == "acme/code-pro" })
     }
 
+    func testProjectConnectionParsesSSHAddresses() throws {
+        let scpStyle = try XCTUnwrap(ProjectConnection.parseSSH("quill@feather.local:/srv/quill"))
+        XCTAssertEqual(scpStyle, .ssh(path: "/srv/quill", host: "feather.local", user: "quill"))
+        XCTAssertEqual(scpStyle.displayLabel, "ssh://quill@feather.local/srv/quill")
+
+        let urlStyle = try XCTUnwrap(ProjectConnection.parseSSH("ssh://root@example.com:2222/opt/app"))
+        XCTAssertEqual(urlStyle.path, "/opt/app")
+        XCTAssertEqual(urlStyle.host, "example.com")
+        XCTAssertEqual(urlStyle.user, "root")
+        XCTAssertEqual(urlStyle.port, 2222)
+        XCTAssertEqual(urlStyle.displayLabel, "ssh://root@example.com:2222/opt/app")
+
+        XCTAssertNil(ProjectConnection.parseSSH("not a remote"))
+        XCTAssertNil(ProjectConnection.parseSSH("host:relative/path"))
+    }
+
     func testBrowserInspectionOutputDecodesOlderPayloadWithoutInspectionDepth() throws {
         let output = try JSONHelpers.decode(BrowserInspectionToolOutput.self, from: """
         {
