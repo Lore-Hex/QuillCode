@@ -1328,6 +1328,7 @@ public final class QuillCodeWorkspaceModel {
             || toolName == ToolDefinition.gitPullRequestCreate.name
             || toolName == ToolDefinition.gitPullRequestView.name
             || toolName == ToolDefinition.gitPullRequestChecks.name
+            || toolName == ToolDefinition.gitPullRequestComment.name
             || toolName == ToolDefinition.gitWorktreeList.name
             || toolName == ToolDefinition.gitWorktreeCreate.name
             || toolName == ToolDefinition.gitWorktreeRemove.name
@@ -3355,6 +3356,7 @@ public final class QuillCodeWorkspaceModel {
         .gitPullRequestCreate,
         .gitPullRequestView,
         .gitPullRequestChecks,
+        .gitPullRequestComment,
         .gitWorktreeList,
         .gitWorktreeCreate,
         .gitWorktreeRemove
@@ -3372,6 +3374,7 @@ public final class QuillCodeWorkspaceModel {
         ToolDefinition.gitPullRequestCreate.name,
         ToolDefinition.gitPullRequestView.name,
         ToolDefinition.gitPullRequestChecks.name,
+        ToolDefinition.gitPullRequestComment.name,
         ToolDefinition.gitWorktreeList.name,
         ToolDefinition.gitWorktreeCreate.name,
         ToolDefinition.gitWorktreeRemove.name
@@ -3512,6 +3515,11 @@ public final class QuillCodeWorkspaceModel {
                 command = try remoteGitPullRequestViewCommand(selector: args.string("selector"))
             case ToolDefinition.gitPullRequestChecks.name:
                 command = try remoteGitPullRequestChecksCommand(selector: args.string("selector"))
+            case ToolDefinition.gitPullRequestComment.name:
+                command = try remoteGitPullRequestCommentCommand(
+                    selector: args.string("selector"),
+                    body: try args.requiredString("body")
+                )
             case ToolDefinition.gitWorktreeList.name:
                 command = "git worktree list --porcelain"
             case ToolDefinition.gitWorktreeCreate.name:
@@ -3544,7 +3552,8 @@ public final class QuillCodeWorkspaceModel {
             var result = ShellToolExecutor().run(request)
             if [
                 ToolDefinition.gitPullRequestCreate.name,
-                ToolDefinition.gitPullRequestView.name
+                ToolDefinition.gitPullRequestView.name,
+                ToolDefinition.gitPullRequestComment.name
             ].contains(call.name), result.ok {
                 result.artifacts = GitToolExecutor.extractURLs(from: result.stdout)
             } else if result.ok, !artifacts.isEmpty {
@@ -3628,6 +3637,22 @@ public final class QuillCodeWorkspaceModel {
         if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
             arguments.append(selector)
         }
+        return arguments.map(shellSingleQuoted).joined(separator: " ")
+    }
+
+    private nonisolated static func remoteGitPullRequestCommentCommand(
+        selector: String?,
+        body: String
+    ) throws -> String {
+        guard let body = GitToolExecutor.trimmedNonEmpty(body) else {
+            throw GitToolError.emptyPullRequestComment
+        }
+
+        var arguments = ["gh", "pr", "comment"]
+        if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
+            arguments.append(selector)
+        }
+        arguments += ["--body", body]
         return arguments.map(shellSingleQuoted).joined(separator: " ")
     }
 

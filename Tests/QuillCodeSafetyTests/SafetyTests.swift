@@ -38,6 +38,13 @@ final class SafetyTests: XCTestCase {
         host: .local,
         risk: .append
     )
+    private let gitPullRequestComment = ToolDefinition(
+        name: "host.git.pr.comment",
+        description: "Comment on pull request",
+        parametersJSON: "{}",
+        host: .local,
+        risk: .append
+    )
     private let gitWorktreeCreate = ToolDefinition(
         name: "host.git.worktree.create",
         description: "Create a worktree",
@@ -150,6 +157,22 @@ final class SafetyTests: XCTestCase {
             toolCall: call,
             toolDefinition: gitPullRequestCreate,
             recentMessages: [.init(role: .user, content: "create a pull request titled Add PR tool")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoApprovesUserRequestedPullRequestComment() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: gitPullRequestComment.name,
+            argumentsJSON: #"{"selector":"42","body":"Ready for review."}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "comment on PR 42 saying Ready for review.",
+            toolCall: call,
+            toolDefinition: gitPullRequestComment,
+            recentMessages: [.init(role: .user, content: "comment on PR 42 saying Ready for review.")]
         ))
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }

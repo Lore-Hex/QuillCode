@@ -445,6 +445,35 @@ final class ToolTests: XCTestCase {
         XCTAssertEqual(arguments, ["pr", "checks", "https://github.com/example/repo/pull/123"])
     }
 
+    func testGitPullRequestCommentUsesGitHubCLIArguments() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        let git = GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+
+        let result = git.commentOnPullRequest(cwd: root, selector: "123", body: "Ready for review.")
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(result.artifacts, ["https://github.com/example/repo/pull/123"])
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, ["pr", "comment", "123", "--body", "Ready for review."])
+    }
+
+    func testGitPullRequestCommentRequiresBody() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        let git = GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+
+        let result = git.commentOnPullRequest(cwd: root, selector: "123", body: " ")
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("comment body is required") == true, result.error ?? "")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: argumentsFile.path))
+    }
+
     func testGitPullRequestToolsRejectUnsafeSelector() throws {
         let root = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("gh-args.txt")
@@ -453,6 +482,7 @@ final class ToolTests: XCTestCase {
 
         XCTAssertFalse(git.viewPullRequest(cwd: root, selector: "--json").ok)
         XCTAssertFalse(git.pullRequestChecks(cwd: root, selector: "feature branch").ok)
+        XCTAssertFalse(git.commentOnPullRequest(cwd: root, selector: "123 --web", body: "Comment").ok)
         XCTAssertThrowsError(try GitToolExecutor.safePullRequestSelector("--web"))
     }
 
@@ -535,6 +565,7 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.pr.create"))
         XCTAssertTrue(definitions.contains("host.git.pr.view"))
         XCTAssertTrue(definitions.contains("host.git.pr.checks"))
+        XCTAssertTrue(definitions.contains("host.git.pr.comment"))
         XCTAssertTrue(definitions.contains("host.git.worktree.list"))
         XCTAssertTrue(definitions.contains("host.git.worktree.create"))
         XCTAssertTrue(definitions.contains("host.git.worktree.remove"))
@@ -728,6 +759,16 @@ final class ToolTests: XCTestCase {
             .split(separator: "\n")
             .map(String.init)
         XCTAssertEqual(arguments, ["pr", "checks", "123"])
+
+        let comment = router.execute(ToolCall(
+            name: ToolDefinition.gitPullRequestComment.name,
+            argumentsJSON: #"{"selector":"123","body":"Ready for review."}"#
+        ))
+        XCTAssertTrue(comment.ok, "\(comment.error ?? "") \(comment.stderr)")
+        arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(arguments, ["pr", "comment", "123", "--body", "Ready for review."])
     }
 
     private func makeTempDirectory() throws -> URL {

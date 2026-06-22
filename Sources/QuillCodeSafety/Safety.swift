@@ -128,7 +128,22 @@ public struct StaticSafetyReviewer: SafetyReviewer {
             || user.contains("create a pr")
             || user.contains("submit pr")
             || user.contains("submit a pr") {
+            if user.contains("comment") || user.contains("reply") {
+                return context.toolCall.name.contains("git.pr.comment")
+            }
+            if user.contains("check") || user.contains("ci") || user.contains("status") {
+                return context.toolCall.name.contains("git.pr.checks")
+                    || context.toolCall.name.contains("git.status")
+            }
+            if user.contains("view")
+                || user.contains("show")
+                || user.contains("inspect")
+                || user.contains("read") {
+                return context.toolCall.name.contains("git.pr.view")
+                    || context.toolCall.name.contains("git.status")
+            }
             return context.toolCall.name.contains("git.pr.create")
+                || context.toolCall.name.contains("git.pr.comment")
                 || context.toolCall.name.contains("git.push")
                 || context.toolCall.name.contains("git.status")
         }
