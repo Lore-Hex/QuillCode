@@ -730,12 +730,35 @@ test('mock harness runs a command from the command palette', async ({ page }) =>
 
   await page.getByTestId('command-palette-button').click();
   await expect(page.getByTestId('command-palette-panel')).toBeVisible();
-  await page.getByLabel('Search commands').fill('terminal');
+  await page.getByLabel('Search commands').fill('>terminal');
   await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
   await page.getByTestId('command-palette-result').click();
 
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
   await expect(page.getByTestId('terminal-pane')).toBeVisible();
+});
+
+test('mock harness command palette scopes actions and slash commands', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByTestId('command-palette-button').click();
+  await expect(page.getByTestId('command-palette-panel')).toBeVisible();
+  await expect(page.getByText('> actions · / slash')).toBeVisible();
+
+  await page.getByLabel('Search commands').fill('>shell');
+  await expect(page.getByTestId('command-palette-scope')).toHaveText('Actions');
+  await expect(page.getByTestId('command-palette-result').first()).toContainText('Terminal');
+
+  await page.getByLabel('Search commands').fill('/mode');
+  await expect(page.getByTestId('command-palette-scope')).toHaveText('Slash');
+  await expect(page.getByTestId('command-palette-group')).toContainText('Slash Commands');
+  await expect(page.getByTestId('command-palette-result').first()).toContainText('/mode auto|review|read-only');
+
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+  await expect(page.getByLabel('Message')).toHaveValue('/mode ');
+  await expect(page.getByLabel('Message')).toBeFocused();
 });
 
 test('mock harness shows memories from sidebar and command palette', async ({ page }) => {
@@ -753,13 +776,13 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
   await expect(page.getByTestId('memories-add')).toBeVisible();
 
   await page.getByTestId('command-palette-button').click();
-  await page.getByLabel('Search commands').fill('memories');
+  await page.getByLabel('Search commands').fill('>memories');
   await page.getByTestId('command-palette-result').filter({ hasText: 'Memories' }).click();
 
   await expect(page.getByTestId('memories-pane')).toHaveCount(0);
 
   await page.getByTestId('command-palette-button').click();
-  await page.getByLabel('Search commands').fill('save');
+  await page.getByLabel('Search commands').fill('>save');
   await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
   await expect(page.getByTestId('command-palette-result')).toContainText('Add memory');
   await page.getByTestId('command-palette-result').click();
@@ -841,13 +864,13 @@ test('mock harness ranks and navigates command palette with keyboard', async ({ 
   await page.getByTestId('command-palette-button').click();
   await expect(page.getByTestId('command-palette-group').first()).toContainText('Thread');
 
-  await page.getByLabel('Search commands').fill('shell');
+  await page.getByLabel('Search commands').fill('>shell');
   await expect(page.locator('[data-testid="command-palette-result"][data-selected="true"]')).toContainText('Terminal');
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('terminal-pane')).toBeVisible();
 
   await page.keyboard.press('Meta+Shift+P');
-  await page.getByLabel('Search commands').fill('shortcuts');
+  await page.getByLabel('Search commands').fill('>shortcuts');
   await expect(page.locator('[data-testid="command-palette-result"][data-selected="true"]')).toContainText('Keyboard shortcuts');
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('keyboard-shortcuts-panel')).toBeVisible();
@@ -857,7 +880,7 @@ test('mock harness ranks and navigates command palette with keyboard', async ({ 
   await page.getByTestId('keyboard-shortcuts-close').click();
 
   await page.keyboard.press('Meta+Shift+P');
-  await page.getByLabel('Search commands').fill('worktree');
+  await page.getByLabel('Search commands').fill('>worktree');
   await expect(page.getByTestId('command-palette-group')).toHaveCount(1);
   await expect(page.getByTestId('command-palette-group')).toContainText('Git');
   await expect(page.locator('[data-testid="command-palette-result"][data-selected="true"]')).toContainText('List worktrees');
@@ -872,7 +895,7 @@ test('mock harness lists worktrees from the command palette', async ({ page }) =
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
   await page.getByTestId('command-palette-button').click();
-  await page.getByLabel('Search commands').fill('worktree');
+  await page.getByLabel('Search commands').fill('>worktree');
 
   await expect(page.getByTestId('command-palette-result')).toHaveCount(3);
   await page.getByRole('button', { name: /List worktrees/ }).click();
@@ -887,7 +910,7 @@ test('mock harness prepares pull request creation from the command palette', asy
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
   await page.getByTestId('command-palette-button').click();
-  await page.getByLabel('Search commands').fill('pull request');
+  await page.getByLabel('Search commands').fill('>pull request');
   await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
   await page.getByRole('button', { name: /Create pull request/ }).click();
 
@@ -899,7 +922,7 @@ test('mock harness runs local environment action from the command palette', asyn
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
   await page.getByTestId('command-palette-button').click();
-  await page.getByLabel('Search commands').fill('bootstrap');
+  await page.getByLabel('Search commands').fill('>bootstrap');
   await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
   await page.getByRole('button', { name: /Run Bootstrap/ }).click();
 
@@ -913,7 +936,7 @@ test('mock harness creates and removes worktrees from dialogs', async ({ page })
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
   await page.getByTestId('command-palette-button').click();
-  await page.getByLabel('Search commands').fill('create worktree');
+  await page.getByLabel('Search commands').fill('>create worktree');
   await page.getByRole('button', { name: /Create worktree/ }).click();
   await expect(page.getByTestId('worktree-create-panel')).toBeVisible();
   await expect(page.getByTestId('worktree-create-submit')).toBeDisabled();
@@ -933,7 +956,7 @@ test('mock harness creates and removes worktrees from dialogs', async ({ page })
   await expect(page.getByTestId('message').last()).toContainText('Opened worktree quillcode-feature at /mock/quillcode-feature.');
 
   await page.getByTestId('command-palette-button').click();
-  await page.getByLabel('Search commands').fill('remove worktree');
+  await page.getByLabel('Search commands').fill('>remove worktree');
   await page.getByRole('button', { name: /Remove worktree/ }).click();
   await expect(page.getByTestId('worktree-remove-panel')).toBeVisible();
 
@@ -1070,7 +1093,7 @@ test('mock harness adds an SSH remote project from command palette and slash com
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
   await page.getByTestId('command-palette-button').click();
-  await page.getByLabel('Search commands').fill('ssh');
+  await page.getByLabel('Search commands').fill('>ssh');
   await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
   await expect(page.getByTestId('command-palette-result')).toContainText('Project: Add SSH Remote');
   await page.getByTestId('command-palette-result').click();
@@ -1108,7 +1131,7 @@ test('mock harness adds an SSH remote project from command palette and slash com
   await expect(page.getByText('You are `quill` in this workspace.')).toBeVisible();
 
   await page.getByTestId('command-palette-button').click();
-  await page.getByLabel('Search commands').fill('git status');
+  await page.getByLabel('Search commands').fill('>git status');
   await page.getByTestId('command-palette-result').filter({ hasText: 'Git status' }).click();
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.status');
   await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-execution-context', 'ssh-remote');
@@ -1116,7 +1139,7 @@ test('mock harness adds an SSH remote project from command palette and slash com
   await expect(page.getByTestId('tool-card-output').last()).toContainText('ssh://quill@feather.local/srv/quill');
 
   await page.getByTestId('command-palette-button').click();
-  await page.getByLabel('Search commands').fill('review diff');
+  await page.getByLabel('Search commands').fill('>review diff');
   await page.getByTestId('command-palette-result').filter({ hasText: 'Review diff' }).click();
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.diff');
   await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-execution-context', 'ssh-remote');
@@ -1189,7 +1212,7 @@ test('mock harness opens browser preview and records comments', async ({ page })
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
   await page.getByTestId('command-palette-button').click();
-  await page.getByLabel('Search commands').fill('browser');
+  await page.getByLabel('Search commands').fill('>browser');
   await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
   await page.getByTestId('command-palette-result').click();
 
@@ -1277,7 +1300,7 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await expect(page.getByTestId('extensions-pane')).toHaveCount(0);
 
   await page.getByTestId('command-palette-button').click();
-  await page.getByLabel('Search commands').fill('manifest');
+  await page.getByLabel('Search commands').fill('>manifest');
   await expect(page.getByTestId('command-palette-group')).toContainText('Extensions');
   await page.getByTestId('command-palette-result').click();
   await expect(page.getByTestId('extensions-pane')).toBeVisible();

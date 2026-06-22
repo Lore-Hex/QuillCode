@@ -29,6 +29,8 @@ struct SlashCommandDefinition: Sendable, Hashable {
 }
 
 enum SlashCommandCatalog {
+    static let commandPaletteIDPrefix = "slash-command:"
+
     static let definitions: [SlashCommandDefinition] = [
         .init(usage: "/help", title: "Show slash commands", detail: "List the available composer commands.", insertText: "/help", aliases: ["?"]),
         .init(usage: "/status", title: "Show status", detail: "Summarize the active project, mode, model, and loaded context.", insertText: "/status", aliases: []),
@@ -57,6 +59,28 @@ enum SlashCommandCatalog {
     static func helpText() -> String {
         let commandLines = definitions.map { "\($0.usage) - \($0.detail)" }
         return (["Slash commands:"] + commandLines).joined(separator: "\n")
+    }
+
+    static func commandPaletteCommands() -> [WorkspaceCommandSurface] {
+        definitions.enumerated().map { index, definition in
+            WorkspaceCommandSurface(
+                id: "\(commandPaletteIDPrefix)\(index)",
+                title: definition.usage,
+                category: WorkspaceCommandPalette.slashCategory,
+                keywords: [String(definition.usage.dropFirst()), definition.title, definition.detail] + definition.aliases
+            )
+        }
+    }
+
+    static func insertText(forCommandPaletteID id: String) -> String? {
+        guard id.hasPrefix(commandPaletteIDPrefix) else { return nil }
+        let rawIndex = String(id.dropFirst(commandPaletteIDPrefix.count))
+        guard let index = Int(rawIndex),
+              definitions.indices.contains(index)
+        else {
+            return nil
+        }
+        return definitions[index].insertText
     }
 
     static func suggestions(for draft: String, limit: Int = 6) -> [SlashCommandSuggestionSurface] {

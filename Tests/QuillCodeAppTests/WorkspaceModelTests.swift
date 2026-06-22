@@ -30,6 +30,18 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.root.topBar.mode, .auto)
     }
 
+    func testCommandPaletteSlashCommandPrefillsComposer() throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+        let command = try XCTUnwrap(
+            WorkspaceCommandPalette.rankedCommands(model.surface().commands, matching: "/mode").first
+        )
+
+        XCTAssertTrue(model.runWorkspaceCommand(command.id, workspaceRoot: root))
+
+        XCTAssertEqual(model.composer.draft, "/mode ")
+    }
+
     func testSelectingProjectControlsNextChatAndWorkspaceRoot() throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()

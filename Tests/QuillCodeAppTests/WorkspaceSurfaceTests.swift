@@ -561,11 +561,31 @@ final class WorkspaceSurfaceTests: XCTestCase {
             WorkspaceCommandPalette.rankedCommands(commands, matching: "shortcuts").first?.id,
             "keyboard-shortcuts"
         )
+        XCTAssertEqual(
+            WorkspaceCommandPalette.rankedCommands(commands, matching: ">shell").first?.id,
+            "toggle-terminal"
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPalette.rankedCommands(commands, matching: "/mode").first?.title,
+            "/mode auto|review|read-only"
+        )
+        XCTAssertFalse(
+            WorkspaceCommandPalette.rankedCommands(commands, matching: "")
+                .contains { $0.id.hasPrefix(SlashCommandCatalog.commandPaletteIDPrefix) }
+        )
+        XCTAssertTrue(
+            WorkspaceCommandPalette.rankedCommands(commands, matching: "mode")
+                .contains { $0.id.hasPrefix(SlashCommandCatalog.commandPaletteIDPrefix) }
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPalette.groupedCommands(commands, matching: "/").map(\.title),
+            [WorkspaceCommandPalette.slashCategory]
+        )
     }
 
     func testCommandPaletteGroupsFilteredResultsByCategory() {
         let model = QuillCodeWorkspaceModel()
-        let groups = WorkspaceCommandPalette.groupedCommands(model.surface().commands, matching: "worktree")
+        let groups = WorkspaceCommandPalette.groupedCommands(model.surface().commands, matching: ">worktree")
 
         XCTAssertEqual(groups.map(\.title), [WorkspaceCommandPalette.gitCategory])
         XCTAssertEqual(groups.first?.commands.map(\.id), [

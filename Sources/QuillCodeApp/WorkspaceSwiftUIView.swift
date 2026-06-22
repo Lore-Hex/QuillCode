@@ -406,7 +406,17 @@ public struct QuillCodeWorkspaceView: View {
             removeWorktreeDraft = QuillCodeWorktreeRemoveDraft()
             worktreeSheet = .remove
         } else {
+            let shouldFocusComposer = SlashCommandCatalog.insertText(forCommandPaletteID: command.id) != nil
+                || command.id == "memory-add"
+                || command.id == "add-ssh-project"
+                || command.id == "project-rename"
+                || command.id == "thread-rename"
             onCommand(command)
+            if shouldFocusComposer {
+                DispatchQueue.main.async {
+                    isComposerFocused = true
+                }
+            }
         }
     }
 
@@ -599,7 +609,7 @@ private struct QuillCodeCommandPaletteView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Command palette")
                         .font(.title2.weight(.semibold))
-                    Text("Run QuillCode workspace actions from one place.")
+                    Text("Run actions, or type / to insert slash commands.")
                         .font(.callout)
                         .foregroundStyle(QuillCodePalette.muted)
                 }
@@ -608,9 +618,20 @@ private struct QuillCodeCommandPaletteView: View {
                     .keyboardShortcut(.cancelAction)
             }
 
-            TextField("Search commands", text: $query)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit(selectHighlightedCommand)
+            HStack(spacing: 10) {
+                TextField("Search commands, > actions, / slash", text: $query)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit(selectHighlightedCommand)
+                if let label = activeScopeLabel {
+                    Text(label)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.blue)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(QuillCodePalette.selection)
+                        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                }
+            }
 
             if results.isEmpty {
                 VStack(spacing: 8) {
@@ -700,6 +721,17 @@ private struct QuillCodeCommandPaletteView: View {
         .help(command.keywords.last ?? command.title)
     }
 
+    private var activeScopeLabel: String? {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("/") {
+            return "Slash"
+        }
+        if trimmed.hasPrefix(">") {
+            return "Actions"
+        }
+        return nil
+    }
+
     private func ensureSelection() {
         if let selectedCommandID, enabledResults.contains(where: { $0.id == selectedCommandID }) {
             return
@@ -728,6 +760,8 @@ private struct QuillCodeCommandPaletteView: View {
 
     private func systemImage(for commandID: String) -> String {
         switch commandID {
+        case _ where commandID.hasPrefix(SlashCommandCatalog.commandPaletteIDPrefix):
+            return "slash.circle"
         case "new-chat":
             return "square.and.pencil"
         case "search":

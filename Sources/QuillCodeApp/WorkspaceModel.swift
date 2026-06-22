@@ -2221,6 +2221,10 @@ public final class QuillCodeWorkspaceModel {
             toggleActivitySection(section)
             return true
         }
+        if let slashInsertText = SlashCommandCatalog.insertText(forCommandPaletteID: commandID) {
+            composer.draft = slashInsertText
+            return true
+        }
         switch commandID {
         case "toggle-terminal":
             toggleTerminal()

@@ -1838,6 +1838,7 @@ public enum WorkspaceCommandPalette {
     public static let threadCategory = "Thread"
     public static let navigationCategory = "Navigation"
     public static let workspaceCategory = "Workspace"
+    public static let slashCategory = "Slash Commands"
     public static let gitCategory = "Git"
     public static let environmentCategory = "Environment"
     public static let controlCategory = "Control"
@@ -1849,6 +1850,7 @@ public enum WorkspaceCommandPalette {
         threadCategory,
         navigationCategory,
         workspaceCategory,
+        slashCategory,
         memoriesCategory,
         extensionsCategory,
         gitCategory,
@@ -1861,9 +1863,10 @@ public enum WorkspaceCommandPalette {
         _ commands: [WorkspaceCommandSurface],
         matching query: String
     ) -> [WorkspaceCommandSurface] {
-        let normalizedQuery = normalize(query)
-        let scoredCommands = commands.enumerated().compactMap { index, command in
-            score(command, query: normalizedQuery).map { score in
+        let request = QueryRequest(query)
+        let searchableCommands = request.searchableCommands(from: commands)
+        let scoredCommands = searchableCommands.enumerated().compactMap { index, command in
+            score(command, query: request.normalizedQuery).map { score in
                 (index: index, command: command, score: score)
             }
         }
@@ -1940,6 +1943,43 @@ public enum WorkspaceCommandPalette {
             return 440
         }
         return nil
+    }
+
+    private struct QueryRequest {
+        enum Scope {
+            case mixed
+            case actions
+            case slash
+        }
+
+        var scope: Scope
+        var normalizedQuery: String
+
+        init(_ rawQuery: String) {
+            let trimmed = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix(">") {
+                self.scope = .actions
+                self.normalizedQuery = WorkspaceCommandPalette.normalize(String(trimmed.dropFirst()))
+            } else if trimmed.hasPrefix("/") {
+                self.scope = .slash
+                self.normalizedQuery = WorkspaceCommandPalette.normalize(String(trimmed.dropFirst()))
+            } else {
+                self.scope = .mixed
+                self.normalizedQuery = WorkspaceCommandPalette.normalize(trimmed)
+            }
+        }
+
+        func searchableCommands(from commands: [WorkspaceCommandSurface]) -> [WorkspaceCommandSurface] {
+            switch scope {
+            case .actions:
+                return commands
+            case .slash:
+                return SlashCommandCatalog.commandPaletteCommands()
+            case .mixed:
+                guard !normalizedQuery.isEmpty else { return commands }
+                return commands + SlashCommandCatalog.commandPaletteCommands()
+            }
+        }
     }
 
     private static func normalize(_ value: String) -> String {

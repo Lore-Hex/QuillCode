@@ -310,6 +310,21 @@
     .settings-card label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
     .search-card label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
     .search-card header { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
+    .command-palette-input-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+    .command-scope-badge,
+    .command-palette-legend {
+      min-height: 32px;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 9px;
+      padding: 0 10px;
+      white-space: nowrap;
+      color: var(--blue);
+      background: rgba(65,184,232,.12);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .command-palette-legend { color: var(--muted); background: rgba(255,255,255,.06); font-weight: 600; }
     .search-results { display: grid; gap: 8px; max-height: 340px; overflow: auto; }
     .search-result {
       width: 100%;
@@ -2129,6 +2144,19 @@
       { usage: '/mode auto|review|read-only', title: 'Set approval mode', detail: 'Switch between Auto, Review, and Read-only behavior.', insertText: '/mode ', aliases: [] },
       { usage: '/model provider/model', title: 'Set model', detail: 'Switch the active TrustedRouter model.', insertText: '/model ', aliases: [] }
     ];
+    const slashCommandPalettePrefix = 'slash-command:';
+
+    function slashCommandPaletteCommands() {
+      return slashCommandDefinitions.map((definition, index) => ({
+        id: `${slashCommandPalettePrefix}${index}`,
+        title: definition.usage,
+        shortcut: '',
+        category: 'Slash Commands',
+        keywords: [definition.usage.slice(1), definition.title, definition.detail, ...definition.aliases],
+        isEnabled: true,
+        insertText: definition.insertText
+      }));
+    }
 
     function normalizeSlashText(value) {
       return String(value).toLowerCase().replaceAll('-', ' ').replaceAll('_', ' ').trim();
@@ -2746,7 +2774,7 @@
       ));
     }
 
-    const commandCategoryOrder = ['Thread', 'Navigation', 'Workspace', 'Extensions', 'Git', 'Environment', 'Control', 'Computer Use'];
+    const commandCategoryOrder = ['Thread', 'Navigation', 'Workspace', 'Slash Commands', 'Memories', 'Extensions', 'Git', 'Environment', 'Control', 'Computer Use'];
 
     function normalizeCommandText(value) {
       return String(value || '').trim().toLowerCase();
@@ -2782,10 +2810,28 @@
       return null;
     }
 
+    function commandPaletteRequest() {
+      const trimmed = String(state.commandPalette.query || '').trim();
+      if (trimmed.startsWith('>')) {
+        return { scope: 'actions', query: normalizeCommandText(trimmed.slice(1)) };
+      }
+      if (trimmed.startsWith('/')) {
+        return { scope: 'slash', query: normalizeCommandText(trimmed.slice(1)) };
+      }
+      return { scope: 'mixed', query: normalizeCommandText(trimmed) };
+    }
+
+    function commandPaletteCommandPool(request) {
+      if (request.scope === 'actions') return state.commands;
+      if (request.scope === 'slash') return slashCommandPaletteCommands();
+      if (!request.query) return state.commands;
+      return [...state.commands, ...slashCommandPaletteCommands()];
+    }
+
     function commandPaletteResults() {
-      const query = normalizeCommandText(state.commandPalette.query);
-      return state.commands
-        .map((command, index) => ({ command, index, score: commandScore(command, query) }))
+      const request = commandPaletteRequest();
+      return commandPaletteCommandPool(request)
+        .map((command, index) => ({ command, index, score: commandScore(command, request.query) }))
         .filter(entry => entry.score !== null)
         .sort((lhs, rhs) => {
           if (lhs.score !== rhs.score) return rhs.score - lhs.score;
@@ -4195,6 +4241,10 @@
       state.composer.canSend = state.composer.draft.trim().length > 0;
       state.composer.slashActiveIndex = 0;
       render();
+      focusComposerAtDraftEnd();
+    }
+
+    function focusComposerAtDraftEnd() {
       const input = document.querySelector('[data-testid="composer"] textarea');
       input?.focus();
       input?.setSelectionRange(state.composer.draft.length, state.composer.draft.length);
@@ -4263,17 +4313,22 @@
       ensureCommandPaletteSelection();
       const groups = commandPaletteGroups();
       const hasResults = groups.some(group => group.commands.length);
+      const request = commandPaletteRequest();
+      const scopeLabel = request.scope === 'slash' ? 'Slash' : request.scope === 'actions' ? 'Actions' : '';
       return `
         <div class="search-panel" data-testid="command-palette-panel">
           <section class="search-card" role="dialog" aria-label="Command palette">
             <header>
               <div>
                 <h2>Command palette</h2>
-                <p>Run QuillCode workspace actions from one place.</p>
+                <p>Run actions, or type / to insert slash commands.</p>
               </div>
               <button type="button" data-testid="command-palette-close">Close</button>
             </header>
-            <input data-testid="command-palette-input" aria-label="Search commands" placeholder="Search commands" value="${escapeHTML(state.commandPalette.query)}" autofocus>
+            <div class="command-palette-input-row">
+              <input data-testid="command-palette-input" aria-label="Search commands" placeholder="Search commands, > actions, / slash" value="${escapeHTML(state.commandPalette.query)}" autofocus>
+              ${scopeLabel ? `<span class="command-scope-badge" data-testid="command-palette-scope">${escapeHTML(scopeLabel)}</span>` : '<span class="command-palette-legend">&gt; actions · / slash</span>'}
+            </div>
             <div class="search-results" data-testid="command-palette-results">
               ${hasResults ? groups.map(group => `
                 <div class="command-group" data-testid="command-palette-group">
@@ -5206,6 +5261,16 @@
     function runCommand(commandID) {
       if (commandID === 'command-palette') {
         openCommandPalette();
+        return;
+      }
+      if (commandID?.startsWith(slashCommandPalettePrefix)) {
+        const command = slashCommandPaletteCommands().find(candidate => candidate.id === commandID);
+        if (!command) return;
+        state.commandPalette.isOpen = false;
+        state.composer.draft = command.insertText || '';
+        state.composer.canSend = Boolean(state.composer.draft.trim());
+        render();
+        focusComposerAtDraftEnd();
         return;
       }
       if (commandID?.startsWith('memory-delete:')) {
