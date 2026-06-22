@@ -262,6 +262,13 @@ public struct MockLLMClient: LLMClient {
             return .tool(.init(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}"))
         }
 
+        if Self.isPullRequestMergeRequest(lower) {
+            return .tool(.init(
+                name: ToolDefinition.gitPullRequestMerge.name,
+                argumentsJSON: ToolArguments.json(Self.extractPullRequestMergeArguments(from: request))
+            ))
+        }
+
         if Self.isPullRequestReviewActionRequest(lower) {
             return .tool(.init(
                 name: ToolDefinition.gitPullRequestReview.name,
@@ -428,6 +435,18 @@ public struct MockLLMClient: LLMClient {
         return mentionsPullRequest && commentTerms && !readTerms
     }
 
+    static func isPullRequestMergeRequest(_ lowercasedRequest: String) -> Bool {
+        let tokens = lowercasedRequest
+            .split { !$0.isLetter && !$0.isNumber }
+            .map(String.init)
+        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
+        guard mentionsPullRequest else { return false }
+        return tokens.contains("merge")
+            || tokens.contains("automerge")
+            || lowercasedRequest.contains("auto merge")
+            || lowercasedRequest.contains("merge train")
+    }
+
     static func isPullRequestReviewActionRequest(_ lowercasedRequest: String) -> Bool {
         let tokens = lowercasedRequest
             .split { !$0.isLetter && !$0.isNumber }
@@ -503,6 +522,29 @@ public struct MockLLMClient: LLMClient {
     static func extractPullRequestCommentArguments(from request: String) -> [String: String] {
         var arguments = extractPullRequestSelectorArguments(from: request)
         arguments["body"] = extractPullRequestCommentBody(from: request) ?? request
+        return arguments
+    }
+
+    static func extractPullRequestMergeArguments(from request: String) -> [String: String] {
+        var arguments = extractPullRequestSelectorArguments(from: request)
+        let lower = request.lowercased()
+        if lower.contains("rebase") {
+            arguments["method"] = "rebase"
+        } else if lower.contains("merge commit") {
+            arguments["method"] = "merge"
+        } else {
+            arguments["method"] = "squash"
+        }
+        if lower.contains("auto merge")
+            || lower.contains("automerge")
+            || lower.contains("merge train") {
+            arguments["auto"] = "true"
+        }
+        if lower.contains("delete branch")
+            || lower.contains("delete the branch")
+            || lower.contains("cleanup branch") {
+            arguments["deleteBranch"] = "true"
+        }
         return arguments
     }
 

@@ -99,7 +99,17 @@ public struct ToolArguments: Sendable {
     }
 
     public func bool(_ key: String) -> Bool? {
-        values[key] as? Bool
+        if let bool = values[key] as? Bool {
+            return bool
+        }
+        switch string(key)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "true", "yes", "1":
+            return true
+        case "false", "no", "0":
+            return false
+        default:
+            return nil
+        }
     }
 
     public func stringDictionary(_ key: String) -> [String: String]? {

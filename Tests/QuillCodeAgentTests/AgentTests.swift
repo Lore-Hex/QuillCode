@@ -471,6 +471,25 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(arguments["body"], "Please add tests")
     }
 
+    func testPullRequestMergeUsesStructuredToolCall() async throws {
+        let action = try await MockLLMClient().nextAction(
+            thread: ChatThread(mode: .auto),
+            userMessage: "auto merge PR #42 with rebase and delete branch",
+            tools: ToolRouter.definitions
+        )
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected a tool action.")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.gitPullRequestMerge.name)
+        let data = try XCTUnwrap(call.argumentsJSON.data(using: .utf8))
+        let arguments = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: String])
+        XCTAssertEqual(arguments["selector"], "42")
+        XCTAssertEqual(arguments["method"], "rebase")
+        XCTAssertEqual(arguments["auto"], "true")
+        XCTAssertEqual(arguments["deleteBranch"], "true")
+    }
+
     private func makeTempDirectory() throws -> URL {
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("QuillCodeAgentTests-\(UUID().uuidString)")

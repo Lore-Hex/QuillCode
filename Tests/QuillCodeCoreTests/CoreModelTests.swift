@@ -90,10 +90,12 @@ final class CoreModelTests: XCTestCase {
     }
 
     func testToolArgumentsParseBooleanValues() throws {
-        let args = try ToolArguments(#"{"enabled":true,"disabled":false}"#)
+        let args = try ToolArguments(#"{"enabled":true,"disabled":false,"stringEnabled":"yes","stringDisabled":"0"}"#)
 
         XCTAssertEqual(args.bool("enabled"), true)
         XCTAssertEqual(args.bool("disabled"), false)
+        XCTAssertEqual(args.bool("stringEnabled"), true)
+        XCTAssertEqual(args.bool("stringDisabled"), false)
         XCTAssertNil(args.bool("missing"))
     }
 

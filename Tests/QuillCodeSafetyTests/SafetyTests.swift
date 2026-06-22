@@ -52,6 +52,13 @@ final class SafetyTests: XCTestCase {
         host: .local,
         risk: .append
     )
+    private let gitPullRequestMerge = ToolDefinition(
+        name: "host.git.pr.merge",
+        description: "Merge pull request",
+        parametersJSON: "{}",
+        host: .local,
+        risk: .destructive
+    )
     private let gitWorktreeCreate = ToolDefinition(
         name: "host.git.worktree.create",
         description: "Create a worktree",
@@ -196,6 +203,22 @@ final class SafetyTests: XCTestCase {
             toolCall: call,
             toolDefinition: gitPullRequestReview,
             recentMessages: [.init(role: .user, content: "request changes on PR 42 saying Please add tests.")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoApprovesUserRequestedPullRequestMerge() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: gitPullRequestMerge.name,
+            argumentsJSON: #"{"selector":"42","method":"squash","auto":true}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "auto merge PR 42 when checks pass",
+            toolCall: call,
+            toolDefinition: gitPullRequestMerge,
+            recentMessages: [.init(role: .user, content: "auto merge PR 42 when checks pass")]
         ))
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }

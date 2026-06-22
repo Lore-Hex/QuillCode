@@ -9,6 +9,7 @@ public enum GitToolError: Error, CustomStringConvertible {
     case emptyPullRequestComment
     case emptyPullRequestReviewBody
     case invalidPullRequestReviewAction(String)
+    case invalidPullRequestMergeMethod(String)
     case invalidPullRequestSelector(String)
     case emptyBranch
     case invalidGitName(String)
@@ -35,6 +36,8 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "Git pull request review body is required for comment and request_changes actions."
         case .invalidPullRequestReviewAction(let value):
             return "GitHub pull request review action is unsupported: \(value)"
+        case .invalidPullRequestMergeMethod(let value):
+            return "GitHub pull request merge method is unsupported: \(value)"
         case .invalidPullRequestSelector(let value):
             return "GitHub pull request selector is unsupported: \(value)"
         case .emptyBranch:
@@ -289,6 +292,40 @@ public struct GitToolExecutor: Sendable {
         }
     }
 
+    public func mergePullRequest(
+        cwd: URL,
+        selector: String? = nil,
+        method: String? = nil,
+        auto: Bool = false,
+        deleteBranch: Bool = false
+    ) -> ToolResult {
+        do {
+            var arguments = ["pr", "merge"]
+            if let selector = try Self.safePullRequestSelector(selector) {
+                arguments.append(selector)
+            }
+            arguments.append(try Self.safePullRequestMergeFlag(method))
+            if auto {
+                arguments.append("--auto")
+            }
+            if deleteBranch {
+                arguments.append("--delete-branch")
+            }
+
+            let result = runGitHub(arguments, cwd: cwd, timeoutSeconds: 120)
+            guard result.ok else { return result }
+            return ToolResult(
+                ok: true,
+                stdout: result.stdout,
+                stderr: result.stderr,
+                exitCode: result.exitCode,
+                artifacts: Self.extractURLs(from: result.stdout)
+            )
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
     public func listWorktrees(cwd: URL) -> ToolResult {
         runGit(["worktree", "list", "--porcelain"], cwd: cwd, timeoutSeconds: 20)
     }
@@ -431,6 +468,22 @@ public struct GitToolExecutor: Sendable {
             return "--request-changes"
         default:
             throw GitToolError.invalidPullRequestReviewAction(value)
+        }
+    }
+
+    public static func safePullRequestMergeFlag(_ value: String?) throws -> String {
+        let normalized = (trimmedNonEmpty(value) ?? "squash")
+            .lowercased()
+            .replacingOccurrences(of: "-", with: "_")
+        switch normalized {
+        case "merge", "merge_commit":
+            return "--merge"
+        case "squash", "squash_merge":
+            return "--squash"
+        case "rebase":
+            return "--rebase"
+        default:
+            throw GitToolError.invalidPullRequestMergeMethod(value ?? "")
         }
     }
 
@@ -770,6 +823,14 @@ public extension ToolDefinition {
         parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."},"action":{"type":"string","enum":["approve","comment","request_changes"]},"body":{"type":"string","description":"Review body. Required for comment and request_changes."}},"required":["action"]}"#,
         host: .local,
         risk: .append
+    )
+
+    static let gitPullRequestMerge = ToolDefinition(
+        name: "host.git.pr.merge",
+        description: "Merge or enable auto-merge for the current or selected GitHub pull request using GitHub CLI. Method must be squash, merge, or rebase.",
+        parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."},"method":{"type":"string","enum":["squash","merge","rebase"],"description":"Merge method. Defaults to squash."},"auto":{"type":"boolean","description":"Use GitHub auto-merge when checks are still pending."},"deleteBranch":{"type":"boolean","description":"Delete the pull request branch after merge when supported."}}}"#,
+        host: .local,
+        risk: .destructive
     )
 
     static let gitWorktreeList = ToolDefinition(
