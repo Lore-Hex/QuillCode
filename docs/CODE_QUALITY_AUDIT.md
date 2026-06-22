@@ -23,7 +23,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing and automation record/run-draft construction now live in focused helpers; split terminal state and project actions into focused coordinators next. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, and terminal session construction now live in focused helpers; split selected-project actions into focused coordinators next. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | B+ | Surface assembly is valuable but large. Keep moving small ranking/formatting helpers out or make them single-pass builders. |
 | `Sources/quill-code-desktop/main.swift` | B | Desktop bootstrap mixes app lifecycle, menu-bar status, OAuth, and commands. Extract coordinator types before adding more platform behavior. |
@@ -41,11 +41,24 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Current Refactor Priority
 
-1. Extract terminal state and command history from `WorkspaceModel`.
-2. Extract selected-project actions and project context refresh from `WorkspaceModel`.
-3. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
-4. Continue pulling pure workflow planning out of `WorkspaceModel` before adding new Codex-parity commands.
-5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
+1. Extract selected-project actions and project context refresh from `WorkspaceModel`.
+2. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
+3. Continue pulling pure workflow planning out of `WorkspaceModel` before adding new Codex-parity commands.
+4. Keep the parity matrix updated whenever a feature moves from planned to implemented.
+
+## 2026-06-22 Workspace Terminal Engine Refactor Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+Terminal state, command-entry mutation, local shell wrapping, SSH Remote terminal wrapping, cwd marker parsing, and environment-delta parsing moved out of `WorkspaceModel.swift` into `WorkspaceTerminalEngine.swift`. The workspace model still owns async shell streaming, top-bar status, and selected-project orchestration, but the pure terminal session rules are now directly testable without booting the full workspace model.
+
+Code quality changes:
+
+- Moved `TerminalCommandState`, `TerminalCommandStatus`, and `TerminalState` beside the terminal engine boundary.
+- Extracted session sync, clear-history refusal, output appends, finish/stop transitions, and execution-context assignment into focused terminal state helpers.
+- Extracted local terminal marker wrapping and SSH Remote terminal marker wrapping into pure helpers.
+- Extracted local marker cleanup, remote marker stripping, cwd persistence, and environment delta calculation into directly tested helpers.
+- Added focused terminal engine tests for project switching, stale project cwd fallback, stopped-entry protection, stop-all mutation, local wrapping, SSH cwd mapping, shell environment quoting, remote metadata parsing, and marker cleanup.
 
 ## 2026-06-22 Workspace Automation Engine Refactor Pass
 

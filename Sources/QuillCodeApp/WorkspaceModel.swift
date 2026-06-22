@@ -569,47 +569,6 @@ public struct ComposerState: Sendable, Hashable {
     }
 }
 
-public struct TerminalCommandState: Sendable, Hashable, Identifiable {
-    public var id: UUID
-    public var command: String
-    public var stdout: String
-    public var stderr: String
-    public var exitCode: Int32?
-    public var ok: Bool
-    public var status: TerminalCommandStatus
-    public var executionContext: ExecutionContextSurface?
-    public var createdAt: Date
-
-    public init(
-        id: UUID = UUID(),
-        command: String,
-        stdout: String,
-        stderr: String,
-        exitCode: Int32?,
-        ok: Bool,
-        status: TerminalCommandStatus? = nil,
-        executionContext: ExecutionContextSurface? = nil,
-        createdAt: Date = Date()
-    ) {
-        self.id = id
-        self.command = command
-        self.stdout = stdout
-        self.stderr = stderr
-        self.exitCode = exitCode
-        self.ok = ok
-        self.status = status ?? (ok ? .done : .failed)
-        self.executionContext = executionContext
-        self.createdAt = createdAt
-    }
-}
-
-public enum TerminalCommandStatus: String, Sendable, Hashable {
-    case running
-    case done
-    case failed
-    case stopped
-}
-
 public struct WorkspaceWorktreeCreateRequest: Sendable, Hashable {
     public var path: String
     public var branch: String
@@ -629,37 +588,6 @@ public struct WorkspaceWorktreeRemoveRequest: Sendable, Hashable {
     public init(path: String, force: Bool = false) {
         self.path = path
         self.force = force
-    }
-}
-
-public struct TerminalState: Sendable, Hashable {
-    public var projectID: UUID?
-    public var currentDirectoryPath: String?
-    public var environmentOverrides: [String: String]
-    public var removedEnvironmentKeys: Set<String>
-    public var isVisible: Bool
-    public var draft: String
-    public var isRunning: Bool
-    public var entries: [TerminalCommandState]
-
-    public init(
-        projectID: UUID? = nil,
-        currentDirectoryPath: String? = nil,
-        environmentOverrides: [String: String] = [:],
-        removedEnvironmentKeys: Set<String> = [],
-        isVisible: Bool = false,
-        draft: String = "",
-        isRunning: Bool = false,
-        entries: [TerminalCommandState] = []
-    ) {
-        self.projectID = projectID
-        self.currentDirectoryPath = currentDirectoryPath
-        self.environmentOverrides = environmentOverrides
-        self.removedEnvironmentKeys = removedEnvironmentKeys
-        self.isVisible = isVisible
-        self.draft = draft
-        self.isRunning = isRunning
-        self.entries = entries
     }
 }
 
@@ -1213,23 +1141,20 @@ public final class QuillCodeWorkspaceModel {
     }
 
     var terminalCurrentDirectoryURL: URL? {
-        guard selectedProject?.isRemote != true else { return nil }
-        guard terminal.projectID == knownProjectID(root.selectedProjectID) else {
-            return activeWorkspaceRoot
-        }
-        if let path = terminal.currentDirectoryPath, !path.isEmpty {
-            return URL(fileURLWithPath: path).standardizedFileURL
-        }
-        return activeWorkspaceRoot
+        WorkspaceTerminalEngine.currentDirectoryURL(
+            terminal: terminal,
+            selectedProjectID: knownProjectID(root.selectedProjectID),
+            selectedProjectIsRemote: selectedProject?.isRemote == true,
+            activeWorkspaceRoot: activeWorkspaceRoot
+        )
     }
 
     private func syncTerminalSessionToSelectedProject() {
-        let selectedProjectID = knownProjectID(root.selectedProjectID)
-        guard terminal.projectID != selectedProjectID else { return }
-        terminal.projectID = selectedProjectID
-        terminal.currentDirectoryPath = selectedProject?.displayPath
-        terminal.environmentOverrides = [:]
-        terminal.removedEnvironmentKeys = []
+        WorkspaceTerminalEngine.syncSessionToSelectedProject(
+            terminal: &terminal,
+            selectedProjectID: knownProjectID(root.selectedProjectID),
+            selectedProjectDisplayPath: selectedProject?.displayPath
+        )
     }
 
     public var currentToolCards: [ToolCardState] {
@@ -1374,10 +1299,7 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func clearTerminalHistory() -> Bool {
-        guard !terminal.isRunning else {
-            return false
-        }
-        terminal.entries.removeAll()
+        guard WorkspaceTerminalEngine.clearHistory(terminal: &terminal) else { return false }
         terminal.isVisible = true
         lastError = nil
         return true
@@ -4260,20 +4182,32 @@ public final class QuillCodeWorkspaceModel {
         lastError = nil
         refreshTopBar(agentStatus: "Terminal")
 
-        guard let executionContext = terminalExecutionContext(command: command, workspaceRoot: workspaceRoot) else {
-            finishTerminalEntry(
+        guard let executionContext = WorkspaceTerminalEngine.executionContext(
+            command: command,
+            selectedProject: selectedProject,
+            terminalCurrentDirectoryURL: terminalCurrentDirectoryURL,
+            terminal: terminal,
+            workspaceRoot: workspaceRoot,
+            sshRemoteShellExecutor: sshRemoteShellExecutor
+        ) else {
+            WorkspaceTerminalEngine.finishEntry(
                 id: entryID,
                 stdout: "",
                 stderr: "SSH Remote project is missing a usable host.",
                 exitCode: nil,
                 ok: false,
-                status: .failed
+                status: .failed,
+                terminal: &terminal
             )
             terminal.isRunning = false
             refreshTopBar(agentStatus: "Failed")
             return
         }
-        updateTerminalEntryExecutionContext(id: entryID, executionContext.surface)
+        WorkspaceTerminalEngine.updateExecutionContext(
+            id: entryID,
+            executionContext: executionContext.surface,
+            terminal: &terminal
+        )
 
         var finalResult: ToolResult?
         for await event in ShellToolExecutor().runStreaming(executionContext.request) {
@@ -4282,29 +4216,30 @@ public final class QuillCodeWorkspaceModel {
             }
             switch event {
             case .stdout(let text):
-                appendTerminalOutput(id: entryID, stdout: text)
+                WorkspaceTerminalEngine.appendOutput(id: entryID, stdout: text, terminal: &terminal)
             case .stderr(let text):
-                appendTerminalOutput(id: entryID, stderr: text)
+                WorkspaceTerminalEngine.appendOutput(id: entryID, stderr: text, terminal: &terminal)
             case .finished(let result):
                 finalResult = result
             }
         }
 
         if terminal.entries.first(where: { $0.id == entryID })?.status == .stopped {
-            Self.removeTerminalMarkers(executionContext.markerURLs)
+            WorkspaceTerminalEngine.removeMarkers(executionContext.markerURLs)
             terminal.isRunning = false
             refreshTopBar(agentStatus: "Stopped")
             return
         }
         guard !Task.isCancelled, let result = finalResult else {
-            Self.removeTerminalMarkers(executionContext.markerURLs)
-            finishTerminalEntry(
+            WorkspaceTerminalEngine.removeMarkers(executionContext.markerURLs)
+            WorkspaceTerminalEngine.finishEntry(
                 id: entryID,
                 stdout: "",
                 stderr: "Command stopped.",
                 exitCode: nil,
                 ok: false,
-                status: .stopped
+                status: .stopped,
+                terminal: &terminal
             )
             terminal.isRunning = false
             lastError = nil
@@ -4312,450 +4247,27 @@ public final class QuillCodeWorkspaceModel {
             return
         }
 
-        let terminalResult = Self.terminalSessionResult(for: executionContext, stdout: result.stdout)
+        let terminalResult = WorkspaceTerminalEngine.sessionResult(for: executionContext, stdout: result.stdout)
         terminal.currentDirectoryPath = terminalResult.currentDirectoryPath
         if let environmentDelta = terminalResult.environmentDelta {
             terminal.environmentOverrides = environmentDelta.overrides
             terminal.removedEnvironmentKeys = environmentDelta.removedKeys
         }
-        finishTerminalEntry(
+        WorkspaceTerminalEngine.finishEntry(
             id: entryID,
             stdout: terminalResult.stdout,
             stderr: result.stderr,
             exitCode: result.exitCode,
             ok: result.ok,
-            status: result.ok ? .done : .failed
+            status: result.ok ? .done : .failed,
+            terminal: &terminal
         )
         terminal.isRunning = false
         refreshTopBar(agentStatus: result.ok ? "Idle" : "Failed")
     }
 
-    private func appendTerminalOutput(id: UUID, stdout: String = "", stderr: String = "") {
-        guard let index = terminal.entries.firstIndex(where: { $0.id == id }),
-              terminal.entries[index].status == .running else {
-            return
-        }
-        terminal.entries[index].stdout += stdout
-        terminal.entries[index].stderr += stderr
-    }
-
-    private func updateTerminalEntryExecutionContext(id: UUID, _ executionContext: ExecutionContextSurface) {
-        guard let index = terminal.entries.firstIndex(where: { $0.id == id }) else { return }
-        terminal.entries[index].executionContext = executionContext
-    }
-
-    private struct TerminalExecutionContext {
-        var request: ShellExecutionRequest
-        var cwdMarkerURL: URL?
-        var environmentMarkerURL: URL?
-        var remoteMarker: String?
-        var remoteConnection: ProjectConnection?
-        var fallbackCurrentDirectoryPath: String
-        var surface: ExecutionContextSurface
-
-        var markerURLs: [URL] {
-            [cwdMarkerURL, environmentMarkerURL].compactMap { $0 }
-        }
-    }
-
-    private func terminalExecutionContext(
-        command: String,
-        workspaceRoot: URL
-    ) -> TerminalExecutionContext? {
-        if let selectedProject, selectedProject.isRemote {
-            let connection = Self.remoteTerminalConnection(
-                for: selectedProject,
-                terminalCurrentDirectoryPath: terminal.currentDirectoryPath
-            )
-            let marker = Self.remoteTerminalMarker()
-            let wrappedCommand = Self.remoteTerminalWrappedCommand(
-                command,
-                marker: marker,
-                environmentOverrides: terminal.environmentOverrides,
-                removedEnvironmentKeys: terminal.removedEnvironmentKeys
-            )
-            guard let request = sshRemoteShellExecutor.request(
-                command: wrappedCommand,
-                connection: connection
-            ) else {
-                return nil
-            }
-            return TerminalExecutionContext(
-                request: request,
-                cwdMarkerURL: nil,
-                environmentMarkerURL: nil,
-                remoteMarker: marker,
-                remoteConnection: connection,
-                fallbackCurrentDirectoryPath: connection.displayLabel,
-                surface: .project(selectedProject)
-            )
-        }
-
-        let environment = Self.effectiveTerminalEnvironment(
-            overrides: terminal.environmentOverrides,
-            removedKeys: terminal.removedEnvironmentKeys
-        )
-        let workingDirectory = terminalCurrentDirectoryURL ?? workspaceRoot.standardizedFileURL
-        return Self.localTerminalExecutionContext(
-            command: command,
-            workingDirectory: workingDirectory,
-            environment: environment,
-            executionContext: .local(path: workingDirectory.standardizedFileURL.path)
-        )
-    }
-
-    private static func localTerminalExecutionContext(
-        command: String,
-        workingDirectory: URL,
-        environment: [String: String],
-        executionContext: ExecutionContextSurface
-    ) -> TerminalExecutionContext {
-        let markerID = UUID().uuidString
-        let markerDirectory = FileManager.default.temporaryDirectory
-        let cwdMarkerURL = markerDirectory.appendingPathComponent("quillcode-terminal-\(markerID).cwd")
-        let environmentMarkerURL = markerDirectory.appendingPathComponent("quillcode-terminal-\(markerID).env")
-        let cwdMarkerPath = shellSingleQuoted(cwdMarkerURL.path)
-        let environmentMarkerPath = shellSingleQuoted(environmentMarkerURL.path)
-        let wrappedCommand = """
-        \(command)
-        status=$?
-        printf '%s\n' "$PWD" > \(cwdMarkerPath)
-        /usr/bin/env -0 > \(environmentMarkerPath)
-        exit "$status"
-        """
-        return TerminalExecutionContext(
-            request: ShellExecutionRequest(
-                command: wrappedCommand,
-                cwd: workingDirectory,
-                environment: environment
-            ),
-            cwdMarkerURL: cwdMarkerURL,
-            environmentMarkerURL: environmentMarkerURL,
-            remoteMarker: nil,
-            remoteConnection: nil,
-            fallbackCurrentDirectoryPath: workingDirectory.standardizedFileURL.path,
-            surface: executionContext
-        )
-    }
-
-    private static func remoteTerminalConnection(
-        for project: ProjectRef,
-        terminalCurrentDirectoryPath: String?
-    ) -> ProjectConnection {
-        var connection = project.connection
-        let current = terminalCurrentDirectoryPath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !current.isEmpty else { return connection }
-        if current.hasPrefix("/") || current == "~" || current.hasPrefix("~/") {
-            connection.path = current
-            return connection
-        }
-        guard let prefix = remoteTerminalDisplayPrefix(for: connection),
-              current.hasPrefix(prefix) else {
-            return connection
-        }
-        let path = String(current.dropFirst(prefix.count))
-        connection.path = path.isEmpty ? "/" : path
-        return connection
-    }
-
-    private static func remoteTerminalDisplayPrefix(for connection: ProjectConnection) -> String? {
-        guard connection.kind == .ssh,
-              let host = connection.host?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !host.isEmpty else {
-            return nil
-        }
-        let userPrefix = connection.user.map { "\($0)@" } ?? ""
-        let portSuffix = connection.port.map { ":\($0)" } ?? ""
-        return "ssh://\(userPrefix)\(host)\(portSuffix)"
-    }
-
-    private static func remoteTerminalMarker() -> String {
-        "__QUILLCODE_TERMINAL_\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))__"
-    }
-
-    private static func remoteTerminalWrappedCommand(
-        _ command: String,
-        marker: String,
-        environmentOverrides: [String: String],
-        removedEnvironmentKeys: Set<String>
-    ) -> String {
-        let environmentPreamble = remoteTerminalEnvironmentPreamble(
-            overrides: environmentOverrides,
-            removedKeys: removedEnvironmentKeys
-        )
-        return """
-        __quillcode_base_env="$(/usr/bin/env -0 | od -An -tx1 | tr -d ' \\n')"
-        \(environmentPreamble)
-        \(command)
-        __quillcode_status=$?
-        printf '\\n\(marker):cwd\\n%s\\n' "$PWD"
-        printf '\(marker):base-env\\n%s\\n' "$__quillcode_base_env"
-        printf '\(marker):final-env\\n'
-        /usr/bin/env -0 | od -An -tx1 | tr -d ' \\n'
-        printf '\\n\(marker):end\\n'
-        exit "$__quillcode_status"
-        """
-    }
-
-    private static func remoteTerminalEnvironmentPreamble(
-        overrides: [String: String],
-        removedKeys: Set<String>
-    ) -> String {
-        let unsetLines = removedKeys
-            .filter(isValidShellEnvironmentKey)
-            .sorted()
-            .map { "unset \($0)" }
-        let exportLines = overrides
-            .filter { isValidShellEnvironmentKey($0.key) }
-            .sorted { $0.key < $1.key }
-            .map { "export \($0.key)=\(shellSingleQuoted($0.value))" }
-        return (unsetLines + exportLines).joined(separator: "\n")
-    }
-
-    private static func isValidShellEnvironmentKey(_ value: String) -> Bool {
-        guard let first = value.unicodeScalars.first,
-              first == "_" || CharacterSet.letters.contains(first) else {
-            return false
-        }
-        return value.unicodeScalars.dropFirst().allSatisfy {
-            $0 == "_" || CharacterSet.alphanumerics.contains($0)
-        }
-    }
-
-    private struct TerminalSessionResult {
-        var stdout: String
-        var currentDirectoryPath: String
-        var environmentDelta: TerminalEnvironmentDelta?
-    }
-
-    private static func terminalSessionResult(
-        for context: TerminalExecutionContext,
-        stdout: String
-    ) -> TerminalSessionResult {
-        if let marker = context.remoteMarker,
-           let connection = context.remoteConnection,
-           let metadata = remoteTerminalMetadata(from: stdout, marker: marker) {
-            var updated = connection
-            if !metadata.cwd.isEmpty {
-                updated.path = metadata.cwd
-            }
-            return TerminalSessionResult(
-                stdout: metadata.stdout,
-                currentDirectoryPath: updated.displayLabel,
-                environmentDelta: remoteTerminalEnvironmentDelta(metadata)
-            )
-        }
-
-        let environmentDelta: TerminalEnvironmentDelta?
-        if let environmentMarkerURL = context.environmentMarkerURL {
-            environmentDelta = terminalEnvironmentDelta(markerURL: environmentMarkerURL)
-        } else {
-            environmentDelta = nil
-        }
-        return TerminalSessionResult(
-            stdout: stdout,
-            currentDirectoryPath: terminalCurrentDirectoryPath(for: context),
-            environmentDelta: environmentDelta
-        )
-    }
-
-    private struct RemoteTerminalMetadata {
-        var stdout: String
-        var cwd: String
-        var baseEnvironment: [String: String]?
-        var finalEnvironment: [String: String]?
-    }
-
-    private static func remoteTerminalMetadata(from stdout: String, marker: String) -> RemoteTerminalMetadata? {
-        let cwdToken = "\n\(marker):cwd\n"
-        let baseToken = "\n\(marker):base-env\n"
-        let finalToken = "\n\(marker):final-env\n"
-        let endToken = "\n\(marker):end\n"
-        guard let cwdRange = stdout.range(of: cwdToken) else {
-            return nil
-        }
-
-        let visibleStdout = String(stdout[..<cwdRange.lowerBound])
-        let afterCWDToken = stdout[cwdRange.upperBound...]
-        guard let baseRange = afterCWDToken.range(of: baseToken) else {
-            return RemoteTerminalMetadata(
-                stdout: visibleStdout,
-                cwd: String(afterCWDToken).trimmingCharacters(in: .whitespacesAndNewlines),
-                baseEnvironment: nil,
-                finalEnvironment: nil
-            )
-        }
-        let cwd = String(afterCWDToken[..<baseRange.lowerBound])
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let afterBaseToken = afterCWDToken[baseRange.upperBound...]
-        guard let finalRange = afterBaseToken.range(of: finalToken) else {
-            return RemoteTerminalMetadata(
-                stdout: visibleStdout,
-                cwd: cwd,
-                baseEnvironment: nil,
-                finalEnvironment: nil
-            )
-        }
-        let baseHex = String(afterBaseToken[..<finalRange.lowerBound])
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let afterFinalToken = afterBaseToken[finalRange.upperBound...]
-        guard let endRange = afterFinalToken.range(of: endToken) else {
-            return RemoteTerminalMetadata(
-                stdout: visibleStdout,
-                cwd: cwd,
-                baseEnvironment: nil,
-                finalEnvironment: nil
-            )
-        }
-        let finalHex = String(afterFinalToken[..<endRange.lowerBound])
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        return RemoteTerminalMetadata(
-            stdout: visibleStdout,
-            cwd: cwd,
-            baseEnvironment: terminalEnvironment(fromHex: baseHex),
-            finalEnvironment: terminalEnvironment(fromHex: finalHex)
-        )
-    }
-
-    private static func remoteTerminalEnvironmentDelta(
-        _ metadata: RemoteTerminalMetadata
-    ) -> TerminalEnvironmentDelta? {
-        guard let baseEnvironment = metadata.baseEnvironment,
-              let finalEnvironment = metadata.finalEnvironment else {
-            return nil
-        }
-        var overrides: [String: String] = [:]
-        for (key, value) in finalEnvironment
-            where baseEnvironment[key] != value
-                && !ignoredTerminalEnvironmentDeltaKeys.contains(key) {
-            overrides[key] = value
-        }
-        let removedKeys = Set(baseEnvironment.keys.filter {
-            finalEnvironment[$0] == nil && !ignoredTerminalEnvironmentDeltaKeys.contains($0)
-        })
-        return TerminalEnvironmentDelta(overrides: overrides, removedKeys: removedKeys)
-    }
-
-    private static func terminalCurrentDirectoryPath(for context: TerminalExecutionContext) -> String {
-        guard let markerURL = context.cwdMarkerURL else {
-            return context.fallbackCurrentDirectoryPath
-        }
-        defer { removeTerminalMarker(at: markerURL) }
-        guard let rawPath = try? String(contentsOf: markerURL, encoding: .utf8) else {
-            return context.fallbackCurrentDirectoryPath
-        }
-        let path = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !path.isEmpty else {
-            return context.fallbackCurrentDirectoryPath
-        }
-        return URL(fileURLWithPath: path).standardizedFileURL.path
-    }
-
-    private struct TerminalEnvironmentDelta {
-        var overrides: [String: String]
-        var removedKeys: Set<String>
-    }
-
-    private static let ignoredTerminalEnvironmentDeltaKeys: Set<String> = [
-        "PWD",
-        "OLDPWD",
-        "SHLVL",
-        "_"
-    ]
-
-    private static func effectiveTerminalEnvironment(
-        overrides: [String: String],
-        removedKeys: Set<String>
-    ) -> [String: String] {
-        var environment = ProcessInfo.processInfo.environment
-        for key in removedKeys {
-            environment.removeValue(forKey: key)
-        }
-        for (key, value) in overrides {
-            environment[key] = value
-        }
-        return environment
-    }
-
-    private static func terminalEnvironmentDelta(markerURL: URL) -> TerminalEnvironmentDelta? {
-        defer { removeTerminalMarker(at: markerURL) }
-        guard let data = try? Data(contentsOf: markerURL) else {
-            return nil
-        }
-        let finalEnvironment = terminalEnvironment(from: data)
-        let baseEnvironment = ProcessInfo.processInfo.environment
-        var overrides: [String: String] = [:]
-        for (key, value) in finalEnvironment
-            where baseEnvironment[key] != value
-                && !ignoredTerminalEnvironmentDeltaKeys.contains(key) {
-            overrides[key] = value
-        }
-        let removedKeys = Set(baseEnvironment.keys.filter {
-            finalEnvironment[$0] == nil && !ignoredTerminalEnvironmentDeltaKeys.contains($0)
-        })
-        return TerminalEnvironmentDelta(overrides: overrides, removedKeys: removedKeys)
-    }
-
-    private static func terminalEnvironment(from data: Data) -> [String: String] {
-        var environment: [String: String] = [:]
-        for entry in data.split(separator: 0, omittingEmptySubsequences: true) {
-            let text = String(decoding: entry, as: UTF8.self)
-            guard let equalsIndex = text.firstIndex(of: "=") else { continue }
-            let key = String(text[..<equalsIndex])
-            let value = String(text[text.index(after: equalsIndex)...])
-            guard !key.isEmpty else { continue }
-            environment[key] = value
-        }
-        return environment
-    }
-
-    private static func terminalEnvironment(fromHex hex: String) -> [String: String]? {
-        let scalars = Array(hex.trimmingCharacters(in: .whitespacesAndNewlines).unicodeScalars)
-        guard scalars.count.isMultiple(of: 2) else { return nil }
-        var bytes: [UInt8] = []
-        bytes.reserveCapacity(scalars.count / 2)
-        var index = 0
-        while index < scalars.count {
-            let pair = String(String.UnicodeScalarView([scalars[index], scalars[index + 1]]))
-            guard let byte = UInt8(pair, radix: 16) else { return nil }
-            bytes.append(byte)
-            index += 2
-        }
-        return terminalEnvironment(from: Data(bytes))
-    }
-
-    private static func removeTerminalMarkers(_ urls: [URL]) {
-        for url in urls {
-            removeTerminalMarker(at: url)
-        }
-    }
-
-    private static func removeTerminalMarker(at url: URL) {
-        try? FileManager.default.removeItem(at: url)
-    }
-
     private nonisolated static func shellSingleQuoted(_ value: String) -> String {
-        "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
-    }
-
-    private func finishTerminalEntry(
-        id: UUID,
-        stdout: String,
-        stderr: String,
-        exitCode: Int32?,
-        ok: Bool,
-        status: TerminalCommandStatus
-    ) {
-        guard let index = terminal.entries.firstIndex(where: { $0.id == id }) else { return }
-        if terminal.entries[index].status == .stopped, status != .stopped {
-            return
-        }
-        terminal.entries[index].stdout = stdout
-        terminal.entries[index].stderr = stderr
-        terminal.entries[index].exitCode = exitCode
-        terminal.entries[index].ok = ok
-        terminal.entries[index].status = status
+        WorkspaceTerminalEngine.shellSingleQuoted(value)
     }
 
     public func cancelActiveWork() {
@@ -4765,14 +4277,7 @@ public final class QuillCodeWorkspaceModel {
         let hadActiveWork = composer.isSending || terminal.isRunning || !runningMCPIDs.isEmpty
         composer.isSending = false
         terminal.isRunning = false
-        for index in terminal.entries.indices where terminal.entries[index].status == .running {
-            terminal.entries[index].stderr = terminal.entries[index].stderr.isEmpty
-                ? "Command stopped."
-                : terminal.entries[index].stderr
-            terminal.entries[index].exitCode = nil
-            terminal.entries[index].ok = false
-            terminal.entries[index].status = .stopped
-        }
+        WorkspaceTerminalEngine.stopRunningEntries(terminal: &terminal)
         for id in runningMCPIDs {
             mcpServerProcesses[id]?.standardOutput.fileHandleForReading.readabilityHandler = nil
             mcpServerProcesses[id]?.standardError.fileHandleForReading.readabilityHandler = nil
