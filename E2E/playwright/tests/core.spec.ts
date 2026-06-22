@@ -5,6 +5,16 @@ async function clickProjectAction(row: Locator, name: string) {
   await row.getByRole('button', { name }).click();
 }
 
+async function openTopBarOverflow(page: Page) {
+  await page.getByTestId('top-bar-overflow-button').click();
+  await expect(page.getByTestId('top-bar-overflow-menu')).toHaveAttribute('open', '');
+}
+
+async function openSettings(page: Page) {
+  await openTopBarOverflow(page);
+  await page.getByTestId('top-bar-overflow-settings').click();
+}
+
 test('mock harness executes simple command flow', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
   await expect(page.getByTestId('workspace')).toBeVisible();
@@ -20,7 +30,12 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
   await expect(page.getByTestId('send-button')).toBeDisabled();
 
-  await page.getByTestId('settings-button').click();
+  await openTopBarOverflow(page);
+  await expect(page.getByTestId('top-bar-overflow-command-palette')).toBeVisible();
+  await expect(page.getByTestId('top-bar-overflow-search')).toBeVisible();
+  await expect(page.getByTestId('top-bar-overflow-computer-use')).toBeVisible();
+  await expect(page.getByTestId('top-bar-overflow-settings')).toBeVisible();
+  await page.getByTestId('top-bar-overflow-settings').click();
   await expect(page.getByTestId('settings-panel')).toBeVisible();
   await expect(page.getByTestId('settings-key-status')).toHaveText('Not signed in');
   await page.getByTestId('settings-sign-in').click();
@@ -88,7 +103,7 @@ test('mock harness executes simple command flow', async ({ page }) => {
 test('mock harness shows actionable Computer Use setup in settings', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('settings-button').click();
+  await openSettings(page);
   const settingsPanel = page.getByTestId('settings-panel');
   await expect(settingsPanel).toBeVisible();
   await expect(settingsPanel.getByTestId('computer-use-settings')).toBeVisible();
@@ -162,7 +177,7 @@ test('mock harness avoids horizontal clipping in key desktop and mobile flows', 
     });
     await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-    await page.getByTestId('settings-button').click();
+    await openSettings(page);
     await expect(page.getByTestId('settings-panel')).toBeVisible();
     await expectNoHorizontalOverflow(page, `${viewport.name} settings`);
 
@@ -378,7 +393,7 @@ test('mock harness stops an active composer run from the composer', async ({ pag
 test('mock harness shows actionable TrustedRouter runtime issue', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('settings-button').click();
+  await openSettings(page);
   await expect(page.getByTestId('settings-panel')).toBeVisible();
   await page.getByTestId('settings-save').click();
 
@@ -421,7 +436,7 @@ test('mock harness shows runtime diagnostics in settings', async ({ page }) => {
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('runtime-issue-title')).toHaveText('TrustedRouter network issue');
 
-  await page.getByTestId('settings-button').click();
+  await openSettings(page);
   const settingsPanel = page.getByTestId('settings-panel');
 
   await expect(settingsPanel.getByTestId('runtime-diagnostics')).toBeVisible();
@@ -472,7 +487,7 @@ test('mock harness surfaces rate limits with model-switch recovery and diagnosti
   await expect(page.getByTestId('model-browser')).toBeVisible();
   await expect(page.getByTestId('model-search')).toBeFocused();
 
-  await page.getByTestId('settings-button').click();
+  await openSettings(page);
   const settingsPanel = page.getByTestId('settings-panel');
   await expect(settingsPanel.getByTestId('runtime-diagnostic').filter({ hasText: 'Provider status' })).toContainText('Rate limited');
   await expect(settingsPanel.getByTestId('runtime-diagnostic').filter({ hasText: 'Retry after' })).toContainText('120s');

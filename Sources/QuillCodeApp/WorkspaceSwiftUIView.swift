@@ -1081,35 +1081,27 @@ private struct QuillCodeTopBarView: View {
         return QuillCodePalette.green
     }
 
-    private func topBarCommandButton(
-        commandID: String,
-        systemImage: String,
-        fallbackTitle: String
-    ) -> some View {
-        let command = commands.first { $0.id == commandID } ?? WorkspaceCommandSurface(
-            id: commandID,
-            title: fallbackTitle,
-            category: WorkspaceCommandPalette.workspaceCategory,
-            keywords: []
-        )
-        return Button {
-            onCommand(command)
-        } label: {
-            Image(systemName: systemImage)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(command.isEnabled ? QuillCodePalette.muted : QuillCodePalette.muted.opacity(0.45))
-                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
-                .contentShape(Rectangle())
+    private var overflowCommands: [WorkspaceCommandSurface] {
+        var commandIDs = [
+            "command-palette",
+            "search"
+        ]
+        if topBar.showsComputerUseSetup {
+            commandIDs.append("computer-use-setup")
         }
-        .buttonStyle(.borderless)
-        .disabled(!command.isEnabled)
-        .help(command.title)
-        .accessibilityLabel(command.title)
+        commandIDs.append(contentsOf: [
+            "settings",
+            "keyboard-shortcuts",
+            "stop-all"
+        ])
+        return commandIDs.compactMap { commandID in
+            commands.first { $0.id == commandID }
+        }
     }
 
     private var commandMenu: some View {
         Menu {
-            ForEach(commands) { command in
+            ForEach(overflowCommands) { command in
                 Button(command.title) {
                     onCommand(command)
                 }

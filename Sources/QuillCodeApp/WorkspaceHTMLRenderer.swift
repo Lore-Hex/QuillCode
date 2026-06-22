@@ -51,7 +51,15 @@ public enum WorkspaceHTMLRenderer {
               <span data-testid="computer-use-status">\(escape(topBar.computerUseLabel))</span>
             </div>
             <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
-              <button type="button" data-testid="settings-button" aria-label="Settings" title="Settings">...</button>
+              <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
+                <summary data-testid="top-bar-overflow-button" aria-label="More" title="More">...</summary>
+                <div class="topbar-overflow-popover">
+                  <button type="button" data-testid="top-bar-overflow-command-palette" data-command-id="command-palette">Command palette</button>
+                  <button type="button" data-testid="top-bar-overflow-search" data-command-id="search">Search</button>
+                  \(topBar.showsComputerUseSetup ? #"<button type="button" data-testid="top-bar-overflow-computer-use" data-command-id="computer-use-setup">Computer Use setup</button>"# : "")
+                  <button type="button" data-testid="top-bar-overflow-settings" data-command-id="settings">Settings</button>
+                </div>
+              </details>
             </div>
           </div>
         </header>

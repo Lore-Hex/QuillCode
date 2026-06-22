@@ -185,6 +185,64 @@
       color: var(--text);
       background: rgba(255,255,255,.07);
     }
+    .topbar-overflow-menu {
+      position: relative;
+    }
+    .topbar-overflow-menu summary {
+      width: 40px;
+      min-height: 40px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.10);
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+      list-style: none;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .topbar-overflow-menu summary::-webkit-details-marker { display: none; }
+    .topbar-overflow-menu[open] summary,
+    .topbar-overflow-menu summary:hover {
+      color: var(--text);
+      background: rgba(255,255,255,.07);
+      border-color: rgba(255,255,255,.16);
+    }
+    .topbar-overflow-popover {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      z-index: 8;
+      min-width: 184px;
+      display: grid;
+      gap: 4px;
+      padding: 6px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(22,33,39,.98);
+      box-shadow: 0 14px 42px rgba(0,0,0,.35);
+    }
+    .topbar-overflow-popover button {
+      width: 100%;
+      min-height: 40px;
+      padding: 0 10px;
+      display: block;
+      text-align: left;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      color: var(--text);
+      background: transparent;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .topbar-overflow-popover button:hover {
+      background: rgba(255,255,255,.08);
+      border-color: rgba(255,255,255,.12);
+    }
     .topbar-cluster [data-testid="runtime-issue-pill"] {
       color: #ffe2a3;
       background: rgba(248,184,78,.14);
@@ -3572,7 +3630,15 @@
                 <span data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</span>
               </div>
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
-                <button type="button" data-testid="settings-button" aria-label="Settings" title="Settings">...</button>
+                <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
+                  <summary data-testid="top-bar-overflow-button" aria-label="More" title="More">...</summary>
+                  <div class="topbar-overflow-popover">
+                    <button type="button" data-testid="top-bar-overflow-command-palette" data-command-id="command-palette">Command palette</button>
+                    <button type="button" data-testid="top-bar-overflow-search" data-command-id="search">Search</button>
+                    ${state.settings.computerUseStatus.available ? '' : '<button type="button" data-testid="top-bar-overflow-computer-use" data-command-id="computer-use-setup">Computer Use setup</button>'}
+                    <button type="button" data-testid="top-bar-overflow-settings" data-command-id="settings">Settings</button>
+                  </div>
+                </details>
               </div>
             </div>
           </header>
@@ -3754,7 +3820,18 @@
       document.querySelector('[data-testid="add-project-button"]').addEventListener('click', () => {
         addProject();
       });
-      document.querySelector('[data-testid="settings-button"]').addEventListener('click', () => {
+      document.querySelector('[data-testid="top-bar-overflow-command-palette"]')?.addEventListener('click', () => {
+        openCommandPalette();
+      });
+      document.querySelector('[data-testid="top-bar-overflow-search"]')?.addEventListener('click', () => {
+        state.search.isOpen = true;
+        state.search.query = '';
+        render();
+      });
+      document.querySelector('[data-testid="top-bar-overflow-computer-use"]')?.addEventListener('click', event => {
+        runCommand(event.currentTarget.getAttribute('data-command-id'));
+      });
+      document.querySelector('[data-testid="top-bar-overflow-settings"]')?.addEventListener('click', () => {
         state.settings.isOpen = true;
         state.settings.replacementAPIKey = '';
         render();
