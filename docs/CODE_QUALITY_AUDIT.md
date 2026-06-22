@@ -43,6 +43,20 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 1. Extract workspace command execution from `WorkspaceModel`.
 2. Extract automation runners from `WorkspaceModel`.
-3. Split `WorkspaceSwiftUIView` into pane/control files matching the surface structs.
+3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer is now extracted; next targets are the model picker, sidebar, and review controls.
 4. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
 5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
+
+## 2026-06-22 Composer Refactor Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+This pass improves one of the highest-traffic surfaces without changing behavior: the native composer and slash-command suggestions moved out of `WorkspaceSwiftUIView.swift` into `QuillCodeComposerView.swift`. The extracted file keeps focus handling, keyboard navigation, send/stop affordances, and slash suggestion presentation together, which makes future composer work easier to reason about and test.
+
+Interface polish changes:
+
+- Slash suggestion rows now guarantee the shared 40 pt hit target.
+- Suggestion rows use the shared `QuillCodePressableButtonStyle` for consistent `0.96` press feedback.
+- The command usage chip no longer relies on a fixed 230 pt row column; long command names truncate in the chip instead of squeezing row detail text first.
+- The panel includes a quiet keyboard hint for Up/Down and Tab so command discovery feels more self-explanatory.
+- Composer input and send/stop controls use matching 15 pt continuous radii and 46 pt minimum height for a more concentric, tactile bottom bar.

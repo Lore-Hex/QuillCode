@@ -2,7 +2,7 @@ import SwiftUI
 import QuillCodeCore
 import QuillCodeTools
 
-private enum QuillCodeMetrics {
+enum QuillCodeMetrics {
     static let minimumHitTarget: CGFloat = 40
     static let toolCardMinimumHeight: CGFloat = 74
     static let compactToolCardMinimumHeight: CGFloat = 58
@@ -12,7 +12,7 @@ private enum QuillCodeMetrics {
     static let pressScale: CGFloat = 0.96
 }
 
-private func quillCodeWithAnimation(_ animation: Animation, reduceMotion: Bool, _ updates: () -> Void) {
+func quillCodeWithAnimation(_ animation: Animation, reduceMotion: Bool, _ updates: () -> Void) {
     if reduceMotion {
         updates()
     } else {
@@ -4411,154 +4411,6 @@ private struct QuillCodeCodeBlock: View {
     }
 }
 
-private struct QuillCodeComposerView: View {
-    var composer: ComposerSurface
-    @Binding var draft: String
-    var isFocused: FocusState<Bool>.Binding
-    var onSend: () -> Void
-    var onStop: () -> Void
-
-    @State private var activeSlashSuggestionIndex = 0
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if !composer.slashSuggestions.isEmpty {
-                QuillCodeSlashSuggestionPanel(
-                    suggestions: composer.slashSuggestions,
-                    selectedIndex: activeSlashSuggestionIndex
-                ) { suggestion in
-                    draft = suggestion.insertText
-                }
-            }
-            HStack(spacing: 10) {
-                TextField(composer.placeholder, text: $draft, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .lineLimit(1...5)
-                    .padding(12)
-                    .background(Color.black.opacity(0.18))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .disabled(composer.isSending)
-                    .focused(isFocused)
-                    .onKeyPress(.downArrow) {
-                        guard !composer.slashSuggestions.isEmpty else { return .ignored }
-                        activeSlashSuggestionIndex = min(activeSlashSuggestionIndex + 1, composer.slashSuggestions.count - 1)
-                        return .handled
-                    }
-                    .onKeyPress(.upArrow) {
-                        guard !composer.slashSuggestions.isEmpty else { return .ignored }
-                        activeSlashSuggestionIndex = max(activeSlashSuggestionIndex - 1, 0)
-                        return .handled
-                    }
-                    .onKeyPress(.tab) {
-                        guard acceptActiveSlashSuggestion(force: true) else { return .ignored }
-                        return .handled
-                    }
-                    .onKeyPress(.return) {
-                        guard acceptActiveSlashSuggestion(force: false) else { return .ignored }
-                        return .handled
-                    }
-                    .onSubmit(onSend)
-                if composer.isSending {
-                    Button(action: onStop) {
-                        Label("Stop", systemImage: "stop.fill")
-                            .font(.headline)
-                            .frame(minWidth: 78, minHeight: 36)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(QuillCodePalette.red)
-                    .keyboardShortcut(.cancelAction)
-                } else {
-                    Button {
-                        onSend()
-                    } label: {
-                        Image(systemName: "arrow.up")
-                            .font(.headline)
-                            .frame(width: 36, height: 36)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
-        }
-        .padding(14)
-        .background(QuillCodePalette.panel)
-        .onChange(of: draft) { _, _ in
-            activeSlashSuggestionIndex = 0
-        }
-        .onChange(of: composer.slashSuggestions) { _, suggestions in
-            if suggestions.isEmpty {
-                activeSlashSuggestionIndex = 0
-            } else {
-                activeSlashSuggestionIndex = min(activeSlashSuggestionIndex, suggestions.count - 1)
-            }
-        }
-    }
-
-    private func acceptActiveSlashSuggestion(force: Bool) -> Bool {
-        guard !composer.slashSuggestions.isEmpty else { return false }
-        let index = min(max(activeSlashSuggestionIndex, 0), composer.slashSuggestions.count - 1)
-        let suggestion = composer.slashSuggestions[index]
-        guard force || draft != suggestion.insertText || suggestion.insertText.hasSuffix(" ") else {
-            return false
-        }
-        draft = suggestion.insertText
-        return true
-    }
-}
-
-private struct QuillCodeSlashSuggestionPanel: View {
-    var suggestions: [SlashCommandSuggestionSurface]
-    var selectedIndex: Int
-    var onSelect: (SlashCommandSuggestionSurface) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Slash commands")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(QuillCodePalette.muted)
-                .textCase(.uppercase)
-            ForEach(suggestions) { suggestion in
-                let isSelected = suggestions.firstIndex(of: suggestion) == selectedIndex
-                Button {
-                    onSelect(suggestion)
-                } label: {
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text(suggestion.usage)
-                            .font(.system(.callout, design: .monospaced).weight(.semibold))
-                            .foregroundStyle(QuillCodePalette.text)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                            .frame(width: 230, alignment: .leading)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(suggestion.title)
-                                .font(.callout.weight(.semibold))
-                            Text(suggestion.detail)
-                                .font(.caption)
-                                .foregroundStyle(QuillCodePalette.muted)
-                                .lineLimit(1)
-                        }
-                        Spacer()
-                    }
-                    .padding(.vertical, 7)
-                    .padding(.horizontal, 10)
-                    .background(isSelected ? Color.accentColor.opacity(0.16) : Color.clear)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(suggestion.usage), \(suggestion.title)")
-            }
-        }
-        .padding(10)
-        .background(Color.black.opacity(0.16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-}
-
 private struct QuillCodeSettingsView: View {
     var settings: WorkspaceSettingsSurface
     @Binding var draft: QuillCodeSettingsDraft
@@ -4958,7 +4810,7 @@ private struct QuillCodePill: View {
     }
 }
 
-private struct QuillCodePressableButtonStyle: ButtonStyle {
+struct QuillCodePressableButtonStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeBody(configuration: Configuration) -> some View {
