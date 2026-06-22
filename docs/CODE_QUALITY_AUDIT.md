@@ -43,7 +43,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 1. Extract workspace command execution from `WorkspaceModel`.
 2. Extract automation runners from `WorkspaceModel`.
-3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer and model picker are now extracted; next targets are the sidebar and review controls.
+3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, and top bar are now extracted; next targets are the sidebar and review controls.
 4. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
 5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
 
@@ -75,3 +75,16 @@ Interface polish changes:
 - Info and favorite controls now use the same press style as other high-frequency icon buttons while preserving 40 pt hit areas.
 - Long provider/model metadata truncates in the middle instead of pushing row actions off-screen.
 - The empty state keeps the same 12 pt inner radius and wraps explanatory copy without clipping.
+
+## 2026-06-22 Top Bar Refactor Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+The native top bar moved out of `WorkspaceSwiftUIView.swift` into `QuillCodeTopBarView.swift`. This keeps workspace shell layout separate from the Codex-like chrome contract: thread identity, model/mode picker, status, and overflow actions now live together in one focused control.
+
+Interface polish changes:
+
+- The overflow menu uses the shared `0.96` press feedback instead of a static borderless icon.
+- The overflow menu keeps the shared 40 pt hit target while adding a quiet selected-surface background and 10 pt continuous radius.
+- Runtime issue pills stay inside the top-bar file because they are specific to top-bar status density and use tabular caption numerals for stable changing labels.
+- The identity cluster is a single bounded accessibility element, so long project/thread metadata remains available without visually crowding the bar.
