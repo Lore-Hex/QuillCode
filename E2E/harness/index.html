@@ -319,14 +319,15 @@
       color: var(--text);
       background: rgba(0,0,0,.24);
     }
-    .model-results { display: grid; gap: 10px; max-height: 360px; overflow: auto; }
-    .model-category { display: grid; gap: 6px; }
+    .model-results { display: grid; gap: 8px; max-height: 360px; overflow: auto; padding-bottom: 8px; }
+    .model-category { display: grid; gap: 4px; }
     .model-category h3 {
       margin: 0;
       color: var(--muted);
       font-size: 11px;
       letter-spacing: .08em;
       text-transform: uppercase;
+      padding: 0 10px;
     }
     .model-row {
       display: grid;
@@ -348,10 +349,7 @@
     }
     .model-summary { color: var(--muted); }
     .model-details {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      margin-top: 2px;
+      display: none;
     }
     .model-details em {
       color: var(--muted);
@@ -377,28 +375,24 @@
       place-items: center;
       border-radius: 999px;
       color: var(--muted);
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(255,255,255,.08);
+      background: transparent;
+      border: 0;
     }
     .model-detail-toggle.active {
       color: var(--blue);
-      background: rgba(65,184,232,.13);
-      border-color: rgba(65,184,232,.26);
+      background: transparent;
     }
     .model-favorite.active {
       color: var(--yellow);
-      background: rgba(248,184,78,.14);
-      border-color: rgba(248,184,78,.28);
+      background: transparent;
     }
     .model-inspector {
       grid-column: 1 / -1;
       display: grid;
       gap: 8px;
-      padding: 8px;
-      border-radius: 8px;
+      padding: 8px 0 0;
       color: var(--muted);
-      background: rgba(255,255,255,.045);
-      box-shadow: var(--shadow-border);
+      border-top: 1px solid rgba(255,255,255,.08);
     }
     .model-inspector p {
       margin: 0;
@@ -423,22 +417,6 @@
       overflow-wrap: anywhere;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-variant-numeric: tabular-nums;
-    }
-    .model-badges {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      margin-top: 3px;
-    }
-    .model-badges em {
-      color: #b8ecff;
-      background: rgba(65,184,232,.12);
-      border: 1px solid rgba(65,184,232,.18);
-      border-radius: 999px;
-      padding: 2px 6px;
-      font-style: normal;
-      font-size: 10px;
-      font-weight: 800;
     }
     .model-empty {
       padding: 12px;
@@ -2108,20 +2086,70 @@
       color: white;
     }
     .model-option {
-      padding: 10px;
+      padding: 8px 10px;
       border: 0;
-      border-radius: 14px;
-      background: rgba(0,0,0,.16);
+      border-radius: 12px;
+      background: transparent;
       color: var(--text);
       font-weight: 400;
-      box-shadow: var(--shadow-border);
+      box-shadow: inset 0 0 0 1px transparent;
       transition-property: transform, background-color, box-shadow;
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
     }
+    .topbar-cluster .model-option {
+      min-height: 0;
+      padding: 8px 10px;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 400;
+      box-shadow: inset 0 0 0 1px transparent;
+    }
+    .model-option:not(:disabled):hover {
+      background: rgba(255,255,255,.035);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.07);
+    }
+    .topbar-cluster .model-option:not(:disabled):hover {
+      background: rgba(255,255,255,.035);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.07);
+    }
     .model-option.selected {
-      background: rgba(65,184,232,.13);
-      box-shadow: 0 0 0 1px rgba(65,184,232,.32);
+      background: rgba(65,184,232,.045);
+      box-shadow: inset 3px 0 0 rgba(65,184,232,.72), inset 0 0 0 1px rgba(65,184,232,.16);
+    }
+    .topbar-cluster .model-option.selected {
+      background: rgba(65,184,232,.045);
+      box-shadow: inset 3px 0 0 rgba(65,184,232,.72), inset 0 0 0 1px rgba(65,184,232,.16);
+    }
+    .model-option.selected:not(:disabled):hover {
+      background: rgba(65,184,232,.07);
+      box-shadow: inset 3px 0 0 rgba(65,184,232,.78), inset 0 0 0 1px rgba(65,184,232,.22);
+    }
+    .topbar-cluster .model-option.selected:not(:disabled):hover {
+      background: rgba(65,184,232,.07);
+      box-shadow: inset 3px 0 0 rgba(65,184,232,.78), inset 0 0 0 1px rgba(65,184,232,.22);
+    }
+    .topbar-cluster .model-detail-toggle,
+    .topbar-cluster .model-favorite {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .topbar-cluster .model-detail-toggle.active {
+      color: var(--blue);
+    }
+    .topbar-cluster .model-favorite.active {
+      color: var(--yellow);
+    }
+    .model-detail-toggle:not(:disabled):hover,
+    .model-favorite:not(:disabled):hover {
+      background: rgba(255,255,255,.035);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.07);
     }
     button:disabled { opacity: .45; }
     @media (prefers-reduced-motion: reduce) {
@@ -3818,12 +3846,8 @@
               ${category.models.map(model => `
                 <div class="model-row" data-testid="model-row" data-model-id="${escapeHTML(model.id)}">
                   <button class="model-option ${model.id === state.topBar.selectedModelID ? 'selected' : ''}" type="button" data-testid="model-option" data-model-id="${escapeHTML(model.id)}">
-                    <span class="model-title">${escapeHTML(model.provider + '/' + model.displayName)}${model.id === state.topBar.selectedModelID ? ' ✓' : ''}</span>
+                    <span class="model-title">${escapeHTML(modelDisplayLabel(model))}${model.id === state.topBar.selectedModelID ? ' ✓' : ''}</span>
                     <small class="model-summary" data-testid="model-option-summary">${escapeHTML(modelMetadataSummary(model, category.category))}</small>
-                    <span class="model-details" data-testid="model-option-details">
-                      ${visibleModelMetadataDetails(model, category.category).map(detail => `<em data-testid="model-option-detail">${escapeHTML(detail)}</em>`).join('')}
-                    </span>
-                    ${(model.badges || []).length ? `<span class="model-badges">${model.badges.map(badge => `<em data-testid="model-badge">${escapeHTML(badge)}</em>`).join('')}</span>` : ''}
                   </button>
                   <div class="model-actions">
                     <button class="model-detail-toggle ${state.topBar.expandedModelID === model.id ? 'active' : ''}" type="button" data-testid="model-detail-button" data-model-id="${escapeHTML(model.id)}" aria-expanded="${state.topBar.expandedModelID === model.id ? 'true' : 'false'}" aria-label="${state.topBar.expandedModelID === model.id ? 'Hide model details' : 'Show model details'}">${state.topBar.expandedModelID === model.id ? 'i' : 'ⓘ'}</button>
@@ -4549,7 +4573,12 @@
     }
 
     function modelMetadataSummary(model, categoryName) {
-      return model.metadataSummary || `${model.category || categoryName || 'Models'} · ${modelDisplayLabel(model)}`;
+      if (model.metadataSummary) return model.metadataSummary;
+      if (model.id === 'trustedrouter/fast') return 'Fast everyday agent';
+      if (model.id === 'tr/fusion') return 'Deeper planning and review';
+      const category = model.category || categoryName || 'Models';
+      if (category === 'Safety') return 'Auto safety reviewer';
+      return `${category} model`;
     }
 
     function modelCapabilitySummary(model, categoryName) {
@@ -4606,12 +4635,6 @@
         else if (badge !== 'Current' && badge !== 'Favorite') details.push(badge);
       });
       return uniqueStrings(details);
-    }
-
-    function visibleModelMetadataDetails(model, categoryName) {
-      return modelMetadataDetails(model, categoryName).filter(detail =>
-        detail.startsWith('Provider:') || detail.startsWith('Category:')
-      );
     }
 
     function uniqueStrings(values) {

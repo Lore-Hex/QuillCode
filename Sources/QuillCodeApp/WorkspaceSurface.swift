@@ -446,7 +446,7 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         self.isFavorite = isFavorite
         self.badges = badges
         self.metadataSummary = Self.metadataSummary(modelID: model.id, category: model.category)
-        self.detailTitle = "\(model.provider)/\(model.displayName)"
+        self.detailTitle = Self.detailTitle(modelID: model.id, provider: model.provider, displayName: model.displayName)
         self.capabilitySummary = Self.capabilitySummary(modelID: model.id, category: model.category, badges: badges)
         self.metadataRows = Self.metadataRows(
             provider: model.provider,
@@ -493,7 +493,7 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         self.metadataSummary = try container.decodeIfPresent(String.self, forKey: .metadataSummary)
             ?? Self.metadataSummary(modelID: id, category: category)
         self.detailTitle = try container.decodeIfPresent(String.self, forKey: .detailTitle)
-            ?? "\(provider)/\(displayName)"
+            ?? Self.detailTitle(modelID: id, provider: provider, displayName: displayName)
         self.capabilitySummary = try container.decodeIfPresent(String.self, forKey: .capabilitySummary)
             ?? Self.capabilitySummary(modelID: id, category: category, badges: badges)
         self.metadataRows = try container.decodeIfPresent([ModelMetadataRowSurface].self, forKey: .metadataRows)
@@ -517,8 +517,28 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
     }
 
     private static func metadataSummary(modelID: String, category: String) -> String {
-        let modelName = TrustedRouterDefaults.recommendedDisplayNames[TrustedRouterDefaults.canonicalModelID(modelID)] ?? modelID
-        return "\(category) · \(modelName)"
+        let canonicalModelID = TrustedRouterDefaults.canonicalModelID(modelID)
+        if canonicalModelID == TrustedRouterDefaults.defaultModel {
+            return "Fast everyday agent"
+        }
+        if canonicalModelID == TrustedRouterDefaults.fusionModel {
+            return "Deeper planning and review"
+        }
+        if category == TrustedRouterDefaults.safetyCategory {
+            return "Auto safety reviewer"
+        }
+        return "\(category) model"
+    }
+
+    private static func detailTitle(modelID: String, provider: String, displayName: String) -> String {
+        if let recommendedName = TrustedRouterDefaults.recommendedDisplayNames[TrustedRouterDefaults.canonicalModelID(modelID)] {
+            return recommendedName
+        }
+        let trimmedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedDisplayName.isEmpty {
+            return trimmedDisplayName
+        }
+        return modelID
     }
 
     private static func capabilitySummary(modelID: String, category: String, badges: [String]) -> String {

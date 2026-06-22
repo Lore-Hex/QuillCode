@@ -1187,12 +1187,13 @@ private struct QuillCodeModelPickerView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 } else {
                     ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 12) {
+                        LazyVStack(alignment: .leading, spacing: 8) {
                             ForEach(filteredCategories) { category in
-                                VStack(alignment: .leading, spacing: 6) {
+                                VStack(alignment: .leading, spacing: 4) {
                                     Text(category.category.uppercased())
                                         .font(.caption.weight(.semibold))
                                         .foregroundStyle(QuillCodePalette.muted)
+                                        .padding(.horizontal, 10)
                                     ForEach(category.models) { option in
                                         modelRow(option)
                                     }
@@ -1203,7 +1204,7 @@ private struct QuillCodeModelPickerView: View {
                 }
             }
             .padding(14)
-            .frame(width: 460, height: 500)
+            .frame(width: 380, height: 500)
             .background(QuillCodePalette.panel)
         }
         .onChange(of: isPresented) { _, presented in
@@ -1233,7 +1234,7 @@ private struct QuillCodeModelPickerView: View {
 
     private func modelRow(_ option: ModelOptionSurface) -> some View {
         let isExpanded = expandedModelID == option.id
-        return VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
                 Button {
                     onSetModel(option.id)
@@ -1248,9 +1249,6 @@ private struct QuillCodeModelPickerView: View {
                                 .font(.caption)
                                 .foregroundStyle(QuillCodePalette.muted)
                                 .lineLimit(1)
-                            if !option.badges.isEmpty {
-                                modelBadges(option.badges)
-                            }
                         }
                         Spacer()
                         if option.isSelected {
@@ -1274,8 +1272,7 @@ private struct QuillCodeModelPickerView: View {
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(isExpanded ? QuillCodePalette.blue : QuillCodePalette.muted)
                             .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
-                            .background((isExpanded ? QuillCodePalette.blue : QuillCodePalette.muted).opacity(0.12))
-                            .clipShape(Circle())
+                            .contentShape(Circle())
                     }
                     .buttonStyle(.borderless)
                     .help(isExpanded ? "Hide model details" : "Show model details")
@@ -1288,8 +1285,7 @@ private struct QuillCodeModelPickerView: View {
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(option.isFavorite ? QuillCodePalette.yellow : QuillCodePalette.muted)
                             .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
-                            .background((option.isFavorite ? QuillCodePalette.yellow : QuillCodePalette.muted).opacity(0.12))
-                            .clipShape(Circle())
+                            .contentShape(Circle())
                     }
                     .buttonStyle(.borderless)
                     .help(option.isFavorite ? "Remove favorite" : "Favorite model")
@@ -1302,29 +1298,30 @@ private struct QuillCodeModelPickerView: View {
                     .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(option.isSelected ? QuillCodePalette.selection : QuillCodePalette.background.opacity(0.7))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-    }
-
-    private func modelBadges(_ badges: [String]) -> some View {
-        HStack(spacing: 5) {
-            ForEach(badges, id: \.self) { badge in
-                let tint = badgeTint(badge)
-                Text(badge)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(tint)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(tint.opacity(0.14))
-                    .clipShape(Capsule())
+        .background(option.isSelected ? QuillCodePalette.blue.opacity(0.045) : Color.clear)
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(option.isSelected ? QuillCodePalette.blue.opacity(0.16) : Color.clear, lineWidth: 1)
+        }
+        .overlay(alignment: .leading) {
+            if option.isSelected {
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(QuillCodePalette.blue.opacity(0.72))
+                    .frame(width: 3)
+                    .padding(.vertical, 8)
             }
         }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private func modelDetails(_ option: ModelOptionSurface) -> some View {
         VStack(alignment: .leading, spacing: 8) {
+            Divider()
+                .opacity(0.28)
+
             Text(option.capabilitySummary)
                 .font(.caption)
                 .foregroundStyle(QuillCodePalette.muted)
@@ -1346,22 +1343,10 @@ private struct QuillCodeModelPickerView: View {
                 }
             }
         }
-        .padding(8)
+        .padding(.top, 2)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(QuillCodePalette.panel.opacity(0.72))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    private func badgeTint(_ badge: String) -> Color {
-        switch badge {
-        case "Current":
-            QuillCodePalette.green
-        case "Favorite":
-            QuillCodePalette.yellow
-        default:
-            QuillCodePalette.blue
-        }
-    }
 }
 
 private struct QuillCodeSidebarView: View {
