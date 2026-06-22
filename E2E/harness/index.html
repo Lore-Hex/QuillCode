@@ -2052,6 +2052,8 @@
         { id: 'mcp-stop:mcp_server:filesystem', title: 'Stop Filesystem MCP', shortcut: '', category: 'Extensions', keywords: ['mcp', 'server', 'stop', 'stdio', 'filesystem'], isEnabled: false },
         { id: 'command-palette', title: 'Command palette', shortcut: 'Cmd+Shift+P', category: 'Navigation', keywords: ['commands', 'actions'], isEnabled: true },
         { id: 'keyboard-shortcuts', title: 'Keyboard shortcuts', shortcut: 'Cmd+/', category: 'Navigation', keywords: ['keyboard', 'shortcuts', 'help', 'commands'], isEnabled: true },
+        { id: 'git-status', title: 'Git status', shortcut: '', category: 'Git', keywords: ['git', 'status', 'changes', 'remote'], isEnabled: true },
+        { id: 'git-diff', title: 'Review diff', shortcut: '', category: 'Git', keywords: ['git', 'diff', 'review', 'changes', 'remote'], isEnabled: true },
         { id: 'git-pr-create', title: 'Create pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'review'], isEnabled: true },
         { id: 'git-worktree-list', title: 'List worktrees', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
         { id: 'git-worktree-create', title: 'Create worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
@@ -2729,6 +2731,8 @@
         command.id === 'project-refresh-context' ? { ...command, isEnabled: hasProject } :
         command.id === 'project-rename' ? { ...command, isEnabled: hasProject } :
         command.id === 'project-remove' ? { ...command, isEnabled: hasProject } :
+        command.id === 'git-status' ? { ...command, isEnabled: hasProject } :
+        command.id === 'git-diff' ? { ...command, isEnabled: hasProject } :
         command.id === 'git-pr-create' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-worktree-list' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-worktree-create' ? { ...command, isEnabled: hasLocalProject } :
@@ -5076,7 +5080,7 @@
       state.terminal.cwdLabel = label;
       state.terminal.environment = {};
       state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
-      addMessage('assistant', `Added SSH Remote ${project.name} at ${label}. Terminal commands and project context refresh run through SSH; file tools and git actions remain local-only for now.`);
+      addMessage('assistant', `Added SSH Remote ${project.name} at ${label}. Terminal commands, read-only git status/diff, and project context refresh run through SSH; file tools and mutating git actions remain local-only for now.`);
       render();
     }
 
@@ -5151,6 +5155,35 @@
         }
         render();
       }
+    }
+
+    function runGitStatusAction() {
+      const project = selectedProject();
+      const prefix = project?.isRemote ? `ssh ${project.path}\n` : '';
+      const stdout = `${prefix}## main\n M Sources/App.swift\n`;
+      addToolCard({
+        title: 'host.git.status',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({}, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout }, null, 2)
+      });
+      addMessage('assistant', 'Output:\n' + stdout);
+      render();
+    }
+
+    function runGitDiffAction() {
+      const { diff, review } = mockReviewDiff();
+      state.review = review;
+      addToolCard({
+        title: 'host.git.diff',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({}, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: diff }, null, 2)
+      });
+      addMessage('assistant', 'Output:\n' + diff);
+      render();
     }
 
     function openFindInChat() {
@@ -5286,6 +5319,14 @@
       }
       if (commandID === 'project-remove') {
         if (state.projects.selectedProjectID) runProjectAction('remove', state.projects.selectedProjectID);
+        return;
+      }
+      if (commandID === 'git-status') {
+        runGitStatusAction();
+        return;
+      }
+      if (commandID === 'git-diff') {
+        runGitDiffAction();
         return;
       }
       if (commandID === 'toggle-terminal') {
@@ -6463,16 +6504,11 @@
         });
         addMessage('assistant', 'Patch applied. Review the resulting diff below.');
       } else if (text.toLowerCase().includes('git diff')) {
-        const { diff, review } = mockReviewDiff();
-        state.review = review;
-        addToolCard({
-          title: 'host.git.diff',
-          subtitle: 'Completed',
-          status: 'done',
-          inputJSON: JSON.stringify({}, null, 2),
-          outputJSON: JSON.stringify({ ok: true, stdout: diff }, null, 2)
-        });
-        addMessage('assistant', 'Output:\n' + diff);
+        runGitDiffAction();
+        return;
+      } else if (text.toLowerCase().includes('git status')) {
+        runGitStatusAction();
+        return;
       } else if (text.toLowerCase().includes('commit')) {
         const message = text.match(/message[: ]+(.+)$/i)?.[1]?.trim() || 'QuillCode changes';
         state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };

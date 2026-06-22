@@ -386,11 +386,15 @@ final class WorkspaceModelTests: XCTestCase {
 
         let toolNames = Set(recorder.tools.map(\.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.shellRun.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitStatus.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitDiff.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.planUpdate.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.browserInspect.name))
         XCTAssertFalse(toolNames.contains(ToolDefinition.fileWrite.name))
         XCTAssertFalse(toolNames.contains(ToolDefinition.applyPatch.name))
-        XCTAssertFalse(toolNames.contains(ToolDefinition.gitStatus.name))
+        XCTAssertFalse(toolNames.contains(ToolDefinition.gitStage.name))
+        XCTAssertFalse(toolNames.contains(ToolDefinition.gitCommit.name))
+        XCTAssertFalse(toolNames.contains(ToolDefinition.gitPush.name))
     }
 
     func testRemoteProjectAgentRunsShellThroughSSH() async throws {
@@ -444,6 +448,93 @@ final class WorkspaceModelTests: XCTestCase {
             "cd '/srv/quill' && pwd"
         ])
         XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("remote-terminal") == true)
+    }
+
+    func testRemoteProjectAgentRunsReadOnlyGitStatusThroughSSH() async throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = try makeTempGitRepoWithInitialCommit()
+        try "# Test repo\nchanged\n".write(
+            to: remoteRoot.appendingPathComponent("README.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let argumentsFile = root.appendingPathComponent("ssh-agent-git-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(
+            path: remoteRoot.path,
+            host: "feather.local",
+            user: "quill",
+            port: 2222
+        )
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
+                name: ToolDefinition.gitStatus.name,
+                argumentsJSON: "{}"
+            ))),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        model.setDraft("git status")
+        await model.submitComposer(workspaceRoot: root)
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.gitStatus.name)
+        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
+        XCTAssertEqual(card.executionContext?.label, "SSH Remote")
+        XCTAssertEqual(card.executionContext?.detail, "feather.local")
+        let result = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(card.outputJSON))
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertTrue(result.stdout.contains("README.md"), result.stdout)
+
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+        XCTAssertTrue(arguments.contains("-p\n2222\nquill@feather.local\n"), arguments)
+        XCTAssertTrue(
+            arguments.contains("cd '\(remoteRoot.path.replacingOccurrences(of: "'", with: "'\\''"))' && git status --short --branch"),
+            arguments
+        )
+    }
+
+    func testRemoteProjectWorkspaceCommandsRunReadOnlyGitThroughSSH() throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = try makeTempGitRepoWithInitialCommit()
+        try "# Test repo\nchanged\n".write(
+            to: remoteRoot.appendingPathComponent("README.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let argumentsFile = root.appendingPathComponent("ssh-command-git-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(path: remoteRoot.path, host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        XCTAssertTrue(model.runWorkspaceCommand("git-status", workspaceRoot: root))
+        var card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.gitStatus.name)
+        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
+        var result = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(card.outputJSON))
+        XCTAssertTrue(result.stdout.contains("README.md"), result.stdout)
+
+        XCTAssertTrue(model.runWorkspaceCommand("git-diff", workspaceRoot: root))
+        card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.gitDiff.name)
+        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
+        result = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(card.outputJSON))
+        XCTAssertTrue(result.stdout.contains("+changed"), result.stdout)
+
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+        XCTAssertTrue(arguments.contains("git diff"), arguments)
     }
 
     func testRemoteProjectShellCWDNormalizesRelativePaths() async throws {

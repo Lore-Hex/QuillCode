@@ -1107,6 +1107,23 @@ test('mock harness adds an SSH remote project from command palette and slash com
   await expect(page.getByTestId('tool-card-output').last()).toContainText('quill');
   await expect(page.getByText('You are `quill` in this workspace.')).toBeVisible();
 
+  await page.getByTestId('command-palette-button').click();
+  await page.getByLabel('Search commands').fill('git status');
+  await page.getByTestId('command-palette-result').filter({ hasText: 'Git status' }).click();
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.status');
+  await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-execution-context', 'ssh-remote');
+  await expect(page.getByTestId('tool-card-execution-context').last()).toHaveText('SSH Remote · feather.local');
+  await expect(page.getByTestId('tool-card-output').last()).toContainText('ssh://quill@feather.local/srv/quill');
+
+  await page.getByTestId('command-palette-button').click();
+  await page.getByLabel('Search commands').fill('review diff');
+  await page.getByTestId('command-palette-result').filter({ hasText: 'Review diff' }).click();
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.diff');
+  await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-execution-context', 'ssh-remote');
+  await expect(page.getByTestId('tool-card-execution-context').last()).toHaveText('SSH Remote · feather.local');
+  await expect(page.getByTestId('review-pane')).toBeVisible();
+  await expect(page.getByTestId('review-file')).toContainText('Sources/App.swift');
+
   await page.getByLabel('Message').fill('Can you write a file that says hello world');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.shell.run');

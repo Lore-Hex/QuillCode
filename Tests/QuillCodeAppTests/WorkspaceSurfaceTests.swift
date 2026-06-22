@@ -97,6 +97,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "toggle-memories",
             "memory-add",
             "toggle-extensions",
+            "git-status",
+            "git-diff",
             "git-pr-create",
             "git-worktree-list",
             "git-worktree-create",
@@ -174,6 +176,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(item.actions.first { $0.kind == .refreshContext }?.isEnabled, true)
         XCTAssertNil(item.actions.first { $0.kind == .refreshContext }?.disabledReason)
         XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-status" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-diff" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-create" }?.isEnabled, false)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-list" }?.isEnabled, false)
         XCTAssertEqual(surface.commands.first { $0.id == "add-ssh-project" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "add-ssh-project" }?.title, "Project: Add SSH Remote...")

@@ -2011,7 +2011,7 @@ public final class QuillCodeWorkspaceModel {
             let activeComputerExecutor = computerUseToolExecutionOverride()
             let activeMemoryDefinitions = globalMemoryDirectory == nil ? [] : [ToolDefinition.memoryRemember]
             let activeMemoryExecutor = memoryToolExecutionOverride()
-            let activeRemoteShellExecutor = remoteShellToolExecutionOverride(project: selectedProject)
+            let activeRemoteProjectExecutor = remoteProjectToolExecutionOverride(project: selectedProject)
             var activeRunner = runner
             activeRunner.baseToolDefinitions = baseToolDefinitionsForSelectedProject()
             activeRunner.additionalToolDefinitions = activePlanDefinitions
@@ -2025,7 +2025,7 @@ public final class QuillCodeWorkspaceModel {
                 computerUse: activeComputerExecutor,
                 memory: activeMemoryExecutor,
                 mcp: activeMCPExecutor,
-                remoteShell: activeRemoteShellExecutor
+                remoteProject: activeRemoteProjectExecutor
             )
 
             let result = try await activeRunner.send(
@@ -2257,6 +2257,18 @@ public final class QuillCodeWorkspaceModel {
         case "project-remove":
             guard let projectID = root.selectedProjectID else { return false }
             return removeProject(projectID)
+        case "git-status":
+            runToolCall(
+                ToolCall(name: ToolDefinition.gitStatus.name, argumentsJSON: "{}"),
+                workspaceRoot: workspaceRoot
+            )
+            return true
+        case "git-diff":
+            runToolCall(
+                ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}"),
+                workspaceRoot: workspaceRoot
+            )
+            return true
         case "thread-rename":
             guard let title = selectedThread?.title else { return false }
             composer.draft = "/rename \(title)"
@@ -2700,21 +2712,37 @@ public final class QuillCodeWorkspaceModel {
 
     private func baseToolDefinitionsForSelectedProject() -> [ToolDefinition] {
         selectedProject?.isRemote == true
-            ? [ToolDefinition.shellRun]
+            ? Self.remoteProjectToolDefinitions
             : ToolRouter.definitions
     }
 
-    private func remoteShellToolExecutionOverride(project: ProjectRef?) -> AgentToolExecutionOverride? {
+    private static let remoteProjectToolDefinitions: [ToolDefinition] = [
+        .shellRun,
+        .gitStatus,
+        .gitDiff
+    ]
+
+    private func remoteProjectToolExecutionOverride(project: ProjectRef?) -> AgentToolExecutionOverride? {
         guard let project, project.isRemote else { return nil }
         let connection = project.connection
         let executor = sshRemoteShellExecutor
         return { call, _ in
-            guard call.name == ToolDefinition.shellRun.name else { return nil }
-            return Self.executeRemoteShellToolCall(
-                call,
-                connection: connection,
-                executor: executor
-            )
+            switch call.name {
+            case ToolDefinition.shellRun.name:
+                return Self.executeRemoteShellToolCall(
+                    call,
+                    connection: connection,
+                    executor: executor
+                )
+            case ToolDefinition.gitStatus.name, ToolDefinition.gitDiff.name:
+                return Self.executeRemoteGitToolCall(
+                    call,
+                    connection: connection,
+                    executor: executor
+                )
+            default:
+                return nil
+            }
         }
     }
 
@@ -2724,21 +2752,21 @@ public final class QuillCodeWorkspaceModel {
         computerUse: AgentToolExecutionOverride?,
         memory: AgentToolExecutionOverride?,
         mcp: AgentToolExecutionOverride?,
-        remoteShell: AgentToolExecutionOverride?
+        remoteProject: AgentToolExecutionOverride?
     ) -> AgentToolExecutionOverride? {
         guard plan != nil
                 || browser != nil
                 || computerUse != nil
                 || memory != nil
                 || mcp != nil
-                || remoteShell != nil else {
+                || remoteProject != nil else {
             return nil
         }
         return { call, workspaceRoot in
             if let result = await plan?(call, workspaceRoot) {
                 return result
             }
-            if let result = await remoteShell?(call, workspaceRoot) {
+            if let result = await remoteProject?(call, workspaceRoot) {
                 return result
             }
             if let result = await browser?(call, workspaceRoot) {
@@ -2754,6 +2782,32 @@ public final class QuillCodeWorkspaceModel {
                 return result
             }
             return nil
+        }
+    }
+
+    private nonisolated static func executeRemoteGitToolCall(
+        _ call: ToolCall,
+        connection: ProjectConnection,
+        executor: SSHRemoteShellExecutor
+    ) -> ToolResult {
+        do {
+            let args = try ToolArguments(call.argumentsJSON)
+            let command: String
+            switch call.name {
+            case ToolDefinition.gitStatus.name:
+                command = "git status --short --branch"
+            case ToolDefinition.gitDiff.name:
+                command = args.bool("staged") == true ? "git diff --staged" : "git diff"
+            default:
+                return ToolResult(ok: false, error: "Tool is not available for SSH Remote projects: \(call.name)")
+            }
+
+            guard let request = executor.request(command: command, connection: connection) else {
+                return ToolResult(ok: false, error: "SSH Remote project is missing a usable host.")
+            }
+            return ShellToolExecutor().run(request)
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
         }
     }
 
@@ -3026,6 +3080,14 @@ public final class QuillCodeWorkspaceModel {
                   call.name == ToolDefinition.shellRun.name,
                   let project = selectedProject {
             result = Self.executeRemoteShellToolCall(
+                call,
+                connection: project.connection,
+                executor: sshRemoteShellExecutor
+            )
+        } else if selectedProject?.isRemote == true,
+                  (call.name == ToolDefinition.gitStatus.name || call.name == ToolDefinition.gitDiff.name),
+                  let project = selectedProject {
+            result = Self.executeRemoteGitToolCall(
                 call,
                 connection: project.connection,
                 executor: sshRemoteShellExecutor
@@ -3929,7 +3991,7 @@ public final class QuillCodeWorkspaceModel {
                let project = root.projects.first(where: { $0.id == projectID }) {
                 appendLocalCommandTranscript(
                     userText: originalPrompt,
-                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Terminal commands and project context refresh run through SSH; file tools and git actions remain local-only for now.",
+                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Terminal commands, read-only git status/diff, and project context refresh run through SSH; file tools and mutating git actions remain local-only for now.",
                     title: "Add SSH Remote"
                 )
             } else {

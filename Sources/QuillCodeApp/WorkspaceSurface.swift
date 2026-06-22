@@ -2905,6 +2905,20 @@ public extension QuillCodeWorkspaceModel {
                 isEnabled: activeWorkspaceRoot != nil
             ),
             WorkspaceCommandSurface(
+                id: "git-status",
+                title: "Git status",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["git", "status", "changes", "remote"],
+                isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
+            ),
+            WorkspaceCommandSurface(
+                id: "git-diff",
+                title: "Review diff",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["git", "diff", "review", "changes", "remote"],
+                isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
+            ),
+            WorkspaceCommandSurface(
                 id: "git-pr-create",
                 title: "Create pull request",
                 category: WorkspaceCommandPalette.gitCategory,
