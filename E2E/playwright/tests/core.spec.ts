@@ -499,6 +499,24 @@ test('mock harness renders document artifact previews from tool cards', async ({
   await expect(page.getByText('Created `briefing.pdf`.')).toBeVisible();
 });
 
+test('mock harness renders appshot artifact previews from tool cards', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('make an appshot artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.appshot.capture');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('checkout.appshot.json');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'appshot');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Appshot · APPSHOT');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('checkout.appshot.json');
+  await expect(page.getByTestId('tool-card-document-preview-detail')).toHaveText('/mock/QuillCode/appshots');
+  await expect(page.getByTestId('tool-card-document-preview-open')).toHaveAttribute('href', 'file:///mock/QuillCode/appshots/checkout.appshot.json');
+  await expect(page.getByTestId('tool-card-text-previews')).toHaveCount(0);
+  await expect(page.getByText('Captured appshot `checkout.appshot.json`.')).toBeVisible();
+});
+
 test('mock harness searches and reopens an existing chat', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

@@ -26,6 +26,7 @@ public enum ToolArtifactKind: String, Codable, Sendable, Hashable {
 }
 
 public enum ToolArtifactDocumentKind: String, Codable, Sendable, Hashable {
+    case appshot
     case pdf
     case document
     case spreadsheet
@@ -33,6 +34,8 @@ public enum ToolArtifactDocumentKind: String, Codable, Sendable, Hashable {
 
     public var label: String {
         switch self {
+        case .appshot:
+            return "Appshot"
         case .pdf:
             return "PDF"
         case .document:
@@ -46,6 +49,8 @@ public enum ToolArtifactDocumentKind: String, Codable, Sendable, Hashable {
 
     public var systemImage: String {
         switch self {
+        case .appshot:
+            return "camera.viewfinder"
         case .pdf:
             return "doc.richtext"
         case .document:
@@ -198,7 +203,7 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         guard kind == .file || kind == .url, !isImagePreview(for: value, kind: kind) else {
             return nil
         }
-        let fileExtension = pathExtension(for: value)
+        let fileExtension = previewExtension(for: value)
         guard let documentKind = documentKindsByExtension[fileExtension] else {
             return nil
         }
@@ -207,6 +212,19 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
             extensionLabel: fileExtension.uppercased(),
             detail: detail(for: value, kind: kind)
         )
+    }
+
+    private static func previewExtension(for value: String) -> String {
+        let filename: String
+        if let url = URL(string: value), url.scheme != nil {
+            filename = url.lastPathComponent.lowercased()
+        } else {
+            filename = URL(fileURLWithPath: value).lastPathComponent.lowercased()
+        }
+        if filename.hasSuffix(".appshot.json") {
+            return "appshot"
+        }
+        return pathExtension(for: value)
     }
 
     private static func pathExtension(for value: String) -> String {
@@ -233,6 +251,7 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     ]
 
     private static let documentKindsByExtension: [String: ToolArtifactDocumentKind] = [
+        "appshot": .appshot,
         "pdf": .pdf,
         "doc": .document,
         "docx": .document,
@@ -253,7 +272,10 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
 private enum ToolArtifactPreviewBuilder {
     static func textPreview(for value: String) -> String? {
         let artifact = ToolArtifactState(value: value)
-        guard artifact.kind == .file, !artifact.isImagePreview else { return nil }
+        guard artifact.kind == .file,
+              !artifact.isImagePreview,
+              artifact.documentPreview?.kind != .appshot
+        else { return nil }
         guard let fileURL = localArtifactFileURL(for: value) else { return nil }
         guard isTextPreviewCandidate(fileURL) else { return nil }
 

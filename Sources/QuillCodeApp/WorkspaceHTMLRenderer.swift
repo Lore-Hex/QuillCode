@@ -458,6 +458,8 @@ public enum WorkspaceHTMLRenderer {
 
     private static func documentIcon(for kind: ToolArtifactDocumentKind) -> String {
         switch kind {
+        case .appshot:
+            return "APP"
         case .pdf:
             return "PDF"
         case .document:

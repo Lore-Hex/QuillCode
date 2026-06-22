@@ -1399,6 +1399,32 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"href="file:///tmp/quillcode-preview/reports/briefing.pdf""#))
     }
 
+    func testHTMLRendererIncludesAppshotArtifactPreview() throws {
+        let appshotPath = "/tmp/quillcode-preview/appshots/checkout.appshot.json"
+        let call = ToolCall(name: "host.appshot.capture", argumentsJSON: #"{"name":"checkout"}"#)
+        let result = ToolResult(ok: true, stdout: "Captured checkout.appshot.json\n", artifacts: [appshotPath])
+        let thread = ChatThread(
+            title: "Appshot artifact",
+            events: [
+                ThreadEvent(kind: .toolQueued, summary: "host.appshot.capture queued", payloadJSON: try JSONHelpers.encodePretty(call)),
+                ThreadEvent(kind: .toolCompleted, summary: "host.appshot.capture completed", payloadJSON: try JSONHelpers.encodePretty(result))
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview""#))
+        XCTAssertTrue(html.contains(#"data-kind="appshot""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Appshot · APPSHOT"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">checkout.appshot.json"#))
+        XCTAssertTrue(html.contains(#"href="file:///tmp/quillcode-preview/appshots/checkout.appshot.json""#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-text-preview-label">checkout.appshot.json"#))
+    }
+
     func testHTMLRendererKeepsToolCardsInTranscriptOrder() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()

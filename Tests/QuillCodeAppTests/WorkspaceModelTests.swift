@@ -406,6 +406,14 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(spreadsheetURL.documentPreview?.detail, "example.com/artifacts/budget.xlsx")
         XCTAssertEqual(spreadsheetURL.href, "https://example.com/artifacts/budget.xlsx?download=1")
 
+        let appshotBundle = ToolArtifactState(value: "/tmp/quillcode/appshots/checkout.appshot.json")
+        XCTAssertEqual(appshotBundle.kind, .file)
+        XCTAssertTrue(appshotBundle.isDocumentPreview)
+        XCTAssertEqual(appshotBundle.documentPreview?.kind, .appshot)
+        XCTAssertEqual(appshotBundle.documentPreview?.typeLabel, "Appshot")
+        XCTAssertEqual(appshotBundle.documentPreview?.extensionLabel, "APPSHOT")
+        XCTAssertEqual(appshotBundle.documentPreview?.detail, "/tmp/quillcode/appshots")
+
         let textFile = ToolArtifactState(value: "/tmp/quillcode/notes.md", textPreview: "# Notes\n")
         XCTAssertFalse(textFile.isDocumentPreview)
         XCTAssertTrue(textFile.hasTextPreview)

@@ -2325,6 +2325,7 @@
     }
 
     const documentPreviewKinds = new Map([
+      ['appshot', { kind: 'appshot', typeLabel: 'Appshot', icon: 'APP' }],
       ['pdf', { kind: 'pdf', typeLabel: 'PDF', icon: 'PDF' }],
       ['doc', { kind: 'document', typeLabel: 'Document', icon: 'DOC' }],
       ['docx', { kind: 'document', typeLabel: 'Document', icon: 'DOC' }],
@@ -2350,9 +2351,21 @@
       }
     }
 
+    function artifactPreviewExtension(value) {
+      let filename = '';
+      try {
+        const url = value.startsWith('/') ? new URL(`file://${value}`) : new URL(value);
+        filename = decodeURIComponent((url.pathname.split('/').filter(Boolean).at(-1) || '')).toLowerCase();
+      } catch {
+        filename = (value.split('/').filter(Boolean).at(-1) || '').toLowerCase();
+      }
+      if (filename.endsWith('.appshot.json')) return 'appshot';
+      return artifactPathExtension(value);
+    }
+
     function artifactDocumentPreview(value, kind, detail) {
       if (artifactIsImagePreview(value, kind) || (kind !== 'file' && kind !== 'url')) return null;
-      const extension = artifactPathExtension(value);
+      const extension = artifactPreviewExtension(value);
       const documentKind = documentPreviewKinds.get(extension);
       if (!documentKind) return null;
       return {
@@ -2389,6 +2402,7 @@
       const path = artifactFilePath(value);
       if (!path) return null;
       const name = path.split('/').filter(Boolean).at(-1)?.toLowerCase() || '';
+      if (name.endsWith('.appshot') || name.endsWith('.appshot.json')) return null;
       const extension = name.includes('.') ? name.split('.').pop() : '';
       if (!textPreviewFilenames.has(name) && !textPreviewExtensions.has(extension)) return null;
       const text = state.mockFiles[path];
@@ -5924,6 +5938,22 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Created `briefing.pdf`.');
+      } else if (text.toLowerCase().includes('appshot')) {
+        const path = '/mock/QuillCode/appshots/checkout.appshot.json';
+        state.mockFiles[path] = JSON.stringify({
+          app: 'QuillCode',
+          title: 'Checkout flow',
+          viewport: { width: 1440, height: 1000 },
+          capturedAt: '2026-06-21T12:00:00Z'
+        }, null, 2);
+        addToolCard({
+          title: 'host.appshot.capture',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ name: 'checkout', viewport: 'desktop' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Captured ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Captured appshot `checkout.appshot.json`.');
       } else if (text.toLowerCase().includes('write a file') || text.toLowerCase().includes('make a file')) {
         const path = 'hello.txt';
         state.mockFiles[`/mock/QuillCode/${path}`] = 'hello world\n';
