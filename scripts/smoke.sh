@@ -35,6 +35,30 @@ if [[ "$(tr -d '\r' < "$SMOKE_WORKSPACE/hello.txt")" != "hello world" ]]; then
   exit 1
 fi
 
+echo "==> Verifying CLI live-mode errors are readable"
+LIVE_ERROR_STDOUT="$SMOKE_ROOT/live-error.stdout"
+LIVE_ERROR_STDERR="$SMOKE_ROOT/live-error.stderr"
+if env -u QUILLCODE_API_KEY -u TRUSTEDROUTER_API_KEY swift run quill-code \
+  --live \
+  --home "$SMOKE_ROOT/live-home" \
+  --cwd "$SMOKE_WORKSPACE" \
+  "reply with hello" \
+  >"$LIVE_ERROR_STDOUT" \
+  2>"$LIVE_ERROR_STDERR"; then
+  echo "quill-code --live unexpectedly succeeded without a TrustedRouter key" >&2
+  exit 1
+fi
+if ! grep -q "quill-code:" "$LIVE_ERROR_STDERR"; then
+  echo "quill-code --live did not print a readable CLI error prefix" >&2
+  cat "$LIVE_ERROR_STDERR" >&2
+  exit 1
+fi
+if grep -q "Fatal error" "$LIVE_ERROR_STDERR"; then
+  echo "quill-code --live crashed instead of returning a readable error" >&2
+  cat "$LIVE_ERROR_STDERR" >&2
+  exit 1
+fi
+
 if [[ -d "$ROOT_DIR/E2E/playwright/node_modules" ]]; then
   echo "==> Running Playwright E2E suite"
   (cd "$ROOT_DIR/E2E/playwright" && npm test)

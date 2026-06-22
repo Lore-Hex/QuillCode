@@ -6,7 +6,16 @@ import QuillCodeSafety
 
 @main
 struct QuillCodeCLI {
-    static func main() async throws {
+    static func main() async {
+        do {
+            try await run()
+        } catch {
+            writeError("quill-code: \(error)")
+            exit(1)
+        }
+    }
+
+    private static func run() async throws {
         var args = Array(CommandLine.arguments.dropFirst())
         var live = false
         var apiKey: String?
@@ -136,5 +145,10 @@ struct QuillCodeCLI {
         default:
             print(usage)
         }
+    }
+
+    private static func writeError(_ message: String) {
+        guard let data = "\(message)\n".data(using: .utf8) else { return }
+        FileHandle.standardError.write(data)
     }
 }
