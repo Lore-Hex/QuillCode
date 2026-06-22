@@ -334,11 +334,18 @@ public enum WorkspaceHTMLRenderer {
 
     private static func renderToolCard(_ card: ToolCardState, timelineItemID: String? = nil) -> String {
         let timelineAttribute = timelineItemID.map { #" data-timeline-id="\#(escape($0))""# } ?? ""
+        let executionContextAttribute = card.executionContext
+            .map { #" data-execution-context="\#(escape($0.kind.rawValue))""# } ?? ""
+        let accessibilityContext = card.executionContext
+            .map { ", \($0.label) \($0.detail)" } ?? ""
         let copyID = timelineItemID ?? card.id
         return """
-        <article class="tool-card \(card.status.rawValue)" data-testid="tool-card" data-status="\(card.status.rawValue)" data-density="\(card.density.rawValue)" aria-label="\(escape(card.title)), \(escape(card.status.rawValue)), \(escape(card.densityAccessibilityLabel))"\(timelineAttribute)>
+        <article class="tool-card \(card.status.rawValue)" data-testid="tool-card" data-status="\(card.status.rawValue)" data-density="\(card.density.rawValue)" aria-label="\(escape(card.title)), \(escape(card.status.rawValue)), \(escape(card.densityAccessibilityLabel))\(escape(accessibilityContext))"\(timelineAttribute)\(executionContextAttribute)>
           <header>
-            <strong data-testid="tool-card-title">\(escape(card.title))</strong>
+            <span class="tool-card-title-row">
+              <strong data-testid="tool-card-title">\(escape(card.title))</strong>
+              \(renderExecutionContextChip(card.executionContext, testID: "tool-card-execution-context"))
+            </span>
             <span data-testid="tool-card-status">\(escape(card.status.rawValue))</span>
           </header>
           <p data-testid="tool-card-subtitle">\(escape(card.subtitle))</p>
@@ -351,6 +358,23 @@ public enum WorkspaceHTMLRenderer {
           \(renderToolImagePreviews(card.artifacts))
           \(renderToolDetails(card))
         </article>
+        """
+    }
+
+    private static func renderExecutionContextChip(
+        _ context: ExecutionContextSurface?,
+        testID: String
+    ) -> String {
+        guard let context else { return "" }
+        let title: String
+        switch context.kind {
+        case .local:
+            title = context.label
+        case .sshRemote:
+            title = "\(context.label) · \(context.detail)"
+        }
+        return """
+        <span class="execution-context-chip" data-testid="\(escape(testID))" data-execution-context-kind="\(escape(context.kind.rawValue))">\(escape(title))</span>
         """
     }
 
@@ -487,9 +511,12 @@ public enum WorkspaceHTMLRenderer {
             ? #"<p data-testid="terminal-empty">\#(escape(terminal.emptyTitle))</p>"#
             : terminal.entries.map { entry in
                 """
-                <article class="terminal-entry" data-testid="terminal-entry">
+                <article class="terminal-entry" data-testid="terminal-entry"\(entry.executionContext.map { #" data-execution-context="\#(escape($0.kind.rawValue))""# } ?? "")>
                   <header>
-                    <code>$ \(escape(entry.command))</code>
+                    <span class="terminal-command-row">
+                      <code>$ \(escape(entry.command))</code>
+                      \(renderExecutionContextChip(entry.executionContext, testID: "terminal-execution-context"))
+                    </span>
                     <span class="terminal-status \(terminalStatusClass(entry))" data-testid="terminal-status">\(escape(entry.statusLabel)) · \(escape(entry.exitCodeLabel))</span>
                   </header>
                   \(entry.stdout.isEmpty ? "" : #"<pre data-testid="terminal-stdout">\#(escape(entry.stdout))</pre>"#)

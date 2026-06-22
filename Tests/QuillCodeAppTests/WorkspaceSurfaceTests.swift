@@ -1364,6 +1364,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
     func testHTMLRendererIncludesToolCardOutput() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "QuillCode")
+        model.selectProject(projectID)
         model.setDraft("run whoami")
         await model.submitComposer(workspaceRoot: root)
 
@@ -1372,6 +1374,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card""#))
         XCTAssertTrue(html.contains(#"data-status="done""#))
         XCTAssertTrue(html.contains(#"data-density="collapsed""#))
+        XCTAssertTrue(html.contains(#"data-execution-context="local""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-execution-context""#))
+        XCTAssertTrue(html.contains(#"data-execution-context-kind="local">Local"#))
         XCTAssertTrue(html.contains("host.shell.run"))
         XCTAssertTrue(html.contains(#"data-testid="message-copy""#))
         XCTAssertTrue(html.contains(#"data-testid="message-use-as-draft""#))

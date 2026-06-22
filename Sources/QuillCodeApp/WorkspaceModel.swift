@@ -452,6 +452,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
     public var title: String
     public var subtitle: String
     public var status: ToolCardStatus
+    public var executionContext: ExecutionContextSurface?
     public var inputJSON: String?
     public var outputJSON: String?
     public var artifacts: [ToolArtifactState]
@@ -463,6 +464,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         title: String,
         subtitle: String,
         status: ToolCardStatus,
+        executionContext: ExecutionContextSurface? = nil,
         inputJSON: String? = nil,
         outputJSON: String? = nil,
         artifacts: [ToolArtifactState] = [],
@@ -473,6 +475,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         self.title = title
         self.subtitle = subtitle
         self.status = status
+        self.executionContext = executionContext
         self.inputJSON = inputJSON
         self.outputJSON = outputJSON
         self.artifacts = artifacts
@@ -485,6 +488,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         case title
         case subtitle
         case status
+        case executionContext
         case inputJSON
         case outputJSON
         case artifacts
@@ -498,6 +502,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         self.title = try container.decode(String.self, forKey: .title)
         self.subtitle = try container.decode(String.self, forKey: .subtitle)
         self.status = try container.decode(ToolCardStatus.self, forKey: .status)
+        self.executionContext = try container.decodeIfPresent(ExecutionContextSurface.self, forKey: .executionContext)
         self.inputJSON = try container.decodeIfPresent(String.self, forKey: .inputJSON)
         self.outputJSON = try container.decodeIfPresent(String.self, forKey: .outputJSON)
         self.artifacts = try container.decodeIfPresent([ToolArtifactState].self, forKey: .artifacts) ?? []
@@ -572,6 +577,7 @@ public struct TerminalCommandState: Sendable, Hashable, Identifiable {
     public var exitCode: Int32?
     public var ok: Bool
     public var status: TerminalCommandStatus
+    public var executionContext: ExecutionContextSurface?
     public var createdAt: Date
 
     public init(
@@ -582,6 +588,7 @@ public struct TerminalCommandState: Sendable, Hashable, Identifiable {
         exitCode: Int32?,
         ok: Bool,
         status: TerminalCommandStatus? = nil,
+        executionContext: ExecutionContextSurface? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -591,6 +598,7 @@ public struct TerminalCommandState: Sendable, Hashable, Identifiable {
         self.exitCode = exitCode
         self.ok = ok
         self.status = status ?? (ok ? .done : .failed)
+        self.executionContext = executionContext
         self.createdAt = createdAt
     }
 }
@@ -1199,7 +1207,72 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public var currentToolCards: [ToolCardState] {
-        selectedThread.map(Self.toolCards(for:)) ?? []
+        guard let selectedThread else { return [] }
+        return enrichToolCards(Self.toolCards(for: selectedThread), for: selectedThread)
+    }
+
+    public var currentTimelineItems: [TranscriptTimelineItemSurface] {
+        guard let selectedThread else { return [] }
+        return enrichTimelineItems(Self.transcriptTimelineItems(for: selectedThread), for: selectedThread)
+    }
+
+    private func enrichToolCards(_ cards: [ToolCardState], for thread: ChatThread) -> [ToolCardState] {
+        guard let context = executionContext(for: thread) else { return cards }
+        return cards.map { card in
+            guard card.executionContext == nil, Self.isProjectExecutionTool(card.title) else {
+                return card
+            }
+            var copy = card
+            copy.executionContext = context
+            return copy
+        }
+    }
+
+    private func enrichTimelineItems(
+        _ items: [TranscriptTimelineItemSurface],
+        for thread: ChatThread
+    ) -> [TranscriptTimelineItemSurface] {
+        guard let context = executionContext(for: thread) else { return items }
+        return items.map { item in
+            guard var card = item.toolCard,
+                  card.executionContext == nil,
+                  Self.isProjectExecutionTool(card.title)
+            else {
+                return item
+            }
+            card.executionContext = context
+            return .toolCard(card)
+        }
+    }
+
+    private func executionContext(for thread: ChatThread) -> ExecutionContextSurface? {
+        let project = thread.projectID.flatMap(project)
+            ?? selectedProject
+        guard let project else { return nil }
+        return .project(project)
+    }
+
+    private func project(id: UUID) -> ProjectRef? {
+        root.projects.first { $0.id == id }
+    }
+
+    private static func isProjectExecutionTool(_ toolName: String) -> Bool {
+        toolName == ToolDefinition.shellRun.name
+            || toolName == ToolDefinition.fileRead.name
+            || toolName == ToolDefinition.fileWrite.name
+            || toolName == ToolDefinition.applyPatch.name
+            || toolName == ToolDefinition.gitStatus.name
+            || toolName == ToolDefinition.gitDiff.name
+            || toolName == ToolDefinition.gitStage.name
+            || toolName == ToolDefinition.gitRestore.name
+            || toolName == ToolDefinition.gitStageHunk.name
+            || toolName == ToolDefinition.gitRestoreHunk.name
+            || toolName == ToolDefinition.gitCommit.name
+            || toolName == ToolDefinition.gitPush.name
+            || toolName == ToolDefinition.gitPullRequestCreate.name
+            || toolName == ToolDefinition.gitWorktreeList.name
+            || toolName == ToolDefinition.gitWorktreeCreate.name
+            || toolName == ToolDefinition.gitWorktreeRemove.name
     }
 
     public var canRetryLastUserTurn: Bool {
@@ -3013,6 +3086,7 @@ public final class QuillCodeWorkspaceModel {
             refreshTopBar(agentStatus: "Failed")
             return
         }
+        updateTerminalEntryExecutionContext(id: entryID, executionContext.surface)
 
         var finalResult: ToolResult?
         for await event in ShellToolExecutor().runStreaming(executionContext.request) {
@@ -3078,11 +3152,17 @@ public final class QuillCodeWorkspaceModel {
         terminal.entries[index].stderr += stderr
     }
 
+    private func updateTerminalEntryExecutionContext(id: UUID, _ executionContext: ExecutionContextSurface) {
+        guard let index = terminal.entries.firstIndex(where: { $0.id == id }) else { return }
+        terminal.entries[index].executionContext = executionContext
+    }
+
     private struct TerminalExecutionContext {
         var request: ShellExecutionRequest
         var cwdMarkerURL: URL?
         var environmentMarkerURL: URL?
         var fallbackCurrentDirectoryPath: String
+        var surface: ExecutionContextSurface
 
         var markerURLs: [URL] {
             [cwdMarkerURL, environmentMarkerURL].compactMap { $0 }
@@ -3110,7 +3190,8 @@ public final class QuillCodeWorkspaceModel {
                 request: request,
                 cwdMarkerURL: nil,
                 environmentMarkerURL: nil,
-                fallbackCurrentDirectoryPath: selectedProject.displayPath
+                fallbackCurrentDirectoryPath: selectedProject.displayPath,
+                surface: .project(selectedProject)
             )
         }
 
@@ -3118,14 +3199,16 @@ public final class QuillCodeWorkspaceModel {
         return Self.localTerminalExecutionContext(
             command: command,
             workingDirectory: workingDirectory,
-            environment: environment
+            environment: environment,
+            executionContext: .local(path: workingDirectory.standardizedFileURL.path)
         )
     }
 
     private static func localTerminalExecutionContext(
         command: String,
         workingDirectory: URL,
-        environment: [String: String]
+        environment: [String: String],
+        executionContext: ExecutionContextSurface
     ) -> TerminalExecutionContext {
         let markerID = UUID().uuidString
         let markerDirectory = FileManager.default.temporaryDirectory
@@ -3148,7 +3231,8 @@ public final class QuillCodeWorkspaceModel {
             ),
             cwdMarkerURL: cwdMarkerURL,
             environmentMarkerURL: environmentMarkerURL,
-            fallbackCurrentDirectoryPath: workingDirectory.standardizedFileURL.path
+            fallbackCurrentDirectoryPath: workingDirectory.standardizedFileURL.path,
+            surface: executionContext
         )
     }
 

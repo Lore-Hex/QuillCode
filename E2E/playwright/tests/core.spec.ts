@@ -1095,10 +1095,14 @@ test('mock harness adds an SSH remote project from command palette and slash com
   await page.getByTestId('terminal-run').click();
   await expect(page.getByTestId('terminal-status')).toHaveText('Done · exit 0');
   await expect(page.getByTestId('terminal-stdout')).toHaveText('/srv/quill\n');
+  await expect(page.getByTestId('terminal-entry')).toHaveAttribute('data-execution-context', 'ssh-remote');
+  await expect(page.getByTestId('terminal-execution-context')).toHaveText('SSH Remote · feather.local');
 
   await page.getByLabel('Message').fill('whoami');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.shell.run');
+  await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-execution-context', 'ssh-remote');
+  await expect(page.getByTestId('tool-card-execution-context').last()).toHaveText('SSH Remote · feather.local');
   await expect(page.getByTestId('tool-card-output').last()).toContainText('quill');
   await expect(page.getByText('You are `quill` in this workspace.')).toBeVisible();
 

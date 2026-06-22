@@ -2763,9 +2763,14 @@ private struct QuillCodeTerminalEntryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack {
-                Text("$ \(entry.command)")
-                    .font(.caption.monospaced().weight(.semibold))
-                    .foregroundStyle(QuillCodePalette.text)
+                HStack(spacing: 8) {
+                    Text("$ \(entry.command)")
+                        .font(.caption.monospaced().weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.text)
+                    if let executionContext = entry.executionContext {
+                        QuillCodeExecutionContextChip(context: executionContext)
+                    }
+                }
                 Spacer()
                 Text("\(entry.statusLabel) · \(entry.exitCodeLabel)")
                     .font(.caption.monospacedDigit())
@@ -2787,7 +2792,13 @@ private struct QuillCodeTerminalEntryView: View {
         }
         .padding(10)
         .background(QuillCodePalette.background.opacity(0.7))
+        .overlay(alignment: .leading) {
+            if let executionContext = entry.executionContext {
+                QuillCodeExecutionRail(context: executionContext)
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .accessibilityLabel(accessibilityLabel)
     }
 
     private var statusColor: Color {
@@ -2801,6 +2812,13 @@ private struct QuillCodeTerminalEntryView: View {
             return QuillCodePalette.muted
         }
         return QuillCodePalette.red
+    }
+
+    private var accessibilityLabel: String {
+        let context = entry.executionContext.map {
+            ", \($0.label) \($0.detail)"
+        } ?? ""
+        return "\(entry.command), \(entry.statusLabel), \(entry.exitCodeLabel)\(context)"
     }
 }
 
@@ -3318,8 +3336,13 @@ private struct QuillCodeToolCardView: View {
                 Image(systemName: iconName)
                     .foregroundStyle(statusColor)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(card.title)
-                        .font(.headline)
+                    HStack(spacing: 8) {
+                        Text(card.title)
+                            .font(.headline)
+                        if let executionContext = card.executionContext {
+                            QuillCodeExecutionContextChip(context: executionContext)
+                        }
+                    }
                     Text(card.subtitle)
                         .font(.caption)
                         .foregroundStyle(QuillCodePalette.muted)
@@ -3432,9 +3455,14 @@ private struct QuillCodeToolCardView: View {
             stroke: statusColor.opacity(0.35),
             shadow: true
         )
+        .overlay(alignment: .leading) {
+            if let executionContext = card.executionContext {
+                QuillCodeExecutionRail(context: executionContext)
+            }
+        }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(card.title), \(card.status.rawValue), \(card.densityAccessibilityLabel)")
+        .accessibilityLabel(accessibilityLabel)
     }
 
     private var minimumHeight: CGFloat {
@@ -3477,6 +3505,96 @@ private struct QuillCodeToolCardView: View {
             return "Copy input"
         }
         return "Copy"
+    }
+
+    private var accessibilityLabel: String {
+        let context = card.executionContext.map {
+            ", \($0.label) \($0.detail)"
+        } ?? ""
+        return "\(card.title), \(card.status.rawValue), \(card.densityAccessibilityLabel)\(context)"
+    }
+}
+
+private struct QuillCodeExecutionContextChip: View {
+    var context: ExecutionContextSurface
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: iconName)
+                .font(.caption2.weight(.bold))
+            Text(title)
+                .lineLimit(1)
+        }
+        .font(.caption2.weight(.bold))
+        .foregroundStyle(tint)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .background(background)
+        .overlay(
+            Capsule()
+                .stroke(tint.opacity(context.kind == .sshRemote ? 0.38 : 0.24), lineWidth: 1)
+        )
+        .clipShape(Capsule())
+        .accessibilityLabel("\(context.label) \(context.detail)")
+    }
+
+    private var title: String {
+        switch context.kind {
+        case .local:
+            return context.label
+        case .sshRemote:
+            return "\(context.label) · \(context.detail)"
+        }
+    }
+
+    private var iconName: String {
+        switch context.kind {
+        case .local:
+            return "desktopcomputer"
+        case .sshRemote:
+            return "point.3.connected.trianglepath.dotted"
+        }
+    }
+
+    private var tint: Color {
+        switch context.kind {
+        case .local:
+            return QuillCodePalette.muted
+        case .sshRemote:
+            return QuillCodePalette.purple
+        }
+    }
+
+    private var background: Color {
+        switch context.kind {
+        case .local:
+            return Color.white.opacity(0.07)
+        case .sshRemote:
+            return QuillCodePalette.purple.opacity(0.16)
+        }
+    }
+}
+
+private struct QuillCodeExecutionRail: View {
+    var context: ExecutionContextSurface
+
+    var body: some View {
+        Rectangle()
+            .fill(tint.opacity(context.kind == .sshRemote ? 0.78 : 0.42))
+            .frame(width: 3)
+            .padding(.vertical, 8)
+            .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
+            .padding(.leading, 1)
+            .accessibilityHidden(true)
+    }
+
+    private var tint: Color {
+        switch context.kind {
+        case .local:
+            return QuillCodePalette.muted
+        case .sshRemote:
+            return QuillCodePalette.purple
+        }
     }
 }
 
@@ -4435,4 +4553,5 @@ enum QuillCodePalette {
     static let red = Color(red: 1.0, green: 0.36, blue: 0.32)
     static let yellow = Color(red: 0.97, green: 0.72, blue: 0.31)
     static let coral = Color(red: 0.82, green: 0.42, blue: 0.37)
+    static let purple = Color(red: 0.58, green: 0.50, blue: 0.96)
 }

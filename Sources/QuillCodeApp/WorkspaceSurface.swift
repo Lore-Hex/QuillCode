@@ -64,6 +64,51 @@ public enum RuntimeIssueSeverity: String, Codable, Sendable, Hashable {
     case error
 }
 
+public enum ExecutionContextKind: String, Codable, Sendable, Hashable {
+    case local
+    case sshRemote = "ssh-remote"
+}
+
+public struct ExecutionContextSurface: Codable, Sendable, Hashable {
+    public var kind: ExecutionContextKind
+    public var label: String
+    public var detail: String
+
+    public init(kind: ExecutionContextKind, label: String, detail: String) {
+        self.kind = kind
+        self.label = label
+        self.detail = detail
+    }
+
+    public static func local(path: String?) -> ExecutionContextSurface {
+        let detail: String
+        if let path, !path.isEmpty {
+            detail = path
+        } else {
+            detail = "No project"
+        }
+        return ExecutionContextSurface(
+            kind: .local,
+            label: "Local",
+            detail: detail
+        )
+    }
+
+    public static func project(_ project: ProjectRef) -> ExecutionContextSurface {
+        switch project.connection.kind {
+        case .local:
+            return .local(path: project.displayPath)
+        case .ssh:
+            let host = project.connection.host ?? "ssh"
+            return ExecutionContextSurface(
+                kind: .sshRemote,
+                label: "SSH Remote",
+                detail: host
+            )
+        }
+    }
+}
+
 public struct RuntimeIssueSurface: Codable, Sendable, Hashable {
     public var severity: RuntimeIssueSeverity
     public var title: String
@@ -1049,6 +1094,7 @@ public struct TerminalCommandSurface: Codable, Sendable, Hashable, Identifiable 
     public var stderr: String
     public var exitCodeLabel: String
     public var statusLabel: String
+    public var executionContext: ExecutionContextSurface?
     public var isSuccess: Bool
     public var isRunning: Bool
     public var isStopped: Bool
@@ -1060,6 +1106,7 @@ public struct TerminalCommandSurface: Codable, Sendable, Hashable, Identifiable 
         self.stderr = entry.stderr
         self.exitCodeLabel = Self.exitCodeLabel(for: entry)
         self.statusLabel = Self.statusLabel(for: entry.status)
+        self.executionContext = entry.executionContext
         self.isSuccess = entry.status == .done
         self.isRunning = entry.status == .running
         self.isStopped = entry.status == .stopped
@@ -2214,7 +2261,7 @@ public extension QuillCodeWorkspaceModel {
             transcript: TranscriptSurface(
                 messages: thread.map(Self.messageSurfaces(for:)) ?? [],
                 toolCards: toolCards,
-                timelineItems: thread.map(Self.transcriptTimelineItems(for:))
+                timelineItems: thread == nil ? nil : currentTimelineItems
             ),
             contextBanner: contextBanner(for: thread),
             review: reviewSurface(from: toolCards, events: thread?.events ?? []),

@@ -688,6 +688,50 @@
       border-radius: 10px;
       background: rgba(0,0,0,.26);
       border: 1px solid rgba(255,255,255,.08);
+      position: relative;
+      overflow: hidden;
+    }
+    .terminal-entry[data-execution-context]::before,
+    .tool-card[data-execution-context]::before {
+      content: "";
+      position: absolute;
+      inset: 8px auto 8px 1px;
+      width: 3px;
+      border-radius: 999px;
+      background: rgba(158,138,255,.78);
+      pointer-events: none;
+    }
+    .terminal-entry[data-execution-context="local"]::before,
+    .tool-card[data-execution-context="local"]::before {
+      background: rgba(158,176,184,.42);
+    }
+    .terminal-command-row,
+    .tool-card-title-row {
+      min-width: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .execution-context-chip {
+      flex: none;
+      max-width: 190px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 4px 7px;
+      border-radius: 999px;
+      color: #c7bdff;
+      background: rgba(158,138,255,.16);
+      box-shadow: inset 0 0 0 1px rgba(158,138,255,.38);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0;
+      font-variant-numeric: tabular-nums;
+    }
+    .execution-context-chip[data-execution-context-kind="local"] {
+      color: var(--muted);
+      background: rgba(255,255,255,.07);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.14);
     }
     .terminal-entry pre { margin: 0; }
     .terminal-status.ok { color: var(--green); }
@@ -1026,6 +1070,8 @@
       transition-property: transform, box-shadow, border-color;
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
+      position: relative;
+      overflow: hidden;
     }
     .tool-card:hover {
       transform: translateY(-1px);
@@ -2318,6 +2364,7 @@
         id: `tool-${state.nextTimelineIndex++}`,
         artifacts: artifactsFromOutput(card.outputJSON),
         ...card,
+        executionContext: card.executionContext || executionContextForTool(card.title),
         density: card.density || toolCardDensity(card.status, card.isExpanded)
       };
       state.transcript.toolCards.push(toolCard);
@@ -2327,6 +2374,88 @@
         toolCard
       });
       return toolCard;
+    }
+
+    function selectedProject() {
+      return state.projects.items.find(project => project.id === state.projects.selectedProjectID) || null;
+    }
+
+    function executionContextForTool(toolName) {
+      if (!isProjectExecutionTool(toolName)) return null;
+      return executionContextForProject(selectedProject());
+    }
+
+    function executionContextForProject(project) {
+      if (!project) return null;
+      if (project.isRemote) {
+        return {
+          kind: 'ssh-remote',
+          label: 'SSH Remote',
+          detail: sshHostFromLabel(project.path) || project.name || 'ssh'
+        };
+      }
+      return {
+        kind: 'local',
+        label: 'Local',
+        detail: project.path || 'No project'
+      };
+    }
+
+    function executionContextForCWD(cwd) {
+      if (isSSHRemoteLabel(cwd)) {
+        return {
+          kind: 'ssh-remote',
+          label: 'SSH Remote',
+          detail: sshHostFromLabel(cwd) || 'ssh'
+        };
+      }
+      return {
+        kind: 'local',
+        label: 'Local',
+        detail: cwd || 'No project'
+      };
+    }
+
+    function isProjectExecutionTool(toolName) {
+      return [
+        'host.shell.run',
+        'host.file.read',
+        'host.file.write',
+        'host.apply_patch',
+        'host.git.status',
+        'host.git.diff',
+        'host.git.stage',
+        'host.git.restore',
+        'host.git.stage_hunk',
+        'host.git.restore_hunk',
+        'host.git.commit',
+        'host.git.push',
+        'host.git.pr.create',
+        'host.git.worktree.list',
+        'host.git.worktree.create',
+        'host.git.worktree.remove'
+      ].includes(toolName);
+    }
+
+    function sshHostFromLabel(label) {
+      try {
+        return new URL(label).host || '';
+      } catch {
+        const match = String(label || '').match(/^ssh:\/\/([^/]+)/);
+        return match?.[1] || '';
+      }
+    }
+
+    function executionContextTitle(context) {
+      if (!context) return '';
+      return context.kind === 'ssh-remote'
+        ? `${context.label} · ${context.detail}`
+        : context.label;
+    }
+
+    function renderExecutionContextChip(context, testID) {
+      return context ? `
+        <span class="execution-context-chip" data-testid="${escapeHTML(testID)}" data-execution-context-kind="${escapeHTML(context.kind)}">${escapeHTML(executionContextTitle(context))}</span>` : '';
     }
 
     function toolCardDensity(status, isExpanded = false) {
@@ -3007,9 +3136,12 @@
             ${card.outputJSON ? `<pre data-testid="tool-card-output">${escapeHTML(card.outputJSON)}</pre>` : ''}
           </details>` : '';
       const renderToolCard = (card, timelineID = '') => `
-        <article class="tool-card ${escapeHTML(card.status)}${activeClass(timelineID)}" data-testid="tool-card" data-status="${escapeHTML(card.status)}" data-density="${escapeHTML(card.density || toolCardDensity(card.status, card.isExpanded))}" data-timeline-id="${escapeHTML(timelineID)}" aria-label="${escapeHTML(card.title)}, ${escapeHTML(card.status)}, ${escapeHTML(card.density || toolCardDensity(card.status, card.isExpanded))}">
+        <article class="tool-card ${escapeHTML(card.status)}${activeClass(timelineID)}" data-testid="tool-card" data-status="${escapeHTML(card.status)}" data-density="${escapeHTML(card.density || toolCardDensity(card.status, card.isExpanded))}" data-timeline-id="${escapeHTML(timelineID)}"${card.executionContext ? ` data-execution-context="${escapeHTML(card.executionContext.kind)}"` : ''} aria-label="${escapeHTML(card.title)}, ${escapeHTML(card.status)}, ${escapeHTML(card.density || toolCardDensity(card.status, card.isExpanded))}${card.executionContext ? `, ${card.executionContext.label} ${card.executionContext.detail}` : ''}">
           <header>
-            <strong data-testid="tool-card-title">${escapeHTML(card.title)}</strong>
+            <span class="tool-card-title-row">
+              <strong data-testid="tool-card-title">${escapeHTML(card.title)}</strong>
+              ${renderExecutionContextChip(card.executionContext, 'tool-card-execution-context')}
+            </span>
             <span data-testid="tool-card-status">${escapeHTML(card.status)}</span>
           </header>
           <p data-testid="tool-card-subtitle">${escapeHTML(card.subtitle)}</p>
@@ -4505,9 +4637,12 @@
 
     function renderTerminalPane() {
       const entries = state.terminal.entries.length ? state.terminal.entries.map(entry => `
-        <article class="terminal-entry" data-testid="terminal-entry">
+        <article class="terminal-entry" data-testid="terminal-entry"${entry.executionContext ? ` data-execution-context="${escapeHTML(entry.executionContext.kind)}"` : ''}>
           <header>
-            <code>$ ${escapeHTML(entry.command)}</code>
+            <span class="terminal-command-row">
+              <code>$ ${escapeHTML(entry.command)}</code>
+              ${renderExecutionContextChip(entry.executionContext, 'terminal-execution-context')}
+            </span>
             <span class="terminal-status ${terminalStatusClass(entry)}" data-testid="terminal-status">
               ${terminalStatusLabel(entry)} · ${terminalExitLabel(entry)}
             </span>
@@ -5348,7 +5483,8 @@
         stderr: '',
         exitCode: null,
         ok: false,
-        status: 'running'
+        status: 'running',
+        executionContext: executionContextForCWD(cwd)
       };
       state.terminal.entries.push(entry);
       updateDynamicCommands();
