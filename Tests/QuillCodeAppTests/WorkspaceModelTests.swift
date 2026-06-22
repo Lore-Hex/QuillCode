@@ -4853,7 +4853,7 @@ final class WorkspaceModelTests: XCTestCase {
           last="$arg"
         done
         \(pathExport)
-        /bin/sh -lc "$last"
+        /bin/sh -c "$last"
         """.write(to: script, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
         return script
@@ -4906,13 +4906,22 @@ final class WorkspaceModelTests: XCTestCase {
         """
             : ""
         let callResponseID = includeResourcesAndPrompts ? 5 : 3
-        let callResponse = resourceText.map {
-            "emit '{\"jsonrpc\":\"2.0\",\"id\":\(callResponseID),\"result\":{\"contents\":[{\"uri\":\"file:///workspace/README.md\",\"mimeType\":\"text/markdown\",\"text\":\"\($0)\"}]}}'"
-        } ?? promptText.map {
-            "emit '{\"jsonrpc\":\"2.0\",\"id\":\(callResponseID),\"result\":{\"description\":\"Summarize the project.\",\"messages\":[{\"role\":\"user\",\"content\":{\"type\":\"text\",\"text\":\"\($0)\"}}]}}'"
-        } ?? callText.map {
-            "emit '{\"jsonrpc\":\"2.0\",\"id\":\(callResponseID),\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"\($0)\"}],\"isError\":false}}'"
-        } ?? ""
+        let callResponse: String
+        if let resourceText {
+            callResponse = """
+            emit '{"jsonrpc":"2.0","id":\(callResponseID),"result":{"contents":[{"uri":"file:///workspace/README.md","mimeType":"text/markdown","text":"\(resourceText)"}]}}'
+            """
+        } else if let promptText {
+            callResponse = """
+            emit '{"jsonrpc":"2.0","id":\(callResponseID),"result":{"description":"Summarize the project.","messages":[{"role":"user","content":{"type":"text","text":"\(promptText)"}}]}}'
+            """
+        } else if let callText {
+            callResponse = """
+            emit '{"jsonrpc":"2.0","id":\(callResponseID),"result":{"content":[{"type":"text","text":"\(callText)"}],"isError":false}}'
+            """
+        } else {
+            callResponse = ""
+        }
         let content = """
         #!/bin/sh
         emit() {
@@ -4926,7 +4935,7 @@ final class WorkspaceModelTests: XCTestCase {
         \(callResponse)
         sleep 60
         """
-        try content.write(to: script, atomically: true, encoding: .utf8)
+        try content.write(to: script, atomically: true, encoding: String.Encoding.utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
         return script
     }
