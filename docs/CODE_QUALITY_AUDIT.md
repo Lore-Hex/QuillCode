@@ -23,7 +23,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | B | Command parsing now lives in a focused planner; split automation runners, terminal state, and project actions into focused coordinators next. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing and automation record/run-draft construction now live in focused helpers; split terminal state and project actions into focused coordinators next. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | B+ | Surface assembly is valuable but large. Keep moving small ranking/formatting helpers out or make them single-pass builders. |
 | `Sources/quill-code-desktop/main.swift` | B | Desktop bootstrap mixes app lifecycle, menu-bar status, OAuth, and commands. Extract coordinator types before adding more platform behavior. |
@@ -41,11 +41,25 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Current Refactor Priority
 
-1. Extract automation runners from `WorkspaceModel`.
-2. Extract terminal state and command history from `WorkspaceModel`.
-3. Extract selected-project actions and project context refresh from `WorkspaceModel`.
-4. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
+1. Extract terminal state and command history from `WorkspaceModel`.
+2. Extract selected-project actions and project context refresh from `WorkspaceModel`.
+3. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
+4. Continue pulling pure workflow planning out of `WorkspaceModel` before adding new Codex-parity commands.
 5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
+
+## 2026-06-22 Workspace Automation Engine Refactor Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+Automation creation and run planning moved out of `WorkspaceModel.swift` into `WorkspaceAutomationEngine.swift`. The workspace model still owns UI selection, project refresh, persistence, and notification-facing reports, but automation records, relative date helpers, due-job selection, run metadata advancement, and follow-up/workspace-check draft construction now live behind focused pure helpers.
+
+Code quality changes:
+
+- Moved `AutomationsState` and `AutomationRunReport` beside the automation engine boundary.
+- Extracted thread-follow-up and workspace-schedule record construction into `WorkspaceAutomationFactory`.
+- Extracted due-job filtering, recurring run advancement, and generated follow-up/workspace-check thread drafts into `WorkspaceAutomationRunner`.
+- Reduced `WorkspaceModel` automation execution to validation, project context refresh, and applying a `WorkspaceAutomationRunDraft`.
+- Added focused automation engine tests for schedule construction, tomorrow helpers, due-job filtering, recurrence advancement, draft contents, copied instructions, memories, and reports.
 
 ## 2026-06-22 Workspace Command Planner Refactor Pass
 

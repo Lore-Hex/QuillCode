@@ -952,16 +952,6 @@ public struct ActivityState: Sendable, Hashable {
     }
 }
 
-public struct AutomationsState: Sendable, Hashable {
-    public var isVisible: Bool
-    public var items: [QuillAutomation]
-
-    public init(isVisible: Bool = false, items: [QuillAutomation] = []) {
-        self.isVisible = isVisible
-        self.items = items
-    }
-}
-
 public struct SidebarSelectionState: Sendable, Hashable {
     public var isActive: Bool
     public var selectedThreadIDs: Set<UUID>
@@ -1134,26 +1124,6 @@ private enum MCPPromptGetRequestError: Error, CustomStringConvertible {
         case .missingPromptName:
             return "MCP prompt get requires a non-empty promptName."
         }
-    }
-}
-
-public struct AutomationRunReport: Codable, Sendable, Hashable, Identifiable {
-    public var id: UUID { followUpThreadID }
-    public var automationID: UUID
-    public var followUpThreadID: UUID
-    public var title: String
-    public var body: String
-
-    public init(
-        automationID: UUID,
-        followUpThreadID: UUID,
-        title: String,
-        body: String
-    ) {
-        self.automationID = automationID
-        self.followUpThreadID = followUpThreadID
-        self.title = title
-        self.body = body
     }
 }
 
@@ -1450,19 +1420,13 @@ public final class QuillCodeWorkspaceModel {
         now: Date = Date()
     ) -> QuillAutomation? {
         guard let thread = selectedThread else { return nil }
-        let title = thread.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let automation = QuillAutomation(
-            title: title.isEmpty ? "Thread follow-up" : "Follow up: \(title)",
-            detail: "Resume this thread with the same project, model, and context.",
-            kind: .threadFollowUp,
-            scheduleKind: .heartbeat,
+        let automation = WorkspaceAutomationFactory.threadFollowUp(
+            for: thread,
+            selectedProjectID: root.selectedProjectID,
             scheduleDescription: scheduleDescription,
-            projectID: thread.projectID ?? root.selectedProjectID,
-            threadID: thread.id,
-            createdAt: now,
-            updatedAt: now,
             nextRunAt: nextRunAt,
-            recurrence: recurrence
+            recurrence: recurrence,
+            now: now
         )
         setAutomations(automations.items + [automation])
         automations.isVisible = true
@@ -1471,10 +1435,10 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func createThreadFollowUpAutomation(after seconds: TimeInterval, now: Date = Date()) -> QuillAutomation? {
-        guard seconds > 0 else { return nil }
+        guard let schedule = WorkspaceAutomationFactory.relativeSchedule(seconds: seconds, now: now) else { return nil }
         return createThreadFollowUpAutomation(
-            scheduleDescription: ThreadFollowUpScheduleParser.relativeDescription(seconds: seconds),
-            nextRunAt: now.addingTimeInterval(seconds),
+            scheduleDescription: schedule.description,
+            nextRunAt: schedule.nextRunAt,
             now: now
         )
     }
@@ -1522,7 +1486,7 @@ public final class QuillCodeWorkspaceModel {
     ) -> QuillAutomation? {
         createThreadFollowUpAutomation(
             scheduleDescription: "Tomorrow at 9:00 AM",
-            nextRunAt: Self.tomorrowMorning(from: now, calendar: calendar),
+            nextRunAt: WorkspaceAutomationFactory.tomorrowMorning(from: now, calendar: calendar),
             now: now
         )
     }
@@ -1535,17 +1499,12 @@ public final class QuillCodeWorkspaceModel {
         now: Date = Date()
     ) -> QuillAutomation? {
         guard let project = selectedProject else { return nil }
-        let automation = QuillAutomation(
-            title: "Workspace check: \(project.name)",
-            detail: "Create a scheduled workspace-check thread for \(project.name).",
-            kind: .workspaceSchedule,
-            scheduleKind: .cron,
+        let automation = WorkspaceAutomationFactory.workspaceSchedule(
+            for: project,
             scheduleDescription: scheduleDescription,
-            projectID: project.id,
-            createdAt: now,
-            updatedAt: now,
             nextRunAt: nextRunAt,
-            recurrence: recurrence
+            recurrence: recurrence,
+            now: now
         )
         setAutomations(automations.items + [automation])
         automations.isVisible = true
@@ -1554,10 +1513,10 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func createWorkspaceScheduleAutomation(after seconds: TimeInterval, now: Date = Date()) -> QuillAutomation? {
-        guard seconds > 0 else { return nil }
+        guard let schedule = WorkspaceAutomationFactory.relativeSchedule(seconds: seconds, now: now) else { return nil }
         return createWorkspaceScheduleAutomation(
-            scheduleDescription: ThreadFollowUpScheduleParser.relativeDescription(seconds: seconds),
-            nextRunAt: now.addingTimeInterval(seconds),
+            scheduleDescription: schedule.description,
+            nextRunAt: schedule.nextRunAt,
             now: now
         )
     }
@@ -1605,7 +1564,7 @@ public final class QuillCodeWorkspaceModel {
     ) -> QuillAutomation? {
         createWorkspaceScheduleAutomation(
             scheduleDescription: "Tomorrow at 9:00 AM",
-            nextRunAt: Self.tomorrowMorning(from: now, calendar: calendar),
+            nextRunAt: WorkspaceAutomationFactory.tomorrowMorning(from: now, calendar: calendar),
             now: now
         )
     }
@@ -1625,15 +1584,14 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func runAutomationReport(id: UUID, now: Date = Date()) -> AutomationRunReport? {
-        guard let index = automations.items.firstIndex(where: { $0.id == id }) else { return nil }
-        let automation = automations.items[index]
+        guard let automation = automations.items.first(where: { $0.id == id }) else { return nil }
         guard automation.status == .active else { return nil }
 
         switch automation.kind {
         case .threadFollowUp:
-            return runThreadFollowUpAutomation(automation, at: index, now: now)
+            return runThreadFollowUpAutomation(automation, now: now)
         case .workspaceSchedule:
-            return runWorkspaceScheduleAutomation(automation, at: index, now: now)
+            return runWorkspaceScheduleAutomation(automation, now: now)
         case .monitor:
             lastError = "Monitor automations can be configured, but monitor runners are not available yet."
             refreshTopBar(agentStatus: "Idle")
@@ -1648,15 +1606,11 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func runDueAutomationReports(now: Date = Date(), limit: Int = 5) -> [AutomationRunReport] {
-        let dueAutomationIDs = automations.items
-            .filter { automation in
-                automation.status == .active
-                    && automation.kind != .monitor
-                    && automation.nextRunAt.map { $0 <= now } == true
-            }
-            .prefix(max(0, limit))
-            .map(\.id)
-
+        let dueAutomationIDs = WorkspaceAutomationRunner.dueAutomationIDs(
+            in: automations.items,
+            now: now,
+            limit: limit
+        )
         return dueAutomationIDs.compactMap { runAutomationReport(id: $0, now: now) }
     }
 
@@ -1670,7 +1624,6 @@ public final class QuillCodeWorkspaceModel {
 
     private func runThreadFollowUpAutomation(
         _ automation: QuillAutomation,
-        at index: Int,
         now: Date
     ) -> AutomationRunReport? {
         guard let threadID = automation.threadID,
@@ -1681,54 +1634,20 @@ public final class QuillCodeWorkspaceModel {
             return nil
         }
 
-        clearSidebarSelection()
         let projectID = knownProjectID(automation.projectID ?? source.projectID)
         let copiedMessages = Self.forkSeedMessages(from: source.messages)
-        let followUp = ChatThread(
-            title: "Follow-up: \(source.title)",
-            projectID: projectID,
-            mode: source.mode,
-            model: source.model,
-            messages: copiedMessages,
-            events: [
-                .init(
-                    kind: .notice,
-                    summary: "Automation ran: \(automation.title)",
-                    payloadJSON: automation.id.uuidString
-                ),
-                .init(
-                    kind: .notice,
-                    summary: "Followed up from \(source.title)",
-                    payloadJSON: source.id.uuidString
-                )
-            ],
-            instructions: source.instructions,
-            memories: source.memories
+        let draft = WorkspaceAutomationRunner.threadFollowUpDraft(
+            automation: automation,
+            source: source,
+            selectedProjectID: projectID,
+            copiedMessages: copiedMessages,
+            now: now
         )
-
-        recordAutomationRun(at: index, now: now)
-
-        root.threads.insert(followUp, at: 0)
-        root.selectedThreadID = followUp.id
-        root.selectedProjectID = projectID
-        syncTerminalSessionToSelectedProject()
-        touchProject(projectID)
-        saveProjects()
-        try? threadStore?.save(followUp)
-        automations.isVisible = true
-        lastError = nil
-        refreshTopBar(agentStatus: "Idle")
-        return AutomationRunReport(
-            automationID: automation.id,
-            followUpThreadID: followUp.id,
-            title: "QuillCode follow-up ready",
-            body: "\(followUp.title) was created from \(source.title)."
-        )
+        return applyAutomationRunDraft(draft)
     }
 
     private func runWorkspaceScheduleAutomation(
         _ automation: QuillAutomation,
-        at index: Int,
         now: Date
     ) -> AutomationRunReport? {
         guard let projectID = automation.projectID,
@@ -1745,63 +1664,38 @@ public final class QuillCodeWorkspaceModel {
             refreshProjectMetadata(projectID)
         }
 
-        clearSidebarSelection()
-        let thread = ChatThread(
-            title: "Scheduled check: \(project.name)",
-            projectID: projectID,
+        let draft = WorkspaceAutomationRunner.workspaceScheduleDraft(
+            automation: automation,
+            project: project,
             mode: root.config.mode,
             model: root.config.defaultModel,
-            messages: [
-                .init(
-                    role: .user,
-                    content: "Run the scheduled workspace check for \(project.name). Start with project status, recent changes, local actions, and anything needing attention."
-                )
-            ],
-            events: [
-                .init(
-                    kind: .notice,
-                    summary: "Automation ran: \(automation.title)",
-                    payloadJSON: automation.id.uuidString
-                )
-            ],
             instructions: instructions(for: projectID),
-            memories: memoryNotes(for: projectID)
+            memories: memoryNotes(for: projectID),
+            now: now
         )
+        return applyAutomationRunDraft(draft)
+    }
 
-        recordAutomationRun(at: index, now: now)
-
-        root.threads.insert(thread, at: 0)
-        root.selectedThreadID = thread.id
-        root.selectedProjectID = projectID
+    private func applyAutomationRunDraft(_ draft: WorkspaceAutomationRunDraft) -> AutomationRunReport {
+        replaceAutomation(draft.automation)
+        clearSidebarSelection()
+        root.threads.insert(draft.thread, at: 0)
+        root.selectedThreadID = draft.thread.id
+        root.selectedProjectID = draft.selectedProjectID
         syncTerminalSessionToSelectedProject()
-        touchProject(projectID)
+        touchProject(draft.selectedProjectID)
         saveProjects()
-        try? threadStore?.save(thread)
+        try? threadStore?.save(draft.thread)
         automations.isVisible = true
         lastError = nil
         refreshTopBar(agentStatus: "Idle")
-        return AutomationRunReport(
-            automationID: automation.id,
-            followUpThreadID: thread.id,
-            title: "QuillCode workspace check ready",
-            body: "\(thread.title) was created for \(project.name)."
-        )
+        return draft.report
     }
 
-    private func recordAutomationRun(at index: Int, now: Date) {
-        automations.items[index].lastRunAt = now
-        automations.items[index].nextRunAt = automations.items[index].recurrence?.nextRun(after: now)
-        automations.items[index].updatedAt = now
+    private func replaceAutomation(_ automation: QuillAutomation) {
+        guard let index = automations.items.firstIndex(where: { $0.id == automation.id }) else { return }
+        automations.items[index] = automation
         setAutomations(automations.items)
-    }
-
-    private static func tomorrowMorning(from date: Date, calendar: Calendar) -> Date {
-        var components = calendar.dateComponents([.year, .month, .day], from: date)
-        components.day = (components.day ?? 0) + 1
-        components.hour = 9
-        components.minute = 0
-        components.second = 0
-        return calendar.date(from: components) ?? date.addingTimeInterval(24 * 60 * 60)
     }
 
     public func toggleActivitySection(_ section: ActivitySectionKind) {
