@@ -1544,10 +1544,13 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
     public var kindLabel: String
     public var name: String
     public var summary: String
+    public var versionLabel: String?
+    public var sourceURL: String?
     public var relativePath: String
     public var statusLabel: String
     public var transportLabel: String?
     public var launchCommand: String?
+    public var updateCommand: String?
     public var serverLabel: String?
     public var protocolLabel: String?
     public var toolCountLabel: String?
@@ -1560,8 +1563,10 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
     public var probeError: String?
     public var canStart: Bool
     public var canStop: Bool
+    public var canUpdate: Bool
     public var startCommandID: String?
     public var stopCommandID: String?
+    public var updateCommandID: String?
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -1569,10 +1574,13 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         case kindLabel
         case name
         case summary
+        case versionLabel
+        case sourceURL
         case relativePath
         case statusLabel
         case transportLabel
         case launchCommand
+        case updateCommand
         case serverLabel
         case protocolLabel
         case toolCountLabel
@@ -1585,8 +1593,10 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         case probeError
         case canStart
         case canStop
+        case canUpdate
         case startCommandID
         case stopCommandID
+        case updateCommandID
     }
 
     public init(
@@ -1599,6 +1609,8 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         self.kindLabel = manifest.kind.title
         self.name = manifest.name
         self.summary = manifest.summary
+        self.versionLabel = manifest.version.map { "v\($0)" }
+        self.sourceURL = manifest.sourceURL
         self.relativePath = manifest.relativePath
         if manifest.isEnabled {
             if manifest.kind == .mcpServer {
@@ -1611,6 +1623,7 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         }
         self.transportLabel = manifest.transport?.rawValue.uppercased()
         self.launchCommand = manifest.launchCommand
+        self.updateCommand = manifest.updateCommand
         self.serverLabel = probeSummary?.serverLabel
         self.protocolLabel = probeSummary?.protocolVersion.map { "MCP \($0)" }
         self.toolCountLabel = probeSummary?.toolCountLabel
@@ -1629,8 +1642,10 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
             && manifest.launchExecutable != nil
             && !mcpServerStatus.isActive
         self.canStop = manifest.kind == .mcpServer && mcpServerStatus.isActive
+        self.canUpdate = manifest.updateCommand != nil
         self.startCommandID = canStart ? "mcp-start:\(manifest.id)" : nil
         self.stopCommandID = canStop ? "mcp-stop:\(manifest.id)" : nil
+        self.updateCommandID = canUpdate ? "extension-update:\(manifest.id)" : nil
     }
 
     public init(from decoder: Decoder) throws {
@@ -1640,10 +1655,13 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         self.kindLabel = try container.decode(String.self, forKey: .kindLabel)
         self.name = try container.decode(String.self, forKey: .name)
         self.summary = try container.decode(String.self, forKey: .summary)
+        self.versionLabel = try container.decodeIfPresent(String.self, forKey: .versionLabel)
+        self.sourceURL = try container.decodeIfPresent(String.self, forKey: .sourceURL)
         self.relativePath = try container.decode(String.self, forKey: .relativePath)
         self.statusLabel = try container.decode(String.self, forKey: .statusLabel)
         self.transportLabel = try container.decodeIfPresent(String.self, forKey: .transportLabel)
         self.launchCommand = try container.decodeIfPresent(String.self, forKey: .launchCommand)
+        self.updateCommand = try container.decodeIfPresent(String.self, forKey: .updateCommand)
         self.serverLabel = try container.decodeIfPresent(String.self, forKey: .serverLabel)
         self.protocolLabel = try container.decodeIfPresent(String.self, forKey: .protocolLabel)
         self.toolCountLabel = try container.decodeIfPresent(String.self, forKey: .toolCountLabel)
@@ -1662,8 +1680,10 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         self.probeError = try container.decodeIfPresent(String.self, forKey: .probeError)
         self.canStart = try container.decode(Bool.self, forKey: .canStart)
         self.canStop = try container.decode(Bool.self, forKey: .canStop)
+        self.canUpdate = try container.decodeIfPresent(Bool.self, forKey: .canUpdate) ?? false
         self.startCommandID = try container.decodeIfPresent(String.self, forKey: .startCommandID)
         self.stopCommandID = try container.decodeIfPresent(String.self, forKey: .stopCommandID)
+        self.updateCommandID = try container.decodeIfPresent(String.self, forKey: .updateCommandID)
     }
 }
 
@@ -3087,6 +3107,27 @@ public extension QuillCodeWorkspaceModel {
                     )
                 ]
             }
+        let extensionUpdateCommands = (selectedProject?.extensionManifests ?? [])
+            .filter { $0.updateCommand != nil }
+            .map { manifest in
+                WorkspaceCommandSurface(
+                    id: "extension-update:\(manifest.id)",
+                    title: "Update \(manifest.name)",
+                    category: WorkspaceCommandPalette.extensionsCategory,
+                    keywords: [
+                        "extension",
+                        "plugin",
+                        "skill",
+                        "mcp",
+                        "update",
+                        manifest.kind.title,
+                        manifest.name,
+                        manifest.version ?? "",
+                        manifest.sourceURL ?? ""
+                    ].filter { !$0.isEmpty },
+                    isEnabled: activeWorkspaceRoot != nil
+                )
+            }
         let automationScheduleCommands = WorkspaceCommandSurface.automationScheduleThreadFollowUpCommands(
             isEnabled: selectedThread != nil
         )
@@ -3387,7 +3428,7 @@ public extension QuillCodeWorkspaceModel {
                 keywords: ["branch", "git", "workspace", "delete"],
                 isEnabled: activeWorkspaceRoot != nil || selectedProject?.isRemote == true
             ),
-        ] + localActionCommands + mcpLifecycleCommands + [
+        ] + localActionCommands + mcpLifecycleCommands + extensionUpdateCommands + [
             WorkspaceCommandSurface(
                 id: "stop-all",
                 title: "Stop all",

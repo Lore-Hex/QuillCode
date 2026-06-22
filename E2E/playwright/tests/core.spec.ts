@@ -1517,6 +1517,12 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await expect(page.getByTestId('extensions-count')).toContainText(['1 plugin', '1 skill', '1 MCP server']);
   await expect(page.getByTestId('extension-item')).toHaveCount(3);
   await expect(page.getByTestId('extension-item').first()).toContainText('GitHub');
+  await expect(page.getByTestId('extension-version')).toHaveText('v1.2.0');
+  await expect(page.getByTestId('extension-source')).toHaveText('https://github.com/Lore-Hex/quillcode-github');
+  await expect(page.getByTestId('extension-update-command')).toHaveText('git -C .quillcode/plugins/github pull --ff-only');
+  await expect(page.getByTestId('extension-update')).toBeVisible();
+  await page.getByTestId('extension-update').click();
+  await expect(page.getByTestId('message').last()).toContainText('GitHub update finished.');
   await expect(page.getByTestId('extension-item').nth(1)).toContainText('Code Review');
   await expect(page.getByTestId('extension-item').nth(2)).toContainText('Stopped');
   await expect(page.getByTestId('extension-transport')).toHaveText('STDIO');
@@ -1544,6 +1550,9 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await expect(page.getByTestId('extensions-pane')).toHaveCount(0);
 
   await clickSidebarTool(page, 'command-palette-button');
+  await page.getByLabel('Search commands').fill('>update github');
+  await expect(page.getByTestId('command-palette-group')).toContainText('Extensions');
+  await expect(page.getByTestId('command-palette-result')).toContainText('Update GitHub');
   await page.getByLabel('Search commands').fill('>manifest');
   await expect(page.getByTestId('command-palette-group')).toContainText('Extensions');
   await page.getByTestId('command-palette-result').click();

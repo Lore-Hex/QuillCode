@@ -2664,6 +2664,18 @@ private struct QuillCodeExtensionsPaneView: View {
                                         .foregroundStyle(QuillCodePalette.muted)
                                         .lineLimit(2)
                                 }
+                                if let versionLabel = item.versionLabel {
+                                    Text(versionLabel)
+                                        .font(.caption2.monospaced().weight(.semibold))
+                                        .foregroundStyle(QuillCodePalette.green)
+                                        .lineLimit(1)
+                                }
+                                if let sourceURL = item.sourceURL {
+                                    Text(sourceURL)
+                                        .font(.caption2.monospaced())
+                                        .foregroundStyle(QuillCodePalette.muted)
+                                        .lineLimit(1)
+                                }
                                 Text(item.relativePath)
                                     .font(.caption2.monospaced())
                                     .foregroundStyle(QuillCodePalette.muted)
@@ -2702,6 +2714,13 @@ private struct QuillCodeExtensionsPaneView: View {
                                             .clipShape(Capsule())
                                     }
                                     Spacer()
+                                    if let updateCommandID = item.updateCommandID {
+                                        Button("Update") {
+                                            onCommand(extensionCommand(id: updateCommandID, title: "Update \(item.name)"))
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .controlSize(.small)
+                                    }
                                     if let stopCommandID = item.stopCommandID {
                                         Button("Stop") {
                                             onCommand(extensionCommand(id: stopCommandID, title: "Stop \(item.name)"))
@@ -2718,7 +2737,7 @@ private struct QuillCodeExtensionsPaneView: View {
                                 }
                             }
                             .padding(12)
-                            .frame(width: 260, alignment: .topLeading)
+                            .frame(width: 280, alignment: .topLeading)
                             .background(QuillCodePalette.background.opacity(0.7))
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
@@ -2727,7 +2746,7 @@ private struct QuillCodeExtensionsPaneView: View {
             }
         }
         .padding(14)
-        .frame(height: extensions.items.isEmpty ? 170 : 250)
+        .frame(height: extensions.items.isEmpty ? 170 : 280)
         .background(QuillCodePalette.panel)
     }
 

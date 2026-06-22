@@ -739,8 +739,11 @@ public enum WorkspaceHTMLRenderer {
           </header>
           <strong data-testid="extension-name">\(escape(item.name))</strong>
           \(item.summary.isEmpty ? "" : #"<p data-testid="extension-summary">\#(escape(item.summary))</p>"#)
+          \(item.versionLabel.map { #"<span data-testid="extension-version">\#(escape($0))</span>"# } ?? "")
+          \(item.sourceURL.map { #"<code data-testid="extension-source">\#(escape($0))</code>"# } ?? "")
           <code data-testid="extension-path">\(escape(item.relativePath))</code>
           \(item.launchCommand.map { #"<code data-testid="extension-command">\#(escape($0))</code>"# } ?? "")
+          \(item.updateCommand.map { #"<code data-testid="extension-update-command">\#(escape($0))</code>"# } ?? "")
           \(item.transportLabel.map { #"<span data-testid="extension-transport">\#(escape($0))</span>"# } ?? "")
           \(item.serverLabel.map { #"<span data-testid="extension-mcp-server">\#(escape($0))</span>"# } ?? "")
           \(renderMCPMeta(item))
@@ -787,13 +790,17 @@ public enum WorkspaceHTMLRenderer {
     }
 
     private static func renderExtensionActions(_ item: ProjectExtensionManifestSurface) -> String {
+        var buttons: [String] = []
+        if let updateCommandID = item.updateCommandID {
+            buttons.append(#"<button type="button" data-testid="extension-update" data-command="\#(escape(updateCommandID))">Update</button>"#)
+        }
         if let stopCommandID = item.stopCommandID {
-            return #"<button type="button" data-testid="extension-stop" data-command="\#(escape(stopCommandID))">Stop</button>"#
+            buttons.append(#"<button type="button" data-testid="extension-stop" data-command="\#(escape(stopCommandID))">Stop</button>"#)
         }
         if let startCommandID = item.startCommandID {
-            return #"<button type="button" data-testid="extension-start" data-command="\#(escape(startCommandID))">Start</button>"#
+            buttons.append(#"<button type="button" data-testid="extension-start" data-command="\#(escape(startCommandID))">Start</button>"#)
         }
-        return ""
+        return buttons.joined(separator: "\n")
     }
 
     private static func renderMemories(_ memories: WorkspaceMemoriesSurface) -> String {

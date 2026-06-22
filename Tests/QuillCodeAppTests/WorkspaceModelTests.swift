@@ -2555,7 +2555,7 @@ final class WorkspaceModelTests: XCTestCase {
         try FileManager.default.createDirectory(at: skillDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: mcpDirectory, withIntermediateDirectories: true)
 
-        try #"{"id":"github","name":"GitHub","description":"PR and issue helpers."}"#.write(
+        try #"{"id":"github","name":"GitHub","description":"PR and issue helpers.","version":"1.2.0","source":"https://github.com/Lore-Hex/quillcode-github","updateCommand":"git -C .quillcode/plugins/github pull --ff-only","updateTimeoutSeconds":300}"#.write(
             to: pluginDirectory.appendingPathComponent("github.json"),
             atomically: true,
             encoding: .utf8
@@ -2591,6 +2591,10 @@ final class WorkspaceModelTests: XCTestCase {
         ])
         XCTAssertEqual(manifests.map(\.kind), [.plugin, .skill, .mcpServer])
         XCTAssertEqual(manifests[0].summary, "PR and issue helpers.")
+        XCTAssertEqual(manifests[0].version, "1.2.0")
+        XCTAssertEqual(manifests[0].sourceURL, "https://github.com/Lore-Hex/quillcode-github")
+        XCTAssertEqual(manifests[0].updateCommand, "git -C .quillcode/plugins/github pull --ff-only")
+        XCTAssertEqual(manifests[0].updateTimeoutSeconds, 300)
         XCTAssertEqual(manifests[1].isEnabled, false)
         XCTAssertEqual(manifests[2].transport, .stdio)
         XCTAssertEqual(manifests[2].launchExecutable, "quill-mcp")
@@ -2621,6 +2625,27 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(extensions.mcpServerCount, 0)
         XCTAssertEqual(extensions.items.first?.name, "GitHub")
         XCTAssertEqual(extensions.items.first?.relativePath, ".quillcode/plugins/github.json")
+    }
+
+    func testProjectExtensionUpdateCommandRunsAndRefreshesProjectMetadata() throws {
+        let root = try makeTempDirectory()
+        let pluginDirectory = root.appendingPathComponent(".quillcode/plugins")
+        try FileManager.default.createDirectory(at: pluginDirectory, withIntermediateDirectories: true)
+        try #"{"id":"github","name":"GitHub","description":"PR workflow helpers.","version":"1.0.0","updateCommand":"printf updated > .quillcode/plugins/update.marker","updateTimeoutSeconds":30}"#.write(
+            to: pluginDirectory.appendingPathComponent("github.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Extension Project")
+        model.selectProject(projectID)
+
+        XCTAssertTrue(model.runWorkspaceCommand("extension-update:plugin:github", workspaceRoot: root))
+        let marker = try String(contentsOf: pluginDirectory.appendingPathComponent("update.marker"), encoding: .utf8)
+        XCTAssertEqual(marker, "updated")
+        XCTAssertTrue(model.surface().extensions.items.first?.updateCommandID == "extension-update:plugin:github")
+        XCTAssertTrue(model.selectedThread?.events.contains { $0.summary == "Updated extension GitHub" } == true)
     }
 
     func testMCPServerLifecycleStartsStopsAndStopAllTerminatesProcesses() throws {

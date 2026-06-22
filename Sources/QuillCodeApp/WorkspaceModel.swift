@@ -2791,6 +2791,10 @@ public final class QuillCodeWorkspaceModel {
             let id = String(commandID.dropFirst("mcp-stop:".count))
             return stopMCPServer(id: id)
         }
+        if commandID.hasPrefix("extension-update:") {
+            let id = String(commandID.dropFirst("extension-update:".count))
+            return runProjectExtensionUpdate(id: id, workspaceRoot: workspaceRoot)
+        }
         if commandID.hasPrefix("thread-selection-toggle:") {
             let rawID = String(commandID.dropFirst("thread-selection-toggle:".count))
             guard let id = UUID(uuidString: rawID) else { return false }
@@ -4049,6 +4053,35 @@ public final class QuillCodeWorkspaceModel {
             workspaceRoot: workspaceRoot
         )
         return true
+    }
+
+    @discardableResult
+    public func runProjectExtensionUpdate(id: String, workspaceRoot: URL) -> Bool {
+        refreshProjectMetadata(root.selectedProjectID)
+        guard let manifest = selectedProject?.extensionManifests.first(where: { $0.id == id }),
+              let command = manifest.updateCommand,
+              !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            return false
+        }
+
+        var arguments: [String: Any] = ["cmd": command]
+        if let timeoutSeconds = manifest.updateTimeoutSeconds {
+            arguments["timeoutSeconds"] = timeoutSeconds
+        }
+        let result = runToolCall(
+            ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: toolArgumentsJSON(arguments)
+            ),
+            workspaceRoot: workspaceRoot
+        )
+        refreshProjectMetadata(root.selectedProjectID)
+        appendNotice(result.ok
+            ? "Updated extension \(manifest.name)"
+            : "Extension update failed for \(manifest.name)"
+        )
+        return result.ok
     }
 
     public func createWorktree(_ request: WorkspaceWorktreeCreateRequest, workspaceRoot: URL) {

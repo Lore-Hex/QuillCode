@@ -867,7 +867,11 @@ final class WorkspaceSurfaceTests: XCTestCase {
                     kind: .plugin,
                     name: "GitHub",
                     summary: "PR workflow helpers.",
-                    relativePath: ".quillcode/plugins/github.json"
+                    version: "1.2.0",
+                    sourceURL: "https://github.com/Lore-Hex/quillcode-github",
+                    relativePath: ".quillcode/plugins/github.json",
+                    updateCommand: "git -C .quillcode/plugins/github pull --ff-only",
+                    updateTimeoutSeconds: 300
                 ),
                 ProjectExtensionManifest(
                     id: "mcp_server:filesystem",
@@ -892,6 +896,11 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.extensions.subtitle, "1 plugin · 0 skills · 1 MCP server")
         XCTAssertEqual(surface.extensions.items.map(\.kindLabel), ["Plugin", "MCP"])
         XCTAssertEqual(surface.extensions.items.map(\.statusLabel), ["Discovered", "Stopped"])
+        XCTAssertEqual(surface.extensions.items.first?.versionLabel, "v1.2.0")
+        XCTAssertEqual(surface.extensions.items.first?.sourceURL, "https://github.com/Lore-Hex/quillcode-github")
+        XCTAssertEqual(surface.extensions.items.first?.updateCommandID, "extension-update:plugin:github")
+        XCTAssertEqual(surface.commands.first { $0.id == "extension-update:plugin:github" }?.title, "Update GitHub")
+        XCTAssertEqual(surface.commands.first { $0.id == "extension-update:plugin:github" }?.isEnabled, true)
         XCTAssertEqual(surface.extensions.items.last?.transportLabel, "STDIO")
         XCTAssertEqual(surface.extensions.items.last?.launchCommand, "quill-mcp --root .")
         XCTAssertEqual(surface.extensions.items.last?.startCommandID, "mcp-start:mcp_server:filesystem")
@@ -1004,6 +1013,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.promptNames, [])
         XCTAssertNil(surface.resourceCountLabel)
         XCTAssertNil(surface.promptCountLabel)
+        XCTAssertNil(surface.versionLabel)
+        XCTAssertNil(surface.sourceURL)
+        XCTAssertFalse(surface.canUpdate)
+        XCTAssertNil(surface.updateCommandID)
     }
 
     func testSurfaceIncludesMemorySummariesAndCommand() {

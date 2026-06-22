@@ -2295,10 +2295,14 @@
             kindLabel: 'Plugin',
             name: 'GitHub',
             summary: 'Pull request and issue workflow helpers.',
+            versionLabel: 'v1.2.0',
+            sourceURL: 'https://github.com/Lore-Hex/quillcode-github',
             relativePath: '.quillcode/plugins/github.json',
             statusLabel: 'Discovered',
             transportLabel: null,
             launchCommand: null,
+            updateCommand: 'git -C .quillcode/plugins/github pull --ff-only',
+            updateCommandID: 'extension-update:plugin:github',
             startCommandID: null,
             stopCommandID: null
           },
@@ -2498,6 +2502,7 @@
         { id: 'toggle-extensions', title: 'Extensions', shortcut: '', category: 'Extensions', keywords: ['plugins', 'skills', 'mcp', 'manifest'], isEnabled: true },
         { id: 'mcp-start:mcp_server:filesystem', title: 'Start Filesystem MCP', shortcut: '', category: 'Extensions', keywords: ['mcp', 'server', 'start', 'stdio', 'filesystem'], isEnabled: true },
         { id: 'mcp-stop:mcp_server:filesystem', title: 'Stop Filesystem MCP', shortcut: '', category: 'Extensions', keywords: ['mcp', 'server', 'stop', 'stdio', 'filesystem'], isEnabled: false },
+        { id: 'extension-update:plugin:github', title: 'Update GitHub', shortcut: '', category: 'Extensions', keywords: ['extension', 'plugin', 'update', 'GitHub', '1.2.0'], isEnabled: true },
         { id: 'command-palette', title: 'Command palette', shortcut: 'Cmd+Shift+P', category: 'Navigation', keywords: ['commands', 'actions'], isEnabled: true },
         { id: 'keyboard-shortcuts', title: 'Keyboard shortcuts', shortcut: 'Cmd+/', category: 'Navigation', keywords: ['keyboard', 'shortcuts', 'help', 'commands'], isEnabled: true },
         { id: 'git-status', title: 'Git status', shortcut: '', category: 'Git', keywords: ['git', 'status', 'changes', 'remote'], isEnabled: true },
@@ -4195,7 +4200,7 @@
 	        state.extensions.isVisible = !state.extensions.isVisible;
 	        render();
 	      });
-      document.querySelectorAll('[data-testid="extension-start"], [data-testid="extension-stop"]').forEach(button => {
+      document.querySelectorAll('[data-testid="extension-start"], [data-testid="extension-stop"], [data-testid="extension-update"]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
@@ -5461,8 +5466,11 @@
               </header>
               <strong data-testid="extension-name">${escapeHTML(item.name)}</strong>
               ${item.summary ? `<p data-testid="extension-summary">${escapeHTML(item.summary)}</p>` : ''}
+              ${item.versionLabel ? `<span data-testid="extension-version">${escapeHTML(item.versionLabel)}</span>` : ''}
+              ${item.sourceURL ? `<code data-testid="extension-source">${escapeHTML(item.sourceURL)}</code>` : ''}
               <code data-testid="extension-path">${escapeHTML(item.relativePath)}</code>
               ${item.launchCommand ? `<code data-testid="extension-command">${escapeHTML(item.launchCommand)}</code>` : ''}
+              ${item.updateCommand ? `<code data-testid="extension-update-command">${escapeHTML(item.updateCommand)}</code>` : ''}
               ${item.transportLabel ? `<span data-testid="extension-transport">${escapeHTML(item.transportLabel)}</span>` : ''}
               ${item.serverLabel ? `<span data-testid="extension-mcp-server">${escapeHTML(item.serverLabel)}</span>` : ''}
               ${renderMCPMeta(item)}
@@ -5470,6 +5478,7 @@
               ${renderMCPGroup('Resources', item.resourceNames, 'extension-mcp-resources', 'extension-mcp-resource')}
               ${renderMCPGroup('Prompts', item.promptNames, 'extension-mcp-prompts', 'extension-mcp-prompt')}
               ${item.probeError ? `<p data-testid="extension-mcp-error">${escapeHTML(item.probeError)}</p>` : ''}
+              ${item.updateCommandID ? `<button type="button" data-testid="extension-update" data-command-id="${escapeHTML(item.updateCommandID)}">Update</button>` : ''}
               ${item.stopCommandID ? `<button type="button" data-testid="extension-stop" data-command-id="${escapeHTML(item.stopCommandID)}">Stop</button>` : ''}
               ${item.startCommandID ? `<button type="button" data-testid="extension-start" data-command-id="${escapeHTML(item.startCommandID)}">Start</button>` : ''}
             </article>`).join('')}
@@ -6472,6 +6481,12 @@
       if (commandID?.startsWith('mcp-stop:')) {
         setMCPStatus(commandID.slice('mcp-stop:'.length), 'Stopped');
         addMessage('assistant', 'Stopped Filesystem MCP.');
+        render();
+        return;
+      }
+      if (commandID?.startsWith('extension-update:')) {
+        const item = state.extensions.items.find(item => item.updateCommandID === commandID);
+        addMessage('assistant', `${item?.name || 'Extension'} update finished.`);
         render();
         return;
       }
