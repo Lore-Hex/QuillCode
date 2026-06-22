@@ -24,7 +24,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | File | Grade | Next Improvement |
 | --- | --- | --- |
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | B | Split command handling, automation runners, terminal state, and project actions into focused coordinators. |
-| `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B | Extract large panes and reusable controls as native QuillUI components before visual polish work expands. |
+| `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | B+ | Surface assembly is valuable but large. Keep moving small ranking/formatting helpers out or make them single-pass builders. |
 | `Sources/quill-code-desktop/main.swift` | B | Desktop bootstrap mixes app lifecycle, menu-bar status, OAuth, and commands. Extract coordinator types before adding more platform behavior. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
@@ -43,7 +43,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 1. Extract workspace command execution from `WorkspaceModel`.
 2. Extract automation runners from `WorkspaceModel`.
-3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, top bar, sidebar, review pane, design primitives, transcript message bubbles, tool-card/artifact-preview family, settings/runtime issue family, terminal/browser pane family, and secondary utility panes are now extracted; the next native-view targets are command palette/search/worktree dialogs, then workspace command execution.
+3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, top bar, sidebar, review pane, design primitives, transcript message bubbles, tool-card/artifact-preview family, settings/runtime issue family, terminal/browser pane family, secondary utility panes, and workspace dialog family are now extracted; the next native-view target is workspace command execution.
 4. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
 5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
 
@@ -188,3 +188,17 @@ Interface polish changes:
 - Extensions and Memories share a single count-pill component, preserving tabular numbers while removing duplicated visual code.
 - All three panes share one empty-state component, keeping secondary-pane copy density, padding, and inner radius consistent.
 - WorkspaceSwiftUIView now only decides pane placement and action routing; pane-specific draft, row, and card rendering is isolated.
+
+## 2026-06-22 Workspace Dialog Refactor Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+Command palette, keyboard shortcuts, search, rename sheets, and worktree sheets moved out of `WorkspaceSwiftUIView.swift` into `QuillCodeWorkspaceDialogs.swift`. These surfaces are command-heavy and modal by nature, so keeping their row rendering, draft types, icon mapping, and keyboard focus behavior together makes future command-palette and worktree UX work easier to evolve without growing the workspace shell again.
+
+Interface polish changes:
+
+- Command palette rows now use the shared `0.96` press feedback and guaranteed 40 pt minimum hit target.
+- Search result rows now use the shared press feedback and 40 pt minimum hit target instead of plain static buttons.
+- Command palette, search, and keyboard shortcut sheets share header, section-title, and empty-state helpers so copy density and spacing stay consistent.
+- Worktree and rename dialogs share labeled-field and frame helpers, keeping field labels, helper text, and text-field hit targets consistent.
+- WorkspaceSwiftUIView now only presents dialogs and routes their completed actions; dialog-specific draft, row, icon, and empty-state rendering is isolated.
