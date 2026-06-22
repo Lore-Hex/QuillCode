@@ -6,6 +6,7 @@ public enum GitToolError: Error, CustomStringConvertible {
     case emptyPatch
     case emptyCommitMessage
     case emptyPullRequestTitle
+    case emptyPullRequestComment
     case invalidPullRequestSelector(String)
     case emptyBranch
     case invalidGitName(String)
@@ -26,6 +27,8 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "Git commit message is required."
         case .emptyPullRequestTitle:
             return "Git pull request title is required unless fill is enabled."
+        case .emptyPullRequestComment:
+            return "Git pull request comment body is required."
         case .invalidPullRequestSelector(let value):
             return "GitHub pull request selector is unsupported: \(value)"
         case .emptyBranch:
@@ -213,6 +216,32 @@ public struct GitToolExecutor: Sendable {
                 arguments.append(selector)
             }
             return runGitHub(arguments, cwd: cwd, timeoutSeconds: 45)
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
+    public func commentOnPullRequest(cwd: URL, selector: String? = nil, body: String) -> ToolResult {
+        do {
+            guard let body = Self.trimmedNonEmpty(body) else {
+                throw GitToolError.emptyPullRequestComment
+            }
+
+            var arguments = ["pr", "comment"]
+            if let selector = try Self.safePullRequestSelector(selector) {
+                arguments.append(selector)
+            }
+            arguments += ["--body", body]
+
+            let result = runGitHub(arguments, cwd: cwd, timeoutSeconds: 60)
+            guard result.ok else { return result }
+            return ToolResult(
+                ok: true,
+                stdout: result.stdout,
+                stderr: result.stderr,
+                exitCode: result.exitCode,
+                artifacts: Self.extractURLs(from: result.stdout)
+            )
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
@@ -668,6 +697,14 @@ public extension ToolDefinition {
         parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."}}}"#,
         host: .local,
         risk: .read
+    )
+
+    static let gitPullRequestComment = ToolDefinition(
+        name: "host.git.pr.comment",
+        description: "Add a top-level comment to the current or selected GitHub pull request using GitHub CLI. Optional selector may be a PR number, URL, or branch.",
+        parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."},"body":{"type":"string","description":"Comment body to post."}},"required":["body"]}"#,
+        host: .local,
+        risk: .append
     )
 
     static let gitWorktreeList = ToolDefinition(

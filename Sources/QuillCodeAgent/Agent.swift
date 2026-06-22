@@ -262,6 +262,13 @@ public struct MockLLMClient: LLMClient {
             return .tool(.init(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}"))
         }
 
+        if Self.isPullRequestCommentRequest(lower) {
+            return .tool(.init(
+                name: ToolDefinition.gitPullRequestComment.name,
+                argumentsJSON: ToolArguments.json(Self.extractPullRequestCommentArguments(from: request))
+            ))
+        }
+
         if Self.isPullRequestChecksRequest(lower) {
             return .tool(.init(
                 name: ToolDefinition.gitPullRequestChecks.name,
@@ -398,6 +405,22 @@ public struct MockLLMClient: LLMClient {
         return mentionsPullRequest && checkTerms
     }
 
+    static func isPullRequestCommentRequest(_ lowercasedRequest: String) -> Bool {
+        let tokens = lowercasedRequest
+            .split { !$0.isLetter && !$0.isNumber }
+            .map(String.init)
+        let mentionsPullRequest = lowercasedRequest.contains("pull request") || tokens.contains("pr")
+        let commentTerms = tokens.contains("comment")
+            || tokens.contains("comments")
+            || tokens.contains("reply")
+        let readTerms = tokens.contains("show")
+            || tokens.contains("view")
+            || tokens.contains("read")
+            || tokens.contains("inspect")
+            || tokens.contains("summarize")
+        return mentionsPullRequest && commentTerms && !readTerms
+    }
+
     static func isPullRequestViewRequest(_ lowercasedRequest: String) -> Bool {
         let tokens = lowercasedRequest
             .split { !$0.isLetter && !$0.isNumber }
@@ -450,6 +473,32 @@ public struct MockLLMClient: LLMClient {
     static func extractPullRequestSelectorArguments(from request: String) -> [String: String] {
         guard let selector = extractPullRequestSelector(from: request) else { return [:] }
         return ["selector": selector]
+    }
+
+    static func extractPullRequestCommentArguments(from request: String) -> [String: String] {
+        var arguments = extractPullRequestSelectorArguments(from: request)
+        arguments["body"] = extractPullRequestCommentBody(from: request) ?? request
+        return arguments
+    }
+
+    static func extractPullRequestCommentBody(from request: String) -> String? {
+        if let first = request.firstIndex(of: "`"),
+           let last = request[request.index(after: first)...].lastIndex(of: "`"),
+           first < last {
+            let quoted = String(request[request.index(after: first)..<last])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return quoted.isEmpty ? nil : quoted
+        }
+
+        let lower = request.lowercased()
+        for marker in [" saying ", " with comment ", " comment: ", " comment ", " says "] {
+            guard let range = lower.range(of: marker) else { continue }
+            let body = String(request[range.upperBound...])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+            return body.isEmpty ? nil : body
+        }
+        return nil
     }
 
     static func extractPullRequestSelector(from request: String) -> String? {

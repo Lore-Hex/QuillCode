@@ -425,6 +425,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestCreate.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestView.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestChecks.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestComment.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitWorktreeList.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitWorktreeCreate.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitWorktreeRemove.name))
@@ -956,6 +957,45 @@ final class WorkspaceModelTests: XCTestCase {
             "feature/remote",
             "--draft"
         ])
+    }
+
+    func testRemoteProjectAgentCommentsOnPullRequestThroughSSH() async throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = try makeTempGitRepoWithInitialCommit()
+        let bin = root.appendingPathComponent("bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        let sshArgumentsFile = root.appendingPathComponent("ssh-agent-args.txt")
+        let ghArgumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: sshArgumentsFile, pathPrefix: bin)
+        _ = try makeFakeGitHubCLI(in: bin, argumentsFile: ghArgumentsFile)
+        let connection = ProjectConnection.ssh(path: remoteRoot.path, host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
+                name: ToolDefinition.gitPullRequestComment.name,
+                argumentsJSON: #"{"selector":"456","body":"Ready for review."}"#
+            ))),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        model.setDraft("Comment on PR 456 saying Ready for review.")
+        await model.submitComposer(workspaceRoot: root)
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.gitPullRequestComment.name)
+        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
+        let result = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(card.outputJSON))
+        XCTAssertTrue(result.ok, result.error ?? result.stderr)
+        XCTAssertEqual(result.artifacts, ["https://github.com/example/repo/pull/456"])
+
+        let ghArguments = try String(contentsOf: ghArgumentsFile, encoding: .utf8)
+            .split(separator: "\n")
+            .map(String.init)
+        XCTAssertEqual(ghArguments, ["pr", "comment", "456", "--body", "Ready for review."])
     }
 
     func testRemoteProjectAgentCreatesWorktreeThroughSSH() async throws {

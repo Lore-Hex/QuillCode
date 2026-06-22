@@ -436,6 +436,23 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(arguments["selector"], "42")
     }
 
+    func testPullRequestCommentUsesStructuredToolCall() async throws {
+        let action = try await MockLLMClient().nextAction(
+            thread: ChatThread(mode: .auto),
+            userMessage: "comment on PR #42 saying Ready for review",
+            tools: ToolRouter.definitions
+        )
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected a tool action.")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.gitPullRequestComment.name)
+        let data = try XCTUnwrap(call.argumentsJSON.data(using: .utf8))
+        let arguments = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: String])
+        XCTAssertEqual(arguments["selector"], "42")
+        XCTAssertEqual(arguments["body"], "Ready for review")
+    }
+
     private func makeTempDirectory() throws -> URL {
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("QuillCodeAgentTests-\(UUID().uuidString)")
