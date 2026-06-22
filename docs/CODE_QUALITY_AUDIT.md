@@ -23,7 +23,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | B | Split command handling, automation runners, terminal state, and project actions into focused coordinators. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | B | Command parsing now lives in a focused planner; split automation runners, terminal state, and project actions into focused coordinators next. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | B+ | Surface assembly is valuable but large. Keep moving small ranking/formatting helpers out or make them single-pass builders. |
 | `Sources/quill-code-desktop/main.swift` | B | Desktop bootstrap mixes app lifecycle, menu-bar status, OAuth, and commands. Extract coordinator types before adding more platform behavior. |
@@ -41,11 +41,25 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Current Refactor Priority
 
-1. Extract workspace command execution from `WorkspaceModel`.
-2. Extract automation runners from `WorkspaceModel`.
-3. Continue splitting `WorkspaceSwiftUIView` into pane/control files matching the surface structs. The composer, model picker, top bar, sidebar, review pane, design primitives, transcript message bubbles, tool-card/artifact-preview family, settings/runtime issue family, terminal/browser pane family, secondary utility panes, and workspace dialog family are now extracted; the next native-view target is workspace command execution.
+1. Extract automation runners from `WorkspaceModel`.
+2. Extract terminal state and command history from `WorkspaceModel`.
+3. Extract selected-project actions and project context refresh from `WorkspaceModel`.
 4. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
 5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
+
+## 2026-06-22 Workspace Command Planner Refactor Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+Workspace command parsing moved out of `WorkspaceModel.swift` into `WorkspaceCommandPlan.swift`. The model still owns side effects, but command IDs now reduce through a pure `WorkspaceCommandPlan` enum before the model mutates state, dispatches tools, or pre-fills the composer. This makes command routing easier to test and lowers the risk of command-palette, slash-template, automation, MCP, memory, and git command IDs drifting apart as Codex-parity commands expand.
+
+Code quality changes:
+
+- Removed the inline prefix parser and static command switch from `WorkspaceModel.runWorkspaceCommand`.
+- Centralized canonical git command ID to `ToolDefinition` name mapping in `WorkspaceCommandPlan`.
+- Centralized draft-prefill command mapping for memory, SSH project, pull request, and worktree commands.
+- Moved quick automation recurrence parsing beside the automation command-plan parser.
+- Added focused planner tests for tool mapping, draft mapping, prefix validation, recurrence parsing, slash insert mapping, static action mapping, and invalid command IDs.
 
 ## 2026-06-22 Composer Refactor Pass
 
