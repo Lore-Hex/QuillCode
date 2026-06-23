@@ -28,6 +28,19 @@ final class ParityGateTests: XCTestCase {
         }
     }
 
+    func testWorkspaceModelDelegatesToolCardSurfaceTypes() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let toolCardSurfaceText = try Self.appSourceText(named: "QuillCodeToolCardSurface.swift")
+
+        XCTAssertTrue(toolCardSurfaceText.contains("public struct ToolCardState"), "Tool card surface state should live in a focused surface file.")
+        XCTAssertTrue(toolCardSurfaceText.contains("public struct ToolArtifactState"), "Tool artifact surface state should live in a focused surface file.")
+        XCTAssertTrue(toolCardSurfaceText.contains("enum ToolArtifactPreviewBuilder"), "Tool artifact preview construction should live beside artifact state.")
+        XCTAssertTrue(modelText.contains("ToolArtifactPreviewBuilder.textPreview"), "WorkspaceModel should request artifact previews through the extracted builder.")
+        XCTAssertFalse(modelText.contains("public struct ToolCardState"), "WorkspaceModel should not own tool card surface state.")
+        XCTAssertFalse(modelText.contains("public enum ToolCardStatus"), "WorkspaceModel should not own tool card status.")
+        XCTAssertFalse(modelText.contains("public struct ToolArtifactState"), "WorkspaceModel should not own tool artifact surface state.")
+    }
+
     func testDesktopDefinesNativeMenuBarWidget() throws {
         let text = try Self.desktopSourceText()
 
@@ -121,6 +134,13 @@ final class ParityGateTests: XCTestCase {
     private static func desktopSourceText(named fileName: String) throws -> String {
         let file = packageRoot()
             .appendingPathComponent("Sources/quill-code-desktop")
+            .appendingPathComponent(fileName)
+        return try String(contentsOf: file, encoding: .utf8)
+    }
+
+    private static func appSourceText(named fileName: String) throws -> String {
+        let file = packageRoot()
+            .appendingPathComponent("Sources/QuillCodeApp")
             .appendingPathComponent(fileName)
         return try String(contentsOf: file, encoding: .utf8)
     }
