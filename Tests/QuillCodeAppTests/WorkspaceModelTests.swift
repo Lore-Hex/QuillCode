@@ -1643,6 +1643,33 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertFalse(secondThread.events.contains { $0.kind == .notice && $0.summary == "Stopped by user" })
     }
 
+    func testCompletedComposerRunDoesNotStealSelectionAfterUserSwitchesThreads() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(
+            runner: AgentRunner(llm: DelayedStreamingSayLLMClient(chunks: [
+                #"{"type":"say","text":"done"}"#
+            ]))
+        )
+        let firstThreadID = model.newChat()
+
+        model.setDraft("run a short task")
+        let task = Task {
+            await model.submitComposer(workspaceRoot: root)
+        }
+        try await waitUntil(timeoutSeconds: 1) {
+            model.composer.isSending
+        }
+        let secondThreadID = model.newChat()
+
+        await task.value
+
+        XCTAssertEqual(model.root.selectedThreadID, secondThreadID)
+        let firstThread = try XCTUnwrap(model.root.threads.first { $0.id == firstThreadID })
+        let secondThread = try XCTUnwrap(model.root.threads.first { $0.id == secondThreadID })
+        XCTAssertTrue(firstThread.messages.contains { $0.role == .assistant && $0.content == "done" })
+        XCTAssertTrue(secondThread.messages.isEmpty)
+    }
+
     func testTerminalCommandRunsInWorkspaceRootAndRecordsOutput() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()

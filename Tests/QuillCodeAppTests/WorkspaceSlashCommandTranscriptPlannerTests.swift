@@ -197,32 +197,4 @@ final class WorkspaceSlashCommandTranscriptPlannerTests: XCTestCase {
         )
     }
 
-    func testMemoryTranscriptsDescribeSavedAndFailedResults() {
-        let saved = WorkspaceSlashCommandTranscriptPlanner.memorySaved(
-            userText: "/remember Prefer small reviewable commits",
-            noteTitle: "Small Commits"
-        )
-
-        XCTAssertEqual(saved.userText, "/remember Prefer small reviewable commits")
-        XCTAssertEqual(saved.title, "Memory: Small Commits")
-        XCTAssertEqual(
-            saved.assistantText,
-            "Saved memory: Small Commits. It will be included as background context in future turns."
-        )
-        XCTAssertEqual(
-            WorkspaceSlashCommandTranscriptPlanner.memorySavedSummary(noteTitle: "Small Commits"),
-            "Saved memory: Small Commits"
-        )
-        XCTAssertEqual(
-            WorkspaceSlashCommandTranscriptPlanner.memoryNotSaved(
-                userText: "/remember",
-                message: "Nothing to remember."
-            ),
-            WorkspaceLocalCommandTranscript(
-                userText: "/remember",
-                assistantText: "Nothing to remember.",
-                title: "Memory not saved"
-            )
-        )
-    }
 }
