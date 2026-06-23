@@ -645,7 +645,7 @@ test('mock harness shows model-authored task plan in Activity', async ({ page })
 test('mock harness separates Automations from Activity in the sidebar', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('automations-button').click();
+  await clickSidebarTool(page, 'automations-button');
   await expect(page.getByTestId('automations-pane')).toBeVisible();
   await expect(page.getByTestId('automations-title')).toHaveText('Automations');
   await expect(page.getByTestId('automation-card')).toHaveCount(3);
@@ -664,7 +664,7 @@ test('mock harness creates and manages a thread follow-up automation', async ({ 
   await page.getByTestId('new-chat-button').click();
   await page.getByLabel('Message').fill('plan the launch');
   await page.getByRole('button', { name: 'Send' }).click();
-  await page.getByTestId('automations-button').click();
+  await clickSidebarTool(page, 'automations-button');
   await page.getByTestId('automation-create-follow-up').click();
 
   await expect(page.getByTestId('automations-status')).toHaveText('1 active');
@@ -694,7 +694,7 @@ test('mock harness creates and manages a thread follow-up automation', async ({ 
 test('mock harness creates and runs a workspace schedule automation', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('automations-button').click();
+  await clickSidebarTool(page, 'automations-button');
   await page.getByTestId('automation-create-workspace-schedule').click();
 
   await expect(page.getByTestId('automations-status')).toHaveText('1 active');
@@ -716,7 +716,7 @@ test('mock harness schedules a thread follow-up from quick actions', async ({ pa
   await page.getByTestId('new-chat-button').click();
   await page.getByLabel('Message').fill('check tomorrow');
   await page.getByRole('button', { name: 'Send' }).click();
-  await page.getByTestId('automations-button').click();
+  await clickSidebarTool(page, 'automations-button');
   await page.getByTestId('automation-schedule-follow-up').filter({ hasText: 'In 10 minutes' }).click();
 
   await expect(page.getByTestId('automations-status')).toHaveText('1 active');
@@ -728,7 +728,7 @@ test('mock harness schedules a thread follow-up from quick actions', async ({ pa
 test('mock harness schedules a workspace check from quick actions', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('automations-button').click();
+  await clickSidebarTool(page, 'automations-button');
   await page.getByTestId('automation-schedule-workspace').filter({ hasText: 'Check in 10 minutes' }).click();
 
   await expect(page.getByTestId('automations-status')).toHaveText('1 active');
@@ -740,7 +740,7 @@ test('mock harness schedules a workspace check from quick actions', async ({ pag
 test('mock harness keeps recurring workspace schedules active after running', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('automations-button').click();
+  await clickSidebarTool(page, 'automations-button');
   await page.getByTestId('automation-schedule-workspace').filter({ hasText: 'Check daily' }).click();
 
   await expect(page.getByTestId('automations-status')).toHaveText('1 active');
@@ -892,7 +892,7 @@ test('mock harness searches and reopens an existing chat', async ({ page }) => {
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('sidebar-item')).toContainText('run whoami');
 
-  await page.getByTestId('sidebar-search-button').click();
+  await clickSidebarTool(page, 'sidebar-search-button');
   await expect(page.getByTestId('search-panel')).toBeVisible();
   await expect(page.getByTestId('search-input')).toBeFocused();
   await expect(page.getByTestId('search-result')).toContainText('run whoami');
@@ -1572,7 +1572,7 @@ test('mock harness opens browser preview and records comments', async ({ page })
 test('mock harness shows project extension manifests from sidebar and command palette', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  await page.getByTestId('extensions-button').click();
+  await clickSidebarTool(page, 'extensions-button');
 
   await expect(page.getByTestId('extensions-pane')).toBeVisible();
   await expect(page.getByTestId('extensions-subtitle')).toHaveText('1 plugin · 1 skill · 1 MCP server');
@@ -1608,7 +1608,7 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await page.getByTestId('extension-stop').click();
   await expect(page.getByTestId('extension-item').nth(2)).toContainText('Stopped');
 
-  await page.getByTestId('extensions-button').click();
+  await clickSidebarTool(page, 'extensions-button');
   await expect(page.getByTestId('extensions-pane')).toHaveCount(0);
 
   await clickSidebarTool(page, 'command-palette-button');
