@@ -25,6 +25,12 @@ struct WorkspaceThreadLifecycleEngine {
         var removedThreads: [ChatThread]
     }
 
+    struct AgentRunThreadUpdateResult: Sendable, Hashable {
+        var selectedThreadID: UUID?
+        var selectedProjectID: UUID?
+        var didSelectUpdatedThread: Bool
+    }
+
     static func renameThread(
         _ id: UUID,
         to title: String,
@@ -158,11 +164,42 @@ struct WorkspaceThreadLifecycleEngine {
         return removedThreads.isEmpty ? nil : BulkDeleteResult(removedThreads: removedThreads)
     }
 
+    static func applyAgentRunThreadUpdate(
+        _ thread: ChatThread,
+        threads: inout [ChatThread],
+        projects: [ProjectRef],
+        selectedThreadID: UUID?,
+        selectedProjectID: UUID?
+    ) -> AgentRunThreadUpdateResult {
+        upsertThread(thread, threads: &threads)
+        if let selectedThreadID,
+           threads.contains(where: { $0.id == selectedThreadID }) {
+            return AgentRunThreadUpdateResult(
+                selectedThreadID: selectedThreadID,
+                selectedProjectID: selectedProjectID,
+                didSelectUpdatedThread: false
+            )
+        }
+        return AgentRunThreadUpdateResult(
+            selectedThreadID: thread.id,
+            selectedProjectID: WorkspaceProjectEngine.knownProjectID(thread.projectID, projects: projects),
+            didSelectUpdatedThread: true
+        )
+    }
+
     static func newestUnarchivedThreadID(in threads: [ChatThread], projectID: UUID?) -> UUID? {
         threads
             .filter { !$0.isArchived && $0.projectID == projectID }
             .sorted { $0.updatedAt > $1.updatedAt }
             .first?
             .id
+    }
+
+    private static func upsertThread(_ thread: ChatThread, threads: inout [ChatThread]) {
+        if let index = threads.firstIndex(where: { $0.id == thread.id }) {
+            threads[index] = thread
+        } else {
+            threads.insert(thread, at: 0)
+        }
     }
 }

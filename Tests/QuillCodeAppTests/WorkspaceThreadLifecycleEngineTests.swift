@@ -114,6 +114,65 @@ final class WorkspaceThreadLifecycleEngineTests: XCTestCase {
         XCTAssertEqual(threads.map(\.id), [selected.id])
     }
 
+    func testAgentRunThreadUpdateUpsertsAndPreservesCurrentSelection() {
+        let project = ProjectRef(name: "QuillCode", path: "/repo")
+        let target = ChatThread(title: "Original", projectID: project.id)
+        let selected = ChatThread(title: "Selected")
+        var updatedTarget = target
+        updatedTarget.title = "Updated"
+        var threads = [target, selected]
+
+        let result = WorkspaceThreadLifecycleEngine.applyAgentRunThreadUpdate(
+            updatedTarget,
+            threads: &threads,
+            projects: [project],
+            selectedThreadID: selected.id,
+            selectedProjectID: nil
+        )
+
+        XCTAssertEqual(result.selectedThreadID, selected.id)
+        XCTAssertNil(result.selectedProjectID)
+        XCTAssertFalse(result.didSelectUpdatedThread)
+        XCTAssertEqual(threads.map(\.id), [target.id, selected.id])
+        XCTAssertEqual(threads.first?.title, "Updated")
+    }
+
+    func testAgentRunThreadUpdateSelectsUpdatedThreadWhenSelectionIsStale() {
+        let project = ProjectRef(name: "QuillCode", path: "/repo")
+        let updated = ChatThread(title: "Updated", projectID: project.id)
+        var threads: [ChatThread] = []
+
+        let result = WorkspaceThreadLifecycleEngine.applyAgentRunThreadUpdate(
+            updated,
+            threads: &threads,
+            projects: [project],
+            selectedThreadID: UUID(),
+            selectedProjectID: nil
+        )
+
+        XCTAssertEqual(result.selectedThreadID, updated.id)
+        XCTAssertEqual(result.selectedProjectID, project.id)
+        XCTAssertTrue(result.didSelectUpdatedThread)
+        XCTAssertEqual(threads.map(\.id), [updated.id])
+    }
+
+    func testAgentRunThreadUpdateDropsUnknownProjectWhenFallbackSelectingUpdatedThread() {
+        let updated = ChatThread(title: "Updated", projectID: UUID())
+        var threads: [ChatThread] = []
+
+        let result = WorkspaceThreadLifecycleEngine.applyAgentRunThreadUpdate(
+            updated,
+            threads: &threads,
+            projects: [],
+            selectedThreadID: nil,
+            selectedProjectID: nil
+        )
+
+        XCTAssertEqual(result.selectedThreadID, updated.id)
+        XCTAssertNil(result.selectedProjectID)
+        XCTAssertTrue(result.didSelectUpdatedThread)
+    }
+
     func testArchiveThreadsArchivesAndUnpinsAllTargets() throws {
         var pinned = ChatThread(title: "Pinned")
         pinned.isPinned = true

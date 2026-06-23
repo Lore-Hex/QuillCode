@@ -1505,3 +1505,19 @@ Code quality changes:
 Remaining risk:
 
 - `submitComposer` still manages send lifecycle state directly. The cancellation transcript boundary is now testable, but a larger runner-session coordinator would be the next step if cancellation, retries, or background runs gain more states.
+
+## 2026-06-23 Agent Run Thread Update Engine Pass
+
+Overall grade after this slice: **A- foundation, A agent-run thread update reducer**.
+
+Agent-run thread upsert and fallback selection moved from `WorkspaceModel` into `WorkspaceThreadLifecycleEngine.applyAgentRunThreadUpdate`. The workspace model still owns side effects that are inherently UI/runtime-specific, such as terminal-session sync and project persistence after fallback selection, while the pure decision about which thread/project should remain selected is directly tested beside the other thread lifecycle rules.
+
+Code quality changes:
+
+- Added `WorkspaceThreadLifecycleEngine.AgentRunThreadUpdateResult` so the selection outcome and “did fallback-select the updated thread” signal are explicit values.
+- Added lifecycle-engine tests for preserving the current selection, selecting the updated thread when the prior selection is stale, and dropping unknown project IDs during fallback selection.
+- Extended the parity gate so generic thread upsert and agent-run fallback selection do not drift back into `WorkspaceModel`.
+
+Remaining risk:
+
+- `submitComposer` still owns the async send lifecycle and persistence timing. The next larger step is a runner-session coordinator that captures thread identity, cancellation, progress persistence, and retry semantics in one testable unit.

@@ -2005,32 +2005,20 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func updateThreadFromAgentRun(_ thread: ChatThread) {
-        let currentSelection = root.selectedThreadID
-        let currentProjectSelection = root.selectedProjectID
-        upsertThread(thread)
-        if let currentSelection,
-           root.threads.contains(where: { $0.id == currentSelection }) {
-            root.selectedThreadID = currentSelection
-            root.selectedProjectID = currentProjectSelection
-            return
+        let result = WorkspaceThreadLifecycleEngine.applyAgentRunThreadUpdate(
+            thread,
+            threads: &root.threads,
+            projects: root.projects,
+            selectedThreadID: root.selectedThreadID,
+            selectedProjectID: root.selectedProjectID
+        )
+        root.selectedThreadID = result.selectedThreadID
+        root.selectedProjectID = result.selectedProjectID
+        if result.didSelectUpdatedThread {
+            syncTerminalSessionToSelectedProject()
+            touchProject(root.selectedProjectID)
+            saveProjects()
         }
-        selectUpdatedThread(thread)
-    }
-
-    private func upsertThread(_ thread: ChatThread) {
-        if let index = root.threads.firstIndex(where: { $0.id == thread.id }) {
-            root.threads[index] = thread
-        } else {
-            root.threads.insert(thread, at: 0)
-        }
-    }
-
-    private func selectUpdatedThread(_ thread: ChatThread) {
-        root.selectedThreadID = thread.id
-        root.selectedProjectID = knownProjectID(thread.projectID)
-        syncTerminalSessionToSelectedProject()
-        touchProject(root.selectedProjectID)
-        saveProjects()
     }
 
     public func setComputerUseStatus(_ status: ComputerUseStatus) {
