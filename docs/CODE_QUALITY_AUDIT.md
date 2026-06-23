@@ -16,7 +16,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `QuillCodeSafety` | A- | Small, explicit policy layer. Needs more production prompt telemetry once live Auto reviewer tuning begins. |
 | `QuillCodePersistence` | A | Focused stores, compatibility tests, and clear path ownership. |
 | `QuillComputerUseKit` | B+ | Protocol shape is good and macOS adapter is isolated. Linux adapter, app approvals, and visual feedback loops are still parity gaps. |
-| `QuillCodeApp` surface contracts | B+ | Strong shared surface model and broad tests. Runtime issue and model catalog presentation now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
+| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, and command presentation now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
 | Playwright harness | B+ | Valuable parity harness with broad coverage. It intentionally duplicates rendering behavior, so keep it thin and derived from stable surface concepts. |
 
 ## File Hotspots
@@ -25,7 +25,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | --- | --- | --- |
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, browser/MCP surface state, MCP request parsing, MCP runtime/catalog work, and tool-card surface types now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
-| `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but runtime issue classification and model catalog presentation are now extracted into pure builders. Command palette assembly is the next obvious pure builder candidate. |
+| `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but runtime issue classification, model catalog presentation, and command palette construction are now extracted into pure builders. Next step is extracting review/transcript-derived builders if those areas grow. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
 | `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Next split should move pasteboard feedback or project-import routing if those paths grow. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
@@ -44,7 +44,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 1. Keep `QuillCodeDesktopController.swift` to UI/workspace routing; split pasteboard feedback or project-import routing if either path grows.
 2. Continue pulling pure workflow planning and surface builders out of `WorkspaceModel` before adding new Codex-parity commands.
-3. Keep splitting remaining workspace surface assembly into single-purpose builders when behavior grows; command-palette construction is the next obvious candidate.
+3. Keep splitting remaining workspace surface assembly into single-purpose builders when behavior grows; review and transcript-derived surface builders are the next likely candidates.
 4. If MCP transports expand beyond stdio, add a small launch/session factory protocol before adding new runtime branches.
 5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
 
@@ -417,4 +417,21 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceSurface.swift` still owns command palette assembly. That is another pure presentation builder and should be extracted before adding more slash/command parity.
+- `WorkspaceSurface.swift` still owns review-surface assembly and some transcript-derived estimates. Those are smaller than the old command/model/runtime sections, but should be watched before adding much more Codex-parity review UI.
+
+## 2026-06-23 Command Surface Builder Pass
+
+Overall grade after this slice: **A- foundation, A- surface boundary**.
+
+Command palette row construction moved out of `WorkspaceSurface.swift` into `WorkspaceCommandSurfaceBuilder`. The workspace surface now supplies selected thread/project/sidebar/runtime inputs, while the builder owns command categories, availability, local environment action keywords, MCP lifecycle rows, extension update rows, Git commands, Stop All state, and Computer Use command gating.
+
+Code quality changes:
+
+- Extracted the formerly large command catalog into a focused pure builder with grouped helper sections.
+- Kept command availability derived from value inputs so command behavior can be tested without booting the full workspace model.
+- Added direct tests for conservative defaults, selected-thread and bulk-selection commands, local environment action search keywords, MCP start/stop gating, extension update rows, Git enablement, browser/terminal state, Stop All, and Computer Use permission commands.
+- Extended parity gates so `WorkspaceSurface.swift` cannot regain command catalog, local-action, MCP lifecycle, or extension-update construction.
+
+Remaining risk:
+
+- `WorkspaceSurface.swift` still assembles review surfaces and context estimates. Those are the next pure presentation candidates if review parity grows.

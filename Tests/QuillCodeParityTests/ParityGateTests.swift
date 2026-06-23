@@ -130,6 +130,22 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(surfaceText.contains("func recentModelIDs("), "WorkspaceSurface should not own recent model normalization.")
     }
 
+    func testWorkspaceSurfaceDelegatesCommandSurfaceBuilding() throws {
+        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceCommandSurfaceBuilder.swift")
+
+        XCTAssertTrue(builderText.contains("struct WorkspaceCommandSurfaceBuilder"), "Command palette construction should live in a focused builder.")
+        XCTAssertTrue(builderText.contains("var commands: [WorkspaceCommandSurface]"), "Command builder should expose directly testable command rows.")
+        XCTAssertTrue(builderText.contains("private var localActionCommands"), "Local environment action command construction should be isolated in the builder.")
+        XCTAssertTrue(builderText.contains("private var mcpLifecycleCommands"), "MCP lifecycle command construction should be isolated in the builder.")
+        XCTAssertTrue(builderText.contains("private var gitCommands"), "Git command construction should be isolated in the builder.")
+        XCTAssertTrue(surfaceText.contains("WorkspaceCommandSurfaceBuilder("), "WorkspaceSurface should delegate command construction.")
+        XCTAssertFalse(surfaceText.contains("private func commands() -> [WorkspaceCommandSurface]"), "WorkspaceSurface should not own the command catalog.")
+        XCTAssertFalse(surfaceText.contains("let localActionCommands ="), "WorkspaceSurface should not own local-action command construction.")
+        XCTAssertFalse(surfaceText.contains("let mcpLifecycleCommands ="), "WorkspaceSurface should not own MCP lifecycle command construction.")
+        XCTAssertFalse(surfaceText.contains("let extensionUpdateCommands ="), "WorkspaceSurface should not own extension update command construction.")
+    }
+
     func testDesktopDefinesNativeMenuBarWidget() throws {
         let text = try Self.desktopSourceText()
 
