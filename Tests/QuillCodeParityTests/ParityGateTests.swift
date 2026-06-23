@@ -171,7 +171,7 @@ final class ParityGateTests: XCTestCase {
     func testSidebarCommandPresentationIsSharedByNativeAndHTMLSurfaces() throws {
         let presentationText = try Self.appSourceText(named: "QuillCodeSidebarCommandPresentation.swift")
         let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
-        let htmlText = try Self.appSourceText(named: "WorkspaceHTMLRenderer.swift")
+        let htmlSidebarText = try Self.appSourceText(named: "WorkspaceHTMLSidebarRenderer.swift")
 
         XCTAssertTrue(presentationText.contains("struct QuillCodeSidebarCommandPresentation"), "Sidebar command labels and icons should live in one focused presentation helper.")
         XCTAssertTrue(presentationText.contains("static let primaryCommandIDs"), "Primary sidebar command order should be explicit.")
@@ -183,12 +183,12 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(sidebarText.contains("QuillCodeSidebarCommandPresentation.utilityCommandIDs"), "Native sidebar should consume shared utility command ordering.")
         XCTAssertTrue(sidebarText.contains("QuillCodeSidebarCommandPresentation.displayTitle"), "Native sidebar should consume shared labels.")
         XCTAssertTrue(sidebarText.contains("QuillCodeSidebarCommandPresentation.systemImage"), "Native sidebar should consume shared SF Symbols.")
-        XCTAssertTrue(htmlText.contains("renderSidebarPrimaryActions"), "HTML renderer should build primary sidebar actions through a helper.")
-        XCTAssertTrue(htmlText.contains("QuillCodeSidebarCommandPresentation.primaryCommandIDs"), "HTML renderer should consume shared primary command ordering.")
-        XCTAssertTrue(htmlText.contains("QuillCodeSidebarCommandPresentation.htmlIconToken"), "HTML renderer should consume shared icon tokens.")
+        XCTAssertTrue(htmlSidebarText.contains("renderPrimaryActions"), "HTML sidebar renderer should build primary sidebar actions through a helper.")
+        XCTAssertTrue(htmlSidebarText.contains("QuillCodeSidebarCommandPresentation.primaryCommandIDs"), "HTML sidebar renderer should consume shared primary command ordering.")
+        XCTAssertTrue(htmlSidebarText.contains("QuillCodeSidebarCommandPresentation.htmlIconToken"), "HTML sidebar renderer should consume shared icon tokens.")
         XCTAssertFalse(sidebarText.contains("private func displayTitle"), "Native sidebar should not maintain a second label map.")
         XCTAssertFalse(sidebarText.contains("private func systemImage"), "Native sidebar should not maintain a second icon map.")
-        XCTAssertFalse(htmlText.contains(#"data-icon="plugins">Plugins"#), "HTML renderer should not hard-code sidebar plugin markup.")
+        XCTAssertFalse(htmlSidebarText.contains(#"data-icon="plugins">Plugins"#), "HTML sidebar renderer should not hard-code sidebar plugin markup.")
     }
 
     func testWorkspaceSwiftUIViewDelegatesTranscriptFindAndContextBanner() throws {
@@ -421,6 +421,26 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(htmlText.contains("private static func renderReviewAction"), "WorkspaceHTMLRenderer should not own review action rendering.")
         XCTAssertFalse(htmlText.contains("review-hunk-header"), "WorkspaceHTMLRenderer should not own review hunk markup.")
         XCTAssertFalse(htmlText.contains("review-line-marker"), "WorkspaceHTMLRenderer should not own review line markup.")
+    }
+
+    func testWorkspaceHTMLRendererDelegatesSidebarRendering() throws {
+        let htmlText = try Self.appSourceText(named: "WorkspaceHTMLRenderer.swift")
+        let sidebarText = try Self.appSourceText(named: "WorkspaceHTMLSidebarRenderer.swift")
+
+        XCTAssertTrue(sidebarText.contains("enum WorkspaceHTMLSidebarRenderer"), "HTML sidebar rendering should live in a focused renderer.")
+        XCTAssertTrue(sidebarText.contains("static func render("), "HTML sidebar rendering should expose a directly testable entry point.")
+        XCTAssertTrue(sidebarText.contains("private static func renderProjects"), "Project-list rendering should live beside sidebar HTML.")
+        XCTAssertTrue(sidebarText.contains("private static func renderThreadSections"), "Thread-section rendering should live beside sidebar HTML.")
+        XCTAssertTrue(sidebarText.contains("private static func renderBulkToolbar"), "Bulk-selection rendering should live beside sidebar HTML.")
+        XCTAssertTrue(sidebarText.contains("private static func renderFooter"), "Sidebar tool footer rendering should live beside sidebar HTML.")
+        XCTAssertTrue(sidebarText.contains("WorkspaceHTMLPrimitives.escape"), "Sidebar renderer should reuse shared HTML escaping.")
+        XCTAssertTrue(htmlText.contains("WorkspaceHTMLSidebarRenderer.render"), "WorkspaceHTMLRenderer should delegate sidebar rendering.")
+        XCTAssertFalse(htmlText.contains("private static func renderSidebar"), "WorkspaceHTMLRenderer should not own sidebar rendering.")
+        XCTAssertFalse(htmlText.contains("private static func renderSidebarPrimaryActions"), "WorkspaceHTMLRenderer should not own sidebar primary action rendering.")
+        XCTAssertFalse(htmlText.contains("private static func renderSidebarSection"), "WorkspaceHTMLRenderer should not own sidebar section rendering.")
+        XCTAssertFalse(htmlText.contains("private static func renderSidebarBulkToolbar"), "WorkspaceHTMLRenderer should not own sidebar bulk toolbar rendering.")
+        XCTAssertFalse(htmlText.contains("sidebar-tools-popover"), "WorkspaceHTMLRenderer should not own sidebar footer markup.")
+        XCTAssertFalse(htmlText.contains("project-empty"), "WorkspaceHTMLRenderer should not own project empty-state markup.")
     }
 
     func testWorkspaceSurfaceDelegatesReviewSurfaceBuilding() throws {

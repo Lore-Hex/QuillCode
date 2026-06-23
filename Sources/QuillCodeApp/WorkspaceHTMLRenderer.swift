@@ -6,7 +6,11 @@ public enum WorkspaceHTMLRenderer {
         <section class="quillcode-workspace" data-testid="workspace">
           \(renderTopBar(surface.topBar, commands: surface.commands))
           <div class="workspace-grid">
-            \(renderSidebar(projects: surface.projects, sidebar: surface.sidebar, commands: surface.commands))
+            \(WorkspaceHTMLSidebarRenderer.render(
+                projects: surface.projects,
+                sidebar: surface.sidebar,
+                commands: surface.commands
+            ))
             <main class="transcript" data-testid="transcript">
               \(WorkspaceHTMLSecondaryPaneRenderer.renderAutomations(surface.automations))
               \(renderTranscript(
@@ -79,139 +83,6 @@ public enum WorkspaceHTMLRenderer {
         let disabledAttribute = command.isEnabled ? "" : #" disabled aria-disabled="true""#
         let title = command.shortcut.map { "\(command.title) (\($0))" } ?? command.title
         return #"<button type="button" data-testid="\#(escape(testID))" data-command-id="\#(escape(command.id))" title="\#(escape(title))"\#(disabledAttribute)>\#(escape(command.title))</button>"#
-    }
-
-    private static func renderSidebar(
-        projects: ProjectListSurface,
-        sidebar: SidebarSurface,
-        commands: [WorkspaceCommandSurface]
-    ) -> String {
-        let projectContent: String
-        if projects.items.isEmpty {
-            projectContent = #"<p data-testid="project-empty">\#(escape(projects.emptyTitle))</p>"#
-        } else {
-            projectContent = projects.items.map { project in
-                """
-                <button class="project-item\(project.isSelected ? " selected" : "")" data-testid="project-item" data-project-id="\(project.id.uuidString)" aria-current="\(project.isSelected ? "true" : "false")">
-                  <span>\(escape(project.name))\(project.isRemote ? #" <small data-testid="project-connection-kind">SSH Remote</small>"# : "")</span>
-                  <small>\(escape(project.path))</small>
-                </button>
-                """
-            }.joined(separator: "\n")
-        }
-
-        let content: String
-        if sidebar.items.isEmpty {
-            content = #"<p data-testid="sidebar-empty">\#(escape(sidebar.emptyTitle))</p>"#
-        } else {
-            content = [
-                renderSidebarSection(title: "Pinned", items: sidebar.pinnedItems),
-                renderSidebarSection(title: "Recent", items: sidebar.recentItems),
-                renderSidebarSection(title: "Archived", items: sidebar.archivedItems)
-            ]
-            .filter { !$0.isEmpty }
-            .joined(separator: "\n")
-        }
-        return """
-        <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
-          <div class="sidebar-actions" aria-label="Primary chat actions">
-            \(renderSidebarPrimaryActions(commands))
-          </div>
-          <div class="sidebar-title-row">
-            <h2>\(escape(sidebar.title))</h2>
-            \(renderSidebarSelectionHeaderAction(sidebar))
-          </div>
-          \(renderSidebarBulkToolbar(sidebar))
-          \(content)
-          <div class="sidebar-section-title">
-            <h2>\(escape(projects.title))</h2>
-            <button type="button" data-testid="add-project-button" aria-label="Open project">+</button>
-          </div>
-          \(projectContent)
-          <div class="sidebar-footer" aria-label="Workspace tools">
-            <details class="sidebar-tools-menu" data-testid="sidebar-tools-menu">
-              <summary data-testid="sidebar-tools-button" aria-label="Tools" title="Tools">Tools</summary>
-              <div class="sidebar-tools-popover" role="menu">
-                <button class="sidebar-tool-action" type="button" data-testid="terminal-button" aria-label="Terminal" title="Terminal">Terminal</button>
-                <button class="sidebar-tool-action" type="button" data-testid="browser-button" aria-label="Browser" title="Browser">Browser</button>
-                <button class="sidebar-tool-action" type="button" data-testid="memories-button" aria-label="Memories" title="Memories">Memories</button>
-                <button class="sidebar-tool-action" type="button" data-testid="activity-button" aria-label="Activity" title="Activity">Activity</button>
-                <button class="sidebar-tool-action" type="button" data-testid="command-palette-button" aria-label="Command palette" title="Command palette">Command palette</button>
-              </div>
-            </details>
-            <button class="sidebar-settings-button" type="button" data-testid="settings-button" aria-label="Settings" title="Settings">Settings</button>
-          </div>
-        </aside>
-        """
-    }
-
-    private static func renderSidebarPrimaryActions(_ commands: [WorkspaceCommandSurface]) -> String {
-        QuillCodeSidebarCommandPresentation.primaryCommandIDs
-            .compactMap { commandID in
-                commands.first { $0.id == commandID }
-            }
-            .map { command in
-                let testID = QuillCodeSidebarCommandPresentation.htmlTestID(for: command.id)
-                let icon = QuillCodeSidebarCommandPresentation.htmlIconToken(for: command.id)
-                let title = QuillCodeSidebarCommandPresentation.displayTitle(for: command)
-                let disabled = command.isEnabled ? "" : #" disabled aria-disabled="true""#
-                return #"<button class="sidebar-action" type="button" data-testid="\#(escape(testID))" data-primary="true" data-icon="\#(escape(icon))" data-command-id="\#(escape(command.id))"\#(disabled)>\#(escape(title))</button>"#
-            }
-            .joined(separator: "\n")
-    }
-
-    private static func renderSidebarSection(title: String, items: [SidebarItemSurface]) -> String {
-        guard !items.isEmpty else { return "" }
-        let rows = items.map { item in
-            """
-            <div data-testid="sidebar-thread-row">
-              \(item.isBulkSelected ? "<span data-testid=\"sidebar-thread-selected\">Selected</span>" : "")
-              <button class="sidebar-item\(item.isSelected ? " selected" : "")" data-testid="sidebar-item" data-thread-id="\(item.id.uuidString)" aria-current="\(item.isSelected ? "true" : "false")">
-                <span>\(escape(item.title))</span>
-                <small>\(escape(item.subtitle))</small>
-              </button>
-              <span data-testid="sidebar-item-actions">
-                \(item.actions.map(renderSidebarAction).joined(separator: "\n"))
-              </span>
-            </div>
-            """
-        }.joined(separator: "\n")
-        return """
-        <section data-testid="sidebar-section">
-          <h3 data-testid="sidebar-section-title">\(escape(title))</h3>
-          \(rows)
-        </section>
-        """
-    }
-
-    private static func renderSidebarBulkToolbar(_ sidebar: SidebarSurface) -> String {
-        guard sidebar.isSelectionMode, !sidebar.bulkActions.isEmpty else { return "" }
-        let actions = sidebar.bulkActions.map { action in
-            """
-            <button type="button" data-testid="sidebar-bulk-action" data-command-id="\(escape(action.commandID))" data-action="\(escape(action.kind.rawValue))" data-destructive="\(action.isDestructive)" \(action.isEnabled ? "" : "disabled")>\(escape(action.title))</button>
-            """
-        }.joined(separator: "\n")
-        return """
-        <div data-testid="sidebar-selection" data-active="\(sidebar.isSelectionMode)" data-selected-count="\(sidebar.selectedThreadIDs.count)">
-          <span data-testid="sidebar-selection-label">\(escape(sidebar.selectionLabel))</span>
-          \(actions)
-        </div>
-        """
-    }
-
-    private static func renderSidebarSelectionHeaderAction(_ sidebar: SidebarSurface) -> String {
-        guard !sidebar.isSelectionMode,
-              let action = sidebar.bulkActions.first(where: { $0.kind == .select })
-        else { return "" }
-        return """
-        <button type="button" data-testid="sidebar-bulk-action" data-command-id="\(escape(action.commandID))" data-action="\(escape(action.kind.rawValue))" data-destructive="\(action.isDestructive)" \(action.isEnabled ? "" : "disabled")>\(escape(action.title))</button>
-        """
-    }
-
-    private static func renderSidebarAction(_ action: SidebarItemActionSurface) -> String {
-        """
-        <button type="button" data-testid="sidebar-thread-action" data-action="\(escape(action.kind.rawValue))" data-thread-id="\(action.threadID.uuidString)">\(escape(action.kind.title))</button>
-        """
     }
 
     private static func renderTranscript(
