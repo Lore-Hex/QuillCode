@@ -56,6 +56,27 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("ToolArtifactPreviewBuilder.textPreview"), "WorkspaceModel should not own artifact-preview requests.")
     }
 
+    func testActionableReviewCardsStayWiredThroughSurfaces() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let toolCardSurfaceText = try Self.appSourceText(named: "QuillCodeToolCardSurface.swift")
+        let toolCardViewText = try Self.appSourceText(named: "QuillCodeToolCardView.swift")
+        let transcriptViewText = try Self.appSourceText(named: "QuillCodeTranscriptView.swift")
+        let workspaceViewText = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
+        let htmlRendererText = try Self.appSourceText(named: "WorkspaceHTMLToolCardRenderer.swift")
+        let desktopAppText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
+        let desktopControllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+
+        XCTAssertTrue(toolCardSurfaceText.contains("public struct ToolCardActionSurface"), "Tool-card actions should be first-class surface state.")
+        XCTAssertTrue(toolCardSurfaceText.contains("public var actions: [ToolCardActionSurface]"), "Tool-card state should carry available user actions.")
+        XCTAssertTrue(transcriptViewText.contains("onToolCardAction"), "Transcript should route action taps out of row rendering.")
+        XCTAssertTrue(toolCardViewText.contains("QuillCodeToolCardActionRow"), "Native cards should render action buttons directly on review cards.")
+        XCTAssertTrue(workspaceViewText.contains("onToolCardAction"), "Workspace view should expose review-card actions to the host app.")
+        XCTAssertTrue(modelText.contains("public func runToolCardAction"), "Workspace model should execute approved review-card actions.")
+        XCTAssertTrue(htmlRendererText.contains("data-testid=\"tool-card-actions\""), "HTML harness should expose action buttons for Playwright.")
+        XCTAssertTrue(desktopAppText.contains("controller.runToolCardAction"), "Desktop app should connect UI actions to the controller.")
+        XCTAssertTrue(desktopControllerText.contains("model.runToolCardAction"), "Desktop controller should forward review-card actions to the model.")
+    }
+
     func testWorkspaceModelDelegatesExecutionContextSurfaceBuilding() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceExecutionContextSurfaceBuilder.swift")

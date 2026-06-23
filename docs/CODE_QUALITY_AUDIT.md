@@ -2062,3 +2062,28 @@ Code quality changes:
 - Kept summaries bounded and whitespace-normalized so long commands do not destabilize collapsed card layout.
 - Added focused Swift coverage for known tool summaries, fallback behavior, and transcript lifecycle projection.
 - Added Playwright coverage proving the mock command flow shows the command in the collapsed card subtitle.
+
+## 2026-06-23 Actionable Review Card Pass
+
+Overall grade after this slice: **A- interaction clarity, A surface wiring, A regression coverage**.
+
+Claude CLI's interface review called out review cards as the highest-value interaction fix: the old flow could show a queued tool, then a separate safety/review card, leaving the user to infer what action was expected. Review now lives on the affected tool card itself with direct actions.
+
+| Surface | Before | After |
+| --- | --- | --- |
+| Review cards | A separate warning-styled `Safety Check` card appeared after the queued tool. | The queued tool card becomes a neutral review card with `Allow once` and `Skip` actions. |
+| Safety tone | Review states used a warning perimeter even when the model had not found danger. | Review states use neutral chrome; failure remains red and actual denial can still carry stronger copy. |
+| Action path | Approval state was represented in transcript events but had no first-class card action. | `ToolCardActionSurface` flows from transcript projection through SwiftUI, HTML, desktop controller, and workspace model execution. |
+
+Code quality changes:
+
+- Added first-class `ToolCardActionSurface` state instead of embedding action affordances in view-only code.
+- Updated transcript projection so `approvalRequested` replaces the active queued tool card, preserving context and avoiding duplicate cards.
+- Added model execution for card actions: approve appends an `ApprovalDecision` and dispatches the original `ToolCall`; skip records the decision and adds a short assistant notice.
+- Carried the reviewer verdict into `ApprovalRequest`, so hard-denied commands remain visible as blocked review cards without exposing an approval override.
+- Added Swift and Playwright coverage for native projection, model dispatch, HTML rendering, and harness click behavior.
+
+Remaining risk:
+
+- The current approval action reruns from the serialized redacted tool call, which is correct for shell/file arguments covered today. If future tools need non-transcript-safe in-memory fields, the runner should retain a pending approval registry keyed by request ID.
+- The review UI now handles approve/skip. A later pass should add a lightweight "edit command before running" path for commands where the user wants to fix arguments instead of approving or skipping.

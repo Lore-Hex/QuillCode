@@ -1163,6 +1163,35 @@ public final class QuillCodeWorkspaceModel {
     }
 
     @discardableResult
+    public func runToolCardAction(_ action: ToolCardActionSurface, workspaceRoot: URL) -> Bool {
+        guard let request = pendingApprovalRequest(id: action.requestID) else {
+            lastError = "Approval request is no longer available."
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.failed)
+            return false
+        }
+
+        appendApprovalDecision(ApprovalDecision(
+            requestID: action.requestID,
+            verdict: action.kind.approvalVerdict,
+            rationale: action.kind == .approve
+                ? "Approved from the tool card."
+                : "Skipped from the tool card."
+        ))
+
+        switch action.kind {
+        case .approve:
+            _ = runToolCall(request.toolCall, workspaceRoot: workspaceRoot)
+        case .deny:
+            appendAssistantNotice("Skipped \(request.toolCall.name).")
+            if let thread = selectedThread {
+                try? threadStore?.save(thread)
+            }
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        }
+        return true
+    }
+
+    @discardableResult
     public func addReviewComment(path: String, text: String) -> Bool {
         addReviewComment(path: path, lineNumber: nil, endLineNumber: nil, lineKind: nil, text: text)
     }
@@ -2093,6 +2122,41 @@ public final class QuillCodeWorkspaceModel {
         try? automationStore?.save(automations.items)
     }
 
+    private func pendingApprovalRequest(id: String) -> ApprovalRequest? {
+        selectedThread?.events.lazy.compactMap { event -> ApprovalRequest? in
+            guard event.kind == .approvalRequested,
+                  let request = Self.decodePayload(ApprovalRequest.self, from: event.payloadJSON),
+                  request.id == id
+            else {
+                return nil
+            }
+            return request
+        }.last
+    }
+
+    private func appendApprovalDecision(_ decision: ApprovalDecision) {
+        let payloadJSON = try? JSONHelpers.encodePretty(decision)
+        mutateSelectedThread { thread in
+            thread.events.append(ThreadEvent(
+                kind: .approvalDecided,
+                summary: "\(decision.verdict.rawValue): \(decision.rationale)",
+                payloadJSON: payloadJSON
+            ))
+        }
+    }
+
+    private func appendAssistantNotice(_ text: String) {
+        mutateSelectedThread { thread in
+            thread.messages.append(.init(role: .assistant, content: text))
+            thread.events.append(.init(kind: .message, summary: text))
+        }
+    }
+
+    private static func decodePayload<T: Decodable>(_ type: T.Type, from payloadJSON: String?) -> T? {
+        guard let payloadJSON else { return nil }
+        return try? JSONHelpers.decode(type, from: payloadJSON)
+    }
+
     private static func defaultProjectName(for url: URL) -> String {
         WorkspaceProjectEngine.defaultProjectName(for: url)
     }
@@ -2101,4 +2165,15 @@ public final class QuillCodeWorkspaceModel {
         WorkspaceProjectEngine.defaultSSHProjectName(for: connection)
     }
 
+}
+
+private extension ToolCardActionKind {
+    var approvalVerdict: ApprovalVerdict {
+        switch self {
+        case .approve:
+            return .approve
+        case .deny:
+            return .deny
+        }
+    }
 }

@@ -28,6 +28,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
     public var onStartTrustedRouterSignIn: () -> Void
     public var onReviewAction: (WorkspaceReviewActionSurface) -> Void
+    public var onToolCardAction: (ToolCardActionSurface) -> Void
     public var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     public var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
     public var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
@@ -76,6 +77,7 @@ public struct QuillCodeWorkspaceView: View {
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onStartTrustedRouterSignIn: @escaping () -> Void,
         onReviewAction: @escaping (WorkspaceReviewActionSurface) -> Void,
+        onToolCardAction: @escaping (ToolCardActionSurface) -> Void = { _ in },
         onAddReviewComment: @escaping (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
@@ -108,6 +110,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onSaveSettings = onSaveSettings
         self.onStartTrustedRouterSignIn = onStartTrustedRouterSignIn
         self.onReviewAction = onReviewAction
+        self.onToolCardAction = onToolCardAction
         self.onAddReviewComment = onAddReviewComment
         self.onCreateWorktree = onCreateWorktree
         self.onRemoveWorktree = onRemoveWorktree
@@ -161,6 +164,7 @@ public struct QuillCodeWorkspaceView: View {
                                 onContextCommand: handleCommand,
                                 onRuntimeIssueAction: runtimeIssueAction(for: surface.runtimeIssue),
                                 onReviewAction: onReviewAction,
+                                onToolCardAction: onToolCardAction,
                                 onAddReviewComment: onAddReviewComment,
                                 onCopyTranscriptItem: onCopyTranscriptItem,
                                 onUseMessageAsDraft: useMessageAsDraft,

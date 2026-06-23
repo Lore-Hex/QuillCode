@@ -139,6 +139,59 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('message-use-as-draft')).toHaveCount(2);
 });
 
+test('mock harness exposes actionable approval buttons on review cards', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.evaluate(() => {
+    const harness = window as typeof window & {
+      addToolCard: (card: Record<string, unknown>) => void;
+      render: () => void;
+    };
+    harness.addToolCard({
+      id: 'shell-review',
+      title: 'host.shell.run',
+      subtitle: 'Needs your okay · whoami',
+      status: 'review',
+      density: 'expanded',
+      inputJSON: JSON.stringify({ cmd: 'whoami' }, null, 2),
+      isExpanded: true,
+      actions: [
+        {
+          id: 'tool-card-action-approve-approval-1',
+          title: 'Allow once',
+          kind: 'approve',
+          requestID: 'approval-1',
+          style: 'primary'
+        },
+        {
+          id: 'tool-card-action-deny-approval-1',
+          title: 'Skip',
+          kind: 'deny',
+          requestID: 'approval-1',
+          style: 'secondary'
+        }
+      ]
+    });
+    harness.render();
+  });
+
+  await expect(page.getByTestId('tool-card')).toHaveCount(1);
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'review');
+  await expect(page.getByTestId('tool-card-actions')).toBeVisible();
+  await expect(page.getByTestId('tool-card-action').filter({ hasText: 'Allow once' })).toBeVisible();
+  await expect(page.getByTestId('tool-card-action').filter({ hasText: 'Skip' })).toBeVisible();
+
+  await page.getByTestId('tool-card-action').filter({ hasText: 'Allow once' }).click();
+
+  await expect(page.getByTestId('tool-card')).toHaveCount(2);
+  await expect(page.getByTestId('tool-card').first()).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-subtitle').first()).toHaveText('Approved · whoami');
+  await expect(page.getByTestId('tool-card-actions')).toHaveCount(0);
+  await expect(page.getByTestId('tool-card').nth(1)).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-output').last()).toContainText('mock-user');
+  await expect(page.getByTestId('message').last()).toContainText('Approved and ran the tool.');
+});
+
 test('mock harness opens utilities from the top-bar overflow', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

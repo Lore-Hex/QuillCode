@@ -332,17 +332,20 @@ public struct ApprovalRequest: Codable, Sendable, Hashable, Identifiable {
     public var toolCall: ToolCall
     public var toolDefinition: ToolDefinition?
     public var reason: String
+    public var recommendedVerdict: ApprovalVerdict?
 
     public init(
         id: String = "approval-\(UUID().uuidString)",
         toolCall: ToolCall,
         toolDefinition: ToolDefinition?,
-        reason: String
+        reason: String,
+        recommendedVerdict: ApprovalVerdict? = nil
     ) {
         self.id = id
         self.toolCall = toolCall
         self.toolDefinition = toolDefinition
         self.reason = reason
+        self.recommendedVerdict = recommendedVerdict
     }
 }
 
