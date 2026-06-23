@@ -2192,3 +2192,19 @@ Code quality changes:
 Remaining risk:
 
 - Model and mode controls still sit in a separate composer controls row. A follow-up UI slice should fold them into the composer itself, matching the Codex-style focused input.
+
+## 2026-06-23 Terminal Lifecycle Extraction Pass
+
+Overall grade after this slice: **A terminal state boundary, A orchestration readability, A regression coverage**.
+
+The terminal command path previously mixed input normalization, run-entry creation, streaming event application, missing-context failure, cancellation cleanup, marker cleanup, environment/cwd persistence, and top-bar orchestration inside `WorkspaceModel.runTerminalCommand`. The model now reads as a high-level command runner, while `WorkspaceTerminalEngine` owns the terminal lifecycle transitions.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Workspace model | Manually mutated terminal entries for begin/stream/stop/finish. | Delegates lifecycle mutations to named engine helpers. |
+| Terminal engine | Owned low-level state primitives but not the full run lifecycle. | Owns begin, streaming event application, missing-context failure, cancellation, stopped cleanup, and completed-run persistence. |
+| Tests | Integration coverage caught behavior drift but lifecycle transitions were not individually guarded. | Focused unit coverage exercises lifecycle begin/reject, streaming, missing context, completion, cancellation, and marker cleanup. |
+
+Remaining risk:
+
+- `WorkspaceModel` still contains broader command and automation orchestration. Future slices should continue extracting by responsibility, but terminal execution is now a cleaner boundary for both local and SSH Remote terminal work.
