@@ -481,7 +481,7 @@ enum SlashCommandParser {
     }
 
     private static func pullRequestTool(_ definition: ToolDefinition, arguments: [String: Any]) -> SlashCommand {
-        .toolCall(ToolCall(name: definition.name, argumentsJSON: json(arguments)))
+        .toolCall(ToolCall(name: definition.name, argumentsJSON: ToolArguments.json(arguments)))
     }
 
     private static func compact(_ values: [String: Any?]) -> [String: Any] {
@@ -492,11 +492,6 @@ enum SlashCommandParser {
             }
             return value
         }
-    }
-
-    private static func json(_ values: [String: Any]) -> String {
-        let data = try? JSONSerialization.data(withJSONObject: values, options: [.sortedKeys])
-        return data.map { String(decoding: $0, as: UTF8.self) } ?? "{}"
     }
 
     private static func parseMode(_ argument: String) -> SlashCommand {

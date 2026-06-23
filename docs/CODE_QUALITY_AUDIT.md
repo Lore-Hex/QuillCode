@@ -1555,3 +1555,38 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModel.submitComposer` still constructs the run context and owns completion persistence. That is the right split for the current app because runner context depends on actor-isolated UI/runtime state, but background/resumable runs should promote persistence timing into a dedicated run coordinator.
+
+## 2026-06-23 Core Tool Arguments Serialization Pass
+
+Overall grade after this slice: **A- foundation, A shared argument serialization boundary**.
+
+Mixed tool-argument JSON serialization moved into `ToolArguments` in `QuillCodeCore`. Before this pass, `WorkspaceModel` and `SlashCommand` each carried private `JSONSerialization` helpers, even though tool argument parsing and construction are a core contract shared by CLI, agent, app, and tests. The app now uses `ToolArguments.json(...)` for string, boolean, integer, and nested dictionary payloads.
+
+Code quality changes:
+
+- Added `ToolArguments.json(_ values: [String: Any])` beside the existing string-only helper.
+- Removed private tool-argument JSON serializers from `WorkspaceModel` and `SlashCommand`.
+- Added core coverage for stable mixed-value JSON output.
+- Added a parity gate so app-layer files continue using the core serializer.
+
+Remaining risk:
+
+- The helper still accepts `[String: Any]` because current call sites build heterogeneous payloads before encoding. A future stronger model could introduce a typed `ToolArgumentValue` enum to remove `Any` entirely from tool argument construction.
+
+## 2026-06-23 Tool Call Executor Pass
+
+Overall grade after this slice: **A- foundation, A tool-routing boundary**.
+
+Tool-call execution routing moved out of `WorkspaceModel` into `WorkspaceToolCallExecutor`. Before this pass, `runToolCall` directly branched on browser inspect, plan update, SSH Remote, local execution, and apply-patch follow-up diff behavior. Review actions had a second local/remote git helper with overlapping routing. The model now prepares context and records results, while the executor owns the routing order and returns primary plus follow-up tool results.
+
+Code quality changes:
+
+- Added `WorkspaceToolCallExecutor`, `WorkspaceToolCallExecution`, and `WorkspaceRecordedToolResult`.
+- Moved browser inspect, plan update, SSH Remote, local router fallback, unsupported remote-tool errors, and apply-patch git-diff follow-up into the executor.
+- Updated `runToolCall` and review actions to use the same executor instead of parallel routing helpers.
+- Added focused executor tests for browser inspect routing, plan update routing, apply-patch review-diff follow-up, and unsupported remote tool rejection.
+- Added a parity gate so tool-name routing and review-diff follow-up logic do not drift back into `WorkspaceModel`.
+
+Remaining risk:
+
+- `WorkspaceModel.runToolCall` still owns context refresh, transcript event recording, persistence, and top-bar status. Those are actor-bound side effects and should stay there until there is a broader command-run coordinator that can return explicit persistence/status intents.

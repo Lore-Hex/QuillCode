@@ -110,6 +110,20 @@ final class CoreModelTests: XCTestCase {
         XCTAssertNil(args.stringDictionary("missing"))
     }
 
+    func testToolArgumentsJSONSerializesMixedValuesInStableOrder() {
+        let json = ToolArguments.json([
+            "cmd": "build",
+            "force": true,
+            "timeoutSeconds": 30,
+            "environment": ["QUILL_ENV": "test"]
+        ])
+
+        XCTAssertEqual(
+            json,
+            #"{"cmd":"build","environment":{"QUILL_ENV":"test"},"force":true,"timeoutSeconds":30}"#
+        )
+    }
+
     func testModelCatalogNormalizationDeduplicatesAliasesAndSortsDefaultsFirst() {
         let catalog = TrustedRouterDefaults.normalizedModelCatalog([
             .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
