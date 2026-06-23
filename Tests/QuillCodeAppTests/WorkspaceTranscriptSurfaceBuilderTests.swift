@@ -56,7 +56,7 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(cards.count, 1)
         XCTAssertEqual(cards[0].id, "tool-call-1")
         XCTAssertEqual(cards[0].title, ToolDefinition.fileWrite.name)
-        XCTAssertEqual(cards[0].subtitle, "Completed")
+        XCTAssertEqual(cards[0].subtitle, "Completed · hello.txt")
         XCTAssertEqual(cards[0].status, .done)
         XCTAssertEqual(cards[0].inputJSON, call.argumentsJSON)
         XCTAssertEqual(cards[0].artifacts.map(\.label), ["hello.txt"])
@@ -88,6 +88,7 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(timeline[0].message?.text, user.content)
         XCTAssertEqual(timeline[1].toolCard?.id, "shell-1")
         XCTAssertEqual(timeline[1].toolCard?.status, .done)
+        XCTAssertEqual(timeline[1].toolCard?.subtitle, "Completed · whoami")
         XCTAssertEqual(timeline[2].message?.text, assistant.content)
         XCTAssertEqual(timeline[3].message?.text, unmatchedAssistant.content)
     }
@@ -110,5 +111,51 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(timelineCards[1].title, "Tool")
         XCTAssertEqual(timelineCards[1].status, .failed)
         XCTAssertEqual(timelineCards[1].subtitle, "Failed")
+    }
+
+    func testToolCardSubtitleBuilderSummarizesKnownArguments() {
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Running",
+                toolName: "host.shell.run",
+                inputJSON: ToolArguments.json(["cmd": "printf 'hello'\n && whoami"])
+            ),
+            "Running · printf 'hello' && whoami"
+        )
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
+                toolName: "host.git.diff",
+                inputJSON: ToolArguments.json(["staged": true])
+            ),
+            "Completed · staged diff"
+        )
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
+                toolName: "host.git.push",
+                inputJSON: ToolArguments.json(["remote": "origin", "branch": "main"])
+            ),
+            "Completed · origin/main"
+        )
+    }
+
+    func testToolCardSubtitleBuilderFallsBackForInvalidOrUnknownInput() {
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
+                toolName: "host.shell.run",
+                inputJSON: "{}"
+            ),
+            "Completed"
+        )
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.subtitle(
+                stateLabel: "Completed",
+                toolName: "host.unknown",
+                inputJSON: ToolArguments.json(["cmd": "whoami"])
+            ),
+            "Completed"
+        )
     }
 }
