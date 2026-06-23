@@ -51,46 +51,50 @@ struct QuillCodeTopBarView: View {
     }
 
     private var statusIndicator: some View {
-        HStack(spacing: 8) {
-            if showsStatusDot {
+        let status = topBar.agentStatusPresentation
+        return HStack(spacing: 8) {
+            if status.showsIndicator {
                 Circle()
-                    .fill(statusTint)
+                    .fill(statusColor(for: status.tone))
                     .frame(width: 8, height: 8)
-                    .help(topBar.agentStatus)
-                    .accessibilityLabel("Agent status: \(topBar.agentStatus)")
+                    .help(status.label)
+                    .accessibilityLabel(status.accessibilityLabel)
             }
-            if let runtimeIssueLabel = topBar.runtimeIssueLabel {
+            if let issue = topBar.runtimeIssuePresentation {
                 QuillCodeTopBarPill(
-                    text: runtimeIssueLabel,
+                    text: issue.label,
                     systemImage: "exclamationmark.triangle",
-                    tint: topBar.runtimeIssueSeverity == .error ? QuillCodePalette.red : QuillCodePalette.yellow,
+                    tint: runtimeIssueColor(for: issue.tone),
                     maxWidth: 180,
                     layoutPriority: 2
                 )
-                .help(runtimeIssueLabel)
+                .help(issue.label)
             }
         }
         .frame(minWidth: 0, alignment: .trailing)
         .fixedSize(horizontal: true, vertical: false)
     }
 
-    private var showsStatusDot: Bool {
-        let lowercasedStatus = topBar.agentStatus.lowercased()
-        return lowercasedStatus.contains("fail")
-            || lowercasedStatus.contains("error")
-            || lowercasedStatus.contains("run")
-            || lowercasedStatus.contains("work")
+    private func statusColor(for tone: TopBarStatusTone) -> Color {
+        switch tone {
+        case .failed:
+            return QuillCodePalette.red
+        case .running:
+            return QuillCodePalette.yellow
+        case .stopped:
+            return QuillCodePalette.muted
+        case .idle:
+            return QuillCodePalette.green
+        }
     }
 
-    private var statusTint: Color {
-        let lowercasedStatus = topBar.agentStatus.lowercased()
-        if lowercasedStatus.contains("fail") || lowercasedStatus.contains("error") {
+    private func runtimeIssueColor(for tone: TopBarRuntimeIssueTone) -> Color {
+        switch tone {
+        case .error:
             return QuillCodePalette.red
-        }
-        if lowercasedStatus.contains("run") || lowercasedStatus.contains("work") {
+        case .warning:
             return QuillCodePalette.yellow
         }
-        return QuillCodePalette.green
     }
 
     private var overflowCommands: [WorkspaceCommandSurface] {

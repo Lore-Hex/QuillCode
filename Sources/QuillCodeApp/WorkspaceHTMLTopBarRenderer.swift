@@ -29,9 +29,10 @@ enum WorkspaceHTMLTopBarRenderer {
     }
 
     private static func renderContextCluster(_ topBar: TopBarSurface) -> String {
-        """
+        let status = topBar.agentStatusPresentation
+        return """
         <div class="topbar-cluster topbar-context-cluster" data-testid="top-bar-context-cluster" aria-label="Workspace state">
-          <span class="agent-status-dot" data-testid="agent-status" title="\(escape(topBar.agentStatus))">\(escape(topBar.agentStatus))</span>
+          <span class="agent-status-dot" data-testid="agent-status" data-tone="\(escape(status.tone.rawValue))" data-indicator="\(status.showsIndicator)" title="\(escape(status.label))">\(escape(status.label))</span>
           \(renderRuntimeIssuePill(topBar))
           <span data-testid="project-instructions-status" title="\(escape(topBar.instructionSources.joined(separator: ", ")))">\(escape(topBar.instructionLabel))</span>
           <span data-testid="project-memories-status" title="\(escape(topBar.memorySources.joined(separator: ", ")))">\(escape(topBar.memoryLabel))</span>
@@ -41,9 +42,8 @@ enum WorkspaceHTMLTopBarRenderer {
     }
 
     private static func renderRuntimeIssuePill(_ topBar: TopBarSurface) -> String {
-        guard let label = topBar.runtimeIssueLabel else { return "" }
-        let severity = topBar.runtimeIssueSeverity?.rawValue ?? "warning"
-        return #"<span data-testid="runtime-issue-pill" data-severity="\#(escape(severity))">\#(escape(label))</span>"#
+        guard let issue = topBar.runtimeIssuePresentation else { return "" }
+        return #"<span data-testid="runtime-issue-pill" data-severity="\#(escape(issue.tone.rawValue))">\#(escape(issue.label))</span>"#
     }
 
     private static func renderActionCluster(
