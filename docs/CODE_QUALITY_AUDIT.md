@@ -1794,3 +1794,20 @@ Remaining risk:
 
 - `Agent.swift` still owns the repeated-tool fallback itself. That is now small enough to audit inline, but a later pass could extract a tiny `AgentToolStepHistory` if more loop policies are added.
 - `AgentToolStepRunner` still performs both safety review and execution. That is the right boundary for now because the transcript event sequence depends on both, but if safety policy grows richer it should split into a pure review-copy planner plus the executor.
+
+## 2026-06-23 Git Tool Definitions Split
+
+Overall grade after this slice: **A architecture, A schema ownership, A regression coverage**.
+
+Git tool schema declarations moved out of `GitToolExecutor.swift` and into `GitToolDefinitions.swift`. Before this pass, the executor mixed process execution, path validation, GitHub CLI request construction, worktree safety, patch helpers, and the entire `ToolDefinition` catalog. The executor now stays focused on running git/GitHub commands and validating inputs, while the catalog owns the user/model-facing tool names, descriptions, JSON schemas, host, and risk metadata.
+
+Code quality changes:
+
+- Added `GitToolDefinitions.swift` as the single QuillCodeTools source for local git, GitHub PR, and worktree `ToolDefinition` values.
+- Removed JSON schema strings from `GitToolExecutor.swift`, reducing the chance that runtime execution code and tool-catalog text evolve in the same broad file.
+- Added a parity gate so git tool schemas and `parametersJSON` definitions do not drift back into the executor.
+
+Remaining risk:
+
+- `GitToolExecutor.swift` is still broad because it owns both local git execution and GitHub CLI execution. A later pass should split GitHub PR command execution into a dedicated executor once the remote git planner work has stabilized on main.
+- `ToolDefinition` declarations still use raw JSON schema strings across tool catalogs. That is acceptable for compatibility today, but a future A+ pass should consider a small schema builder or snapshot test if more tools are added.
