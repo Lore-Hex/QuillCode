@@ -193,6 +193,7 @@ final class ParityGateTests: XCTestCase {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceStatusTextBuilder.swift")
+        let slashTranscriptText = try Self.appSourceText(named: "WorkspaceSlashCommandTranscriptPlanner.swift")
 
         XCTAssertTrue(builderText.contains("struct WorkspaceStatusTextBuilder"), "Workspace status text and labels should live in a focused builder.")
         XCTAssertTrue(builderText.contains("static func statusText"), "Slash status copy should be directly testable.")
@@ -201,7 +202,7 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(builderText.contains("static func memoryLabel"), "Memory status labels should be directly testable.")
         XCTAssertTrue(builderText.contains("static func modeLabel"), "Mode labels should be shared by status and UI surfaces.")
         XCTAssertTrue(modelText.contains("WorkspaceStatusTextBuilder.statusText"), "WorkspaceModel should delegate /status copy.")
-        XCTAssertTrue(modelText.contains("WorkspaceStatusTextBuilder.modeLabel"), "WorkspaceModel should delegate slash mode labels.")
+        XCTAssertTrue(slashTranscriptText.contains("WorkspaceStatusTextBuilder.modeLabel"), "Slash mode transcript copy should delegate shared mode labels.")
         XCTAssertTrue(surfaceText.contains("WorkspaceStatusTextBuilder.topBarSubtitle"), "WorkspaceSurface should delegate top-bar subtitles.")
         XCTAssertTrue(surfaceText.contains("WorkspaceStatusTextBuilder.instructionLabel"), "WorkspaceSurface should delegate instruction labels.")
         XCTAssertTrue(surfaceText.contains("WorkspaceStatusTextBuilder.memoryLabel"), "WorkspaceSurface should delegate memory labels.")
@@ -210,6 +211,39 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("static func instructionStatusLabel"), "WorkspaceModel should not own instruction status labels.")
         XCTAssertFalse(modelText.contains("static func memoryStatusLabel"), "WorkspaceModel should not own memory status labels.")
         XCTAssertFalse(surfaceText.contains("static func modeLabel"), "WorkspaceSurface should not own mode label copy.")
+    }
+
+    func testWorkspaceModelDelegatesSlashCommandTranscriptPlanning() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let plannerText = try Self.appSourceText(named: "WorkspaceSlashCommandTranscriptPlanner.swift")
+
+        XCTAssertTrue(plannerText.contains("struct WorkspaceLocalCommandTranscript"), "Local command transcript records should live beside the planner.")
+        XCTAssertTrue(plannerText.contains("struct WorkspaceSlashCommandTranscriptPlanner"), "Slash command transcript copy should live in a focused planner.")
+        XCTAssertTrue(plannerText.contains("static func sshProjectAdded"), "SSH success copy should be directly testable.")
+        XCTAssertTrue(plannerText.contains("static func workspaceCommandFailed"), "Slash command failure copy should be directly testable.")
+        XCTAssertTrue(plannerText.contains("SlashCommandCatalog.helpText()"), "Slash help text should stay catalog-backed.")
+        for delegatedCall in [
+            "WorkspaceSlashCommandTranscriptPlanner.help",
+            "WorkspaceSlashCommandTranscriptPlanner.status",
+            "WorkspaceSlashCommandTranscriptPlanner.mode",
+            "WorkspaceSlashCommandTranscriptPlanner.model",
+            "WorkspaceSlashCommandTranscriptPlanner.renameThread",
+            "WorkspaceSlashCommandTranscriptPlanner.renameProject",
+            "WorkspaceSlashCommandTranscriptPlanner.sshProjectAdded",
+            "WorkspaceSlashCommandTranscriptPlanner.threadFollowUpScheduled",
+            "WorkspaceSlashCommandTranscriptPlanner.workspaceScheduleScheduled",
+            "WorkspaceSlashCommandTranscriptPlanner.workspaceCommandFailed",
+            "WorkspaceSlashCommandTranscriptPlanner.invalid",
+            "WorkspaceSlashCommandTranscriptPlanner.unknown"
+        ] {
+            XCTAssertTrue(modelText.contains(delegatedCall), "WorkspaceModel should delegate \(delegatedCall).")
+        }
+        XCTAssertFalse(modelText.contains("Could not rename this chat. Try /rename New chat title."), "WorkspaceModel should not own thread rename fallback copy.")
+        XCTAssertFalse(modelText.contains("Could not rename this project. Try /project rename New project name."), "WorkspaceModel should not own project rename fallback copy.")
+        XCTAssertFalse(modelText.contains("Use SSH format user@host:/path or ssh://user@host/path."), "WorkspaceModel should not own SSH fallback copy.")
+        XCTAssertFalse(modelText.contains("Scheduled a thread follow-up for"), "WorkspaceModel should not own follow-up success copy.")
+        XCTAssertFalse(modelText.contains("Scheduled a workspace check for"), "WorkspaceModel should not own workspace schedule success copy.")
+        XCTAssertFalse(modelText.contains("Unknown slash command"), "WorkspaceModel should not own unknown slash command copy.")
     }
 
     func testTopBarViewsDelegateStatusPresentationSemantics() throws {
