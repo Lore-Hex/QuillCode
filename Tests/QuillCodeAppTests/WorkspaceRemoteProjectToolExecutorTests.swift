@@ -87,6 +87,62 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertTrue(command.contains("base64 --decode > 'notes/hello.txt'"), command)
     }
 
+    func testRemoteGitPlannerBuildsPullRequestCreateRequest() throws {
+        let request = try WorkspaceRemoteGitToolRequestPlanner.request(
+            for: ToolCall(
+                name: ToolDefinition.gitPullRequestCreate.name,
+                argumentsJSON: ToolArguments.json([
+                    "title": "Ship it",
+                    "body": "Ready for review",
+                    "base": "main",
+                    "head": "feature/quill",
+                    "draft": true
+                ])
+            ),
+            connection: remoteProject(path: "/srv/quill").connection
+        )
+
+        XCTAssertEqual(
+            request.command,
+            "'gh' 'pr' 'create' '--title' 'Ship it' '--body' 'Ready for review' '--base' 'main' '--head' 'feature/quill' '--draft'"
+        )
+        XCTAssertEqual(request.artifacts, [])
+        XCTAssertTrue(request.extractsPullRequestURLs)
+    }
+
+    func testRemoteGitPlannerBuildsWorktreeCreateRequestWithArtifact() throws {
+        let request = try WorkspaceRemoteGitToolRequestPlanner.request(
+            for: ToolCall(
+                name: ToolDefinition.gitWorktreeCreate.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "quill-next",
+                    "branch": "codex/next",
+                    "base": "origin/main"
+                ])
+            ),
+            connection: remoteProject(path: "/srv/quill").connection
+        )
+
+        XCTAssertEqual(
+            request.command,
+            "'git' 'worktree' 'add' '-b' 'codex/next' '/srv/quill-next' 'origin/main'"
+        )
+        XCTAssertEqual(request.artifacts, ["ssh://quill@feather.local:2222/srv/quill-next"])
+        XCTAssertFalse(request.extractsPullRequestURLs)
+    }
+
+    func testRemoteGitPlannerRejectsWorktreeOutsideRemoteWorkspaceParent() {
+        XCTAssertThrowsError(
+            try WorkspaceRemoteGitToolRequestPlanner.request(
+                for: ToolCall(
+                    name: ToolDefinition.gitWorktreeCreate.name,
+                    argumentsJSON: ToolArguments.json(["path": "../escape"])
+                ),
+                connection: remoteProject(path: "/srv/quill").connection
+            )
+        )
+    }
+
     func testUnsupportedRemoteToolReturnsClearError() {
         let result = WorkspaceRemoteProjectToolExecutor.execute(
             ToolCall(name: ToolDefinition.browserInspect.name, argumentsJSON: "{}"),
