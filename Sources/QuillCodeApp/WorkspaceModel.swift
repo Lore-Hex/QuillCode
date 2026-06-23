@@ -619,7 +619,7 @@ public final class QuillCodeWorkspaceModel {
     @discardableResult
     public func openBrowserPreview(_ input: String? = nil, workspaceRoot: URL? = nil) -> Bool {
         let rawValue = input ?? browser.addressDraft
-        guard let url = Self.normalizedBrowserURL(rawValue, workspaceRoot: workspaceRoot) else {
+        guard let url = WorkspaceBrowserLocationResolver(workspaceRoot: workspaceRoot).resolve(rawValue) else {
             browser.isVisible = true
             browser.status = "Invalid address"
             lastError = "Enter an http, https, file, localhost, or project file URL."
@@ -735,7 +735,7 @@ public final class QuillCodeWorkspaceModel {
     public func refreshBrowserSnapshot(pageFetcher: any BrowserPageFetching) async -> Bool {
         guard let currentURL = browser.currentURL,
               let url = URL(string: currentURL),
-              Self.canFetchBrowserSnapshot(for: url)
+              WorkspaceBrowserLocationResolver.canFetchSnapshot(for: url)
         else {
             return false
         }
@@ -762,7 +762,7 @@ public final class QuillCodeWorkspaceModel {
         } catch {
             guard browser.currentURL == currentURL else { return false }
             if var snapshot = browser.snapshot {
-                snapshot.details.append("Snapshot fetch: \(Self.browserSnapshotFetchMessage(for: error))")
+                snapshot.details.append("Snapshot fetch: \(WorkspaceBrowserLocationResolver.snapshotFetchMessage(for: error))")
                 browser.snapshot = snapshot
             }
             browser.status = "Preview ready"
@@ -936,18 +936,30 @@ public final class QuillCodeWorkspaceModel {
         case .archive:
             guard !ids.isEmpty else { return false }
             let previousSelection = selectedThread
-            updateThreads(ids) { thread in
-                thread.isArchived = true
-                thread.isPinned = false
+            var threads = root.threads
+            guard let result = WorkspaceThreadLifecycleEngine.archiveThreads(
+                ids,
+                threads: &threads
+            ) else {
+                return false
             }
+            root.threads = threads
+            saveThreads(result.changedThreads)
             if let selectedID = previousSelection?.id, ids.contains(selectedID) {
                 selectBestThread(afterRemoving: ids, preferredProjectID: previousSelection?.projectID)
             }
+            saveProjects()
         case .unarchive:
             guard !ids.isEmpty else { return false }
-            updateThreads(ids) { thread in
-                thread.isArchived = false
+            var threads = root.threads
+            guard let result = WorkspaceThreadLifecycleEngine.unarchiveThreads(
+                ids,
+                threads: &threads
+            ) else {
+                return false
             }
+            root.threads = threads
+            saveThreads(result.changedThreads)
             if let firstID = ids.first,
                let firstThread = root.threads.first(where: { $0.id == firstID }) {
                 root.selectedThreadID = firstID
@@ -955,15 +967,20 @@ public final class QuillCodeWorkspaceModel {
                 syncTerminalSessionToSelectedProject()
                 touchProject(root.selectedProjectID)
             }
+            saveProjects()
         case .delete:
             guard !ids.isEmpty else { return false }
             let previousSelection = selectedThread
-            root.threads.removeAll { thread in
-                if ids.contains(thread.id) {
-                    try? threadStore?.delete(thread.id)
-                    return true
-                }
+            var threads = root.threads
+            guard let result = WorkspaceThreadLifecycleEngine.deleteThreads(
+                ids,
+                threads: &threads
+            ) else {
                 return false
+            }
+            root.threads = threads
+            for thread in result.removedThreads {
+                try? threadStore?.delete(thread.id)
             }
             if let selectedID = previousSelection?.id, ids.contains(selectedID) {
                 selectBestThread(afterRemoving: ids, preferredProjectID: previousSelection?.projectID)
@@ -1111,13 +1128,16 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func renameThread(_ id: UUID, to title: String) -> Bool {
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-        guard mutateThread(id, { thread in
-            thread.title = trimmed
-        }) != nil else {
+        var threads = root.threads
+        guard let changedThread = WorkspaceThreadLifecycleEngine.renameThread(
+            id,
+            to: title,
+            threads: &threads
+        ) else {
             return false
         }
+        root.threads = threads
+        try? threadStore?.save(changedThread)
         refreshTopBar(agentStatus: "Idle")
         return true
     }
@@ -1126,23 +1146,10 @@ public final class QuillCodeWorkspaceModel {
     public func duplicateThread(_ id: UUID) -> UUID? {
         guard let source = root.threads.first(where: { $0.id == id }) else { return nil }
         clearSidebarSelection()
-        var duplicate = ChatThread(
-            title: "Copy: \(source.title)",
-            projectID: knownProjectID(source.projectID),
-            mode: source.mode,
-            model: source.model,
-            messages: source.messages,
-            events: source.events,
-            isPinned: false,
-            isArchived: false,
-            instructions: source.instructions,
-            memories: source.memories
+        let duplicate = WorkspaceThreadLifecycleEngine.duplicateThread(
+            source,
+            projectID: knownProjectID(source.projectID)
         )
-        duplicate.events.append(.init(
-            kind: .notice,
-            summary: "Duplicated from \(source.title)",
-            payloadJSON: source.id.uuidString
-        ))
         root.threads.insert(duplicate, at: 0)
         root.selectedThreadID = duplicate.id
         root.selectedProjectID = knownProjectID(source.projectID)
@@ -1155,57 +1162,61 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func togglePinThread(_ id: UUID) {
-        mutateThread(id) { thread in
-            thread.isPinned.toggle()
-        }
+        var threads = root.threads
+        guard let changedThread = WorkspaceThreadLifecycleEngine.togglePinThread(
+            id,
+            threads: &threads
+        ) else { return }
+        root.threads = threads
+        try? threadStore?.save(changedThread)
+        refreshTopBar(agentStatus: "Idle")
     }
 
     public func archiveThread(_ id: UUID) {
-        let archivedProjectID = root.threads.first { $0.id == id }?.projectID
-        mutateThread(id) { thread in
-            thread.isArchived = true
-        }
-        if root.selectedThreadID == id {
-            root.selectedThreadID = root.threads
-                .filter { !$0.isArchived && $0.projectID == archivedProjectID }
-                .sorted { $0.updatedAt > $1.updatedAt }
-                .first?
-                .id
-        }
+        var threads = root.threads
+        guard let result = WorkspaceThreadLifecycleEngine.archiveThread(
+            id,
+            threads: &threads,
+            selectedThreadID: root.selectedThreadID
+        ) else { return }
+        root.threads = threads
+        root.selectedThreadID = result.selectedThreadID
+        try? threadStore?.save(result.changedThread)
         refreshTopBar(agentStatus: "Idle")
     }
 
     @discardableResult
     public func unarchiveThread(_ id: UUID) -> Bool {
-        guard let source = root.threads.first(where: { $0.id == id }),
-              mutateThread(id, { thread in
-                  thread.isArchived = false
-              }) != nil
-        else {
+        var threads = root.threads
+        guard let result = WorkspaceThreadLifecycleEngine.unarchiveThread(
+            id,
+            threads: &threads
+        ) else {
             return false
         }
+        root.threads = threads
         root.selectedThreadID = id
-        root.selectedProjectID = knownProjectID(source.projectID)
+        root.selectedProjectID = knownProjectID(result.projectID)
         touchProject(root.selectedProjectID)
         saveProjects()
+        try? threadStore?.save(result.changedThread)
         refreshTopBar(agentStatus: "Idle")
         return true
     }
 
     @discardableResult
     public func deleteThread(_ id: UUID) -> Bool {
-        guard let index = root.threads.firstIndex(where: { $0.id == id }) else {
+        var threads = root.threads
+        guard let result = WorkspaceThreadLifecycleEngine.deleteThread(
+            id,
+            threads: &threads,
+            selectedThreadID: root.selectedThreadID
+        ) else {
             return false
         }
-        let removed = root.threads.remove(at: index)
+        root.threads = threads
         try? threadStore?.delete(id)
-        if root.selectedThreadID == id {
-            root.selectedThreadID = root.threads
-                .filter { !$0.isArchived && $0.projectID == removed.projectID }
-                .sorted { $0.updatedAt > $1.updatedAt }
-                .first?
-                .id
-        }
+        root.selectedThreadID = result.selectedThreadID
         if let selectedThread {
             root.selectedProjectID = knownProjectID(selectedThread.projectID)
         } else {
@@ -3396,6 +3407,12 @@ public final class QuillCodeWorkspaceModel {
         saveProjects()
     }
 
+    private func saveThreads(_ threads: [ChatThread]) {
+        for thread in threads {
+            try? threadStore?.save(thread)
+        }
+    }
+
     private func selectBestThread(afterRemoving ids: [UUID], preferredProjectID: UUID?) {
         let selection = WorkspaceProjectEngine.selectionAfterRemovingThreads(
             ids,
@@ -3609,68 +3626,6 @@ public final class QuillCodeWorkspaceModel {
 
     private static func defaultSSHProjectName(for connection: ProjectConnection) -> String {
         WorkspaceProjectEngine.defaultSSHProjectName(for: connection)
-    }
-
-    private static func normalizedBrowserURL(_ rawValue: String, workspaceRoot: URL?) -> URL? {
-        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-
-        if let url = URL(string: trimmed),
-           let scheme = url.scheme?.lowercased(),
-           ["http", "https", "file"].contains(scheme) {
-            return url
-        }
-
-        if trimmed.hasPrefix("localhost")
-            || trimmed.hasPrefix("127.0.0.1")
-            || trimmed.hasPrefix("[::1]") {
-            return URL(string: "http://\(trimmed)")
-        }
-
-        if let workspaceRoot,
-           let fileURL = projectFileBrowserURL(trimmed, workspaceRoot: workspaceRoot) {
-            return fileURL
-        }
-
-        if trimmed.hasPrefix("/") {
-            let fileURL = URL(fileURLWithPath: trimmed)
-            if FileManager.default.fileExists(atPath: fileURL.path) {
-                return fileURL.standardizedFileURL
-            }
-        }
-
-        if trimmed.contains(".") {
-            return URL(string: "https://\(trimmed)")
-        }
-
-        return nil
-    }
-
-    private static func canFetchBrowserSnapshot(for url: URL) -> Bool {
-        guard let scheme = url.scheme?.lowercased() else { return false }
-        return scheme == "http" || scheme == "https"
-    }
-
-    private static func browserSnapshotFetchMessage(for error: any Error) -> String {
-        if let failure = error as? BrowserPageFetchFailure {
-            return failure.description
-        }
-        return error.localizedDescription
-    }
-
-    private static func projectFileBrowserURL(_ relativePath: String, workspaceRoot: URL) -> URL? {
-        guard !relativePath.contains("..") else { return nil }
-        let root = workspaceRoot.standardizedFileURL.resolvingSymlinksInPath()
-        let fileURL = root
-            .appendingPathComponent(relativePath)
-            .standardizedFileURL
-            .resolvingSymlinksInPath()
-        guard (fileURL.path == root.path || fileURL.path.hasPrefix(root.path + "/")),
-              FileManager.default.fileExists(atPath: fileURL.path)
-        else {
-            return nil
-        }
-        return fileURL
     }
 
     private nonisolated static func decode<T: Decodable>(_ type: T.Type, _ payloadJSON: String?) -> T? {

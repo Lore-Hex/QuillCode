@@ -70,6 +70,21 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("public struct BrowserCommentState"), "WorkspaceModel should not own browser comment state.")
     }
 
+    func testWorkspaceModelDelegatesBrowserLocationResolving() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let resolverText = try Self.appSourceText(named: "WorkspaceBrowserLocationResolver.swift")
+
+        XCTAssertTrue(resolverText.contains("struct WorkspaceBrowserLocationResolver"), "Browser URL normalization should live in a focused resolver.")
+        XCTAssertTrue(resolverText.contains("func resolve("), "Browser URL resolution should be directly testable.")
+        XCTAssertTrue(resolverText.contains("static func canFetchSnapshot"), "Browser snapshot eligibility should be directly testable.")
+        XCTAssertTrue(resolverText.contains("static func snapshotFetchMessage"), "Browser fetch failure copy should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceBrowserLocationResolver"), "WorkspaceModel should delegate browser URL resolution.")
+        XCTAssertFalse(modelText.contains("private static func normalizedBrowserURL"), "WorkspaceModel should not own browser URL normalization.")
+        XCTAssertFalse(modelText.contains("private static func canFetchBrowserSnapshot"), "WorkspaceModel should not own browser snapshot eligibility.")
+        XCTAssertFalse(modelText.contains("private static func browserSnapshotFetchMessage"), "WorkspaceModel should not own browser fetch failure copy.")
+        XCTAssertFalse(modelText.contains("private static func projectFileBrowserURL"), "WorkspaceModel should not own project file URL resolution.")
+    }
+
     func testWorkspaceModelDelegatesThreadSeedBuilding() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let seedBuilderText = try Self.appSourceText(named: "WorkspaceThreadSeedBuilder.swift")
@@ -83,6 +98,25 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("private static func forkSeedMessages"), "WorkspaceModel should not own fork seed construction.")
         XCTAssertFalse(modelText.contains("private static func compactSeedMessages"), "WorkspaceModel should not own compact seed construction.")
         XCTAssertFalse(modelText.contains("private static func compactSummaryMessage"), "WorkspaceModel should not own compact summary formatting.")
+    }
+
+    func testWorkspaceModelDelegatesThreadLifecycleTransitions() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let lifecycleText = try Self.appSourceText(named: "WorkspaceThreadLifecycleEngine.swift")
+
+        XCTAssertTrue(lifecycleText.contains("struct WorkspaceThreadLifecycleEngine"), "Thread lifecycle transitions should live in a focused engine.")
+        XCTAssertTrue(lifecycleText.contains("static func renameThread"), "Thread rename mutation should be directly testable.")
+        XCTAssertTrue(lifecycleText.contains("static func duplicateThread"), "Thread duplicate construction should be directly testable.")
+        XCTAssertTrue(lifecycleText.contains("static func archiveThread"), "Thread archive fallback selection should be directly testable.")
+        XCTAssertTrue(lifecycleText.contains("static func unarchiveThread"), "Thread unarchive mutation should be directly testable.")
+        XCTAssertTrue(lifecycleText.contains("static func deleteThread"), "Thread delete fallback selection should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceThreadLifecycleEngine.renameThread"), "WorkspaceModel should delegate thread rename mutation.")
+        XCTAssertTrue(modelText.contains("WorkspaceThreadLifecycleEngine.duplicateThread"), "WorkspaceModel should delegate thread duplicate construction.")
+        XCTAssertTrue(modelText.contains("WorkspaceThreadLifecycleEngine.archiveThread"), "WorkspaceModel should delegate thread archive mutation.")
+        XCTAssertTrue(modelText.contains("WorkspaceThreadLifecycleEngine.deleteThread"), "WorkspaceModel should delegate thread delete mutation.")
+        XCTAssertFalse(modelText.contains("thread.title = trimmed"), "WorkspaceModel should not own thread rename mutation.")
+        XCTAssertFalse(modelText.contains("thread.isArchived = true"), "WorkspaceModel should not own thread archive mutation.")
+        XCTAssertFalse(modelText.contains("thread.isArchived = false"), "WorkspaceModel should not own thread unarchive mutation.")
     }
 
     func testWorkspaceSwiftUIViewDelegatesTranscriptFindAndContextBanner() throws {
