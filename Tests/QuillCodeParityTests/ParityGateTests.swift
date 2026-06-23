@@ -1419,6 +1419,23 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(executorText.contains("addURLArtifacts"), "GitToolExecutor should not own GitHub PR URL artifact extraction.")
     }
 
+    func testGitWorktreeExecutionLivesOutsideGitExecutor() throws {
+        let executorText = try Self.toolsSourceText(named: "GitToolExecutor.swift")
+        let worktreeText = try Self.toolsSourceText(named: "GitWorktreeToolExecutor.swift")
+
+        XCTAssertTrue(worktreeText.contains("public struct GitWorktreeToolExecutor"), "Git worktree execution should live in a focused executor.")
+        XCTAssertTrue(worktreeText.contains("func list("), "Git worktree listing should be directly testable.")
+        XCTAssertTrue(worktreeText.contains("func create("), "Git worktree creation should be directly testable.")
+        XCTAssertTrue(worktreeText.contains("func remove("), "Git worktree removal should be directly testable.")
+        XCTAssertTrue(worktreeText.contains("static func safePath"), "Git worktree path validation should live beside worktree execution.")
+        XCTAssertTrue(worktreeText.contains("registeredPaths"), "Git worktree registered-path lookup should live beside worktree removal.")
+        XCTAssertTrue(executorText.contains("private let worktrees: GitWorktreeToolExecutor"), "GitToolExecutor should delegate git worktree work.")
+        XCTAssertFalse(executorText.contains(#"["worktree", "add"]"#), "GitToolExecutor should not build git worktree add arguments inline.")
+        XCTAssertFalse(executorText.contains(#"["worktree", "remove"]"#), "GitToolExecutor should not build git worktree remove arguments inline.")
+        XCTAssertFalse(executorText.contains("safeWorktreePath"), "GitToolExecutor should not own worktree path validation.")
+        XCTAssertFalse(executorText.contains("registeredWorktreePaths"), "GitToolExecutor should not own registered-worktree lookup.")
+    }
+
     func testWorkspaceSurfaceDelegatesContextBannerBuilding() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceContextBannerBuilder.swift")
