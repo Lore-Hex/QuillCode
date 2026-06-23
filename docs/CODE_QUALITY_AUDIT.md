@@ -1210,3 +1210,21 @@ Code quality changes:
 Remaining risk:
 
 - The workspace shell still executes typed actions through local `@State` mutations. If command-triggered sheets or focus behavior grows again, the next slice should split those state transitions into tiny executor helpers rather than adding more cases to the view body.
+
+## 2026-06-23 Sidebar Bulk Action Executor Pass
+
+Overall grade after this slice: **A- foundation, A sidebar bulk mutation boundary**.
+
+Sidebar bulk action execution moved out of `WorkspaceModel` into `WorkspaceSidebarBulkActionExecutor`. The model still owns actor-bound persistence, terminal-session sync, project touches, and top-bar refresh, but it no longer switches over sidebar bulk mutations or calls archive/unarchive/delete bulk lifecycle helpers inline.
+
+Code quality changes:
+
+- Added `WorkspaceSidebarBulkActionExecutor.Result` as a value boundary for updated threads, selected thread/project, cleared selection, changed-thread saves, removed-thread deletes, project-save intent, terminal sync intent, and project-touch intent.
+- Kept selection-only commands cheap: they update only sidebar selection and do not ask the model to save project state.
+- Moved pin/unpin mutation application and archive/unarchive/delete bulk lifecycle calls behind one directly tested executor.
+- Added direct executor tests for selection-only plans, pin/unpin persistence payloads, archive fallback selection, unarchive project touch, and delete project reconciliation.
+- Extended the parity gate so `WorkspaceModel` delegates bulk execution and cannot drift back to inline pin/archive/delete logic.
+
+Remaining risk:
+
+- `WorkspaceModel` still owns several broad orchestration clusters around command execution, tool overrides, and local environment actions. The next quality pass should keep extracting one small actor-safe value boundary at a time instead of doing a large model rewrite.
