@@ -30,9 +30,13 @@ struct QuillCodeTopBarView: View {
                 .font(.headline)
                 .lineLimit(1)
                 .truncationMode(.tail)
+            Text(topBar.subtitle)
+                .font(.caption)
+                .foregroundStyle(QuillCodePalette.muted)
+                .lineLimit(1)
+                .truncationMode(.middle)
         }
         .frame(minWidth: 0, alignment: .leading)
-        .help(topBar.subtitle)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(topBar.primaryTitle), \(topBar.subtitle)")
     }
@@ -40,13 +44,30 @@ struct QuillCodeTopBarView: View {
     private var statusIndicator: some View {
         let status = topBar.agentStatusPresentation
         return HStack(spacing: 8) {
-            if status.showsIndicator {
-                Circle()
-                    .fill(statusColor(for: status.tone))
-                    .frame(width: 8, height: 8)
-                    .help(status.label)
-                    .accessibilityLabel(status.accessibilityLabel)
+            HStack(spacing: 6) {
+                if status.showsIndicator {
+                    Circle()
+                        .fill(statusColor(for: status.tone))
+                        .frame(width: 8, height: 8)
+                        .accessibilityHidden(true)
+                }
+                Text(status.label)
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.text.opacity(0.82))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
+            .padding(.horizontal, 10)
+            .frame(maxWidth: 170, minHeight: 32)
+            .background(QuillCodePalette.selection.opacity(0.50))
+            .overlay {
+                Capsule()
+                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+            }
+            .clipShape(Capsule())
+            .help(status.label)
+            .accessibilityLabel(status.accessibilityLabel)
+
             if let issue = topBar.runtimeIssuePresentation {
                 QuillCodeTopBarPill(
                     text: issue.label,
@@ -163,20 +184,20 @@ struct QuillCodeModePickerButton: View {
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(QuillCodePalette.muted)
             }
-            .foregroundStyle(modeColor(for: selectedMode))
+            .foregroundStyle(QuillCodePalette.text)
             .padding(.horizontal, 10)
             .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
-            .background(modeColor(for: selectedMode).opacity(0.12))
+            .background(QuillCodePalette.selection.opacity(0.62))
             .overlay {
                 Capsule()
-                    .stroke(modeColor(for: selectedMode).opacity(0.24), lineWidth: 1)
+                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
             }
             .clipShape(Capsule())
             .contentShape(Capsule())
         }
         .buttonStyle(QuillCodePressableButtonStyle())
-        .help("Choose approval mode")
-        .accessibilityLabel("Approval mode, \(modeLabel)")
+        .help("Choose Auto safety mode")
+        .accessibilityLabel("Auto safety mode, \(modeLabel)")
     }
 
     private func modeColor(for mode: AgentMode) -> Color {

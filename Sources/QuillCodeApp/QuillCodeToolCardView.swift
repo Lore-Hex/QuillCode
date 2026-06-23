@@ -91,7 +91,7 @@ struct QuillCodeToolCardView: View {
                     .padding(.top, 4)
                 } label: {
                     HStack(spacing: 6) {
-                        Text(isDetailsOpen ? "Hide details" : "Show raw details")
+                        Text(detailsToggleLabel)
                         if !isDetailsOpen, card.status == .done {
                             Text("Raw tool data")
                                 .foregroundStyle(QuillCodePalette.muted)
@@ -120,8 +120,6 @@ struct QuillCodeToolCardView: View {
         .overlay(alignment: .leading) {
             if let executionContext = card.executionContext {
                 QuillCodeExecutionRail(context: executionContext)
-            } else if card.status == .done {
-                QuillCodeToolStatusRail(color: QuillCodePalette.green, opacity: 0.55)
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isDetailsOpen)
@@ -189,10 +187,8 @@ struct QuillCodeToolCardView: View {
 
     private var cardStrokeColor: Color {
         switch card.status {
-        case .done:
+        case .queued, .running, .done:
             return Color.white.opacity(0.09)
-        case .queued, .running:
-            return statusColor.opacity(0.32)
         case .failed, .review:
             return statusColor.opacity(0.42)
         }
@@ -200,8 +196,10 @@ struct QuillCodeToolCardView: View {
 
     private var iconName: String {
         switch card.status {
-        case .queued, .running:
-            return "waveform.path"
+        case .queued:
+            return "clock"
+        case .running:
+            return "arrow.triangle.2.circlepath"
         case .done:
             return "checkmark.circle.fill"
         case .failed:
@@ -223,6 +221,22 @@ struct QuillCodeToolCardView: View {
             return "xmark.circle.fill"
         case .review:
             return "checkmark.shield.fill"
+        }
+    }
+
+    private var detailsToggleLabel: String {
+        if isDetailsOpen {
+            return "Hide details"
+        }
+        switch (card.inputJSON != nil, card.outputJSON != nil) {
+        case (true, true):
+            return "Show details"
+        case (true, false):
+            return "Show input"
+        case (false, true):
+            return "Show output"
+        case (false, false):
+            return "Show details"
         }
     }
 
@@ -264,21 +278,6 @@ private struct QuillCodeToolStatusBadge: View {
             .clipShape(Capsule())
             .help(status.rawValue.capitalized)
             .accessibilityLabel("Tool status \(status.rawValue)")
-    }
-}
-
-private struct QuillCodeToolStatusRail: View {
-    var color: Color
-    var opacity: Double
-
-    var body: some View {
-        Rectangle()
-            .fill(color.opacity(opacity))
-            .frame(width: 3)
-            .padding(.vertical, 8)
-            .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
-            .padding(.leading, 1)
-            .accessibilityHidden(true)
     }
 }
 

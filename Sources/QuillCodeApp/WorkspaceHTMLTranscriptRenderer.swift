@@ -41,11 +41,10 @@ enum WorkspaceHTMLTranscriptRenderer {
         <form class="composer" data-testid="composer">
           <div class="composer-controls" data-testid="composer-controls" aria-label="Composer controls">
             <button type="button" class="composer-model-button" data-testid="model-picker-button" aria-label="Model: \(escape(topBar.modelLabel))">◇ <span data-testid="model-pill">\(escape(topBar.modelLabel))</span></button>
-            <button type="button" class="mode-pill-button" data-testid="mode-picker-button" data-mode-tone="\(modeTone(for: topBar.modeLabel))" aria-label="Approval mode: \(escape(topBar.modeLabel))">
+            <button type="button" class="mode-pill-button" data-testid="mode-picker-button" data-mode-tone="\(modeTone(for: topBar.modeLabel))" aria-label="Auto safety mode: \(escape(topBar.modeLabel))">
               <span class="mode-dot" aria-hidden="true"></span>
               <span data-testid="mode-pill">\(escape(topBar.modeLabel))</span>
             </button>
-            <span class="composer-agent-status" data-testid="composer-agent-status">\(escape(topBar.agentStatus))</span>
           </div>
           <label for="message">Message</label>
           <textarea id="message" aria-label="Message" placeholder="\(escape(composer.placeholder))" rows="1" \(composer.isSending ? "disabled" : "")>\(escape(composer.draft))</textarea>
