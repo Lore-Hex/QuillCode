@@ -1050,45 +1050,39 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func setMode(_ mode: AgentMode) {
-        root.config.mode = mode
+        WorkspaceConfigurationEngine.setMode(mode, config: &root.config)
         mutateSelectedThread { thread in
-            thread.mode = mode
+            WorkspaceConfigurationEngine.setMode(mode, thread: &thread)
         }
         refreshTopBar(agentStatus: "Idle")
     }
 
     public func setModel(_ model: String) {
-        let modelID = TrustedRouterDefaults.normalizedDefaultModelID(model)
-        root.config.defaultModel = modelID
+        let modelID = WorkspaceConfigurationEngine.setModel(model, config: &root.config)
         mutateSelectedThread { thread in
-            thread.model = modelID
+            WorkspaceConfigurationEngine.setModelID(modelID, thread: &thread)
         }
         refreshTopBar(agentStatus: "Idle")
     }
 
     public func toggleModelFavorite(_ model: String) {
-        let modelID = TrustedRouterDefaults.canonicalModelID(model)
-        guard !modelID.isEmpty else { return }
-        if let index = root.config.favoriteModels.firstIndex(of: modelID) {
-            root.config.favoriteModels.remove(at: index)
-        } else {
-            root.config.favoriteModels.append(modelID)
-        }
-        root.config.favoriteModels = AppConfig(favoriteModels: root.config.favoriteModels).favoriteModels
+        guard WorkspaceConfigurationEngine.toggleFavorite(model, config: &root.config) else { return }
         refreshTopBar(agentStatus: root.topBar.agentStatus)
     }
 
     public func setModelCatalog(_ models: [ModelInfo]) {
-        guard !models.isEmpty else { return }
-        root.modelCatalog = TrustedRouterDefaults.normalizedModelCatalog(models)
+        guard let catalog = WorkspaceConfigurationEngine.normalizedCatalog(from: models) else { return }
+        root.modelCatalog = catalog
     }
 
     public func applySettings(config: AppConfig, trustedRouterAPIKeyConfigured: Bool) {
-        root.config = config
-        root.trustedRouterAPIKeyConfigured = trustedRouterAPIKeyConfigured
+        WorkspaceConfigurationEngine.applySettings(
+            config,
+            trustedRouterAPIKeyConfigured: trustedRouterAPIKeyConfigured,
+            root: &root
+        )
         mutateSelectedThread { thread in
-            thread.mode = config.mode
-            thread.model = config.defaultModel
+            WorkspaceConfigurationEngine.syncThread(&thread, to: config)
         }
         refreshTopBar(agentStatus: root.topBar.agentStatus)
     }

@@ -1043,3 +1043,21 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModel.swift` is still the largest file at roughly 2.6k lines. Continue extracting pure side-effect planning and state-reducer pockets before adding more Codex-parity commands.
+
+## 2026-06-23 Workspace Configuration Engine Pass
+
+Overall grade after this slice: **A- foundation, A workspace configuration boundary**.
+
+Mode/model selection and TrustedRouter model-list configuration rules moved out of `WorkspaceModel.swift` into `WorkspaceConfigurationEngine.swift`. The model still owns UI orchestration and top-bar refresh timing, but pure state transitions for selected mode, selected model, favorite models, model catalog replacement, settings application, and selected-thread sync now live behind a focused engine with direct tests.
+
+Code quality changes:
+
+- Moved model ID normalization and fallback behavior into a single helper used by both config and selected-thread updates.
+- Moved favorite toggle normalization into one path that canonicalizes aliases, rejects blank model IDs, and deduplicates through `AppConfig`.
+- Moved catalog replacement behind a nil-returning normalization helper so empty API responses preserve the current catalog.
+- Added focused tests for mode/model updates, blank-model fallback, favorites, catalog normalization, and settings/thread sync.
+- Added a parity gate so configuration transitions do not drift back into `WorkspaceModel.swift`.
+
+Remaining risk:
+
+- `WorkspaceModel.swift` remains large and still owns mixed orchestration for tool dispatch, async browser fetches, and persistence. The next high-value extractions are side-effect planners around tool dispatch or settings/runtime command routing.

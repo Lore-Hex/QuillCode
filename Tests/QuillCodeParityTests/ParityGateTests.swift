@@ -167,6 +167,28 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("thread.isArchived = false"), "WorkspaceModel should not own thread unarchive mutation.")
     }
 
+    func testWorkspaceModelDelegatesConfigurationTransitions() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let configurationText = try Self.appSourceText(named: "WorkspaceConfigurationEngine.swift")
+
+        XCTAssertTrue(configurationText.contains("struct WorkspaceConfigurationEngine"), "Workspace configuration transitions should live in a focused engine.")
+        XCTAssertTrue(configurationText.contains("static func setModel"), "Model selection should be directly testable.")
+        XCTAssertTrue(configurationText.contains("static func setMode"), "Mode selection should be directly testable.")
+        XCTAssertTrue(configurationText.contains("static func toggleFavorite"), "Favorite model mutation should be directly testable.")
+        XCTAssertTrue(configurationText.contains("static func normalizedCatalog"), "Catalog replacement should be directly testable.")
+        XCTAssertTrue(configurationText.contains("static func applySettings"), "Settings application should be directly testable.")
+        XCTAssertTrue(configurationText.contains("static func syncThread"), "Selected-thread config syncing should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceConfigurationEngine.setModel"), "WorkspaceModel should delegate model selection.")
+        XCTAssertTrue(modelText.contains("WorkspaceConfigurationEngine.setMode"), "WorkspaceModel should delegate mode selection.")
+        XCTAssertTrue(modelText.contains("WorkspaceConfigurationEngine.toggleFavorite"), "WorkspaceModel should delegate favorite mutation.")
+        XCTAssertTrue(modelText.contains("WorkspaceConfigurationEngine.normalizedCatalog"), "WorkspaceModel should delegate catalog normalization.")
+        XCTAssertTrue(modelText.contains("WorkspaceConfigurationEngine.applySettings"), "WorkspaceModel should delegate settings application.")
+        XCTAssertFalse(modelText.contains("TrustedRouterDefaults.normalizedDefaultModelID(model)"), "WorkspaceModel should not own model ID normalization.")
+        XCTAssertFalse(modelText.contains("root.config.favoriteModels.append"), "WorkspaceModel should not mutate favorite-model arrays directly.")
+        XCTAssertFalse(modelText.contains("TrustedRouterDefaults.normalizedModelCatalog(models)"), "WorkspaceModel should not own catalog normalization.")
+        XCTAssertFalse(modelText.contains("root.trustedRouterAPIKeyConfigured = trustedRouterAPIKeyConfigured"), "WorkspaceModel should not own settings application details.")
+    }
+
     func testWorkspaceModelDelegatesSidebarSelectionTransitions() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let selectionText = try Self.appSourceText(named: "WorkspaceSidebarSelectionEngine.swift")
