@@ -27,7 +27,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but runtime issue classification, model catalog presentation, command palette construction, review diff construction, context banner estimation, and transcript message projection are now extracted into pure builders. Next step is extracting additional surface-family builders only when behavior grows. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
-| `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Next split should move pasteboard feedback or project-import routing if those paths grow. |
+| `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback now lives in a focused coordinator; project-import routing is the next split if that path grows. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
 | `Sources/QuillCodeCore/Models.swift` | A- | Central source of truth for model IDs, branding, and compatibility. Watch for model/persistence surface bloat. |
 
@@ -42,7 +42,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Current Refactor Priority
 
-1. Keep `QuillCodeDesktopController.swift` to UI/workspace routing; split pasteboard feedback or project-import routing if either path grows.
+1. Keep `QuillCodeDesktopController.swift` to UI/workspace routing; split project-import routing if that path grows.
 2. Continue pulling pure workflow planning and surface builders out of `WorkspaceModel` before adding new Codex-parity commands.
 3. Keep splitting remaining workspace surface assembly into single-purpose builders when behavior grows; avoid adding new transcript or tool-card projection rules outside the transcript builder.
 4. If MCP transports expand beyond stdio, add new launch/session implementations behind `WorkspaceMCPServerLaunching` instead of adding transport-specific branches to the runtime.
@@ -641,3 +641,21 @@ Code quality changes:
 Remaining risk:
 
 - This keeps the sidebar presentation contract DRY, but broader rail information architecture still needs user-facing visual review as more Codex parity surfaces land.
+
+## 2026-06-23 Desktop Copy Coordinator Pass
+
+Overall grade after this slice: **A- foundation, A desktop boundary**.
+
+Transcript copy behavior moved out of `QuillCodeDesktopController.swift` into `QuillCodeDesktopCopyCoordinator`. The controller still owns visible copied-item state because that is UI state, but blank-copy rejection, pasteboard mutation, and the transient feedback duration now live in one focused desktop helper behind a pasteboard-writing protocol.
+
+Code quality changes:
+
+- Added `QuillCodeDesktopCopyFeedback` so copy feedback state is an explicit value.
+- Added `QuillCodePasteboardWriting` and `MacPasteboardWriter` so concrete AppKit pasteboard access stays out of UI routing.
+- Removed direct `NSPasteboard` mutation and the copy-feedback timing literal from the desktop controller.
+- Removed the controller's `AppKit` import now that platform pasteboard access is delegated.
+- Extended parity gates so the controller cannot regain pasteboard mutation or copy-feedback timing details.
+
+Remaining risk:
+
+- Project import remains simple enough to stay in the controller today. If import handling grows into recent locations, validation, or error recovery, move it behind a focused desktop project-import coordinator instead of expanding the controller.
