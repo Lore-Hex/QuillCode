@@ -441,27 +441,18 @@ public struct QuillCodeWorkspaceView: View {
     }
 
     private func runtimeIssueAction(for issue: RuntimeIssueSurface?) -> (() -> Void)? {
-        guard let actionLabel = issue?.actionLabel else { return nil }
-        let commandID: String?
-        if ["Open Settings", "Add key", "Fix key"].contains(actionLabel) {
-            commandID = "settings"
-        } else if actionLabel == "Retry" {
-            commandID = "retry-last-turn"
-        } else if actionLabel == "Switch model" {
+        guard let action = RuntimeIssueRecoveryPlanner(commands: surface.commands).action(for: issue) else {
+            return nil
+        }
+        switch action {
+        case .presentModelPicker:
             return {
                 isModelPickerPresented = true
             }
-        } else {
-            commandID = nil
-        }
-        guard let commandID,
-              let command = surface.commands.first(where: { $0.id == commandID }),
-              command.isEnabled
-        else {
-            return nil
-        }
-        return {
-            handleCommand(command)
+        case let .command(command):
+            return {
+                handleCommand(command)
+            }
         }
     }
 }

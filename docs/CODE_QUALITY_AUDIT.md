@@ -1174,3 +1174,21 @@ Code quality changes:
 Remaining risk:
 
 - Runtime execution contexts currently cover local and SSH Remote only. The next relay-related slice should add a QuillCloud/relay context through `QuillCodeRuntimeSurface.swift` first, then fan that through the existing builders and renderers.
+
+## 2026-06-23 Runtime Issue Recovery Planner Pass
+
+Overall grade after this slice: **A- foundation, A recovery-action boundary**.
+
+Runtime issue recovery action routing moved out of `WorkspaceSwiftUIView` into `RuntimeIssueRecoveryPlanner`. The view still decides how to present Settings or the model picker, but it no longer owns the brittle string mapping from runtime issue labels to recovery intents.
+
+Code quality changes:
+
+- Added `RuntimeIssueRecoveryAction` so runtime recovery is represented as either a command or a model-picker presentation intent.
+- Added `RuntimeIssueRecoveryPlanner` for `Open Settings`, `Add key`, `Fix key`, `Retry`, and `Switch model` routing.
+- Guarded command-based recovery against disabled/missing command rows instead of letting a button trigger a no-op path.
+- Added direct planner tests for every recovery label, disabled commands, nil issues, and unknown labels.
+- Added a parity gate that keeps runtime recovery label routing out of `WorkspaceSwiftUIView`.
+
+Remaining risk:
+
+- Runtime recovery labels are still string values on `RuntimeIssueSurface` for renderer compatibility. A future compatibility layer could promote them to typed action IDs while continuing to decode older payloads.
