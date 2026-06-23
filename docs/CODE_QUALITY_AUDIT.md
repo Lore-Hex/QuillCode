@@ -1862,3 +1862,22 @@ Remaining risk:
 
 - `GitToolExecutor.swift` still owns local file path validation and hunk patch application. The next tools-layer cleanup should split hunk patch staging/restoring into a focused patch executor or move shared git input validation into a small validator type.
 - Worktree base validation intentionally uses the existing git-name character policy. That covers common branches, remotes, and commit hashes; if users need richer refspec syntax later, expand the shared validator deliberately with tests rather than relaxing worktree creation only.
+
+## 2026-06-23 Git Input Validator Split
+
+Overall grade after this slice: **A architecture, A validation reuse, A local/remote parity**.
+
+Shared git input validation moved out of `GitToolExecutor.swift` and into `GitInputValidator.swift`. Before this pass, the newer `GitHubPullRequestToolExecutor`, `GitWorktreeToolExecutor`, and SSH Remote git planner had to depend back on the broad git facade for trimming, git-name validation, and local path validation. That inverted the intended dependency direction after the PR and worktree executor splits. The focused executors now share a neutral validator, while `GitToolExecutor` keeps small compatibility wrappers for older tests and tool-router call sites.
+
+Code quality changes:
+
+- Added `GitInputValidator` for shared `trimmedNonEmpty`, `safeName`, and `safeRelativePath` behavior.
+- Replaced focused executor and remote planner calls to `GitToolExecutor.safeGitName` / `trimmedNonEmpty` with `GitInputValidator`.
+- Preserved `GitToolExecutor.safeGitName` and `trimmedNonEmpty` as delegating compatibility methods.
+- Hardened SSH Remote worktree creation so branch and base refs use the same validation policy as local worktree creation.
+- Added direct validator coverage, remote worktree validation coverage, and a parity gate that prevents focused executors from depending on the git facade for shared validation.
+
+Remaining risk:
+
+- Git hunk patch application still lives inside `GitToolExecutor.swift`. It is now the largest remaining local-git responsibility in that facade and should become a focused `GitPatchToolExecutor` once this validator split is stable on main.
+- PR-specific validators still live beside `GitHubPullRequestToolExecutor`, which is the right current boundary. If more GitHub issue/release tools appear, split those validators into a `GitHubInputValidator` rather than moving them back into the git facade.

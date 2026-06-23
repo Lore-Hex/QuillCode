@@ -15,13 +15,13 @@ public struct GitWorktreeToolExecutor: Sendable {
     public func create(cwd: URL, path: String, branch: String? = nil, base: String? = nil) -> ToolResult {
         do {
             var arguments = ["worktree", "add"]
-            if let branch = GitToolExecutor.trimmedNonEmpty(branch) {
-                arguments += ["-b", try GitToolExecutor.safeGitName(branch)]
+            if let branch = GitInputValidator.trimmedNonEmpty(branch) {
+                arguments += ["-b", try GitInputValidator.safeName(branch)]
             }
             let worktreePath = try Self.safePath(path, cwd: cwd)
             arguments.append(worktreePath)
-            if let base = GitToolExecutor.trimmedNonEmpty(base) {
-                arguments.append(try GitToolExecutor.safeGitName(base))
+            if let base = GitInputValidator.trimmedNonEmpty(base) {
+                arguments.append(try GitInputValidator.safeName(base))
             }
 
             let result = runGit(arguments, cwd: cwd, timeoutSeconds: 45)

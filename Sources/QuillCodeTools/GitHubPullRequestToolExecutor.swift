@@ -22,7 +22,7 @@ public struct GitHubPullRequestToolExecutor: Sendable {
         fill: Bool = false
     ) -> ToolResult {
         do {
-            let trimmedTitle = GitToolExecutor.trimmedNonEmpty(title)
+            let trimmedTitle = GitInputValidator.trimmedNonEmpty(title)
             guard fill || trimmedTitle != nil else {
                 throw GitToolError.emptyPullRequestTitle
             }
@@ -31,14 +31,14 @@ public struct GitHubPullRequestToolExecutor: Sendable {
             if let trimmedTitle {
                 arguments += ["--title", trimmedTitle]
             }
-            if let body = GitToolExecutor.trimmedNonEmpty(body) {
+            if let body = GitInputValidator.trimmedNonEmpty(body) {
                 arguments += ["--body", body]
             }
-            if let base = GitToolExecutor.trimmedNonEmpty(base) {
-                arguments += ["--base", try GitToolExecutor.safeGitName(base)]
+            if let base = GitInputValidator.trimmedNonEmpty(base) {
+                arguments += ["--base", try GitInputValidator.safeName(base)]
             }
-            if let head = GitToolExecutor.trimmedNonEmpty(head) {
-                arguments += ["--head", try GitToolExecutor.safeGitName(head)]
+            if let head = GitInputValidator.trimmedNonEmpty(head) {
+                arguments += ["--head", try GitInputValidator.safeName(head)]
             }
             if draft {
                 arguments.append("--draft")
@@ -96,8 +96,8 @@ public struct GitHubPullRequestToolExecutor: Sendable {
             if let selector = try Self.safeSelector(selector) {
                 arguments.append(selector)
             }
-            if let branch = GitToolExecutor.trimmedNonEmpty(branch) {
-                arguments += ["--branch", try GitToolExecutor.safeGitName(branch)]
+            if let branch = GitInputValidator.trimmedNonEmpty(branch) {
+                arguments += ["--branch", try GitInputValidator.safeName(branch)]
             }
             return runner.runGitHub(arguments, cwd: cwd, timeoutSeconds: 120)
         } catch {
@@ -167,7 +167,7 @@ public struct GitHubPullRequestToolExecutor: Sendable {
 
     public func comment(cwd: URL, selector: String? = nil, body: String) -> ToolResult {
         do {
-            guard let body = GitToolExecutor.trimmedNonEmpty(body) else {
+            guard let body = GitInputValidator.trimmedNonEmpty(body) else {
                 throw GitToolError.emptyPullRequestComment
             }
 
@@ -191,7 +191,7 @@ public struct GitHubPullRequestToolExecutor: Sendable {
     ) -> ToolResult {
         do {
             let flag = try Self.safeReviewFlag(action)
-            let body = GitToolExecutor.trimmedNonEmpty(body)
+            let body = GitInputValidator.trimmedNonEmpty(body)
             guard flag == "--approve" || body != nil else {
                 throw GitToolError.emptyPullRequestReviewBody
             }
@@ -325,7 +325,7 @@ public struct GitHubPullRequestToolExecutor: Sendable {
     }
 
     public static func safeMergeFlag(_ value: String?) throws -> String {
-        let normalized = (GitToolExecutor.trimmedNonEmpty(value) ?? "squash")
+        let normalized = (GitInputValidator.trimmedNonEmpty(value) ?? "squash")
             .lowercased()
             .replacingOccurrences(of: "-", with: "_")
         switch normalized {

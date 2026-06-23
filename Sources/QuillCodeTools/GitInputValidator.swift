@@ -1,0 +1,44 @@
+import Foundation
+
+public enum GitInputValidator {
+    public static func trimmedNonEmpty(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    public static func safeName(_ value: String) throws -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw GitToolError.emptyBranch
+        }
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._/-")
+        guard trimmed.rangeOfCharacter(from: allowed.inverted) == nil,
+              !trimmed.hasPrefix("-"),
+              !trimmed.contains("..")
+        else {
+            throw GitToolError.invalidGitName(value)
+        }
+        return trimmed
+    }
+
+    public static func safeRelativePath(_ path: String, cwd: URL) throws -> String {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw GitToolError.emptyPath
+        }
+
+        let root = cwd.standardizedFileURL
+        let candidate = trimmed.hasPrefix("/")
+            ? URL(fileURLWithPath: trimmed)
+            : root.appendingPathComponent(trimmed)
+        let standardized = candidate.standardizedFileURL
+        let rootPath = root.path.hasSuffix("/") ? root.path : "\(root.path)/"
+        guard standardized.path == root.path || standardized.path.hasPrefix(rootPath) else {
+            throw GitToolError.outsideWorkspace(path)
+        }
+        guard standardized.path != root.path else {
+            return "."
+        }
+        return String(standardized.path.dropFirst(rootPath.count))
+    }
+}
