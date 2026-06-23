@@ -24,7 +24,10 @@ enum WorkspaceHTMLTopBarRenderer {
         <div class="topbar-cluster topbar-context-cluster" data-testid="top-bar-context-cluster" aria-label="Workspace state">
           <details class="topbar-status-menu" data-testid="top-bar-status-menu">
             <summary data-testid="top-bar-status-button" aria-label="Workspace status" title="\(escape(status.label))">
-              <span class="agent-status-dot" data-testid="agent-status" data-tone="\(escape(status.tone.rawValue))" data-indicator="\(status.showsIndicator)">\(escape(status.label))</span>
+              <span class="agent-status-chip" data-testid="agent-status" data-tone="\(escape(status.tone.rawValue))" data-indicator="\(status.showsIndicator)">
+                <span class="agent-status-dot" aria-hidden="true"></span>
+                <span class="agent-status-label">\(escape(status.label))</span>
+              </span>
             </summary>
             <div class="topbar-status-popover" data-testid="top-bar-status-popover">
               <div class="topbar-status-row">

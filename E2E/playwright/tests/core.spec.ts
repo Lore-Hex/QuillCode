@@ -50,6 +50,7 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('model-picker-button')).not.toContainText('Auto');
   await expect(page.getByTestId('mode-picker-button')).toBeVisible();
   await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
+  await expect(page.getByTestId('composer-agent-status')).toHaveCount(0);
   const modelButtonBox = await page.getByTestId('model-picker-button').boundingBox();
   const modeButtonBox = await page.getByTestId('mode-picker-button').boundingBox();
   expect(modelButtonBox).not.toBeNull();
@@ -100,6 +101,7 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('tool-card-input')).toContainText('whoami');
   await expect(page.getByTestId('tool-card-output')).toContainText('mock-user');
   await expect(page.getByTestId('tool-card-details')).not.toHaveAttribute('open', '');
+  await expect(page.getByTestId('tool-card-details')).toContainText('Show details');
   await expect(page.getByText('You are `mock-user` in this workspace.')).toBeVisible();
   await expect(page.getByTestId('message-copy').first()).toHaveText('Copy');
   await page.getByTestId('message-copy').first().click();
@@ -395,7 +397,8 @@ test('mock harness keeps status details compact under long labels', async ({ pag
   expect(metrics.instructionTextOverflow).toBe('ellipsis');
   expect(metrics.instructionScrollWidth).toBeGreaterThan(metrics.instructionWidth);
   expect(metrics.agentText).toBe('Idle');
-  expect(metrics.agentWidth).toBeLessThanOrEqual(12);
+  expect(metrics.agentWidth).toBeGreaterThan(12);
+  expect(metrics.agentWidth).toBeLessThanOrEqual(180);
   expect(metrics.statusWidth).toBeLessThanOrEqual(340);
   expect(metrics.statusRight).toBeLessThanOrEqual(metrics.viewportWidth);
   expect(metrics.actionRight).toBeLessThanOrEqual(metrics.topBarRight);

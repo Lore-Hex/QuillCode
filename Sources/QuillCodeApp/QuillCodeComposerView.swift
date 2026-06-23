@@ -64,12 +64,6 @@ struct QuillCodeComposerView: View {
             )
 
             Spacer(minLength: 8)
-
-            Text(topBar.agentStatus)
-                .font(.caption.monospacedDigit().weight(.semibold))
-                .foregroundStyle(QuillCodePalette.muted)
-                .lineLimit(1)
-                .accessibilityLabel("Agent status, \(topBar.agentStatus)")
         }
         .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)
         .accessibilityElement(children: .contain)
