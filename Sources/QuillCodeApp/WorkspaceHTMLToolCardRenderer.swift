@@ -45,11 +45,27 @@ enum WorkspaceHTMLToolCardRenderer {
         let isOpen = card.opensDetailsByDefault
         return """
         <details data-testid="tool-card-details"\(isOpen ? " open" : "")>
-          <summary>\(isOpen ? "Hide details" : "Show raw details")</summary>
+          <summary>\(detailsLabel(for: card, isOpen: isOpen))</summary>
           \(card.inputJSON.map { #"<pre data-testid="tool-card-input">\#(escape($0))</pre>"# } ?? "")
           \(card.outputJSON.map { #"<pre data-testid="tool-card-output">\#(escape($0))</pre>"# } ?? "")
         </details>
         """
+    }
+
+    private static func detailsLabel(for card: ToolCardState, isOpen: Bool) -> String {
+        if isOpen {
+            return "Hide details"
+        }
+        switch (card.inputJSON != nil, card.outputJSON != nil) {
+        case (true, true):
+            return "Show details"
+        case (true, false):
+            return "Show input"
+        case (false, true):
+            return "Show output"
+        case (false, false):
+            return "Show details"
+        }
     }
 
     private static func renderArtifacts(_ artifacts: [ToolArtifactState]) -> String {

@@ -85,14 +85,10 @@
     }
     .topbar strong { font-size: 17px; }
     .topbar p {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      margin: -1px;
-      padding: 0;
-      border: 0;
-      overflow: hidden;
-      clip-path: inset(50%);
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
       white-space: nowrap;
     }
     .topbar-title-group strong,
@@ -166,9 +162,9 @@
       gap: 7px;
       padding: 0 10px;
       border-radius: 999px;
-      color: var(--green);
-      background: rgba(82,210,115,.12);
-      border: 1px solid rgba(82,210,115,.24);
+      color: var(--text);
+      background: rgba(255,255,255,.055);
+      border: 1px solid rgba(255,255,255,.10);
       font-size: 12px;
       font-weight: 700;
       white-space: nowrap;
@@ -184,33 +180,35 @@
     }
     .mode-pill-button:hover {
       color: var(--text);
-      border-color: rgba(82,210,115,.34);
-      background: rgba(82,210,115,.16);
+      border-color: rgba(255,255,255,.16);
+      background: rgba(255,255,255,.075);
     }
     .mode-dot {
       width: 7px;
       height: 7px;
       border-radius: 999px;
-      background: currentColor;
-      box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+      background: var(--green);
+      box-shadow: 0 0 0 3px rgba(82,210,115,.18);
+    }
+    .mode-pill-button[data-mode-tone="review"] .mode-dot {
+      background: var(--yellow);
+      box-shadow: 0 0 0 3px rgba(248,184,78,.18);
+    }
+    .mode-pill-button[data-mode-tone="read-only"] .mode-dot {
+      background: var(--blue);
+      box-shadow: 0 0 0 3px rgba(65,184,232,.18);
     }
     .mode-pill-button[data-mode-tone="review"] {
-      color: var(--yellow);
-      background: rgba(248,184,78,.12);
-      border-color: rgba(248,184,78,.24);
+      color: var(--text);
     }
     .mode-pill-button[data-mode-tone="review"]:hover {
-      border-color: rgba(248,184,78,.34);
-      background: rgba(248,184,78,.16);
+      color: var(--text);
     }
     .mode-pill-button[data-mode-tone="read-only"] {
-      color: var(--blue);
-      background: rgba(65,184,232,.12);
-      border-color: rgba(65,184,232,.24);
+      color: var(--text);
     }
     .mode-pill-button[data-mode-tone="read-only"]:hover {
-      border-color: rgba(65,184,232,.34);
-      background: rgba(65,184,232,.16);
+      color: var(--text);
     }
     .topbar-action-cluster button {
       width: 40px;
@@ -232,11 +230,14 @@
       position: relative;
     }
     .topbar-status-menu summary {
-      width: 40px;
+      width: auto;
+      max-width: 180px;
+      min-width: 40px;
       min-height: 40px;
-      padding: 0;
-      display: grid;
-      place-items: center;
+      padding: 0 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,.10);
       color: var(--muted);
@@ -253,26 +254,48 @@
       border-color: rgba(255,255,255,.16);
     }
     .topbar-status-menu [data-testid="agent-status"] {
-      width: 10px;
-      min-width: 10px;
-      max-width: 10px;
-      height: 10px;
-      min-height: 10px;
-      padding: 0;
+      min-width: 0;
+      max-width: 100%;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: rgba(238,247,250,.88);
+      font-size: 12px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .agent-status-label {
+      min-width: 0;
       overflow: hidden;
-      color: transparent;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .agent-status-dot {
+      width: 8px;
+      min-width: 8px;
+      height: 8px;
       border-radius: 999px;
       background: var(--green);
       border: 0;
       box-shadow: 0 0 0 3px rgba(82, 210, 115, 0.12);
     }
-    .topbar-status-menu [data-testid="agent-status"][data-tone="warning"] {
+    .topbar-status-menu [data-testid="agent-status"][data-indicator="false"] .agent-status-dot {
+      display: none;
+    }
+    .topbar-status-menu [data-testid="agent-status"][data-tone="warning"] .agent-status-dot,
+    .topbar-status-menu [data-testid="agent-status"][data-tone="running"] .agent-status-dot {
       background: var(--amber);
       box-shadow: 0 0 0 3px rgba(248,184,78,.14);
     }
-    .topbar-status-menu [data-testid="agent-status"][data-tone="error"] {
+    .topbar-status-menu [data-testid="agent-status"][data-tone="error"] .agent-status-dot,
+    .topbar-status-menu [data-testid="agent-status"][data-tone="failed"] .agent-status-dot {
       background: var(--red);
       box-shadow: 0 0 0 3px rgba(255,93,82,.14);
+    }
+    .topbar-status-menu [data-testid="agent-status"][data-tone="stopped"] .agent-status-dot {
+      background: var(--muted);
+      box-shadow: 0 0 0 3px rgba(147,160,166,.12);
     }
     .topbar-status-popover {
       position: absolute;
@@ -1607,8 +1630,8 @@
       width: min(760px, 92%);
       min-height: 74px;
       background: rgba(0,0,0,.22);
-      border: 1px solid rgba(65,184,232,.25);
-      box-shadow: 0 0 0 1px rgba(65,184,232,.18), 0 12px 34px rgba(0,0,0,.18);
+      border: 1px solid rgba(255,255,255,.10);
+      box-shadow: 0 12px 34px rgba(0,0,0,.18);
       transition-property: transform, box-shadow, border-color;
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
@@ -1617,9 +1640,8 @@
     }
     .tool-card:hover {
       transform: translateY(-1px);
-      box-shadow: 0 0 0 1px rgba(65,184,232,.24), 0 16px 38px rgba(0,0,0,.22);
+      box-shadow: 0 16px 38px rgba(0,0,0,.22);
     }
-    .tool-card.done { border-color: rgba(82,210,115,.34); }
     .tool-card.failed { border-color: rgba(255,93,82,.44); }
     .tool-card.review { border-color: rgba(248,184,78,.48); }
     .tool-card[data-density="collapsed"] {
@@ -2158,14 +2180,6 @@
       border-radius: 999px;
       background: rgba(255,255,255,.045);
       border: 1px solid rgba(255,255,255,.08);
-    }
-    .composer-agent-status {
-      margin-left: auto;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
     }
     .composer .model-panel {
       top: auto;
@@ -2833,6 +2847,11 @@
       if (state.runtimeIssue?.severity === 'error') return 'error';
       if (state.runtimeIssue) return 'warning';
       return state.topBar.agentStatus === 'Failed' ? 'error' : 'success';
+    }
+
+    function topBarStatusIndicator() {
+      if (state.runtimeIssue) return 'true';
+      return state.topBar.agentStatus === 'Idle' ? 'false' : 'true';
     }
 
     function topBarOverflowTestID(commandID) {
@@ -3985,9 +4004,16 @@
             }).join('')}
           </div>` : '';
       };
+      const detailsLabel = card => {
+        if (card.density === 'expanded') return 'Hide details';
+        if (card.inputJSON && card.outputJSON) return 'Show details';
+        if (card.inputJSON) return 'Show input';
+        if (card.outputJSON) return 'Show output';
+        return 'Show details';
+      };
       const renderToolDetails = card => card.inputJSON || card.outputJSON ? `
           <details class="tool-details" data-testid="tool-card-details" ${card.density === 'expanded' ? 'open' : ''}>
-            <summary>${card.density === 'expanded' ? 'Hide details' : 'Show raw details'}</summary>
+            <summary>${detailsLabel(card)}</summary>
             ${card.inputJSON ? `<pre data-testid="tool-card-input">${escapeHTML(card.inputJSON)}</pre>` : ''}
             ${card.outputJSON ? `<pre data-testid="tool-card-output">${escapeHTML(card.outputJSON)}</pre>` : ''}
           </details>` : '';
@@ -4142,7 +4168,10 @@
               <div class="topbar-cluster topbar-context-cluster" data-testid="top-bar-context-cluster">
                 <details class="topbar-status-menu" data-testid="top-bar-status-menu">
                   <summary data-testid="top-bar-status-button" aria-label="Workspace status" title="${escapeHTML(state.topBar.agentStatus)}">
-                    <span data-testid="agent-status" data-tone="${escapeHTML(topBarStatusTone())}">${escapeHTML(state.topBar.agentStatus)}</span>
+                    <span class="agent-status-chip" data-testid="agent-status" data-tone="${escapeHTML(topBarStatusTone())}" data-indicator="${topBarStatusIndicator()}">
+                      <span class="agent-status-dot" aria-hidden="true"></span>
+                      <span class="agent-status-label">${escapeHTML(state.topBar.agentStatus)}</span>
+                    </span>
                   </summary>
                   <div class="topbar-status-popover" data-testid="top-bar-status-popover">
                     <div class="topbar-status-row">
@@ -4223,11 +4252,10 @@
                     <button class="composer-model-button" type="button" aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" aria-label="Model: ${escapeHTML(state.topBar.modelLabel)}" data-testid="model-picker-button">${escapeHTML(state.topBar.modelLabel)}</button>
                     ${modelBrowser}
                   </div>
-                  <button type="button" class="mode-pill-button" data-testid="mode-picker-button" data-mode-tone="${escapeHTML(modeTone(state.topBar.modeLabel))}" aria-label="Approval mode: ${escapeHTML(state.topBar.modeLabel)}">
+                  <button type="button" class="mode-pill-button" data-testid="mode-picker-button" data-mode-tone="${escapeHTML(modeTone(state.topBar.modeLabel))}" aria-label="Auto safety mode: ${escapeHTML(state.topBar.modeLabel)}">
                     <span class="mode-dot" aria-hidden="true"></span>
                     <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
                   </button>
-                  <span class="composer-agent-status" data-testid="composer-agent-status">${escapeHTML(state.topBar.agentStatus)}</span>
                 </div>
                 <label for="message">Message</label>
                 <textarea id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" rows="1" ${state.composer.isSending ? 'disabled' : ''}>${escapeHTML(state.composer.draft)}</textarea>

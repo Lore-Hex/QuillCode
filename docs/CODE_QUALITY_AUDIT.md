@@ -1900,6 +1900,27 @@ Remaining risk:
 
 - `PatchToolExecutor` has its own diff-path parser for generic apply-patch behavior. That is a separate tool boundary today; if parser behavior needs to converge, extract a neutral diff metadata parser rather than making either executor depend on the other.
 
+## 2026-06-23 Calm Composer And Tool-Card Pass
+
+Overall grade after this slice: **A- UI consistency, A regression coverage, B+ interaction depth**.
+
+The top bar and composer now have clearer ownership: the top bar owns project/status context, while the composer owns send-time model and Auto-safety controls. Before this pass, the composer repeated the top-bar agent status and the Auto/Review/Read-only control tinted the entire pill, which made the send area feel busier than Codex. Tool cards also over-emphasized successful work with green rails and colored strokes that competed with real review/error states.
+
+Code quality changes:
+
+- Rendered the top-bar subtitle as visible secondary context in the native SwiftUI bar instead of hiding it in a tooltip.
+- Promoted the top-bar agent status from a color-only dot to a compact text chip, preserving the dot for active/error states.
+- Removed duplicate agent-status text from native and HTML composers.
+- Renamed the mode affordance to "Auto safety" in help and accessibility copy.
+- Made mode controls neutral except for the small mode dot, preserving the state signal without making the whole control shout.
+- Reduced successful/queued/running tool-card chrome so review and failure states carry the visual emphasis.
+- Replaced generic "Show raw details" copy with details labels that match what is available: input, output, or both.
+
+Remaining risk:
+
+- Review tool cards still need first-class Approve/Reject buttons wired to the approval decision path. That requires a model/action boundary, not just view styling.
+- The top-bar overflow menu still duplicates some sidebar/tool-palette actions. It remains for compatibility in this slice; a later navigation pass should decide whether Settings and utility commands live in the sidebar, command palette, native menu bar, or top bar.
+
 ## 2026-06-23 Git Local Executor Split
 
 Overall grade after this slice: **A architecture, A local-git boundary, A regression coverage**.

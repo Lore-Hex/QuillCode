@@ -1079,7 +1079,8 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(topBarViewText.contains("QuillCodeModelPickerView"), "Top bar should not carry send-time model selection chrome.")
         XCTAssertTrue(composerViewText.contains("QuillCodeModelPickerView"), "Composer should expose send-time model selection.")
         XCTAssertTrue(composerViewText.contains("QuillCodeModePickerButton"), "Composer should expose a dedicated approval-mode control.")
-        XCTAssertTrue(topBarViewText.contains("Choose approval mode"), "The mode control should advertise approval-mode intent.")
+        XCTAssertTrue(topBarViewText.contains("Choose Auto safety mode"), "The mode control should advertise Auto safety intent.")
+        XCTAssertFalse(composerViewText.contains("topBar.agentStatus"), "Composer should not duplicate the top-bar agent status.")
         XCTAssertFalse(modelPickerText.contains("modeLabel"), "The model picker trigger and popover must not merge approval mode back into model selection.")
         XCTAssertNil(
             modelPickerText.range(of: #"\bvar\s+onSetMode\b"#, options: .regularExpression),

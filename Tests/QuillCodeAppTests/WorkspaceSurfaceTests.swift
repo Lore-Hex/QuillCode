@@ -1686,7 +1686,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-copy""#))
         XCTAssertTrue(html.contains("Copy output"))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-output""#))
-        XCTAssertTrue(html.contains("Show raw details"))
+        XCTAssertTrue(html.contains("Show details"))
     }
 
     func testHTMLRendererIncludesToolCardArtifacts() async throws {
