@@ -3138,6 +3138,10 @@
         executionContext: card.executionContext || executionContextForTool(card.title),
         density: card.density || toolCardDensity(card.status, card.isExpanded)
       };
+      const stateLabel = toolCardStateLabel(toolCard.status);
+      if (!toolCard.subtitle || toolCard.subtitle === stateLabel) {
+        toolCard.subtitle = toolCardSubtitle(stateLabel, toolCard.title, toolCard.inputJSON);
+      }
       state.transcript.toolCards.push(toolCard);
       state.transcript.timelineItems.push({
         id: `timeline-${state.nextTimelineIndex++}`,
@@ -3239,9 +3243,69 @@
       return 'collapsed';
     }
 
+    function toolCardStateLabel(status) {
+      if (status === 'queued') return 'Queued';
+      if (status === 'running') return 'Running';
+      if (status === 'failed') return 'Failed';
+      if (status === 'review') return 'Review';
+      return 'Completed';
+    }
+
+    function toolCardSubtitle(stateLabel, toolName, inputJSON) {
+      const detail = toolCardDetail(toolName, inputJSON);
+      return detail ? `${stateLabel} · ${detail}` : stateLabel;
+    }
+
+    function toolCardDetail(toolName, inputJSON) {
+      if (!inputJSON) return '';
+      let args = {};
+      try {
+        args = JSON.parse(inputJSON);
+      } catch {
+        return '';
+      }
+      const pathTools = new Set([
+        'host.file.read',
+        'host.file.write',
+        'host.git.stage',
+        'host.git.restore',
+        'host.git.stage_hunk',
+        'host.git.restore_hunk',
+        'host.git.pr.diff',
+        'host.git.worktree.remove'
+      ]);
+      if (toolName === 'host.shell.run') return toolCardSanitized(args.cmd);
+      if (pathTools.has(toolName)) return toolCardSanitized(args.path);
+      if (toolName === 'host.apply_patch') return 'patch';
+      if (toolName === 'host.git.diff') return args.staged === true ? 'staged diff' : 'working tree';
+      if (toolName === 'host.git.commit') return toolCardSanitized(args.message);
+      if (toolName === 'host.git.push') {
+        const remote = toolCardSanitized(args.remote);
+        const branch = toolCardSanitized(args.branch);
+        if (remote && branch) return `${remote}/${branch}`;
+        return remote || branch || '';
+      }
+      if (toolName === 'host.git.pr.create') return toolCardSanitized(args.title);
+      if (toolName?.startsWith('host.git.pr.')) return toolCardSanitized(args.selector);
+      if (toolName === 'host.git.worktree.create') return toolCardSanitized(args.branch) || toolCardSanitized(args.path);
+      if (toolName === 'host.plan.update') return 'plan';
+      if (toolName === 'host.browser.inspect') return toolCardSanitized(args.url);
+      if (toolName === 'host.memory.remember') return toolCardSanitized(args.content);
+      if (toolName === 'host.mcp.call') return toolCardSanitized(args.tool);
+      if (toolName === 'host.mcp.read_resource' || toolName === 'host.mcp.get_prompt') {
+        return toolCardSanitized(args.name) || toolCardSanitized(args.uri);
+      }
+      return '';
+    }
+
+    function toolCardSanitized(value) {
+      const collapsed = String(value || '').split(/\s+/).filter(Boolean).join(' ').trim();
+      return collapsed.length > 72 ? `${collapsed.slice(0, 72)}...` : collapsed;
+    }
+
     function updateToolCardLifecycle(card, status, subtitle) {
       card.status = status;
-      card.subtitle = subtitle;
+      card.subtitle = toolCardSubtitle(subtitle, card.title, card.inputJSON);
       card.density = toolCardDensity(status, card.isExpanded);
       card.isExpanded = card.density === 'expanded';
     }

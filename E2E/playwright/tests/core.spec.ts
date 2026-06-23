@@ -99,6 +99,7 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('top-bar-subtitle')).toContainText('QuillCode - Auto');
   await expect(page.getByTestId('tool-card-title')).toHaveText('host.shell.run');
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-subtitle')).toHaveText('Completed · whoami');
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-density', 'collapsed');
   await expect(page.getByTestId('tool-card-input')).toContainText('whoami');
   await expect(page.getByTestId('tool-card-output')).toContainText('mock-user');

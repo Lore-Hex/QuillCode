@@ -17,11 +17,11 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
         var cards: [ToolCardState] = []
         var activeToolCardIndex: Int?
 
-        func updateActiveToolCard(status: ToolCardStatus, subtitle: String, outputJSON: String? = nil) {
+        func updateActiveToolCard(status: ToolCardStatus, stateLabel: String, outputJSON: String? = nil) {
             guard let index = activeToolCardIndex else {
                 return
             }
-            Self.updateCard(&cards, at: index, status: status, subtitle: subtitle, outputJSON: outputJSON)
+            Self.updateCard(&cards, at: index, status: status, stateLabel: stateLabel, outputJSON: outputJSON)
             if status.isTerminal {
                 activeToolCardIndex = nil
             }
@@ -31,26 +31,28 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
             switch event.kind {
             case .toolQueued:
                 let call = Self.decode(ToolCall.self, event.payloadJSON)
+                let title = call?.name ?? "Tool"
+                let inputJSON = call?.argumentsJSON ?? event.payloadJSON
                 cards.append(ToolCardState(
                     id: call?.id ?? event.id.uuidString,
-                    title: call?.name ?? "Tool",
-                    subtitle: "Queued",
+                    title: title,
+                    subtitle: Self.toolSubtitle(stateLabel: "Queued", title: title, inputJSON: inputJSON),
                     status: .queued,
-                    inputJSON: call?.argumentsJSON ?? event.payloadJSON
+                    inputJSON: inputJSON
                 ))
                 activeToolCardIndex = cards.count - 1
             case .toolRunning:
-                updateActiveToolCard(status: .running, subtitle: "Running")
+                updateActiveToolCard(status: .running, stateLabel: "Running")
             case .toolCompleted:
                 updateActiveToolCard(
                     status: .done,
-                    subtitle: "Completed",
+                    stateLabel: "Completed",
                     outputJSON: event.payloadJSON
                 )
             case .toolFailed:
                 updateActiveToolCard(
                     status: .failed,
-                    subtitle: "Failed",
+                    stateLabel: "Failed",
                     outputJSON: event.payloadJSON
                 )
             case .approvalRequested:
@@ -89,21 +91,21 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
             activeToolItemIndex = items.count - 1
         }
 
-        func updateActiveToolCard(status: ToolCardStatus, subtitle: String, outputJSON: String? = nil) {
+        func updateActiveToolCard(status: ToolCardStatus, stateLabel: String, outputJSON: String? = nil) {
             guard let index = activeToolItemIndex,
                   var card = items[index].toolCard
             else {
                 appendToolCard(ToolCardState(
                     id: "orphan-\(UUID().uuidString)",
                     title: "Tool",
-                    subtitle: subtitle,
+                    subtitle: stateLabel,
                     status: status,
                     outputJSON: outputJSON,
                     artifacts: outputJSON.map(Self.artifacts(from:)) ?? []
                 ))
                 return
             }
-            Self.updateCard(&card, status: status, subtitle: subtitle, outputJSON: outputJSON)
+            Self.updateCard(&card, status: status, stateLabel: stateLabel, outputJSON: outputJSON)
             items[index] = .toolCard(card)
             if status.isTerminal {
                 activeToolItemIndex = nil
@@ -116,25 +118,27 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
                 appendMessage(matching: event.summary)
             case .toolQueued:
                 let call = Self.decode(ToolCall.self, event.payloadJSON)
+                let title = call?.name ?? "Tool"
+                let inputJSON = call?.argumentsJSON ?? event.payloadJSON
                 appendToolCard(ToolCardState(
                     id: call?.id ?? event.id.uuidString,
-                    title: call?.name ?? "Tool",
-                    subtitle: "Queued",
+                    title: title,
+                    subtitle: Self.toolSubtitle(stateLabel: "Queued", title: title, inputJSON: inputJSON),
                     status: .queued,
-                    inputJSON: call?.argumentsJSON ?? event.payloadJSON
+                    inputJSON: inputJSON
                 ))
             case .toolRunning:
-                updateActiveToolCard(status: .running, subtitle: "Running")
+                updateActiveToolCard(status: .running, stateLabel: "Running")
             case .toolCompleted:
                 updateActiveToolCard(
                     status: .done,
-                    subtitle: "Completed",
+                    stateLabel: "Completed",
                     outputJSON: event.payloadJSON
                 )
             case .toolFailed:
                 updateActiveToolCard(
                     status: .failed,
-                    subtitle: "Failed",
+                    stateLabel: "Failed",
                     outputJSON: event.payloadJSON
                 )
             case .approvalRequested:
@@ -165,21 +169,21 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
         _ cards: inout [ToolCardState],
         at index: Int,
         status: ToolCardStatus,
-        subtitle: String,
+        stateLabel: String,
         outputJSON: String? = nil
     ) {
         guard cards.indices.contains(index) else { return }
-        updateCard(&cards[index], status: status, subtitle: subtitle, outputJSON: outputJSON)
+        updateCard(&cards[index], status: status, stateLabel: stateLabel, outputJSON: outputJSON)
     }
 
     private static func updateCard(
         _ card: inout ToolCardState,
         status: ToolCardStatus,
-        subtitle: String,
+        stateLabel: String,
         outputJSON: String? = nil
     ) {
         card.status = status
-        card.subtitle = subtitle
+        card.subtitle = toolSubtitle(stateLabel: stateLabel, title: card.title, inputJSON: card.inputJSON)
         card.density = ToolCardState.defaultDensity(status: status, isExpanded: card.isExpanded)
         card.isExpanded = card.density == .expanded
         if let outputJSON {
@@ -197,6 +201,10 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
             .map { value in
                 ToolArtifactState(value: value, textPreview: ToolArtifactPreviewBuilder.textPreview(for: value))
             }
+    }
+
+    private static func toolSubtitle(stateLabel: String, title: String, inputJSON: String?) -> String {
+        WorkspaceToolCardSubtitleBuilder.subtitle(stateLabel: stateLabel, toolName: title, inputJSON: inputJSON)
     }
 
     private static func messageFeedbackByMessageID(for thread: ChatThread) -> [UUID: MessageFeedbackValue] {

@@ -2009,3 +2009,22 @@ Remaining risk:
 
 - The mode picker still cycles modes in the HTML harness instead of opening a menu like the native SwiftUI control. That is acceptable for fixture coverage today, but a future harness parity pass should model the menu if mode-specific explanations or warnings move into the picker.
 - Review and Read-only modes still do not add an ambient composer cue. A later interaction pass should consider a subtle non-color-only indicator when the user is outside Auto.
+
+## 2026-06-23 Tool Card Subtitle Builder Pass
+
+Overall grade after this slice: **A- UI scanability, A presentation boundary, A regression coverage**.
+
+Collapsed completed tool cards now preserve the concrete action in their subtitle, so users can scan a long transcript without expanding raw JSON. The behavior is presentation-only and lives behind one focused builder instead of spreading argument parsing through transcript projection.
+
+| Surface | Before | After |
+| --- | --- | --- |
+| Completed tool cards | Collapsed to generic `Completed`, losing the command or file path. | Collapse to labels such as `Completed · whoami` and `Completed · hello.txt`. |
+| Transcript projection | Lifecycle labels were hardcoded in both card and timeline paths. | Both paths call `WorkspaceToolCardSubtitleBuilder` through the transcript builder. |
+| Mock harness | Demo cards repeated native subtitle drift manually. | Plain lifecycle subtitles are enriched with the same argument summary rules. |
+
+Code quality changes:
+
+- Added `WorkspaceToolCardSubtitleBuilder` as the single presenter for safe, compact tool-card action summaries.
+- Kept summaries bounded and whitespace-normalized so long commands do not destabilize collapsed card layout.
+- Added focused Swift coverage for known tool summaries, fallback behavior, and transcript lifecycle projection.
+- Added Playwright coverage proving the mock command flow shows the command in the collapsed card subtitle.

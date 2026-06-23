@@ -4123,7 +4123,7 @@ final class WorkspaceModelTests: XCTestCase {
 
         XCTAssertEqual(cards.count, 1)
         XCTAssertEqual(cards[0].status, .failed)
-        XCTAssertEqual(cards[0].subtitle, "Failed")
+        XCTAssertEqual(cards[0].subtitle, "Failed · sleep 10")
         XCTAssertEqual(cards[0].density, .expanded)
         XCTAssertEqual(cards[0].outputJSON, #"{"ok":false,"error":"Stopped by user"}"#)
         XCTAssertEqual(timeline.compactMap(\.toolCard).first?.status, .failed)
