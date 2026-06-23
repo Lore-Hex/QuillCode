@@ -1830,3 +1830,22 @@ Remaining risk:
 
 - Local git, worktree, patch, and shared validation helpers still live in `GitToolExecutor.swift`. The next tools-layer quality pass should split worktree creation/removal or shared git input validation once this PR boundary is stable on main.
 - `GitHubPullRequestToolExecutor` intentionally reuses shared trimming and git-name validation through `GitToolExecutor` for behavioral compatibility. A future cleanup can move those helpers into a smaller `GitInputValidator` without changing tool behavior.
+
+## 2026-06-23 Git Worktree Executor Split
+
+Overall grade after this slice: **A architecture, A worktree safety boundary, A regression coverage**.
+
+Git worktree list/create/remove behavior moved out of `GitToolExecutor.swift` and into `GitWorktreeToolExecutor.swift`. Before this pass, the git facade still owned worktree path normalization, sibling-worktree policy, registered-worktree lookup, artifact construction, and `git worktree` argument construction. The facade now delegates to a focused worktree executor, keeping local git status/diff/stage/restore/commit/push and hunk patching easier to audit separately.
+
+Code quality changes:
+
+- Added `GitWorktreeToolExecutor` for `git worktree list --porcelain`, `git worktree add`, and `git worktree remove`.
+- Moved worktree sibling path validation and registered-worktree lookup beside the worktree executor.
+- Hardened worktree creation by validating optional branch and base refs with the same git-name guard used by push and PR checkout branch creation.
+- Preserved the existing `GitToolExecutor` public API as thin delegates for tool-router compatibility.
+- Added a focused worktree safety test plus a parity gate so worktree command construction and path validation do not drift back into `GitToolExecutor.swift`.
+
+Remaining risk:
+
+- `GitToolExecutor.swift` still owns local file path validation and hunk patch application. The next tools-layer cleanup should split hunk patch staging/restoring into a focused patch executor or move shared git input validation into a small validator type.
+- Worktree base validation intentionally uses the existing git-name character policy. That covers common branches, remotes, and commit hashes; if users need richer refspec syntax later, expand the shared validator deliberately with tests rather than relaxing worktree creation only.

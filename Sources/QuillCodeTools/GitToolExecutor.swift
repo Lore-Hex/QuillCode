@@ -76,6 +76,7 @@ public struct GitToolExecutor: Sendable {
     private let shell: ShellToolExecutor
     private let runner: GitProcessRunner
     private let pullRequests: GitHubPullRequestToolExecutor
+    private let worktrees: GitWorktreeToolExecutor
 
     public init(
         shell: ShellToolExecutor = ShellToolExecutor(),
@@ -85,6 +86,7 @@ public struct GitToolExecutor: Sendable {
         let runner = GitProcessRunner(githubCLIExecutable: githubCLIExecutable)
         self.runner = runner
         self.pullRequests = GitHubPullRequestToolExecutor(runner: runner)
+        self.worktrees = GitWorktreeToolExecutor(runner: runner)
     }
 
     public func status(cwd: URL) -> ToolResult {
@@ -245,56 +247,15 @@ public struct GitToolExecutor: Sendable {
     }
 
     public func listWorktrees(cwd: URL) -> ToolResult {
-        runGit(["worktree", "list", "--porcelain"], cwd: cwd, timeoutSeconds: 20)
+        worktrees.list(cwd: cwd)
     }
 
     public func createWorktree(cwd: URL, path: String, branch: String? = nil, base: String? = nil) -> ToolResult {
-        do {
-            var arguments = ["worktree", "add"]
-            if let branch = Self.trimmedNonEmpty(branch) {
-                arguments += ["-b", branch]
-            }
-            let worktreePath = try safeWorktreePath(path, cwd: cwd)
-            arguments.append(worktreePath)
-            if let base = Self.trimmedNonEmpty(base) {
-                arguments.append(base)
-            }
-            let result = runGit(arguments, cwd: cwd, timeoutSeconds: 45)
-            if result.ok {
-                return ToolResult(
-                    ok: true,
-                    stdout: result.stdout,
-                    stderr: result.stderr,
-                    exitCode: result.exitCode,
-                    artifacts: [worktreePath]
-                )
-            }
-            return result
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
+        worktrees.create(cwd: cwd, path: path, branch: branch, base: base)
     }
 
     public func removeWorktree(cwd: URL, path: String, force: Bool = false) -> ToolResult {
-        do {
-            let worktreePath = try safeWorktreePath(path, cwd: cwd)
-            let registered = registeredWorktreePaths(cwd: cwd)
-            if let failure = registered.failure {
-                return failure
-            }
-            guard registered.paths.contains(worktreePath) else {
-                throw GitToolError.unregisteredWorktree(worktreePath)
-            }
-
-            var arguments = ["worktree", "remove"]
-            if force {
-                arguments.append("--force")
-            }
-            arguments.append(worktreePath)
-            return runGit(arguments, cwd: cwd, timeoutSeconds: 30)
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
+        worktrees.remove(cwd: cwd, path: path, force: force)
     }
 
     private func safeRelativePath(_ path: String, cwd: URL) throws -> String {
@@ -316,28 +277,6 @@ public struct GitToolExecutor: Sendable {
             return "."
         }
         return String(standardized.path.dropFirst(rootPath.count))
-    }
-
-    private func safeWorktreePath(_ path: String, cwd: URL) throws -> String {
-        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            throw GitToolError.emptyPath
-        }
-
-        let workspace = cwd.standardizedFileURL
-        let parent = workspace.deletingLastPathComponent().standardizedFileURL
-        let candidate = trimmed.hasPrefix("/")
-            ? URL(fileURLWithPath: trimmed)
-            : parent.appendingPathComponent(trimmed)
-        let standardized = candidate.standardizedFileURL
-        let parentPath = parent.path.hasSuffix("/") ? parent.path : "\(parent.path)/"
-        guard standardized.path.hasPrefix(parentPath) else {
-            throw GitToolError.outsideWorkspace(path)
-        }
-        guard standardized.path != workspace.path else {
-            throw GitToolError.mainWorkspaceWorktreePath
-        }
-        return standardized.path
     }
 
     public static func trimmedNonEmpty(_ value: String?) -> String? {
@@ -402,22 +341,6 @@ public struct GitToolExecutor: Sendable {
 
     public static func extractURLs(from output: String) -> [String] {
         GitHubPullRequestToolExecutor.extractURLs(from: output)
-    }
-
-    private func registeredWorktreePaths(cwd: URL) -> (paths: Set<String>, failure: ToolResult?) {
-        let result = listWorktrees(cwd: cwd)
-        guard result.ok else {
-            return ([], result)
-        }
-        let paths = result.stdout
-            .components(separatedBy: .newlines)
-            .compactMap { line -> String? in
-                guard line.hasPrefix("worktree ") else { return nil }
-                return URL(fileURLWithPath: String(line.dropFirst("worktree ".count)))
-                    .standardizedFileURL
-                    .path
-            }
-        return (Set(paths), nil)
     }
 
     private func applyHunk(

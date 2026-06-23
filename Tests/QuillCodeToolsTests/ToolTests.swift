@@ -731,6 +731,19 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(result.error?.contains("outside the workspace") == true, result.error ?? "")
     }
 
+    func testGitWorktreeCreateRejectsUnsafeBranchAndBaseNames() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let git = GitToolExecutor()
+
+        let unsafeBranch = git.createWorktree(cwd: root, path: "safe-worktree", branch: "--bad")
+        let unsafeBase = git.createWorktree(cwd: root, path: "safe-worktree", base: "../main")
+
+        XCTAssertFalse(unsafeBranch.ok)
+        XCTAssertTrue(unsafeBranch.error?.contains("unsupported characters") == true, unsafeBranch.error ?? "")
+        XCTAssertFalse(unsafeBase.ok)
+        XCTAssertTrue(unsafeBase.error?.contains("unsupported characters") == true, unsafeBase.error ?? "")
+    }
+
     func testGitWorktreeRemoveRejectsUnregisteredPath() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let parent = root.deletingLastPathComponent()
