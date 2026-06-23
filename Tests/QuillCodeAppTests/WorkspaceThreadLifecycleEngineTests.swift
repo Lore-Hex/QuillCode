@@ -195,4 +195,19 @@ final class WorkspaceThreadLifecycleEngineTests: XCTestCase {
         XCTAssertEqual(Set(result.changedThreads.map(\.id)), Set([first.id, second.id]))
         XCTAssertTrue(threads.allSatisfy { !$0.isArchived })
     }
+
+    func testDeleteThreadsRemovesAndReturnsTargets() throws {
+        let first = ChatThread(title: "First")
+        let second = ChatThread(title: "Second")
+        let untouched = ChatThread(title: "Untouched")
+        var threads = [first, second, untouched]
+
+        let result = try XCTUnwrap(WorkspaceThreadLifecycleEngine.deleteThreads(
+            [first.id, second.id],
+            threads: &threads
+        ))
+
+        XCTAssertEqual(result.removedThreads.map(\.id), [first.id, second.id])
+        XCTAssertEqual(threads.map(\.id), [untouched.id])
+    }
 }
