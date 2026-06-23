@@ -202,81 +202,24 @@ public final class QuillCodeWorkspaceModel {
     public var currentToolCards: [ToolCardState] {
         guard let selectedThread else { return [] }
         let cards = WorkspaceTranscriptSurfaceBuilder(thread: selectedThread).toolCards()
-        return enrichToolCards(cards, for: selectedThread)
+        return executionContextSurfaceBuilder.enrichToolCards(cards, for: selectedThread)
     }
 
     public var currentTimelineItems: [TranscriptTimelineItemSurface] {
         guard let selectedThread else { return [] }
         let items = WorkspaceTranscriptSurfaceBuilder(thread: selectedThread).timelineItems()
-        return enrichTimelineItems(items, for: selectedThread)
+        return executionContextSurfaceBuilder.enrichTimelineItems(items, for: selectedThread)
     }
 
-    private func enrichToolCards(_ cards: [ToolCardState], for thread: ChatThread) -> [ToolCardState] {
-        guard let context = executionContext(for: thread) else { return cards }
-        return cards.map { card in
-            guard card.executionContext == nil, Self.isProjectExecutionTool(card.title) else {
-                return card
-            }
-            var copy = card
-            copy.executionContext = context
-            return copy
-        }
-    }
-
-    private func enrichTimelineItems(
-        _ items: [TranscriptTimelineItemSurface],
-        for thread: ChatThread
-    ) -> [TranscriptTimelineItemSurface] {
-        guard let context = executionContext(for: thread) else { return items }
-        return items.map { item in
-            guard var card = item.toolCard,
-                  card.executionContext == nil,
-                  Self.isProjectExecutionTool(card.title)
-            else {
-                return item
-            }
-            card.executionContext = context
-            return .toolCard(card)
-        }
-    }
-
-    private func executionContext(for thread: ChatThread) -> ExecutionContextSurface? {
-        let project = thread.projectID.flatMap(project)
-            ?? selectedProject
-        guard let project else { return nil }
-        return .project(project)
+    private var executionContextSurfaceBuilder: WorkspaceExecutionContextSurfaceBuilder {
+        WorkspaceExecutionContextSurfaceBuilder(
+            selectedProject: selectedProject,
+            projects: root.projects
+        )
     }
 
     private func project(id: UUID) -> ProjectRef? {
         root.projects.first { $0.id == id }
-    }
-
-    private static func isProjectExecutionTool(_ toolName: String) -> Bool {
-        toolName == ToolDefinition.shellRun.name
-            || toolName == ToolDefinition.fileRead.name
-            || toolName == ToolDefinition.fileWrite.name
-            || toolName == ToolDefinition.applyPatch.name
-            || toolName == ToolDefinition.gitStatus.name
-            || toolName == ToolDefinition.gitDiff.name
-            || toolName == ToolDefinition.gitStage.name
-            || toolName == ToolDefinition.gitRestore.name
-            || toolName == ToolDefinition.gitStageHunk.name
-            || toolName == ToolDefinition.gitRestoreHunk.name
-            || toolName == ToolDefinition.gitCommit.name
-            || toolName == ToolDefinition.gitPush.name
-            || toolName == ToolDefinition.gitPullRequestCreate.name
-            || toolName == ToolDefinition.gitPullRequestView.name
-            || toolName == ToolDefinition.gitPullRequestChecks.name
-            || toolName == ToolDefinition.gitPullRequestDiff.name
-            || toolName == ToolDefinition.gitPullRequestCheckout.name
-            || toolName == ToolDefinition.gitPullRequestReviewers.name
-            || toolName == ToolDefinition.gitPullRequestLabels.name
-            || toolName == ToolDefinition.gitPullRequestComment.name
-            || toolName == ToolDefinition.gitPullRequestReview.name
-            || toolName == ToolDefinition.gitPullRequestMerge.name
-            || toolName == ToolDefinition.gitWorktreeList.name
-            || toolName == ToolDefinition.gitWorktreeCreate.name
-            || toolName == ToolDefinition.gitWorktreeRemove.name
     }
 
     public var canRetryLastUserTurn: Bool {
@@ -601,7 +544,7 @@ public final class QuillCodeWorkspaceModel {
         }
 
         let projectID = knownProjectID(automation.projectID ?? source.projectID)
-        let copiedMessages = Self.forkSeedMessages(from: source.messages)
+        let copiedMessages = WorkspaceThreadSeedBuilder.forkSeedMessages(from: source.messages)
         let draft = WorkspaceAutomationRunner.threadFollowUpDraft(
             automation: automation,
             source: source,
@@ -866,7 +809,7 @@ public final class QuillCodeWorkspaceModel {
     public func forkFromLast() -> UUID? {
         guard let source = selectedThread, !source.messages.isEmpty else { return nil }
         clearSidebarSelection()
-        let copiedMessages = Self.forkSeedMessages(from: source.messages)
+        let copiedMessages = WorkspaceThreadSeedBuilder.forkSeedMessages(from: source.messages)
         let fork = ChatThread(
             title: "Fork: \(source.title)",
             projectID: knownProjectID(source.projectID),
@@ -898,7 +841,7 @@ public final class QuillCodeWorkspaceModel {
     public func compactContext() -> UUID? {
         guard let source = selectedThread, !source.messages.isEmpty else { return nil }
         clearSidebarSelection()
-        let copiedMessages = Self.compactSeedMessages(from: source)
+        let copiedMessages = WorkspaceThreadSeedBuilder.compactSeedMessages(from: source)
         let compacted = ChatThread(
             title: "Compact: \(source.title)",
             projectID: knownProjectID(source.projectID),
@@ -3384,7 +3327,7 @@ public final class QuillCodeWorkspaceModel {
         lastError = nil
         mutateThread(threadID) { thread in
             if thread.messages.isEmpty && thread.title == "New chat" {
-                thread.title = Self.title(fromUserPrompt: userPrompt)
+                thread.title = WorkspaceThreadSeedBuilder.title(fromUserPrompt: userPrompt)
             }
             if !thread.messages.contains(where: { $0.role == .user && $0.content == userPrompt }) {
                 thread.messages.append(ChatMessage(role: .user, content: userPrompt))
@@ -3403,79 +3346,6 @@ public final class QuillCodeWorkspaceModel {
             }
         }
         refreshTopBar(agentStatus: "Stopped")
-    }
-
-    private static func title(fromUserPrompt userPrompt: String) -> String {
-        let words = userPrompt.split(separator: " ").prefix(6).joined(separator: " ")
-        return words.isEmpty ? "New chat" : words
-    }
-
-    private static func forkSeedMessages(from messages: [ChatMessage]) -> [ChatMessage] {
-        let visibleMessages = visibleConversationMessages(from: messages)
-        guard let lastUserIndex = visibleMessages.lastIndex(where: { $0.role == .user }) else {
-            return Array(visibleMessages.suffix(4))
-        }
-        return Array(visibleMessages[lastUserIndex...].prefix(4))
-    }
-
-    private static func compactSeedMessages(from thread: ChatThread) -> [ChatMessage] {
-        let visibleMessages = visibleConversationMessages(from: thread.messages)
-        let recentMessages = forkSeedMessages(from: visibleMessages)
-        let recentIDs = Set(recentMessages.map(\.id))
-        let olderMessages = visibleMessages.filter { !recentIDs.contains($0.id) }
-        return [compactSummaryMessage(
-            sourceTitle: thread.title,
-            olderMessages: olderMessages,
-            recentMessages: recentMessages
-        )] + recentMessages
-    }
-
-    private static func visibleConversationMessages(from messages: [ChatMessage]) -> [ChatMessage] {
-        messages.filter { $0.role != .tool }
-    }
-
-    private static func compactSummaryMessage(
-        sourceTitle: String,
-        olderMessages: [ChatMessage],
-        recentMessages: [ChatMessage]
-    ) -> ChatMessage {
-        let olderCount = olderMessages.count
-        let recentCount = recentMessages.count
-        var lines = [
-            "Context compacted from \"\(sourceTitle)\".",
-            "Kept \(recentCount) latest message\(recentCount == 1 ? "" : "s") and summarized \(olderCount) earlier message\(olderCount == 1 ? "" : "s")."
-        ]
-        if olderMessages.isEmpty {
-            lines.append("No earlier turns were dropped.")
-        } else {
-            lines.append("Earlier context:")
-            for message in olderMessages.suffix(6) {
-                lines.append("- \(roleLabel(message.role)): \(singleLineExcerpt(message.content, limit: 180))")
-            }
-        }
-        lines.append("Continue from the preserved latest turn below.")
-        return ChatMessage(role: .assistant, content: lines.joined(separator: "\n"))
-    }
-
-    private static func roleLabel(_ role: ChatRole) -> String {
-        switch role {
-        case .system:
-            return "System"
-        case .user:
-            return "User"
-        case .assistant:
-            return "Assistant"
-        case .tool:
-            return "Tool"
-        }
-    }
-
-    private static func singleLineExcerpt(_ text: String, limit: Int) -> String {
-        let collapsed = text
-            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard collapsed.count > limit else { return collapsed }
-        return String(collapsed.prefix(limit)).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
     }
 
     private func statusText() -> String {
