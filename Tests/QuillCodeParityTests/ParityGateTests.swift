@@ -1080,6 +1080,8 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(composerViewText.contains("QuillCodeModelPickerView"), "Composer should expose send-time model selection.")
         XCTAssertTrue(composerViewText.contains("QuillCodeModePickerButton"), "Composer should expose a dedicated approval-mode control.")
         XCTAssertTrue(topBarViewText.contains("Choose Auto safety mode"), "The mode control should advertise Auto safety intent.")
+        XCTAssertTrue(topBarViewText.contains(#"Text("Mode")"#), "Native mode control should name the control instead of relying on a color dot.")
+        XCTAssertFalse(topBarViewText.contains("modeColor(for:"), "Native mode control should not reuse health-status color semantics.")
         XCTAssertFalse(composerViewText.contains("topBar.agentStatus"), "Composer should not duplicate the top-bar agent status.")
         XCTAssertFalse(modelPickerText.contains("modeLabel"), "The model picker trigger and popover must not merge approval mode back into model selection.")
         XCTAssertNil(
@@ -1093,6 +1095,8 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(htmlTopBarText.contains("data-testid=\"model-picker-button\""), "HTML top bar should not expose the model control.")
         XCTAssertTrue(htmlTranscriptText.contains("data-testid=\"model-picker-button\""), "HTML composer should expose a model control.")
         XCTAssertTrue(htmlTranscriptText.contains("data-testid=\"mode-picker-button\""), "HTML composer should expose a separate mode control.")
+        XCTAssertTrue(htmlTranscriptText.contains("mode-prefix"), "HTML mode control should name the control instead of relying on a color dot.")
+        XCTAssertFalse(htmlTranscriptText.contains("mode-dot"), "HTML mode control should not reuse health-status dot semantics.")
         XCTAssertFalse(htmlTopBarText.contains(" · "), "HTML top bar must not render model and mode as one combined label.")
     }
 

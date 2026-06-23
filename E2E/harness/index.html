@@ -183,32 +183,18 @@
       border-color: rgba(255,255,255,.16);
       background: rgba(255,255,255,.075);
     }
-    .mode-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 999px;
-      background: var(--green);
-      box-shadow: 0 0 0 3px rgba(82,210,115,.18);
+    .mode-icon,
+    .mode-prefix,
+    .mode-separator {
+      color: var(--muted);
     }
-    .mode-pill-button[data-mode-tone="review"] .mode-dot {
-      background: var(--yellow);
-      box-shadow: 0 0 0 3px rgba(248,184,78,.18);
+    .mode-icon {
+      font-size: 12px;
+      line-height: 1;
+      transform: translateY(-.5px);
     }
-    .mode-pill-button[data-mode-tone="read-only"] .mode-dot {
-      background: var(--blue);
-      box-shadow: 0 0 0 3px rgba(65,184,232,.18);
-    }
-    .mode-pill-button[data-mode-tone="review"] {
-      color: var(--text);
-    }
-    .mode-pill-button[data-mode-tone="review"]:hover {
-      color: var(--text);
-    }
-    .mode-pill-button[data-mode-tone="read-only"] {
-      color: var(--text);
-    }
-    .mode-pill-button[data-mode-tone="read-only"]:hover {
-      color: var(--text);
+    .mode-separator {
+      opacity: .8;
     }
     .topbar-action-cluster button {
       width: 40px;
@@ -4253,7 +4239,9 @@
                     ${modelBrowser}
                   </div>
                   <button type="button" class="mode-pill-button" data-testid="mode-picker-button" data-mode-tone="${escapeHTML(modeTone(state.topBar.modeLabel))}" aria-label="Auto safety mode: ${escapeHTML(state.topBar.modeLabel)}">
-                    <span class="mode-dot" aria-hidden="true"></span>
+                    <span class="mode-icon" aria-hidden="true">◇</span>
+                    <span class="mode-prefix">Mode</span>
+                    <span class="mode-separator" aria-hidden="true">·</span>
                     <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
                   </button>
                 </div>

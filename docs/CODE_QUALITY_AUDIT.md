@@ -1956,3 +1956,22 @@ Remaining risk:
 
 - `GitToolExecutor` still exposes compatibility wrappers for older call sites. They are now simple delegates, but new code should use `GitInputValidator`, `GitHubPullRequestInputValidator`, or `GitHubPullRequestOutputParser` directly.
 - `GitHubPullRequestToolExecutor` still owns per-operation argument construction. That is the right boundary for now; if GitHub issue/release tools appear, add new focused executors rather than broadening this PR executor.
+
+## 2026-06-23 Explicit Mode Control Pass
+
+Overall grade after this slice: **A UI hierarchy, A regression coverage, B+ interaction depth**.
+
+The composer mode control now reads as an explicit safety mode selector instead of a color-coded status dot. Before this pass, the Auto/Review/Read-only control used the same dot language as the top-bar agent status, which made health state and safety mode visually compete. The control now uses a neutral shield affordance and the label "Mode · Auto", while preserving the existing value hook for tests and automation.
+
+Code quality changes:
+
+- Replaced the native SwiftUI mode dot with a neutral shield icon and explicit "Mode" label.
+- Removed native mode-specific color mapping so approval mode does not reuse health-status color semantics.
+- Updated the HTML renderer and Playwright harness to emit the same explicit mode structure.
+- Removed mode-dot CSS from the harness and kept the mode pill neutral across Auto, Review, and Read-only.
+- Added parity and E2E coverage that prevents the mode control from drifting back to a color-dot-only affordance.
+
+Remaining risk:
+
+- The mode picker still cycles modes in the HTML harness instead of opening a menu like the native SwiftUI control. That is acceptable for fixture coverage today, but a future harness parity pass should model the menu if mode-specific explanations or warnings move into the picker.
+- Review and Read-only modes still do not add an ambient composer cue. A later interaction pass should consider a subtle non-color-only indicator when the user is outside Auto.
