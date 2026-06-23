@@ -1395,6 +1395,25 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(executorText.contains("parametersJSON"), "GitToolExecutor should not own JSON schema strings.")
     }
 
+    func testGitHubPullRequestExecutionLivesOutsideGitExecutor() throws {
+        let executorText = try Self.toolsSourceText(named: "GitToolExecutor.swift")
+        let pullRequestText = try Self.toolsSourceText(named: "GitHubPullRequestToolExecutor.swift")
+        let processRunnerText = try Self.toolsSourceText(named: "GitProcessRunner.swift")
+
+        XCTAssertTrue(pullRequestText.contains("public struct GitHubPullRequestToolExecutor"), "GitHub PR execution should live in a focused executor.")
+        XCTAssertTrue(pullRequestText.contains("func createPullRequest"), "GitHub PR creation should be directly testable.")
+        XCTAssertTrue(pullRequestText.contains("func merge("), "GitHub PR merge command construction should be directly testable.")
+        XCTAssertTrue(pullRequestText.contains("static func safeSelector"), "GitHub PR selector validation should live beside PR execution.")
+        XCTAssertTrue(pullRequestText.contains("static func safeReviewers"), "GitHub PR reviewer validation should live beside PR execution.")
+        XCTAssertTrue(processRunnerText.contains("public struct GitProcessRunner"), "Git and GitHub CLI process launching should live in a reusable runner.")
+        XCTAssertTrue(processRunnerText.contains("func runGitHub"), "GitHub CLI invocation should be owned by the process runner.")
+        XCTAssertTrue(executorText.contains("private let pullRequests: GitHubPullRequestToolExecutor"), "GitToolExecutor should delegate GitHub PR work.")
+        XCTAssertFalse(executorText.contains("func runGitHub"), "GitToolExecutor should not own GitHub CLI process launching.")
+        XCTAssertFalse(executorText.contains("Process()"), "GitToolExecutor should not own raw process launching.")
+        XCTAssertFalse(executorText.contains(#"["pr", "create"]"#), "GitToolExecutor should not build GitHub PR command arguments inline.")
+        XCTAssertFalse(executorText.contains("addURLArtifacts"), "GitToolExecutor should not own GitHub PR URL artifact extraction.")
+    }
+
     func testWorkspaceSurfaceDelegatesContextBannerBuilding() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceContextBannerBuilder.swift")

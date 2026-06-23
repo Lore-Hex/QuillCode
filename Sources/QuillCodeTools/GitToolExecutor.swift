@@ -74,14 +74,17 @@ public enum GitToolError: Error, CustomStringConvertible {
 
 public struct GitToolExecutor: Sendable {
     private let shell: ShellToolExecutor
-    private let githubCLIExecutable: URL?
+    private let runner: GitProcessRunner
+    private let pullRequests: GitHubPullRequestToolExecutor
 
     public init(
         shell: ShellToolExecutor = ShellToolExecutor(),
         githubCLIExecutable: URL? = nil
     ) {
         self.shell = shell
-        self.githubCLIExecutable = githubCLIExecutable
+        let runner = GitProcessRunner(githubCLIExecutable: githubCLIExecutable)
+        self.runner = runner
+        self.pullRequests = GitHubPullRequestToolExecutor(runner: runner)
     }
 
     public func status(cwd: URL) -> ToolResult {
@@ -167,106 +170,31 @@ public struct GitToolExecutor: Sendable {
         draft: Bool = false,
         fill: Bool = false
     ) -> ToolResult {
-        do {
-            let trimmedTitle = Self.trimmedNonEmpty(title)
-            guard fill || trimmedTitle != nil else {
-                throw GitToolError.emptyPullRequestTitle
-            }
-
-            var arguments = ["pr", "create"]
-            if let trimmedTitle {
-                arguments += ["--title", trimmedTitle]
-            }
-            if let body = Self.trimmedNonEmpty(body) {
-                arguments += ["--body", body]
-            }
-            if let base = Self.trimmedNonEmpty(base) {
-                arguments += ["--base", try Self.safeGitName(base)]
-            }
-            if let head = Self.trimmedNonEmpty(head) {
-                arguments += ["--head", try Self.safeGitName(head)]
-            }
-            if draft {
-                arguments.append("--draft")
-            }
-            if fill {
-                arguments.append("--fill")
-            }
-
-            let result = runGitHub(arguments, cwd: cwd, timeoutSeconds: 120)
-            if result.ok {
-                return ToolResult(
-                    ok: true,
-                    stdout: result.stdout,
-                    stderr: result.stderr,
-                    exitCode: result.exitCode,
-                    artifacts: Self.extractURLs(from: result.stdout)
-                )
-            }
-            return result
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
+        pullRequests.createPullRequest(
+            cwd: cwd,
+            title: title,
+            body: body,
+            base: base,
+            head: head,
+            draft: draft,
+            fill: fill
+        )
     }
 
     public func viewPullRequest(cwd: URL, selector: String? = nil) -> ToolResult {
-        do {
-            var arguments = ["pr", "view"]
-            if let selector = try Self.safePullRequestSelector(selector) {
-                arguments.append(selector)
-            }
-            arguments.append("--comments")
-            let result = runGitHub(arguments, cwd: cwd, timeoutSeconds: 45)
-            guard result.ok else { return result }
-            return ToolResult(
-                ok: true,
-                stdout: result.stdout,
-                stderr: result.stderr,
-                exitCode: result.exitCode,
-                artifacts: Self.extractURLs(from: result.stdout)
-            )
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
+        pullRequests.view(cwd: cwd, selector: selector)
     }
 
     public func pullRequestChecks(cwd: URL, selector: String? = nil) -> ToolResult {
-        do {
-            var arguments = ["pr", "checks"]
-            if let selector = try Self.safePullRequestSelector(selector) {
-                arguments.append(selector)
-            }
-            return runGitHub(arguments, cwd: cwd, timeoutSeconds: 45)
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
+        pullRequests.checks(cwd: cwd, selector: selector)
     }
 
     public func diffPullRequest(cwd: URL, selector: String? = nil) -> ToolResult {
-        do {
-            var arguments = ["pr", "diff"]
-            if let selector = try Self.safePullRequestSelector(selector) {
-                arguments.append(selector)
-            }
-            return runGitHub(arguments, cwd: cwd, timeoutSeconds: 45)
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
+        pullRequests.diff(cwd: cwd, selector: selector)
     }
 
     public func checkoutPullRequest(cwd: URL, selector: String? = nil, branch: String? = nil) -> ToolResult {
-        do {
-            var arguments = ["pr", "checkout"]
-            if let selector = try Self.safePullRequestSelector(selector) {
-                arguments.append(selector)
-            }
-            if let branch = Self.trimmedNonEmpty(branch) {
-                arguments += ["--branch", try Self.safeGitName(branch)]
-            }
-            return runGitHub(arguments, cwd: cwd, timeoutSeconds: 120)
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
+        pullRequests.checkout(cwd: cwd, selector: selector, branch: branch)
     }
 
     public func updatePullRequestReviewers(
@@ -275,36 +203,7 @@ public struct GitToolExecutor: Sendable {
         add: [String]? = nil,
         remove: [String]? = nil
     ) -> ToolResult {
-        do {
-            let reviewersToAdd = try Self.safePullRequestReviewers(add)
-            let reviewersToRemove = try Self.safePullRequestReviewers(remove)
-            guard !reviewersToAdd.isEmpty || !reviewersToRemove.isEmpty else {
-                throw GitToolError.emptyPullRequestReviewers
-            }
-
-            var arguments = ["pr", "edit"]
-            if let selector = try Self.safePullRequestSelector(selector) {
-                arguments.append(selector)
-            }
-            if !reviewersToAdd.isEmpty {
-                arguments += ["--add-reviewer", reviewersToAdd.joined(separator: ",")]
-            }
-            if !reviewersToRemove.isEmpty {
-                arguments += ["--remove-reviewer", reviewersToRemove.joined(separator: ",")]
-            }
-
-            let result = runGitHub(arguments, cwd: cwd, timeoutSeconds: 60)
-            guard result.ok else { return result }
-            return ToolResult(
-                ok: true,
-                stdout: result.stdout,
-                stderr: result.stderr,
-                exitCode: result.exitCode,
-                artifacts: Self.extractURLs(from: result.stdout)
-            )
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
+        pullRequests.updateReviewers(cwd: cwd, selector: selector, add: add, remove: remove)
     }
 
     public func updatePullRequestLabels(
@@ -313,62 +212,11 @@ public struct GitToolExecutor: Sendable {
         add: [String]? = nil,
         remove: [String]? = nil
     ) -> ToolResult {
-        do {
-            let labelsToAdd = try Self.safePullRequestLabels(add)
-            let labelsToRemove = try Self.safePullRequestLabels(remove)
-            guard !labelsToAdd.isEmpty || !labelsToRemove.isEmpty else {
-                throw GitToolError.emptyPullRequestLabels
-            }
-
-            var arguments = ["pr", "edit"]
-            if let selector = try Self.safePullRequestSelector(selector) {
-                arguments.append(selector)
-            }
-            if !labelsToAdd.isEmpty {
-                arguments += ["--add-label", labelsToAdd.joined(separator: ",")]
-            }
-            if !labelsToRemove.isEmpty {
-                arguments += ["--remove-label", labelsToRemove.joined(separator: ",")]
-            }
-
-            let result = runGitHub(arguments, cwd: cwd, timeoutSeconds: 60)
-            guard result.ok else { return result }
-            return ToolResult(
-                ok: true,
-                stdout: result.stdout,
-                stderr: result.stderr,
-                exitCode: result.exitCode,
-                artifacts: Self.extractURLs(from: result.stdout)
-            )
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
+        pullRequests.updateLabels(cwd: cwd, selector: selector, add: add, remove: remove)
     }
 
     public func commentOnPullRequest(cwd: URL, selector: String? = nil, body: String) -> ToolResult {
-        do {
-            guard let body = Self.trimmedNonEmpty(body) else {
-                throw GitToolError.emptyPullRequestComment
-            }
-
-            var arguments = ["pr", "comment"]
-            if let selector = try Self.safePullRequestSelector(selector) {
-                arguments.append(selector)
-            }
-            arguments += ["--body", body]
-
-            let result = runGitHub(arguments, cwd: cwd, timeoutSeconds: 60)
-            guard result.ok else { return result }
-            return ToolResult(
-                ok: true,
-                stdout: result.stdout,
-                stderr: result.stderr,
-                exitCode: result.exitCode,
-                artifacts: Self.extractURLs(from: result.stdout)
-            )
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
+        pullRequests.comment(cwd: cwd, selector: selector, body: body)
     }
 
     public func reviewPullRequest(
@@ -377,34 +225,7 @@ public struct GitToolExecutor: Sendable {
         action: String,
         body: String? = nil
     ) -> ToolResult {
-        do {
-            let flag = try Self.safePullRequestReviewFlag(action)
-            let body = Self.trimmedNonEmpty(body)
-            guard flag == "--approve" || body != nil else {
-                throw GitToolError.emptyPullRequestReviewBody
-            }
-
-            var arguments = ["pr", "review"]
-            if let selector = try Self.safePullRequestSelector(selector) {
-                arguments.append(selector)
-            }
-            arguments.append(flag)
-            if let body {
-                arguments += ["--body", body]
-            }
-
-            let result = runGitHub(arguments, cwd: cwd, timeoutSeconds: 60)
-            guard result.ok else { return result }
-            return ToolResult(
-                ok: true,
-                stdout: result.stdout,
-                stderr: result.stderr,
-                exitCode: result.exitCode,
-                artifacts: Self.extractURLs(from: result.stdout)
-            )
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
+        pullRequests.review(cwd: cwd, selector: selector, action: action, body: body)
     }
 
     public func mergePullRequest(
@@ -414,31 +235,13 @@ public struct GitToolExecutor: Sendable {
         auto: Bool = false,
         deleteBranch: Bool = false
     ) -> ToolResult {
-        do {
-            var arguments = ["pr", "merge"]
-            if let selector = try Self.safePullRequestSelector(selector) {
-                arguments.append(selector)
-            }
-            arguments.append(try Self.safePullRequestMergeFlag(method))
-            if auto {
-                arguments.append("--auto")
-            }
-            if deleteBranch {
-                arguments.append("--delete-branch")
-            }
-
-            let result = runGitHub(arguments, cwd: cwd, timeoutSeconds: 120)
-            guard result.ok else { return result }
-            return ToolResult(
-                ok: true,
-                stdout: result.stdout,
-                stderr: result.stderr,
-                exitCode: result.exitCode,
-                artifacts: Self.extractURLs(from: result.stdout)
-            )
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
+        pullRequests.merge(
+            cwd: cwd,
+            selector: selector,
+            method: method,
+            auto: auto,
+            deleteBranch: deleteBranch
+        )
     }
 
     public func listWorktrees(cwd: URL) -> ToolResult {
@@ -558,116 +361,31 @@ public struct GitToolExecutor: Sendable {
     }
 
     public static func safePullRequestSelector(_ value: String?) throws -> String? {
-        guard let value else { return nil }
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        guard trimmed.count <= 300,
-              !trimmed.hasPrefix("-"),
-              trimmed.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
-              trimmed.rangeOfCharacter(from: .controlCharacters) == nil
-        else {
-            throw GitToolError.invalidPullRequestSelector(value)
-        }
-        return trimmed
+        try GitHubPullRequestToolExecutor.safeSelector(value)
     }
 
     public static func safePullRequestReviewers(_ values: [String]?) throws -> [String] {
-        var reviewers: [String] = []
-        var seen = Set<String>()
-        for value in values ?? [] {
-            let reviewer = try safePullRequestReviewer(value)
-            guard seen.insert(reviewer).inserted else { continue }
-            reviewers.append(reviewer)
-        }
-        return reviewers
+        try GitHubPullRequestToolExecutor.safeReviewers(values)
     }
 
     public static func safePullRequestReviewer(_ value: String) throws -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty,
-              trimmed.count <= 80,
-              trimmed.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
-              trimmed.rangeOfCharacter(from: .controlCharacters) == nil,
-              !trimmed.hasPrefix("-")
-        else {
-            throw GitToolError.invalidPullRequestReviewer(value)
-        }
-        if trimmed == "@copilot" {
-            return trimmed
-        }
-        let parts = trimmed.split(separator: "/", omittingEmptySubsequences: false)
-        guard (1...2).contains(parts.count),
-              parts.allSatisfy({ Self.isSafeGitHubReviewerComponent(String($0)) })
-        else {
-            throw GitToolError.invalidPullRequestReviewer(value)
-        }
-        return trimmed
-    }
-
-    private static func isSafeGitHubReviewerComponent(_ value: String) -> Bool {
-        guard !value.isEmpty,
-              value.count <= 39,
-              value.range(of: #"^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$|^[A-Za-z0-9]$"#, options: .regularExpression) != nil
-        else {
-            return false
-        }
-        return true
+        try GitHubPullRequestToolExecutor.safeReviewer(value)
     }
 
     public static func safePullRequestLabels(_ values: [String]?) throws -> [String] {
-        var labels: [String] = []
-        var seen = Set<String>()
-        for value in values ?? [] {
-            let label = try safePullRequestLabel(value)
-            guard seen.insert(label).inserted else { continue }
-            labels.append(label)
-        }
-        return labels
+        try GitHubPullRequestToolExecutor.safeLabels(values)
     }
 
     public static func safePullRequestLabel(_ value: String) throws -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty,
-              trimmed.count <= 100,
-              trimmed.rangeOfCharacter(from: .newlines) == nil,
-              trimmed.rangeOfCharacter(from: .controlCharacters) == nil,
-              !trimmed.contains(","),
-              !trimmed.hasPrefix("-")
-        else {
-            throw GitToolError.invalidPullRequestLabel(value)
-        }
-        return trimmed
+        try GitHubPullRequestToolExecutor.safeLabel(value)
     }
 
     public static func safePullRequestReviewFlag(_ value: String) throws -> String {
-        switch value.trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-            .replacingOccurrences(of: "-", with: "_") {
-        case "approve", "approved":
-            return "--approve"
-        case "comment", "comments":
-            return "--comment"
-        case "request_changes", "request_change", "changes":
-            return "--request-changes"
-        default:
-            throw GitToolError.invalidPullRequestReviewAction(value)
-        }
+        try GitHubPullRequestToolExecutor.safeReviewFlag(value)
     }
 
     public static func safePullRequestMergeFlag(_ value: String?) throws -> String {
-        let normalized = (trimmedNonEmpty(value) ?? "squash")
-            .lowercased()
-            .replacingOccurrences(of: "-", with: "_")
-        switch normalized {
-        case "merge", "merge_commit":
-            return "--merge"
-        case "squash", "squash_merge":
-            return "--squash"
-        case "rebase":
-            return "--rebase"
-        default:
-            throw GitToolError.invalidPullRequestMergeMethod(value ?? "")
-        }
+        try GitHubPullRequestToolExecutor.safeMergeFlag(value)
     }
 
     private func currentBranchName(cwd: URL) throws -> String {
@@ -683,10 +401,7 @@ public struct GitToolExecutor: Sendable {
     }
 
     public static func extractURLs(from output: String) -> [String] {
-        output
-            .split { $0.isWhitespace }
-            .map(String.init)
-            .filter { $0.hasPrefix("https://") || $0.hasPrefix("http://") }
+        GitHubPullRequestToolExecutor.extractURLs(from: output)
     }
 
     private func registeredWorktreePaths(cwd: URL) -> (paths: Set<String>, failure: ToolResult?) {
@@ -832,73 +547,6 @@ public struct GitToolExecutor: Sendable {
     }
 
     private func runGit(_ arguments: [String], cwd: URL, timeoutSeconds: TimeInterval) -> ToolResult {
-        runProcess(
-            executableURL: URL(fileURLWithPath: "/usr/bin/env"),
-            arguments: ["git"] + arguments,
-            cwd: cwd,
-            timeoutSeconds: timeoutSeconds,
-            toolName: "Git"
-        )
-    }
-
-    private func runGitHub(_ arguments: [String], cwd: URL, timeoutSeconds: TimeInterval) -> ToolResult {
-        if let githubCLIExecutable {
-            return runProcess(
-                executableURL: githubCLIExecutable,
-                arguments: arguments,
-                cwd: cwd,
-                timeoutSeconds: timeoutSeconds,
-                toolName: "GitHub CLI"
-            )
-        }
-        return runProcess(
-            executableURL: URL(fileURLWithPath: "/usr/bin/env"),
-            arguments: ["gh"] + arguments,
-            cwd: cwd,
-            timeoutSeconds: timeoutSeconds,
-            toolName: "GitHub CLI"
-        )
-    }
-
-    private func runProcess(
-        executableURL: URL,
-        arguments: [String],
-        cwd: URL,
-        timeoutSeconds: TimeInterval,
-        toolName: String
-    ) -> ToolResult {
-        let process = Process()
-        process.executableURL = executableURL
-        process.arguments = arguments
-        process.currentDirectoryURL = cwd
-
-        let stdout = Pipe()
-        let stderr = Pipe()
-        process.standardOutput = stdout
-        process.standardError = stderr
-
-        do {
-            try process.run()
-        } catch {
-            return ToolResult(ok: false, error: "Failed to start \(toolName.lowercased()): \(error)")
-        }
-
-        let semaphore = DispatchSemaphore(value: 0)
-        process.terminationHandler = { _ in semaphore.signal() }
-        if semaphore.wait(timeout: .now() + timeoutSeconds) == .timedOut {
-            process.terminate()
-            return ToolResult(ok: false, error: "\(toolName) command timed out after \(Int(timeoutSeconds))s.")
-        }
-
-        let out = String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        let err = String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        let ok = process.terminationStatus == 0
-        return ToolResult(
-            ok: ok,
-            stdout: out,
-            stderr: err,
-            exitCode: process.terminationStatus,
-            error: ok ? nil : "\(toolName) command failed with exit code \(process.terminationStatus)."
-        )
+        runner.runGit(arguments, cwd: cwd, timeoutSeconds: timeoutSeconds)
     }
 }

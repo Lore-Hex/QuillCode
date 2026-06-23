@@ -1811,3 +1811,22 @@ Remaining risk:
 
 - `GitToolExecutor.swift` is still broad because it owns both local git execution and GitHub CLI execution. A later pass should split GitHub PR command execution into a dedicated executor once the remote git planner work has stabilized on main.
 - `ToolDefinition` declarations still use raw JSON schema strings across tool catalogs. That is acceptable for compatibility today, but a future A+ pass should consider a small schema builder or snapshot test if more tools are added.
+
+## 2026-06-23 GitHub Pull Request Executor Split
+
+Overall grade after this slice: **A architecture, A command boundary, A regression coverage**.
+
+GitHub pull request command construction moved out of `GitToolExecutor.swift` and into `GitHubPullRequestToolExecutor.swift`, and raw git/gh process launching moved into `GitProcessRunner.swift`. Before this pass, the git executor still mixed local git operations, PR-specific `gh pr` argument construction, PR selector/reviewer/label validation, URL artifact extraction, and raw `Process` management. The executor is now a stable compatibility facade for tool-router and remote-planner call sites, while PR behavior and process execution have focused owners.
+
+Code quality changes:
+
+- Added `GitHubPullRequestToolExecutor` for create/view/checks/diff/checkout/edit/comment/review/merge PR operations.
+- Moved PR selector, reviewer, label, review-action, merge-method, and URL artifact helpers beside the PR executor.
+- Added `GitProcessRunner` as the shared git and GitHub CLI process boundary, preserving fake `gh` injection for tests.
+- Kept the existing `GitToolExecutor` public API as delegating wrappers so tool routing and older tests do not need broad churn.
+- Added a parity gate so GitHub PR command construction, URL artifacts, and raw process launching do not drift back into `GitToolExecutor.swift`.
+
+Remaining risk:
+
+- Local git, worktree, patch, and shared validation helpers still live in `GitToolExecutor.swift`. The next tools-layer quality pass should split worktree creation/removal or shared git input validation once this PR boundary is stable on main.
+- `GitHubPullRequestToolExecutor` intentionally reuses shared trimming and git-name validation through `GitToolExecutor` for behavioral compatibility. A future cleanup can move those helpers into a smaller `GitInputValidator` without changing tool behavior.
