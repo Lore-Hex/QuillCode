@@ -2153,3 +2153,20 @@ Code quality changes:
 Remaining risk:
 
 - Recovery is intentionally conservative and only handles explicit backticked shell commands. Broader malformed tool output should be solved with stronger structured-response/tool-calling support rather than more natural-language inference.
+
+## 2026-06-23 Agent Action Parser Extraction Pass
+
+Overall grade after this slice: **A architecture boundary, A transport simplicity, A regression coverage**.
+
+`TrustedRouterLLMClient.swift` now owns the TrustedRouter transport, prompt/message construction, and safety-model client only. The action parser moved into `AgentActionJSONParser.swift`, where JSON extraction, tool argument normalization, and conservative malformed-output recovery can evolve without bloating the network client.
+
+Code quality changes:
+
+- Moved `AgentActionJSONParser` into a focused file beside the agent streaming helpers.
+- Removed the parser's Computer Use/tool imports from `TrustedRouterLLMClient.swift`.
+- Added a parity gate that requires action parsing, argument normalization, and recovery logic to stay outside the TrustedRouter transport client.
+- Preserved existing parser behavior and tests from the hardening pass.
+
+Remaining risk:
+
+- `TrustedRouterLLMClient.swift` still owns both system-prompt construction and message-history projection. If prompt rules keep growing, extract a `TrustedRouterPromptBuilder` so auth/transport and model instruction formatting remain separately testable.

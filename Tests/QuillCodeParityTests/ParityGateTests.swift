@@ -330,6 +330,20 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(agentText.contains("var rawActionText"), "Agent.swift should not own raw streaming accumulation.")
     }
 
+    func testTrustedRouterActionParserLivesOutsideTransportClient() throws {
+        let clientText = try Self.agentSourceText(named: "TrustedRouterLLMClient.swift")
+        let parserText = try Self.agentSourceText(named: "AgentActionJSONParser.swift")
+
+        XCTAssertTrue(parserText.contains("public enum AgentActionJSONParser"), "Action JSON parsing should live in a focused parser file.")
+        XCTAssertTrue(parserText.contains("canonicalArguments"), "Tool argument normalization should stay with the parser.")
+        XCTAssertTrue(parserText.contains("recoverExplicitShellCommand"), "Malformed model-output recovery should stay with the parser.")
+        XCTAssertTrue(clientText.contains("AgentActionStreamCollector.collect"), "TrustedRouter client should delegate action collection/parsing.")
+        XCTAssertFalse(clientText.contains("public enum AgentActionJSONParser"), "TrustedRouter transport should not own action parsing.")
+        XCTAssertFalse(clientText.contains("canonicalArguments"), "TrustedRouter transport should not own tool argument normalization.")
+        XCTAssertFalse(clientText.contains("recoverExplicitShellCommand"), "TrustedRouter transport should not own malformed-output recovery.")
+        XCTAssertFalse(clientText.contains("jsonObjectCandidates"), "TrustedRouter transport should not own JSON-object extraction.")
+    }
+
     func testAgentToolStepRunnerLivesOutsideAgentRunnerFile() throws {
         let agentText = try Self.agentSourceText(named: "Agent.swift")
         let runnerText = try Self.agentSourceText(named: "AgentToolStepRunner.swift")
