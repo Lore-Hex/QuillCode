@@ -2649,7 +2649,7 @@ public extension QuillCodeWorkspaceModel {
                 bulkActions: sidebarBulkActions(selectedThreadIDs: sidebarSelectedThreadIDs)
             ),
             transcript: TranscriptSurface(
-                messages: thread.map(Self.messageSurfaces(for:)) ?? [],
+                messages: thread.map { WorkspaceTranscriptSurfaceBuilder(thread: $0).messageSurfaces() } ?? [],
                 toolCards: toolCards,
                 timelineItems: thread == nil ? nil : currentTimelineItems
             ),
