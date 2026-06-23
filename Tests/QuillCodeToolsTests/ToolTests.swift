@@ -852,6 +852,8 @@ final class ToolTests: XCTestCase {
     func testToolRouterExposesGitStageAndRestoreDefinitions() {
         let definitions = ToolRouter.definitions.map(\.name)
 
+        XCTAssertEqual(definitions.first, "host.shell.run")
+        XCTAssertTrue(definitions.contains("host.shell.run"))
         XCTAssertTrue(definitions.contains("host.git.stage"))
         XCTAssertTrue(definitions.contains("host.git.restore"))
         XCTAssertTrue(definitions.contains("host.git.stage_hunk"))
@@ -871,6 +873,15 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.worktree.list"))
         XCTAssertTrue(definitions.contains("host.git.worktree.create"))
         XCTAssertTrue(definitions.contains("host.git.worktree.remove"))
+    }
+
+    func testShellToolCallDispatcherOwnsShellDefinition() {
+        let routerDefinitions = ToolRouter.definitions.map(\.name)
+        let shellDefinitions = ShellToolCallDispatcher.definitions.map(\.name)
+
+        XCTAssertTrue(ShellToolCallDispatcher.handles(ToolDefinition.shellRun.name))
+        XCTAssertFalse(ShellToolCallDispatcher.handles(ToolDefinition.gitStatus.name))
+        XCTAssertTrue(shellDefinitions.allSatisfy(routerDefinitions.contains))
     }
 
     func testGitToolCallDispatcherOwnsGitDefinitions() {

@@ -75,6 +75,19 @@ Code quality changes:
 - Kept the existing `GitToolExecutor` facade intact, so shell/file/patch routing, tool schemas, and git command behavior stay API-compatible.
 - Added focused dispatcher coverage and a parity gate that prevents local git, GitHub PR, or worktree route branches from drifting back into `ToolRouter`.
 
+## 2026-06-23 Tool Router Shell Dispatch Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+Shell routing had the same drift risk as git routing: the shared router still owned cwd resolution, timeout parsing, environment override validation, and shell request construction. Those policies are important enough to be directly owned and guarded by a focused shell dispatcher.
+
+Code quality changes:
+
+- Added `ShellToolCallDispatcher` as the focused owner for `host.shell.run` definitions and request construction.
+- Moved shell cwd, timeout, and environment override policy out of `ToolRouter`.
+- Reduced `ToolRouter` to tool-family delegation plus file read/write and apply-patch primitives.
+- Added focused dispatcher coverage and a parity gate that prevents shell validation policy from drifting back into `ToolRouter`.
+
 ## 2026-06-22 Workspace Project Engine Refactor Pass
 
 Overall grade after this slice: **A- foundation, B+ product surface maturity**.

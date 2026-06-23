@@ -1491,6 +1491,22 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(routerText.contains("git.createWorktree"), "ToolRouter should not call worktree execution directly.")
     }
 
+    func testToolRouterDelegatesShellToolCallDispatch() throws {
+        let routerText = try Self.toolsSourceText(named: "ToolRouter.swift")
+        let dispatcherText = try Self.toolsSourceText(named: "ShellToolCallDispatcher.swift")
+
+        XCTAssertTrue(dispatcherText.contains("struct ShellToolCallDispatcher"), "Shell tool call routing should live in a focused dispatcher.")
+        XCTAssertTrue(dispatcherText.contains("static let definitions"), "The shell dispatcher should own the shell tool definition list.")
+        XCTAssertTrue(dispatcherText.contains("EnvironmentOverridePolicy.validateOverrides"), "The shell dispatcher should own shell environment override validation.")
+        XCTAssertTrue(dispatcherText.contains("func execute("), "The shell dispatcher should expose a directly testable execution boundary.")
+        XCTAssertTrue(routerText.contains("ShellToolCallDispatcher.definitions"), "ToolRouter should compose shell definitions from the dispatcher.")
+        XCTAssertTrue(routerText.contains("ShellToolCallDispatcher.handles"), "ToolRouter should delegate shell tool dispatch.")
+        XCTAssertFalse(routerText.contains("ToolDefinition.shellRun.name"), "ToolRouter should not own shell route branches.")
+        XCTAssertFalse(routerText.contains("EnvironmentOverridePolicy.validateOverrides"), "ToolRouter should not own shell environment override validation.")
+        XCTAssertFalse(routerText.contains("Shell cwd must stay inside the current workspace."), "ToolRouter should not own shell cwd validation copy.")
+        XCTAssertFalse(routerText.contains("Shell timeoutSeconds must be between"), "ToolRouter should not own shell timeout validation copy.")
+    }
+
     func testGitLocalExecutionLivesOutsideGitExecutor() throws {
         let executorText = try Self.toolsSourceText(named: "GitToolExecutor.swift")
         let localText = try Self.toolsSourceText(named: "GitLocalToolExecutor.swift")
