@@ -1590,3 +1590,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModel.runToolCall` still owns context refresh, transcript event recording, persistence, and top-bar status. Those are actor-bound side effects and should stay there until there is a broader command-run coordinator that can return explicit persistence/status intents.
+
+## 2026-06-23 Automation State Reducer Pass
+
+Overall grade after this slice: **A- foundation, A automation-state boundary**.
+
+Automation list mutations moved into `WorkspaceAutomationStateReducer`. Before this pass, `WorkspaceModel` directly sorted automation records, appended newly created thread/workspace automations, updated status fields, deleted rows, and replaced run metadata. That made persistence and UI visibility side effects hard to distinguish from pure state transitions. The model now requests typed reducer mutations and applies the resulting `AutomationsState` through one persistence boundary.
+
+Code quality changes:
+
+- Added `WorkspaceAutomationStateReducer` and `WorkspaceAutomationStateMutation` beside the existing automation factory/runner.
+- Moved set-items sorting, create-thread-follow-up, create-workspace-schedule, update-status, delete, and replace state transitions out of `WorkspaceModel`.
+- Added direct reducer tests for sorting, visibility, create/update/delete/replace behavior, and missing-record no-ops.
+- Added a parity gate so automation record mutation does not drift back into `WorkspaceModel`.
+
+Remaining risk:
+
+- Running automations still has actor-bound side effects in `WorkspaceModel`: project refresh, thread insertion, store writes, terminal sync, and top-bar refresh. That is currently the right split, but a future background automation coordinator should return explicit persistence and navigation intents.

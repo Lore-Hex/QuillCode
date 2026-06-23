@@ -257,8 +257,10 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func setAutomations(_ items: [QuillAutomation]) {
-        automations.items = QuillAutomation.sortedForDisplay(items)
-        saveAutomations()
+        applyAutomationState(WorkspaceAutomationStateReducer.setItems(
+            items,
+            isVisible: automations.isVisible
+        ))
     }
 
     @discardableResult
@@ -269,17 +271,17 @@ public final class QuillCodeWorkspaceModel {
         now: Date = Date()
     ) -> QuillAutomation? {
         guard let thread = selectedThread else { return nil }
-        let automation = WorkspaceAutomationFactory.threadFollowUp(
-            for: thread,
+        let mutation = WorkspaceAutomationStateReducer.createThreadFollowUp(
+            in: automations,
+            thread: thread,
             selectedProjectID: root.selectedProjectID,
             scheduleDescription: scheduleDescription,
             nextRunAt: nextRunAt,
             recurrence: recurrence,
             now: now
         )
-        setAutomations(automations.items + [automation])
-        automations.isVisible = true
-        return automation
+        applyAutomationState(mutation.state)
+        return mutation.value
     }
 
     @discardableResult
@@ -348,16 +350,16 @@ public final class QuillCodeWorkspaceModel {
         now: Date = Date()
     ) -> QuillAutomation? {
         guard let project = selectedProject else { return nil }
-        let automation = WorkspaceAutomationFactory.workspaceSchedule(
-            for: project,
+        let mutation = WorkspaceAutomationStateReducer.createWorkspaceSchedule(
+            in: automations,
+            project: project,
             scheduleDescription: scheduleDescription,
             nextRunAt: nextRunAt,
             recurrence: recurrence,
             now: now
         )
-        setAutomations(automations.items + [automation])
-        automations.isVisible = true
-        return automation
+        applyAutomationState(mutation.state)
+        return mutation.value
     }
 
     @discardableResult
@@ -419,11 +421,15 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func updateAutomationStatus(id: UUID, status: QuillAutomationStatus) -> Bool {
-        guard let index = automations.items.firstIndex(where: { $0.id == id }) else { return false }
-        automations.items[index].status = status
-        automations.items[index].updatedAt = Date()
-        setAutomations(automations.items)
-        return true
+        let mutation = WorkspaceAutomationStateReducer.updateStatus(
+            in: automations,
+            id: id,
+            status: status,
+            now: Date()
+        )
+        guard mutation.value else { return false }
+        applyAutomationState(mutation.state)
+        return mutation.value
     }
 
     @discardableResult
@@ -464,11 +470,10 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func deleteAutomation(id: UUID) -> Bool {
-        let initialCount = automations.items.count
-        automations.items.removeAll { $0.id == id }
-        guard automations.items.count != initialCount else { return false }
-        setAutomations(automations.items)
-        return true
+        let mutation = WorkspaceAutomationStateReducer.delete(from: automations, id: id)
+        guard mutation.value else { return false }
+        applyAutomationState(mutation.state)
+        return mutation.value
     }
 
     private func runThreadFollowUpAutomation(
@@ -542,9 +547,12 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func replaceAutomation(_ automation: QuillAutomation) {
-        guard let index = automations.items.firstIndex(where: { $0.id == automation.id }) else { return }
-        automations.items[index] = automation
-        setAutomations(automations.items)
+        let mutation = WorkspaceAutomationStateReducer.replace(
+            in: automations,
+            automation: automation
+        )
+        guard mutation.value else { return }
+        applyAutomationState(mutation.state)
     }
 
     public func toggleActivitySection(_ section: ActivitySectionKind) {
@@ -2143,6 +2151,11 @@ public final class QuillCodeWorkspaceModel {
 
     private func saveProjects() {
         try? projectStore?.save(root.projects)
+    }
+
+    private func applyAutomationState(_ state: AutomationsState) {
+        automations = state
+        saveAutomations()
     }
 
     private func saveAutomations() {
