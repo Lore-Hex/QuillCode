@@ -23,7 +23,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, and terminal session construction now live in focused helpers; split selected-project actions into focused coordinators next. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, and project registry transitions now live in focused helpers; extract desktop/runtime coordination next. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | B+ | Surface assembly is valuable but large. Keep moving small ranking/formatting helpers out or make them single-pass builders. |
 | `Sources/quill-code-desktop/main.swift` | B | Desktop bootstrap mixes app lifecycle, menu-bar status, OAuth, and commands. Extract coordinator types before adding more platform behavior. |
@@ -41,10 +41,26 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Current Refactor Priority
 
-1. Extract selected-project actions and project context refresh from `WorkspaceModel`.
-2. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
-3. Continue pulling pure workflow planning out of `WorkspaceModel` before adding new Codex-parity commands.
+1. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
+2. Continue pulling pure workflow planning out of `WorkspaceModel` before adding new Codex-parity commands.
+3. Keep splitting remaining workspace surface assembly into single-purpose builders when behavior grows.
 4. Keep the parity matrix updated whenever a feature moves from planned to implemented.
+
+## 2026-06-22 Workspace Project Engine Refactor Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+Project registry transitions moved out of `WorkspaceModel.swift` into `WorkspaceProjectEngine.swift`. The workspace model still owns filesystem/SSH context loading, persistence, terminal sync, and top-bar refresh, but local/SSH project upsert, selected-project thread choice, thread cleanup after project removal, metadata application, touch timestamps, and default project naming are now directly testable pure helpers.
+
+Code quality changes:
+
+- Extracted local project upsert so existing project refresh and new-project insertion share one state transition.
+- Extracted SSH Remote project validation, default naming, creation, and same-connection update logic.
+- Extracted selected-project thread choice and post-thread-removal fallback selection.
+- Extracted project removal cleanup so affected thread IDs are explicit and persistence can stay in the model.
+- Extracted metadata application for local and remote context refresh, including the rule that SSH Remote refresh clears local actions and extension manifests.
+- Removed an unused project-instructions-only refresh helper.
+- Added focused project engine tests for default names, local/SSH upserts, selection, removal cleanup, touch timestamps, and metadata application.
 
 ## 2026-06-22 Workspace Terminal Engine Refactor Pass
 
