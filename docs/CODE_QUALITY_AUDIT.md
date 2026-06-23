@@ -62,6 +62,19 @@ Code quality changes:
 - Added focused resolver tests for known/unknown project IDs, global memory ordering, project memory merging, exact local-action IDs, case-insensitive titles, relative paths, punctuation-insensitive aliases, and no-selected-project behavior.
 - Added a parity gate that prevents context/action lookup from drifting back into `WorkspaceModel`.
 
+## 2026-06-23 Tool Router Git Dispatch Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+The shared `ToolRouter` was carrying every local git, GitHub pull request, and git worktree route in its main switch. That kept behavior correct, but it made the central router too easy to grow into another feature-specific branch sink as the Codex parity tool surface expands.
+
+Code quality changes:
+
+- Added `GitToolCallDispatcher` as the focused owner for git-family tool definitions and argument-to-executor dispatch.
+- Reduced `ToolRouter` to shell/file/patch primitives plus early delegation to the git dispatcher.
+- Kept the existing `GitToolExecutor` facade intact, so shell/file/patch routing, tool schemas, and git command behavior stay API-compatible.
+- Added focused dispatcher coverage and a parity gate that prevents local git, GitHub PR, or worktree route branches from drifting back into `ToolRouter`.
+
 ## 2026-06-22 Workspace Project Engine Refactor Pass
 
 Overall grade after this slice: **A- foundation, B+ product surface maturity**.

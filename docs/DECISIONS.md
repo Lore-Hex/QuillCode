@@ -3,6 +3,7 @@
 ## 2026-06-23
 
 - Codex-style workspace chrome should keep model selection and approval mode as separate controls near the composer, not in the top bar. Model is a long-lived preference, while approval mode is an autonomy/safety posture users may change at send time. The model picker should only select models; Auto/Review/Read-only lives in a compact mode control beside it. Instruction files, memories, Computer Use readiness, and runtime issues remain accessible in the status popover and transcript/settings surfaces, but they should not occupy permanent top-bar width. This keeps the first read calmer while preserving diagnostics and Playwright coverage.
+- Tool-router feature families should delegate before they sprawl. `ToolRouter` owns the common shell/file/patch entry point and composes git definitions from `GitToolCallDispatcher`; local git, GitHub PR, and worktree tool-call argument mapping lives in that dispatcher. This keeps the shared router small while preserving one public `ToolRouter.execute` API for the agent runtime.
 
 ## 2026-06-20
 

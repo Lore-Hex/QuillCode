@@ -873,6 +873,17 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.worktree.remove"))
     }
 
+    func testGitToolCallDispatcherOwnsGitDefinitions() {
+        let routerDefinitions = ToolRouter.definitions.map(\.name)
+        let gitDefinitions = GitToolCallDispatcher.definitions.map(\.name)
+
+        XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitStatus.name))
+        XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitPullRequestCreate.name))
+        XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitWorktreeRemove.name))
+        XCTAssertFalse(GitToolCallDispatcher.handles(ToolDefinition.shellRun.name))
+        XCTAssertTrue(gitDefinitions.allSatisfy(routerDefinitions.contains))
+    }
+
     func testToolRouterShellAllowsWorkspaceRelativeCWD() throws {
         let root = try makeTempDirectory()
         let subdirectory = root.appendingPathComponent("subdir")

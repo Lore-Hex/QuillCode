@@ -1475,6 +1475,22 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(executorText.contains("parametersJSON"), "GitToolExecutor should not own JSON schema strings.")
     }
 
+    func testToolRouterDelegatesGitToolCallDispatch() throws {
+        let routerText = try Self.toolsSourceText(named: "ToolRouter.swift")
+        let dispatcherText = try Self.toolsSourceText(named: "GitToolCallDispatcher.swift")
+
+        XCTAssertTrue(dispatcherText.contains("struct GitToolCallDispatcher"), "Git tool call routing should live in a focused dispatcher.")
+        XCTAssertTrue(dispatcherText.contains("static let definitions"), "The git dispatcher should own the git tool definition list.")
+        XCTAssertTrue(dispatcherText.contains("func execute("), "The git dispatcher should expose a directly testable execution boundary.")
+        XCTAssertTrue(routerText.contains("GitToolCallDispatcher.definitions"), "ToolRouter should compose git definitions from the dispatcher.")
+        XCTAssertTrue(routerText.contains("GitToolCallDispatcher.handles"), "ToolRouter should delegate git tool dispatch.")
+        XCTAssertFalse(routerText.contains("ToolDefinition.gitStatus.name"), "ToolRouter should not own local git route branches.")
+        XCTAssertFalse(routerText.contains("ToolDefinition.gitPullRequestCreate.name"), "ToolRouter should not own GitHub PR route branches.")
+        XCTAssertFalse(routerText.contains("ToolDefinition.gitWorktreeCreate.name"), "ToolRouter should not own worktree route branches.")
+        XCTAssertFalse(routerText.contains("git.createPullRequest"), "ToolRouter should not call GitHub PR execution directly.")
+        XCTAssertFalse(routerText.contains("git.createWorktree"), "ToolRouter should not call worktree execution directly.")
+    }
+
     func testGitLocalExecutionLivesOutsideGitExecutor() throws {
         let executorText = try Self.toolsSourceText(named: "GitToolExecutor.swift")
         let localText = try Self.toolsSourceText(named: "GitLocalToolExecutor.swift")
