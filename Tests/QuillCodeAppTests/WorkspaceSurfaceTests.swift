@@ -1523,6 +1523,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="top-bar-clusters""#))
         XCTAssertTrue(html.contains(#"data-testid="top-bar-primary-cluster""#))
         XCTAssertTrue(html.contains(#"data-testid="top-bar-context-cluster""#))
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-status-menu""#))
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-status-popover""#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar""#))
         XCTAssertTrue(html.contains(#"data-testid="extensions-button" data-primary="true" data-icon="plugins" data-command-id="toggle-extensions">Plugins"#))
         XCTAssertTrue(html.contains(#"data-testid="automations-button" data-primary="true" data-icon="automations" data-command-id="toggle-automations">Automations"#))

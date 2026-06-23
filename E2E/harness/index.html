@@ -124,55 +124,11 @@
     .topbar-context-cluster {
       justify-content: flex-end;
       overflow: visible;
-      max-width: min(32vw, 300px);
     }
-    .topbar-context-cluster > span {
-      min-width: 0;
-      max-width: 150px;
-      flex: 1 1 auto;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .topbar-context-cluster > [data-testid="agent-status"],
-    .topbar-context-cluster > [data-testid="runtime-issue-pill"] {
-      flex: 0 0 auto;
-      max-width: 150px;
-    }
-    .topbar-context-cluster > [data-testid="computer-use-status"] {
-      max-width: 180px;
-    }
-    .topbar-context-cluster > [data-testid="agent-status"] {
-      width: 10px;
-      min-width: 10px;
-      max-width: 10px;
-      height: 10px;
-      min-height: 10px;
-      padding: 0;
-      overflow: hidden;
-      color: transparent;
-      border-radius: 999px;
-      background: var(--green);
-      border-color: rgba(82, 210, 115, 0.42);
-      box-shadow: 0 0 0 3px rgba(82, 210, 115, 0.12);
-    }
-    .topbar-context-cluster > [data-testid="project-instructions-status"],
-    .topbar-context-cluster > [data-testid="project-memories-status"],
-    .topbar-context-cluster > [data-testid="computer-use-status"] {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      margin: -1px;
-      padding: 0;
-      border: 0;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
-      background: transparent;
-    }
-    .topbar-cluster span,
-    .topbar-cluster select,
-    .topbar-cluster button {
+    .topbar-primary-cluster span,
+    .topbar-primary-cluster select,
+    .topbar-primary-cluster button,
+    .topbar-action-cluster button {
       min-height: 34px;
       padding: 5px 9px;
       border-radius: 999px;
@@ -181,8 +137,9 @@
       border: 1px solid rgba(255,255,255,.10);
       font-size: 12px;
     }
-    .topbar-cluster select { max-width: 230px; }
-    .topbar-cluster button { font-weight: 600; }
+    .topbar-primary-cluster select { max-width: 230px; }
+    .topbar-primary-cluster button,
+    .topbar-action-cluster button { font-weight: 600; }
     .model-picker-wrap [data-testid="model-picker-button"] {
       min-height: 40px;
       padding: 0 8px;
@@ -223,6 +180,100 @@
     }
     .topbar-overflow-menu {
       position: relative;
+    }
+    .topbar-status-menu {
+      position: relative;
+    }
+    .topbar-status-menu summary {
+      width: 40px;
+      min-height: 40px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.10);
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+      list-style: none;
+      line-height: 1;
+    }
+    .topbar-status-menu summary::-webkit-details-marker { display: none; }
+    .topbar-status-menu[open] summary,
+    .topbar-status-menu summary:hover {
+      color: var(--text);
+      background: rgba(255,255,255,.07);
+      border-color: rgba(255,255,255,.16);
+    }
+    .topbar-status-menu [data-testid="agent-status"] {
+      width: 10px;
+      min-width: 10px;
+      max-width: 10px;
+      height: 10px;
+      min-height: 10px;
+      padding: 0;
+      overflow: hidden;
+      color: transparent;
+      border-radius: 999px;
+      background: var(--green);
+      border: 0;
+      box-shadow: 0 0 0 3px rgba(82, 210, 115, 0.12);
+    }
+    .topbar-status-menu [data-testid="agent-status"][data-tone="warning"] {
+      background: var(--amber);
+      box-shadow: 0 0 0 3px rgba(248,184,78,.14);
+    }
+    .topbar-status-menu [data-testid="agent-status"][data-tone="error"] {
+      background: var(--red);
+      box-shadow: 0 0 0 3px rgba(255,93,82,.14);
+    }
+    .topbar-status-popover {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      z-index: 8;
+      width: min(320px, calc(100vw - 36px));
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(22,33,39,.98);
+      box-shadow: 0 14px 42px rgba(0,0,0,.35);
+      transform-origin: top right;
+    }
+    .topbar-status-row {
+      display: grid;
+      grid-template-columns: minmax(92px, auto) minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      min-height: 30px;
+    }
+    .topbar-status-row span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .topbar-status-row strong {
+      display: block;
+      max-width: 100%;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      justify-self: end;
+      color: rgba(238,247,250,.92);
+      font-size: 12px;
+    }
+    .topbar-status-popover [data-testid="runtime-issue-pill"] {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      justify-self: end;
+      color: rgba(238,247,250,.92);
+      font-size: 12px;
     }
     .topbar-overflow-menu summary {
       width: 40px;
@@ -285,12 +336,19 @@
       background: transparent;
       border-color: transparent;
     }
-    .topbar-cluster [data-testid="runtime-issue-pill"] {
+    .topbar-status-popover [data-testid="runtime-issue-pill"] {
+      justify-self: stretch;
+      min-height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0 8px;
+      border-radius: 999px;
       color: #ffe2a3;
       background: rgba(248,184,78,.14);
       border-color: rgba(248,184,78,.28);
     }
-    .topbar-cluster [data-testid="runtime-issue-pill"][data-severity="error"] {
+    .topbar-status-popover [data-testid="runtime-issue-pill"][data-severity="error"] {
       color: #ffc4c0;
       background: rgba(255,93,82,.14);
       border-color: rgba(255,93,82,.30);
@@ -2251,9 +2309,6 @@
       .topbar-cluster {
         flex-wrap: wrap;
       }
-      .topbar-context-cluster {
-        justify-content: flex-start;
-      }
       .message, .tool-card { max-width: 100%; width: 100%; }
     }
   </style>
@@ -2679,6 +2734,12 @@
 
     function commandByID(commandID) {
       return state.commands.find(command => command.id === commandID);
+    }
+
+    function topBarStatusTone() {
+      if (state.runtimeIssue?.severity === 'error') return 'error';
+      if (state.runtimeIssue) return 'warning';
+      return state.topBar.agentStatus === 'Failed' ? 'error' : 'success';
     }
 
     function topBarOverflowTestID(commandID) {
@@ -3987,11 +4048,30 @@
                 <span class="visually-hidden" data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
               </div>
               <div class="topbar-cluster topbar-context-cluster" data-testid="top-bar-context-cluster">
-                <span data-testid="agent-status" title="${escapeHTML(state.topBar.agentStatus)}">${escapeHTML(state.topBar.agentStatus)}</span>
-                ${state.runtimeIssue ? `<span data-testid="runtime-issue-pill" data-severity="${escapeHTML(state.runtimeIssue.severity || 'warning')}">${escapeHTML(state.runtimeIssue.title)}</span>` : ''}
-                <span data-testid="project-instructions-status" title="${escapeHTML(state.topBar.instructionSources.join(', '))}">${escapeHTML(state.topBar.instructionLabel)}</span>
-                <span data-testid="project-memories-status" title="${escapeHTML(state.topBar.memorySources.join(', '))}">${escapeHTML(state.topBar.memoryLabel)}</span>
-                <span data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</span>
+                <details class="topbar-status-menu" data-testid="top-bar-status-menu">
+                  <summary data-testid="top-bar-status-button" aria-label="Workspace status" title="${escapeHTML(state.topBar.agentStatus)}">
+                    <span data-testid="agent-status" data-tone="${escapeHTML(topBarStatusTone())}">${escapeHTML(state.topBar.agentStatus)}</span>
+                  </summary>
+                  <div class="topbar-status-popover" data-testid="top-bar-status-popover">
+                    <div class="topbar-status-row">
+                      <span>Status</span>
+                      <strong>${escapeHTML(state.topBar.agentStatus)}</strong>
+                    </div>
+                    ${state.runtimeIssue ? `<span data-testid="runtime-issue-pill" data-severity="${escapeHTML(state.runtimeIssue.severity || 'warning')}">${escapeHTML(state.runtimeIssue.title)}</span>` : ''}
+                    <div class="topbar-status-row">
+                      <span>Instructions</span>
+                      <strong data-testid="project-instructions-status" title="${escapeHTML(state.topBar.instructionSources.join(', '))}">${escapeHTML(state.topBar.instructionLabel)}</strong>
+                    </div>
+                    <div class="topbar-status-row">
+                      <span>Memories</span>
+                      <strong data-testid="project-memories-status" title="${escapeHTML(state.topBar.memorySources.join(', '))}">${escapeHTML(state.topBar.memoryLabel)}</strong>
+                    </div>
+                    <div class="topbar-status-row">
+                      <span>Computer Use</span>
+                      <strong data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</strong>
+                    </div>
+                  </div>
+                </details>
               </div>
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
                 <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">

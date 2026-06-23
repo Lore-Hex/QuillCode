@@ -12,7 +12,7 @@ enum WorkspaceHTMLTopBarRenderer {
           </div>
           <div class="topbar-clusters" data-testid="top-bar-clusters">
             \(renderPrimaryCluster(topBar))
-            \(renderContextCluster(topBar))
+            \(renderStatusCluster(topBar))
             \(renderActionCluster(topBar, commands: commands))
           </div>
         </header>
@@ -28,15 +28,34 @@ enum WorkspaceHTMLTopBarRenderer {
         """
     }
 
-    private static func renderContextCluster(_ topBar: TopBarSurface) -> String {
+    private static func renderStatusCluster(_ topBar: TopBarSurface) -> String {
         let status = topBar.agentStatusPresentation
         return """
         <div class="topbar-cluster topbar-context-cluster" data-testid="top-bar-context-cluster" aria-label="Workspace state">
-          <span class="agent-status-dot" data-testid="agent-status" data-tone="\(escape(status.tone.rawValue))" data-indicator="\(status.showsIndicator)" title="\(escape(status.label))">\(escape(status.label))</span>
-          \(renderRuntimeIssuePill(topBar))
-          <span data-testid="project-instructions-status" title="\(escape(topBar.instructionSources.joined(separator: ", ")))">\(escape(topBar.instructionLabel))</span>
-          <span data-testid="project-memories-status" title="\(escape(topBar.memorySources.joined(separator: ", ")))">\(escape(topBar.memoryLabel))</span>
-          <span data-testid="computer-use-status">\(escape(topBar.computerUseLabel))</span>
+          <details class="topbar-status-menu" data-testid="top-bar-status-menu">
+            <summary data-testid="top-bar-status-button" aria-label="Workspace status" title="\(escape(status.label))">
+              <span class="agent-status-dot" data-testid="agent-status" data-tone="\(escape(status.tone.rawValue))" data-indicator="\(status.showsIndicator)">\(escape(status.label))</span>
+            </summary>
+            <div class="topbar-status-popover" data-testid="top-bar-status-popover">
+              <div class="topbar-status-row">
+                <span>Status</span>
+                <strong>\(escape(status.label))</strong>
+              </div>
+              \(renderRuntimeIssuePill(topBar))
+              <div class="topbar-status-row">
+                <span>Instructions</span>
+                <strong data-testid="project-instructions-status" title="\(escape(topBar.instructionSources.joined(separator: ", ")))">\(escape(topBar.instructionLabel))</strong>
+              </div>
+              <div class="topbar-status-row">
+                <span>Memories</span>
+                <strong data-testid="project-memories-status" title="\(escape(topBar.memorySources.joined(separator: ", ")))">\(escape(topBar.memoryLabel))</strong>
+              </div>
+              <div class="topbar-status-row">
+                <span>Computer Use</span>
+                <strong data-testid="computer-use-status">\(escape(topBar.computerUseLabel))</strong>
+              </div>
+            </div>
+          </details>
         </div>
         """
     }

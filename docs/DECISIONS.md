@@ -1,5 +1,9 @@
 # QuillCode Decisions
 
+## 2026-06-23
+
+- Codex-style top-bar chrome should default to three visible decisions: thread/project identity, combined model and approval mode, and a compact workspace status control plus overflow. Instruction files, memories, Computer Use readiness, and runtime issues remain accessible in the status popover and transcript/settings surfaces, but they should not occupy permanent top-bar width. This keeps the first read calmer while preserving diagnostics and Playwright coverage.
+
 ## 2026-06-20
 
 - Product and repository name: **QuillCode**.
