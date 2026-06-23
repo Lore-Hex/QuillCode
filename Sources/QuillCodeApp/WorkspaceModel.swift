@@ -1184,7 +1184,7 @@ public final class QuillCodeWorkspaceModel {
                 + activeComputerDefinitions
                 + activeMemoryDefinitions
                 + activeMCPToolDefinitions
-            activeRunner.toolExecutionOverride = combinedToolExecutionOverride(
+            activeRunner.toolExecutionOverride = WorkspaceToolExecutionOverrideCombiner.combine(
                 plan: activePlanExecutor,
                 browser: activeBrowserExecutor,
                 computerUse: activeComputerExecutor,
@@ -1641,45 +1641,6 @@ public final class QuillCodeWorkspaceModel {
             default:
                 return nil
             }
-        }
-    }
-
-    private func combinedToolExecutionOverride(
-        plan: AgentToolExecutionOverride?,
-        browser: AgentToolExecutionOverride?,
-        computerUse: AgentToolExecutionOverride?,
-        memory: AgentToolExecutionOverride?,
-        mcp: AgentToolExecutionOverride?,
-        remoteProject: AgentToolExecutionOverride?
-    ) -> AgentToolExecutionOverride? {
-        guard plan != nil
-                || browser != nil
-                || computerUse != nil
-                || memory != nil
-                || mcp != nil
-                || remoteProject != nil else {
-            return nil
-        }
-        return { call, workspaceRoot in
-            if let result = await plan?(call, workspaceRoot) {
-                return result
-            }
-            if let result = await remoteProject?(call, workspaceRoot) {
-                return result
-            }
-            if let result = await browser?(call, workspaceRoot) {
-                return result
-            }
-            if let result = await computerUse?(call, workspaceRoot) {
-                return result
-            }
-            if let result = await memory?(call, workspaceRoot) {
-                return result
-            }
-            if let result = await mcp?(call, workspaceRoot) {
-                return result
-            }
-            return nil
         }
     }
 
