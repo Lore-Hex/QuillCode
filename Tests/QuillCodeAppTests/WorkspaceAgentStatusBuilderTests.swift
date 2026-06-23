@@ -5,27 +5,27 @@ import QuillCodeCore
 
 final class WorkspaceAgentStatusBuilderTests: XCTestCase {
     func testMapsToolLifecycleEventsToTopBarStatuses() {
-        XCTAssertEqual(status(.toolQueued), "Queued")
-        XCTAssertEqual(status(.toolRunning), "Running")
-        XCTAssertEqual(status(.toolCompleted), "Finishing")
-        XCTAssertEqual(status(.toolFailed), "Failed")
+        XCTAssertEqual(status(.toolQueued), TopBarAgentStatusLabel.queued)
+        XCTAssertEqual(status(.toolRunning), TopBarAgentStatusLabel.running)
+        XCTAssertEqual(status(.toolCompleted), TopBarAgentStatusLabel.finishing)
+        XCTAssertEqual(status(.toolFailed), TopBarAgentStatusLabel.failed)
     }
 
     func testMapsApprovalAndStreamingEventsToTopBarStatuses() {
-        XCTAssertEqual(status(.approvalRequested), "Review")
+        XCTAssertEqual(status(.approvalRequested), TopBarAgentStatusLabel.review)
         XCTAssertEqual(
             status(.notice, summary: AgentRunner.streamingNotice),
-            "Streaming"
+            TopBarAgentStatusLabel.streaming
         )
     }
 
     func testMapsConversationAndGenericNoticeEventsToRunning() {
-        XCTAssertEqual(status(.message), "Running")
-        XCTAssertEqual(status(.messageFeedback), "Running")
-        XCTAssertEqual(status(.approvalDecided), "Running")
-        XCTAssertEqual(status(.reviewComment), "Running")
-        XCTAssertEqual(status(.notice, summary: "Saved memory"), "Running")
-        XCTAssertEqual(WorkspaceAgentStatusBuilder.status(for: nil), "Running")
+        XCTAssertEqual(status(.message), TopBarAgentStatusLabel.running)
+        XCTAssertEqual(status(.messageFeedback), TopBarAgentStatusLabel.running)
+        XCTAssertEqual(status(.approvalDecided), TopBarAgentStatusLabel.running)
+        XCTAssertEqual(status(.reviewComment), TopBarAgentStatusLabel.running)
+        XCTAssertEqual(status(.notice, summary: "Saved memory"), TopBarAgentStatusLabel.running)
+        XCTAssertEqual(WorkspaceAgentStatusBuilder.status(for: nil), TopBarAgentStatusLabel.running)
     }
 
     func testReadsLatestThreadEvent() {
@@ -34,7 +34,7 @@ final class WorkspaceAgentStatusBuilderTests: XCTestCase {
             ThreadEvent(kind: .toolFailed, summary: "failed")
         ])
 
-        XCTAssertEqual(WorkspaceAgentStatusBuilder.status(for: thread), "Failed")
+        XCTAssertEqual(WorkspaceAgentStatusBuilder.status(for: thread), TopBarAgentStatusLabel.failed)
     }
 
     private func status(

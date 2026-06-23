@@ -208,7 +208,7 @@ public final class QuillCodeWorkspaceModel {
         }
         composer.draft = lastUserMessage.content
         lastError = nil
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
 
@@ -304,7 +304,7 @@ public final class QuillCodeWorkspaceModel {
             calendar: calendar
         ) else {
             lastError = "Could not understand that follow-up schedule. Try `/follow-up in 30 minutes`, `/follow-up tomorrow at 9 AM`, or `/follow-up daily`."
-            refreshTopBar(agentStatus: "Idle")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return nil
         }
         return createThreadFollowUpAutomation(
@@ -382,7 +382,7 @@ public final class QuillCodeWorkspaceModel {
             calendar: calendar
         ) else {
             lastError = "Could not understand that workspace-check schedule. Try `/workspace-check in 1 hour`, `/workspace-check tomorrow at 9 AM`, or `/workspace-check every 2 hours`."
-            refreshTopBar(agentStatus: "Idle")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return nil
         }
         return createWorkspaceScheduleAutomation(
@@ -443,7 +443,7 @@ public final class QuillCodeWorkspaceModel {
             return runWorkspaceScheduleAutomation(automation, now: now)
         case .monitor:
             lastError = "Monitor automations can be configured, but monitor runners are not available yet."
-            refreshTopBar(agentStatus: "Idle")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return nil
         }
     }
@@ -479,7 +479,7 @@ public final class QuillCodeWorkspaceModel {
               let source = root.threads.first(where: { $0.id == threadID })
         else {
             lastError = "The original thread for \(automation.title) is no longer available."
-            refreshTopBar(agentStatus: "Idle")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return nil
         }
 
@@ -503,7 +503,7 @@ public final class QuillCodeWorkspaceModel {
               let project = project(id: projectID)
         else {
             lastError = "The project for \(automation.title) is no longer available."
-            refreshTopBar(agentStatus: "Idle")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return nil
         }
 
@@ -537,7 +537,7 @@ public final class QuillCodeWorkspaceModel {
         try? threadStore?.save(draft.thread)
         automations.isVisible = true
         lastError = nil
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return draft.report
     }
 
@@ -563,13 +563,13 @@ public final class QuillCodeWorkspaceModel {
             browser.isVisible = true
             browser.status = "Invalid address"
             lastError = "Enter an http, https, file, localhost, or project file URL."
-            refreshTopBar(agentStatus: "Idle")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return false
         }
 
         WorkspaceBrowserEngine.openPage(url, state: &browser, updateHistory: true)
         lastError = nil
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
 
@@ -577,7 +577,7 @@ public final class QuillCodeWorkspaceModel {
     public func goBackInBrowser() -> Bool {
         guard WorkspaceBrowserEngine.goBack(state: &browser) else { return false }
         lastError = nil
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
 
@@ -585,7 +585,7 @@ public final class QuillCodeWorkspaceModel {
     public func goForwardInBrowser() -> Bool {
         guard WorkspaceBrowserEngine.goForward(state: &browser) else { return false }
         lastError = nil
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
 
@@ -593,7 +593,7 @@ public final class QuillCodeWorkspaceModel {
     public func reloadBrowserPreview() -> Bool {
         guard WorkspaceBrowserEngine.reload(state: &browser) else { return false }
         lastError = nil
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
 
@@ -618,7 +618,7 @@ public final class QuillCodeWorkspaceModel {
         }
 
         browser.status = "Fetching snapshot"
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
 
         do {
             let fetchedPage = try await pageFetcher.fetchHTML(from: url)
@@ -626,13 +626,13 @@ public final class QuillCodeWorkspaceModel {
 
             WorkspaceBrowserEngine.applyFetchedPage(fetchedPage, originalURL: url, state: &browser)
             lastError = nil
-            refreshTopBar(agentStatus: "Idle")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return true
         } catch {
             guard browser.currentURL == currentURL else { return false }
             WorkspaceBrowserEngine.markSnapshotFetchFailure(error, state: &browser)
             lastError = nil
-            refreshTopBar(agentStatus: "Idle")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return false
         }
     }
@@ -685,7 +685,7 @@ public final class QuillCodeWorkspaceModel {
         syncTerminalSessionToSelectedProject()
         touchProject(root.selectedProjectID)
         saveProjects()
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
     public func startSidebarSelection(selecting id: UUID? = nil) {
@@ -752,7 +752,7 @@ public final class QuillCodeWorkspaceModel {
         }
         if result.shouldSaveProjects {
             saveProjects()
-            refreshTopBar(agentStatus: "Idle")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         }
         return true
     }
@@ -775,7 +775,7 @@ public final class QuillCodeWorkspaceModel {
         root.selectedProjectID = result.projectID
         syncTerminalSessionToSelectedProject()
         saveProjects()
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return result.projectID
     }
 
@@ -789,7 +789,7 @@ public final class QuillCodeWorkspaceModel {
             root.selectedProjectID = result.projectID
             syncTerminalSessionToSelectedProject()
             saveProjects()
-            refreshTopBar(agentStatus: "Idle")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return result.projectID
         }
     }
@@ -806,7 +806,7 @@ public final class QuillCodeWorkspaceModel {
         touchProject(selection.projectID)
         root.selectedThreadID = selection.threadID
         saveProjects()
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
     @discardableResult
@@ -815,7 +815,7 @@ public final class QuillCodeWorkspaceModel {
             return false
         }
         saveProjects()
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
 
@@ -847,7 +847,7 @@ public final class QuillCodeWorkspaceModel {
         }
         touchProject(id)
         saveProjects()
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
 
@@ -872,7 +872,7 @@ public final class QuillCodeWorkspaceModel {
         root.selectedProjectID = result.selectedProjectID
         syncTerminalSessionToSelectedProject()
         saveProjects()
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
 
@@ -898,7 +898,7 @@ public final class QuillCodeWorkspaceModel {
         }
         root.threads = threads
         try? threadStore?.save(changedThread)
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
 
@@ -929,7 +929,7 @@ public final class QuillCodeWorkspaceModel {
         if saveThread {
             try? threadStore?.save(thread)
         }
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return thread.id
     }
 
@@ -941,7 +941,7 @@ public final class QuillCodeWorkspaceModel {
         ) else { return }
         root.threads = threads
         try? threadStore?.save(changedThread)
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
     public func archiveThread(_ id: UUID) {
@@ -954,7 +954,7 @@ public final class QuillCodeWorkspaceModel {
         root.threads = threads
         root.selectedThreadID = result.selectedThreadID
         try? threadStore?.save(result.changedThread)
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
     @discardableResult
@@ -972,7 +972,7 @@ public final class QuillCodeWorkspaceModel {
         touchProject(root.selectedProjectID)
         saveProjects()
         try? threadStore?.save(result.changedThread)
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
 
@@ -995,7 +995,7 @@ public final class QuillCodeWorkspaceModel {
             root.selectedProjectID = knownProjectID(root.selectedProjectID)
         }
         saveProjects()
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
 
@@ -1004,7 +1004,7 @@ public final class QuillCodeWorkspaceModel {
         mutateSelectedThread { thread in
             WorkspaceConfigurationEngine.setMode(mode, thread: &thread)
         }
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
     public func setModel(_ model: String) {
@@ -1012,7 +1012,7 @@ public final class QuillCodeWorkspaceModel {
         mutateSelectedThread { thread in
             WorkspaceConfigurationEngine.setModelID(modelID, thread: &thread)
         }
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
     public func toggleModelFavorite(_ model: String) {
@@ -1068,7 +1068,7 @@ public final class QuillCodeWorkspaceModel {
         composer.draft = ""
         composer.isSending = true
         lastError = nil
-        refreshTopBar(agentStatus: "Running")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
 
         do {
             try Task.checkCancellation()
@@ -1115,13 +1115,13 @@ public final class QuillCodeWorkspaceModel {
             replaceThread(thread)
             try threadStore?.save(thread)
             composer.isSending = false
-            refreshTopBar(agentStatus: "Idle")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         } catch is CancellationError {
             finishCancelledSend(userPrompt: prompt, threadID: threadID)
         } catch {
             composer.isSending = false
             lastError = String(describing: error)
-            refreshTopBar(agentStatus: "Failed")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.failed)
         }
     }
 
@@ -1136,7 +1136,7 @@ public final class QuillCodeWorkspaceModel {
     public func runReviewAction(_ action: WorkspaceReviewActionSurface, workspaceRoot: URL) {
         guard selectedThread != nil else { return }
         lastError = nil
-        refreshTopBar(agentStatus: "Running")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
 
         let router = ToolRouter(workspaceRoot: workspaceRoot)
         let actionCall = action.toolCall
@@ -1150,7 +1150,10 @@ public final class QuillCodeWorkspaceModel {
         if let thread = selectedThread {
             try? threadStore?.save(thread)
         }
-        refreshTopBar(agentStatus: actionResult.ok && diffResult.ok ? "Idle" : "Failed")
+        let status = actionResult.ok && diffResult.ok
+            ? TopBarAgentStatusLabel.idle
+            : TopBarAgentStatusLabel.failed
+        refreshTopBar(agentStatus: status)
     }
 
     private func executeReviewGitToolCall(_ call: ToolCall, router: ToolRouter) -> ToolResult {
@@ -1195,7 +1198,7 @@ public final class QuillCodeWorkspaceModel {
         if let thread = selectedThread {
             try? threadStore?.save(thread)
         }
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
 
@@ -1519,7 +1522,7 @@ public final class QuillCodeWorkspaceModel {
                     payloadJSON: note.relativePath
                 ))
             }
-            refreshTopBar(agentStatus: "Idle")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return true
         } catch let error as MemoryNoteDeleteError {
             appendLocalCommandTranscript(
@@ -1527,7 +1530,7 @@ public final class QuillCodeWorkspaceModel {
                 assistantText: error.localizedDescription,
                 title: "Memory not deleted"
             )
-            refreshTopBar(agentStatus: "Idle")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return true
         } catch {
             appendLocalCommandTranscript(
@@ -1535,7 +1538,7 @@ public final class QuillCodeWorkspaceModel {
                 assistantText: MemoryNoteDeleteError.deleteFailed.localizedDescription,
                 title: "Memory not deleted"
             )
-            refreshTopBar(agentStatus: "Idle")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return true
         }
     }
@@ -1644,7 +1647,7 @@ public final class QuillCodeWorkspaceModel {
             thread.instructions = refreshedInstructions
         }
         lastError = nil
-        refreshTopBar(agentStatus: "Running")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
 
         let router = ToolRouter(workspaceRoot: workspaceRoot)
         let result: ToolResult
@@ -1675,7 +1678,8 @@ public final class QuillCodeWorkspaceModel {
             try? threadStore?.save(thread)
         }
         let ok = result.ok && (followUpResult?.ok ?? true)
-        refreshTopBar(agentStatus: ok ? "Idle" : "Failed")
+        let status = ok ? TopBarAgentStatusLabel.idle : TopBarAgentStatusLabel.failed
+        refreshTopBar(agentStatus: status)
         return result
     }
 
@@ -1702,7 +1706,7 @@ public final class QuillCodeWorkspaceModel {
             status: .running
         ))
         lastError = nil
-        refreshTopBar(agentStatus: "Terminal")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.terminal)
 
         guard let executionContext = WorkspaceTerminalEngine.executionContext(
             command: command,
@@ -1722,7 +1726,7 @@ public final class QuillCodeWorkspaceModel {
                 terminal: &terminal
             )
             terminal.isRunning = false
-            refreshTopBar(agentStatus: "Failed")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.failed)
             return
         }
         WorkspaceTerminalEngine.updateExecutionContext(
@@ -1749,7 +1753,7 @@ public final class QuillCodeWorkspaceModel {
         if terminal.entries.first(where: { $0.id == entryID })?.status == .stopped {
             WorkspaceTerminalEngine.removeMarkers(executionContext.markerURLs)
             terminal.isRunning = false
-            refreshTopBar(agentStatus: "Stopped")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.stopped)
             return
         }
         guard !Task.isCancelled, let result = finalResult else {
@@ -1765,7 +1769,7 @@ public final class QuillCodeWorkspaceModel {
             )
             terminal.isRunning = false
             lastError = nil
-            refreshTopBar(agentStatus: "Stopped")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.stopped)
             return
         }
 
@@ -1785,7 +1789,8 @@ public final class QuillCodeWorkspaceModel {
             terminal: &terminal
         )
         terminal.isRunning = false
-        refreshTopBar(agentStatus: result.ok ? "Idle" : "Failed")
+        let status = result.ok ? TopBarAgentStatusLabel.idle : TopBarAgentStatusLabel.failed
+        refreshTopBar(agentStatus: status)
     }
 
     public func cancelActiveWork() {
@@ -1796,7 +1801,7 @@ public final class QuillCodeWorkspaceModel {
         WorkspaceTerminalEngine.stopRunningEntries(terminal: &terminal)
         lastError = nil
         if hadActiveWork {
-            refreshTopBar(agentStatus: "Stopped")
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.stopped)
         }
     }
 
@@ -1860,7 +1865,7 @@ public final class QuillCodeWorkspaceModel {
         touchProject(projectID)
         saveProjects()
         try? threadStore?.save(thread)
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
     @discardableResult
@@ -1991,7 +1996,7 @@ public final class QuillCodeWorkspaceModel {
             ))
         }
         composer.isSending = false
-        refreshTopBar(agentStatus: "Idle")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
     private func runRememberSlashCommand(_ content: String, originalPrompt: String) {
@@ -2122,7 +2127,7 @@ public final class QuillCodeWorkspaceModel {
                 thread.events.append(.init(kind: .notice, summary: summary))
             }
         }
-        refreshTopBar(agentStatus: "Stopped")
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.stopped)
     }
 
     private func statusText() -> String {

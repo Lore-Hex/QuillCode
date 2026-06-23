@@ -11,19 +11,19 @@ struct WorkspaceAgentStatusBuilder: Sendable, Hashable {
     static func status(for event: ThreadEvent?) -> String {
         switch event?.kind {
         case .toolQueued:
-            return "Queued"
+            return TopBarAgentStatusLabel.queued
         case .toolRunning:
-            return "Running"
+            return TopBarAgentStatusLabel.running
         case .approvalRequested:
-            return "Review"
+            return TopBarAgentStatusLabel.review
         case .notice where event?.summary == AgentRunner.streamingNotice:
-            return "Streaming"
+            return TopBarAgentStatusLabel.streaming
         case .toolCompleted:
-            return "Finishing"
+            return TopBarAgentStatusLabel.finishing
         case .toolFailed:
-            return "Failed"
+            return TopBarAgentStatusLabel.failed
         case .message, .messageFeedback, .approvalDecided, .reviewComment, .notice, .none:
-            return "Running"
+            return TopBarAgentStatusLabel.running
         }
     }
 }
