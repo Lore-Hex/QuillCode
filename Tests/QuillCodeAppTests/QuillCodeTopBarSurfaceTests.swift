@@ -113,8 +113,71 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         XCTAssertEqual(row.id, "Provider")
     }
 
+    func testAgentStatusPresentationClassifiesActionableStatusTones() {
+        XCTAssertEqual(TopBarStatusPresentation.agentStatus("Idle"), TopBarStatusPresentation(
+            label: "Idle",
+            tone: .idle,
+            showsIndicator: false
+        ))
+        XCTAssertEqual(TopBarStatusPresentation.agentStatus("Running"), TopBarStatusPresentation(
+            label: "Running",
+            tone: .running,
+            showsIndicator: true
+        ))
+        XCTAssertEqual(TopBarStatusPresentation.agentStatus("Terminal"), TopBarStatusPresentation(
+            label: "Terminal",
+            tone: .running,
+            showsIndicator: true
+        ))
+        XCTAssertEqual(TopBarStatusPresentation.agentStatus("Failed"), TopBarStatusPresentation(
+            label: "Failed",
+            tone: .failed,
+            showsIndicator: true
+        ))
+        XCTAssertEqual(TopBarStatusPresentation.agentStatus("Stopped"), TopBarStatusPresentation(
+            label: "Stopped",
+            tone: .stopped,
+            showsIndicator: true
+        ))
+    }
+
+    func testRuntimeIssuePresentationUsesWarningByDefaultAndErrorWhenExplicit() {
+        var topBar = makeTopBar(runtimeIssueLabel: nil, runtimeIssueSeverity: nil)
+        XCTAssertNil(topBar.runtimeIssuePresentation)
+
+        topBar = makeTopBar(runtimeIssueLabel: "Rate limited", runtimeIssueSeverity: nil)
+        XCTAssertEqual(topBar.runtimeIssuePresentation, TopBarRuntimeIssuePresentation(label: "Rate limited", tone: .warning))
+
+        topBar = makeTopBar(runtimeIssueLabel: "Missing key", runtimeIssueSeverity: .error)
+        XCTAssertEqual(topBar.runtimeIssuePresentation, TopBarRuntimeIssuePresentation(label: "Missing key", tone: .error))
+    }
+
     private func filteredModelIDs(_ topBar: TopBarSurface, query: String) -> [String] {
         topBar.filteredModelCategories(matching: query).flatMap(\.models).map(\.id)
+    }
+
+    private func makeTopBar(
+        runtimeIssueLabel: String?,
+        runtimeIssueSeverity: RuntimeIssueSeverity?
+    ) -> TopBarSurface {
+        TopBarSurface(
+            appName: "QuillCode",
+            primaryTitle: "Project",
+            subtitle: "Ready",
+            instructionLabel: "Instructions",
+            instructionSources: [],
+            memoryLabel: "Memory",
+            memorySources: [],
+            modelLabel: TrustedRouterDefaults.fastModelDisplayName,
+            selectedModelID: TrustedRouterDefaults.defaultModel,
+            modelCategories: [],
+            modeLabel: "Auto",
+            agentStatus: "Running",
+            runtimeIssueLabel: runtimeIssueLabel,
+            runtimeIssueSeverity: runtimeIssueSeverity,
+            computerUseLabel: "Computer Use Ready",
+            showsComputerUseSetup: false
+        )
     }
 
     private func modelOption(

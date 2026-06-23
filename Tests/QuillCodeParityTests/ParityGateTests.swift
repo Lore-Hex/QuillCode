@@ -212,6 +212,23 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(surfaceText.contains("static func modeLabel"), "WorkspaceSurface should not own mode label copy.")
     }
 
+    func testTopBarViewsDelegateStatusPresentationSemantics() throws {
+        let topBarViewText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
+        let htmlRendererText = try Self.appSourceText(named: "WorkspaceHTMLTopBarRenderer.swift")
+        let presentationText = try Self.appSourceText(named: "QuillCodeTopBarStatusPresentation.swift")
+
+        XCTAssertTrue(presentationText.contains("struct TopBarStatusPresentation"), "Top-bar status semantics should live in a focused presentation value.")
+        XCTAssertTrue(presentationText.contains("static func agentStatus"), "Agent status classification should be directly testable.")
+        XCTAssertTrue(presentationText.contains("struct TopBarRuntimeIssuePresentation"), "Runtime issue pill semantics should be directly testable.")
+        XCTAssertTrue(topBarViewText.contains("topBar.agentStatusPresentation"), "Native top bar should use shared status presentation.")
+        XCTAssertTrue(topBarViewText.contains("topBar.runtimeIssuePresentation"), "Native top bar should use shared runtime issue presentation.")
+        XCTAssertTrue(htmlRendererText.contains("topBar.agentStatusPresentation"), "HTML top bar should use shared status presentation.")
+        XCTAssertTrue(htmlRendererText.contains("topBar.runtimeIssuePresentation"), "HTML top bar should use shared runtime issue presentation.")
+        XCTAssertFalse(topBarViewText.contains("lowercasedStatus.contains"), "Top-bar view should not own status string classification.")
+        XCTAssertFalse(topBarViewText.contains("runtimeIssueSeverity == .error"), "Top-bar view should not own runtime issue tone classification.")
+        XCTAssertFalse(htmlRendererText.contains("runtimeIssueSeverity?.rawValue"), "HTML renderer should not own runtime issue tone fallback logic.")
+    }
+
     func testWorkspaceModelDelegatesToolEventRecording() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let recorderText = try Self.appSourceText(named: "WorkspaceToolEventRecorder.swift")

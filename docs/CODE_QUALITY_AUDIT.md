@@ -1115,3 +1115,25 @@ Code quality changes:
 Remaining risk:
 
 - Slash command routing still lives in `WorkspaceModel`. A later pass should extract slash-command local transcript planning after the pure copy and label contracts have stabilized.
+
+## 2026-06-23 Top-Bar Status Presentation Pass
+
+Overall grade after this slice: **A- foundation, A status presentation boundary**.
+
+Top-bar status classification moved out of `QuillCodeTopBarView`. Before this pass, the SwiftUI view decided whether an agent status deserved an indicator by matching status text fragments, and the HTML renderer had separate runtime issue fallback logic. That made small status wording changes risky because native UI and static UI snapshots could drift.
+
+Code quality changes:
+
+- Added `TopBarStatusPresentation` and `TopBarStatusTone` for agent status labels, tone, indicator visibility, and accessibility text.
+- Added `TopBarRuntimeIssuePresentation` and `TopBarRuntimeIssueTone` for runtime issue pill tone.
+- Routed the native top bar and HTML top-bar renderer through the shared presentation values.
+- Added tests for idle/running/terminal/failed/stopped status classification and runtime issue tone fallback.
+- Added a parity gate that prevents status string classification from returning to the native top-bar view or HTML renderer.
+
+Interface polish:
+
+| Before | After |
+| --- | --- |
+| `QuillCodeTopBarView` string-matched status text during rendering | Tested presentation values now drive indicator visibility and color mapping |
+| Terminal/stopped statuses had no explicit top-bar tone | Terminal is treated as active, stopped/cancelled as neutral, and failures as red |
+| Native and HTML top bars could classify runtime issues differently | Both now use the same warning/error presentation value |
