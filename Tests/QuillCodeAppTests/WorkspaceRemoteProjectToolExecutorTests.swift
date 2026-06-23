@@ -187,6 +187,28 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertFalse(request.extractsPullRequestURLs)
     }
 
+    func testRemoteGitWorktreeBuilderBuildsListAndRemovePlans() throws {
+        let listPlan = try remoteWorktreePlan(
+            name: ToolDefinition.gitWorktreeList.name,
+            arguments: [:],
+            connection: remoteProject(path: "/srv/quill").connection
+        )
+        XCTAssertEqual(listPlan.command, "git worktree list --porcelain")
+        XCTAssertEqual(listPlan.artifacts, [])
+
+        let removePlan = try remoteWorktreePlan(
+            name: ToolDefinition.gitWorktreeRemove.name,
+            arguments: [
+                "path": "quill-next",
+                "force": true
+            ],
+            connection: remoteProject(path: "/srv/quill").connection
+        )
+        XCTAssertTrue(removePlan.command.contains("worktree='/srv/quill-next'"), removePlan.command)
+        XCTAssertTrue(removePlan.command.contains("git worktree remove --force -- \"$worktree\""), removePlan.command)
+        XCTAssertEqual(removePlan.artifacts, [])
+    }
+
     func testRemoteGitPlannerBuildsStageHunkRequestWithSharedPatchValidation() throws {
         let patch = """
         diff --git a/hello.txt b/hello.txt
@@ -274,6 +296,19 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         return try WorkspaceRemoteGitHubPullRequestCommandBuilder.command(
             for: ToolCall(name: name, argumentsJSON: argumentsJSON),
             arguments: try ToolArguments(argumentsJSON)
+        )
+    }
+
+    private func remoteWorktreePlan(
+        name: String,
+        arguments: [String: Any],
+        connection: ProjectConnection
+    ) throws -> WorkspaceRemoteGitWorktreePlan {
+        let argumentsJSON = ToolArguments.json(arguments)
+        return try WorkspaceRemoteGitWorktreeCommandBuilder.plan(
+            for: ToolCall(name: name, argumentsJSON: argumentsJSON),
+            arguments: try ToolArguments(argumentsJSON),
+            connection: connection
         )
     }
 
