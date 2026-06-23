@@ -146,6 +146,20 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(surfaceText.contains("let extensionUpdateCommands ="), "WorkspaceSurface should not own extension update command construction.")
     }
 
+    func testWorkspaceSurfaceDelegatesReviewSurfaceBuilding() throws {
+        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceReviewSurfaceBuilder.swift")
+
+        XCTAssertTrue(builderText.contains("struct WorkspaceReviewSurfaceBuilder"), "Review diff construction should live in a focused builder.")
+        XCTAssertTrue(builderText.contains("func surface() -> WorkspaceReviewSurface"), "Review builder should expose directly testable review construction.")
+        XCTAssertTrue(builderText.contains("latestCompletedGitDiffResult"), "Review builder should own latest git-diff result selection.")
+        XCTAssertTrue(builderText.contains("reviewCommentBuckets"), "Review builder should own review comment bucketing.")
+        XCTAssertTrue(surfaceText.contains("WorkspaceReviewSurfaceBuilder("), "WorkspaceSurface should delegate review construction.")
+        XCTAssertFalse(surfaceText.contains("private func reviewSurface("), "WorkspaceSurface should not own review surface construction.")
+        XCTAssertFalse(surfaceText.contains("reviewCommentBuckets"), "WorkspaceSurface should not own review comment bucketing.")
+        XCTAssertFalse(surfaceText.contains("GitDiffReviewParser.parse"), "WorkspaceSurface should not parse git diffs directly.")
+    }
+
     func testDesktopDefinesNativeMenuBarWidget() throws {
         let text = try Self.desktopSourceText()
 
