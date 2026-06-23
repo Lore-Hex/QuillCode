@@ -492,6 +492,35 @@ final class TrustedRouterAdapterTests: XCTestCase {
         }
     }
 
+    func testAPIKeyResolverPrefersTrimmedOverride() throws {
+        let resolver = TrustedRouterAPIKeyResolver(
+            sessionStore: StaticTrustedRouterSessionStore(storedAPIKey: "stored-key"),
+            apiKeyOverride: "  override-key\n"
+        )
+
+        XCTAssertEqual(try resolver.configuredAPIKey(), "override-key")
+    }
+
+    func testAPIKeyResolverFallsBackToTrimmedStoredKey() throws {
+        let resolver = TrustedRouterAPIKeyResolver(
+            sessionStore: StaticTrustedRouterSessionStore(storedAPIKey: "\nstored-key "),
+            apiKeyOverride: "  "
+        )
+
+        XCTAssertEqual(try resolver.configuredAPIKey(), "stored-key")
+    }
+
+    func testAPIKeyResolverThrowsActionableMissingKeyError() {
+        let resolver = TrustedRouterAPIKeyResolver(
+            sessionStore: StaticTrustedRouterSessionStore(storedAPIKey: " "),
+            apiKeyOverride: nil
+        )
+
+        XCTAssertThrowsError(try resolver.configuredAPIKey()) { error in
+            XCTAssertTrue(String(describing: error).contains("Sign in"))
+        }
+    }
+
     private func stream(_ chunks: [String]) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             for chunk in chunks {
@@ -499,5 +528,17 @@ final class TrustedRouterAdapterTests: XCTestCase {
             }
             continuation.finish()
         }
+    }
+}
+
+private struct StaticTrustedRouterSessionStore: TrustedRouterSessionStore {
+    var storedAPIKey: String?
+
+    func apiKey() throws -> String? {
+        storedAPIKey
+    }
+
+    func saveAPIKey(_ key: String) throws {
+        _ = key
     }
 }

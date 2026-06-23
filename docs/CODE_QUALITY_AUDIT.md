@@ -2185,6 +2185,23 @@ Remaining risk:
 
 - Prompt copy is still a large literal because it is intentionally explicit. Future tool families should add concise schema examples or generated prompt fragments instead of expanding the literal indefinitely.
 
+## 2026-06-23 TrustedRouter API Key Resolver Pass
+
+Overall grade after this slice: **A auth boundary, A DRY transport clients, A regression coverage**.
+
+TrustedRouter API-key resolution was duplicated between the action client and the safety-review client. Override precedence, whitespace trimming, session-store fallback, and the missing-key error now live in `TrustedRouterAPIKeyResolver`.
+
+Code quality changes:
+
+- Added `TrustedRouterAPIKeyResolver` as the single owner of developer override and stored-key resolution.
+- Reused the resolver from both `TrustedRouterLLMClient` and `TrustedRouterSafetyModelClient`.
+- Added focused tests for override precedence, stored-key fallback, trimming, and actionable missing-key errors.
+- Added a parity gate preventing key trimming and session-store fallback from drifting back into the transport clients.
+
+Remaining risk:
+
+- The safety client still lives in `TrustedRouterLLMClient.swift`; if Auto-review behavior grows, split it into its own transport file beside the resolver.
+
 ## 2026-06-23 Native Top Bar Simplification Pass
 
 Overall grade after this slice: **A- visual hierarchy, A shared-state preservation, A regression coverage**.
