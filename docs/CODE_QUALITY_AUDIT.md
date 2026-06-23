@@ -2008,6 +2008,23 @@ Remaining risk:
 
 - Remote push-current-branch shell guards still live in `WorkspaceRemoteGitToolRequestPlanner.swift`. That is now the last non-routing command seam in the file and should be extracted if push behavior grows or QuillCloud remote transports need a reusable plan.
 
+## 2026-06-23 SSH Remote Push Builder Split
+
+Overall grade after this slice: **A architecture, A push-safety boundary, A regression coverage**.
+
+SSH Remote git push command construction moved out of `WorkspaceRemoteGitToolRequestPlanner.swift` and into `WorkspaceRemoteGitPushCommandBuilder.swift`. Before this pass, the generic remote git planner still owned explicit branch pushes, default remote selection, upstream flags, current-branch detection, current-branch safety guards, and branch/remote validation. The planner now delegates push tools to a focused builder and is left as a routing layer plus simple one-line git commands.
+
+Code quality changes:
+
+- Added `WorkspaceRemoteGitPushCommandBuilder` for explicit and current-branch push commands.
+- Kept shared git name validation through `GitInputValidator.safeName`.
+- Removed current-branch shell guards from the generic remote git planner.
+- Added direct push-builder tests and parity gates that prevent push command assembly from drifting back into the planner.
+
+Remaining risk:
+
+- `WorkspaceRemoteGitToolRequestPlanner.swift` still owns simple status/diff/stage/restore/commit command routing. That is acceptable while those cases remain one-line commands; extract a basic-command builder only if those behaviors grow.
+
 ## 2026-06-23 Explicit Mode Control Pass
 
 Overall grade after this slice: **A UI hierarchy, A regression coverage, B+ interaction depth**.

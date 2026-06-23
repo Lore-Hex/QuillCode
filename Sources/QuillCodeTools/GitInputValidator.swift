@@ -1,6 +1,8 @@
 import Foundation
 
 public enum GitInputValidator {
+    public static let safeNameCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._/-"
+
     public static func trimmedNonEmpty(_ value: String?) -> String? {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? nil : trimmed
@@ -11,7 +13,7 @@ public enum GitInputValidator {
         guard !trimmed.isEmpty else {
             throw GitToolError.emptyBranch
         }
-        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._/-")
+        let allowed = CharacterSet(charactersIn: safeNameCharacters)
         guard trimmed.rangeOfCharacter(from: allowed.inverted) == nil,
               !trimmed.hasPrefix("-"),
               !trimmed.contains("..")

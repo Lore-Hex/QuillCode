@@ -39,11 +39,7 @@ enum WorkspaceRemoteGitToolRequestPlanner {
             }
             command = "git commit -m \(shellSingleQuoted(message))"
         case ToolDefinition.gitPush.name:
-            command = try remoteGitPushCommand(
-                remote: args.string("remote"),
-                branch: args.string("branch"),
-                setUpstream: args.bool("setUpstream") ?? false
-            )
+            command = try WorkspaceRemoteGitPushCommandBuilder.command(arguments: args)
         case let name where WorkspaceRemoteGitHubPullRequestCommandBuilder.toolNames.contains(name):
             command = try WorkspaceRemoteGitHubPullRequestCommandBuilder.command(for: call, arguments: args)
         case let name where WorkspaceRemoteGitWorktreeCommandBuilder.toolNames.contains(name):
@@ -63,29 +59,6 @@ enum WorkspaceRemoteGitToolRequestPlanner {
             artifacts: artifacts,
             extractsPullRequestURLs: WorkspaceRemoteGitHubPullRequestCommandBuilder.extractsURLs(for: call.name)
         )
-    }
-
-    private static func remoteGitPushCommand(
-        remote: String?,
-        branch: String?,
-        setUpstream: Bool
-    ) throws -> String {
-        let remoteName = try GitInputValidator.safeName(
-            GitInputValidator.trimmedNonEmpty(remote) ?? "origin"
-        )
-        let upstreamArguments = setUpstream ? "-u " : ""
-        if let branch = GitInputValidator.trimmedNonEmpty(branch) {
-            let branchName = try GitInputValidator.safeName(branch)
-            return "git push \(upstreamArguments)\(shellSingleQuoted(remoteName)) \(shellSingleQuoted(branchName))"
-        }
-
-        let invalidBranchMessage = shellSingleQuoted(String(describing: GitToolError.invalidGitName("$branch")))
-        return [
-            "branch=$(git branch --show-current)",
-            "test -n \"$branch\" || { printf '%s\\n' \(shellSingleQuoted(String(describing: GitToolError.noCurrentBranch))) >&2; exit 1; }",
-            "case \"$branch\" in -*|*..*|*[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._/-]*) printf '%s\\n' \(invalidBranchMessage) >&2; exit 1;; esac",
-            "git push \(upstreamArguments)\(shellSingleQuoted(remoteName)) \"$branch\""
-        ].joined(separator: " && ")
     }
 
     private static func shellSingleQuoted(_ value: String) -> String {
