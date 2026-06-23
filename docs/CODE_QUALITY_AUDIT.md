@@ -27,7 +27,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | B+ | Surface assembly is valuable but large. Keep moving small ranking/formatting helpers out or make them single-pass builders. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
-| `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | B | Desktop controller owns lifecycle, auth, task coordination, automation ticks, and platform adapters. Split auth and task coordinators before adding more desktop behavior. |
+| `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | B+ | Desktop controller is now mostly UI/workspace routing. Next split should move platform settings actions and settings persistence into focused helpers before more desktop behavior lands. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
 | `Sources/QuillCodeCore/Models.swift` | A- | Central source of truth for model IDs, branding, and compatibility. Watch for model/persistence surface bloat. |
 
@@ -42,7 +42,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Current Refactor Priority
 
-1. Split desktop auth/task orchestration out of `QuillCodeDesktopController.swift` before adding more desktop behavior.
+1. Split platform settings actions and settings persistence out of `QuillCodeDesktopController.swift` before adding more desktop behavior.
 2. Continue pulling pure workflow planning out of `WorkspaceModel` before adding new Codex-parity commands.
 3. Keep splitting remaining workspace surface assembly into single-purpose builders when behavior grows.
 4. Keep the parity matrix updated whenever a feature moves from planned to implemented.
@@ -280,4 +280,22 @@ Code quality changes:
 
 Remaining risk:
 
-- `QuillCodeDesktopController.swift` is now the intentional desktop hotspot. Its next split should separate TrustedRouter sign-in, cancellable task coordination, and platform settings actions into focused coordinators before more desktop parity features land.
+- `QuillCodeDesktopController.swift` is now the intentional desktop hotspot. Its next split should separate settings application and macOS System Settings routing into focused helpers before more desktop parity features land.
+
+## 2026-06-22 Desktop Controller Split Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+The desktop controller no longer owns raw task slots, task identity bookkeeping, OAuth exchange steps, loopback callback capture, token persistence, or TrustedRouter account-profile assembly. It now delegates cancellable work to `QuillCodeDesktopTaskCoordinator` and OAuth sign-in to `QuillCodeDesktopSignInCoordinator`, leaving the controller focused on workspace routing, UI sheet state, and applying model/runtime updates.
+
+Code quality changes:
+
+- Replaced manual `sendTask`, `terminalTask`, `browserPreviewTask`, and task-ID fields with `QuillCodeDesktopTaskCoordinator` slots.
+- Routed composer send, retry, terminal command, browser preview, Stop All, and automation ticker through one cancellable-task helper.
+- Moved TrustedRouter OAuth client construction, PKCE authorization, loopback callback waiting, code exchange, token persistence, and account-profile fetches into `QuillCodeDesktopSignInCoordinator`.
+- Added parity gates that keep OAuth exchange and raw cancellable task slots out of `QuillCodeDesktopController.swift`.
+- Removed the controller's dependency on `QuillCodeAgent`; only the sign-in coordinator imports the OAuth client.
+
+Remaining risk:
+
+- Settings persistence and macOS System Settings URL actions still live in the controller. The next desktop quality slice should move settings application and platform settings opening into focused helpers.

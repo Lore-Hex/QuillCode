@@ -1,7 +1,6 @@
 import AppKit
 import Foundation
 import SwiftUI
-import QuillCodeAgent
 import QuillCodeApp
 import QuillCodeCore
 import QuillComputerUseKit
@@ -24,13 +23,8 @@ final class QuillCodeDesktopController: ObservableObject {
     private let browserPageFetcher: any BrowserPageFetching
     private let automationNotifier: any QuillCodeAutomationNotifying
     private let workspaceRoot: URL
-    private var sendTask: Task<Void, Never>?
-    private var terminalTask: Task<Void, Never>?
-    private var browserPreviewTask: Task<Void, Never>?
-    private var automationTickTask: Task<Void, Never>?
-    private var sendTaskID: UUID?
-    private var terminalTaskID: UUID?
-    private var browserPreviewTaskID: UUID?
+    private let signInCoordinator: QuillCodeDesktopSignInCoordinator
+    private let tasks = QuillCodeDesktopTaskCoordinator()
 
     init(
         bootstrap: QuillCodeWorkspaceBootstrap = QuillCodeWorkspaceBootstrap(),
@@ -42,6 +36,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.computerUseBackend = MacComputerUseBackend()
         self.browserPageFetcher = browserPageFetcher
         self.automationNotifier = automationNotifier
+        self.signInCoordinator = QuillCodeDesktopSignInCoordinator(bootstrap: bootstrap)
         do {
             self.model = try bootstrap.makeModel()
         } catch {
@@ -58,10 +53,6 @@ final class QuillCodeDesktopController: ObservableObject {
         self.browserAddressDraft = model.browser.addressDraft
         runDueAutomations()
         startAutomationTicker()
-    }
-
-    deinit {
-        automationTickTask?.cancel()
     }
 
     func newChat() {
@@ -197,7 +188,7 @@ final class QuillCodeDesktopController: ObservableObject {
 
     func send() {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prompt.isEmpty, sendTask == nil else { return }
+        guard !prompt.isEmpty, !tasks.isRunning(.send) else { return }
         model.setDraft(prompt)
         draft = ""
         refresh()
@@ -205,7 +196,7 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func retryLastTurn() {
-        guard sendTask == nil, model.prepareRetryLastUserTurn() else { return }
+        guard !tasks.isRunning(.send), model.prepareRetryLastUserTurn() else { return }
         draft = ""
         refresh()
         submitPreparedComposer()
@@ -268,19 +259,14 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func openBrowserPreview() {
-        browserPreviewTask?.cancel()
         model.setBrowserAddressDraft(browserAddressDraft)
         _ = model.openBrowserPreview(workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
         refresh()
-        let taskID = UUID()
-        browserPreviewTaskID = taskID
-        browserPreviewTask = Task { @MainActor in
-            _ = await model.refreshBrowserSnapshot(pageFetcher: browserPageFetcher)
-            if browserPreviewTaskID == taskID {
-                browserPreviewTask = nil
-                browserPreviewTaskID = nil
-            }
-            refresh()
+        tasks.replace(.browserPreview) { [weak self] in
+            guard let self else { return }
+            _ = await self.model.refreshBrowserSnapshot(pageFetcher: self.browserPageFetcher)
+        } onFinish: { [weak self] in
+            self?.refresh()
         }
     }
 
@@ -291,18 +277,17 @@ final class QuillCodeDesktopController: ObservableObject {
 
     func runTerminalCommand() {
         let command = terminalDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !command.isEmpty, terminalTask == nil else { return }
+        guard !command.isEmpty, !tasks.isRunning(.terminal) else { return }
         terminalDraft = ""
         refresh()
-        let taskID = UUID()
-        terminalTaskID = taskID
-        terminalTask = Task { @MainActor in
-            await model.runTerminalCommand(command, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
-            if terminalTaskID == taskID {
-                terminalTask = nil
-                terminalTaskID = nil
-            }
-            refresh()
+        tasks.startIfIdle(.terminal) { [weak self] in
+            guard let self else { return }
+            await self.model.runTerminalCommand(
+                command,
+                workspaceRoot: self.model.activeWorkspaceRoot ?? self.workspaceRoot
+            )
+        } onFinish: { [weak self] in
+            self?.refresh()
         }
     }
 
@@ -372,58 +357,25 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func stopAll() {
-        sendTask?.cancel()
-        terminalTask?.cancel()
-        browserPreviewTask?.cancel()
-        sendTask = nil
-        terminalTask = nil
-        browserPreviewTask = nil
-        sendTaskID = nil
-        terminalTaskID = nil
-        browserPreviewTaskID = nil
+        tasks.cancel([.send, .terminal, .browserPreview])
         model.cancelActiveWork()
         draft = ""
         refresh()
     }
 
     private func completeTrustedRouterSignIn() async {
-        model.setAgentStatus("Opening TrustedRouter")
-        refresh()
         do {
-            let client = try TrustedRouterOAuthClient(baseURL: model.root.config.apiBaseURL)
-            let server = try TrustedRouterLoopbackCallbackServer()
-            try await server.start()
-            defer { server.cancel() }
-
-            let authorization = try client.createAuthorization(
-                callbackURL: TrustedRouterLoopbackCallbackServer.callbackURL,
-                keyLabel: "QuillCode"
-            )
-            NSWorkspace.shared.open(authorization.url)
-            model.setAgentStatus("Waiting for TrustedRouter")
-            refresh()
-
-            let callbackURL = try await server.waitForCallback()
-            model.setAgentStatus("Finishing sign-in")
-            refresh()
-            let code = try client.parseCallback(callbackURL, expectedState: authorization.state)
-            let token = try await client.exchangeCode(
-                code: code,
-                codeVerifier: authorization.codeVerifier
-            )
-            let account = await trustedRouterAccountProfile(from: token, client: client)
-
-            try bootstrap.saveTrustedRouterAPIKey(token.key)
-            var config = model.root.config
-            config.authMode = .oauth
-            config.developerOverrideEnabled = false
-            config.trustedRouterAccount = account
-            try bootstrap.saveConfig(config)
+            let result = try await signInCoordinator.completeSignIn(
+                currentConfig: model.root.config
+            ) { [weak self] label, error in
+                self?.model.setAgentStatus(label, lastError: error)
+                self?.refresh()
+            }
             model.applySettings(
-                config: config,
-                trustedRouterAPIKeyConfigured: true
+                config: result.config,
+                trustedRouterAPIKeyConfigured: result.trustedRouterAPIKeyConfigured
             )
-            model.applyRuntime(bootstrap.makeRuntime(config: config))
+            model.applyRuntime(bootstrap.makeRuntime(config: result.config))
             refresh()
             await refreshModelCatalog()
         } catch {
@@ -432,49 +384,23 @@ final class QuillCodeDesktopController: ObservableObject {
         }
     }
 
-    private func trustedRouterAccountProfile(
-        from token: TrustedRouterOAuthToken,
-        client: TrustedRouterOAuthClient
-    ) async -> TrustedRouterAccountProfile? {
-        var profile = TrustedRouterAccountProfile(
-            userID: token.userID,
-            subject: token.identity?.sub,
-            email: token.identity?.email,
-            walletAddress: token.identity?.walletAddress
-        )
-        if let userInfo = try? await client.fetchUserInfo(apiKey: token.key) {
-            profile = TrustedRouterAccountProfile(
-                userID: profile.userID,
-                subject: profile.subject ?? userInfo.data.sub,
-                email: profile.email ?? userInfo.data.email,
-                walletAddress: profile.walletAddress ?? userInfo.data.walletAddress
-            )
-        }
-        return profile.isEmpty ? nil : profile
-    }
-
     private func submitPreparedComposer() {
-        let taskID = UUID()
-        sendTaskID = taskID
-        sendTask = Task { @MainActor in
-            await model.submitComposer(workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
-            if sendTaskID == taskID {
-                sendTask = nil
-                sendTaskID = nil
-            }
-            refresh()
+        tasks.startIfIdle(.send) { [weak self] in
+            guard let self else { return }
+            await self.model.submitComposer(workspaceRoot: self.model.activeWorkspaceRoot ?? self.workspaceRoot)
+        } onFinish: { [weak self] in
+            self?.refresh()
         }
     }
 
     private func startAutomationTicker() {
-        automationTickTask?.cancel()
-        automationTickTask = Task { [weak self] in
+        tasks.replace(.automationTicker) { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 30_000_000_000)
-                await MainActor.run {
-                    guard let self, !Task.isCancelled else { return }
-                    self.runDueAutomations()
+                guard let self, !Task.isCancelled else {
+                    return
                 }
+                self.runDueAutomations()
             }
         }
     }
