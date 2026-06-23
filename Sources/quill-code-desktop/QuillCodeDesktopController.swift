@@ -248,6 +248,11 @@ final class QuillCodeDesktopController: ObservableObject {
         refresh()
     }
 
+    func runToolCardAction(_ action: ToolCardActionSurface) {
+        _ = model.runToolCardAction(action, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+        refresh()
+    }
+
     func runTerminalCommand() {
         let command = terminalDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !command.isEmpty, !tasks.isRunning(.terminal) else { return }

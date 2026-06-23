@@ -14,6 +14,7 @@ struct QuillCodeTranscriptView: View {
     var onContextCommand: (WorkspaceCommandSurface) -> Void
     var onRuntimeIssueAction: (() -> Void)?
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
+    var onToolCardAction: (ToolCardActionSurface) -> Void
     var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     var onCopyTranscriptItem: (String, String) -> Void
     var onUseMessageAsDraft: (String) -> Void
@@ -148,6 +149,9 @@ struct QuillCodeTranscriptView: View {
                         isCopied: copiedTranscriptItemID == item.id,
                         onCopy: {
                             onCopyTranscriptItem(item.id, copyText(for: card))
+                        },
+                        onAction: { action in
+                            onToolCardAction(action)
                         }
                     )
                 }

@@ -68,6 +68,7 @@ private struct QuillCodeDesktopRootView: View {
             onSaveSettings: controller.saveSettings,
             onStartTrustedRouterSignIn: controller.startTrustedRouterSignIn,
             onReviewAction: controller.runReviewAction,
+            onToolCardAction: controller.runToolCardAction,
             onAddReviewComment: controller.addReviewComment,
             onCreateWorktree: controller.createWorktree,
             onRemoveWorktree: controller.removeWorktree,

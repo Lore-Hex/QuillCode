@@ -8,6 +8,42 @@ public enum ToolCardStatus: String, Codable, Sendable, Hashable {
     case review
 }
 
+public enum ToolCardActionKind: String, Codable, Sendable, Hashable {
+    case approve
+    case deny
+}
+
+public enum ToolCardActionStyle: String, Codable, Sendable, Hashable {
+    case primary
+    case secondary
+    case destructive
+}
+
+public struct ToolCardActionSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var title: String
+    public var kind: ToolCardActionKind
+    public var requestID: String
+    public var style: ToolCardActionStyle
+    public var systemImage: String?
+
+    public init(
+        id: String? = nil,
+        title: String,
+        kind: ToolCardActionKind,
+        requestID: String,
+        style: ToolCardActionStyle,
+        systemImage: String? = nil
+    ) {
+        self.id = id ?? "tool-card-action-\(kind.rawValue)-\(requestID)"
+        self.title = title
+        self.kind = kind
+        self.requestID = requestID
+        self.style = style
+        self.systemImage = systemImage
+    }
+}
+
 public enum ToolCardDensity: String, Codable, Sendable, Hashable {
     case collapsed
     case peek
@@ -451,6 +487,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
     public var inputJSON: String?
     public var outputJSON: String?
     public var artifacts: [ToolArtifactState]
+    public var actions: [ToolCardActionSurface]
     public var isExpanded: Bool
     public var density: ToolCardDensity
 
@@ -463,6 +500,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         inputJSON: String? = nil,
         outputJSON: String? = nil,
         artifacts: [ToolArtifactState] = [],
+        actions: [ToolCardActionSurface] = [],
         isExpanded: Bool = false,
         density: ToolCardDensity? = nil
     ) {
@@ -474,6 +512,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         self.inputJSON = inputJSON
         self.outputJSON = outputJSON
         self.artifacts = artifacts
+        self.actions = actions
         self.isExpanded = isExpanded
         self.density = density ?? Self.defaultDensity(status: status, isExpanded: isExpanded)
     }
@@ -487,6 +526,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         case inputJSON
         case outputJSON
         case artifacts
+        case actions
         case isExpanded
         case density
     }
@@ -501,6 +541,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         self.inputJSON = try container.decodeIfPresent(String.self, forKey: .inputJSON)
         self.outputJSON = try container.decodeIfPresent(String.self, forKey: .outputJSON)
         self.artifacts = try container.decodeIfPresent([ToolArtifactState].self, forKey: .artifacts) ?? []
+        self.actions = try container.decodeIfPresent([ToolCardActionSurface].self, forKey: .actions) ?? []
         self.isExpanded = try container.decodeIfPresent(Bool.self, forKey: .isExpanded) ?? false
         self.density = try container.decodeIfPresent(ToolCardDensity.self, forKey: .density)
             ?? Self.defaultDensity(status: status, isExpanded: isExpanded)

@@ -1691,6 +1691,38 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains("Show details"))
     }
 
+    func testHTMLToolCardRendererIncludesApprovalActions() {
+        let card = ToolCardState(
+            id: "shell-review",
+            title: ToolDefinition.shellRun.name,
+            subtitle: "Needs your okay · whoami",
+            status: .review,
+            inputJSON: ToolArguments.json(["cmd": "whoami"]),
+            actions: [
+                ToolCardActionSurface(
+                    title: "Allow once",
+                    kind: .approve,
+                    requestID: "approval-html",
+                    style: .primary
+                ),
+                ToolCardActionSurface(
+                    title: "Skip",
+                    kind: .deny,
+                    requestID: "approval-html",
+                    style: .secondary
+                )
+            ],
+            isExpanded: true
+        )
+
+        let html = WorkspaceHTMLToolCardRenderer.render(card, timelineItemID: "timeline-approval")
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-actions""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="approve" data-action-style="primary" data-request-id="approval-html">Allow once"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="deny" data-action-style="secondary" data-request-id="approval-html">Skip"#))
+        XCTAssertTrue(html.contains(#"data-timeline-id="timeline-approval""#))
+    }
+
     func testHTMLRendererIncludesToolCardArtifacts() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()

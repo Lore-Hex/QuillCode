@@ -5,19 +5,29 @@ struct QuillCodeToolCardView: View {
     var card: ToolCardState
     var isCopied: Bool
     var onCopy: () -> Void
+    var onAction: (ToolCardActionSurface) -> Void
     @State private var isDetailsOpen: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(card: ToolCardState, isCopied: Bool = false, onCopy: @escaping () -> Void = {}) {
+    init(
+        card: ToolCardState,
+        isCopied: Bool = false,
+        onCopy: @escaping () -> Void = {},
+        onAction: @escaping (ToolCardActionSurface) -> Void = { _ in }
+    ) {
         self.card = card
         self.isCopied = isCopied
         self.onCopy = onCopy
+        self.onAction = onAction
         self._isDetailsOpen = State(initialValue: card.opensDetailsByDefault)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             toolHeader
+            if !card.actions.isEmpty {
+                QuillCodeToolCardActionRow(actions: card.actions, onAction: onAction)
+            }
             HStack {
                 QuillCodeTranscriptCopyButton(
                     label: copyActionLabel,
@@ -189,7 +199,9 @@ struct QuillCodeToolCardView: View {
         switch card.status {
         case .queued, .running, .done:
             return Color.white.opacity(0.09)
-        case .failed, .review:
+        case .review:
+            return Color.white.opacity(0.11)
+        case .failed:
             return statusColor.opacity(0.42)
         }
     }
@@ -255,6 +267,80 @@ struct QuillCodeToolCardView: View {
             ", \($0.label) \($0.detail)"
         } ?? ""
         return "\(card.title), \(card.status.rawValue), \(card.densityAccessibilityLabel)\(context)"
+    }
+}
+
+private struct QuillCodeToolCardActionRow: View {
+    var actions: [ToolCardActionSurface]
+    var onAction: (ToolCardActionSurface) -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(actions) { action in
+                Button {
+                    onAction(action)
+                } label: {
+                    Label {
+                        Text(action.title)
+                    } icon: {
+                        if let systemImage = action.systemImage {
+                            Image(systemName: systemImage)
+                        }
+                    }
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+                    .frame(minWidth: action.style == .primary ? 118 : 82)
+                    .foregroundStyle(foregroundColor(for: action.style))
+                    .background(backgroundColor(for: action.style))
+                    .overlay(
+                        Capsule()
+                            .stroke(strokeColor(for: action.style), lineWidth: 1)
+                    )
+                    .clipShape(Capsule())
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .help(action.title)
+                .accessibilityLabel(action.title)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 2)
+    }
+
+    private func foregroundColor(for style: ToolCardActionStyle) -> Color {
+        switch style {
+        case .primary:
+            return Color.white
+        case .secondary:
+            return QuillCodePalette.text
+        case .destructive:
+            return QuillCodePalette.red
+        }
+    }
+
+    private func backgroundColor(for style: ToolCardActionStyle) -> Color {
+        switch style {
+        case .primary:
+            return QuillCodePalette.blue
+        case .secondary:
+            return QuillCodePalette.selection.opacity(0.55)
+        case .destructive:
+            return QuillCodePalette.red.opacity(0.14)
+        }
+    }
+
+    private func strokeColor(for style: ToolCardActionStyle) -> Color {
+        switch style {
+        case .primary:
+            return Color.white.opacity(0.14)
+        case .secondary:
+            return Color.white.opacity(0.10)
+        case .destructive:
+            return QuillCodePalette.red.opacity(0.26)
+        }
     }
 }
 

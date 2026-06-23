@@ -16,6 +16,7 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
     func toolCards() -> [ToolCardState] {
         var cards: [ToolCardState] = []
         var activeToolCardIndex: Int?
+        var activeApprovalCardIndex: Int?
 
         func updateActiveToolCard(status: ToolCardStatus, stateLabel: String, outputJSON: String? = nil) {
             guard let index = activeToolCardIndex else {
@@ -56,8 +57,23 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
                     outputJSON: event.payloadJSON
                 )
             case .approvalRequested:
-                cards.append(Self.safetyReviewCard(for: event))
-            case .message, .messageFeedback, .approvalDecided, .reviewComment, .notice:
+                let reviewCard = Self.approvalReviewCard(
+                    for: event,
+                    fallback: activeToolCardIndex.flatMap { cards.indices.contains($0) ? cards[$0] : nil }
+                )
+                if let index = activeToolCardIndex, cards.indices.contains(index) {
+                    cards[index] = reviewCard
+                    activeApprovalCardIndex = index
+                    activeToolCardIndex = nil
+                } else {
+                    cards.append(reviewCard)
+                    activeApprovalCardIndex = cards.count - 1
+                }
+            case .approvalDecided:
+                guard let index = activeApprovalCardIndex, cards.indices.contains(index) else { continue }
+                Self.updateApprovalCard(&cards[index], decisionJSON: event.payloadJSON)
+                activeApprovalCardIndex = nil
+            case .message, .messageFeedback, .reviewComment, .notice:
                 continue
             }
         }
@@ -75,6 +91,7 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
         var consumedMessageIDs = Set<UUID>()
         var items: [TranscriptTimelineItemSurface] = []
         var activeToolItemIndex: Int?
+        var activeApprovalItemIndex: Int?
 
         func appendMessage(matching summary: String) {
             guard let message = thread.messages.first(where: {
@@ -142,8 +159,25 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
                     outputJSON: event.payloadJSON
                 )
             case .approvalRequested:
-                items.append(.toolCard(Self.safetyReviewCard(for: event)))
-            case .messageFeedback, .approvalDecided, .reviewComment, .notice:
+                let fallback = activeToolItemIndex.flatMap { items.indices.contains($0) ? items[$0].toolCard : nil }
+                let reviewCard = Self.approvalReviewCard(for: event, fallback: fallback)
+                if let index = activeToolItemIndex, items.indices.contains(index) {
+                    items[index] = .toolCard(reviewCard)
+                    activeApprovalItemIndex = index
+                    activeToolItemIndex = nil
+                } else {
+                    items.append(.toolCard(reviewCard))
+                    activeApprovalItemIndex = items.count - 1
+                }
+            case .approvalDecided:
+                guard let index = activeApprovalItemIndex,
+                      items.indices.contains(index),
+                      var card = items[index].toolCard
+                else { continue }
+                Self.updateApprovalCard(&card, decisionJSON: event.payloadJSON)
+                items[index] = .toolCard(card)
+                activeApprovalItemIndex = nil
+            case .messageFeedback, .reviewComment, .notice:
                 continue
             }
         }
@@ -154,15 +188,89 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
         return items
     }
 
-    private static func safetyReviewCard(for event: ThreadEvent) -> ToolCardState {
-        ToolCardState(
-            id: event.id.uuidString,
-            title: "Safety Check",
-            subtitle: event.summary,
+    private static func approvalReviewCard(for event: ThreadEvent, fallback: ToolCardState? = nil) -> ToolCardState {
+        let request = decode(ApprovalRequest.self, event.payloadJSON)
+        let toolCall = request?.toolCall
+        let title = toolCall?.name ?? fallback?.title ?? "Approval needed"
+        let inputJSON = toolCall?.argumentsJSON ?? fallback?.inputJSON ?? event.payloadJSON
+        let actions = request.flatMap { Self.approvalActions(for: $0) } ?? []
+
+        return ToolCardState(
+            id: fallback?.id ?? toolCall?.id ?? event.id.uuidString,
+            title: title,
+            subtitle: Self.approvalSubtitle(
+                title: title,
+                inputJSON: inputJSON,
+                reason: request?.reason ?? event.summary,
+                recommendedVerdict: request?.recommendedVerdict
+            ),
             status: .review,
-            inputJSON: event.payloadJSON,
+            inputJSON: inputJSON,
+            actions: actions,
             isExpanded: true
         )
+    }
+
+    private static func approvalActions(for request: ApprovalRequest) -> [ToolCardActionSurface]? {
+        guard request.recommendedVerdict != .deny else {
+            return nil
+        }
+        return [
+            ToolCardActionSurface(
+                title: "Allow once",
+                kind: .approve,
+                requestID: request.id,
+                style: .primary,
+                systemImage: "checkmark"
+            ),
+            ToolCardActionSurface(
+                title: "Skip",
+                kind: .deny,
+                requestID: request.id,
+                style: .secondary,
+                systemImage: "xmark"
+            )
+        ]
+    }
+
+    private static func approvalSubtitle(
+        title: String,
+        inputJSON: String?,
+        reason: String,
+        recommendedVerdict: ApprovalVerdict?
+    ) -> String {
+        let stateLabel = recommendedVerdict == .deny ? "Blocked" : "Needs your okay"
+        let base = toolSubtitle(stateLabel: stateLabel, title: title, inputJSON: inputJSON)
+        let cleanedReason = reason
+            .replacingOccurrences(of: #"^(approve|deny|clarify):\s*"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedReason.isEmpty,
+              cleanedReason != base
+        else {
+            return base
+        }
+        return "\(base) · \(cleanedReason)"
+    }
+
+    private static func updateApprovalCard(_ card: inout ToolCardState, decisionJSON: String?) {
+        let decision = decode(ApprovalDecision.self, decisionJSON)
+        let stateLabel: String
+        switch decision?.verdict {
+        case .approve:
+            stateLabel = "Approved"
+        case .deny:
+            stateLabel = "Skipped"
+        case .clarify:
+            stateLabel = "Needs detail"
+        case .none:
+            stateLabel = "Updated"
+        }
+        card.status = .done
+        card.subtitle = toolSubtitle(stateLabel: stateLabel, title: card.title, inputJSON: card.inputJSON)
+        card.outputJSON = decisionJSON
+        card.actions = []
+        card.density = ToolCardState.defaultDensity(status: card.status, isExpanded: false)
+        card.isExpanded = false
     }
 
     private static func updateCard(

@@ -18,6 +18,7 @@ enum WorkspaceHTMLToolCardRenderer {
             <span data-testid="tool-card-status">\(escape(card.status.rawValue))</span>
           </header>
           <p data-testid="tool-card-subtitle">\(escape(card.subtitle))</p>
+          \(renderActions(card.actions))
           <footer class="transcript-actions">
             <button type="button" data-testid="tool-card-copy" data-copy-id="\(escape(copyID))">\(escape(copyActionLabel(for: card)))</button>
           </footer>
@@ -38,6 +39,20 @@ enum WorkspaceHTMLToolCardRenderer {
             return "Copy input"
         }
         return "Copy"
+    }
+
+    private static func renderActions(_ actions: [ToolCardActionSurface]) -> String {
+        guard !actions.isEmpty else { return "" }
+        let buttons = actions.map { action in
+            """
+            <button type="button" data-testid="tool-card-action" data-action-kind="\(escape(action.kind.rawValue))" data-action-style="\(escape(action.style.rawValue))" data-request-id="\(escape(action.requestID))">\(escape(action.title))</button>
+            """
+        }.joined(separator: "\n")
+        return """
+        <div class="tool-card-actions" data-testid="tool-card-actions">
+          \(buttons)
+        </div>
+        """
     }
 
     private static func renderDetails(_ card: ToolCardState) -> String {

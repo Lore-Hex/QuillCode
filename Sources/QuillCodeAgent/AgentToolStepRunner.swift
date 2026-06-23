@@ -63,6 +63,7 @@ extension AgentRunner {
             await appendBlockedReview(
                 review,
                 for: call,
+                definition: definition,
                 to: &thread,
                 onProgress: onProgress
             )
@@ -193,10 +194,18 @@ extension AgentRunner {
     private func appendBlockedReview(
         _ review: SafetyReview,
         for call: ToolCall,
+        definition: ToolDefinition?,
         to thread: inout ChatThread,
         onProgress: AgentRunProgressHandler?
     ) async {
         let text: String
+        let request = ApprovalRequest(
+            toolCall: call.redactedForTranscript(),
+            toolDefinition: definition,
+            reason: review.rationale,
+            recommendedVerdict: review.verdict
+        )
+        let requestJSON = try? JSONHelpers.encodePretty(request)
         switch review.verdict {
         case .clarify:
             text = "I need a little more detail before running \(call.name): \(review.rationale)"
@@ -207,7 +216,8 @@ extension AgentRunner {
         }
         thread.events.append(.init(
             kind: .approvalRequested,
-            summary: "\(review.verdict.rawValue): \(review.rationale)"
+            summary: "\(review.verdict.rawValue): \(review.rationale)",
+            payloadJSON: requestJSON
         ))
         thread.messages.append(.init(role: .assistant, content: text))
         thread.events.append(.init(kind: .message, summary: text))

@@ -1629,12 +1629,46 @@
       box-shadow: 0 16px 38px rgba(0,0,0,.22);
     }
     .tool-card.failed { border-color: rgba(255,93,82,.44); }
-    .tool-card.review { border-color: rgba(248,184,78,.48); }
+    .tool-card.review { border-color: rgba(255,255,255,.11); }
     .tool-card[data-density="collapsed"] {
       min-height: 58px;
     }
     .tool-card header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
     .tool-card header [data-testid="tool-card-status"] { flex: none; }
+    .tool-card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .tool-card-actions button {
+      min-height: 40px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.10);
+      padding: 0 12px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition-property: transform, border-color, background;
+      transition-duration: 120ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .tool-card-actions button:active { transform: scale(0.96); }
+    .tool-card-actions button[data-action-style="primary"] {
+      color: #fff;
+      background: var(--accent);
+      border-color: rgba(255,255,255,.14);
+    }
+    .tool-card-actions button[data-action-style="secondary"] {
+      color: var(--text);
+      background: rgba(255,255,255,.08);
+    }
+    .tool-card-actions button[data-action-style="destructive"] {
+      color: #ff7a70;
+      background: rgba(255,93,82,.14);
+      border-color: rgba(255,93,82,.26);
+    }
     .tool-artifacts {
       display: flex;
       flex-wrap: wrap;
@@ -3310,6 +3344,62 @@
       card.isExpanded = card.density === 'expanded';
     }
 
+    function runToolCardAction(kind, requestID, timelineID) {
+      const item = state.transcript.timelineItems.find(item => item.id === timelineID);
+      const card = item?.toolCard || state.transcript.toolCards.find(card => (
+        (card.actions || []).some(action => action.requestID === requestID)
+      ));
+      if (!card) return;
+      card.actions = [];
+      card.status = 'done';
+      card.subtitle = toolCardSubtitle(kind === 'approve' ? 'Approved' : 'Skipped', card.title, card.inputJSON);
+      card.outputJSON = JSON.stringify({
+        requestID,
+        verdict: kind === 'approve' ? 'approve' : 'deny',
+        rationale: kind === 'approve' ? 'Approved from the tool card.' : 'Skipped from the tool card.'
+      }, null, 2);
+      card.density = toolCardDensity(card.status, false);
+      card.isExpanded = false;
+
+      if (kind === 'approve') {
+        addToolCard({
+          title: card.title,
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: card.inputJSON,
+          outputJSON: mockApprovedToolOutput(card.title, card.inputJSON)
+        });
+        addMessage('assistant', 'Approved and ran the tool.');
+      } else {
+        addMessage('assistant', `Skipped ${card.title}.`);
+      }
+      render();
+    }
+
+    function mockApprovedToolOutput(toolName, inputJSON) {
+      const args = safeJSON(inputJSON);
+      if (toolName === 'host.shell.run') {
+        const cmd = String(args.cmd || '').trim();
+        const stdout = cmd === 'whoami'
+          ? 'mock-user\n'
+          : `ran: ${cmd || 'command'}\n`;
+        return JSON.stringify({ ok: true, stdout, stderr: '', exitCode: 0 }, null, 2);
+      }
+      if (toolName === 'host.file.write') {
+        const path = String(args.path || 'file.txt');
+        return JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2);
+      }
+      return JSON.stringify({ ok: true, stdout: 'Completed.\n' }, null, 2);
+    }
+
+    function safeJSON(text) {
+      try {
+        return JSON.parse(text || '{}') || {};
+      } catch {
+        return {};
+      }
+    }
+
     function artifactsFromOutput(outputJSON) {
       if (!outputJSON) return [];
       try {
@@ -4067,6 +4157,12 @@
             ${card.inputJSON ? `<pre data-testid="tool-card-input">${escapeHTML(card.inputJSON)}</pre>` : ''}
             ${card.outputJSON ? `<pre data-testid="tool-card-output">${escapeHTML(card.outputJSON)}</pre>` : ''}
           </details>` : '';
+      const renderToolActions = card => (card.actions || []).length ? `
+          <div class="tool-card-actions" data-testid="tool-card-actions">
+            ${card.actions.map(action => `
+              <button type="button" data-testid="tool-card-action" data-action-kind="${escapeHTML(action.kind)}" data-action-style="${escapeHTML(action.style)}" data-request-id="${escapeHTML(action.requestID)}">${escapeHTML(action.title)}</button>
+            `).join('')}
+          </div>` : '';
       const renderToolCard = (card, timelineID = '') => `
         <article class="tool-card ${escapeHTML(card.status)}${activeClass(timelineID)}" data-testid="tool-card" data-status="${escapeHTML(card.status)}" data-density="${escapeHTML(card.density || toolCardDensity(card.status, card.isExpanded))}" data-timeline-id="${escapeHTML(timelineID)}"${card.executionContext ? ` data-execution-context="${escapeHTML(card.executionContext.kind)}"` : ''} aria-label="${escapeHTML(card.title)}, ${escapeHTML(card.status)}, ${escapeHTML(card.density || toolCardDensity(card.status, card.isExpanded))}${card.executionContext ? `, ${card.executionContext.label} ${card.executionContext.detail}` : ''}">
           <header>
@@ -4077,6 +4173,7 @@
             <span data-testid="tool-card-status">${escapeHTML(card.status)}</span>
           </header>
           <p data-testid="tool-card-subtitle">${escapeHTML(card.subtitle)}</p>
+          ${renderToolActions(card)}
           ${copyButton('tool-card-copy', timelineID || card.id, card.outputJSON ? 'Copy output' : card.inputJSON ? 'Copy input' : 'Copy')}
           ${renderArtifacts(card.artifacts)}
           ${renderTextPreviews(card.artifacts)}
@@ -4378,6 +4475,16 @@
       document.querySelectorAll('[data-copy-id]').forEach(button => {
         button.addEventListener('click', event => {
           copyTranscriptItem(event.currentTarget.getAttribute('data-copy-id'));
+        });
+      });
+      document.querySelectorAll('[data-testid="tool-card-action"]').forEach(button => {
+        button.addEventListener('click', event => {
+          const cardElement = event.currentTarget.closest('[data-testid="tool-card"]');
+          runToolCardAction(
+            event.currentTarget.getAttribute('data-action-kind'),
+            event.currentTarget.getAttribute('data-request-id'),
+            cardElement?.getAttribute('data-timeline-id') || ''
+          );
         });
       });
       document.querySelectorAll('[data-feedback-value]').forEach(button => {
