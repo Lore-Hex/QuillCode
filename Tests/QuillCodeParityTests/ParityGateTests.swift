@@ -60,14 +60,37 @@ final class ParityGateTests: XCTestCase {
     func testWorkspaceModelDelegatesBrowserSurfaceTypes() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let browserSurfaceText = try Self.appSourceText(named: "QuillCodeBrowserSurface.swift")
+        let browserEngineText = try Self.appSourceText(named: "WorkspaceBrowserEngine.swift")
 
         XCTAssertTrue(browserSurfaceText.contains("public struct BrowserState"), "Browser state should live in a focused surface file.")
         XCTAssertTrue(browserSurfaceText.contains("public struct BrowserSnapshotState"), "Browser snapshot state should live in a focused surface file.")
         XCTAssertTrue(browserSurfaceText.contains("public struct BrowserCommentState"), "Browser comment state should live in a focused surface file.")
-        XCTAssertTrue(modelText.contains("BrowserInspector.snapshot"), "WorkspaceModel should still orchestrate browser snapshot refreshes.")
+        XCTAssertTrue(browserEngineText.contains("BrowserInspector.snapshot"), "Browser state transitions should own browser snapshot construction.")
         XCTAssertFalse(modelText.contains("public struct BrowserState"), "WorkspaceModel should not own browser surface state.")
         XCTAssertFalse(modelText.contains("public struct BrowserSnapshotState"), "WorkspaceModel should not own browser snapshot state.")
         XCTAssertFalse(modelText.contains("public struct BrowserCommentState"), "WorkspaceModel should not own browser comment state.")
+    }
+
+    func testWorkspaceModelDelegatesBrowserStateTransitions() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let engineText = try Self.appSourceText(named: "WorkspaceBrowserEngine.swift")
+
+        XCTAssertTrue(engineText.contains("struct WorkspaceBrowserEngine"), "Browser state transitions should live in a focused engine.")
+        XCTAssertTrue(engineText.contains("static func openPage"), "Browser opening should be directly testable.")
+        XCTAssertTrue(engineText.contains("static func goBack"), "Browser back navigation should be directly testable.")
+        XCTAssertTrue(engineText.contains("static func goForward"), "Browser forward navigation should be directly testable.")
+        XCTAssertTrue(engineText.contains("static func reload"), "Browser reload should be directly testable.")
+        XCTAssertTrue(engineText.contains("static func applyFetchedPage"), "Fetched browser pages should update state through the engine.")
+        XCTAssertTrue(engineText.contains("static func markSnapshotFetchFailure"), "Browser fetch failures should update state through the engine.")
+        XCTAssertTrue(engineText.contains("static func addComment"), "Browser comments should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceBrowserEngine.openPage"), "WorkspaceModel should delegate browser opening.")
+        XCTAssertTrue(modelText.contains("WorkspaceBrowserEngine.applyFetchedPage"), "WorkspaceModel should delegate fetched browser state updates.")
+        XCTAssertTrue(modelText.contains("WorkspaceBrowserEngine.addComment"), "WorkspaceModel should delegate browser comments.")
+        XCTAssertFalse(modelText.contains("private func setBrowserPage"), "WorkspaceModel should not own browser page mutation.")
+        XCTAssertFalse(modelText.contains("private func appendBrowserHistory"), "WorkspaceModel should not own browser history mutation.")
+        XCTAssertFalse(modelText.contains("private func replaceCurrentBrowserHistory"), "WorkspaceModel should not own browser history replacement.")
+        XCTAssertFalse(modelText.contains("BrowserCommentState(url:"), "WorkspaceModel should not construct browser comments directly.")
+        XCTAssertFalse(modelText.contains("Snapshot fetch: "), "WorkspaceModel should not own browser fetch-failure annotation copy.")
     }
 
     func testWorkspaceModelDelegatesBrowserLocationResolving() throws {
