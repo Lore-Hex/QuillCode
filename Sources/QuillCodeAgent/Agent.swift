@@ -209,27 +209,17 @@ public struct AgentRunner: Sendable {
         thread: inout ChatThread,
         onProgress: AgentRunProgressHandler?
     ) async throws -> AgentAction {
-        var rawActionText = ""
-        var lastVisibleText = ""
-        for try await chunk in stream {
-            try Task.checkCancellation()
-            rawActionText.append(chunk)
-            guard let visibleText = AgentActionStreamPreview.visibleAssistantText(from: rawActionText),
-                  !visibleText.isEmpty,
-                  visibleText != lastVisibleText
-            else {
-                continue
+        var draftThread = thread
+        let action = try await AgentActionStreamCollector.collect(
+            from: stream,
+            emptyError: AgentError.emptyStreamingResponse,
+            onVisibleAssistantText: { visibleText in
+                publishAssistantDraft(visibleText, in: &draftThread)
+                await onProgress?(draftThread)
             }
-            lastVisibleText = visibleText
-            publishAssistantDraft(visibleText, in: &thread)
-            await onProgress?(thread)
-        }
-
-        let trimmed = rawActionText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            throw AgentError.emptyStreamingResponse
-        }
-        return try AgentActionJSONParser.parse(trimmed)
+        )
+        thread = draftThread
+        return action
     }
 
     private static func publishAssistantDraft(_ text: String, in thread: inout ChatThread) {

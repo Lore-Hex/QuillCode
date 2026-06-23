@@ -15,6 +15,33 @@ public enum AgentActionStreamCollector {
         emptyError: @autoclosure () -> any Error
     ) async throws -> AgentAction {
         let text = try await collectText(from: stream)
+        return try parseAction(from: text, emptyError: emptyError())
+    }
+
+    public static func collect(
+        from stream: AsyncThrowingStream<String, Error>,
+        emptyError: @autoclosure () -> any Error,
+        onVisibleAssistantText: ((String) async -> Void)?
+    ) async throws -> AgentAction {
+        var rawActionText = ""
+        var lastVisibleText = ""
+        for try await chunk in stream {
+            try Task.checkCancellation()
+            rawActionText.append(chunk)
+            guard let visibleText = AgentActionStreamPreview.visibleAssistantText(from: rawActionText),
+                  !visibleText.isEmpty,
+                  visibleText != lastVisibleText
+            else {
+                continue
+            }
+            lastVisibleText = visibleText
+            await onVisibleAssistantText?(visibleText)
+        }
+
+        return try parseAction(from: rawActionText, emptyError: emptyError())
+    }
+
+    private static func parseAction(from text: String, emptyError: @autoclosure () -> any Error) throws -> AgentAction {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             throw emptyError()
@@ -114,4 +141,3 @@ public enum AgentActionStreamPreview {
         return (Character(scalar), index)
     }
 }
-

@@ -1734,13 +1734,14 @@ Remaining risk:
 
 Overall grade after this slice: **A- architecture, A streaming helper boundary**.
 
-Streaming action collection and partial assistant-preview parsing moved out of `AgentRunner` and into `AgentActionStreaming.swift`. Before this pass, `Agent.swift` still owned the incremental stream parser used by both the runner and TrustedRouter streaming client, including partial JSON string decoding for visible draft text. The runner now delegates stream collection and draft-preview parsing to focused helpers and keeps the agent run loop easier to audit.
+Streaming action collection and partial assistant-preview parsing moved out of `AgentRunner` and into `AgentActionStreaming.swift`. Before this pass, `Agent.swift` still owned the incremental stream parser used by both the runner and TrustedRouter streaming client, including partial JSON string decoding for visible draft text. The runner now delegates stream collection, raw stream accumulation, draft-preview extraction, and duplicate-draft suppression to focused helpers and keeps the agent run loop easier to audit.
 
 Code quality changes:
 
 - Added `AgentActionStreaming.swift` for `AgentActionStreamCollector` and `AgentActionStreamPreview`.
 - Preserved the existing public helper names so `TrustedRouterLLMClient`, runner streaming, and existing tests keep working.
-- Added a parity gate so stream collection and partial JSON preview parsing do not drift back into `Agent.swift`.
+- Added direct collector coverage for visible assistant draft callbacks.
+- Added a parity gate so stream collection, raw stream accumulation, and partial JSON preview parsing do not drift back into `Agent.swift`.
 
 Remaining risk:
 

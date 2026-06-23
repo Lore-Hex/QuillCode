@@ -239,6 +239,25 @@ final class TrustedRouterAdapterTests: XCTestCase {
         }
     }
 
+    func testCollectActionPublishesChangingVisibleAssistantDrafts() async throws {
+        var drafts: [String] = []
+        let action = try await AgentActionStreamCollector.collect(
+            from: stream([
+                #"{"type":"say","text":""#,
+                #"hel"#,
+                #"lo"#,
+                #""}"#
+            ]),
+            emptyError: AgentError.emptyStreamingResponse,
+            onVisibleAssistantText: { draft in
+                drafts.append(draft)
+            }
+        )
+
+        XCTAssertEqual(drafts, ["hel", "hello"])
+        XCTAssertEqual(action, .say("hello"))
+    }
+
     func testStreamingPreviewExposesOnlySayText() {
         XCTAssertEqual(
             AgentActionStreamPreview.visibleAssistantText(from: #"{"type":"say","text":"hello\nwor"#),
