@@ -22,7 +22,7 @@ enum WorkspaceHTMLSidebarRenderer {
             <button type="button" data-testid="add-project-button" aria-label="Open project">+</button>
           </div>
           \(renderProjects(projects))
-          \(renderFooter())
+          \(renderFooter(commands))
         </aside>
         """
     }
@@ -125,22 +125,33 @@ enum WorkspaceHTMLSidebarRenderer {
         """
     }
 
-    private static func renderFooter() -> String {
+    private static func renderFooter(_ commands: [WorkspaceCommandSurface]) -> String {
         """
         <div class="sidebar-footer" aria-label="Workspace tools">
           <details class="sidebar-tools-menu" data-testid="sidebar-tools-menu">
             <summary data-testid="sidebar-tools-button" aria-label="Tools" title="Tools">Tools</summary>
             <div class="sidebar-tools-popover" role="menu">
-              <button class="sidebar-tool-action" type="button" data-testid="terminal-button" aria-label="Terminal" title="Terminal">Terminal</button>
-              <button class="sidebar-tool-action" type="button" data-testid="browser-button" aria-label="Browser" title="Browser">Browser</button>
-              <button class="sidebar-tool-action" type="button" data-testid="memories-button" aria-label="Memories" title="Memories">Memories</button>
-              <button class="sidebar-tool-action" type="button" data-testid="activity-button" aria-label="Activity" title="Activity">Activity</button>
-              <button class="sidebar-tool-action" type="button" data-testid="command-palette-button" aria-label="Command palette" title="Command palette">Command palette</button>
+              \(renderUtilityActions(commands))
             </div>
           </details>
           <button class="sidebar-settings-button" type="button" data-testid="settings-button" aria-label="Settings" title="Settings">Settings</button>
         </div>
         """
+    }
+
+    private static func renderUtilityActions(_ commands: [WorkspaceCommandSurface]) -> String {
+        QuillCodeSidebarCommandPresentation.utilityCommandIDs
+            .compactMap { commandID in
+                commands.first { $0.id == commandID }
+            }
+            .map { command in
+                let testID = QuillCodeSidebarCommandPresentation.htmlTestID(for: command.id)
+                let icon = QuillCodeSidebarCommandPresentation.htmlIconToken(for: command.id)
+                let title = QuillCodeSidebarCommandPresentation.displayTitle(for: command)
+                let disabled = command.isEnabled ? "" : #" disabled aria-disabled="true""#
+                return #"<button class="sidebar-tool-action" type="button" data-testid="\#(escape(testID))" role="menuitem" aria-label="\#(escape(title))" title="\#(escape(title))" data-icon="\#(escape(icon))" data-command-id="\#(escape(command.id))"\#(disabled)>\#(escape(title))</button>"#
+            }
+            .joined(separator: "\n")
     }
 
     private static func escape(_ text: String) -> String {

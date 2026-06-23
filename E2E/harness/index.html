@@ -650,7 +650,8 @@
       color: var(--muted);
     }
     .sidebar-action::before,
-    .sidebar-tools-menu summary::before {
+    .sidebar-tools-menu summary::before,
+    .sidebar-tool-action::before {
       flex: 0 0 auto;
       width: 20px;
       color: var(--muted);
@@ -659,7 +660,8 @@
       line-height: 1;
     }
     .sidebar-action:hover::before,
-    .sidebar-tools-menu summary:hover::before {
+    .sidebar-tools-menu summary:hover::before,
+    .sidebar-tool-action:hover::before {
       color: var(--text);
     }
     .sidebar-action[data-icon="new"]::before { content: "✎"; }
@@ -667,6 +669,14 @@
     .sidebar-action[data-icon="plugins"]::before { content: "◌"; }
     .sidebar-action[data-icon="automations"]::before { content: "◷"; }
     .sidebar-tools-menu summary::before { content: "⌘"; }
+    .sidebar-tool-action[data-icon="search"]::before { content: "⌕"; }
+    .sidebar-tool-action[data-icon="command"]::before { content: "⌘"; }
+    .sidebar-tool-action[data-icon="plugins"]::before { content: "◌"; }
+    .sidebar-tool-action[data-icon="automations"]::before { content: "◷"; }
+    .sidebar-tool-action[data-icon="terminal"]::before { content: ">"; }
+    .sidebar-tool-action[data-icon="browser"]::before { content: "◎"; }
+    .sidebar-tool-action[data-icon="memories"]::before { content: "◍"; }
+    .sidebar-tool-action[data-icon="activity"]::before { content: "∿"; }
     .sidebar-utility-row {
       display: flex;
       gap: 6px;
@@ -755,7 +765,7 @@
       z-index: 9;
       display: grid;
       gap: 4px;
-      min-width: 190px;
+      min-width: 220px;
       padding: 8px;
       border-radius: 12px;
       border: 1px solid rgba(255,255,255,.10);
@@ -765,12 +775,16 @@
     .sidebar-tool-action {
       min-height: 38px;
       padding: 7px 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
       text-align: left;
       color: var(--text);
       background: transparent;
       border: 1px solid transparent;
       border-radius: 8px;
       font-weight: 650;
+      white-space: nowrap;
       transition-property: background-color, color, border-color;
       transition-duration: 130ms;
       transition-timing-function: var(--ease-out);
@@ -4086,10 +4100,7 @@
           <div class="workspace-grid ${state.activity.isVisible ? 'with-activity' : ''}">
             <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
               <div class="sidebar-actions" aria-label="Primary chat actions">
-                <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true" data-icon="new">New chat</button>
-                <button class="sidebar-action" type="button" data-testid="sidebar-search-button" data-primary="true" data-icon="search">Search</button>
-                <button class="sidebar-action" type="button" data-testid="extensions-button" data-primary="true" data-icon="plugins">Plugins</button>
-                <button class="sidebar-action" type="button" data-testid="automations-button" data-primary="true" data-icon="automations">Automations</button>
+                <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true" data-icon="new" data-command-id="new-chat">New chat</button>
               </div>
               <div class="sidebar-title-row">
                 <h2>${escapeHTML(state.sidebar.title)}</h2>
@@ -4105,11 +4116,14 @@
                 <details class="sidebar-tools-menu" data-testid="sidebar-tools-menu">
                   <summary data-testid="sidebar-tools-button" aria-label="Tools" title="Tools">Tools</summary>
                   <div class="sidebar-tools-popover" role="menu">
-                    <button class="sidebar-tool-action" type="button" data-testid="terminal-button" aria-label="Terminal" title="Terminal">Terminal</button>
-                    <button class="sidebar-tool-action" type="button" data-testid="browser-button" aria-label="Browser" title="Browser">Browser</button>
-                    <button class="sidebar-tool-action" type="button" data-testid="memories-button" aria-label="Memories" title="Memories">Memories</button>
-                    <button class="sidebar-tool-action" type="button" data-testid="activity-button" aria-label="Activity" title="Activity">Activity</button>
-                    <button class="sidebar-tool-action" type="button" data-testid="command-palette-button" aria-label="Command palette" title="Command palette">Command palette</button>
+                    <button class="sidebar-tool-action" type="button" data-testid="sidebar-search-button" role="menuitem" aria-label="Search" title="Search" data-icon="search" data-command-id="search">Search</button>
+                    <button class="sidebar-tool-action" type="button" data-testid="command-palette-button" role="menuitem" aria-label="Command palette" title="Command palette" data-icon="command" data-command-id="command-palette">Command palette</button>
+                    <button class="sidebar-tool-action" type="button" data-testid="extensions-button" role="menuitem" aria-label="Plugins" title="Plugins" data-icon="plugins" data-command-id="toggle-extensions">Plugins</button>
+                    <button class="sidebar-tool-action" type="button" data-testid="automations-button" role="menuitem" aria-label="Automations" title="Automations" data-icon="automations" data-command-id="toggle-automations">Automations</button>
+                    <button class="sidebar-tool-action" type="button" data-testid="terminal-button" role="menuitem" aria-label="Terminal" title="Terminal" data-icon="terminal" data-command-id="toggle-terminal">Terminal</button>
+                    <button class="sidebar-tool-action" type="button" data-testid="browser-button" role="menuitem" aria-label="Browser" title="Browser" data-icon="browser" data-command-id="toggle-browser">Browser</button>
+                    <button class="sidebar-tool-action" type="button" data-testid="memories-button" role="menuitem" aria-label="Memories" title="Memories" data-icon="memories" data-command-id="toggle-memories">Memories</button>
+                    <button class="sidebar-tool-action" type="button" data-testid="activity-button" role="menuitem" aria-label="Activity" title="Activity" data-icon="activity" data-command-id="toggle-activity">Activity</button>
                   </div>
                 </details>
                 <button class="sidebar-settings-button" type="button" data-testid="settings-button" aria-label="Settings" title="Settings">Settings</button>

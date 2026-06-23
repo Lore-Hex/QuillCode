@@ -1,17 +1,17 @@
 struct QuillCodeSidebarCommandPresentation: Sendable, Hashable {
     static let primaryCommandIDs = [
-        "new-chat",
-        "search",
-        "toggle-extensions",
-        "toggle-automations"
+        "new-chat"
     ]
 
     static let utilityCommandIDs = [
+        "search",
+        "command-palette",
+        "toggle-extensions",
+        "toggle-automations",
         "toggle-terminal",
         "toggle-browser",
         "toggle-memories",
-        "toggle-activity",
-        "command-palette"
+        "toggle-activity"
     ]
 
     static func displayTitle(for command: WorkspaceCommandSurface) -> String {
@@ -20,6 +20,10 @@ struct QuillCodeSidebarCommandPresentation: Sendable, Hashable {
 
     static func displayTitle(_ commandID: String, fallback: String) -> String {
         switch commandID {
+        case "new-chat":
+            return "New chat"
+        case "search":
+            return "Search"
         case "toggle-extensions":
             return "Plugins"
         case "toggle-automations":
@@ -76,10 +80,20 @@ struct QuillCodeSidebarCommandPresentation: Sendable, Hashable {
             return "new"
         case "search":
             return "search"
+        case "command-palette":
+            return "command"
         case "toggle-extensions":
             return "plugins"
         case "toggle-automations":
             return "automations"
+        case "toggle-terminal":
+            return "terminal"
+        case "toggle-browser":
+            return "browser"
+        case "toggle-memories":
+            return "memories"
+        case "toggle-activity":
+            return "activity"
         default:
             return "command"
         }
@@ -95,6 +109,16 @@ struct QuillCodeSidebarCommandPresentation: Sendable, Hashable {
             return "extensions-button"
         case "toggle-automations":
             return "automations-button"
+        case "toggle-terminal":
+            return "terminal-button"
+        case "toggle-browser":
+            return "browser-button"
+        case "toggle-memories":
+            return "memories-button"
+        case "toggle-activity":
+            return "activity-button"
+        case "command-palette":
+            return "command-palette-button"
         default:
             return "sidebar-command-button"
         }
