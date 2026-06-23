@@ -23,7 +23,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, and project registry transitions now live in focused helpers; extract desktop/runtime coordination next. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, and tool-card surface types now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | B+ | Surface assembly is valuable but large. Keep moving small ranking/formatting helpers out or make them single-pass builders. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
@@ -43,7 +43,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 ## Current Refactor Priority
 
 1. Keep `QuillCodeDesktopController.swift` to UI/workspace routing; split pasteboard feedback or project-import routing if either path grows.
-2. Continue pulling pure workflow planning out of `WorkspaceModel` before adding new Codex-parity commands.
+2. Continue pulling pure workflow planning and surface builders out of `WorkspaceModel` before adding new Codex-parity commands.
 3. Keep splitting remaining workspace surface assembly into single-purpose builders when behavior grows.
 4. Keep the parity matrix updated whenever a feature moves from planned to implemented.
 
@@ -316,3 +316,20 @@ Code quality changes:
 Remaining risk:
 
 - The controller still owns pasteboard feedback timing and project-import sheet routing. Those are small today; split them only if desktop behavior grows again.
+
+## 2026-06-22 Tool Card Surface Split Pass
+
+Overall grade after this slice: **A- foundation, B+ workspace model boundary**.
+
+Tool-card status/density, artifact kind/preview metadata, artifact text-preview construction, and `ToolCardState` moved out of `WorkspaceModel.swift` into `QuillCodeToolCardSurface.swift`. The workspace model still constructs tool cards from thread events, but the pure presentation models now live beside other surface definitions instead of expanding the already-large orchestration file.
+
+Code quality changes:
+
+- Moved tool-card and artifact surface types into `QuillCodeToolCardSurface.swift`.
+- Kept artifact text-preview construction beside artifact state, with module-internal access for `WorkspaceModel` to request previews.
+- Reduced `WorkspaceModel.swift` by roughly 550 lines without changing the tool-card API used by SwiftUI, HTML rendering, Activity surfaces, or tests.
+- Added a parity gate that keeps tool-card surface state out of `WorkspaceModel.swift`.
+
+Remaining risk:
+
+- `WorkspaceModel.swift` still owns several pure browser/MCP request-state structs and tool-card event assembly. Those are good next extraction candidates once the current boundary is stable.
