@@ -2170,3 +2170,25 @@ Code quality changes:
 Remaining risk:
 
 - `TrustedRouterLLMClient.swift` still owns both system-prompt construction and message-history projection. If prompt rules keep growing, extract a `TrustedRouterPromptBuilder` so auth/transport and model instruction formatting remain separately testable.
+
+## 2026-06-23 Native Top Bar Simplification Pass
+
+Overall grade after this slice: **A- visual hierarchy, A shared-state preservation, A regression coverage**.
+
+Claude CLI's interface critique called out the native top bar as the largest visible gap from Codex: it was carrying title, subtitle, status, runtime issue, and overflow controls at the same weight. The native top bar now keeps the active thread as the visual center, leaves project/model context as quiet metadata, and demotes status/error state to an accessibility label plus a thin activity hairline.
+
+| Surface | Before | After |
+| --- | --- | --- |
+| Native top bar | Visible status and runtime issue pills competed with the active thread title. | Three-slot chrome: quiet context, centered thread title, overflow menu. |
+| Running/error state | Permanent pills added visual weight even when the transcript already showed the active work. | A two-point hairline appears only while an agent state or runtime issue needs attention. |
+| Overflow button | Drew another outlined control in the top bar. | Keeps a 40-point hit target with a softer fill and no extra stroke. |
+
+Code quality changes:
+
+- Kept `TopBarStatusPresentation` and `TopBarRuntimeIssuePresentation` as shared semantics for native, HTML, and accessibility paths.
+- Added `QuillCodeMetrics.topBarHeight` so compact top-bar height is a named design token.
+- Added a parity gate that prevents permanent native status/runtime pills from creeping back into the main chrome.
+
+Remaining risk:
+
+- Model and mode controls still sit in a separate composer controls row. A follow-up UI slice should fold them into the composer itself, matching the Codex-style focused input.
