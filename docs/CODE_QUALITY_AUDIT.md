@@ -1061,3 +1061,21 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModel.swift` remains large and still owns mixed orchestration for tool dispatch, async browser fetches, and persistence. The next high-value extractions are side-effect planners around tool dispatch or settings/runtime command routing.
+
+## 2026-06-23 Tool Event Recorder Pass
+
+Overall grade after this slice: **A- foundation, A tool audit event boundary**.
+
+Tool queued/running/completed/failed transcript event construction moved out of `WorkspaceModel.swift` into `WorkspaceToolEventRecorder.swift`. The workspace model still decides when to record tool runs, but call redaction, payload JSON construction, result status classification, and ordered event append behavior now live behind a focused helper with direct tests.
+
+Code quality changes:
+
+- Added `WorkspaceToolEventRecorder.events(call:result:)` for pure event construction.
+- Added `WorkspaceToolEventRecorder.append(call:result:to:)` for thin thread mutation without repeating event ordering.
+- Preserved redacted call payloads for queued events and full `ToolResult` payloads for completion/failure events.
+- Added focused tests for successful tool runs, failed tool runs, environment redaction, and ordered append behavior.
+- Added a parity gate so tool audit payload construction does not drift back into `WorkspaceModel.swift`.
+
+Remaining risk:
+
+- `WorkspaceModel.swift` still owns the broader tool dispatch sequence: context refresh, router selection, remote execution, follow-up diff collection, persistence, and top-bar status. Those are good candidates for a later orchestration planner once the public behavior is even more heavily covered.

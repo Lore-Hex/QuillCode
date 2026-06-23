@@ -1883,24 +1883,8 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func appendToolRun(call: ToolCall, result: ToolResult) {
-        let transcriptCall = call.redactedForTranscript()
-        let callJSON = (try? JSONHelpers.encodePretty(transcriptCall)) ?? transcriptCall.argumentsJSON
-        let resultJSON = (try? JSONHelpers.encodePretty(result)) ?? "{}"
         mutateSelectedThread { thread in
-            thread.events.append(.init(
-                kind: .toolQueued,
-                summary: "\(call.name) queued",
-                payloadJSON: callJSON
-            ))
-            thread.events.append(.init(
-                kind: .toolRunning,
-                summary: "\(call.name) running"
-            ))
-            thread.events.append(.init(
-                kind: result.ok ? .toolCompleted : .toolFailed,
-                summary: "\(call.name) \(result.ok ? "completed" : "failed")",
-                payloadJSON: resultJSON
-            ))
+            WorkspaceToolEventRecorder.append(call: call, result: result, to: &thread)
         }
     }
 
