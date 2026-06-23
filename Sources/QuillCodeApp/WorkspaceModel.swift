@@ -1072,33 +1072,18 @@ public final class QuillCodeWorkspaceModel {
 
         do {
             try Task.checkCancellation()
-            let activeMCPToolDefinitions = mcpToolDefinitionsForReadyServers()
-            let activeMCPExecutor = mcpToolExecutionOverride()
-            let activePlanDefinitions = [ToolDefinition.planUpdate]
-            let activePlanExecutor = planToolExecutionOverride()
-            let activeBrowserDefinitions = [ToolDefinition.browserInspect]
-            let activeBrowserExecutor = browserToolExecutionOverride(snapshot: browser)
-            let activeComputerDefinitions = computerUseBackend == nil ? [] : ToolDefinition.computerUseDefinitions
-            let activeComputerExecutor = computerUseToolExecutionOverride()
-            let activeMemoryDefinitions = globalMemoryDirectory == nil ? [] : [ToolDefinition.memoryRemember]
-            let activeMemoryExecutor = memoryToolExecutionOverride()
-            let activeRemoteProjectExecutor = remoteProjectToolExecutionOverride(project: selectedProject)
-            var activeRunner = runner
-            activeRunner.baseToolDefinitions = baseToolDefinitionsForSelectedProject()
-            activeRunner.additionalToolDefinitions = activePlanDefinitions
-                + activeBrowserDefinitions
-                + activeComputerDefinitions
-                + activeMemoryDefinitions
-                + activeMCPToolDefinitions
-            activeRunner.toolExecutionOverride = WorkspaceToolExecutionOverrideCombiner.combine(
-                plan: activePlanExecutor,
-                browser: activeBrowserExecutor,
-                computerUse: activeComputerExecutor,
-                memory: activeMemoryExecutor,
-                mcp: activeMCPExecutor,
-                remoteProject: activeRemoteProjectExecutor
-            )
-
+            let activeRunner = WorkspaceAgentRunContextBuilder(
+                selectedProject: selectedProject,
+                browser: browser,
+                computerUseBackend: computerUseBackend,
+                globalMemoryDirectory: globalMemoryDirectory,
+                mcpToolDefinitions: mcpRuntime.toolDefinitions(
+                    manifests: selectedProject?.extensionManifests ?? [],
+                    extensions: extensions
+                ),
+                mcpToolExecutionOverride: mcpRuntime.executionOverride(extensions: extensions),
+                sshRemoteShellExecutor: sshRemoteShellExecutor
+            ).configuredRunner(from: runner)
             let result = try await activeRunner.send(
                 prompt,
                 in: thread,
@@ -1109,7 +1094,7 @@ public final class QuillCodeWorkspaceModel {
             )
             try Task.checkCancellation()
             thread = result.thread
-            if Self.didSaveMemory(in: thread) {
+            if WorkspaceMemoryRememberToolExecutor.didSaveMemory(in: thread) {
                 refreshThreadMemoryContext(&thread)
             }
             replaceThread(thread)
@@ -1383,112 +1368,6 @@ public final class QuillCodeWorkspaceModel {
         )
         if let agentStatus = result.agentStatus {
             refreshTopBar(agentStatus: agentStatus)
-        }
-    }
-
-    private func mcpToolDefinitionsForReadyServers() -> [ToolDefinition] {
-        mcpRuntime.toolDefinitions(
-            manifests: selectedProject?.extensionManifests ?? [],
-            extensions: extensions
-        )
-    }
-
-    private func mcpToolExecutionOverride() -> AgentToolExecutionOverride? {
-        mcpRuntime.executionOverride(extensions: extensions)
-    }
-
-    private func computerUseToolExecutionOverride() -> AgentToolExecutionOverride? {
-        guard let computerUseBackend else { return nil }
-        let executor = ComputerUseToolExecutor(backend: computerUseBackend)
-        return { call, _ in
-            await executor.execute(call)
-        }
-    }
-
-    private func browserToolExecutionOverride(snapshot: BrowserState) -> AgentToolExecutionOverride {
-        { call, _ in
-            guard call.name == ToolDefinition.browserInspect.name else { return nil }
-            return BrowserInspector.toolResult(from: snapshot)
-        }
-    }
-
-    private func planToolExecutionOverride() -> AgentToolExecutionOverride {
-        { call, _ in
-            guard call.name == ToolDefinition.planUpdate.name else { return nil }
-            return PlanUpdateToolExecutor.execute(call)
-        }
-    }
-
-    private func memoryToolExecutionOverride() -> AgentToolExecutionOverride? {
-        guard let directory = globalMemoryDirectory else { return nil }
-        return { call, _ in
-            guard call.name == ToolDefinition.memoryRemember.name else { return nil }
-            return Self.executeMemoryRememberTool(call, directory: directory)
-        }
-    }
-
-    private func baseToolDefinitionsForSelectedProject() -> [ToolDefinition] {
-        selectedProject?.isRemote == true
-            ? WorkspaceRemoteProjectToolExecutor.toolDefinitions
-            : ToolRouter.definitions
-    }
-
-    private func remoteProjectToolExecutionOverride(project: ProjectRef?) -> AgentToolExecutionOverride? {
-        WorkspaceRemoteProjectToolExecutor.executionOverride(
-            project: project,
-            executor: sshRemoteShellExecutor
-        )
-    }
-
-    private nonisolated static func executeMemoryRememberTool(_ call: ToolCall, directory: URL) -> ToolResult {
-        do {
-            let args = try ToolArguments(call.argumentsJSON)
-            let content = try args.requiredString("content")
-            let saved = try saveGlobalMemory(content: content, to: directory)
-            return ToolResult(
-                ok: true,
-                stdout: try JSONHelpers.encodePretty(saved.output),
-                artifacts: [saved.note.relativePath]
-            )
-        } catch {
-            return ToolResult(
-                ok: false,
-                error: userFacingMemoryError(error)
-            )
-        }
-    }
-
-    private nonisolated static func saveGlobalMemory(
-        content: String,
-        to directory: URL
-    ) throws -> (note: MemoryNote, output: MemoryRememberToolOutput) {
-        let note = try MemoryNoteLoader.saveGlobal(content: content, to: directory)
-        let output = MemoryRememberToolOutput(
-            title: note.title,
-            relativePath: note.relativePath,
-            content: note.content
-        )
-        return (note, output)
-    }
-
-    private nonisolated static func userFacingMemoryError(_ error: Error) -> String {
-        if let localized = (error as? LocalizedError)?.errorDescription,
-           !localized.isEmpty {
-            return localized
-        }
-        return String(describing: error)
-    }
-
-    private nonisolated static func didSaveMemory(in thread: ChatThread) -> Bool {
-        thread.events.contains { event in
-            guard event.kind == .toolCompleted,
-                  event.summary == "\(ToolDefinition.memoryRemember.name) completed",
-                  let result = decode(ToolResult.self, event.payloadJSON),
-                  result.ok
-            else {
-                return false
-            }
-            return result.artifacts.contains { $0.hasPrefix("memories/") }
         }
     }
 
@@ -2010,7 +1889,7 @@ public final class QuillCodeWorkspaceModel {
         }
 
         do {
-            let saved = try Self.saveGlobalMemory(content: content, to: globalMemoryDirectory)
+            let saved = try WorkspaceMemoryRememberToolExecutor.saveGlobal(content: content, to: globalMemoryDirectory)
             let note = saved.note
             root.globalMemories = MemoryNoteLoader.loadGlobal(from: globalMemoryDirectory)
             let projectID = selectedThread?.projectID ?? root.selectedProjectID
@@ -2363,10 +2242,6 @@ public final class QuillCodeWorkspaceModel {
         WorkspaceProjectEngine.defaultSSHProjectName(for: connection)
     }
 
-    private nonisolated static func decode<T: Decodable>(_ type: T.Type, _ payloadJSON: String?) -> T? {
-        guard let payloadJSON else { return nil }
-        return try? JSONHelpers.decode(type, from: payloadJSON)
-    }
 }
 
 private extension WorkspaceReviewActionSurface {

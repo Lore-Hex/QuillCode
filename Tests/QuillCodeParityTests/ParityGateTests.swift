@@ -333,6 +333,25 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(desktopControllerText.contains("setAgentStatus(\"Sign-in failed\""), "Desktop controller should not emit raw sign-in-failed status copy.")
     }
 
+    func testWorkspaceModelDelegatesAgentRunContextAssembly() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceAgentRunContextBuilder.swift")
+        let memoryExecutorText = try Self.appSourceText(named: "WorkspaceMemoryRememberToolExecutor.swift")
+
+        XCTAssertTrue(modelText.contains("WorkspaceAgentRunContextBuilder("), "WorkspaceModel should delegate per-run tool assembly.")
+        XCTAssertTrue(builderText.contains("configuredRunner(from runner: AgentRunner)"), "Agent run context builder should own runner configuration.")
+        XCTAssertTrue(builderText.contains("ToolDefinition.planUpdate"), "Agent run context builder should attach the plan tool.")
+        XCTAssertTrue(builderText.contains("ToolDefinition.browserInspect"), "Agent run context builder should attach the browser tool.")
+        XCTAssertTrue(builderText.contains("ToolDefinition.computerUseDefinitions"), "Agent run context builder should attach Computer Use tools only when available.")
+        XCTAssertTrue(builderText.contains("WorkspaceMemoryRememberToolExecutor.executionOverride"), "Agent run context builder should delegate memory tool execution.")
+        XCTAssertTrue(memoryExecutorText.contains("didSaveMemory(in thread: ChatThread)"), "Memory save detection should live beside memory tool execution.")
+        XCTAssertFalse(modelText.contains("activeRunner.additionalToolDefinitions"), "WorkspaceModel should not assemble per-run additional tool definitions inline.")
+        XCTAssertFalse(modelText.contains("private func planToolExecutionOverride"), "WorkspaceModel should not own plan tool override assembly.")
+        XCTAssertFalse(modelText.contains("private func browserToolExecutionOverride"), "WorkspaceModel should not own browser tool override assembly.")
+        XCTAssertFalse(modelText.contains("private func memoryToolExecutionOverride"), "WorkspaceModel should not own memory tool override assembly.")
+        XCTAssertFalse(modelText.contains("private nonisolated static func didSaveMemory"), "WorkspaceModel should not own memory-save event parsing.")
+    }
+
     func testWorkspaceModelDelegatesToolEventRecording() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let recorderText = try Self.appSourceText(named: "WorkspaceToolEventRecorder.swift")
@@ -919,6 +938,7 @@ final class ParityGateTests: XCTestCase {
 
     func testWorkspaceModelDelegatesToolExecutionOverrideCombining() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceAgentRunContextBuilder.swift")
         let combinerText = try Self.appSourceText(named: "WorkspaceToolExecutionOverrideCombiner.swift")
 
         XCTAssertTrue(combinerText.contains("struct WorkspaceToolExecutionOverrideCombiner"), "Tool override composition should live in a focused helper.")
@@ -926,13 +946,15 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(combinerText.contains("plan?(call, workspaceRoot)"), "Plan override should keep first dispatch priority.")
         XCTAssertTrue(combinerText.contains("remoteProject?(call, workspaceRoot)"), "Remote-project override should stay before local browser/computer/memory/MCP overrides.")
         XCTAssertTrue(combinerText.contains("mcp?(call, workspaceRoot)"), "MCP override should keep final fallback priority.")
-        XCTAssertTrue(modelText.contains("WorkspaceToolExecutionOverrideCombiner.combine"), "WorkspaceModel should delegate override composition.")
+        XCTAssertTrue(builderText.contains("WorkspaceToolExecutionOverrideCombiner.combine"), "Agent run context builder should delegate override composition.")
+        XCTAssertFalse(modelText.contains("WorkspaceToolExecutionOverrideCombiner.combine"), "WorkspaceModel should not compose per-run overrides directly.")
         XCTAssertFalse(modelText.contains("private func combinedToolExecutionOverride"), "WorkspaceModel should not own override composition.")
         XCTAssertFalse(modelText.contains("if let result = await plan?(call, workspaceRoot)"), "WorkspaceModel should not inline override precedence.")
     }
 
     func testWorkspaceModelDelegatesRemoteProjectToolExecution() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceAgentRunContextBuilder.swift")
         let executorText = try Self.appSourceText(named: "WorkspaceRemoteProjectToolExecutor.swift")
 
         XCTAssertTrue(executorText.contains("struct WorkspaceRemoteProjectToolExecutor"), "SSH Remote project tools should live in a focused executor.")
@@ -940,9 +962,11 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(executorText.contains("static let gitToolNames"), "Remote git routing should live beside remote execution.")
         XCTAssertTrue(executorText.contains("static func executionOverride"), "Remote agent override construction should be directly testable.")
         XCTAssertTrue(executorText.contains("static func execute"), "Manual remote tool execution should be directly testable.")
-        XCTAssertTrue(modelText.contains("WorkspaceRemoteProjectToolExecutor.toolDefinitions"), "WorkspaceModel should delegate remote base tool definitions.")
-        XCTAssertTrue(modelText.contains("WorkspaceRemoteProjectToolExecutor.executionOverride"), "WorkspaceModel should delegate remote override creation.")
+        XCTAssertTrue(builderText.contains("WorkspaceRemoteProjectToolExecutor.toolDefinitions"), "Agent run context builder should delegate remote base tool definitions.")
+        XCTAssertTrue(builderText.contains("WorkspaceRemoteProjectToolExecutor.executionOverride"), "Agent run context builder should delegate remote override creation.")
         XCTAssertTrue(modelText.contains("WorkspaceRemoteProjectToolExecutor.execute"), "WorkspaceModel should delegate manual/review remote execution.")
+        XCTAssertFalse(modelText.contains("WorkspaceRemoteProjectToolExecutor.toolDefinitions"), "WorkspaceModel should not choose remote base tool definitions inline.")
+        XCTAssertFalse(modelText.contains("WorkspaceRemoteProjectToolExecutor.executionOverride"), "WorkspaceModel should not create remote agent overrides inline.")
         XCTAssertFalse(modelText.contains("executeRemoteGitToolCall"), "WorkspaceModel should not own remote git command execution.")
         XCTAssertFalse(modelText.contains("executeRemoteShellToolCall"), "WorkspaceModel should not own remote shell command execution.")
         XCTAssertFalse(modelText.contains("remoteProjectGitToolNames"), "WorkspaceModel should not own remote git tool routing.")
