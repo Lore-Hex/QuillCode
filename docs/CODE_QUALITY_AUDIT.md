@@ -107,6 +107,25 @@ Code quality changes:
 - Moved quick automation recurrence parsing beside the automation command-plan parser.
 - Added focused planner tests for tool mapping, draft mapping, prefix validation, recurrence parsing, slash insert mapping, static action mapping, and invalid command IDs.
 
+## 2026-06-23 Slash Command Transcript Planner Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+Slash-command local transcript copy moved out of `WorkspaceModel.swift` into `WorkspaceSlashCommandTranscriptPlanner.swift`. The workspace model still owns the side effects and dispatch decisions, but success/failure transcript wording is now a pure, directly tested contract.
+
+| Surface | Before | After |
+| --- | --- | --- |
+| Slash command copy | Scattered string literals inside the main command switch. | One planner emits typed `WorkspaceLocalCommandTranscript` records. |
+| UX consistency | Rename, SSH, schedule, and generic slash failure copy could drift as commands changed. | Focused planner tests cover titles, fallbacks, trimming, schedule descriptions, and unknown-command copy. |
+| Model responsibility | `WorkspaceModel` mixed command side effects with local transcript presentation text. | `WorkspaceModel` mutates state and delegates transcript copy. |
+
+Code quality changes:
+
+- Added a typed `WorkspaceLocalCommandTranscript` record for local slash-command transcript entries.
+- Extracted `/help`, `/status`, `/mode`, `/model`, `/rename`, `/project rename`, `/ssh`, `/follow-up`, `/workspace-check`, invalid-command, unknown-command, and workspace-command failure transcript construction.
+- Kept command side effects in `WorkspaceModel` so this pass stays behavior-preserving.
+- Added parity gates that prevent slash-command local copy from drifting back into `WorkspaceModel`.
+
 ## 2026-06-22 Composer Refactor Pass
 
 Overall grade after this slice: **A- foundation, B+ product surface maturity**.

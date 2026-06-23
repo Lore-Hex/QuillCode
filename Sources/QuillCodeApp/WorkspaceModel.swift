@@ -1955,130 +1955,100 @@ public final class QuillCodeWorkspaceModel {
     private func handleSlashCommand(_ command: SlashCommand, originalPrompt: String, workspaceRoot: URL) {
         switch command {
         case .help:
-            appendLocalCommandTranscript(
-                userText: originalPrompt,
-                assistantText: SlashCommandCatalog.helpText(),
-                title: "Slash commands"
-            )
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.help(userText: originalPrompt))
         case .status:
-            appendLocalCommandTranscript(
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.status(
                 userText: originalPrompt,
-                assistantText: statusText(),
-                title: "Status"
-            )
+                statusText: statusText()
+            ))
         case .newChat:
             _ = newChat()
         case .mode(let mode):
             setMode(mode)
-            appendLocalCommandTranscript(
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.mode(
                 userText: originalPrompt,
-                assistantText: "Mode set to \(WorkspaceStatusTextBuilder.modeLabel(mode)).",
-                title: "Set mode"
-            )
+                mode: mode
+            ))
         case .model(let model):
             setModel(model)
-            appendLocalCommandTranscript(
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.model(
                 userText: originalPrompt,
-                assistantText: "Model set to \(model).",
-                title: "Set model"
-            )
+                model: model
+            ))
         case .renameThread(let title):
-            if let id = root.selectedThreadID, renameThread(id, to: title) {
-                appendLocalCommandTranscript(
-                    userText: originalPrompt,
-                    assistantText: "Renamed chat to \(title.trimmingCharacters(in: .whitespacesAndNewlines)).",
-                    title: "Rename chat"
-                )
-            } else {
-                appendLocalCommandTranscript(
-                    userText: originalPrompt,
-                    assistantText: "Could not rename this chat. Try /rename New chat title.",
-                    title: "Rename chat"
-                )
-            }
+            let succeeded = root.selectedThreadID.map { renameThread($0, to: title) } ?? false
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.renameThread(
+                userText: originalPrompt,
+                requestedTitle: title,
+                succeeded: succeeded
+            ))
         case .renameProject(let name):
-            if let id = root.selectedProjectID, renameProject(id, to: name) {
-                appendLocalCommandTranscript(
-                    userText: originalPrompt,
-                    assistantText: "Renamed project to \(name.trimmingCharacters(in: .whitespacesAndNewlines)).",
-                    title: "Rename project"
-                )
-            } else {
-                appendLocalCommandTranscript(
-                    userText: originalPrompt,
-                    assistantText: "Could not rename this project. Try /project rename New project name.",
-                    title: "Rename project"
-                )
-            }
+            let succeeded = root.selectedProjectID.map { renameProject($0, to: name) } ?? false
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.renameProject(
+                userText: originalPrompt,
+                requestedName: name,
+                succeeded: succeeded
+            ))
         case .sshProject(let address):
             if let projectID = addSSHProject(address),
                let project = root.projects.first(where: { $0.id == projectID }) {
-                appendLocalCommandTranscript(
+                appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.sshProjectAdded(
                     userText: originalPrompt,
-                    assistantText: "Added SSH Remote \(project.name) at \(project.displayPath). Shell, file read/write, apply patch, git status/diff/stage/restore/commit/push/PR checkout/reviewers/labels/merge/worktree, and project context refresh run through SSH.",
-                    title: "Add SSH Remote"
-                )
+                    projectName: project.name,
+                    displayPath: project.displayPath
+                ))
             } else {
-                appendLocalCommandTranscript(
+                appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.sshProjectFailed(
                     userText: originalPrompt,
-                    assistantText: lastError ?? "Use SSH format user@host:/path or ssh://user@host/path.",
-                    title: "Add SSH Remote"
-                )
+                    message: lastError
+                ))
             }
         case .remember(let content):
             runRememberSlashCommand(content, originalPrompt: originalPrompt)
         case .threadFollowUp(let scheduleText):
             if let automation = createThreadFollowUpAutomation(matching: scheduleText) {
-                appendLocalCommandTranscript(
+                appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.threadFollowUpScheduled(
                     userText: originalPrompt,
-                    assistantText: "Scheduled a thread follow-up for \(automation.scheduleDescription).",
-                    title: "Schedule follow-up"
-                )
+                    scheduleDescription: automation.scheduleDescription
+                ))
             } else {
-                appendLocalCommandTranscript(
+                appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.threadFollowUpFailed(
                     userText: originalPrompt,
-                    assistantText: lastError ?? "Could not schedule this follow-up.",
-                    title: "Schedule follow-up"
-                )
+                    message: lastError
+                ))
             }
         case .workspaceSchedule(let scheduleText):
             if let automation = createWorkspaceScheduleAutomation(matching: scheduleText) {
-                appendLocalCommandTranscript(
+                appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.workspaceScheduleScheduled(
                     userText: originalPrompt,
-                    assistantText: "Scheduled a workspace check for \(automation.scheduleDescription).",
-                    title: "Schedule workspace check"
-                )
+                    scheduleDescription: automation.scheduleDescription
+                ))
             } else {
-                appendLocalCommandTranscript(
+                appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.workspaceScheduleFailed(
                     userText: originalPrompt,
-                    assistantText: lastError ?? "Could not schedule this workspace check.",
-                    title: "Schedule workspace check"
-                )
+                    message: lastError
+                ))
             }
         case .workspaceCommand(let commandID):
             if !runWorkspaceCommand(commandID, workspaceRoot: workspaceRoot) {
-                appendLocalCommandTranscript(
-                    userText: originalPrompt,
-                    assistantText: "Could not run /\(originalPrompt.dropFirst()). Try /help.",
-                    title: "Slash command"
-                )
+                appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.workspaceCommandFailed(
+                    userText: originalPrompt
+                ))
             }
         case .toolCall(let call):
             _ = runToolCall(call, workspaceRoot: workspaceRoot)
         case .environmentAction(let query):
             runEnvironmentSlashCommand(query, originalPrompt: originalPrompt, workspaceRoot: workspaceRoot)
         case .invalid(let message):
-            appendLocalCommandTranscript(
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.invalid(
                 userText: originalPrompt,
-                assistantText: message,
-                title: "Slash command"
-            )
+                message: message
+            ))
         case .unknown(let name):
-            appendLocalCommandTranscript(
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.unknown(
                 userText: originalPrompt,
-                assistantText: "Unknown slash command '/\(name)'. Try /help.",
-                title: "Slash command"
-            )
+                name: name
+            ))
         }
         composer.isSending = false
         refreshTopBar(agentStatus: "Idle")
@@ -2163,6 +2133,14 @@ public final class QuillCodeWorkspaceModel {
             return
         }
         _ = runLocalEnvironmentAction(action.id, workspaceRoot: workspaceRoot)
+    }
+
+    private func appendLocalCommandTranscript(_ transcript: WorkspaceLocalCommandTranscript) {
+        appendLocalCommandTranscript(
+            userText: transcript.userText,
+            assistantText: transcript.assistantText,
+            title: transcript.title
+        )
     }
 
     private func appendLocalCommandTranscript(userText: String, assistantText: String, title: String) {
