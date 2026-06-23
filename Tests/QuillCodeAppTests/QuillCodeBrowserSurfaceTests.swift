@@ -53,4 +53,48 @@ final class QuillCodeBrowserSurfaceTests: XCTestCase {
         XCTAssertEqual(snapshot.sourceLabel, "example.com")
         XCTAssertEqual(snapshot.textSnippet, "Hello")
     }
+
+    func testBrowserSurfaceMapsStateIntoPresentationContract() {
+        let commentID = UUID()
+        let browser = BrowserState(
+            isVisible: true,
+            addressDraft: "https://example.com",
+            currentURL: "https://example.com/docs",
+            history: [
+                "https://example.com",
+                "https://example.com/docs",
+                "https://example.com/blog"
+            ],
+            historyIndex: 1,
+            title: "Docs",
+            status: "Fetched",
+            snapshot: BrowserSnapshotState(
+                sourceLabel: "example.com",
+                inspectionDepth: .staticHTMLSnapshot,
+                summary: "Documentation",
+                details: ["200 OK"],
+                outline: ["h1 Docs"],
+                textSnippet: "Welcome"
+            ),
+            comments: [
+                BrowserCommentState(id: commentID, url: "https://example.com/docs", text: "Check spacing")
+            ]
+        )
+
+        let surface = BrowserSurface(browser: browser)
+
+        XCTAssertTrue(surface.isVisible)
+        XCTAssertEqual(surface.addressDraft, "https://example.com")
+        XCTAssertEqual(surface.currentURL, "https://example.com/docs")
+        XCTAssertTrue(surface.canOpen)
+        XCTAssertTrue(surface.canGoBack)
+        XCTAssertTrue(surface.canGoForward)
+        XCTAssertTrue(surface.canReload)
+        XCTAssertEqual(surface.title, "Docs")
+        XCTAssertEqual(surface.statusLabel, "Fetched")
+        XCTAssertEqual(surface.snapshot?.inspectionDepthLabel, "Static HTML snapshot")
+        XCTAssertEqual(surface.snapshot?.textSnippet, "Welcome")
+        XCTAssertEqual(surface.comments.first?.id, commentID)
+        XCTAssertEqual(surface.comments.first?.text, "Check spacing")
+    }
 }
