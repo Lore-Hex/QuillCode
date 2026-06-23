@@ -2104,3 +2104,26 @@ Remaining risk:
 
 - The current approval action reruns from the serialized redacted tool call, which is correct for shell/file arguments covered today. If future tools need non-transcript-safe in-memory fields, the runner should retain a pending approval registry keyed by request ID.
 - The review UI now handles approve/skip. A later pass should add a lightweight "edit command before running" path for commands where the user wants to fix arguments instead of approving or skipping.
+
+## 2026-06-23 Agent Action Parser Hardening Pass
+
+Overall grade after this slice: **A parser resilience, A safety boundary, A regression coverage**.
+
+The TrustedRouter action parser now recovers from two common live-model formatting failures without moving command inference into the UI: an explicit prose response such as "I'll run `whoami`" and a `host.shell.run` JSON action with empty arguments beside an explicit backticked command. This closes the failure mode where QuillCode could show an empty shell card and then fail with "No shell command was specified" even though the model text already named the command.
+
+| Case | Before | After |
+| --- | --- | --- |
+| Prose-only model action | Rejected as invalid action JSON. | Recovered only when the model explicitly says it will run/execute/check a backticked command. |
+| Empty shell arguments | Threw or produced an empty command path depending on call shape. | Repairs `cmd` from an adjacent explicit command before validation. |
+| Passive or negative prose | Risk of becoming future over-broad recovery if added casually. | Tests reject passive text and "I will not run `...`" negative intent. |
+
+Code quality changes:
+
+- Kept recovery in the model-output parser boundary, not in transcript UI, tool cards, or user-prompt heuristics.
+- Added bounded inline-code extraction with execution-intent and negative-intent checks.
+- Preserved hard validation for `host.shell.run`: a non-empty `cmd` is still required before any tool call is emitted.
+- Added focused adapter tests covering recovered prose, repaired empty shell arguments, passive prose rejection, and negative-intent rejection.
+
+Remaining risk:
+
+- Recovery is intentionally conservative and only handles explicit backticked shell commands. Broader malformed tool output should be solved with stronger structured-response/tool-calling support rather than more natural-language inference.

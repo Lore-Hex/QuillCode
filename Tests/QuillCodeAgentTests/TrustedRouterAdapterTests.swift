@@ -61,6 +61,56 @@ final class TrustedRouterAdapterTests: XCTestCase {
         XCTAssertTrue(call.argumentsJSON.contains(#""cmd":"whoami""#))
     }
 
+    func testActionParserRecoversExplicitBacktickedShellCommandFromProse() throws {
+        let action = try AgentActionJSONParser.parse("I'll run `whoami` on the device.")
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected recovered shell tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("cmd"), "whoami")
+    }
+
+    func testActionParserRecoversCurlyApostropheExecutionIntent() throws {
+        let action = try AgentActionJSONParser.parse("I’ll check `df -h /` now.")
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected recovered shell tool action")
+        }
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("cmd"), "df -h /")
+    }
+
+    func testActionParserRepairsEmptyShellArgumentsFromExplicitNearbyCommand() throws {
+        let action = try AgentActionJSONParser.parse("""
+        I'll execute `command -v openclaw || which openclaw || echo 'not found'`.
+        {"type":"tool","name":"host.shell.run","arguments":{}}
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected repaired shell tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(
+            try arguments.requiredString("cmd"),
+            "command -v openclaw || which openclaw || echo 'not found'"
+        )
+    }
+
+    func testActionParserDoesNotRecoverPassiveBacktickedTextAsCommand() {
+        XCTAssertThrowsError(try AgentActionJSONParser.parse("You can use `whoami` if you want.")) { error in
+            XCTAssertTrue(String(describing: error).contains("valid QuillCode action JSON object"))
+        }
+    }
+
+    func testActionParserDoesNotRecoverNegativeBacktickedCommandIntent() {
+        XCTAssertThrowsError(try AgentActionJSONParser.parse("I will not run `rm -rf /`.")) { error in
+            XCTAssertTrue(String(describing: error).contains("valid QuillCode action JSON object"))
+        }
+    }
+
     func testActionParserKeepsMalformedTextActionable() {
         XCTAssertThrowsError(try AgentActionJSONParser.parse("I will do it, but no JSON.")) { error in
             XCTAssertTrue(String(describing: error).contains("valid QuillCode action JSON object"))
