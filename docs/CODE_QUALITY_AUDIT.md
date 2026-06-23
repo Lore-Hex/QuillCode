@@ -1991,6 +1991,23 @@ Remaining risk:
 
 - Remote hunk patch transport and push-current-branch shell guards still live in `WorkspaceRemoteGitToolRequestPlanner.swift`. Those are smaller, stable seams today; extract them if future remote transports need to reuse the same plans.
 
+## 2026-06-23 SSH Remote Hunk Builder Split
+
+Overall grade after this slice: **A architecture, A patch-safety boundary, A regression coverage**.
+
+SSH Remote git hunk command construction moved out of `WorkspaceRemoteGitToolRequestPlanner.swift` and into `WorkspaceRemoteGitHunkCommandBuilder.swift`. Before this pass, the generic remote git planner still owned stage/restore hunk argument selection, patch path validation orchestration, base64 patch transport, temp-file cleanup, and `git apply` check/apply command assembly. The planner now delegates hunk tools to a focused builder and remains responsible only for routing remote git command families plus push behavior.
+
+Code quality changes:
+
+- Added `WorkspaceRemoteGitHunkCommandBuilder` for stage/restore hunk command construction.
+- Kept shared patch path validation through `GitPatchToolExecutor.mismatchedPatchPath`.
+- Removed base64 patch transport and temp-file command details from the generic remote git planner.
+- Added direct hunk-builder tests and parity gates that prevent hunk command assembly from drifting back into the planner.
+
+Remaining risk:
+
+- Remote push-current-branch shell guards still live in `WorkspaceRemoteGitToolRequestPlanner.swift`. That is now the last non-routing command seam in the file and should be extracted if push behavior grows or QuillCloud remote transports need a reusable plan.
+
 ## 2026-06-23 Explicit Mode Control Pass
 
 Overall grade after this slice: **A UI hierarchy, A regression coverage, B+ interaction depth**.
