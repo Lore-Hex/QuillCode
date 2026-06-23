@@ -1361,8 +1361,8 @@ final class WorkspaceModelTests: XCTestCase {
 
         let thread = try XCTUnwrap(model.selectedThread)
         XCTAssertEqual(thread.messages.map(\.role), [.user, .tool, .assistant])
-        XCTAssertEqual(QuillCodeWorkspaceModel.messageSurfaces(for: thread).map(\.role), [.user, .assistant])
-        let timeline = QuillCodeWorkspaceModel.transcriptTimelineItems(for: thread)
+        XCTAssertEqual(WorkspaceTranscriptSurfaceBuilder(thread: thread).messageSurfaces().map(\.role), [.user, .assistant])
+        let timeline = WorkspaceTranscriptSurfaceBuilder(thread: thread).timelineItems()
         XCTAssertEqual(timeline.map(\.kind), [.message, .toolCard, .message])
         XCTAssertEqual(timeline[0].message?.role, .user)
         XCTAssertEqual(timeline[1].toolCard?.title, "host.shell.run")
@@ -1382,8 +1382,8 @@ final class WorkspaceModelTests: XCTestCase {
 
         let thread = try XCTUnwrap(model.selectedThread)
         XCTAssertEqual(thread.events.last?.kind, .messageFeedback)
-        XCTAssertEqual(QuillCodeWorkspaceModel.messageSurfaces(for: thread).last?.feedback, .helpful)
-        XCTAssertEqual(QuillCodeWorkspaceModel.transcriptTimelineItems(for: thread).last?.message?.feedback, .helpful)
+        XCTAssertEqual(WorkspaceTranscriptSurfaceBuilder(thread: thread).messageSurfaces().last?.feedback, .helpful)
+        XCTAssertEqual(WorkspaceTranscriptSurfaceBuilder(thread: thread).timelineItems().last?.message?.feedback, .helpful)
         XCTAssertFalse(model.setMessageFeedback(messageID: thread.messages[0].id, value: .notHelpful))
     }
 
@@ -2405,12 +2405,12 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.root.topBar.threadTitle, "Worktree: \(branch)")
 
         let createThread = try XCTUnwrap(model.root.threads.first { thread in
-            QuillCodeWorkspaceModel.toolCards(for: thread).contains { card in
+            WorkspaceTranscriptSurfaceBuilder(thread: thread).toolCards().contains { card in
                 card.title == "host.git.worktree.create"
             }
         })
         XCTAssertNotEqual(createThread.id, model.selectedThread?.id)
-        let createCard = try XCTUnwrap(QuillCodeWorkspaceModel.toolCards(for: createThread).last)
+        let createCard = try XCTUnwrap(WorkspaceTranscriptSurfaceBuilder(thread: createThread).toolCards().last)
         XCTAssertEqual(createCard.status, .done)
         XCTAssertTrue(createCard.inputJSON?.contains(worktreeName) == true)
 
@@ -2459,12 +2459,12 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.root.topBar.projectName, "feather.local · \(worktreeName)")
 
         let createThread = try XCTUnwrap(model.root.threads.first { thread in
-            QuillCodeWorkspaceModel.toolCards(for: thread).contains { card in
+            WorkspaceTranscriptSurfaceBuilder(thread: thread).toolCards().contains { card in
                 card.title == ToolDefinition.gitWorktreeCreate.name
             }
         })
         XCTAssertNotEqual(createThread.id, model.selectedThread?.id)
-        let createCard = try XCTUnwrap(QuillCodeWorkspaceModel.toolCards(for: createThread).last)
+        let createCard = try XCTUnwrap(WorkspaceTranscriptSurfaceBuilder(thread: createThread).toolCards().last)
         XCTAssertEqual(createCard.status, .done)
         let createResult = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(createCard.outputJSON))
         XCTAssertEqual(createResult.artifacts, ["ssh://quill@feather.local:2222\(worktree.path)"])
@@ -4000,7 +4000,7 @@ final class WorkspaceModelTests: XCTestCase {
         let event = ThreadEvent(kind: .approvalRequested, summary: "clarify: needs target")
         let thread = ChatThread(events: [event])
 
-        let cards = QuillCodeWorkspaceModel.toolCards(for: thread)
+        let cards = WorkspaceTranscriptSurfaceBuilder(thread: thread).toolCards()
 
         XCTAssertEqual(cards.count, 1)
         XCTAssertEqual(cards[0].title, "Safety Check")
@@ -4026,8 +4026,8 @@ final class WorkspaceModelTests: XCTestCase {
             ThreadEvent(kind: .notice, summary: "Stopped by user")
         ])
 
-        let cards = QuillCodeWorkspaceModel.toolCards(for: thread)
-        let timeline = QuillCodeWorkspaceModel.transcriptTimelineItems(for: thread)
+        let cards = WorkspaceTranscriptSurfaceBuilder(thread: thread).toolCards()
+        let timeline = WorkspaceTranscriptSurfaceBuilder(thread: thread).timelineItems()
 
         XCTAssertEqual(cards.count, 1)
         XCTAssertEqual(cards[0].status, .failed)

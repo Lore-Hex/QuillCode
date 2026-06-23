@@ -31,14 +31,16 @@ final class ParityGateTests: XCTestCase {
     func testWorkspaceModelDelegatesToolCardSurfaceTypes() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let toolCardSurfaceText = try Self.appSourceText(named: "QuillCodeToolCardSurface.swift")
+        let transcriptBuilderText = try Self.appSourceText(named: "WorkspaceTranscriptSurfaceBuilder.swift")
 
         XCTAssertTrue(toolCardSurfaceText.contains("public struct ToolCardState"), "Tool card surface state should live in a focused surface file.")
         XCTAssertTrue(toolCardSurfaceText.contains("public struct ToolArtifactState"), "Tool artifact surface state should live in a focused surface file.")
         XCTAssertTrue(toolCardSurfaceText.contains("enum ToolArtifactPreviewBuilder"), "Tool artifact preview construction should live beside artifact state.")
-        XCTAssertTrue(modelText.contains("ToolArtifactPreviewBuilder.textPreview"), "WorkspaceModel should request artifact previews through the extracted builder.")
+        XCTAssertTrue(transcriptBuilderText.contains("ToolArtifactPreviewBuilder.textPreview"), "Transcript projection should request artifact previews through the extracted builder.")
         XCTAssertFalse(modelText.contains("public struct ToolCardState"), "WorkspaceModel should not own tool card surface state.")
         XCTAssertFalse(modelText.contains("public enum ToolCardStatus"), "WorkspaceModel should not own tool card status.")
         XCTAssertFalse(modelText.contains("public struct ToolArtifactState"), "WorkspaceModel should not own tool artifact surface state.")
+        XCTAssertFalse(modelText.contains("ToolArtifactPreviewBuilder.textPreview"), "WorkspaceModel should not own artifact-preview requests.")
     }
 
     func testWorkspaceModelDelegatesBrowserSurfaceTypes() throws {
