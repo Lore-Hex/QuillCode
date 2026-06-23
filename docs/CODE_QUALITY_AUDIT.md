@@ -16,7 +16,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `QuillCodeSafety` | A- | Small, explicit policy layer. Needs more production prompt telemetry once live Auto reviewer tuning begins. |
 | `QuillCodePersistence` | A | Focused stores, compatibility tests, and clear path ownership. |
 | `QuillComputerUseKit` | B+ | Protocol shape is good and macOS adapter is isolated. Linux adapter, app approvals, and visual feedback loops are still parity gaps. |
-| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, command, review, review-comment planning, tool override composition, remote-project tool execution, context banner, transcript projection, execution-context enrichment, browser location/state transitions, MCP launch/session creation, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
+| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, command, command palette, review, review-comment planning, tool override composition, remote-project tool execution, context banner, transcript projection, execution-context enrichment, browser location/state transitions, MCP launch/session creation, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
 | Playwright harness | B+ | Valuable parity harness with broad coverage. It intentionally duplicates rendering behavior, so keep it thin and derived from stable surface concepts. |
 
 ## File Hotspots
@@ -25,7 +25,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | --- | --- | --- |
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
-| `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but runtime issue classification, model catalog presentation, command palette construction, review diff construction, context banner estimation, and transcript message projection are now extracted into pure builders. Next step is extracting additional surface-family builders only when behavior grows. |
+| `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but runtime issue classification, model catalog presentation, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are now extracted into focused files. Next step is extracting additional surface-family builders only when behavior grows. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
 | `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback and project-import resolution now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
@@ -748,3 +748,20 @@ Code quality changes:
 Remaining risk:
 
 - Review workflow orchestration still lives in `WorkspaceModel` because it appends tool cards, refreshes diffs, and persists selected-thread state. If review sessions grow into multi-step PR publication or staged remote review state, add a review workflow coordinator that consumes `WorkspaceRemoteProjectToolExecutor` instead of expanding the model again.
+
+## 2026-06-23 Command Palette Surface Pass
+
+Overall grade after this slice: **A- foundation, A command surface boundary**.
+
+Command surface records, top-bar overflow projection, automation/Computer Use command factories, command grouping, palette query scoping, and ranking/scoring moved out of `WorkspaceSurface.swift` into `WorkspaceCommandPaletteSurface.swift`. `WorkspaceSurface.swift` still owns the aggregate `WorkspaceSurface` payload and simple surface records, but command-palette behavior now lives beside the command contract that SwiftUI, static HTML, Playwright, menu bar, slash suggestions, and keyboard shortcut surfaces consume.
+
+Code quality changes:
+
+- Moved `WorkspaceCommandSurface`, `TopBarOverflowCommandCatalog`, `WorkspaceCommandGroupSurface`, and `WorkspaceCommandPalette` into a focused surface file.
+- Kept command ranking, `/` slash scoping, `>` action scoping, category ordering, and compact shortcut matching together.
+- Removed roughly 400 lines of command-palette code from the aggregate workspace surface file.
+- Added a parity gate so command records, overflow projection, palette ranking, and query scoping do not drift back into `WorkspaceSurface.swift`.
+
+Remaining risk:
+
+- `WorkspaceSurface.swift` still carries many value surface records. That is acceptable while they are small Codable contracts, but any surface record that grows behavioral helpers should move to a focused surface-family file before adding more Codex-parity UI.
