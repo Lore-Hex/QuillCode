@@ -126,6 +126,20 @@ Code quality changes:
 - Kept command side effects in `WorkspaceModel` so this pass stays behavior-preserving.
 - Added parity gates that prevent slash-command local copy from drifting back into `WorkspaceModel`.
 
+## 2026-06-23 Remote Git Request Planner Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+SSH Remote project tool execution now has clearer seams: the executor owns routing and SSH execution, remote path normalization lives in `WorkspaceRemoteProjectPath`, and Git/GitHub/worktree command construction lives in `WorkspaceRemoteGitToolRequestPlanner`. This reduces `WorkspaceRemoteProjectToolExecutor.swift` from a broad 815-line command-builder/executor mix to a focused execution boundary while preserving behavior.
+
+Code quality changes:
+
+- Extracted remote file/worktree path normalization and artifact URL construction into `WorkspaceRemoteProjectPath`.
+- Extracted remote Git, GitHub PR, hunk, push, and worktree command planning into `WorkspaceRemoteGitToolRequestPlanner`.
+- Added a typed `WorkspaceRemoteGitToolRequest` contract so URL extraction and artifact propagation are explicit planner output instead of executor-local side effects.
+- Added focused planner tests for pull-request command planning, worktree artifact planning, and unsafe worktree path rejection.
+- Updated parity gates so future refactors keep remote Git command construction and remote path normalization out of `WorkspaceModel` and the remote executor.
+
 ## 2026-06-22 Composer Refactor Pass
 
 Overall grade after this slice: **A- foundation, B+ product surface maturity**.
