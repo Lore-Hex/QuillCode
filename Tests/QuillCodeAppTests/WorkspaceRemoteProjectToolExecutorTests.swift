@@ -131,6 +131,34 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertFalse(request.extractsPullRequestURLs)
     }
 
+    func testRemoteGitPlannerBuildsStageHunkRequestWithSharedPatchValidation() throws {
+        let patch = """
+        diff --git a/hello.txt b/hello.txt
+        --- a/hello.txt
+        +++ b/hello.txt
+        @@ -1 +1 @@
+        -old
+        +new
+        """
+
+        let request = try WorkspaceRemoteGitToolRequestPlanner.request(
+            for: ToolCall(
+                name: ToolDefinition.gitStageHunk.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "hello.txt",
+                    "patch": patch
+                ])
+            ),
+            connection: remoteProject(path: "/srv/quill").connection
+        )
+
+        XCTAssertTrue(request.command.contains("quillcode-hunk.$$.patch"), request.command)
+        XCTAssertTrue(request.command.contains("git apply '--cached' '--whitespace=nowarn' --check"), request.command)
+        XCTAssertTrue(request.command.contains("printf 'Hunk staged.\\n'"), request.command)
+        XCTAssertEqual(request.artifacts, [])
+        XCTAssertFalse(request.extractsPullRequestURLs)
+    }
+
     func testRemoteGitPlannerRejectsUnsafeWorktreeBranchAndBaseNames() {
         XCTAssertThrowsError(
             try WorkspaceRemoteGitToolRequestPlanner.request(

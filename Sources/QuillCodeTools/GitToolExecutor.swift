@@ -1,82 +1,12 @@
 import Foundation
 import QuillCodeCore
 
-public enum GitToolError: Error, CustomStringConvertible {
-    case emptyPath
-    case emptyPatch
-    case emptyCommitMessage
-    case emptyPullRequestTitle
-    case emptyPullRequestComment
-    case emptyPullRequestReviewBody
-    case emptyPullRequestReviewers
-    case emptyPullRequestLabels
-    case invalidPullRequestReviewAction(String)
-    case invalidPullRequestMergeMethod(String)
-    case invalidPullRequestSelector(String)
-    case invalidPullRequestReviewer(String)
-    case invalidPullRequestLabel(String)
-    case emptyBranch
-    case invalidGitName(String)
-    case noCurrentBranch
-    case outsideWorkspace(String)
-    case mainWorkspaceWorktreePath
-    case unregisteredWorktree(String)
-    case patchPathMismatch(String)
-    case temporaryPatchFailed(String)
-
-    public var description: String {
-        switch self {
-        case .emptyPath:
-            return "Git path is required."
-        case .emptyPatch:
-            return "Git patch is empty."
-        case .emptyCommitMessage:
-            return "Git commit message is required."
-        case .emptyPullRequestTitle:
-            return "Git pull request title is required unless fill is enabled."
-        case .emptyPullRequestComment:
-            return "Git pull request comment body is required."
-        case .emptyPullRequestReviewBody:
-            return "Git pull request review body is required for comment and request_changes actions."
-        case .emptyPullRequestReviewers:
-            return "At least one GitHub pull request reviewer to add or remove is required."
-        case .emptyPullRequestLabels:
-            return "At least one GitHub pull request label to add or remove is required."
-        case .invalidPullRequestReviewAction(let value):
-            return "GitHub pull request review action is unsupported: \(value)"
-        case .invalidPullRequestMergeMethod(let value):
-            return "GitHub pull request merge method is unsupported: \(value)"
-        case .invalidPullRequestSelector(let value):
-            return "GitHub pull request selector is unsupported: \(value)"
-        case .invalidPullRequestReviewer(let value):
-            return "GitHub pull request reviewer is unsupported: \(value)"
-        case .invalidPullRequestLabel(let value):
-            return "GitHub pull request label is unsupported: \(value)"
-        case .emptyBranch:
-            return "Git branch is required."
-        case .invalidGitName(let value):
-            return "Git remote or branch contains unsupported characters: \(value)"
-        case .noCurrentBranch:
-            return "Git push needs a branch, but the current checkout has no branch."
-        case .outsideWorkspace(let path):
-            return "Git path is outside the workspace: \(path)"
-        case .mainWorkspaceWorktreePath:
-            return "Git worktree path cannot be the main workspace."
-        case .unregisteredWorktree(let path):
-            return "Git worktree is not registered: \(path)"
-        case .patchPathMismatch(let path):
-            return "Git patch touches a different path than requested: \(path)"
-        case .temporaryPatchFailed(let message):
-            return "Failed to prepare git patch: \(message)"
-        }
-    }
-}
-
 public struct GitToolExecutor: Sendable {
     private let shell: ShellToolExecutor
     private let runner: GitProcessRunner
     private let pullRequests: GitHubPullRequestToolExecutor
     private let worktrees: GitWorktreeToolExecutor
+    private let patches: GitPatchToolExecutor
 
     public init(
         shell: ShellToolExecutor = ShellToolExecutor(),
@@ -87,6 +17,7 @@ public struct GitToolExecutor: Sendable {
         self.runner = runner
         self.pullRequests = GitHubPullRequestToolExecutor(runner: runner)
         self.worktrees = GitWorktreeToolExecutor(runner: runner)
+        self.patches = GitPatchToolExecutor(runner: runner)
     }
 
     public func status(cwd: URL) -> ToolResult {
@@ -119,11 +50,11 @@ public struct GitToolExecutor: Sendable {
     }
 
     public func stageHunk(cwd: URL, path: String, patch: String) -> ToolResult {
-        applyHunk(cwd: cwd, path: path, patch: patch, arguments: ["apply", "--cached", "--whitespace=nowarn"], successMessage: "Hunk staged.\n")
+        patches.stageHunk(cwd: cwd, path: path, patch: patch)
     }
 
     public func restoreHunk(cwd: URL, path: String, patch: String) -> ToolResult {
-        applyHunk(cwd: cwd, path: path, patch: patch, arguments: ["apply", "--reverse", "--whitespace=nowarn"], successMessage: "Hunk restored.\n")
+        patches.restoreHunk(cwd: cwd, path: path, patch: patch)
     }
 
     public func commit(cwd: URL, message: String) -> ToolResult {
@@ -308,132 +239,6 @@ public struct GitToolExecutor: Sendable {
 
     public static func extractURLs(from output: String) -> [String] {
         GitHubPullRequestToolExecutor.extractURLs(from: output)
-    }
-
-    private func applyHunk(
-        cwd: URL,
-        path: String,
-        patch: String,
-        arguments: [String],
-        successMessage: String
-    ) -> ToolResult {
-        do {
-            let relativePath = try GitInputValidator.safeRelativePath(path, cwd: cwd)
-            let trimmedPatch = patch.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmedPatch.isEmpty else {
-                throw GitToolError.emptyPatch
-            }
-            if let mismatch = Self.mismatchedPatchPath(in: patch, expectedPath: relativePath) {
-                throw GitToolError.patchPathMismatch(mismatch)
-            }
-
-            var normalizedPatch = patch
-            if !normalizedPatch.hasSuffix("\n") {
-                normalizedPatch.append("\n")
-            }
-            let patchURL = FileManager.default.temporaryDirectory
-                .appendingPathComponent("quillcode-hunk-\(UUID().uuidString).patch")
-            do {
-                try normalizedPatch.write(to: patchURL, atomically: true, encoding: .utf8)
-            } catch {
-                throw GitToolError.temporaryPatchFailed(String(describing: error))
-            }
-            defer { try? FileManager.default.removeItem(at: patchURL) }
-
-            let check = runGit(arguments + ["--check", patchURL.path], cwd: cwd, timeoutSeconds: 20)
-            guard check.ok else { return check }
-            let apply = runGit(arguments + [patchURL.path], cwd: cwd, timeoutSeconds: 20)
-            if apply.ok {
-                return ToolResult(ok: true, stdout: successMessage, stderr: apply.stderr, exitCode: apply.exitCode)
-            }
-            return apply
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
-    }
-
-    public static func mismatchedPatchPath(in patch: String, expectedPath: String) -> String? {
-        for line in patch.components(separatedBy: .newlines) {
-            guard line.hasPrefix("--- ") || line.hasPrefix("+++ ") || line.hasPrefix("diff --git ") else {
-                continue
-            }
-            for path in pathsInDiffMetadataLine(line) {
-                guard path != "/dev/null" else { continue }
-                let normalized = normalizedPatchPath(path)
-                guard normalized == expectedPath else {
-                    return normalized
-                }
-            }
-        }
-        return nil
-    }
-
-    private static func pathsInDiffMetadataLine(_ line: String) -> [String] {
-        if line.hasPrefix("diff --git ") {
-            return pathsInDiffGitHeader(String(line.dropFirst("diff --git ".count)))
-        }
-        return line
-            .dropFirst(4)
-            .split(separator: "\t")
-            .first
-            .map { [String($0)] } ?? []
-    }
-
-    private static func pathsInDiffGitHeader(_ header: String) -> [String] {
-        if header.hasPrefix("\"") {
-            return quotedPaths(in: header)
-        }
-        guard let secondPathRange = header.range(of: " b/") else {
-            return header.split(separator: " ").map(String.init)
-        }
-        let first = String(header[..<secondPathRange.lowerBound])
-        let second = String(header[header.index(after: secondPathRange.lowerBound)...])
-        return [first, second]
-    }
-
-    private static func quotedPaths(in header: String) -> [String] {
-        var paths: [String] = []
-        var current = ""
-        var isInQuote = false
-        var isEscaped = false
-
-        for character in header {
-            if isEscaped {
-                current.append(character)
-                isEscaped = false
-                continue
-            }
-            if character == "\\" {
-                isEscaped = true
-                continue
-            }
-            if character == "\"" {
-                if isInQuote {
-                    paths.append(current)
-                    current = ""
-                }
-                isInQuote.toggle()
-                continue
-            }
-            if isInQuote {
-                current.append(character)
-            }
-        }
-        return paths
-    }
-
-    private static func normalizedPatchPath(_ rawPath: String) -> String {
-        var path = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        if path.hasPrefix("\"") {
-            path.removeFirst()
-        }
-        if path.hasSuffix("\"") {
-            path.removeLast()
-        }
-        if path.hasPrefix("a/") || path.hasPrefix("b/") {
-            path.removeFirst(2)
-        }
-        return path
     }
 
     private func runGit(_ arguments: [String], cwd: URL, timeoutSeconds: TimeInterval) -> ToolResult {

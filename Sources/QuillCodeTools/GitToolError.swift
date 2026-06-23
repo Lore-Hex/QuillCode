@@ -1,0 +1,70 @@
+public enum GitToolError: Error, CustomStringConvertible {
+    case emptyPath
+    case emptyPatch
+    case emptyCommitMessage
+    case emptyPullRequestTitle
+    case emptyPullRequestComment
+    case emptyPullRequestReviewBody
+    case emptyPullRequestReviewers
+    case emptyPullRequestLabels
+    case invalidPullRequestReviewAction(String)
+    case invalidPullRequestMergeMethod(String)
+    case invalidPullRequestSelector(String)
+    case invalidPullRequestReviewer(String)
+    case invalidPullRequestLabel(String)
+    case emptyBranch
+    case invalidGitName(String)
+    case noCurrentBranch
+    case outsideWorkspace(String)
+    case mainWorkspaceWorktreePath
+    case unregisteredWorktree(String)
+    case patchPathMismatch(String)
+    case temporaryPatchFailed(String)
+
+    public var description: String {
+        switch self {
+        case .emptyPath:
+            return "Git path is required."
+        case .emptyPatch:
+            return "Git patch is empty."
+        case .emptyCommitMessage:
+            return "Git commit message is required."
+        case .emptyPullRequestTitle:
+            return "Git pull request title is required unless fill is enabled."
+        case .emptyPullRequestComment:
+            return "Git pull request comment body is required."
+        case .emptyPullRequestReviewBody:
+            return "Git pull request review body is required for comment and request_changes actions."
+        case .emptyPullRequestReviewers:
+            return "At least one GitHub pull request reviewer to add or remove is required."
+        case .emptyPullRequestLabels:
+            return "At least one GitHub pull request label to add or remove is required."
+        case .invalidPullRequestReviewAction(let value):
+            return "GitHub pull request review action is unsupported: \(value)"
+        case .invalidPullRequestMergeMethod(let value):
+            return "GitHub pull request merge method is unsupported: \(value)"
+        case .invalidPullRequestSelector(let value):
+            return "GitHub pull request selector is unsupported: \(value)"
+        case .invalidPullRequestReviewer(let value):
+            return "GitHub pull request reviewer is unsupported: \(value)"
+        case .invalidPullRequestLabel(let value):
+            return "GitHub pull request label is unsupported: \(value)"
+        case .emptyBranch:
+            return "Git branch is required."
+        case .invalidGitName(let value):
+            return "Git remote or branch contains unsupported characters: \(value)"
+        case .noCurrentBranch:
+            return "Git push needs a branch, but the current checkout has no branch."
+        case .outsideWorkspace(let path):
+            return "Git path is outside the workspace: \(path)"
+        case .mainWorkspaceWorktreePath:
+            return "Git worktree path cannot be the main workspace."
+        case .unregisteredWorktree(let path):
+            return "Git worktree is not registered: \(path)"
+        case .patchPathMismatch(let path):
+            return "Git patch touches a different path than requested: \(path)"
+        case .temporaryPatchFailed(let message):
+            return "Failed to prepare git patch: \(message)"
+        }
+    }
+}
