@@ -20,12 +20,27 @@ enum WorkspaceHTMLTopBarRenderer {
     }
 
     private static func renderPrimaryCluster(_ topBar: TopBarSurface) -> String {
-        """
+        let tone = modeTone(for: topBar.modeLabel)
+        return """
         <div class="topbar-cluster topbar-primary-cluster" data-testid="top-bar-primary-cluster">
-          <span data-testid="model-pill">\(escape(topBar.modelLabel)) · \(escape(topBar.modeLabel))</span>
-          <span class="visually-hidden" data-testid="mode-pill">\(escape(topBar.modeLabel))</span>
+          <button type="button" class="topbar-model-button" data-testid="model-picker-button" aria-label="Model: \(escape(topBar.modelLabel))">◇ <span data-testid="model-pill">\(escape(topBar.modelLabel))</span></button>
+          <button type="button" class="topbar-mode-button" data-testid="mode-picker-button" data-mode-tone="\(tone)" aria-label="Approval mode: \(escape(topBar.modeLabel))">
+            <span class="topbar-mode-dot" aria-hidden="true"></span>
+            <span data-testid="mode-pill">\(escape(topBar.modeLabel))</span>
+          </button>
         </div>
         """
+    }
+
+    private static func modeTone(for modeLabel: String) -> String {
+        switch modeLabel.lowercased() {
+        case "review":
+            return "review"
+        case "read-only":
+            return "read-only"
+        default:
+            return "auto"
+        }
     }
 
     private static func renderStatusCluster(_ topBar: TopBarSurface) -> String {

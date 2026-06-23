@@ -43,11 +43,18 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('project-item')).toContainText('QuillCode');
   await expect(page.getByTestId('project-item')).toHaveAttribute('aria-current', 'true');
   await expect(page.getByTestId('transcript-empty')).toBeVisible();
-  await expect(page.getByTestId('model-picker-button')).toHaveText('Nike 1.0 · Auto');
+  await expect(page.getByTestId('model-picker-button')).toHaveText('Nike 1.0');
+  await expect(page.getByTestId('model-picker-button')).not.toContainText('Auto');
+  await expect(page.getByTestId('mode-picker-button')).toBeVisible();
+  await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
+  const modelButtonBox = await page.getByTestId('model-picker-button').boundingBox();
+  const modeButtonBox = await page.getByTestId('mode-picker-button').boundingBox();
+  expect(modelButtonBox).not.toBeNull();
+  expect(modeButtonBox).not.toBeNull();
+  expect(modeButtonBox!.x - (modelButtonBox!.x + modelButtonBox!.width)).toBeGreaterThanOrEqual(8);
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-category')).toHaveCount(2);
   await page.getByTestId('model-picker-button').click();
-  await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
   await expect(page.getByTestId('send-button')).toBeDisabled();
 
   await openTopBarOverflow(page);
@@ -73,7 +80,8 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await page.getByTestId('model-picker-button').click();
   await page.getByTestId('model-search').fill('glm');
   await page.getByTestId('model-option').click();
-  await expect(page.getByTestId('model-picker-button')).toHaveText('z-ai/GLM 5.2 · Auto');
+  await expect(page.getByTestId('model-picker-button')).toHaveText('z-ai/GLM 5.2');
+  await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
 
   await page.getByLabel('Message').fill('run whoami');
   await expect(page.getByTestId('send-button')).toBeEnabled();
@@ -1723,9 +1731,27 @@ test('mock harness handles slash mode locally', async ({ page }) => {
   await page.getByRole('button', { name: 'Send' }).click();
 
   await expect(page.getByTestId('mode-pill')).toHaveText('Review');
+  await expect(page.getByTestId('mode-picker-button')).toContainText('Review');
+  await expect(page.getByTestId('mode-picker-button')).toHaveAttribute('data-mode-tone', 'review');
   await expect(page.getByTestId('top-bar-subtitle')).toContainText('QuillCode - Review');
   await expect(page.getByText('Mode set to Review.')).toBeVisible();
   await expect(page.getByTestId('tool-card')).toHaveCount(0);
+});
+
+test('mock harness changes approval mode independently from model selection', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await expect(page.getByTestId('model-picker-button')).toHaveText('Nike 1.0');
+  await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
+
+  await page.getByTestId('mode-picker-button').click();
+  await expect(page.getByTestId('mode-pill')).toHaveText('Review');
+  await expect(page.getByTestId('model-picker-button')).toHaveText('Nike 1.0');
+
+  await page.getByTestId('mode-picker-button').click();
+  await expect(page.getByTestId('mode-pill')).toHaveText('Read-only');
+  await expect(page.getByTestId('mode-picker-button')).toHaveAttribute('data-mode-tone', 'read-only');
+  await expect(page.getByTestId('model-picker-button')).not.toContainText('Read-only');
 });
 
 test('mock harness routes slash commands to workspace actions', async ({ page }) => {
@@ -1839,7 +1865,8 @@ test('mock harness searches and selects models from the top bar', async ({ page 
   await expect(page.getByTestId('model-option')).toContainText('moonshotai/Kimi K2.6');
 
   await page.getByTestId('model-option').click();
-  await expect(page.getByTestId('model-picker-button')).toHaveText('moonshotai/Kimi K2.6 · Auto');
+  await expect(page.getByTestId('model-picker-button')).toHaveText('moonshotai/Kimi K2.6');
+  await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
   await expect(page.getByTestId('model-browser')).toHaveCount(0);
 
   await page.getByTestId('model-picker-button').click();

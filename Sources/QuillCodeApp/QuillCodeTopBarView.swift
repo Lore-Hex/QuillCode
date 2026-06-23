@@ -17,15 +17,19 @@ struct QuillCodeTopBarView: View {
 
             Spacer(minLength: 10)
 
-            HStack(spacing: 8) {
+            HStack(spacing: 12) {
                 QuillCodeModelPickerView(
                     topBar: topBar,
                     isPresented: $isModelPickerPresented,
-                    onSetMode: onSetMode,
                     onSetModel: onSetModel,
                     onToggleModelFavorite: onToggleModelFavorite
                 )
                 .layoutPriority(2)
+
+                QuillCodeModePickerButton(
+                    modeLabel: topBar.modeLabel,
+                    onSetMode: onSetMode
+                )
 
                 statusIndicator
                 commandMenu
@@ -134,6 +138,73 @@ struct QuillCodeTopBarView: View {
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("More")
         .accessibilityLabel("More workspace actions")
+    }
+}
+
+private struct QuillCodeModePickerButton: View {
+    var modeLabel: String
+    var onSetMode: (AgentMode) -> Void
+
+    private var selectedMode: AgentMode {
+        AgentMode.allCases.first { $0.title == modeLabel } ?? .auto
+    }
+
+    private var orderedModes: [AgentMode] {
+        [.auto, .review, .readOnly]
+    }
+
+    var body: some View {
+        Menu {
+            ForEach(orderedModes, id: \.rawValue) { mode in
+                Button {
+                    onSetMode(mode)
+                } label: {
+                    HStack {
+                        Text(mode.title)
+                        if mode == selectedMode {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(modeColor(for: selectedMode))
+                    .frame(width: 7, height: 7)
+                Text(modeLabel)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(QuillCodePalette.muted)
+            }
+            .foregroundStyle(modeColor(for: selectedMode))
+            .padding(.horizontal, 10)
+            .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+            .background(modeColor(for: selectedMode).opacity(0.12))
+            .overlay {
+                Capsule()
+                    .stroke(modeColor(for: selectedMode).opacity(0.24), lineWidth: 1)
+            }
+            .clipShape(Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .help("Choose approval mode")
+        .accessibilityLabel("Approval mode, \(modeLabel)")
+    }
+
+    private func modeColor(for mode: AgentMode) -> Color {
+        switch mode {
+        case .auto:
+            return QuillCodePalette.green
+        case .review:
+            return QuillCodePalette.yellow
+        case .readOnly:
+            return QuillCodePalette.blue
+        }
     }
 }
 

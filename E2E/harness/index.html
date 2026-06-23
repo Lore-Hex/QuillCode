@@ -117,6 +117,9 @@
       align-items: center;
       gap: 8px;
     }
+    .topbar-primary-cluster {
+      gap: 12px;
+    }
     .topbar-primary-cluster,
     .topbar-action-cluster {
       flex-wrap: nowrap;
@@ -125,9 +128,9 @@
       justify-content: flex-end;
       overflow: visible;
     }
-    .topbar-primary-cluster span,
+    .topbar-primary-cluster > span,
     .topbar-primary-cluster select,
-    .topbar-primary-cluster button,
+    .topbar-primary-cluster > button:not(.mode-pill-button),
     .topbar-action-cluster button {
       min-height: 34px;
       padding: 5px 9px;
@@ -164,6 +167,59 @@
     .model-picker-wrap [data-testid="model-picker-button"]:hover {
       background: rgba(255,255,255,.06);
       color: var(--text);
+    }
+    .mode-pill-button {
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 10px;
+      border-radius: 999px;
+      color: var(--green);
+      background: rgba(82,210,115,.12);
+      border: 1px solid rgba(82,210,115,.24);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+      transition-property: transform, background-color, border-color, color;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .mode-pill-button::after {
+      content: "▾";
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1;
+    }
+    .mode-pill-button:hover {
+      color: var(--text);
+      border-color: rgba(82,210,115,.34);
+      background: rgba(82,210,115,.16);
+    }
+    .mode-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: currentColor;
+      box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+    }
+    .mode-pill-button[data-mode-tone="review"] {
+      color: var(--yellow);
+      background: rgba(248,184,78,.12);
+      border-color: rgba(248,184,78,.24);
+    }
+    .mode-pill-button[data-mode-tone="review"]:hover {
+      border-color: rgba(248,184,78,.34);
+      background: rgba(248,184,78,.16);
+    }
+    .mode-pill-button[data-mode-tone="read-only"] {
+      color: var(--blue);
+      background: rgba(65,184,232,.12);
+      border-color: rgba(65,184,232,.24);
+    }
+    .mode-pill-button[data-mode-tone="read-only"]:hover {
+      border-color: rgba(65,184,232,.34);
+      background: rgba(65,184,232,.16);
     }
     .topbar-action-cluster button {
       width: 40px;
@@ -4056,10 +4112,13 @@
             <div class="topbar-clusters" data-testid="top-bar-clusters">
               <div class="topbar-cluster topbar-primary-cluster" data-testid="top-bar-primary-cluster">
                 <div class="model-picker-wrap">
-                  <button type="button" aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" data-testid="model-picker-button">${escapeHTML(state.topBar.modelLabel)} · ${escapeHTML(state.topBar.modeLabel)}</button>
+                  <button type="button" aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" aria-label="Model: ${escapeHTML(state.topBar.modelLabel)}" data-testid="model-picker-button">${escapeHTML(state.topBar.modelLabel)}</button>
                   ${modelBrowser}
                 </div>
-                <span class="visually-hidden" data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
+                <button type="button" class="mode-pill-button" data-testid="mode-picker-button" data-mode-tone="${escapeHTML(modeTone(state.topBar.modeLabel))}" aria-label="Approval mode: ${escapeHTML(state.topBar.modeLabel)}">
+                  <span class="mode-dot" aria-hidden="true"></span>
+                  <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
+                </button>
               </div>
               <div class="topbar-cluster topbar-context-cluster" data-testid="top-bar-context-cluster">
                 <details class="topbar-status-menu" data-testid="top-bar-status-menu">
@@ -4240,6 +4299,9 @@
         state.topBar.modelPickerOpen = !state.topBar.modelPickerOpen;
         state.topBar.expandedModelID = state.topBar.modelPickerOpen ? state.topBar.selectedModelID : null;
         render();
+      });
+      document.querySelector('[data-testid="mode-picker-button"]').addEventListener('click', () => {
+        cycleMode();
       });
       document.querySelector('[data-testid="model-search"]')?.addEventListener('input', event => {
         state.topBar.modelSearch = event.target.value;
@@ -4690,6 +4752,26 @@
         })
       }));
       render();
+    }
+
+    function cycleMode() {
+      const modes = ['Auto', 'Review', 'Read-only'];
+      const currentIndex = modes.indexOf(state.topBar.modeLabel);
+      setModeLabel(modes[(currentIndex + 1) % modes.length]);
+      render();
+    }
+
+    function setModeLabel(nextMode) {
+      state.topBar.modeLabel = nextMode;
+      const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
+      state.topBar.subtitle = `${selectedProject?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+    }
+
+    function modeTone(modeLabel) {
+      const normalized = String(modeLabel || '').toLowerCase();
+      if (normalized === 'review') return 'review';
+      if (normalized === 'read-only') return 'read-only';
+      return 'auto';
     }
 
     function modelDisplayLabel(model) {
@@ -7762,10 +7844,8 @@
         const modeMap = { auto: 'Auto', review: 'Review', 'read-only': 'Read-only', readonly: 'Read-only' };
         const nextMode = modeMap[requestedMode] || null;
         if (nextMode) {
-          state.topBar.modeLabel = nextMode;
+          setModeLabel(nextMode);
           addMessage('assistant', `Mode set to ${nextMode}.`);
-          const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
-          state.topBar.subtitle = `${selectedProject?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
         } else {
           addMessage('assistant', 'Usage: /mode auto, /mode review, or /mode read-only');
         }

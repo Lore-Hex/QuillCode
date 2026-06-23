@@ -4,7 +4,6 @@ import QuillCodeCore
 struct QuillCodeModelPickerView: View {
     var topBar: TopBarSurface
     @Binding var isPresented: Bool
-    var onSetMode: (AgentMode) -> Void
     var onSetModel: (String) -> Void
     var onToggleModelFavorite: (String) -> Void
 
@@ -29,7 +28,10 @@ struct QuillCodeModelPickerView: View {
             isPresented.toggle()
         } label: {
             HStack(spacing: 6) {
-                Text("\(topBar.modelLabel) · \(topBar.modeLabel)")
+                Image(systemName: "diamond")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                Text(topBar.modelLabel)
                     .font(.callout.weight(.semibold))
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -43,7 +45,8 @@ struct QuillCodeModelPickerView: View {
             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(QuillCodePressableButtonStyle())
-        .help("Choose model and mode")
+        .help("Choose model")
+        .accessibilityLabel("Model, \(topBar.modelLabel)")
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
             popoverBody
         }
@@ -64,7 +67,6 @@ struct QuillCodeModelPickerView: View {
     private var popoverBody: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            modePicker
             searchField
             modelList
         }
@@ -82,16 +84,6 @@ struct QuillCodeModelPickerView: View {
                 .foregroundStyle(QuillCodePalette.muted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var modePicker: some View {
-        Picker("Mode", selection: modeBinding) {
-            ForEach(AgentMode.allCases, id: \.rawValue) { mode in
-                Text(mode.title).tag(mode)
-            }
-        }
-        .pickerStyle(.segmented)
-        .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
     }
 
     private var searchField: some View {
@@ -137,17 +129,6 @@ struct QuillCodeModelPickerView: View {
         .padding(12)
         .background(QuillCodePalette.background.opacity(0.72))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-
-    private var modeBinding: Binding<AgentMode> {
-        Binding(
-            get: {
-                AgentMode.allCases.first { $0.title == topBar.modeLabel } ?? .auto
-            },
-            set: { mode in
-                onSetMode(mode)
-            }
-        )
     }
 
     private func selectModel(_ option: ModelOptionSurface) {
