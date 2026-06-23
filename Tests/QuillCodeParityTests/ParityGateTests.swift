@@ -2,10 +2,7 @@ import XCTest
 
 final class ParityGateTests: XCTestCase {
     func testQuillCodeAppHasNoLinuxConditionals() throws {
-        let packageRoot = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
+        let packageRoot = Self.packageRoot()
         let sourceRoots = [
             packageRoot.appendingPathComponent("Sources/QuillCodeApp"),
             packageRoot.appendingPathComponent("Sources/quill-code-desktop")
@@ -25,22 +22,14 @@ final class ParityGateTests: XCTestCase {
     }
 
     func testParityDocsExist() {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
+        let root = Self.packageRoot()
         for name in ["DECISIONS.md", "CODEX_RESEARCH.md", "CODEX_PARITY_MATRIX.md", "ROADMAP.md", "TEST_PLAN.md"] {
             XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("docs/\(name)").path), name)
         }
     }
 
     func testDesktopDefinesNativeMenuBarWidget() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let desktopSource = root.appendingPathComponent("Sources/quill-code-desktop/main.swift")
-        let text = try String(contentsOf: desktopSource, encoding: .utf8)
+        let text = try Self.desktopSourceText()
 
         XCTAssertTrue(text.contains("MenuBarExtra"), "Desktop app should define a native menu-bar widget.")
         XCTAssertTrue(text.contains(#"systemImage: "q.circle.fill""#), "Menu-bar widget should use a visible QuillCode symbol.")
@@ -50,12 +39,7 @@ final class ParityGateTests: XCTestCase {
     }
 
     func testDesktopTrustedRouterSignInUsesLoopbackOAuth() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let desktopSource = root.appendingPathComponent("Sources/quill-code-desktop/main.swift")
-        let text = try String(contentsOf: desktopSource, encoding: .utf8)
+        let text = try Self.desktopSourceText()
 
         XCTAssertTrue(text.contains("TrustedRouterLoopbackCallbackServer"), "Desktop sign-in should own a loopback callback server.")
         XCTAssertTrue(text.contains("TrustedRouterDefaults.loopbackCallbackURL"), "Desktop sign-in should use the shared TrustedRouter loopback callback URL.")
@@ -70,16 +54,30 @@ final class ParityGateTests: XCTestCase {
     }
 
     func testDesktopNotifiesWhenDueAutomationsRun() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let desktopSource = root.appendingPathComponent("Sources/quill-code-desktop/main.swift")
-        let text = try String(contentsOf: desktopSource, encoding: .utf8)
+        let text = try Self.desktopSourceText()
 
         XCTAssertTrue(text.contains("UNUserNotificationCenter"), "Desktop app should use native notifications for due automations.")
         XCTAssertTrue(text.contains("MacAutomationNotifier"), "Desktop app should isolate notification delivery behind an adapter.")
         XCTAssertTrue(text.contains("runDueAutomationReports"), "Desktop app should consume structured automation run reports.")
         XCTAssertTrue(text.contains("automationNotifier.deliver"), "Desktop app should deliver a notification for each due automation report.")
+    }
+
+    private static func packageRoot() -> URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+
+    private static func desktopSourceText() throws -> String {
+        let root = packageRoot().appendingPathComponent("Sources/quill-code-desktop")
+        return try FileManager.default.contentsOfDirectory(
+            at: root,
+            includingPropertiesForKeys: nil
+        )
+        .filter { $0.pathExtension == "swift" }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        .map { try String(contentsOf: $0, encoding: .utf8) }
+        .joined(separator: "\n")
     }
 }

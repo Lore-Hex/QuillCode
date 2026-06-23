@@ -26,7 +26,8 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, and project registry transitions now live in focused helpers; extract desktop/runtime coordination next. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | B+ | Surface assembly is valuable but large. Keep moving small ranking/formatting helpers out or make them single-pass builders. |
-| `Sources/quill-code-desktop/main.swift` | B | Desktop bootstrap mixes app lifecycle, menu-bar status, OAuth, and commands. Extract coordinator types before adding more platform behavior. |
+| `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
+| `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | B | Desktop controller owns lifecycle, auth, task coordination, automation ticks, and platform adapters. Split auth and task coordinators before adding more desktop behavior. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
 | `Sources/QuillCodeCore/Models.swift` | A- | Central source of truth for model IDs, branding, and compatibility. Watch for model/persistence surface bloat. |
 
@@ -41,7 +42,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Current Refactor Priority
 
-1. Move desktop menu-bar/OAuth orchestration out of `Sources/quill-code-desktop/main.swift`.
+1. Split desktop auth/task orchestration out of `QuillCodeDesktopController.swift` before adding more desktop behavior.
 2. Continue pulling pure workflow planning out of `WorkspaceModel` before adding new Codex-parity commands.
 3. Keep splitting remaining workspace surface assembly into single-purpose builders when behavior grows.
 4. Keep the parity matrix updated whenever a feature moves from planned to implemented.
@@ -259,3 +260,24 @@ Interface polish changes:
 - Command palette, search, and keyboard shortcut sheets share header, section-title, and empty-state helpers so copy density and spacing stay consistent.
 - Worktree and rename dialogs share labeled-field and frame helpers, keeping field labels, helper text, and text-field hit targets consistent.
 - WorkspaceSwiftUIView now only presents dialogs and routes their completed actions; dialog-specific draft, row, icon, and empty-state rendering is isolated.
+
+## 2026-06-22 Desktop Bootstrap Split Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+The desktop executable no longer keeps app scene setup, menu commands, menu-bar rendering, OAuth loopback handling, browser fetching, notification delivery, and workspace task coordination in one monolithic `main.swift`. `QuillCodeDesktopApp.swift` now owns only scene composition and root-view wiring, while focused desktop files own command registration, menu-bar UI, browser fetches, automation notifications, OAuth callback capture, and controller orchestration.
+
+Code quality changes:
+
+- Deleted the 1,145-line desktop `main.swift` and replaced it with small, named Swift files with clear ownership.
+- Moved native command menu registration into `DesktopCommands.swift`, preserving shortcut registry reuse.
+- Moved menu-bar UI into `QuillCodeMenuBarView.swift`, keeping the app scene free of menu layout details.
+- Moved bounded browser HTML fetching into `DesktopBrowserPageFetcher.swift`.
+- Moved macOS notification delivery behind `QuillCodeAutomationNotifying` in `DesktopAutomationNotifier.swift`.
+- Moved TrustedRouter localhost OAuth callback capture into `TrustedRouterLoopbackCallbackServer.swift`.
+- Updated parity gates to scan the whole desktop source folder so future extraction does not force regressions back into app bootstrap.
+- Removed unnecessary SwiftUI type erasure from native shortcut registration.
+
+Remaining risk:
+
+- `QuillCodeDesktopController.swift` is now the intentional desktop hotspot. Its next split should separate TrustedRouter sign-in, cancellable task coordination, and platform settings actions into focused coordinators before more desktop parity features land.
