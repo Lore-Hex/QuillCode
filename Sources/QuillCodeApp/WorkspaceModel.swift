@@ -1972,7 +1972,7 @@ public final class QuillCodeWorkspaceModel {
             setMode(mode)
             appendLocalCommandTranscript(
                 userText: originalPrompt,
-                assistantText: "Mode set to \(Self.modeLabel(mode)).",
+                assistantText: "Mode set to \(WorkspaceStatusTextBuilder.modeLabel(mode)).",
                 title: "Set mode"
             )
         case .model(let model):
@@ -2208,19 +2208,15 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func statusText() -> String {
-        let project = selectedProject?.name ?? root.topBar.projectName ?? "No project"
-        let thread = selectedThread?.title ?? "No chat"
-        let instructionLabel = Self.instructionStatusLabel(for: selectedProject?.instructions ?? selectedThread?.instructions ?? [])
-        let memoryLabel = Self.memoryStatusLabel(for: selectedThread?.memories ?? memoryNotes(for: root.selectedProjectID))
-        return """
-        Project: \(project)
-        Thread: \(thread)
-        Instructions: \(instructionLabel)
-        Memories: \(memoryLabel)
-        Mode: \(Self.modeLabel(root.topBar.mode))
-        Model: \(root.topBar.model)
-        Agent: \(root.topBar.agentStatus)
-        """
+        WorkspaceStatusTextBuilder.statusText(for: WorkspaceStatusContext(
+            projectName: selectedProject?.name ?? root.topBar.projectName ?? "No project",
+            threadTitle: selectedThread?.title ?? "No chat",
+            instructions: selectedProject?.instructions ?? selectedThread?.instructions ?? [],
+            memories: selectedThread?.memories ?? memoryNotes(for: root.selectedProjectID),
+            mode: root.topBar.mode,
+            model: root.topBar.model,
+            agentStatus: root.topBar.agentStatus
+        ))
     }
 
     private func mutateSelectedThread(_ update: (inout ChatThread) -> Void) {
@@ -2468,18 +2464,6 @@ public final class QuillCodeWorkspaceModel {
         value
             .lowercased()
             .filter { $0.isLetter || $0.isNumber }
-    }
-
-    static func instructionStatusLabel(for instructions: [ProjectInstruction]) -> String {
-        guard !instructions.isEmpty else { return "No project instructions" }
-        let truncated = instructions.contains { $0.wasTruncated } ? ", truncated" : ""
-        return "\(instructions.count) instruction file\(instructions.count == 1 ? "" : "s") loaded\(truncated)"
-    }
-
-    static func memoryStatusLabel(for memories: [MemoryNote]) -> String {
-        guard !memories.isEmpty else { return "No memories" }
-        let truncated = memories.contains { $0.wasTruncated } ? ", truncated" : ""
-        return "\(memories.count) memor\(memories.count == 1 ? "y" : "ies")\(truncated)"
     }
 
     private func knownProjectID(_ id: UUID?) -> UUID? {
