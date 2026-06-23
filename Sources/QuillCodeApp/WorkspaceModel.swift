@@ -158,6 +158,14 @@ public final class QuillCodeWorkspaceModel {
         )
     }
 
+    private var contextResolver: WorkspaceContextResolver {
+        WorkspaceContextResolver(
+            projects: root.projects,
+            globalMemories: root.globalMemories,
+            selectedProject: selectedProject
+        )
+    }
+
     private func project(id: UUID) -> ProjectRef? {
         root.projects.first { $0.id == id }
     }
@@ -523,8 +531,8 @@ public final class QuillCodeWorkspaceModel {
             project: project,
             mode: root.config.mode,
             model: root.config.defaultModel,
-            instructions: instructions(for: projectID),
-            memories: memoryNotes(for: projectID),
+            instructions: contextResolver.instructions(for: projectID),
+            memories: contextResolver.memoryNotes(for: projectID),
             now: now
         )
         return applyAutomationRunDraft(draft)
@@ -658,8 +666,8 @@ public final class QuillCodeWorkspaceModel {
             projectID: effectiveProjectID,
             mode: root.config.mode,
             model: root.config.defaultModel,
-            instructions: instructions(for: effectiveProjectID),
-            memories: memoryNotes(for: effectiveProjectID)
+            instructions: contextResolver.instructions(for: effectiveProjectID),
+            memories: contextResolver.memoryNotes(for: effectiveProjectID)
         ))
         return insertCreatedThread(thread, selectedProjectID: effectiveProjectID, saveThread: false)
     }
@@ -840,8 +848,8 @@ public final class QuillCodeWorkspaceModel {
             refreshProjectMetadata(id)
         }
         if selectedThread?.projectID == id || root.selectedProjectID == id {
-            let refreshedInstructions = instructions(for: id)
-            let refreshedMemories = memoryNotes(for: id)
+            let refreshedInstructions = contextResolver.instructions(for: id)
+            let refreshedMemories = contextResolver.memoryNotes(for: id)
             mutateSelectedThread { thread in
                 guard thread.projectID == id else { return }
                 thread.instructions = refreshedInstructions
@@ -1415,7 +1423,7 @@ public final class QuillCodeWorkspaceModel {
     @discardableResult
     public func runLocalEnvironmentAction(_ actionID: String, workspaceRoot: URL) -> Bool {
         refreshProjectMetadata(root.selectedProjectID)
-        guard let action = localAction(withID: actionID) else {
+        guard let action = contextResolver.selectedLocalAction(withID: actionID) else {
             return false
         }
         runToolCall(
@@ -1473,8 +1481,8 @@ public final class QuillCodeWorkspaceModel {
         }
         let contextProjectID = selectedThread?.projectID ?? root.selectedProjectID
         refreshProjectMetadata(contextProjectID)
-        let refreshedMemories = memoryNotes(for: contextProjectID)
-        let refreshedInstructions = instructions(for: contextProjectID)
+        let refreshedMemories = contextResolver.memoryNotes(for: contextProjectID)
+        let refreshedInstructions = contextResolver.instructions(for: contextProjectID)
         mutateSelectedThread { thread in
             thread.memories = refreshedMemories
             thread.instructions = refreshedInstructions
@@ -1667,8 +1675,8 @@ public final class QuillCodeWorkspaceModel {
             projectID: projectID,
             mode: root.config.mode,
             model: root.config.defaultModel,
-            instructions: instructions(for: projectID),
-            memories: memoryNotes(for: projectID)
+            instructions: contextResolver.instructions(for: projectID),
+            memories: contextResolver.memoryNotes(for: projectID)
         )
     }
 
@@ -1835,7 +1843,7 @@ public final class QuillCodeWorkspaceModel {
             return
         }
 
-        guard let action = localAction(matching: query) else {
+        guard let action = contextResolver.selectedLocalAction(matching: query) else {
             appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.environmentActionNotFound(
                 userText: originalPrompt,
                 query: query
@@ -1883,7 +1891,7 @@ public final class QuillCodeWorkspaceModel {
             projectName: selectedProject?.name ?? root.topBar.projectName ?? "No project",
             threadTitle: selectedThread?.title ?? "No chat",
             instructions: selectedProject?.instructions ?? selectedThread?.instructions ?? [],
-            memories: selectedThread?.memories ?? memoryNotes(for: root.selectedProjectID),
+            memories: selectedThread?.memories ?? contextResolver.memoryNotes(for: root.selectedProjectID),
             mode: root.topBar.mode,
             model: root.topBar.model,
             agentStatus: root.topBar.agentStatus
@@ -1967,8 +1975,8 @@ public final class QuillCodeWorkspaceModel {
         let projectID = selectedThread?.projectID ?? root.selectedProjectID
         refreshGlobalMemories()
         refreshProjectMetadata(projectID)
-        let refreshedInstructions = instructions(for: projectID)
-        let refreshedMemories = memoryNotes(for: projectID)
+        let refreshedInstructions = contextResolver.instructions(for: projectID)
+        let refreshedMemories = contextResolver.memoryNotes(for: projectID)
         mutateSelectedThread { thread in
             thread.instructions = refreshedInstructions
             thread.memories = refreshedMemories
@@ -2045,7 +2053,7 @@ public final class QuillCodeWorkspaceModel {
         refreshGlobalMemories()
         let projectID = selectedThread?.projectID ?? root.selectedProjectID
         let update = WorkspaceMemoryContextUpdatePlanner.globalMemoryChanged(
-            memories: memoryNotes(for: projectID),
+            memories: contextResolver.memoryNotes(for: projectID),
             summary: summary,
             relativePath: relativePath
         )
@@ -2058,55 +2066,14 @@ public final class QuillCodeWorkspaceModel {
     private func syncThreadContext(into thread: inout ChatThread) {
         let projectID = thread.projectID ?? root.selectedProjectID
         refreshProjectMetadata(projectID)
-        thread.instructions = instructions(for: projectID)
-        thread.memories = memoryNotes(for: projectID)
+        thread.instructions = contextResolver.instructions(for: projectID)
+        thread.memories = contextResolver.memoryNotes(for: projectID)
     }
 
     private func refreshThreadMemoryContext(_ thread: inout ChatThread) {
         let projectID = thread.projectID ?? root.selectedProjectID
         refreshProjectMetadata(projectID)
-        thread.memories = memoryNotes(for: projectID)
-    }
-
-    private func instructions(for projectID: UUID?) -> [ProjectInstruction] {
-        guard let projectID,
-              let project = root.projects.first(where: { $0.id == projectID })
-        else {
-            return []
-        }
-        return project.instructions
-    }
-
-    private func memoryNotes(for projectID: UUID?) -> [MemoryNote] {
-        let projectMemories: [MemoryNote]
-        if let projectID,
-           let project = root.projects.first(where: { $0.id == projectID }) {
-            projectMemories = project.memories
-        } else {
-            projectMemories = []
-        }
-        return root.globalMemories + projectMemories
-    }
-
-    private func localAction(withID id: String) -> LocalEnvironmentAction? {
-        selectedProject?.localActions.first { $0.id == id }
-    }
-
-    private func localAction(matching query: String) -> LocalEnvironmentAction? {
-        let normalizedQuery = Self.normalizedActionName(query)
-        return selectedProject?.localActions.first { action in
-            action.id.caseInsensitiveCompare(query) == .orderedSame
-                || action.title.caseInsensitiveCompare(query) == .orderedSame
-                || action.relativePath.caseInsensitiveCompare(query) == .orderedSame
-                || Self.normalizedActionName(action.title) == normalizedQuery
-                || Self.normalizedActionName(action.relativePath) == normalizedQuery
-        }
-    }
-
-    private static func normalizedActionName(_ value: String) -> String {
-        value
-            .lowercased()
-            .filter { $0.isLetter || $0.isNumber }
+        thread.memories = contextResolver.memoryNotes(for: projectID)
     }
 
     private func knownProjectID(_ id: UUID?) -> UUID? {
