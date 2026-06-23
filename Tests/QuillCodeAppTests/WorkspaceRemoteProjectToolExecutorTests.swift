@@ -110,6 +110,41 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertTrue(request.extractsPullRequestURLs)
     }
 
+    func testRemoteGitBasicBuilderBuildsCommonCommands() throws {
+        XCTAssertEqual(
+            try remoteBasicGitCommand(name: ToolDefinition.gitStatus.name, arguments: [:]),
+            "git status --short --branch"
+        )
+        XCTAssertEqual(
+            try remoteBasicGitCommand(name: ToolDefinition.gitDiff.name, arguments: ["staged": true]),
+            "git diff --staged"
+        )
+        XCTAssertEqual(
+            try remoteBasicGitCommand(name: ToolDefinition.gitStage.name, arguments: ["path": "notes/plan.txt"]),
+            "git add -- 'notes/plan.txt'"
+        )
+        XCTAssertEqual(
+            try remoteBasicGitCommand(name: ToolDefinition.gitRestore.name, arguments: [
+                "path": "notes/plan.txt",
+                "staged": true
+            ]),
+            "git restore --staged -- 'notes/plan.txt'"
+        )
+        XCTAssertEqual(
+            try remoteBasicGitCommand(name: ToolDefinition.gitCommit.name, arguments: ["message": " Ship it "]),
+            "git commit -m 'Ship it'"
+        )
+    }
+
+    func testRemoteGitBasicBuilderRejectsUnsafeInputs() {
+        XCTAssertThrowsError(
+            try remoteBasicGitCommand(name: ToolDefinition.gitStage.name, arguments: ["path": "../outside.txt"])
+        )
+        XCTAssertThrowsError(
+            try remoteBasicGitCommand(name: ToolDefinition.gitCommit.name, arguments: ["message": "  \n"])
+        )
+    }
+
     func testRemoteGitHubPullRequestBuilderBuildsReviewAndMergeCommands() throws {
         let reviewCommand = try remotePullRequestCommand(
             name: ToolDefinition.gitPullRequestReview.name,
@@ -335,6 +370,15 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertEqual(
             result.error,
             "Tool is not available for SSH Remote projects: \(ToolDefinition.browserInspect.name)"
+        )
+    }
+
+    private func remoteBasicGitCommand(name: String, arguments: [String: Any]) throws -> String {
+        let argumentsJSON = ToolArguments.json(arguments)
+        let call = ToolCall(name: name, argumentsJSON: argumentsJSON)
+        return try WorkspaceRemoteGitBasicCommandBuilder.command(
+            for: call,
+            arguments: try ToolArguments(argumentsJSON)
         )
     }
 
