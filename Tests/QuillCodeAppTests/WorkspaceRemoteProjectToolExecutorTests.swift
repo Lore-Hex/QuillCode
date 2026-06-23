@@ -237,6 +237,21 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertFalse(request.extractsPullRequestURLs)
     }
 
+    func testRemoteGitPushBuilderBuildsExplicitAndCurrentBranchCommands() throws {
+        let explicitCommand = try remotePushCommand(arguments: [
+            "remote": "origin",
+            "branch": "codex/ship",
+            "setUpstream": true
+        ])
+        XCTAssertEqual(explicitCommand, "git push -u 'origin' 'codex/ship'")
+
+        let currentBranchCommand = try remotePushCommand(arguments: [:])
+        XCTAssertTrue(currentBranchCommand.contains("branch=$(git branch --show-current)"), currentBranchCommand)
+        XCTAssertTrue(currentBranchCommand.contains("test -n \"$branch\""), currentBranchCommand)
+        XCTAssertTrue(currentBranchCommand.contains("case \"$branch\" in -*|*..*|*[!\(GitInputValidator.safeNameCharacters)]*)"), currentBranchCommand)
+        XCTAssertTrue(currentBranchCommand.contains("git push 'origin' \"$branch\""), currentBranchCommand)
+    }
+
     func testRemoteGitHunkBuilderBuildsRestoreCommandAndRejectsEmptyPatch() throws {
         let patch = """
         diff --git a/hello.txt b/hello.txt
@@ -350,6 +365,11 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
             for: ToolCall(name: name, argumentsJSON: argumentsJSON),
             arguments: try ToolArguments(argumentsJSON)
         )
+    }
+
+    private func remotePushCommand(arguments: [String: Any]) throws -> String {
+        let argumentsJSON = ToolArguments.json(arguments)
+        return try WorkspaceRemoteGitPushCommandBuilder.command(arguments: try ToolArguments(argumentsJSON))
     }
 
     private func remoteProject(path: String) -> ProjectRef {
