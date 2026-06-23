@@ -1,4 +1,3 @@
-import AppKit
 import Foundation
 import SwiftUI
 import QuillCodeApp
@@ -26,6 +25,7 @@ final class QuillCodeDesktopController: ObservableObject {
     private let signInCoordinator: QuillCodeDesktopSignInCoordinator
     private let settingsCoordinator: QuillCodeDesktopSettingsCoordinator
     private let systemSettingsOpener: MacSystemSettingsOpener
+    private let copyCoordinator: QuillCodeDesktopCopyCoordinator
     private let tasks = QuillCodeDesktopTaskCoordinator()
 
     init(
@@ -41,6 +41,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.signInCoordinator = QuillCodeDesktopSignInCoordinator(bootstrap: bootstrap)
         self.settingsCoordinator = QuillCodeDesktopSettingsCoordinator(bootstrap: bootstrap)
         self.systemSettingsOpener = MacSystemSettingsOpener()
+        self.copyCoordinator = QuillCodeDesktopCopyCoordinator()
         do {
             self.model = try bootstrap.makeModel()
         } catch {
@@ -316,13 +317,10 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func copyTranscriptItem(id: String, text: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-        copiedTranscriptItemID = id
+        guard let feedback = copyCoordinator.copyTranscriptItem(id: id, text: text) else { return }
+        copiedTranscriptItemID = feedback.copiedTranscriptItemID
         Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            try? await Task.sleep(nanoseconds: feedback.clearAfterNanoseconds)
             await MainActor.run {
                 if self?.copiedTranscriptItemID == id {
                     self?.copiedTranscriptItemID = nil
