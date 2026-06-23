@@ -1228,3 +1228,21 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModel` still owns several broad orchestration clusters around command execution, tool overrides, and local environment actions. The next quality pass should keep extracting one small actor-safe value boundary at a time instead of doing a large model rewrite.
+
+## 2026-06-23 Workspace Command Action Planner Pass
+
+Overall grade after this slice: **A- foundation, A command-action boundary**.
+
+Workspace command action routing moved out of `WorkspaceModel` into `WorkspaceCommandActionPlanner`. The model still owns actor-bound side effects such as terminal/browser mutations, draft updates, persistence, project refresh, and thread lifecycle calls, but it no longer switches over selected project/thread preconditions or constructs rename drafts inline.
+
+Code quality changes:
+
+- Added `WorkspaceCommandActionEffect` as a typed boundary between command IDs and workspace mutations.
+- Added `WorkspaceCommandActionPlanner` for context-free commands, selected project/thread action routing, rename draft copy, and sidebar bulk command mapping.
+- Preserved no-op behavior when a command depends on missing selected project/thread context.
+- Added direct planner tests for context-free commands, project actions, thread actions, and sidebar bulk effects.
+- Added a parity gate so selected-state command routing and draft construction do not drift back into `WorkspaceModel`.
+
+Remaining risk:
+
+- `WorkspaceModel` still executes the typed effects directly because those effects are actor-bound and touch persistence, thread stores, top-bar refresh, terminal state, and browser state. If effect execution grows, split it into a tiny executor that returns persistence intents instead of moving planner logic back into the model.

@@ -246,6 +246,22 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("Unknown slash command"), "WorkspaceModel should not own unknown slash command copy.")
     }
 
+    func testWorkspaceModelDelegatesCommandActionPlanning() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let plannerText = try Self.appSourceText(named: "WorkspaceCommandActionPlanner.swift")
+
+        XCTAssertTrue(plannerText.contains("enum WorkspaceCommandActionEffect"), "Workspace command action effects should live beside the focused planner.")
+        XCTAssertTrue(plannerText.contains("struct WorkspaceCommandActionPlanner"), "Workspace command action routing should live in a focused planner.")
+        XCTAssertTrue(plannerText.contains("func effect(for action: WorkspaceCommandAction)"), "Command action routing should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceCommandActionPlanner("), "WorkspaceModel should delegate command action planning.")
+        XCTAssertTrue(modelText.contains("runWorkspaceCommandActionEffect"), "WorkspaceModel should execute typed command action effects after planning.")
+        XCTAssertFalse(modelText.contains("case .projectNewChat:"), "WorkspaceModel should not inline project command action routing.")
+        XCTAssertFalse(modelText.contains("case .projectRename:"), "WorkspaceModel should not inline project rename draft routing.")
+        XCTAssertFalse(modelText.contains("case .threadBulkArchive:"), "WorkspaceModel should not inline sidebar bulk command routing.")
+        XCTAssertFalse(modelText.contains("setDraft(\"/project rename"), "WorkspaceModel should not build project rename drafts inline.")
+        XCTAssertFalse(modelText.contains("setDraft(\"/rename"), "WorkspaceModel should not build thread rename drafts inline.")
+    }
+
     func testTopBarViewsDelegateStatusPresentationSemantics() throws {
         let topBarViewText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
         let htmlRendererText = try Self.appSourceText(named: "WorkspaceHTMLTopBarRenderer.swift")
