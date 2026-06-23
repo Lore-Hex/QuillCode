@@ -1,6 +1,7 @@
 import Foundation
 import XCTest
 import QuillCodeCore
+import QuillCodeTools
 @testable import QuillCodeApp
 
 final class WorkspaceTerminalEngineTests: XCTestCase {
@@ -146,6 +147,111 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
         XCTAssertEqual(terminal.entries[1].status, .done)
     }
 
+    func testTerminalRunLifecycleBeginsRunAndRejectsInvalidStarts() {
+        var terminal = TerminalState(draft: "  printf ok  ")
+        let command = WorkspaceTerminalEngine.normalizedCommand(terminal.draft)
+
+        XCTAssertEqual(command, "printf ok")
+        XCTAssertTrue(WorkspaceTerminalEngine.canBeginRun(command: command, terminal: terminal))
+        XCTAssertFalse(WorkspaceTerminalEngine.canBeginRun(command: "", terminal: terminal))
+
+        let entryID = UUID()
+        WorkspaceTerminalEngine.beginRun(command: command, entryID: entryID, terminal: &terminal)
+
+        XCTAssertEqual(terminal.draft, "")
+        XCTAssertTrue(terminal.isVisible)
+        XCTAssertTrue(terminal.isRunning)
+        XCTAssertFalse(WorkspaceTerminalEngine.canBeginRun(command: "pwd", terminal: terminal))
+        XCTAssertEqual(terminal.entries.count, 1)
+        XCTAssertEqual(terminal.entries[0].id, entryID)
+        XCTAssertEqual(terminal.entries[0].command, "printf ok")
+        XCTAssertEqual(terminal.entries[0].status, .running)
+    }
+
+    func testTerminalRunLifecycleHandlesMissingContextAndStreamingEvents() {
+        let entryID = UUID()
+        var terminal = TerminalState()
+        WorkspaceTerminalEngine.beginRun(command: "printf ok", entryID: entryID, terminal: &terminal)
+
+        XCTAssertNil(WorkspaceTerminalEngine.applyStreamingEvent(
+            .stdout("out"),
+            id: entryID,
+            terminal: &terminal
+        ))
+        XCTAssertNil(WorkspaceTerminalEngine.applyStreamingEvent(
+            .stderr("err"),
+            id: entryID,
+            terminal: &terminal
+        ))
+        let result = ToolResult(ok: true, stdout: "done", exitCode: 0)
+        let returned = WorkspaceTerminalEngine.applyStreamingEvent(
+            .finished(result),
+            id: entryID,
+            terminal: &terminal
+        )
+
+        XCTAssertEqual(returned?.stdout, "done")
+        XCTAssertEqual(terminal.entries[0].stdout, "out")
+        XCTAssertEqual(terminal.entries[0].stderr, "err")
+
+        WorkspaceTerminalEngine.failMissingExecutionContext(id: entryID, terminal: &terminal)
+
+        XCTAssertFalse(terminal.isRunning)
+        XCTAssertEqual(terminal.entries[0].status, .failed)
+        XCTAssertEqual(terminal.entries[0].stderr, WorkspaceTerminalEngine.missingRemoteHostMessage)
+    }
+
+    func testTerminalRunLifecycleCompletesAndCancelsWithMarkerCleanup() throws {
+        let root = try temporaryDirectory()
+        let context = WorkspaceTerminalEngine.localExecutionContext(
+            command: "pwd",
+            workingDirectory: root,
+            environment: ProcessInfo.processInfo.environment,
+            executionContext: .local(path: root.path)
+        )
+        try root.path.write(to: try XCTUnwrap(context.cwdMarkerURL), atomically: true, encoding: .utf8)
+
+        let completedID = UUID()
+        var completed = TerminalState()
+        WorkspaceTerminalEngine.beginRun(command: "pwd", entryID: completedID, terminal: &completed)
+        WorkspaceTerminalEngine.finishCompletedRun(
+            id: completedID,
+            executionContext: context,
+            result: ToolResult(ok: true, stdout: "out", exitCode: 0),
+            terminal: &completed
+        )
+
+        XCTAssertFalse(completed.isRunning)
+        XCTAssertEqual(completed.entries[0].status, .done)
+        XCTAssertEqual(completed.entries[0].stdout, "out")
+        XCTAssertEqual(completed.entries[0].exitCode, 0)
+        XCTAssertEqual(completed.currentDirectoryPath, root.standardizedFileURL.path)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: try XCTUnwrap(context.cwdMarkerURL).path))
+
+        let cancelledID = UUID()
+        let cancelledContext = WorkspaceTerminalEngine.localExecutionContext(
+            command: "sleep 5",
+            workingDirectory: root,
+            environment: [:],
+            executionContext: .local(path: root.path)
+        )
+        if let marker = cancelledContext.cwdMarkerURL {
+            FileManager.default.createFile(atPath: marker.path, contents: Data())
+        }
+        var cancelled = TerminalState()
+        WorkspaceTerminalEngine.beginRun(command: "sleep 5", entryID: cancelledID, terminal: &cancelled)
+        WorkspaceTerminalEngine.finishCancelledRun(
+            id: cancelledID,
+            executionContext: cancelledContext,
+            terminal: &cancelled
+        )
+
+        XCTAssertFalse(cancelled.isRunning)
+        XCTAssertEqual(cancelled.entries[0].status, .stopped)
+        XCTAssertEqual(cancelled.entries[0].stderr, WorkspaceTerminalEngine.stoppedMessage)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: try XCTUnwrap(cancelledContext.cwdMarkerURL).path))
+    }
+
     func testLocalExecutionContextWrapsCommandAndMarkers() {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let context = WorkspaceTerminalEngine.localExecutionContext(
@@ -262,5 +368,12 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
             data.append(0)
         }
         return data
+    }
+
+    private func temporaryDirectory() throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-terminal-tests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
     }
 }

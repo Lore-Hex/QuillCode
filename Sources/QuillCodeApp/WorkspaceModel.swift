@@ -1540,23 +1540,11 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func runTerminalCommand(_ input: String, workspaceRoot: URL) async {
-        let command = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !command.isEmpty, !terminal.isRunning else { return }
+        let command = WorkspaceTerminalEngine.normalizedCommand(input)
+        guard WorkspaceTerminalEngine.canBeginRun(command: command, terminal: terminal) else { return }
         syncTerminalSessionToSelectedProject()
 
-        let entryID = UUID()
-        terminal.draft = ""
-        terminal.isVisible = true
-        terminal.isRunning = true
-        terminal.entries.append(TerminalCommandState(
-            id: entryID,
-            command: command,
-            stdout: "",
-            stderr: "",
-            exitCode: nil,
-            ok: false,
-            status: .running
-        ))
+        let entryID = WorkspaceTerminalEngine.beginRun(command: command, terminal: &terminal)
         lastError = nil
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.terminal)
 
@@ -1568,16 +1556,7 @@ public final class QuillCodeWorkspaceModel {
             workspaceRoot: workspaceRoot,
             sshRemoteShellExecutor: sshRemoteShellExecutor
         ) else {
-            WorkspaceTerminalEngine.finishEntry(
-                id: entryID,
-                stdout: "",
-                stderr: "SSH Remote project is missing a usable host.",
-                exitCode: nil,
-                ok: false,
-                status: .failed,
-                terminal: &terminal
-            )
-            terminal.isRunning = false
+            WorkspaceTerminalEngine.failMissingExecutionContext(id: entryID, terminal: &terminal)
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.failed)
             return
         }
@@ -1589,58 +1568,36 @@ public final class QuillCodeWorkspaceModel {
 
         var finalResult: ToolResult?
         for await event in ShellToolExecutor().runStreaming(executionContext.request) {
-            if Task.isCancelled || terminal.entries.first(where: { $0.id == entryID })?.status == .stopped {
+            if Task.isCancelled || WorkspaceTerminalEngine.entryIsStopped(id: entryID, terminal: terminal) {
                 break
             }
-            switch event {
-            case .stdout(let text):
-                WorkspaceTerminalEngine.appendOutput(id: entryID, stdout: text, terminal: &terminal)
-            case .stderr(let text):
-                WorkspaceTerminalEngine.appendOutput(id: entryID, stderr: text, terminal: &terminal)
-            case .finished(let result):
+            if let result = WorkspaceTerminalEngine.applyStreamingEvent(event, id: entryID, terminal: &terminal) {
                 finalResult = result
             }
         }
 
-        if terminal.entries.first(where: { $0.id == entryID })?.status == .stopped {
-            WorkspaceTerminalEngine.removeMarkers(executionContext.markerURLs)
-            terminal.isRunning = false
+        if WorkspaceTerminalEngine.entryIsStopped(id: entryID, terminal: terminal) {
+            WorkspaceTerminalEngine.finishStoppedRun(executionContext: executionContext, terminal: &terminal)
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.stopped)
             return
         }
         guard !Task.isCancelled, let result = finalResult else {
-            WorkspaceTerminalEngine.removeMarkers(executionContext.markerURLs)
-            WorkspaceTerminalEngine.finishEntry(
+            WorkspaceTerminalEngine.finishCancelledRun(
                 id: entryID,
-                stdout: "",
-                stderr: "Command stopped.",
-                exitCode: nil,
-                ok: false,
-                status: .stopped,
+                executionContext: executionContext,
                 terminal: &terminal
             )
-            terminal.isRunning = false
             lastError = nil
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.stopped)
             return
         }
 
-        let terminalResult = WorkspaceTerminalEngine.sessionResult(for: executionContext, stdout: result.stdout)
-        terminal.currentDirectoryPath = terminalResult.currentDirectoryPath
-        if let environmentDelta = terminalResult.environmentDelta {
-            terminal.environmentOverrides = environmentDelta.overrides
-            terminal.removedEnvironmentKeys = environmentDelta.removedKeys
-        }
-        WorkspaceTerminalEngine.finishEntry(
+        WorkspaceTerminalEngine.finishCompletedRun(
             id: entryID,
-            stdout: terminalResult.stdout,
-            stderr: result.stderr,
-            exitCode: result.exitCode,
-            ok: result.ok,
-            status: result.ok ? .done : .failed,
+            executionContext: executionContext,
+            result: result,
             terminal: &terminal
         )
-        terminal.isRunning = false
         let status = result.ok ? TopBarAgentStatusLabel.idle : TopBarAgentStatusLabel.failed
         refreshTopBar(agentStatus: status)
     }
