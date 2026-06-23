@@ -160,6 +160,19 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(surfaceText.contains("GitDiffReviewParser.parse"), "WorkspaceSurface should not parse git diffs directly.")
     }
 
+    func testWorkspaceSurfaceDelegatesContextBannerBuilding() throws {
+        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceContextBannerBuilder.swift")
+
+        XCTAssertTrue(builderText.contains("struct WorkspaceContextBannerBuilder"), "Context banner construction should live in a focused builder.")
+        XCTAssertTrue(builderText.contains("func banner() -> ContextBannerSurface?"), "Context banner construction should be directly testable.")
+        XCTAssertTrue(builderText.contains("estimatedContextTokens"), "Context estimation should be directly testable.")
+        XCTAssertTrue(surfaceText.contains("WorkspaceContextBannerBuilder("), "WorkspaceSurface should delegate context banner construction.")
+        XCTAssertFalse(surfaceText.contains("private func contextBanner("), "WorkspaceSurface should not own context banner construction.")
+        XCTAssertFalse(surfaceText.contains("contextUsedPercent"), "WorkspaceSurface should not own context usage calculation.")
+        XCTAssertFalse(surfaceText.contains("estimatedContextTokens"), "WorkspaceSurface should not own context token estimation.")
+    }
+
     func testDesktopDefinesNativeMenuBarWidget() throws {
         let text = try Self.desktopSourceText()
 

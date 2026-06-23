@@ -16,7 +16,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `QuillCodeSafety` | A- | Small, explicit policy layer. Needs more production prompt telemetry once live Auto reviewer tuning begins. |
 | `QuillCodePersistence` | A | Focused stores, compatibility tests, and clear path ownership. |
 | `QuillComputerUseKit` | B+ | Protocol shape is good and macOS adapter is isolated. Linux adapter, app approvals, and visual feedback loops are still parity gaps. |
-| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, command, and review presentation now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
+| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, command, review, and context banner presentation now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
 | Playwright harness | B+ | Valuable parity harness with broad coverage. It intentionally duplicates rendering behavior, so keep it thin and derived from stable surface concepts. |
 
 ## File Hotspots
@@ -25,7 +25,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | --- | --- | --- |
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, browser/MCP surface state, MCP request parsing, MCP runtime/catalog work, and tool-card surface types now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
-| `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but runtime issue classification, model catalog presentation, command palette construction, and review diff construction are now extracted into pure builders. Next step is extracting transcript-derived context estimation if that area grows. |
+| `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but runtime issue classification, model catalog presentation, command palette construction, review diff construction, and context banner estimation are now extracted into pure builders. Next step is watching transcript/timeline projection before adding more parity views. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
 | `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Next split should move pasteboard feedback or project-import routing if those paths grow. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
@@ -44,7 +44,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 1. Keep `QuillCodeDesktopController.swift` to UI/workspace routing; split pasteboard feedback or project-import routing if either path grows.
 2. Continue pulling pure workflow planning and surface builders out of `WorkspaceModel` before adding new Codex-parity commands.
-3. Keep splitting remaining workspace surface assembly into single-purpose builders when behavior grows; transcript-derived context estimation is the next likely candidate.
+3. Keep splitting remaining workspace surface assembly into single-purpose builders when behavior grows; transcript/timeline projection is the next likely candidate if it grows.
 4. If MCP transports expand beyond stdio, add a small launch/session factory protocol before adding new runtime branches.
 5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
 
@@ -451,4 +451,21 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceSurface.swift` still owns context-token estimation for warning banners. That is small today, but should move if context/rate telemetry grows.
+- `WorkspaceSurface.swift` still owned context-token estimation for warning banners after this slice. That should move before context/rate telemetry grows.
+
+## 2026-06-23 Context Banner Builder Pass
+
+Overall grade after this slice: **A- foundation, A- surface boundary**.
+
+Context warning construction moved out of `WorkspaceSurface.swift` into `WorkspaceContextBannerBuilder`. The workspace surface now supplies only the selected thread, while the builder owns empty-thread hiding, context-token estimation, usage percent calculation, warning/full titles, threshold gating, and the New/Fork/Compact command surface.
+
+Code quality changes:
+
+- Extracted context pressure estimation and banner construction into a focused pure builder.
+- Kept `ContextBannerSurface` Codable compatibility unchanged.
+- Added direct tests for warning threshold behavior, full-context titles, hidden nil/empty/short threads, message/event/instruction contribution to estimates, and deterministic custom-budget checks.
+- Extended parity gates so `WorkspaceSurface.swift` cannot regain context banner construction, usage calculation, or context token estimation.
+
+Remaining risk:
+
+- `WorkspaceSurface.swift` is now mostly orchestration over surface builders, but transcript/timeline projection still lives there and should be watched as transcript parity grows.
