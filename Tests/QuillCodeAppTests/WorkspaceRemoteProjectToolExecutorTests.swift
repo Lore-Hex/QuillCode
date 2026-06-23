@@ -110,6 +110,62 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertTrue(request.extractsPullRequestURLs)
     }
 
+    func testRemoteGitHubPullRequestBuilderBuildsReviewAndMergeCommands() throws {
+        let reviewCommand = try remotePullRequestCommand(
+            name: ToolDefinition.gitPullRequestReview.name,
+            arguments: [
+                "selector": "42",
+                "action": "request-changes",
+                "body": "Needs the smoke run first."
+            ]
+        )
+        XCTAssertEqual(
+            reviewCommand,
+            "'gh' 'pr' 'review' '42' '--request-changes' '--body' 'Needs the smoke run first.'"
+        )
+
+        let mergeCommand = try remotePullRequestCommand(
+            name: ToolDefinition.gitPullRequestMerge.name,
+            arguments: [
+                "selector": "42",
+                "method": "rebase",
+                "auto": true,
+                "deleteBranch": true
+            ]
+        )
+        XCTAssertEqual(mergeCommand, "'gh' 'pr' 'merge' '42' '--rebase' '--auto' '--delete-branch'")
+    }
+
+    func testRemoteGitHubPullRequestBuilderUsesSharedValidation() {
+        XCTAssertThrowsError(
+            try remotePullRequestCommand(
+                name: ToolDefinition.gitPullRequestView.name,
+                arguments: ["selector": "--bad"]
+            )
+        )
+
+        XCTAssertThrowsError(
+            try remotePullRequestCommand(
+                name: ToolDefinition.gitPullRequestComment.name,
+                arguments: ["body": "   "]
+            )
+        )
+    }
+
+    func testRemoteGitPlannerBuildsPullRequestChecksWithoutURLExtraction() throws {
+        let request = try WorkspaceRemoteGitToolRequestPlanner.request(
+            for: ToolCall(
+                name: ToolDefinition.gitPullRequestChecks.name,
+                argumentsJSON: ToolArguments.json(["selector": "42"])
+            ),
+            connection: remoteProject(path: "/srv/quill").connection
+        )
+
+        XCTAssertEqual(request.command, "'gh' 'pr' 'checks' '42'")
+        XCTAssertEqual(request.artifacts, [])
+        XCTAssertFalse(request.extractsPullRequestURLs)
+    }
+
     func testRemoteGitPlannerBuildsWorktreeCreateRequestWithArtifact() throws {
         let request = try WorkspaceRemoteGitToolRequestPlanner.request(
             for: ToolCall(
@@ -210,6 +266,14 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertEqual(
             result.error,
             "Tool is not available for SSH Remote projects: \(ToolDefinition.browserInspect.name)"
+        )
+    }
+
+    private func remotePullRequestCommand(name: String, arguments: [String: Any]) throws -> String {
+        let argumentsJSON = ToolArguments.json(arguments)
+        return try WorkspaceRemoteGitHubPullRequestCommandBuilder.command(
+            for: ToolCall(name: name, argumentsJSON: argumentsJSON),
+            arguments: try ToolArguments(argumentsJSON)
         )
     }
 

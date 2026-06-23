@@ -10,18 +10,6 @@ struct WorkspaceRemoteGitToolRequest: Sendable, Hashable {
 }
 
 enum WorkspaceRemoteGitToolRequestPlanner {
-    static let pullRequestURLToolNames: Set<String> = [
-        ToolDefinition.gitPullRequestCreate.name,
-        ToolDefinition.gitPullRequestView.name,
-        ToolDefinition.gitPullRequestDiff.name,
-        ToolDefinition.gitPullRequestCheckout.name,
-        ToolDefinition.gitPullRequestReviewers.name,
-        ToolDefinition.gitPullRequestLabels.name,
-        ToolDefinition.gitPullRequestComment.name,
-        ToolDefinition.gitPullRequestReview.name,
-        ToolDefinition.gitPullRequestMerge.name
-    ]
-
     static func request(
         for call: ToolCall,
         connection: ProjectConnection
@@ -68,56 +56,8 @@ enum WorkspaceRemoteGitToolRequestPlanner {
                 branch: args.string("branch"),
                 setUpstream: args.bool("setUpstream") ?? false
             )
-        case ToolDefinition.gitPullRequestCreate.name:
-            command = try remoteGitPullRequestCommand(
-                title: args.string("title"),
-                body: args.string("body"),
-                base: args.string("base"),
-                head: args.string("head"),
-                draft: args.bool("draft") ?? false,
-                fill: args.bool("fill") ?? false
-            )
-        case ToolDefinition.gitPullRequestView.name:
-            command = try remoteGitPullRequestViewCommand(selector: args.string("selector"))
-        case ToolDefinition.gitPullRequestChecks.name:
-            command = try remoteGitPullRequestChecksCommand(selector: args.string("selector"))
-        case ToolDefinition.gitPullRequestDiff.name:
-            command = try remoteGitPullRequestDiffCommand(selector: args.string("selector"))
-        case ToolDefinition.gitPullRequestCheckout.name:
-            command = try remoteGitPullRequestCheckoutCommand(
-                selector: args.string("selector"),
-                branch: args.string("branch")
-            )
-        case ToolDefinition.gitPullRequestReviewers.name:
-            command = try remoteGitPullRequestReviewersCommand(
-                selector: args.string("selector"),
-                add: args.stringArray("add"),
-                remove: args.stringArray("remove")
-            )
-        case ToolDefinition.gitPullRequestLabels.name:
-            command = try remoteGitPullRequestLabelsCommand(
-                selector: args.string("selector"),
-                add: args.stringArray("add"),
-                remove: args.stringArray("remove")
-            )
-        case ToolDefinition.gitPullRequestComment.name:
-            command = try remoteGitPullRequestCommentCommand(
-                selector: args.string("selector"),
-                body: try args.requiredString("body")
-            )
-        case ToolDefinition.gitPullRequestReview.name:
-            command = try remoteGitPullRequestReviewCommand(
-                selector: args.string("selector"),
-                action: try args.requiredString("action"),
-                body: args.string("body")
-            )
-        case ToolDefinition.gitPullRequestMerge.name:
-            command = try remoteGitPullRequestMergeCommand(
-                selector: args.string("selector"),
-                method: args.string("method"),
-                auto: args.bool("auto") ?? false,
-                deleteBranch: args.bool("deleteBranch") ?? false
-            )
+        case let name where WorkspaceRemoteGitHubPullRequestCommandBuilder.toolNames.contains(name):
+            command = try WorkspaceRemoteGitHubPullRequestCommandBuilder.command(for: call, arguments: args)
         case ToolDefinition.gitWorktreeList.name:
             command = "git worktree list --porcelain"
         case ToolDefinition.gitWorktreeCreate.name:
@@ -147,7 +87,7 @@ enum WorkspaceRemoteGitToolRequestPlanner {
         return WorkspaceRemoteGitToolRequest(
             command: command,
             artifacts: artifacts,
-            extractsPullRequestURLs: pullRequestURLToolNames.contains(call.name)
+            extractsPullRequestURLs: WorkspaceRemoteGitHubPullRequestCommandBuilder.extractsURLs(for: call.name)
         )
     }
 
@@ -172,183 +112,6 @@ enum WorkspaceRemoteGitToolRequestPlanner {
             "case \"$branch\" in -*|*..*|*[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._/-]*) printf '%s\\n' \(invalidBranchMessage) >&2; exit 1;; esac",
             "git push \(upstreamArguments)\(shellSingleQuoted(remoteName)) \"$branch\""
         ].joined(separator: " && ")
-    }
-
-    private static func remoteGitPullRequestCommand(
-        title: String?,
-        body: String?,
-        base: String?,
-        head: String?,
-        draft: Bool,
-        fill: Bool
-    ) throws -> String {
-        let trimmedTitle = GitInputValidator.trimmedNonEmpty(title)
-        guard fill || trimmedTitle != nil else {
-            throw GitToolError.emptyPullRequestTitle
-        }
-
-        var arguments = ["gh", "pr", "create"]
-        if let trimmedTitle {
-            arguments += ["--title", trimmedTitle]
-        }
-        if let body = GitInputValidator.trimmedNonEmpty(body) {
-            arguments += ["--body", body]
-        }
-        if let base = GitInputValidator.trimmedNonEmpty(base) {
-            arguments += ["--base", try GitInputValidator.safeName(base)]
-        }
-        if let head = GitInputValidator.trimmedNonEmpty(head) {
-            arguments += ["--head", try GitInputValidator.safeName(head)]
-        }
-        if draft {
-            arguments.append("--draft")
-        }
-        if fill {
-            arguments.append("--fill")
-        }
-        return arguments.map(shellSingleQuoted).joined(separator: " ")
-    }
-
-    private static func remoteGitPullRequestViewCommand(selector: String?) throws -> String {
-        var arguments = ["gh", "pr", "view"]
-        if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
-            arguments.append(selector)
-        }
-        arguments.append("--comments")
-        return arguments.map(shellSingleQuoted).joined(separator: " ")
-    }
-
-    private static func remoteGitPullRequestChecksCommand(selector: String?) throws -> String {
-        var arguments = ["gh", "pr", "checks"]
-        if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
-            arguments.append(selector)
-        }
-        return arguments.map(shellSingleQuoted).joined(separator: " ")
-    }
-
-    private static func remoteGitPullRequestDiffCommand(selector: String?) throws -> String {
-        var arguments = ["gh", "pr", "diff"]
-        if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
-            arguments.append(selector)
-        }
-        return arguments.map(shellSingleQuoted).joined(separator: " ")
-    }
-
-    private static func remoteGitPullRequestCheckoutCommand(selector: String?, branch: String?) throws -> String {
-        var arguments = ["gh", "pr", "checkout"]
-        if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
-            arguments.append(selector)
-        }
-        if let branch = GitInputValidator.trimmedNonEmpty(branch) {
-            arguments += ["--branch", try GitInputValidator.safeName(branch)]
-        }
-        return arguments.map(shellSingleQuoted).joined(separator: " ")
-    }
-
-    private static func remoteGitPullRequestReviewersCommand(
-        selector: String?,
-        add: [String]?,
-        remove: [String]?
-    ) throws -> String {
-        let reviewersToAdd = try GitHubPullRequestInputValidator.safeReviewers(add)
-        let reviewersToRemove = try GitHubPullRequestInputValidator.safeReviewers(remove)
-        guard !reviewersToAdd.isEmpty || !reviewersToRemove.isEmpty else {
-            throw GitToolError.emptyPullRequestReviewers
-        }
-
-        var arguments = ["gh", "pr", "edit"]
-        if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
-            arguments.append(selector)
-        }
-        if !reviewersToAdd.isEmpty {
-            arguments += ["--add-reviewer", reviewersToAdd.joined(separator: ",")]
-        }
-        if !reviewersToRemove.isEmpty {
-            arguments += ["--remove-reviewer", reviewersToRemove.joined(separator: ",")]
-        }
-        return arguments.map(shellSingleQuoted).joined(separator: " ")
-    }
-
-    private static func remoteGitPullRequestLabelsCommand(
-        selector: String?,
-        add: [String]?,
-        remove: [String]?
-    ) throws -> String {
-        let labelsToAdd = try GitHubPullRequestInputValidator.safeLabels(add)
-        let labelsToRemove = try GitHubPullRequestInputValidator.safeLabels(remove)
-        guard !labelsToAdd.isEmpty || !labelsToRemove.isEmpty else {
-            throw GitToolError.emptyPullRequestLabels
-        }
-
-        var arguments = ["gh", "pr", "edit"]
-        if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
-            arguments.append(selector)
-        }
-        if !labelsToAdd.isEmpty {
-            arguments += ["--add-label", labelsToAdd.joined(separator: ",")]
-        }
-        if !labelsToRemove.isEmpty {
-            arguments += ["--remove-label", labelsToRemove.joined(separator: ",")]
-        }
-        return arguments.map(shellSingleQuoted).joined(separator: " ")
-    }
-
-    private static func remoteGitPullRequestCommentCommand(
-        selector: String?,
-        body: String
-    ) throws -> String {
-        guard let body = GitInputValidator.trimmedNonEmpty(body) else {
-            throw GitToolError.emptyPullRequestComment
-        }
-
-        var arguments = ["gh", "pr", "comment"]
-        if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
-            arguments.append(selector)
-        }
-        arguments += ["--body", body]
-        return arguments.map(shellSingleQuoted).joined(separator: " ")
-    }
-
-    private static func remoteGitPullRequestReviewCommand(
-        selector: String?,
-        action: String,
-        body: String?
-    ) throws -> String {
-        let flag = try GitHubPullRequestInputValidator.safeReviewFlag(action)
-        let body = GitInputValidator.trimmedNonEmpty(body)
-        guard flag == "--approve" || body != nil else {
-            throw GitToolError.emptyPullRequestReviewBody
-        }
-
-        var arguments = ["gh", "pr", "review"]
-        if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
-            arguments.append(selector)
-        }
-        arguments.append(flag)
-        if let body {
-            arguments += ["--body", body]
-        }
-        return arguments.map(shellSingleQuoted).joined(separator: " ")
-    }
-
-    private static func remoteGitPullRequestMergeCommand(
-        selector: String?,
-        method: String?,
-        auto: Bool,
-        deleteBranch: Bool
-    ) throws -> String {
-        var arguments = ["gh", "pr", "merge"]
-        if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
-            arguments.append(selector)
-        }
-        arguments.append(try GitHubPullRequestInputValidator.safeMergeFlag(method))
-        if auto {
-            arguments.append("--auto")
-        }
-        if deleteBranch {
-            arguments.append("--delete-branch")
-        }
-        return arguments.map(shellSingleQuoted).joined(separator: " ")
     }
 
     private static func remoteGitWorktreeCreateCommand(
@@ -418,7 +181,7 @@ enum WorkspaceRemoteGitToolRequestPlanner {
     }
 }
 
-private enum WorkspaceRemoteGitToolRequestPlannerError: Error, CustomStringConvertible {
+enum WorkspaceRemoteGitToolRequestPlannerError: Error, CustomStringConvertible {
     case unsupportedTool(String)
 
     var description: String {

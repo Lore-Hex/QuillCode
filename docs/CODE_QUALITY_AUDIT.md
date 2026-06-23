@@ -1957,6 +1957,23 @@ Remaining risk:
 - `GitToolExecutor` still exposes compatibility wrappers for older call sites. They are now simple delegates, but new code should use `GitInputValidator`, `GitHubPullRequestInputValidator`, or `GitHubPullRequestOutputParser` directly.
 - `GitHubPullRequestToolExecutor` still owns per-operation argument construction. That is the right boundary for now; if GitHub issue/release tools appear, add new focused executors rather than broadening this PR executor.
 
+## 2026-06-23 SSH Remote GitHub PR Builder Split
+
+Overall grade after this slice: **A architecture, A remote PR parity, A regression coverage**.
+
+SSH Remote `gh pr` command construction moved out of `WorkspaceRemoteGitToolRequestPlanner.swift` and into `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`. Before this pass, the generic remote git planner owned local git commands, hunk patch transport, worktree commands, PR URL extraction intent, and every PR-specific `gh` argument assembly path. The planner now routes PR tools to a focused builder while keeping worktree/hunk planning local to the generic remote-git boundary.
+
+Code quality changes:
+
+- Added `WorkspaceRemoteGitHubPullRequestCommandBuilder` for SSH Remote PR create/view/checks/diff/checkout/reviewer/label/comment/review/merge commands.
+- Kept PR URL artifact intent explicit in the builder, including the checks command remaining a PR tool without URL extraction.
+- Reused `GitHubPullRequestInputValidator` and `GitInputValidator` from the remote builder so SSH Remote PR command safety matches local PR execution.
+- Added direct remote PR builder coverage plus a parity gate that prevents `gh pr` argument assembly from drifting back into the generic remote git planner.
+
+Remaining risk:
+
+- `WorkspaceRemoteGitToolRequestPlanner.swift` still owns remote hunk and worktree command assembly. Those boundaries are stable for now, but future transport work should extract them if QuillCloud relay or non-SSH transports need the same command plans.
+
 ## 2026-06-23 Explicit Mode Control Pass
 
 Overall grade after this slice: **A UI hierarchy, A regression coverage, B+ interaction depth**.
