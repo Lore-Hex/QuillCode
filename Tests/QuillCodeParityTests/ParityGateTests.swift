@@ -1417,6 +1417,26 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(executorText.contains("parametersJSON"), "GitToolExecutor should not own JSON schema strings.")
     }
 
+    func testGitLocalExecutionLivesOutsideGitExecutor() throws {
+        let executorText = try Self.toolsSourceText(named: "GitToolExecutor.swift")
+        let localText = try Self.toolsSourceText(named: "GitLocalToolExecutor.swift")
+
+        XCTAssertTrue(localText.contains("public struct GitLocalToolExecutor"), "Local git execution should live in a focused executor.")
+        XCTAssertTrue(localText.contains("func status("), "Local git status should be directly testable.")
+        XCTAssertTrue(localText.contains("func diff("), "Local git diff should be directly testable.")
+        XCTAssertTrue(localText.contains("func stage("), "Local git stage should be directly testable.")
+        XCTAssertTrue(localText.contains("func restore("), "Local git restore should be directly testable.")
+        XCTAssertTrue(localText.contains("func commit("), "Local git commit should be directly testable.")
+        XCTAssertTrue(localText.contains("func push("), "Local git push should be directly testable.")
+        XCTAssertTrue(localText.contains("GitInputValidator.safeRelativePath"), "Local git file actions should use the shared path validator.")
+        XCTAssertTrue(executorText.contains("private let local: GitLocalToolExecutor"), "GitToolExecutor should delegate local git work.")
+        XCTAssertFalse(executorText.contains(#"["add", "--""#), "GitToolExecutor should not build git add arguments inline.")
+        XCTAssertFalse(executorText.contains(#"["restore"]"#), "GitToolExecutor should not build git restore arguments inline.")
+        XCTAssertFalse(executorText.contains(#"["commit", "-m""#), "GitToolExecutor should not build git commit arguments inline.")
+        XCTAssertFalse(executorText.contains(#"["push"]"#), "GitToolExecutor should not build git push arguments inline.")
+        XCTAssertFalse(executorText.contains("currentBranchName"), "GitToolExecutor should not own current-branch lookup.")
+    }
+
     func testGitHubPullRequestExecutionLivesOutsideGitExecutor() throws {
         let executorText = try Self.toolsSourceText(named: "GitToolExecutor.swift")
         let pullRequestText = try Self.toolsSourceText(named: "GitHubPullRequestToolExecutor.swift")
@@ -1472,6 +1492,7 @@ final class ParityGateTests: XCTestCase {
 
     func testGitSharedInputValidationLivesOutsideGitFacade() throws {
         let executorText = try Self.toolsSourceText(named: "GitToolExecutor.swift")
+        let localText = try Self.toolsSourceText(named: "GitLocalToolExecutor.swift")
         let validatorText = try Self.toolsSourceText(named: "GitInputValidator.swift")
         let pullRequestText = try Self.toolsSourceText(named: "GitHubPullRequestToolExecutor.swift")
         let worktreeText = try Self.toolsSourceText(named: "GitWorktreeToolExecutor.swift")
@@ -1481,10 +1502,11 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(validatorText.contains("static func trimmedNonEmpty"), "Shared trimming should live in GitInputValidator.")
         XCTAssertTrue(validatorText.contains("static func safeName"), "Shared git name validation should live in GitInputValidator.")
         XCTAssertTrue(validatorText.contains("static func safeRelativePath"), "Shared local git path validation should live in GitInputValidator.")
-        XCTAssertTrue(executorText.contains("GitInputValidator.safeRelativePath"), "GitToolExecutor should use the shared path validator.")
+        XCTAssertTrue(localText.contains("GitInputValidator.safeRelativePath"), "Local git execution should use the shared path validator.")
         XCTAssertTrue(pullRequestText.contains("GitInputValidator.safeName"), "GitHub PR execution should use the shared git-name validator.")
         XCTAssertTrue(worktreeText.contains("GitInputValidator.safeName"), "Worktree execution should use the shared git-name validator.")
         XCTAssertTrue(remoteGitPlannerText.contains("GitInputValidator.safeName"), "Remote git planning should use the shared git-name validator.")
+        XCTAssertFalse(executorText.contains("GitInputValidator.safeRelativePath"), "GitToolExecutor should not own local path validation.")
         XCTAssertFalse(pullRequestText.contains("GitToolExecutor.safeGitName"), "GitHub PR execution should not depend on the git facade for validation.")
         XCTAssertFalse(pullRequestText.contains("GitToolExecutor.trimmedNonEmpty"), "GitHub PR execution should not depend on the git facade for trimming.")
         XCTAssertFalse(worktreeText.contains("GitToolExecutor.safeGitName"), "Worktree execution should not depend on the git facade for validation.")

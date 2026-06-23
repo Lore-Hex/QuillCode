@@ -1898,5 +1898,22 @@ Code quality changes:
 
 Remaining risk:
 
-- Basic local git file actions (`stage`, `restore`, `commit`, `push`) still live in the facade. They are small and readable, but a later A+ pass can split them into a `GitLocalToolExecutor` once the patch boundary is stable on main.
 - `PatchToolExecutor` has its own diff-path parser for generic apply-patch behavior. That is a separate tool boundary today; if parser behavior needs to converge, extract a neutral diff metadata parser rather than making either executor depend on the other.
+
+## 2026-06-23 Git Local Executor Split
+
+Overall grade after this slice: **A architecture, A local-git boundary, A regression coverage**.
+
+Basic local git execution moved out of `GitToolExecutor.swift` and into `GitLocalToolExecutor.swift`. Before this pass, the git facade still owned `status`, `diff`, `stage`, `restore`, `commit`, `push`, current-branch lookup, and local path validation after the GitHub PR, worktree, patch, and validator splits. The facade now delegates local git behavior to a focused executor, making the tool-router API stable while keeping local command construction directly testable.
+
+Code quality changes:
+
+- Added `GitLocalToolExecutor` for local status/diff/stage/restore/commit/push behavior.
+- Moved local file path validation and current branch lookup beside the local executor.
+- Kept `GitToolExecutor` as a thin compatibility facade over local, GitHub PR, worktree, and patch executors.
+- Added direct local-executor behavior coverage and a parity gate that prevents local command construction from drifting back into the facade.
+
+Remaining risk:
+
+- `GitToolExecutor` still exposes older static compatibility wrappers for trimming, git-name validation, PR-specific validation, and URL extraction. They should remain while older tests and call sites use them, but new focused executors should depend on `GitInputValidator` or their own domain helpers instead.
+- PR-specific validators are still correctly owned by `GitHubPullRequestToolExecutor`; if future GitHub issue/release tools arrive, split those into a focused GitHub validator rather than expanding the facade again.

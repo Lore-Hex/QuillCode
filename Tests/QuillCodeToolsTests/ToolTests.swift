@@ -324,6 +324,23 @@ final class ToolTests: XCTestCase {
         XCTAssertFalse(GitToolExecutor().status(cwd: root).stdout.contains("hello.txt"))
     }
 
+    func testGitLocalExecutorStagesRestoresAndCommitsTrackedFiles() throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        let file = root.appendingPathComponent("hello.txt")
+        let git = GitLocalToolExecutor()
+
+        try "before\n".write(to: file, atomically: true, encoding: .utf8)
+        XCTAssertTrue(git.stage(cwd: root, path: "hello.txt").ok)
+        XCTAssertTrue(git.commit(cwd: root, message: "Add hello").ok)
+        try "after\n".write(to: file, atomically: true, encoding: .utf8)
+
+        let restore = git.restore(cwd: root, path: "hello.txt")
+
+        XCTAssertTrue(restore.ok, "\(restore.error ?? "") \(restore.stderr)")
+        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "before\n")
+    }
+
     func testGitCommitRejectsEmptyMessage() throws {
         let result = GitToolExecutor().commit(cwd: try makeTempDirectory(), message: " ")
 
