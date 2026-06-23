@@ -21,6 +21,19 @@ final class ParityGateTests: XCTestCase {
         }
     }
 
+    func testProductionSourcesAvoidForceUnwrapsAndForceCasts() throws {
+        let sourceFiles = try Self.swiftSourceFiles(in: "Sources")
+        for file in sourceFiles {
+            let text = try String(contentsOf: file, encoding: .utf8)
+            XCTAssertFalse(text.contains("try!"), "\(file.path) should not force-try in production source.")
+            XCTAssertFalse(text.contains("as!"), "\(file.path) should not force-cast in production source.")
+            XCTAssertFalse(
+                text.range(of: #"[A-Za-z0-9_\)\]]!\s*(\.|\)|,|\]|$)"#, options: .regularExpression) != nil,
+                "\(file.path) should not force-unwrap in production source."
+            )
+        }
+    }
+
     func testParityDocsExist() {
         let root = Self.packageRoot()
         for name in ["DECISIONS.md", "CODEX_RESEARCH.md", "CODEX_PARITY_MATRIX.md", "ROADMAP.md", "TEST_PLAN.md"] {
@@ -1408,6 +1421,20 @@ final class ParityGateTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
+    }
+
+    private static func swiftSourceFiles(in relativePath: String) throws -> [URL] {
+        let root = packageRoot().appendingPathComponent(relativePath)
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: nil
+        ) else {
+            return []
+        }
+        return enumerator
+            .compactMap { $0 as? URL }
+            .filter { $0.pathExtension == "swift" }
+            .sorted { $0.path < $1.path }
     }
 
     private static func desktopSourceText() throws -> String {

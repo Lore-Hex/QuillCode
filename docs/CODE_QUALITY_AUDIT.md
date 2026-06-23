@@ -1664,3 +1664,32 @@ Code quality changes:
 Remaining risk:
 
 - Review action orchestration still lives in `WorkspaceModel` because it executes the selected action, appends tool cards, refreshes the diff, persists the selected thread, and updates top-bar status. That is acceptable now, but richer PR review sessions should introduce a review workflow coordinator rather than expanding the model again.
+
+## 2026-06-23 Edge-Case Hardening Pass
+
+Overall grade after this slice: **A- architecture, A security boundary, A- edge-case posture**.
+
+The codebase now has no production-source `try!`, `as!`, or ordinary force-unwrap shapes. This is a meaningful quality bar for a public Swift app because app startup, OAuth sign-in, and local extension discovery should fail through typed errors or ignored unsafe inputs rather than crashing on malformed local state.
+
+Code quality changes:
+
+- Hardened project extension manifest directory validation so unsafe custom paths are skipped without preventing later safe directories from loading.
+- Normalized accepted extension directories by path component, rejecting empty, absolute, `.`, and `..` components while preserving normal project-local folders like `.quillcode/plugins`.
+- Kept symlinked manifest directories/files outside the project root rejected through resolved-path checks.
+- Removed the manifest-name force unwrap by moving trimmed display-name handling into `ManifestPayload`.
+- Replaced the desktop OAuth loopback callback URL force unwrap with typed URL parsing and a readable `TrustedRouterLoopbackError.invalidCallbackURL` failure.
+- Added a parity gate that scans production Swift sources for force tries, force casts, and force unwraps.
+
+Validation added:
+
+- Unsafe custom extension directories are skipped without stopping later safe directory scans.
+- Symlinked extension directories that resolve outside the project root are ignored.
+- Blank or missing manifest names fall back to readable filename-derived names.
+- Production source text stays free of `try!`, `as!`, and ordinary force unwraps.
+
+Remaining risk:
+
+- The desktop OAuth loopback server still lacks direct executable-target unit tests because it lives in the desktop executable target. The new parity gate prevents the force unwrap from returning, and existing desktop sign-in parity gates ensure the loopback server remains the sign-in boundary. If loopback behavior grows, move callback target parsing into a small testable library type.
+- The scan is intentionally conservative and source-text based. If Swift syntax grows more complex around optional unwrapping, a future SwiftSyntax-based lint would be stronger.
+- `WorkspaceModelTests.swift` is still very large. New edge-case tests should move into narrower test files when their target boundary is already extracted.
+- `WorkspaceModel.swift` remains the primary architectural hotspot; keep extracting pure planners/reducers before adding more Codex-parity workflows.

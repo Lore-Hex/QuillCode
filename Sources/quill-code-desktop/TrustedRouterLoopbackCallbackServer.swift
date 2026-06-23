@@ -4,6 +4,7 @@ import QuillCodeCore
 
 enum TrustedRouterLoopbackError: Error, CustomStringConvertible {
     case invalidPort
+    case invalidCallbackURL(String)
     case listenerFailed(String)
     case cancelled
     case invalidCallbackRequest
@@ -12,6 +13,8 @@ enum TrustedRouterLoopbackError: Error, CustomStringConvertible {
         switch self {
         case .invalidPort:
             return "Could not reserve localhost OAuth callback port 3000."
+        case .invalidCallbackURL(let value):
+            return "TrustedRouter sign-in callback URL is invalid: \(value)"
         case .listenerFailed(let message):
             return "TrustedRouter sign-in callback server failed: \(message)"
         case .cancelled:
@@ -24,11 +27,11 @@ enum TrustedRouterLoopbackError: Error, CustomStringConvertible {
 
 final class TrustedRouterLoopbackCallbackServer: @unchecked Sendable {
     static let callbackURL = TrustedRouterDefaults.loopbackCallbackURL
-    private static let callbackBaseURL = URL(string: TrustedRouterDefaults.loopbackCallbackURL)!
-    private static let callbackPath = callbackBaseURL.path.isEmpty ? "/" : callbackBaseURL.path
 
     private let queue = DispatchQueue(label: "co.lorehex.quillcode.oauth-loopback")
     private let listener: NWListener
+    private let callbackBaseURL: URL
+    private let callbackPath: String
     private var startContinuation: CheckedContinuation<Void, Error>?
     private var callbackContinuation: CheckedContinuation<URL, Error>?
     private var pendingCallbackResult: Result<URL, Error>?
@@ -36,6 +39,9 @@ final class TrustedRouterLoopbackCallbackServer: @unchecked Sendable {
     private var isFinished = false
 
     init() throws {
+        let parsedCallbackURL = try Self.parseCallbackURL(Self.callbackURL)
+        self.callbackBaseURL = parsedCallbackURL.baseURL
+        self.callbackPath = parsedCallbackURL.path
         guard let port = NWEndpoint.Port(rawValue: 3000) else {
             throw TrustedRouterLoopbackError.invalidPort
         }
@@ -125,8 +131,10 @@ final class TrustedRouterLoopbackCallbackServer: @unchecked Sendable {
                 self.finish(.failure(TrustedRouterLoopbackError.invalidCallbackRequest), cancelListener: true)
                 return
             }
-            guard Self.isCallbackTarget(target),
-                  let callbackURL = URL(string: "\(Self.callbackURL)\(target.dropFirst(Self.callbackPath.count))")
+            guard self.isCallbackTarget(target),
+                  let callbackURL = URL(
+                    string: "\(self.callbackBaseURL.absoluteString)\(target.dropFirst(self.callbackPath.count))"
+                  )
             else {
                 self.sendHTML(
                     status: "404 Not Found",
@@ -146,7 +154,19 @@ final class TrustedRouterLoopbackCallbackServer: @unchecked Sendable {
         }
     }
 
-    private static func isCallbackTarget(_ target: String) -> Bool {
+    private static func parseCallbackURL(_ value: String) throws -> (baseURL: URL, path: String) {
+        guard let url = URL(string: value),
+              let scheme = url.scheme,
+              let host = url.host,
+              scheme == "http",
+              host == "localhost"
+        else {
+            throw TrustedRouterLoopbackError.invalidCallbackURL(value)
+        }
+        return (url, url.path.isEmpty ? "/" : url.path)
+    }
+
+    private func isCallbackTarget(_ target: String) -> Bool {
         target == callbackPath || target.hasPrefix("\(callbackPath)?")
     }
 

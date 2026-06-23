@@ -22,22 +22,20 @@ public enum ProjectExtensionManifestLoader {
         var seenIDs = Set<String>()
 
         for directory in directories {
-            guard manifests.count < maxManifests,
-                  !directory.relativePath.contains("..")
-            else {
+            guard manifests.count < maxManifests else {
                 break
             }
 
-            let directoryURL = root
-                .appendingPathComponent(directory.relativePath)
-                .standardizedFileURL
-                .resolvingSymlinksInPath()
-            guard directoryURL.path.hasPrefix(root.path + "/") else {
+            guard let directory = manifestDirectory(
+                root: root,
+                relativePath: directory.relativePath,
+                kind: directory.kind
+            ) else {
                 continue
             }
 
             let files = (try? FileManager.default.contentsOfDirectory(
-                at: directoryURL,
+                at: directory.url,
                 includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey],
                 options: [.skipsHiddenFiles]
             )) ?? []
@@ -61,6 +59,44 @@ public enum ProjectExtensionManifestLoader {
         }
 
         return manifests
+    }
+
+    private static func manifestDirectory(
+        root: URL,
+        relativePath: String,
+        kind: ProjectExtensionKind
+    ) -> ManifestDirectory? {
+        let trimmed = relativePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              !trimmed.hasPrefix("/")
+        else {
+            return nil
+        }
+
+        let components = trimmed
+            .split(separator: "/")
+            .map(String.init)
+        guard components.allSatisfy({ component in
+            !component.isEmpty && component != "." && component != ".."
+        }) else {
+            return nil
+        }
+
+        let directoryURL = components
+            .reduce(root) { url, component in
+                url.appendingPathComponent(component, isDirectory: true)
+            }
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        guard directoryURL.path.hasPrefix(root.path + "/") else {
+            return nil
+        }
+
+        return ManifestDirectory(
+            relativePath: components.joined(separator: "/"),
+            kind: kind,
+            url: directoryURL
+        )
     }
 
     private static func manifest(
@@ -102,10 +138,8 @@ public enum ProjectExtensionManifestLoader {
         }
 
         let relativePath = "\(directory)/\(resolved.lastPathComponent)"
-        let title = payload.name?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let name = title?.isEmpty == false
-            ? title!
-            : displayName(from: resolved.deletingPathExtension().lastPathComponent)
+        let name = payload.displayName
+            ?? displayName(from: resolved.deletingPathExtension().lastPathComponent)
         return ProjectExtensionManifest(
             id: "\(kind.rawValue):\(manifestID)",
             kind: kind,
@@ -139,6 +173,12 @@ public enum ProjectExtensionManifestLoader {
     }
 }
 
+private struct ManifestDirectory {
+    var relativePath: String
+    var kind: ProjectExtensionKind
+    var url: URL
+}
+
 private struct ManifestPayload: Decodable {
     var id: String?
     var name: String?
@@ -159,6 +199,10 @@ private struct ManifestPayload: Decodable {
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
             .filter { $0.isLetter || $0.isNumber || $0 == "." || $0 == "_" || $0 == "-" }
+    }
+
+    var displayName: String? {
+        normalizedOptional(name, maxLength: 120)
     }
 
     var summaryText: String {
