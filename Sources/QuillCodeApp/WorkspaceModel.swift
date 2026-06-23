@@ -617,97 +617,34 @@ public final class QuillCodeWorkspaceModel {
             return false
         }
 
-        setBrowserPage(url, updateHistory: true)
+        WorkspaceBrowserEngine.openPage(url, state: &browser, updateHistory: true)
+        lastError = nil
+        refreshTopBar(agentStatus: "Idle")
         return true
     }
 
     @discardableResult
     public func goBackInBrowser() -> Bool {
-        guard browser.canGoBack,
-              let historyIndex = browser.historyIndex
-        else {
-            return false
-        }
-        return openBrowserHistoryEntry(at: historyIndex - 1)
+        guard WorkspaceBrowserEngine.goBack(state: &browser) else { return false }
+        lastError = nil
+        refreshTopBar(agentStatus: "Idle")
+        return true
     }
 
     @discardableResult
     public func goForwardInBrowser() -> Bool {
-        guard browser.canGoForward,
-              let historyIndex = browser.historyIndex
-        else {
-            return false
-        }
-        return openBrowserHistoryEntry(at: historyIndex + 1)
+        guard WorkspaceBrowserEngine.goForward(state: &browser) else { return false }
+        lastError = nil
+        refreshTopBar(agentStatus: "Idle")
+        return true
     }
 
     @discardableResult
     public func reloadBrowserPreview() -> Bool {
-        guard let currentURL = browser.currentURL,
-              let url = URL(string: currentURL)
-        else {
-            return false
-        }
-        setBrowserPage(url, updateHistory: false)
-        browser.status = "Reloaded"
-        return true
-    }
-
-    private func openBrowserHistoryEntry(at index: Int) -> Bool {
-        guard browser.history.indices.contains(index),
-              let url = URL(string: browser.history[index])
-        else {
-            return false
-        }
-        browser.historyIndex = index
-        setBrowserPage(url, updateHistory: false)
-        return true
-    }
-
-    private func setBrowserPage(_ url: URL, updateHistory: Bool) {
-        browser.isVisible = true
-        browser.currentURL = url.absoluteString
-        browser.addressDraft = url.absoluteString
-        browser.snapshot = BrowserInspector.snapshot(for: url)
-        browser.title = browser.snapshot?.details
-            .first { $0.hasPrefix("Title: ") }
-            .map { String($0.dropFirst("Title: ".count)) }
-            ?? BrowserInspector.title(for: url)
-        browser.status = "Preview ready"
-        if updateHistory {
-            appendBrowserHistory(url.absoluteString)
-        }
+        guard WorkspaceBrowserEngine.reload(state: &browser) else { return false }
         lastError = nil
         refreshTopBar(agentStatus: "Idle")
-    }
-
-    private func appendBrowserHistory(_ url: String) {
-        if let historyIndex = browser.historyIndex,
-           browser.history.indices.contains(historyIndex),
-           browser.history[historyIndex] == url {
-            return
-        }
-
-        let preservedHistory: ArraySlice<String>
-        if let historyIndex = browser.historyIndex,
-           browser.history.indices.contains(historyIndex) {
-            preservedHistory = browser.history.prefix(through: historyIndex)
-        } else {
-            preservedHistory = []
-        }
-
-        browser.history = Array(preservedHistory) + [url]
-        browser.historyIndex = browser.history.indices.last
-    }
-
-    private func replaceCurrentBrowserHistory(with url: String) {
-        guard let historyIndex = browser.historyIndex,
-              browser.history.indices.contains(historyIndex)
-        else {
-            appendBrowserHistory(url)
-            return
-        }
-        browser.history[historyIndex] = url
+        return true
     }
 
     @discardableResult
@@ -737,25 +674,13 @@ public final class QuillCodeWorkspaceModel {
             let fetchedPage = try await pageFetcher.fetchHTML(from: url)
             guard browser.currentURL == currentURL else { return false }
 
-            browser.currentURL = fetchedPage.finalURL.absoluteString
-            browser.addressDraft = fetchedPage.finalURL.absoluteString
-            replaceCurrentBrowserHistory(with: fetchedPage.finalURL.absoluteString)
-            browser.snapshot = BrowserInspector.snapshot(for: fetchedPage, originalURL: url)
-            browser.title = browser.snapshot?.details
-                .first { $0.hasPrefix("Title: ") }
-                .map { String($0.dropFirst("Title: ".count)) }
-                ?? BrowserInspector.title(for: fetchedPage.finalURL)
-            browser.status = "Preview ready"
+            WorkspaceBrowserEngine.applyFetchedPage(fetchedPage, originalURL: url, state: &browser)
             lastError = nil
             refreshTopBar(agentStatus: "Idle")
             return true
         } catch {
             guard browser.currentURL == currentURL else { return false }
-            if var snapshot = browser.snapshot {
-                snapshot.details.append("Snapshot fetch: \(WorkspaceBrowserLocationResolver.snapshotFetchMessage(for: error))")
-                browser.snapshot = snapshot
-            }
-            browser.status = "Preview ready"
+            WorkspaceBrowserEngine.markSnapshotFetchFailure(error, state: &browser)
             lastError = nil
             refreshTopBar(agentStatus: "Idle")
             return false
@@ -764,13 +689,7 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func addBrowserComment(_ text: String) -> Bool {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let url = browser.currentURL else {
-            return false
-        }
-        browser.comments.append(BrowserCommentState(url: url, text: trimmed))
-        browser.status = "Comment added"
-        return true
+        WorkspaceBrowserEngine.addComment(text, state: &browser)
     }
 
     @discardableResult
