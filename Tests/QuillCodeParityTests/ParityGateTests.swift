@@ -247,6 +247,8 @@ final class ParityGateTests: XCTestCase {
             "WorkspaceSlashCommandTranscriptPlanner.threadFollowUpScheduled",
             "WorkspaceSlashCommandTranscriptPlanner.workspaceScheduleScheduled",
             "WorkspaceSlashCommandTranscriptPlanner.workspaceCommandFailed",
+            "WorkspaceSlashCommandTranscriptPlanner.environmentActions",
+            "WorkspaceSlashCommandTranscriptPlanner.environmentActionNotFound",
             "WorkspaceSlashCommandTranscriptPlanner.invalid",
             "WorkspaceSlashCommandTranscriptPlanner.unknown"
         ] {
@@ -257,6 +259,8 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("Use SSH format user@host:/path or ssh://user@host/path."), "WorkspaceModel should not own SSH fallback copy.")
         XCTAssertFalse(modelText.contains("Scheduled a thread follow-up for"), "WorkspaceModel should not own follow-up success copy.")
         XCTAssertFalse(modelText.contains("Scheduled a workspace check for"), "WorkspaceModel should not own workspace schedule success copy.")
+        XCTAssertFalse(modelText.contains("Local environment actions:"), "WorkspaceModel should not own /env list copy.")
+        XCTAssertFalse(modelText.contains("No local environment action matches"), "WorkspaceModel should not own /env missing-action copy.")
         XCTAssertFalse(modelText.contains("Unknown slash command"), "WorkspaceModel should not own unknown slash command copy.")
     }
 

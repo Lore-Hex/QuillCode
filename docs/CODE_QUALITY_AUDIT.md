@@ -122,7 +122,7 @@ Slash-command local transcript copy moved out of `WorkspaceModel.swift` into `Wo
 Code quality changes:
 
 - Added a typed `WorkspaceLocalCommandTranscript` record for local slash-command transcript entries.
-- Extracted `/help`, `/status`, `/mode`, `/model`, `/rename`, `/project rename`, `/ssh`, `/follow-up`, `/workspace-check`, invalid-command, unknown-command, and workspace-command failure transcript construction.
+- Extracted `/help`, `/status`, `/mode`, `/model`, `/rename`, `/project rename`, `/ssh`, `/follow-up`, `/workspace-check`, `/env`, invalid-command, unknown-command, and workspace-command failure transcript construction.
 - Kept command side effects in `WorkspaceModel` so this pass stays behavior-preserving.
 - Added parity gates that prevent slash-command local copy from drifting back into `WorkspaceModel`.
 
@@ -1387,3 +1387,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceSwiftUIView` still owns enough `@State` bindings to coordinate search, command palette, settings, worktree, rename, and composer focus. That is acceptable while the shell owns presentation state, but if more modal families land, promote them into a small presentation-state reducer instead of adding more root-shell booleans.
+
+## 2026-06-23 Environment Slash Transcript Pass
+
+Overall grade after this slice: **A- foundation, A slash-command copy boundary**.
+
+The `/env` local-environment transcript copy moved out of `WorkspaceModel` and into `WorkspaceSlashCommandTranscriptPlanner`. Before this pass, the model formatted the local action list, cwd, timeout, detail suffixes, empty-state copy, and missing-action copy inline while also running the selected action. The model now refreshes metadata, chooses whether to list or run an action, and delegates user-facing `/env` transcript text to the same planner that owns the other slash-command responses.
+
+Code quality changes:
+
+- Added `environmentActions(userText:actions:)` to format available local environment actions.
+- Added `environmentActionNotFound(userText:query:)` for the missing-action fallback.
+- Added focused tests for populated, empty, and missing `/env` transcript copy.
+- Extended the parity gate so `/env` list and missing-action strings do not drift back into `WorkspaceModel`.
+
+Remaining risk:
+
+- `WorkspaceModel.handleSlashCommand` still owns the side-effect switch for slash commands. That is acceptable while each branch calls high-level model methods, but a future slash-command executor could receive typed closures or command effects if the switch grows more workflow-specific logic.

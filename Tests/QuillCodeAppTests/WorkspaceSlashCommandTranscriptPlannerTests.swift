@@ -145,4 +145,55 @@ final class WorkspaceSlashCommandTranscriptPlannerTests: XCTestCase {
             "Unknown slash command '/wat'. Try /help."
         )
     }
+
+    func testEnvironmentActionTranscriptsDescribeAvailableActions() {
+        let transcript = WorkspaceSlashCommandTranscriptPlanner.environmentActions(
+            userText: "/env",
+            actions: [
+                LocalEnvironmentAction(
+                    id: "local-env:.quillcode/actions/bootstrap.sh",
+                    title: "Bootstrap",
+                    detail: "Install local tools",
+                    relativePath: ".quillcode/actions/bootstrap.sh",
+                    command: "sh .quillcode/actions/bootstrap.sh",
+                    workingDirectory: "tools",
+                    timeoutSeconds: 120
+                ),
+                LocalEnvironmentAction(
+                    id: "local-env:.quillcode/local-env/test.sh",
+                    title: "Test",
+                    relativePath: ".quillcode/local-env/test.sh",
+                    command: "sh .quillcode/local-env/test.sh"
+                )
+            ]
+        )
+
+        XCTAssertEqual(transcript.title, "Local environment actions")
+        XCTAssertEqual(transcript.userText, "/env")
+        XCTAssertEqual(
+            transcript.assistantText,
+            """
+            Local environment actions:
+            - `/env Bootstrap` — .quillcode/actions/bootstrap.sh — cwd: tools — timeout: 120s — Install local tools
+            - `/env Test` — .quillcode/local-env/test.sh
+            """
+        )
+    }
+
+    func testEnvironmentActionTranscriptsDescribeEmptyAndMissingActions() {
+        XCTAssertEqual(
+            WorkspaceSlashCommandTranscriptPlanner.environmentActions(
+                userText: "/env",
+                actions: []
+            ).assistantText,
+            "No local environment actions found. Add scripts under `.quillcode/actions` or `.quillcode/local-env`."
+        )
+        XCTAssertEqual(
+            WorkspaceSlashCommandTranscriptPlanner.environmentActionNotFound(
+                userText: "/env deploy",
+                query: "deploy"
+            ).assistantText,
+            "No local environment action matches `deploy`. Run `/env` to see available actions."
+        )
+    }
 }
