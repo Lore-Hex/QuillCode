@@ -284,9 +284,10 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
             toolLabel = "0 tools"
         } else {
             let remaining = result.toolNames.count - min(result.toolNames.count, 3)
+            let noun = result.toolNames.count == 1 ? "tool" : "tools"
             toolLabel = remaining > 0
-                ? "\(result.toolNames.count) tools: \(toolPreview), +\(remaining) more"
-                : "\(result.toolNames.count) tools: \(toolPreview)"
+                ? "\(result.toolNames.count) \(noun): \(toolPreview), +\(remaining) more"
+                : "\(result.toolNames.count) \(noun): \(toolPreview)"
         }
         let resourceLabel = result.resourceNames.isEmpty
             ? nil

@@ -388,16 +388,18 @@ Remaining risk:
 
 Overall grade after this slice: **A- foundation, A- MCP runtime boundary**.
 
-Concrete MCP process construction and stdio prober creation moved out of `WorkspaceMCPRuntime.swift` into `WorkspaceMCPServerLauncher.swift`. The runtime still owns manifest validation, lifecycle status changes, probe result recording, stop/cancel behavior, and dynamic tool routing, but server startup now passes through a focused `WorkspaceMCPServerLaunching` seam with protocol-backed process and session handles.
+Concrete MCP process construction and stdio prober creation moved out of `WorkspaceMCPRuntime.swift` into `WorkspaceMCPServerLauncher.swift`. Manifest launch validation now creates a `WorkspaceMCPLaunchRequest`, while the runtime owns lifecycle status changes, probe result recording, stop/cancel behavior, and dynamic tool routing. Server startup passes through a focused `WorkspaceMCPServerLaunching` seam with protocol-backed process and session handles.
 
 Code quality changes:
 
 - Added `WorkspaceMCPServerLaunching`, `WorkspaceMCPProcessControlling`, and `WorkspaceMCPSession` protocols so MCP lifecycle tests do not require real subprocesses.
+- Moved disabled/missing-command validation into `WorkspaceMCPLaunchRequest.make` so launch inputs are canonical before the runtime sees them.
 - Isolated `/usr/bin/env`, absolute executable, and workspace-relative executable resolution in `WorkspaceMCPProcessLaunchConfiguration`.
 - Moved concrete `Process`, pipe, termination-handler, and `MCPStdioProber` construction into `DefaultWorkspaceMCPServerLauncher`.
 - Kept stderr draining and readability cleanup behind the process controller so the runtime no longer reaches into Foundation pipe details.
 - Added focused tests for command resolution, injected-launcher ready probes, launch failures, and probe-failure cleanup.
-- Extended parity gates so `WorkspaceMCPRuntime.swift` cannot regain direct `Process()` construction.
+- Fixed singular MCP ready notices so one advertised tool is reported as `1 tool`.
+- Extended parity gates so `WorkspaceMCPRuntime.swift` cannot regain direct `Process()`, stdio prober, or launch-command construction.
 
 Remaining risk:
 
