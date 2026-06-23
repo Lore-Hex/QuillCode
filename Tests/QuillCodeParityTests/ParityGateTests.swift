@@ -508,6 +508,30 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("private func executeReviewGitToolCall"), "WorkspaceModel should not own parallel review git routing.")
     }
 
+    func testWorkspaceModelDelegatesAutomationStateMutations() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let automationText = try Self.appSourceText(named: "WorkspaceAutomationEngine.swift")
+
+        XCTAssertTrue(automationText.contains("enum WorkspaceAutomationStateReducer"), "Automation state mutation should live in a focused reducer.")
+        XCTAssertTrue(automationText.contains("struct WorkspaceAutomationStateMutation"), "Automation state mutations should return typed mutation results.")
+        XCTAssertTrue(automationText.contains("static func setItems"), "Automation sorting and visibility preservation should be reducer-owned.")
+        XCTAssertTrue(automationText.contains("static func createThreadFollowUp"), "Thread follow-up creation should be reducer-owned.")
+        XCTAssertTrue(automationText.contains("static func createWorkspaceSchedule"), "Workspace schedule creation should be reducer-owned.")
+        XCTAssertTrue(automationText.contains("static func updateStatus"), "Automation status mutation should be reducer-owned.")
+        XCTAssertTrue(automationText.contains("static func delete("), "Automation deletion should be reducer-owned.")
+        XCTAssertTrue(automationText.contains("static func replace("), "Automation replacement should be reducer-owned.")
+        XCTAssertTrue(modelText.contains("WorkspaceAutomationStateReducer.setItems"), "WorkspaceModel should delegate automation item setting.")
+        XCTAssertTrue(modelText.contains("WorkspaceAutomationStateReducer.createThreadFollowUp"), "WorkspaceModel should delegate thread follow-up creation.")
+        XCTAssertTrue(modelText.contains("WorkspaceAutomationStateReducer.createWorkspaceSchedule"), "WorkspaceModel should delegate workspace schedule creation.")
+        XCTAssertTrue(modelText.contains("WorkspaceAutomationStateReducer.updateStatus"), "WorkspaceModel should delegate status changes.")
+        XCTAssertTrue(modelText.contains("WorkspaceAutomationStateReducer.delete"), "WorkspaceModel should delegate deletion.")
+        XCTAssertTrue(modelText.contains("WorkspaceAutomationStateReducer.replace"), "WorkspaceModel should delegate replacement.")
+        XCTAssertFalse(modelText.contains("setAutomations(automations.items + [automation])"), "WorkspaceModel should not append automation records inline.")
+        XCTAssertFalse(modelText.contains("QuillAutomation.sortedForDisplay(items)"), "WorkspaceModel should not own automation display sorting.")
+        XCTAssertFalse(modelText.contains("automations.items[index].status"), "WorkspaceModel should not mutate automation status inline.")
+        XCTAssertFalse(modelText.contains("automations.items.removeAll"), "WorkspaceModel should not delete automation records inline.")
+    }
+
     func testWorkspaceModelDelegatesWorktreeOpenRecords() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let requestsText = try Self.appSourceText(named: "WorkspaceWorktreeRequests.swift")

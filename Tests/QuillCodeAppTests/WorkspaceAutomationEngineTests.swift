@@ -106,6 +106,178 @@ final class WorkspaceAutomationEngineTests: XCTestCase {
         )
     }
 
+    func testStateReducerSetsItemsSortedWithoutChangingVisibility() {
+        let later = automation(
+            title: "Later",
+            kind: .threadFollowUp,
+            scheduleKind: .heartbeat,
+            threadID: UUID(),
+            nextRunAt: now.addingTimeInterval(60)
+        )
+        let sooner = automation(
+            title: "Sooner",
+            kind: .threadFollowUp,
+            scheduleKind: .heartbeat,
+            threadID: UUID(),
+            nextRunAt: now.addingTimeInterval(30)
+        )
+
+        let state = WorkspaceAutomationStateReducer.setItems([later, sooner], isVisible: false)
+
+        XCTAssertFalse(state.isVisible)
+        XCTAssertEqual(state.items.map(\.id), [sooner.id, later.id])
+    }
+
+    func testStateReducerCreatesThreadFollowUpAndShowsAutomations() {
+        let thread = ChatThread(title: "Launch")
+        let hiddenState = AutomationsState(isVisible: false)
+
+        let mutation = WorkspaceAutomationStateReducer.createThreadFollowUp(
+            in: hiddenState,
+            thread: thread,
+            selectedProjectID: UUID(),
+            scheduleDescription: "In 10 minutes",
+            nextRunAt: now.addingTimeInterval(600),
+            recurrence: nil,
+            now: now
+        )
+
+        XCTAssertTrue(mutation.state.isVisible)
+        XCTAssertEqual(mutation.state.items, [mutation.value])
+        XCTAssertEqual(mutation.value.threadID, thread.id)
+        XCTAssertEqual(mutation.value.title, "Follow up: Launch")
+    }
+
+    func testStateReducerCreatesWorkspaceScheduleAndShowsAutomations() {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+
+        let mutation = WorkspaceAutomationStateReducer.createWorkspaceSchedule(
+            in: AutomationsState(),
+            project: project,
+            scheduleDescription: "Every hour",
+            nextRunAt: now.addingTimeInterval(3_600),
+            recurrence: QuillAutomationRecurrence(interval: 1, unit: .hours),
+            now: now
+        )
+
+        XCTAssertTrue(mutation.state.isVisible)
+        XCTAssertEqual(mutation.state.items, [mutation.value])
+        XCTAssertEqual(mutation.value.projectID, project.id)
+        XCTAssertEqual(mutation.value.title, "Workspace check: QuillCode")
+    }
+
+    func testStateReducerUpdatesStatusTimestampAndPreservesVisibility() {
+        let automation = automation(
+            title: "Pause me",
+            kind: .threadFollowUp,
+            scheduleKind: .heartbeat,
+            threadID: UUID(),
+            nextRunAt: now.addingTimeInterval(60)
+        )
+        let state = AutomationsState(isVisible: true, items: [automation])
+        let updateTime = now.addingTimeInterval(120)
+
+        let mutation = WorkspaceAutomationStateReducer.updateStatus(
+            in: state,
+            id: automation.id,
+            status: .paused,
+            now: updateTime
+        )
+
+        XCTAssertTrue(mutation.value)
+        XCTAssertTrue(mutation.state.isVisible)
+        XCTAssertEqual(mutation.state.items.first?.status, .paused)
+        XCTAssertEqual(mutation.state.items.first?.updatedAt, updateTime)
+    }
+
+    func testStateReducerUpdateMissLeavesStateUnchanged() {
+        let automation = automation(
+            title: "Keep",
+            kind: .threadFollowUp,
+            scheduleKind: .heartbeat,
+            threadID: UUID(),
+            nextRunAt: now
+        )
+        let state = AutomationsState(isVisible: true, items: [automation])
+
+        let mutation = WorkspaceAutomationStateReducer.updateStatus(
+            in: state,
+            id: UUID(),
+            status: .paused,
+            now: now.addingTimeInterval(120)
+        )
+
+        XCTAssertFalse(mutation.value)
+        XCTAssertEqual(mutation.state, state)
+    }
+
+    func testStateReducerDeletesAndReplacesByID() {
+        let first = automation(
+            title: "First",
+            kind: .threadFollowUp,
+            scheduleKind: .heartbeat,
+            threadID: UUID(),
+            nextRunAt: now.addingTimeInterval(60)
+        )
+        var second = automation(
+            title: "Second",
+            kind: .workspaceSchedule,
+            scheduleKind: .cron,
+            projectID: UUID(),
+            nextRunAt: now.addingTimeInterval(120)
+        )
+        let state = AutomationsState(isVisible: true, items: [first, second])
+
+        second.title = "Second updated"
+        second.updatedAt = now.addingTimeInterval(240)
+        let replaced = WorkspaceAutomationStateReducer.replace(in: state, automation: second)
+        let deleted = WorkspaceAutomationStateReducer.delete(from: replaced.state, id: first.id)
+
+        XCTAssertTrue(replaced.value)
+        XCTAssertEqual(replaced.state.items.first(where: { $0.id == second.id })?.title, "Second updated")
+        XCTAssertTrue(deleted.value)
+        XCTAssertEqual(deleted.state.items.map(\.id), [second.id])
+    }
+
+    func testStateReducerDeleteMissLeavesStateUnchanged() {
+        let automation = automation(
+            title: "Keep",
+            kind: .threadFollowUp,
+            scheduleKind: .heartbeat,
+            threadID: UUID(),
+            nextRunAt: now
+        )
+        let state = AutomationsState(isVisible: false, items: [automation])
+
+        let mutation = WorkspaceAutomationStateReducer.delete(from: state, id: UUID())
+
+        XCTAssertFalse(mutation.value)
+        XCTAssertEqual(mutation.state, state)
+    }
+
+    func testStateReducerReplaceMissLeavesStateUnchanged() {
+        let automation = automation(
+            title: "Keep",
+            kind: .threadFollowUp,
+            scheduleKind: .heartbeat,
+            threadID: UUID(),
+            nextRunAt: now
+        )
+        let replacement = self.automation(
+            title: "Missing",
+            kind: .workspaceSchedule,
+            scheduleKind: .cron,
+            projectID: UUID(),
+            nextRunAt: now
+        )
+        let state = AutomationsState(isVisible: true, items: [automation])
+
+        let mutation = WorkspaceAutomationStateReducer.replace(in: state, automation: replacement)
+
+        XCTAssertFalse(mutation.value)
+        XCTAssertEqual(mutation.state, state)
+    }
+
     func testDueAutomationIDsFiltersRunnableDueItemsAndHonorsLimit() {
         let sourceID = UUID()
         let firstDue = automation(
