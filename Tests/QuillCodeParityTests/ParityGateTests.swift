@@ -145,6 +145,29 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("let ids = selectedSidebarThreadIDs()"), "WorkspaceModel should not inline bulk selected-ID planning.")
     }
 
+    func testSidebarCommandPresentationIsSharedByNativeAndHTMLSurfaces() throws {
+        let presentationText = try Self.appSourceText(named: "QuillCodeSidebarCommandPresentation.swift")
+        let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
+        let htmlText = try Self.appSourceText(named: "WorkspaceHTMLRenderer.swift")
+
+        XCTAssertTrue(presentationText.contains("struct QuillCodeSidebarCommandPresentation"), "Sidebar command labels and icons should live in one focused presentation helper.")
+        XCTAssertTrue(presentationText.contains("static let primaryCommandIDs"), "Primary sidebar command order should be explicit.")
+        XCTAssertTrue(presentationText.contains("static let utilityCommandIDs"), "Utility sidebar command order should be explicit.")
+        XCTAssertTrue(presentationText.contains("static func displayTitle"), "Sidebar command display titles should be shared.")
+        XCTAssertTrue(presentationText.contains("static func systemImage"), "Native sidebar command icons should be shared.")
+        XCTAssertTrue(presentationText.contains("static func htmlIconToken"), "HTML sidebar icon tokens should be shared.")
+        XCTAssertTrue(sidebarText.contains("QuillCodeSidebarCommandPresentation.primaryCommandIDs"), "Native sidebar should consume shared primary command ordering.")
+        XCTAssertTrue(sidebarText.contains("QuillCodeSidebarCommandPresentation.utilityCommandIDs"), "Native sidebar should consume shared utility command ordering.")
+        XCTAssertTrue(sidebarText.contains("QuillCodeSidebarCommandPresentation.displayTitle"), "Native sidebar should consume shared labels.")
+        XCTAssertTrue(sidebarText.contains("QuillCodeSidebarCommandPresentation.systemImage"), "Native sidebar should consume shared SF Symbols.")
+        XCTAssertTrue(htmlText.contains("renderSidebarPrimaryActions"), "HTML renderer should build primary sidebar actions through a helper.")
+        XCTAssertTrue(htmlText.contains("QuillCodeSidebarCommandPresentation.primaryCommandIDs"), "HTML renderer should consume shared primary command ordering.")
+        XCTAssertTrue(htmlText.contains("QuillCodeSidebarCommandPresentation.htmlIconToken"), "HTML renderer should consume shared icon tokens.")
+        XCTAssertFalse(sidebarText.contains("private func displayTitle"), "Native sidebar should not maintain a second label map.")
+        XCTAssertFalse(sidebarText.contains("private func systemImage"), "Native sidebar should not maintain a second icon map.")
+        XCTAssertFalse(htmlText.contains(#"data-icon="plugins">Plugins"#), "HTML renderer should not hard-code sidebar plugin markup.")
+    }
+
     func testWorkspaceSwiftUIViewDelegatesTranscriptFindAndContextBanner() throws {
         let shellText = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
         let findText = try Self.appSourceText(named: "QuillCodeTranscriptFindView.swift")

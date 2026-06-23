@@ -623,3 +623,21 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModel` still applies the planner's effects because persistence, selected-project validation, terminal sync, and top-bar refresh remain side effects. If bulk actions grow into undoable operations or previewable destructive actions, add a side-effect executor layer rather than expanding `performSidebarBulkAction` again.
+
+## 2026-06-23 Sidebar Command Presentation Pass
+
+Overall grade after this slice: **A- foundation, A sidebar presentation boundary**.
+
+Sidebar rail command labels, icon choices, primary command ordering, utility command ordering, HTML icon tokens, and Playwright test IDs moved into `QuillCodeSidebarCommandPresentation`. SwiftUI and static HTML now consume the same sidebar command contract instead of carrying separate hard-coded maps.
+
+Code quality changes:
+
+- Centralized the Codex-like primary rail order: New chat, Search, Plugins, Automations.
+- Centralized the compact utility menu order: Terminal, Browser, Memories, Activity, Command palette.
+- Removed duplicated sidebar `displayTitle` and `systemImage` switch statements from the native SwiftUI view.
+- Made the HTML harness render primary sidebar actions from real `WorkspaceCommandSurface` values instead of static markup.
+- Added focused tests for primary labels, SF Symbols, HTML icon tokens, test IDs, utility labels, and settings presentation.
+
+Remaining risk:
+
+- This keeps the sidebar presentation contract DRY, but broader rail information architecture still needs user-facing visual review as more Codex parity surfaces land.
