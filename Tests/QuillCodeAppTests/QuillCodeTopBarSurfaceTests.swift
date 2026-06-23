@@ -1,0 +1,141 @@
+import XCTest
+import QuillCodeCore
+@testable import QuillCodeApp
+
+final class QuillCodeTopBarSurfaceTests: XCTestCase {
+    func testTopBarFiltersModelCategoriesByMetadataFavoritesAndRecents() {
+        let topBar = TopBarSurface(
+            appName: "QuillCode",
+            primaryTitle: "Project",
+            subtitle: "Ready",
+            instructionLabel: "Instructions",
+            instructionSources: [],
+            memoryLabel: "Memory",
+            memorySources: [],
+            modelLabel: TrustedRouterDefaults.fusionModelDisplayName,
+            selectedModelID: TrustedRouterDefaults.fusionModel,
+            modelCategories: [
+                ModelCategorySurface(category: "Favorites", models: [
+                    modelOption(
+                        id: TrustedRouterDefaults.fusionModel,
+                        provider: TrustedRouterDefaults.trustedRouterProvider,
+                        displayName: TrustedRouterDefaults.fusionModelDisplayName,
+                        category: "Recommended",
+                        isFavorite: true,
+                        badges: ["Favorite", "Current", "Recommended"]
+                    )
+                ]),
+                ModelCategorySurface(category: "Recent", models: [
+                    modelOption(
+                        id: "moonshotai/kimi-k2.6",
+                        provider: "moonshotai",
+                        displayName: "Kimi K2.6",
+                        category: "Safety",
+                        badges: ["Recent"]
+                    )
+                ]),
+                ModelCategorySurface(category: "Coding", models: [
+                    modelOption(
+                        id: "acme/code-pro",
+                        provider: "acme",
+                        displayName: "Code Pro",
+                        category: "Coding"
+                    )
+                ])
+            ],
+            modeLabel: "Auto",
+            agentStatus: "Idle",
+            computerUseLabel: "Computer Use Ready",
+            showsComputerUseSetup: false
+        )
+
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "").map(\.category), ["Favorites", "Recent", "Coding"])
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "favorite").map(\.category), ["Favorites"])
+        XCTAssertEqual(topBar.filteredModelCategories(matching: "recent").map(\.category), ["Recent"])
+        XCTAssertEqual(filteredModelIDs(topBar, query: "favorite prometheus"), [TrustedRouterDefaults.fusionModel])
+        XCTAssertEqual(filteredModelIDs(topBar, query: "recent moon k2"), ["moonshotai/kimi-k2.6"])
+        XCTAssertEqual(filteredModelIDs(topBar, query: "coding"), ["acme/code-pro"])
+        XCTAssertTrue(topBar.filteredModelCategories(matching: "does-not-exist").isEmpty)
+    }
+
+    func testModelOptionBuildsTrustedRouterRecommendedMetadata() throws {
+        let option = modelOption(
+            id: TrustedRouterDefaults.defaultModel,
+            provider: TrustedRouterDefaults.trustedRouterProvider,
+            displayName: TrustedRouterDefaults.fastModelDisplayName,
+            category: "Recommended",
+            selectedModelID: TrustedRouterDefaults.defaultModel,
+            badges: ["Default", "Recommended"]
+        )
+
+        XCTAssertEqual(option.detailTitle, TrustedRouterDefaults.fastModelDisplayName)
+        XCTAssertEqual(option.metadataSummary, "Fast everyday agent")
+        XCTAssertEqual(
+            option.capabilitySummary,
+            "\(TrustedRouterDefaults.fastModelDisplayName) is the fast default for coding, shell, and file-editing turns."
+        )
+        XCTAssertEqual(option.modelInfo.id, TrustedRouterDefaults.defaultModel)
+        XCTAssertEqual(option.modelInfo.displayName, TrustedRouterDefaults.fastModelDisplayName)
+        XCTAssertTrue(option.metadataDetails.contains("Default model"))
+        XCTAssertTrue(option.metadataDetails.contains("Recommended by QuillCode"))
+
+        let state = try XCTUnwrap(option.metadataRows.first { $0.label == "State" })
+        XCTAssertEqual(state.value, "Current, Default, Recommended")
+    }
+
+    func testModelOptionDecodesOlderPayloadWithoutBadges() throws {
+        let json = """
+        {
+          "id": "tr/fusion",
+          "provider": "trustedrouter",
+          "displayName": "Prometheus 1.0",
+          "category": "Recommended",
+          "isSelected": true
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let option = try JSONDecoder().decode(ModelOptionSurface.self, from: data)
+
+        XCTAssertEqual(option.id, TrustedRouterDefaults.fusionModel)
+        XCTAssertEqual(option.isFavorite, false)
+        XCTAssertEqual(option.badges, [])
+        XCTAssertEqual(option.detailTitle, TrustedRouterDefaults.fusionModelDisplayName)
+        XCTAssertEqual(option.metadataSummary, "Deeper planning and review")
+        XCTAssertEqual(option.metadataRows.first { $0.label == "State" }?.value, "Current")
+        XCTAssertTrue(option.metadataDetails.contains("Current selection"))
+    }
+
+    func testModelCategoryAndMetadataRowIdentifiersAreStable() {
+        let category = ModelCategorySurface(category: "Recommended", models: [])
+        let row = ModelMetadataRowSurface(label: "Provider", value: "trustedrouter")
+
+        XCTAssertEqual(category.id, "Recommended")
+        XCTAssertEqual(row.id, "Provider")
+    }
+
+    private func filteredModelIDs(_ topBar: TopBarSurface, query: String) -> [String] {
+        topBar.filteredModelCategories(matching: query).flatMap(\.models).map(\.id)
+    }
+
+    private func modelOption(
+        id: String,
+        provider: String,
+        displayName: String,
+        category: String,
+        selectedModelID: String = "other/model",
+        isFavorite: Bool = false,
+        badges: [String] = []
+    ) -> ModelOptionSurface {
+        ModelOptionSurface(
+            model: ModelInfo(
+                id: id,
+                provider: provider,
+                displayName: displayName,
+                category: category
+            ),
+            selectedModelID: selectedModelID,
+            isFavorite: isFavorite,
+            badges: badges
+        )
+    }
+}

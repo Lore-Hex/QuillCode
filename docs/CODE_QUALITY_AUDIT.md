@@ -16,7 +16,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `QuillCodeSafety` | A- | Small, explicit policy layer. Needs more production prompt telemetry once live Auto reviewer tuning begins. |
 | `QuillCodePersistence` | A | Focused stores, compatibility tests, and clear path ownership. |
 | `QuillComputerUseKit` | B+ | Protocol shape is good and macOS adapter is isolated. Linux adapter, app approvals, and visual feedback loops are still parity gaps. |
-| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Settings, runtime issue, model catalog, command, command palette, review, review-comment planning, tool override composition, remote-project tool execution, context banner, transcript projection, execution-context enrichment, browser location/state transitions, MCP launch/session creation, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
+| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Settings, runtime issue, model catalog, top-bar/model contracts, command, command palette, review, review-comment planning, tool override composition, remote-project tool execution, context banner, transcript projection, execution-context enrichment, browser location/state transitions, MCP launch/session creation, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
 | Playwright harness | B+ | Valuable parity harness with broad coverage. It intentionally duplicates rendering behavior, so keep it thin and derived from stable surface concepts. |
 
 ## File Hotspots
@@ -25,7 +25,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | --- | --- | --- |
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
-| `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but settings copy/compatibility, runtime issue classification, model catalog presentation, browser state/presentation contracts, terminal presentation contracts, review presentation contracts, transcript/composer/context presentation contracts, secondary-pane presentation contracts, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are now extracted into focused files. Next step is extracting project/sidebar/top-bar contracts when their behavior grows. |
+| `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but settings copy/compatibility, runtime issue classification, model catalog presentation, top-bar/model presentation contracts, browser state/presentation contracts, terminal presentation contracts, review presentation contracts, transcript/composer/context presentation contracts, secondary-pane presentation contracts, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are now extracted into focused files. Next step is extracting project/sidebar contracts when their behavior grows. |
 | `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but top-bar HTML delegates to `WorkspaceHTMLTopBarRenderer`, sidebar HTML delegates to `WorkspaceHTMLSidebarRenderer`, tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, review pane HTML delegates to `WorkspaceHTMLReviewRenderer`, secondary pane HTML delegates to `WorkspaceHTMLSecondaryPaneRenderer`, browser pane HTML delegates to `WorkspaceHTMLBrowserRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another transcript/composer family only when renderer drift appears. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
 | `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback and project-import resolution now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
@@ -990,4 +990,21 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceSurface.swift` still owns project, top-bar, model, and sidebar value records. Model presentation has a focused builder already; project/sidebar/top-bar contracts are the next extraction candidates when they grow beyond compact Codable records.
+- `WorkspaceSurface.swift` still owns project and sidebar value records. They are the next extraction candidates when their presentation behavior or compatibility decoding grows.
+
+## 2026-06-23 Top-Bar Model Surface Contract Pass
+
+Overall grade after this slice: **A- foundation, A top-bar/model surface boundary**.
+
+Top-bar and model-picker presentation records moved out of `WorkspaceSurface.swift` into `QuillCodeTopBarSurface.swift`, matching the existing native top-bar/model-picker views, static HTML top-bar renderer, and `WorkspaceModelCatalogSurfaceBuilder` boundary. The aggregate workspace surface still carries the `topBar` slot, but model option compatibility decoding, model detail copy, metadata rows, badge/state summaries, and searchable category filtering now live beside the top-bar/model-picker contract.
+
+Code quality changes:
+
+- Moved `TopBarSurface`, `ModelCategorySurface`, `ModelMetadataRowSurface`, and `ModelOptionSurface` into one focused top-bar surface file.
+- Kept model picker filtering and backwards-compatible model option decoding with the model-picker surface contract instead of the aggregate workspace payload.
+- Added direct top-bar surface tests for favorite/recent filtering, metadata search, TrustedRouter branded metadata, compatibility decoding, and stable row identifiers.
+- Added a parity gate so top-bar/model-picker records and filtering do not drift back into `WorkspaceSurface.swift`.
+
+Remaining risk:
+
+- `WorkspaceSurface.swift` still owns project and sidebar value records. They are compact, but should move next if their action labels, compatibility decoding, or presentation behavior grows.
