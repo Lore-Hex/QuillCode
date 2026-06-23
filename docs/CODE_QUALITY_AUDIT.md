@@ -1318,3 +1318,21 @@ Code quality changes:
 Remaining risk:
 
 - Runtime issue title/message copy still lives in `WorkspaceRuntimeIssueBuilder`, which is the correct current boundary. If more auth statuses gain recovery actions, promote those statuses from strings into a typed runtime state while preserving the existing `TopBarSurface.agentStatus` compatibility layer.
+
+## 2026-06-23 Agent Run Context Builder Pass
+
+Overall grade after this slice: **A- foundation, A per-run tool-context boundary**.
+
+Per-turn agent runner configuration moved out of `WorkspaceModel` into `WorkspaceAgentRunContextBuilder`. Before this pass, `submitComposer` assembled local/remote base tools, optional plan/browser/Computer Use/memory/MCP tool definitions, and the override chain inline before every send. The model now passes current workspace state to one builder and receives a configured `AgentRunner`.
+
+Code quality changes:
+
+- Added `WorkspaceAgentRunContextBuilder` for local versus SSH Remote base tools, optional tool definitions, and override composition.
+- Moved memory tool execution and saved-memory event detection into `WorkspaceMemoryRememberToolExecutor`.
+- Removed plan/browser/computer/memory/remote override helper methods from `WorkspaceModel`.
+- Added direct builder tests for local base tools, remote base tools, optional tool definition ordering, plan/browser/memory override execution, and memory-save event detection.
+- Added a parity gate so per-run tool assembly and memory-save parsing do not drift back into `WorkspaceModel`.
+
+Remaining risk:
+
+- `WorkspaceModel.submitComposer` still owns send lifecycle timing, progress application, persistence, cancellation, and final top-bar state. Those are actor-bound side effects and should move only behind a dedicated send coordinator once that coordinator can return clear persistence and UI intents.
