@@ -1336,3 +1336,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModel.submitComposer` still owns send lifecycle timing, progress application, persistence, cancellation, and final top-bar state. Those are actor-bound side effects and should move only behind a dedicated send coordinator once that coordinator can return clear persistence and UI intents.
+
+## 2026-06-23 Transcript View Extraction Pass
+
+Overall grade after this slice: **A- foundation, A native transcript layout boundary**.
+
+Transcript pane layout moved out of `WorkspaceSwiftUIView` into `QuillCodeTranscriptView`. Before this pass, the workspace shell still owned Find bar placement, empty-state layout, context banner/runtime issue/review placement, message/tool-card row placement, active Find highlighting, scroll-to-match behavior, and tool-card copy fallback. The shell now composes the transcript view and routes callbacks, while transcript-specific presentation stays beside the Find and transcript-message/tool-card components.
+
+Code quality changes:
+
+- Added `QuillCodeTranscriptView` for transcript pane layout, Find bar placement, empty state, context/runtime/review placement, message/tool-card timeline rows, active Find highlighting, and scroll-to-match behavior.
+- Kept the existing message and tool-card rendering files as focused row components; the transcript view decides timeline placement and copy wiring.
+- Reduced `WorkspaceSwiftUIView.swift` by roughly 200 lines and kept it focused on chrome composition, modal presentation, and typed command routing.
+- Updated the parity gate so runtime issue, review, and tool-card timeline placement cannot drift back into the workspace shell.
+
+Remaining risk:
+
+- `WorkspaceSwiftUIView` still owns several modal state bindings and command-action execution. That is acceptable while the shell is the only place that knows which sheets are open, but future modal families should keep their row/draft/rendering details in dialog-specific files.
