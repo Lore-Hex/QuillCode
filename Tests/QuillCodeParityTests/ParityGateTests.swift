@@ -492,6 +492,22 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("summary: \"\\(call.name) running\""), "WorkspaceModel should not construct running tool summaries directly.")
     }
 
+    func testWorkspaceModelDelegatesToolCallExecutionRouting() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let executorText = try Self.appSourceText(named: "WorkspaceToolCallExecutor.swift")
+
+        XCTAssertTrue(executorText.contains("struct WorkspaceToolCallExecutor"), "Tool-call routing should live in a focused executor.")
+        XCTAssertTrue(executorText.contains("BrowserInspector.toolResult"), "The executor should own browser inspect routing.")
+        XCTAssertTrue(executorText.contains("PlanUpdateToolExecutor.execute"), "The executor should own plan update routing.")
+        XCTAssertTrue(executorText.contains("WorkspaceRemoteProjectToolExecutor.execute"), "The executor should own remote project routing.")
+        XCTAssertTrue(executorText.contains("ToolDefinition.applyPatch.name"), "The executor should own apply-patch follow-up routing.")
+        XCTAssertTrue(modelText.contains("workspaceToolCallExecutor(router:"), "WorkspaceModel should delegate tool execution routing.")
+        XCTAssertFalse(modelText.contains("call.name == ToolDefinition.browserInspect.name"), "WorkspaceModel should not branch on browser inspect tool execution.")
+        XCTAssertFalse(modelText.contains("call.name == ToolDefinition.planUpdate.name"), "WorkspaceModel should not branch on plan update tool execution.")
+        XCTAssertFalse(modelText.contains("private func appendReviewDiffAfterPatchIfNeeded"), "WorkspaceModel should not own apply-patch review diff follow-up routing.")
+        XCTAssertFalse(modelText.contains("private func executeReviewGitToolCall"), "WorkspaceModel should not own parallel review git routing.")
+    }
+
     func testWorkspaceModelDelegatesWorktreeOpenRecords() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let requestsText = try Self.appSourceText(named: "WorkspaceWorktreeRequests.swift")
@@ -1140,6 +1156,33 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("if let result = await plan?(call, workspaceRoot)"), "WorkspaceModel should not inline override precedence.")
     }
 
+    func testToolArgumentJSONSerializationLivesInCore() throws {
+        let argumentsText = try Self.coreSourceText(named: "Arguments.swift")
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let slashText = try Self.appSourceText(named: "SlashCommand.swift")
+
+        XCTAssertTrue(
+            argumentsText.contains("public static func json(_ values: [String: Any])"),
+            "Mixed tool argument JSON serialization should live in QuillCodeCore."
+        )
+        XCTAssertTrue(
+            modelText.contains("ToolArguments.json("),
+            "WorkspaceModel should use the shared core tool-argument serializer."
+        )
+        XCTAssertTrue(
+            slashText.contains("ToolArguments.json("),
+            "SlashCommand should use the shared core tool-argument serializer."
+        )
+        XCTAssertFalse(
+            modelText.contains("private func toolArgumentsJSON"),
+            "WorkspaceModel should not own ad hoc JSON serialization."
+        )
+        XCTAssertFalse(
+            slashText.contains("private static func json(_ values: [String: Any])"),
+            "SlashCommand should not own ad hoc JSON serialization."
+        )
+    }
+
     func testWorkspaceModelDelegatesRemoteProjectToolExecution() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceAgentRunContextBuilder.swift")
@@ -1152,7 +1195,8 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(executorText.contains("static func execute"), "Manual remote tool execution should be directly testable.")
         XCTAssertTrue(builderText.contains("WorkspaceRemoteProjectToolExecutor.toolDefinitions"), "Agent run context builder should delegate remote base tool definitions.")
         XCTAssertTrue(builderText.contains("WorkspaceRemoteProjectToolExecutor.executionOverride"), "Agent run context builder should delegate remote override creation.")
-        XCTAssertTrue(modelText.contains("WorkspaceRemoteProjectToolExecutor.execute"), "WorkspaceModel should delegate manual/review remote execution.")
+        XCTAssertTrue(modelText.contains("workspaceToolCallExecutor(router:"), "WorkspaceModel should delegate manual/review tool execution through the shared workspace executor.")
+        XCTAssertTrue(try Self.appSourceText(named: "WorkspaceToolCallExecutor.swift").contains("WorkspaceRemoteProjectToolExecutor.execute"), "WorkspaceToolCallExecutor should own remote project routing.")
         XCTAssertFalse(modelText.contains("WorkspaceRemoteProjectToolExecutor.toolDefinitions"), "WorkspaceModel should not choose remote base tool definitions inline.")
         XCTAssertFalse(modelText.contains("WorkspaceRemoteProjectToolExecutor.executionOverride"), "WorkspaceModel should not create remote agent overrides inline.")
         XCTAssertFalse(modelText.contains("executeRemoteGitToolCall"), "WorkspaceModel should not own remote git command execution.")
@@ -1308,6 +1352,13 @@ final class ParityGateTests: XCTestCase {
     private static func appSourceText(named fileName: String) throws -> String {
         let file = packageRoot()
             .appendingPathComponent("Sources/QuillCodeApp")
+            .appendingPathComponent(fileName)
+        return try String(contentsOf: file, encoding: .utf8)
+    }
+
+    private static func coreSourceText(named fileName: String) throws -> String {
+        let file = packageRoot()
+            .appendingPathComponent("Sources/QuillCodeCore")
             .appendingPathComponent(fileName)
         return try String(contentsOf: file, encoding: .utf8)
     }

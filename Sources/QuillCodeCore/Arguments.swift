@@ -137,6 +137,14 @@ public struct ToolArguments: Sendable {
     }
 
     public static func json(_ values: [String: String]) -> String {
+        jsonObject(values)
+    }
+
+    public static func json(_ values: [String: Any]) -> String {
+        jsonObject(values)
+    }
+
+    private static func jsonObject(_ values: [String: Any]) -> String {
         let data = try? JSONSerialization.data(withJSONObject: values, options: [.sortedKeys])
         return data.map { String(decoding: $0, as: UTF8.self) } ?? "{}"
     }

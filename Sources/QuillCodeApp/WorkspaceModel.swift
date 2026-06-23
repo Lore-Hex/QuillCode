@@ -1129,11 +1129,12 @@ public final class QuillCodeWorkspaceModel {
 
         let router = ToolRouter(workspaceRoot: workspaceRoot)
         let actionCall = action.toolCall
-        let actionResult = executeReviewGitToolCall(actionCall, router: router)
+        let executor = workspaceToolCallExecutor(router: router)
+        let actionResult = executor.executePrimary(actionCall)
         appendToolRun(call: actionCall, result: actionResult)
 
         let diffCall = ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}")
-        let diffResult = executeReviewGitToolCall(diffCall, router: router)
+        let diffResult = executor.executePrimary(diffCall)
         appendToolRun(call: diffCall, result: diffResult)
 
         if let thread = selectedThread {
@@ -1143,17 +1144,6 @@ public final class QuillCodeWorkspaceModel {
             ? TopBarAgentStatusLabel.idle
             : TopBarAgentStatusLabel.failed
         refreshTopBar(agentStatus: status)
-    }
-
-    private func executeReviewGitToolCall(_ call: ToolCall, router: ToolRouter) -> ToolResult {
-        guard let project = selectedProject, project.isRemote else {
-            return router.execute(call)
-        }
-        return WorkspaceRemoteProjectToolExecutor.execute(
-            call,
-            project: project,
-            executor: sshRemoteShellExecutor
-        )
     }
 
     @discardableResult
@@ -1430,7 +1420,7 @@ public final class QuillCodeWorkspaceModel {
         runToolCall(
             ToolCall(
                 name: ToolDefinition.shellRun.name,
-                argumentsJSON: toolArgumentsJSON(arguments)
+                argumentsJSON: ToolArguments.json(arguments)
             ),
             workspaceRoot: workspaceRoot
         )
@@ -1454,7 +1444,7 @@ public final class QuillCodeWorkspaceModel {
         let result = runToolCall(
             ToolCall(
                 name: ToolDefinition.shellRun.name,
-                argumentsJSON: toolArgumentsJSON(arguments)
+                argumentsJSON: ToolArguments.json(arguments)
             ),
             workspaceRoot: workspaceRoot
         )
@@ -1479,7 +1469,7 @@ public final class QuillCodeWorkspaceModel {
         let result = runToolCall(
             ToolCall(
                 name: ToolDefinition.gitWorktreeCreate.name,
-                argumentsJSON: toolArgumentsJSON(arguments)
+                argumentsJSON: ToolArguments.json(arguments)
             ),
             workspaceRoot: workspaceRoot
         )
@@ -1492,7 +1482,7 @@ public final class QuillCodeWorkspaceModel {
         runToolCall(
             ToolCall(
                 name: ToolDefinition.gitWorktreeRemove.name,
-                argumentsJSON: toolArgumentsJSON([
+                argumentsJSON: ToolArguments.json([
                     "path": request.path,
                     "force": request.force
                 ])
@@ -1521,35 +1511,17 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
 
         let router = ToolRouter(workspaceRoot: workspaceRoot)
-        let result: ToolResult
-        if call.name == ToolDefinition.browserInspect.name {
-            result = BrowserInspector.toolResult(from: browser)
-        } else if call.name == ToolDefinition.planUpdate.name {
-            result = PlanUpdateToolExecutor.execute(call)
-        } else if selectedProject?.isRemote == true,
-                  let project = selectedProject {
-            result = WorkspaceRemoteProjectToolExecutor.execute(
-                call,
-                project: project,
-                executor: sshRemoteShellExecutor
-            )
-        } else if selectedProject?.isRemote == true {
-            result = ToolResult(ok: false, error: "Tool is not available for SSH Remote projects: \(call.name)")
-        } else {
-            result = router.execute(call)
+        let execution = workspaceToolCallExecutor(router: router).execute(call)
+        let result = execution.primary.result
+        appendToolRun(call: execution.primary.call, result: result)
+        for followUp in execution.followUps {
+            appendToolRun(call: followUp.call, result: followUp.result)
         }
-        appendToolRun(call: call, result: result)
-        let followUpResult = appendReviewDiffAfterPatchIfNeeded(
-            call: call,
-            result: result,
-            router: router
-        )
 
         if let thread = selectedThread {
             try? threadStore?.save(thread)
         }
-        let ok = result.ok && (followUpResult?.ok ?? true)
-        let status = ok ? TopBarAgentStatusLabel.idle : TopBarAgentStatusLabel.failed
+        let status = execution.ok ? TopBarAgentStatusLabel.idle : TopBarAgentStatusLabel.failed
         refreshTopBar(agentStatus: status)
         return result
     }
@@ -1739,33 +1711,13 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
-    @discardableResult
-    private func appendReviewDiffAfterPatchIfNeeded(
-        call: ToolCall,
-        result: ToolResult,
-        router: ToolRouter
-    ) -> ToolResult? {
-        guard call.name == ToolDefinition.applyPatch.name, result.ok else {
-            return nil
-        }
-        let diffCall = ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}")
-        let diffResult: ToolResult
-        if let project = selectedProject, project.isRemote {
-            diffResult = WorkspaceRemoteProjectToolExecutor.execute(
-                diffCall,
-                project: project,
-                executor: sshRemoteShellExecutor
-            )
-        } else {
-            diffResult = router.execute(diffCall)
-        }
-        appendToolRun(call: diffCall, result: diffResult)
-        return diffResult
-    }
-
-    private func toolArgumentsJSON(_ values: [String: Any]) -> String {
-        let data = try? JSONSerialization.data(withJSONObject: values, options: [.sortedKeys])
-        return data.map { String(decoding: $0, as: UTF8.self) } ?? "{}"
+    private func workspaceToolCallExecutor(router: ToolRouter) -> WorkspaceToolCallExecutor {
+        WorkspaceToolCallExecutor(
+            selectedProject: selectedProject,
+            browser: browser,
+            router: router,
+            sshRemoteShellExecutor: sshRemoteShellExecutor
+        )
     }
 
     private func handleSlashCommand(_ command: SlashCommand, originalPrompt: String, workspaceRoot: URL) {
