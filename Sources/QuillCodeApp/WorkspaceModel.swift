@@ -1268,7 +1268,20 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     private func runWorkspaceCommandAction(_ action: WorkspaceCommandAction) -> Bool {
-        switch action {
+        guard let effect = WorkspaceCommandActionPlanner(
+            selectedProjectID: root.selectedProjectID,
+            selectedProject: selectedProject,
+            selectedThreadID: root.selectedThreadID,
+            selectedThread: selectedThread
+        ).effect(for: action) else {
+            return false
+        }
+        return runWorkspaceCommandActionEffect(effect)
+    }
+
+    @discardableResult
+    private func runWorkspaceCommandActionEffect(_ effect: WorkspaceCommandActionEffect) -> Bool {
+        switch effect {
         case .toggleTerminal:
             toggleTerminal()
             return true
@@ -1303,53 +1316,27 @@ public final class QuillCodeWorkspaceModel {
             return createTomorrowMorningThreadFollowUpAutomation() != nil
         case .createWorkspaceScheduleTomorrow:
             return createTomorrowMorningWorkspaceScheduleAutomation() != nil
-        case .projectNewChat:
-            guard let projectID = root.selectedProjectID else { return false }
+        case .newProjectThread(let projectID):
             _ = newChat(projectID: projectID)
             return true
-        case .projectRefreshContext:
-            guard let projectID = root.selectedProjectID else { return false }
+        case .refreshProjectContext(let projectID):
             return refreshProjectContext(projectID)
-        case .projectRename:
-            guard let name = selectedProject?.name else { return false }
-            setDraft("/project rename \(name)")
+        case .setDraft(let draft):
+            setDraft(draft)
             return true
-        case .projectRemove:
-            guard let projectID = root.selectedProjectID else { return false }
+        case .removeProject(let projectID):
             return removeProject(projectID)
-        case .threadRename:
-            guard let title = selectedThread?.title else { return false }
-            setDraft("/rename \(title)")
+        case .duplicateThread(let threadID):
+            return duplicateThread(threadID) != nil
+        case .archiveThread(let threadID):
+            archiveThread(threadID)
             return true
-        case .threadDuplicate:
-            guard let selectedThreadID = root.selectedThreadID else { return false }
-            return duplicateThread(selectedThreadID) != nil
-        case .threadArchive:
-            guard let selectedThreadID = root.selectedThreadID else { return false }
-            archiveThread(selectedThreadID)
-            return true
-        case .threadUnarchive:
-            guard let selectedThreadID = root.selectedThreadID else { return false }
-            return unarchiveThread(selectedThreadID)
-        case .threadDelete:
-            guard let selectedThreadID = root.selectedThreadID else { return false }
-            return deleteThread(selectedThreadID)
-        case .threadSelectionStart:
-            return performSidebarBulkAction(.select)
-        case .threadSelectionSelectAll:
-            return performSidebarBulkAction(.selectAll)
-        case .threadSelectionClear:
-            return performSidebarBulkAction(.clearSelection)
-        case .threadBulkPin:
-            return performSidebarBulkAction(.pin)
-        case .threadBulkUnpin:
-            return performSidebarBulkAction(.unpin)
-        case .threadBulkArchive:
-            return performSidebarBulkAction(.archive)
-        case .threadBulkUnarchive:
-            return performSidebarBulkAction(.unarchive)
-        case .threadBulkDelete:
-            return performSidebarBulkAction(.delete)
+        case .unarchiveThread(let threadID):
+            return unarchiveThread(threadID)
+        case .deleteThread(let threadID):
+            return deleteThread(threadID)
+        case .sidebarBulkAction(let kind):
+            return performSidebarBulkAction(kind)
         case .retryLastTurn:
             return prepareRetryLastUserTurn()
         case .forkFromLast:
