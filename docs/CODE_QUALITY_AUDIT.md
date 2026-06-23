@@ -1192,3 +1192,21 @@ Code quality changes:
 Remaining risk:
 
 - Runtime recovery labels are still string values on `RuntimeIssueSurface` for renderer compatibility. A future compatibility layer could promote them to typed action IDs while continuing to decode older payloads.
+
+## 2026-06-23 Workspace View Command Planner Pass
+
+Overall grade after this slice: **A- foundation, A command-routing boundary**.
+
+Workspace view command routing moved out of `WorkspaceSwiftUIView` into `WorkspaceViewCommandPlanner`. The workspace shell still owns presentation state, but the command-ID interpretation for Settings, Search, Find, Add Project, Command Palette, Keyboard Shortcuts, Rename, Worktree dialogs, and composer-focus dispatch now lives behind a focused, directly tested value planner.
+
+Code quality changes:
+
+- Added `WorkspaceViewCommandAction` as a typed boundary between command rows and SwiftUI state mutations.
+- Added `WorkspaceViewCommandPlanner` for command-ID routing, selected thread/project rename lookup, worktree sheet intents, and composer focus rules.
+- Preserved no-op behavior for rename commands when no selected thread/project row exists.
+- Added direct planner tests for view-local actions, rename selection, missing-selection no-ops, and dispatch composer-focus behavior.
+- Added a parity gate so command-ID routing and slash-template focus rules do not drift back into `WorkspaceSwiftUIView`.
+
+Remaining risk:
+
+- The workspace shell still executes typed actions through local `@State` mutations. If command-triggered sheets or focus behavior grows again, the next slice should split those state transitions into tiny executor helpers rather than adding more cases to the view body.

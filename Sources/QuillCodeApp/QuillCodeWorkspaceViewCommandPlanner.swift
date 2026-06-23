@@ -1,0 +1,76 @@
+import Foundation
+
+enum WorkspaceViewCommandAction: Hashable, Sendable {
+    case presentSettings
+    case presentSearch
+    case presentFind
+    case requestAddProject
+    case presentCommandPalette
+    case presentKeyboardShortcuts
+    case renameThread(threadID: UUID, title: String)
+    case renameProject(projectID: UUID, name: String)
+    case presentCreateWorktree
+    case presentRemoveWorktree
+    case dispatch(command: WorkspaceCommandSurface, focusesComposer: Bool)
+}
+
+struct WorkspaceViewCommandPlanner: Sendable, Hashable {
+    var sidebar: SidebarSurface
+    var projects: ProjectListSurface
+
+    func action(for command: WorkspaceCommandSurface) -> WorkspaceViewCommandAction? {
+        switch command.id {
+        case "settings", "computer-use-setup":
+            return .presentSettings
+        case "search":
+            return .presentSearch
+        case "find-in-chat":
+            return .presentFind
+        case "add-project":
+            return .requestAddProject
+        case "command-palette":
+            return .presentCommandPalette
+        case "keyboard-shortcuts":
+            return .presentKeyboardShortcuts
+        case "thread-rename":
+            return selectedThreadRenameAction()
+        case "project-rename":
+            return selectedProjectRenameAction()
+        case "git-worktree-create":
+            return .presentCreateWorktree
+        case "git-worktree-remove":
+            return .presentRemoveWorktree
+        default:
+            return .dispatch(
+                command: command,
+                focusesComposer: shouldFocusComposer(afterDispatching: command)
+            )
+        }
+    }
+
+    private func selectedThreadRenameAction() -> WorkspaceViewCommandAction? {
+        guard let selectedID = sidebar.selectedThreadID,
+              let item = sidebar.items.first(where: { $0.id == selectedID })
+        else {
+            return nil
+        }
+        return .renameThread(threadID: item.id, title: item.title)
+    }
+
+    private func selectedProjectRenameAction() -> WorkspaceViewCommandAction? {
+        guard let selectedID = projects.selectedProjectID,
+              let item = projects.items.first(where: { $0.id == selectedID })
+        else {
+            return nil
+        }
+        return .renameProject(projectID: item.id, name: item.name)
+    }
+
+    private func shouldFocusComposer(afterDispatching command: WorkspaceCommandSurface) -> Bool {
+        SlashCommandCatalog.insertText(forCommandPaletteID: command.id) != nil
+            || command.id == "memory-add"
+            || command.id == "add-ssh-project"
+            || command.id == "project-rename"
+            || command.id == "thread-rename"
+    }
+}
