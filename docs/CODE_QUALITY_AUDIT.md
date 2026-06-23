@@ -1353,3 +1353,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceSwiftUIView` still owns several modal state bindings and command-action execution. That is acceptable while the shell is the only place that knows which sheets are open, but future modal families should keep their row/draft/rendering details in dialog-specific files.
+
+## 2026-06-23 Static HTML Transcript Renderer Pass
+
+Overall grade after this slice: **A- foundation, A static-harness composition boundary**.
+
+Static HTML transcript, runtime issue, context banner, message action, tool-card handoff, review placement, and composer markup moved out of `WorkspaceHTMLRenderer` into `WorkspaceHTMLTranscriptRenderer`. This brings the Playwright/static harness in line with the native transcript boundary: the whole-workspace renderer composes shell regions, while transcript-specific markup has a focused owner.
+
+Code quality changes:
+
+- Added `WorkspaceHTMLTranscriptRenderer` for transcript empty state, context banner, runtime issue panel, timeline rows, message actions, tool-card row delegation, review pane placement, and composer markup.
+- Reduced `WorkspaceHTMLRenderer.swift` to roughly 34 lines, making it a true static shell composer.
+- Preserved existing `data-testid` contracts for messages, runtime issues, context banners, composer, send/stop controls, and tool cards.
+- Added a parity gate so transcript/composer/runtime/context/message action markup cannot drift back into `WorkspaceHTMLRenderer`.
+
+Remaining risk:
+
+- `WorkspaceHTMLRenderer` now delegates all major shell families. Future static harness work should add new focused renderers beside the relevant surface contract rather than expanding the root renderer again.
