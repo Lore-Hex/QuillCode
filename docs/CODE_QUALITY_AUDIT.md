@@ -1097,3 +1097,21 @@ Code quality changes:
 Remaining risk:
 
 - Worktree tool argument construction still lives in the workspace model because it is tightly coupled to immediate tool dispatch. If create/remove flows gain more validation or preview UI, move request normalization into a separate planner rather than adding another branch to the model.
+
+## 2026-06-23 Workspace Status Text Builder Pass
+
+Overall grade after this slice: **A- foundation, A status-copy boundary**.
+
+Status copy and context labels moved into `WorkspaceStatusTextBuilder`. Before this pass, `/status` copy lived in `WorkspaceModel` while top-bar mode/instruction/memory labels lived in `WorkspaceSurface`, which made small UX wording changes easy to apply in one surface and miss in another. The model now delegates slash status and slash mode confirmation labels, and the surface delegates top-bar subtitles plus instruction/memory/mode labels to the same focused helper.
+
+Code quality changes:
+
+- Added `WorkspaceStatusContext` as a compact value for project/thread/context/model/agent status copy.
+- Added shared builders for `/status` transcript copy, top-bar subtitle copy, mode labels, instruction labels, and memory labels.
+- Removed status label copy from `WorkspaceModel` and mode-label copy from `WorkspaceSurface`.
+- Added direct tests for status text, plural/truncated instruction and memory labels, mode labels, and top-bar subtitles.
+- Added a parity gate so status copy and labels do not drift back into `WorkspaceModel` or `WorkspaceSurface`.
+
+Remaining risk:
+
+- Slash command routing still lives in `WorkspaceModel`. A later pass should extract slash-command local transcript planning after the pure copy and label contracts have stabilized.

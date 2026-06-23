@@ -195,15 +195,18 @@ public extension QuillCodeWorkspaceModel {
             topBar: TopBarSurface(
                 appName: topBarState.appName,
                 primaryTitle: thread?.title ?? "QuillCode",
-                subtitle: topBarSubtitle(thread: thread),
-                instructionLabel: Self.instructionStatusLabel(for: activeInstructions),
+                subtitle: WorkspaceStatusTextBuilder.topBarSubtitle(
+                    projectName: root.topBar.projectName ?? "No project",
+                    thread: thread
+                ),
+                instructionLabel: WorkspaceStatusTextBuilder.instructionLabel(for: activeInstructions),
                 instructionSources: activeInstructions.map(\.path),
-                memoryLabel: Self.memoryStatusLabel(for: activeMemories),
+                memoryLabel: WorkspaceStatusTextBuilder.memoryLabel(for: activeMemories),
                 memorySources: activeMemories.map(\.relativePath),
                 modelLabel: modelCatalog.modelLabel(),
                 selectedModelID: topBarState.model,
                 modelCategories: modelCatalog.categories(),
-                modeLabel: Self.modeLabel(topBarState.mode),
+                modeLabel: WorkspaceStatusTextBuilder.modeLabel(topBarState.mode),
                 agentStatus: topBarState.agentStatus,
                 runtimeIssueLabel: runtimeIssue?.title,
                 runtimeIssueSeverity: runtimeIssue?.severity,
@@ -300,14 +303,6 @@ public extension QuillCodeWorkspaceModel {
         ).surface()
     }
 
-    private func topBarSubtitle(thread: ChatThread?) -> String {
-        let projectName = root.topBar.projectName ?? "No project"
-        guard let thread else {
-            return "\(projectName) - Not started"
-        }
-        return "\(projectName) - \(Self.modeLabel(thread.mode)) - \(thread.model)"
-    }
-
     private func sidebarBulkActions(selectedThreadIDs: Set<UUID>) -> [SidebarBulkActionSurface] {
         let selectedThreads = root.threads.filter { selectedThreadIDs.contains($0.id) }
         let hasSelection = !selectedThreads.isEmpty
@@ -395,14 +390,4 @@ public extension QuillCodeWorkspaceModel {
         )
     }
 
-    static func modeLabel(_ mode: AgentMode) -> String {
-        switch mode {
-        case .readOnly:
-            return "Read-only"
-        case .review:
-            return "Review"
-        case .auto:
-            return "Auto"
-        }
-    }
 }

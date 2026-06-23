@@ -189,6 +189,29 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("root.trustedRouterAPIKeyConfigured = trustedRouterAPIKeyConfigured"), "WorkspaceModel should not own settings application details.")
     }
 
+    func testWorkspaceModelDelegatesStatusTextAndLabels() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceStatusTextBuilder.swift")
+
+        XCTAssertTrue(builderText.contains("struct WorkspaceStatusTextBuilder"), "Workspace status text and labels should live in a focused builder.")
+        XCTAssertTrue(builderText.contains("static func statusText"), "Slash status copy should be directly testable.")
+        XCTAssertTrue(builderText.contains("static func topBarSubtitle"), "Top-bar subtitle copy should be directly testable.")
+        XCTAssertTrue(builderText.contains("static func instructionLabel"), "Instruction status labels should be directly testable.")
+        XCTAssertTrue(builderText.contains("static func memoryLabel"), "Memory status labels should be directly testable.")
+        XCTAssertTrue(builderText.contains("static func modeLabel"), "Mode labels should be shared by status and UI surfaces.")
+        XCTAssertTrue(modelText.contains("WorkspaceStatusTextBuilder.statusText"), "WorkspaceModel should delegate /status copy.")
+        XCTAssertTrue(modelText.contains("WorkspaceStatusTextBuilder.modeLabel"), "WorkspaceModel should delegate slash mode labels.")
+        XCTAssertTrue(surfaceText.contains("WorkspaceStatusTextBuilder.topBarSubtitle"), "WorkspaceSurface should delegate top-bar subtitles.")
+        XCTAssertTrue(surfaceText.contains("WorkspaceStatusTextBuilder.instructionLabel"), "WorkspaceSurface should delegate instruction labels.")
+        XCTAssertTrue(surfaceText.contains("WorkspaceStatusTextBuilder.memoryLabel"), "WorkspaceSurface should delegate memory labels.")
+        XCTAssertFalse(modelText.contains("No project instructions"), "WorkspaceModel should not own instruction status copy.")
+        XCTAssertFalse(modelText.contains("No memories"), "WorkspaceModel should not own memory status copy.")
+        XCTAssertFalse(modelText.contains("static func instructionStatusLabel"), "WorkspaceModel should not own instruction status labels.")
+        XCTAssertFalse(modelText.contains("static func memoryStatusLabel"), "WorkspaceModel should not own memory status labels.")
+        XCTAssertFalse(surfaceText.contains("static func modeLabel"), "WorkspaceSurface should not own mode label copy.")
+    }
+
     func testWorkspaceModelDelegatesToolEventRecording() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let recorderText = try Self.appSourceText(named: "WorkspaceToolEventRecorder.swift")
