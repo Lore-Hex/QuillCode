@@ -189,6 +189,22 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("root.trustedRouterAPIKeyConfigured = trustedRouterAPIKeyConfigured"), "WorkspaceModel should not own settings application details.")
     }
 
+    func testWorkspaceModelDelegatesToolEventRecording() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let recorderText = try Self.appSourceText(named: "WorkspaceToolEventRecorder.swift")
+
+        XCTAssertTrue(recorderText.contains("struct WorkspaceToolEventRecorder"), "Tool audit event construction should live in a focused recorder.")
+        XCTAssertTrue(recorderText.contains("static func events"), "Tool event construction should be directly testable.")
+        XCTAssertTrue(recorderText.contains("static func append"), "Thread mutation should be a thin append helper.")
+        XCTAssertTrue(recorderText.contains("call.redactedForTranscript()"), "Tool call redaction should live beside queued-event construction.")
+        XCTAssertTrue(recorderText.contains("result.ok ? .toolCompleted : .toolFailed"), "Completion/failure classification should live beside tool event construction.")
+        XCTAssertTrue(modelText.contains("WorkspaceToolEventRecorder.append"), "WorkspaceModel should delegate tool audit event recording.")
+        XCTAssertFalse(modelText.contains("call.redactedForTranscript()"), "WorkspaceModel should not own tool call redaction for transcript events.")
+        XCTAssertFalse(modelText.contains("let resultJSON ="), "WorkspaceModel should not own tool result JSON payload construction.")
+        XCTAssertFalse(modelText.contains("summary: \"\\(call.name) queued\""), "WorkspaceModel should not construct queued tool summaries directly.")
+        XCTAssertFalse(modelText.contains("summary: \"\\(call.name) running\""), "WorkspaceModel should not construct running tool summaries directly.")
+    }
+
     func testWorkspaceModelDelegatesSidebarSelectionTransitions() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let selectionText = try Self.appSourceText(named: "WorkspaceSidebarSelectionEngine.swift")
