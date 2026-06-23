@@ -23,7 +23,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, browser/MCP surface state, MCP request parsing, and tool-card surface types now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, browser/MCP surface state, MCP request parsing, MCP runtime/catalog work, and tool-card surface types now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | B+ | Surface assembly is valuable but large. Keep moving small ranking/formatting helpers out or make them single-pass builders. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
@@ -45,7 +45,8 @@ The architecture is moving in the right direction: core state is value typed, pe
 1. Keep `QuillCodeDesktopController.swift` to UI/workspace routing; split pasteboard feedback or project-import routing if either path grows.
 2. Continue pulling pure workflow planning and surface builders out of `WorkspaceModel` before adding new Codex-parity commands.
 3. Keep splitting remaining workspace surface assembly into single-purpose builders when behavior grows.
-4. Keep the parity matrix updated whenever a feature moves from planned to implemented.
+4. If MCP transports expand beyond stdio, add a small launch/session factory protocol before adding new runtime branches.
+5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
 
 ## 2026-06-22 Workspace Project Engine Refactor Pass
 
@@ -364,3 +365,21 @@ Code quality changes:
 Remaining risk:
 
 - MCP process lifecycle remains in `WorkspaceModel.swift`. That logic touches selected-project manifests, async process probes, top-bar status, notices, and tool routing, so it should move only with a focused coordinator and lifecycle tests.
+
+## 2026-06-23 MCP Runtime And Catalog Split Pass
+
+Overall grade after this slice: **A- foundation, A- MCP boundary**.
+
+MCP process lifecycle moved behind `WorkspaceMCPRuntime`, and dynamic MCP tool/resource/prompt catalog generation moved into `WorkspaceMCPToolCatalog`. `WorkspaceModel.swift` now does manifest lookup and UI side effects, then delegates process startup/probe/stop/cancel and tool routing to the runtime. The runtime owns subprocess handles and session routing, while the catalog owns pure Ready-server filtering and prompt/tool description construction.
+
+Code quality changes:
+
+- Moved MCP subprocess handles, start/probe/stop/finish/cancel behavior, and execution override construction out of `WorkspaceModel.swift`.
+- Kept MCP process handles private to `WorkspaceMCPRuntime`, preventing process lifecycle details from leaking back into workspace orchestration.
+- Extracted Ready MCP tool/resource/prompt catalog construction into `WorkspaceMCPToolCatalog`.
+- Added focused catalog tests for Ready/running filtering, omitted capability groups, resource URI fallback formatting, and runtime delegation.
+- Extended parity gates so `WorkspaceModel.swift` cannot regain MCP process spawning or catalog formatting, and `WorkspaceMCPRuntime.swift` cannot absorb catalog description formatting.
+
+Remaining risk:
+
+- `WorkspaceMCPRuntime` still owns concrete `Process` construction and `MCPStdioProber` creation directly. If MCP transport support expands beyond stdio, the next A+ step is a small launch/session factory protocol so lifecycle state can be tested without real subprocesses.

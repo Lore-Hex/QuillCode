@@ -99,28 +99,6 @@ public struct SidebarSelectionState: Sendable, Hashable {
     }
 }
 
-private final class MCPServerProcessHandle: @unchecked Sendable {
-    let process: Process
-    let standardInput: Pipe
-    let standardOutput: Pipe
-    let standardError: Pipe
-    let session: MCPStdioProber
-
-    init(
-        process: Process,
-        standardInput: Pipe,
-        standardOutput: Pipe,
-        standardError: Pipe,
-        session: MCPStdioProber
-    ) {
-        self.process = process
-        self.standardInput = standardInput
-        self.standardOutput = standardOutput
-        self.standardError = standardError
-        self.session = session
-    }
-}
-
 @MainActor
 public final class QuillCodeWorkspaceModel {
     public private(set) var root: QuillCodeRootState
@@ -141,7 +119,7 @@ public final class QuillCodeWorkspaceModel {
     private let globalMemoryDirectory: URL?
     private var computerUseBackend: (any ComputerUseBackend)?
     private let sshRemoteShellExecutor: SSHRemoteShellExecutor
-    private var mcpServerProcesses: [String: MCPServerProcessHandle]
+    private let mcpRuntime: WorkspaceMCPRuntime
 
     public init(
         root: QuillCodeRootState = QuillCodeRootState(),
@@ -177,7 +155,7 @@ public final class QuillCodeWorkspaceModel {
         self.globalMemoryDirectory = globalMemoryDirectory
         self.computerUseBackend = computerUseBackend
         self.sshRemoteShellExecutor = sshRemoteShellExecutor
-        self.mcpServerProcesses = [:]
+        self.mcpRuntime = WorkspaceMCPRuntime()
         if let computerUseBackend {
             self.root.topBar.computerUseStatus = computerUseBackend.status
         }
@@ -186,9 +164,7 @@ public final class QuillCodeWorkspaceModel {
     }
 
     deinit {
-        for handle in mcpServerProcesses.values where handle.process.isRunning {
-            handle.process.terminate()
-        }
+        mcpRuntime.terminateAllRunningProcesses()
     }
 
     public var selectedThread: ChatThread? {
@@ -1725,106 +1701,21 @@ public final class QuillCodeWorkspaceModel {
             lastError = "MCP server manifest not found."
             return false
         }
-        guard manifest.isEnabled else {
-            lastError = "\(manifest.name) is disabled."
-            extensions.mcpServerStatuses[id] = .failed
-            return false
+        let result = mcpRuntime.startServer(
+            manifest: manifest,
+            workspaceRoot: workspaceRoot,
+            extensions: &extensions
+        ) { [weak self] id, terminationStatus in
+            self?.finishMCPServerProcess(id: id, terminationStatus: terminationStatus)
         }
-        guard let command = manifest.launchExecutable,
-              !command.isEmpty
-        else {
-            lastError = "\(manifest.name) does not define a launch command."
-            extensions.mcpServerStatuses[id] = .failed
-            return false
+        lastError = result.errorMessage
+        if let agentStatus = result.agentStatus {
+            refreshTopBar(agentStatus: agentStatus)
         }
-        if let handle = mcpServerProcesses[id], handle.process.isRunning {
-            if extensions.mcpServerStatuses[id]?.isActive != true {
-                extensions.mcpServerStatuses[id] = .running
-            }
-            refreshTopBar(agentStatus: "Idle")
-            return true
+        if let notice = result.notice {
+            appendNotice(notice)
         }
-
-        let process = Process()
-        process.currentDirectoryURL = workspaceRoot
-        let arguments = manifest.launchArguments ?? []
-        if command.contains("/") {
-            let commandURL = command.hasPrefix("/")
-                ? URL(fileURLWithPath: command)
-                : workspaceRoot.appendingPathComponent(command)
-            process.executableURL = commandURL
-            process.arguments = arguments
-        } else {
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = [command] + arguments
-        }
-
-        let standardInput = Pipe()
-        let standardOutput = Pipe()
-        let standardError = Pipe()
-        process.standardInput = standardInput
-        process.standardOutput = standardOutput
-        process.standardError = standardError
-        process.terminationHandler = { [weak self] process in
-            standardOutput.fileHandleForReading.readabilityHandler = nil
-            standardError.fileHandleForReading.readabilityHandler = nil
-            Task { @MainActor [weak self] in
-                self?.finishMCPServerProcess(id: id, terminationStatus: process.terminationStatus)
-            }
-        }
-
-        do {
-            try process.run()
-        } catch {
-            lastError = "Could not start \(manifest.name): \(error.localizedDescription)"
-            extensions.mcpServerStatuses[id] = .failed
-            refreshTopBar(agentStatus: "Failed")
-            appendNotice("MCP server \(manifest.name) failed to start")
-            return false
-        }
-
-        let session = MCPStdioProber(
-            standardInput: standardInput.fileHandleForWriting,
-            standardOutput: standardOutput.fileHandleForReading
-        )
-        let handle = MCPServerProcessHandle(
-            process: process,
-            standardInput: standardInput,
-            standardOutput: standardOutput,
-            standardError: standardError,
-            session: session
-        )
-        mcpServerProcesses[id] = handle
-        extensions.mcpServerStatuses[id] = .probing
-        extensions.mcpServerProbeSummaries[id] = nil
-        lastError = nil
-        refreshTopBar(agentStatus: "Idle")
-
-        do {
-            let result = try session.probe(timeout: 2.0)
-            extensions.mcpServerStatuses[id] = .ready
-            extensions.mcpServerProbeSummaries[id] = MCPServerProbeSummary(result: result)
-            standardError.fileHandleForReading.readabilityHandler = { handle in
-                _ = handle.availableData
-            }
-            appendNotice("MCP server \(manifest.name) ready\(mcpProbeNoticeSuffix(for: result))")
-        } catch {
-            standardOutput.fileHandleForReading.readabilityHandler = nil
-            standardError.fileHandleForReading.readabilityHandler = nil
-            process.terminationHandler = nil
-            if process.isRunning {
-                process.terminate()
-            }
-            mcpServerProcesses[id] = nil
-            let message = error.localizedDescription
-            lastError = "Could not verify \(manifest.name): \(message)"
-            extensions.mcpServerStatuses[id] = .failed
-            extensions.mcpServerProbeSummaries[id] = MCPServerProbeSummary(errorMessage: message)
-            refreshTopBar(agentStatus: "Failed")
-            appendNotice("MCP server \(manifest.name) probe failed: \(message)")
-            return false
-        }
-        return true
+        return result.ok
     }
 
     @discardableResult
@@ -1836,217 +1727,37 @@ public final class QuillCodeWorkspaceModel {
             return false
         }
 
-        if let handle = mcpServerProcesses[id], handle.process.isRunning {
-            handle.standardOutput.fileHandleForReading.readabilityHandler = nil
-            handle.standardError.fileHandleForReading.readabilityHandler = nil
-            handle.process.terminate()
+        let result = mcpRuntime.stopServer(manifest: manifest, extensions: &extensions)
+        lastError = result.errorMessage
+        if let agentStatus = result.agentStatus {
+            refreshTopBar(agentStatus: agentStatus)
         }
-        mcpServerProcesses[id] = nil
-        extensions.mcpServerStatuses[id] = .stopped
-        extensions.mcpServerProbeSummaries[id] = nil
-        lastError = nil
-        refreshTopBar(agentStatus: "Idle")
-        appendNotice("MCP server \(manifest.name) stopped")
-        return true
+        if let notice = result.notice {
+            appendNotice(notice)
+        }
+        return result.ok
     }
 
     private func finishMCPServerProcess(id: String, terminationStatus: Int32) {
-        mcpServerProcesses[id] = nil
-        if extensions.mcpServerStatuses[id] == .stopped {
-            return
+        let result = mcpRuntime.finishServer(
+            id: id,
+            terminationStatus: terminationStatus,
+            extensions: &extensions
+        )
+        if let agentStatus = result.agentStatus {
+            refreshTopBar(agentStatus: agentStatus)
         }
-        extensions.mcpServerStatuses[id] = terminationStatus == 0 ? .stopped : .failed
-        if terminationStatus != 0 {
-            extensions.mcpServerProbeSummaries[id] = MCPServerProbeSummary(
-                errorMessage: "Process exited with status \(terminationStatus)."
-            )
-        } else {
-            extensions.mcpServerProbeSummaries[id] = nil
-        }
-        refreshTopBar(agentStatus: terminationStatus == 0 ? "Idle" : "Failed")
-    }
-
-    private func mcpProbeNoticeSuffix(for result: MCPServerProbeResult) -> String {
-        let toolPreview = result.toolNames.prefix(3).joined(separator: ", ")
-        let toolLabel: String
-        if result.toolNames.isEmpty {
-            toolLabel = "0 tools"
-        } else {
-            let remaining = result.toolNames.count - min(result.toolNames.count, 3)
-            toolLabel = remaining > 0
-                ? "\(result.toolNames.count) tools: \(toolPreview), +\(remaining) more"
-                : "\(result.toolNames.count) tools: \(toolPreview)"
-        }
-        let resourceLabel = result.resourceNames.isEmpty
-            ? nil
-            : "\(result.resourceNames.count) resource\(result.resourceNames.count == 1 ? "" : "s")"
-        let promptLabel = result.promptNames.isEmpty
-            ? nil
-            : "\(result.promptNames.count) prompt\(result.promptNames.count == 1 ? "" : "s")"
-        let parts = [toolLabel, resourceLabel, promptLabel].compactMap { $0 }
-        return " (\(parts.joined(separator: "; ")))"
     }
 
     private func mcpToolDefinitionsForReadyServers() -> [ToolDefinition] {
-        var definitions: [ToolDefinition] = []
-
-        let readyTools = readyMCPToolDescriptions()
-        if !readyTools.isEmpty {
-            var definition = ToolDefinition.mcpCall
-            definition.description = """
-            Call a tool on a verified project-local MCP stdio server. Use only these Ready MCP tools:
-            \(readyTools.joined(separator: "\n"))
-            """
-            definitions.append(definition)
-        }
-
-        let readyResources = readyMCPResourceDescriptions()
-        if !readyResources.isEmpty {
-            var definition = ToolDefinition.mcpReadResource
-            definition.description = """
-            Read a resource from a verified project-local MCP stdio server. Use only these Ready MCP resources:
-            \(readyResources.joined(separator: "\n"))
-            """
-            definitions.append(definition)
-        }
-
-        let readyPrompts = readyMCPPromptDescriptions()
-        if !readyPrompts.isEmpty {
-            var definition = ToolDefinition.mcpGetPrompt
-            definition.description = """
-            Get a prompt from a verified project-local MCP stdio server. Use only these Ready MCP prompts:
-            \(readyPrompts.joined(separator: "\n"))
-            """
-            definitions.append(definition)
-        }
-
-        return definitions
-    }
-
-    private func readyMCPToolDescriptions() -> [String] {
-        (selectedProject?.extensionManifests ?? [])
-            .filter { manifest in
-                manifest.kind == .mcpServer
-                    && extensions.mcpServerStatuses[manifest.id] == .ready
-                    && mcpServerProcesses[manifest.id]?.process.isRunning == true
-            }
-            .compactMap { manifest -> String? in
-                guard let summary = extensions.mcpServerProbeSummaries[manifest.id],
-                      !summary.toolDescriptors.isEmpty
-                else { return nil }
-                let tools = summary.toolDescriptors.map { descriptor in
-                    var details: [String] = []
-                    if !descriptor.schemaSummary.isEmpty {
-                        details.append(descriptor.schemaSummary)
-                    }
-                    if !descriptor.description.isEmpty {
-                        details.append(descriptor.description)
-                    }
-                    return details.isEmpty
-                        ? descriptor.name
-                        : "\(descriptor.name) [\(details.joined(separator: "; "))]"
-                }
-                return "- \(manifest.id) (\(manifest.name)): \(tools.joined(separator: ", "))"
-            }
-    }
-
-    private func readyMCPResourceDescriptions() -> [String] {
-        (selectedProject?.extensionManifests ?? [])
-            .filter { manifest in
-                manifest.kind == .mcpServer
-                    && extensions.mcpServerStatuses[manifest.id] == .ready
-                    && mcpServerProcesses[manifest.id]?.process.isRunning == true
-            }
-            .compactMap { manifest -> String? in
-                guard let summary = extensions.mcpServerProbeSummaries[manifest.id],
-                      !summary.resourceNames.isEmpty
-                else { return nil }
-                let resources = zip(summary.resourceNames, summary.resourceURIs).map { name, uri in
-                    name == uri ? uri : "\(name) [\(uri)]"
-                }
-                let fallbackResources = Array(summary.resourceNames.dropFirst(resources.count))
-                return "- \(manifest.id) (\(manifest.name)): \((resources + fallbackResources).joined(separator: ", "))"
-            }
-    }
-
-    private func readyMCPPromptDescriptions() -> [String] {
-        (selectedProject?.extensionManifests ?? [])
-            .filter { manifest in
-                manifest.kind == .mcpServer
-                    && extensions.mcpServerStatuses[manifest.id] == .ready
-                    && mcpServerProcesses[manifest.id]?.process.isRunning == true
-            }
-            .compactMap { manifest -> String? in
-                let prompts = extensions.mcpServerProbeSummaries[manifest.id]?.promptNames ?? []
-                guard !prompts.isEmpty else { return nil }
-                return "- \(manifest.id) (\(manifest.name)): \(prompts.joined(separator: ", "))"
-            }
+        mcpRuntime.toolDefinitions(
+            manifests: selectedProject?.extensionManifests ?? [],
+            extensions: extensions
+        )
     }
 
     private func mcpToolExecutionOverride() -> AgentToolExecutionOverride? {
-        let sessions = mcpServerProcesses.compactMapValues { handle in
-            handle.process.isRunning ? handle.session : nil
-        }
-        let summaries = extensions.mcpServerProbeSummaries
-        let allowedTools = summaries.mapValues { Set($0.toolNames) }
-        let allowedPrompts = summaries.mapValues { Set($0.promptNames) }
-        guard !sessions.isEmpty else { return nil }
-
-        return { call, _ in
-            do {
-                switch call.name {
-                case ToolDefinition.mcpCall.name:
-                    let request = try MCPToolCallRequest(argumentsJSON: call.argumentsJSON)
-                    guard let session = sessions[request.serverID] else {
-                        return ToolResult(ok: false, error: "MCP server is not running or is not Ready: \(request.serverID)")
-                    }
-                    guard allowedTools[request.serverID]?.contains(request.toolName) == true else {
-                        return ToolResult(
-                            ok: false,
-                            error: "MCP tool \(request.toolName) was not advertised by \(request.serverID)."
-                        )
-                    }
-                    return try session.callTool(
-                        toolName: request.toolName,
-                        argumentsJSON: request.toolArgumentsJSON
-                    )
-
-                case ToolDefinition.mcpReadResource.name:
-                    let request = try MCPResourceReadRequest(argumentsJSON: call.argumentsJSON)
-                    guard let session = sessions[request.serverID] else {
-                        return ToolResult(ok: false, error: "MCP server is not running or is not Ready: \(request.serverID)")
-                    }
-                    guard let uri = request.resourceURI(in: summaries[request.serverID]) else {
-                        return ToolResult(
-                            ok: false,
-                            error: "MCP resource \(request.resourceIdentifier) was not advertised by \(request.serverID)."
-                        )
-                    }
-                    return try session.readResource(uri: uri)
-
-                case ToolDefinition.mcpGetPrompt.name:
-                    let request = try MCPPromptGetRequest(argumentsJSON: call.argumentsJSON)
-                    guard let session = sessions[request.serverID] else {
-                        return ToolResult(ok: false, error: "MCP server is not running or is not Ready: \(request.serverID)")
-                    }
-                    guard allowedPrompts[request.serverID]?.contains(request.promptName) == true else {
-                        return ToolResult(
-                            ok: false,
-                            error: "MCP prompt \(request.promptName) was not advertised by \(request.serverID)."
-                        )
-                    }
-                    return try session.getPrompt(
-                        name: request.promptName,
-                        argumentsJSON: request.promptArgumentsJSON
-                    )
-
-                default:
-                    return nil
-                }
-            } catch {
-                return ToolResult(ok: false, error: Self.mcpUserFacingError(error))
-            }
-        }
+        mcpRuntime.executionOverride(extensions: extensions)
     }
 
     private func computerUseToolExecutionOverride() -> AgentToolExecutionOverride? {
@@ -2944,14 +2655,6 @@ public final class QuillCodeWorkspaceModel {
         }
     }
 
-    private nonisolated static func mcpUserFacingError(_ error: Error) -> String {
-        if let localized = (error as? LocalizedError)?.errorDescription,
-           !localized.isEmpty {
-            return localized
-        }
-        return String(describing: error)
-    }
-
     private func appendNotice(_ summary: String) {
         mutateSelectedThread { thread in
             thread.events.append(.init(kind: .notice, summary: summary))
@@ -3281,21 +2984,11 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func cancelActiveWork() {
-        let runningMCPIDs = mcpServerProcesses.compactMap { id, handle in
-            handle.process.isRunning ? id : nil
-        }
-        let hadActiveWork = composer.isSending || terminal.isRunning || !runningMCPIDs.isEmpty
+        let hadRunningMCPServers = mcpRuntime.cancelAll(extensions: &extensions)
+        let hadActiveWork = composer.isSending || terminal.isRunning || hadRunningMCPServers
         composer.isSending = false
         terminal.isRunning = false
         WorkspaceTerminalEngine.stopRunningEntries(terminal: &terminal)
-        for id in runningMCPIDs {
-            mcpServerProcesses[id]?.standardOutput.fileHandleForReading.readabilityHandler = nil
-            mcpServerProcesses[id]?.standardError.fileHandleForReading.readabilityHandler = nil
-            mcpServerProcesses[id]?.process.terminate()
-            mcpServerProcesses[id] = nil
-            extensions.mcpServerStatuses[id] = .stopped
-            extensions.mcpServerProbeSummaries[id] = nil
-        }
         lastError = nil
         if hadActiveWork {
             refreshTopBar(agentStatus: "Stopped")
