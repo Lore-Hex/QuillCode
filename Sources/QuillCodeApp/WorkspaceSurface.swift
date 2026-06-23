@@ -2611,6 +2611,7 @@ public extension QuillCodeWorkspaceModel {
         let sidebarSelectedThreadIDs = sidebarSelection.isActive
             ? Set(selectedSidebarThreadIDs())
             : []
+        let modelCatalog = modelCatalogBuilder(selectedModelID: topBarState.model)
         return WorkspaceSurface(
             topBar: TopBarSurface(
                 appName: topBarState.appName,
@@ -2620,9 +2621,9 @@ public extension QuillCodeWorkspaceModel {
                 instructionSources: activeInstructions.map(\.path),
                 memoryLabel: Self.memoryStatusLabel(for: activeMemories),
                 memorySources: activeMemories.map(\.relativePath),
-                modelLabel: modelLabel(for: topBarState.model),
+                modelLabel: modelCatalog.modelLabel(),
                 selectedModelID: topBarState.model,
-                modelCategories: modelCategories(selectedModelID: topBarState.model),
+                modelCategories: modelCatalog.categories(),
                 modeLabel: Self.modeLabel(topBarState.mode),
                 agentStatus: topBarState.agentStatus,
                 runtimeIssueLabel: runtimeIssue?.title,
@@ -2776,135 +2777,18 @@ public extension QuillCodeWorkspaceModel {
             .map { ProjectItemSurface(project: $0, selectedProjectID: root.selectedProjectID) }
     }
 
-    private func modelLabel(for id: String) -> String {
-        guard let model = root.modelCatalog.first(where: { $0.id == id }) else {
-            return TrustedRouterDefaults.canonicalModelID(id)
-        }
-        return TrustedRouterDefaults.displayLabel(for: model)
-    }
-
-    private func modelCategories(selectedModelID: String) -> [ModelCategorySurface] {
-        var catalog = root.modelCatalog
-        if !catalog.contains(where: { $0.id == selectedModelID }) {
-            catalog.insert(Self.fallbackModelInfo(for: selectedModelID), at: 0)
-        }
-        let favoriteIDs = favoriteModelIDs()
-        let favoriteIDSet = Set(favoriteIDs)
-
-        let options = catalog.map {
-            modelOption(for: $0, selectedModelID: selectedModelID, favoriteIDs: favoriteIDSet)
-        }
-        var categories = Dictionary(grouping: options, by: \.category)
-            .map { category, models in
-                ModelCategorySurface(
-                    category: category,
-                    models: models.sorted(by: Self.sortModelOptions)
-                )
-            }
-            .sorted(by: Self.sortModelCategories)
-
-        let favoriteModels = favoriteIDs.compactMap { id -> ModelOptionSurface? in
-            let model = catalog.first { $0.id == id } ?? Self.fallbackModelInfo(for: id)
-            return modelOption(
-                for: model,
-                selectedModelID: selectedModelID,
-                favoriteIDs: favoriteIDSet,
-                extraBadges: ["Favorite"]
-            )
-        }
-        if !favoriteModels.isEmpty {
-            categories.insert(ModelCategorySurface(category: "Favorites", models: favoriteModels), at: 0)
-        }
-
-        let recentModels = recentModelIDs(limit: 4, excluding: favoriteIDSet).compactMap { id -> ModelOptionSurface? in
-            let model = catalog.first { $0.id == id } ?? Self.fallbackModelInfo(for: id)
-            return modelOption(
-                for: model,
-                selectedModelID: selectedModelID,
-                favoriteIDs: favoriteIDSet,
-                extraBadges: ["Recent"]
-            )
-        }
-        if !recentModels.isEmpty {
-            categories.insert(ModelCategorySurface(category: "Recent", models: recentModels), at: favoriteModels.isEmpty ? 0 : 1)
-        }
-        return categories
-    }
-
-    private func modelOption(
-        for model: ModelInfo,
-        selectedModelID: String,
-        favoriteIDs: Set<String>,
-        extraBadges: [String] = []
-    ) -> ModelOptionSurface {
-        var badges = extraBadges
-        let isFavorite = favoriteIDs.contains(model.id)
-        if isFavorite {
-            badges.append("Favorite")
-        }
-        if model.id == selectedModelID {
-            badges.append("Current")
-        }
-        if model.id == root.config.defaultModel {
-            badges.append("Default")
-        }
-        if TrustedRouterDefaults.recommendedRank(for: model.id) != nil {
-            badges.append("Recommended")
-        }
-        return ModelOptionSurface(
-            model: model,
-            selectedModelID: selectedModelID,
-            isFavorite: isFavorite,
-            badges: Self.unique(badges)
-        )
-    }
-
-    private func favoriteModelIDs() -> [String] {
-        Self.unique(root.config.favoriteModels)
-    }
-
-    private func recentModelIDs(limit: Int, excluding favoriteIDs: Set<String>) -> [String] {
-        let modelIDs = root.threads
+    private func modelCatalogBuilder(selectedModelID: String) -> WorkspaceModelCatalogSurfaceBuilder {
+        let recentModelIDs = root.threads
             .filter { !$0.isArchived }
             .sorted { $0.updatedAt > $1.updatedAt }
             .map(\.model)
-            .filter { !favoriteIDs.contains($0) }
-        return Array(Self.unique(modelIDs).prefix(limit))
-    }
-
-    private static func unique<S: Sequence>(_ values: S) -> [S.Element] where S.Element: Hashable {
-        var seen = Set<S.Element>()
-        var result: [S.Element] = []
-        for value in values where seen.insert(value).inserted {
-            result.append(value)
-        }
-        return result
-    }
-
-    private static func fallbackModelInfo(for id: String) -> ModelInfo {
-        TrustedRouterDefaults.fallbackModelInfo(for: id)
-    }
-
-    private static func sortModelCategories(_ lhs: ModelCategorySurface, _ rhs: ModelCategorySurface) -> Bool {
-        let lhsRank = modelCategoryRank(lhs.category)
-        let rhsRank = modelCategoryRank(rhs.category)
-        if lhsRank != rhsRank { return lhsRank < rhsRank }
-        return lhs.category < rhs.category
-    }
-
-    private static func modelCategoryRank(_ category: String) -> Int {
-        switch category {
-        case "Favorites":
-            return -2
-        case "Recent":
-            return -1
-        default:
-            return TrustedRouterDefaults.modelCategoryRank(category)
-        }
-    }
-
-    private static func sortModelOptions(_ lhs: ModelOptionSurface, _ rhs: ModelOptionSurface) -> Bool {
-        TrustedRouterDefaults.compareModels(lhs.modelInfo, rhs.modelInfo)
+        return WorkspaceModelCatalogSurfaceBuilder(
+            catalog: root.modelCatalog,
+            selectedModelID: selectedModelID,
+            defaultModelID: root.config.defaultModel,
+            favoriteModelIDs: root.config.favoriteModels,
+            recentModelIDs: recentModelIDs
+        )
     }
 
     private func commands() -> [WorkspaceCommandSurface] {
