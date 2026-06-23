@@ -71,14 +71,14 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
                 ok: false,
                 errorMessage: "Could not validate \(manifest.name): \(error.localizedDescription)",
                 notice: "MCP server \(manifest.name) failed to start",
-                agentStatus: "Failed"
+                agentStatus: TopBarAgentStatusLabel.failed
             )
         }
         if let handle = processes[manifest.id], handle.process.isRunning {
             if extensions.mcpServerStatuses[manifest.id]?.isActive != true {
                 extensions.mcpServerStatuses[manifest.id] = .running
             }
-            return WorkspaceMCPRuntimeResult(ok: true, agentStatus: "Idle")
+            return WorkspaceMCPRuntimeResult(ok: true, agentStatus: TopBarAgentStatusLabel.idle)
         }
 
         let launchedServer: WorkspaceMCPLaunchedServer
@@ -94,7 +94,7 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
                 ok: false,
                 errorMessage: "Could not start \(manifest.name): \(error.localizedDescription)",
                 notice: "MCP server \(manifest.name) failed to start",
-                agentStatus: "Failed"
+                agentStatus: TopBarAgentStatusLabel.failed
             )
         }
 
@@ -113,7 +113,7 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
             return WorkspaceMCPRuntimeResult(
                 ok: true,
                 notice: "MCP server \(manifest.name) ready\(Self.probeNoticeSuffix(for: result))",
-                agentStatus: "Idle"
+                agentStatus: TopBarAgentStatusLabel.idle
             )
         } catch {
             launchedServer.process.clearReadabilityHandlers()
@@ -128,7 +128,7 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
                 ok: false,
                 errorMessage: "Could not verify \(manifest.name): \(message)",
                 notice: "MCP server \(manifest.name) probe failed: \(message)",
-                agentStatus: "Failed"
+                agentStatus: TopBarAgentStatusLabel.failed
             )
         }
     }
@@ -143,7 +143,7 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
         return WorkspaceMCPRuntimeResult(
             ok: true,
             notice: "MCP server \(manifest.name) stopped",
-            agentStatus: "Idle"
+            agentStatus: TopBarAgentStatusLabel.idle
         )
     }
 
@@ -164,9 +164,12 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
         } else {
             extensions.mcpServerProbeSummaries[id] = nil
         }
+        let status = terminationStatus == 0
+            ? TopBarAgentStatusLabel.idle
+            : TopBarAgentStatusLabel.failed
         return WorkspaceMCPFinishResult(
             changed: true,
-            agentStatus: terminationStatus == 0 ? "Idle" : "Failed"
+            agentStatus: status
         )
     }
 

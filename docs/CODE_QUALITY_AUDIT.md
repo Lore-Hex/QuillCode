@@ -1281,4 +1281,22 @@ Code quality changes:
 
 Remaining risk:
 
-- Other high-level status literals such as `Idle`, `Running`, `Failed`, and `Stopped` are still emitted by model orchestration paths. They are side-effect timing markers rather than progress-event copy; if they start gaining conditional logic, extract a broader workspace status transition helper.
+- Side-effect timing markers such as idle, failed, stopped, and terminal are still emitted by model orchestration paths. The follow-up pass below centralizes their user-facing labels; if those transitions start gaining richer conditional logic, extract a broader workspace status transition helper.
+
+## 2026-06-23 Top-Bar Status Label Pass
+
+Overall grade after this slice: **A- foundation, A shared-status-label boundary**.
+
+Top-bar lifecycle labels moved from repeated string literals into `TopBarAgentStatusLabel`. The root state default, workspace orchestration paths, agent progress builder, MCP runtime, and top-bar presentation fallback now share one label source while preserving the existing `String` surface contract for UI compatibility.
+
+Code quality changes:
+
+- Added `TopBarAgentStatusLabel` for stable user-facing lifecycle copy.
+- Replaced raw `Idle`, `Running`, `Failed`, `Stopped`, and `Terminal` top-bar refresh strings in `WorkspaceModel`.
+- Updated `WorkspaceAgentStatusBuilder` and `WorkspaceMCPRuntime` to return shared labels.
+- Added tests that lock the label copy and use shared constants in status presentation/progress assertions.
+- Added a parity gate preventing raw lifecycle status strings from returning to runtime paths.
+
+Remaining risk:
+
+- Runtime status labels such as `TrustedRouter ready`, `Developer key needed`, and sign-in prompts remain dynamic runtime copy rather than lifecycle labels. If those become more conditional, they should move into a focused runtime-status copy helper instead of expanding `TopBarAgentStatusLabel`.

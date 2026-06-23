@@ -114,31 +114,43 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
     }
 
     func testAgentStatusPresentationClassifiesActionableStatusTones() {
-        XCTAssertEqual(TopBarStatusPresentation.agentStatus("Idle"), TopBarStatusPresentation(
-            label: "Idle",
+        XCTAssertEqual(TopBarStatusPresentation.agentStatus(TopBarAgentStatusLabel.idle), TopBarStatusPresentation(
+            label: TopBarAgentStatusLabel.idle,
             tone: .idle,
             showsIndicator: false
         ))
-        XCTAssertEqual(TopBarStatusPresentation.agentStatus("Running"), TopBarStatusPresentation(
-            label: "Running",
+        XCTAssertEqual(TopBarStatusPresentation.agentStatus(TopBarAgentStatusLabel.running), TopBarStatusPresentation(
+            label: TopBarAgentStatusLabel.running,
             tone: .running,
             showsIndicator: true
         ))
-        XCTAssertEqual(TopBarStatusPresentation.agentStatus("Terminal"), TopBarStatusPresentation(
-            label: "Terminal",
+        XCTAssertEqual(TopBarStatusPresentation.agentStatus(TopBarAgentStatusLabel.terminal), TopBarStatusPresentation(
+            label: TopBarAgentStatusLabel.terminal,
             tone: .running,
             showsIndicator: true
         ))
-        XCTAssertEqual(TopBarStatusPresentation.agentStatus("Failed"), TopBarStatusPresentation(
-            label: "Failed",
+        XCTAssertEqual(TopBarStatusPresentation.agentStatus(TopBarAgentStatusLabel.failed), TopBarStatusPresentation(
+            label: TopBarAgentStatusLabel.failed,
             tone: .failed,
             showsIndicator: true
         ))
-        XCTAssertEqual(TopBarStatusPresentation.agentStatus("Stopped"), TopBarStatusPresentation(
-            label: "Stopped",
+        XCTAssertEqual(TopBarStatusPresentation.agentStatus(TopBarAgentStatusLabel.stopped), TopBarStatusPresentation(
+            label: TopBarAgentStatusLabel.stopped,
             tone: .stopped,
             showsIndicator: true
         ))
+    }
+
+    func testAgentStatusLabelsPreserveStableUserFacingCopy() {
+        XCTAssertEqual(TopBarAgentStatusLabel.idle, "Idle")
+        XCTAssertEqual(TopBarAgentStatusLabel.queued, "Queued")
+        XCTAssertEqual(TopBarAgentStatusLabel.running, "Running")
+        XCTAssertEqual(TopBarAgentStatusLabel.review, "Review")
+        XCTAssertEqual(TopBarAgentStatusLabel.streaming, "Streaming")
+        XCTAssertEqual(TopBarAgentStatusLabel.finishing, "Finishing")
+        XCTAssertEqual(TopBarAgentStatusLabel.failed, "Failed")
+        XCTAssertEqual(TopBarAgentStatusLabel.stopped, "Stopped")
+        XCTAssertEqual(TopBarAgentStatusLabel.terminal, "Terminal")
     }
 
     func testRuntimeIssuePresentationUsesWarningByDefaultAndErrorWhenExplicit() {

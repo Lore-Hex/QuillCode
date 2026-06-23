@@ -7,6 +7,18 @@ enum TopBarStatusTone: String, Codable, Sendable, Hashable {
     case stopped
 }
 
+public enum TopBarAgentStatusLabel {
+    public static let idle = "Idle"
+    public static let queued = "Queued"
+    public static let running = "Running"
+    public static let review = "Review"
+    public static let streaming = "Streaming"
+    public static let finishing = "Finishing"
+    public static let failed = "Failed"
+    public static let stopped = "Stopped"
+    public static let terminal = "Terminal"
+}
+
 struct TopBarStatusPresentation: Codable, Sendable, Hashable {
     var label: String
     var tone: TopBarStatusTone
@@ -35,7 +47,11 @@ struct TopBarStatusPresentation: Codable, Sendable, Hashable {
             return TopBarStatusPresentation(label: label, tone: .stopped, showsIndicator: true)
         }
 
-        return TopBarStatusPresentation(label: label.isEmpty ? "Idle" : label, tone: .idle, showsIndicator: false)
+        return TopBarStatusPresentation(
+            label: label.isEmpty ? TopBarAgentStatusLabel.idle : label,
+            tone: .idle,
+            showsIndicator: false
+        )
     }
 }
 

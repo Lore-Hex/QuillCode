@@ -40,7 +40,7 @@ public struct TopBarState: Sendable, Hashable {
         threadTitle: String? = nil,
         model: String = TrustedRouterDefaults.defaultModel,
         mode: AgentMode = .auto,
-        agentStatus: String = "Idle",
+        agentStatus: String = TopBarAgentStatusLabel.idle,
         computerUseStatus: ComputerUseStatus = .init(
             available: false,
             screenRecordingGranted: false,
