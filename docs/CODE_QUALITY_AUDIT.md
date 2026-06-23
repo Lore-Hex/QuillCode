@@ -16,14 +16,14 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `QuillCodeSafety` | A- | Small, explicit policy layer. Needs more production prompt telemetry once live Auto reviewer tuning begins. |
 | `QuillCodePersistence` | A | Focused stores, compatibility tests, and clear path ownership. |
 | `QuillComputerUseKit` | B+ | Protocol shape is good and macOS adapter is isolated. Linux adapter, app approvals, and visual feedback loops are still parity gaps. |
-| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, command, review, context banner, transcript projection, execution-context enrichment, browser location resolving, thread seeding, and thread lifecycle transitions now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
+| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, command, review, context banner, transcript projection, execution-context enrichment, browser location resolving, thread seeding, thread lifecycle transitions, and sidebar selection transitions now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
 | Playwright harness | B+ | Valuable parity harness with broad coverage. It intentionally duplicates rendering behavior, so keep it thin and derived from stable surface concepts. |
 
 ## File Hotspots
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, browser/MCP surface state, browser location resolving, MCP request parsing, MCP runtime/catalog work, tool-card surface types, execution-context enrichment, thread seeding, and thread lifecycle transitions now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, browser/MCP surface state, browser location resolving, MCP request parsing, MCP runtime/catalog work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, and sidebar selection transitions now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but runtime issue classification, model catalog presentation, command palette construction, review diff construction, context banner estimation, and transcript message projection are now extracted into pure builders. Next step is extracting additional surface-family builders only when behavior grows. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
@@ -542,7 +542,7 @@ Code quality changes:
 
 Remaining risk:
 
-- Sidebar bulk actions still combine selection state and persistence in `WorkspaceModel`. The mutation rules now route through the lifecycle engine, but a future slice should move sidebar selection planning into a dedicated reducer if bulk behavior grows again.
+- Sidebar bulk actions still combine command dispatch, thread persistence, and project fallback in `WorkspaceModel`. Thread mutations now route through the lifecycle engine, and sidebar selection planning now routes through a dedicated reducer.
 
 ## 2026-06-23 Browser Location Resolver Pass
 
@@ -563,3 +563,23 @@ Code quality changes:
 Remaining risk:
 
 - Browser history, fetch refresh, and comment creation still live together in `WorkspaceModel`. If browser interaction grows toward live DOM sessions or signed-in browser profiles, those side effects should move behind a browser workflow coordinator before adding more state branches.
+
+## 2026-06-23 Sidebar Selection Engine Pass
+
+Overall grade after this slice: **A- foundation, A- sidebar workflow boundary**.
+
+Sidebar bulk-selection state moved out of `WorkspaceModel.swift` into `WorkspaceSidebarSelectionEngine`. The workspace model still owns command dispatch, thread persistence, project fallback selection, and top-bar refresh, but the pure selection transitions now live in one directly tested reducer.
+
+Code quality changes:
+
+- Moved `SidebarSelectionState` beside the reducer that owns its transitions.
+- Extracted start-selection behavior, including optional valid-thread selection and invalid-thread ignoring.
+- Extracted clear and select-all behavior, including the empty-sidebar fallback to inactive selection mode.
+- Extracted toggle behavior with explicit unknown-thread rejection.
+- Extracted stale-ID pruning and sidebar-order resolution so selection order follows the visible sidebar rather than hash-set ordering.
+- Added focused tests for start, select-all, toggle, stale pruning, ordering, and all-stale active selection behavior.
+- Extended parity gates so `WorkspaceModel.swift` cannot regain direct sidebar-selection set mutation.
+
+Remaining risk:
+
+- Bulk action command dispatch still lives in `WorkspaceModel` because it combines lifecycle mutations, persistence, selected-project fallback, and top-bar refresh. If bulk actions grow beyond pin/archive/unarchive/delete, add a `WorkspaceSidebarBulkActionPlanner` before extending the model branch.
