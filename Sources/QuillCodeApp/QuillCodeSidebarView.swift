@@ -14,14 +14,16 @@ struct QuillCodeSidebarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             QuillCodeSidebarActionsView(commands: commands, onCommand: onCommand)
-            Divider()
-            threadHeader
-            if sidebar.isSelectionMode {
-                QuillCodeSidebarBulkActionsView(
-                    selectionLabel: sidebar.selectionLabel,
-                    actions: sidebar.bulkActions.filter { $0.kind != .clearSelection },
-                    onCommand: onCommand
-                )
+            if showsThreadHeader {
+                Divider()
+                threadHeader
+                if sidebar.isSelectionMode {
+                    QuillCodeSidebarBulkActionsView(
+                        selectionLabel: sidebar.selectionLabel,
+                        actions: sidebar.bulkActions.filter { $0.kind != .clearSelection },
+                        onCommand: onCommand
+                    )
+                }
             }
             threadList
             Divider()
@@ -36,6 +38,10 @@ struct QuillCodeSidebarView: View {
         }
         .padding(14)
         .background(QuillCodePalette.sidebar)
+    }
+
+    private var showsThreadHeader: Bool {
+        !sidebar.items.isEmpty || sidebar.isSelectionMode
     }
 
     private var threadHeader: some View {
@@ -123,20 +129,21 @@ private struct QuillCodeSidebarBulkActionsView: View {
             Text(selectionLabel)
                 .font(.caption)
                 .foregroundStyle(QuillCodePalette.muted)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 6)], spacing: 6) {
-                ForEach(actions) { action in
-                    Button(action.title) {
-                        onCommand(command(for: action))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(actions) { action in
+                        Button(action.title) {
+                            onCommand(command(for: action))
+                        }
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+                        .background((action.isDestructive ? QuillCodePalette.red : QuillCodePalette.panel).opacity(action.isEnabled ? 1 : 0.45))
+                        .foregroundStyle(action.isDestructive ? Color.white : QuillCodePalette.text)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .disabled(!action.isEnabled)
+                        .buttonStyle(QuillCodePressableButtonStyle())
                     }
-                    .font(.caption.weight(.semibold))
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 8)
-                    .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget)
-                    .background((action.isDestructive ? QuillCodePalette.red : QuillCodePalette.panel).opacity(action.isEnabled ? 1 : 0.45))
-                    .foregroundStyle(action.isDestructive ? Color.white : QuillCodePalette.text)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .disabled(!action.isEnabled)
-                    .buttonStyle(QuillCodePressableButtonStyle())
                 }
             }
         }
@@ -332,9 +339,12 @@ private struct QuillCodeSidebarUtilityActionsView: View {
                 Button {
                     onCommand(settingsCommand)
                 } label: {
-                    Image(systemName: QuillCodeSidebarCommandPresentation.systemImage(for: settingsCommand.id))
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+                    Label(
+                        QuillCodeSidebarCommandPresentation.displayTitle(for: settingsCommand),
+                        systemImage: QuillCodeSidebarCommandPresentation.systemImage(for: settingsCommand.id)
+                    )
+                        .font(.callout.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget)
                         .foregroundStyle(settingsCommand.isEnabled ? QuillCodePalette.muted : QuillCodePalette.muted.opacity(0.45))
                         .background(QuillCodePalette.panel.opacity(0.50))
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))

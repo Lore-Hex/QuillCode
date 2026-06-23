@@ -61,7 +61,7 @@ Drive the QuillCode test harness with mock LLM:
 - plugin install
 - settings, runtime issue diagnostics, and secret redaction
 - Computer Use top-bar status labels for ready and missing-permission states, plus the Settings permission card and setup buttons
-- top-bar model/mode, context/status, and action clusters under long labels without horizontal overflow
+- composer model/mode controls plus top-bar context/status/action clusters under long labels without horizontal overflow
 - top bar stop-all and composer Stop during active runs
 - `Cmd+/` Keyboard Shortcuts panel, plus command-palette access to the same panel
 - slash commands for mode, compact context, terminal, browser, worktrees, and PR prep, plus command-palette `>` and `/` scope badges, slash-template insertion into the focused composer, multiline composer behavior, Shift+Enter newline handling, Enter-to-send, composer slash suggestion filtering, selected-row keyboard navigation, Enter/Tab accept behavior, click-to-insert, focus retention, and send-through-existing-command-path behavior

@@ -1038,7 +1038,7 @@ final class ParityGateTests: XCTestCase {
 
         XCTAssertTrue(topBarText.contains("enum WorkspaceHTMLTopBarRenderer"), "HTML top-bar rendering should live in a focused renderer.")
         XCTAssertTrue(topBarText.contains("static func render(_ topBar: TopBarSurface"), "HTML top-bar rendering should expose a directly testable entry point.")
-        XCTAssertTrue(topBarText.contains("private static func renderPrimaryCluster"), "Model/mode cluster rendering should live beside top-bar HTML.")
+        XCTAssertFalse(topBarText.contains("renderPrimaryCluster"), "Send-time model/mode controls should not crowd top-bar HTML.")
         XCTAssertTrue(topBarText.contains("private static func renderStatusCluster"), "Status cluster rendering should live beside top-bar HTML.")
         XCTAssertTrue(topBarText.contains("private static func renderActionCluster"), "Overflow cluster rendering should live beside top-bar HTML.")
         XCTAssertTrue(topBarText.contains("private static func renderRuntimeIssuePill"), "Runtime issue pill rendering should live beside top-bar HTML.")
@@ -1052,12 +1052,16 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(htmlText.contains("top-bar-overflow-popover"), "WorkspaceHTMLRenderer should not own top-bar overflow markup.")
     }
 
-    func testTopBarSeparatesModelAndApprovalModeControls() throws {
+    func testComposerSeparatesModelAndApprovalModeControls() throws {
         let topBarViewText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
+        let composerViewText = try Self.appSourceText(named: "QuillCodeComposerView.swift")
         let modelPickerText = try Self.appSourceText(named: "QuillCodeModelPickerView.swift")
         let htmlTopBarText = try Self.appSourceText(named: "WorkspaceHTMLTopBarRenderer.swift")
+        let htmlTranscriptText = try Self.appSourceText(named: "WorkspaceHTMLTranscriptRenderer.swift")
 
-        XCTAssertTrue(topBarViewText.contains("QuillCodeModePickerButton"), "Approval mode should have a dedicated top-bar control.")
+        XCTAssertFalse(topBarViewText.contains("QuillCodeModelPickerView"), "Top bar should not carry send-time model selection chrome.")
+        XCTAssertTrue(composerViewText.contains("QuillCodeModelPickerView"), "Composer should expose send-time model selection.")
+        XCTAssertTrue(composerViewText.contains("QuillCodeModePickerButton"), "Composer should expose a dedicated approval-mode control.")
         XCTAssertTrue(topBarViewText.contains("Choose approval mode"), "The mode control should advertise approval-mode intent.")
         XCTAssertFalse(modelPickerText.contains("modeLabel"), "The model picker trigger and popover must not merge approval mode back into model selection.")
         XCTAssertNil(
@@ -1068,8 +1072,9 @@ final class ParityGateTests: XCTestCase {
             modelPickerText.range(of: #"\bonSetMode\s*:"#, options: .regularExpression),
             "Model picker initialization should not accept an approval-mode callback."
         )
-        XCTAssertTrue(htmlTopBarText.contains("data-testid=\"model-picker-button\""), "HTML top bar should expose a model control.")
-        XCTAssertTrue(htmlTopBarText.contains("data-testid=\"mode-picker-button\""), "HTML top bar should expose a separate mode control.")
+        XCTAssertFalse(htmlTopBarText.contains("data-testid=\"model-picker-button\""), "HTML top bar should not expose the model control.")
+        XCTAssertTrue(htmlTranscriptText.contains("data-testid=\"model-picker-button\""), "HTML composer should expose a model control.")
+        XCTAssertTrue(htmlTranscriptText.contains("data-testid=\"mode-picker-button\""), "HTML composer should expose a separate mode control.")
         XCTAssertFalse(htmlTopBarText.contains(" · "), "HTML top bar must not render model and mode as one combined label.")
     }
 

@@ -121,10 +121,6 @@ public struct QuillCodeWorkspaceView: View {
             QuillCodeTopBarView(
                 topBar: surface.topBar,
                 commands: surface.commands,
-                isModelPickerPresented: $isModelPickerPresented,
-                onSetMode: onSetMode,
-                onSetModel: onSetModel,
-                onToggleModelFavorite: onToggleModelFavorite,
                 onCommand: handleCommand
             )
             Divider()
@@ -218,8 +214,13 @@ public struct QuillCodeWorkspaceView: View {
                         Divider()
                         QuillCodeComposerView(
                             composer: surface.composer,
+                            topBar: surface.topBar,
                             draft: $draft,
+                            isModelPickerPresented: $isModelPickerPresented,
                             isFocused: $isComposerFocused,
+                            onSetMode: onSetMode,
+                            onSetModel: onSetModel,
+                            onToggleModelFavorite: onToggleModelFavorite,
                             onSend: onSend,
                             onStop: stopActiveRun
                         )

@@ -43,6 +43,9 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('project-item')).toContainText('QuillCode');
   await expect(page.getByTestId('project-item')).toHaveAttribute('aria-current', 'true');
   await expect(page.getByTestId('transcript-empty')).toBeVisible();
+  await expect(page.locator('[data-testid="top-bar"] [data-testid="model-picker-button"]')).toHaveCount(0);
+  await expect(page.getByTestId('composer-controls')).toBeVisible();
+  await expect(page.locator('[data-testid="composer"] [data-testid="model-picker-button"]')).toBeVisible();
   await expect(page.getByTestId('model-picker-button')).toHaveText('Nike 1.0');
   await expect(page.getByTestId('model-picker-button')).not.toContainText('Auto');
   await expect(page.getByTestId('mode-picker-button')).toBeVisible();
@@ -1341,6 +1344,7 @@ test('mock harness bulk-selects chats from the sidebar', async ({ page }) => {
   await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Delete$/ }).click();
 
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(0);
+  await expect(page.getByTestId('sidebar-title-row')).toHaveCount(0);
   await expect(page.getByTestId('sidebar-empty')).toHaveText('No chats yet');
 });
 
@@ -1827,7 +1831,7 @@ test('mock harness suggests slash commands in the composer', async ({ page }) =>
   await expect(message).toBeFocused();
 });
 
-test('mock harness searches and selects models from the top bar', async ({ page }) => {
+test('mock harness searches and selects models from the composer', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
   await page.getByTestId('model-picker-button').click();
