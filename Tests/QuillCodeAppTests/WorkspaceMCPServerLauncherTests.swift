@@ -70,7 +70,7 @@ final class WorkspaceMCPServerLauncherTests: XCTestCase {
         XCTAssertEqual(pathLookup.arguments, ["quill-mcp", "--root", "."])
     }
 
-    func testExecutionOverrideUsesSessionProtocolWithDefaultTimeouts() async throws {
+    func testExecutionOverrideUsesSessionProtocolWithBoundedTimeouts() async throws {
         let session = FakeWorkspaceMCPSession()
         let executionOverride = try XCTUnwrap(WorkspaceMCPRuntime.executionOverride(
             sessions: ["fs": session],
@@ -98,6 +98,81 @@ final class WorkspaceMCPServerLauncherTests: XCTestCase {
         XCTAssertEqual(session.lastToolTimeout, 10.0)
     }
 
+    func testRuntimeUsesInjectedLauncherAndMarksReadyAfterProbe() {
+        let process = FakeWorkspaceMCPProcess()
+        let session = FakeWorkspaceMCPSession(
+            probeResult: MCPServerProbeResult(
+                serverName: "Fixture MCP",
+                toolNames: ["read_file"]
+            )
+        )
+        let launcher = FakeWorkspaceMCPServerLauncher(process: process, session: session)
+        let runtime = WorkspaceMCPRuntime(launcher: launcher)
+        var extensions = ExtensionsState()
+
+        let result = runtime.startServer(
+            manifest: mcpManifest(launchExecutable: "quill-mcp", launchArguments: ["--root", "."]),
+            workspaceRoot: URL(fileURLWithPath: "/tmp/quill-workspace"),
+            extensions: &extensions,
+            onTermination: { _, _ in }
+        )
+
+        XCTAssertTrue(result.ok)
+        XCTAssertEqual(result.notice, "MCP server Filesystem MCP ready (1 tool: read_file)")
+        XCTAssertEqual(extensions.mcpServerStatuses["mcp_server:filesystem"], .ready)
+        XCTAssertEqual(extensions.mcpServerProbeSummaries["mcp_server:filesystem"]?.serverName, "Fixture MCP")
+        XCTAssertEqual(launcher.lastRequest?.command, "quill-mcp")
+        XCTAssertEqual(launcher.lastRequest?.arguments, ["--root", "."])
+        XCTAssertTrue(process.didStartDrainingStandardError)
+        XCTAssertFalse(process.didTerminate)
+    }
+
+    func testRuntimeReportsInjectedLauncherFailure() {
+        let launcher = FakeWorkspaceMCPServerLauncher(error: FakeMCPError.launchFailed)
+        let runtime = WorkspaceMCPRuntime(launcher: launcher)
+        var extensions = ExtensionsState()
+
+        let result = runtime.startServer(
+            manifest: mcpManifest(launchExecutable: "quill-mcp"),
+            workspaceRoot: URL(fileURLWithPath: "/tmp/quill-workspace"),
+            extensions: &extensions,
+            onTermination: { _, _ in }
+        )
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(result.errorMessage, "Could not start Filesystem MCP: launcher failed")
+        XCTAssertEqual(result.notice, "MCP server Filesystem MCP failed to start")
+        XCTAssertEqual(result.agentStatus, "Failed")
+        XCTAssertEqual(extensions.mcpServerStatuses["mcp_server:filesystem"], .failed)
+    }
+
+    func testRuntimeTerminatesInjectedProcessWhenProbeFails() {
+        let process = FakeWorkspaceMCPProcess()
+        let session = FakeWorkspaceMCPSession(probeError: FakeMCPError.probeFailed)
+        let launcher = FakeWorkspaceMCPServerLauncher(process: process, session: session)
+        let runtime = WorkspaceMCPRuntime(launcher: launcher)
+        var extensions = ExtensionsState()
+
+        let result = runtime.startServer(
+            manifest: mcpManifest(launchExecutable: "quill-mcp"),
+            workspaceRoot: URL(fileURLWithPath: "/tmp/quill-workspace"),
+            extensions: &extensions,
+            onTermination: { _, _ in }
+        )
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(result.errorMessage, "Could not verify Filesystem MCP: probe failed")
+        XCTAssertEqual(result.notice, "MCP server Filesystem MCP probe failed: probe failed")
+        XCTAssertEqual(result.agentStatus, "Failed")
+        XCTAssertEqual(extensions.mcpServerStatuses["mcp_server:filesystem"], .failed)
+        XCTAssertEqual(
+            extensions.mcpServerProbeSummaries["mcp_server:filesystem"]?.errorMessage,
+            "probe failed"
+        )
+        XCTAssertTrue(process.didClearReadabilityHandlers)
+        XCTAssertTrue(process.didTerminate)
+    }
+
     private func mcpManifest(
         isEnabled: Bool = true,
         launchExecutable: String?,
@@ -119,8 +194,18 @@ final class WorkspaceMCPServerLauncherTests: XCTestCase {
 
 private final class FakeWorkspaceMCPSession: WorkspaceMCPSession, @unchecked Sendable {
     private let lock = NSLock()
+    private let probeResult: MCPServerProbeResult
+    private let probeError: Error?
     private var recordedToolArgumentsJSON: String?
     private var recordedToolTimeout: TimeInterval?
+
+    init(
+        probeResult: MCPServerProbeResult = MCPServerProbeResult(toolNames: ["read_file"]),
+        probeError: Error? = nil
+    ) {
+        self.probeResult = probeResult
+        self.probeError = probeError
+    }
 
     var lastToolArgumentsJSON: String? {
         lock.locked { recordedToolArgumentsJSON }
@@ -131,7 +216,10 @@ private final class FakeWorkspaceMCPSession: WorkspaceMCPSession, @unchecked Sen
     }
 
     func probe(timeout: TimeInterval) throws -> MCPServerProbeResult {
-        MCPServerProbeResult(toolNames: ["read_file"])
+        if let probeError {
+            throw probeError
+        }
+        return probeResult
     }
 
     func callTool(
@@ -152,6 +240,78 @@ private final class FakeWorkspaceMCPSession: WorkspaceMCPSession, @unchecked Sen
 
     func getPrompt(name: String, argumentsJSON: String, timeout: TimeInterval) throws -> ToolResult {
         ToolResult(ok: true, stdout: name)
+    }
+}
+
+private final class FakeWorkspaceMCPProcess: WorkspaceMCPProcessControlling, @unchecked Sendable {
+    private(set) var didTerminate = false
+    private(set) var didClearReadabilityHandlers = false
+    private(set) var didStartDrainingStandardError = false
+
+    var isRunning: Bool {
+        !didTerminate
+    }
+
+    func terminate() {
+        didTerminate = true
+    }
+
+    func clearReadabilityHandlers() {
+        didClearReadabilityHandlers = true
+    }
+
+    func startDrainingStandardError() {
+        didStartDrainingStandardError = true
+    }
+}
+
+private final class FakeWorkspaceMCPServerLauncher: WorkspaceMCPServerLaunching, @unchecked Sendable {
+    private let process: FakeWorkspaceMCPProcess?
+    private let session: FakeWorkspaceMCPSession?
+    private let error: Error?
+    private(set) var lastRequest: WorkspaceMCPLaunchRequest?
+
+    init(process: FakeWorkspaceMCPProcess, session: FakeWorkspaceMCPSession) {
+        self.process = process
+        self.session = session
+        self.error = nil
+    }
+
+    init(error: Error) {
+        self.process = nil
+        self.session = nil
+        self.error = error
+    }
+
+    func launch(
+        request: WorkspaceMCPLaunchRequest,
+        onTermination: @escaping @MainActor @Sendable (_ id: String, _ terminationStatus: Int32) -> Void
+    ) throws -> WorkspaceMCPLaunchedServer {
+        lastRequest = request
+        if let error {
+            throw error
+        }
+        guard let process, let session else {
+            throw FakeMCPError.launchFailed
+        }
+        return WorkspaceMCPLaunchedServer(
+            process: process,
+            session: session
+        )
+    }
+}
+
+private enum FakeMCPError: Error, LocalizedError {
+    case launchFailed
+    case probeFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .launchFailed:
+            return "launcher failed"
+        case .probeFailed:
+            return "probe failed"
+        }
     }
 }
 
