@@ -1135,6 +1135,7 @@ final class ParityGateTests: XCTestCase {
     func testComposerSeparatesModelAndApprovalModeControls() throws {
         let topBarViewText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
         let composerViewText = try Self.appSourceText(named: "QuillCodeComposerView.swift")
+        let designText = try Self.appSourceText(named: "QuillCodeDesignSystem.swift")
         let modelPickerText = try Self.appSourceText(named: "QuillCodeModelPickerView.swift")
         let htmlTopBarText = try Self.appSourceText(named: "WorkspaceHTMLTopBarRenderer.swift")
         let htmlTranscriptText = try Self.appSourceText(named: "WorkspaceHTMLTranscriptRenderer.swift")
@@ -1142,8 +1143,13 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(topBarViewText.contains("QuillCodeModelPickerView"), "Top bar should not carry send-time model selection chrome.")
         XCTAssertTrue(composerViewText.contains("QuillCodeModelPickerView"), "Composer should expose send-time model selection.")
         XCTAssertTrue(composerViewText.contains("QuillCodeModePickerButton"), "Composer should expose a dedicated approval-mode control.")
+        XCTAssertTrue(composerViewText.contains("composerSurface"), "Native composer should group input, send, model, and mode chrome into one focused surface.")
+        XCTAssertTrue(composerViewText.contains("composerAccessoryBar"), "Native composer should keep model and mode controls as an input accessory bar.")
+        XCTAssertTrue(composerViewText.contains("composerSurfaceStroke"), "Native composer should show focus feedback on the whole input surface.")
+        XCTAssertTrue(designText.contains("composerSurfaceRadius: CGFloat = 12"), "Native composer should keep a compact code-editor radius.")
         XCTAssertTrue(topBarViewText.contains("Choose Auto safety mode"), "The mode control should advertise Auto safety intent.")
-        XCTAssertTrue(topBarViewText.contains(#"Text("Mode")"#), "Native mode control should name the control instead of relying on a color dot.")
+        XCTAssertTrue(topBarViewText.contains("selectedModeColor"), "Native mode control should give safety mode a distinct compact cue.")
+        XCTAssertFalse(topBarViewText.contains(#"Text("Mode")"#), "Native mode control should keep the accessory bar compact.")
         XCTAssertFalse(topBarViewText.contains("modeColor(for:"), "Native mode control should not reuse health-status color semantics.")
         XCTAssertFalse(composerViewText.contains("topBar.agentStatus"), "Composer should not duplicate the top-bar agent status.")
         XCTAssertFalse(modelPickerText.contains("modeLabel"), "The model picker trigger and popover must not merge approval mode back into model selection.")
@@ -1156,10 +1162,13 @@ final class ParityGateTests: XCTestCase {
             "Model picker initialization should not accept an approval-mode callback."
         )
         XCTAssertFalse(htmlTopBarText.contains("data-testid=\"model-picker-button\""), "HTML top bar should not expose the model control.")
+        XCTAssertTrue(htmlTranscriptText.contains("data-testid=\"composer-surface\""), "HTML composer should mirror the native single-surface composer structure.")
+        XCTAssertTrue(htmlTranscriptText.contains("class=\"composer-input-row\""), "HTML composer should keep text input and send/stop together inside the surface.")
+        XCTAssertTrue(htmlTranscriptText.contains("composer-sr-only"), "HTML composer should keep the field label accessible but visually quiet.")
         XCTAssertTrue(htmlTranscriptText.contains("data-testid=\"model-picker-button\""), "HTML composer should expose a model control.")
         XCTAssertTrue(htmlTranscriptText.contains("data-testid=\"mode-picker-button\""), "HTML composer should expose a separate mode control.")
-        XCTAssertTrue(htmlTranscriptText.contains("mode-prefix"), "HTML mode control should name the control instead of relying on a color dot.")
-        XCTAssertFalse(htmlTranscriptText.contains("mode-dot"), "HTML mode control should not reuse health-status dot semantics.")
+        XCTAssertFalse(htmlTranscriptText.contains("mode-prefix"), "HTML mode control should not add redundant label chrome.")
+        XCTAssertTrue(htmlTranscriptText.contains("mode-dot"), "HTML mode control should remain visually distinct from the model picker.")
         XCTAssertFalse(htmlTopBarText.contains(" · "), "HTML top bar must not render model and mode as one combined label.")
     }
 

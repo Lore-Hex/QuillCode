@@ -44,14 +44,15 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('project-item')).toHaveAttribute('aria-current', 'true');
   await expect(page.getByTestId('transcript-empty')).toBeVisible();
   await expect(page.locator('[data-testid="top-bar"] [data-testid="model-picker-button"]')).toHaveCount(0);
+  await expect(page.getByTestId('composer-surface')).toBeVisible();
   await expect(page.getByTestId('composer-controls')).toBeVisible();
   await expect(page.locator('[data-testid="composer"] [data-testid="model-picker-button"]')).toBeVisible();
   await expect(page.getByTestId('model-picker-button')).toHaveText('Nike 1.0');
   await expect(page.getByTestId('model-picker-button')).not.toContainText('Auto');
   await expect(page.getByTestId('mode-picker-button')).toBeVisible();
-  await expect(page.getByTestId('mode-picker-button')).toContainText('Mode');
+  await expect(page.getByTestId('mode-picker-button')).not.toContainText('Mode');
   await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
-  await expect(page.locator('[data-testid="mode-picker-button"] .mode-dot')).toHaveCount(0);
+  await expect(page.locator('[data-testid="mode-picker-button"] .mode-dot')).toHaveCount(1);
   await expect(page.getByTestId('composer-agent-status')).toHaveCount(0);
   const modelButtonBox = await page.getByTestId('model-picker-button').boundingBox();
   const modeButtonBox = await page.getByTestId('mode-picker-button').boundingBox();

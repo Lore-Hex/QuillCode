@@ -157,6 +157,17 @@ struct QuillCodeModePickerButton: View {
         [.auto, .review, .readOnly]
     }
 
+    private var selectedModeColor: Color {
+        switch selectedMode {
+        case .auto:
+            return QuillCodePalette.green
+        case .review:
+            return QuillCodePalette.yellow
+        case .readOnly:
+            return QuillCodePalette.muted
+        }
+    }
+
     var body: some View {
         Menu {
             ForEach(orderedModes, id: \.rawValue) { mode in
@@ -173,17 +184,10 @@ struct QuillCodeModePickerButton: View {
             }
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: "shield")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(QuillCodePalette.muted)
+                Circle()
+                    .fill(selectedModeColor)
+                    .frame(width: 7, height: 7)
                     .accessibilityHidden(true)
-                Text("Mode")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(QuillCodePalette.muted)
-                    .lineLimit(1)
-                Text("·")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(QuillCodePalette.muted.opacity(0.8))
                 Text(modeLabel)
                     .font(.caption.weight(.semibold))
                     .lineLimit(1)
@@ -197,8 +201,7 @@ struct QuillCodeModePickerButton: View {
             .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
             .background(QuillCodePalette.selection.opacity(0.62))
             .overlay {
-                Capsule()
-                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1)
             }
             .clipShape(Capsule())
             .contentShape(Capsule())

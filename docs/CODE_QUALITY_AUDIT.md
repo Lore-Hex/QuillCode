@@ -2222,3 +2222,28 @@ The terminal command path previously mixed input normalization, run-entry creati
 Remaining risk:
 
 - `WorkspaceModel` still contains broader command and automation orchestration. Future slices should continue extracting by responsibility, but terminal execution is now a cleaner boundary for both local and SSH Remote terminal work.
+
+## 2026-06-23 Composer Surface Consolidation Pass
+
+Overall grade after this slice: **A interaction focus, A surface parity, A regression coverage**.
+
+The composer now reads as one focused input surface instead of a panel with a separate controls band above the message field. Model selection and Auto/Review/Read-only approval mode remain separate controls, but they are now an accessory bar inside the composer surface where send-time choices belong. A Claude CLI design review called out that the first version still had too much label chrome, no ordinary focus response, and an over-explained mode chip; this pass folded those concrete fixes into the same slice.
+
+| Surface | Before | After |
+| --- | --- | --- |
+| Native composer | Model and mode controls sat as their own row before the text input. | Input, send/stop, model, and mode are grouped inside one rounded composer surface. |
+| HTML/Playwright harness | Mirrored the old two-band composer layout. | Mirrors the single-surface composer with `composer-surface`, `composer-input-row`, and `composer-controls`. |
+| Message field | Had its own nested rounded field inside the panel. | Uses the composer surface as the outer boundary, reducing nested outlines and keeping the visible label out of the surface. |
+| Focus feedback | The textarea cursor was the only ordinary focus cue. | The whole composer surface brightens on focus, while slash suggestions still get the stronger blue cue. |
+| Safety mode control | Used a wordy `Mode · Auto` label that competed with the model picker. | Uses a compact tone dot plus `Auto`, with the full safety meaning preserved in accessibility labels. |
+| Radius and separators | The first surface used softer 16 pt rounding and an extra outer divider. | Uses a tighter 12 pt composer radius and relies on the surface boundary instead of a double divider. |
+
+Code quality changes:
+
+- Preserved independent model and approval-mode controls so model selection does not own safety-mode mutation.
+- Added static HTML and Playwright checks for the single-surface composer structure, compact mode cue, and accessible hidden label.
+- Kept minimum hit targets for model, mode, send, and stop controls.
+
+Remaining risk:
+
+- The model and mode controls are still visually two controls inside the accessory bar. A later pass can design a single compact disclosure affordance if user testing shows that the current split still feels too busy.
