@@ -2158,7 +2158,7 @@ Remaining risk:
 
 Overall grade after this slice: **A architecture boundary, A transport simplicity, A regression coverage**.
 
-`TrustedRouterLLMClient.swift` now owns the TrustedRouter transport, prompt/message construction, and safety-model client only. The action parser moved into `AgentActionJSONParser.swift`, where JSON extraction, tool argument normalization, and conservative malformed-output recovery can evolve without bloating the network client.
+`TrustedRouterLLMClient.swift` now owns the TrustedRouter transport and safety-model client only. The action parser moved into `AgentActionJSONParser.swift`, where JSON extraction, tool argument normalization, and conservative malformed-output recovery can evolve without bloating the network client.
 
 Code quality changes:
 
@@ -2167,9 +2167,23 @@ Code quality changes:
 - Added a parity gate that requires action parsing, argument normalization, and recovery logic to stay outside the TrustedRouter transport client.
 - Preserved existing parser behavior and tests from the hardening pass.
 
+## 2026-06-23 TrustedRouter Prompt Builder Pass
+
+Overall grade after this slice: **A transport boundary, A prompt contract clarity, A regression coverage**.
+
+`TrustedRouterLLMClient.swift` no longer owns system-prompt construction or message-history projection. Prompt rendering, project instruction context, memory context, tool-output projection, current-user deduping, and the history window now live in `TrustedRouterPromptBuilder`.
+
+Code quality changes:
+
+- Added `TrustedRouterPromptBuilder` as a focused value type with an explicit `historyLimit`.
+- Kept the strict action JSON and canonical tool-argument contract beside the prompt boundary that owns it.
+- Reduced `TrustedRouterLLMClient` to API-key resolution, TrustedRouter SDK calls, and streamed action collection.
+- Moved adapter tests for prompt text and message projection to the builder boundary.
+- Added focused coverage proving the builder applies an explicit history window.
+
 Remaining risk:
 
-- `TrustedRouterLLMClient.swift` still owns both system-prompt construction and message-history projection. If prompt rules keep growing, extract a `TrustedRouterPromptBuilder` so auth/transport and model instruction formatting remain separately testable.
+- Prompt copy is still a large literal because it is intentionally explicit. Future tool families should add concise schema examples or generated prompt fragments instead of expanding the literal indefinitely.
 
 ## 2026-06-23 Native Top Bar Simplification Pass
 

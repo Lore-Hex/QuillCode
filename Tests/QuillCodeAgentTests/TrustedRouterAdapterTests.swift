@@ -318,7 +318,7 @@ final class TrustedRouterAdapterTests: XCTestCase {
     }
 
     func testPromptRequiresNonEmptyShellCommand() {
-        let prompt = TrustedRouterLLMClient.systemPrompt(tools: [.shellRun, .fileWrite])
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
         XCTAssertTrue(prompt.contains("MUST include a non-empty \"cmd\""))
         XCTAssertTrue(prompt.contains("canonical argument keys"))
         XCTAssertTrue(prompt.contains("do not use \"command\""))
@@ -344,7 +344,7 @@ final class TrustedRouterAdapterTests: XCTestCase {
             ]
         )
 
-        let messages = TrustedRouterLLMClient.messages(
+        let messages = TrustedRouterPromptBuilder().messages(
             thread: thread,
             userMessage: "run tests",
             tools: [.shellRun]
@@ -381,7 +381,7 @@ final class TrustedRouterAdapterTests: XCTestCase {
             ]
         )
 
-        let messages = TrustedRouterLLMClient.messages(
+        let messages = TrustedRouterPromptBuilder().messages(
             thread: thread,
             userMessage: "run tests",
             tools: [.shellRun]
@@ -408,7 +408,7 @@ final class TrustedRouterAdapterTests: XCTestCase {
             .init(role: .tool, content: try JSONHelpers.encodePretty(feedback))
         ])
 
-        let messages = TrustedRouterLLMClient.messages(
+        let messages = TrustedRouterPromptBuilder().messages(
             thread: thread,
             userMessage: "run whoami",
             tools: [.shellRun]
@@ -420,6 +420,42 @@ final class TrustedRouterAdapterTests: XCTestCase {
                 && (($0["content"] as? String)?.contains("Tool output:") == true)
                 && (($0["content"] as? String)?.contains("whoami") == true)
         })
+    }
+
+    func testPromptBuilderAppliesExplicitHistoryLimit() {
+        let thread = ChatThread(messages: [
+            .init(role: .user, content: "first"),
+            .init(role: .assistant, content: "one"),
+            .init(role: .user, content: "second"),
+            .init(role: .assistant, content: "two")
+        ])
+
+        let messages = TrustedRouterPromptBuilder(historyLimit: 2).messages(
+            thread: thread,
+            userMessage: "third",
+            tools: [.shellRun]
+        )
+
+        XCTAssertFalse(messages.contains { ($0["content"] as? String) == "first" })
+        XCTAssertFalse(messages.contains { ($0["content"] as? String) == "one" })
+        XCTAssertTrue(messages.contains { ($0["content"] as? String) == "second" })
+        XCTAssertTrue(messages.contains { ($0["content"] as? String) == "two" })
+        XCTAssertTrue(messages.contains { ($0["content"] as? String) == "third" })
+    }
+
+    func testPromptBuilderTreatsNegativeHistoryLimitAsZero() {
+        let thread = ChatThread(messages: [
+            .init(role: .user, content: "first")
+        ])
+
+        let messages = TrustedRouterPromptBuilder(historyLimit: -1).messages(
+            thread: thread,
+            userMessage: "second",
+            tools: [.shellRun]
+        )
+
+        XCTAssertFalse(messages.contains { ($0["content"] as? String) == "first" })
+        XCTAssertTrue(messages.contains { ($0["content"] as? String) == "second" })
     }
 
     func testModelCatalogMapsProvidersAndCategories() {
