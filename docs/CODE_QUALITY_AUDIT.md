@@ -1624,3 +1624,26 @@ Code quality changes:
 Remaining risk:
 
 - Worktree and low-level file helper paths still construct a few tool calls inside `WorkspaceModel`. Those are narrower and currently tied to immediate UI side effects, but future growth should move each command family through its own typed request planner rather than adding more ad hoc dictionaries.
+
+## 2026-06-23 Full-Code Architecture Grade And Worktree Tool Call Planner Pass
+
+Overall grade after this slice: **A- architecture, A- implementation, B+ UX parity, B release completeness; A worktree tool-call contract**.
+
+The repo is now a substantial, test-backed native coding-agent app rather than a prototype: SwiftPM builds, 700+ tests cover core tools and app state, Playwright exercises the static harness, and most Codex-parity surfaces have a focused boundary. The main architectural risk is concentration, not absence: `WorkspaceModel.swift`, `Agent.swift`, `Models.swift`, and a few broad surface files still carry enough behavior that new feature work can accidentally reintroduce duplication or malformed tool calls.
+
+Worktree create/remove tool-call JSON moved into `WorkspaceWorktreeToolCallPlanner`. Before this pass, `WorkspaceModel` trimmed branch/base values, built the git worktree create argument dictionary, and manually assembled remove arguments inline. The model now owns only command dispatch plus the local/SSH project handoff after a successful create.
+
+Code quality changes:
+
+- Added `WorkspaceWorktreeToolCallPlanner` for `host.git.worktree.create` and `host.git.worktree.remove` calls.
+- Updated `createWorktree` and `removeWorktree` so `WorkspaceModel` delegates worktree tool-call construction.
+- Preserved the existing user-facing behavior: worktree paths pass through to the existing Git executor validation, optional branch/base refs are whitespace-trimmed and omitted when blank, and remove keeps an explicit `force` boolean for both destructive and non-destructive paths.
+- Added focused planner tests for branch/base trimming, blank optional omission, forced removal, and default non-forced removal.
+- Extended the parity gate so worktree request values, open-record construction, and tool-call JSON stay outside `WorkspaceModel`.
+
+Remaining risk:
+
+- `WorkspaceModel.swift` is still roughly 2.1k lines and remains the largest production app file. Continue extracting pure planning/state-transition seams before adding new Codex-parity commands.
+- `ToolArguments.json(_ values: [String: Any])` is centralized, but the `Any` entry point is still weaker than a typed argument-value model. Future slices should introduce a typed argument builder once the current command families are fully moved behind focused planners.
+- UX parity is broad but not done: the browser, PTY/TUI terminal, full GitHub review workflows, Linux Computer Use, and richer artifact renderers still need product-level passes before a public 1.0 claim.
+- Review action tool-call construction still lives in a private extension near `WorkspaceModel`. It is already isolated from the main class, but a later review-action planner would make staging/restoring files and hunks independently testable in the same style.
