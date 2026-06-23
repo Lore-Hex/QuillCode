@@ -1097,7 +1097,7 @@ public final class QuillCodeWorkspaceModel {
             if WorkspaceMemoryRememberToolExecutor.didSaveMemory(in: thread) {
                 refreshThreadMemoryContext(&thread)
             }
-            replaceThread(thread, preservingSelection: true)
+            updateThreadFromAgentRun(thread)
             try threadStore?.save(thread)
             composer.isSending = false
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
@@ -1112,7 +1112,7 @@ public final class QuillCodeWorkspaceModel {
 
     private func applyAgentProgress(_ thread: ChatThread, expectedThreadID: UUID) {
         guard thread.id == expectedThreadID else { return }
-        replaceThread(thread, preservingSelection: true)
+        updateThreadFromAgentRun(thread)
         composer.isSending = true
         lastError = nil
         refreshTopBar(agentStatus: WorkspaceAgentStatusBuilder.status(for: thread))
@@ -1945,24 +1945,7 @@ public final class QuillCodeWorkspaceModel {
         composer.isSending = false
         lastError = nil
         mutateThread(threadID) { thread in
-            if thread.messages.isEmpty && thread.title == "New chat" {
-                thread.title = WorkspaceThreadSeedBuilder.title(fromUserPrompt: userPrompt)
-            }
-            if !thread.messages.contains(where: { $0.role == .user && $0.content == userPrompt }) {
-                thread.messages.append(ChatMessage(role: .user, content: userPrompt))
-            }
-            let summary = "Stopped by user"
-            if let lastEvent = thread.events.last,
-               lastEvent.kind == .toolQueued || lastEvent.kind == .toolRunning {
-                thread.events.append(.init(
-                    kind: .toolFailed,
-                    summary: summary,
-                    payloadJSON: #"{"ok":false,"error":"Stopped by user"}"#
-                ))
-            }
-            if thread.events.last?.kind != .notice || thread.events.last?.summary != summary {
-                thread.events.append(.init(kind: .notice, summary: summary))
-            }
+            WorkspaceComposerCancellationPlanner.applyCancelledSend(userPrompt: userPrompt, to: &thread)
         }
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.stopped)
     }
@@ -2021,21 +2004,28 @@ public final class QuillCodeWorkspaceModel {
         return index
     }
 
-    private func replaceThread(_ thread: ChatThread, preservingSelection: Bool = false) {
+    private func updateThreadFromAgentRun(_ thread: ChatThread) {
         let currentSelection = root.selectedThreadID
         let currentProjectSelection = root.selectedProjectID
-        if let index = root.threads.firstIndex(where: { $0.id == thread.id }) {
-            root.threads[index] = thread
-        } else {
-            root.threads.insert(thread, at: 0)
-        }
-        if preservingSelection,
-           let currentSelection,
+        upsertThread(thread)
+        if let currentSelection,
            root.threads.contains(where: { $0.id == currentSelection }) {
             root.selectedThreadID = currentSelection
             root.selectedProjectID = currentProjectSelection
             return
         }
+        selectUpdatedThread(thread)
+    }
+
+    private func upsertThread(_ thread: ChatThread) {
+        if let index = root.threads.firstIndex(where: { $0.id == thread.id }) {
+            root.threads[index] = thread
+        } else {
+            root.threads.insert(thread, at: 0)
+        }
+    }
+
+    private func selectUpdatedThread(_ thread: ChatThread) {
         root.selectedThreadID = thread.id
         root.selectedProjectID = knownProjectID(thread.projectID)
         syncTerminalSessionToSelectedProject()

@@ -1477,14 +1477,31 @@ Remaining risk:
 
 Overall grade after this slice: **A- foundation, A async-thread update boundary**.
 
-Agent runs now update their target thread without stealing the user's current selection. Before this pass, progress and completion updates used the generic thread replacement path, which could re-select the original thread if the user opened another chat while a run was still streaming or cancelling. `WorkspaceModel` now uses the existing selection-preserving replacement path for asynchronous run updates, keeping thread mutation and UI focus separate.
+Agent runs now update their target thread without stealing the user's current selection. Before this pass, progress and completion updates used the generic thread replacement path, which could re-select the original thread if the user opened another chat while a run was still streaming or cancelling. `WorkspaceModel` now uses an explicit `updateThreadFromAgentRun(_:)` path for asynchronous run updates, keeping thread mutation and UI focus separate without hiding navigation semantics behind a boolean flag.
 
 Code quality changes:
 
-- Reused `replaceThread(_:preservingSelection:)` for agent progress and completion updates instead of adding another selection special case.
+- Replaced the ambiguous `replaceThread(_:preservingSelection:)` call sites with `updateThreadFromAgentRun(_:)`, so progress and completion call sites document that late agent updates preserve the user's current focus.
 - Added regression coverage for completed runs so late assistant output is saved to the original thread without moving focus away from the user's newly selected chat.
+- Added a parity gate that rejects reintroducing the old boolean `preservingSelection` replacement path in `WorkspaceModel`.
 - Stress-ran cancellation and completion selection tests locally to cover the timing-sensitive path that failed in CI.
 
 Remaining risk:
 
 - `WorkspaceModel.submitComposer` still owns async send orchestration. A future runner session coordinator could make captured thread identity, cancellation, and progress persistence even more explicit, but this fix removes the immediate race without widening the model API.
+
+## 2026-06-23 Composer Cancellation Planner Pass
+
+Overall grade after this slice: **A- foundation, A cancellation transcript boundary**.
+
+Composer cancellation thread mutation moved from `WorkspaceModel` into `WorkspaceComposerCancellationPlanner`. Before this pass, `finishCancelledSend` reset UI state and also owned thread title seeding, user prompt backfill, pending-tool failure events, cancelled-result payload JSON, and duplicate notice suppression. The model now resets composer/top-bar state and delegates the pure transcript/event mutation.
+
+Code quality changes:
+
+- Added `WorkspaceComposerCancellationPlanner` for cancelled-send prompt, notice, and pending-tool failure event mutation.
+- Added focused planner tests for empty-thread seeding, pending-tool failure conversion, and duplicate suppression.
+- Added a parity gate so cancelled-send copy and payload JSON do not drift back into `WorkspaceModel`.
+
+Remaining risk:
+
+- `submitComposer` still manages send lifecycle state directly. The cancellation transcript boundary is now testable, but a larger runner-session coordinator would be the next step if cancellation, retries, or background runs gain more states.

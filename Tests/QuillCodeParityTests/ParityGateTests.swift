@@ -227,6 +227,27 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("AgentRunner.streamingNotice"), "WorkspaceModel should not know the streaming notice string.")
     }
 
+    func testWorkspaceModelUsesExplicitAgentRunThreadUpdates() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+
+        XCTAssertTrue(modelText.contains("private func updateThreadFromAgentRun"), "Agent-run thread updates should use a named helper that documents focus preservation.")
+        XCTAssertTrue(modelText.contains("updateThreadFromAgentRun(thread)"), "Agent progress and completion should route through the explicit async-update helper.")
+        XCTAssertFalse(modelText.contains("preservingSelection"), "WorkspaceModel should not hide async navigation behavior behind a boolean flag.")
+        XCTAssertFalse(modelText.contains("replaceThread("), "WorkspaceModel should not route async run updates through an ambiguous generic replacement helper.")
+    }
+
+    func testWorkspaceModelDelegatesComposerCancellationPlanning() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let plannerText = try Self.appSourceText(named: "WorkspaceComposerCancellationPlanner.swift")
+
+        XCTAssertTrue(plannerText.contains("struct WorkspaceComposerCancellationPlanner"), "Composer cancellation mutation should live in a focused planner.")
+        XCTAssertTrue(plannerText.contains("static func applyCancelledSend"), "Cancelled-send thread mutation should be directly testable.")
+        XCTAssertTrue(plannerText.contains("static let stoppedSummary"), "Cancelled-send copy should be shared through the planner.")
+        XCTAssertTrue(modelText.contains("WorkspaceComposerCancellationPlanner.applyCancelledSend"), "WorkspaceModel should delegate cancelled-send transcript mutation.")
+        XCTAssertFalse(modelText.contains(#""Stopped by user""#), "WorkspaceModel should not own cancelled-send copy.")
+        XCTAssertFalse(modelText.contains(#"{"ok":false,"error":"Stopped by user"}"#), "WorkspaceModel should not own cancelled-send result payload copy.")
+    }
+
     func testWorkspaceModelDelegatesSlashCommandTranscriptPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceSlashCommandTranscriptPlanner.swift")
