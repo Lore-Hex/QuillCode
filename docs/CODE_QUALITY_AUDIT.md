@@ -16,14 +16,14 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `QuillCodeSafety` | A- | Small, explicit policy layer. Needs more production prompt telemetry once live Auto reviewer tuning begins. |
 | `QuillCodePersistence` | A | Focused stores, compatibility tests, and clear path ownership. |
 | `QuillComputerUseKit` | B+ | Protocol shape is good and macOS adapter is isolated. Linux adapter, app approvals, and visual feedback loops are still parity gaps. |
-| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, command, review, review-comment planning, tool override composition, context banner, transcript projection, execution-context enrichment, browser location/state transitions, MCP launch/session creation, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
+| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, command, review, review-comment planning, tool override composition, remote-project tool execution, context banner, transcript projection, execution-context enrichment, browser location/state transitions, MCP launch/session creation, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
 | Playwright harness | B+ | Valuable parity harness with broad coverage. It intentionally duplicates rendering behavior, so keep it thin and derived from stable surface concepts. |
 
 ## File Hotspots
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, review-comment planning, tool override composition, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but runtime issue classification, model catalog presentation, command palette construction, review diff construction, context banner estimation, and transcript message projection are now extracted into pure builders. Next step is extracting additional surface-family builders only when behavior grows. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
@@ -600,7 +600,7 @@ Code quality changes:
 
 Remaining risk:
 
-- Remote-project tool execution still lives in `WorkspaceModel` because it coordinates SSH shell, file, patch, and git tool calls. That should move behind a remote-project executor once it can be done with targeted tests for command construction and error mapping.
+- Remote-project tool execution was the next extraction target after this pass and now lives in `WorkspaceRemoteProjectToolExecutor`.
 
 ## 2026-06-23 Review Comment Planner Pass
 
@@ -730,3 +730,21 @@ Code quality changes:
 Remaining risk:
 
 - Project-import errors are intentionally quiet today because cancelled import and invalid import both no-op. If the app starts surfacing import errors, add a small user-visible import status model to this coordinator rather than expanding controller state.
+
+## 2026-06-23 Remote Project Tool Executor Pass
+
+Overall grade after this slice: **A- foundation, A SSH Remote tool boundary**.
+
+SSH Remote shell, file, patch, git, PR, and worktree tool execution moved out of `WorkspaceModel.swift` into `WorkspaceRemoteProjectToolExecutor`. The workspace model still owns selected-project orchestration, transcript event append, persistence, review diff refresh, and top-bar side effects, but the remote-safe tool catalog, override construction, command construction, path normalization, artifact labeling, and unsupported-tool behavior are now directly tested.
+
+Code quality changes:
+
+- Added a focused executor for the SSH Remote base tool catalog and remote-agent override construction.
+- Collapsed manual, agent, review, and post-patch remote execution paths through the same executor.
+- Kept local-only tools from falling back into remote projects by returning clear unsupported-tool errors for manual calls and nil fallthrough for agent overrides.
+- Added focused tests for the remote tool catalog, remote-only override eligibility, SSH shell command wrapping, file-write artifact labeling, and unsupported-tool errors.
+- Extended parity gates so `WorkspaceModel.swift` cannot regain remote git/shell routing or remote path normalization.
+
+Remaining risk:
+
+- Review workflow orchestration still lives in `WorkspaceModel` because it appends tool cards, refreshes diffs, and persists selected-thread state. If review sessions grow into multi-step PR publication or staged remote review state, add a review workflow coordinator that consumes `WorkspaceRemoteProjectToolExecutor` instead of expanding the model again.
