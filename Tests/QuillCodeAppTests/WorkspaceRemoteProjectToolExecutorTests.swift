@@ -131,6 +131,34 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertFalse(request.extractsPullRequestURLs)
     }
 
+    func testRemoteGitPlannerRejectsUnsafeWorktreeBranchAndBaseNames() {
+        XCTAssertThrowsError(
+            try WorkspaceRemoteGitToolRequestPlanner.request(
+                for: ToolCall(
+                    name: ToolDefinition.gitWorktreeCreate.name,
+                    argumentsJSON: ToolArguments.json([
+                        "path": "quill-next",
+                        "branch": "--bad"
+                    ])
+                ),
+                connection: remoteProject(path: "/srv/quill").connection
+            )
+        )
+
+        XCTAssertThrowsError(
+            try WorkspaceRemoteGitToolRequestPlanner.request(
+                for: ToolCall(
+                    name: ToolDefinition.gitWorktreeCreate.name,
+                    argumentsJSON: ToolArguments.json([
+                        "path": "quill-next",
+                        "base": "../main"
+                    ])
+                ),
+                connection: remoteProject(path: "/srv/quill").connection
+            )
+        )
+    }
+
     func testRemoteGitPlannerRejectsWorktreeOutsideRemoteWorkspaceParent() {
         XCTAssertThrowsError(
             try WorkspaceRemoteGitToolRequestPlanner.request(

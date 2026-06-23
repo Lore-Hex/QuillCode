@@ -99,7 +99,7 @@ public struct GitToolExecutor: Sendable {
 
     public func stage(cwd: URL, path: String) -> ToolResult {
         do {
-            return runGit(["add", "--", try safeRelativePath(path, cwd: cwd)], cwd: cwd, timeoutSeconds: 20)
+            return runGit(["add", "--", try GitInputValidator.safeRelativePath(path, cwd: cwd)], cwd: cwd, timeoutSeconds: 20)
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
@@ -111,7 +111,7 @@ public struct GitToolExecutor: Sendable {
             if staged {
                 arguments.append("--staged")
             }
-            arguments += ["--", try safeRelativePath(path, cwd: cwd)]
+            arguments += ["--", try GitInputValidator.safeRelativePath(path, cwd: cwd)]
             return runGit(arguments, cwd: cwd, timeoutSeconds: 20)
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
@@ -141,10 +141,10 @@ public struct GitToolExecutor: Sendable {
         setUpstream: Bool = false
     ) -> ToolResult {
         do {
-            let remoteName = try Self.safeGitName(Self.trimmedNonEmpty(remote) ?? "origin")
+            let remoteName = try GitInputValidator.safeName(GitInputValidator.trimmedNonEmpty(remote) ?? "origin")
             let branchName: String
-            if let branch = Self.trimmedNonEmpty(branch) {
-                branchName = try Self.safeGitName(branch)
+            if let branch = GitInputValidator.trimmedNonEmpty(branch) {
+                branchName = try GitInputValidator.safeName(branch)
             } else {
                 branchName = try currentBranchName(cwd: cwd)
             }
@@ -258,45 +258,12 @@ public struct GitToolExecutor: Sendable {
         worktrees.remove(cwd: cwd, path: path, force: force)
     }
 
-    private func safeRelativePath(_ path: String, cwd: URL) throws -> String {
-        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            throw GitToolError.emptyPath
-        }
-
-        let root = cwd.standardizedFileURL
-        let candidate = trimmed.hasPrefix("/")
-            ? URL(fileURLWithPath: trimmed)
-            : root.appendingPathComponent(trimmed)
-        let standardized = candidate.standardizedFileURL
-        let rootPath = root.path.hasSuffix("/") ? root.path : "\(root.path)/"
-        guard standardized.path == root.path || standardized.path.hasPrefix(rootPath) else {
-            throw GitToolError.outsideWorkspace(path)
-        }
-        guard standardized.path != root.path else {
-            return "."
-        }
-        return String(standardized.path.dropFirst(rootPath.count))
-    }
-
     public static func trimmedNonEmpty(_ value: String?) -> String? {
-        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmed.isEmpty ? nil : trimmed
+        GitInputValidator.trimmedNonEmpty(value)
     }
 
     public static func safeGitName(_ value: String) throws -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            throw GitToolError.emptyBranch
-        }
-        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._/-")
-        guard trimmed.rangeOfCharacter(from: allowed.inverted) == nil,
-              !trimmed.hasPrefix("-"),
-              !trimmed.contains("..")
-        else {
-            throw GitToolError.invalidGitName(value)
-        }
-        return trimmed
+        try GitInputValidator.safeName(value)
     }
 
     public static func safePullRequestSelector(_ value: String?) throws -> String? {
@@ -336,7 +303,7 @@ public struct GitToolExecutor: Sendable {
         guard !branch.isEmpty else {
             throw GitToolError.noCurrentBranch
         }
-        return try Self.safeGitName(branch)
+        return try GitInputValidator.safeName(branch)
     }
 
     public static func extractURLs(from output: String) -> [String] {
@@ -351,7 +318,7 @@ public struct GitToolExecutor: Sendable {
         successMessage: String
     ) -> ToolResult {
         do {
-            let relativePath = try safeRelativePath(path, cwd: cwd)
+            let relativePath = try GitInputValidator.safeRelativePath(path, cwd: cwd)
             let trimmedPatch = patch.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmedPatch.isEmpty else {
                 throw GitToolError.emptyPatch

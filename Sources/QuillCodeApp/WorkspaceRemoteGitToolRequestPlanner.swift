@@ -125,7 +125,7 @@ enum WorkspaceRemoteGitToolRequestPlanner {
                 try args.requiredString("path"),
                 connection: connection
             )
-            command = remoteGitWorktreeCreateCommand(
+            command = try remoteGitWorktreeCreateCommand(
                 worktreePath: worktreePath,
                 branch: args.string("branch"),
                 base: args.string("base")
@@ -156,12 +156,12 @@ enum WorkspaceRemoteGitToolRequestPlanner {
         branch: String?,
         setUpstream: Bool
     ) throws -> String {
-        let remoteName = try GitToolExecutor.safeGitName(
-            GitToolExecutor.trimmedNonEmpty(remote) ?? "origin"
+        let remoteName = try GitInputValidator.safeName(
+            GitInputValidator.trimmedNonEmpty(remote) ?? "origin"
         )
         let upstreamArguments = setUpstream ? "-u " : ""
-        if let branch = GitToolExecutor.trimmedNonEmpty(branch) {
-            let branchName = try GitToolExecutor.safeGitName(branch)
+        if let branch = GitInputValidator.trimmedNonEmpty(branch) {
+            let branchName = try GitInputValidator.safeName(branch)
             return "git push \(upstreamArguments)\(shellSingleQuoted(remoteName)) \(shellSingleQuoted(branchName))"
         }
 
@@ -182,7 +182,7 @@ enum WorkspaceRemoteGitToolRequestPlanner {
         draft: Bool,
         fill: Bool
     ) throws -> String {
-        let trimmedTitle = GitToolExecutor.trimmedNonEmpty(title)
+        let trimmedTitle = GitInputValidator.trimmedNonEmpty(title)
         guard fill || trimmedTitle != nil else {
             throw GitToolError.emptyPullRequestTitle
         }
@@ -191,14 +191,14 @@ enum WorkspaceRemoteGitToolRequestPlanner {
         if let trimmedTitle {
             arguments += ["--title", trimmedTitle]
         }
-        if let body = GitToolExecutor.trimmedNonEmpty(body) {
+        if let body = GitInputValidator.trimmedNonEmpty(body) {
             arguments += ["--body", body]
         }
-        if let base = GitToolExecutor.trimmedNonEmpty(base) {
-            arguments += ["--base", try GitToolExecutor.safeGitName(base)]
+        if let base = GitInputValidator.trimmedNonEmpty(base) {
+            arguments += ["--base", try GitInputValidator.safeName(base)]
         }
-        if let head = GitToolExecutor.trimmedNonEmpty(head) {
-            arguments += ["--head", try GitToolExecutor.safeGitName(head)]
+        if let head = GitInputValidator.trimmedNonEmpty(head) {
+            arguments += ["--head", try GitInputValidator.safeName(head)]
         }
         if draft {
             arguments.append("--draft")
@@ -211,7 +211,7 @@ enum WorkspaceRemoteGitToolRequestPlanner {
 
     private static func remoteGitPullRequestViewCommand(selector: String?) throws -> String {
         var arguments = ["gh", "pr", "view"]
-        if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
+        if let selector = try GitHubPullRequestToolExecutor.safeSelector(selector) {
             arguments.append(selector)
         }
         arguments.append("--comments")
@@ -220,7 +220,7 @@ enum WorkspaceRemoteGitToolRequestPlanner {
 
     private static func remoteGitPullRequestChecksCommand(selector: String?) throws -> String {
         var arguments = ["gh", "pr", "checks"]
-        if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
+        if let selector = try GitHubPullRequestToolExecutor.safeSelector(selector) {
             arguments.append(selector)
         }
         return arguments.map(shellSingleQuoted).joined(separator: " ")
@@ -228,7 +228,7 @@ enum WorkspaceRemoteGitToolRequestPlanner {
 
     private static func remoteGitPullRequestDiffCommand(selector: String?) throws -> String {
         var arguments = ["gh", "pr", "diff"]
-        if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
+        if let selector = try GitHubPullRequestToolExecutor.safeSelector(selector) {
             arguments.append(selector)
         }
         return arguments.map(shellSingleQuoted).joined(separator: " ")
@@ -236,11 +236,11 @@ enum WorkspaceRemoteGitToolRequestPlanner {
 
     private static func remoteGitPullRequestCheckoutCommand(selector: String?, branch: String?) throws -> String {
         var arguments = ["gh", "pr", "checkout"]
-        if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
+        if let selector = try GitHubPullRequestToolExecutor.safeSelector(selector) {
             arguments.append(selector)
         }
-        if let branch = GitToolExecutor.trimmedNonEmpty(branch) {
-            arguments += ["--branch", try GitToolExecutor.safeGitName(branch)]
+        if let branch = GitInputValidator.trimmedNonEmpty(branch) {
+            arguments += ["--branch", try GitInputValidator.safeName(branch)]
         }
         return arguments.map(shellSingleQuoted).joined(separator: " ")
     }
@@ -250,14 +250,14 @@ enum WorkspaceRemoteGitToolRequestPlanner {
         add: [String]?,
         remove: [String]?
     ) throws -> String {
-        let reviewersToAdd = try GitToolExecutor.safePullRequestReviewers(add)
-        let reviewersToRemove = try GitToolExecutor.safePullRequestReviewers(remove)
+        let reviewersToAdd = try GitHubPullRequestToolExecutor.safeReviewers(add)
+        let reviewersToRemove = try GitHubPullRequestToolExecutor.safeReviewers(remove)
         guard !reviewersToAdd.isEmpty || !reviewersToRemove.isEmpty else {
             throw GitToolError.emptyPullRequestReviewers
         }
 
         var arguments = ["gh", "pr", "edit"]
-        if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
+        if let selector = try GitHubPullRequestToolExecutor.safeSelector(selector) {
             arguments.append(selector)
         }
         if !reviewersToAdd.isEmpty {
@@ -274,14 +274,14 @@ enum WorkspaceRemoteGitToolRequestPlanner {
         add: [String]?,
         remove: [String]?
     ) throws -> String {
-        let labelsToAdd = try GitToolExecutor.safePullRequestLabels(add)
-        let labelsToRemove = try GitToolExecutor.safePullRequestLabels(remove)
+        let labelsToAdd = try GitHubPullRequestToolExecutor.safeLabels(add)
+        let labelsToRemove = try GitHubPullRequestToolExecutor.safeLabels(remove)
         guard !labelsToAdd.isEmpty || !labelsToRemove.isEmpty else {
             throw GitToolError.emptyPullRequestLabels
         }
 
         var arguments = ["gh", "pr", "edit"]
-        if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
+        if let selector = try GitHubPullRequestToolExecutor.safeSelector(selector) {
             arguments.append(selector)
         }
         if !labelsToAdd.isEmpty {
@@ -297,12 +297,12 @@ enum WorkspaceRemoteGitToolRequestPlanner {
         selector: String?,
         body: String
     ) throws -> String {
-        guard let body = GitToolExecutor.trimmedNonEmpty(body) else {
+        guard let body = GitInputValidator.trimmedNonEmpty(body) else {
             throw GitToolError.emptyPullRequestComment
         }
 
         var arguments = ["gh", "pr", "comment"]
-        if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
+        if let selector = try GitHubPullRequestToolExecutor.safeSelector(selector) {
             arguments.append(selector)
         }
         arguments += ["--body", body]
@@ -314,14 +314,14 @@ enum WorkspaceRemoteGitToolRequestPlanner {
         action: String,
         body: String?
     ) throws -> String {
-        let flag = try GitToolExecutor.safePullRequestReviewFlag(action)
-        let body = GitToolExecutor.trimmedNonEmpty(body)
+        let flag = try GitHubPullRequestToolExecutor.safeReviewFlag(action)
+        let body = GitInputValidator.trimmedNonEmpty(body)
         guard flag == "--approve" || body != nil else {
             throw GitToolError.emptyPullRequestReviewBody
         }
 
         var arguments = ["gh", "pr", "review"]
-        if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
+        if let selector = try GitHubPullRequestToolExecutor.safeSelector(selector) {
             arguments.append(selector)
         }
         arguments.append(flag)
@@ -338,10 +338,10 @@ enum WorkspaceRemoteGitToolRequestPlanner {
         deleteBranch: Bool
     ) throws -> String {
         var arguments = ["gh", "pr", "merge"]
-        if let selector = try GitToolExecutor.safePullRequestSelector(selector) {
+        if let selector = try GitHubPullRequestToolExecutor.safeSelector(selector) {
             arguments.append(selector)
         }
-        arguments.append(try GitToolExecutor.safePullRequestMergeFlag(method))
+        arguments.append(try GitHubPullRequestToolExecutor.safeMergeFlag(method))
         if auto {
             arguments.append("--auto")
         }
@@ -355,14 +355,14 @@ enum WorkspaceRemoteGitToolRequestPlanner {
         worktreePath: String,
         branch: String?,
         base: String?
-    ) -> String {
+    ) throws -> String {
         var arguments = ["git", "worktree", "add"]
-        if let branch = GitToolExecutor.trimmedNonEmpty(branch) {
-            arguments += ["-b", branch]
+        if let branch = GitInputValidator.trimmedNonEmpty(branch) {
+            arguments += ["-b", try GitInputValidator.safeName(branch)]
         }
         arguments.append(worktreePath)
-        if let base = GitToolExecutor.trimmedNonEmpty(base) {
-            arguments.append(base)
+        if let base = GitInputValidator.trimmedNonEmpty(base) {
+            arguments.append(try GitInputValidator.safeName(base))
         }
         return arguments.map(shellSingleQuoted).joined(separator: " ")
     }

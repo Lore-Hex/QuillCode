@@ -697,6 +697,20 @@ final class ToolTests: XCTestCase {
         XCTAssertThrowsError(try GitToolExecutor.safePullRequestSelector("--web"))
     }
 
+    func testGitInputValidatorNormalizesSharedGitInputs() throws {
+        let root = try makeTempDirectory()
+
+        XCTAssertNil(GitInputValidator.trimmedNonEmpty("  \n"))
+        XCTAssertEqual(GitInputValidator.trimmedNonEmpty("  origin/main  "), "origin/main")
+        XCTAssertEqual(try GitInputValidator.safeName(" feature/quill "), "feature/quill")
+        XCTAssertEqual(try GitInputValidator.safeRelativePath("notes/todo.txt", cwd: root), "notes/todo.txt")
+        XCTAssertEqual(try GitInputValidator.safeRelativePath(root.path, cwd: root), ".")
+
+        XCTAssertThrowsError(try GitInputValidator.safeName("--bad"))
+        XCTAssertThrowsError(try GitInputValidator.safeName("../main"))
+        XCTAssertThrowsError(try GitInputValidator.safeRelativePath("../outside", cwd: root))
+    }
+
     func testGitWorktreeCreateListAndRemoveSibling() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let parent = root.deletingLastPathComponent()

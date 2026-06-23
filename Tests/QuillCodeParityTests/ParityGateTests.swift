@@ -1453,6 +1453,29 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(executorText.contains("registeredWorktreePaths"), "GitToolExecutor should not own registered-worktree lookup.")
     }
 
+    func testGitSharedInputValidationLivesOutsideGitFacade() throws {
+        let executorText = try Self.toolsSourceText(named: "GitToolExecutor.swift")
+        let validatorText = try Self.toolsSourceText(named: "GitInputValidator.swift")
+        let pullRequestText = try Self.toolsSourceText(named: "GitHubPullRequestToolExecutor.swift")
+        let worktreeText = try Self.toolsSourceText(named: "GitWorktreeToolExecutor.swift")
+        let remoteGitPlannerText = try Self.appSourceText(named: "WorkspaceRemoteGitToolRequestPlanner.swift")
+
+        XCTAssertTrue(validatorText.contains("public enum GitInputValidator"), "Shared git input validation should live in a neutral helper.")
+        XCTAssertTrue(validatorText.contains("static func trimmedNonEmpty"), "Shared trimming should live in GitInputValidator.")
+        XCTAssertTrue(validatorText.contains("static func safeName"), "Shared git name validation should live in GitInputValidator.")
+        XCTAssertTrue(validatorText.contains("static func safeRelativePath"), "Shared local git path validation should live in GitInputValidator.")
+        XCTAssertTrue(executorText.contains("GitInputValidator.safeRelativePath"), "GitToolExecutor should use the shared path validator.")
+        XCTAssertTrue(pullRequestText.contains("GitInputValidator.safeName"), "GitHub PR execution should use the shared git-name validator.")
+        XCTAssertTrue(worktreeText.contains("GitInputValidator.safeName"), "Worktree execution should use the shared git-name validator.")
+        XCTAssertTrue(remoteGitPlannerText.contains("GitInputValidator.safeName"), "Remote git planning should use the shared git-name validator.")
+        XCTAssertFalse(pullRequestText.contains("GitToolExecutor.safeGitName"), "GitHub PR execution should not depend on the git facade for validation.")
+        XCTAssertFalse(pullRequestText.contains("GitToolExecutor.trimmedNonEmpty"), "GitHub PR execution should not depend on the git facade for trimming.")
+        XCTAssertFalse(worktreeText.contains("GitToolExecutor.safeGitName"), "Worktree execution should not depend on the git facade for validation.")
+        XCTAssertFalse(worktreeText.contains("GitToolExecutor.trimmedNonEmpty"), "Worktree execution should not depend on the git facade for trimming.")
+        XCTAssertFalse(remoteGitPlannerText.contains("GitToolExecutor.safeGitName"), "Remote git planning should not depend on the git facade for validation.")
+        XCTAssertFalse(remoteGitPlannerText.contains("GitToolExecutor.trimmedNonEmpty"), "Remote git planning should not depend on the git facade for trimming.")
+    }
+
     func testWorkspaceSurfaceDelegatesContextBannerBuilding() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceContextBannerBuilder.swift")
