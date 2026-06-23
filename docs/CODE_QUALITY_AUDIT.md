@@ -26,7 +26,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but settings copy/compatibility, runtime issue classification, model catalog presentation, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are now extracted into focused files. Next step is extracting additional surface-family builders only when behavior grows. |
-| `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, browser pane HTML delegates to `WorkspaceHTMLBrowserRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another pane family only when renderer drift appears. |
+| `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, secondary pane HTML delegates to `WorkspaceHTMLSecondaryPaneRenderer`, browser pane HTML delegates to `WorkspaceHTMLBrowserRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another pane family only when renderer drift appears. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
 | `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback and project-import resolution now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
@@ -833,4 +833,23 @@ Code quality changes:
 
 Remaining risk:
 
-- Extensions, memories, automations, review, and activity pane rendering still live in `WorkspaceHTMLRenderer.swift`. Extract another whole pane family when its behavior starts to grow or diverge from the SwiftUI surface.
+- Extensions, memories, automations, and activity pane rendering were the next pane-family extraction candidates after this browser slice. Review pane rendering still lives in `WorkspaceHTMLRenderer.swift`; extract it when diff/comment markup grows further.
+
+## 2026-06-23 HTML Secondary Pane Renderer Pass
+
+Overall grade after this slice: **A- foundation, A static HTML secondary pane boundary**.
+
+Static HTML Extensions, Memories, Activity, and Automations rendering moved out of `WorkspaceHTMLRenderer.swift` into `WorkspaceHTMLSecondaryPaneRenderer.swift`. This mirrors the native `QuillCodeSecondaryPanesView` boundary and keeps MCP extension metadata, memory card markup, automation action buttons, activity sections, and secondary-pane pluralization helpers away from the whole-workspace HTML composer.
+
+Code quality changes:
+
+- Added `WorkspaceHTMLSecondaryPaneRenderer` as the focused owner for secondary utility pane HTML.
+- Kept MCP metadata/tool/resource/prompt chip rendering beside Extensions HTML.
+- Kept automation create/schedule/run/resume/pause/delete buttons beside Automations HTML.
+- Kept activity section empty/body/artifact/item rendering beside Activity HTML.
+- Reused `WorkspaceHTMLPrimitives` for escaping so secondary panes share the same HTML escaping path as terminal, browser, and tool-card rendering.
+- Added a parity gate so secondary pane markup and count-label helpers do not drift back into `WorkspaceHTMLRenderer.swift`.
+
+Remaining risk:
+
+- Review pane rendering still lives in `WorkspaceHTMLRenderer.swift`. It is the next obvious static HTML extraction candidate if diff-review markup grows.
