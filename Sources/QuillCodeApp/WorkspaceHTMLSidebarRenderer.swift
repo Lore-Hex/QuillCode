@@ -8,22 +8,33 @@ enum WorkspaceHTMLSidebarRenderer {
     ) -> String {
         """
         <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
-          <div class="sidebar-actions" aria-label="Primary chat actions">
+          <div class="sidebar-actions" data-testid="sidebar-compose-zone" aria-label="Primary chat actions">
             \(renderPrimaryActions(commands))
           </div>
-          <div class="sidebar-title-row">
-            <h2>\(escape(sidebar.title))</h2>
-            \(renderSelectionHeaderAction(sidebar))
+          <div class="sidebar-threads-zone" data-testid="sidebar-threads-zone">
+            \(renderThreadHeader(sidebar))
+            \(renderBulkToolbar(sidebar))
+            \(renderThreadSections(sidebar))
           </div>
-          \(renderBulkToolbar(sidebar))
-          \(renderThreadSections(sidebar))
-          <div class="sidebar-section-title">
-            <h2>\(escape(projects.title))</h2>
-            <button type="button" data-testid="add-project-button" aria-label="Open project">+</button>
+          <div class="sidebar-projects-zone" data-testid="sidebar-projects-zone">
+            <div class="sidebar-section-title">
+              <h2>\(escape(projects.title))</h2>
+              <button type="button" data-testid="add-project-button" aria-label="Open project">+</button>
+            </div>
+            \(renderProjects(projects))
           </div>
-          \(renderProjects(projects))
           \(renderFooter(commands))
         </aside>
+        """
+    }
+
+    private static func renderThreadHeader(_ sidebar: SidebarSurface) -> String {
+        guard !sidebar.items.isEmpty || sidebar.isSelectionMode else { return "" }
+        return """
+        <div class="sidebar-title-row" data-testid="sidebar-title-row">
+          <h2>\(escape(sidebar.title))</h2>
+          \(renderSelectionHeaderAction(sidebar))
+        </div>
         """
     }
 
@@ -111,7 +122,8 @@ enum WorkspaceHTMLSidebarRenderer {
     }
 
     private static func renderSelectionHeaderAction(_ sidebar: SidebarSurface) -> String {
-        guard !sidebar.isSelectionMode,
+        guard !sidebar.items.isEmpty,
+              !sidebar.isSelectionMode,
               let action = sidebar.bulkActions.first(where: { $0.kind == .select })
         else { return "" }
         return """

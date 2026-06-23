@@ -117,10 +117,6 @@
       align-items: center;
       gap: 8px;
     }
-    .topbar-primary-cluster {
-      gap: 12px;
-    }
-    .topbar-primary-cluster,
     .topbar-action-cluster {
       flex-wrap: nowrap;
     }
@@ -128,9 +124,6 @@
       justify-content: flex-end;
       overflow: visible;
     }
-    .topbar-primary-cluster > span,
-    .topbar-primary-cluster select,
-    .topbar-primary-cluster > button:not(.mode-pill-button),
     .topbar-action-cluster button {
       min-height: 34px;
       padding: 5px 9px;
@@ -140,8 +133,6 @@
       border: 1px solid rgba(255,255,255,.10);
       font-size: 12px;
     }
-    .topbar-primary-cluster select { max-width: 230px; }
-    .topbar-primary-cluster button,
     .topbar-action-cluster button { font-weight: 600; }
     .model-picker-wrap [data-testid="model-picker-button"] {
       min-height: 40px;
@@ -643,6 +634,19 @@
       display: flex;
       flex-direction: column;
     }
+    .sidebar-compose-zone,
+    .sidebar-threads-zone,
+    .sidebar-projects-zone {
+      min-width: 0;
+    }
+    .sidebar-threads-zone,
+    .sidebar-projects-zone {
+      display: grid;
+      gap: 8px;
+    }
+    .sidebar-projects-zone {
+      margin-top: 10px;
+    }
     .sidebar h2 { margin: 0 0 12px; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
     .sidebar h3 { margin: 10px 0 8px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
     .sidebar-section-title {
@@ -787,21 +791,13 @@
     }
     .sidebar-tools-menu summary::-webkit-details-marker { display: none; }
     .sidebar-settings-button {
-      flex: 0 0 40px;
-      width: 40px;
-      padding: 0;
-      overflow: hidden;
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 0 12px;
       border-radius: 10px;
-      font-size: 0;
+      font-size: 13px;
+      font-weight: 700;
       line-height: 1;
-    }
-    .sidebar-settings-button::before {
-      content: "⚙";
-      display: grid;
-      place-items: center;
-      width: 100%;
-      height: 100%;
-      font-size: 16px;
     }
     .sidebar-tools-menu[open] summary,
     .sidebar-tools-menu summary:hover,
@@ -2149,6 +2145,33 @@
       padding: 14px;
       border-top: 1px solid rgba(255,255,255,.1);
       background: rgba(25,41,48,.78);
+    }
+    .composer-controls {
+      grid-column: 1 / -1;
+      min-width: 0;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .composer-model-button {
+      border-radius: 999px;
+      background: rgba(255,255,255,.045);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .composer-agent-status {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .composer .model-panel {
+      top: auto;
+      right: auto;
+      bottom: calc(100% + 8px);
+      left: 0;
     }
     .slash-suggestions {
       border-top: 1px solid rgba(255,255,255,.1);
@@ -4050,6 +4073,12 @@
       const sidebarContent = state.sidebar.items.length
         ? bulkToolbar + renderSidebarSection('Pinned', pinnedItems) + renderSidebarSection('Recent', recentItems) + renderSidebarSection('Archived', archivedItems)
         : '<p data-testid="sidebar-empty">No chats yet</p>';
+      const sidebarThreadHeader = state.sidebar.items.length || state.sidebar.isSelectionMode ? `
+        <div class="sidebar-title-row" data-testid="sidebar-title-row">
+          <h2>${escapeHTML(state.sidebar.title)}</h2>
+          ${sidebarHeaderAction}
+        </div>
+      ` : '';
       const filteredModelCategories = filterModelCategories(state.topBar.modelSearch);
       const modelResults = filteredModelCategories.length ? `
         <div class="model-results" data-testid="model-results">
@@ -4110,16 +4139,6 @@
               </span>
             </div>
             <div class="topbar-clusters" data-testid="top-bar-clusters">
-              <div class="topbar-cluster topbar-primary-cluster" data-testid="top-bar-primary-cluster">
-                <div class="model-picker-wrap">
-                  <button type="button" aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" aria-label="Model: ${escapeHTML(state.topBar.modelLabel)}" data-testid="model-picker-button">${escapeHTML(state.topBar.modelLabel)}</button>
-                  ${modelBrowser}
-                </div>
-                <button type="button" class="mode-pill-button" data-testid="mode-picker-button" data-mode-tone="${escapeHTML(modeTone(state.topBar.modeLabel))}" aria-label="Approval mode: ${escapeHTML(state.topBar.modeLabel)}">
-                  <span class="mode-dot" aria-hidden="true"></span>
-                  <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
-                </button>
-              </div>
               <div class="topbar-cluster topbar-context-cluster" data-testid="top-bar-context-cluster">
                 <details class="topbar-status-menu" data-testid="top-bar-status-menu">
                   <summary data-testid="top-bar-status-button" aria-label="Workspace status" title="${escapeHTML(state.topBar.agentStatus)}">
@@ -4158,19 +4177,20 @@
           </header>
           <div class="workspace-grid ${state.activity.isVisible ? 'with-activity' : ''}">
             <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
-              <div class="sidebar-actions" aria-label="Primary chat actions">
+              <div class="sidebar-actions" data-testid="sidebar-compose-zone" aria-label="Primary chat actions">
                 <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true" data-icon="new" data-command-id="new-chat">New chat</button>
               </div>
-              <div class="sidebar-title-row">
-                <h2>${escapeHTML(state.sidebar.title)}</h2>
-                ${sidebarHeaderAction}
+              <div class="sidebar-threads-zone" data-testid="sidebar-threads-zone">
+                ${sidebarThreadHeader}
+                ${sidebarContent}
               </div>
-              ${sidebarContent}
-              <div class="sidebar-section-title">
-                <h2>${escapeHTML(state.projects.title)}</h2>
-                <button class="sidebar-icon-button" type="button" data-testid="add-project-button" aria-label="Open project">+</button>
+              <div class="sidebar-projects-zone" data-testid="sidebar-projects-zone">
+                <div class="sidebar-section-title">
+                  <h2>${escapeHTML(state.projects.title)}</h2>
+                  <button class="sidebar-icon-button" type="button" data-testid="add-project-button" aria-label="Open project">+</button>
+                </div>
+                ${projectsContent}
               </div>
-              ${projectsContent}
               <div class="sidebar-footer" aria-label="Workspace tools">
                 <details class="sidebar-tools-menu" data-testid="sidebar-tools-menu">
                   <summary data-testid="sidebar-tools-button" aria-label="Tools" title="Tools">Tools</summary>
@@ -4198,6 +4218,17 @@
 	              ${state.terminal.isVisible ? renderTerminalPane() : ''}
               ${renderSlashSuggestions()}
               <form class="composer" data-testid="composer">
+                <div class="composer-controls" data-testid="composer-controls" aria-label="Composer controls">
+                  <div class="model-picker-wrap">
+                    <button class="composer-model-button" type="button" aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" aria-label="Model: ${escapeHTML(state.topBar.modelLabel)}" data-testid="model-picker-button">${escapeHTML(state.topBar.modelLabel)}</button>
+                    ${modelBrowser}
+                  </div>
+                  <button type="button" class="mode-pill-button" data-testid="mode-picker-button" data-mode-tone="${escapeHTML(modeTone(state.topBar.modeLabel))}" aria-label="Approval mode: ${escapeHTML(state.topBar.modeLabel)}">
+                    <span class="mode-dot" aria-hidden="true"></span>
+                    <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
+                  </button>
+                  <span class="composer-agent-status" data-testid="composer-agent-status">${escapeHTML(state.topBar.agentStatus)}</span>
+                </div>
                 <label for="message">Message</label>
                 <textarea id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" rows="1" ${state.composer.isSending ? 'disabled' : ''}>${escapeHTML(state.composer.draft)}</textarea>
                 ${state.composer.isSending

@@ -25,7 +25,7 @@ public enum WorkspaceHTMLRenderer {
               \(WorkspaceHTMLBrowserRenderer.render(surface.browser))
               \(WorkspaceHTMLTerminalRenderer.render(surface.terminal))
               \(WorkspaceHTMLSecondaryPaneRenderer.renderActivity(surface.activity))
-              \(WorkspaceHTMLTranscriptRenderer.renderComposer(surface.composer))
+              \(WorkspaceHTMLTranscriptRenderer.renderComposer(surface.composer, topBar: surface.topBar))
             </main>
           </div>
         </section>

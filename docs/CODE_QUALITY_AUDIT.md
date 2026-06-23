@@ -941,7 +941,7 @@ Remaining risk:
 
 Overall grade after this slice: **A- foundation, A static HTML top-bar boundary**.
 
-Static HTML top-bar rendering, model/mode display, project instruction and memory status, Computer Use status, runtime issue pill, and overflow command buttons moved out of `WorkspaceHTMLRenderer.swift` into `WorkspaceHTMLTopBarRenderer.swift`. This keeps shell identity/status rendering beside the top-bar contract instead of mixing it into transcript composition.
+Static HTML top-bar rendering, project instruction and memory status, Computer Use status, runtime issue pill, and overflow command buttons moved out of `WorkspaceHTMLRenderer.swift` into `WorkspaceHTMLTopBarRenderer.swift`. Model/mode display later moved to composer rendering, keeping shell identity/status rendering beside the top-bar contract instead of mixing it into transcript composition.
 
 Code quality changes:
 
@@ -1044,7 +1044,7 @@ Remaining risk:
 
 Overall grade after this slice: **A- foundation, A top-bar/model surface boundary**.
 
-Top-bar and model-picker presentation records moved out of `WorkspaceSurface.swift` into `QuillCodeTopBarSurface.swift`, matching the existing native top-bar/model-picker views, static HTML top-bar renderer, and `WorkspaceModelCatalogSurfaceBuilder` boundary. The aggregate workspace surface still carries the `topBar` slot, but model option compatibility decoding, model detail copy, metadata rows, badge/state summaries, and searchable category filtering now live beside the top-bar/model-picker contract.
+Top-bar and model-picker presentation records moved out of `WorkspaceSurface.swift` into `QuillCodeTopBarSurface.swift`, matching the existing native top-bar/composer model-picker views, static HTML renderers, and `WorkspaceModelCatalogSurfaceBuilder` boundary. The aggregate workspace surface still carries the `topBar` slot, but model option compatibility decoding, model detail copy, metadata rows, badge/state summaries, and searchable category filtering now live beside the top-bar/model-picker contract.
 
 Code quality changes:
 

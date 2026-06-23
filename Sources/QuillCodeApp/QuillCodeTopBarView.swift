@@ -4,10 +4,6 @@ import QuillCodeCore
 struct QuillCodeTopBarView: View {
     var topBar: TopBarSurface
     var commands: [WorkspaceCommandSurface]
-    @Binding var isModelPickerPresented: Bool
-    var onSetMode: (AgentMode) -> Void
-    var onSetModel: (String) -> Void
-    var onToggleModelFavorite: (String) -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
@@ -18,19 +14,6 @@ struct QuillCodeTopBarView: View {
             Spacer(minLength: 10)
 
             HStack(spacing: 12) {
-                QuillCodeModelPickerView(
-                    topBar: topBar,
-                    isPresented: $isModelPickerPresented,
-                    onSetModel: onSetModel,
-                    onToggleModelFavorite: onToggleModelFavorite
-                )
-                .layoutPriority(2)
-
-                QuillCodeModePickerButton(
-                    modeLabel: topBar.modeLabel,
-                    onSetMode: onSetMode
-                )
-
                 statusIndicator
                 commandMenu
             }
@@ -141,7 +124,7 @@ struct QuillCodeTopBarView: View {
     }
 }
 
-private struct QuillCodeModePickerButton: View {
+struct QuillCodeModePickerButton: View {
     var modeLabel: String
     var onSetMode: (AgentMode) -> Void
 

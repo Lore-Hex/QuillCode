@@ -1,9 +1,15 @@
 import SwiftUI
+import QuillCodeCore
 
 struct QuillCodeComposerView: View {
     var composer: ComposerSurface
+    var topBar: TopBarSurface
     @Binding var draft: String
+    @Binding var isModelPickerPresented: Bool
     var isFocused: FocusState<Bool>.Binding
+    var onSetMode: (AgentMode) -> Void
+    var onSetModel: (String) -> Void
+    var onToggleModelFavorite: (String) -> Void
     var onSend: () -> Void
     var onStop: () -> Void
 
@@ -20,6 +26,8 @@ struct QuillCodeComposerView: View {
                 )
                 .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .bottom)))
             }
+
+            composerControls
 
             HStack(alignment: .bottom, spacing: 10) {
                 composerField
@@ -38,6 +46,34 @@ struct QuillCodeComposerView: View {
                 activeSlashSuggestionIndex = min(activeSlashSuggestionIndex, suggestions.count - 1)
             }
         }
+    }
+
+    private var composerControls: some View {
+        HStack(spacing: 8) {
+            QuillCodeModelPickerView(
+                topBar: topBar,
+                isPresented: $isModelPickerPresented,
+                onSetModel: onSetModel,
+                onToggleModelFavorite: onToggleModelFavorite
+            )
+            .layoutPriority(2)
+
+            QuillCodeModePickerButton(
+                modeLabel: topBar.modeLabel,
+                onSetMode: onSetMode
+            )
+
+            Spacer(minLength: 8)
+
+            Text(topBar.agentStatus)
+                .font(.caption.monospacedDigit().weight(.semibold))
+                .foregroundStyle(QuillCodePalette.muted)
+                .lineLimit(1)
+                .accessibilityLabel("Agent status, \(topBar.agentStatus)")
+        }
+        .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Composer controls")
     }
 
     private var composerField: some View {
