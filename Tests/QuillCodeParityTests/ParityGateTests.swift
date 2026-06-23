@@ -118,16 +118,36 @@ final class ParityGateTests: XCTestCase {
     func testWorkspaceModelDelegatesThreadSeedBuilding() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let seedBuilderText = try Self.appSourceText(named: "WorkspaceThreadSeedBuilder.swift")
+        let creationText = try Self.appSourceText(named: "WorkspaceThreadCreationEngine.swift")
 
         XCTAssertTrue(seedBuilderText.contains("struct WorkspaceThreadSeedBuilder"), "Fork and compact seed construction should live in a focused builder.")
         XCTAssertTrue(seedBuilderText.contains("static func title(fromUserPrompt"), "Thread title seeding should be directly testable.")
         XCTAssertTrue(seedBuilderText.contains("static func forkSeedMessages"), "Fork seed construction should be directly testable.")
         XCTAssertTrue(seedBuilderText.contains("static func compactSeedMessages"), "Compact seed construction should be directly testable.")
-        XCTAssertTrue(modelText.contains("WorkspaceThreadSeedBuilder.forkSeedMessages"), "WorkspaceModel should delegate fork seeding.")
-        XCTAssertTrue(modelText.contains("WorkspaceThreadSeedBuilder.compactSeedMessages"), "WorkspaceModel should delegate context compaction seeding.")
+        XCTAssertTrue(creationText.contains("WorkspaceThreadSeedBuilder.forkSeedMessages"), "Thread creation should delegate fork seeding.")
+        XCTAssertTrue(creationText.contains("WorkspaceThreadSeedBuilder.compactSeedMessages"), "Thread creation should delegate context compaction seeding.")
         XCTAssertFalse(modelText.contains("private static func forkSeedMessages"), "WorkspaceModel should not own fork seed construction.")
         XCTAssertFalse(modelText.contains("private static func compactSeedMessages"), "WorkspaceModel should not own compact seed construction.")
         XCTAssertFalse(modelText.contains("private static func compactSummaryMessage"), "WorkspaceModel should not own compact summary formatting.")
+    }
+
+    func testWorkspaceModelDelegatesThreadCreationRecords() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let creationText = try Self.appSourceText(named: "WorkspaceThreadCreationEngine.swift")
+
+        XCTAssertTrue(creationText.contains("struct WorkspaceThreadCreationContext"), "New-thread context should live beside the focused creation engine.")
+        XCTAssertTrue(creationText.contains("struct WorkspaceThreadCreationEngine"), "Thread record construction should live in a focused engine.")
+        XCTAssertTrue(creationText.contains("static func newThread"), "New chat construction should be directly testable.")
+        XCTAssertTrue(creationText.contains("static func forkThread"), "Fork thread construction should be directly testable.")
+        XCTAssertTrue(creationText.contains("static func compactThread"), "Compact thread construction should be directly testable.")
+        XCTAssertTrue(creationText.contains("static func duplicateThread"), "Duplicate thread construction should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceThreadCreationEngine.newThread"), "WorkspaceModel should delegate new chat construction.")
+        XCTAssertTrue(modelText.contains("WorkspaceThreadCreationEngine.forkThread"), "WorkspaceModel should delegate fork construction.")
+        XCTAssertTrue(modelText.contains("WorkspaceThreadCreationEngine.compactThread"), "WorkspaceModel should delegate compact construction.")
+        XCTAssertTrue(modelText.contains("WorkspaceThreadCreationEngine.duplicateThread"), "WorkspaceModel should delegate duplicate construction.")
+        XCTAssertFalse(modelText.contains("title: \"Fork:"), "WorkspaceModel should not own fork title copy.")
+        XCTAssertFalse(modelText.contains("title: \"Compact:"), "WorkspaceModel should not own compact title copy.")
+        XCTAssertFalse(modelText.contains("title: \"Copy:"), "WorkspaceModel should not own duplicate title copy.")
     }
 
     func testWorkspaceModelDelegatesThreadLifecycleTransitions() throws {
@@ -136,12 +156,10 @@ final class ParityGateTests: XCTestCase {
 
         XCTAssertTrue(lifecycleText.contains("struct WorkspaceThreadLifecycleEngine"), "Thread lifecycle transitions should live in a focused engine.")
         XCTAssertTrue(lifecycleText.contains("static func renameThread"), "Thread rename mutation should be directly testable.")
-        XCTAssertTrue(lifecycleText.contains("static func duplicateThread"), "Thread duplicate construction should be directly testable.")
         XCTAssertTrue(lifecycleText.contains("static func archiveThread"), "Thread archive fallback selection should be directly testable.")
         XCTAssertTrue(lifecycleText.contains("static func unarchiveThread"), "Thread unarchive mutation should be directly testable.")
         XCTAssertTrue(lifecycleText.contains("static func deleteThread"), "Thread delete fallback selection should be directly testable.")
         XCTAssertTrue(modelText.contains("WorkspaceThreadLifecycleEngine.renameThread"), "WorkspaceModel should delegate thread rename mutation.")
-        XCTAssertTrue(modelText.contains("WorkspaceThreadLifecycleEngine.duplicateThread"), "WorkspaceModel should delegate thread duplicate construction.")
         XCTAssertTrue(modelText.contains("WorkspaceThreadLifecycleEngine.archiveThread"), "WorkspaceModel should delegate thread archive mutation.")
         XCTAssertTrue(modelText.contains("WorkspaceThreadLifecycleEngine.deleteThread"), "WorkspaceModel should delegate thread delete mutation.")
         XCTAssertFalse(modelText.contains("thread.title = trimmed"), "WorkspaceModel should not own thread rename mutation.")

@@ -666,88 +666,38 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func newChat(projectID: UUID? = nil) -> UUID {
-        clearSidebarSelection()
         let effectiveProjectID = knownProjectID(projectID ?? root.selectedProjectID)
         refreshProjectMetadata(effectiveProjectID)
-        let thread = ChatThread(
+        let thread = WorkspaceThreadCreationEngine.newThread(context: WorkspaceThreadCreationContext(
             projectID: effectiveProjectID,
             mode: root.config.mode,
             model: root.config.defaultModel,
             instructions: instructions(for: effectiveProjectID),
             memories: memoryNotes(for: effectiveProjectID)
-        )
-        root.threads.insert(thread, at: 0)
-        root.selectedThreadID = thread.id
-        root.selectedProjectID = effectiveProjectID
-        syncTerminalSessionToSelectedProject()
-        touchProject(effectiveProjectID)
-        saveProjects()
-        refreshTopBar(agentStatus: "Idle")
-        return thread.id
+        ))
+        return insertCreatedThread(thread, selectedProjectID: effectiveProjectID, saveThread: false)
     }
 
     @discardableResult
     public func forkFromLast() -> UUID? {
         guard let source = selectedThread, !source.messages.isEmpty else { return nil }
-        clearSidebarSelection()
-        let copiedMessages = WorkspaceThreadSeedBuilder.forkSeedMessages(from: source.messages)
-        let fork = ChatThread(
-            title: "Fork: \(source.title)",
-            projectID: knownProjectID(source.projectID),
-            mode: source.mode,
-            model: source.model,
-            messages: copiedMessages,
-            events: [
-                .init(
-                    kind: .notice,
-                    summary: "Forked from \(source.title)",
-                    payloadJSON: source.id.uuidString
-                )
-            ],
-            instructions: source.instructions,
-            memories: source.memories
+        let projectID = knownProjectID(source.projectID)
+        let fork = WorkspaceThreadCreationEngine.forkThread(
+            from: source,
+            projectID: projectID
         )
-        root.threads.insert(fork, at: 0)
-        root.selectedThreadID = fork.id
-        root.selectedProjectID = knownProjectID(source.projectID)
-        syncTerminalSessionToSelectedProject()
-        touchProject(root.selectedProjectID)
-        saveProjects()
-        try? threadStore?.save(fork)
-        refreshTopBar(agentStatus: "Idle")
-        return fork.id
+        return insertCreatedThread(fork, selectedProjectID: projectID, saveThread: true)
     }
 
     @discardableResult
     public func compactContext() -> UUID? {
         guard let source = selectedThread, !source.messages.isEmpty else { return nil }
-        clearSidebarSelection()
-        let copiedMessages = WorkspaceThreadSeedBuilder.compactSeedMessages(from: source)
-        let compacted = ChatThread(
-            title: "Compact: \(source.title)",
-            projectID: knownProjectID(source.projectID),
-            mode: source.mode,
-            model: source.model,
-            messages: copiedMessages,
-            events: [
-                .init(
-                    kind: .notice,
-                    summary: "Compacted context from \(source.title)",
-                    payloadJSON: source.id.uuidString
-                )
-            ],
-            instructions: source.instructions,
-            memories: source.memories
+        let projectID = knownProjectID(source.projectID)
+        let compacted = WorkspaceThreadCreationEngine.compactThread(
+            from: source,
+            projectID: projectID
         )
-        root.threads.insert(compacted, at: 0)
-        root.selectedThreadID = compacted.id
-        root.selectedProjectID = knownProjectID(source.projectID)
-        syncTerminalSessionToSelectedProject()
-        touchProject(root.selectedProjectID)
-        saveProjects()
-        try? threadStore?.save(compacted)
-        refreshTopBar(agentStatus: "Idle")
-        return compacted.id
+        return insertCreatedThread(compacted, selectedProjectID: projectID, saveThread: true)
     }
 
     public func selectThread(_ id: UUID) {
@@ -1005,20 +955,32 @@ public final class QuillCodeWorkspaceModel {
     @discardableResult
     public func duplicateThread(_ id: UUID) -> UUID? {
         guard let source = root.threads.first(where: { $0.id == id }) else { return nil }
-        clearSidebarSelection()
-        let duplicate = WorkspaceThreadLifecycleEngine.duplicateThread(
+        let projectID = knownProjectID(source.projectID)
+        let duplicate = WorkspaceThreadCreationEngine.duplicateThread(
             source,
-            projectID: knownProjectID(source.projectID)
+            projectID: projectID
         )
-        root.threads.insert(duplicate, at: 0)
-        root.selectedThreadID = duplicate.id
-        root.selectedProjectID = knownProjectID(source.projectID)
+        return insertCreatedThread(duplicate, selectedProjectID: projectID, saveThread: true)
+    }
+
+    @discardableResult
+    private func insertCreatedThread(
+        _ thread: ChatThread,
+        selectedProjectID: UUID?,
+        saveThread: Bool
+    ) -> UUID {
+        clearSidebarSelection()
+        root.threads.insert(thread, at: 0)
+        root.selectedThreadID = thread.id
+        root.selectedProjectID = selectedProjectID
         syncTerminalSessionToSelectedProject()
-        touchProject(root.selectedProjectID)
+        touchProject(selectedProjectID)
         saveProjects()
-        try? threadStore?.save(duplicate)
+        if saveThread {
+            try? threadStore?.save(thread)
+        }
         refreshTopBar(agentStatus: "Idle")
-        return duplicate.id
+        return thread.id
     }
 
     public func togglePinThread(_ id: UUID) {

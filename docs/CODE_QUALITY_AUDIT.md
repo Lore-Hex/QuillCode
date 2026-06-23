@@ -1025,3 +1025,21 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceSurface.swift` still owns runtime/execution-context value records and aggregate assembly. Those are acceptable while compact, but runtime/execution context contracts should move if compatibility decoding or renderer-specific presentation grows.
+
+## 2026-06-23 Thread Creation Engine Pass
+
+Overall grade after this slice: **A- foundation, A- workspace thread boundary**.
+
+Thread record construction moved out of `WorkspaceModel.swift` into `WorkspaceThreadCreationEngine.swift`. The model still owns persistence, selected-project validation, sidebar selection clearing, terminal sync, project touch timestamps, and top-bar refresh, but the value rules for new chats, forked chats, compacted chats, and duplicated chats now live behind focused pure helpers with direct tests.
+
+Code quality changes:
+
+- Added `WorkspaceThreadCreationContext` for new-chat project/mode/model/instruction/memory inputs.
+- Moved fork, compact, and duplicate record construction beside the thread creation boundary instead of mixing it with lifecycle mutation rules.
+- Kept visible-message filtering and compact-summary formatting in `WorkspaceThreadSeedBuilder`, so creation does not duplicate seed logic.
+- Added a single model insertion helper for created threads, removing repeated insert/select/touch/save/top-bar code paths.
+- Added focused creation-engine tests for context propagation, latest-visible-turn fork seeds, compact summaries, and duplicate pinned/archive reset behavior.
+
+Remaining risk:
+
+- `WorkspaceModel.swift` is still the largest file at roughly 2.6k lines. Continue extracting pure side-effect planning and state-reducer pockets before adding more Codex-parity commands.

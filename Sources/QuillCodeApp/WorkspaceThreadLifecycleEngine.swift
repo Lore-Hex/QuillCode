@@ -42,27 +42,6 @@ struct WorkspaceThreadLifecycleEngine {
         return threads[index]
     }
 
-    static func duplicateThread(_ source: ChatThread, projectID: UUID?) -> ChatThread {
-        var duplicate = ChatThread(
-            title: "Copy: \(source.title)",
-            projectID: projectID,
-            mode: source.mode,
-            model: source.model,
-            messages: source.messages,
-            events: source.events,
-            isPinned: false,
-            isArchived: false,
-            instructions: source.instructions,
-            memories: source.memories
-        )
-        duplicate.events.append(.init(
-            kind: .notice,
-            summary: "Duplicated from \(source.title)",
-            payloadJSON: source.id.uuidString
-        ))
-        return duplicate
-    }
-
     static func togglePinThread(
         _ id: UUID,
         threads: inout [ChatThread],

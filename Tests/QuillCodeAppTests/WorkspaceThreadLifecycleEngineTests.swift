@@ -25,53 +25,6 @@ final class WorkspaceThreadLifecycleEngineTests: XCTestCase {
         ))
     }
 
-    func testDuplicateCopiesConversationAndAddsNotice() throws {
-        let projectID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
-        let source = ChatThread(
-            title: "Implement feature",
-            projectID: projectID,
-            mode: .review,
-            model: "provider/model",
-            messages: [
-                .init(role: .user, content: "run whoami"),
-                .init(role: .assistant, content: "quill")
-            ],
-            events: [
-                .init(kind: .notice, summary: "Original event")
-            ],
-            isPinned: true,
-            isArchived: true,
-            instructions: [
-                ProjectInstruction(path: "AGENTS.md", title: "AGENTS", content: "Rules", byteCount: 5)
-            ],
-            memories: [
-                MemoryNote(
-                    id: "m1",
-                    scope: .project,
-                    title: "Preference",
-                    content: "Use Swift",
-                    relativePath: "note.md",
-                    byteCount: 9
-                )
-            ]
-        )
-
-        let duplicate = WorkspaceThreadLifecycleEngine.duplicateThread(source, projectID: projectID)
-
-        XCTAssertNotEqual(duplicate.id, source.id)
-        XCTAssertEqual(duplicate.title, "Copy: Implement feature")
-        XCTAssertEqual(duplicate.projectID, projectID)
-        XCTAssertEqual(duplicate.mode, AgentMode.review)
-        XCTAssertEqual(duplicate.model, "provider/model")
-        XCTAssertEqual(duplicate.messages, source.messages)
-        XCTAssertFalse(duplicate.isPinned)
-        XCTAssertFalse(duplicate.isArchived)
-        XCTAssertEqual(duplicate.instructions, source.instructions)
-        XCTAssertEqual(duplicate.memories, source.memories)
-        XCTAssertEqual(duplicate.events.last?.summary, "Duplicated from Implement feature")
-        XCTAssertEqual(duplicate.events.last?.payloadJSON, source.id.uuidString)
-    }
-
     func testArchiveSelectedThreadSelectsNewestUnarchivedThreadInSameProject() throws {
         let projectID = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
         let selected = ChatThread(title: "Selected", projectID: projectID, updatedAt: Date(timeIntervalSince1970: 10))
