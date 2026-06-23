@@ -1404,3 +1404,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModel.handleSlashCommand` still owns the side-effect switch for slash commands. That is acceptable while each branch calls high-level model methods, but a future slash-command executor could receive typed closures or command effects if the switch grows more workflow-specific logic.
+
+## 2026-06-23 Remember Slash Transcript Pass
+
+Overall grade after this slice: **A- foundation, A slash-command copy boundary**.
+
+The `/remember` transcript copy and saved-memory summary moved out of `WorkspaceModel` and into `WorkspaceSlashCommandTranscriptPlanner`. Before this pass, the model owned the “Saved memory” chat text, “Memory not saved” title, and saved-memory event summary while also writing the memory file and refreshing thread memory context. The model now keeps the side effects and delegates user-facing transcript copy plus the event summary prefix to the slash transcript planner.
+
+Code quality changes:
+
+- Added `memorySaved(userText:noteTitle:)` for saved global-memory chat transcripts.
+- Added `memoryNotSaved(userText:message:)` for write failures and unavailable runtime failures.
+- Added `memorySavedSummary(noteTitle:)` so transcript copy and thread events share one summary string.
+- Added focused planner tests and parity gates so `/remember` transcript strings do not drift back into `WorkspaceModel`.
+
+Remaining risk:
+
+- `/remember` still performs write/reload/thread mutation directly in `WorkspaceModel`. That is acceptable while the flow is small, but if memory editing, conflict resolution, or autonomous memory review grows, promote this into a dedicated memory command workflow coordinator.

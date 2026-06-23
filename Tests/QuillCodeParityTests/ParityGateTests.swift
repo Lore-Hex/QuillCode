@@ -249,6 +249,9 @@ final class ParityGateTests: XCTestCase {
             "WorkspaceSlashCommandTranscriptPlanner.workspaceCommandFailed",
             "WorkspaceSlashCommandTranscriptPlanner.environmentActions",
             "WorkspaceSlashCommandTranscriptPlanner.environmentActionNotFound",
+            "WorkspaceSlashCommandTranscriptPlanner.memorySaved",
+            "WorkspaceSlashCommandTranscriptPlanner.memoryNotSaved",
+            "WorkspaceSlashCommandTranscriptPlanner.memorySavedSummary",
             "WorkspaceSlashCommandTranscriptPlanner.invalid",
             "WorkspaceSlashCommandTranscriptPlanner.unknown"
         ] {
@@ -261,6 +264,8 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("Scheduled a workspace check for"), "WorkspaceModel should not own workspace schedule success copy.")
         XCTAssertFalse(modelText.contains("Local environment actions:"), "WorkspaceModel should not own /env list copy.")
         XCTAssertFalse(modelText.contains("No local environment action matches"), "WorkspaceModel should not own /env missing-action copy.")
+        XCTAssertFalse(modelText.contains("It will be included as background context in future turns."), "WorkspaceModel should not own /remember saved copy.")
+        XCTAssertFalse(modelText.contains("Memory not saved"), "WorkspaceModel should not own /remember failure title copy.")
         XCTAssertFalse(modelText.contains("Unknown slash command"), "WorkspaceModel should not own unknown slash command copy.")
     }
 
