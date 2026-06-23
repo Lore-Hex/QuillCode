@@ -253,6 +253,19 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("replaceThread("), "WorkspaceModel should not route async run updates through an ambiguous generic replacement helper.")
     }
 
+    func testAgentRunnerDelegatesFinalAnswerFormatting() throws {
+        let agentText = try Self.agentSourceText(named: "Agent.swift")
+        let builderText = try Self.agentSourceText(named: "AgentFinalAnswerBuilder.swift")
+
+        XCTAssertTrue(builderText.contains("enum AgentFinalAnswerBuilder"), "Tool-result final answer copy should live in a focused builder.")
+        XCTAssertTrue(builderText.contains("static func finalAnswer"), "Final answer formatting should be directly testable.")
+        XCTAssertTrue(builderText.contains("ToolDefinition.shellRun.name"), "Shell final-answer special cases should live in the builder.")
+        XCTAssertTrue(builderText.contains("ToolDefinition.browserInspect.name"), "Browser final-answer special cases should live in the builder.")
+        XCTAssertTrue(agentText.contains("AgentFinalAnswerBuilder.finalAnswer"), "AgentRunner should delegate final-answer formatting.")
+        XCTAssertFalse(agentText.contains("private static func shellAnswer"), "AgentRunner should not own shell final-answer formatting.")
+        XCTAssertFalse(agentText.contains("private static func browserInspectionAnswer"), "AgentRunner should not own browser final-answer formatting.")
+    }
+
     func testWorkspaceModelDelegatesComposerCancellationPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceComposerCancellationPlanner.swift")
@@ -1459,6 +1472,13 @@ final class ParityGateTests: XCTestCase {
     private static func appSourceText(named fileName: String) throws -> String {
         let file = packageRoot()
             .appendingPathComponent("Sources/QuillCodeApp")
+            .appendingPathComponent(fileName)
+        return try String(contentsOf: file, encoding: .utf8)
+    }
+
+    private static func agentSourceText(named fileName: String) throws -> String {
+        let file = packageRoot()
+            .appendingPathComponent("Sources/QuillCodeAgent")
             .appendingPathComponent(fileName)
         return try String(contentsOf: file, encoding: .utf8)
     }
