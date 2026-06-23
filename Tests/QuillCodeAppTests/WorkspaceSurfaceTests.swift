@@ -1547,6 +1547,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="composer-controls""#))
         XCTAssertTrue(html.contains(#"data-testid="model-picker-button""#))
         XCTAssertTrue(html.contains(#"data-testid="mode-picker-button""#))
+        XCTAssertTrue(html.contains(#"class="mode-prefix">Mode"#))
+        XCTAssertFalse(html.contains(#"class="mode-dot""#))
         XCTAssertTrue(html.contains(#"data-testid="project-instructions-status""#))
         XCTAssertTrue(html.contains("1 instruction file loaded"))
         XCTAssertTrue(html.contains("AGENTS.md"))

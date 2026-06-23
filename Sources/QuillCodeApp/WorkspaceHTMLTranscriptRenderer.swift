@@ -42,7 +42,9 @@ enum WorkspaceHTMLTranscriptRenderer {
           <div class="composer-controls" data-testid="composer-controls" aria-label="Composer controls">
             <button type="button" class="composer-model-button" data-testid="model-picker-button" aria-label="Model: \(escape(topBar.modelLabel))">◇ <span data-testid="model-pill">\(escape(topBar.modelLabel))</span></button>
             <button type="button" class="mode-pill-button" data-testid="mode-picker-button" data-mode-tone="\(modeTone(for: topBar.modeLabel))" aria-label="Auto safety mode: \(escape(topBar.modeLabel))">
-              <span class="mode-dot" aria-hidden="true"></span>
+              <span class="mode-icon" aria-hidden="true">◇</span>
+              <span class="mode-prefix">Mode</span>
+              <span class="mode-separator" aria-hidden="true">·</span>
               <span data-testid="mode-pill">\(escape(topBar.modeLabel))</span>
             </button>
           </div>

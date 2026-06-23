@@ -173,9 +173,17 @@ struct QuillCodeModePickerButton: View {
             }
         } label: {
             HStack(spacing: 6) {
-                Circle()
-                    .fill(modeColor(for: selectedMode))
-                    .frame(width: 7, height: 7)
+                Image(systemName: "shield")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .accessibilityHidden(true)
+                Text("Mode")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(1)
+                Text("·")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted.opacity(0.8))
                 Text(modeLabel)
                     .font(.caption.weight(.semibold))
                     .lineLimit(1)
@@ -198,17 +206,6 @@ struct QuillCodeModePickerButton: View {
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("Choose Auto safety mode")
         .accessibilityLabel("Auto safety mode, \(modeLabel)")
-    }
-
-    private func modeColor(for mode: AgentMode) -> Color {
-        switch mode {
-        case .auto:
-            return QuillCodePalette.green
-        case .review:
-            return QuillCodePalette.yellow
-        case .readOnly:
-            return QuillCodePalette.blue
-        }
     }
 }
 
