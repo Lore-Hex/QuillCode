@@ -292,6 +292,20 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(agentText.contains("var rawActionText"), "Agent.swift should not own raw streaming accumulation.")
     }
 
+    func testAgentToolStepRunnerLivesOutsideAgentRunnerFile() throws {
+        let agentText = try Self.agentSourceText(named: "Agent.swift")
+        let runnerText = try Self.agentSourceText(named: "AgentToolStepRunner.swift")
+
+        XCTAssertTrue(runnerText.contains("enum AgentToolStep"), "Tool-step state should live beside the extracted runner.")
+        XCTAssertTrue(runnerText.contains("func runToolStep"), "Tool-step execution should live in a focused runner extension.")
+        XCTAssertTrue(runnerText.contains("appendQueuedEvent"), "Tool lifecycle transcript events should be owned by the tool-step runner.")
+        XCTAssertTrue(runnerText.contains("SafetyReview"), "Safety-review blocking copy should stay with tool-step execution.")
+        XCTAssertTrue(agentText.contains("runToolStep("), "AgentRunner should delegate individual tool-step execution.")
+        XCTAssertFalse(agentText.contains("private func runToolStep"), "Agent.swift should not own individual tool-step execution.")
+        XCTAssertFalse(agentText.contains("kind: .toolQueued"), "Agent.swift should not own tool lifecycle event emission.")
+        XCTAssertFalse(agentText.contains("Tool is not available in this workspace"), "Agent.swift should not own unavailable-tool result copy.")
+    }
+
     func testWorkspaceModelDelegatesComposerCancellationPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceComposerCancellationPlanner.swift")

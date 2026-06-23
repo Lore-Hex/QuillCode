@@ -1761,3 +1761,21 @@ Remaining risk:
 
 - `Agent.swift` still owns repeated-tool fallback and tool-step execution sequencing. Those are production runner responsibilities and should be extracted in later focused passes once the streaming boundary is stable on CI.
 - The partial JSON preview parser is intentionally lightweight and tolerant because it runs on incomplete streamed action JSON. If model streaming schemas grow beyond string previews, evolve this helper rather than adding ad hoc preview parsing in the runner or UI.
+
+## 2026-06-23 Agent Tool-Step Runner Split
+
+Overall grade after this slice: **A architecture, A tool-step boundary, A regression coverage**.
+
+Individual tool-step execution moved out of `Agent.swift` and into `AgentToolStepRunner.swift`. Before this pass, the main agent runner mixed the high-level model/tool loop with availability checks, safety-review blocking copy, queued/running/completed event emission, actual tool dispatch, apply-patch follow-up diff execution, and tool feedback serialization. `AgentRunner.send(...)` now stays focused on the orchestration loop, repeated-call fallback, and final-answer handoff, while the extracted runner owns one complete tool step.
+
+Code quality changes:
+
+- Added `AgentToolStepRunner.swift` for `AgentToolStep`, `AgentToolStepCompletion`, `runToolStep(...)`, and tool feedback serialization.
+- Centralized queued/running/result transcript event emission for both primary tool calls and apply-patch follow-up diff calls.
+- Preserved existing behavior for safety-review blocks, unavailable tools, patch diff refresh, repeated-tool fallback, and tool feedback messages.
+- Added a parity gate so tool-step execution, lifecycle event emission, and unavailable-tool copy do not drift back into `Agent.swift`.
+
+Remaining risk:
+
+- `Agent.swift` still owns the repeated-tool fallback itself. That is now small enough to audit inline, but a later pass could extract a tiny `AgentToolStepHistory` if more loop policies are added.
+- `AgentToolStepRunner` still performs both safety review and execution. That is the right boundary for now because the transcript event sequence depends on both, but if safety policy grows richer it should split into a pure review-copy planner plus the executor.
