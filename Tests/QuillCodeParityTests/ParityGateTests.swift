@@ -295,6 +295,20 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(surfaceText.contains("let extensionUpdateCommands ="), "WorkspaceSurface should not own extension update command construction.")
     }
 
+    func testWorkspaceSurfaceDelegatesCommandPaletteContract() throws {
+        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
+        let paletteText = try Self.appSourceText(named: "WorkspaceCommandPaletteSurface.swift")
+
+        XCTAssertTrue(paletteText.contains("public struct WorkspaceCommandSurface"), "Command surface records should live beside palette ranking.")
+        XCTAssertTrue(paletteText.contains("public enum TopBarOverflowCommandCatalog"), "Top-bar overflow command projection should live beside command surfaces.")
+        XCTAssertTrue(paletteText.contains("public enum WorkspaceCommandPalette"), "Palette grouping and ranking should live in a focused command surface file.")
+        XCTAssertTrue(paletteText.contains("private static func score"), "Palette scoring should be directly guarded outside the aggregate surface file.")
+        XCTAssertFalse(surfaceText.contains("public struct WorkspaceCommandSurface"), "WorkspaceSurface should not own command surface records.")
+        XCTAssertFalse(surfaceText.contains("public enum TopBarOverflowCommandCatalog"), "WorkspaceSurface should not own top-bar overflow projection.")
+        XCTAssertFalse(surfaceText.contains("public enum WorkspaceCommandPalette"), "WorkspaceSurface should not own command palette ranking.")
+        XCTAssertFalse(surfaceText.contains("private struct QueryRequest"), "WorkspaceSurface should not own command palette query scoping.")
+    }
+
     func testWorkspaceSurfaceDelegatesReviewSurfaceBuilding() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceReviewSurfaceBuilder.swift")
