@@ -791,6 +791,21 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(result.error?.contains("different path") == true, result.error ?? "")
     }
 
+    func testGitPatchExecutorDetectsQuotedPatchPathMismatch() {
+        let patch = """
+        diff --git "a/hello world.txt" "b/other file.txt"
+        --- "a/hello world.txt"
+        +++ "b/other file.txt"
+        @@ -1 +1 @@
+        -old
+        +new
+        """
+
+        let mismatch = GitPatchToolExecutor.mismatchedPatchPath(in: patch, expectedPath: "hello world.txt")
+
+        XCTAssertEqual(mismatch, "other file.txt")
+    }
+
     func testToolRouterExposesGitStageAndRestoreDefinitions() {
         let definitions = ToolRouter.definitions.map(\.name)
 

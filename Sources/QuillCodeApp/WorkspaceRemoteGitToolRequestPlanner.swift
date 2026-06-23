@@ -391,7 +391,7 @@ enum WorkspaceRemoteGitToolRequestPlanner {
         guard !trimmedPatch.isEmpty else {
             throw GitToolError.emptyPatch
         }
-        if let mismatch = GitToolExecutor.mismatchedPatchPath(
+        if let mismatch = GitPatchToolExecutor.mismatchedPatchPath(
             in: normalizedPatch,
             expectedPath: relativePath
         ) {

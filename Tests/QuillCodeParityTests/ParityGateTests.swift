@@ -1453,6 +1453,23 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(executorText.contains("registeredWorktreePaths"), "GitToolExecutor should not own registered-worktree lookup.")
     }
 
+    func testGitPatchExecutionLivesOutsideGitExecutor() throws {
+        let executorText = try Self.toolsSourceText(named: "GitToolExecutor.swift")
+        let patchText = try Self.toolsSourceText(named: "GitPatchToolExecutor.swift")
+        let remoteGitPlannerText = try Self.appSourceText(named: "WorkspaceRemoteGitToolRequestPlanner.swift")
+
+        XCTAssertTrue(patchText.contains("public struct GitPatchToolExecutor"), "Git patch execution should live in a focused executor.")
+        XCTAssertTrue(patchText.contains("func stageHunk("), "Git patch staging should be directly testable.")
+        XCTAssertTrue(patchText.contains("func restoreHunk("), "Git patch restore should be directly testable.")
+        XCTAssertTrue(patchText.contains("static func mismatchedPatchPath"), "Patch path validation should live beside patch execution.")
+        XCTAssertTrue(executorText.contains("private let patches: GitPatchToolExecutor"), "GitToolExecutor should delegate hunk patch work.")
+        XCTAssertTrue(remoteGitPlannerText.contains("GitPatchToolExecutor.mismatchedPatchPath"), "Remote hunk planning should reuse the focused patch validator.")
+        XCTAssertFalse(executorText.contains("private func applyHunk"), "GitToolExecutor should not own patch application.")
+        XCTAssertFalse(executorText.contains("mismatchedPatchPath"), "GitToolExecutor should not own patch path validation.")
+        XCTAssertFalse(executorText.contains("temporaryPatchFailed"), "GitToolExecutor should not own temporary patch file handling.")
+        XCTAssertFalse(executorText.contains("pathsInDiffMetadataLine"), "GitToolExecutor should not own diff metadata parsing.")
+    }
+
     func testGitSharedInputValidationLivesOutsideGitFacade() throws {
         let executorText = try Self.toolsSourceText(named: "GitToolExecutor.swift")
         let validatorText = try Self.toolsSourceText(named: "GitInputValidator.swift")

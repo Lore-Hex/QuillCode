@@ -1879,5 +1879,24 @@ Code quality changes:
 
 Remaining risk:
 
-- Git hunk patch application still lives inside `GitToolExecutor.swift`. It is now the largest remaining local-git responsibility in that facade and should become a focused `GitPatchToolExecutor` once this validator split is stable on main.
 - PR-specific validators still live beside `GitHubPullRequestToolExecutor`, which is the right current boundary. If more GitHub issue/release tools appear, split those validators into a `GitHubInputValidator` rather than moving them back into the git facade.
+- `GitToolExecutor.swift` is now a small compatibility facade over focused git executors plus local stage/restore/commit/push. The next tools-layer cleanup should either extract basic local git file actions or remove older facade compatibility wrappers once direct executor call sites are ready.
+
+## 2026-06-23 Git Patch Executor Split
+
+Overall grade after this slice: **A architecture, A patch safety boundary, A local/remote parity**.
+
+Git hunk staging/restoring moved out of `GitToolExecutor.swift` and into `GitPatchToolExecutor.swift`, and shared git error cases moved into `GitToolError.swift`. Before this pass, the git facade still owned temporary patch-file creation, `git apply --check`, hunk application, diff metadata parsing, and patch-path mismatch validation. The facade now delegates hunk work to a focused patch executor, while SSH Remote hunk planning reuses the same patch-path validator.
+
+Code quality changes:
+
+- Added `GitPatchToolExecutor` for local hunk staging/restoring and patch-path mismatch validation.
+- Added `GitToolError` as the shared git error boundary so focused executors do not depend on an enum hidden in the git facade.
+- Rewired `GitToolExecutor.stageHunk` and `restoreHunk` to thin delegates.
+- Rewired SSH Remote hunk planning to use `GitPatchToolExecutor.mismatchedPatchPath`, keeping local and remote patch safety aligned.
+- Added coverage for quoted diff paths, remote stage-hunk command planning, and a parity gate so patch application and diff metadata parsing do not drift back into `GitToolExecutor.swift`.
+
+Remaining risk:
+
+- Basic local git file actions (`stage`, `restore`, `commit`, `push`) still live in the facade. They are small and readable, but a later A+ pass can split them into a `GitLocalToolExecutor` once the patch boundary is stable on main.
+- `PatchToolExecutor` has its own diff-path parser for generic apply-patch behavior. That is a separate tool boundary today; if parser behavior needs to converge, extract a neutral diff metadata parser rather than making either executor depend on the other.
