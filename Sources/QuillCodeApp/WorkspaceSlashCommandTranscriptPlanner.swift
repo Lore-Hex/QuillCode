@@ -141,26 +141,6 @@ struct WorkspaceSlashCommandTranscriptPlanner {
         )
     }
 
-    static func memorySaved(userText: String, noteTitle: String) -> WorkspaceLocalCommandTranscript {
-        transcript(
-            userText: userText,
-            assistantText: "\(memorySavedSummary(noteTitle: noteTitle)). It will be included as background context in future turns.",
-            title: "Memory: \(noteTitle)"
-        )
-    }
-
-    static func memoryNotSaved(userText: String, message: String) -> WorkspaceLocalCommandTranscript {
-        transcript(
-            userText: userText,
-            assistantText: message,
-            title: "Memory not saved"
-        )
-    }
-
-    static func memorySavedSummary(noteTitle: String) -> String {
-        "Saved memory: \(noteTitle)"
-    }
-
     static func invalid(userText: String, message: String) -> WorkspaceLocalCommandTranscript {
         transcript(
             userText: userText,

@@ -249,9 +249,6 @@ final class ParityGateTests: XCTestCase {
             "WorkspaceSlashCommandTranscriptPlanner.workspaceCommandFailed",
             "WorkspaceSlashCommandTranscriptPlanner.environmentActions",
             "WorkspaceSlashCommandTranscriptPlanner.environmentActionNotFound",
-            "WorkspaceSlashCommandTranscriptPlanner.memorySaved",
-            "WorkspaceSlashCommandTranscriptPlanner.memoryNotSaved",
-            "WorkspaceSlashCommandTranscriptPlanner.memorySavedSummary",
             "WorkspaceSlashCommandTranscriptPlanner.invalid",
             "WorkspaceSlashCommandTranscriptPlanner.unknown"
         ] {
@@ -264,30 +261,45 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("Scheduled a workspace check for"), "WorkspaceModel should not own workspace schedule success copy.")
         XCTAssertFalse(modelText.contains("Local environment actions:"), "WorkspaceModel should not own /env list copy.")
         XCTAssertFalse(modelText.contains("No local environment action matches"), "WorkspaceModel should not own /env missing-action copy.")
-        XCTAssertFalse(modelText.contains("It will be included as background context in future turns."), "WorkspaceModel should not own /remember saved copy.")
-        XCTAssertFalse(modelText.contains("Memory not saved"), "WorkspaceModel should not own /remember failure title copy.")
         XCTAssertFalse(modelText.contains("Unknown slash command"), "WorkspaceModel should not own unknown slash command copy.")
+        XCTAssertFalse(plannerText.contains("memorySaved("), "Memory save copy should live in the memory command planner.")
+        XCTAssertFalse(plannerText.contains("memoryNotSaved("), "Memory save failure copy should live in the memory command planner.")
+        XCTAssertFalse(plannerText.contains("memorySavedSummary("), "Memory save event summaries should live in the memory command planner.")
     }
 
     func testWorkspaceModelDelegatesMemoryCommandTranscriptPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceMemoryCommandTranscriptPlanner.swift")
         let errorText = try Self.appSourceText(named: "WorkspaceMemoryErrorMessageBuilder.swift")
+        let contextUpdateText = try Self.appSourceText(named: "WorkspaceMemoryContextUpdatePlanner.swift")
 
         XCTAssertTrue(plannerText.contains("struct WorkspaceMemoryCommandTranscriptPlanner"), "Memory command transcript copy should live in a focused planner.")
         XCTAssertTrue(errorText.contains("enum WorkspaceMemoryErrorMessageBuilder"), "Memory write and delete errors should share one user-facing formatter.")
+        XCTAssertTrue(contextUpdateText.contains("struct WorkspaceMemoryContextUpdatePlanner"), "Memory thread context updates should live in a focused planner.")
         for delegatedCall in [
+            "WorkspaceMemoryCommandTranscriptPlanner.memorySaved",
+            "WorkspaceMemoryCommandTranscriptPlanner.memoryNotSaved",
+            "WorkspaceMemoryCommandTranscriptPlanner.memorySavedSummary",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryForgotten",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary",
-            "WorkspaceMemoryErrorMessageBuilder.userFacingMessage"
+            "WorkspaceMemoryErrorMessageBuilder.userFacingMessage",
+            "WorkspaceMemoryContextUpdatePlanner.globalMemoryChanged"
         ] {
             XCTAssertTrue(modelText.contains(delegatedCall), "WorkspaceModel should delegate \(delegatedCall).")
         }
+        XCTAssertFalse(modelText.contains("It will be included as background context in future turns."), "WorkspaceModel should not own memory save success copy.")
+        XCTAssertFalse(modelText.contains("Memory not saved"), "WorkspaceModel should not own memory save failure title copy.")
         XCTAssertFalse(modelText.contains("It will no longer be included as background context."), "WorkspaceModel should not own memory delete success copy.")
         XCTAssertFalse(modelText.contains("Memory not deleted"), "WorkspaceModel should not own memory delete failure title copy.")
         XCTAssertFalse(modelText.contains("Forgot memory:"), "WorkspaceModel should not own memory delete summary copy.")
         XCTAssertFalse(modelText.contains("MemoryNoteDeleteError.deleteFailed.localizedDescription"), "WorkspaceModel should not format memory delete errors directly.")
+        XCTAssertFalse(modelText.contains("payloadJSON: note.relativePath"), "WorkspaceModel should not build memory change events inline.")
+        XCTAssertEqual(
+            modelText.components(separatedBy: "root.globalMemories = MemoryNoteLoader.loadGlobal").count - 1,
+            1,
+            "WorkspaceModel should reload global memories through refreshGlobalMemories instead of duplicating loader calls."
+        )
     }
 
     func testWorkspaceModelDelegatesCommandActionPlanning() throws {

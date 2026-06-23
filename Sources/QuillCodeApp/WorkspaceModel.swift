@@ -1097,7 +1097,7 @@ public final class QuillCodeWorkspaceModel {
             if WorkspaceMemoryRememberToolExecutor.didSaveMemory(in: thread) {
                 refreshThreadMemoryContext(&thread)
             }
-            replaceThread(thread)
+            replaceThread(thread, preservingSelection: true)
             try threadStore?.save(thread)
             composer.isSending = false
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
@@ -1112,7 +1112,7 @@ public final class QuillCodeWorkspaceModel {
 
     private func applyAgentProgress(_ thread: ChatThread, expectedThreadID: UUID) {
         guard thread.id == expectedThreadID else { return }
-        replaceThread(thread)
+        replaceThread(thread, preservingSelection: true)
         composer.isSending = true
         lastError = nil
         refreshTopBar(agentStatus: WorkspaceAgentStatusBuilder.status(for: thread))
@@ -1386,21 +1386,11 @@ public final class QuillCodeWorkspaceModel {
         do {
             let note = try MemoryNoteLoader.deleteGlobal(id: id, from: globalMemoryDirectory)
             let forgottenSummary = WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary(noteTitle: note.title)
-            root.globalMemories = MemoryNoteLoader.loadGlobal(from: globalMemoryDirectory)
-            let projectID = selectedThread?.projectID ?? root.selectedProjectID
-            let refreshedMemories = memoryNotes(for: projectID)
             appendLocalCommandTranscript(WorkspaceMemoryCommandTranscriptPlanner.memoryForgotten(
                 userText: "Forget memory: \(note.title)",
                 noteTitle: note.title
             ))
-            mutateSelectedThread { thread in
-                thread.memories = refreshedMemories
-                thread.events.append(ThreadEvent(
-                    kind: .notice,
-                    summary: forgottenSummary,
-                    payloadJSON: note.relativePath
-                ))
-            }
+            applyGlobalMemoryChange(summary: forgottenSummary, relativePath: note.relativePath)
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return true
         } catch let error as MemoryNoteDeleteError {
@@ -1878,7 +1868,7 @@ public final class QuillCodeWorkspaceModel {
 
     private func runRememberSlashCommand(_ content: String, originalPrompt: String) {
         guard let globalMemoryDirectory else {
-            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.memoryNotSaved(
+            appendLocalCommandTranscript(WorkspaceMemoryCommandTranscriptPlanner.memoryNotSaved(
                 userText: originalPrompt,
                 message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: MemoryNoteWriteError.unavailable)
             ))
@@ -1888,29 +1878,19 @@ public final class QuillCodeWorkspaceModel {
         do {
             let saved = try WorkspaceMemoryRememberToolExecutor.saveGlobal(content: content, to: globalMemoryDirectory)
             let note = saved.note
-            let savedSummary = WorkspaceSlashCommandTranscriptPlanner.memorySavedSummary(noteTitle: note.title)
-            root.globalMemories = MemoryNoteLoader.loadGlobal(from: globalMemoryDirectory)
-            let projectID = selectedThread?.projectID ?? root.selectedProjectID
-            let refreshedMemories = memoryNotes(for: projectID)
-            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.memorySaved(
+            let savedSummary = WorkspaceMemoryCommandTranscriptPlanner.memorySavedSummary(noteTitle: note.title)
+            appendLocalCommandTranscript(WorkspaceMemoryCommandTranscriptPlanner.memorySaved(
                 userText: originalPrompt,
                 noteTitle: note.title
             ))
-            mutateSelectedThread { thread in
-                thread.memories = refreshedMemories
-                thread.events.append(ThreadEvent(
-                    kind: .notice,
-                    summary: savedSummary,
-                    payloadJSON: note.relativePath
-                ))
-            }
+            applyGlobalMemoryChange(summary: savedSummary, relativePath: note.relativePath)
         } catch let error as MemoryNoteWriteError {
-            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.memoryNotSaved(
+            appendLocalCommandTranscript(WorkspaceMemoryCommandTranscriptPlanner.memoryNotSaved(
                 userText: originalPrompt,
                 message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
             ))
         } catch {
-            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.memoryNotSaved(
+            appendLocalCommandTranscript(WorkspaceMemoryCommandTranscriptPlanner.memoryNotSaved(
                 userText: originalPrompt,
                 message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: MemoryNoteWriteError.writeFailed)
             ))
@@ -2041,11 +2021,20 @@ public final class QuillCodeWorkspaceModel {
         return index
     }
 
-    private func replaceThread(_ thread: ChatThread) {
+    private func replaceThread(_ thread: ChatThread, preservingSelection: Bool = false) {
+        let currentSelection = root.selectedThreadID
+        let currentProjectSelection = root.selectedProjectID
         if let index = root.threads.firstIndex(where: { $0.id == thread.id }) {
             root.threads[index] = thread
         } else {
             root.threads.insert(thread, at: 0)
+        }
+        if preservingSelection,
+           let currentSelection,
+           root.threads.contains(where: { $0.id == currentSelection }) {
+            root.selectedThreadID = currentSelection
+            root.selectedProjectID = currentProjectSelection
+            return
         }
         root.selectedThreadID = thread.id
         root.selectedProjectID = knownProjectID(thread.projectID)
@@ -2144,6 +2133,20 @@ public final class QuillCodeWorkspaceModel {
     private func refreshGlobalMemories() {
         guard let globalMemoryDirectory else { return }
         root.globalMemories = MemoryNoteLoader.loadGlobal(from: globalMemoryDirectory)
+    }
+
+    private func applyGlobalMemoryChange(summary: String, relativePath: String) {
+        refreshGlobalMemories()
+        let projectID = selectedThread?.projectID ?? root.selectedProjectID
+        let update = WorkspaceMemoryContextUpdatePlanner.globalMemoryChanged(
+            memories: memoryNotes(for: projectID),
+            summary: summary,
+            relativePath: relativePath
+        )
+        mutateSelectedThread { thread in
+            thread.memories = update.memories
+            thread.events.append(update.event)
+        }
     }
 
     private func syncThreadContext(into thread: inout ChatThread) {

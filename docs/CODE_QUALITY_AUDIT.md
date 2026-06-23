@@ -1439,3 +1439,52 @@ Code quality changes:
 Remaining risk:
 
 - Memory write and delete flows still mutate global memory state directly in `WorkspaceModel`. That remains acceptable while the operations are small, but richer memory editing or conflict handling should move through a dedicated workflow coordinator instead of adding more side-effect branches to the model.
+
+## 2026-06-23 Memory Transcript Consolidation Pass
+
+Overall grade after this slice: **A- foundation, A memory transcript ownership**.
+
+The `/remember` success/failure transcript copy moved from the generic slash-command transcript planner into `WorkspaceMemoryCommandTranscriptPlanner`, next to memory delete copy. This resolves the earlier split ownership where save and delete memory copy lived in different planners even though both are memory-domain transcript contracts.
+
+Code quality changes:
+
+- Moved `memorySaved(userText:noteTitle:)`, `memoryNotSaved(userText:message:)`, and `memorySavedSummary(noteTitle:)` to `WorkspaceMemoryCommandTranscriptPlanner`.
+- Updated `WorkspaceModel` so memory write and delete paths delegate transcript and event summary copy to the same planner.
+- Moved focused `/remember` transcript tests into `WorkspaceMemoryCommandTranscriptPlannerTests`.
+- Tightened parity tests so `WorkspaceSlashCommandTranscriptPlanner` cannot regain memory save copy accidentally.
+
+Remaining risk:
+
+- Memory write/delete side effects still live in `WorkspaceModel`. The next architecture step should be a dedicated memory command workflow coordinator once memory editing grows beyond simple write/delete operations.
+
+## 2026-06-23 Memory Context Refresh Pass
+
+Overall grade after this slice: **A- foundation, A memory refresh boundary**.
+
+The memory save/delete paths now share one selected-thread refresh path after global memory changes. Before this pass, `/remember` and memory delete both reloaded global memories, recomputed selected-thread memory context, and constructed identical notice events inline. `WorkspaceModel` now calls `applyGlobalMemoryChange(summary:relativePath:)`, while `WorkspaceMemoryContextUpdatePlanner` owns the structured memory update and event shape.
+
+Code quality changes:
+
+- Added `WorkspaceMemoryContextUpdatePlanner` and a value type for refreshed memories plus the corresponding notice event.
+- Replaced duplicated save/delete memory refresh branches with a single `applyGlobalMemoryChange` helper.
+- Added focused planner tests and a parity gate that keeps memory reloads centralized through `refreshGlobalMemories()`.
+
+Remaining risk:
+
+- Memory commands still live in `WorkspaceModel` as orchestration methods. The next worthwhile extraction is a dedicated memory command coordinator once memory edit/conflict flows appear; for now, the shared refresh boundary keeps the current behavior small and testable.
+
+## 2026-06-23 Async Thread Selection Pass
+
+Overall grade after this slice: **A- foundation, A async-thread update boundary**.
+
+Agent runs now update their target thread without stealing the user's current selection. Before this pass, progress and completion updates used the generic thread replacement path, which could re-select the original thread if the user opened another chat while a run was still streaming or cancelling. `WorkspaceModel` now uses the existing selection-preserving replacement path for asynchronous run updates, keeping thread mutation and UI focus separate.
+
+Code quality changes:
+
+- Reused `replaceThread(_:preservingSelection:)` for agent progress and completion updates instead of adding another selection special case.
+- Added regression coverage for completed runs so late assistant output is saved to the original thread without moving focus away from the user's newly selected chat.
+- Stress-ran cancellation and completion selection tests locally to cover the timing-sensitive path that failed in CI.
+
+Remaining risk:
+
+- `WorkspaceModel.submitComposer` still owns async send orchestration. A future runner session coordinator could make captured thread identity, cancellation, and progress persistence even more explicit, but this fix removes the immediate race without widening the model API.
