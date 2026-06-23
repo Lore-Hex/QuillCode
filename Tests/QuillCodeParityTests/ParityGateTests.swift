@@ -339,6 +339,24 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("if let result = await plan?(call, workspaceRoot)"), "WorkspaceModel should not inline override precedence.")
     }
 
+    func testWorkspaceModelDelegatesRemoteProjectToolExecution() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let executorText = try Self.appSourceText(named: "WorkspaceRemoteProjectToolExecutor.swift")
+
+        XCTAssertTrue(executorText.contains("struct WorkspaceRemoteProjectToolExecutor"), "SSH Remote project tools should live in a focused executor.")
+        XCTAssertTrue(executorText.contains("static let toolDefinitions"), "Remote project tool definitions should live beside remote execution.")
+        XCTAssertTrue(executorText.contains("static let gitToolNames"), "Remote git routing should live beside remote execution.")
+        XCTAssertTrue(executorText.contains("static func executionOverride"), "Remote agent override construction should be directly testable.")
+        XCTAssertTrue(executorText.contains("static func execute"), "Manual remote tool execution should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceRemoteProjectToolExecutor.toolDefinitions"), "WorkspaceModel should delegate remote base tool definitions.")
+        XCTAssertTrue(modelText.contains("WorkspaceRemoteProjectToolExecutor.executionOverride"), "WorkspaceModel should delegate remote override creation.")
+        XCTAssertTrue(modelText.contains("WorkspaceRemoteProjectToolExecutor.execute"), "WorkspaceModel should delegate manual/review remote execution.")
+        XCTAssertFalse(modelText.contains("executeRemoteGitToolCall"), "WorkspaceModel should not own remote git command execution.")
+        XCTAssertFalse(modelText.contains("executeRemoteShellToolCall"), "WorkspaceModel should not own remote shell command execution.")
+        XCTAssertFalse(modelText.contains("remoteProjectGitToolNames"), "WorkspaceModel should not own remote git tool routing.")
+        XCTAssertFalse(modelText.contains("remoteProjectRelativePath"), "WorkspaceModel should not own remote path normalization.")
+    }
+
     func testWorkspaceSurfaceDelegatesContextBannerBuilding() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceContextBannerBuilder.swift")
