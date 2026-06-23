@@ -26,6 +26,7 @@ final class QuillCodeDesktopController: ObservableObject {
     private let settingsCoordinator: QuillCodeDesktopSettingsCoordinator
     private let systemSettingsOpener: MacSystemSettingsOpener
     private let copyCoordinator: QuillCodeDesktopCopyCoordinator
+    private let projectImportCoordinator: QuillCodeDesktopProjectImportCoordinator
     private let tasks = QuillCodeDesktopTaskCoordinator()
 
     init(
@@ -42,6 +43,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.settingsCoordinator = QuillCodeDesktopSettingsCoordinator(bootstrap: bootstrap)
         self.systemSettingsOpener = MacSystemSettingsOpener()
         self.copyCoordinator = QuillCodeDesktopCopyCoordinator()
+        self.projectImportCoordinator = QuillCodeDesktopProjectImportCoordinator()
         do {
             self.model = try bootstrap.makeModel()
         } catch {
@@ -122,10 +124,10 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func handleProjectImport(_ result: Result<[URL], Error>) {
-        guard case let .success(urls) = result, let url = urls.first else {
+        guard let selection = projectImportCoordinator.selectedProject(from: result) else {
             return
         }
-        addProject(url)
+        addProject(selection.url)
     }
 
     func addProject(_ url: URL) {

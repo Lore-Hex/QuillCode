@@ -27,7 +27,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but runtime issue classification, model catalog presentation, command palette construction, review diff construction, context banner estimation, and transcript message projection are now extracted into pure builders. Next step is extracting additional surface-family builders only when behavior grows. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
-| `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback now lives in a focused coordinator; project-import routing is the next split if that path grows. |
+| `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback and project-import resolution now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
 | `Sources/QuillCodeCore/Models.swift` | A- | Central source of truth for model IDs, branding, and compatibility. Watch for model/persistence surface bloat. |
 
@@ -42,7 +42,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Current Refactor Priority
 
-1. Keep `QuillCodeDesktopController.swift` to UI/workspace routing; split project-import routing if that path grows.
+1. Keep `QuillCodeDesktopController.swift` to UI/workspace routing; split future desktop protocol/workflow details before they grow into controller branches.
 2. Continue pulling pure workflow planning and surface builders out of `WorkspaceModel` before adding new Codex-parity commands.
 3. Keep splitting remaining workspace surface assembly into single-purpose builders when behavior grows; avoid adding new transcript or tool-card projection rules outside the transcript builder.
 4. If MCP transports expand beyond stdio, add new launch/session implementations behind `WorkspaceMCPServerLaunching` instead of adding transport-specific branches to the runtime.
@@ -316,7 +316,7 @@ Code quality changes:
 
 Remaining risk:
 
-- The controller still owns pasteboard feedback timing and project-import sheet routing. Those are small today; split them only if desktop behavior grows again.
+- The controller still owns project-import sheet presentation because it is UI state. Project import result resolution and directory validation now belong in the import coordinator.
 
 ## 2026-06-22 Tool Card Surface Split Pass
 
@@ -659,3 +659,21 @@ Code quality changes:
 Remaining risk:
 
 - Project import remains simple enough to stay in the controller today. If import handling grows into recent locations, validation, or error recovery, move it behind a focused desktop project-import coordinator instead of expanding the controller.
+
+## 2026-06-23 Desktop Project Import Coordinator Pass
+
+Overall grade after this slice: **A- foundation, A desktop boundary**.
+
+Desktop project import result handling moved out of `QuillCodeDesktopController.swift` into `QuillCodeDesktopProjectImportCoordinator`. The controller still owns the SwiftUI importer presentation flag because that is sheet state, but result parsing, selected URL normalization, and directory validation now live in one focused coordinator.
+
+Code quality changes:
+
+- Added `QuillCodeDesktopProjectImportSelection` so a successful import is explicit value data.
+- Added `QuillCodeDesktopProjectImportCoordinator` to resolve `fileImporter` results into a validated project directory.
+- Validates imported URLs with `FileManager.fileExists(..., isDirectory:)` instead of assuming the first returned URL is usable.
+- Reduced `QuillCodeDesktopController.handleProjectImport` to coordinator delegation plus the existing project-add path.
+- Extended parity gates so the controller cannot regain raw file-import result parsing or directory validation.
+
+Remaining risk:
+
+- Project-import errors are intentionally quiet today because cancelled import and invalid import both no-op. If the app starts surfacing import errors, add a small user-visible import status model to this coordinator rather than expanding controller state.
