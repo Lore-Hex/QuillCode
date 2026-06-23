@@ -26,7 +26,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but settings copy/compatibility, runtime issue classification, model catalog presentation, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are now extracted into focused files. Next step is extracting additional surface-family builders only when behavior grows. |
-| `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, sidebar HTML delegates to `WorkspaceHTMLSidebarRenderer`, review pane HTML delegates to `WorkspaceHTMLReviewRenderer`, secondary pane HTML delegates to `WorkspaceHTMLSecondaryPaneRenderer`, browser pane HTML delegates to `WorkspaceHTMLBrowserRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another shell family only when renderer drift appears. |
+| `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but top-bar HTML delegates to `WorkspaceHTMLTopBarRenderer`, sidebar HTML delegates to `WorkspaceHTMLSidebarRenderer`, tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, review pane HTML delegates to `WorkspaceHTMLReviewRenderer`, secondary pane HTML delegates to `WorkspaceHTMLSecondaryPaneRenderer`, browser pane HTML delegates to `WorkspaceHTMLBrowserRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another transcript/composer family only when renderer drift appears. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
 | `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback and project-import resolution now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
@@ -852,7 +852,7 @@ Code quality changes:
 
 Remaining risk:
 
-- Top-bar, transcript message, context banner, runtime issue, and composer rendering still live in `WorkspaceHTMLRenderer.swift`. Extract another whole shell family only when behavior grows enough to justify the extra file.
+- Transcript message, context banner, runtime issue, and composer rendering still live in `WorkspaceHTMLRenderer.swift`. Extract another whole transcript family only when behavior grows enough to justify the extra file.
 
 ## 2026-06-23 HTML Review Renderer Pass
 
@@ -869,7 +869,7 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceHTMLRenderer.swift` still owns top bar, transcript message, context banner, runtime issue, and composer rendering. Those are now shell-level concerns; extract them only when they begin to grow or diverge from the SwiftUI shell.
+- `WorkspaceHTMLRenderer.swift` still owns transcript message, context banner, runtime issue, and composer rendering. Those are now transcript-level concerns; extract them only when they begin to grow or diverge from the SwiftUI shell.
 
 ## 2026-06-23 HTML Sidebar Renderer Pass
 
@@ -887,4 +887,22 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceHTMLRenderer.swift` still owns top bar, transcript message, context banner, runtime issue, and composer rendering. Those are the remaining shell/transcript concerns; extract only when the behavior grows enough to justify another file.
+- `WorkspaceHTMLRenderer.swift` still owns transcript message, context banner, runtime issue, and composer rendering. Those are the remaining transcript concerns; extract only when the behavior grows enough to justify another file.
+
+## 2026-06-23 HTML Top-Bar Renderer Pass
+
+Overall grade after this slice: **A- foundation, A static HTML top-bar boundary**.
+
+Static HTML top-bar rendering, model/mode display, project instruction and memory status, Computer Use status, runtime issue pill, and overflow command buttons moved out of `WorkspaceHTMLRenderer.swift` into `WorkspaceHTMLTopBarRenderer.swift`. This keeps shell identity/status rendering beside the top-bar contract instead of mixing it into transcript composition.
+
+Code quality changes:
+
+- Added `WorkspaceHTMLTopBarRenderer` as the focused owner for static top-bar HTML.
+- Kept primary, context, and action cluster rendering together.
+- Preserved shared overflow command projection through `TopBarOverflowCommandCatalog`.
+- Reused `WorkspaceHTMLPrimitives` for escaping so top-bar HTML shares the same escaping path as the other static renderers.
+- Added a parity gate so top-bar cluster, runtime issue, and overflow markup do not drift back into `WorkspaceHTMLRenderer.swift`.
+
+Remaining risk:
+
+- `WorkspaceHTMLRenderer.swift` still owns transcript message, context banner, runtime issue panel, and composer rendering. Those are the remaining transcript-level concerns; extract them only when behavior grows enough to justify another focused renderer.

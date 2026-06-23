@@ -349,6 +349,26 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(htmlText.contains("private static func documentIcon"), "WorkspaceHTMLRenderer should not own document-preview icon labels.")
     }
 
+    func testWorkspaceHTMLRendererDelegatesTopBarRendering() throws {
+        let htmlText = try Self.appSourceText(named: "WorkspaceHTMLRenderer.swift")
+        let topBarText = try Self.appSourceText(named: "WorkspaceHTMLTopBarRenderer.swift")
+
+        XCTAssertTrue(topBarText.contains("enum WorkspaceHTMLTopBarRenderer"), "HTML top-bar rendering should live in a focused renderer.")
+        XCTAssertTrue(topBarText.contains("static func render(_ topBar: TopBarSurface"), "HTML top-bar rendering should expose a directly testable entry point.")
+        XCTAssertTrue(topBarText.contains("private static func renderPrimaryCluster"), "Model/mode cluster rendering should live beside top-bar HTML.")
+        XCTAssertTrue(topBarText.contains("private static func renderContextCluster"), "Status cluster rendering should live beside top-bar HTML.")
+        XCTAssertTrue(topBarText.contains("private static func renderActionCluster"), "Overflow cluster rendering should live beside top-bar HTML.")
+        XCTAssertTrue(topBarText.contains("private static func renderRuntimeIssuePill"), "Runtime issue pill rendering should live beside top-bar HTML.")
+        XCTAssertTrue(topBarText.contains("TopBarOverflowCommandCatalog.commands"), "Top-bar overflow should use the shared command catalog.")
+        XCTAssertTrue(topBarText.contains("WorkspaceHTMLPrimitives.escape"), "Top-bar renderer should reuse shared HTML escaping.")
+        XCTAssertTrue(htmlText.contains("WorkspaceHTMLTopBarRenderer.render"), "WorkspaceHTMLRenderer should delegate top-bar rendering.")
+        XCTAssertFalse(htmlText.contains("private static func renderTopBar"), "WorkspaceHTMLRenderer should not own top-bar rendering.")
+        XCTAssertFalse(htmlText.contains("private static func renderTopBarOverflow"), "WorkspaceHTMLRenderer should not own top-bar overflow rendering.")
+        XCTAssertFalse(htmlText.contains("topbar-primary-cluster"), "WorkspaceHTMLRenderer should not own top-bar cluster markup.")
+        XCTAssertFalse(htmlText.contains("runtime-issue-pill"), "WorkspaceHTMLRenderer should not own runtime issue pill markup.")
+        XCTAssertFalse(htmlText.contains("top-bar-overflow-popover"), "WorkspaceHTMLRenderer should not own top-bar overflow markup.")
+    }
+
     func testWorkspaceHTMLRendererDelegatesTerminalRendering() throws {
         let htmlText = try Self.appSourceText(named: "WorkspaceHTMLRenderer.swift")
         let terminalText = try Self.appSourceText(named: "WorkspaceHTMLTerminalRenderer.swift")
