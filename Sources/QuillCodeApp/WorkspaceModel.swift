@@ -1447,20 +1447,8 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func createWorktree(_ request: WorkspaceWorktreeCreateRequest, workspaceRoot: URL) {
-        var arguments: [String: Any] = ["path": request.path]
-        let branch = request.branch.trimmingCharacters(in: .whitespacesAndNewlines)
-        let base = request.base.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !branch.isEmpty {
-            arguments["branch"] = branch
-        }
-        if !base.isEmpty {
-            arguments["base"] = base
-        }
         let result = runToolCall(
-            ToolCall(
-                name: ToolDefinition.gitWorktreeCreate.name,
-                argumentsJSON: ToolArguments.json(arguments)
-            ),
+            WorkspaceWorktreeToolCallPlanner.create(request),
             workspaceRoot: workspaceRoot
         )
         if result.ok {
@@ -1470,13 +1458,7 @@ public final class QuillCodeWorkspaceModel {
 
     public func removeWorktree(_ request: WorkspaceWorktreeRemoveRequest, workspaceRoot: URL) {
         runToolCall(
-            ToolCall(
-                name: ToolDefinition.gitWorktreeRemove.name,
-                argumentsJSON: ToolArguments.json([
-                    "path": request.path,
-                    "force": request.force
-                ])
-            ),
+            WorkspaceWorktreeToolCallPlanner.remove(request),
             workspaceRoot: workspaceRoot
         )
     }
