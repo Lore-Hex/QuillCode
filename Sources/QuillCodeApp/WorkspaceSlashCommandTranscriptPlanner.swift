@@ -116,6 +116,31 @@ struct WorkspaceSlashCommandTranscriptPlanner {
         )
     }
 
+    static func environmentActions(userText: String, actions: [LocalEnvironmentAction]) -> WorkspaceLocalCommandTranscript {
+        let message: String
+        if actions.isEmpty {
+            message = "No local environment actions found. Add scripts under `.quillcode/actions` or `.quillcode/local-env`."
+        } else {
+            let rows = actions
+                .map(environmentActionRow)
+                .joined(separator: "\n")
+            message = "Local environment actions:\n\(rows)"
+        }
+        return transcript(
+            userText: userText,
+            assistantText: message,
+            title: "Local environment actions"
+        )
+    }
+
+    static func environmentActionNotFound(userText: String, query: String) -> WorkspaceLocalCommandTranscript {
+        transcript(
+            userText: userText,
+            assistantText: "No local environment action matches `\(query)`. Run `/env` to see available actions.",
+            title: "Local environment actions"
+        )
+    }
+
     static func invalid(userText: String, message: String) -> WorkspaceLocalCommandTranscript {
         transcript(
             userText: userText,
@@ -130,6 +155,13 @@ struct WorkspaceSlashCommandTranscriptPlanner {
             assistantText: "Unknown slash command '/\(name)'. Try /help.",
             title: "Slash command"
         )
+    }
+
+    private static func environmentActionRow(_ action: LocalEnvironmentAction) -> String {
+        let detail = action.detail.map { " — \($0)" } ?? ""
+        let cwd = action.workingDirectory.map { " — cwd: \($0)" } ?? ""
+        let timeout = action.timeoutSeconds.map { " — timeout: \($0)s" } ?? ""
+        return "- `/env \(action.title)` — \(action.relativePath)\(cwd)\(timeout)\(detail)"
     }
 
     private static func transcript(userText: String, assistantText: String, title: String) -> WorkspaceLocalCommandTranscript {

@@ -1925,35 +1925,18 @@ public final class QuillCodeWorkspaceModel {
     private func runEnvironmentSlashCommand(_ query: String?, originalPrompt: String, workspaceRoot: URL) {
         refreshProjectMetadata(root.selectedProjectID)
         guard let query, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            let actions = selectedProject?.localActions ?? []
-            let message: String
-            if actions.isEmpty {
-                message = "No local environment actions found. Add scripts under `.quillcode/actions` or `.quillcode/local-env`."
-            } else {
-                let rows = actions
-                    .map { action in
-                        let detail = action.detail.map { " — \($0)" } ?? ""
-                        let cwd = action.workingDirectory.map { " — cwd: \($0)" } ?? ""
-                        let timeout = action.timeoutSeconds.map { " — timeout: \($0)s" } ?? ""
-                        return "- `/env \(action.title)` — \(action.relativePath)\(cwd)\(timeout)\(detail)"
-                    }
-                    .joined(separator: "\n")
-                message = "Local environment actions:\n\(rows)"
-            }
-            appendLocalCommandTranscript(
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.environmentActions(
                 userText: originalPrompt,
-                assistantText: message,
-                title: "Local environment actions"
-            )
+                actions: selectedProject?.localActions ?? []
+            ))
             return
         }
 
         guard let action = localAction(matching: query) else {
-            appendLocalCommandTranscript(
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.environmentActionNotFound(
                 userText: originalPrompt,
-                assistantText: "No local environment action matches `\(query)`. Run `/env` to see available actions.",
-                title: "Local environment actions"
-            )
+                query: query
+            ))
             return
         }
         _ = runLocalEnvironmentAction(action.id, workspaceRoot: workspaceRoot)
