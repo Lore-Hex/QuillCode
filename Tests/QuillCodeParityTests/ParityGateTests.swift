@@ -43,6 +43,20 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("ToolArtifactPreviewBuilder.textPreview"), "WorkspaceModel should not own artifact-preview requests.")
     }
 
+    func testWorkspaceModelDelegatesExecutionContextSurfaceBuilding() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceExecutionContextSurfaceBuilder.swift")
+
+        XCTAssertTrue(builderText.contains("struct WorkspaceExecutionContextSurfaceBuilder"), "Execution context enrichment should live in a focused builder.")
+        XCTAssertTrue(builderText.contains("func enrichToolCards("), "Tool-card context enrichment should be directly testable.")
+        XCTAssertTrue(builderText.contains("func enrichTimelineItems("), "Timeline context enrichment should be directly testable.")
+        XCTAssertTrue(builderText.contains("static func isProjectExecutionTool"), "Project-execution tool classification should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceExecutionContextSurfaceBuilder("), "WorkspaceModel should delegate execution-context enrichment.")
+        XCTAssertFalse(modelText.contains("private func enrichToolCards"), "WorkspaceModel should not own tool-card context enrichment.")
+        XCTAssertFalse(modelText.contains("private func enrichTimelineItems"), "WorkspaceModel should not own timeline context enrichment.")
+        XCTAssertFalse(modelText.contains("private static func isProjectExecutionTool"), "WorkspaceModel should not own project-execution tool classification.")
+    }
+
     func testWorkspaceModelDelegatesBrowserSurfaceTypes() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let browserSurfaceText = try Self.appSourceText(named: "QuillCodeBrowserSurface.swift")
@@ -54,6 +68,21 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("public struct BrowserState"), "WorkspaceModel should not own browser surface state.")
         XCTAssertFalse(modelText.contains("public struct BrowserSnapshotState"), "WorkspaceModel should not own browser snapshot state.")
         XCTAssertFalse(modelText.contains("public struct BrowserCommentState"), "WorkspaceModel should not own browser comment state.")
+    }
+
+    func testWorkspaceModelDelegatesThreadSeedBuilding() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let seedBuilderText = try Self.appSourceText(named: "WorkspaceThreadSeedBuilder.swift")
+
+        XCTAssertTrue(seedBuilderText.contains("struct WorkspaceThreadSeedBuilder"), "Fork and compact seed construction should live in a focused builder.")
+        XCTAssertTrue(seedBuilderText.contains("static func title(fromUserPrompt"), "Thread title seeding should be directly testable.")
+        XCTAssertTrue(seedBuilderText.contains("static func forkSeedMessages"), "Fork seed construction should be directly testable.")
+        XCTAssertTrue(seedBuilderText.contains("static func compactSeedMessages"), "Compact seed construction should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceThreadSeedBuilder.forkSeedMessages"), "WorkspaceModel should delegate fork seeding.")
+        XCTAssertTrue(modelText.contains("WorkspaceThreadSeedBuilder.compactSeedMessages"), "WorkspaceModel should delegate context compaction seeding.")
+        XCTAssertFalse(modelText.contains("private static func forkSeedMessages"), "WorkspaceModel should not own fork seed construction.")
+        XCTAssertFalse(modelText.contains("private static func compactSeedMessages"), "WorkspaceModel should not own compact seed construction.")
+        XCTAssertFalse(modelText.contains("private static func compactSummaryMessage"), "WorkspaceModel should not own compact summary formatting.")
     }
 
     func testWorkspaceSwiftUIViewDelegatesTranscriptFindAndContextBanner() throws {

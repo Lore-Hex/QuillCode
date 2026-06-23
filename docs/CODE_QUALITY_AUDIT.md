@@ -16,14 +16,14 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `QuillCodeSafety` | A- | Small, explicit policy layer. Needs more production prompt telemetry once live Auto reviewer tuning begins. |
 | `QuillCodePersistence` | A | Focused stores, compatibility tests, and clear path ownership. |
 | `QuillComputerUseKit` | B+ | Protocol shape is good and macOS adapter is isolated. Linux adapter, app approvals, and visual feedback loops are still parity gaps. |
-| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, command, review, context banner, and transcript projection now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
+| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, command, review, context banner, transcript projection, execution-context enrichment, and thread seeding now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
 | Playwright harness | B+ | Valuable parity harness with broad coverage. It intentionally duplicates rendering behavior, so keep it thin and derived from stable surface concepts. |
 
 ## File Hotspots
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, browser/MCP surface state, MCP request parsing, MCP runtime/catalog work, and tool-card surface types now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, browser/MCP surface state, MCP request parsing, MCP runtime/catalog work, tool-card surface types, execution-context enrichment, and thread seeding now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but runtime issue classification, model catalog presentation, command palette construction, review diff construction, context banner estimation, and transcript message projection are now extracted into pure builders. Next step is extracting additional surface-family builders only when behavior grows. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
@@ -488,3 +488,39 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModel.swift` is still the largest app file. The next A-level step should keep moving pure workflow planning or state transitions out of the model before adding more Codex-parity commands.
+
+## 2026-06-23 Execution Context Surface Builder Pass
+
+Overall grade after this slice: **A- foundation, A- surface boundary**.
+
+Tool-card execution-context enrichment moved out of `WorkspaceModel.swift` into `WorkspaceExecutionContextSurfaceBuilder`. The workspace model still owns selected-thread/project state, but the builder now owns thread-project fallback, selected-project fallback, project-execution tool classification, and preserving existing card contexts.
+
+Code quality changes:
+
+- Extracted execution-context enrichment for standalone tool-card lists and chronological transcript timeline items.
+- Centralized project-execution tool classification into a `Set` instead of a long inline boolean chain in the model.
+- Kept non-project tools such as memories, MCP calls, and safety cards context-free so the UI does not imply they ran in a workspace.
+- Added focused tests for thread-project precedence, selected-project fallback, missing-project handling, timeline enrichment, existing-context preservation, and excluded tool kinds.
+- Extended parity gates so `WorkspaceModel.swift` cannot regain execution-context enrichment or project-execution tool classification.
+
+Remaining risk:
+
+- `WorkspaceModel.swift` still owns broad command side-effect orchestration. The next A-level step should target another pure planning/state transition path, not renderer-specific behavior.
+
+## 2026-06-23 Thread Seed Builder Pass
+
+Overall grade after this slice: **A- foundation, A- workflow boundary**.
+
+Fork, compact-context, automation follow-up, and cancelled-send title seeding moved out of `WorkspaceModel.swift` into `WorkspaceThreadSeedBuilder`. The workspace model still owns thread creation, UI selection, persistence, and top-bar refresh, but the pure rules for visible-message filtering, latest-turn seed selection, compact summary text, and prompt-title derivation now live behind a focused builder.
+
+Code quality changes:
+
+- Extracted fork seed selection into a focused helper that starts at the latest user turn and hides internal tool feedback.
+- Extracted compact-context seed construction, including bounded summary text and hidden tool-message filtering.
+- Fixed prompt title seeding to split on all whitespace instead of spaces only, preventing invisible titles for cancelled whitespace-only prompts.
+- Added focused tests for first-prompt titles, latest-turn forks, no-user fallback forks, compact summaries, truncation, and no-dropped-context summaries.
+- Extended parity gates so `WorkspaceModel.swift` cannot regain fork seed, compact seed, or compact summary formatting.
+
+Remaining risk:
+
+- `WorkspaceModel.swift` still owns broad thread lifecycle side effects such as creation, selection fallback, persistence, and top-bar refresh. Future thread lifecycle growth should move through a pure reducer before adding more side-effect paths.
