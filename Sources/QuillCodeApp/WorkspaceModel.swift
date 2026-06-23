@@ -1385,38 +1385,36 @@ public final class QuillCodeWorkspaceModel {
         guard let globalMemoryDirectory else { return false }
         do {
             let note = try MemoryNoteLoader.deleteGlobal(id: id, from: globalMemoryDirectory)
+            let forgottenSummary = WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary(noteTitle: note.title)
             root.globalMemories = MemoryNoteLoader.loadGlobal(from: globalMemoryDirectory)
             let projectID = selectedThread?.projectID ?? root.selectedProjectID
             let refreshedMemories = memoryNotes(for: projectID)
-            appendLocalCommandTranscript(
+            appendLocalCommandTranscript(WorkspaceMemoryCommandTranscriptPlanner.memoryForgotten(
                 userText: "Forget memory: \(note.title)",
-                assistantText: "Forgot memory: \(note.title). It will no longer be included as background context.",
-                title: "Forgot memory: \(note.title)"
-            )
+                noteTitle: note.title
+            ))
             mutateSelectedThread { thread in
                 thread.memories = refreshedMemories
                 thread.events.append(ThreadEvent(
                     kind: .notice,
-                    summary: "Forgot memory: \(note.title)",
+                    summary: forgottenSummary,
                     payloadJSON: note.relativePath
                 ))
             }
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return true
         } catch let error as MemoryNoteDeleteError {
-            appendLocalCommandTranscript(
+            appendLocalCommandTranscript(WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted(
                 userText: "Forget memory",
-                assistantText: error.localizedDescription,
-                title: "Memory not deleted"
-            )
+                message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
+            ))
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return true
         } catch {
-            appendLocalCommandTranscript(
+            appendLocalCommandTranscript(WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted(
                 userText: "Forget memory",
-                assistantText: MemoryNoteDeleteError.deleteFailed.localizedDescription,
-                title: "Memory not deleted"
-            )
+                message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: MemoryNoteDeleteError.deleteFailed)
+            ))
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return true
         }
@@ -1882,7 +1880,7 @@ public final class QuillCodeWorkspaceModel {
         guard let globalMemoryDirectory else {
             appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.memoryNotSaved(
                 userText: originalPrompt,
-                message: WorkspaceMemoryRememberToolExecutor.userFacingError(MemoryNoteWriteError.unavailable)
+                message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: MemoryNoteWriteError.unavailable)
             ))
             return
         }
@@ -1909,12 +1907,12 @@ public final class QuillCodeWorkspaceModel {
         } catch let error as MemoryNoteWriteError {
             appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.memoryNotSaved(
                 userText: originalPrompt,
-                message: WorkspaceMemoryRememberToolExecutor.userFacingError(error)
+                message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
             ))
         } catch {
             appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.memoryNotSaved(
                 userText: originalPrompt,
-                message: WorkspaceMemoryRememberToolExecutor.userFacingError(MemoryNoteWriteError.writeFailed)
+                message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: MemoryNoteWriteError.writeFailed)
             ))
         }
     }

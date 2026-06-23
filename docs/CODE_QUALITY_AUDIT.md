@@ -1421,3 +1421,21 @@ Code quality changes:
 Remaining risk:
 
 - `/remember` still performs write/reload/thread mutation directly in `WorkspaceModel`. That is acceptable while the flow is small, but if memory editing, conflict resolution, or autonomous memory review grows, promote this into a dedicated memory command workflow coordinator.
+
+## 2026-06-23 Memory Delete Transcript Pass
+
+Overall grade after this slice: **A- foundation, A memory-command copy boundary**.
+
+Memory delete transcript copy and the forgotten-memory event summary moved out of `WorkspaceModel` and into `WorkspaceMemoryCommandTranscriptPlanner`. Before this pass, the model owned the “Forgot memory” chat text, “Memory not deleted” failure title, and notice summary while also deleting the memory file, refreshing memory context, and saving the thread. The model now keeps the deletion side effects and delegates user-facing transcript copy plus the event summary prefix to a focused memory command planner.
+
+Code quality changes:
+
+- Added `WorkspaceMemoryCommandTranscriptPlanner` for memory delete success/failure transcripts.
+- Added `memoryForgottenSummary(noteTitle:)` so chat copy and thread events share one summary string.
+- Added `WorkspaceMemoryErrorMessageBuilder` so memory write and delete flows share one intentionally named user-facing error formatter instead of coupling delete behavior to the remember-tool executor.
+- Added focused planner tests for success, summary, and failure copy.
+- Added a parity gate so memory delete transcript strings do not drift back into `WorkspaceModel`.
+
+Remaining risk:
+
+- Memory write and delete flows still mutate global memory state directly in `WorkspaceModel`. That remains acceptable while the operations are small, but richer memory editing or conflict handling should move through a dedicated workflow coordinator instead of adding more side-effect branches to the model.
