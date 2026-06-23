@@ -260,7 +260,7 @@ private struct QuillCodeSidebarActionsView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     private var visibleCommands: [WorkspaceCommandSurface] {
-        ["new-chat", "search", "toggle-extensions", "toggle-automations"].compactMap { id in
+        QuillCodeSidebarCommandPresentation.primaryCommandIDs.compactMap { id in
             commands.first { $0.id == id }
         }
     }
@@ -271,7 +271,10 @@ private struct QuillCodeSidebarActionsView: View {
                 Button {
                     onCommand(command)
                 } label: {
-                    Label(displayTitle(for: command), systemImage: systemImage(for: command.id))
+                    Label(
+                        QuillCodeSidebarCommandPresentation.displayTitle(for: command),
+                        systemImage: QuillCodeSidebarCommandPresentation.systemImage(for: command.id)
+                    )
                         .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)
                         .padding(.horizontal, 10)
                         .background(command.id == "new-chat" ? QuillCodePalette.panel.opacity(0.74) : Color.clear)
@@ -283,30 +286,6 @@ private struct QuillCodeSidebarActionsView: View {
             }
         }
     }
-
-    private func displayTitle(for command: WorkspaceCommandSurface) -> String {
-        switch command.id {
-        case "toggle-extensions":
-            return "Plugins"
-        default:
-            return command.title
-        }
-    }
-
-    private func systemImage(for commandID: String) -> String {
-        switch commandID {
-        case "new-chat":
-            return "square.and.pencil"
-        case "search":
-            return "magnifyingglass"
-        case "toggle-automations":
-            return "clock.arrow.circlepath"
-        case "toggle-extensions":
-            return "puzzlepiece.extension"
-        default:
-            return "circle"
-        }
-    }
 }
 
 private struct QuillCodeSidebarUtilityActionsView: View {
@@ -314,13 +293,7 @@ private struct QuillCodeSidebarUtilityActionsView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     private var visibleCommands: [WorkspaceCommandSurface] {
-        [
-            "toggle-terminal",
-            "toggle-browser",
-            "toggle-memories",
-            "toggle-activity",
-            "command-palette"
-        ].compactMap { id in
+        QuillCodeSidebarCommandPresentation.utilityCommandIDs.compactMap { id in
             commands.first { $0.id == id }
         }
     }
@@ -336,7 +309,10 @@ private struct QuillCodeSidebarUtilityActionsView: View {
                     Button {
                         onCommand(command)
                     } label: {
-                        Label(displayTitle(for: command), systemImage: systemImage(for: command.id))
+                        Label(
+                            QuillCodeSidebarCommandPresentation.displayTitle(for: command),
+                            systemImage: QuillCodeSidebarCommandPresentation.systemImage(for: command.id)
+                        )
                     }
                     .disabled(!command.isEnabled)
                 }
@@ -356,7 +332,7 @@ private struct QuillCodeSidebarUtilityActionsView: View {
                 Button {
                     onCommand(settingsCommand)
                 } label: {
-                    Image(systemName: systemImage(for: settingsCommand.id))
+                    Image(systemName: QuillCodeSidebarCommandPresentation.systemImage(for: settingsCommand.id))
                         .font(.system(size: 15, weight: .semibold))
                         .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
                         .foregroundStyle(settingsCommand.isEnabled ? QuillCodePalette.muted : QuillCodePalette.muted.opacity(0.45))
@@ -366,57 +342,11 @@ private struct QuillCodeSidebarUtilityActionsView: View {
                 }
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .disabled(!settingsCommand.isEnabled)
-                .help(displayTitle(for: settingsCommand))
-                .accessibilityLabel(displayTitle(for: settingsCommand))
+                .help(QuillCodeSidebarCommandPresentation.displayTitle(for: settingsCommand))
+                .accessibilityLabel(QuillCodeSidebarCommandPresentation.displayTitle(for: settingsCommand))
             }
         }
         .padding(.top, 10)
-    }
-
-    private func displayTitle(for command: WorkspaceCommandSurface) -> String {
-        switch command.id {
-        case "toggle-extensions":
-            return "Plugins"
-        case "toggle-terminal":
-            return "Terminal"
-        case "toggle-browser":
-            return "Browser"
-        case "toggle-memories":
-            return "Memories"
-        case "toggle-activity":
-            return "Activity"
-        case "command-palette":
-            return "Command palette"
-        case "settings":
-            return "Settings"
-        default:
-            return command.title
-        }
-    }
-
-    private func systemImage(for commandID: String) -> String {
-        switch commandID {
-        case "toggle-extensions":
-            return "puzzlepiece.extension"
-        case "toggle-automations":
-            return "clock.arrow.circlepath"
-        case "toggle-terminal":
-            return "terminal"
-        case "terminal-clear":
-            return "clear"
-        case "toggle-browser":
-            return "globe"
-        case "toggle-memories":
-            return "brain.head.profile"
-        case "toggle-activity":
-            return "waveform.path.ecg"
-        case "command-palette":
-            return "command"
-        case "settings":
-            return "gearshape"
-        default:
-            return "circle"
-        }
     }
 }
 

@@ -7,7 +7,7 @@ public enum WorkspaceHTMLRenderer {
         <section class="quillcode-workspace" data-testid="workspace">
           \(renderTopBar(surface.topBar, commands: surface.commands))
           <div class="workspace-grid">
-            \(renderSidebar(projects: surface.projects, sidebar: surface.sidebar))
+            \(renderSidebar(projects: surface.projects, sidebar: surface.sidebar, commands: surface.commands))
             <main class="transcript" data-testid="transcript">
               \(renderAutomations(surface.automations))
               \(renderTranscript(
@@ -82,7 +82,11 @@ public enum WorkspaceHTMLRenderer {
         return #"<button type="button" data-testid="\#(escape(testID))" data-command-id="\#(escape(command.id))" title="\#(escape(title))"\#(disabledAttribute)>\#(escape(command.title))</button>"#
     }
 
-    private static func renderSidebar(projects: ProjectListSurface, sidebar: SidebarSurface) -> String {
+    private static func renderSidebar(
+        projects: ProjectListSurface,
+        sidebar: SidebarSurface,
+        commands: [WorkspaceCommandSurface]
+    ) -> String {
         let projectContent: String
         if projects.items.isEmpty {
             projectContent = #"<p data-testid="project-empty">\#(escape(projects.emptyTitle))</p>"#
@@ -112,10 +116,7 @@ public enum WorkspaceHTMLRenderer {
         return """
         <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
           <div class="sidebar-actions" aria-label="Primary chat actions">
-            <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true" data-icon="new">New chat</button>
-            <button class="sidebar-action" type="button" data-testid="sidebar-search-button" data-primary="true" data-icon="search">Search</button>
-            <button class="sidebar-action" type="button" data-testid="extensions-button" data-primary="true" data-icon="plugins">Plugins</button>
-            <button class="sidebar-action" type="button" data-testid="automations-button" data-primary="true" data-icon="automations">Automations</button>
+            \(renderSidebarPrimaryActions(commands))
           </div>
           <div class="sidebar-title-row">
             <h2>\(escape(sidebar.title))</h2>
@@ -143,6 +144,21 @@ public enum WorkspaceHTMLRenderer {
           </div>
         </aside>
         """
+    }
+
+    private static func renderSidebarPrimaryActions(_ commands: [WorkspaceCommandSurface]) -> String {
+        QuillCodeSidebarCommandPresentation.primaryCommandIDs
+            .compactMap { commandID in
+                commands.first { $0.id == commandID }
+            }
+            .map { command in
+                let testID = QuillCodeSidebarCommandPresentation.htmlTestID(for: command.id)
+                let icon = QuillCodeSidebarCommandPresentation.htmlIconToken(for: command.id)
+                let title = QuillCodeSidebarCommandPresentation.displayTitle(for: command)
+                let disabled = command.isEnabled ? "" : #" disabled aria-disabled="true""#
+                return #"<button class="sidebar-action" type="button" data-testid="\#(escape(testID))" data-primary="true" data-icon="\#(escape(icon))" data-command-id="\#(escape(command.id))"\#(disabled)>\#(escape(title))</button>"#
+            }
+            .joined(separator: "\n")
     }
 
     private static func renderSidebarSection(title: String, items: [SidebarItemSurface]) -> String {
