@@ -369,45 +369,45 @@ public struct QuillCodeWorkspaceView: View {
     }
 
     private func handleCommand(_ command: WorkspaceCommandSurface) {
-        if command.id == "settings" || command.id == "computer-use-setup" {
+        guard let action = WorkspaceViewCommandPlanner(
+            sidebar: surface.sidebar,
+            projects: surface.projects
+        ).action(for: command) else {
+            return
+        }
+        handleCommandAction(action)
+    }
+
+    private func handleCommandAction(_ action: WorkspaceViewCommandAction) {
+        switch action {
+        case .presentSettings:
             settingsDraft = QuillCodeSettingsDraft(settings: surface.settings)
             isSettingsPresented = true
-        } else if command.id == "search" {
+        case .presentSearch:
             searchQuery = ""
             isSearchPresented = true
-        } else if command.id == "find-in-chat" {
+        case .presentFind:
             isFindPresented = true
-        } else if command.id == "add-project" {
+        case .requestAddProject:
             onAddProjectRequested()
-        } else if command.id == "command-palette" {
+        case .presentCommandPalette:
             commandQuery = ""
             isCommandPalettePresented = true
-        } else if command.id == "keyboard-shortcuts" {
+        case .presentKeyboardShortcuts:
             isKeyboardShortcutsPresented = true
-        } else if command.id == "thread-rename" {
-            if let selectedID = surface.sidebar.selectedThreadID,
-               let item = surface.sidebar.items.first(where: { $0.id == selectedID }) {
-                renameThreadDraft = QuillCodeThreadRenameDraft(threadID: item.id, title: item.title)
-            }
-        } else if command.id == "project-rename" {
-            if let selectedID = surface.projects.selectedProjectID,
-               let item = surface.projects.items.first(where: { $0.id == selectedID }) {
-                renameProjectDraft = QuillCodeProjectRenameDraft(projectID: item.id, name: item.name)
-            }
-        } else if command.id == "git-worktree-create" {
+        case let .renameThread(threadID, title):
+            renameThreadDraft = QuillCodeThreadRenameDraft(threadID: threadID, title: title)
+        case let .renameProject(projectID, name):
+            renameProjectDraft = QuillCodeProjectRenameDraft(projectID: projectID, name: name)
+        case .presentCreateWorktree:
             createWorktreeDraft = QuillCodeWorktreeCreateDraft()
             worktreeSheet = .create
-        } else if command.id == "git-worktree-remove" {
+        case .presentRemoveWorktree:
             removeWorktreeDraft = QuillCodeWorktreeRemoveDraft()
             worktreeSheet = .remove
-        } else {
-            let shouldFocusComposer = SlashCommandCatalog.insertText(forCommandPaletteID: command.id) != nil
-                || command.id == "memory-add"
-                || command.id == "add-ssh-project"
-                || command.id == "project-rename"
-                || command.id == "thread-rename"
+        case let .dispatch(command, focusesComposer):
             onCommand(command)
-            if shouldFocusComposer {
+            if focusesComposer {
                 DispatchQueue.main.async {
                     isComposerFocused = true
                 }
