@@ -1646,4 +1646,21 @@ Remaining risk:
 - `WorkspaceModel.swift` is still roughly 2.1k lines and remains the largest production app file. Continue extracting pure planning/state-transition seams before adding new Codex-parity commands.
 - `ToolArguments.json(_ values: [String: Any])` is centralized, but the `Any` entry point is still weaker than a typed argument-value model. Future slices should introduce a typed argument builder once the current command families are fully moved behind focused planners.
 - UX parity is broad but not done: the browser, PTY/TUI terminal, full GitHub review workflows, Linux Computer Use, and richer artifact renderers still need product-level passes before a public 1.0 claim.
-- Review action tool-call construction still lives in a private extension near `WorkspaceModel`. It is already isolated from the main class, but a later review-action planner would make staging/restoring files and hunks independently testable in the same style.
+- Review action orchestration still lives in `WorkspaceModel` because it executes git tools, refreshes the diff, appends tool cards, and persists selected-thread state. If review sessions grow into multi-step PR publication, add a review workflow coordinator instead of expanding the model again.
+
+## 2026-06-23 Review Action Tool Call Planner Pass
+
+Overall grade after this slice: **A- architecture, A review-action tool-call contract**.
+
+Review action tool-call mapping moved out of the private `WorkspaceReviewActionSurface` extension at the bottom of `WorkspaceModel.swift` and into `WorkspaceReviewActionToolCallPlanner`. Before this pass, review-pane buttons for file stage/restore and hunk stage/restore relied on an otherwise UI-oriented surface value knowing exact `host.git.*` tool names and argument JSON. The workspace model now owns execution and diff refresh only.
+
+Code quality changes:
+
+- Added `WorkspaceReviewActionToolCallPlanner` for file and hunk stage/restore calls.
+- Preserved existing behavior: file actions include only `path`; hunk actions include `path` plus `patch`, falling back to an empty patch string so existing executor-level validation still owns malformed hunk rejection.
+- Added focused planner tests for stage, restore, stage hunk, restore hunk, and missing-patch hunk behavior.
+- Added a parity gate so review action tool-call mapping and private review-surface extensions do not drift back into `WorkspaceModel`.
+
+Remaining risk:
+
+- Review action orchestration still lives in `WorkspaceModel` because it executes the selected action, appends tool cards, refreshes the diff, persists the selected thread, and updates top-bar status. That is acceptable now, but richer PR review sessions should introduce a review workflow coordinator rather than expanding the model again.

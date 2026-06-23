@@ -1188,6 +1188,23 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("JSONHelpers.encodePretty(comment)"), "WorkspaceModel should not own review comment payload encoding.")
     }
 
+    func testWorkspaceModelDelegatesReviewActionToolCallPlanning() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let plannerText = try Self.appSourceText(named: "WorkspaceReviewActionToolCallPlanner.swift")
+
+        XCTAssertTrue(plannerText.contains("enum WorkspaceReviewActionToolCallPlanner"), "Review action tool-call planning should live in a focused planner.")
+        XCTAssertTrue(plannerText.contains("static func toolCall"), "Review action tool-call planning should be directly testable.")
+        XCTAssertTrue(plannerText.contains("ToolDefinition.gitStage.name"), "File stage calls should live in the planner.")
+        XCTAssertTrue(plannerText.contains("ToolDefinition.gitRestore.name"), "File restore calls should live in the planner.")
+        XCTAssertTrue(plannerText.contains("ToolDefinition.gitStageHunk.name"), "Hunk stage calls should live in the planner.")
+        XCTAssertTrue(plannerText.contains("ToolDefinition.gitRestoreHunk.name"), "Hunk restore calls should live in the planner.")
+        XCTAssertTrue(modelText.contains("WorkspaceReviewActionToolCallPlanner.toolCall"), "WorkspaceModel should delegate review action tool-call construction.")
+        XCTAssertFalse(modelText.contains("private extension WorkspaceReviewActionSurface"), "WorkspaceModel should not own review action surface extensions.")
+        XCTAssertFalse(modelText.contains("var toolCall: ToolCall"), "WorkspaceModel should not own review action tool-call mapping.")
+        XCTAssertFalse(modelText.contains("ToolDefinition.gitStageHunk.name"), "WorkspaceModel should not own hunk review tool-call details.")
+        XCTAssertFalse(modelText.contains("ToolDefinition.gitRestoreHunk.name"), "WorkspaceModel should not own hunk review tool-call details.")
+    }
+
     func testWorkspaceModelDelegatesToolExecutionOverrideCombining() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceAgentRunContextBuilder.swift")
@@ -1208,22 +1225,37 @@ final class ParityGateTests: XCTestCase {
         let argumentsText = try Self.coreSourceText(named: "Arguments.swift")
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let slashText = try Self.appSourceText(named: "SlashCommand.swift")
+        let shellPlannerText = try Self.appSourceText(named: "WorkspaceShellToolCallPlanner.swift")
+        let worktreePlannerText = try Self.appSourceText(named: "WorkspaceWorktreeToolCallPlanner.swift")
+        let reviewPlannerText = try Self.appSourceText(named: "WorkspaceReviewActionToolCallPlanner.swift")
 
         XCTAssertTrue(
             argumentsText.contains("public static func json(_ values: [String: Any])"),
             "Mixed tool argument JSON serialization should live in QuillCodeCore."
         )
         XCTAssertTrue(
-            modelText.contains("ToolArguments.json("),
-            "WorkspaceModel should use the shared core tool-argument serializer."
-        )
-        XCTAssertTrue(
             slashText.contains("ToolArguments.json("),
             "SlashCommand should use the shared core tool-argument serializer."
+        )
+        XCTAssertTrue(
+            shellPlannerText.contains("ToolArguments.json("),
+            "Shell tool-call planners should use the shared core tool-argument serializer."
+        )
+        XCTAssertTrue(
+            worktreePlannerText.contains("ToolArguments.json("),
+            "Worktree tool-call planners should use the shared core tool-argument serializer."
+        )
+        XCTAssertTrue(
+            reviewPlannerText.contains("ToolArguments.json("),
+            "Review action tool-call planners should use the shared core tool-argument serializer."
         )
         XCTAssertFalse(
             modelText.contains("private func toolArgumentsJSON"),
             "WorkspaceModel should not own ad hoc JSON serialization."
+        )
+        XCTAssertFalse(
+            modelText.contains("JSONSerialization"),
+            "WorkspaceModel should not own JSON serialization."
         )
         XCTAssertFalse(
             slashText.contains("private static func json(_ values: [String: Any])"),
