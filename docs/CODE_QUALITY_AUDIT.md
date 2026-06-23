@@ -25,7 +25,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | --- | --- | --- |
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
-| `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but settings copy/compatibility, runtime issue classification, model catalog presentation, browser state/presentation contracts, secondary-pane presentation contracts, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are now extracted into focused files. Next step is extracting additional surface-family builders only when behavior grows. |
+| `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but settings copy/compatibility, runtime issue classification, model catalog presentation, browser state/presentation contracts, terminal presentation contracts, secondary-pane presentation contracts, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are now extracted into focused files. Next step is extracting additional surface-family builders only when behavior grows. |
 | `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but top-bar HTML delegates to `WorkspaceHTMLTopBarRenderer`, sidebar HTML delegates to `WorkspaceHTMLSidebarRenderer`, tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, review pane HTML delegates to `WorkspaceHTMLReviewRenderer`, secondary pane HTML delegates to `WorkspaceHTMLSecondaryPaneRenderer`, browser pane HTML delegates to `WorkspaceHTMLBrowserRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another transcript/composer family only when renderer drift appears. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
 | `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback and project-import resolution now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
@@ -922,7 +922,7 @@ Code quality changes:
 
 Remaining risk:
 
-- Terminal and review still have surface records inside `WorkspaceSurface.swift`. That is acceptable while they stay compact Codable contracts; extract the next family when it gains compatibility decoding or presentation helper logic.
+- Review still has surface records inside `WorkspaceSurface.swift`. That is acceptable while it stays a compact Codable contract; extract it when review compatibility decoding or presentation helper logic grows.
 
 ## 2026-06-23 Secondary Pane Surface Contract Pass
 
@@ -939,4 +939,21 @@ Code quality changes:
 
 Remaining risk:
 
-- Terminal and review records still live in `WorkspaceSurface.swift`. Terminal is now the next obvious extraction candidate because its state engine and native/HTML pane renderers already have focused files.
+- Review records still live in `WorkspaceSurface.swift`. Review is now the next obvious extraction candidate because its builder and native/HTML pane renderers already have focused files.
+
+## 2026-06-23 Terminal Surface Contract Pass
+
+Overall grade after this slice: **A- foundation, A terminal surface boundary**.
+
+Terminal presentation records moved out of `WorkspaceSurface.swift` into `QuillCodeTerminalSurface.swift`, matching the existing native `QuillCodeTerminalBrowserPaneView`, static `WorkspaceHTMLTerminalRenderer`, and terminal engine boundaries. The aggregate workspace surface still carries the `terminal` slot, but run/clear availability, cwd label fallback, terminal command lifecycle labels, and execution-context preservation now live beside the terminal contract.
+
+Code quality changes:
+
+- Moved `TerminalSurface` and `TerminalCommandSurface` into one focused terminal surface file.
+- Kept terminal engine state mapping close to the native/static terminal pane boundary.
+- Added direct terminal surface tests for cwd fallback, run/clear availability, command status labels, stopped/running state, and execution-context propagation.
+- Added a parity gate so terminal surface records do not drift back into `WorkspaceSurface.swift`.
+
+Remaining risk:
+
+- Review records still live in `WorkspaceSurface.swift`; that is now the most obvious remaining presentation-contract extraction candidate.
