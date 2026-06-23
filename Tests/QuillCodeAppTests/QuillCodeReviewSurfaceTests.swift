@@ -1,0 +1,148 @@
+import XCTest
+@testable import QuillCodeApp
+
+final class QuillCodeReviewSurfaceTests: XCTestCase {
+    func testReviewSurfaceSummarizesFilesTotalsAndVisibility() {
+        let firstFile = WorkspaceReviewFileSurface(
+            path: "Sources/App.swift",
+            insertions: 4,
+            deletions: 1,
+            hunks: 2
+        )
+        let secondFile = WorkspaceReviewFileSurface(
+            path: "README.md",
+            insertions: 1,
+            deletions: 0,
+            hunks: 1
+        )
+
+        let empty = WorkspaceReviewSurface()
+        let review = WorkspaceReviewSurface(files: [firstFile, secondFile])
+
+        XCTAssertFalse(empty.isVisible)
+        XCTAssertEqual(empty.subtitle, "Latest git diff")
+        XCTAssertTrue(review.isVisible)
+        XCTAssertEqual(review.title, "Review changes")
+        XCTAssertEqual(review.subtitle, "2 files changed, +5 -1")
+        XCTAssertEqual(review.totalInsertions, 5)
+        XCTAssertEqual(review.totalDeletions, 1)
+        XCTAssertEqual(review.totalHunks, 3)
+    }
+
+    func testReviewFileAndHunkSurfacesExposeLabelsAndActions() {
+        let hunk = WorkspaceReviewHunkSurface(
+            id: "hunk-1",
+            path: "Sources/App.swift",
+            header: "@@ -1,2 +1,3 @@",
+            insertions: 2,
+            deletions: 1,
+            patch: "@@ -1,2 +1,3 @@\n-old\n+new\n+line\n"
+        )
+        let file = WorkspaceReviewFileSurface(
+            path: "Sources/App.swift",
+            insertions: 2,
+            deletions: 1,
+            hunks: 1,
+            isBinary: true,
+            hunkItems: [hunk]
+        )
+
+        XCTAssertEqual(file.id, "Sources/App.swift")
+        XCTAssertEqual(file.changeLabel, "+2 · -1 · 1 hunk · binary")
+        XCTAssertEqual(file.actions.map(\.kind), [.stage, .restore])
+        XCTAssertEqual(file.actions.map(\.id), [
+            "stage:Sources/App.swift:file",
+            "restore:Sources/App.swift:file"
+        ])
+        XCTAssertEqual(file.actions.map(\.kind.title), ["Stage", "Restore"])
+        XCTAssertEqual(file.actions.map(\.kind.systemImage), [
+            "plus.rectangle.on.folder",
+            "arrow.uturn.backward"
+        ])
+        XCTAssertEqual(hunk.changeLabel, "+2 · -1")
+        XCTAssertEqual(hunk.actions.map(\.id), [
+            "stage_hunk:Sources/App.swift:hunk-1",
+            "restore_hunk:Sources/App.swift:hunk-1"
+        ])
+        XCTAssertEqual(hunk.actions[0].patch, hunk.patch)
+    }
+
+    func testReviewLinesExposeMarkersAndDisplayLabels() {
+        let context = WorkspaceReviewLineSurface(
+            id: "line-context",
+            path: "Sources/App.swift",
+            hunkID: "hunk-1",
+            oldLineNumber: 10,
+            newLineNumber: 10,
+            kind: .context,
+            content: "let value = 1"
+        )
+        let insertion = WorkspaceReviewLineSurface(
+            id: "line-insertion",
+            path: "Sources/App.swift",
+            hunkID: "hunk-1",
+            oldLineNumber: nil,
+            newLineNumber: 11,
+            kind: .insertion,
+            content: "let added = true"
+        )
+        let deletion = WorkspaceReviewLineSurface(
+            id: "line-deletion",
+            path: "Sources/App.swift",
+            hunkID: "hunk-1",
+            oldLineNumber: 12,
+            newLineNumber: nil,
+            kind: .deletion,
+            content: "let removed = true"
+        )
+
+        XCTAssertEqual(context.kind.marker, " ")
+        XCTAssertEqual(insertion.kind.marker, "+")
+        XCTAssertEqual(deletion.kind.marker, "-")
+        XCTAssertEqual(context.lineLabel, "10")
+        XCTAssertEqual(insertion.lineLabel, "11")
+        XCTAssertEqual(deletion.lineLabel, "12")
+        XCTAssertEqual(context.displayLineNumber, 10)
+        XCTAssertEqual(insertion.displayLineNumber, 11)
+        XCTAssertEqual(deletion.displayLineNumber, 12)
+    }
+
+    func testReviewCommentSurfaceMapsLineRangeLabels() {
+        let createdAt = Date(timeIntervalSince1970: 42)
+        let fileComment = WorkspaceReviewCommentSurface(
+            comment: WorkspaceReviewCommentState(
+                id: UUID(uuidString: "00000000-0000-0000-0000-000000000301")!,
+                path: "Sources/App.swift",
+                text: "File-level note",
+                createdAt: createdAt
+            )
+        )
+        let lineComment = WorkspaceReviewCommentSurface(
+            comment: WorkspaceReviewCommentState(
+                id: UUID(uuidString: "00000000-0000-0000-0000-000000000302")!,
+                path: "Sources/App.swift",
+                lineNumber: 12,
+                lineKind: .insertion,
+                text: "Line note",
+                createdAt: createdAt
+            )
+        )
+        let rangeComment = WorkspaceReviewCommentSurface(
+            comment: WorkspaceReviewCommentState(
+                id: UUID(uuidString: "00000000-0000-0000-0000-000000000303")!,
+                path: "Sources/App.swift",
+                lineNumber: 12,
+                endLineNumber: 14,
+                lineKind: .context,
+                text: "Range note",
+                createdAt: createdAt
+            )
+        )
+
+        XCTAssertNil(fileComment.lineRangeLabel)
+        XCTAssertEqual(lineComment.lineRangeLabel, "Line 12")
+        XCTAssertEqual(rangeComment.lineRangeLabel, "Lines 12-14")
+        XCTAssertEqual(rangeComment.createdAt, createdAt)
+        XCTAssertEqual(rangeComment.lineKind, .context)
+    }
+}
