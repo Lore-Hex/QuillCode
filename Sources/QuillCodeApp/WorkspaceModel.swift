@@ -89,16 +89,6 @@ public struct ActivityState: Sendable, Hashable {
     }
 }
 
-public struct SidebarSelectionState: Sendable, Hashable {
-    public var isActive: Bool
-    public var selectedThreadIDs: Set<UUID>
-
-    public init(isActive: Bool = false, selectedThreadIDs: Set<UUID> = []) {
-        self.isActive = isActive
-        self.selectedThreadIDs = selectedThreadIDs
-    }
-}
-
 @MainActor
 public final class QuillCodeWorkspaceModel {
     public private(set) var root: QuillCodeRootState
@@ -880,33 +870,30 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func startSidebarSelection(selecting id: UUID? = nil) {
-        sidebarSelection.isActive = true
-        if let id, root.threads.contains(where: { $0.id == id }) {
-            sidebarSelection.selectedThreadIDs.insert(id)
-        }
+        sidebarSelection = WorkspaceSidebarSelectionEngine.start(
+            selecting: id,
+            state: sidebarSelection,
+            validThreadIDs: validThreadIDs()
+        )
     }
 
     public func clearSidebarSelection() {
-        sidebarSelection = SidebarSelectionState()
+        sidebarSelection = WorkspaceSidebarSelectionEngine.clear()
     }
 
     public func selectAllSidebarThreads() {
-        let ids = root.allSidebarItems.map(\.id)
-        guard !ids.isEmpty else {
-            clearSidebarSelection()
-            return
-        }
-        sidebarSelection = SidebarSelectionState(isActive: true, selectedThreadIDs: Set(ids))
+        sidebarSelection = WorkspaceSidebarSelectionEngine.selectAll(
+            orderedThreadIDs: root.allSidebarItems.map(\.id)
+        )
     }
 
     public func toggleSidebarThreadSelection(_ id: UUID) {
-        guard root.threads.contains(where: { $0.id == id }) else { return }
-        sidebarSelection.isActive = true
-        if sidebarSelection.selectedThreadIDs.contains(id) {
-            sidebarSelection.selectedThreadIDs.remove(id)
-        } else {
-            sidebarSelection.selectedThreadIDs.insert(id)
-        }
+        guard let nextSelection = WorkspaceSidebarSelectionEngine.toggle(
+            id,
+            state: sidebarSelection,
+            validThreadIDs: validThreadIDs()
+        ) else { return }
+        sidebarSelection = nextSelection
     }
 
     @discardableResult
@@ -3386,14 +3373,17 @@ public final class QuillCodeWorkspaceModel {
     }
 
     func selectedSidebarThreadIDs() -> [UUID] {
-        let validIDs = Set(root.threads.map(\.id))
-        sidebarSelection.selectedThreadIDs = sidebarSelection.selectedThreadIDs.intersection(validIDs)
-        if sidebarSelection.selectedThreadIDs.isEmpty {
-            return []
-        }
-        return root.allSidebarItems
-            .map(\.id)
-            .filter { sidebarSelection.selectedThreadIDs.contains($0) }
+        let resolution = WorkspaceSidebarSelectionEngine.resolve(
+            state: sidebarSelection,
+            orderedSidebarThreadIDs: root.allSidebarItems.map(\.id),
+            validThreadIDs: validThreadIDs()
+        )
+        sidebarSelection = resolution.state
+        return resolution.selectedThreadIDs
+    }
+
+    private func validThreadIDs() -> Set<UUID> {
+        Set(root.threads.map(\.id))
     }
 
     private func updateThreads(_ ids: [UUID], _ update: (inout ChatThread) -> Void) {

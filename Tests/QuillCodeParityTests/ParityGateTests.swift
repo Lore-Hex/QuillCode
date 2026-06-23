@@ -119,6 +119,26 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("thread.isArchived = false"), "WorkspaceModel should not own thread unarchive mutation.")
     }
 
+    func testWorkspaceModelDelegatesSidebarSelectionTransitions() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let selectionText = try Self.appSourceText(named: "WorkspaceSidebarSelectionEngine.swift")
+
+        XCTAssertTrue(selectionText.contains("public struct SidebarSelectionState"), "Sidebar selection state should live beside the focused reducer.")
+        XCTAssertTrue(selectionText.contains("struct WorkspaceSidebarSelectionEngine"), "Sidebar selection transitions should live in a focused reducer.")
+        XCTAssertTrue(selectionText.contains("static func start"), "Selection start should be directly testable.")
+        XCTAssertTrue(selectionText.contains("static func selectAll"), "Select-all behavior should be directly testable.")
+        XCTAssertTrue(selectionText.contains("static func toggle"), "Selection toggles should be directly testable.")
+        XCTAssertTrue(selectionText.contains("static func resolve"), "Stale-ID pruning and sidebar ordering should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceSidebarSelectionEngine.start"), "WorkspaceModel should delegate selection start.")
+        XCTAssertTrue(modelText.contains("WorkspaceSidebarSelectionEngine.selectAll"), "WorkspaceModel should delegate select-all.")
+        XCTAssertTrue(modelText.contains("WorkspaceSidebarSelectionEngine.toggle"), "WorkspaceModel should delegate selection toggles.")
+        XCTAssertTrue(modelText.contains("WorkspaceSidebarSelectionEngine.resolve"), "WorkspaceModel should delegate stale-ID pruning and ordering.")
+        XCTAssertFalse(modelText.contains("public struct SidebarSelectionState"), "WorkspaceModel should not own sidebar selection state.")
+        XCTAssertFalse(modelText.contains("selectedThreadIDs.insert"), "WorkspaceModel should not mutate sidebar selection sets directly.")
+        XCTAssertFalse(modelText.contains("selectedThreadIDs.remove"), "WorkspaceModel should not mutate sidebar selection sets directly.")
+        XCTAssertFalse(modelText.contains("selectedThreadIDs.intersection"), "WorkspaceModel should not prune sidebar selection sets directly.")
+    }
+
     func testWorkspaceSwiftUIViewDelegatesTranscriptFindAndContextBanner() throws {
         let shellText = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
         let findText = try Self.appSourceText(named: "QuillCodeTranscriptFindView.swift")
