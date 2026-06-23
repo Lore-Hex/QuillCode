@@ -2653,7 +2653,7 @@ public extension QuillCodeWorkspaceModel {
                 toolCards: toolCards,
                 timelineItems: thread == nil ? nil : currentTimelineItems
             ),
-            contextBanner: contextBanner(for: thread),
+            contextBanner: WorkspaceContextBannerBuilder(thread: thread).banner(),
             review: WorkspaceReviewSurfaceBuilder(
                 toolCards: toolCards,
                 events: thread?.events ?? []
@@ -2814,42 +2814,6 @@ public extension QuillCodeWorkspaceModel {
             mcpServerStatuses: extensions.mcpServerStatuses,
             computerUseStatus: root.topBar.computerUseStatus
         )
-    }
-
-    private func contextBanner(for thread: ChatThread?) -> ContextBannerSurface? {
-        guard let thread, !thread.messages.isEmpty else { return nil }
-        let usedPercent = Self.contextUsedPercent(for: thread)
-        guard usedPercent >= Self.contextWarningThresholdPercent else { return nil }
-        let isFull = usedPercent >= 100
-        return ContextBannerSurface(
-            usedPercent: usedPercent,
-            title: "\(isFull ? "Context limit reached" : "Approaching context limit") (\(usedPercent)% used)",
-            subtitle: "Older turns may drop out soon. Compact the thread, start fresh, or fork from the latest useful context.",
-            newThreadCommand: WorkspaceCommandSurface(id: "new-chat", title: "New thread"),
-            forkCommand: WorkspaceCommandSurface(id: "fork-from-last", title: "Fork from last"),
-            compactCommand: WorkspaceCommandSurface(id: "compact-context", title: "Compact context")
-        )
-    }
-
-    private static let contextTokenBudget = 32_000
-    private static let contextWarningThresholdPercent = 80
-
-    private static func contextUsedPercent(for thread: ChatThread) -> Int {
-        let estimatedTokens = max(1, estimatedContextTokens(for: thread))
-        return min(100, Int((Double(estimatedTokens) / Double(contextTokenBudget) * 100).rounded()))
-    }
-
-    private static func estimatedContextTokens(for thread: ChatThread) -> Int {
-        let messageCharacters = thread.messages.reduce(0) { total, message in
-            total + message.content.count + 24
-        }
-        let eventCharacters = thread.events.reduce(0) { total, event in
-            total + event.summary.count + (event.payloadJSON?.count ?? 0)
-        }
-        let instructionCharacters = thread.instructions.reduce(0) { total, instruction in
-            total + instruction.content.count
-        }
-        return (messageCharacters + eventCharacters + instructionCharacters) / 4
     }
 
     static func modeLabel(_ mode: AgentMode) -> String {
