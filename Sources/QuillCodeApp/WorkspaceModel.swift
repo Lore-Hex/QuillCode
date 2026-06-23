@@ -1130,26 +1130,7 @@ public final class QuillCodeWorkspaceModel {
         replaceThread(thread)
         composer.isSending = true
         lastError = nil
-        refreshTopBar(agentStatus: agentStatus(for: thread))
-    }
-
-    private func agentStatus(for thread: ChatThread) -> String {
-        switch thread.events.last?.kind {
-        case .toolQueued:
-            return "Queued"
-        case .toolRunning:
-            return "Running"
-        case .approvalRequested:
-            return "Review"
-        case .notice where thread.events.last?.summary == AgentRunner.streamingNotice:
-            return "Streaming"
-        case .toolCompleted:
-            return "Finishing"
-        case .toolFailed:
-            return "Failed"
-        case .message, .messageFeedback, .approvalDecided, .reviewComment, .notice, .none:
-            return "Running"
-        }
+        refreshTopBar(agentStatus: WorkspaceAgentStatusBuilder.status(for: thread))
     }
 
     public func runReviewAction(_ action: WorkspaceReviewActionSurface, workspaceRoot: URL) {
