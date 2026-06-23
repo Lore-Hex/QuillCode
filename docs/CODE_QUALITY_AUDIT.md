@@ -163,7 +163,7 @@ The native model picker moved out of `WorkspaceSwiftUIView.swift` into `QuillCod
 Interface polish changes:
 
 - The model trigger now uses the shared `0.96` press feedback instead of a borderless static button.
-- Mode and model search controls keep the shared 40 pt minimum hit target.
+- Model search controls keep the shared 40 pt minimum hit target.
 - Model rows now guarantee a 40 pt selectable summary area and use the shared press style for tactile feedback.
 - Info and favorite controls now use the same press style as other high-frequency icon buttons while preserving 40 pt hit areas.
 - Long provider/model metadata truncates in the middle instead of pushing row actions off-screen.
@@ -181,6 +181,21 @@ Interface polish changes:
 - The overflow menu keeps the shared 40 pt hit target while adding a quiet selected-surface background and 10 pt continuous radius.
 - Runtime issue pills stay inside the top-bar file because they are specific to top-bar status density and use tabular caption numerals for stable changing labels.
 - The identity cluster is a single bounded accessibility element, so long project/thread metadata remains available without visually crowding the bar.
+
+## 2026-06-23 Top Bar Model/Mode Split Pass
+
+Overall grade after this slice: **A- foundation, B+ product surface maturity**.
+
+Claude CLI's design review called out the model/mode pill as the highest-impact interaction ambiguity: model choice is a preference, while approval mode is a safety posture. This pass separates those concepts in both native SwiftUI and the Playwright harness.
+
+Interface and architecture changes:
+
+- `QuillCodeModelPickerView` no longer owns `AgentMode` mutation or renders `modeLabel`.
+- `QuillCodeTopBarView` owns a dedicated `QuillCodeModePickerButton` with Auto, Review, and Read-only choices.
+- The model trigger renders only the selected model and keeps the model browser focused on provider/category/model search.
+- The mode control uses a compact safety capsule with a colored dot, distinct from the quieter model text button.
+- Playwright tests now assert that model and mode are visible, separated controls and that changing mode does not mutate the model selection.
+- A parity gate prevents future regressions that merge model and approval mode into one top-bar label again.
 
 ## 2026-06-22 Sidebar Refactor Pass
 

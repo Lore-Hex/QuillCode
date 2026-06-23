@@ -1052,6 +1052,27 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(htmlText.contains("top-bar-overflow-popover"), "WorkspaceHTMLRenderer should not own top-bar overflow markup.")
     }
 
+    func testTopBarSeparatesModelAndApprovalModeControls() throws {
+        let topBarViewText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
+        let modelPickerText = try Self.appSourceText(named: "QuillCodeModelPickerView.swift")
+        let htmlTopBarText = try Self.appSourceText(named: "WorkspaceHTMLTopBarRenderer.swift")
+
+        XCTAssertTrue(topBarViewText.contains("QuillCodeModePickerButton"), "Approval mode should have a dedicated top-bar control.")
+        XCTAssertTrue(topBarViewText.contains("Choose approval mode"), "The mode control should advertise approval-mode intent.")
+        XCTAssertFalse(modelPickerText.contains("modeLabel"), "The model picker trigger and popover must not merge approval mode back into model selection.")
+        XCTAssertNil(
+            modelPickerText.range(of: #"\bvar\s+onSetMode\b"#, options: .regularExpression),
+            "Model selection should not own approval-mode mutation."
+        )
+        XCTAssertNil(
+            modelPickerText.range(of: #"\bonSetMode\s*:"#, options: .regularExpression),
+            "Model picker initialization should not accept an approval-mode callback."
+        )
+        XCTAssertTrue(htmlTopBarText.contains("data-testid=\"model-picker-button\""), "HTML top bar should expose a model control.")
+        XCTAssertTrue(htmlTopBarText.contains("data-testid=\"mode-picker-button\""), "HTML top bar should expose a separate mode control.")
+        XCTAssertFalse(htmlTopBarText.contains(" · "), "HTML top bar must not render model and mode as one combined label.")
+    }
+
     func testWorkspaceHTMLRendererDelegatesTerminalRendering() throws {
         let htmlText = try Self.appSourceText(named: "WorkspaceHTMLRenderer.swift")
         let terminalText = try Self.appSourceText(named: "WorkspaceHTMLTerminalRenderer.swift")
