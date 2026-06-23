@@ -16,14 +16,14 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `QuillCodeSafety` | A- | Small, explicit policy layer. Needs more production prompt telemetry once live Auto reviewer tuning begins. |
 | `QuillCodePersistence` | A | Focused stores, compatibility tests, and clear path ownership. |
 | `QuillComputerUseKit` | B+ | Protocol shape is good and macOS adapter is isolated. Linux adapter, app approvals, and visual feedback loops are still parity gaps. |
-| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, command, review, context banner, transcript projection, execution-context enrichment, browser location resolving, thread seeding, thread lifecycle transitions, and sidebar selection transitions now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
+| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, command, review, context banner, transcript projection, execution-context enrichment, browser location resolving, MCP launch/session creation, thread seeding, thread lifecycle transitions, and sidebar selection transitions now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
 | Playwright harness | B+ | Valuable parity harness with broad coverage. It intentionally duplicates rendering behavior, so keep it thin and derived from stable surface concepts. |
 
 ## File Hotspots
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, browser/MCP surface state, browser location resolving, MCP request parsing, MCP runtime/catalog work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, and sidebar selection transitions now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, browser/MCP surface state, browser location resolving, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, and sidebar selection transitions now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but runtime issue classification, model catalog presentation, command palette construction, review diff construction, context banner estimation, and transcript message projection are now extracted into pure builders. Next step is extracting additional surface-family builders only when behavior grows. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
@@ -45,7 +45,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 1. Keep `QuillCodeDesktopController.swift` to UI/workspace routing; split pasteboard feedback or project-import routing if either path grows.
 2. Continue pulling pure workflow planning and surface builders out of `WorkspaceModel` before adding new Codex-parity commands.
 3. Keep splitting remaining workspace surface assembly into single-purpose builders when behavior grows; avoid adding new transcript or tool-card projection rules outside the transcript builder.
-4. If MCP transports expand beyond stdio, add a small launch/session factory protocol before adding new runtime branches.
+4. If MCP transports expand beyond stdio, add new launch/session implementations behind `WorkspaceMCPServerLaunching` instead of adding transport-specific branches to the runtime.
 5. Keep the parity matrix updated whenever a feature moves from planned to implemented.
 
 ## 2026-06-22 Workspace Project Engine Refactor Pass
@@ -382,7 +382,26 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceMCPRuntime` still owns concrete `Process` construction and `MCPStdioProber` creation directly. If MCP transport support expands beyond stdio, the next A+ step is a small launch/session factory protocol so lifecycle state can be tested without real subprocesses.
+- `WorkspaceMCPRuntime` should not regain concrete launch/prober construction. If MCP transport support expands beyond stdio, add transport-specific launchers behind the launch/session seam rather than branching lifecycle logic inside the runtime.
+
+## 2026-06-23 MCP Launch Factory Pass
+
+Overall grade after this slice: **A- foundation, A- MCP runtime boundary**.
+
+Concrete MCP process construction and stdio prober creation moved out of `WorkspaceMCPRuntime.swift` into `WorkspaceMCPServerLauncher.swift`. The runtime still owns manifest validation, lifecycle status changes, probe result recording, stop/cancel behavior, and dynamic tool routing, but server startup now passes through a focused `WorkspaceMCPServerLaunching` seam with protocol-backed process and session handles.
+
+Code quality changes:
+
+- Added `WorkspaceMCPServerLaunching`, `WorkspaceMCPProcessControlling`, and `WorkspaceMCPSession` protocols so MCP lifecycle tests do not require real subprocesses.
+- Isolated `/usr/bin/env`, absolute executable, and workspace-relative executable resolution in `WorkspaceMCPProcessLaunchConfiguration`.
+- Moved concrete `Process`, pipe, termination-handler, and `MCPStdioProber` construction into `DefaultWorkspaceMCPServerLauncher`.
+- Kept stderr draining and readability cleanup behind the process controller so the runtime no longer reaches into Foundation pipe details.
+- Added focused tests for command resolution, injected-launcher ready probes, launch failures, and probe-failure cleanup.
+- Extended parity gates so `WorkspaceMCPRuntime.swift` cannot regain direct `Process()` construction.
+
+Remaining risk:
+
+- `WorkspaceMCPRuntime` still owns lifecycle status mutation and dynamic tool routing because those policies are coupled to extension state. If remote MCP transports, SSE, or persistent marketplace servers arrive, add specialized launcher/session implementations first, then split routing only if per-transport execution policy actually diverges.
 
 ## 2026-06-23 Runtime Issue Builder Split Pass
 
