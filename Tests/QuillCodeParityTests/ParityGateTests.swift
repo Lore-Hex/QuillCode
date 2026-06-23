@@ -332,6 +332,25 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(surfaceText.contains("TrustedRouterDefaults.loopbackCallbackURL"), "WorkspaceSurface should not own TrustedRouter sign-in copy.")
     }
 
+    func testWorkspaceSurfaceDelegatesSecondaryPaneSurfaceContracts() throws {
+        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
+        let secondaryText = try Self.appSourceText(named: "QuillCodeSecondaryPaneSurface.swift")
+
+        XCTAssertTrue(secondaryText.contains("public struct WorkspaceExtensionsSurface"), "Extensions surface should live beside secondary-pane contracts.")
+        XCTAssertTrue(secondaryText.contains("public struct WorkspaceMemoriesSurface"), "Memories surface should live beside secondary-pane contracts.")
+        XCTAssertTrue(secondaryText.contains("public struct WorkspaceAutomationsSurface"), "Automations surface should live beside secondary-pane contracts.")
+        XCTAssertTrue(secondaryText.contains("public struct ProjectExtensionManifestSurface"), "Extension manifest rows should live beside secondary-pane contracts.")
+        XCTAssertTrue(secondaryText.contains("public struct MemoryNoteSurface"), "Memory note rows should live beside secondary-pane contracts.")
+        XCTAssertTrue(secondaryText.contains("public struct AutomationWorkflowSurface"), "Automation workflow rows should live beside secondary-pane contracts.")
+        XCTAssertTrue(secondaryText.contains("MCPToolDescriptor"), "MCP probe display compatibility should stay with extension surface rows.")
+        XCTAssertFalse(surfaceText.contains("public struct WorkspaceExtensionsSurface"), "WorkspaceSurface should not own Extensions surface records.")
+        XCTAssertFalse(surfaceText.contains("public struct WorkspaceMemoriesSurface"), "WorkspaceSurface should not own Memories surface records.")
+        XCTAssertFalse(surfaceText.contains("public struct WorkspaceAutomationsSurface"), "WorkspaceSurface should not own Automations surface records.")
+        XCTAssertFalse(surfaceText.contains("public struct ProjectExtensionManifestSurface"), "WorkspaceSurface should not own extension manifest rows.")
+        XCTAssertFalse(surfaceText.contains("public struct MemoryNoteSurface"), "WorkspaceSurface should not own memory note rows.")
+        XCTAssertFalse(surfaceText.contains("public struct AutomationWorkflowSurface"), "WorkspaceSurface should not own automation workflow rows.")
+    }
+
     func testWorkspaceHTMLRendererDelegatesToolCardRendering() throws {
         let htmlText = try Self.appSourceText(named: "WorkspaceHTMLRenderer.swift")
         let toolCardText = try Self.appSourceText(named: "WorkspaceHTMLToolCardRenderer.swift")
