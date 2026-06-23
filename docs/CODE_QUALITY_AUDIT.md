@@ -2025,6 +2025,23 @@ Remaining risk:
 
 - `WorkspaceRemoteGitToolRequestPlanner.swift` still owns simple status/diff/stage/restore/commit command routing. That is acceptable while those cases remain one-line commands; extract a basic-command builder only if those behaviors grow.
 
+## 2026-06-23 SSH Remote Basic Git Builder Split
+
+Overall grade after this slice: **A+ routing boundary, A command coverage, A regression gates**.
+
+SSH Remote basic git command construction moved out of `WorkspaceRemoteGitToolRequestPlanner.swift` and into `WorkspaceRemoteGitBasicCommandBuilder.swift`. Before this pass, the generic planner still assembled status, diff, file stage/restore, and commit commands inline while delegating the larger hunk, push, PR, and worktree command families. The planner now acts as a pure router from tool names to focused builders, which makes remote execution easier to reuse for SSH and future QuillCloud transports.
+
+Code quality changes:
+
+- Added `WorkspaceRemoteGitBasicCommandBuilder` for status, diff, file stage/restore, and commit commands.
+- Kept remote file path normalization through `WorkspaceRemoteProjectPath.relativePath`.
+- Kept empty commit-message validation beside commit command construction.
+- Added direct basic-builder tests and parity gates that prevent basic command strings from drifting back into the generic planner.
+
+Remaining risk:
+
+- The focused remote git builders still return shell strings because SSH execution currently accepts shell commands. If QuillCloud remote execution gains a structured command transport, introduce a shared command-plan type behind these builders rather than pushing structured execution back into the planner.
+
 ## 2026-06-23 Explicit Mode Control Pass
 
 Overall grade after this slice: **A UI hierarchy, A regression coverage, B+ interaction depth**.

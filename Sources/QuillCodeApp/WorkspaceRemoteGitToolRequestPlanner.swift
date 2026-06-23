@@ -1,4 +1,3 @@
-import Foundation
 import QuillCodeAgent
 import QuillCodeCore
 import QuillCodeTools
@@ -19,25 +18,10 @@ enum WorkspaceRemoteGitToolRequestPlanner {
         let command: String
 
         switch call.name {
-        case ToolDefinition.gitStatus.name:
-            command = "git status --short --branch"
-        case ToolDefinition.gitDiff.name:
-            command = args.bool("staged") == true ? "git diff --staged" : "git diff"
-        case ToolDefinition.gitStage.name:
-            let path = try WorkspaceRemoteProjectPath.relativePath(try args.requiredString("path"))
-            command = "git add -- \(shellSingleQuoted(path))"
-        case ToolDefinition.gitRestore.name:
-            let path = try WorkspaceRemoteProjectPath.relativePath(try args.requiredString("path"))
-            let stagedFlag = args.bool("staged") == true ? " --staged" : ""
-            command = "git restore\(stagedFlag) -- \(shellSingleQuoted(path))"
+        case let name where WorkspaceRemoteGitBasicCommandBuilder.toolNames.contains(name):
+            command = try WorkspaceRemoteGitBasicCommandBuilder.command(for: call, arguments: args)
         case let name where WorkspaceRemoteGitHunkCommandBuilder.toolNames.contains(name):
             command = try WorkspaceRemoteGitHunkCommandBuilder.command(for: call, arguments: args)
-        case ToolDefinition.gitCommit.name:
-            let message = try args.requiredString("message").trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !message.isEmpty else {
-                throw GitToolError.emptyCommitMessage
-            }
-            command = "git commit -m \(shellSingleQuoted(message))"
         case ToolDefinition.gitPush.name:
             command = try WorkspaceRemoteGitPushCommandBuilder.command(arguments: args)
         case let name where WorkspaceRemoteGitHubPullRequestCommandBuilder.toolNames.contains(name):
@@ -59,10 +43,6 @@ enum WorkspaceRemoteGitToolRequestPlanner {
             artifacts: artifacts,
             extractsPullRequestURLs: WorkspaceRemoteGitHubPullRequestCommandBuilder.extractsURLs(for: call.name)
         )
-    }
-
-    private static func shellSingleQuoted(_ value: String) -> String {
-        WorkspaceTerminalEngine.shellSingleQuoted(value)
     }
 }
 
