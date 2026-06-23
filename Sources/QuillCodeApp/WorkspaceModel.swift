@@ -43,34 +43,6 @@ public struct WorkspaceWorktreeRemoveRequest: Sendable, Hashable {
     }
 }
 
-public struct WorkspaceReviewCommentState: Codable, Sendable, Hashable, Identifiable {
-    public var id: UUID
-    public var path: String
-    public var lineNumber: Int?
-    public var endLineNumber: Int?
-    public var lineKind: WorkspaceReviewLineKind?
-    public var text: String
-    public var createdAt: Date
-
-    public init(
-        id: UUID = UUID(),
-        path: String,
-        lineNumber: Int? = nil,
-        endLineNumber: Int? = nil,
-        lineKind: WorkspaceReviewLineKind? = nil,
-        text: String,
-        createdAt: Date = Date()
-    ) {
-        self.id = id
-        self.path = path
-        self.lineNumber = lineNumber
-        self.endLineNumber = endLineNumber
-        self.lineKind = lineKind
-        self.text = text
-        self.createdAt = createdAt
-    }
-}
-
 public struct MemoriesState: Sendable, Hashable {
     public var isVisible: Bool
 
@@ -1318,82 +1290,26 @@ public final class QuillCodeWorkspaceModel {
         lineKind: WorkspaceReviewLineKind?,
         text: String
     ) -> Bool {
-        let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard selectedThread != nil,
-              !trimmedPath.isEmpty,
-              !trimmedText.isEmpty
+              let event = WorkspaceReviewCommentPlanner.event(
+                path: path,
+                lineNumber: lineNumber,
+                endLineNumber: endLineNumber,
+                lineKind: lineKind,
+                text: text,
+                review: surface().review
+              )
         else {
             return false
         }
-
-        let currentReview = surface().review
-        guard let file = currentReview.files.first(where: { $0.path == trimmedPath }) else {
-            return false
-        }
-
-        let normalizedRange = Self.normalizedReviewRange(
-            lineNumber: lineNumber,
-            endLineNumber: endLineNumber
-        )
-        if let normalizedRange {
-            guard Self.reviewRangeExists(normalizedRange, lineKind: lineKind, in: file) else {
-                return false
-            }
-        }
-
-        let comment = WorkspaceReviewCommentState(
-            path: trimmedPath,
-            lineNumber: normalizedRange?.lowerBound,
-            endLineNumber: normalizedRange?.upperBound,
-            lineKind: lineKind,
-            text: trimmedText
-        )
-        let payloadJSON = (try? JSONHelpers.encodePretty(comment)) ?? "{}"
-        let summary = normalizedRange.map { range in
-            range.lowerBound == range.upperBound
-                ? "Commented on \(trimmedPath):\(range.lowerBound)"
-                : "Commented on \(trimmedPath):\(range.lowerBound)-\(range.upperBound)"
-        } ?? "Commented on \(trimmedPath)"
         mutateSelectedThread { thread in
-            thread.events.append(.init(
-                kind: .reviewComment,
-                summary: summary,
-                payloadJSON: payloadJSON
-            ))
+            thread.events.append(event)
         }
         if let thread = selectedThread {
             try? threadStore?.save(thread)
         }
         refreshTopBar(agentStatus: "Idle")
         return true
-    }
-
-    private static func normalizedReviewRange(
-        lineNumber: Int?,
-        endLineNumber: Int?
-    ) -> ClosedRange<Int>? {
-        guard let lineNumber else { return nil }
-        let endLineNumber = endLineNumber ?? lineNumber
-        guard lineNumber > 0, endLineNumber > 0 else { return nil }
-        return min(lineNumber, endLineNumber)...max(lineNumber, endLineNumber)
-    }
-
-    private static func reviewRangeExists(
-        _ range: ClosedRange<Int>,
-        lineKind: WorkspaceReviewLineKind?,
-        in file: WorkspaceReviewFileSurface
-    ) -> Bool {
-        let lines = file.hunkItems.flatMap(\.lines)
-        guard lines.contains(where: {
-            $0.displayLineNumber == range.lowerBound
-                && (lineKind == nil || $0.kind == lineKind)
-        }) else {
-            return false
-        }
-        return range.allSatisfy { number in
-            lines.contains { $0.displayLineNumber == number }
-        }
     }
 
     @discardableResult
