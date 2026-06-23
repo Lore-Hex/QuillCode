@@ -242,112 +242,29 @@ public struct QuillCodeWorkspaceView: View {
         .frame(minWidth: 980, minHeight: 640)
         .background(QuillCodePalette.background)
         .foregroundStyle(QuillCodePalette.text)
-        .sheet(isPresented: $isSettingsPresented) {
-            QuillCodeSettingsView(
-                settings: surface.settings,
-                draft: $settingsDraft,
-                onCancel: {
-                    isSettingsPresented = false
-                },
-                onSave: {
-                    onSaveSettings(settingsDraft.update)
-                    isSettingsPresented = false
-                },
-                onStartTrustedRouterSignIn: {
-                    onStartTrustedRouterSignIn()
-                },
-                onCommand: handleCommand
-            )
-        }
-        .onChange(of: isSettingsPresented) { _, isPresented in
-            if isPresented {
-                settingsDraft = QuillCodeSettingsDraft(settings: surface.settings)
-            }
-        }
-        .sheet(isPresented: $isSearchPresented) {
-            QuillCodeSearchView(
-                sidebar: surface.sidebar,
-                query: $searchQuery,
-                onSelectThread: { threadID in
-                    onSelectThread(threadID)
-                    isSearchPresented = false
-                },
-                onClose: {
-                    isSearchPresented = false
-                }
-            )
-        }
-        .sheet(isPresented: $isKeyboardShortcutsPresented) {
-            QuillCodeKeyboardShortcutsView(
-                commands: surface.commands,
-                onClose: {
-                    isKeyboardShortcutsPresented = false
-                }
-            )
-        }
-        .sheet(isPresented: $isCommandPalettePresented) {
-            QuillCodeCommandPaletteView(
-                commands: surface.commands.filter { $0.id != "command-palette" },
-                query: $commandQuery,
-                onSelectCommand: { command in
-                    isCommandPalettePresented = false
-                    handleCommand(command)
-                },
-                onClose: {
-                    isCommandPalettePresented = false
-                }
-            )
-        }
-        .sheet(item: $worktreeSheet) { sheet in
-            switch sheet {
-            case .create:
-                QuillCodeWorktreeCreateView(
-                    draft: $createWorktreeDraft,
-                    onCancel: {
-                        worktreeSheet = nil
-                    },
-                    onCreate: {
-                        onCreateWorktree(createWorktreeDraft.request)
-                        worktreeSheet = nil
-                    }
-                )
-            case .remove:
-                QuillCodeWorktreeRemoveView(
-                    draft: $removeWorktreeDraft,
-                    onCancel: {
-                        worktreeSheet = nil
-                    },
-                    onRemove: {
-                        onRemoveWorktree(removeWorktreeDraft.request)
-                        worktreeSheet = nil
-                    }
-                )
-            }
-        }
-        .sheet(item: $renameThreadDraft) { draft in
-            QuillCodeThreadRenameView(
-                draft: draft,
-                onCancel: {
-                    renameThreadDraft = nil
-                },
-                onSave: { threadID, title in
-                    onRenameThread(threadID, title)
-                    renameThreadDraft = nil
-                }
-            )
-        }
-        .sheet(item: $renameProjectDraft) { draft in
-            QuillCodeProjectRenameView(
-                draft: draft,
-                onCancel: {
-                    renameProjectDraft = nil
-                },
-                onSave: { projectID, name in
-                    onRenameProject(projectID, name)
-                    renameProjectDraft = nil
-                }
-            )
-        }
+        .quillCodeWorkspaceSheets(
+            surface: surface,
+            isSearchPresented: $isSearchPresented,
+            searchQuery: $searchQuery,
+            isCommandPalettePresented: $isCommandPalettePresented,
+            commandQuery: $commandQuery,
+            isSettingsPresented: $isSettingsPresented,
+            settingsDraft: $settingsDraft,
+            isKeyboardShortcutsPresented: $isKeyboardShortcutsPresented,
+            worktreeSheet: $worktreeSheet,
+            createWorktreeDraft: $createWorktreeDraft,
+            removeWorktreeDraft: $removeWorktreeDraft,
+            renameThreadDraft: $renameThreadDraft,
+            renameProjectDraft: $renameProjectDraft,
+            onSelectThread: onSelectThread,
+            onSaveSettings: onSaveSettings,
+            onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
+            onCommand: handleCommand,
+            onCreateWorktree: onCreateWorktree,
+            onRemoveWorktree: onRemoveWorktree,
+            onRenameThread: onRenameThread,
+            onRenameProject: onRenameProject
+        )
     }
 
     private func handleThreadAction(_ action: SidebarItemActionSurface) {
