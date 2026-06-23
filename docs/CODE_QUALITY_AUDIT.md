@@ -24,7 +24,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | File | Grade | Next Improvement |
 | --- | --- | --- |
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
-| `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
+| `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | A- | The shell is now mostly chrome composition, state, and routing. Transcript layout and workspace sheet presentation live in focused files; keep future modal families and command workflow rules out of the root shell. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is now mostly aggregate payload plus runtime/execution context records. Settings copy/compatibility, runtime issue classification, model catalog presentation, top-bar/model presentation contracts, sidebar/project contracts, browser state/presentation contracts, terminal presentation contracts, review presentation contracts, transcript/composer/context presentation contracts, secondary-pane presentation contracts, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are extracted into focused files. Next step is extracting runtime/execution context contracts if their presentation behavior grows. |
 | `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but top-bar HTML delegates to `WorkspaceHTMLTopBarRenderer`, sidebar HTML delegates to `WorkspaceHTMLSidebarRenderer`, tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, review pane HTML delegates to `WorkspaceHTMLReviewRenderer`, secondary pane HTML delegates to `WorkspaceHTMLSecondaryPaneRenderer`, browser pane HTML delegates to `WorkspaceHTMLBrowserRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another transcript/composer family only when renderer drift appears. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
@@ -1370,3 +1370,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceHTMLRenderer` now delegates all major shell families. Future static harness work should add new focused renderers beside the relevant surface contract rather than expanding the root renderer again.
+
+## 2026-06-23 Workspace Sheet Presentation Pass
+
+Overall grade after this slice: **A- foundation, A- root-shell presentation boundary**.
+
+Workspace modal and sheet presentation moved out of `WorkspaceSwiftUIView` into `QuillCodeWorkspaceSheetsModifier`. Before this pass, the root workspace shell owned settings, search, keyboard shortcuts, command palette, worktree create/remove, and thread/project rename sheet presentation inline. The shell now composes one sheet presenter while keeping the state bindings and command routing where SwiftUI can still coordinate focus and chrome.
+
+Code quality changes:
+
+- Added `QuillCodeWorkspaceSheetsModifier` plus the `quillCodeWorkspaceSheets(...)` view extension for workspace modal presentation.
+- Moved settings save/cancel, search selection, command-palette selection, worktree create/remove, and rename save/cancel sheet wiring into the sheet presenter.
+- Reduced `WorkspaceSwiftUIView.swift` from 482 lines to roughly 399 lines after the transcript and sheet extraction passes.
+- Added a parity gate so settings/search/palette/worktree/rename sheet wiring does not drift back into the root workspace shell.
+
+Remaining risk:
+
+- `WorkspaceSwiftUIView` still owns enough `@State` bindings to coordinate search, command palette, settings, worktree, rename, and composer focus. That is acceptable while the shell owns presentation state, but if more modal families land, promote them into a small presentation-state reducer instead of adding more root-shell booleans.
