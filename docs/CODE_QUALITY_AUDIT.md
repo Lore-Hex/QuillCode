@@ -1299,4 +1299,22 @@ Code quality changes:
 
 Remaining risk:
 
-- Runtime status labels such as `TrustedRouter ready`, `Developer key needed`, and sign-in prompts remain dynamic runtime copy rather than lifecycle labels. If those become more conditional, they should move into a focused runtime-status copy helper instead of expanding `TopBarAgentStatusLabel`.
+- Runtime status labels such as TrustedRouter readiness and sign-in prompts are runtime/auth copy rather than lifecycle labels. The follow-up pass below centralizes them separately so they do not expand `TopBarAgentStatusLabel`.
+
+## 2026-06-23 Runtime Status Label Pass
+
+Overall grade after this slice: **A- foundation, A runtime-status-label boundary**.
+
+Runtime/auth status labels moved from raw string sentinels into `QuillCodeRuntimeStatusLabel`. The runtime factory, runtime issue builder, desktop sign-in failure path, and tests now share one source of truth for mock, sign-in-needed, developer-key-needed, signed-in, ready, and sign-in-failed status copy.
+
+Code quality changes:
+
+- Added `QuillCodeRuntimeStatusLabel` for runtime/auth status copy.
+- Replaced raw runtime status emissions in `RuntimeFactory`.
+- Updated `WorkspaceRuntimeIssueBuilder` to branch on shared labels instead of repeated string literals.
+- Updated desktop sign-in failure handling to use shared runtime failure copy.
+- Added tests that lock stable runtime status labels and parity gates that prevent raw runtime sentinels from returning.
+
+Remaining risk:
+
+- Runtime issue title/message copy still lives in `WorkspaceRuntimeIssueBuilder`, which is the correct current boundary. If more auth statuses gain recovery actions, promote those statuses from strings into a typed runtime state while preserving the existing `TopBarSurface.agentStatus` compatibility layer.

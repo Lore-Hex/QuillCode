@@ -8,7 +8,7 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
             config: AppConfig(authMode: .oauth),
             hasStoredAPIKey: false,
             modelID: TrustedRouterDefaults.fastModel,
-            agentStatus: "Sign in with TrustedRouter"
+            agentStatus: QuillCodeRuntimeStatusLabel.signInWithTrustedRouter
         ).surface()
 
         XCTAssertEqual(issue?.title, "TrustedRouter sign-in needed")
@@ -29,13 +29,22 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
             config: AppConfig(authMode: .developerOverride),
             hasStoredAPIKey: false,
             modelID: TrustedRouterDefaults.fusionModel,
-            agentStatus: "Developer key needed"
+            agentStatus: QuillCodeRuntimeStatusLabel.developerKeyNeeded
         ).surface()
 
         XCTAssertEqual(issue?.title, "Developer key needed")
         XCTAssertEqual(issue?.actionLabel, "Add key")
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Authentication" }?.value, "Developer override")
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Model" }?.value, TrustedRouterDefaults.fusionModel)
+    }
+
+    func testRuntimeStatusLabelsPreserveStableUserFacingCopy() {
+        XCTAssertEqual(QuillCodeRuntimeStatusLabel.mockLLM, "Mock LLM")
+        XCTAssertEqual(QuillCodeRuntimeStatusLabel.signInWithTrustedRouter, "Sign in with TrustedRouter")
+        XCTAssertEqual(QuillCodeRuntimeStatusLabel.developerKeyNeeded, "Developer key needed")
+        XCTAssertEqual(QuillCodeRuntimeStatusLabel.trustedRouterSignedIn, "TrustedRouter signed in")
+        XCTAssertEqual(QuillCodeRuntimeStatusLabel.trustedRouterReady, "TrustedRouter ready")
+        XCTAssertEqual(QuillCodeRuntimeStatusLabel.signInFailed, "Sign-in failed")
     }
 
     func testRateLimitIssueAddsProviderDiagnosticsAndRedactsSecrets() {

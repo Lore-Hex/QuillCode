@@ -3847,10 +3847,10 @@ final class WorkspaceModelTests: XCTestCase {
         model.applyRuntime(QuillCodeRuntime(
             runner: AgentRunner(),
             mode: .trustedRouter,
-            statusLabel: "TrustedRouter ready"
+            statusLabel: QuillCodeRuntimeStatusLabel.trustedRouterReady
         ))
 
-        XCTAssertEqual(model.root.topBar.agentStatus, "TrustedRouter ready")
+        XCTAssertEqual(model.root.topBar.agentStatus, QuillCodeRuntimeStatusLabel.trustedRouterReady)
     }
 
     func testRuntimeIssueSurfacesMissingTrustedRouterSignIn() {
@@ -3859,7 +3859,7 @@ final class WorkspaceModelTests: XCTestCase {
         model.applyRuntime(QuillCodeRuntime(
             runner: AgentRunner(),
             mode: .trustedRouter,
-            statusLabel: "Sign in with TrustedRouter"
+            statusLabel: QuillCodeRuntimeStatusLabel.signInWithTrustedRouter
         ))
 
         let surface = model.surface()
@@ -4802,7 +4802,7 @@ final class WorkspaceModelTests: XCTestCase {
         ).makeRuntime(config: AppConfig())
 
         XCTAssertEqual(runtime.mode, .trustedRouter)
-        XCTAssertEqual(runtime.statusLabel, "TrustedRouter signed in")
+        XCTAssertEqual(runtime.statusLabel, QuillCodeRuntimeStatusLabel.trustedRouterSignedIn)
     }
 
     func testRuntimeFactoryUsesTrustedRouterWhenSecretExists() throws {
@@ -4832,7 +4832,7 @@ final class WorkspaceModelTests: XCTestCase {
         ).makeRuntime(config: AppConfig())
 
         XCTAssertEqual(runtime.mode, .mock)
-        XCTAssertEqual(runtime.statusLabel, "Mock LLM")
+        XCTAssertEqual(runtime.statusLabel, QuillCodeRuntimeStatusLabel.mockLLM)
     }
 
     func testRunReviewStageActionStagesFileAndRefreshesDiff() throws {

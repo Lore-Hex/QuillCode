@@ -29,7 +29,7 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
         }
 
         switch agentStatus {
-        case "Sign in with TrustedRouter":
+        case QuillCodeRuntimeStatusLabel.signInWithTrustedRouter:
             return RuntimeIssueSurface(
                 severity: .warning,
                 title: "TrustedRouter sign-in needed",
@@ -37,7 +37,7 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
                 actionLabel: "Open Settings",
                 diagnostics: diagnostics()
             )
-        case "Developer key needed":
+        case QuillCodeRuntimeStatusLabel.developerKeyNeeded:
             return RuntimeIssueSurface(
                 severity: .warning,
                 title: "Developer key needed",

@@ -350,7 +350,10 @@ final class QuillCodeDesktopController: ObservableObject {
             refresh()
             await refreshModelCatalog()
         } catch {
-            model.setAgentStatus("Sign-in failed", lastError: String(describing: error))
+            model.setAgentStatus(
+                QuillCodeRuntimeStatusLabel.signInFailed,
+                lastError: String(describing: error)
+            )
             refresh()
         }
     }
