@@ -159,7 +159,7 @@
       min-height: 40px;
       display: inline-flex;
       align-items: center;
-      gap: 7px;
+      gap: 6px;
       padding: 0 10px;
       border-radius: 999px;
       color: var(--text);
@@ -183,18 +183,21 @@
       border-color: rgba(255,255,255,.16);
       background: rgba(255,255,255,.075);
     }
-    .mode-icon,
-    .mode-prefix,
-    .mode-separator {
-      color: var(--muted);
+    .mode-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--success);
+      box-shadow: 0 0 0 2px rgba(255,255,255,.06);
     }
-    .mode-icon {
-      font-size: 12px;
-      line-height: 1;
-      transform: translateY(-.5px);
+    .mode-pill-button[data-mode-tone="review"] .mode-dot {
+      background: var(--warning);
     }
-    .mode-separator {
-      opacity: .8;
+    .mode-pill-button[data-mode-tone="read-only"] .mode-dot {
+      background: var(--muted);
+    }
+    .mode-pill-button[data-mode-tone="auto"] .mode-dot {
+      background: var(--success);
     }
     .topbar-action-cluster button {
       width: 40px;
@@ -2179,17 +2182,31 @@
       line-height: 1.35;
     }
     .composer {
+      align-self: end;
+      padding: 12px;
+      background: rgba(25,41,48,.78);
+    }
+    .composer-surface {
+      display: grid;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 12px;
+      background: rgba(0,0,0,.18);
+      transition-property: border-color;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .composer-surface:focus-within {
+      border-color: rgba(255,255,255,.18);
+    }
+    .composer-input-row {
       display: grid;
       grid-template-columns: 1fr auto;
       align-items: end;
-      align-self: end;
       gap: 10px;
-      padding: 14px;
-      border-top: 1px solid rgba(255,255,255,.1);
-      background: rgba(25,41,48,.78);
     }
     .composer-controls {
-      grid-column: 1 / -1;
       min-width: 0;
       min-height: 40px;
       display: flex;
@@ -2260,13 +2277,16 @@
       font-size: 13px;
       margin-top: 2px;
     }
-    .composer label { position: absolute; width: 1px; height: 1px; clip: rect(0 0 0 0); overflow: hidden; }
+    .composer label,
+    .composer-sr-only { position: absolute; width: 1px; height: 1px; clip: rect(0 0 0 0); overflow: hidden; }
     .composer textarea {
       min-height: 46px;
       max-height: 138px;
       line-height: 1.42;
       resize: none;
       overflow: auto;
+      border-color: transparent;
+      background: transparent;
     }
     .composer button {
       min-height: 46px;
@@ -4394,23 +4414,25 @@
 	              ${state.terminal.isVisible ? renderTerminalPane() : ''}
               ${renderSlashSuggestions()}
               <form class="composer" data-testid="composer">
-                <div class="composer-controls" data-testid="composer-controls" aria-label="Composer controls">
-                  <div class="model-picker-wrap">
-                    <button class="composer-model-button" type="button" aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" aria-label="Model: ${escapeHTML(state.topBar.modelLabel)}" data-testid="model-picker-button">${escapeHTML(state.topBar.modelLabel)}</button>
-                    ${modelBrowser}
+                <div class="composer-surface" data-testid="composer-surface">
+                  <label class="composer-sr-only" for="message">Message</label>
+                  <div class="composer-input-row">
+                    <textarea id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" rows="1" ${state.composer.isSending ? 'disabled' : ''}>${escapeHTML(state.composer.draft)}</textarea>
+                    ${state.composer.isSending
+                      ? '<button type="button" class="stop-button" data-testid="stop-button">Stop</button>'
+                      : `<button type="submit" data-testid="send-button" ${state.composer.canSend ? '' : 'disabled'}>Send</button>`}
                   </div>
-                  <button type="button" class="mode-pill-button" data-testid="mode-picker-button" data-mode-tone="${escapeHTML(modeTone(state.topBar.modeLabel))}" aria-label="Auto safety mode: ${escapeHTML(state.topBar.modeLabel)}">
-                    <span class="mode-icon" aria-hidden="true">◇</span>
-                    <span class="mode-prefix">Mode</span>
-                    <span class="mode-separator" aria-hidden="true">·</span>
-                    <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
-                  </button>
+                  <div class="composer-controls" data-testid="composer-controls" aria-label="Composer model and safety controls">
+                    <div class="model-picker-wrap">
+                      <button class="composer-model-button" type="button" aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" aria-label="Model: ${escapeHTML(state.topBar.modelLabel)}" data-testid="model-picker-button">${escapeHTML(state.topBar.modelLabel)}</button>
+                      ${modelBrowser}
+                    </div>
+                    <button type="button" class="mode-pill-button" data-testid="mode-picker-button" data-mode-tone="${escapeHTML(modeTone(state.topBar.modeLabel))}" aria-label="Auto safety mode: ${escapeHTML(state.topBar.modeLabel)}">
+                      <span class="mode-dot" aria-hidden="true"></span>
+                      <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
+                    </button>
+                  </div>
                 </div>
-                <label for="message">Message</label>
-                <textarea id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" rows="1" ${state.composer.isSending ? 'disabled' : ''}>${escapeHTML(state.composer.draft)}</textarea>
-                ${state.composer.isSending
-                  ? '<button type="button" class="stop-button" data-testid="stop-button">Stop</button>'
-                  : `<button type="submit" data-testid="send-button" ${state.composer.canSend ? '' : 'disabled'}>Send</button>`}
               </form>
             </main>
             ${state.activity.isVisible ? renderActivityPane() : ''}

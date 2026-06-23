@@ -27,14 +27,9 @@ struct QuillCodeComposerView: View {
                 .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .bottom)))
             }
 
-            composerControls
-
-            HStack(alignment: .bottom, spacing: 10) {
-                composerField
-                composerAction
-            }
+            composerSurface
         }
-        .padding(14)
+        .padding(12)
         .background(QuillCodePalette.panel)
         .onChange(of: draft) { _, _ in
             activeSlashSuggestionIndex = 0
@@ -48,7 +43,34 @@ struct QuillCodeComposerView: View {
         }
     }
 
-    private var composerControls: some View {
+    private var composerSurface: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .bottom, spacing: 10) {
+                composerField
+                composerAction
+            }
+
+            composerAccessoryBar
+        }
+        .padding(8)
+        .background(QuillCodePalette.background.opacity(0.72))
+        .overlay(
+            RoundedRectangle(cornerRadius: QuillCodeMetrics.composerSurfaceRadius, style: .continuous)
+                .stroke(composerSurfaceStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.composerSurfaceRadius, style: .continuous))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Message composer")
+    }
+
+    private var composerSurfaceStroke: Color {
+        if !composer.slashSuggestions.isEmpty {
+            return QuillCodePalette.blue.opacity(0.34)
+        }
+        return Color.white.opacity(isFocused.wrappedValue ? 0.18 : 0.08)
+    }
+
+    private var composerAccessoryBar: some View {
         HStack(spacing: 8) {
             QuillCodeModelPickerView(
                 topBar: topBar,
@@ -67,7 +89,7 @@ struct QuillCodeComposerView: View {
         }
         .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Composer controls")
+        .accessibilityLabel("Composer model and safety controls")
     }
 
     private var composerField: some View {
@@ -75,15 +97,9 @@ struct QuillCodeComposerView: View {
             .textFieldStyle(.plain)
             .font(.body)
             .lineLimit(1...5)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .frame(minHeight: 46)
-            .background(QuillCodePalette.background.opacity(0.72))
-            .overlay(
-                RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .stroke(composer.slashSuggestions.isEmpty ? Color.white.opacity(0.08) : QuillCodePalette.blue.opacity(0.32), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 8)
+            .frame(minHeight: 44)
             .disabled(composer.isSending)
             .focused(isFocused)
             .onKeyPress(.downArrow) {
@@ -105,7 +121,7 @@ struct QuillCodeComposerView: View {
                 return .handled
             }
             .onSubmit(onSend)
-            .accessibilityLabel("Message composer")
+            .accessibilityLabel("Message")
     }
 
     @ViewBuilder
@@ -119,7 +135,7 @@ struct QuillCodeComposerView: View {
             .buttonStyle(QuillCodePressableButtonStyle())
             .background(QuillCodePalette.red)
             .foregroundStyle(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.composerControlRadius, style: .continuous))
             .keyboardShortcut(.cancelAction)
             .help("Stop the current run")
         } else {
@@ -131,7 +147,7 @@ struct QuillCodeComposerView: View {
             .buttonStyle(QuillCodePressableButtonStyle())
             .background(composer.canSend ? QuillCodePalette.blue : QuillCodePalette.background.opacity(0.72))
             .foregroundStyle(composer.canSend ? Color.white : QuillCodePalette.muted)
-            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.composerControlRadius, style: .continuous))
             .disabled(!composer.canSend)
             .help("Send")
             .accessibilityLabel("Send message")
