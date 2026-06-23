@@ -2,8 +2,7 @@ import Foundation
 import QuillCodeCore
 
 public struct GitToolExecutor: Sendable {
-    private let shell: ShellToolExecutor
-    private let runner: GitProcessRunner
+    private let local: GitLocalToolExecutor
     private let pullRequests: GitHubPullRequestToolExecutor
     private let worktrees: GitWorktreeToolExecutor
     private let patches: GitPatchToolExecutor
@@ -12,41 +11,27 @@ public struct GitToolExecutor: Sendable {
         shell: ShellToolExecutor = ShellToolExecutor(),
         githubCLIExecutable: URL? = nil
     ) {
-        self.shell = shell
         let runner = GitProcessRunner(githubCLIExecutable: githubCLIExecutable)
-        self.runner = runner
+        self.local = GitLocalToolExecutor(shell: shell, runner: runner)
         self.pullRequests = GitHubPullRequestToolExecutor(runner: runner)
         self.worktrees = GitWorktreeToolExecutor(runner: runner)
         self.patches = GitPatchToolExecutor(runner: runner)
     }
 
     public func status(cwd: URL) -> ToolResult {
-        shell.run(.init(command: "git status --short --branch", cwd: cwd, timeoutSeconds: 15))
+        local.status(cwd: cwd)
     }
 
     public func diff(cwd: URL, staged: Bool = false) -> ToolResult {
-        shell.run(.init(command: staged ? "git diff --staged" : "git diff", cwd: cwd, timeoutSeconds: 20))
+        local.diff(cwd: cwd, staged: staged)
     }
 
     public func stage(cwd: URL, path: String) -> ToolResult {
-        do {
-            return runGit(["add", "--", try GitInputValidator.safeRelativePath(path, cwd: cwd)], cwd: cwd, timeoutSeconds: 20)
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
+        local.stage(cwd: cwd, path: path)
     }
 
     public func restore(cwd: URL, path: String, staged: Bool = false) -> ToolResult {
-        do {
-            var arguments = ["restore"]
-            if staged {
-                arguments.append("--staged")
-            }
-            arguments += ["--", try GitInputValidator.safeRelativePath(path, cwd: cwd)]
-            return runGit(arguments, cwd: cwd, timeoutSeconds: 20)
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
+        local.restore(cwd: cwd, path: path, staged: staged)
     }
 
     public func stageHunk(cwd: URL, path: String, patch: String) -> ToolResult {
@@ -58,11 +43,7 @@ public struct GitToolExecutor: Sendable {
     }
 
     public func commit(cwd: URL, message: String) -> ToolResult {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            return ToolResult(ok: false, error: String(describing: GitToolError.emptyCommitMessage))
-        }
-        return runGit(["commit", "-m", trimmed], cwd: cwd, timeoutSeconds: 30)
+        local.commit(cwd: cwd, message: message)
     }
 
     public func push(
@@ -71,27 +52,7 @@ public struct GitToolExecutor: Sendable {
         branch: String? = nil,
         setUpstream: Bool = false
     ) -> ToolResult {
-        do {
-            let remoteName = try GitInputValidator.safeName(GitInputValidator.trimmedNonEmpty(remote) ?? "origin")
-            let branchName: String
-            if let branch = GitInputValidator.trimmedNonEmpty(branch) {
-                branchName = try GitInputValidator.safeName(branch)
-            } else {
-                branchName = try currentBranchName(cwd: cwd)
-            }
-            guard !branchName.isEmpty else {
-                throw GitToolError.emptyBranch
-            }
-
-            var arguments = ["push"]
-            if setUpstream {
-                arguments.append("-u")
-            }
-            arguments += [remoteName, branchName]
-            return runGit(arguments, cwd: cwd, timeoutSeconds: 120)
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
-        }
+        local.push(cwd: cwd, remote: remote, branch: branch, setUpstream: setUpstream)
     }
 
     public func createPullRequest(
@@ -225,23 +186,7 @@ public struct GitToolExecutor: Sendable {
         try GitHubPullRequestToolExecutor.safeMergeFlag(value)
     }
 
-    private func currentBranchName(cwd: URL) throws -> String {
-        let result = runGit(["branch", "--show-current"], cwd: cwd, timeoutSeconds: 10)
-        guard result.ok else {
-            throw GitToolError.noCurrentBranch
-        }
-        let branch = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !branch.isEmpty else {
-            throw GitToolError.noCurrentBranch
-        }
-        return try GitInputValidator.safeName(branch)
-    }
-
     public static func extractURLs(from output: String) -> [String] {
         GitHubPullRequestToolExecutor.extractURLs(from: output)
-    }
-
-    private func runGit(_ arguments: [String], cwd: URL, timeoutSeconds: TimeInterval) -> ToolResult {
-        runner.runGit(arguments, cwd: cwd, timeoutSeconds: timeoutSeconds)
     }
 }
