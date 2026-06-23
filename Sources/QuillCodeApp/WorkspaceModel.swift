@@ -898,31 +898,31 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func performSidebarBulkAction(_ kind: SidebarBulkActionKind) -> Bool {
-        let ids = selectedSidebarThreadIDs()
-        switch kind {
-        case .select:
-            startSidebarSelection()
+        guard let plan = WorkspaceSidebarBulkActionPlanner.plan(
+            kind: kind,
+            selection: sidebarSelection,
+            orderedSidebarThreadIDs: root.allSidebarItems.map(\.id),
+            threads: root.threads,
+            selectedThreadID: root.selectedThreadID
+        ) else {
+            return false
+        }
+        sidebarSelection = plan.nextSelection
+        guard let mutation = plan.mutation else {
             return true
-        case .selectAll:
-            selectAllSidebarThreads()
-            return true
-        case .clearSelection:
-            clearSidebarSelection()
-            return true
-        case .pin:
-            guard !ids.isEmpty else { return false }
+        }
+
+        switch mutation {
+        case .pin(let ids):
             updateThreads(ids) { thread in
                 guard !thread.isArchived else { return }
                 thread.isPinned = true
             }
-        case .unpin:
-            guard !ids.isEmpty else { return false }
+        case .unpin(let ids):
             updateThreads(ids) { thread in
                 thread.isPinned = false
             }
-        case .archive:
-            guard !ids.isEmpty else { return false }
-            let previousSelection = selectedThread
+        case .archive(let ids):
             var threads = root.threads
             guard let result = WorkspaceThreadLifecycleEngine.archiveThreads(
                 ids,
@@ -932,12 +932,9 @@ public final class QuillCodeWorkspaceModel {
             }
             root.threads = threads
             saveThreads(result.changedThreads)
-            if let selectedID = previousSelection?.id, ids.contains(selectedID) {
-                selectBestThread(afterRemoving: ids, preferredProjectID: previousSelection?.projectID)
-            }
+            applySidebarBulkFollowUpSelection(plan.followUpSelection, removing: ids)
             saveProjects()
-        case .unarchive:
-            guard !ids.isEmpty else { return false }
+        case .unarchive(let ids):
             var threads = root.threads
             guard let result = WorkspaceThreadLifecycleEngine.unarchiveThreads(
                 ids,
@@ -947,17 +944,9 @@ public final class QuillCodeWorkspaceModel {
             }
             root.threads = threads
             saveThreads(result.changedThreads)
-            if let firstID = ids.first,
-               let firstThread = root.threads.first(where: { $0.id == firstID }) {
-                root.selectedThreadID = firstID
-                root.selectedProjectID = knownProjectID(firstThread.projectID)
-                syncTerminalSessionToSelectedProject()
-                touchProject(root.selectedProjectID)
-            }
+            applySidebarBulkFollowUpSelection(plan.followUpSelection, removing: ids)
             saveProjects()
-        case .delete:
-            guard !ids.isEmpty else { return false }
-            let previousSelection = selectedThread
+        case .delete(let ids):
             var threads = root.threads
             guard let result = WorkspaceThreadLifecycleEngine.deleteThreads(
                 ids,
@@ -969,17 +958,10 @@ public final class QuillCodeWorkspaceModel {
             for thread in result.removedThreads {
                 try? threadStore?.delete(thread.id)
             }
-            if let selectedID = previousSelection?.id, ids.contains(selectedID) {
-                selectBestThread(afterRemoving: ids, preferredProjectID: previousSelection?.projectID)
-            } else if let selectedThread {
-                root.selectedProjectID = knownProjectID(selectedThread.projectID)
-            } else {
-                root.selectedProjectID = knownProjectID(root.selectedProjectID)
-            }
+            applySidebarBulkFollowUpSelection(plan.followUpSelection, removing: ids)
             saveProjects()
         }
 
-        clearSidebarSelection()
         refreshTopBar(agentStatus: "Idle")
         return true
     }
@@ -3380,6 +3362,29 @@ public final class QuillCodeWorkspaceModel {
         )
         sidebarSelection = resolution.state
         return resolution.selectedThreadIDs
+    }
+
+    private func applySidebarBulkFollowUpSelection(
+        _ followUpSelection: WorkspaceSidebarBulkActionPlanner.FollowUpSelection,
+        removing ids: [UUID]
+    ) {
+        switch followUpSelection {
+        case .unchanged:
+            return
+        case .selectBestAfterRemoving(let preferredProjectID):
+            selectBestThread(afterRemoving: ids, preferredProjectID: preferredProjectID)
+        case .select(let context):
+            root.selectedThreadID = context.id
+            root.selectedProjectID = knownProjectID(context.projectID)
+            syncTerminalSessionToSelectedProject()
+            touchProject(root.selectedProjectID)
+        case .reconcileCurrent:
+            if let selectedThread {
+                root.selectedProjectID = knownProjectID(selectedThread.projectID)
+            } else {
+                root.selectedProjectID = knownProjectID(root.selectedProjectID)
+            }
+        }
     }
 
     private func validThreadIDs() -> Set<UUID> {

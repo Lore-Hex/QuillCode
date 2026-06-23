@@ -16,14 +16,14 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `QuillCodeSafety` | A- | Small, explicit policy layer. Needs more production prompt telemetry once live Auto reviewer tuning begins. |
 | `QuillCodePersistence` | A | Focused stores, compatibility tests, and clear path ownership. |
 | `QuillComputerUseKit` | B+ | Protocol shape is good and macOS adapter is isolated. Linux adapter, app approvals, and visual feedback loops are still parity gaps. |
-| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, command, review, context banner, transcript projection, execution-context enrichment, browser location resolving, MCP launch/session creation, thread seeding, thread lifecycle transitions, and sidebar selection transitions now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
+| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, command, review, context banner, transcript projection, execution-context enrichment, browser location resolving, MCP launch/session creation, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
 | Playwright harness | B+ | Valuable parity harness with broad coverage. It intentionally duplicates rendering behavior, so keep it thin and derived from stable surface concepts. |
 
 ## File Hotspots
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, browser/MCP surface state, browser location resolving, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, and sidebar selection transitions now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, browser/MCP surface state, browser location resolving, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but runtime issue classification, model catalog presentation, command palette construction, review diff construction, context banner estimation, and transcript message projection are now extracted into pure builders. Next step is extracting additional surface-family builders only when behavior grows. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
@@ -603,4 +603,23 @@ Code quality changes:
 
 Remaining risk:
 
-- Bulk action command dispatch still lives in `WorkspaceModel` because it combines lifecycle mutations, persistence, selected-project fallback, and top-bar refresh. If bulk actions grow beyond pin/archive/unarchive/delete, add a `WorkspaceSidebarBulkActionPlanner` before extending the model branch.
+- Bulk action persistence and top-bar refresh still live in `WorkspaceModel`, but target resolution and follow-up selection policy now route through a dedicated planner.
+
+## 2026-06-23 Sidebar Bulk Action Planner Pass
+
+Overall grade after this slice: **A- foundation, A- sidebar workflow boundary**.
+
+Sidebar bulk action planning moved out of `WorkspaceModel.swift` into `WorkspaceSidebarBulkActionPlanner`. The model still owns thread persistence, project fallback application, terminal sync, and top-bar refresh, but the pure rules for selection-only commands, visible-order target resolution, stale-selection pruning, and post-mutation selection intent are now directly tested.
+
+Code quality changes:
+
+- Added a focused planner that maps `SidebarBulkActionKind` into either selection-state changes or mutation plans.
+- Centralized bulk pin/unpin/archive/unarchive/delete target resolution using the same visible sidebar order as the selection engine.
+- Made archive/delete fallback behavior explicit through `FollowUpSelection.selectBestAfterRemoving`.
+- Made unarchive behavior explicit through `FollowUpSelection.select`, keeping "select the first visible unarchived target" out of the model.
+- Added direct tests for selection-only actions, stale-ID pruning, visible ordering, empty-selection rejection, archive fallback, unarchive selection, and delete reconciliation.
+- Extended parity gates so `WorkspaceModel.swift` cannot regain inline bulk selected-ID planning.
+
+Remaining risk:
+
+- `WorkspaceModel` still applies the planner's effects because persistence, selected-project validation, terminal sync, and top-bar refresh remain side effects. If bulk actions grow into undoable operations or previewable destructive actions, add a side-effect executor layer rather than expanding `performSidebarBulkAction` again.
