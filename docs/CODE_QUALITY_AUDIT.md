@@ -1265,3 +1265,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceSidebarRowMutationExecutor` still calls high-level model methods directly. If row action mutations need richer previews or batched persistence, move them behind a pure mutation result boundary rather than adding UI-specific branches back to the controller.
+
+## 2026-06-23 Workspace Agent Status Builder Pass
+
+Overall grade after this slice: **A- foundation, A progress-status boundary**.
+
+Agent progress status copy moved out of `WorkspaceModel` into `WorkspaceAgentStatusBuilder`. Before this pass, the model switched over the latest thread event kind and knew the `AgentRunner.streamingNotice` sentinel directly. The model now only applies progress and refreshes the top bar with the builder's result.
+
+Code quality changes:
+
+- Added `WorkspaceAgentStatusBuilder` for thread/event-to-top-bar status copy.
+- Kept the streaming notice sentinel behind the focused builder.
+- Added direct tests for queued, running, review, streaming, finishing, failed, conversation, generic notice, nil-event, and latest-thread-event behavior.
+- Added a parity gate so event-kind status mapping and the streaming notice string do not drift back into `WorkspaceModel`.
+
+Remaining risk:
+
+- Other high-level status literals such as `Idle`, `Running`, `Failed`, and `Stopped` are still emitted by model orchestration paths. They are side-effect timing markers rather than progress-event copy; if they start gaining conditional logic, extract a broader workspace status transition helper.
