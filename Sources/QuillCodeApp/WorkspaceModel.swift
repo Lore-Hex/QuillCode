@@ -1996,100 +1996,60 @@ public final class QuillCodeWorkspaceModel {
     @discardableResult
     public func addProject(path: URL, name: String? = nil) -> UUID {
         let standardized = path.standardizedFileURL
-        let projectName = name ?? Self.defaultProjectName(for: standardized)
-        if let index = root.projects.firstIndex(where: { $0.path == standardized.path }) {
-            root.projects[index].name = projectName
-            root.projects[index].instructions = ProjectInstructionLoader.load(from: standardized)
-            root.projects[index].localActions = LocalEnvironmentActionLoader.load(from: standardized)
-            root.projects[index].extensionManifests = ProjectExtensionManifestLoader.load(from: standardized)
-            root.projects[index].memories = MemoryNoteLoader.loadProject(from: standardized)
-            root.projects[index].lastOpenedAt = Date()
-            root.selectedProjectID = root.projects[index].id
-            syncTerminalSessionToSelectedProject()
-            saveProjects()
-            refreshTopBar(agentStatus: "Idle")
-            return root.projects[index].id
-        }
-
-        let project = ProjectRef(
-            name: projectName,
-            path: standardized.path,
-            lastOpenedAt: Date(),
+        let metadata = WorkspaceProjectMetadata(
             instructions: ProjectInstructionLoader.load(from: standardized),
             localActions: LocalEnvironmentActionLoader.load(from: standardized),
             extensionManifests: ProjectExtensionManifestLoader.load(from: standardized),
             memories: MemoryNoteLoader.loadProject(from: standardized)
         )
-        root.projects.insert(project, at: 0)
-        root.selectedProjectID = project.id
+        let result = WorkspaceProjectEngine.upsertLocalProject(
+            path: standardized,
+            name: name,
+            metadata: metadata,
+            projects: &root.projects
+        )
+        root.selectedProjectID = result.projectID
         syncTerminalSessionToSelectedProject()
         saveProjects()
         refreshTopBar(agentStatus: "Idle")
-        return project.id
+        return result.projectID
     }
 
     @discardableResult
     public func addSSHProject(_ address: String, name: String? = nil) -> UUID? {
-        guard let connection = ProjectConnection.parseSSH(address) else {
-            lastError = "Use SSH format user@host:/path or ssh://user@host/path."
+        switch WorkspaceProjectEngine.upsertSSHProject(address: address, name: name, projects: &root.projects) {
+        case .failure(let error):
+            lastError = error.message
             return nil
-        }
-        let projectName = name ?? Self.defaultSSHProjectName(for: connection)
-        if let index = root.projects.firstIndex(where: { $0.connection == connection }) {
-            root.projects[index].name = projectName
-            root.projects[index].lastOpenedAt = Date()
-            root.selectedProjectID = root.projects[index].id
+        case .success(let result):
+            root.selectedProjectID = result.projectID
             syncTerminalSessionToSelectedProject()
             saveProjects()
             refreshTopBar(agentStatus: "Idle")
-            return root.projects[index].id
+            return result.projectID
         }
-
-        let project = ProjectRef(
-            name: projectName,
-            path: connection.path,
-            connection: connection,
-            lastOpenedAt: Date(),
-            instructions: [],
-            localActions: [],
-            extensionManifests: [],
-            memories: []
-        )
-        root.projects.insert(project, at: 0)
-        root.selectedProjectID = project.id
-        syncTerminalSessionToSelectedProject()
-        saveProjects()
-        refreshTopBar(agentStatus: "Idle")
-        return project.id
     }
 
     public func selectProject(_ id: UUID?) {
-        if let id {
-            guard root.projects.contains(where: { $0.id == id }) else { return }
-        }
-        root.selectedProjectID = id
+        guard let selection = WorkspaceProjectEngine.selectionAfterSelectingProject(
+            id,
+            projects: root.projects,
+            threads: root.threads
+        ) else { return }
+        root.selectedProjectID = selection.projectID
         syncTerminalSessionToSelectedProject()
-        refreshProjectMetadata(id)
-        touchProject(id)
-        root.selectedThreadID = root.threads
-            .filter { !$0.isArchived && $0.projectID == id }
-            .sorted { $0.updatedAt > $1.updatedAt }
-            .first?
-            .id
+        refreshProjectMetadata(selection.projectID)
+        touchProject(selection.projectID)
+        root.selectedThreadID = selection.threadID
         saveProjects()
         refreshTopBar(agentStatus: "Idle")
     }
 
     @discardableResult
     public func renameProject(_ id: UUID, to name: String) -> Bool {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty,
-              let index = root.projects.firstIndex(where: { $0.id == id })
-        else {
+        guard WorkspaceProjectEngine.renameProject(id, to: name, projects: &root.projects) else {
             return false
         }
-        root.projects[index].name = trimmed
-        root.projects[index].lastOpenedAt = Date()
         saveProjects()
         refreshTopBar(agentStatus: "Idle")
         return true
@@ -2129,19 +2089,23 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func removeProject(_ id: UUID) -> Bool {
-        guard let index = root.projects.firstIndex(where: { $0.id == id }) else {
+        var projects = root.projects
+        var threads = root.threads
+        guard let result = WorkspaceProjectEngine.removeProject(
+            id,
+            projects: &projects,
+            threads: &threads,
+            selectedProjectID: root.selectedProjectID
+        ) else {
             return false
         }
-        root.projects.remove(at: index)
-        for threadIndex in root.threads.indices where root.threads[threadIndex].projectID == id {
-            root.threads[threadIndex].projectID = nil
-            try? threadStore?.save(root.threads[threadIndex])
+        root.projects = projects
+        root.threads = threads
+        for threadID in result.changedThreadIDs {
+            guard let thread = root.threads.first(where: { $0.id == threadID }) else { continue }
+            try? threadStore?.save(thread)
         }
-        if root.selectedProjectID == id {
-            root.selectedProjectID = nil
-        } else {
-            root.selectedProjectID = knownProjectID(root.selectedProjectID)
-        }
+        root.selectedProjectID = result.selectedProjectID
         syncTerminalSessionToSelectedProject()
         saveProjects()
         refreshTopBar(agentStatus: "Idle")
@@ -4998,18 +4962,14 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func selectBestThread(afterRemoving ids: [UUID], preferredProjectID: UUID?) {
-        let removedIDs = Set(ids)
-        let preferred = root.threads
-            .filter { !$0.isArchived && !removedIDs.contains($0.id) && $0.projectID == preferredProjectID }
-            .sorted { $0.updatedAt > $1.updatedAt }
-            .first
-        let fallback = preferred ?? root.threads
-            .filter { !$0.isArchived && !removedIDs.contains($0.id) }
-            .sorted { $0.updatedAt > $1.updatedAt }
-            .first
-
-        root.selectedThreadID = fallback?.id
-        root.selectedProjectID = knownProjectID(fallback?.projectID ?? preferredProjectID)
+        let selection = WorkspaceProjectEngine.selectionAfterRemovingThreads(
+            ids,
+            preferredProjectID: preferredProjectID,
+            projects: root.projects,
+            threads: root.threads
+        )
+        root.selectedThreadID = selection.threadID
+        root.selectedProjectID = selection.projectID
         syncTerminalSessionToSelectedProject()
     }
 
@@ -5080,16 +5040,7 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func touchProject(_ id: UUID?) {
-        guard let id, let index = root.projects.firstIndex(where: { $0.id == id }) else { return }
-        root.projects[index].lastOpenedAt = Date()
-    }
-
-    private func refreshProjectInstructions(_ id: UUID?) {
-        guard let id, let index = root.projects.firstIndex(where: { $0.id == id }) else { return }
-        guard !root.projects[index].isRemote else { return }
-        let rootURL = URL(fileURLWithPath: root.projects[index].path)
-        root.projects[index].instructions = ProjectInstructionLoader.load(from: rootURL)
-        root.projects[index].memories = MemoryNoteLoader.loadProject(from: rootURL)
+        WorkspaceProjectEngine.touchProject(id, projects: &root.projects)
     }
 
     private func refreshProjectMetadata(_ id: UUID?) {
@@ -5097,10 +5048,13 @@ public final class QuillCodeWorkspaceModel {
         guard let id, let index = root.projects.firstIndex(where: { $0.id == id }) else { return }
         guard !root.projects[index].isRemote else { return }
         let rootURL = URL(fileURLWithPath: root.projects[index].path)
-        root.projects[index].instructions = ProjectInstructionLoader.load(from: rootURL)
-        root.projects[index].localActions = LocalEnvironmentActionLoader.load(from: rootURL)
-        root.projects[index].extensionManifests = ProjectExtensionManifestLoader.load(from: rootURL)
-        root.projects[index].memories = MemoryNoteLoader.loadProject(from: rootURL)
+        let metadata = WorkspaceProjectMetadata(
+            instructions: ProjectInstructionLoader.load(from: rootURL),
+            localActions: LocalEnvironmentActionLoader.load(from: rootURL),
+            extensionManifests: ProjectExtensionManifestLoader.load(from: rootURL),
+            memories: MemoryNoteLoader.loadProject(from: rootURL)
+        )
+        WorkspaceProjectEngine.applyMetadata(metadata, to: id, projects: &root.projects, includeLocalExtensions: true)
     }
 
     private func refreshRemoteProjectContext(_ id: UUID) -> Bool {
@@ -5116,10 +5070,13 @@ public final class QuillCodeWorkspaceModel {
                 connection: root.projects[index].connection,
                 executor: sshRemoteShellExecutor
             )
-            root.projects[index].instructions = context.instructions
-            root.projects[index].memories = context.memories
-            root.projects[index].localActions = []
-            root.projects[index].extensionManifests = []
+            let metadata = WorkspaceProjectMetadata(
+                instructions: context.instructions,
+                localActions: [],
+                extensionManifests: [],
+                memories: context.memories
+            )
+            WorkspaceProjectEngine.applyMetadata(metadata, to: id, projects: &root.projects, includeLocalExtensions: false)
             lastError = nil
             return true
         } catch {
@@ -5200,8 +5157,7 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func knownProjectID(_ id: UUID?) -> UUID? {
-        guard let id, root.projects.contains(where: { $0.id == id }) else { return nil }
-        return id
+        WorkspaceProjectEngine.knownProjectID(id, projects: root.projects)
     }
 
     private func saveProjects() {
@@ -5213,21 +5169,11 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private static func defaultProjectName(for url: URL) -> String {
-        let lastPathComponent = url.lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
-        return lastPathComponent.isEmpty ? url.path : lastPathComponent
+        WorkspaceProjectEngine.defaultProjectName(for: url)
     }
 
     private static func defaultSSHProjectName(for connection: ProjectConnection) -> String {
-        let pathName = URL(fileURLWithPath: connection.path).lastPathComponent
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let host = connection.host?.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let host, !host.isEmpty, !pathName.isEmpty {
-            return "\(host) · \(pathName)"
-        }
-        if let host, !host.isEmpty {
-            return host
-        }
-        return connection.displayLabel
+        WorkspaceProjectEngine.defaultSSHProjectName(for: connection)
     }
 
     private static func normalizedBrowserURL(_ rawValue: String, workspaceRoot: URL?) -> URL? {
