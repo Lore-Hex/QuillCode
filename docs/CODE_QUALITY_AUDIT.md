@@ -26,7 +26,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but settings copy/compatibility, runtime issue classification, model catalog presentation, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are now extracted into focused files. Next step is extracting additional surface-family builders only when behavior grows. |
-| `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but tool-card/artifact preview HTML now delegates to `WorkspaceHTMLToolCardRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another pane family only when renderer drift appears. |
+| `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another pane family only when renderer drift appears. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
 | `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback and project-import resolution now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
@@ -800,3 +800,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceHTMLRenderer.swift` still owns several pane renderers because it is the static harness composition point. Keep extracting whole pane families only when they gain enough behavior to risk drifting from SwiftUI.
+
+## 2026-06-23 HTML Terminal Renderer Pass
+
+Overall grade after this slice: **A- foundation, A static HTML terminal boundary**.
+
+Static HTML terminal pane rendering, terminal entry rendering, execution-context chip placement, stdout/stderr previews, and terminal status CSS mapping moved out of `WorkspaceHTMLRenderer.swift` into `WorkspaceHTMLTerminalRenderer.swift`. The static harness still composes the whole workspace document, but terminal-specific HTML now has a focused owner like tool cards.
+
+Code quality changes:
+
+- Added `WorkspaceHTMLTerminalRenderer` as the focused owner for terminal pane HTML.
+- Reused `WorkspaceHTMLPrimitives` for terminal escaping and execution-context chip markup.
+- Reduced `WorkspaceHTMLRenderer.swift` by another terminal-pane block while preserving the same `terminal-*` test IDs used by Playwright and surface tests.
+- Added a parity gate so terminal pane rendering and status-class mapping do not drift back into the monolithic HTML renderer.
+
+Remaining risk:
+
+- Browser, extensions, memories, and activity pane rendering still live in `WorkspaceHTMLRenderer.swift`. Extract the next pane family only when it gains enough behavior to justify its own renderer.
