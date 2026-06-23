@@ -10,6 +10,11 @@ async function openTopBarOverflow(page: Page) {
   await expect(page.getByTestId('top-bar-overflow-menu')).toHaveAttribute('open', '');
 }
 
+async function openTopBarStatus(page: Page) {
+  await page.getByTestId('top-bar-status-button').click();
+  await expect(page.getByTestId('top-bar-status-menu')).toHaveAttribute('open', '');
+}
+
 async function openSidebarTools(page: Page) {
   await page.getByTestId('sidebar-tools-button').click();
   await expect(page.getByTestId('sidebar-tools-menu')).toHaveAttribute('open', '');
@@ -325,7 +330,7 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(transcriptPolish.sidebarMenuHeight).toBeGreaterThanOrEqual(40);
 });
 
-test('mock harness bounds top bar status clusters under long labels', async ({ page }) => {
+test('mock harness keeps status details compact under long labels', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 760 });
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
@@ -341,6 +346,7 @@ test('mock harness bounds top bar status clusters under long labels', async ({ p
   await page.getByTestId('agent-status').evaluate(element => {
     element.textContent = 'Idle';
   });
+  await openTopBarStatus(page);
 
   const metrics = await page.evaluate(() => {
     const styleFor = (selector: string) => getComputedStyle(document.querySelector(selector)!);
@@ -349,6 +355,7 @@ test('mock harness bounds top bar status clusters under long labels', async ({ p
     const agent = document.querySelector('[data-testid="agent-status"]')!;
     const topBarRect = rectFor('[data-testid="top-bar"]');
     const actionRect = rectFor('[data-testid="top-bar-action-cluster"]');
+    const statusRect = rectFor('[data-testid="top-bar-status-popover"]');
     return {
       viewportWidth: document.documentElement.clientWidth,
       scrollWidth: document.documentElement.scrollWidth,
@@ -360,9 +367,10 @@ test('mock harness bounds top bar status clusters under long labels', async ({ p
       instructionWidth: instruction.getBoundingClientRect().width,
       instructionScrollWidth: instruction.scrollWidth,
       agentText: agent.textContent,
-      agentFlexShrink: styleFor('[data-testid="agent-status"]').flexShrink,
       agentWidth: agent.getBoundingClientRect().width,
       agentScrollWidth: agent.scrollWidth,
+      statusRight: statusRect.right,
+      statusWidth: statusRect.width,
       actionRight: actionRect.right,
       topBarRight: topBarRect.right
     };
@@ -376,8 +384,9 @@ test('mock harness bounds top bar status clusters under long labels', async ({ p
   expect(metrics.instructionTextOverflow).toBe('ellipsis');
   expect(metrics.instructionScrollWidth).toBeGreaterThan(metrics.instructionWidth);
   expect(metrics.agentText).toBe('Idle');
-  expect(metrics.agentFlexShrink).toBe('0');
   expect(metrics.agentWidth).toBeLessThanOrEqual(12);
+  expect(metrics.statusWidth).toBeLessThanOrEqual(340);
+  expect(metrics.statusRight).toBeLessThanOrEqual(metrics.viewportWidth);
   expect(metrics.actionRight).toBeLessThanOrEqual(metrics.topBarRight);
 });
 

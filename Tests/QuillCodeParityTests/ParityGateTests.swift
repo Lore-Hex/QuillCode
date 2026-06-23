@@ -1008,7 +1008,7 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(topBarText.contains("enum WorkspaceHTMLTopBarRenderer"), "HTML top-bar rendering should live in a focused renderer.")
         XCTAssertTrue(topBarText.contains("static func render(_ topBar: TopBarSurface"), "HTML top-bar rendering should expose a directly testable entry point.")
         XCTAssertTrue(topBarText.contains("private static func renderPrimaryCluster"), "Model/mode cluster rendering should live beside top-bar HTML.")
-        XCTAssertTrue(topBarText.contains("private static func renderContextCluster"), "Status cluster rendering should live beside top-bar HTML.")
+        XCTAssertTrue(topBarText.contains("private static func renderStatusCluster"), "Status cluster rendering should live beside top-bar HTML.")
         XCTAssertTrue(topBarText.contains("private static func renderActionCluster"), "Overflow cluster rendering should live beside top-bar HTML.")
         XCTAssertTrue(topBarText.contains("private static func renderRuntimeIssuePill"), "Runtime issue pill rendering should live beside top-bar HTML.")
         XCTAssertTrue(topBarText.contains("TopBarOverflowCommandCatalog.commands"), "Top-bar overflow should use the shared command catalog.")
