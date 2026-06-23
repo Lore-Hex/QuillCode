@@ -17,10 +17,10 @@ public struct QuillCodeWorkspaceView: View {
     public var onAddBrowserComment: (String) -> Void
     public var onAddProjectRequested: () -> Void
     public var onSelectThread: (UUID) -> Void
-    public var onThreadAction: (SidebarItemActionSurface) -> Void
+    public var onThreadAction: (WorkspaceThreadRowMutation) -> Void
     public var onRenameThread: (UUID, String) -> Void
     public var onSelectProject: (UUID?) -> Void
-    public var onProjectAction: (ProjectItemActionSurface) -> Void
+    public var onProjectAction: (WorkspaceProjectRowMutation) -> Void
     public var onRenameProject: (UUID, String) -> Void
     public var onSetMode: (AgentMode) -> Void
     public var onSetModel: (String) -> Void
@@ -65,10 +65,10 @@ public struct QuillCodeWorkspaceView: View {
         onAddBrowserComment: @escaping (String) -> Void,
         onAddProjectRequested: @escaping () -> Void,
         onSelectThread: @escaping (UUID) -> Void,
-        onThreadAction: @escaping (SidebarItemActionSurface) -> Void,
+        onThreadAction: @escaping (WorkspaceThreadRowMutation) -> Void,
         onRenameThread: @escaping (UUID, String) -> Void,
         onSelectProject: @escaping (UUID?) -> Void,
-        onProjectAction: @escaping (ProjectItemActionSurface) -> Void,
+        onProjectAction: @escaping (WorkspaceProjectRowMutation) -> Void,
         onRenameProject: @escaping (UUID, String) -> Void,
         onSetMode: @escaping (AgentMode) -> Void,
         onSetModel: @escaping (String) -> Void,
@@ -351,21 +351,32 @@ public struct QuillCodeWorkspaceView: View {
     }
 
     private func handleThreadAction(_ action: SidebarItemActionSurface) {
-        if action.kind == .rename,
-           let item = surface.sidebar.items.first(where: { $0.id == action.threadID }) {
-            renameThreadDraft = QuillCodeThreadRenameDraft(threadID: item.id, title: item.title)
-            return
-        }
-        onThreadAction(action)
+        guard let action = WorkspaceSidebarRowActionPlanner(
+            sidebar: surface.sidebar,
+            projects: surface.projects
+        ).action(for: action) else { return }
+        handleSidebarRowAction(action)
     }
 
     private func handleProjectAction(_ action: ProjectItemActionSurface) {
-        if action.kind == .rename,
-           let item = surface.projects.items.first(where: { $0.id == action.projectID }) {
-            renameProjectDraft = QuillCodeProjectRenameDraft(projectID: item.id, name: item.name)
-            return
+        guard let action = WorkspaceSidebarRowActionPlanner(
+            sidebar: surface.sidebar,
+            projects: surface.projects
+        ).action(for: action) else { return }
+        handleSidebarRowAction(action)
+    }
+
+    private func handleSidebarRowAction(_ action: WorkspaceSidebarRowAction) {
+        switch action {
+        case let .renameThread(threadID, title):
+            renameThreadDraft = QuillCodeThreadRenameDraft(threadID: threadID, title: title)
+        case let .mutateThread(mutation):
+            onThreadAction(mutation)
+        case let .renameProject(projectID, name):
+            renameProjectDraft = QuillCodeProjectRenameDraft(projectID: projectID, name: name)
+        case let .mutateProject(mutation):
+            onProjectAction(mutation)
         }
-        onProjectAction(action)
     }
 
     private func handleCommand(_ command: WorkspaceCommandSurface) {

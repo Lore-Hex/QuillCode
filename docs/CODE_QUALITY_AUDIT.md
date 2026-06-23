@@ -1246,3 +1246,22 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModel` still executes the typed effects directly because those effects are actor-bound and touch persistence, thread stores, top-bar refresh, terminal state, and browser state. If effect execution grows, split it into a tiny executor that returns persistence intents instead of moving planner logic back into the model.
+
+## 2026-06-23 Sidebar Row Action Planner Pass
+
+Overall grade after this slice: **A- foundation, A row-action boundary**.
+
+Sidebar row action routing moved out of `WorkspaceSwiftUIView` and `QuillCodeDesktopController` into `WorkspaceSidebarRowActionPlanner` plus `WorkspaceSidebarRowMutationExecutor`. Before this pass, SwiftUI performed thread/project title lookups for rename sheets while the desktop controller separately switched duplicate, pin, archive, delete, new-chat, refresh, and remove actions into model calls.
+
+Code quality changes:
+
+- Added typed `WorkspaceThreadRowMutation` and `WorkspaceProjectRowMutation` values for non-rename row actions.
+- Added `WorkspaceSidebarRowActionPlanner` for thread/project rename lookup and row-action-to-mutation mapping.
+- Added `WorkspaceSidebarRowMutationExecutor` as the desktop/model boundary for applying typed row mutations.
+- Updated the SwiftUI shell to open rename sheets or forward typed mutations without direct row-title lookups.
+- Updated the desktop controller to delegate row mutations instead of switching over row action enums.
+- Added direct planner/executor tests and a parity gate to keep row action routing out of the view and controller.
+
+Remaining risk:
+
+- `WorkspaceSidebarRowMutationExecutor` still calls high-level model methods directly. If row action mutations need richer previews or batched persistence, move them behind a pure mutation result boundary rather than adding UI-specific branches back to the controller.
