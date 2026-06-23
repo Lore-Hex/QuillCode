@@ -72,21 +72,8 @@ final class QuillCodeDesktopController: ObservableObject {
         refresh()
     }
 
-    func runThreadAction(_ action: SidebarItemActionSurface) {
-        switch action.kind {
-        case .rename:
-            break
-        case .duplicate:
-            _ = model.duplicateThread(action.threadID)
-        case .pin, .unpin:
-            model.togglePinThread(action.threadID)
-        case .archive:
-            model.archiveThread(action.threadID)
-        case .unarchive:
-            model.unarchiveThread(action.threadID)
-        case .delete:
-            model.deleteThread(action.threadID)
-        }
+    func runThreadAction(_ mutation: WorkspaceThreadRowMutation) {
+        WorkspaceSidebarRowMutationExecutor.execute(mutation, model: model)
         refresh()
     }
 
@@ -100,17 +87,8 @@ final class QuillCodeDesktopController: ObservableObject {
         refresh()
     }
 
-    func runProjectAction(_ action: ProjectItemActionSurface) {
-        switch action.kind {
-        case .newChat:
-            _ = model.newChat(projectID: action.projectID)
-        case .refreshContext:
-            _ = model.refreshProjectContext(action.projectID)
-        case .rename:
-            break
-        case .remove:
-            _ = model.removeProject(action.projectID)
-        }
+    func runProjectAction(_ mutation: WorkspaceProjectRowMutation) {
+        WorkspaceSidebarRowMutationExecutor.execute(mutation, model: model)
         refresh()
     }
 

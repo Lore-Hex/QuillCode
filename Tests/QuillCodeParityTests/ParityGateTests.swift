@@ -347,6 +347,24 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("WorkspaceThreadLifecycleEngine.deleteThreads"), "WorkspaceModel should not execute sidebar bulk delete mutations inline.")
     }
 
+    func testSidebarRowActionsUseSharedPlannerAndExecutor() throws {
+        let workspaceViewText = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
+        let plannerText = try Self.appSourceText(named: "WorkspaceSidebarRowActionPlanner.swift")
+        let desktopControllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+
+        XCTAssertTrue(plannerText.contains("enum WorkspaceThreadRowMutation"), "Thread row mutations should have typed values.")
+        XCTAssertTrue(plannerText.contains("enum WorkspaceProjectRowMutation"), "Project row mutations should have typed values.")
+        XCTAssertTrue(plannerText.contains("struct WorkspaceSidebarRowActionPlanner"), "Sidebar row action planning should live in a focused planner.")
+        XCTAssertTrue(plannerText.contains("struct WorkspaceSidebarRowMutationExecutor"), "Sidebar row mutations should execute through a focused desktop/model boundary.")
+        XCTAssertTrue(workspaceViewText.contains("WorkspaceSidebarRowActionPlanner("), "WorkspaceSwiftUIView should delegate row action planning.")
+        XCTAssertTrue(workspaceViewText.contains("handleSidebarRowAction"), "WorkspaceSwiftUIView should execute typed row actions.")
+        XCTAssertTrue(desktopControllerText.contains("WorkspaceSidebarRowMutationExecutor.execute"), "Desktop controller should delegate row mutations.")
+        XCTAssertFalse(workspaceViewText.contains("action.kind == .rename"), "WorkspaceSwiftUIView should not inline rename row lookup.")
+        XCTAssertFalse(workspaceViewText.contains("surface.sidebar.items.first(where:"), "WorkspaceSwiftUIView should not lookup thread row titles directly.")
+        XCTAssertFalse(workspaceViewText.contains("surface.projects.items.first(where:"), "WorkspaceSwiftUIView should not lookup project row names directly.")
+        XCTAssertFalse(desktopControllerText.contains("switch action.kind"), "Desktop controller should not switch over row action kinds.")
+    }
+
     func testSidebarCommandPresentationIsSharedByNativeAndHTMLSurfaces() throws {
         let presentationText = try Self.appSourceText(named: "QuillCodeSidebarCommandPresentation.swift")
         let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
