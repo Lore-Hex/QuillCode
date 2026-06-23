@@ -35,7 +35,7 @@ public struct QuillCodeRuntimeFactory: Sendable {
 
     public func makeRuntime(config: AppConfig) -> QuillCodeRuntime {
         if forcedMock {
-            return mockRuntime(status: "Mock LLM")
+            return mockRuntime(status: QuillCodeRuntimeStatusLabel.mockLLM)
         }
 
         let sessionStore = sessionStore()
@@ -43,9 +43,9 @@ public struct QuillCodeRuntimeFactory: Sendable {
         guard apiKey != nil || sessionStore.hasAPIKey else {
             switch config.authMode {
             case .oauth:
-                return mockRuntime(status: "Sign in with TrustedRouter")
+                return mockRuntime(status: QuillCodeRuntimeStatusLabel.signInWithTrustedRouter)
             case .developerOverride:
-                return mockRuntime(status: "Developer key needed")
+                return mockRuntime(status: QuillCodeRuntimeStatusLabel.developerKeyNeeded)
             }
         }
 
@@ -66,7 +66,9 @@ public struct QuillCodeRuntimeFactory: Sendable {
                 safety: AutoSafetyReviewer(client: safetyClient)
             ),
             mode: .trustedRouter,
-            statusLabel: config.authMode == .oauth ? "TrustedRouter signed in" : "TrustedRouter ready"
+            statusLabel: config.authMode == .oauth
+                ? QuillCodeRuntimeStatusLabel.trustedRouterSignedIn
+                : QuillCodeRuntimeStatusLabel.trustedRouterReady
         )
     }
 
