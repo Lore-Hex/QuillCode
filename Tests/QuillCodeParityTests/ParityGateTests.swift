@@ -363,6 +363,22 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(htmlText.contains("private static func terminalStatusClass"), "WorkspaceHTMLRenderer should not own terminal status class mapping.")
     }
 
+    func testWorkspaceHTMLRendererDelegatesBrowserRendering() throws {
+        let htmlText = try Self.appSourceText(named: "WorkspaceHTMLRenderer.swift")
+        let browserText = try Self.appSourceText(named: "WorkspaceHTMLBrowserRenderer.swift")
+
+        XCTAssertTrue(browserText.contains("enum WorkspaceHTMLBrowserRenderer"), "HTML browser rendering should live in a focused renderer.")
+        XCTAssertTrue(browserText.contains("static func render(_ browser: BrowserSurface"), "HTML browser rendering should expose a directly testable entry point.")
+        XCTAssertTrue(browserText.contains("private static func renderPreview"), "Browser preview rendering should live beside browser pane HTML.")
+        XCTAssertTrue(browserText.contains("private static func renderSnapshot"), "Browser snapshot rendering should live beside browser pane HTML.")
+        XCTAssertTrue(browserText.contains("private static func renderComment"), "Browser comment rendering should live beside browser pane HTML.")
+        XCTAssertTrue(browserText.contains("WorkspaceHTMLPrimitives.escape"), "Browser renderer should reuse shared HTML escaping.")
+        XCTAssertTrue(htmlText.contains("WorkspaceHTMLBrowserRenderer.render"), "WorkspaceHTMLRenderer should delegate browser rendering.")
+        XCTAssertFalse(htmlText.contains("private static func renderBrowser"), "WorkspaceHTMLRenderer should not own browser pane rendering.")
+        XCTAssertFalse(htmlText.contains("browser-snapshot-outline"), "WorkspaceHTMLRenderer should not own browser snapshot outline markup.")
+        XCTAssertFalse(htmlText.contains("browser-comment"), "WorkspaceHTMLRenderer should not own browser comment markup.")
+    }
+
     func testWorkspaceSurfaceDelegatesReviewSurfaceBuilding() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceReviewSurfaceBuilder.swift")

@@ -26,7 +26,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but settings copy/compatibility, runtime issue classification, model catalog presentation, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are now extracted into focused files. Next step is extracting additional surface-family builders only when behavior grows. |
-| `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another pane family only when renderer drift appears. |
+| `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, browser pane HTML delegates to `WorkspaceHTMLBrowserRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another pane family only when renderer drift appears. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
 | `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback and project-import resolution now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
@@ -816,4 +816,21 @@ Code quality changes:
 
 Remaining risk:
 
-- Browser, extensions, memories, and activity pane rendering still live in `WorkspaceHTMLRenderer.swift`. Extract the next pane family only when it gains enough behavior to justify its own renderer.
+- Browser was the next pane-family extraction candidate after this terminal slice. Keep extracting whole pane families only when they gain enough behavior to justify their own renderer.
+
+## 2026-06-23 HTML Browser Renderer Pass
+
+Overall grade after this slice: **A- foundation, A static HTML browser boundary**.
+
+Static HTML browser pane rendering, preview/empty-state rendering, snapshot metadata rendering, outline/text snippet rendering, and browser comment rendering moved out of `WorkspaceHTMLRenderer.swift` into `WorkspaceHTMLBrowserRenderer.swift`. This matches the existing browser state, browser location, and browser engine boundaries by keeping browser-specific presentation code beside the browser harness renderer instead of the workspace document composer.
+
+Code quality changes:
+
+- Added `WorkspaceHTMLBrowserRenderer` as the focused owner for browser pane HTML.
+- Kept snapshot preview, outline, text snippet, comments, navigation controls, and empty-state markup in one file.
+- Reused `WorkspaceHTMLPrimitives` for escaping so browser harness rendering shares the same HTML escaping path as terminal and tool-card rendering.
+- Added a parity gate so browser preview, snapshot, and comment markup do not drift back into `WorkspaceHTMLRenderer.swift`.
+
+Remaining risk:
+
+- Extensions, memories, automations, review, and activity pane rendering still live in `WorkspaceHTMLRenderer.swift`. Extract another whole pane family when its behavior starts to grow or diverge from the SwiftUI surface.
