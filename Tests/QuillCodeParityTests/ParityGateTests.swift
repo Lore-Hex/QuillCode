@@ -205,6 +205,24 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("summary: \"\\(call.name) running\""), "WorkspaceModel should not construct running tool summaries directly.")
     }
 
+    func testWorkspaceModelDelegatesWorktreeOpenRecords() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let requestsText = try Self.appSourceText(named: "WorkspaceWorktreeRequests.swift")
+        let engineText = try Self.appSourceText(named: "WorkspaceWorktreeOpenEngine.swift")
+
+        XCTAssertTrue(requestsText.contains("public struct WorkspaceWorktreeCreateRequest"), "Worktree create requests should live outside WorkspaceModel.")
+        XCTAssertTrue(requestsText.contains("public struct WorkspaceWorktreeRemoveRequest"), "Worktree remove requests should live outside WorkspaceModel.")
+        XCTAssertTrue(engineText.contains("struct WorkspaceWorktreeOpenEngine"), "Opened-worktree thread construction should live in a focused engine.")
+        XCTAssertTrue(engineText.contains("static func localThread"), "Local worktree handoff records should be directly testable.")
+        XCTAssertTrue(engineText.contains("static func remoteThread"), "SSH Remote worktree handoff records should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceWorktreeOpenEngine.localThread"), "WorkspaceModel should delegate local worktree handoff records.")
+        XCTAssertTrue(modelText.contains("WorkspaceWorktreeOpenEngine.remoteThread"), "WorkspaceModel should delegate SSH Remote worktree handoff records.")
+        XCTAssertTrue(modelText.contains("openCreatedWorktreeThread"), "WorkspaceModel should share selected-thread persistence for local and remote worktrees.")
+        XCTAssertFalse(modelText.contains("title: \"Worktree:"), "WorkspaceModel should not own worktree thread title copy.")
+        XCTAssertFalse(modelText.contains("Opened remote worktree `"), "WorkspaceModel should not own remote worktree transcript copy.")
+        XCTAssertFalse(modelText.contains("Opened worktree `"), "WorkspaceModel should not own local worktree transcript copy.")
+    }
+
     func testWorkspaceModelDelegatesSidebarSelectionTransitions() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let selectionText = try Self.appSourceText(named: "WorkspaceSidebarSelectionEngine.swift")
