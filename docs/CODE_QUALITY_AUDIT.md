@@ -25,7 +25,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | --- | --- | --- |
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
-| `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but settings copy/compatibility, runtime issue classification, model catalog presentation, browser state/presentation contracts, terminal presentation contracts, review presentation contracts, secondary-pane presentation contracts, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are now extracted into focused files. Next step is extracting additional surface-family builders only when behavior grows. |
+| `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but settings copy/compatibility, runtime issue classification, model catalog presentation, browser state/presentation contracts, terminal presentation contracts, review presentation contracts, transcript/composer/context presentation contracts, secondary-pane presentation contracts, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are now extracted into focused files. Next step is extracting project/sidebar/top-bar contracts when their behavior grows. |
 | `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but top-bar HTML delegates to `WorkspaceHTMLTopBarRenderer`, sidebar HTML delegates to `WorkspaceHTMLSidebarRenderer`, tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, review pane HTML delegates to `WorkspaceHTMLReviewRenderer`, secondary pane HTML delegates to `WorkspaceHTMLSecondaryPaneRenderer`, browser pane HTML delegates to `WorkspaceHTMLBrowserRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another transcript/composer family only when renderer drift appears. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
 | `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback and project-import resolution now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
@@ -922,7 +922,7 @@ Code quality changes:
 
 Remaining risk:
 
-- The aggregate `WorkspaceSurface.swift` still carries foundational value records such as project list, top bar, sidebar, message, and composer surfaces. That is acceptable while they stay compact; extract each family when its presentation helpers or compatibility decoding grows.
+- The aggregate `WorkspaceSurface.swift` still carries foundational value records such as project list, top bar, and sidebar surfaces. That is acceptable while they stay compact; extract each family when its presentation helpers or compatibility decoding grows.
 
 ## 2026-06-23 Secondary Pane Surface Contract Pass
 
@@ -939,7 +939,7 @@ Code quality changes:
 
 Remaining risk:
 
-- Message/composer and project/sidebar/top-bar records still live in `WorkspaceSurface.swift`; extract those families when their presentation logic grows beyond compact Codable contracts.
+- Project/sidebar/top-bar records still live in `WorkspaceSurface.swift`; extract those families when their presentation logic grows beyond compact Codable contracts.
 
 ## 2026-06-23 Terminal Surface Contract Pass
 
@@ -956,7 +956,7 @@ Code quality changes:
 
 Remaining risk:
 
-- Message/composer and project/sidebar/top-bar records still live in `WorkspaceSurface.swift`; extract those families when their presentation logic grows beyond compact Codable contracts.
+- Project/sidebar/top-bar records still live in `WorkspaceSurface.swift`; extract those families when their presentation logic grows beyond compact Codable contracts.
 
 ## 2026-06-23 Review Surface Contract Pass
 
@@ -973,4 +973,21 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceSurface.swift` still owns several foundational value records. The next clean extraction candidates are transcript message/composer contracts or project/sidebar/top-bar contracts, depending on where new product behavior lands.
+- `WorkspaceSurface.swift` still owns project/sidebar/top-bar value records. Those are the next clean extraction candidates when their presentation behavior or compatibility decoding grows.
+
+## 2026-06-23 Transcript Surface Contract Pass
+
+Overall grade after this slice: **A- foundation, A transcript surface boundary**.
+
+Transcript, context-banner, message, and composer presentation records moved out of `WorkspaceSurface.swift` into `QuillCodeTranscriptSurface.swift`, matching the existing `WorkspaceTranscriptSurfaceBuilder`, `WorkspaceContextBannerBuilder`, native transcript/composer/context-banner views, and static HTML transcript renderer boundaries. The aggregate workspace surface still carries transcript, context, and composer slots, but timeline IDs, empty-state copy, context-banner compatibility, message accessibility labels, sendability, and slash suggestion projection now live beside the transcript contract.
+
+Code quality changes:
+
+- Moved `TranscriptSurface`, `TranscriptTimelineItemKind`, `TranscriptTimelineItemSurface`, `ContextBannerSurface`, `MessageSurface`, and `ComposerSurface` into one focused transcript surface file.
+- Kept context-banner backwards-compatible decoding with the transcript-level surface contract instead of the aggregate workspace payload.
+- Added direct transcript surface tests for timeline construction, message accessibility/feedback mapping, composer sendability/slash suggestions, and context-banner compatibility.
+- Added a parity gate so transcript/composer/context-banner records do not drift back into `WorkspaceSurface.swift`.
+
+Remaining risk:
+
+- `WorkspaceSurface.swift` still owns project, top-bar, model, and sidebar value records. Model presentation has a focused builder already; project/sidebar/top-bar contracts are the next extraction candidates when they grow beyond compact Codable records.
