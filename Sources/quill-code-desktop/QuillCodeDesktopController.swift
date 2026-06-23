@@ -24,6 +24,8 @@ final class QuillCodeDesktopController: ObservableObject {
     private let automationNotifier: any QuillCodeAutomationNotifying
     private let workspaceRoot: URL
     private let signInCoordinator: QuillCodeDesktopSignInCoordinator
+    private let settingsCoordinator: QuillCodeDesktopSettingsCoordinator
+    private let systemSettingsOpener: MacSystemSettingsOpener
     private let tasks = QuillCodeDesktopTaskCoordinator()
 
     init(
@@ -37,6 +39,8 @@ final class QuillCodeDesktopController: ObservableObject {
         self.browserPageFetcher = browserPageFetcher
         self.automationNotifier = automationNotifier
         self.signInCoordinator = QuillCodeDesktopSignInCoordinator(bootstrap: bootstrap)
+        self.settingsCoordinator = QuillCodeDesktopSettingsCoordinator(bootstrap: bootstrap)
+        self.systemSettingsOpener = MacSystemSettingsOpener()
         do {
             self.model = try bootstrap.makeModel()
         } catch {
@@ -130,19 +134,19 @@ final class QuillCodeDesktopController: ObservableObject {
 
     func setMode(_ mode: AgentMode) {
         model.setMode(mode)
-        persistConfig()
+        settingsCoordinator.persist(model.root.config)
         refresh()
     }
 
     func setModel(_ modelID: String) {
         model.setModel(modelID)
-        persistConfig()
+        settingsCoordinator.persist(model.root.config)
         refresh()
     }
 
     func toggleModelFavorite(_ modelID: String) {
         model.toggleModelFavorite(modelID)
-        persistConfig()
+        settingsCoordinator.persist(model.root.config)
         refresh()
     }
 
@@ -153,27 +157,15 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func saveSettings(_ update: WorkspaceSettingsUpdate) {
-        var config = model.root.config
-        config.apiBaseURL = update.apiBaseURL
-        config.authMode = update.authMode
-        config.developerOverrideEnabled = update.developerOverrideEnabled || update.authMode == .developerOverride
-        if update.shouldClearAPIKey {
-            try? bootstrap.clearTrustedRouterAPIKey()
-            config.trustedRouterAccount = nil
-        }
-        if let replacementAPIKey = update.replacementAPIKey {
-            try? bootstrap.saveTrustedRouterAPIKey(replacementAPIKey)
-            config.trustedRouterAccount = nil
-        }
-        if config.authMode == .developerOverride {
-            config.trustedRouterAccount = nil
-        }
-        try? bootstrap.saveConfig(config)
-        model.applySettings(
-            config: config,
-            trustedRouterAPIKeyConfigured: bootstrap.hasTrustedRouterAPIKey()
+        let result = settingsCoordinator.apply(
+            update: update,
+            currentConfig: model.root.config
         )
-        model.applyRuntime(bootstrap.makeRuntime(config: config))
+        model.applySettings(
+            config: result.config,
+            trustedRouterAPIKeyConfigured: result.trustedRouterAPIKeyConfigured
+        )
+        model.applyRuntime(result.runtime)
         refresh()
         Task {
             await refreshModelCatalog()
@@ -221,9 +213,9 @@ final class QuillCodeDesktopController: ObservableObject {
         case "settings", "computer-use-setup":
             openSettings()
         case "computer-use-open-screen-recording":
-            openComputerUseSystemSettings("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+            openComputerUseSystemSettings(.screenRecording)
         case "computer-use-open-accessibility":
-            openComputerUseSystemSettings("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+            openComputerUseSystemSettings(.accessibility)
         case "computer-use-refresh":
             refresh()
         case "stop-all":
@@ -371,11 +363,12 @@ final class QuillCodeDesktopController: ObservableObject {
                 self?.model.setAgentStatus(label, lastError: error)
                 self?.refresh()
             }
+            let settings = settingsCoordinator.result(for: result.config)
             model.applySettings(
-                config: result.config,
-                trustedRouterAPIKeyConfigured: result.trustedRouterAPIKeyConfigured
+                config: settings.config,
+                trustedRouterAPIKeyConfigured: settings.trustedRouterAPIKeyConfigured
             )
-            model.applyRuntime(bootstrap.makeRuntime(config: result.config))
+            model.applyRuntime(settings.runtime)
             refresh()
             await refreshModelCatalog()
         } catch {
@@ -426,13 +419,8 @@ final class QuillCodeDesktopController: ObservableObject {
         }
     }
 
-    private func persistConfig() {
-        try? bootstrap.saveConfig(model.root.config)
-    }
-
-    private func openComputerUseSystemSettings(_ urlString: String) {
-        guard let url = URL(string: urlString) else { return }
-        NSWorkspace.shared.open(url)
+    private func openComputerUseSystemSettings(_ destination: MacSystemSettingsOpener.Destination) {
+        systemSettingsOpener.open(destination)
         refresh()
     }
 }
