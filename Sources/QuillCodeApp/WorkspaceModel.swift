@@ -1048,14 +1048,18 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func submitComposer(workspaceRoot: URL) async {
-        let prompt = composer.draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prompt.isEmpty else { return }
-
-        if let command = SlashCommandParser.parse(prompt) {
+        let submissionPlan = WorkspaceComposerSubmissionPlanner.plan(draft: composer.draft)
+        let prompt: String
+        switch submissionPlan {
+        case .ignore:
+            return
+        case .slash(let command, let originalPrompt):
             composer.draft = ""
             lastError = nil
-            handleSlashCommand(command, originalPrompt: prompt, workspaceRoot: workspaceRoot)
+            handleSlashCommand(command, originalPrompt: originalPrompt, workspaceRoot: workspaceRoot)
             return
+        case .agent(let plannedPrompt):
+            prompt = plannedPrompt
         }
 
         if selectedThread == nil {
@@ -1084,17 +1088,17 @@ public final class QuillCodeWorkspaceModel {
                 mcpToolExecutionOverride: mcpRuntime.executionOverride(extensions: extensions),
                 sshRemoteShellExecutor: sshRemoteShellExecutor
             ).configuredRunner(from: runner)
-            let result = try await activeRunner.send(
-                prompt,
-                in: thread,
-                workspaceRoot: workspaceRoot,
-                onProgress: { [weak self] progressThread in
-                    await self?.applyAgentProgress(progressThread, expectedThreadID: threadID)
-                }
+            let session = WorkspaceAgentSendSession(
+                prompt: prompt,
+                thread: thread,
+                runner: activeRunner,
+                workspaceRoot: workspaceRoot
             )
-            try Task.checkCancellation()
+            let result = try await session.run { [weak self] progressThread in
+                await self?.applyAgentProgress(progressThread, expectedThreadID: threadID)
+            }
             thread = result.thread
-            if WorkspaceMemoryRememberToolExecutor.didSaveMemory(in: thread) {
+            if result.savedMemory {
                 refreshThreadMemoryContext(&thread)
             }
             updateThreadFromAgentRun(thread)
