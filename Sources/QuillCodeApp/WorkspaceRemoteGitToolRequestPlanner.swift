@@ -58,28 +58,14 @@ enum WorkspaceRemoteGitToolRequestPlanner {
             )
         case let name where WorkspaceRemoteGitHubPullRequestCommandBuilder.toolNames.contains(name):
             command = try WorkspaceRemoteGitHubPullRequestCommandBuilder.command(for: call, arguments: args)
-        case ToolDefinition.gitWorktreeList.name:
-            command = "git worktree list --porcelain"
-        case ToolDefinition.gitWorktreeCreate.name:
-            let worktreePath = try WorkspaceRemoteProjectPath.worktreePath(
-                try args.requiredString("path"),
+        case let name where WorkspaceRemoteGitWorktreeCommandBuilder.toolNames.contains(name):
+            let worktreePlan = try WorkspaceRemoteGitWorktreeCommandBuilder.plan(
+                for: call,
+                arguments: args,
                 connection: connection
             )
-            command = try remoteGitWorktreeCreateCommand(
-                worktreePath: worktreePath,
-                branch: args.string("branch"),
-                base: args.string("base")
-            )
-            artifacts = [WorkspaceRemoteProjectPath.artifactPath(connection: connection, absolutePath: worktreePath)]
-        case ToolDefinition.gitWorktreeRemove.name:
-            let worktreePath = try WorkspaceRemoteProjectPath.worktreePath(
-                try args.requiredString("path"),
-                connection: connection
-            )
-            command = remoteGitWorktreeRemoveCommand(
-                worktreePath: worktreePath,
-                force: args.bool("force") ?? false
-            )
+            command = worktreePlan.command
+            artifacts = worktreePlan.artifacts
         default:
             throw WorkspaceRemoteGitToolRequestPlannerError.unsupportedTool(call.name)
         }
@@ -111,34 +97,6 @@ enum WorkspaceRemoteGitToolRequestPlanner {
             "test -n \"$branch\" || { printf '%s\\n' \(shellSingleQuoted(String(describing: GitToolError.noCurrentBranch))) >&2; exit 1; }",
             "case \"$branch\" in -*|*..*|*[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._/-]*) printf '%s\\n' \(invalidBranchMessage) >&2; exit 1;; esac",
             "git push \(upstreamArguments)\(shellSingleQuoted(remoteName)) \"$branch\""
-        ].joined(separator: " && ")
-    }
-
-    private static func remoteGitWorktreeCreateCommand(
-        worktreePath: String,
-        branch: String?,
-        base: String?
-    ) throws -> String {
-        var arguments = ["git", "worktree", "add"]
-        if let branch = GitInputValidator.trimmedNonEmpty(branch) {
-            arguments += ["-b", try GitInputValidator.safeName(branch)]
-        }
-        arguments.append(worktreePath)
-        if let base = GitInputValidator.trimmedNonEmpty(base) {
-            arguments.append(try GitInputValidator.safeName(base))
-        }
-        return arguments.map(shellSingleQuoted).joined(separator: " ")
-    }
-
-    private static func remoteGitWorktreeRemoveCommand(
-        worktreePath: String,
-        force: Bool
-    ) -> String {
-        let forceFlag = force ? " --force" : ""
-        return [
-            "worktree=\(shellSingleQuoted(worktreePath))",
-            "git worktree list --porcelain | grep -F -x -- \"worktree $worktree\" >/dev/null || { printf 'Git worktree is not registered: %s\\n' \"$worktree\" >&2; exit 1; }",
-            "git worktree remove\(forceFlag) -- \"$worktree\""
         ].joined(separator: " && ")
     }
 

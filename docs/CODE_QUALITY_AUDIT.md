@@ -1974,6 +1974,23 @@ Remaining risk:
 
 - `WorkspaceRemoteGitToolRequestPlanner.swift` still owns remote hunk and worktree command assembly. Those boundaries are stable for now, but future transport work should extract them if QuillCloud relay or non-SSH transports need the same command plans.
 
+## 2026-06-23 SSH Remote Worktree Builder Split
+
+Overall grade after this slice: **A architecture, A remote worktree boundary, A regression coverage**.
+
+SSH Remote git worktree command construction moved out of `WorkspaceRemoteGitToolRequestPlanner.swift` and into `WorkspaceRemoteGitWorktreeCommandBuilder.swift`. Before this pass, the generic remote git planner still owned worktree list/create/remove command assembly, sibling path normalization orchestration, and create-artifact reporting. The planner now delegates worktree tools to a focused builder and remains responsible only for routing remote git command families plus hunk/push behavior that has not yet grown enough to split.
+
+Code quality changes:
+
+- Added `WorkspaceRemoteGitWorktreeCommandBuilder` and `WorkspaceRemoteGitWorktreePlan` for list/create/remove commands and artifact intent.
+- Kept remote worktree path normalization and SSH artifact labels behind the builder boundary.
+- Reduced `WorkspaceRemoteGitToolRequestPlanner` to routing plus remaining push/hunk planning.
+- Added direct worktree-builder tests and parity gates that prevent worktree command assembly from drifting back into the generic remote git planner.
+
+Remaining risk:
+
+- Remote hunk patch transport and push-current-branch shell guards still live in `WorkspaceRemoteGitToolRequestPlanner.swift`. Those are smaller, stable seams today; extract them if future remote transports need to reuse the same plans.
+
 ## 2026-06-23 Explicit Mode Control Pass
 
 Overall grade after this slice: **A UI hierarchy, A regression coverage, B+ interaction depth**.
