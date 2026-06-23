@@ -25,7 +25,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | --- | --- | --- |
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
-| `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but settings copy/compatibility, runtime issue classification, model catalog presentation, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are now extracted into focused files. Next step is extracting additional surface-family builders only when behavior grows. |
+| `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but settings copy/compatibility, runtime issue classification, model catalog presentation, browser state/presentation contracts, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are now extracted into focused files. Next step is extracting additional surface-family builders only when behavior grows. |
 | `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but top-bar HTML delegates to `WorkspaceHTMLTopBarRenderer`, sidebar HTML delegates to `WorkspaceHTMLSidebarRenderer`, tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, review pane HTML delegates to `WorkspaceHTMLReviewRenderer`, secondary pane HTML delegates to `WorkspaceHTMLSecondaryPaneRenderer`, browser pane HTML delegates to `WorkspaceHTMLBrowserRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another transcript/composer family only when renderer drift appears. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
 | `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback and project-import resolution now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
@@ -906,3 +906,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceHTMLRenderer.swift` still owns transcript message, context banner, runtime issue panel, and composer rendering. Those are the remaining transcript-level concerns; extract them only when behavior grows enough to justify another focused renderer.
+
+## 2026-06-23 Browser Surface Contract Pass
+
+Overall grade after this slice: **A- foundation, A browser surface boundary**.
+
+Browser presentation records moved out of `WorkspaceSurface.swift` into `QuillCodeBrowserSurface.swift`, beside the existing browser state records. This keeps browser state, snapshot state, comment state, and the corresponding UI-facing surface contracts in one focused browser file instead of splitting the feature family between the aggregate workspace payload and the browser state file.
+
+Code quality changes:
+
+- Moved `BrowserSurface`, `BrowserSnapshotSurface`, and `BrowserCommentSurface` beside `BrowserState`, `BrowserSnapshotState`, and `BrowserCommentState`.
+- Kept browser snapshot compatibility decoding beside the snapshot state it represents.
+- Left `WorkspaceSurface.swift` responsible only for carrying the aggregate `browser` slot and constructing it from `BrowserState`.
+- Added parity gates so browser presentation records do not drift back into `WorkspaceSurface.swift`.
+
+Remaining risk:
+
+- Terminal, extensions, memories, automations, and review still have surface records inside `WorkspaceSurface.swift`. That is acceptable while they stay compact Codable contracts; extract the next family when it gains compatibility decoding or presentation helper logic.
