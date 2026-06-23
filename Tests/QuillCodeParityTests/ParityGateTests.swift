@@ -266,6 +266,17 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(agentText.contains("private static func browserInspectionAnswer"), "AgentRunner should not own browser final-answer formatting.")
     }
 
+    func testMockLLMClientLivesOutsideAgentRunnerFile() throws {
+        let agentText = try Self.agentSourceText(named: "Agent.swift")
+        let mockText = try Self.agentSourceText(named: "MockLLMClient.swift")
+
+        XCTAssertTrue(mockText.contains("public struct MockLLMClient"), "The deterministic mock LLM client should live in its own file.")
+        XCTAssertTrue(mockText.contains("extractPullRequestArguments"), "Mock PR parsing heuristics should stay with the mock client.")
+        XCTAssertTrue(mockText.contains("AgentRunner.finalAnswer"), "Mock tool feedback should still reuse the production final-answer contract.")
+        XCTAssertFalse(agentText.contains("public struct MockLLMClient"), "Agent.swift should not own mock LLM planning.")
+        XCTAssertFalse(agentText.contains("extractPullRequestArguments"), "Agent.swift should not own mock PR parsing heuristics.")
+    }
+
     func testWorkspaceModelDelegatesComposerCancellationPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceComposerCancellationPlanner.swift")

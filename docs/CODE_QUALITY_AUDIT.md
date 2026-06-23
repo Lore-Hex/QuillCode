@@ -1712,3 +1712,20 @@ Remaining risk:
 
 - `Agent.swift` is still the largest agent-layer file and still owns prompt planning, streaming action parsing, safety review sequencing, repeated-tool fallback, and execution orchestration. The next agent-layer quality passes should extract the heuristic action planner and streaming action decoder before adding richer Codex parity features.
 - `AgentFinalAnswerBuilder` intentionally preserves existing copy, including concise shell special cases. Richer long-output UX, structured command result summaries, and tool-card expansion controls should evolve through this builder rather than adding response-copy branches back to `AgentRunner`.
+
+## 2026-06-23 Mock LLM Client File Split
+
+Overall grade after this slice: **A- architecture, A deterministic mock boundary**.
+
+The deterministic `MockLLMClient` moved out of `Agent.swift` into `MockLLMClient.swift`. Before this pass, the main agent file looked like it owned hundreds of lines of mock-only command heuristics and PR parsing, even though that code exists to support local smoke tests, mock CLI mode, and deterministic UI harness behavior. The runner file now keeps agent contracts, streaming preview helpers, run orchestration, and result types; mock planning lives beside the agent module but outside the runner file.
+
+Code quality changes:
+
+- Moved `MockLLMClient` and its deterministic command/PR parsing helpers into a dedicated source file without changing the public `MockLLMClient` API.
+- Preserved the mock feedback path through `AgentRunner.finalAnswer(...)` so mock tool loops still exercise the production final-answer contract.
+- Added a parity gate so mock command heuristics and PR argument extraction do not drift back into `Agent.swift`.
+
+Remaining risk:
+
+- `MockLLMClient` is still a broad deterministic planner. It is acceptable as a mock/testing boundary, but if it grows further it should split into smaller intent planners, especially PR parsing versus shell/file/git convenience planning.
+- `Agent.swift` remains broad after this pass. The next structural target should be streaming action decoding or repeated-tool fallback, both of which are production runner responsibilities rather than mock-only code.
