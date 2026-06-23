@@ -26,7 +26,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but settings copy/compatibility, runtime issue classification, model catalog presentation, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are now extracted into focused files. Next step is extracting additional surface-family builders only when behavior grows. |
-| `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, secondary pane HTML delegates to `WorkspaceHTMLSecondaryPaneRenderer`, browser pane HTML delegates to `WorkspaceHTMLBrowserRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another pane family only when renderer drift appears. |
+| `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, review pane HTML delegates to `WorkspaceHTMLReviewRenderer`, secondary pane HTML delegates to `WorkspaceHTMLSecondaryPaneRenderer`, browser pane HTML delegates to `WorkspaceHTMLBrowserRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another shell family only when renderer drift appears. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
 | `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback and project-import resolution now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
@@ -852,4 +852,21 @@ Code quality changes:
 
 Remaining risk:
 
-- Review pane rendering still lives in `WorkspaceHTMLRenderer.swift`. It is the next obvious static HTML extraction candidate if diff-review markup grows.
+- Sidebar, top-bar, transcript message, context banner, runtime issue, and composer rendering still live in `WorkspaceHTMLRenderer.swift`. Extract another whole shell family only when behavior grows enough to justify the extra file.
+
+## 2026-06-23 HTML Review Renderer Pass
+
+Overall grade after this slice: **A- foundation, A static HTML review boundary**.
+
+Static HTML review pane rendering, file rows, hunk rows, diff lines, inline review comments, and review action buttons moved out of `WorkspaceHTMLRenderer.swift` into `WorkspaceHTMLReviewRenderer.swift`. This mirrors the native `QuillCodeReviewPaneView` boundary and keeps diff-specific markup away from the transcript/document composer.
+
+Code quality changes:
+
+- Added `WorkspaceHTMLReviewRenderer` as the focused owner for Git review pane HTML.
+- Kept review file, hunk, line, inline comment, and action markup in one file.
+- Reused `WorkspaceHTMLPrimitives` for escaping so review HTML shares the same escaping path as tool-card, terminal, browser, and secondary-pane rendering.
+- Added a parity gate so review hunk/line/action markup does not drift back into `WorkspaceHTMLRenderer.swift`.
+
+Remaining risk:
+
+- `WorkspaceHTMLRenderer.swift` still owns top bar, sidebar, transcript message, context banner, runtime issue, and composer rendering. Those are now shell-level concerns; extract them only when they begin to grow or diverge from the SwiftUI shell.
