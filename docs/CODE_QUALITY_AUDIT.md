@@ -1079,3 +1079,21 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModel.swift` still owns the broader tool dispatch sequence: context refresh, router selection, remote execution, follow-up diff collection, persistence, and top-bar status. Those are good candidates for a later orchestration planner once the public behavior is even more heavily covered.
+
+## 2026-06-23 Worktree Open Engine Pass
+
+Overall grade after this slice: **A- foundation, A worktree handoff boundary**.
+
+Worktree request values and successful worktree handoff thread construction moved out of `WorkspaceModel.swift`. The model still owns the important side effects: running the git worktree tool, registering the resulting local or SSH Remote project, selecting the new project/thread, syncing the terminal session, persisting project/thread stores, and refreshing the top bar. The pure transcript contract for the new `Worktree: ...` thread now lives in `WorkspaceWorktreeOpenEngine` with direct tests.
+
+Code quality changes:
+
+- Moved `WorkspaceWorktreeCreateRequest` and `WorkspaceWorktreeRemoveRequest` into `WorkspaceWorktreeRequests.swift`.
+- Added `WorkspaceWorktreeOpenContext` so mode, model, instructions, and memories are passed explicitly into worktree handoff records.
+- Added focused local and SSH Remote thread builders for display labels, notice payloads, and assistant handoff messages.
+- Added one shared `openCreatedWorktreeThread` path for selecting, touching, saving, and top-bar refreshing after local or remote worktree creation.
+- Added direct engine tests plus a parity gate so worktree handoff copy and request structs do not drift back into `WorkspaceModel.swift`.
+
+Remaining risk:
+
+- Worktree tool argument construction still lives in the workspace model because it is tightly coupled to immediate tool dispatch. If create/remove flows gain more validation or preview UI, move request normalization into a separate planner rather than adding another branch to the model.

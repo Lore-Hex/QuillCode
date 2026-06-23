@@ -21,28 +21,6 @@ public struct ComposerState: Sendable, Hashable {
     }
 }
 
-public struct WorkspaceWorktreeCreateRequest: Sendable, Hashable {
-    public var path: String
-    public var branch: String
-    public var base: String
-
-    public init(path: String, branch: String = "", base: String = "") {
-        self.path = path
-        self.branch = branch
-        self.base = base
-    }
-}
-
-public struct WorkspaceWorktreeRemoveRequest: Sendable, Hashable {
-    public var path: String
-    public var force: Bool
-
-    public init(path: String, force: Bool = false) {
-        self.path = path
-        self.force = force
-    }
-}
-
 public struct MemoriesState: Sendable, Hashable {
     public var isVisible: Bool
 
@@ -1900,35 +1878,11 @@ public final class QuillCodeWorkspaceModel {
         let projectID = addProject(path: worktreeURL, name: Self.defaultProjectName(for: worktreeURL))
         refreshProjectMetadata(projectID)
 
-        let titleLabel = Self.worktreeThreadLabel(request: request, url: worktreeURL)
-        let messageText = "Opened worktree `\(worktreeURL.lastPathComponent)` at `\(worktreeURL.path)`."
-        let message = ChatMessage(role: .assistant, content: messageText)
-        let thread = ChatThread(
-            title: "Worktree: \(titleLabel)",
-            projectID: projectID,
-            mode: root.config.mode,
-            model: root.config.defaultModel,
-            messages: [message],
-            events: [
-                .init(
-                    kind: .notice,
-                    summary: "Opened worktree \(worktreeURL.lastPathComponent)",
-                    payloadJSON: worktreeURL.path
-                ),
-                .init(kind: .message, summary: messageText)
-            ],
-            instructions: instructions(for: projectID),
-            memories: memoryNotes(for: projectID)
+        let opened = WorkspaceWorktreeOpenEngine.localThread(
+            worktreeURL: worktreeURL,
+            context: worktreeOpenContext(projectID: projectID, request: request)
         )
-
-        root.threads.insert(thread, at: 0)
-        root.selectedThreadID = thread.id
-        root.selectedProjectID = projectID
-        syncTerminalSessionToSelectedProject()
-        touchProject(projectID)
-        saveProjects()
-        try? threadStore?.save(thread)
-        refreshTopBar(agentStatus: "Idle")
+        openCreatedWorktreeThread(opened.thread, projectID: projectID)
     }
 
     private func openCreatedRemoteWorktree(_ artifact: String, request: WorkspaceWorktreeCreateRequest) {
@@ -1937,31 +1891,28 @@ public final class QuillCodeWorkspaceModel {
             return
         }
 
-        let titleLabel = Self.worktreeThreadLabel(request: request, path: connection.path)
-        let pathName = URL(fileURLWithPath: connection.path).lastPathComponent
-        let displayName = pathName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? connection.displayLabel
-            : pathName
-        let messageText = "Opened remote worktree `\(displayName)` at `\(connection.displayLabel)`."
-        let message = ChatMessage(role: .assistant, content: messageText)
-        let thread = ChatThread(
-            title: "Worktree: \(titleLabel)",
+        let opened = WorkspaceWorktreeOpenEngine.remoteThread(
+            connection: connection,
+            context: worktreeOpenContext(projectID: projectID, request: request)
+        )
+        openCreatedWorktreeThread(opened.thread, projectID: projectID)
+    }
+
+    private func worktreeOpenContext(
+        projectID: UUID,
+        request: WorkspaceWorktreeCreateRequest
+    ) -> WorkspaceWorktreeOpenContext {
+        WorkspaceWorktreeOpenContext(
+            request: request,
             projectID: projectID,
             mode: root.config.mode,
             model: root.config.defaultModel,
-            messages: [message],
-            events: [
-                .init(
-                    kind: .notice,
-                    summary: "Opened remote worktree \(displayName)",
-                    payloadJSON: connection.displayLabel
-                ),
-                .init(kind: .message, summary: messageText)
-            ],
             instructions: instructions(for: projectID),
             memories: memoryNotes(for: projectID)
         )
+    }
 
+    private func openCreatedWorktreeThread(_ thread: ChatThread, projectID: UUID) {
         root.threads.insert(thread, at: 0)
         root.selectedThreadID = thread.id
         root.selectedProjectID = projectID
@@ -1970,24 +1921,6 @@ public final class QuillCodeWorkspaceModel {
         saveProjects()
         try? threadStore?.save(thread)
         refreshTopBar(agentStatus: "Idle")
-    }
-
-    private static func worktreeThreadLabel(request: WorkspaceWorktreeCreateRequest, url: URL) -> String {
-        let branch = request.branch.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !branch.isEmpty {
-            return branch
-        }
-        return defaultProjectName(for: url)
-    }
-
-    private static func worktreeThreadLabel(request: WorkspaceWorktreeCreateRequest, path: String) -> String {
-        let branch = request.branch.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !branch.isEmpty {
-            return branch
-        }
-        let lastPathComponent = URL(fileURLWithPath: path).lastPathComponent
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return lastPathComponent.isEmpty ? path : lastPathComponent
     }
 
     @discardableResult
