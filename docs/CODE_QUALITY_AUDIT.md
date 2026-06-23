@@ -1693,3 +1693,22 @@ Remaining risk:
 - The scan is intentionally conservative and source-text based. If Swift syntax grows more complex around optional unwrapping, a future SwiftSyntax-based lint would be stronger.
 - `WorkspaceModelTests.swift` is still very large. New edge-case tests should move into narrower test files when their target boundary is already extracted.
 - `WorkspaceModel.swift` remains the primary architectural hotspot; keep extracting pure planners/reducers before adding more Codex-parity workflows.
+
+## 2026-06-23 Agent Final Answer Builder Pass
+
+Overall grade after this slice: **A- architecture, A final-answer contract, A compatibility posture**.
+
+Agent tool-result final-answer formatting moved out of `AgentRunner` and into `AgentFinalAnswerBuilder`. Before this pass, `Agent.swift` mixed orchestration, streaming, tool execution, safety review, heuristic action planning, and user-visible post-tool response copy in one broad type. `AgentRunner.finalAnswer(...)` now remains as the stable compatibility entry point, but it delegates the actual shell/browser/file/patch/MCP/Computer Use copy rules to a focused builder with direct tests.
+
+Code quality changes:
+
+- Added `AgentFinalAnswerBuilder` for tool-result-to-chat copy.
+- Preserved the existing public `AgentRunner.finalAnswer(...)` API so callers and older tests keep working.
+- Kept special cases for `whoami`, OpenClaw discovery, disk usage, browser inspection, apply-patch review refresh failures, MCP reads/prompts, and Computer Use actions in one directly testable boundary.
+- Added focused builder tests for shell identity copy, OpenClaw discovery copy, and long-output truncation.
+- Added a parity gate so shell/browser final-answer formatting does not drift back into `AgentRunner`.
+
+Remaining risk:
+
+- `Agent.swift` is still the largest agent-layer file and still owns prompt planning, streaming action parsing, safety review sequencing, repeated-tool fallback, and execution orchestration. The next agent-layer quality passes should extract the heuristic action planner and streaming action decoder before adding richer Codex parity features.
+- `AgentFinalAnswerBuilder` intentionally preserves existing copy, including concise shell special cases. Richer long-output UX, structured command result summaries, and tool-card expansion controls should evolve through this builder rather than adding response-copy branches back to `AgentRunner`.
