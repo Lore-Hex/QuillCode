@@ -325,6 +325,30 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(surfaceText.contains("TrustedRouterDefaults.loopbackCallbackURL"), "WorkspaceSurface should not own TrustedRouter sign-in copy.")
     }
 
+    func testWorkspaceHTMLRendererDelegatesToolCardRendering() throws {
+        let htmlText = try Self.appSourceText(named: "WorkspaceHTMLRenderer.swift")
+        let toolCardText = try Self.appSourceText(named: "WorkspaceHTMLToolCardRenderer.swift")
+        let primitivesText = try Self.appSourceText(named: "WorkspaceHTMLPrimitives.swift")
+
+        XCTAssertTrue(toolCardText.contains("enum WorkspaceHTMLToolCardRenderer"), "HTML tool-card rendering should live in a focused renderer.")
+        XCTAssertTrue(toolCardText.contains("static func render(_ card: ToolCardState"), "HTML tool-card rendering should expose a directly testable entry point.")
+        XCTAssertTrue(toolCardText.contains("private static func renderArtifacts"), "Artifact chip rendering should live beside tool-card HTML.")
+        XCTAssertTrue(toolCardText.contains("private static func renderTextPreviews"), "Text-preview rendering should live beside tool-card HTML.")
+        XCTAssertTrue(toolCardText.contains("private static func renderDocumentPreviews"), "Document-preview rendering should live beside tool-card HTML.")
+        XCTAssertTrue(toolCardText.contains("private static func renderImagePreviews"), "Image-preview rendering should live beside tool-card HTML.")
+        XCTAssertTrue(primitivesText.contains("enum WorkspaceHTMLPrimitives"), "Shared HTML primitives should live outside feature renderers.")
+        XCTAssertTrue(primitivesText.contains("static func escape"), "HTML escaping should have one implementation.")
+        XCTAssertTrue(primitivesText.contains("static func executionContextChip"), "Execution-context chip HTML should be shared by tool cards and terminal rows.")
+        XCTAssertTrue(htmlText.contains("WorkspaceHTMLToolCardRenderer.render"), "WorkspaceHTMLRenderer should delegate tool-card rendering.")
+        XCTAssertTrue(htmlText.contains("WorkspaceHTMLPrimitives.executionContextChip"), "WorkspaceHTMLRenderer should reuse shared execution-context chip HTML.")
+        XCTAssertFalse(htmlText.contains("private static func renderToolCard"), "WorkspaceHTMLRenderer should not own tool-card rendering.")
+        XCTAssertFalse(htmlText.contains("private static func renderToolArtifacts"), "WorkspaceHTMLRenderer should not own artifact chip rendering.")
+        XCTAssertFalse(htmlText.contains("private static func renderToolTextPreviews"), "WorkspaceHTMLRenderer should not own text-preview rendering.")
+        XCTAssertFalse(htmlText.contains("private static func renderToolDocumentPreviews"), "WorkspaceHTMLRenderer should not own document-preview rendering.")
+        XCTAssertFalse(htmlText.contains("private static func renderToolImagePreviews"), "WorkspaceHTMLRenderer should not own image-preview rendering.")
+        XCTAssertFalse(htmlText.contains("private static func documentIcon"), "WorkspaceHTMLRenderer should not own document-preview icon labels.")
+    }
+
     func testWorkspaceSurfaceDelegatesReviewSurfaceBuilding() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceReviewSurfaceBuilder.swift")
