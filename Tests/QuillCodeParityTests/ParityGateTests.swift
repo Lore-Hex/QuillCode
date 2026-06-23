@@ -302,6 +302,36 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(surfaceText.contains("filteredModelCategories"), "WorkspaceSurface should not own model picker filtering.")
     }
 
+    func testWorkspaceSurfaceDelegatesSidebarSurfaceContracts() throws {
+        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
+        let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarSurface.swift")
+
+        XCTAssertTrue(sidebarText.contains("public struct ProjectListSurface"), "Project list records should live beside sidebar contracts.")
+        XCTAssertTrue(sidebarText.contains("public struct ProjectItemSurface"), "Project rows should live beside sidebar contracts.")
+        XCTAssertTrue(sidebarText.contains("public enum ProjectItemActionKind"), "Project action labels should live beside sidebar contracts.")
+        XCTAssertTrue(sidebarText.contains("public struct ProjectItemActionSurface"), "Project action records should live beside sidebar contracts.")
+        XCTAssertTrue(sidebarText.contains("public struct SidebarSurface"), "Sidebar aggregate records should live beside sidebar contracts.")
+        XCTAssertTrue(sidebarText.contains("public struct SidebarItemSurface"), "Sidebar item rows should live beside sidebar contracts.")
+        XCTAssertTrue(sidebarText.contains("public enum SidebarBulkActionKind"), "Bulk action labels should live beside sidebar contracts.")
+        XCTAssertTrue(sidebarText.contains("public struct SidebarBulkActionSurface"), "Bulk action command IDs should live beside sidebar contracts.")
+        XCTAssertTrue(sidebarText.contains("public enum SidebarItemActionKind"), "Thread action labels should live beside sidebar contracts.")
+        XCTAssertTrue(sidebarText.contains("public struct SidebarItemActionSurface"), "Thread action records should live beside sidebar contracts.")
+        XCTAssertTrue(sidebarText.contains("filteredItems"), "Sidebar search filtering should be directly testable outside the aggregate workspace surface.")
+        XCTAssertTrue(sidebarText.contains("selectionLabel"), "Sidebar selection copy should be directly testable outside the aggregate workspace surface.")
+        XCTAssertFalse(surfaceText.contains("public struct ProjectListSurface"), "WorkspaceSurface should not own project list surface records.")
+        XCTAssertFalse(surfaceText.contains("public struct ProjectItemSurface"), "WorkspaceSurface should not own project row records.")
+        XCTAssertFalse(surfaceText.contains("public enum ProjectItemActionKind"), "WorkspaceSurface should not own project action labels.")
+        XCTAssertFalse(surfaceText.contains("public struct ProjectItemActionSurface"), "WorkspaceSurface should not own project action records.")
+        XCTAssertFalse(surfaceText.contains("public struct SidebarSurface"), "WorkspaceSurface should not own sidebar aggregate records.")
+        XCTAssertFalse(surfaceText.contains("public struct SidebarItemSurface"), "WorkspaceSurface should not own sidebar item rows.")
+        XCTAssertFalse(surfaceText.contains("public enum SidebarBulkActionKind"), "WorkspaceSurface should not own bulk action labels.")
+        XCTAssertFalse(surfaceText.contains("public struct SidebarBulkActionSurface"), "WorkspaceSurface should not own bulk action records.")
+        XCTAssertFalse(surfaceText.contains("public enum SidebarItemActionKind"), "WorkspaceSurface should not own thread action labels.")
+        XCTAssertFalse(surfaceText.contains("public struct SidebarItemActionSurface"), "WorkspaceSurface should not own thread action records.")
+        XCTAssertFalse(surfaceText.contains("filteredItems"), "WorkspaceSurface should not own sidebar search filtering.")
+        XCTAssertFalse(surfaceText.contains("selectionLabel(count:"), "WorkspaceSurface should not own sidebar selection copy.")
+    }
+
     func testWorkspaceSurfaceDelegatesCommandSurfaceBuilding() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceCommandSurfaceBuilder.swift")
