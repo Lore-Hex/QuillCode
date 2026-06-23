@@ -1880,45 +1880,42 @@ public final class QuillCodeWorkspaceModel {
 
     private func runRememberSlashCommand(_ content: String, originalPrompt: String) {
         guard let globalMemoryDirectory else {
-            appendLocalCommandTranscript(
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.memoryNotSaved(
                 userText: originalPrompt,
-                assistantText: MemoryNoteWriteError.unavailable.localizedDescription,
-                title: "Memory not saved"
-            )
+                message: WorkspaceMemoryRememberToolExecutor.userFacingError(MemoryNoteWriteError.unavailable)
+            ))
             return
         }
 
         do {
             let saved = try WorkspaceMemoryRememberToolExecutor.saveGlobal(content: content, to: globalMemoryDirectory)
             let note = saved.note
+            let savedSummary = WorkspaceSlashCommandTranscriptPlanner.memorySavedSummary(noteTitle: note.title)
             root.globalMemories = MemoryNoteLoader.loadGlobal(from: globalMemoryDirectory)
             let projectID = selectedThread?.projectID ?? root.selectedProjectID
             let refreshedMemories = memoryNotes(for: projectID)
-            appendLocalCommandTranscript(
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.memorySaved(
                 userText: originalPrompt,
-                assistantText: "Saved memory: \(note.title). It will be included as background context in future turns.",
-                title: "Memory: \(note.title)"
-            )
+                noteTitle: note.title
+            ))
             mutateSelectedThread { thread in
                 thread.memories = refreshedMemories
                 thread.events.append(ThreadEvent(
                     kind: .notice,
-                    summary: "Saved memory: \(note.title)",
+                    summary: savedSummary,
                     payloadJSON: note.relativePath
                 ))
             }
         } catch let error as MemoryNoteWriteError {
-            appendLocalCommandTranscript(
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.memoryNotSaved(
                 userText: originalPrompt,
-                assistantText: error.localizedDescription,
-                title: "Memory not saved"
-            )
+                message: WorkspaceMemoryRememberToolExecutor.userFacingError(error)
+            ))
         } catch {
-            appendLocalCommandTranscript(
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.memoryNotSaved(
                 userText: originalPrompt,
-                assistantText: MemoryNoteWriteError.writeFailed.localizedDescription,
-                title: "Memory not saved"
-            )
+                message: WorkspaceMemoryRememberToolExecutor.userFacingError(MemoryNoteWriteError.writeFailed)
+            ))
         }
     }
 
