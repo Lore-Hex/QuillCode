@@ -17,9 +17,11 @@ struct WorkspaceMCPFinishResult: Sendable, Hashable {
 
 final class WorkspaceMCPRuntime: @unchecked Sendable {
     private var processes: [String: WorkspaceMCPProcessHandle]
+    private let launcher: any WorkspaceMCPServerLaunching
 
-    init() {
+    init(launcher: any WorkspaceMCPServerLaunching = DefaultWorkspaceMCPServerLauncher()) {
         self.processes = [:]
+        self.launcher = launcher
     }
 
     deinit {
@@ -38,8 +40,7 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
 
     func terminateAllRunningProcesses() {
         for handle in processes.values where handle.process.isRunning {
-            handle.standardOutput.fileHandleForReading.readabilityHandler = nil
-            handle.standardError.fileHandleForReading.readabilityHandler = nil
+            handle.process.clearReadabilityHandlers()
             handle.process.terminate()
         }
         processes.removeAll()
@@ -51,22 +52,26 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
         extensions: inout ExtensionsState,
         onTermination: @escaping @MainActor @Sendable (_ id: String, _ terminationStatus: Int32) -> Void
     ) -> WorkspaceMCPRuntimeResult {
-        guard manifest.isEnabled else {
+        let launchRequest: WorkspaceMCPLaunchRequest
+        do {
+            launchRequest = try WorkspaceMCPLaunchRequest.make(
+                manifest: manifest,
+                workspaceRoot: workspaceRoot
+            )
+        } catch let error as WorkspaceMCPLaunchRequestError {
             extensions.mcpServerStatuses[manifest.id] = .failed
             return WorkspaceMCPRuntimeResult(
                 ok: false,
-                errorMessage: "\(manifest.name) is disabled.",
+                errorMessage: error.localizedDescription,
                 agentStatus: nil
             )
-        }
-        guard let command = manifest.launchExecutable,
-              !command.isEmpty
-        else {
+        } catch {
             extensions.mcpServerStatuses[manifest.id] = .failed
             return WorkspaceMCPRuntimeResult(
                 ok: false,
-                errorMessage: "\(manifest.name) does not define a launch command.",
-                agentStatus: nil
+                errorMessage: "Could not validate \(manifest.name): \(error.localizedDescription)",
+                notice: "MCP server \(manifest.name) failed to start",
+                agentStatus: "Failed"
             )
         }
         if let handle = processes[manifest.id], handle.process.isRunning {
@@ -76,36 +81,13 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
             return WorkspaceMCPRuntimeResult(ok: true, agentStatus: "Idle")
         }
 
-        let process = Process()
-        process.currentDirectoryURL = workspaceRoot
-        let arguments = manifest.launchArguments ?? []
-        if command.contains("/") {
-            let commandURL = command.hasPrefix("/")
-                ? URL(fileURLWithPath: command)
-                : workspaceRoot.appendingPathComponent(command)
-            process.executableURL = commandURL
-            process.arguments = arguments
-        } else {
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = [command] + arguments
-        }
-
-        let standardInput = Pipe()
-        let standardOutput = Pipe()
-        let standardError = Pipe()
-        process.standardInput = standardInput
-        process.standardOutput = standardOutput
-        process.standardError = standardError
-        process.terminationHandler = { process in
-            standardOutput.fileHandleForReading.readabilityHandler = nil
-            standardError.fileHandleForReading.readabilityHandler = nil
-            Task { @MainActor in
-                onTermination(manifest.id, process.terminationStatus)
-            }
-        }
+        let launchedServer: WorkspaceMCPLaunchedServer
 
         do {
-            try process.run()
+            launchedServer = try launcher.launch(
+                request: launchRequest,
+                onTermination: onTermination
+            )
         } catch {
             extensions.mcpServerStatuses[manifest.id] = .failed
             return WorkspaceMCPRuntimeResult(
@@ -116,38 +98,27 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
             )
         }
 
-        let session = MCPStdioProber(
-            standardInput: standardInput.fileHandleForWriting,
-            standardOutput: standardOutput.fileHandleForReading
-        )
         processes[manifest.id] = WorkspaceMCPProcessHandle(
-            process: process,
-            standardInput: standardInput,
-            standardOutput: standardOutput,
-            standardError: standardError,
-            session: session
+            process: launchedServer.process,
+            session: launchedServer.session
         )
         extensions.mcpServerStatuses[manifest.id] = .probing
         extensions.mcpServerProbeSummaries[manifest.id] = nil
 
         do {
-            let result = try session.probe(timeout: 2.0)
+            let result = try launchedServer.session.probe(timeout: 2.0)
             extensions.mcpServerStatuses[manifest.id] = .ready
             extensions.mcpServerProbeSummaries[manifest.id] = MCPServerProbeSummary(result: result)
-            standardError.fileHandleForReading.readabilityHandler = { handle in
-                _ = handle.availableData
-            }
+            launchedServer.process.startDrainingStandardError()
             return WorkspaceMCPRuntimeResult(
                 ok: true,
                 notice: "MCP server \(manifest.name) ready\(Self.probeNoticeSuffix(for: result))",
                 agentStatus: "Idle"
             )
         } catch {
-            standardOutput.fileHandleForReading.readabilityHandler = nil
-            standardError.fileHandleForReading.readabilityHandler = nil
-            process.terminationHandler = nil
-            if process.isRunning {
-                process.terminate()
+            launchedServer.process.clearReadabilityHandlers()
+            if launchedServer.process.isRunning {
+                launchedServer.process.terminate()
             }
             processes[manifest.id] = nil
             let message = error.localizedDescription
@@ -240,7 +211,7 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
     }
 
     static func executionOverride(
-        sessions: [String: MCPStdioProber],
+        sessions: [String: any WorkspaceMCPSession],
         summaries: [String: MCPServerProbeSummary]
     ) -> AgentToolExecutionOverride? {
         let allowedTools = summaries.mapValues { Set($0.toolNames) }
@@ -263,7 +234,8 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
                     }
                     return try session.callTool(
                         toolName: request.toolName,
-                        argumentsJSON: request.toolArgumentsJSON
+                        argumentsJSON: request.toolArgumentsJSON,
+                        timeout: 10.0
                     )
 
                 case ToolDefinition.mcpReadResource.name:
@@ -277,7 +249,7 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
                             error: "MCP resource \(request.resourceIdentifier) was not advertised by \(request.serverID)."
                         )
                     }
-                    return try session.readResource(uri: uri)
+                    return try session.readResource(uri: uri, timeout: 10.0)
 
                 case ToolDefinition.mcpGetPrompt.name:
                     let request = try MCPPromptGetRequest(argumentsJSON: call.argumentsJSON)
@@ -292,7 +264,8 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
                     }
                     return try session.getPrompt(
                         name: request.promptName,
-                        argumentsJSON: request.promptArgumentsJSON
+                        argumentsJSON: request.promptArgumentsJSON,
+                        timeout: 10.0
                     )
 
                 default:
@@ -327,8 +300,7 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
 
     private func stopProcess(id: String) {
         if let handle = processes[id], handle.process.isRunning {
-            handle.standardOutput.fileHandleForReading.readabilityHandler = nil
-            handle.standardError.fileHandleForReading.readabilityHandler = nil
+            handle.process.clearReadabilityHandlers()
             handle.process.terminate()
         }
         processes[id] = nil
@@ -344,23 +316,14 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
 }
 
 private final class WorkspaceMCPProcessHandle: @unchecked Sendable {
-    let process: Process
-    let standardInput: Pipe
-    let standardOutput: Pipe
-    let standardError: Pipe
-    let session: MCPStdioProber
+    let process: any WorkspaceMCPProcessControlling
+    let session: any WorkspaceMCPSession
 
     init(
-        process: Process,
-        standardInput: Pipe,
-        standardOutput: Pipe,
-        standardError: Pipe,
-        session: MCPStdioProber
+        process: any WorkspaceMCPProcessControlling,
+        session: any WorkspaceMCPSession
     ) {
         self.process = process
-        self.standardInput = standardInput
-        self.standardOutput = standardOutput
-        self.standardError = standardError
         self.session = session
     }
 }
