@@ -309,6 +309,22 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(surfaceText.contains("GitDiffReviewParser.parse"), "WorkspaceSurface should not parse git diffs directly.")
     }
 
+    func testWorkspaceModelDelegatesReviewCommentPlanning() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let plannerText = try Self.appSourceText(named: "WorkspaceReviewCommentPlanner.swift")
+
+        XCTAssertTrue(plannerText.contains("public struct WorkspaceReviewCommentState"), "Review comment payload state should live beside the planner.")
+        XCTAssertTrue(plannerText.contains("struct WorkspaceReviewCommentPlanner"), "Review comment event construction should live in a focused planner.")
+        XCTAssertTrue(plannerText.contains("static func event"), "Review comment planning should be directly testable.")
+        XCTAssertTrue(plannerText.contains("private static func normalizedRange"), "Review line-range normalization should be isolated in the planner.")
+        XCTAssertTrue(plannerText.contains("private static func rangeExists"), "Review range validation should be isolated in the planner.")
+        XCTAssertTrue(modelText.contains("WorkspaceReviewCommentPlanner.event"), "WorkspaceModel should delegate review comment planning.")
+        XCTAssertFalse(modelText.contains("WorkspaceReviewCommentState: Codable"), "WorkspaceModel should not own review comment payload state.")
+        XCTAssertFalse(modelText.contains("normalizedReviewRange"), "WorkspaceModel should not own review line-range normalization.")
+        XCTAssertFalse(modelText.contains("reviewRangeExists"), "WorkspaceModel should not own review range validation.")
+        XCTAssertFalse(modelText.contains("JSONHelpers.encodePretty(comment)"), "WorkspaceModel should not own review comment payload encoding.")
+    }
+
     func testWorkspaceSurfaceDelegatesContextBannerBuilding() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceContextBannerBuilder.swift")

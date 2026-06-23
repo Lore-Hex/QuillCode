@@ -16,14 +16,14 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `QuillCodeSafety` | A- | Small, explicit policy layer. Needs more production prompt telemetry once live Auto reviewer tuning begins. |
 | `QuillCodePersistence` | A | Focused stores, compatibility tests, and clear path ownership. |
 | `QuillComputerUseKit` | B+ | Protocol shape is good and macOS adapter is isolated. Linux adapter, app approvals, and visual feedback loops are still parity gaps. |
-| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, command, review, context banner, transcript projection, execution-context enrichment, browser location/state transitions, MCP launch/session creation, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
+| `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Runtime issue, model catalog, command, review, review-comment planning, context banner, transcript projection, execution-context enrichment, browser location/state transitions, MCP launch/session creation, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
 | Playwright harness | B+ | Valuable parity harness with broad coverage. It intentionally duplicates rendering behavior, so keep it thin and derived from stable surface concepts. |
 
 ## File Hotspots
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, review-comment planning, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | B+ | The shell is now mostly composition, state, and routing. Next step is moving remaining transcript/find/context-banner rendering or command-routing helpers out if they grow again. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is still large, but runtime issue classification, model catalog presentation, command palette construction, review diff construction, context banner estimation, and transcript message projection are now extracted into pure builders. Next step is extracting additional surface-family builders only when behavior grows. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
@@ -584,6 +584,23 @@ Code quality changes:
 Remaining risk:
 
 - Browser history, fetch refresh, and comment creation still live together in `WorkspaceModel`. If browser interaction grows toward live DOM sessions or signed-in browser profiles, those side effects should move behind a browser workflow coordinator before adding more state branches.
+
+## 2026-06-23 Review Comment Planner Pass
+
+Overall grade after this slice: **A- foundation, A review-comment boundary**.
+
+Review comment payload state, path/text trimming, visible-diff-file validation, line-range normalization, range existence checks, summary formatting, and `ThreadEvent` payload encoding moved out of `WorkspaceModel.swift` into `WorkspaceReviewCommentPlanner`. The workspace model still owns the selected-thread guard, event append, thread persistence, and top-bar refresh, but the review-comment rules are now directly tested without constructing the full workspace model.
+
+Code quality changes:
+
+- Moved `WorkspaceReviewCommentState` out of the workspace model and beside the planner that creates it.
+- Added direct planner tests for file comments, line comments, reversed ranges, line-kind checks, stale files, blank input, invalid zero-line comments, partial ranges, and missing range lines.
+- Tightened review-comment behavior so invalid supplied line ranges are rejected instead of silently becoming file-level comments.
+- Extended parity gates so `WorkspaceModel.swift` cannot regain review-comment payload state, range normalization, range validation, or JSON payload encoding.
+
+Remaining risk:
+
+- Review action dispatch still lives in `WorkspaceModel` because it executes git tools, appends tool cards, refreshes diffs, and persists selected-thread state. If review workflows grow into staged review sessions or PR comment publication, add a review workflow coordinator instead of expanding the model.
 
 ## 2026-06-23 Browser Engine Pass
 
