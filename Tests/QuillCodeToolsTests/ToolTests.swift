@@ -714,6 +714,32 @@ final class ToolTests: XCTestCase {
         XCTAssertThrowsError(try GitToolExecutor.safePullRequestSelector("--web"))
     }
 
+    func testGitHubPullRequestHelpersNormalizeInputsAndExtractURLs() throws {
+        XCTAssertNil(try GitHubPullRequestInputValidator.safeSelector(" \n "))
+        XCTAssertEqual(try GitHubPullRequestInputValidator.safeSelector("  123  "), "123")
+        XCTAssertEqual(
+            try GitHubPullRequestInputValidator.safeReviewers(["alice", "alice", "org/team", "@copilot"]),
+            ["alice", "org/team", "@copilot"]
+        )
+        XCTAssertEqual(
+            try GitHubPullRequestInputValidator.safeLabels(["merge-train", "bug", "merge-train"]),
+            ["merge-train", "bug"]
+        )
+        XCTAssertEqual(try GitHubPullRequestInputValidator.safeReviewFlag("request-change"), "--request-changes")
+        XCTAssertEqual(try GitHubPullRequestInputValidator.safeMergeFlag(nil), "--squash")
+        XCTAssertEqual(try GitHubPullRequestInputValidator.safeMergeFlag("merge-commit"), "--merge")
+        XCTAssertEqual(
+            GitHubPullRequestOutputParser.extractURLs(from: "created https://github.com/example/repo/pull/12 ok"),
+            ["https://github.com/example/repo/pull/12"]
+        )
+
+        XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeSelector("--json"))
+        XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeReviewer("bad user"))
+        XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeLabel("bad,label"))
+        XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeReviewFlag("ship-it"))
+        XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeMergeFlag("octopus"))
+    }
+
     func testGitInputValidatorNormalizesSharedGitInputs() throws {
         let root = try makeTempDirectory()
 
