@@ -1136,7 +1136,7 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
 
         let router = ToolRouter(workspaceRoot: workspaceRoot)
-        let actionCall = action.toolCall
+        let actionCall = WorkspaceReviewActionToolCallPlanner.toolCall(for: action)
         let executor = workspaceToolCallExecutor(router: router)
         let actionResult = executor.executePrimary(actionCall)
         appendToolRun(call: actionCall, result: actionResult)
@@ -2134,37 +2134,4 @@ public final class QuillCodeWorkspaceModel {
         WorkspaceProjectEngine.defaultSSHProjectName(for: connection)
     }
 
-}
-
-private extension WorkspaceReviewActionSurface {
-    var toolCall: ToolCall {
-        switch kind {
-        case .stage:
-            return ToolCall(
-                name: ToolDefinition.gitStage.name,
-                argumentsJSON: ToolArguments.json(["path": path])
-            )
-        case .restore:
-            return ToolCall(
-                name: ToolDefinition.gitRestore.name,
-                argumentsJSON: ToolArguments.json(["path": path])
-            )
-        case .stageHunk:
-            return ToolCall(
-                name: ToolDefinition.gitStageHunk.name,
-                argumentsJSON: ToolArguments.json([
-                    "path": path,
-                    "patch": patch ?? ""
-                ])
-            )
-        case .restoreHunk:
-            return ToolCall(
-                name: ToolDefinition.gitRestoreHunk.name,
-                argumentsJSON: ToolArguments.json([
-                    "path": path,
-                    "patch": patch ?? ""
-                ])
-            )
-        }
-    }
 }
