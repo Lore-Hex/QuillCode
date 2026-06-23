@@ -7,80 +7,84 @@ struct QuillCodeTopBarView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            identityCluster
-                .layoutPriority(3)
-
-            Spacer(minLength: 10)
-
+        ZStack(alignment: .bottom) {
             HStack(spacing: 12) {
-                statusIndicator
+                contextLabel
+                    .layoutPriority(1)
+
+                threadTitle
+                    .layoutPriority(3)
+
                 commandMenu
+                    .layoutPriority(2)
             }
-            .frame(minWidth: 0, alignment: .trailing)
+            .padding(.horizontal, 14)
+            .frame(minHeight: QuillCodeMetrics.topBarHeight)
+
+            if showsActivityHairline {
+                Rectangle()
+                    .fill(activityHairlineColor)
+                    .frame(height: 2)
+                    .accessibilityHidden(true)
+            }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(QuillCodePalette.panel)
+        .background(QuillCodePalette.background)
+        .help(topBarHelp)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(topBarAccessibilityLabel)
     }
 
-    private var identityCluster: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(topBar.primaryTitle)
-                .font(.headline)
-                .lineLimit(1)
-                .truncationMode(.tail)
-            Text(topBar.subtitle)
-                .font(.caption)
-                .foregroundStyle(QuillCodePalette.muted)
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-        .frame(minWidth: 0, alignment: .leading)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(topBar.primaryTitle), \(topBar.subtitle)")
+    private var contextLabel: some View {
+        Text(topBar.subtitle)
+            .font(.caption)
+            .foregroundStyle(QuillCodePalette.muted)
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .frame(maxWidth: 240, alignment: .leading)
     }
 
-    private var statusIndicator: some View {
-        let status = topBar.agentStatusPresentation
-        return HStack(spacing: 8) {
-            HStack(spacing: 6) {
-                if status.showsIndicator {
-                    Circle()
-                        .fill(statusColor(for: status.tone))
-                        .frame(width: 8, height: 8)
-                        .accessibilityHidden(true)
-                }
-                Text(status.label)
-                    .font(.caption.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(QuillCodePalette.text.opacity(0.82))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-            .padding(.horizontal, 10)
-            .frame(maxWidth: 170, minHeight: 32)
-            .background(QuillCodePalette.selection.opacity(0.50))
-            .overlay {
-                Capsule()
-                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
-            }
-            .clipShape(Capsule())
-            .help(status.label)
-            .accessibilityLabel(status.accessibilityLabel)
+    private var threadTitle: some View {
+        Text(topBar.primaryTitle)
+            .font(.headline.weight(.semibold))
+            .foregroundStyle(QuillCodePalette.text)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .frame(maxWidth: .infinity, alignment: .center)
+    }
 
-            if let issue = topBar.runtimeIssuePresentation {
-                QuillCodeTopBarPill(
-                    text: issue.label,
-                    systemImage: "exclamationmark.triangle",
-                    tint: runtimeIssueColor(for: issue.tone),
-                    maxWidth: 180,
-                    layoutPriority: 2
-                )
-                .help(issue.label)
-            }
+    private var agentStatus: TopBarStatusPresentation {
+        topBar.agentStatusPresentation
+    }
+
+    private var runtimeIssue: TopBarRuntimeIssuePresentation? {
+        topBar.runtimeIssuePresentation
+    }
+
+    private var showsActivityHairline: Bool {
+        agentStatus.showsIndicator || runtimeIssue != nil
+    }
+
+    private var activityHairlineColor: Color {
+        if let runtimeIssue {
+            return runtimeIssueColor(for: runtimeIssue.tone)
         }
-        .frame(minWidth: 0, alignment: .trailing)
-        .fixedSize(horizontal: true, vertical: false)
+        return statusColor(for: agentStatus.tone)
+    }
+
+    private var topBarHelp: String {
+        var parts = [topBar.subtitle, agentStatus.accessibilityLabel]
+        if let runtimeIssue {
+            parts.append("Issue: \(runtimeIssue.label)")
+        }
+        return parts.joined(separator: ". ")
+    }
+
+    private var topBarAccessibilityLabel: String {
+        var label = "\(topBar.primaryTitle), \(topBar.subtitle), \(agentStatus.accessibilityLabel)"
+        if let runtimeIssue {
+            label += ", issue: \(runtimeIssue.label)"
+        }
+        return label
     }
 
     private func statusColor(for tone: TopBarStatusTone) -> Color {
@@ -131,11 +135,7 @@ struct QuillCodeTopBarView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(QuillCodePalette.muted)
                 .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
-                .background(QuillCodePalette.selection.opacity(0.52))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                }
+                .background(QuillCodePalette.selection.opacity(0.22))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
@@ -206,31 +206,5 @@ struct QuillCodeModePickerButton: View {
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("Choose Auto safety mode")
         .accessibilityLabel("Auto safety mode, \(modeLabel)")
-    }
-}
-
-private struct QuillCodeTopBarPill: View {
-    var text: String
-    var systemImage: String
-    var tint: Color = QuillCodePalette.blue
-    var maxWidth: CGFloat?
-    var layoutPriority: Double = 0
-
-    var body: some View {
-        Label(text, systemImage: systemImage)
-            .font(.caption.monospacedDigit().weight(.medium))
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 6)
-            .frame(maxWidth: maxWidth, minHeight: 32)
-            .layoutPriority(layoutPriority)
-            .background(tint.opacity(0.14))
-            .foregroundStyle(tint)
-            .overlay {
-                Capsule()
-                    .stroke(tint.opacity(0.22), lineWidth: 1)
-            }
-            .clipShape(Capsule())
     }
 }

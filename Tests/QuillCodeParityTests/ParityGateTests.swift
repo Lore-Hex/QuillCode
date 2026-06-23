@@ -523,6 +523,18 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(htmlRendererText.contains("runtimeIssueSeverity?.rawValue"), "HTML renderer should not own runtime issue tone fallback logic.")
     }
 
+    func testNativeTopBarKeepsCodexStyleChromeQuiet() throws {
+        let topBarViewText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
+        let designText = try Self.appSourceText(named: "QuillCodeDesignSystem.swift")
+
+        XCTAssertTrue(topBarViewText.contains("contextLabel"), "Native top bar should preserve a quiet leading context label.")
+        XCTAssertTrue(topBarViewText.contains("threadTitle"), "Native top bar should center the active thread title.")
+        XCTAssertTrue(topBarViewText.contains("showsActivityHairline"), "Native top bar should show run/error state as a subtle hairline instead of another pill.")
+        XCTAssertTrue(designText.contains("static let topBarHeight: CGFloat = 40"), "Native top bar should keep a compact Codex-style height.")
+        XCTAssertFalse(topBarViewText.contains("statusIndicator"), "Native top bar should not reintroduce a permanent status pill.")
+        XCTAssertFalse(topBarViewText.contains("QuillCodeTopBarPill"), "Native top bar should not reintroduce runtime issue pills into the main chrome.")
+    }
+
     func testTopBarAgentStatusLabelsAreSharedByRuntimePaths() throws {
         let appStateText = try Self.appSourceText(named: "AppState.swift")
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
