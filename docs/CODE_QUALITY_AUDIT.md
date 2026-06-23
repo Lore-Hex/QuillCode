@@ -1607,3 +1607,20 @@ Code quality changes:
 Remaining risk:
 
 - Running automations still has actor-bound side effects in `WorkspaceModel`: project refresh, thread insertion, store writes, terminal sync, and top-bar refresh. That is currently the right split, but a future background automation coordinator should return explicit persistence and navigation intents.
+
+## 2026-06-23 Shell Tool Call Planner Pass
+
+Overall grade after this slice: **A- foundation, A local-action shell contract**.
+
+Local environment actions and project extension updates now build `host.shell.run` calls through `WorkspaceShellToolCallPlanner`. Before this pass, `WorkspaceModel` manually assembled command, environment, and timeout dictionaries in two separate paths. That kept a tool-schema detail inside the actor model and made it easier for future changes to drift into empty or malformed shell calls.
+
+Code quality changes:
+
+- Added `WorkspaceShellToolCallPlanner` for local environment action and extension update shell tool calls.
+- Updated `runLocalEnvironmentAction` and `runProjectExtensionUpdate` so `WorkspaceModel` delegates shell-call construction while still owning refresh, tool dispatch, notices, and persistence.
+- Added focused planner tests for command, environment, timeout, optional metadata omission, and blank extension update rejection.
+- Added a parity gate so local action and extension update argument assembly does not drift back into `WorkspaceModel`.
+
+Remaining risk:
+
+- Worktree and low-level file helper paths still construct a few tool calls inside `WorkspaceModel`. Those are narrower and currently tied to immediate UI side effects, but future growth should move each command family through its own typed request planner rather than adding more ad hoc dictionaries.

@@ -1418,18 +1418,8 @@ public final class QuillCodeWorkspaceModel {
         guard let action = localAction(withID: actionID) else {
             return false
         }
-        var arguments: [String: Any] = ["cmd": action.command]
-        if let environment = action.environment {
-            arguments["environment"] = environment
-        }
-        if let timeoutSeconds = action.timeoutSeconds {
-            arguments["timeoutSeconds"] = timeoutSeconds
-        }
         runToolCall(
-            ToolCall(
-                name: ToolDefinition.shellRun.name,
-                argumentsJSON: ToolArguments.json(arguments)
-            ),
+            WorkspaceShellToolCallPlanner.localEnvironmentAction(action),
             workspaceRoot: workspaceRoot
         )
         return true
@@ -1439,21 +1429,13 @@ public final class QuillCodeWorkspaceModel {
     public func runProjectExtensionUpdate(id: String, workspaceRoot: URL) -> Bool {
         refreshProjectMetadata(root.selectedProjectID)
         guard let manifest = selectedProject?.extensionManifests.first(where: { $0.id == id }),
-              let command = manifest.updateCommand,
-              !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+              let toolCall = WorkspaceShellToolCallPlanner.projectExtensionUpdate(manifest)
         else {
             return false
         }
 
-        var arguments: [String: Any] = ["cmd": command]
-        if let timeoutSeconds = manifest.updateTimeoutSeconds {
-            arguments["timeoutSeconds"] = timeoutSeconds
-        }
         let result = runToolCall(
-            ToolCall(
-                name: ToolDefinition.shellRun.name,
-                argumentsJSON: ToolArguments.json(arguments)
-            ),
+            toolCall,
             workspaceRoot: workspaceRoot
         )
         refreshProjectMetadata(root.selectedProjectID)
