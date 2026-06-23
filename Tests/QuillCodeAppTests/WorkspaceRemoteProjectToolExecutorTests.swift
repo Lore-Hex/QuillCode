@@ -237,6 +237,38 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertFalse(request.extractsPullRequestURLs)
     }
 
+    func testRemoteGitHunkBuilderBuildsRestoreCommandAndRejectsEmptyPatch() throws {
+        let patch = """
+        diff --git a/hello.txt b/hello.txt
+        --- a/hello.txt
+        +++ b/hello.txt
+        @@ -1 +1 @@
+        -old
+        +new
+        """
+        let command = try remoteHunkCommand(
+            name: ToolDefinition.gitRestoreHunk.name,
+            arguments: [
+                "path": "hello.txt",
+                "patch": patch
+            ]
+        )
+
+        XCTAssertTrue(command.contains("quillcode-hunk.$$.patch"), command)
+        XCTAssertTrue(command.contains("git apply '--reverse' '--whitespace=nowarn' --check"), command)
+        XCTAssertTrue(command.contains("printf 'Hunk restored.\\n'"), command)
+
+        XCTAssertThrowsError(
+            try remoteHunkCommand(
+                name: ToolDefinition.gitStageHunk.name,
+                arguments: [
+                    "path": "hello.txt",
+                    "patch": "   "
+                ]
+            )
+        )
+    }
+
     func testRemoteGitPlannerRejectsUnsafeWorktreeBranchAndBaseNames() {
         XCTAssertThrowsError(
             try WorkspaceRemoteGitToolRequestPlanner.request(
@@ -309,6 +341,14 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
             for: ToolCall(name: name, argumentsJSON: argumentsJSON),
             arguments: try ToolArguments(argumentsJSON),
             connection: connection
+        )
+    }
+
+    private func remoteHunkCommand(name: String, arguments: [String: Any]) throws -> String {
+        let argumentsJSON = ToolArguments.json(arguments)
+        return try WorkspaceRemoteGitHunkCommandBuilder.command(
+            for: ToolCall(name: name, argumentsJSON: argumentsJSON),
+            arguments: try ToolArguments(argumentsJSON)
         )
     }
 
