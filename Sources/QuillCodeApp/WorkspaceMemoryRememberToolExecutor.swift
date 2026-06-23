@@ -24,7 +24,7 @@ enum WorkspaceMemoryRememberToolExecutor {
         } catch {
             return ToolResult(
                 ok: false,
-                error: userFacingError(error)
+                error: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
             )
         }
     }
@@ -53,14 +53,6 @@ enum WorkspaceMemoryRememberToolExecutor {
             }
             return result.artifacts.contains { $0.hasPrefix("memories/") }
         }
-    }
-
-    static func userFacingError(_ error: Error) -> String {
-        if let localized = (error as? LocalizedError)?.errorDescription,
-           !localized.isEmpty {
-            return localized
-        }
-        return String(describing: error)
     }
 
     private static func decode<T: Decodable>(_ type: T.Type, _ payloadJSON: String?) -> T? {
