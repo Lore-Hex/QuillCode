@@ -269,6 +269,27 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("Unknown slash command"), "WorkspaceModel should not own unknown slash command copy.")
     }
 
+    func testWorkspaceModelDelegatesMemoryCommandTranscriptPlanning() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let plannerText = try Self.appSourceText(named: "WorkspaceMemoryCommandTranscriptPlanner.swift")
+        let errorText = try Self.appSourceText(named: "WorkspaceMemoryErrorMessageBuilder.swift")
+
+        XCTAssertTrue(plannerText.contains("struct WorkspaceMemoryCommandTranscriptPlanner"), "Memory command transcript copy should live in a focused planner.")
+        XCTAssertTrue(errorText.contains("enum WorkspaceMemoryErrorMessageBuilder"), "Memory write and delete errors should share one user-facing formatter.")
+        for delegatedCall in [
+            "WorkspaceMemoryCommandTranscriptPlanner.memoryForgotten",
+            "WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted",
+            "WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary",
+            "WorkspaceMemoryErrorMessageBuilder.userFacingMessage"
+        ] {
+            XCTAssertTrue(modelText.contains(delegatedCall), "WorkspaceModel should delegate \(delegatedCall).")
+        }
+        XCTAssertFalse(modelText.contains("It will no longer be included as background context."), "WorkspaceModel should not own memory delete success copy.")
+        XCTAssertFalse(modelText.contains("Memory not deleted"), "WorkspaceModel should not own memory delete failure title copy.")
+        XCTAssertFalse(modelText.contains("Forgot memory:"), "WorkspaceModel should not own memory delete summary copy.")
+        XCTAssertFalse(modelText.contains("MemoryNoteDeleteError.deleteFailed.localizedDescription"), "WorkspaceModel should not format memory delete errors directly.")
+    }
+
     func testWorkspaceModelDelegatesCommandActionPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceCommandActionPlanner.swift")
