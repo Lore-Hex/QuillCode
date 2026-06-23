@@ -252,6 +252,50 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains(#"{"ok":false,"error":"Stopped by user"}"#), "WorkspaceModel should not own cancelled-send result payload copy.")
     }
 
+    func testWorkspaceModelDelegatesComposerSubmissionPlanning() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let plannerText = try Self.appSourceText(named: "WorkspaceComposerSubmissionPlanner.swift")
+
+        XCTAssertTrue(
+            plannerText.contains("struct WorkspaceComposerSubmissionPlanner"),
+            "Composer submission planning should live in a focused pure planner."
+        )
+        XCTAssertTrue(
+            modelText.contains("WorkspaceComposerSubmissionPlanner.plan"),
+            "WorkspaceModel should delegate prompt trimming and slash-command classification."
+        )
+        XCTAssertFalse(
+            modelText.contains("composer.draft.trimmingCharacters"),
+            "WorkspaceModel should not own raw composer prompt normalization."
+        )
+        XCTAssertFalse(
+            modelText.contains("SlashCommandParser.parse(prompt)"),
+            "WorkspaceModel should not classify slash commands inline."
+        )
+    }
+
+    func testWorkspaceModelDelegatesAgentSendSessionExecution() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let sessionText = try Self.appSourceText(named: "WorkspaceAgentSendSession.swift")
+
+        XCTAssertTrue(
+            sessionText.contains("struct WorkspaceAgentSendSession"),
+            "Agent send execution should live in a focused session object."
+        )
+        XCTAssertTrue(
+            modelText.contains("WorkspaceAgentSendSession("),
+            "WorkspaceModel should delegate runner execution to an agent send session."
+        )
+        XCTAssertFalse(
+            modelText.contains("activeRunner.send("),
+            "WorkspaceModel should not call the runner directly from submitComposer."
+        )
+        XCTAssertFalse(
+            modelText.contains("WorkspaceMemoryRememberToolExecutor.didSaveMemory(in: thread)"),
+            "WorkspaceModel should not inspect completed run memory events inline."
+        )
+    }
+
     func testWorkspaceModelDelegatesSlashCommandTranscriptPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceSlashCommandTranscriptPlanner.swift")
@@ -417,6 +461,19 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("private func browserToolExecutionOverride"), "WorkspaceModel should not own browser tool override assembly.")
         XCTAssertFalse(modelText.contains("private func memoryToolExecutionOverride"), "WorkspaceModel should not own memory tool override assembly.")
         XCTAssertFalse(modelText.contains("private nonisolated static func didSaveMemory"), "WorkspaceModel should not own memory-save event parsing.")
+    }
+
+    func testWorkspaceModelDelegatesAgentSendSession() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let sessionText = try Self.appSourceText(named: "WorkspaceAgentSendSession.swift")
+
+        XCTAssertTrue(sessionText.contains("struct WorkspaceAgentSendSession"), "Agent send lifecycle should live in a focused session.")
+        XCTAssertTrue(sessionText.contains("func run("), "Agent send lifecycle should be directly testable.")
+        XCTAssertTrue(sessionText.contains("runner.send("), "The session should own the runner send call.")
+        XCTAssertTrue(sessionText.contains("WorkspaceMemoryRememberToolExecutor.didSaveMemory"), "The session should report whether the run saved memory.")
+        XCTAssertTrue(modelText.contains("WorkspaceAgentSendSession("), "WorkspaceModel should delegate agent send execution.")
+        XCTAssertFalse(modelText.contains("activeRunner.send("), "WorkspaceModel should not own the low-level send call.")
+        XCTAssertFalse(modelText.contains("WorkspaceMemoryRememberToolExecutor.didSaveMemory(in: thread)"), "WorkspaceModel should not inspect memory events after each send.")
     }
 
     func testWorkspaceModelDelegatesToolEventRecording() throws {

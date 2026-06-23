@@ -1521,3 +1521,37 @@ Code quality changes:
 Remaining risk:
 
 - `submitComposer` still owns the async send lifecycle and persistence timing. The next larger step is a runner-session coordinator that captures thread identity, cancellation, progress persistence, and retry semantics in one testable unit.
+
+## 2026-06-23 Composer Submission Planner Pass
+
+Overall grade after this slice: **A- foundation, A composer submission boundary**.
+
+Composer draft normalization and first-step routing moved from `WorkspaceModel.submitComposer` into `WorkspaceComposerSubmissionPlanner`. Before this pass, the async send method trimmed raw input, decided whether to ignore it, classified slash commands, and then continued into agent run orchestration. The model now executes a typed submission plan, while the pure planner owns the “ignore vs slash command vs agent prompt” decision with focused tests.
+
+Code quality changes:
+
+- Added `WorkspaceComposerSubmissionPlanner` with explicit `.ignore`, `.slash`, and `.agent` plans.
+- Updated `submitComposer` so prompt trimming and slash-command classification happen before agent orchestration through the planner.
+- Added focused planner coverage for blank drafts, trimmed agent prompts, and slash-command original prompt preservation.
+- Added a parity gate that prevents raw composer normalization and inline slash-command parsing from drifting back into `WorkspaceModel`.
+
+Remaining risk:
+
+- `submitComposer` still owns runner setup, completion persistence, and error status. The send call and memory-save detection are now extracted, but a future background-run coordinator should own retries, resumable runs, and persistence timing if those states become more complex.
+
+## 2026-06-23 Agent Send Session Pass
+
+Overall grade after this slice: **A- foundation, A send-session boundary**.
+
+The per-turn `AgentRunner.send` call moved from `WorkspaceModel.submitComposer` into `WorkspaceAgentSendSession`. Before this pass, the workspace model owned prompt routing, UI state, runner context construction, cancellation checks, the raw send call, progress handoff, memory-save event detection, thread persistence, and error UI in one method. The model now still owns UI and persistence side effects, but delegates the actual agent send lifecycle and the saved-memory signal to a directly tested session object.
+
+Code quality changes:
+
+- Added `WorkspaceAgentSendSession` and `WorkspaceAgentSendSessionResult` as a small value boundary around prompt, captured thread, runner, workspace root, progress handler, and memory-save detection.
+- Updated `submitComposer` so completion memory refresh keys off `result.savedMemory` instead of parsing tool events inline.
+- Added focused session tests for ordinary assistant completion, progress callbacks staying tied to the captured thread ID, and successful memory-tool runs reporting `savedMemory`.
+- Added a parity gate that prevents `activeRunner.send` and post-send memory event parsing from drifting back into `WorkspaceModel`.
+
+Remaining risk:
+
+- `WorkspaceModel.submitComposer` still constructs the run context and owns completion persistence. That is the right split for the current app because runner context depends on actor-isolated UI/runtime state, but background/resumable runs should promote persistence timing into a dedicated run coordinator.
