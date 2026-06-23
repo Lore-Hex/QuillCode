@@ -1,0 +1,97 @@
+import XCTest
+import QuillCodeCore
+@testable import QuillCodeApp
+
+final class WorkspaceConfigurationEngineTests: XCTestCase {
+    func testModeUpdatesConfigAndThread() {
+        var config = AppConfig(mode: .auto)
+        var thread = ChatThread(mode: .auto)
+
+        WorkspaceConfigurationEngine.setMode(.review, config: &config)
+        WorkspaceConfigurationEngine.setMode(.review, thread: &thread)
+
+        XCTAssertEqual(config.mode, .review)
+        XCTAssertEqual(thread.mode, .review)
+    }
+
+    func testModelUpdatesNormalizeAliasesForConfigAndThread() {
+        var config = AppConfig(defaultModel: TrustedRouterDefaults.fastModel)
+        var thread = ChatThread(model: TrustedRouterDefaults.fastModel)
+
+        let modelID = WorkspaceConfigurationEngine.setModel(" trustedrouter/fusion ", config: &config)
+        WorkspaceConfigurationEngine.setModelID(modelID, thread: &thread)
+
+        XCTAssertEqual(modelID, TrustedRouterDefaults.fusionModel)
+        XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.fusionModel)
+        XCTAssertEqual(thread.model, TrustedRouterDefaults.fusionModel)
+    }
+
+    func testBlankModelFallsBackToDefault() {
+        var config = AppConfig(defaultModel: TrustedRouterDefaults.fusionModel)
+        var thread = ChatThread(model: TrustedRouterDefaults.fusionModel)
+
+        let modelID = WorkspaceConfigurationEngine.setModel("   ", config: &config)
+        WorkspaceConfigurationEngine.setModelID(modelID, thread: &thread)
+
+        XCTAssertEqual(modelID, TrustedRouterDefaults.defaultModel)
+        XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.defaultModel)
+        XCTAssertEqual(thread.model, TrustedRouterDefaults.defaultModel)
+    }
+
+    func testFavoriteToggleCanonicalizesDedupesAndRejectsBlank() {
+        var config = AppConfig(favoriteModels: ["trustedrouter/fusion", "z-ai/glm-5.2"])
+
+        XCTAssertFalse(WorkspaceConfigurationEngine.toggleFavorite("  ", config: &config))
+        XCTAssertEqual(config.favoriteModels, [TrustedRouterDefaults.fusionModel, "z-ai/glm-5.2"])
+
+        XCTAssertTrue(WorkspaceConfigurationEngine.toggleFavorite(" tr/fast ", config: &config))
+        XCTAssertEqual(config.favoriteModels, [
+            TrustedRouterDefaults.fusionModel,
+            "z-ai/glm-5.2",
+            TrustedRouterDefaults.fastModel
+        ])
+
+        XCTAssertTrue(WorkspaceConfigurationEngine.toggleFavorite("trustedrouter/fusion", config: &config))
+        XCTAssertEqual(config.favoriteModels, [
+            "z-ai/glm-5.2",
+            TrustedRouterDefaults.fastModel
+        ])
+    }
+
+    func testCatalogNormalizationRejectsEmptyInputAndKeepsBundledModels() {
+        XCTAssertNil(WorkspaceConfigurationEngine.normalizedCatalog(from: []))
+
+        let catalog = WorkspaceConfigurationEngine.normalizedCatalog(from: [
+            ModelInfo(id: " trustedrouter/fusion ", provider: "tr", displayName: "", category: ""),
+            ModelInfo(id: "vendor/model", provider: "vendor", displayName: "Model", category: "Vendor")
+        ])
+
+        XCTAssertEqual(catalog?.first?.id, TrustedRouterDefaults.fastModel)
+        XCTAssertTrue(catalog?.contains { $0.id == TrustedRouterDefaults.fusionModel && $0.displayName == "Prometheus 1.0" } == true)
+        XCTAssertTrue(catalog?.contains { $0.id == "vendor/model" } == true)
+    }
+
+    func testApplySettingsUpdatesRootAndSyncsThread() throws {
+        let thread = ChatThread(mode: .auto, model: TrustedRouterDefaults.fastModel)
+        var root = QuillCodeRootState(threads: [thread], selectedThreadID: thread.id)
+        let config = AppConfig(
+            defaultModel: "trustedrouter/fusion",
+            mode: .readOnly,
+            apiBaseURL: "https://api.trustedrouter.test/v1",
+            developerOverrideEnabled: true
+        )
+
+        WorkspaceConfigurationEngine.applySettings(
+            config,
+            trustedRouterAPIKeyConfigured: true,
+            root: &root
+        )
+        let selectedIndex = try XCTUnwrap(root.threads.firstIndex { $0.id == thread.id })
+        WorkspaceConfigurationEngine.syncThread(&root.threads[selectedIndex], to: root.config)
+
+        XCTAssertEqual(root.config, config)
+        XCTAssertTrue(root.trustedRouterAPIKeyConfigured)
+        XCTAssertEqual(root.threads[selectedIndex].mode, .readOnly)
+        XCTAssertEqual(root.threads[selectedIndex].model, TrustedRouterDefaults.fusionModel)
+    }
+}
