@@ -277,6 +277,18 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(agentText.contains("extractPullRequestArguments"), "Agent.swift should not own mock PR parsing heuristics.")
     }
 
+    func testAgentStreamingHelpersLiveOutsideAgentRunnerFile() throws {
+        let agentText = try Self.agentSourceText(named: "Agent.swift")
+        let streamingText = try Self.agentSourceText(named: "AgentActionStreaming.swift")
+
+        XCTAssertTrue(streamingText.contains("public enum AgentActionStreamCollector"), "Streaming action collection should live in a focused helper.")
+        XCTAssertTrue(streamingText.contains("public enum AgentActionStreamPreview"), "Partial assistant preview parsing should live with streaming helpers.")
+        XCTAssertTrue(agentText.contains("AgentActionStreamCollector.collect"), "AgentRunner should delegate streaming collection.")
+        XCTAssertTrue(agentText.contains("AgentActionStreamPreview.visibleAssistantText"), "AgentRunner should delegate streaming preview parsing.")
+        XCTAssertFalse(agentText.contains("public enum AgentActionStreamCollector"), "Agent.swift should not own streaming collection details.")
+        XCTAssertFalse(agentText.contains("private static func partialJSONStringValue"), "Agent.swift should not own partial JSON preview parsing.")
+    }
+
     func testWorkspaceModelDelegatesComposerCancellationPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceComposerCancellationPlanner.swift")

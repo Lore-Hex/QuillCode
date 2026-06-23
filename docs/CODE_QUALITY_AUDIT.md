@@ -1729,3 +1729,20 @@ Remaining risk:
 
 - `MockLLMClient` is still a broad deterministic planner. It is acceptable as a mock/testing boundary, but if it grows further it should split into smaller intent planners, especially PR parsing versus shell/file/git convenience planning.
 - `Agent.swift` remains broad after this pass. The next structural target should be streaming action decoding or repeated-tool fallback, both of which are production runner responsibilities rather than mock-only code.
+
+## 2026-06-23 Agent Streaming Helper Split
+
+Overall grade after this slice: **A- architecture, A streaming helper boundary**.
+
+Streaming action collection and partial assistant-preview parsing moved out of `AgentRunner` and into `AgentActionStreaming.swift`. Before this pass, `Agent.swift` still owned the incremental stream parser used by both the runner and TrustedRouter streaming client, including partial JSON string decoding for visible draft text. The runner now delegates stream collection and draft-preview parsing to focused helpers and keeps the agent run loop easier to audit.
+
+Code quality changes:
+
+- Added `AgentActionStreaming.swift` for `AgentActionStreamCollector` and `AgentActionStreamPreview`.
+- Preserved the existing public helper names so `TrustedRouterLLMClient`, runner streaming, and existing tests keep working.
+- Added a parity gate so stream collection and partial JSON preview parsing do not drift back into `Agent.swift`.
+
+Remaining risk:
+
+- `Agent.swift` still owns repeated-tool fallback and tool-step execution sequencing. Those are production runner responsibilities and should be extracted in later focused passes once the streaming boundary is stable on CI.
+- The partial JSON preview parser is intentionally lightweight and tolerant because it runs on incomplete streamed action JSON. If model streaming schemas grow beyond string previews, evolve this helper rather than adding ad hoc preview parsing in the runner or UI.
