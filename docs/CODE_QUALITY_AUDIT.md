@@ -1156,3 +1156,21 @@ Interface polish:
 | `QuillCodeTopBarView` string-matched status text during rendering | Tested presentation values now drive indicator visibility and color mapping |
 | Terminal/stopped statuses had no explicit top-bar tone | Terminal is treated as active, stopped/cancelled as neutral, and failures as red |
 | Native and HTML top bars could classify runtime issues differently | Both now use the same warning/error presentation value |
+
+## 2026-06-23 Runtime Surface Contract Pass
+
+Overall grade after this slice: **A- foundation, A runtime surface boundary**.
+
+Runtime issue and execution-context surface contracts moved out of `WorkspaceSurface.swift` into `QuillCodeRuntimeSurface.swift`. The aggregate workspace surface now stays focused on composed view payloads, while severity enums, diagnostic records, execution-context labels, and compatibility decoding live beside the runtime boundary they describe.
+
+Code quality changes:
+
+- Added a focused runtime surface contract file for `RuntimeIssueSeverity`, `RuntimeIssueSurface`, `RuntimeDiagnosticSurface`, `ExecutionContextKind`, and `ExecutionContextSurface`.
+- Kept local and SSH Remote execution-context fallback copy directly testable.
+- Preserved older runtime issue JSON compatibility by decoding missing diagnostics as an empty list.
+- Added a parity gate that prevents runtime/remote context contracts from drifting back into `WorkspaceSurface.swift`.
+- Kept future QuillCloud relay context expansion pointed at one contract file instead of renderer-local enums.
+
+Remaining risk:
+
+- Runtime execution contexts currently cover local and SSH Remote only. The next relay-related slice should add a QuillCloud/relay context through `QuillCodeRuntimeSurface.swift` first, then fan that through the existing builders and renderers.
