@@ -2,7 +2,7 @@
 
 ## 2026-06-23
 
-- Codex-style top-bar chrome should default to three visible decisions: thread/project identity, combined model and approval mode, and a compact workspace status control plus overflow. Instruction files, memories, Computer Use readiness, and runtime issues remain accessible in the status popover and transcript/settings surfaces, but they should not occupy permanent top-bar width. This keeps the first read calmer while preserving diagnostics and Playwright coverage.
+- Codex-style top-bar chrome should keep model selection and approval mode as separate controls. Model is a long-lived preference, while approval mode is an autonomy/safety posture users may change mid-session. The model picker should only select models; Auto/Review/Read-only lives in a compact mode control beside it. Instruction files, memories, Computer Use readiness, and runtime issues remain accessible in the status popover and transcript/settings surfaces, but they should not occupy permanent top-bar width. This keeps the first read calmer while preserving diagnostics and Playwright coverage.
 
 ## 2026-06-20
 
