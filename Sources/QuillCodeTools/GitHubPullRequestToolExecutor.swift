@@ -56,7 +56,7 @@ public struct GitHubPullRequestToolExecutor: Sendable {
     public func view(cwd: URL, selector: String? = nil) -> ToolResult {
         do {
             var arguments = ["pr", "view"]
-            if let selector = try Self.safeSelector(selector) {
+            if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
                 arguments.append(selector)
             }
             arguments.append("--comments")
@@ -69,7 +69,7 @@ public struct GitHubPullRequestToolExecutor: Sendable {
     public func checks(cwd: URL, selector: String? = nil) -> ToolResult {
         do {
             var arguments = ["pr", "checks"]
-            if let selector = try Self.safeSelector(selector) {
+            if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
                 arguments.append(selector)
             }
             return runner.runGitHub(arguments, cwd: cwd, timeoutSeconds: 45)
@@ -81,7 +81,7 @@ public struct GitHubPullRequestToolExecutor: Sendable {
     public func diff(cwd: URL, selector: String? = nil) -> ToolResult {
         do {
             var arguments = ["pr", "diff"]
-            if let selector = try Self.safeSelector(selector) {
+            if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
                 arguments.append(selector)
             }
             return runner.runGitHub(arguments, cwd: cwd, timeoutSeconds: 45)
@@ -93,7 +93,7 @@ public struct GitHubPullRequestToolExecutor: Sendable {
     public func checkout(cwd: URL, selector: String? = nil, branch: String? = nil) -> ToolResult {
         do {
             var arguments = ["pr", "checkout"]
-            if let selector = try Self.safeSelector(selector) {
+            if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
                 arguments.append(selector)
             }
             if let branch = GitInputValidator.trimmedNonEmpty(branch) {
@@ -112,14 +112,14 @@ public struct GitHubPullRequestToolExecutor: Sendable {
         remove: [String]? = nil
     ) -> ToolResult {
         do {
-            let reviewersToAdd = try Self.safeReviewers(add)
-            let reviewersToRemove = try Self.safeReviewers(remove)
+            let reviewersToAdd = try GitHubPullRequestInputValidator.safeReviewers(add)
+            let reviewersToRemove = try GitHubPullRequestInputValidator.safeReviewers(remove)
             guard !reviewersToAdd.isEmpty || !reviewersToRemove.isEmpty else {
                 throw GitToolError.emptyPullRequestReviewers
             }
 
             var arguments = ["pr", "edit"]
-            if let selector = try Self.safeSelector(selector) {
+            if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
                 arguments.append(selector)
             }
             if !reviewersToAdd.isEmpty {
@@ -142,14 +142,14 @@ public struct GitHubPullRequestToolExecutor: Sendable {
         remove: [String]? = nil
     ) -> ToolResult {
         do {
-            let labelsToAdd = try Self.safeLabels(add)
-            let labelsToRemove = try Self.safeLabels(remove)
+            let labelsToAdd = try GitHubPullRequestInputValidator.safeLabels(add)
+            let labelsToRemove = try GitHubPullRequestInputValidator.safeLabels(remove)
             guard !labelsToAdd.isEmpty || !labelsToRemove.isEmpty else {
                 throw GitToolError.emptyPullRequestLabels
             }
 
             var arguments = ["pr", "edit"]
-            if let selector = try Self.safeSelector(selector) {
+            if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
                 arguments.append(selector)
             }
             if !labelsToAdd.isEmpty {
@@ -172,7 +172,7 @@ public struct GitHubPullRequestToolExecutor: Sendable {
             }
 
             var arguments = ["pr", "comment"]
-            if let selector = try Self.safeSelector(selector) {
+            if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
                 arguments.append(selector)
             }
             arguments += ["--body", body]
@@ -190,14 +190,14 @@ public struct GitHubPullRequestToolExecutor: Sendable {
         body: String? = nil
     ) -> ToolResult {
         do {
-            let flag = try Self.safeReviewFlag(action)
+            let flag = try GitHubPullRequestInputValidator.safeReviewFlag(action)
             let body = GitInputValidator.trimmedNonEmpty(body)
             guard flag == "--approve" || body != nil else {
                 throw GitToolError.emptyPullRequestReviewBody
             }
 
             var arguments = ["pr", "review"]
-            if let selector = try Self.safeSelector(selector) {
+            if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
                 arguments.append(selector)
             }
             arguments.append(flag)
@@ -220,10 +220,10 @@ public struct GitHubPullRequestToolExecutor: Sendable {
     ) -> ToolResult {
         do {
             var arguments = ["pr", "merge"]
-            if let selector = try Self.safeSelector(selector) {
+            if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
                 arguments.append(selector)
             }
-            arguments.append(try Self.safeMergeFlag(method))
+            arguments.append(try GitHubPullRequestInputValidator.safeMergeFlag(method))
             if auto {
                 arguments.append("--auto")
             }
@@ -237,116 +237,6 @@ public struct GitHubPullRequestToolExecutor: Sendable {
         }
     }
 
-    public static func safeSelector(_ value: String?) throws -> String? {
-        guard let value else { return nil }
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        guard trimmed.count <= 300,
-              !trimmed.hasPrefix("-"),
-              trimmed.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
-              trimmed.rangeOfCharacter(from: .controlCharacters) == nil
-        else {
-            throw GitToolError.invalidPullRequestSelector(value)
-        }
-        return trimmed
-    }
-
-    public static func safeReviewers(_ values: [String]?) throws -> [String] {
-        var reviewers: [String] = []
-        var seen = Set<String>()
-        for value in values ?? [] {
-            let reviewer = try safeReviewer(value)
-            guard seen.insert(reviewer).inserted else { continue }
-            reviewers.append(reviewer)
-        }
-        return reviewers
-    }
-
-    public static func safeReviewer(_ value: String) throws -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty,
-              trimmed.count <= 80,
-              trimmed.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
-              trimmed.rangeOfCharacter(from: .controlCharacters) == nil,
-              !trimmed.hasPrefix("-")
-        else {
-            throw GitToolError.invalidPullRequestReviewer(value)
-        }
-        if trimmed == "@copilot" {
-            return trimmed
-        }
-        let parts = trimmed.split(separator: "/", omittingEmptySubsequences: false)
-        guard (1...2).contains(parts.count),
-              parts.allSatisfy({ isSafeGitHubReviewerComponent(String($0)) })
-        else {
-            throw GitToolError.invalidPullRequestReviewer(value)
-        }
-        return trimmed
-    }
-
-    public static func safeLabels(_ values: [String]?) throws -> [String] {
-        var labels: [String] = []
-        var seen = Set<String>()
-        for value in values ?? [] {
-            let label = try safeLabel(value)
-            guard seen.insert(label).inserted else { continue }
-            labels.append(label)
-        }
-        return labels
-    }
-
-    public static func safeLabel(_ value: String) throws -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty,
-              trimmed.count <= 100,
-              trimmed.rangeOfCharacter(from: .newlines) == nil,
-              trimmed.rangeOfCharacter(from: .controlCharacters) == nil,
-              !trimmed.contains(","),
-              !trimmed.hasPrefix("-")
-        else {
-            throw GitToolError.invalidPullRequestLabel(value)
-        }
-        return trimmed
-    }
-
-    public static func safeReviewFlag(_ value: String) throws -> String {
-        switch value.trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-            .replacingOccurrences(of: "-", with: "_") {
-        case "approve", "approved":
-            return "--approve"
-        case "comment", "comments":
-            return "--comment"
-        case "request_changes", "request_change", "changes":
-            return "--request-changes"
-        default:
-            throw GitToolError.invalidPullRequestReviewAction(value)
-        }
-    }
-
-    public static func safeMergeFlag(_ value: String?) throws -> String {
-        let normalized = (GitInputValidator.trimmedNonEmpty(value) ?? "squash")
-            .lowercased()
-            .replacingOccurrences(of: "-", with: "_")
-        switch normalized {
-        case "merge", "merge_commit":
-            return "--merge"
-        case "squash", "squash_merge":
-            return "--squash"
-        case "rebase":
-            return "--rebase"
-        default:
-            throw GitToolError.invalidPullRequestMergeMethod(value ?? "")
-        }
-    }
-
-    public static func extractURLs(from output: String) -> [String] {
-        output
-            .split { $0.isWhitespace }
-            .map(String.init)
-            .filter { $0.hasPrefix("https://") || $0.hasPrefix("http://") }
-    }
-
     private func addURLArtifacts(to result: ToolResult) -> ToolResult {
         guard result.ok else { return result }
         return ToolResult(
@@ -354,17 +244,7 @@ public struct GitHubPullRequestToolExecutor: Sendable {
             stdout: result.stdout,
             stderr: result.stderr,
             exitCode: result.exitCode,
-            artifacts: Self.extractURLs(from: result.stdout)
+            artifacts: GitHubPullRequestOutputParser.extractURLs(from: result.stdout)
         )
-    }
-
-    private static func isSafeGitHubReviewerComponent(_ value: String) -> Bool {
-        guard !value.isEmpty,
-              value.count <= 39,
-              value.range(of: #"^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$|^[A-Za-z0-9]$"#, options: .regularExpression) != nil
-        else {
-            return false
-        }
-        return true
     }
 }

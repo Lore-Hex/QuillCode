@@ -1938,3 +1938,21 @@ Remaining risk:
 
 - `GitToolExecutor` still exposes older static compatibility wrappers for trimming, git-name validation, PR-specific validation, and URL extraction. They should remain while older tests and call sites use them, but new focused executors should depend on `GitInputValidator` or their own domain helpers instead.
 - PR-specific validators are still correctly owned by `GitHubPullRequestToolExecutor`; if future GitHub issue/release tools arrive, split those into a focused GitHub validator rather than expanding the facade again.
+
+## 2026-06-23 GitHub PR Input/Output Helper Split
+
+Overall grade after this slice: **A architecture, A local/remote parity, A regression coverage**.
+
+GitHub pull request validation and URL artifact parsing moved out of `GitHubPullRequestToolExecutor.swift`. Before this pass, the PR executor still owned selector validation, reviewer and label normalization, review-action and merge-method normalization, GitHub reviewer component parsing, and URL extraction in addition to building and running `gh pr` commands. The executor now delegates validation to `GitHubPullRequestInputValidator` and artifact URL parsing to `GitHubPullRequestOutputParser`, and SSH Remote PR planning uses the same helpers.
+
+Code quality changes:
+
+- Added `GitHubPullRequestInputValidator` for PR selector, reviewer, label, review-action, and merge-method validation.
+- Added `GitHubPullRequestOutputParser` for PR URL artifact extraction.
+- Updated local PR execution, SSH Remote PR planning, and the git facade compatibility wrappers to share the focused helpers.
+- Added direct helper coverage plus parity gates that prevent PR validation and URL extraction from drifting back into command execution.
+
+Remaining risk:
+
+- `GitToolExecutor` still exposes compatibility wrappers for older call sites. They are now simple delegates, but new code should use `GitInputValidator`, `GitHubPullRequestInputValidator`, or `GitHubPullRequestOutputParser` directly.
+- `GitHubPullRequestToolExecutor` still owns per-operation argument construction. That is the right boundary for now; if GitHub issue/release tools appear, add new focused executors rather than broadening this PR executor.

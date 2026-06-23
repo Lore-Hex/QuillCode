@@ -145,7 +145,7 @@ struct WorkspaceRemoteProjectToolExecutor: Sendable, Hashable {
             }
             var result = ShellToolExecutor().run(request)
             if plannedRequest.extractsPullRequestURLs, result.ok {
-                result.artifacts = GitToolExecutor.extractURLs(from: result.stdout)
+                result.artifacts = GitHubPullRequestOutputParser.extractURLs(from: result.stdout)
             } else if result.ok, !plannedRequest.artifacts.isEmpty {
                 result.artifacts = plannedRequest.artifacts
             }

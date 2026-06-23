@@ -159,34 +159,34 @@ public struct GitToolExecutor: Sendable {
     }
 
     public static func safePullRequestSelector(_ value: String?) throws -> String? {
-        try GitHubPullRequestToolExecutor.safeSelector(value)
+        try GitHubPullRequestInputValidator.safeSelector(value)
     }
 
     public static func safePullRequestReviewers(_ values: [String]?) throws -> [String] {
-        try GitHubPullRequestToolExecutor.safeReviewers(values)
+        try GitHubPullRequestInputValidator.safeReviewers(values)
     }
 
     public static func safePullRequestReviewer(_ value: String) throws -> String {
-        try GitHubPullRequestToolExecutor.safeReviewer(value)
+        try GitHubPullRequestInputValidator.safeReviewer(value)
     }
 
     public static func safePullRequestLabels(_ values: [String]?) throws -> [String] {
-        try GitHubPullRequestToolExecutor.safeLabels(values)
+        try GitHubPullRequestInputValidator.safeLabels(values)
     }
 
     public static func safePullRequestLabel(_ value: String) throws -> String {
-        try GitHubPullRequestToolExecutor.safeLabel(value)
+        try GitHubPullRequestInputValidator.safeLabel(value)
     }
 
     public static func safePullRequestReviewFlag(_ value: String) throws -> String {
-        try GitHubPullRequestToolExecutor.safeReviewFlag(value)
+        try GitHubPullRequestInputValidator.safeReviewFlag(value)
     }
 
     public static func safePullRequestMergeFlag(_ value: String?) throws -> String {
-        try GitHubPullRequestToolExecutor.safeMergeFlag(value)
+        try GitHubPullRequestInputValidator.safeMergeFlag(value)
     }
 
     public static func extractURLs(from output: String) -> [String] {
-        GitHubPullRequestToolExecutor.extractURLs(from: output)
+        GitHubPullRequestOutputParser.extractURLs(from: output)
     }
 }
