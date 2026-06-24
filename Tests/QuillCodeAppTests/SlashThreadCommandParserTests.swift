@@ -1,0 +1,47 @@
+import XCTest
+@testable import QuillCodeApp
+
+final class SlashThreadCommandParserTests: XCTestCase {
+    func testSupportsThreadLifecycleAliases() {
+        XCTAssertTrue(SlashThreadCommandParser.supports("new"))
+        XCTAssertTrue(SlashThreadCommandParser.supports("new-chat"))
+        XCTAssertTrue(SlashThreadCommandParser.supports("compact-context"))
+        XCTAssertTrue(SlashThreadCommandParser.supports("rename-chat"))
+        XCTAssertTrue(SlashThreadCommandParser.supports("copy-chat"))
+        XCTAssertTrue(SlashThreadCommandParser.supports("archive-chat"))
+        XCTAssertTrue(SlashThreadCommandParser.supports("unarchive-chat"))
+        XCTAssertFalse(SlashThreadCommandParser.supports("project"))
+    }
+
+    func testNewChatAliasesMapToNewChatCommand() {
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "new", argument: ""), .newChat)
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "new-chat", argument: ""), .newChat)
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "newchat", argument: ""), .newChat)
+        XCTAssertEqual(SlashCommandParser.parse("/new"), .newChat)
+    }
+
+    func testCompactAliasesMapToWorkspaceCommand() {
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "compact", argument: ""), .workspaceCommand("compact-context"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "compact-context", argument: ""), .workspaceCommand("compact-context"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "context-compact", argument: ""), .workspaceCommand("compact-context"))
+        XCTAssertEqual(SlashCommandParser.parse("/compact-context"), .workspaceCommand("compact-context"))
+    }
+
+    func testRenameAliasesTrimTitlesAndValidateRequiredTitle() {
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "rename", argument: "  Launch Plan  "), .renameThread("Launch Plan"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "rename-chat", argument: "\nFix CI\t"), .renameThread("Fix CI"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "title", argument: "Demo"), .renameThread("Demo"))
+        XCTAssertEqual(SlashCommandParser.parse("/rename  Better UX  "), .renameThread("Better UX"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "rename", argument: "   "), .invalid("Usage: /rename New chat title"))
+    }
+
+    func testDuplicateArchiveAndUnarchiveAliasesMapToWorkspaceCommands() {
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "duplicate", argument: ""), .workspaceCommand("thread-duplicate"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "copy-chat", argument: ""), .workspaceCommand("thread-duplicate"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "archive", argument: ""), .workspaceCommand("thread-archive"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "archive-chat", argument: ""), .workspaceCommand("thread-archive"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "unarchive", argument: ""), .workspaceCommand("thread-unarchive"))
+        XCTAssertEqual(SlashThreadCommandParser.parse(name: "unarchive-chat", argument: ""), .workspaceCommand("thread-unarchive"))
+        XCTAssertEqual(SlashCommandParser.parse("/duplicate-chat"), .workspaceCommand("thread-duplicate"))
+    }
+}
