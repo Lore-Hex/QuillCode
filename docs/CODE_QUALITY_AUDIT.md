@@ -4049,3 +4049,18 @@ What changed:
 
 Remaining risk:
 - `SlashCommand.swift` still owns memory, environment action, worktree, browser, help, status, and generic routing. Memory should be the next parser extraction if `/remember` grows delete/list/search or memory-scope options.
+
+## 2026-06-24 Memory Slash Parser Split
+
+Overall grade after this slice: **A+ memory slash ownership, A+ remember trimming coverage, A outer parser boundary**.
+
+`SlashCommand.swift` still owned memory pane aliases and `/remember` content trimming. The behavior is intentionally small, but it is tied to durable context, memory-pane navigation, transcript-visible slash commands, and command-palette insertions. Keeping it in a focused parser makes future `/remember list/search/delete` work possible without growing the broad slash dispatcher again.
+
+What changed:
+- Added `SlashMemoryCommandParser.swift` for `/memory`, `/memories`, and `/remember` aliases.
+- Reduced `SlashCommand.swift` to top-level memory command delegation through `SlashMemoryCommandParser.supports`.
+- Added direct parser tests for memory-pane aliases, empty `/remember`, and trimmed remember content.
+- Added a parity gate so memory pane command IDs and remember parsing do not drift back into the outer slash parser.
+
+Remaining risk:
+- `SlashCommand.swift` still owns worktree, browser, help, status, environment action, and generic routing. Environment action parsing should be the next small extraction if local environment commands gain subcommands or usage copy.
