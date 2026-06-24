@@ -1612,6 +1612,23 @@ Remaining risk:
 
 - Memory commands still live in `WorkspaceModel` as orchestration methods. The next worthwhile extraction is a dedicated memory command coordinator once memory edit/conflict flows appear; for now, the shared refresh boundary keeps the current behavior small and testable.
 
+## 2026-06-23 Workspace Memory Engine Pass
+
+Overall grade after this slice: **A memory workflow boundary, A behavior preservation, A focused regression coverage**.
+
+Memory save/delete orchestration moved from `WorkspaceModel` into `WorkspaceMemoryEngine`. Before this pass, the model still owned global memory write/delete calls, global reloads, success/failure transcript construction, and selected-thread context update decisions. The model now applies a typed `WorkspaceMemoryMutation` to actor-isolated state while the memory engine owns the storage outcome and user-visible mutation intent.
+
+Code quality changes:
+
+- Added `WorkspaceMemoryEngine` and `WorkspaceMemoryMutation` as the single save/delete decision boundary for explicit global memories.
+- Updated `/remember` and `memory-delete:*` paths so `WorkspaceModel` delegates memory storage, failure mapping, global reload, and notice intent construction.
+- Kept thread mutation, persistence, and top-bar refresh in `WorkspaceModel`, where the actor-isolated workspace state lives.
+- Added focused engine tests for save success, unavailable memory storage, delete success, and unknown-memory delete failure.
+
+Remaining risk:
+
+- Memory editing, conflict resolution, and autonomous memory proposals are still future Codex-parity work. Those features should extend `WorkspaceMemoryEngine` or add a narrow memory-review coordinator rather than growing `WorkspaceModel` again.
+
 ## 2026-06-23 Async Thread Selection Pass
 
 Overall grade after this slice: **A- foundation, A async-thread update boundary**.
