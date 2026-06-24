@@ -3407,3 +3407,21 @@ Code quality changes:
 Remaining risk:
 
 - Project row menu actions still route directly through typed row actions, which is appropriate for now because they do not need command-palette payloads. Revisit only if project row actions become workspace commands.
+
+## 2026-06-24 Project Context Refresh Split
+
+Overall grade after this slice: **A+ context refresh boundary, A thread-context sync guard, A metadata loading ownership**.
+
+`WorkspaceModel.swift` still owned local metadata reloads, remote metadata reloads, global memory reloads, and repeated instruction/memory snapshot assignment for selected threads. The behavior was correct, but the model was becoming the implicit owner of project context refresh policy.
+
+Code quality changes:
+
+- Added `WorkspaceProjectContextRefresher` for local project metadata refresh, SSH Remote project context refresh, global-memory reloads, and thread context snapshots.
+- Added `WorkspaceThreadContextSnapshot` so instruction/memory refresh has a named value boundary instead of repeated local variables.
+- Updated `WorkspaceModel` to delegate refresh and thread sync while keeping orchestration, persistence, and top-bar status updates in the model.
+- Added focused tests for local project/global memory reloads, project plus global memory merge order, thread-project precedence over fallback project, and memory-only refresh.
+- Added a parity gate so metadata loaders, global-memory loads, and direct thread instruction/memory sync do not drift back into `WorkspaceModel`.
+
+Remaining risk:
+
+- `WorkspaceModel` still calls context snapshots for new threads, worktrees, automations, and status copy. Those reads are acceptable because they assemble different workflows; if those workflows start mutating project context directly, move them through this refresher instead of adding more inline refresh logic.
