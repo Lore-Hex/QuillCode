@@ -2362,3 +2362,17 @@ Claude CLI's sidebar review called out that a single "Recent" bucket makes activ
 Remaining risk:
 
 - Sidebar search is currently a modal global search rather than an inline filtered list. If QuillCode adds inline sidebar filtering later, filtered results should collapse section headers to keep scanning fast.
+
+## 2026-06-23 Command Action Executor Pass
+
+Overall grade after this slice: **A command orchestration boundary, A behavior preservation, A regression coverage**.
+
+| Area | Before | After |
+| --- | --- | --- |
+| `WorkspaceModel` | Owned command action planning delegation and the full typed effect execution switch. | Delegates command actions to `WorkspaceCommandActionExecutor`. |
+| Command action code | Planning and effect execution were conceptually separate but not separated by file ownership. | `WorkspaceCommandActionPlanner` maps current context to typed effects; `WorkspaceCommandActionExecutor` applies those effects. |
+| Regression guard | Existing behavior tests covered command outcomes but not ownership. | Parity gate keeps the planner setup and effect switch out of `WorkspaceModel.swift`. |
+
+Remaining risk:
+
+- `WorkspaceModel.runWorkspaceCommand` still owns broader command-plan execution for local environment actions, memory, automation, MCP, extension, activity, draft, tool, and action plans. Extract command-plan execution if those side effects keep growing.
