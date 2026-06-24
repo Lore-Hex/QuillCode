@@ -148,6 +148,22 @@ final class ParitySlashGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(slashText.contains("git-worktree-list"), "Outer slash parser should not own worktree command IDs.")
     }
 
+    func testSlashParserDelegatesEnvironmentSubcommands() throws {
+        let slashText = try Self.appSourceText(named: "SlashCommand.swift")
+        let environmentParserText = try Self.appSourceText(named: "SlashEnvironmentCommandParser.swift")
+        let environmentParserTests = try Self.appTestSourceText(named: "SlashEnvironmentCommandParserTests.swift")
+
+        XCTAssertTrue(slashText.contains("SlashEnvironmentCommandParser.supports(environmentCommand)"), "Outer slash parser should delegate local environment command recognition.")
+        XCTAssertTrue(slashText.contains("SlashEnvironmentCommandParser.parse(argument)"), "Outer slash parser should delegate local environment command parsing.")
+        XCTAssertTrue(environmentParserText.contains("enum SlashEnvironmentCommandParser"), "Local environment slash parsing should live in a focused parser.")
+        XCTAssertTrue(environmentParserText.contains(#""env", "environment", "local-env""#), "Local environment aliases should live with environment parser semantics.")
+        XCTAssertTrue(environmentParserText.contains(".environmentAction(value.isEmpty ? nil : value)"), "Local environment query/list behavior should live with environment parser semantics.")
+        XCTAssertTrue(environmentParserTests.contains("testEmptyEnvironmentArgumentListsActions"), "Empty local environment queries should have focused parser coverage.")
+        XCTAssertTrue(environmentParserTests.contains("testEnvironmentActionQueryIsTrimmed"), "Local environment query trimming should have focused parser coverage.")
+        XCTAssertFalse(slashText.contains(#"case "env", "environment", "local-env""#), "Outer slash parser should not own local environment aliases.")
+        XCTAssertFalse(slashText.contains(".environmentAction(argument.isEmpty ? nil : argument)"), "Outer slash parser should not build local environment actions inline.")
+    }
+
     func testSlashParserDelegatesSchedulingSubcommands() throws {
         let slashText = try Self.appSourceText(named: "SlashCommand.swift")
         let schedulingParserText = try Self.appSourceText(named: "SlashSchedulingCommandParser.swift")

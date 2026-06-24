@@ -4095,3 +4095,18 @@ What changed:
 
 Remaining risk:
 - `SlashCommand.swift` still owns help, status, environment action, and generic unknown routing. Environment action parsing should move next if `/env` grows richer subcommands, usage copy, or filtering behavior.
+
+## 2026-06-24 Local Environment Slash Parser Split
+
+Overall grade after this slice: **A+ local environment slash ownership, A+ query trimming coverage, A outer parser boundary**.
+
+`SlashCommand.swift` still owned `/env`, `/environment`, and `/local-env` alias matching plus the list-vs-run query conversion. That behavior is small but important because local environment actions are project-specific executable workflows, feed command-palette entries, and surface setup/build/test scripts that multiple agents can extend. Keeping the aliases and query semantics in one parser makes future `/env search`, `/env edit`, or richer action filtering easier without growing the top-level dispatcher.
+
+What changed:
+- Added `SlashEnvironmentCommandParser.swift` for local environment aliases and query trimming.
+- Reduced `SlashCommand.swift` to top-level local environment delegation through `SlashEnvironmentCommandParser.supports`.
+- Added direct parser tests for empty list behavior, top-level aliases, and trimmed action queries.
+- Added a parity gate so local environment aliases and query semantics do not drift back into the outer slash parser.
+
+Remaining risk:
+- `SlashCommand.swift` still owns `/help`, `/status`, and generic unknown routing. Those are now intentionally close to the root dispatcher, but they can move into a tiny top-level parser if help/status copy or unknown-command recovery grows.
