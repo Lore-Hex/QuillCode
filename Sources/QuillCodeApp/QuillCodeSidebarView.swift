@@ -54,7 +54,7 @@ struct QuillCodeSidebarView: View {
                 sidebar.isSelectionMode ? $0.kind == .clearSelection : $0.kind == .select
             }) {
                 Button(action.title) {
-                    onCommand(command(for: action))
+                    onCommand(QuillCodeSidebarCommandAdapter.workspaceCommand(for: action))
                 }
                 .font(.caption.weight(.semibold))
                 .buttonStyle(QuillCodePressableButtonStyle())
@@ -108,15 +108,6 @@ struct QuillCodeSidebarView: View {
             }
         }
     }
-
-    private func command(for action: SidebarBulkActionSurface) -> WorkspaceCommandSurface {
-        WorkspaceCommandSurface(
-            id: action.commandID,
-            title: action.title,
-            category: WorkspaceCommandPalette.threadCategory,
-            isEnabled: action.isEnabled
-        )
-    }
 }
 
 private struct QuillCodeSidebarBulkActionsView: View {
@@ -133,7 +124,7 @@ private struct QuillCodeSidebarBulkActionsView: View {
                 HStack(spacing: 6) {
                     ForEach(actions) { action in
                         Button(action.title) {
-                            onCommand(command(for: action))
+                            onCommand(QuillCodeSidebarCommandAdapter.workspaceCommand(for: action))
                         }
                         .font(.caption.weight(.semibold))
                         .padding(.horizontal, 10)
@@ -150,15 +141,6 @@ private struct QuillCodeSidebarBulkActionsView: View {
         .padding(8)
         .background(QuillCodePalette.background.opacity(0.55))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-
-    private func command(for action: SidebarBulkActionSurface) -> WorkspaceCommandSurface {
-        WorkspaceCommandSurface(
-            id: action.commandID,
-            title: action.title,
-            category: WorkspaceCommandPalette.threadCategory,
-            isEnabled: action.isEnabled
-        )
     }
 }
 
@@ -256,11 +238,7 @@ private struct QuillCodeSidebarThreadRowView: View {
     }
 
     private func toggleSelection() {
-        onCommand(WorkspaceCommandSurface(
-            id: "thread-selection-toggle:\(item.id.uuidString)",
-            title: item.isBulkSelected ? "Deselect chat" : "Select chat",
-            category: WorkspaceCommandPalette.threadCategory
-        ))
+        onCommand(QuillCodeSidebarCommandAdapter.toggleSelectionCommand(for: item))
     }
 }
 

@@ -1439,6 +1439,7 @@ final class ParityGateTests: XCTestCase {
 
     func testSidebarCommandPresentationIsSharedByNativeAndHTMLSurfaces() throws {
         let presentationText = try Self.appSourceText(named: "QuillCodeSidebarCommandPresentation.swift")
+        let adapterText = try Self.appSourceText(named: "QuillCodeSidebarCommandAdapter.swift")
         let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
         let htmlSidebarText = try Self.appSourceText(named: "WorkspaceHTMLSidebarRenderer.swift")
 
@@ -1455,6 +1456,9 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(sidebarText.contains("QuillCodeSidebarCommandPresentation.visibleUtilityCommandGroups"), "Native sidebar should consume shared utility command groups.")
         XCTAssertTrue(sidebarText.contains("QuillCodeSidebarCommandPresentation.displayTitle"), "Native sidebar should consume shared labels.")
         XCTAssertTrue(sidebarText.contains("QuillCodeSidebarCommandPresentation.systemImage"), "Native sidebar should consume shared SF Symbols.")
+        XCTAssertTrue(adapterText.contains("enum QuillCodeSidebarCommandAdapter"), "Sidebar command payload construction should live in a focused adapter.")
+        XCTAssertTrue(sidebarText.contains("QuillCodeSidebarCommandAdapter.workspaceCommand"), "Native sidebar should use the shared command adapter for bulk actions.")
+        XCTAssertTrue(sidebarText.contains("QuillCodeSidebarCommandAdapter.toggleSelectionCommand"), "Native sidebar should use the shared command adapter for selection toggles.")
         XCTAssertTrue(htmlSidebarText.contains("renderPrimaryActions"), "HTML sidebar renderer should build primary sidebar actions through a helper.")
         XCTAssertTrue(htmlSidebarText.contains("renderUtilityActions"), "HTML sidebar renderer should build utility menu actions through a helper.")
         XCTAssertTrue(htmlSidebarText.contains("QuillCodeSidebarCommandPresentation.primaryCommandIDs"), "HTML sidebar renderer should consume shared primary command ordering.")
@@ -1462,6 +1466,7 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(htmlSidebarText.contains("QuillCodeSidebarCommandPresentation.htmlIconToken"), "HTML sidebar renderer should consume shared icon tokens.")
         XCTAssertFalse(sidebarText.contains("private func displayTitle"), "Native sidebar should not maintain a second label map.")
         XCTAssertFalse(sidebarText.contains("private func systemImage"), "Native sidebar should not maintain a second icon map.")
+        XCTAssertFalse(sidebarText.contains("WorkspaceCommandSurface("), "Native sidebar should not duplicate command payload construction.")
         XCTAssertFalse(htmlSidebarText.contains(#"data-icon="plugins">Plugins"#), "HTML sidebar renderer should not hard-code sidebar plugin markup.")
     }
 
