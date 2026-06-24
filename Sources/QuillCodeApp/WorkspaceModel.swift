@@ -1656,26 +1656,11 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func appendLocalCommandTranscript(_ transcript: WorkspaceLocalCommandTranscript) {
-        appendLocalCommandTranscript(
-            userText: transcript.userText,
-            assistantText: transcript.assistantText,
-            title: transcript.title
-        )
-    }
-
-    private func appendLocalCommandTranscript(userText: String, assistantText: String, title: String) {
         if selectedThread == nil {
             _ = newChat()
         }
         mutateSelectedThread { thread in
-            if thread.messages.isEmpty && thread.title == "New chat" {
-                thread.title = title
-            }
-            thread.messages.append(ChatMessage(role: .user, content: userText))
-            thread.messages.append(ChatMessage(role: .assistant, content: assistantText))
-        }
-        if let thread = selectedThread {
-            threadPersistence.save(thread)
+            WorkspaceLocalCommandTranscriptAppender.append(transcript, to: &thread)
         }
     }
 
