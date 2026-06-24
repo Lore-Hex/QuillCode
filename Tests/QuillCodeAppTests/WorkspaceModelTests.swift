@@ -4114,8 +4114,9 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(cards[0].status, .review)
         XCTAssertTrue(cards[0].isExpanded)
         XCTAssertEqual(cards[0].density, .expanded)
+        XCTAssertEqual(cards[0].reviewState, .ready)
         XCTAssertEqual(cards[0].inputJSON, ToolArguments.json(["cmd": "whoami"]))
-        XCTAssertEqual(cards[0].actions.map(\.title), ["Allow once", "Skip"])
+        XCTAssertEqual(cards[0].actions.map(\.title), ["Run", "Skip"])
     }
 
     func testToolCardApprovalActionRecordsDecisionAndRunsTool() throws {
@@ -4144,7 +4145,7 @@ final class WorkspaceModelTests: XCTestCase {
         ))
 
         let didRun = model.runToolCardAction(ToolCardActionSurface(
-            title: "Allow once",
+            title: "Run",
             kind: .approve,
             requestID: "approval-run",
             style: .primary

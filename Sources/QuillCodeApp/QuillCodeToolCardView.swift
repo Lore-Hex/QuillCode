@@ -168,7 +168,8 @@ struct QuillCodeToolCardView: View {
             Spacer(minLength: 10)
 
             QuillCodeToolStatusBadge(
-                status: card.status,
+                label: card.statusDisplayLabel,
+                accessibilityLabel: card.statusAccessibilityLabel,
                 tint: statusColor,
                 iconName: statusBadgeIconName
             )
@@ -191,7 +192,7 @@ struct QuillCodeToolCardView: View {
         case .failed:
             return QuillCodePalette.red
         case .review:
-            return QuillCodePalette.yellow
+            return card.needsReview ? QuillCodePalette.yellow : QuillCodePalette.green
         }
     }
 
@@ -200,7 +201,9 @@ struct QuillCodeToolCardView: View {
         case .queued, .running, .done:
             return Color.white.opacity(0.09)
         case .review:
-            return Color.white.opacity(0.11)
+            return card.needsReview
+                ? QuillCodePalette.yellow.opacity(0.24)
+                : QuillCodePalette.green.opacity(0.24)
         case .failed:
             return statusColor.opacity(0.42)
         }
@@ -217,7 +220,7 @@ struct QuillCodeToolCardView: View {
         case .failed:
             return "xmark.octagon.fill"
         case .review:
-            return "shield.lefthalf.filled"
+            return card.needsReview ? "hand.raised.fill" : "play.circle.fill"
         }
     }
 
@@ -232,7 +235,7 @@ struct QuillCodeToolCardView: View {
         case .failed:
             return "xmark.circle.fill"
         case .review:
-            return "checkmark.shield.fill"
+            return card.needsReview ? "hand.raised.fill" : "play.circle.fill"
         }
     }
 
@@ -266,7 +269,7 @@ struct QuillCodeToolCardView: View {
         let context = card.executionContext.map {
             ", \($0.label) \($0.detail)"
         } ?? ""
-        return "\(card.title), \(card.status.rawValue), \(card.densityAccessibilityLabel)\(context)"
+        return "\(card.title), \(card.statusAccessibilityLabel), \(card.densityAccessibilityLabel)\(context)"
     }
 }
 
@@ -291,7 +294,10 @@ private struct QuillCodeToolCardActionRow: View {
                     .lineLimit(1)
                     .padding(.horizontal, 12)
                     .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
-                    .frame(minWidth: action.style == .primary ? 118 : 82)
+                    .frame(
+                        minWidth: action.style == .primary ? 118 : 72,
+                        maxWidth: action.style == .primary ? .infinity : 92
+                    )
                     .foregroundStyle(foregroundColor(for: action.style))
                     .background(backgroundColor(for: action.style))
                     .overlay(
@@ -304,6 +310,7 @@ private struct QuillCodeToolCardActionRow: View {
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .help(action.title)
                 .accessibilityLabel(action.title)
+                .layoutPriority(action.style == .primary ? 1 : 0)
             }
             Spacer(minLength: 0)
         }
@@ -345,12 +352,13 @@ private struct QuillCodeToolCardActionRow: View {
 }
 
 private struct QuillCodeToolStatusBadge: View {
-    var status: ToolCardStatus
+    var label: String
+    var accessibilityLabel: String
     var tint: Color
     var iconName: String
 
     var body: some View {
-        Label(status.rawValue.capitalized, systemImage: iconName)
+        Label(label, systemImage: iconName)
             .font(.caption.monospacedDigit().weight(.semibold))
             .lineLimit(1)
             .padding(.horizontal, 9)
@@ -362,8 +370,8 @@ private struct QuillCodeToolStatusBadge: View {
                     .stroke(tint.opacity(0.22), lineWidth: 1)
             )
             .clipShape(Capsule())
-            .help(status.rawValue.capitalized)
-            .accessibilityLabel("Tool status \(status.rawValue)")
+            .help(label)
+            .accessibilityLabel("Tool status \(accessibilityLabel)")
     }
 }
 
