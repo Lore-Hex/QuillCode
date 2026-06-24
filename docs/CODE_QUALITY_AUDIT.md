@@ -2588,3 +2588,21 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelTests.swift` is still large. Older broad workspace flows around slash commands, automations, terminal behavior, and remote projects are now the clearest remaining extraction candidates.
+
+## 2026-06-24 Workspace Slash Command Integration Test Pass
+
+Overall grade after this slice: **A feature grouping, A behavior preservation, A regression guard**.
+
+Core slash-command integration tests moved from `WorkspaceModelTests.swift` into `WorkspaceSlashCommandIntegrationTests`. The monolithic model test file no longer owns command-palette slash prefill, core slash dispatch, local environment slash execution, local mode/model/thread lifecycle slash commands, context compaction routing, or status transcript assertions.
+
+Code quality changes:
+
+- Added `WorkspaceSlashCommandIntegrationTests` as the home for slash flows that cross composer submission, workspace command dispatch, local environment action loading, workspace surfaces, tool-card output, and transcript creation.
+- Centralized repeated local environment action setup in the focused test file.
+- Kept pure slash transcript copy in `WorkspaceSlashCommandTranscriptPlannerTests`, preserving the split between copy planning and model-level side effects.
+- Added a parity gate that keeps core slash integration method names out of `WorkspaceModelTests.swift`.
+- Reduced `WorkspaceModelTests.swift` without weakening slash-command behavior coverage.
+
+Remaining risk:
+
+- Remote-project and automation-specific slash flows still live in `WorkspaceModelTests.swift` because they cross larger SSH and schedule orchestration boundaries. They are good candidates for future focused integration files once those ownership groups are split.

@@ -918,6 +918,20 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("testProjectInstructionsLoadIntoNewThreadsAndRefreshBeforeRun"), "WorkspaceModelTests should not own project instruction integration flows.")
     }
 
+    func testWorkspaceSlashCommandIntegrationTestsOwnCoreSlashFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let slashIntegrationTests = try Self.appTestSourceText(named: "WorkspaceSlashCommandIntegrationTests.swift")
+
+        XCTAssertTrue(slashIntegrationTests.contains("testSlashCommandsRouteToWorkspaceActions"), "Core slash-command dispatch should live in focused slash integration tests.")
+        XCTAssertTrue(slashIntegrationTests.contains("testSlashEnvironmentActionListsAndRunsByName"), "Local environment slash integration should live in focused slash integration tests.")
+        XCTAssertTrue(slashIntegrationTests.contains("testSlashThreadLifecycleCommands"), "Thread lifecycle slash integration should live in focused slash integration tests.")
+        XCTAssertTrue(slashIntegrationTests.contains("testSlashStatusReportsWorkspaceState"), "Slash status integration should live in focused slash integration tests.")
+        XCTAssertFalse(modelTests.contains("testSlashCommandsRouteToWorkspaceActions"), "WorkspaceModelTests should not own core slash-command dispatch flows.")
+        XCTAssertFalse(modelTests.contains("testSlashEnvironmentActionListsAndRunsByName"), "WorkspaceModelTests should not own local environment slash integration flows.")
+        XCTAssertFalse(modelTests.contains("testSlashThreadLifecycleCommands"), "WorkspaceModelTests should not own thread lifecycle slash integration flows.")
+        XCTAssertFalse(modelTests.contains("testSlashStatusReportsWorkspaceState"), "WorkspaceModelTests should not own slash status integration flows.")
+    }
+
     func testWorkspaceModelTestsDoNotOwnRuntimeFactoryCoverage() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let runtimeFactoryTests = try Self.appTestSourceText(named: "WorkspaceRuntimeFactoryTests.swift")
