@@ -4801,3 +4801,21 @@ What changed:
 
 Remaining risk:
 - This is still a deterministic HTML harness, not a packaged native WebKit smoke test. The next product-grade browser slice should automate a native app smoke run that opens a visible session, reuses its cookie profile, and verifies the same window is focused/navigated instead of duplicated.
+
+## 2026-06-24 Workspace Thread Parity Gate Split
+
+Overall grade after this slice: **A focused thread-boundary ownership, A regression protection, B+ catch-all size**.
+
+The workspace-model suite owned the first surface and tool-card boundary cluster, but project/thread context, seed, creation, and lifecycle gates still lived in the broad parity file. Those checks all protect the same actor boundary: `WorkspaceModel` delegates thread/project record construction and mutation to focused engines.
+
+What changed:
+- Moved project context refresh, thread seed, thread creation, and thread lifecycle gates into `ParityWorkspaceModelGateTests`.
+- Added a drift guard so thread lifecycle gates do not return to `ParityGateTests.swift`.
+- Reduced the broad parity file again without changing app behavior.
+
+Current strict grades:
+- `ParityWorkspaceModelGateTests.swift`: **A**. It now owns the core workspace-model surface, context, and thread boundary checks.
+- `ParityGateTests.swift`: **B+**. Still broad, but increasingly limited to cross-cutting and not-yet-extracted model boundaries.
+
+Remaining risk:
+- Configuration, retry, context resolving, MCP, and tool execution model gates still live in the catch-all. Continue extracting those by domain before adding more Codex-parity surface checks.
