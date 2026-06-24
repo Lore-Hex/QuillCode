@@ -918,6 +918,20 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("testProjectInstructionsLoadIntoNewThreadsAndRefreshBeforeRun"), "WorkspaceModelTests should not own project instruction integration flows.")
     }
 
+    func testWorkspaceRemoteProjectIntegrationTestsOwnModelRemoteProjectFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let remoteProjectIntegrationTests = try Self.appTestSourceText(named: "WorkspaceRemoteProjectIntegrationTests.swift")
+
+        XCTAssertTrue(remoteProjectIntegrationTests.contains("testSlashSSHAddsRemoteProjectAndEnablesRemoteGitActions"), "SSH project setup should live in focused remote project integration tests.")
+        XCTAssertTrue(remoteProjectIntegrationTests.contains("testRemoteProjectAgentRunsShellThroughSSH"), "Remote shell agent execution should live in focused remote project integration tests.")
+        XCTAssertTrue(remoteProjectIntegrationTests.contains("testRemoteProjectAgentCreatesPullRequestThroughSSH"), "Remote PR creation should live in focused remote project integration tests.")
+        XCTAssertTrue(remoteProjectIntegrationTests.contains("testRemoteProjectRejectsUnsafeWorktreePathBeforeSSH"), "Remote worktree safety coverage should live in focused remote project integration tests.")
+        XCTAssertFalse(modelTests.contains("testSlashSSHAddsRemoteProjectAndEnablesRemoteGitActions"), "WorkspaceModelTests should not own SSH project setup integration flows.")
+        XCTAssertFalse(modelTests.contains("testRemoteProjectAgentRunsShellThroughSSH"), "WorkspaceModelTests should not own remote shell agent integration flows.")
+        XCTAssertFalse(modelTests.contains("testRemoteProjectAgentCreatesPullRequestThroughSSH"), "WorkspaceModelTests should not own remote PR creation integration flows.")
+        XCTAssertFalse(modelTests.contains("testRemoteProjectRejectsUnsafeWorktreePathBeforeSSH"), "WorkspaceModelTests should not own remote worktree safety integration flows.")
+    }
+
     func testWorkspaceSlashCommandIntegrationTestsOwnCoreSlashFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let slashIntegrationTests = try Self.appTestSourceText(named: "WorkspaceSlashCommandIntegrationTests.swift")

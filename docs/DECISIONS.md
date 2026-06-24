@@ -14,6 +14,7 @@
 - Core project records are a focused workspace boundary. `ProjectModels.swift` owns local/SSH connection parsing and display, project refs, instructions, local environment actions, and project extension manifests; general thread/message models should not own workspace connection or extension compatibility.
 - Tool-router feature families should delegate before they sprawl. `ToolRouter` owns the common shell/file/patch entry point and composes git definitions from `GitToolCallDispatcher`; local git, GitHub PR, and worktree tool-call argument mapping lives in that dispatcher. This keeps the shared router small while preserving one public `ToolRouter.execute` API for the agent runtime.
 - Shell request policy is a tool-family concern. `ShellToolCallDispatcher` owns `host.shell.run` definitions, cwd containment, timeout bounds, environment override validation, and `ShellExecutionRequest` construction; `ToolRouter` only delegates shell calls before handling file and patch primitives.
+- SSH Remote project integration coverage lives in `WorkspaceRemoteProjectIntegrationTests`, not `WorkspaceModelTests`. SSH project creation, remote context refresh, remote-safe tool exposure, shell/file/git/GitHub/worktree execution through SSH, and remote path safety cross the workspace model, SSH executor, tool cards, surfaces, and transcript events; keep those flows together while low-level remote command builders stay in their focused tests.
 
 ## 2026-06-20
 

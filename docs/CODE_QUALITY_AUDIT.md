@@ -2660,3 +2660,21 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelTests.swift` is still large. Remote project, review, browser, and composer integration groups remain future extraction candidates.
+
+## 2026-06-24 Workspace Remote Project Integration Test Pass
+
+Overall grade after this slice: **A feature grouping, A fixture ownership, A regression guard**.
+
+SSH Remote project integration tests moved from `WorkspaceModelTests.swift` into `WorkspaceRemoteProjectIntegrationTests`. The model test file no longer owns SSH project setup, remote context refresh, remote-safe tool exposure, SSH-routed shell/file/git/GitHub/worktree agent execution, or remote path-safety flows.
+
+Code quality changes:
+
+- Added `WorkspaceRemoteProjectIntegrationTests` for remote flows crossing workspace model, SSH executor, tool cards, surfaces, transcript events, and fake GitHub CLI/SSH fixtures.
+- Moved reusable fake SSH, executing SSH, fake GitHub CLI, git repository, and fixed/recording LLM helpers into `WorkspaceModelIntegrationTestSupport`.
+- Kept low-level remote command builder and tool executor coverage in `WorkspaceRemoteProjectToolExecutorTests`.
+- Added a parity gate that keeps remote project integration method names out of `WorkspaceModelTests.swift`.
+- Reduced `WorkspaceModelTests.swift` again without weakening remote project behavior coverage.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still large. Browser, review, and composer integration groups remain future extraction candidates.
