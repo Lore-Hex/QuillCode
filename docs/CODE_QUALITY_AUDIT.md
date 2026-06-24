@@ -64,7 +64,7 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceModelTests.swift` is still broad. Bootstrap/config, approval-card behavior, feedback, and artifact-state coverage remain future extraction candidates.
+- `WorkspaceModelTests.swift` is still broad. Approval-card behavior, feedback, and artifact-state coverage remain future extraction candidates.
 
 ## 2026-06-24 Workspace Pull Request Integration Test Pass
 
@@ -82,7 +82,24 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceModelTests.swift` is still broad. Bootstrap/config persistence, approval-card behavior, and plan-update integration are the next extraction candidates.
+- `WorkspaceModelTests.swift` is still broad. Approval-card behavior and plan-update integration are the next extraction candidates.
+
+## 2026-06-24 Workspace Configuration Integration Test Pass
+
+Overall grade after this slice: **A feature grouping, A persistence-boundary clarity, A regression guard**.
+
+Configuration and bootstrap integration tests moved from `WorkspaceModelTests.swift` into `WorkspaceConfigurationIntegrationTests`. The model test file no longer owns mode/model top-bar propagation, favorite model config/surface projection, apply-settings thread/surface sync, persisted bootstrap loading, or TrustedRouter API key persistence. The lone project registry persistence test moved into `WorkspaceProjectIntegrationTests`, where it sits beside project instruction integration.
+
+Code quality changes:
+
+- Added `WorkspaceConfigurationIntegrationTests` for config flows crossing workspace model orchestration, surface projection, persisted config/thread/project/automation stores, bootstrap construction, and TrustedRouter key storage.
+- Moved project registry persistence into `WorkspaceProjectIntegrationTests` instead of keeping a project-owned store assertion in the model monolith.
+- Added parity gates that keep configuration/bootstrap integration test names out of `WorkspaceModelTests.swift` and require project registry persistence to remain with project integration coverage.
+- Removed the duplicate private temporary-directory helper from `WorkspaceModelTests.swift` so focused integration suites use the shared fixture support.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still broad. Approval-card behavior and plan-update integration remain future extraction candidates.
 
 ## 2026-06-23 Core Model Catalog Ownership Pass
 

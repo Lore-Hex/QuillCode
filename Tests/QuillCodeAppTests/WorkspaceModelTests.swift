@@ -1,71 +1,11 @@
 import XCTest
 import QuillCodeAgent
 import QuillCodeCore
-import QuillCodePersistence
 import QuillCodeTools
 @testable import QuillCodeApp
 
 @MainActor
 final class WorkspaceModelTests: XCTestCase {
-    func testModeAndModelUpdateSelectedThreadAndTopBar() {
-        let thread = ChatThread()
-        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
-            threads: [thread],
-            selectedThreadID: thread.id
-        ))
-
-        model.setMode(.review)
-        model.setModel("provider/model")
-
-        XCTAssertEqual(model.selectedThread?.mode, .review)
-        XCTAssertEqual(model.selectedThread?.model, "provider/model")
-        XCTAssertEqual(model.root.topBar.mode, .review)
-        XCTAssertEqual(model.root.topBar.model, "provider/model")
-    }
-
-    func testToggleModelFavoriteUpdatesConfigAndSurface() {
-        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
-            config: AppConfig(favoriteModels: ["provider/old"]),
-            topBar: TopBarState(model: TrustedRouterDefaults.synthModel),
-            modelCatalog: TrustedRouterModelCatalog.defaultModels
-        ))
-
-        model.toggleModelFavorite(" z-ai/glm-5.2 ")
-
-        XCTAssertEqual(model.root.config.favoriteModels, ["provider/old", "z-ai/glm-5.2"])
-        XCTAssertEqual(model.surface().topBar.modelCategories.first?.category, "Favorites")
-        XCTAssertEqual(model.surface().topBar.modelCategories.first?.models.map(\.id), ["provider/old", "z-ai/glm-5.2"])
-
-        model.toggleModelFavorite("provider/old")
-
-        XCTAssertEqual(model.root.config.favoriteModels, ["z-ai/glm-5.2"])
-        XCTAssertEqual(model.surface().topBar.modelCategories.first?.models.map(\.id), ["z-ai/glm-5.2"])
-    }
-
-    func testApplySettingsUpdatesConfigThreadAndSettingsSurface() {
-        let thread = ChatThread()
-        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
-            threads: [thread],
-            selectedThreadID: thread.id
-        ))
-        let config = AppConfig(
-            defaultModel: "z-ai/glm-5.2",
-            mode: .review,
-            apiBaseURL: "https://api.trustedrouter.test/v1",
-            developerOverrideEnabled: true
-        )
-
-        model.applySettings(config: config, trustedRouterAPIKeyConfigured: true)
-
-        XCTAssertEqual(model.root.config, config)
-        XCTAssertEqual(model.selectedThread?.mode, .review)
-        XCTAssertEqual(model.selectedThread?.model, "z-ai/glm-5.2")
-        XCTAssertEqual(model.surface().settings.apiBaseURL, "https://api.trustedrouter.test/v1")
-        XCTAssertTrue(model.surface().settings.developerOverrideEnabled)
-        XCTAssertTrue(model.surface().settings.hasStoredAPIKey)
-        XCTAssertEqual(model.surface().settings.apiKeyStatusLabel, "API key configured")
-    }
-
     func testToolCardsRepresentActionableApprovalReview() throws {
         let call = ToolCall(
             id: "approval-tool",
@@ -168,92 +108,6 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(timeline.compactMap(\.toolCard).first?.density, .expanded)
     }
 
-    func testBootstrapLoadsConfigAndPersistedThreads() throws {
-        let root = try makeTempDirectory()
-        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
-        try paths.ensure()
-        try ConfigStore(fileURL: paths.configFile).save(AppConfig(
-            defaultModel: "trustedrouter/glm-5.2",
-            mode: .review
-        ))
-        let project = ProjectRef(name: "QuillCode", path: root.path)
-        try JSONProjectStore(fileURL: paths.projectsFile).save([project])
-        let store = JSONThreadStore(directory: paths.threadsDirectory)
-        let older = ChatThread(
-            title: "Older",
-            projectID: project.id,
-            mode: .review,
-            model: "trustedrouter/glm-5.2",
-            updatedAt: Date(timeIntervalSince1970: 1)
-        )
-        let newer = ChatThread(
-            title: "Newer",
-            projectID: project.id,
-            mode: .review,
-            model: "trustedrouter/glm-5.2",
-            updatedAt: Date(timeIntervalSince1970: 2)
-        )
-        try store.save(older)
-        try store.save(newer)
-        try JSONAutomationStore(fileURL: paths.automationsFile).save([
-            QuillAutomation(
-                title: "Ship follow-up",
-                detail: "Check whether the release branch is ready.",
-                kind: .threadFollowUp,
-                scheduleKind: .heartbeat,
-                scheduleDescription: "Tomorrow at 9:00 AM",
-                projectID: project.id,
-                threadID: newer.id,
-                nextRunAt: Date(timeIntervalSince1970: 10)
-            )
-        ])
-
-        let model = try QuillCodeWorkspaceBootstrap(paths: paths).makeModel()
-
-        XCTAssertEqual(model.root.config.defaultModel, "trustedrouter/glm-5.2")
-        XCTAssertEqual(model.root.config.mode, .review)
-        XCTAssertEqual(model.root.projects.map(\.name), ["QuillCode"])
-        XCTAssertEqual(model.root.selectedProjectID, project.id)
-        XCTAssertEqual(model.root.threads.map(\.title), ["Newer", "Older"])
-        XCTAssertEqual(model.root.selectedThreadID, newer.id)
-        XCTAssertEqual(model.surface().topBar.primaryTitle, "Newer")
-        XCTAssertEqual(model.surface().topBar.subtitle, "QuillCode - Review - trustedrouter/glm-5.2")
-        XCTAssertEqual(model.surface().automations.statusLabel, "1 active")
-        XCTAssertEqual(model.surface().automations.workflows.map(\.title), ["Ship follow-up"])
-        XCTAssertEqual(model.surface().automations.workflows.first?.scheduleLabel, "Tomorrow at 9:00 AM")
-
-        let nextConfig = AppConfig(defaultModel: TrustedRouterDefaults.synthModel, mode: .auto)
-        try QuillCodeWorkspaceBootstrap(paths: paths).saveConfig(nextConfig)
-        XCTAssertEqual(try ConfigStore(fileURL: paths.configFile).load(), nextConfig)
-    }
-
-    func testModelPersistsProjectRegistryChanges() throws {
-        let root = try makeTempDirectory()
-        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
-        try paths.ensure()
-        let projectStore = JSONProjectStore(fileURL: paths.projectsFile)
-        let model = QuillCodeWorkspaceModel(projectStore: projectStore)
-
-        _ = model.addProject(path: root, name: "QuillCode")
-
-        XCTAssertEqual(try projectStore.load().map(\.name), ["QuillCode"])
-    }
-
-    func testBootstrapPersistsAndClearsTrustedRouterAPIKey() throws {
-        let paths = QuillCodePaths(home: try makeTempDirectory())
-        let bootstrap = QuillCodeWorkspaceBootstrap(paths: paths)
-
-        XCTAssertFalse(bootstrap.hasTrustedRouterAPIKey())
-        try bootstrap.saveTrustedRouterAPIKey("  sk-tr-v1-test  ")
-        XCTAssertTrue(bootstrap.hasTrustedRouterAPIKey())
-
-        let model = try bootstrap.makeModel()
-        XCTAssertTrue(model.surface().settings.hasStoredAPIKey)
-
-        try bootstrap.clearTrustedRouterAPIKey()
-        XCTAssertFalse(bootstrap.hasTrustedRouterAPIKey())
-    }
-
     func testPlanUpdateToolRecordsNormalizedActivityPlan() throws {
         let model = QuillCodeWorkspaceModel(activity: ActivityState(isVisible: true))
         _ = model.newChat()
@@ -305,13 +159,6 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertFalse(result.ok)
         XCTAssertEqual(result.error, "Plan update can have at most one in_progress step.")
         XCTAssertEqual(model.root.topBar.agentStatus, "Failed")
-    }
-
-    private func makeTempDirectory() throws -> URL {
-        let url = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("QuillCodeAppTests-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
     }
 
 }

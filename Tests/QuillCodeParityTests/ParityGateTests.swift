@@ -234,6 +234,23 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("root.trustedRouterAPIKeyConfigured = trustedRouterAPIKeyConfigured"), "WorkspaceModel should not own settings application details.")
     }
 
+    func testWorkspaceConfigurationIntegrationTestsOwnModelConfigurationFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let configurationIntegrationTests = try Self.appTestSourceText(named: "WorkspaceConfigurationIntegrationTests.swift")
+
+        XCTAssertTrue(configurationIntegrationTests.contains("testModeAndModelUpdateSelectedThreadAndTopBar"), "Mode/model top-bar integration should live in focused configuration integration tests.")
+        XCTAssertTrue(configurationIntegrationTests.contains("testToggleModelFavoriteUpdatesConfigAndSurface"), "Favorite model config/surface integration should live in focused configuration integration tests.")
+        XCTAssertTrue(configurationIntegrationTests.contains("testApplySettingsUpdatesConfigThreadAndSettingsSurface"), "Settings config/thread/surface integration should live in focused configuration integration tests.")
+        XCTAssertTrue(configurationIntegrationTests.contains("testBootstrapLoadsConfigAndPersistedThreads"), "Bootstrap config/thread/project/automation persistence integration should live in focused configuration integration tests.")
+        XCTAssertTrue(configurationIntegrationTests.contains("testBootstrapPersistsAndClearsTrustedRouterAPIKey"), "TrustedRouter API key persistence integration should live in focused configuration integration tests.")
+
+        XCTAssertFalse(modelTests.contains("testModeAndModelUpdateSelectedThreadAndTopBar"), "WorkspaceModelTests should not own mode/model surface integration flows.")
+        XCTAssertFalse(modelTests.contains("testToggleModelFavoriteUpdatesConfigAndSurface"), "WorkspaceModelTests should not own favorite model config/surface integration flows.")
+        XCTAssertFalse(modelTests.contains("testApplySettingsUpdatesConfigThreadAndSettingsSurface"), "WorkspaceModelTests should not own settings config/thread/surface integration flows.")
+        XCTAssertFalse(modelTests.contains("testBootstrapLoadsConfigAndPersistedThreads"), "WorkspaceModelTests should not own bootstrap config/thread/project/automation persistence integration.")
+        XCTAssertFalse(modelTests.contains("testBootstrapPersistsAndClearsTrustedRouterAPIKey"), "WorkspaceModelTests should not own TrustedRouter API key persistence integration.")
+    }
+
     func testWorkspaceModelDelegatesStatusTextAndLabels() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
@@ -914,9 +931,11 @@ final class ParityGateTests: XCTestCase {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let projectIntegrationTests = try Self.appTestSourceText(named: "WorkspaceProjectIntegrationTests.swift")
 
+        XCTAssertTrue(projectIntegrationTests.contains("testModelPersistsProjectRegistryChanges"), "Project registry persistence should live in focused project integration tests.")
         XCTAssertTrue(projectIntegrationTests.contains("testSelectingProjectControlsNextChatAndWorkspaceRoot"), "Project selection workspace integration should live in focused project tests.")
         XCTAssertTrue(projectIntegrationTests.contains("testProjectLifecycleActionsRenameRefreshNewChatAndRemove"), "Project lifecycle command integration should live in focused project tests.")
         XCTAssertTrue(projectIntegrationTests.contains("testProjectInstructionsLoadIntoNewThreadsAndRefreshBeforeRun"), "Project instruction integration should live in focused project tests.")
+        XCTAssertFalse(modelTests.contains("testModelPersistsProjectRegistryChanges"), "WorkspaceModelTests should not own project registry persistence integration flows.")
         XCTAssertFalse(modelTests.contains("testSelectingProjectControlsNextChatAndWorkspaceRoot"), "WorkspaceModelTests should not own project selection integration flows.")
         XCTAssertFalse(modelTests.contains("testProjectLifecycleActionsRenameRefreshNewChatAndRemove"), "WorkspaceModelTests should not own project lifecycle command integration flows.")
         XCTAssertFalse(modelTests.contains("testProjectInstructionsLoadIntoNewThreadsAndRefreshBeforeRun"), "WorkspaceModelTests should not own project instruction integration flows.")

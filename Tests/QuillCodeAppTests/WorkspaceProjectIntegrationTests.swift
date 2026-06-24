@@ -1,8 +1,21 @@
 import XCTest
+import QuillCodePersistence
 @testable import QuillCodeApp
 
 @MainActor
 final class WorkspaceProjectIntegrationTests: XCTestCase {
+    func testModelPersistsProjectRegistryChanges() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let projectStore = JSONProjectStore(fileURL: paths.projectsFile)
+        let model = QuillCodeWorkspaceModel(projectStore: projectStore)
+
+        _ = model.addProject(path: root, name: "QuillCode")
+
+        XCTAssertEqual(try projectStore.load().map(\.name), ["QuillCode"])
+    }
+
     func testSelectingProjectControlsNextChatAndWorkspaceRoot() throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()
