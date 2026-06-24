@@ -4535,3 +4535,22 @@ Current strict grades:
 
 Remaining risk:
 - This is still not an A+ whole repo. Next highest-leverage steps are extracting another `WorkspaceModel` workflow boundary, splitting `ToolTests.swift`, adding a real browser session/live DOM adapter, and continuing to reduce duplicated Swift/HTML harness display contracts.
+
+## 2026-06-24 Workspace Automation Model API Extraction
+
+Overall grade after this slice: **A- model decomposition, A behavior preservation, A regression guard**.
+
+`WorkspaceModel.swift` still owned the full automation scheduling and run orchestration API even though automation state reduction, draft creation, surface projection, and integration coverage already lived in focused files. That kept the main model larger than necessary and made future automation work more likely to conflict with unrelated project/thread/browser changes.
+
+What changed:
+- Added `WorkspaceModelAutomations.swift` for the public automation model API: set, create, schedule, run, due-run, status update, and delete.
+- Kept public model state read-only outside the model while exposing narrow internal helpers for automation extension side effects: project lookup, thread insertion, project context refresh, automation persistence, error copy, and top-bar refresh.
+- Updated the parity gate so reducer calls are expected in the focused automation extension and automation scheduling/run APIs cannot drift back into `WorkspaceModel.swift`.
+
+Current strict grades:
+- `QuillCodeCore`: **A**. Automation models and recurrence records remain explicit and isolated.
+- `QuillCodeApp`: **B+/A-**. `WorkspaceModel.swift` dropped from 1,821 to 1,528 lines, but it is still the largest production coordination file and needs additional workflow extraction.
+- Automation architecture: **A-**. API orchestration, pure state reduction, and draft construction now have clearer ownership; a future pass should extract another non-automation workflow before widening automation behavior.
+
+Remaining risk:
+- `WorkspaceModel.swift` still coordinates many side-effect families. Continue shrinking it through focused extensions or coordinators with parity gates, without broadening public state mutability.
