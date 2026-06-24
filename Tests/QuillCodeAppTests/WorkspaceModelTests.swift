@@ -299,57 +299,6 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(arguments.contains("cd '\(nestedPath.replacingOccurrences(of: "'", with: "'\\''"))' &&"))
     }
 
-    func testWorkspaceCommandListsGitWorktrees() throws {
-        let root = try makeTempDirectory()
-        try initializeGitRepository(at: root)
-        let model = QuillCodeWorkspaceModel()
-        let projectID = model.addProject(path: root, name: "Worktree Project")
-        model.selectProject(projectID)
-
-        XCTAssertTrue(model.runWorkspaceCommand("git-worktree-list", workspaceRoot: root))
-
-        let cards = model.currentToolCards
-        XCTAssertEqual(cards.count, 1)
-        XCTAssertEqual(cards[0].title, "host.git.worktree.list")
-        XCTAssertEqual(cards[0].status, .done)
-        let outputJSON = try XCTUnwrap(cards[0].outputJSON)
-        let result = try JSONHelpers.decode(ToolResult.self, from: outputJSON)
-        XCTAssertTrue(result.stdout.contains(root.standardizedFileURL.path), result.stdout)
-        XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
-    }
-
-    func testRemoteWorkspaceCommandListsGitWorktreesThroughSSH() throws {
-        let root = try makeTempDirectory()
-        let remoteRoot = try makeTempGitRepoWithInitialCommit()
-        let argumentsFile = root.appendingPathComponent("ssh-agent-args.txt")
-        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
-        let connection = ProjectConnection.ssh(
-            path: remoteRoot.path,
-            host: "feather.local",
-            user: "quill",
-            port: 2222
-        )
-        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
-        let model = QuillCodeWorkspaceModel(
-            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
-            sshRemoteShellExecutor: SSHRemoteShellExecutor(
-                sshExecutable: fakeSSH.path,
-                connectTimeoutSeconds: 4
-            )
-        )
-
-        XCTAssertTrue(model.runWorkspaceCommand("git-worktree-list", workspaceRoot: root))
-
-        let card = try XCTUnwrap(model.currentToolCards.last)
-        XCTAssertEqual(card.title, ToolDefinition.gitWorktreeList.name)
-        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
-        XCTAssertEqual(card.status, .done)
-        let result = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(card.outputJSON))
-        XCTAssertTrue(result.stdout.contains(remoteRoot.standardizedFileURL.path), result.stdout)
-        let sshArguments = try String(contentsOf: argumentsFile, encoding: .utf8)
-        XCTAssertTrue(sshArguments.contains("git worktree list --porcelain"), sshArguments)
-    }
-
     func testRemoteWorkspaceCommandsViewPullRequestAndChecksThroughSSH() throws {
         let root = try makeTempDirectory()
         let bin = root.appendingPathComponent("bin")
@@ -480,7 +429,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(try ghArguments(), ["pr", "merge", "456", "--rebase", "--auto", "--delete-branch"])
     }
 
-    func testWorkspaceWorktreeCommandsPrefillComposer() throws {
+    func testWorkspacePullRequestCommandsPrefillComposer() throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()
 
@@ -504,99 +453,6 @@ final class WorkspaceModelTests: XCTestCase {
 
         XCTAssertTrue(model.runWorkspaceCommand("git-pr-merge", workspaceRoot: root))
         XCTAssertEqual(model.composer.draft, "Merge the current pull request with squash")
-
-        XCTAssertTrue(model.runWorkspaceCommand("git-worktree-create", workspaceRoot: root))
-        XCTAssertEqual(model.composer.draft, "Create a git worktree named ")
-
-        XCTAssertTrue(model.runWorkspaceCommand("git-worktree-remove", workspaceRoot: root))
-        XCTAssertEqual(model.composer.draft, "Remove git worktree at ")
-    }
-
-    func testWorkspaceCreateWorktreeOpensFocusedThreadAndKeepsToolAudit() throws {
-        let root = try makeTempGitRepoWithInitialCommit()
-        let parent = root.deletingLastPathComponent()
-        let worktreeName = "quillcode-ui-\(UUID().uuidString)"
-        let branch = "quillcode-ui-\(UUID().uuidString.prefix(8))"
-        let worktree = parent.appendingPathComponent(worktreeName).standardizedFileURL
-        let model = QuillCodeWorkspaceModel()
-        let projectID = model.addProject(path: root, name: "Worktree Project")
-        model.selectProject(projectID)
-
-        model.createWorktree(.init(path: worktreeName, branch: String(branch)), workspaceRoot: root)
-
-        XCTAssertTrue(FileManager.default.fileExists(atPath: worktree.path))
-        XCTAssertEqual(model.selectedProject?.path, worktree.path)
-        XCTAssertEqual(model.selectedProject?.name, worktreeName)
-        XCTAssertEqual(model.selectedThread?.projectID, model.selectedProject?.id)
-        XCTAssertEqual(model.selectedThread?.title, "Worktree: \(branch)")
-        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("Opened worktree `\(worktreeName)`") == true)
-        XCTAssertEqual(model.root.topBar.projectName, worktreeName)
-        XCTAssertEqual(model.root.topBar.threadTitle, "Worktree: \(branch)")
-
-        let createThread = try XCTUnwrap(model.root.threads.first { thread in
-            WorkspaceTranscriptSurfaceBuilder(thread: thread).toolCards().contains { card in
-                card.title == "host.git.worktree.create"
-            }
-        })
-        XCTAssertNotEqual(createThread.id, model.selectedThread?.id)
-        let createCard = try XCTUnwrap(WorkspaceTranscriptSurfaceBuilder(thread: createThread).toolCards().last)
-        XCTAssertEqual(createCard.status, .done)
-        XCTAssertTrue(createCard.inputJSON?.contains(worktreeName) == true)
-
-        model.removeWorktree(.init(path: worktreeName), workspaceRoot: root)
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: worktree.path))
-        XCTAssertEqual(model.currentToolCards.last?.title, "host.git.worktree.remove")
-        XCTAssertEqual(model.currentToolCards.last?.status, .done)
-    }
-
-    func testRemoteWorkspaceCreateWorktreeOpensSSHProjectAndKeepsToolAudit() throws {
-        let root = try makeTempDirectory()
-        let remoteRoot = try makeTempGitRepoWithInitialCommit()
-        let parent = remoteRoot.deletingLastPathComponent()
-        let worktreeName = "remote-ui-\(UUID().uuidString)"
-        let branch = "remote-ui-\(UUID().uuidString.prefix(8))"
-        let worktree = parent.appendingPathComponent(worktreeName).standardizedFileURL
-        let argumentsFile = root.appendingPathComponent("ssh-agent-args.txt")
-        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
-        let connection = ProjectConnection.ssh(
-            path: remoteRoot.path,
-            host: "feather.local",
-            user: "quill",
-            port: 2222
-        )
-        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
-        let model = QuillCodeWorkspaceModel(
-            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
-            sshRemoteShellExecutor: SSHRemoteShellExecutor(
-                sshExecutable: fakeSSH.path,
-                connectTimeoutSeconds: 4
-            )
-        )
-
-        model.createWorktree(.init(path: worktreeName, branch: String(branch)), workspaceRoot: root)
-
-        XCTAssertTrue(FileManager.default.fileExists(atPath: worktree.path))
-        XCTAssertEqual(model.selectedProject?.connection.kind, .ssh)
-        XCTAssertEqual(model.selectedProject?.connection.host, "feather.local")
-        XCTAssertEqual(model.selectedProject?.connection.user, "quill")
-        XCTAssertEqual(model.selectedProject?.connection.port, 2222)
-        XCTAssertEqual(model.selectedProject?.connection.path, worktree.path)
-        XCTAssertEqual(model.selectedThread?.projectID, model.selectedProject?.id)
-        XCTAssertEqual(model.selectedThread?.title, "Worktree: \(branch)")
-        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("Opened remote worktree `\(worktreeName)`") == true)
-        XCTAssertEqual(model.root.topBar.projectName, "feather.local · \(worktreeName)")
-
-        let createThread = try XCTUnwrap(model.root.threads.first { thread in
-            WorkspaceTranscriptSurfaceBuilder(thread: thread).toolCards().contains { card in
-                card.title == ToolDefinition.gitWorktreeCreate.name
-            }
-        })
-        XCTAssertNotEqual(createThread.id, model.selectedThread?.id)
-        let createCard = try XCTUnwrap(WorkspaceTranscriptSurfaceBuilder(thread: createThread).toolCards().last)
-        XCTAssertEqual(createCard.status, .done)
-        let createResult = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(createCard.outputJSON))
-        XCTAssertEqual(createResult.artifacts, ["ssh://quill@feather.local:2222\(worktree.path)"])
     }
 
     func testPinnedThreadsSortBeforeRecentThreads() {
