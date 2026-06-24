@@ -3798,3 +3798,18 @@ What changed:
 
 Remaining risk:
 - `SlashCommand.swift` still owns project, terminal, mode, model, and generic routing. That remains reasonable while those branches are small; split `SlashProjectCommandParser` only if project commands gain richer argument parsing or remote-project setup variants.
+
+## 2026-06-24 Synth Model Command Feedback
+
+Overall grade after this slice: **A+ model alias UX, A command transcript clarity, A+ regression coverage**.
+
+The TrustedRouter catalog correctly accepts legacy Fusion IDs as aliases for Synth, but the `/model` command acknowledgement still used the raw command argument. That could make a successful `/model /fusion` look like QuillCode still preferred Fusion terminology even though config, picker rows, and docs now prefer Synth.
+
+What changed:
+- `QuillCodeWorkspaceModel.setModel` now returns the canonical model ID it actually stored.
+- Slash-command model feedback is rendered from the canonical model ID instead of the raw user input.
+- Recommended models show user-facing brand plus preferred ID, such as `Synth (/synth)`, while arbitrary provider/model IDs stay literal.
+- Added focused planner and integration regressions proving `/model /fusion` stores Synth and confirms `Model set to Synth (/synth).`
+
+Remaining risk:
+- Other non-command surfaces should keep using `TrustedRouterDefaults.preferredDisplayModelID` rather than hand-formatting model IDs. If model picker subtitles or thread metadata gain richer copy, keep the branding policy centralized in `TrustedRouterDefaults` or a small display-label helper.

@@ -35,7 +35,7 @@ struct WorkspaceSlashCommandTranscriptPlanner {
     static func model(userText: String, model: String) -> WorkspaceLocalCommandTranscript {
         transcript(
             userText: userText,
-            assistantText: "Model set to \(model).",
+            assistantText: "Model set to \(modelConfirmationLabel(for: model)).",
             title: "Set model"
         )
     }
@@ -162,6 +162,16 @@ struct WorkspaceSlashCommandTranscriptPlanner {
         let cwd = action.workingDirectory.map { " — cwd: \($0)" } ?? ""
         let timeout = action.timeoutSeconds.map { " — timeout: \($0)s" } ?? ""
         return "- `/env \(action.title)` — \(action.relativePath)\(cwd)\(timeout)\(detail)"
+    }
+
+    private static func modelConfirmationLabel(for model: String) -> String {
+        let modelID = TrustedRouterDefaults.canonicalModelID(model)
+        guard TrustedRouterDefaults.recommendedRank(for: modelID) != nil else {
+            return modelID
+        }
+        let displayName = TrustedRouterDefaults.displayName(fromModelID: modelID)
+        let preferredID = TrustedRouterDefaults.preferredDisplayModelID(modelID)
+        return "\(displayName) (\(preferredID))"
     }
 
     private static func transcript(userText: String, assistantText: String, title: String) -> WorkspaceLocalCommandTranscript {
