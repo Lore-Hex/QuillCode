@@ -10,6 +10,25 @@ struct QuillCodeSidebarVisibleCommandGroup: Sendable, Hashable, Identifiable {
     var commands: [WorkspaceCommandSurface]
 }
 
+private struct QuillCodeSidebarCommandMetadata: Sendable, Hashable {
+    var title: String
+    var htmlIconToken: String
+    var htmlTestID: String
+    var systemImageOverride: String?
+
+    init(
+        title: String,
+        htmlIconToken: String = "command",
+        htmlTestID: String = "sidebar-command-button",
+        systemImageOverride: String? = nil
+    ) {
+        self.title = title
+        self.htmlIconToken = htmlIconToken
+        self.htmlTestID = htmlTestID
+        self.systemImageOverride = systemImageOverride
+    }
+}
+
 struct QuillCodeSidebarCommandPresentation: Sendable, Hashable {
     static let primaryCommandIDs = [
         "new-chat"
@@ -60,6 +79,56 @@ struct QuillCodeSidebarCommandPresentation: Sendable, Hashable {
         utilityCommandGroups.flatMap(\.commandIDs)
     }
 
+    private static let metadataByCommandID: [String: QuillCodeSidebarCommandMetadata] = [
+        "new-chat": QuillCodeSidebarCommandMetadata(
+            title: "New chat",
+            htmlIconToken: "new",
+            htmlTestID: "new-chat-button"
+        ),
+        "search": QuillCodeSidebarCommandMetadata(
+            title: "Search",
+            htmlIconToken: "search",
+            htmlTestID: "sidebar-search-button"
+        ),
+        "command-palette": QuillCodeSidebarCommandMetadata(
+            title: "Command palette",
+            htmlIconToken: "command",
+            htmlTestID: "command-palette-button"
+        ),
+        "toggle-extensions": QuillCodeSidebarCommandMetadata(
+            title: "Plugins",
+            htmlIconToken: "plugins",
+            htmlTestID: "extensions-button"
+        ),
+        "toggle-automations": QuillCodeSidebarCommandMetadata(
+            title: "Automations",
+            htmlIconToken: "automations",
+            htmlTestID: "automations-button"
+        ),
+        "toggle-terminal": QuillCodeSidebarCommandMetadata(
+            title: "Terminal",
+            htmlIconToken: "terminal",
+            htmlTestID: "terminal-button"
+        ),
+        "toggle-browser": QuillCodeSidebarCommandMetadata(
+            title: "Browser",
+            htmlIconToken: "browser",
+            htmlTestID: "browser-button"
+        ),
+        "toggle-memories": QuillCodeSidebarCommandMetadata(
+            title: "Memories",
+            htmlIconToken: "memories",
+            htmlTestID: "memories-button"
+        ),
+        "toggle-activity": QuillCodeSidebarCommandMetadata(
+            title: "Activity",
+            htmlIconToken: "activity",
+            htmlTestID: "activity-button",
+            systemImageOverride: "waveform.path.ecg"
+        ),
+        "settings": QuillCodeSidebarCommandMetadata(title: "Settings")
+    ]
+
     static func visibleUtilityCommandGroups(
         from commands: [WorkspaceCommandSurface]
     ) -> [QuillCodeSidebarVisibleCommandGroup] {
@@ -81,86 +150,21 @@ struct QuillCodeSidebarCommandPresentation: Sendable, Hashable {
     }
 
     static func displayTitle(_ commandID: String, fallback: String) -> String {
-        switch commandID {
-        case "new-chat":
-            return "New chat"
-        case "search":
-            return "Search"
-        case "toggle-extensions":
-            return "Plugins"
-        case "toggle-automations":
-            return "Automations"
-        case "toggle-terminal":
-            return "Terminal"
-        case "toggle-browser":
-            return "Browser"
-        case "toggle-memories":
-            return "Memories"
-        case "toggle-activity":
-            return "Activity"
-        case "command-palette":
-            return "Command palette"
-        case "settings":
-            return "Settings"
-        default:
-            return fallback
-        }
+        metadataByCommandID[commandID]?.title ?? fallback
     }
 
     static func systemImage(for commandID: String) -> String {
-        if commandID == "toggle-activity" {
-            return "waveform.path.ecg"
+        if let override = metadataByCommandID[commandID]?.systemImageOverride {
+            return override
         }
         return QuillCodeCommandIconCatalog.systemImage(for: commandID, fallback: "circle")
     }
 
     static func htmlIconToken(for commandID: String) -> String {
-        switch commandID {
-        case "new-chat":
-            return "new"
-        case "search":
-            return "search"
-        case "command-palette":
-            return "command"
-        case "toggle-extensions":
-            return "plugins"
-        case "toggle-automations":
-            return "automations"
-        case "toggle-terminal":
-            return "terminal"
-        case "toggle-browser":
-            return "browser"
-        case "toggle-memories":
-            return "memories"
-        case "toggle-activity":
-            return "activity"
-        default:
-            return "command"
-        }
+        metadataByCommandID[commandID]?.htmlIconToken ?? "command"
     }
 
     static func htmlTestID(for commandID: String) -> String {
-        switch commandID {
-        case "new-chat":
-            return "new-chat-button"
-        case "search":
-            return "sidebar-search-button"
-        case "toggle-extensions":
-            return "extensions-button"
-        case "toggle-automations":
-            return "automations-button"
-        case "toggle-terminal":
-            return "terminal-button"
-        case "toggle-browser":
-            return "browser-button"
-        case "toggle-memories":
-            return "memories-button"
-        case "toggle-activity":
-            return "activity-button"
-        case "command-palette":
-            return "command-palette-button"
-        default:
-            return "sidebar-command-button"
-        }
+        metadataByCommandID[commandID]?.htmlTestID ?? "sidebar-command-button"
     }
 }

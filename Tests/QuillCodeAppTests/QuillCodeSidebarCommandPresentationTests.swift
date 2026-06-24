@@ -85,6 +85,16 @@ final class QuillCodeSidebarCommandPresentationTests: XCTestCase {
         XCTAssertEqual(QuillCodeSidebarCommandPresentation.systemImage(for: "settings"), "gearshape")
     }
 
+    func testUnknownCommandsUseFallbackPresentationValues() {
+        XCTAssertEqual(
+            QuillCodeSidebarCommandPresentation.displayTitle("custom-command", fallback: "Custom"),
+            "Custom"
+        )
+        XCTAssertEqual(QuillCodeSidebarCommandPresentation.systemImage(for: "custom-command"), "circle")
+        XCTAssertEqual(QuillCodeSidebarCommandPresentation.htmlIconToken(for: "custom-command"), "command")
+        XCTAssertEqual(QuillCodeSidebarCommandPresentation.htmlTestID(for: "custom-command"), "sidebar-command-button")
+    }
+
     func testVisibleUtilityCommandGroupsFilterMissingCommandsWithoutChangingGroupOrder() {
         let commands = [
             WorkspaceCommandSurface(id: "command-palette", title: "Command Palette", category: "Global"),

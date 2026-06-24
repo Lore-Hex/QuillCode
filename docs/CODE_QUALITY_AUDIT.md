@@ -4142,3 +4142,18 @@ What changed:
 
 Remaining risk:
 - The desktop controller still owns applying each typed command action because it owns SwiftUI presentation flags and model refresh sequencing. That is acceptable; if desktop workflows grow more platform-specific side effects, split those into coordinators the same way sign-in, settings, project import, copy feedback, and tasks are already split.
+
+## 2026-06-24 Sidebar Command Metadata Table
+
+Overall grade after this slice: **A+ sidebar presentation DRYness, A native/HTML consistency, A parity guard**.
+
+`QuillCodeSidebarCommandPresentation` had already centralized sidebar command labels and icons, but it still repeated command IDs across separate switches for display titles, HTML icon tokens, HTML test IDs, and the Activity SF Symbol override. That is exactly the kind of low-level duplication that makes native SwiftUI, static HTML, and Playwright surfaces quietly drift as the Codex-style rail grows.
+
+What changed:
+- Added `QuillCodeSidebarCommandMetadata` and one `metadataByCommandID` table for sidebar-specific command labels, HTML icon tokens, HTML test IDs, and native icon overrides.
+- Replaced three command-ID switches plus the Activity override branch with table lookups and existing fallbacks.
+- Added a fallback behavior test for unknown sidebar commands.
+- Tightened the parity gate so sidebar command presentation cannot regress to repeated command-ID switches.
+
+Remaining risk:
+- The command palette and sidebar intentionally share SF Symbols through `QuillCodeCommandIconCatalog`, while HTML icon tokens remain sidebar-specific CSS tokens. If the HTML shell later adopts a richer icon system, add a dedicated HTML token catalog rather than mixing native symbol names into static markup.
