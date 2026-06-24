@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 @testable import QuillCodeApp
 
@@ -71,5 +72,21 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         let textFile = ToolArtifactState(value: "/tmp/quillcode/notes.md", textPreview: "# Notes\n")
         XCTAssertFalse(textFile.isDocumentPreview)
         XCTAssertTrue(textFile.hasTextPreview)
+    }
+
+    func testArtifactTextPreviewBuilderReadsLocalTextFilesOnly() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let textFile = directory.appendingPathComponent("hello.txt")
+        let appshotFile = directory.appendingPathComponent("checkout.appshot.json")
+        let binaryFile = directory.appendingPathComponent("data.bin")
+        try "hello world\n".write(to: textFile, atomically: true, encoding: .utf8)
+        try #"{"kind":"appshot"}"#.write(to: appshotFile, atomically: true, encoding: .utf8)
+        try Data([0, 1, 2, 3]).write(to: binaryFile)
+
+        XCTAssertEqual(ToolArtifactTextPreviewBuilder.textPreview(for: textFile.path), "hello world\n")
+        XCTAssertEqual(ToolArtifactTextPreviewBuilder.textPreview(for: textFile.absoluteString), "hello world\n")
+        XCTAssertNil(ToolArtifactTextPreviewBuilder.textPreview(for: appshotFile.path))
+        XCTAssertNil(ToolArtifactTextPreviewBuilder.textPreview(for: binaryFile.path))
+        XCTAssertNil(ToolArtifactTextPreviewBuilder.textPreview(for: "https://example.com/hello.txt"))
     }
 }
