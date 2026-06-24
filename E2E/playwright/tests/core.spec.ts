@@ -1670,9 +1670,18 @@ test('mock harness opens browser preview and records comments', async ({ page })
 
   await expect(page.getByTestId('browser-pane')).toBeVisible();
   await expect(page.getByTestId('browser-empty')).toBeVisible();
+  await expect(page.getByTestId('browser-session')).toBeDisabled();
 
   await page.getByLabel('Browser address').fill('localhost:5173');
   await expect(page.getByTestId('browser-open')).toBeEnabled();
+  await expect(page.getByTestId('browser-session')).toBeEnabled();
+  await page.getByTestId('browser-session').click();
+
+  await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
+  await expect(page.getByTestId('browser-status-label')).toHaveText('Session open');
+  await expect(page.getByTestId('browser-session-status')).toContainText('Visible session 1:');
+  await expect(page.getByTestId('browser-session-url')).toHaveText('http://localhost:5173');
+
   await page.getByTestId('browser-open').click();
 
   await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
@@ -1716,6 +1725,18 @@ test('mock harness opens browser preview and records comments', async ({ page })
   await expect(page.getByTestId('browser-back')).toBeEnabled();
   await expect(page.getByTestId('browser-forward')).toBeDisabled();
 
+  await page.getByLabel('Browser address').fill('localhost:5173/dashboard');
+  await clickSidebarTool(page, 'command-palette-button');
+  await page.getByLabel('Search commands').fill('>session');
+  await page.locator('[data-testid="command-palette-result"][data-command-id="open-browser-session"]').click();
+  await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+  await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173/dashboard');
+  await expect(page.getByTestId('browser-status-label')).toHaveText('Session open');
+  await expect(page.getByTestId('browser-session-status')).toContainText('Visible session 2:');
+  await expect(page.getByTestId('browser-session-url')).toHaveText('http://localhost:5173/dashboard');
+
+  await page.getByTestId('browser-back').click();
+  await expect(page.getByTestId('browser-current-url')).toHaveText('https://example.com/docs');
   await page.getByTestId('browser-back').click();
   await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
   await expect(page.getByTestId('browser-back')).toBeDisabled();

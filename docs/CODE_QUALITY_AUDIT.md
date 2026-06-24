@@ -4786,3 +4786,18 @@ Current strict grades:
 
 Remaining risk:
 - More workspace-model gates still live in the catch-all. Continue moving them by domain, especially project/thread lifecycle and MCP/tool execution boundaries, before adding new Codex-parity gates.
+
+## 2026-06-24 Browser Session E2E Harness Pass
+
+Overall grade after this slice: **A- browser-session harness coverage, A command parity guard, B+ browser product completeness**.
+
+The native browser pane and desktop presenter exposed a visible persistent browser session, but the Playwright harness still tested only static browser preview/navigation. That left a gap where the pane Session button or `Browser: Open session` command could become disabled or no-op without the UI smoke suite noticing.
+
+What changed:
+- Added `Browser: Open session` to the Playwright harness command catalog with dynamic enablement.
+- Added a visible Session control to the harness browser pane and matched native semantics: a typed address or current page can open a session.
+- Recorded the resolved session URL and open count in the harness so tests can assert real state changes instead of only checking that a button exists.
+- Extended the browser Playwright flow to open a session from the pane and from the command palette.
+
+Remaining risk:
+- This is still a deterministic HTML harness, not a packaged native WebKit smoke test. The next product-grade browser slice should automate a native app smoke run that opens a visible session, reuses its cookie profile, and verifies the same window is focused/navigated instead of duplicated.
