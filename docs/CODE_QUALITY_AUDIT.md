@@ -3918,3 +3918,17 @@ What changed:
 
 Remaining risk:
 - The filter still performs simple substring matching. That is appropriate for the Codex-style picker today; if model catalog search grows aliases, fuzzy ranking, or provider/category facets, add a small ranking value type rather than expanding SwiftUI picker state.
+
+## 2026-06-24 Slash Parity Gate Split
+
+Overall grade after this slice: **A+ slash parity suite ownership, A parser regression coverage, A maintainability**.
+
+`ParityGateTests.swift` still owned the PR, project, terminal, and mode slash-parser architecture gates even though tool, desktop, and top-bar gates already had focused suites. The broad parity file remained the largest Swift file and had become a frequent conflict point for parallel agents working on parser slices.
+
+What changed:
+- Added `ParitySlashGateTests.swift` as the focused owner for slash parser delegation gates.
+- Moved PR, project, terminal, and mode parser boundary checks out of the broad parity suite.
+- Updated the focused-suite guard so slash parser gates do not drift back into `ParityGateTests.swift`.
+
+Remaining risk:
+- `ParityGateTests.swift` is still large because it owns many historical workspace architecture gates. Continue extracting cohesive groups when touching them; avoid splitting isolated one-off tests unless a feature area is actively growing.
