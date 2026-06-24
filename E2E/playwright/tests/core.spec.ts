@@ -10,11 +10,6 @@ async function openTopBarOverflow(page: Page) {
   await expect(page.getByTestId('top-bar-overflow-menu')).toHaveAttribute('open', '');
 }
 
-async function openTopBarStatus(page: Page) {
-  await page.getByTestId('top-bar-status-button').click();
-  await expect(page.getByTestId('top-bar-status-menu')).toHaveAttribute('open', '');
-}
-
 async function openSidebarTools(page: Page) {
   await page.getByTestId('sidebar-tools-button').click();
   await expect(page.getByTestId('sidebar-tools-menu')).toHaveAttribute('open', '');
@@ -400,7 +395,7 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(transcriptPolish.sidebarMenuHeight).toBeGreaterThanOrEqual(40);
 });
 
-test('mock harness keeps status details compact under long labels', async ({ page }) => {
+test('mock harness keeps quiet top bar stable under long status metadata', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 760 });
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
@@ -416,48 +411,42 @@ test('mock harness keeps status details compact under long labels', async ({ pag
   await page.getByTestId('agent-status').evaluate(element => {
     element.textContent = 'Idle';
   });
-  await openTopBarStatus(page);
 
   const metrics = await page.evaluate(() => {
     const styleFor = (selector: string) => getComputedStyle(document.querySelector(selector)!);
     const rectFor = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
-    const instruction = document.querySelector('[data-testid="project-instructions-status"]')!;
-    const agent = document.querySelector('[data-testid="agent-status"]')!;
     const topBarRect = rectFor('[data-testid="top-bar"]');
     const actionRect = rectFor('[data-testid="top-bar-action-cluster"]');
-    const statusRect = rectFor('[data-testid="top-bar-status-popover"]');
+    const metadataRect = rectFor('[data-testid="top-bar-status-metadata"]');
     return {
       viewportWidth: document.documentElement.clientWidth,
       scrollWidth: document.documentElement.scrollWidth,
       clustersDisplay: styleFor('[data-testid="top-bar-clusters"]').display,
       clustersColumns: styleFor('[data-testid="top-bar-clusters"]').gridTemplateColumns,
-      contextOverflow: styleFor('[data-testid="top-bar-context-cluster"]').overflow,
-      instructionOverflow: styleFor('[data-testid="project-instructions-status"]').overflow,
-      instructionTextOverflow: styleFor('[data-testid="project-instructions-status"]').textOverflow,
-      instructionWidth: instruction.getBoundingClientRect().width,
-      instructionScrollWidth: instruction.scrollWidth,
-      agentText: agent.textContent,
-      agentWidth: agent.getBoundingClientRect().width,
-      agentScrollWidth: agent.scrollWidth,
-      statusRight: statusRect.right,
-      statusWidth: statusRect.width,
+      contextOverflow: styleFor('[data-testid="top-bar-subtitle"]').overflow,
+      contextTextOverflow: styleFor('[data-testid="top-bar-subtitle"]').textOverflow,
+      metadataWidth: metadataRect.width,
+      metadataHeight: metadataRect.height,
+      topBarHeight: topBarRect.height,
       actionRight: actionRect.right,
       topBarRight: topBarRect.right
     };
   });
 
+  await expect(page.getByTestId('top-bar-status-button')).toHaveCount(0);
+  await expect(page.getByTestId('top-bar-status-menu')).toHaveCount(0);
+  await expect(page.getByTestId('top-bar-status-popover')).toHaveCount(0);
+  await expect(page.getByTestId('top-bar-status-metadata')).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.getByTestId('top-bar-status-metadata')).not.toBeVisible();
+  await expect(page.getByTestId('agent-status')).toHaveText('Idle');
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.viewportWidth);
   expect(metrics.clustersDisplay).toBe('flex');
   expect(metrics.clustersColumns).toBe('none');
-  expect(metrics.contextOverflow).toBe('visible');
-  expect(metrics.instructionOverflow).toBe('hidden');
-  expect(metrics.instructionTextOverflow).toBe('ellipsis');
-  expect(metrics.instructionScrollWidth).toBeGreaterThan(metrics.instructionWidth);
-  expect(metrics.agentText).toBe('Idle');
-  expect(metrics.agentWidth).toBeGreaterThan(12);
-  expect(metrics.agentWidth).toBeLessThanOrEqual(180);
-  expect(metrics.statusWidth).toBeLessThanOrEqual(340);
-  expect(metrics.statusRight).toBeLessThanOrEqual(metrics.viewportWidth);
+  expect(metrics.contextOverflow).toBe('hidden');
+  expect(metrics.contextTextOverflow).toBe('ellipsis');
+  expect(metrics.metadataWidth).toBeLessThanOrEqual(1);
+  expect(metrics.metadataHeight).toBeLessThanOrEqual(1);
+  expect(metrics.topBarHeight).toBeLessThanOrEqual(44);
   expect(metrics.actionRight).toBeLessThanOrEqual(metrics.topBarRight);
 });
 

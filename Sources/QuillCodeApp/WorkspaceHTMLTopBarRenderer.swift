@@ -3,52 +3,29 @@ import Foundation
 enum WorkspaceHTMLTopBarRenderer {
     static func render(_ topBar: TopBarSurface, commands: [WorkspaceCommandSurface]) -> String {
         """
-        <header class="topbar" data-testid="top-bar" aria-label="QuillCode top bar">
+        <header class="topbar" data-testid="top-bar" aria-label="\(escape(topBarAccessibilityLabel(topBar)))">
+          \(renderStatusMetadata(topBar))
+          <p class="topbar-context-label" data-testid="top-bar-subtitle">\(escape(topBar.subtitle))</p>
           <div class="topbar-title-group" data-testid="top-bar-title-group">
-            <span>
-              <strong data-testid="top-bar-title">\(escape(topBar.primaryTitle))</strong>
-              <p data-testid="top-bar-subtitle">\(escape(topBar.subtitle))</p>
-            </span>
+            <strong data-testid="top-bar-title">\(escape(topBar.primaryTitle))</strong>
           </div>
           <div class="topbar-clusters" data-testid="top-bar-clusters">
-            \(renderStatusCluster(topBar))
             \(renderActionCluster(topBar, commands: commands))
           </div>
+          \(renderActivityHairline(topBar))
         </header>
         """
     }
 
-    private static func renderStatusCluster(_ topBar: TopBarSurface) -> String {
+    private static func renderStatusMetadata(_ topBar: TopBarSurface) -> String {
         let status = topBar.agentStatusPresentation
         return """
-        <div class="topbar-cluster topbar-context-cluster" data-testid="top-bar-context-cluster" aria-label="Workspace state">
-          <details class="topbar-status-menu" data-testid="top-bar-status-menu">
-            <summary data-testid="top-bar-status-button" aria-label="Workspace status" title="\(escape(status.label))">
-              <span class="agent-status-chip" data-testid="agent-status" data-tone="\(escape(status.tone.rawValue))" data-indicator="\(status.showsIndicator)">
-                <span class="agent-status-dot" aria-hidden="true"></span>
-                <span class="agent-status-label">\(escape(status.label))</span>
-              </span>
-            </summary>
-            <div class="topbar-status-popover" data-testid="top-bar-status-popover">
-              <div class="topbar-status-row">
-                <span>Status</span>
-                <strong>\(escape(status.label))</strong>
-              </div>
-              \(renderRuntimeIssuePill(topBar))
-              <div class="topbar-status-row">
-                <span>Instructions</span>
-                <strong data-testid="project-instructions-status" title="\(escape(topBar.instructionSources.joined(separator: ", ")))">\(escape(topBar.instructionLabel))</strong>
-              </div>
-              <div class="topbar-status-row">
-                <span>Memories</span>
-                <strong data-testid="project-memories-status" title="\(escape(topBar.memorySources.joined(separator: ", ")))">\(escape(topBar.memoryLabel))</strong>
-              </div>
-              <div class="topbar-status-row">
-                <span>Computer Use</span>
-                <strong data-testid="computer-use-status">\(escape(topBar.computerUseLabel))</strong>
-              </div>
-            </div>
-          </details>
+        <div class="topbar-status-metadata" data-testid="top-bar-status-metadata" aria-hidden="true">
+          <span data-testid="agent-status" data-tone="\(escape(status.tone.rawValue))" data-indicator="\(status.showsIndicator)">\(escape(status.label))</span>
+          \(renderRuntimeIssuePill(topBar))
+          <span data-testid="project-instructions-status" title="\(escape(topBar.instructionSources.joined(separator: ", ")))">\(escape(topBar.instructionLabel))</span>
+          <span data-testid="project-memories-status" title="\(escape(topBar.memorySources.joined(separator: ", ")))">\(escape(topBar.memoryLabel))</span>
+          <span data-testid="computer-use-status">\(escape(topBar.computerUseLabel))</span>
         </div>
         """
     }
@@ -56,6 +33,34 @@ enum WorkspaceHTMLTopBarRenderer {
     private static func renderRuntimeIssuePill(_ topBar: TopBarSurface) -> String {
         guard let issue = topBar.runtimeIssuePresentation else { return "" }
         return #"<span data-testid="runtime-issue-pill" data-severity="\#(escape(issue.tone.rawValue))">\#(escape(issue.label))</span>"#
+    }
+
+    private static func renderActivityHairline(_ topBar: TopBarSurface) -> String {
+        guard showsActivityHairline(topBar) else { return "" }
+        return #"<div class="topbar-activity-hairline" data-testid="top-bar-activity-hairline" data-tone="\#(escape(activityHairlineTone(topBar)))" aria-hidden="true"></div>"#
+    }
+
+    private static func showsActivityHairline(_ topBar: TopBarSurface) -> Bool {
+        topBar.agentStatusPresentation.showsIndicator || topBar.runtimeIssuePresentation != nil
+    }
+
+    private static func activityHairlineTone(_ topBar: TopBarSurface) -> String {
+        if let issue = topBar.runtimeIssuePresentation {
+            return issue.tone.rawValue
+        }
+        return topBar.agentStatusPresentation.tone.rawValue
+    }
+
+    private static func topBarAccessibilityLabel(_ topBar: TopBarSurface) -> String {
+        var parts = [
+            topBar.primaryTitle,
+            topBar.subtitle,
+            topBar.agentStatusPresentation.accessibilityLabel
+        ]
+        if let issue = topBar.runtimeIssuePresentation {
+            parts.append("Issue: \(issue.label)")
+        }
+        return parts.joined(separator: ", ")
     }
 
     private static func renderActionCluster(

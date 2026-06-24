@@ -24,7 +24,7 @@ struct QuillCodeTopBarView: View {
             if showsActivityHairline {
                 Rectangle()
                     .fill(activityHairlineColor)
-                    .frame(height: 2)
+                    .frame(height: 1)
                     .accessibilityHidden(true)
             }
         }
