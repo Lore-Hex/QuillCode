@@ -31,7 +31,21 @@ final class WorkspaceSlashCommandTranscriptPlannerTests: XCTestCase {
                 userText: "/model /synth",
                 model: TrustedRouterDefaults.synthModel
             ).assistantText,
-            "Model set to \(TrustedRouterDefaults.synthModel)."
+            "Model set to Synth (/synth)."
+        )
+        XCTAssertEqual(
+            WorkspaceSlashCommandTranscriptPlanner.model(
+                userText: "/model /fusion",
+                model: "trustedrouter/fusion"
+            ).assistantText,
+            "Model set to Synth (/synth)."
+        )
+        XCTAssertEqual(
+            WorkspaceSlashCommandTranscriptPlanner.model(
+                userText: "/model z-ai/glm-5.2",
+                model: "z-ai/glm-5.2"
+            ).assistantText,
+            "Model set to z-ai/glm-5.2."
         )
     }
 

@@ -981,12 +981,14 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
-    public func setModel(_ model: String) {
+    @discardableResult
+    public func setModel(_ model: String) -> String {
         let modelID = WorkspaceConfigurationEngine.setModel(model, config: &root.config)
         mutateSelectedThread { thread in
             WorkspaceConfigurationEngine.setModelID(modelID, thread: &thread)
         }
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        return modelID
     }
 
     public func toggleModelFavorite(_ model: String) {
@@ -1503,10 +1505,10 @@ public final class QuillCodeWorkspaceModel {
                 mode: mode
             ))
         case .model(let model):
-            setModel(model)
+            let modelID = setModel(model)
             appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.model(
                 userText: originalPrompt,
-                model: model
+                model: modelID
             ))
         case .renameThread(let title):
             let succeeded = root.selectedThreadID.map { renameThread($0, to: title) } ?? false

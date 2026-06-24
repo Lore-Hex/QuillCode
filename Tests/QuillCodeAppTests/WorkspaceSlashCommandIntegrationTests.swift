@@ -140,6 +140,18 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
         XCTAssertTrue(model.currentToolCards.isEmpty)
     }
 
+    func testSlashModelLegacyFusionAliasWritesPreferredSynthTranscript() async throws {
+        let model = QuillCodeWorkspaceModel()
+
+        model.setDraft("/model /fusion")
+        await model.submitComposer(workspaceRoot: try makeQuillCodeTestDirectory())
+
+        XCTAssertEqual(model.root.config.defaultModel, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(model.selectedThread?.model, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Model set to Synth (/synth).")
+        XCTAssertTrue(model.currentToolCards.isEmpty)
+    }
+
     func testSlashCompactRoutesToContextCompaction() async throws {
         let source = ChatThread(title: "Long slash thread", messages: [
             .init(role: .user, content: "old question"),
