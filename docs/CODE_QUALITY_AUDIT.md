@@ -2535,3 +2535,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelTests.swift` is still large because it contains broad integration coverage for remote projects, review actions, automations, terminal behavior, and composer runs. Continue moving feature-specific integration groups into focused files when the owning boundary is already extracted.
+
+## 2026-06-24 Workspace MCP Integration Test Pass
+
+Overall grade after this slice: **A feature grouping, A behavior preservation, A regression guard**.
+
+MCP integration tests moved from `WorkspaceModelTests.swift` into `WorkspaceMCPIntegrationTests`. The model test file no longer owns MCP server start/stop/Stop All lifecycle coverage, dynamic tool definition injection, MCP tool/resource/prompt agent turns, or unadvertised-tool rejection.
+
+Code quality changes:
+
+- Added `WorkspaceMCPIntegrationTests` for MCP flows that cross manifests, `WorkspaceMCPRuntime`, dynamic tool catalogs, agent turns, tool cards, transcript events, and surfaces.
+- Centralized repeated MCP fixture manifest/server setup inside that focused test file.
+- Added a parity gate that keeps MCP integration method names out of `WorkspaceModelTests.swift`.
+- Reduced `WorkspaceModelTests.swift` without weakening MCP behavior coverage.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still large. Project extension command integration is a clear next feature group to extract.

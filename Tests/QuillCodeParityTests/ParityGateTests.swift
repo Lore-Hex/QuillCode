@@ -883,6 +883,22 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("testMemoryDeleteWorkspaceCommandRemovesGlobalMemoryAndRefreshesThreadSurface"), "WorkspaceModelTests should not own memory delete integration flows.")
     }
 
+    func testWorkspaceMCPIntegrationTestsOwnModelMCPFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let mcpIntegrationTests = try Self.appTestSourceText(named: "WorkspaceMCPIntegrationTests.swift")
+
+        XCTAssertTrue(mcpIntegrationTests.contains("testMCPServerLifecycleStartsStopsAndStopAllTerminatesProcesses"), "MCP lifecycle integration should live in focused MCP integration tests.")
+        XCTAssertTrue(mcpIntegrationTests.contains("testReadyMCPServerCanBeCalledFromAgentTurn"), "MCP tool-call integration should live in focused MCP integration tests.")
+        XCTAssertTrue(mcpIntegrationTests.contains("testReadyMCPResourceCanBeReadFromAgentTurn"), "MCP resource integration should live in focused MCP integration tests.")
+        XCTAssertTrue(mcpIntegrationTests.contains("testReadyMCPPromptCanBeLoadedFromAgentTurn"), "MCP prompt integration should live in focused MCP integration tests.")
+        XCTAssertTrue(mcpIntegrationTests.contains("testMCPToolCallRejectsUnadvertisedTools"), "MCP rejection integration should live in focused MCP integration tests.")
+        XCTAssertFalse(modelTests.contains("testMCPServerLifecycleStartsStopsAndStopAllTerminatesProcesses"), "WorkspaceModelTests should not own MCP lifecycle integration flows.")
+        XCTAssertFalse(modelTests.contains("testReadyMCPServerCanBeCalledFromAgentTurn"), "WorkspaceModelTests should not own MCP tool-call integration flows.")
+        XCTAssertFalse(modelTests.contains("testReadyMCPResourceCanBeReadFromAgentTurn"), "WorkspaceModelTests should not own MCP resource integration flows.")
+        XCTAssertFalse(modelTests.contains("testReadyMCPPromptCanBeLoadedFromAgentTurn"), "WorkspaceModelTests should not own MCP prompt integration flows.")
+        XCTAssertFalse(modelTests.contains("testMCPToolCallRejectsUnadvertisedTools"), "WorkspaceModelTests should not own MCP rejection integration flows.")
+    }
+
     func testWorkspaceModelTestsDoNotOwnRuntimeFactoryCoverage() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let runtimeFactoryTests = try Self.appTestSourceText(named: "WorkspaceRuntimeFactoryTests.swift")
