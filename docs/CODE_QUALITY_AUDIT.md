@@ -3443,3 +3443,21 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModel` still calls context snapshots for new threads, worktrees, automations, and status copy. Those reads are acceptable because they assemble different workflows; if those workflows start mutating project context directly, move them through this refresher instead of adding more inline refresh logic.
+
+## 2026-06-24 Context Snapshot Call-Site Pass
+
+Overall grade after this slice: **A+ snapshot ownership, A+ model boundary, A parity guard coverage**.
+
+After the project context refresher split, `WorkspaceModel.swift` still read instruction and memory snapshots directly from `WorkspaceContextResolver` in several workflow-specific call sites: new chat creation, workspace automations, project refresh notices, worktree opening, status copy, and memory mutation follow-up. Those reads were correct, but they kept the model coupled to resolver details and made future context policy changes harder to audit.
+
+Code quality changes:
+
+- Added `WorkspaceProjectContextRefresher.threadCreationContext` and `worktreeOpenContext` so thread and worktree builders receive typed contexts from the same snapshot owner.
+- Reduced `WorkspaceModel` to a single `workspaceThreadContext(_:)` wrapper for instruction/memory snapshots.
+- Kept `WorkspaceModel` using `WorkspaceContextResolver` only for local environment action lookup, where the resolver is still the correct owner.
+- Added focused tests proving thread creation and worktree opening use the same merged global/project memory snapshot.
+- Tightened the parity gate so direct `contextResolver.instructions(for:)` and `contextResolver.memoryNotes(for:)` reads cannot drift back into `WorkspaceModel`.
+
+Remaining risk:
+
+- `WorkspaceProjectContextRefresher` now creates both thread and worktree contexts. If automation context assembly gains extra fields beyond instructions and memories, add an automation-specific typed context there instead of reintroducing resolver reads in `WorkspaceModel`.
