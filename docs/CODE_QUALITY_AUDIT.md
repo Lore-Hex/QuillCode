@@ -3976,3 +3976,18 @@ What changed:
 
 Remaining risk:
 - `WorkspaceModelIntegrationTestSupport.swift` still contains broad cross-domain fixtures because many workspace integration suites share fake SSH, fake GitHub CLI, and git helpers. If one fixture becomes owned by a single domain, move it into that domain's support file instead of growing this shared support module.
+
+## 2026-06-24 Model Slash Parser Split
+
+Overall grade after this slice: **A+ model slash ownership, A+ Synth usage copy, A outer parser boundary**.
+
+`SlashCommand.swift` still owned `/model` argument validation and user-facing Synth usage copy. Model parsing is intentionally small, but it is visible in the composer, transcript confirmations, saved model aliases, and the Codex-style model picker. Keeping the parser focused makes future alias or usage changes testable without expanding the top-level dispatcher.
+
+What changed:
+- Added `SlashModelCommandParser.swift` for `/model` argument trimming and empty-argument usage copy.
+- Reduced `SlashCommand.swift` to top-level `/model` delegation.
+- Added direct parser tests for trimming, empty usage, and top-level delegation.
+- Added a parity gate so model usage copy and command construction do not drift back into the outer slash parser.
+
+Remaining risk:
+- `SlashCommand.swift` still owns SSH, memory, and generic routing. SSH should be the next parser extraction if remote-project setup gains additional address formats, auth options, or validation copy.
