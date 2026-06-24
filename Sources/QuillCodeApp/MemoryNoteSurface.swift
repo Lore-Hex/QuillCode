@@ -1,0 +1,39 @@
+import Foundation
+import QuillCodeCore
+
+public struct MemoryNoteSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var scope: MemoryScope
+    public var scopeLabel: String
+    public var title: String
+    public var preview: String
+    public var relativePath: String
+    public var byteCountLabel: String
+    public var canDelete: Bool
+    public var deleteCommandID: String?
+
+    public init(note: MemoryNote) {
+        self.id = note.id
+        self.scope = note.scope
+        self.scopeLabel = note.scope.title
+        self.title = note.title
+        self.preview = Self.preview(note.content)
+        self.relativePath = note.relativePath
+        self.byteCountLabel = note.wasTruncated
+            ? "\(note.byteCount) bytes, truncated"
+            : "\(note.byteCount) bytes"
+        self.canDelete = note.scope == .global
+        self.deleteCommandID = note.scope == .global ? "memory-delete:\(note.id)" : nil
+    }
+
+    private static func preview(_ content: String) -> String {
+        let normalized = content
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        guard normalized.count > 180 else { return normalized }
+        let end = normalized.index(normalized.startIndex, offsetBy: 180)
+        return "\(normalized[..<end])..."
+    }
+}

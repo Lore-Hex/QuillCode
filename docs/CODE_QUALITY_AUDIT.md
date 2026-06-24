@@ -3566,3 +3566,18 @@ Code quality changes:
 Remaining risk:
 
 - `QuillCodeSecondaryPaneSurface.swift` still owns memory-note and automation-workflow rows. Those are acceptable while small, but if either gains custom compatibility decoding or richer action policy, split it into the same row-contract pattern.
+
+## 2026-06-24 Memory And Automation Row Surface Split
+
+Overall grade after this slice: **A+ secondary pane row ownership, A aggregate secondary-pane contract**.
+
+`QuillCodeSecondaryPaneSurface.swift` now owns only aggregate secondary-pane surfaces: Extensions, Memories, and Automations. Memory note rows and automation workflow rows moved into focused row contract files, matching the earlier extension manifest row split and keeping delete/run/pause/resume command derivation beside the row contracts that render those actions.
+
+What changed:
+- Added `MemoryNoteSurface.swift` for memory preview normalization, byte labels, and global-memory delete command IDs.
+- Added `AutomationWorkflowSurface.swift` for configured automation status labels, run-now eligibility, pause/resume commands, delete commands, and planned workflow rows.
+- Moved row-specific tests into `MemoryNoteSurfaceTests` and `AutomationWorkflowSurfaceTests`.
+- Tightened the parity gate so row internals cannot drift back into `QuillCodeSecondaryPaneSurface.swift`.
+
+Remaining risk:
+- `WorkspaceMemoriesSurface` still computes memory count labels inline, and `WorkspaceAutomationsSurface` still computes aggregate status labels inline. That is appropriate while the aggregate labels remain compact and directly tested; split them only if secondary-pane aggregate state grows beyond count/status projection.
