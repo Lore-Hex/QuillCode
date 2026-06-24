@@ -1487,85 +1487,79 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func handleSlashCommand(_ command: SlashCommand, originalPrompt: String, workspaceRoot: URL) {
-        switch command {
-        case .help:
-            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.help(userText: originalPrompt))
-        case .status:
-            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.status(
-                userText: originalPrompt,
-                statusText: statusText()
-            ))
+        let action = WorkspaceSlashCommandDispatchPlanner.action(
+            for: command,
+            userText: originalPrompt,
+            statusText: statusText()
+        )
+        runSlashCommandDispatchAction(action, workspaceRoot: workspaceRoot)
+        composer.isSending = false
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+    }
+
+    private func runSlashCommandDispatchAction(_ action: WorkspaceSlashCommandDispatchAction, workspaceRoot: URL) {
+        switch action {
+        case .appendTranscript(let transcript):
+            appendLocalCommandTranscript(transcript)
         case .newChat:
             _ = newChat()
-        case .mode(let mode):
+        case .setMode(let mode, let userText):
             setMode(mode)
             appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.mode(
-                userText: originalPrompt,
+                userText: userText,
                 mode: mode
             ))
-        case .model(let model):
+        case .setModel(let model, let userText):
             let modelID = setModel(model)
             appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.model(
-                userText: originalPrompt,
+                userText: userText,
                 model: modelID
             ))
-        case .renameThread(let title):
+        case .renameThread(let title, let userText):
             let succeeded = root.selectedThreadID.map { renameThread($0, to: title) } ?? false
             appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.renameThread(
-                userText: originalPrompt,
+                userText: userText,
                 requestedTitle: title,
                 succeeded: succeeded
             ))
-        case .renameProject(let name):
+        case .renameProject(let name, let userText):
             let succeeded = root.selectedProjectID.map { renameProject($0, to: name) } ?? false
             appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.renameProject(
-                userText: originalPrompt,
+                userText: userText,
                 requestedName: name,
                 succeeded: succeeded
             ))
-        case .sshProject(let address):
+        case .addSSHProject(let address, let userText):
             if let projectID = addSSHProject(address),
                let project = root.projects.first(where: { $0.id == projectID }) {
                 appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.sshProjectAdded(
-                    userText: originalPrompt,
+                    userText: userText,
                     projectName: project.name,
                     displayPath: project.displayPath
                 ))
             } else {
                 appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.sshProjectFailed(
-                    userText: originalPrompt,
+                    userText: userText,
                     message: lastError
                 ))
             }
-        case .remember(let content):
-            runRememberSlashCommand(content, originalPrompt: originalPrompt)
-        case .threadFollowUp(let scheduleText):
-            runThreadFollowUpSlashCommand(scheduleText, originalPrompt: originalPrompt)
-        case .workspaceSchedule(let scheduleText):
-            runWorkspaceScheduleSlashCommand(scheduleText, originalPrompt: originalPrompt)
-        case .workspaceCommand(let commandID):
+        case .remember(let content, let userText):
+            runRememberSlashCommand(content, originalPrompt: userText)
+        case .threadFollowUp(let scheduleText, let userText):
+            runThreadFollowUpSlashCommand(scheduleText, originalPrompt: userText)
+        case .workspaceSchedule(let scheduleText, let userText):
+            runWorkspaceScheduleSlashCommand(scheduleText, originalPrompt: userText)
+        case .workspaceCommand(let commandID, let userText):
             if !runWorkspaceCommand(commandID, workspaceRoot: workspaceRoot) {
                 appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.workspaceCommandFailed(
-                    userText: originalPrompt
+                    userText: userText
                 ))
             }
         case .toolCall(let call):
             _ = runToolCall(call, workspaceRoot: workspaceRoot)
-        case .environmentAction(let query):
-            runEnvironmentSlashCommand(query, originalPrompt: originalPrompt, workspaceRoot: workspaceRoot)
-        case .invalid(let message):
-            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.invalid(
-                userText: originalPrompt,
-                message: message
-            ))
-        case .unknown(let name):
-            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.unknown(
-                userText: originalPrompt,
-                name: name
-            ))
+        case .environmentAction(let query, let userText):
+            runEnvironmentSlashCommand(query, originalPrompt: userText, workspaceRoot: workspaceRoot)
         }
-        composer.isSending = false
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
     private func runThreadFollowUpSlashCommand(_ scheduleText: String, originalPrompt: String) {
