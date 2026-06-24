@@ -58,7 +58,7 @@ enum SlashCommandParser {
         case "project":
             return SlashProjectCommandParser.parse(argument)
         case "ssh", "remote":
-            return argument.isEmpty ? .invalid("Usage: /ssh user@host:/absolute/path") : .sshProject(argument)
+            return SlashRemoteProjectCommandParser.parse(argument)
         case "terminal", "term", "shell":
             return SlashTerminalCommandParser.parse(argument)
         case "browser", "preview":
