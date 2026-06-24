@@ -50,7 +50,8 @@ final class ParityGateTests: QuillCodeParityTestCase {
             "ParityTopBarGateTests.swift",
             "ParitySlashGateTests.swift",
             "ParityModelGateTests.swift",
-            "ParityWorkspaceSurfaceGateTests.swift"
+            "ParityWorkspaceSurfaceGateTests.swift",
+            "ParityWorkspaceModelGateTests.swift"
         ]
         for suiteFile in suiteFiles {
             XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent(suiteFile).path), suiteFile)
@@ -65,119 +66,7 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(mainLines.contains("    func testSlashParserDelegatesPullRequestSubcommands() throws {"), "Slash parser gates should live in ParitySlashGateTests.")
         XCTAssertFalse(mainLines.contains("    func testTrustedRouterModelCatalogLivesOutsideGeneralDomainModels() throws {"), "Model/config gates should live in ParityModelGateTests.")
         XCTAssertFalse(mainLines.contains("    func testWorkspaceSurfaceDelegatesSecondaryPaneSurfaceContracts() throws {"), "Workspace surface gates should live in ParityWorkspaceSurfaceGateTests.")
-    }
-
-    func testWorkspaceModelDelegatesToolCardSurfaceTypes() throws {
-        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let toolCardSurfaceText = try Self.appSourceText(named: "QuillCodeToolCardSurface.swift")
-        let toolArtifactSurfaceText = try Self.appSourceText(named: "QuillCodeToolArtifactSurface.swift")
-        let artifactValueClassifierText = try Self.appSourceText(named: "ToolArtifactValueClassifier.swift")
-        let artifactImagePreviewText = try Self.appSourceText(named: "ToolArtifactImagePreviewBuilder.swift")
-        let artifactDocumentPreviewText = try Self.appSourceText(named: "ToolArtifactDocumentPreviewBuilder.swift")
-        let artifactTextPreviewText = try Self.appSourceText(named: "ToolArtifactTextPreviewBuilder.swift")
-        let transcriptBuilderText = try Self.appSourceText(named: "WorkspaceTranscriptSurfaceBuilder.swift")
-
-        XCTAssertTrue(toolCardSurfaceText.contains("public struct ToolCardState"), "Tool card surface state should live in a focused surface file.")
-        XCTAssertTrue(toolArtifactSurfaceText.contains("public struct ToolArtifactState"), "Tool artifact surface state should live in a focused artifact surface file.")
-        XCTAssertTrue(toolArtifactSurfaceText.contains("ToolArtifactValueClassifier.kind"), "Tool artifact state should delegate value classification.")
-        XCTAssertTrue(toolArtifactSurfaceText.contains("ToolArtifactImagePreviewBuilder.imagePreview"), "Tool artifact state should delegate image previews.")
-        XCTAssertTrue(toolArtifactSurfaceText.contains("ToolArtifactDocumentPreviewBuilder.documentPreview"), "Tool artifact state should delegate document previews.")
-        XCTAssertTrue(artifactValueClassifierText.contains("enum ToolArtifactValueClassifier"), "Artifact value classification should have a focused owner.")
-        XCTAssertTrue(artifactImagePreviewText.contains("enum ToolArtifactImagePreviewBuilder"), "Image preview construction should have a focused owner.")
-        XCTAssertTrue(artifactDocumentPreviewText.contains("enum ToolArtifactDocumentPreviewBuilder"), "Document preview construction should have a focused owner.")
-        XCTAssertTrue(artifactTextPreviewText.contains("enum ToolArtifactTextPreviewBuilder"), "Artifact text-preview file reading should have a focused owner.")
-        XCTAssertTrue(toolArtifactSurfaceText.contains("public struct ToolArtifactDocumentPreview"), "Document preview contracts should live beside artifact state.")
-        XCTAssertTrue(toolArtifactSurfaceText.contains("public struct ToolArtifactImagePreview"), "Image preview contracts should live beside artifact state.")
-        XCTAssertTrue(transcriptBuilderText.contains("ToolArtifactTextPreviewBuilder.textPreview"), "Transcript projection should request artifact text previews through the extracted builder.")
-        XCTAssertFalse(modelText.contains("public struct ToolCardState"), "WorkspaceModel should not own tool card surface state.")
-        XCTAssertFalse(modelText.contains("public enum ToolCardStatus"), "WorkspaceModel should not own tool card status.")
-        XCTAssertFalse(modelText.contains("public struct ToolArtifactState"), "WorkspaceModel should not own tool artifact surface state.")
-        XCTAssertFalse(modelText.contains("ToolArtifactTextPreviewBuilder.textPreview"), "WorkspaceModel should not own artifact-preview requests.")
-        XCTAssertFalse(toolArtifactSurfaceText.contains("private static func documentPreview"), "Tool artifact state should not own document-preview classification.")
-        XCTAssertFalse(toolArtifactSurfaceText.contains("private static func isImagePreview"), "Tool artifact state should not own image-preview classification.")
-        XCTAssertFalse(toolArtifactSurfaceText.contains("private static func localArtifactFileURL"), "Tool artifact state should not own text-preview file reading.")
-        XCTAssertFalse(toolCardSurfaceText.contains("ToolArtifactTextPreviewBuilder"), "Tool-card state should not own artifact preview construction.")
-        XCTAssertFalse(toolCardSurfaceText.contains("public enum ToolArtifactDocumentKind"), "Tool-card state should not own artifact document metadata.")
-    }
-
-    func testWorkspaceModelDelegatesUIStateContracts() throws {
-        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let stateText = try Self.appSourceText(named: "WorkspaceUIState.swift")
-
-        XCTAssertTrue(stateText.contains("public struct ComposerState"), "Composer UI state should live in a focused state contract file.")
-        XCTAssertTrue(stateText.contains("public struct MemoriesState"), "Memory-pane UI state should live in a focused state contract file.")
-        XCTAssertTrue(stateText.contains("public struct ActivityState"), "Activity-pane UI state should live in a focused state contract file.")
-        XCTAssertTrue(modelText.contains("public private(set) var composer: ComposerState"), "WorkspaceModel should still own live composer state.")
-        XCTAssertFalse(modelText.contains("public struct ComposerState"), "WorkspaceModel should not define composer UI state contracts.")
-        XCTAssertFalse(modelText.contains("public struct MemoriesState"), "WorkspaceModel should not define memory-pane UI state contracts.")
-        XCTAssertFalse(modelText.contains("public struct ActivityState"), "WorkspaceModel should not define activity-pane UI state contracts.")
-    }
-
-    func testActionableReviewCardsStayWiredThroughSurfaces() throws {
-        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let toolCardSurfaceText = try Self.appSourceText(named: "QuillCodeToolCardSurface.swift")
-        let toolCardViewText = try Self.appSourceText(named: "QuillCodeToolCardView.swift")
-        let toolCardControlsText = try Self.appSourceText(named: "QuillCodeToolCardControls.swift")
-        let toolArtifactViewsText = try Self.appSourceText(named: "QuillCodeToolArtifactViews.swift")
-        let toolCardDetailsText = try Self.appSourceText(named: "QuillCodeToolCardDetailsView.swift")
-        let transcriptViewText = try Self.appSourceText(named: "QuillCodeTranscriptView.swift")
-        let workspaceViewText = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
-        let approvalPlannerText = try Self.appSourceText(named: "WorkspaceApprovalActionPlanner.swift")
-        let htmlRendererText = try Self.appSourceText(named: "WorkspaceHTMLToolCardRenderer.swift")
-        let desktopAppText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
-        let desktopControllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
-
-        XCTAssertTrue(toolCardSurfaceText.contains("public struct ToolCardActionSurface"), "Tool-card actions should be first-class surface state.")
-        XCTAssertTrue(toolCardSurfaceText.contains("public enum ToolCardReviewState"), "Tool-card review substates should be explicit surface state.")
-        XCTAssertTrue(toolCardSurfaceText.contains("case edit"), "Approval-card actions should include an edit path for near-correct tool calls.")
-        XCTAssertTrue(toolCardSurfaceText.contains("public var actions: [ToolCardActionSurface]"), "Tool-card state should carry available user actions.")
-        XCTAssertTrue(toolCardSurfaceText.contains("public var reviewState: ToolCardReviewState"), "Tool-card state should carry semantic review state separately from subtitle copy.")
-        XCTAssertTrue(toolCardSurfaceText.contains("statusDisplayLabel"), "Tool-card human-facing status copy should live on the surface state.")
-        XCTAssertTrue(toolCardSurfaceText.contains("statusAccessibilityLabel"), "Tool-card accessibility status copy should live on the surface state.")
-        XCTAssertTrue(transcriptViewText.contains("onToolCardAction"), "Transcript should route action taps out of row rendering.")
-        XCTAssertTrue(toolCardViewText.contains("QuillCodeToolCardActionRow"), "Native cards should render action buttons directly on review cards.")
-        XCTAssertTrue(toolCardViewText.contains("card.statusDisplayLabel"), "Native cards should not expose raw review status labels to users.")
-        XCTAssertTrue(toolCardControlsText.contains("struct QuillCodeToolCardActionRow"), "Native tool-card action controls should live in the focused controls file.")
-        XCTAssertTrue(toolCardControlsText.contains("struct QuillCodeToolStatusBadge"), "Native tool-card status controls should live in the focused controls file.")
-        XCTAssertTrue(toolCardControlsText.contains("struct QuillCodeExecutionContextChip"), "Shared execution chips should live with tool-card controls.")
-        XCTAssertTrue(toolCardControlsText.contains("struct QuillCodeExecutionRail"), "Shared execution rails should live with tool-card controls.")
-        XCTAssertTrue(toolArtifactViewsText.contains("struct QuillCodeArtifactChip"), "Artifact chips should live in the focused artifact view file.")
-        XCTAssertTrue(toolArtifactViewsText.contains("struct QuillCodeArtifactTextPreview"), "Text previews should live in the focused artifact view file.")
-        XCTAssertTrue(toolArtifactViewsText.contains("struct QuillCodeArtifactDocumentPreview"), "Document previews should live in the focused artifact view file.")
-        XCTAssertTrue(toolArtifactViewsText.contains("struct QuillCodeArtifactImagePreview"), "Image previews should live in the focused artifact view file.")
-        XCTAssertTrue(toolCardDetailsText.contains("struct QuillCodeCodeBlock"), "Raw tool detail blocks should live in the focused details file.")
-        XCTAssertFalse(toolCardViewText.contains("struct QuillCodeToolCardActionRow"), "Tool-card composition should not own action-control implementation.")
-        XCTAssertFalse(toolCardViewText.contains("struct QuillCodeArtifactImagePreview"), "Tool-card composition should not own artifact-preview implementation.")
-        XCTAssertFalse(toolCardViewText.contains("struct QuillCodeCodeBlock"), "Tool-card composition should not own raw details implementation.")
-        XCTAssertTrue(workspaceViewText.contains("onToolCardAction"), "Workspace view should expose review-card actions to the host app.")
-        XCTAssertTrue(modelText.contains("public func runToolCardAction"), "Workspace model should execute approved review-card actions.")
-        XCTAssertTrue(htmlRendererText.contains("data-testid=\"tool-card-actions\""), "HTML harness should expose action buttons for Playwright.")
-        XCTAssertTrue(htmlRendererText.contains("card.statusDisplayLabel"), "HTML cards should use the same human-facing status labels as native cards.")
-        XCTAssertTrue(htmlRendererText.contains("card.reviewState.rawValue"), "HTML cards should expose review substate for E2E checks without parsing copy.")
-        XCTAssertTrue(approvalPlannerText.contains("enum WorkspaceApprovalActionPlanner"), "Approval-card action planning should live in a focused helper.")
-        XCTAssertTrue(approvalPlannerText.contains("static func pendingRequest"), "Approval request lookup should be directly testable outside the workspace model.")
-        XCTAssertTrue(approvalPlannerText.contains("WorkspaceApprovalEditDraftBuilder"), "Approval-card edit draft generation should stay in the pure planner layer.")
-        XCTAssertTrue(approvalPlannerText.contains("composerDraft"), "Approval-card edit actions should preload the composer instead of approving or skipping.")
-        XCTAssertTrue(modelText.contains("WorkspaceApprovalActionPlanner.plan"), "Workspace model should delegate approval-card action planning.")
-        XCTAssertFalse(modelText.contains("private func pendingApprovalRequest"), "Workspace model should not own approval-request lookup.")
-        XCTAssertFalse(modelText.contains("private func appendApprovalDecision"), "Workspace model should not own approval-decision event construction.")
-        XCTAssertFalse(modelText.contains("approvalVerdict"), "Workspace model should not own tool-card action verdict mapping.")
-        XCTAssertTrue(desktopAppText.contains("controller.runToolCardAction"), "Desktop app should connect UI actions to the controller.")
-        XCTAssertTrue(desktopControllerText.contains("model.runToolCardAction"), "Desktop controller should forward review-card actions to the model.")
-    }
-
-    func testWorkspaceModelDelegatesExecutionContextSurfaceBuilding() throws {
-        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let builderText = try Self.appSourceText(named: "WorkspaceExecutionContextSurfaceBuilder.swift")
-
-        XCTAssertTrue(builderText.contains("struct WorkspaceExecutionContextSurfaceBuilder"), "Execution context enrichment should live in a focused builder.")
-        XCTAssertTrue(builderText.contains("func enrichToolCards("), "Tool-card context enrichment should be directly testable.")
-        XCTAssertTrue(builderText.contains("func enrichTimelineItems("), "Timeline context enrichment should be directly testable.")
-        XCTAssertTrue(builderText.contains("static func isProjectExecutionTool"), "Project-execution tool classification should be directly testable.")
-        XCTAssertTrue(modelText.contains("WorkspaceExecutionContextSurfaceBuilder("), "WorkspaceModel should delegate execution-context enrichment.")
-        XCTAssertFalse(modelText.contains("private func enrichToolCards"), "WorkspaceModel should not own tool-card context enrichment.")
-        XCTAssertFalse(modelText.contains("private func enrichTimelineItems"), "WorkspaceModel should not own timeline context enrichment.")
-        XCTAssertFalse(modelText.contains("private static func isProjectExecutionTool"), "WorkspaceModel should not own project-execution tool classification.")
+        XCTAssertFalse(mainLines.contains("    func testWorkspaceModelDelegatesToolCardSurfaceTypes() throws {"), "Workspace model boundary gates should live in ParityWorkspaceModelGateTests.")
     }
 
     func testWorkspaceModelDelegatesProjectContextRefresh() throws {

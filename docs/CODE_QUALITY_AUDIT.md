@@ -4768,3 +4768,21 @@ Current strict grades:
 
 Remaining risk:
 - This still needs an interactive native smoke test that opens a session, signs in or sets a cookie, focuses/navigates the existing window, and verifies rendered inspection reuses that profile.
+
+## 2026-06-24 Workspace Model Parity Gate Split
+
+Overall grade after this slice: **A focused gate ownership, A regression protection, B+ catch-all size**.
+
+The catch-all parity suite still owned several workspace-model boundary checks, including tool-card surface contracts, UI state contracts, actionable review-card wiring, and execution-context enrichment. Those checks are valuable, but mixing them with repo-wide gates made failures harder to route and kept `ParityGateTests.swift` as a merge-conflict hotspot.
+
+What changed:
+- Added `ParityWorkspaceModelGateTests` for workspace-model boundary and surface-contract gates.
+- Moved the first coherent model-boundary cluster out of `ParityGateTests.swift`.
+- Extended the meta-gate so the focused workspace-model suite is required and the moved checks cannot drift back into the catch-all.
+
+Current strict grades:
+- `ParityWorkspaceModelGateTests.swift`: **A**. It gives model-boundary checks a clear owner and uses the shared parity support helpers.
+- `ParityGateTests.swift`: **B+**. It is still broad, but smaller and better at acting as a top-level architectural gate registry.
+
+Remaining risk:
+- More workspace-model gates still live in the catch-all. Continue moving them by domain, especially project/thread lifecycle and MCP/tool execution boundaries, before adding new Codex-parity gates.
