@@ -491,6 +491,20 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("AgentRunner.streamingNotice"), "WorkspaceModel should not know the streaming notice string.")
     }
 
+    func testWorkspaceModelDelegatesThreadNoticeMutation() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let appenderText = try Self.appSourceText(named: "WorkspaceThreadNoticeAppender.swift")
+
+        XCTAssertTrue(appenderText.contains("enum WorkspaceThreadNoticeAppender"), "Thread notice mutation should live in a focused helper.")
+        XCTAssertTrue(appenderText.contains("static func appendNotice"), "Notice event mutation should be directly testable.")
+        XCTAssertTrue(appenderText.contains("static func appendAssistantNotice"), "Assistant notice mutation should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceThreadNoticeAppender.appendNotice"), "WorkspaceModel should delegate notice event mutation.")
+        XCTAssertTrue(modelText.contains("WorkspaceThreadNoticeAppender.appendAssistantNotice"), "WorkspaceModel should delegate assistant notice mutation.")
+        XCTAssertFalse(modelText.contains("thread.events.append(.init(kind: .notice"), "WorkspaceModel should not append notice events inline.")
+        XCTAssertFalse(modelText.contains("thread.events.append(.init(kind: .message"), "WorkspaceModel should not append message events inline.")
+        XCTAssertFalse(modelText.contains("thread.messages.append(.init(role: .assistant"), "WorkspaceModel should not append assistant notice messages inline.")
+    }
+
     func testWorkspaceModelUsesExplicitAgentRunThreadUpdates() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
 
