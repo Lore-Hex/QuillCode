@@ -2764,3 +2764,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelTests.swift` is still large. Bootstrap/config, project/worktree command groups, approval-card behavior, feedback, and artifact-state coverage remain future extraction candidates.
+
+## 2026-06-24 Feedback And Artifact Surface Test Pass
+
+Overall grade after this slice: **A focused ownership, A+ surface isolation, A regression guard**.
+
+Message feedback and artifact preview derivation coverage moved out of `WorkspaceModelTests.swift`. Feedback persistence remains model-level integration coverage in `WorkspaceFeedbackIntegrationTests`, while pure `ToolArtifactState` image/document preview derivation now lives in `QuillCodeToolCardSurfaceTests`.
+
+Code quality changes:
+
+- Added `WorkspaceFeedbackIntegrationTests` for `setMessageFeedback` flows that cross workspace model state, thread events, and transcript surfaces.
+- Added `QuillCodeToolCardSurfaceTests` for artifact value-type behavior: file/URL/data image previews, document/appshot previews, text-preview handling, hrefs, labels, and details.
+- Added a parity gate that keeps message feedback and artifact preview method names out of `WorkspaceModelTests.swift`.
+- Reduced `WorkspaceModelTests.swift` again without changing product behavior.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still large. Bootstrap/config, project/worktree command groups, approval-card behavior, runtime issue recovery, and thread lifecycle coverage remain future extraction candidates.

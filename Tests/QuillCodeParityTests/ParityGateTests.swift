@@ -982,6 +982,19 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("testCompletedComposerRunDoesNotStealSelectionAfterUserSwitchesThreads"), "WorkspaceModelTests should not own composer selection-race integration flows.")
     }
 
+    func testFocusedFeedbackAndArtifactTestsOwnSurfaceSpecificFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let feedbackIntegrationTests = try Self.appTestSourceText(named: "WorkspaceFeedbackIntegrationTests.swift")
+        let toolCardSurfaceTests = try Self.appTestSourceText(named: "QuillCodeToolCardSurfaceTests.swift")
+
+        XCTAssertTrue(feedbackIntegrationTests.contains("testMessageFeedbackIsStoredAndSurfaced"), "Message feedback persistence and transcript surfacing should live in focused feedback integration tests.")
+        XCTAssertTrue(toolCardSurfaceTests.contains("testArtifactStateDerivesLinksAndImagePreviews"), "Image artifact surface derivation should live in focused tool-card surface tests.")
+        XCTAssertTrue(toolCardSurfaceTests.contains("testArtifactStateDerivesDocumentPreviews"), "Document artifact surface derivation should live in focused tool-card surface tests.")
+        XCTAssertFalse(modelTests.contains("testMessageFeedbackIsStoredAndSurfaced"), "WorkspaceModelTests should not own message feedback integration flows.")
+        XCTAssertFalse(modelTests.contains("testArtifactStateDerivesLinksAndImagePreviews"), "WorkspaceModelTests should not own image artifact surface derivation.")
+        XCTAssertFalse(modelTests.contains("testArtifactStateDerivesDocumentPreviews"), "WorkspaceModelTests should not own document artifact surface derivation.")
+    }
+
     func testWorkspaceSlashCommandIntegrationTestsOwnCoreSlashFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let slashIntegrationTests = try Self.appTestSourceText(named: "WorkspaceSlashCommandIntegrationTests.swift")
