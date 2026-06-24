@@ -2765,52 +2765,6 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertTrue(message.contains("Install dependencies and warm caches."))
     }
 
-    func testProjectExtensionManifestsLoadIntoProjectSurface() throws {
-        let root = try makeTempDirectory()
-        let pluginDirectory = root.appendingPathComponent(".quillcode/plugins")
-        try FileManager.default.createDirectory(at: pluginDirectory, withIntermediateDirectories: true)
-        try #"{"id":"github","name":"GitHub","description":"PR workflow helpers."}"#.write(
-            to: pluginDirectory.appendingPathComponent("github.json"),
-            atomically: true,
-            encoding: .utf8
-        )
-
-        let model = QuillCodeWorkspaceModel()
-        let projectID = model.addProject(path: root, name: "Extension Project")
-        model.selectProject(projectID)
-        XCTAssertTrue(model.runWorkspaceCommand("toggle-extensions", workspaceRoot: root))
-
-        let extensions = model.surface().extensions
-
-        XCTAssertTrue(extensions.isVisible)
-        XCTAssertEqual(extensions.pluginCount, 1)
-        XCTAssertEqual(extensions.skillCount, 0)
-        XCTAssertEqual(extensions.mcpServerCount, 0)
-        XCTAssertEqual(extensions.items.first?.name, "GitHub")
-        XCTAssertEqual(extensions.items.first?.relativePath, ".quillcode/plugins/github.json")
-    }
-
-    func testProjectExtensionUpdateCommandRunsAndRefreshesProjectMetadata() throws {
-        let root = try makeTempDirectory()
-        let pluginDirectory = root.appendingPathComponent(".quillcode/plugins")
-        try FileManager.default.createDirectory(at: pluginDirectory, withIntermediateDirectories: true)
-        try #"{"id":"github","name":"GitHub","description":"PR workflow helpers.","version":"1.0.0","updateCommand":"printf updated > .quillcode/plugins/update.marker","updateTimeoutSeconds":30}"#.write(
-            to: pluginDirectory.appendingPathComponent("github.json"),
-            atomically: true,
-            encoding: .utf8
-        )
-
-        let model = QuillCodeWorkspaceModel()
-        let projectID = model.addProject(path: root, name: "Extension Project")
-        model.selectProject(projectID)
-
-        XCTAssertTrue(model.runWorkspaceCommand("extension-update:plugin:github", workspaceRoot: root))
-        let marker = try String(contentsOf: pluginDirectory.appendingPathComponent("update.marker"), encoding: .utf8)
-        XCTAssertEqual(marker, "updated")
-        XCTAssertTrue(model.surface().extensions.items.first?.updateCommandID == "extension-update:plugin:github")
-        XCTAssertTrue(model.selectedThread?.events.contains { $0.summary == "Updated extension GitHub" } == true)
-    }
-
     func testEmptyDraftDoesNotCreateThread() async throws {
         let model = QuillCodeWorkspaceModel()
         model.setDraft("   ")
