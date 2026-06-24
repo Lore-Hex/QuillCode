@@ -1540,29 +1540,9 @@ public final class QuillCodeWorkspaceModel {
         case .remember(let content):
             runRememberSlashCommand(content, originalPrompt: originalPrompt)
         case .threadFollowUp(let scheduleText):
-            if let automation = createThreadFollowUpAutomation(matching: scheduleText) {
-                appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.threadFollowUpScheduled(
-                    userText: originalPrompt,
-                    scheduleDescription: automation.scheduleDescription
-                ))
-            } else {
-                appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.threadFollowUpFailed(
-                    userText: originalPrompt,
-                    message: lastError
-                ))
-            }
+            runThreadFollowUpSlashCommand(scheduleText, originalPrompt: originalPrompt)
         case .workspaceSchedule(let scheduleText):
-            if let automation = createWorkspaceScheduleAutomation(matching: scheduleText) {
-                appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.workspaceScheduleScheduled(
-                    userText: originalPrompt,
-                    scheduleDescription: automation.scheduleDescription
-                ))
-            } else {
-                appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.workspaceScheduleFailed(
-                    userText: originalPrompt,
-                    message: lastError
-                ))
-            }
+            runWorkspaceScheduleSlashCommand(scheduleText, originalPrompt: originalPrompt)
         case .workspaceCommand(let commandID):
             if !runWorkspaceCommand(commandID, workspaceRoot: workspaceRoot) {
                 appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.workspaceCommandFailed(
@@ -1586,6 +1566,53 @@ public final class QuillCodeWorkspaceModel {
         }
         composer.isSending = false
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+    }
+
+    private func runThreadFollowUpSlashCommand(_ scheduleText: String, originalPrompt: String) {
+        appendScheduledAutomationTranscript(
+            createThreadFollowUpAutomation(matching: scheduleText),
+            success: {
+                WorkspaceSlashCommandTranscriptPlanner.threadFollowUpScheduled(
+                    userText: originalPrompt,
+                    scheduleDescription: $0
+                )
+            },
+            failure: {
+                WorkspaceSlashCommandTranscriptPlanner.threadFollowUpFailed(
+                    userText: originalPrompt,
+                    message: $0
+                )
+            }
+        )
+    }
+
+    private func runWorkspaceScheduleSlashCommand(_ scheduleText: String, originalPrompt: String) {
+        appendScheduledAutomationTranscript(
+            createWorkspaceScheduleAutomation(matching: scheduleText),
+            success: {
+                WorkspaceSlashCommandTranscriptPlanner.workspaceScheduleScheduled(
+                    userText: originalPrompt,
+                    scheduleDescription: $0
+                )
+            },
+            failure: {
+                WorkspaceSlashCommandTranscriptPlanner.workspaceScheduleFailed(
+                    userText: originalPrompt,
+                    message: $0
+                )
+            }
+        )
+    }
+
+    private func appendScheduledAutomationTranscript(
+        _ automation: QuillAutomation?,
+        success: (String) -> WorkspaceLocalCommandTranscript,
+        failure: (String?) -> WorkspaceLocalCommandTranscript
+    ) {
+        let transcript = automation
+            .map { success($0.scheduleDescription) }
+            ?? failure(lastError)
+        appendLocalCommandTranscript(transcript)
     }
 
     private func runRememberSlashCommand(_ content: String, originalPrompt: String) {
