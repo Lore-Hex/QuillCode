@@ -176,35 +176,37 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func runCommand(_ command: WorkspaceCommandSurface) {
-        switch command.id {
-        case "new-chat":
+        runCommandAction(QuillCodeDesktopCommandPlanner.action(for: command))
+    }
+
+    private func runCommandAction(_ action: QuillCodeDesktopCommandAction) {
+        switch action {
+        case .newChat:
             newChat()
-        case "add-project":
+        case .addProject:
             requestAddProject()
-        case "toggle-terminal":
+        case .toggleTerminal:
             toggleTerminal()
-        case "toggle-browser":
+        case .toggleBrowser:
             toggleBrowser()
-        case "toggle-extensions":
+        case .toggleExtensions:
             toggleExtensions()
-        case "toggle-memories":
+        case .toggleMemories:
             toggleMemories()
-        case "command-palette":
+        case .commandPalette:
             openCommandPalette()
-        case "settings", "computer-use-setup":
+        case .settings:
             openSettings()
-        case "computer-use-open-screen-recording":
-            openComputerUseSystemSettings(.screenRecording)
-        case "computer-use-open-accessibility":
-            openComputerUseSystemSettings(.accessibility)
-        case "computer-use-refresh":
+        case .openComputerUseSystemSettings(let destination):
+            openComputerUseSystemSettings(destination)
+        case .refreshComputerUseStatus:
             refresh()
-        case "stop-all":
+        case .stopAll:
             stopAll()
-        case "retry-last-turn":
+        case .retryLastTurn:
             retryLastTurn()
-        default:
-            if model.runWorkspaceCommand(command.id, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot) {
+        case .workspaceCommand(let commandID):
+            if model.runWorkspaceCommand(commandID, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot) {
                 draft = model.composer.draft
                 refresh()
             }

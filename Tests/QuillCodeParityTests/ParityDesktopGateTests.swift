@@ -97,6 +97,22 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(controllerText.contains("fileExists(atPath:"), "Desktop controller should not own import directory validation.")
     }
 
+    func testDesktopControllerDelegatesCommandPlanning() throws {
+        let text = try Self.desktopSourceText()
+        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let plannerText = try Self.desktopSourceText(named: "QuillCodeDesktopCommandPlanner.swift")
+
+        XCTAssertTrue(text.contains("QuillCodeDesktopCommandPlanner"), "Desktop command routing should be isolated from the controller.")
+        XCTAssertTrue(plannerText.contains("enum QuillCodeDesktopCommandAction"), "Desktop command actions should be typed values.")
+        XCTAssertTrue(plannerText.contains("static func action(for command: WorkspaceCommandSurface)"), "Desktop command planning should be directly inspectable.")
+        XCTAssertTrue(plannerText.contains("case \"computer-use-open-screen-recording\""), "Computer Use settings command IDs should live in the desktop planner.")
+        XCTAssertTrue(plannerText.contains("return .workspaceCommand(command.id)"), "Unknown desktop commands should still delegate to workspace command execution.")
+        XCTAssertTrue(controllerText.contains("QuillCodeDesktopCommandPlanner.action(for: command)"), "Desktop controller should consume the command planner.")
+        XCTAssertFalse(controllerText.contains("switch command.id"), "Desktop controller should not switch over raw command IDs.")
+        XCTAssertFalse(controllerText.contains("case \"computer-use-open-screen-recording\""), "Desktop controller should not own Computer Use command IDs.")
+        XCTAssertFalse(controllerText.contains("case \"retry-last-turn\""), "Desktop controller should not own retry command IDs.")
+    }
+
     func testDesktopNotifiesWhenDueAutomationsRun() throws {
         let text = try Self.desktopSourceText()
 
