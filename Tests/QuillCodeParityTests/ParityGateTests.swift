@@ -605,12 +605,19 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(plannerText.contains("memorySavedSummary("), "Memory save event summaries should live in the memory command planner.")
     }
 
-    func testWorkspaceModelDelegatesMemoryCommandTranscriptPlanning() throws {
+    func testWorkspaceModelDelegatesMemoryCommandOrchestration() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let engineText = try Self.appSourceText(named: "WorkspaceMemoryEngine.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceMemoryCommandTranscriptPlanner.swift")
         let errorText = try Self.appSourceText(named: "WorkspaceMemoryErrorMessageBuilder.swift")
         let contextUpdateText = try Self.appSourceText(named: "WorkspaceMemoryContextUpdatePlanner.swift")
 
+        XCTAssertTrue(engineText.contains("enum WorkspaceMemoryEngine"), "Memory command orchestration should live in a focused engine.")
+        XCTAssertTrue(engineText.contains("struct WorkspaceMemoryMutation"), "Memory command outcomes should use a typed mutation value.")
+        XCTAssertTrue(modelText.contains("WorkspaceMemoryEngine.saveGlobal"), "WorkspaceModel should delegate global memory saves.")
+        XCTAssertTrue(modelText.contains("WorkspaceMemoryEngine.deleteGlobal"), "WorkspaceModel should delegate global memory deletion.")
+        XCTAssertTrue(modelText.contains("WorkspaceMemoryEngine.loadGlobal"), "WorkspaceModel should delegate global memory reloads.")
+        XCTAssertTrue(modelText.contains("WorkspaceMemoryEngine.contextUpdate"), "WorkspaceModel should delegate memory context update construction.")
         XCTAssertTrue(plannerText.contains("struct WorkspaceMemoryCommandTranscriptPlanner"), "Memory command transcript copy should live in a focused planner.")
         XCTAssertTrue(errorText.contains("enum WorkspaceMemoryErrorMessageBuilder"), "Memory write and delete errors should share one user-facing formatter.")
         XCTAssertTrue(contextUpdateText.contains("struct WorkspaceMemoryContextUpdatePlanner"), "Memory thread context updates should live in a focused planner.")
@@ -624,20 +631,18 @@ final class ParityGateTests: XCTestCase {
             "WorkspaceMemoryErrorMessageBuilder.userFacingMessage",
             "WorkspaceMemoryContextUpdatePlanner.globalMemoryChanged"
         ] {
-            XCTAssertTrue(modelText.contains(delegatedCall), "WorkspaceModel should delegate \(delegatedCall).")
+            XCTAssertTrue(engineText.contains(delegatedCall), "WorkspaceMemoryEngine should delegate \(delegatedCall).")
         }
         XCTAssertFalse(modelText.contains("It will be included as background context in future turns."), "WorkspaceModel should not own memory save success copy.")
         XCTAssertFalse(modelText.contains("Memory not saved"), "WorkspaceModel should not own memory save failure title copy.")
         XCTAssertFalse(modelText.contains("It will no longer be included as background context."), "WorkspaceModel should not own memory delete success copy.")
         XCTAssertFalse(modelText.contains("Memory not deleted"), "WorkspaceModel should not own memory delete failure title copy.")
         XCTAssertFalse(modelText.contains("Forgot memory:"), "WorkspaceModel should not own memory delete summary copy.")
+        XCTAssertFalse(modelText.contains("MemoryNoteLoader.saveGlobal"), "WorkspaceModel should not write memory files directly.")
+        XCTAssertFalse(modelText.contains("MemoryNoteLoader.deleteGlobal"), "WorkspaceModel should not delete memory files directly.")
+        XCTAssertFalse(modelText.contains("MemoryNoteLoader.loadGlobal"), "WorkspaceModel should not reload global memories directly.")
         XCTAssertFalse(modelText.contains("MemoryNoteDeleteError.deleteFailed.localizedDescription"), "WorkspaceModel should not format memory delete errors directly.")
         XCTAssertFalse(modelText.contains("payloadJSON: note.relativePath"), "WorkspaceModel should not build memory change events inline.")
-        XCTAssertEqual(
-            modelText.components(separatedBy: "root.globalMemories = MemoryNoteLoader.loadGlobal").count - 1,
-            1,
-            "WorkspaceModel should reload global memories through refreshGlobalMemories instead of duplicating loader calls."
-        )
     }
 
     func testWorkspaceModelDelegatesCommandActionPlanning() throws {

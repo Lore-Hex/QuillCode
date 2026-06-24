@@ -1341,32 +1341,12 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     private func deleteGlobalMemory(id: String) -> Bool {
-        guard let globalMemoryDirectory else { return false }
-        do {
-            let note = try MemoryNoteLoader.deleteGlobal(id: id, from: globalMemoryDirectory)
-            let forgottenSummary = WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary(noteTitle: note.title)
-            appendLocalCommandTranscript(WorkspaceMemoryCommandTranscriptPlanner.memoryForgotten(
-                userText: "Forget memory: \(note.title)",
-                noteTitle: note.title
-            ))
-            applyGlobalMemoryChange(summary: forgottenSummary, relativePath: note.relativePath)
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-            return true
-        } catch let error as MemoryNoteDeleteError {
-            appendLocalCommandTranscript(WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted(
-                userText: "Forget memory",
-                message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
-            ))
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-            return true
-        } catch {
-            appendLocalCommandTranscript(WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted(
-                userText: "Forget memory",
-                message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: MemoryNoteDeleteError.deleteFailed)
-            ))
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-            return true
+        guard let mutation = WorkspaceMemoryEngine.deleteGlobal(id: id, directory: globalMemoryDirectory) else {
+            return false
         }
+        applyGlobalMemoryMutation(mutation)
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        return true
     }
 
     @discardableResult
@@ -1709,34 +1689,12 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func runRememberSlashCommand(_ content: String, originalPrompt: String) {
-        guard let globalMemoryDirectory else {
-            appendLocalCommandTranscript(WorkspaceMemoryCommandTranscriptPlanner.memoryNotSaved(
-                userText: originalPrompt,
-                message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: MemoryNoteWriteError.unavailable)
-            ))
-            return
-        }
-
-        do {
-            let saved = try WorkspaceMemoryRememberToolExecutor.saveGlobal(content: content, to: globalMemoryDirectory)
-            let note = saved.note
-            let savedSummary = WorkspaceMemoryCommandTranscriptPlanner.memorySavedSummary(noteTitle: note.title)
-            appendLocalCommandTranscript(WorkspaceMemoryCommandTranscriptPlanner.memorySaved(
-                userText: originalPrompt,
-                noteTitle: note.title
-            ))
-            applyGlobalMemoryChange(summary: savedSummary, relativePath: note.relativePath)
-        } catch let error as MemoryNoteWriteError {
-            appendLocalCommandTranscript(WorkspaceMemoryCommandTranscriptPlanner.memoryNotSaved(
-                userText: originalPrompt,
-                message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
-            ))
-        } catch {
-            appendLocalCommandTranscript(WorkspaceMemoryCommandTranscriptPlanner.memoryNotSaved(
-                userText: originalPrompt,
-                message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: MemoryNoteWriteError.writeFailed)
-            ))
-        }
+        let mutation = WorkspaceMemoryEngine.saveGlobal(
+            content: content,
+            userText: originalPrompt,
+            directory: globalMemoryDirectory
+        )
+        applyGlobalMemoryMutation(mutation)
     }
 
     private func runEnvironmentSlashCommand(_ query: String?, originalPrompt: String, workspaceRoot: URL) {
@@ -1951,14 +1909,21 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func refreshGlobalMemories() {
-        guard let globalMemoryDirectory else { return }
-        root.globalMemories = MemoryNoteLoader.loadGlobal(from: globalMemoryDirectory)
+        root.globalMemories = WorkspaceMemoryEngine.loadGlobal(from: globalMemoryDirectory)
     }
 
-    private func applyGlobalMemoryChange(summary: String, relativePath: String) {
-        refreshGlobalMemories()
+    private func applyGlobalMemoryMutation(_ mutation: WorkspaceMemoryMutation) {
+        appendLocalCommandTranscript(mutation.transcript)
+        if let updatedGlobalMemories = mutation.updatedGlobalMemories {
+            root.globalMemories = updatedGlobalMemories
+        }
+        guard let summary = mutation.noticeSummary,
+              let relativePath = mutation.noticeRelativePath
+        else {
+            return
+        }
         let projectID = selectedThread?.projectID ?? root.selectedProjectID
-        let update = WorkspaceMemoryContextUpdatePlanner.globalMemoryChanged(
+        let update = WorkspaceMemoryEngine.contextUpdate(
             memories: contextResolver.memoryNotes(for: projectID),
             summary: summary,
             relativePath: relativePath
