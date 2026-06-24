@@ -65,8 +65,8 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('top-bar-overflow-computer-use')).toBeVisible();
   await expect(page.getByTestId('top-bar-overflow-settings')).toBeVisible();
   await expect(page.getByTestId('top-bar-overflow-keyboard-shortcuts')).toBeVisible();
-  await expect(page.getByTestId('top-bar-overflow-stop-all')).toBeVisible();
-  await expect(page.getByTestId('top-bar-overflow-stop-all')).toBeDisabled();
+  await expect(page.getByTestId('top-bar-overflow-stop-all')).toHaveCount(0);
+  await expect(page.getByTestId('top-bar-stop-button')).toHaveCount(0);
   await page.getByTestId('top-bar-overflow-settings').click();
   await expect(page.getByTestId('settings-panel')).toBeVisible();
   await expect(page.getByTestId('settings-key-status')).toHaveText('Not signed in');
@@ -250,7 +250,8 @@ test('mock harness opens utilities from the top-bar overflow', async ({ page }) 
   await page.getByTestId('command-palette-close').click();
 
   await openTopBarOverflow(page);
-  await expect(page.getByTestId('top-bar-overflow-stop-all')).toBeDisabled();
+  await expect(page.getByTestId('top-bar-overflow-stop-all')).toHaveCount(0);
+  await expect(page.getByTestId('top-bar-stop-button')).toHaveCount(0);
 });
 
 test('mock harness shows actionable Computer Use setup in settings', async ({ page }) => {
@@ -534,14 +535,16 @@ test('mock harness stops an active composer run from the composer', async ({ pag
   await page.getByRole('button', { name: 'Send' }).click();
 
   await expect(page.getByTestId('agent-status')).toHaveText('Running');
+  await expect(page.getByTestId('top-bar-stop-button')).toBeVisible();
   await expect(page.getByTestId('stop-button')).toBeVisible();
   await expect(page.getByTestId('send-button')).toHaveCount(0);
   await expect(page.getByLabel('Message')).toBeDisabled();
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'running');
 
-  await page.getByTestId('stop-button').click();
+  await page.getByTestId('top-bar-stop-button').click();
 
   await expect(page.getByTestId('agent-status')).toHaveText('Stopped');
+  await expect(page.getByTestId('top-bar-stop-button')).toHaveCount(0);
   await expect(page.getByTestId('stop-button')).toHaveCount(0);
   await expect(page.getByTestId('send-button')).toBeDisabled();
   await expect(page.getByLabel('Message')).toBeEnabled();
