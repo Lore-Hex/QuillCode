@@ -69,6 +69,7 @@ enum WorkspaceHTMLTopBarRenderer {
     ) -> String {
         """
         <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
+          \(renderActiveStopButton(commands: commands))
           <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
             <summary data-testid="top-bar-overflow-button" aria-label="More" title="More">...</summary>
             <div class="topbar-overflow-popover">
@@ -77,6 +78,14 @@ enum WorkspaceHTMLTopBarRenderer {
           </details>
         </div>
         """
+    }
+
+    private static func renderActiveStopButton(commands: [WorkspaceCommandSurface]) -> String {
+        guard let command = commands.first(where: { $0.id == "stop-all" && $0.isEnabled }) else {
+            return ""
+        }
+        let title = command.shortcut.map { "\(command.title) (\($0))" } ?? command.title
+        return #"<button type="button" class="topbar-stop-button" data-testid="top-bar-stop-button" data-command-id="stop-all" title="\#(escape(title))" aria-label="Stop active work">Stop</button>"#
     }
 
     private static func renderOverflow(

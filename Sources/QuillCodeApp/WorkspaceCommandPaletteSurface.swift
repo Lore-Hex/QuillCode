@@ -66,8 +66,7 @@ public enum TopBarOverflowCommandCatalog {
         }
         commandIDs.append(contentsOf: [
             "settings",
-            "keyboard-shortcuts",
-            "stop-all"
+            "keyboard-shortcuts"
         ])
         return commandIDs
     }

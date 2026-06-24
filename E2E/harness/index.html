@@ -249,6 +249,20 @@
       background: rgba(255,255,255,.07);
       border-color: rgba(255,255,255,.16);
     }
+    .topbar-action-cluster .topbar-stop-button {
+      width: auto;
+      min-width: 64px;
+      padding: 0 12px;
+      color: white;
+      background: rgba(255,91,82,.90);
+      border-color: rgba(255,255,255,.16);
+      box-shadow: 0 8px 24px rgba(255,91,82,.20);
+    }
+    .topbar-action-cluster .topbar-stop-button:hover {
+      color: white;
+      background: rgba(255,91,82,.98);
+      border-color: rgba(255,255,255,.22);
+    }
     .topbar-overflow-popover {
       position: absolute;
       right: 0;
@@ -4274,12 +4288,15 @@
         'search',
         ...(state.settings.computerUseStatus.available ? [] : ['computer-use-setup']),
         'settings',
-        'keyboard-shortcuts',
-        'stop-all'
+        'keyboard-shortcuts'
       ];
       const topBarOverflowCommands = topBarOverflowCommandIDs
         .map(commandByID)
         .filter(Boolean);
+      const topBarStopCommand = commandByID('stop-all');
+      const topBarStopButton = topBarStopCommand?.isEnabled
+        ? `<button type="button" class="topbar-stop-button" data-testid="top-bar-stop-button" data-command-id="stop-all" title="Stop all (${escapeHTML(topBarStopCommand.shortcut || 'Esc')})" aria-label="Stop active work">Stop</button>`
+        : '';
 
       document.getElementById('app').innerHTML = `
         <section class="quillcode-workspace" data-testid="workspace">
@@ -4297,6 +4314,7 @@
             </div>
             <div class="topbar-clusters" data-testid="top-bar-clusters">
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
+                ${topBarStopButton}
                 <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
                   <summary data-testid="top-bar-overflow-button" aria-label="More" title="More">...</summary>
                   <div class="topbar-overflow-popover">
@@ -4518,7 +4536,7 @@
       document.querySelector('[data-testid="add-project-button"]').addEventListener('click', () => {
         addProject();
       });
-      document.querySelectorAll('.topbar-overflow-popover [data-command-id]').forEach(button => {
+      document.querySelectorAll('.topbar-action-cluster [data-command-id]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });

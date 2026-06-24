@@ -2,6 +2,8 @@ import SwiftUI
 import QuillCodeCore
 
 struct QuillCodeTopBarView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var topBar: TopBarSurface
     var commands: [WorkspaceCommandSurface]
     var onCommand: (WorkspaceCommandSurface) -> Void
@@ -15,7 +17,7 @@ struct QuillCodeTopBarView: View {
                 threadTitle
                     .layoutPriority(3)
 
-                commandMenu
+                topBarActions
                     .layoutPriority(2)
             }
             .padding(.horizontal, 14)
@@ -114,6 +116,47 @@ struct QuillCodeTopBarView: View {
             from: commands,
             showsComputerUseSetup: topBar.showsComputerUseSetup
         )
+    }
+
+    private var activeStopCommand: WorkspaceCommandSurface? {
+        commands.first { $0.id == "stop-all" && $0.isEnabled }
+    }
+
+    private var topBarActions: some View {
+        HStack(spacing: 8) {
+            if let activeStopCommand {
+                stopButton(activeStopCommand)
+                    .transition(reduceMotion ? .identity : .opacity.combined(with: .scale(scale: 0.94)))
+            }
+            commandMenu
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: activeStopCommand?.id)
+    }
+
+    private func stopButton(_ command: WorkspaceCommandSurface) -> some View {
+        Button {
+            onCommand(command)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "stop.fill")
+                    .font(.caption.weight(.bold))
+                    .accessibilityHidden(true)
+                Text("Stop")
+                    .font(.caption.weight(.semibold))
+            }
+            .foregroundStyle(Color.white)
+            .padding(.horizontal, 12)
+            .frame(minWidth: 64, minHeight: QuillCodeMetrics.minimumHitTarget)
+            .background(QuillCodePalette.red.opacity(0.90))
+            .overlay {
+                Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1)
+            }
+            .clipShape(Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .help("Stop active work")
+        .accessibilityLabel("Stop active work")
     }
 
     private var commandMenu: some View {

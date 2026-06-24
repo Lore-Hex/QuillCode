@@ -1571,23 +1571,15 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-search""#))
         XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-settings""#))
         XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-keyboard-shortcuts""#))
-        XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-stop-all""#))
-        let idleStopAllSnippet = stopAllOverflowSnippet(in: idleHTML)
-        XCTAssertTrue(idleStopAllSnippet.contains("disabled"))
+        XCTAssertFalse(idleHTML.contains(#"data-testid="top-bar-overflow-stop-all""#))
+        XCTAssertFalse(idleHTML.contains(#"data-testid="top-bar-stop-button""#))
 
         let activeHTML = WorkspaceHTMLRenderer.render(
             QuillCodeWorkspaceModel(composer: ComposerState(isSending: true)).surface()
         )
-        let activeStopAllSnippet = stopAllOverflowSnippet(in: activeHTML)
-        XCTAssertFalse(activeStopAllSnippet.contains("disabled"))
-    }
-
-    private func stopAllOverflowSnippet(in html: String) -> String {
-        guard let range = html.range(of: #"data-testid="top-bar-overflow-stop-all""#) else {
-            XCTFail("Expected top-bar Stop All overflow button")
-            return ""
-        }
-        return String(html[range.lowerBound...].prefix(180))
+        XCTAssertFalse(activeHTML.contains(#"data-testid="top-bar-overflow-stop-all""#))
+        XCTAssertTrue(activeHTML.contains(#"data-testid="top-bar-stop-button""#))
+        XCTAssertTrue(activeHTML.contains(#"aria-label="Stop active work""#))
     }
 
     func testHTMLRendererShowsStopButtonDuringActiveSend() {
@@ -1595,6 +1587,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         let html = WorkspaceHTMLRenderer.render(model.surface())
 
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-stop-button""#))
         XCTAssertTrue(html.contains(#"data-testid="stop-button""#))
         XCTAssertTrue(html.contains(">Stop</button>"))
         XCTAssertTrue(html.contains(#"<textarea id="message" aria-label="Message""#))
