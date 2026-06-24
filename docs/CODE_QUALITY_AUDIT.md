@@ -3858,3 +3858,18 @@ What changed:
 
 Remaining risk:
 - Blocking shell execution and cancellable blocking execution still share the same file. That is acceptable while the public facade stays compact; if cancellation state grows beyond `CancellableProcessBox`, extract a blocking process runner with the same explicit ownership boundary.
+
+## 2026-06-24 Terminal Slash Parser Split
+
+Overall grade after this slice: **A+ terminal slash ownership, A+ alias coverage, A outer parser boundary**.
+
+`SlashCommand.swift` still owned `/terminal`, `/term`, and `/shell` subcommand behavior. The branch was small, but terminal behavior is user-facing and cross-wired through the command palette, visible pane actions, Stop All, and terminal persistence. Keeping the terminal grammar in a focused parser makes it easier to add future terminal session arguments without making the top-level slash dispatcher broader.
+
+What changed:
+- Added `SlashTerminalCommandParser.swift` for terminal toggle, clear, and reset parsing.
+- Reduced `SlashCommand.swift` to top-level terminal alias delegation.
+- Added direct parser tests for `/terminal`, `/term`, `/shell`, clear/reset aliases, whitespace-tolerant direct parsing, and invalid usage copy.
+- Added a parity gate so terminal command IDs and usage copy do not drift back into the outer slash parser.
+
+Remaining risk:
+- `SlashCommand.swift` still owns mode, model, scheduling, SSH, memory, and generic routing. Keep one-argument commands in place while they stay trivial; split scheduling or SSH parsing first if either gains richer validation or structured arguments.

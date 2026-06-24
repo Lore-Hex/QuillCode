@@ -1422,6 +1422,23 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(slashText.contains("Usage: /project new"), "Outer slash parser should not own project usage copy.")
     }
 
+    func testSlashParserDelegatesTerminalSubcommands() throws {
+        let slashText = try Self.appSourceText(named: "SlashCommand.swift")
+        let terminalParserText = try Self.appSourceText(named: "SlashTerminalCommandParser.swift")
+        let terminalParserTests = try Self.appTestSourceText(named: "SlashTerminalCommandParserTests.swift")
+
+        XCTAssertTrue(slashText.contains("SlashTerminalCommandParser.parse(argument)"), "Outer slash parser should delegate terminal subcommands.")
+        XCTAssertTrue(terminalParserText.contains("enum SlashTerminalCommandParser"), "Terminal slash parsing should live in a focused parser.")
+        XCTAssertTrue(terminalParserText.contains("toggle-terminal"), "Terminal toggle command ID should live with terminal parser semantics.")
+        XCTAssertTrue(terminalParserText.contains("terminal-clear"), "Terminal clear command ID should live with terminal parser semantics.")
+        XCTAssertTrue(terminalParserText.contains("Usage: /terminal or /terminal clear"), "Terminal usage copy should live with terminal parser semantics.")
+        XCTAssertTrue(terminalParserTests.contains("testTerminalToggleAliasesMapToWorkspaceCommand"), "Terminal toggle aliases should have focused parser coverage.")
+        XCTAssertTrue(terminalParserTests.contains("testTerminalClearAliasesMapToWorkspaceCommand"), "Terminal clear aliases should have focused parser coverage.")
+        XCTAssertFalse(slashText.contains("private static func parseTerminal"), "Outer slash parser should not own terminal parsing internals.")
+        XCTAssertFalse(slashText.contains("Usage: /terminal or /terminal clear"), "Outer slash parser should not own terminal usage copy.")
+        XCTAssertFalse(slashText.contains("terminal-clear"), "Outer slash parser should not own terminal command IDs.")
+    }
+
     func testWorkspaceLocalEnvironmentIntegrationTestsOwnModelLocalEnvironmentFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let localEnvironmentIntegrationTests = try Self.appTestSourceText(named: "WorkspaceLocalEnvironmentIntegrationTests.swift")
