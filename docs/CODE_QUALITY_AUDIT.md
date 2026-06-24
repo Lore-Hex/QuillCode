@@ -4020,3 +4020,17 @@ What changed:
 
 Remaining risk:
 - `SlashCommand.swift` still owns thread lifecycle, memory, environment action, and generic workspace routing. Thread lifecycle aliases should be the next extraction if rename/archive/new-chat commands gain additional confirmation or batch behavior.
+
+## 2026-06-24 Scheduling Slash Execution Cleanup
+
+Overall grade after this slice: **A slash dispatch readability, A scheduling transcript boundary, A model extraction progress**.
+
+`WorkspaceModel.handleSlashCommand` still owned the full success/failure bodies for `/follow-up` and `/workspace-check` even though scheduling grammar and transcript copy already live in focused helpers. The dispatcher should show routing intent, not duplicate the automation/transcript mechanics for every scheduled command.
+
+What changed:
+- Extracted `runThreadFollowUpSlashCommand` and `runWorkspaceScheduleSlashCommand` from the central slash-command switch.
+- Kept schedule creation in named helpers and shared the success/failure transcript plumbing through `appendScheduledAutomationTranscript`.
+- Documented the boundary so future schedule-command changes do not expand `handleSlashCommand` again.
+
+Remaining risk:
+- `handleSlashCommand` is still the largest remaining private dispatcher in `WorkspaceModel.swift`. The next stronger extraction should group pure local transcript commands or move workspace-action slash effects behind a small typed executor once the model method access boundary is ready.
