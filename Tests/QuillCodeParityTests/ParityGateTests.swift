@@ -939,10 +939,12 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(pullRequestIntegrationTests.contains("testRemoteWorkspaceCommandsViewPullRequestAndChecksThroughSSH"), "Remote PR workspace commands should live in focused pull request integration tests.")
         XCTAssertTrue(pullRequestIntegrationTests.contains("testPullRequestSlashCommandsDispatchStructuredGitHubToolsThroughSSH"), "PR slash command dispatch should live in focused pull request integration tests.")
         XCTAssertTrue(pullRequestIntegrationTests.contains("testWorkspacePullRequestCommandsPrefillComposer"), "PR command prefills should live in focused pull request integration tests.")
+        XCTAssertTrue(pullRequestIntegrationTests.contains("makeRemotePullRequestFixture"), "Repeated fake GitHub CLI plus SSH setup should stay centralized in the PR integration suite.")
 
         XCTAssertFalse(modelTests.contains("testRemoteWorkspaceCommandsViewPullRequestAndChecksThroughSSH"), "WorkspaceModelTests should not own remote PR workspace command integration.")
         XCTAssertFalse(modelTests.contains("testPullRequestSlashCommandsDispatchStructuredGitHubToolsThroughSSH"), "WorkspaceModelTests should not own PR slash command integration.")
         XCTAssertFalse(modelTests.contains("testWorkspacePullRequestCommandsPrefillComposer"), "WorkspaceModelTests should not own PR command prefill integration.")
+        XCTAssertFalse(modelTests.contains("makeRemotePullRequestFixture"), "WorkspaceModelTests should not own PR integration fixture setup.")
     }
 
     func testWorkspaceWorktreeIntegrationTestsOwnModelWorktreeFlows() throws {
