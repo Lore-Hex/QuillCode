@@ -3042,3 +3042,19 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceActivitySurfaceBuilder.swift` is now the activity derivation hotspot. If it grows further, split plan-row construction, event/source row projection, and handoff-summary copy into narrower builders before adding richer Codex activity features.
+
+## 2026-06-24 Tool Artifact Surface Architecture Pass
+
+Overall grade after this slice: **A card payload, A artifact ownership, A+ regression guard**.
+
+`QuillCodeToolCardSurface.swift` mixed two contracts: card status/action/review state and artifact classification/preview derivation. The artifact contract now lives in its own focused file so card behavior can evolve without pulling URL/file/image/document/text-preview parsing along with it.
+
+Code quality changes:
+
+- Added `QuillCodeToolArtifactSurface.swift` for `ToolArtifactKind`, document/image preview contracts, `ToolArtifactState`, and `ToolArtifactPreviewBuilder`.
+- Reduced `QuillCodeToolCardSurface.swift` to card-level state: status, review state, action surfaces, density defaults, and card-level artifact grouping.
+- Updated the parity gate so artifact preview construction stays with artifact state, while `WorkspaceModel` and card state stay out of artifact parsing.
+
+Remaining risk:
+
+- `QuillCodeToolArtifactSurface.swift` is intentionally cohesive but still algorithm-heavy. If artifact support expands to PDFs, generated previews, or async metadata, split text preview extraction and document-kind classification into dedicated helpers before adding new artifact formats.
