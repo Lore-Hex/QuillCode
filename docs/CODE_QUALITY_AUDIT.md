@@ -3873,3 +3873,17 @@ What changed:
 
 Remaining risk:
 - `SlashCommand.swift` still owns mode, model, scheduling, SSH, memory, and generic routing. Keep one-argument commands in place while they stay trivial; split scheduling or SSH parsing first if either gains richer validation or structured arguments.
+
+## 2026-06-24 Top-Bar Parity Gate Split
+
+Overall grade after this slice: **A+ parity suite ownership, A top-bar regression coverage, A maintainability**.
+
+`ParityGateTests.swift` was still acting as the catch-all for top-bar and runtime-label architecture checks even though tool and desktop parity gates already had focused suites. The file remained the largest Swift file in the repo, which made quality-gate review slower and increased merge-conflict risk for parallel agents.
+
+What changed:
+- Added `ParityTopBarGateTests.swift` as the focused owner for top-bar presentation, lifecycle labels, runtime/auth labels, model-catalog surface, and top-bar surface builder gates.
+- Kept the broad parity suite focused on cross-cutting project structure and non-top-bar app architecture boundaries.
+- Updated the focused-suite guard so top-bar/runtime gates do not drift back into `ParityGateTests.swift`.
+
+Remaining risk:
+- `ParityGateTests.swift` is still large because it covers many historical extraction gates. Continue splitting cohesive surface groups into focused parity suites when touching those areas; avoid creating one-test files unless the feature area is likely to grow.
