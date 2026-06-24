@@ -137,10 +137,10 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public var canRetryLastUserTurn: Bool {
-        guard composer.isSending == false else { return false }
-        return selectedThread?.messages.contains {
-            $0.role == .user && !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        } == true
+        WorkspaceRetryPlanner.canRetryLastUserTurn(
+            in: selectedThread,
+            isSending: composer.isSending
+        )
     }
 
     public func setDraft(_ draft: String) {
@@ -175,12 +175,10 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func prepareRetryLastUserTurn() -> Bool {
-        guard let lastUserMessage = selectedThread?.messages.last(where: {
-            $0.role == .user && !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        }) else {
+        guard let draft = WorkspaceRetryPlanner.retryDraft(in: selectedThread) else {
             return false
         }
-        composer.draft = lastUserMessage.content
+        composer.draft = draft
         lastError = nil
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true

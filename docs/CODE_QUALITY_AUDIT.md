@@ -3720,3 +3720,18 @@ What changed:
 
 Remaining risk:
 - `QuillCodeSidebarView.swift` still owns primary actions, bulk selection controls, thread sections, thread rows, and utility actions. Split thread rows next if the left rail gains more Codex parity controls such as per-thread status badges, drag ordering, or richer context menus.
+
+## 2026-06-24 Workspace Retry Planner Split
+
+Overall grade after this slice: **A retry ownership, A+ regression guard, A workspace-model boundary**.
+
+`WorkspaceModel.swift` still owned the transcript scan that decides whether the latest user turn can be retried and which exact draft should be restored. The behavior was small, but it is shared by runtime issue recovery, command enablement, and transcript retry affordances, so keeping it inline made the model responsible for another pure state query.
+
+What changed:
+- Added `WorkspaceRetryPlanner` for retry availability and retry draft selection.
+- Preserved exact draft text while ignoring empty/whitespace-only user messages.
+- Added focused retry planner tests for latest-user-message selection and send-state gating.
+- Tightened the parity gate so retry transcript scans do not drift back into `WorkspaceModel.swift`.
+
+Remaining risk:
+- `WorkspaceModel.swift` still owns the broader send lifecycle and cancellation side effects. Keep extracting pure send/session planning and small recovery policies before adding larger Codex-parity run controls.
