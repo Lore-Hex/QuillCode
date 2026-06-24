@@ -356,6 +356,22 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelTests.contains("testBootstrapPersistsAndClearsTrustedRouterAPIKey"), "WorkspaceModelTests should not own TrustedRouter API key persistence integration.")
     }
 
+    func testWorkspaceModelDelegatesRetryPlanning() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let retryPlannerText = try Self.appSourceText(named: "WorkspaceRetryPlanner.swift")
+        let retryPlannerTests = try Self.appTestSourceText(named: "WorkspaceRetryPlannerTests.swift")
+
+        XCTAssertTrue(retryPlannerText.contains("enum WorkspaceRetryPlanner"), "Retry planning should live in a focused helper.")
+        XCTAssertTrue(retryPlannerText.contains("static func canRetryLastUserTurn"), "Retry availability should be directly testable.")
+        XCTAssertTrue(retryPlannerText.contains("static func retryDraft"), "Retry draft selection should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceRetryPlanner.canRetryLastUserTurn"), "WorkspaceModel should delegate retry availability.")
+        XCTAssertTrue(modelText.contains("WorkspaceRetryPlanner.retryDraft"), "WorkspaceModel should delegate retry draft selection.")
+        XCTAssertTrue(retryPlannerTests.contains("testRetryDraftUsesLatestNonEmptyUserMessageAndPreservesOriginalText"), "Retry draft behavior should have focused coverage.")
+        XCTAssertTrue(retryPlannerTests.contains("testRetryRequiresUserMessageAndIdleComposer"), "Retry availability should have focused coverage.")
+        XCTAssertFalse(modelText.contains("messages.last(where:"), "WorkspaceModel should not scan transcript messages for retry drafts.")
+        XCTAssertFalse(modelText.contains("messages.contains {"), "WorkspaceModel should not own retry availability scans.")
+    }
+
     func testWorkspaceActivityIntegrationTestsOwnModelActivityFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let activityIntegrationTests = try Self.appTestSourceText(named: "WorkspaceActivityIntegrationTests.swift")
