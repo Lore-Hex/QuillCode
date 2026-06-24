@@ -23,7 +23,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, context/action lookup, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, thread persistence, sidebar selection transitions, sidebar bulk action planning, project context refresh, and top-bar state assembly now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, context/action lookup, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, thread persistence, local command transcript mutation, sidebar selection transitions, sidebar bulk action planning, project context refresh, and top-bar state assembly now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | A- | The shell is now mostly chrome composition, state, and routing. Transcript layout and workspace sheet presentation live in focused files; keep future modal families and command workflow rules out of the root shell. |
 | `Sources/QuillCodeApp/QuillCodeToolCardView.swift` | A- | Native tool-card composition is now separate from reusable controls, artifact previews, and raw detail blocks. Keep future status/action chrome in `QuillCodeToolCardControls.swift` and artifact rendering in `QuillCodeToolArtifactViews.swift`. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is now mostly aggregate payload plus runtime/execution context records. Settings copy/compatibility, runtime issue classification, active context-source selection, model catalog presentation, top-bar/model presentation contracts, project/sidebar navigation assembly, sidebar/project contracts, browser state/presentation contracts, terminal presentation contracts, review presentation contracts, transcript/composer/context presentation contracts, secondary-pane presentation contracts, automation pane command wiring, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are extracted into focused files. Next step is extracting runtime/execution context contracts if their presentation behavior grows. |
@@ -84,6 +84,23 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModel` still explicitly decides when thread persistence should happen. That is acceptable for now because each workflow owns its persistence boundary, but command dispatch and tool-run orchestration remain the next places to extract before calling the app coordinator A+.
+
+## 2026-06-24 Local Command Transcript Appender Pass
+
+Overall grade after this slice: **A local transcript mutation boundary, A slash-command behavior coverage, A regression guard**.
+
+Slash-command transcript copy already lived in focused planners, but `WorkspaceModel` still owned the mutation details for applying those transcripts to a thread: setting the default title, appending the user command message, appending the assistant result, and relying on selected-thread persistence side effects.
+
+Code quality changes:
+
+- Added `WorkspaceLocalCommandTranscriptAppender` for applying local command transcripts to a `ChatThread`.
+- Simplified `WorkspaceModel.appendLocalCommandTranscript` so it only ensures a thread exists and delegates the thread mutation.
+- Added focused tests proving new-chat title promotion and existing-thread preservation.
+- Extended the slash-command parity gate so inline transcript message mutation does not drift back into the coordinator.
+
+Remaining risk:
+
+- Slash-command dispatch itself is still a switch in `WorkspaceModel`. That is acceptable while the branches mostly call focused planners/engines, but a future slice should extract the command-effect dispatcher once more slash commands share workflow mechanics.
 
 ## 2026-06-24 Sidebar Command Grouping Pass
 
