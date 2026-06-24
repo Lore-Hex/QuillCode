@@ -3828,3 +3828,18 @@ What changed:
 
 Remaining risk:
 - `BrowserHTMLSnapshotBuilder` intentionally uses lightweight regex extraction for static previews. That is enough for Codex-style preview summaries, but if browser comments or element targeting grow into DOM-level interactions, add a dedicated DOM adapter rather than expanding regex parsing.
+
+## 2026-06-24 Project Slash Parser Split
+
+Overall grade after this slice: **A+ project slash ownership, A+ direct parser coverage, A outer parser boundary**.
+
+`SlashCommand.swift` still owned `/project` subcommand aliases, rename validation, project command IDs, and project-specific error copy. The branch was compact, but project workflows are likely to grow with remote-project setup and Codex parity, so keeping this inside the broad top-level parser made the file responsible for one more feature-specific grammar.
+
+What changed:
+- Added `SlashProjectCommandParser.swift` for `/project new`, refresh, rename/title, and remove aliases.
+- Reduced `SlashCommand.swift` to top-level `/project` delegation.
+- Added direct parser tests for empty usage, navigation aliases, rename trimming, and invalid subcommand copy.
+- Added a parity gate so project aliases and project error copy do not drift back into the outer slash parser.
+
+Remaining risk:
+- `SlashCommand.swift` still owns terminal, mode, model, and generic routing. Split terminal parsing next only if it gains richer shell/session arguments; keep mode/model in the top-level parser while they stay one-argument commands.
