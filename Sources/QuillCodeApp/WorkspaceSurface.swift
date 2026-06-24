@@ -135,22 +135,12 @@ public extension QuillCodeWorkspaceModel {
                 agentStatus: topBarState.agentStatus,
                 collapsedSectionIDs: activity.collapsedSectionIDs
             ),
-            automations: WorkspaceAutomationsSurface(
+            automations: WorkspaceAutomationsSurfaceBuilder(
                 isVisible: automations.isVisible,
                 automations: automations.items,
-                createThreadFollowUpCommand: .automationCreateThreadFollowUp(
-                    isEnabled: thread != nil
-                ),
-                createWorkspaceScheduleCommand: .automationCreateWorkspaceSchedule(
-                    isEnabled: selectedProject != nil
-                ),
-                scheduleThreadFollowUpCommands: WorkspaceCommandSurface.automationScheduleThreadFollowUpCommands(
-                    isEnabled: thread != nil
-                ),
-                scheduleWorkspaceScheduleCommands: WorkspaceCommandSurface.automationScheduleWorkspaceScheduleCommands(
-                    isEnabled: selectedProject != nil
-                )
-            ),
+                hasSelectedThread: thread != nil,
+                hasSelectedProject: selectedProject != nil
+            ).surface(),
             composer: ComposerSurface(composer: composer),
             commands: commandSurfaceBuilder().commands,
             settings: WorkspaceSettingsSurface(
