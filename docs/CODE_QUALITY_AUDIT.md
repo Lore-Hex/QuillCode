@@ -4337,3 +4337,17 @@ What changed:
 
 Remaining risk:
 - `ParityGateTests.swift` is still the largest test file because it owns many general app-surface boundaries. Continue extracting by coherent domains when a feature family has multiple related gates and active parallel work.
+
+## 2026-06-24 Model Parity Gate Suite Split
+
+Overall grade after this slice: **A model naming guard, A config ownership, A merge-conflict reduction**.
+
+The Synth rename was already implemented in defaults, slash commands, picker rows, docs, and config normalization, but the architecture gates for model/catalog/config ownership still lived in the broad parity suite. That made it easier for future model-picker work to scatter branding checks or accidentally reintroduce Fusion as user-facing copy.
+
+What changed:
+- Added `ParityModelGateTests` for TrustedRouter model catalog ownership, app config ownership, and model naming boundaries.
+- Moved model/catalog/config gates out of `ParityGateTests.swift`.
+- Added a source-level guard proving Fusion stays confined to the TrustedRouter alias boundary while app surfaces prefer Synth.
+
+Remaining risk:
+- The guard intentionally allows legacy aliases in `TrustedRouterDefaults.swift`. If future API compatibility requires another legacy model spelling elsewhere, add a focused compatibility object rather than weakening app-surface naming checks.
