@@ -3007,3 +3007,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelTests.swift` still owns approval-card behavior, bootstrap/config, model settings, and plan-update integration coverage.
+
+## 2026-06-24 Workspace Activity Surface Architecture Pass
+
+Overall grade after this slice: **A surface payload, A builder ownership, A+ regression guard**.
+
+`WorkspaceActivitySurface.swift` was a 686-line mixed ownership file: the public activity payload, section/item DTOs, event/tool/source/artifact derivation, fallback plan construction, authored-plan projection, and handoff summary copy all lived together. It now keeps only the Codable root payload and delegates derivation to focused helpers.
+
+Code quality changes:
+
+- Added `WorkspaceActivitySurfaceBuilder` for subtitle, task title, recent steps, source rows, tool rows, artifact de-duplication, fallback/authored plan rows, handoff summary copy, and section assembly.
+- Added `WorkspaceActivitySectionSurface.swift` for `ActivitySectionKind`, `ActivitySectionSurface`, and `ActivityItemSurface` so shared section contracts evolve independently from root-payload decoding.
+- Reduced `WorkspaceActivitySurface.swift` from 686 lines to 165 lines without changing the public surface contract.
+- Added a parity gate that keeps activity derivation and section DTO ownership out of the root surface file.
+
+Remaining risk:
+
+- `WorkspaceActivitySurfaceBuilder.swift` is now the activity derivation hotspot. If it grows further, split plan-row construction, event/source row projection, and handoff-summary copy into narrower builders before adding richer Codex activity features.
