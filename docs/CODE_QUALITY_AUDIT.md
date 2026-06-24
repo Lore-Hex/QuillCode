@@ -4249,3 +4249,18 @@ What changed:
 
 Remaining risk:
 - This is still a fallback/dev backend, not the final platform backend. The A+ path remains adding Apple Keychain, Linux Secret Service/libsecret, and encrypted-file fallback adapters behind the existing `QuillSecretStore` protocol.
+
+## 2026-06-24 Agent Argument Normalizer Split
+
+Overall grade after this slice: **A parser boundary, A schema-normalization boundary, A regression guard**.
+
+`AgentActionJSONParser` had already been extracted from the TrustedRouter transport, but it still owned every tool-specific argument alias, pull request selector normalization, no-argument tool exception, and shell-command repair path. That made the parser less readable and made future model-output tolerance changes likely to pile into one file.
+
+What changed:
+- Added `AgentToolArgumentNormalizer` for canonical tool argument construction, alias cleanup, pull request sub-argument normalization, empty-shell-command repair from explicit nearby backticked prose, and minimum-argument checks.
+- Reduced `AgentActionJSONParser` to action extraction, action-type validation, normalizer delegation, and `AgentAction` construction.
+- Updated the parity gate so JSON extraction, prose shell recovery, tool argument normalization, and TrustedRouter transport stay in separate files.
+- Preserved existing parser behavior for shell aliases, file-write aliases, PR aliases, no-argument tools, and malformed-output shell recovery.
+
+Remaining risk:
+- The normalizer is intentionally tolerant because live LLMs vary. If alias support keeps growing, the next A+ step is a table-driven schema alias catalog rather than adding more switch branches.
