@@ -4173,3 +4173,49 @@ What changed:
 
 Remaining risk:
 - `WorkspaceModel.runSlashCommandDispatchAction` still applies the typed action switch because it owns mutable app state. If this grows new side-effect families, split the action application into a dedicated executor that receives a narrow model-facing protocol instead of exposing more raw model internals.
+
+## 2026-06-24 Whole-Tree Grade
+
+Overall code grade: **A-**.
+Overall product/parity grade: **B+**.
+Overall test/CI grade: **A**.
+
+Validation run:
+- `swift test` passed: 1022 tests.
+- `npm test` in `E2E/playwright` passed: 61 Playwright tests.
+- Focused parity gates passed: 117 `ParityGateTests`.
+
+The codebase is substantially healthier than a normal prototype at this feature count. The architectural direction is correct: domain models are value typed, tool calls use explicit schemas, shell/file/git paths are bounded, TrustedRouter integration is isolated, native SwiftUI and the static Playwright harness share surface contracts, and parity gates prevent many large-file regressions. The repo is not A+ yet because the central app coordinator still has too much workflow gravity, the static HTML harness is necessarily broad but now oversized, command/action identifiers are still too stringly in several presentation seams, and several Codex-parity surfaces are implemented as first-pass adapters rather than full runtime-quality implementations.
+
+| Area | Grade | Reason |
+| --- | --- | --- |
+| `QuillCodeCore` | A | Clean value records, focused config/tool/project/model files, strong compatibility decoding, and centralized TrustedRouter model branding. Keep provider/runtime behavior out of core. |
+| `QuillCodeAgent` | A- | Good tool-loop semantics, immediate command/file execution coverage, bounded multi-step continuation, streaming draft support, and final-answer recovery. Needs richer live telemetry and provider-failure observability before A+. |
+| `QuillCodeTools` | A- | Good workspace bounding and focused shell/file/git/MCP executors. Remaining risk is breadth: GitHub PR/worktree/MCP behavior is powerful but still needs more real-world edge coverage and interactive-terminal parity. |
+| `QuillCodeSafety` | B+ | Small and testable, with hard denies plus model-backed Auto review. The static intent matcher is still heuristic-heavy, which is acceptable as a guardrail fallback but not A+ production policy. |
+| `QuillCodePersistence` | B+ | Simple stores and compatibility tests are good. `FileSecretStore` is useful for fallback/dev but should set restrictive file permissions or move behind a stronger encrypted adapter before production-grade secret handling. |
+| `QuillComputerUseKit` | B+ | Protocol and macOS adapter are correctly isolated. Linux backend, app approval UX, and visual verification loops are still parity gaps. |
+| `QuillCodeApp` model/surfaces | A- | Many responsibilities have been extracted into planners/builders with parity gates. `WorkspaceModel.swift` is still 1858 lines and remains the dependency magnet for workflows. |
+| Native SwiftUI views | A- | Recent splits made the sidebar, review pane, workspace shell, and tool cards much easier to maintain. Continue moving workflow rules out of views and into reducers/planners. |
+| Static HTML/Playwright harness | B+ | Very valuable for deterministic UI parity, but `E2E/harness/index.html` is 8504 lines and `core.spec.ts` is 2037 lines. It needs modularization before it can be called A-grade long term. |
+| Desktop app wrapper | A- | Controller has been reduced through coordinators/planners. Still owns enough command application and presentation state that future desktop-only work should continue extracting platform side effects. |
+| CI/release process | A | macOS Swift tests, Linux CLI build, Playwright, smoke, and merge train exist. Add stricter format/lint and more Linux adapter tests before A+. |
+
+Highest-risk files:
+
+| File | Grade | Why |
+| --- | --- | --- |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | B+ | The biggest remaining architecture risk. It delegates heavily, but still coordinates automations, browser, memories, project selection, terminal, tool runs, and persistence in one type. Next A+ step is extracting a slash-command/workflow executor and remote/runtime orchestration boundaries. |
+| `E2E/harness/index.html` | B | It proves UI behavior, but one 8504-line HTML/JS file is difficult for parallel agents to edit safely. Split renderers/state handlers by pane or generate more of it from shared surface JSON. |
+| `E2E/playwright/tests/core.spec.ts` | B+ | Good breadth, but 2037 lines in one spec increases merge conflict and debugging cost. Split by feature area while keeping a small full-flow smoke spec. |
+| `Sources/QuillCodePersistence/SecretStore.swift` | B | API is clean, but fallback storage writes plain UTF-8 files without explicit restrictive permissions. Production-grade secrets need Keychain/libsecret/encrypted-file hardening. |
+| `Sources/QuillCodeSafety/Safety.swift` | B+ | Correctly compact, but the static matcher has a growing list of phrase heuristics. Move intent classification into typed policy cases or table-driven matchers as tool families grow. |
+| `Sources/QuillCodeApp/QuillCodeCommandIconCatalog.swift` | B+ | Still a raw command-ID switch. Acceptable for now, but command metadata should continue consolidating so native, HTML, menu bar, and command palette do not drift. |
+| `Package.swift` | B+ | Good module split and Linux CLI build coverage, but package platforms currently declare macOS only while the product goal includes Linux UI. Platform targets/adapters need clearer packaging once QuillUI Linux lands. |
+
+Immediate A+ path:
+1. Extract the remaining broad `WorkspaceModel` side-effect switch families into `WorkspaceSlashCommandExecutor`, `WorkspaceBrowserWorkflow`, and `WorkspaceRemoteRuntimeCoordinator` style helpers.
+2. Split the Playwright harness into feature modules or a generated renderer bundle so tests remain easy for multiple agents to edit.
+3. Harden `QuillSecretStore` fallback with restrictive permissions and an encrypted-file adapter; keep app code on the single secret-store API.
+4. Replace growing safety string heuristics with typed tool-intent categories and table-driven approval policy tests.
+5. Keep implementing true Codex parity, not just shell surfaces: PTY job control, real browser rendering/live DOM, Linux Computer Use backend, richer memory editing/redaction, and QuillCloud/remote project execution.
