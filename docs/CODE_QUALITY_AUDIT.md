@@ -4568,3 +4568,24 @@ What changed:
 
 Remaining risk:
 - `ToolTests.swift` still contains several tool families. The next low-risk split should move file/patch or GitHub PR coverage into focused suites before adding more tool behavior.
+
+## 2026-06-24 Browser Live DOM Contract
+
+Overall grade after this slice: **A- browser architecture, A adapter seam, A regression guard**.
+
+The browser feature already had URL normalization, local HTML snapshots, fetched HTTP(S) snapshots, history, comments, and agent-facing inspection tools. The remaining architecture gap was that "live DOM" existed only as a future enum value and user-facing copy; there was no seam for a native WebView or signed-in browser adapter to provide rendered-page state without reaching into `WorkspaceModel`.
+
+What changed:
+- Added `BrowserLiveDOMCapturing` and `BrowserLiveDOMSnapshot` as the rendered-session adapter contract.
+- Added `BrowserLiveDOMSnapshotBuilder` so rendered title, outline, viewport, and visible text are bounded and converted into the existing browser snapshot surface.
+- Added workflow and reducer support for live DOM capture success/failure, including stale-request protection and graceful metadata fallback.
+- Added model-level async refresh orchestration without platform branches or direct WebView dependencies.
+- Added focused builder, engine, and integration tests proving `host.browser.inspect` reports `live_dom_snapshot` when a rendered-session capture exists.
+
+Current strict grades:
+- `QuillCodeCore`: **A**. Browser inspection depth contracts remain stable and explicit.
+- `QuillCodeApp browser layer`: **A-**. Browser state, workflow, inspection, and adapter contracts are now cleaner. It is not A+ until a native rendered browser backend actually feeds this seam.
+- `WorkspaceModel.swift`: **B+/A-**. The model gained only a narrow orchestration method, but it remains too large overall and still needs more workflow extraction.
+
+Remaining risk:
+- Native WebView/rendering, signed-in browser profile, and Linux/browser-process implementations are still pending. The new seam should make those additions isolated, but parity is incomplete until a real backend exercises the contract in app smoke tests.

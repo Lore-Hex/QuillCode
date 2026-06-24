@@ -10,6 +10,14 @@ private struct FakeBrowserPageFetcher: BrowserPageFetching {
     }
 }
 
+private struct FakeBrowserLiveDOMCapturer: BrowserLiveDOMCapturing {
+    var result: Result<BrowserLiveDOMSnapshot, BrowserLiveDOMCaptureFailure>
+
+    func captureLiveDOM(for url: URL) async throws -> BrowserLiveDOMSnapshot {
+        try result.get()
+    }
+}
+
 @MainActor
 final class WorkspaceBrowserIntegrationTests: XCTestCase {
     func testBrowserPreviewNormalizesURLsAndStoresComments() throws {
@@ -181,6 +189,46 @@ final class WorkspaceBrowserIntegrationTests: XCTestCase {
         XCTAssertTrue(model.browser.snapshot?.textSnippet?.contains("Dashboard Settings Launch") == true)
     }
 
+    func testBrowserPreviewCapturesLiveDOMSnapshotWhenSessionIsAvailable() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+        XCTAssertTrue(model.openBrowserPreview("localhost:5173"))
+
+        let capturer = FakeBrowserLiveDOMCapturer(result: .success(BrowserLiveDOMSnapshot(
+            finalURL: try XCTUnwrap(URL(string: "http://localhost:5173/dashboard")),
+            title: "Rendered App",
+            visibleText: "Rendered page text",
+            outline: ["H1: Rendered App", "Button: Save"],
+            viewportDescription: "1280x720 @2x"
+        )))
+
+        let didCapture = await model.refreshRenderedBrowserSnapshot(capturer: capturer)
+        XCTAssertTrue(didCapture)
+
+        XCTAssertEqual(model.browser.currentURL, "http://localhost:5173/dashboard")
+        XCTAssertEqual(model.browser.addressDraft, "http://localhost:5173/dashboard")
+        XCTAssertEqual(model.browser.title, "Rendered App")
+        XCTAssertEqual(model.browser.status, "Preview ready")
+        XCTAssertEqual(model.browser.snapshot?.sourceLabel, "Local web app")
+        XCTAssertEqual(model.browser.snapshot?.inspectionDepth, .liveDOMSnapshot)
+        XCTAssertEqual(model.browser.snapshot?.summary, "Captured a live DOM snapshot from the rendered browser session.")
+        XCTAssertTrue(model.browser.snapshot?.details.contains("Viewport: 1280x720 @2x") == true)
+        XCTAssertEqual(model.browser.snapshot?.outline, ["H1: Rendered App", "Button: Save"])
+        XCTAssertEqual(model.browser.snapshot?.textSnippet, "Rendered page text")
+
+        let inspectionResult = model.runToolCall(
+            ToolCall(name: ToolDefinition.browserInspect.name, argumentsJSON: "{}"),
+            workspaceRoot: root
+        )
+        XCTAssertTrue(inspectionResult.ok)
+        let inspection = try JSONHelpers.decode(BrowserInspectionToolOutput.self, from: inspectionResult.stdout)
+        XCTAssertEqual(inspection.url, "http://localhost:5173/dashboard")
+        XCTAssertEqual(inspection.title, "Rendered App")
+        XCTAssertEqual(inspection.inspectionDepth, BrowserInspectionDepth.liveDOMSnapshot)
+        XCTAssertEqual(inspection.outline, ["H1: Rendered App", "Button: Save"])
+        XCTAssertEqual(inspection.textSnippet, "Rendered page text")
+    }
+
     func testBrowserPreviewKeepsMetadataSnapshotWhenHTMLFetchFails() async throws {
         let model = QuillCodeWorkspaceModel()
         let fetcher = FakeBrowserPageFetcher(result: .failure(.httpStatus(503)))
@@ -194,6 +242,25 @@ final class WorkspaceBrowserIntegrationTests: XCTestCase {
         XCTAssertEqual(model.browser.snapshot?.sourceLabel, "Web page")
         XCTAssertEqual(model.browser.snapshot?.inspectionDepth, .metadataOnly)
         XCTAssertTrue(model.browser.snapshot?.details.contains("Snapshot fetch: The page returned HTTP 503.") == true)
+        XCTAssertNil(model.lastError)
+    }
+
+    func testBrowserPreviewKeepsMetadataSnapshotWhenLiveDOMCaptureFails() async throws {
+        let model = QuillCodeWorkspaceModel()
+        XCTAssertTrue(model.openBrowserPreview("example.com"))
+        let capturer = FakeBrowserLiveDOMCapturer(result: .failure(.noRenderedSession))
+
+        let didCapture = await model.refreshRenderedBrowserSnapshot(capturer: capturer)
+        XCTAssertFalse(didCapture)
+
+        XCTAssertEqual(model.browser.currentURL, "https://example.com")
+        XCTAssertEqual(model.browser.title, "example.com")
+        XCTAssertEqual(model.browser.status, "Preview ready")
+        XCTAssertEqual(model.browser.snapshot?.sourceLabel, "Web page")
+        XCTAssertEqual(model.browser.snapshot?.inspectionDepth, .metadataOnly)
+        XCTAssertTrue(
+            model.browser.snapshot?.details.contains("Live DOM capture: No rendered browser session is attached.") == true
+        )
         XCTAssertNil(model.lastError)
     }
 

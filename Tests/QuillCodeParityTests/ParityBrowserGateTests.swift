@@ -38,6 +38,40 @@ final class ParityBrowserGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(builderTests.contains("testSnapshotLimitsOutlineAndTruncatesSnippet"), "HTML snapshot limits should have focused tests.")
     }
 
+    func testBrowserLiveDOMCaptureStaysBehindAdapterContract() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let contractText = try Self.appSourceText(named: "BrowserLiveDOMCapturing.swift")
+        let builderText = try Self.appSourceText(named: "BrowserLiveDOMSnapshotBuilder.swift")
+        let inspectorText = try Self.appSourceText(named: "BrowserInspector.swift")
+        let engineText = try Self.appSourceText(named: "WorkspaceBrowserEngine.swift")
+        let workflowText = try Self.appSourceText(named: "WorkspaceBrowserWorkflow.swift")
+        let builderTests = try Self.appTestSourceText(named: "BrowserLiveDOMSnapshotBuilderTests.swift")
+        let engineTests = try Self.appTestSourceText(named: "WorkspaceBrowserEngineTests.swift")
+        let integrationTests = try Self.appTestSourceText(named: "WorkspaceBrowserIntegrationTests.swift")
+
+        XCTAssertTrue(contractText.contains("public protocol BrowserLiveDOMCapturing"), "Rendered browser capture should be an adapter contract.")
+        XCTAssertTrue(contractText.contains("public struct BrowserLiveDOMSnapshot"), "Rendered browser capture should return a typed bounded snapshot.")
+        XCTAssertTrue(builderText.contains("enum BrowserLiveDOMSnapshotBuilder"), "Live DOM snapshot conversion should have a focused owner.")
+        XCTAssertTrue(builderText.contains("BrowserHTMLSnapshotBuilder.snapshot"), "Live DOM snapshots with HTML should reuse existing HTML extraction.")
+        XCTAssertTrue(inspectorText.contains("BrowserLiveDOMSnapshotBuilder.snapshot"), "BrowserInspector should delegate live DOM snapshot conversion.")
+        XCTAssertTrue(engineText.contains("static func applyLiveDOMSnapshot"), "Browser state transitions should apply live DOM snapshots through the engine.")
+        XCTAssertTrue(engineText.contains("static func markLiveDOMCaptureFailure"), "Browser state transitions should handle live DOM capture failures through the engine.")
+        XCTAssertTrue(workflowText.contains("static func beginLiveDOMCapture"), "Browser workflow should own live DOM capture setup.")
+        XCTAssertTrue(workflowText.contains("applyLiveDOMCaptureSuccess"), "Browser workflow should own live DOM capture success handling.")
+        XCTAssertTrue(workflowText.contains("applyLiveDOMCaptureFailure"), "Browser workflow should own live DOM capture failure handling.")
+        XCTAssertTrue(modelText.contains("any BrowserLiveDOMCapturing"), "WorkspaceModel should depend on the adapter protocol, not a platform WebView.")
+        XCTAssertTrue(builderTests.contains("testLiveDOMSnapshotPrefersRenderedOutlineAndVisibleText"), "Live DOM snapshot builder behavior should have focused tests.")
+        XCTAssertTrue(engineTests.contains("testLiveDOMSnapshotReplacesCurrentHistoryEntry"), "Live DOM browser state mutation should have focused engine tests.")
+        XCTAssertTrue(integrationTests.contains("testBrowserPreviewCapturesLiveDOMSnapshotWhenSessionIsAvailable"), "Live DOM model orchestration should have focused integration tests.")
+        XCTAssertFalse(modelText.contains("BrowserLiveDOMSnapshotBuilder.snapshot"), "WorkspaceModel should not own live DOM snapshot conversion.")
+        XCTAssertFalse(modelText.contains("WorkspaceBrowserEngine.applyLiveDOMSnapshot"), "WorkspaceModel should not directly apply live DOM browser state.")
+        XCTAssertNil(
+            modelText.range(of: #"(?<![A-Za-z0-9_])BrowserLiveDOMSnapshot\("#, options: .regularExpression),
+            "WorkspaceModel should not construct live DOM snapshots."
+        )
+        XCTAssertFalse(modelText.contains("WKWebView"), "WorkspaceModel should not depend on platform browser rendering types.")
+    }
+
     func testWorkspaceModelDelegatesBrowserStateTransitions() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let engineText = try Self.appSourceText(named: "WorkspaceBrowserEngine.swift")
@@ -97,12 +131,16 @@ final class ParityBrowserGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(browserIntegrationTests.contains("testBrowserPreviewSupportsHistoryNavigationAndReload"), "Browser history integration should live in focused browser integration tests.")
         XCTAssertTrue(browserIntegrationTests.contains("testBrowserPreviewFetchesReachableHTMLSnapshot"), "Browser HTML fetch integration should live in focused browser integration tests.")
         XCTAssertTrue(browserIntegrationTests.contains("testBrowserPreviewKeepsMetadataSnapshotWhenHTMLFetchFails"), "Browser fetch-failure fallback integration should live in focused browser integration tests.")
+        XCTAssertTrue(browserIntegrationTests.contains("testBrowserPreviewCapturesLiveDOMSnapshotWhenSessionIsAvailable"), "Browser live DOM capture integration should live in focused browser integration tests.")
+        XCTAssertTrue(browserIntegrationTests.contains("testBrowserPreviewKeepsMetadataSnapshotWhenLiveDOMCaptureFails"), "Browser live DOM failure fallback integration should live in focused browser integration tests.")
         XCTAssertTrue(browserIntegrationTests.contains("testComposerCanInspectCurrentBrowserPage"), "Composer browser inspection integration should live in focused browser integration tests.")
         XCTAssertTrue(browserIntegrationTests.contains("testComposerCanOpenBrowserPage"), "Composer browser navigation integration should live in focused browser integration tests.")
         XCTAssertFalse(modelTests.contains("testBrowserPreviewNormalizesURLsAndStoresComments"), "WorkspaceModelTests should not own browser preview URL and comment integration flows.")
         XCTAssertFalse(modelTests.contains("testBrowserPreviewSupportsHistoryNavigationAndReload"), "WorkspaceModelTests should not own browser history integration flows.")
         XCTAssertFalse(modelTests.contains("testBrowserPreviewFetchesReachableHTMLSnapshot"), "WorkspaceModelTests should not own browser HTML fetch integration flows.")
         XCTAssertFalse(modelTests.contains("testBrowserPreviewKeepsMetadataSnapshotWhenHTMLFetchFails"), "WorkspaceModelTests should not own browser fetch-failure fallback integration flows.")
+        XCTAssertFalse(modelTests.contains("testBrowserPreviewCapturesLiveDOMSnapshotWhenSessionIsAvailable"), "WorkspaceModelTests should not own browser live DOM capture integration flows.")
+        XCTAssertFalse(modelTests.contains("testBrowserPreviewKeepsMetadataSnapshotWhenLiveDOMCaptureFails"), "WorkspaceModelTests should not own browser live DOM failure fallback integration flows.")
         XCTAssertFalse(modelTests.contains("testComposerCanInspectCurrentBrowserPage"), "WorkspaceModelTests should not own composer browser inspection integration flows.")
         XCTAssertFalse(modelTests.contains("testComposerCanOpenBrowserPage"), "WorkspaceModelTests should not own composer browser navigation integration flows.")
     }
@@ -149,6 +187,7 @@ final class ParityBrowserGateTests: QuillCodeParityTestCase {
         let broadSuiteText = try String(contentsOf: broadSuiteURL, encoding: .utf8)
 
         XCTAssertFalse(broadSuiteText.contains("testWorkspaceModelDelegatesBrowserSurfaceTypes"), "Browser architecture gates should stay in ParityBrowserGateTests.")
+        XCTAssertFalse(broadSuiteText.contains("testBrowserLiveDOMCaptureStaysBehindAdapterContract"), "Browser live DOM adapter gates should stay in ParityBrowserGateTests.")
         XCTAssertFalse(broadSuiteText.contains("testWorkspaceModelDelegatesBrowserStateTransitions"), "Browser workflow gates should stay in ParityBrowserGateTests.")
         XCTAssertFalse(broadSuiteText.contains("testWorkspaceBrowserIntegrationTestsOwnModelBrowserFlows"), "Browser integration ownership gates should stay in ParityBrowserGateTests.")
         XCTAssertFalse(broadSuiteText.contains("testWorkspaceHTMLRendererDelegatesBrowserRendering"), "Browser renderer gates should stay in ParityBrowserGateTests.")

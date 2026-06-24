@@ -58,9 +58,30 @@ struct WorkspaceBrowserEngine {
         state.status = "Preview ready"
     }
 
+    static func applyLiveDOMSnapshot(
+        _ liveDOMSnapshot: BrowserLiveDOMSnapshot,
+        originalURL: URL,
+        state: inout BrowserState
+    ) {
+        state.currentURL = liveDOMSnapshot.finalURL.absoluteString
+        state.addressDraft = liveDOMSnapshot.finalURL.absoluteString
+        replaceCurrentHistory(with: liveDOMSnapshot.finalURL.absoluteString, state: &state)
+        state.snapshot = BrowserInspector.snapshot(for: liveDOMSnapshot, originalURL: originalURL)
+        state.title = title(from: state.snapshot, fallbackURL: liveDOMSnapshot.finalURL)
+        state.status = "Preview ready"
+    }
+
     static func markSnapshotFetchFailure(_ error: any Error, state: inout BrowserState) {
         if var snapshot = state.snapshot {
             snapshot.details.append("Snapshot fetch: \(WorkspaceBrowserLocationResolver.snapshotFetchMessage(for: error))")
+            state.snapshot = snapshot
+        }
+        state.status = "Preview ready"
+    }
+
+    static func markLiveDOMCaptureFailure(_ error: any Error, state: inout BrowserState) {
+        if var snapshot = state.snapshot {
+            snapshot.details.append("Live DOM capture: \(liveDOMCaptureMessage(for: error))")
             state.snapshot = snapshot
         }
         state.status = "Preview ready"
@@ -122,5 +143,12 @@ struct WorkspaceBrowserEngine {
             .first { $0.hasPrefix("Title: ") }
             .map { String($0.dropFirst("Title: ".count)) }
             ?? BrowserInspector.title(for: url)
+    }
+
+    private static func liveDOMCaptureMessage(for error: any Error) -> String {
+        if let failure = error as? BrowserLiveDOMCaptureFailure {
+            return failure.description
+        }
+        return error.localizedDescription
     }
 }

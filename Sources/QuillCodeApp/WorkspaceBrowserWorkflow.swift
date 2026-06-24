@@ -5,6 +5,11 @@ struct WorkspaceBrowserSnapshotRequest: Sendable, Hashable {
     var fetchURL: URL
 }
 
+struct WorkspaceBrowserLiveDOMRequest: Sendable, Hashable {
+    var currentURL: String
+    var captureURL: URL
+}
+
 enum WorkspaceBrowserWorkflow {
     static let invalidAddressError = "Enter an http, https, file, localhost, or project file URL."
 
@@ -61,6 +66,18 @@ enum WorkspaceBrowserWorkflow {
         return WorkspaceBrowserSnapshotRequest(currentURL: currentURL, fetchURL: url)
     }
 
+    static func beginLiveDOMCapture(browser: inout BrowserState) -> WorkspaceBrowserLiveDOMRequest? {
+        guard let currentURL = browser.currentURL,
+              let url = URL(string: currentURL),
+              !url.isFileURL
+        else {
+            return nil
+        }
+
+        browser.status = "Capturing DOM"
+        return WorkspaceBrowserLiveDOMRequest(currentURL: currentURL, captureURL: url)
+    }
+
     @discardableResult
     static func applySnapshotFetchSuccess(
         _ fetchedPage: BrowserFetchedPage,
@@ -83,6 +100,32 @@ enum WorkspaceBrowserWorkflow {
     ) -> Bool {
         guard browser.currentURL == request.currentURL else { return false }
         WorkspaceBrowserEngine.markSnapshotFetchFailure(error, state: &browser)
+        lastError = nil
+        return true
+    }
+
+    @discardableResult
+    static func applyLiveDOMCaptureSuccess(
+        _ snapshot: BrowserLiveDOMSnapshot,
+        request: WorkspaceBrowserLiveDOMRequest,
+        browser: inout BrowserState,
+        lastError: inout String?
+    ) -> Bool {
+        guard browser.currentURL == request.currentURL else { return false }
+        WorkspaceBrowserEngine.applyLiveDOMSnapshot(snapshot, originalURL: request.captureURL, state: &browser)
+        lastError = nil
+        return true
+    }
+
+    @discardableResult
+    static func applyLiveDOMCaptureFailure(
+        _ error: any Error,
+        request: WorkspaceBrowserLiveDOMRequest,
+        browser: inout BrowserState,
+        lastError: inout String?
+    ) -> Bool {
+        guard browser.currentURL == request.currentURL else { return false }
+        WorkspaceBrowserEngine.markLiveDOMCaptureFailure(error, state: &browser)
         lastError = nil
         return true
     }
