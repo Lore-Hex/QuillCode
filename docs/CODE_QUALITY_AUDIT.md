@@ -3530,3 +3530,21 @@ Code quality changes:
 Remaining risk:
 
 - Ranking weights are intentionally simple integer heuristics. If command count or plugin command volume grows enough to need fuzzier ranking, keep that policy inside `WorkspaceCommandPaletteRanker` rather than expanding the command surface DTO file.
+
+## 2026-06-24 Extension Manifest Surface Row Split
+
+Overall grade after this slice: **A+ extension row ownership, A+ compatibility coverage, A secondary-pane focus**.
+
+`QuillCodeSecondaryPaneSurface.swift` still owned aggregate secondary-pane surfaces plus the full extension-manifest row contract. The row type has MCP probe metadata, launch/update action derivation, disabled/missing-command status policy, and custom decoding for older payloads, so keeping it inside the aggregate pane file made that file a landing zone for extension-specific changes.
+
+Code quality changes:
+
+- Added `ProjectExtensionManifestSurface.swift` as the focused owner for extension row projection, MCP probe display compatibility, and row decode compatibility.
+- Kept `WorkspaceExtensionsSurface` unchanged as the aggregate pane contract and delegated row mapping to `ProjectExtensionManifestSurface`.
+- Moved older payload decode coverage out of the broad `WorkspaceSurfaceTests` file into focused extension-row tests.
+- Added direct tests for MCP row metadata/action derivation and disabled/missing-command start-action suppression.
+- Tightened the parity gate so extension row internals cannot drift back into `QuillCodeSecondaryPaneSurface.swift`.
+
+Remaining risk:
+
+- `QuillCodeSecondaryPaneSurface.swift` still owns memory-note and automation-workflow rows. Those are acceptable while small, but if either gains custom compatibility decoding or richer action policy, split it into the same row-contract pattern.

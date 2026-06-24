@@ -1042,45 +1042,6 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "stop-all" }?.isEnabled, true)
     }
 
-    func testProjectExtensionManifestSurfaceDecodesOlderPayloadWithoutMCPResourcesPrompts() throws {
-        let data = """
-        {
-          "id": "mcp_server:filesystem",
-          "kind": "mcp_server",
-          "kindLabel": "MCP",
-          "name": "Filesystem MCP",
-          "summary": "Workspace MCP server.",
-          "relativePath": ".quillcode/mcp/filesystem.json",
-          "statusLabel": "Ready",
-          "transportLabel": "STDIO",
-          "launchCommand": "quill-mcp --root .",
-          "serverLabel": "Fixture MCP 1.0.0",
-          "protocolLabel": "MCP 2024-11-05",
-          "toolCountLabel": "2 tools",
-          "toolNames": ["read_file", "write_file"],
-          "probeError": null,
-          "canStart": false,
-          "canStop": true,
-          "startCommandID": null,
-          "stopCommandID": "mcp-stop:mcp_server:filesystem"
-        }
-        """.data(using: .utf8)!
-
-        let surface = try JSONDecoder().decode(ProjectExtensionManifestSurface.self, from: data)
-
-        XCTAssertEqual(surface.toolNames, ["read_file", "write_file"])
-        XCTAssertEqual(surface.toolDescriptors.map(\.name), ["read_file", "write_file"])
-        XCTAssertEqual(surface.toolDescriptors.map(\.schemaSummary), ["", ""])
-        XCTAssertEqual(surface.resourceNames, [])
-        XCTAssertEqual(surface.promptNames, [])
-        XCTAssertNil(surface.resourceCountLabel)
-        XCTAssertNil(surface.promptCountLabel)
-        XCTAssertNil(surface.versionLabel)
-        XCTAssertNil(surface.sourceURL)
-        XCTAssertFalse(surface.canUpdate)
-        XCTAssertNil(surface.updateCommandID)
-    }
-
     func testSurfaceIncludesMemorySummariesAndCommand() {
         let project = ProjectRef(
             name: "QuillCode",
