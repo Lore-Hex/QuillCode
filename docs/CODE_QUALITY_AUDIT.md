@@ -4455,3 +4455,17 @@ What changed:
 
 Remaining risk:
 - `WorkspaceSurfaceTests.swift` still owns browser, secondary-pane, and review HTML renderer tests. Keep splitting those by renderer family in small slices while the HTML harness evolves.
+
+## 2026-06-24 HTML Review Renderer Test Split
+
+Overall grade after this slice: **A renderer test ownership, A conflict reduction, A regression guard**.
+
+`WorkspaceSurfaceTests.swift` still owned static review-pane HTML smoke coverage after the chrome, tool-card, and terminal splits. That case asserts `WorkspaceHTMLReviewRenderer` markup and review action data attributes more than broad workspace surface projection.
+
+What changed:
+- Added `WorkspaceHTMLReviewRendererTests` for review pane, file, action, hunk, line, comment, and stage/restore action markup.
+- Removed the same review HTML case from `WorkspaceSurfaceTests.swift`.
+- Added a `ParityHTMLGateTests` guard that fails if the review HTML case drifts back into the broad surface suite.
+
+Remaining risk:
+- `WorkspaceSurfaceTests.swift` still owns browser and secondary-pane HTML renderer tests. Continue splitting those by renderer family in small slices while the HTML harness evolves.
