@@ -64,10 +64,11 @@ enum BrowserInspector {
         return BrowserHTMLSnapshotBuilder.snapshot(
             sourceLabel: sourceLabel,
             summary: sourceLabel == "Local web app"
-                ? "Fetched an HTML snapshot for this local page."
-                : "Fetched an HTML snapshot for browser review.",
+                ? "Fetched a network HTML snapshot for this local page."
+                : "Fetched a network HTML snapshot for browser review.",
             details: details,
-            html: fetchedPage.html
+            html: fetchedPage.html,
+            inspectionDepth: .networkHTMLSnapshot
         )
     }
 

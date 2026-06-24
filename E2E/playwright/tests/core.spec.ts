@@ -1681,10 +1681,10 @@ test('mock harness opens browser preview and records comments', async ({ page })
   await expect(page.getByTestId('browser-forward')).toBeDisabled();
   await expect(page.getByTestId('browser-reload')).toBeEnabled();
   await expect(page.getByTestId('browser-source')).toHaveText('Local web app');
-  await expect(page.getByTestId('browser-inspection-depth')).toHaveText('Static HTML snapshot');
-  await expect(page.getByTestId('browser-inspection-depth')).toHaveAttribute('data-depth', 'static_html_snapshot');
+  await expect(page.getByTestId('browser-inspection-depth')).toHaveText('Network HTML snapshot');
+  await expect(page.getByTestId('browser-inspection-depth')).toHaveAttribute('data-depth', 'network_html_snapshot');
   await expect(page.getByTestId('browser-snapshot-summary')).toHaveText(
-    'Fetched an HTML snapshot for this local page.'
+    'Fetched a network HTML snapshot for this local page.'
   );
   await expect(page.getByTestId('browser-snapshot-detail')).toContainText([
     'Host: localhost',
@@ -1745,7 +1745,7 @@ test('mock harness opens browser preview from chat', async ({ page }) => {
   await expect(page.getByText('Opened `Vite Preview` at http://localhost:5173.')).toBeVisible();
   await expect(page.getByTestId('browser-pane')).toBeVisible();
   await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
-  await expect(page.getByTestId('browser-inspection-depth')).toHaveText('Static HTML snapshot');
+  await expect(page.getByTestId('browser-inspection-depth')).toHaveText('Network HTML snapshot');
 });
 
 test('mock harness shows project extension manifests from sidebar and command palette', async ({ page }) => {

@@ -134,6 +134,8 @@ public enum BrowserInspectionDepth: String, Codable, Sendable, Hashable, CaseIte
     case metadataOnly = "metadata_only"
     case fileMetadata = "file_metadata"
     case staticHTMLSnapshot = "static_html_snapshot"
+    case networkHTMLSnapshot = "network_html_snapshot"
+    case liveDOMSnapshot = "live_dom_snapshot"
 
     public var label: String {
         switch self {
@@ -143,6 +145,10 @@ public enum BrowserInspectionDepth: String, Codable, Sendable, Hashable, CaseIte
             return "File metadata"
         case .staticHTMLSnapshot:
             return "Static HTML snapshot"
+        case .networkHTMLSnapshot:
+            return "Network HTML snapshot"
+        case .liveDOMSnapshot:
+            return "Live DOM snapshot"
         }
     }
 }

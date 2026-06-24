@@ -52,6 +52,27 @@ final class BrowserHTMLSnapshotBuilderTests: XCTestCase {
         XCTAssertEqual(snapshot.textSnippet, "Overview Welcome & continue. Docs Save")
     }
 
+    func testSnapshotCanRepresentNetworkHTMLDepth() {
+        let snapshot = BrowserHTMLSnapshotBuilder.snapshot(
+            sourceLabel: "Local web app",
+            summary: "Fetched.",
+            details: ["HTTP: 200"],
+            html: "<html><head><title>Running App</title></head><body><h1>Dashboard</h1></body></html>",
+            inspectionDepth: .networkHTMLSnapshot
+        )
+
+        XCTAssertEqual(snapshot.inspectionDepth, .networkHTMLSnapshot)
+        XCTAssertEqual(snapshot.details, [
+            "HTTP: 200",
+            "Title: Running App",
+            "Heading: Dashboard",
+            "Links: 0",
+            "Scripts: 0",
+            "Images: 0",
+            "Forms: 0"
+        ])
+    }
+
     func testSnapshotFallsBackThroughInputAndImageLabels() {
         let html = """
         <h2>Controls</h2>

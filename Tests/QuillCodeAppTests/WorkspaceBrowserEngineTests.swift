@@ -67,7 +67,7 @@ final class WorkspaceBrowserEngineTests: XCTestCase {
         XCTAssertEqual(browser.historyIndex, 0)
         XCTAssertEqual(browser.title, "Dashboard")
         XCTAssertEqual(browser.status, "Preview ready")
-        XCTAssertEqual(browser.snapshot?.inspectionDepth, .staticHTMLSnapshot)
+        XCTAssertEqual(browser.snapshot?.inspectionDepth, .networkHTMLSnapshot)
     }
 
     func testSnapshotFetchFailureKeepsSnapshotAndAddsReadableDetail() throws {

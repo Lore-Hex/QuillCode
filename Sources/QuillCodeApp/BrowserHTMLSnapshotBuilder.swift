@@ -14,7 +14,8 @@ enum BrowserHTMLSnapshotBuilder {
         sourceLabel: String,
         summary: String,
         details: [String],
-        html: String
+        html: String,
+        inspectionDepth: BrowserInspectionDepth = .staticHTMLSnapshot
     ) -> BrowserSnapshotState {
         var details = details
         if let title = firstHTMLCapture(in: html, pattern: #"<title[^>]*>(.*?)</title>"#) {
@@ -30,7 +31,7 @@ enum BrowserHTMLSnapshotBuilder {
 
         return BrowserSnapshotState(
             sourceLabel: sourceLabel,
-            inspectionDepth: .staticHTMLSnapshot,
+            inspectionDepth: inspectionDepth,
             summary: summary,
             details: details,
             outline: htmlOutline(in: html),
