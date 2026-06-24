@@ -30,8 +30,9 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
 | `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback and project-import resolution now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
-| `Sources/QuillCodeCore/Models.swift` | A | General chat/thread/project domain models only; app config, tool payloads, and TrustedRouter defaults/catalog records now live in focused core files. Watch for persistence, tool, or provider-specific behavior trying to drift back in. |
+| `Sources/QuillCodeCore/Models.swift` | A | General chat/thread/project domain models only; app config, automation scheduling, tool payloads, and TrustedRouter defaults/catalog records now live in focused core files. Watch for persistence, workflow, tool, or provider-specific behavior trying to drift back in. |
 | `Sources/QuillCodeCore/AppConfig.swift` | A | App settings, auth mode compatibility, signed-in account metadata, and favorite model normalization live together without pulling UI/runtime dependencies into core. |
+| `Sources/QuillCodeCore/AutomationModels.swift` | A | Automation kind/status/schedule records, recurrence semantics, next-run calculation, and display sorting live together without pulling app-layer automation execution into core. |
 | `Sources/QuillCodeCore/ToolModels.swift` | A | Tool schema records, tool-call redaction, built-in core tool definitions, tool results, and browser/memory tool-output compatibility live together without pulling router/runtime dependencies into core. |
 | `Sources/QuillCodeCore/TrustedRouterDefaults.swift` | A | Central source of truth for TrustedRouter IDs, aliases, branded model names, fallback catalog rows, and catalog normalization. |
 | `Sources/QuillCodeCore/ModelInfo.swift` | A | Small catalog value records and sort-key semantics with no app/runtime dependency. |
@@ -83,6 +84,19 @@ Code quality changes:
 - Kept tool-call environment redaction beside `ToolCall`, where transcript privacy behavior is easiest to audit.
 - Reduced `Models.swift` so chat/thread/project records and JSON helpers are easier to scan without tool-specific compatibility rules.
 - Added a parity gate that prevents tool schemas, redaction, tool results, and tool-specific output compatibility from drifting back into `Models.swift`.
+
+## 2026-06-23 Core Automation Model Ownership Pass
+
+Overall grade after this slice: **A core cohesion, A automation model ownership**.
+
+`Models.swift` still owned automation enums, recurrence semantics, next-run calculation, persisted automation records, and display sorting. Those are core value contracts, but they form a scheduling/workflow boundary that should be inspectable without reading unrelated chat, project, or memory records.
+
+Code quality changes:
+
+- Moved `QuillAutomationKind`, `QuillAutomationStatus`, `QuillAutomationScheduleKind`, `QuillAutomationRecurrenceUnit`, `QuillAutomationRecurrence`, and `QuillAutomation` into `AutomationModels.swift`.
+- Kept recurrence interval clamping, seconds conversion, schedule descriptions, next-run calculation, and display sorting beside the automation records.
+- Reduced `Models.swift` again so general chat/thread/project records are easier to audit independently.
+- Added a parity gate that prevents automation scheduling and display-sort rules from drifting back into `Models.swift`.
 
 ## Current Refactor Priority
 
