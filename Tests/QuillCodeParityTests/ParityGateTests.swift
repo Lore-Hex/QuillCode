@@ -1294,6 +1294,21 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("automations.items.removeAll"), "WorkspaceModel should not delete automation records inline.")
     }
 
+    func testWorkspaceSurfaceDelegatesAutomationsSurfaceBuilding() throws {
+        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceAutomationsSurfaceBuilder.swift")
+
+        XCTAssertTrue(builderText.contains("struct WorkspaceAutomationsSurfaceBuilder"), "Automation pane assembly should live in a focused builder.")
+        XCTAssertTrue(builderText.contains("func surface() -> WorkspaceAutomationsSurface"), "Automation pane assembly should be directly testable.")
+        XCTAssertTrue(builderText.contains("hasSelectedThread"), "Thread follow-up command availability should be builder-owned.")
+        XCTAssertTrue(builderText.contains("hasSelectedProject"), "Workspace schedule command availability should be builder-owned.")
+        XCTAssertTrue(surfaceText.contains("WorkspaceAutomationsSurfaceBuilder("), "WorkspaceSurface should delegate automation pane assembly.")
+        XCTAssertFalse(surfaceText.contains("automationCreateThreadFollowUp"), "WorkspaceSurface should not build automation follow-up commands inline.")
+        XCTAssertFalse(surfaceText.contains("automationCreateWorkspaceSchedule"), "WorkspaceSurface should not build automation schedule commands inline.")
+        XCTAssertFalse(surfaceText.contains("automationScheduleThreadFollowUpCommands"), "WorkspaceSurface should not build thread schedule command variants inline.")
+        XCTAssertFalse(surfaceText.contains("automationScheduleWorkspaceScheduleCommands"), "WorkspaceSurface should not build workspace schedule command variants inline.")
+    }
+
     func testWorkspaceModelDelegatesWorktreeOpenRecords() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let requestsText = try Self.appSourceText(named: "WorkspaceWorktreeRequests.swift")
