@@ -256,6 +256,8 @@ final class WorkspaceAutomationIntegrationTests: XCTestCase {
             selectedThreadID: source.id
         ))
         workspace.model.setAutomations([automation])
+        workspace.model.startSidebarSelection(selecting: source.id)
+        XCTAssertEqual(workspace.model.selectedSidebarThreadIDs(), [source.id])
 
         XCTAssertTrue(workspace.model.runWorkspaceCommand("automation-run:\(automation.id.uuidString)", workspaceRoot: workspace.root))
 
@@ -273,6 +275,7 @@ final class WorkspaceAutomationIntegrationTests: XCTestCase {
         let savedAutomation = try XCTUnwrap(try workspace.automationStore.load().first)
         XCTAssertNotNil(savedAutomation.lastRunAt)
         XCTAssertNil(savedAutomation.nextRunAt)
+        XCTAssertEqual(workspace.model.selectedSidebarThreadIDs(), [])
         XCTAssertEqual(workspace.model.surface().automations.workflows.first?.statusLabel, "Ran")
         XCTAssertEqual(workspace.model.surface().automations.statusLabel, "1 active")
     }

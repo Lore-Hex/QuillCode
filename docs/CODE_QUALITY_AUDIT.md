@@ -4294,3 +4294,17 @@ What changed:
 
 Remaining risk:
 - `WorkspaceModel` is still the largest app-code coordinator. The next A+ pass should extract another stateful boundary only when it can reuse an existing reducer/engine or add a clear one, not by moving state mutations into a less obvious object.
+
+## 2026-06-24 Automation Thread Insertion Cleanup
+
+Overall grade after this slice: **A- created-thread consistency, A automation-run regression coverage, B+ remaining model size**.
+
+Automation-run follow-up threads had the same risk as worktree-open threads: they manually inserted, selected, synced, touched, saved, and refreshed the top bar instead of using the central created-thread insertion helper. That kept behavior correct today, but it meant future selection or persistence changes would need another call site update.
+
+What changed:
+- `applyAutomationRunDraft` now reuses `insertCreatedThread` for the follow-up or scheduled workspace thread.
+- Automation runs keep their existing automation visibility and error/status finalization while inheriting shared thread insertion behavior.
+- Added integration coverage proving an automation run clears sidebar bulk selection when it opens the generated follow-up thread.
+
+Remaining risk:
+- `applyAutomationRunDraft` still coordinates automation replacement plus thread insertion because that crosses two state domains. A future extraction should only happen if it can model that cross-domain state transition explicitly.

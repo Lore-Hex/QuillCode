@@ -505,14 +505,7 @@ public final class QuillCodeWorkspaceModel {
 
     private func applyAutomationRunDraft(_ draft: WorkspaceAutomationRunDraft) -> AutomationRunReport {
         replaceAutomation(draft.automation)
-        clearSidebarSelection()
-        root.threads.insert(draft.thread, at: 0)
-        root.selectedThreadID = draft.thread.id
-        root.selectedProjectID = draft.selectedProjectID
-        syncTerminalSessionToSelectedProject()
-        touchProject(draft.selectedProjectID)
-        saveProjects()
-        threadPersistence.save(draft.thread)
+        _ = insertCreatedThread(draft.thread, selectedProjectID: draft.selectedProjectID, saveThread: true)
         automations.isVisible = true
         lastError = nil
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
