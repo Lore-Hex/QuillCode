@@ -3131,3 +3131,20 @@ Code quality changes:
 Remaining risk:
 
 - `QuillCodeExtensionsPaneView.swift` is still the richest secondary pane because MCP probe metadata is visually dense. If MCP resource, prompt, or per-tool schema display grows further, split the probe metadata groups into a dedicated `QuillCodeExtensionProbeMetadataView`.
+
+## 2026-06-24 Terminal State Contract Split
+
+Overall grade after this slice: **A terminal contracts, A engine ownership, A+ regression guard**.
+
+`WorkspaceTerminalEngine.swift` mixed terminal DTO contracts with lifecycle reducers, local shell wrapping, SSH Remote shell wrapping, cwd/environment marker parsing, and marker cleanup. The engine remains the behavior owner, but terminal state and session payload records now live in a focused contract file.
+
+Code quality changes:
+
+- Added `WorkspaceTerminalState.swift` for `TerminalCommandState`, `TerminalCommandStatus`, `TerminalState`, terminal execution context, session result, and environment delta records.
+- Reduced `WorkspaceTerminalEngine.swift` so it starts directly with terminal lifecycle behavior instead of public DTO definitions.
+- Updated the terminal decision record to distinguish state contracts from engine behavior.
+- Added a parity gate that keeps terminal DTO definitions out of the engine while verifying shell wrapping stays there.
+
+Remaining risk:
+
+- `WorkspaceTerminalEngine.swift` still owns both local and SSH Remote marker parsing. If relay terminal execution lands soon, split local/remote command wrapping and metadata parsing into adapter-specific helpers before adding a third transport.
