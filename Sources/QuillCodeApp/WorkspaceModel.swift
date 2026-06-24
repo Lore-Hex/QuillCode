@@ -1467,14 +1467,7 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func openCreatedWorktreeThread(_ thread: ChatThread, projectID: UUID) {
-        root.threads.insert(thread, at: 0)
-        root.selectedThreadID = thread.id
-        root.selectedProjectID = projectID
-        syncTerminalSessionToSelectedProject()
-        touchProject(projectID)
-        saveProjects()
-        threadPersistence.save(thread)
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        _ = insertCreatedThread(thread, selectedProjectID: projectID, saveThread: true)
     }
 
     private func workspaceToolCallExecutor(router: ToolRouter) -> WorkspaceToolCallExecutor {

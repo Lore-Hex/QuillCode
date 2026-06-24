@@ -58,7 +58,9 @@ final class WorkspaceWorktreeIntegrationTests: XCTestCase {
         let worktree = parent.appendingPathComponent(worktreeName).standardizedFileURL
         let model = QuillCodeWorkspaceModel()
         let projectID = model.addProject(path: root, name: "Worktree Project")
-        model.selectProject(projectID)
+        let sourceThreadID = model.newChat(projectID: projectID)
+        model.startSidebarSelection(selecting: sourceThreadID)
+        XCTAssertEqual(model.selectedSidebarThreadIDs(), [sourceThreadID])
 
         model.createWorktree(.init(path: worktreeName, branch: String(branch)), workspaceRoot: root)
 
@@ -75,6 +77,7 @@ final class WorkspaceWorktreeIntegrationTests: XCTestCase {
         XCTAssertNotEqual(createCard.threadID, model.selectedThread?.id)
         XCTAssertEqual(createCard.card.status, .done)
         XCTAssertTrue(createCard.card.inputJSON?.contains(worktreeName) == true)
+        XCTAssertEqual(model.selectedSidebarThreadIDs(), [])
 
         model.removeWorktree(.init(path: worktreeName), workspaceRoot: root)
 
