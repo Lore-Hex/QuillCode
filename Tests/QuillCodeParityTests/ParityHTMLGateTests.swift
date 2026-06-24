@@ -26,6 +26,31 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
         }
     }
 
+    func testHTMLToolCardRendererCoverageStaysFocused() throws {
+        let broadSurfaceTests = try Self.appTestSourceText(named: "WorkspaceSurfaceTests.swift")
+        let toolCardTests = try Self.appTestSourceText(named: "WorkspaceHTMLToolCardRendererTests.swift")
+        let toolCardCases = [
+            "testHTMLRendererIncludesToolCardOutput",
+            "testHTMLToolCardRendererIncludesApprovalActions",
+            "testHTMLRendererIncludesToolCardArtifacts",
+            "testHTMLRendererIncludesImageArtifactPreview",
+            "testHTMLRendererIncludesDocumentArtifactPreview",
+            "testHTMLRendererIncludesAppshotArtifactPreview",
+            "testHTMLRendererKeepsToolCardsInTranscriptOrder"
+        ]
+
+        for testCase in toolCardCases {
+            XCTAssertTrue(
+                toolCardTests.contains("func \(testCase)"),
+                "\(testCase) should live in WorkspaceHTMLToolCardRendererTests."
+            )
+            XCTAssertFalse(
+                broadSurfaceTests.contains("func \(testCase)"),
+                "\(testCase) should not drift back into the broad WorkspaceSurfaceTests file."
+            )
+        }
+    }
+
     func testWorkspaceHTMLRendererDelegatesToolCardRendering() throws {
         let htmlText = try Self.appSourceText(named: "WorkspaceHTMLRenderer.swift")
         let transcriptText = try Self.appSourceText(named: "WorkspaceHTMLTranscriptRenderer.swift")

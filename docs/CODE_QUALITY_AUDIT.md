@@ -4427,3 +4427,17 @@ What changed:
 
 Remaining risk:
 - Agent-driven browser open currently gets the same static/metadata snapshot as manual open. Full Codex parity still needs a real live browser session adapter that can navigate, wait for dynamic pages, inspect DOM state, and share signed-in browser profiles behind the same `WorkspaceBrowserToolExecutor` boundary.
+
+## 2026-06-24 HTML Tool-Card Renderer Test Split
+
+Overall grade after this slice: **A renderer test ownership, A conflict reduction, A regression guard**.
+
+`WorkspaceSurfaceTests.swift` still owned the static HTML tests for tool-card output, approval actions, artifacts, and preview rendering. Those cases exercise the HTML tool-card renderer and transcript ordering more than generic workspace surface projection, so keeping them in the broad suite made renderer work noisier and harder to review.
+
+What changed:
+- Added `WorkspaceHTMLToolCardRendererTests` for tool-card output, approval action markup, file/text artifacts, image previews, document previews, appshot previews, and transcript ordering.
+- Removed the same cases from `WorkspaceSurfaceTests.swift`.
+- Added a `ParityHTMLGateTests` guard that fails if these tool-card HTML cases drift back into the broad surface suite.
+
+Remaining risk:
+- `WorkspaceSurfaceTests.swift` still owns terminal, browser, secondary-pane, and review HTML renderer tests. Continue splitting those by renderer family in small slices.
