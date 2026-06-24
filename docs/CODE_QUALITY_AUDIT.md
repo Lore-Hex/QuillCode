@@ -196,6 +196,23 @@ Remaining risk:
 
 - `QuillCodeReviewFileRowView` intentionally still owns both file and hunk rows because their action and comment workflows are coupled. If hunk-level review grows more controls, split `QuillCodeReviewHunkView` into its own file next.
 
+## 2026-06-24 Parity Gate Suite Split
+
+Overall grade after this slice: **A parity support boundary, A tool/router gate ownership, A desktop gate ownership**.
+
+`ParityGateTests.swift` had become a 2,800-line mixed architectural rule registry. The coverage was valuable, but the suite mixed general app boundaries, tool/router rules, desktop app rules, and shared source-reading helpers in one class, which made new gates harder to place and increased merge-conflict risk for parallel agents.
+
+Code quality changes:
+
+- Added `ParityTestSupport.swift` as the shared base test case for package-root and source-reading helpers.
+- Added `ParityToolGateTests.swift` for tool argument, slash catalog, remote execution, git, and router boundary gates.
+- Added `ParityDesktopGateTests.swift` for native menu-bar, OAuth, task, settings, copy/feedback, import, and automation notification gates.
+- Added a parity gate that keeps shared helpers, tool gates, and desktop gates from drifting back into the broad suite.
+
+Remaining risk:
+
+- `ParityGateTests.swift` is still large because it owns many app-surface and workspace-model boundary checks. Continue splitting by surface domain, especially workspace surface/HTML rendering gates, as those areas stabilize.
+
 ## 2026-06-24 Sidebar Command Grouping Pass
 
 Overall grade after this slice: **A sidebar command presentation boundary, A renderer parity, A menu scanability**.
