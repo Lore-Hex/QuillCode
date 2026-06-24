@@ -3496,3 +3496,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceProjectContextRefresher` now creates both thread and worktree contexts. If automation context assembly gains extra fields beyond instructions and memories, add an automation-specific typed context there instead of reintroducing resolver reads in `WorkspaceModel`.
+
+## 2026-06-24 Command Palette Ranker Split
+
+Overall grade after this slice: **A+ command search boundary, A+ query-scope coverage, A regression guard coverage**.
+
+`WorkspaceCommandPaletteSurface.swift` still owned stable command DTOs, top-bar overflow projections, public palette API constants, and all search/ranking internals. The behavior was correct, but the file mixed durable surface records with ranking policy, tokenization, slash/action query scoping, and category tie-breaking.
+
+Code quality changes:
+
+- Added `WorkspaceCommandPaletteRanker` for command search, scoring, query normalization, slash/action scoping, grouping, and category ordering.
+- Kept the public `WorkspaceCommandPalette.rankedCommands` and `groupedCommands` API stable by delegating to the ranker.
+- Added focused ranker tests for shortcuts, multi-token PR queries, slash-only scope, action-only scope, mixed-scope slash inclusion, category grouping, and public API delegation.
+- Tightened the parity gate so scoring and `QueryRequest` cannot drift back into `WorkspaceCommandPaletteSurface.swift`.
+
+Remaining risk:
+
+- Ranking weights are intentionally simple integer heuristics. If command count or plugin command volume grows enough to need fuzzier ranking, keep that policy inside `WorkspaceCommandPaletteRanker` rather than expanding the command surface DTO file.
