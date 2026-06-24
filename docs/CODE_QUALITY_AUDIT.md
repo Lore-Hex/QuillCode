@@ -2572,6 +2572,25 @@ Remaining risk:
 
 - `WorkspaceModelTests.swift` is still the largest test file. SSH Remote project integration, terminal integration, browser integration, review actions, and automation flows remain good candidates for focused extraction.
 
+## 2026-06-24 Workspace Terminal Integration Test Pass
+
+Overall grade after this slice: **A feature grouping, A behavior preservation, A regression guard**.
+
+Local terminal integration tests moved from the workspace-model monolith into `WorkspaceTerminalIntegrationTests`. The moved tests cover behavior that crosses `WorkspaceModel`, `WorkspaceTerminalEngine`, shell execution, async task lifecycle, and the terminal surface, while the pure terminal reducer coverage remains in `WorkspaceTerminalEngineTests`.
+
+Code quality changes:
+
+- Added `WorkspaceTerminalIntegrationTests` as the home for local terminal execution, streaming output, cwd/environment persistence, clear-history behavior, selected-project resets, cancellation, and stop-all behavior.
+- Removed the corresponding local terminal coverage from `WorkspaceModelTests.swift`.
+- Reused shared temp-directory support so the extracted tests clean up after themselves.
+- Added a parity gate that keeps local terminal integration method names out of `WorkspaceModelTests.swift`.
+- Left SSH terminal integration in `WorkspaceModelTests.swift` for now because fake SSH support is still shared with the broader remote-project cluster.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still the largest test file. SSH Remote project integration, browser integration, review actions, and automation flows remain good candidates for focused extraction.
+- The next terminal-related cleanup should extract shared fake SSH/GitHub CLI support, then move SSH terminal and remote-project integration flows into focused files.
+
 ## 2026-06-24 Runtime Factory Test Ownership Pass
 
 Overall grade after this slice: **A test ownership, A behavior preservation, A regression guard**.

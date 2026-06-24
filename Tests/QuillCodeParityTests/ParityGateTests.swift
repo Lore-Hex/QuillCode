@@ -960,6 +960,22 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("testRunDueAutomationsHonorsLimit"), "WorkspaceModelTests should not own due automation limit integration flows.")
     }
 
+    func testWorkspaceTerminalIntegrationTestsOwnModelTerminalFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let terminalIntegrationTests = try Self.appTestSourceText(named: "WorkspaceTerminalIntegrationTests.swift")
+
+        XCTAssertTrue(terminalIntegrationTests.contains("testTerminalCommandRunsInWorkspaceRootAndRecordsOutput"), "Local terminal execution integration should live in focused terminal tests.")
+        XCTAssertTrue(terminalIntegrationTests.contains("testTerminalCommandStreamsOutputBeforeCompletion"), "Terminal streaming integration should live in focused terminal tests.")
+        XCTAssertTrue(terminalIntegrationTests.contains("testTerminalCommandPersistsCurrentDirectoryAcrossCommands"), "Terminal cwd persistence integration should live in focused terminal tests.")
+        XCTAssertTrue(terminalIntegrationTests.contains("testTerminalCommandPersistsEnvironmentAcrossCommands"), "Terminal environment persistence integration should live in focused terminal tests.")
+        XCTAssertTrue(terminalIntegrationTests.contains("testTerminalCancellationMarksRunningEntryStopped"), "Terminal cancellation integration should live in focused terminal tests.")
+        XCTAssertFalse(modelTests.contains("testTerminalCommandRunsInWorkspaceRootAndRecordsOutput"), "WorkspaceModelTests should not own local terminal execution integration flows.")
+        XCTAssertFalse(modelTests.contains("testTerminalCommandStreamsOutputBeforeCompletion"), "WorkspaceModelTests should not own terminal streaming integration flows.")
+        XCTAssertFalse(modelTests.contains("testTerminalCommandPersistsCurrentDirectoryAcrossCommands"), "WorkspaceModelTests should not own terminal cwd persistence integration flows.")
+        XCTAssertFalse(modelTests.contains("testTerminalCommandPersistsEnvironmentAcrossCommands"), "WorkspaceModelTests should not own terminal environment persistence integration flows.")
+        XCTAssertFalse(modelTests.contains("testTerminalCancellationMarksRunningEntryStopped"), "WorkspaceModelTests should not own terminal cancellation integration flows.")
+    }
+
     func testWorkspaceModelTestsDoNotOwnRuntimeFactoryCoverage() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let runtimeFactoryTests = try Self.appTestSourceText(named: "WorkspaceRuntimeFactoryTests.swift")
