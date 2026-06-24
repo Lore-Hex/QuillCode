@@ -2746,7 +2746,7 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceModelTests.swift` still owns review-action, composer/tool-card, and broad runtime/project lifecycle flows. Those remain the next best extraction candidates.
+- Later passes moved review, composer/tool-card, runtime, and project lifecycle flows into focused suites. Remaining model coverage should keep shrinking around approval-card behavior, bootstrap/config, model settings, and plan-update integration.
 
 ## 2026-06-24 Workspace Review Integration Test Pass
 
@@ -2850,7 +2850,24 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceModelTests.swift` still owns project lifecycle, approval-card behavior, bootstrap/config, model settings, and plan-update integration coverage.
+- `WorkspaceModelTests.swift` still owns approval-card behavior, bootstrap/config, model settings, and plan-update integration coverage.
+
+## 2026-06-24 Workspace Project Lifecycle Integration Test Pass
+
+Overall grade after this slice: **A+ project ownership, A command boundary, A+ regression guard**.
+
+Project selection and lifecycle command coverage moved from `WorkspaceModelTests.swift` into `WorkspaceProjectIntegrationTests`. Project integration now owns selection, next-chat workspace context, rename, refresh, project-new-chat, project-remove, and instruction snapshotting flows.
+
+Code quality changes:
+
+- Moved `testSelectingProjectControlsNextChatAndWorkspaceRoot` and `testProjectLifecycleActionsRenameRefreshNewChatAndRemove` into `WorkspaceProjectIntegrationTests`.
+- Expanded the project parity gate to keep project selection and lifecycle method names out of `WorkspaceModelTests.swift`.
+- Updated the project integration decision to describe lifecycle and command ownership, not only instruction loading.
+- Reduced `WorkspaceModelTests.swift` from 363 lines to 317 lines.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` still owns approval-card behavior, bootstrap/config, model settings, and plan-update integration coverage.
 
 ## 2026-06-24 SSH Terminal Integration Test Pass
 
@@ -2867,4 +2884,4 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceModelTests.swift` still owns project lifecycle, approval-card behavior, bootstrap/config, model settings, and plan-update integration coverage.
+- `WorkspaceModelTests.swift` still owns approval-card behavior, bootstrap/config, model settings, and plan-update integration coverage.
