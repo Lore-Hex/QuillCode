@@ -4,17 +4,39 @@ import QuillCodeApp
 #if canImport(WebKit)
 import WebKit
 
+enum DesktopBrowserLiveDOMProfile: Sendable {
+    case persistent
+    case ephemeral
+
+    @MainActor
+    func websiteDataStore() -> WKWebsiteDataStore {
+        switch self {
+        case .persistent:
+            return .default()
+        case .ephemeral:
+            return .nonPersistent()
+        }
+    }
+}
+
 final class DesktopBrowserLiveDOMCapturer: BrowserLiveDOMCapturing, @unchecked Sendable {
+    private let profile: DesktopBrowserLiveDOMProfile
     private let timeoutNanoseconds: UInt64
     private let settleDelayNanoseconds: UInt64
 
-    init(timeout: TimeInterval = 8, settleDelay: TimeInterval = 0.25) {
+    init(
+        profile: DesktopBrowserLiveDOMProfile = .persistent,
+        timeout: TimeInterval = 8,
+        settleDelay: TimeInterval = 0.25
+    ) {
+        self.profile = profile
         self.timeoutNanoseconds = Self.nanoseconds(for: timeout)
         self.settleDelayNanoseconds = Self.nanoseconds(for: settleDelay)
     }
 
     func captureLiveDOM(for url: URL) async throws -> BrowserLiveDOMSnapshot {
         let session = await WebKitBrowserLiveDOMCaptureSession(
+            profile: profile,
             timeoutNanoseconds: timeoutNanoseconds,
             settleDelayNanoseconds: settleDelayNanoseconds
         )
@@ -44,9 +66,13 @@ private final class WebKitBrowserLiveDOMCaptureSession: NSObject, WKNavigationDe
     private var requestedURL: URL?
     private var timeoutTask: Task<Void, Never>?
 
-    init(timeoutNanoseconds: UInt64, settleDelayNanoseconds: UInt64) {
+    init(
+        profile: DesktopBrowserLiveDOMProfile,
+        timeoutNanoseconds: UInt64,
+        settleDelayNanoseconds: UInt64
+    ) {
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .nonPersistent()
+        configuration.websiteDataStore = profile.websiteDataStore()
         self.webView = WKWebView(frame: .zero, configuration: configuration)
         self.timeoutNanoseconds = timeoutNanoseconds
         self.settleDelayNanoseconds = settleDelayNanoseconds

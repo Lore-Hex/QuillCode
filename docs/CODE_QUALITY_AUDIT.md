@@ -4624,3 +4624,22 @@ Current strict grades:
 
 Remaining risk:
 - Signed-in browser profile reuse, richer browser session controls, and Linux/browser-process capture remain deferred. Native smoke tests should exercise this adapter against a real local web app before marking browser parity complete.
+
+## 2026-06-24 Persistent Desktop Browser Profile
+
+Overall grade after this slice: **A- browser profile seam, A boundary preservation, B+ product completeness**.
+
+The desktop rendered-DOM adapter worked, but it used a non-persistent WebKit data store for every capture. That kept the implementation privacy-conservative, but it also blocked a core Codex browser expectation: inspecting pages whose rendered state depends on cookies or login/session storage.
+
+What changed:
+- Added `DesktopBrowserLiveDOMProfile` with explicit `.persistent` and `.ephemeral` modes.
+- Made `DesktopBrowserLiveDOMCapturer` default to `.persistent`, backed by `WKWebsiteDataStore.default()`, so offscreen rendered captures can reuse WebKit cookie/session state across pages and launches.
+- Kept `.ephemeral` available as an explicit mode for future test fixtures, privacy toggles, or one-shot isolated captures.
+- Extended the desktop parity gate so persistent profile support cannot silently regress to always-non-persistent captures.
+
+Current strict grades:
+- `quill-code-desktop browser backend`: **A-**. It now has bounded live DOM capture plus persistent WebKit session reuse by default.
+- Browser product parity: **B+**. A visible signed-in browser/login surface and reusable visible browser sessions are still required before this feels like full Codex browser parity.
+
+Remaining risk:
+- The persistent profile path is compile- and source-gated, but it still needs an interactive smoke path where the user signs into a site through a visible WebKit/browser surface and later `host.browser.inspect` proves the captured DOM reflects that session.
