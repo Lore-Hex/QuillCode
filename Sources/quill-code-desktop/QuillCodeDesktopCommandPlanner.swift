@@ -12,6 +12,7 @@ enum QuillCodeDesktopCommandAction {
     case openComputerUseSystemSettings(MacSystemSettingsOpener.Destination)
     case refreshComputerUseStatus
     case stopAll
+    case disconnectAll
     case retryLastTurn
     case workspaceCommand(String)
 }
@@ -43,6 +44,8 @@ enum QuillCodeDesktopCommandPlanner {
             return .refreshComputerUseStatus
         case "stop-all":
             return .stopAll
+        case "disconnect-all":
+            return .disconnectAll
         case "retry-last-turn":
             return .retryLastTurn
         default:

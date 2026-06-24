@@ -128,6 +128,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "git-worktree-create",
             "git-worktree-remove",
             "stop-all",
+            "disconnect-all",
             "settings",
             "command-palette",
             "keyboard-shortcuts",
@@ -140,6 +141,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "compact-context" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "find-in-chat" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "disconnect-all" }?.isEnabled, false)
         XCTAssertEqual(surface.settings.apiBaseURL, TrustedRouterDefaults.defaultAPIBaseURL)
         XCTAssertFalse(surface.settings.developerOverrideEnabled)
         XCTAssertFalse(surface.settings.hasStoredAPIKey)
@@ -217,7 +219,28 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-remove" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "add-ssh-project" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "add-ssh-project" }?.title, "Project: Add SSH Remote...")
+        XCTAssertEqual(surface.commands.first { $0.id == "disconnect-all" }?.isEnabled, true)
         XCTAssertEqual(surface.terminal.cwdLabel, "ssh://quill@feather.local:2222/srv/quill")
+    }
+
+    func testDisconnectAllDetachesSelectedSSHProjectWithoutRemovingIt() throws {
+        let connection = ProjectConnection.ssh(path: "/srv/quill", host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let thread = ChatThread(title: "Remote work", projectID: project.id)
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        XCTAssertEqual(model.surface().commands.first { $0.id == "disconnect-all" }?.isEnabled, true)
+        XCTAssertTrue(model.runWorkspaceCommand("disconnect-all", workspaceRoot: try makeTempDirectory()))
+        XCTAssertNil(model.root.selectedProjectID)
+        XCTAssertNil(model.root.selectedThreadID)
+        XCTAssertEqual(model.root.projects, [project])
+        XCTAssertEqual(model.root.threads.first?.projectID, project.id)
+        XCTAssertEqual(model.surface().commands.first { $0.id == "disconnect-all" }?.isEnabled, false)
     }
 
     func testSidebarBulkSelectionArchivesAndDeletesChats() {
@@ -1547,14 +1570,26 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-settings""#))
         XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-keyboard-shortcuts""#))
         XCTAssertFalse(idleHTML.contains(#"data-testid="top-bar-overflow-stop-all""#))
+        XCTAssertFalse(idleHTML.contains(#"data-testid="top-bar-overflow-disconnect-all""#))
         XCTAssertFalse(idleHTML.contains(#"data-testid="top-bar-stop-button""#))
 
         let activeHTML = WorkspaceHTMLRenderer.render(
             QuillCodeWorkspaceModel(composer: ComposerState(isSending: true)).surface()
         )
         XCTAssertFalse(activeHTML.contains(#"data-testid="top-bar-overflow-stop-all""#))
+        XCTAssertFalse(activeHTML.contains(#"data-testid="top-bar-overflow-disconnect-all""#))
         XCTAssertTrue(activeHTML.contains(#"data-testid="top-bar-stop-button""#))
         XCTAssertTrue(activeHTML.contains(#"aria-label="Stop active work""#))
+
+        let remoteConnection = ProjectConnection.ssh(path: "/srv/quill", host: "feather.local", user: "quill")
+        let remoteProject = ProjectRef(name: "Feather", path: remoteConnection.path, connection: remoteConnection)
+        let remoteHTML = WorkspaceHTMLRenderer.render(
+            QuillCodeWorkspaceModel(root: QuillCodeRootState(
+                projects: [remoteProject],
+                selectedProjectID: remoteProject.id
+            )).surface()
+        )
+        XCTAssertTrue(remoteHTML.contains(#"data-testid="top-bar-overflow-disconnect-all""#))
     }
 
     func testHTMLRendererShowsStopButtonDuringActiveSend() {

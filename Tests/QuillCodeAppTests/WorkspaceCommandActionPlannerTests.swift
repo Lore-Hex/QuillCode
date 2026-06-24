@@ -23,6 +23,7 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
         XCTAssertEqual(planner.effect(for: .retryLastTurn), .retryLastTurn)
         XCTAssertEqual(planner.effect(for: .forkFromLast), .forkFromLast)
         XCTAssertEqual(planner.effect(for: .compactContext), .compactContext)
+        XCTAssertEqual(planner.effect(for: .disconnectAll), .disconnectAll)
     }
 
     func testProjectActionsRequireOnlyTheContextTheyUse() {

@@ -171,6 +171,7 @@ enum WorkspaceCommandAction: String, Equatable {
     case retryLastTurn = "retry-last-turn"
     case forkFromLast = "fork-from-last"
     case compactContext = "compact-context"
+    case disconnectAll = "disconnect-all"
 }
 
 private extension String {

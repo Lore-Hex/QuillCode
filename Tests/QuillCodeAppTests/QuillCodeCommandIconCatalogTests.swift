@@ -32,7 +32,8 @@ final class QuillCodeCommandIconCatalogTests: XCTestCase {
             "settings": "gearshape",
             "keyboard-shortcuts": "keyboard",
             "computer-use-setup": "display",
-            "stop-all": "stop.circle"
+            "stop-all": "stop.circle",
+            "disconnect-all": "network.slash"
         ]
 
         for (commandID, symbol) in expectedSymbols {

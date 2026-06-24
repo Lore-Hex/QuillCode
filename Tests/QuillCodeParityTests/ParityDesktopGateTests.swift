@@ -9,6 +9,11 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         for label in ["New Chat", "Open Project", "Command Palette", "Keyboard Shortcuts", "Computer Use Setup", "Settings", "Stop All", "Disconnect All"] {
             XCTAssertTrue(text.contains(label), "Menu-bar widget is missing \(label).")
         }
+
+        let menuText = try Self.desktopSourceText(named: "QuillCodeMenuBarView.swift")
+        XCTAssertTrue(menuText.contains("onDisconnectAll"), "Disconnect All should be wired to a controller action.")
+        XCTAssertFalse(menuText.contains(#"Button("Disconnect All") {}"#), "Disconnect All must not regress to a no-op button.")
+        XCTAssertFalse(menuText.contains(".disabled(true)"), "Menu-bar actions should be disabled from real command state, not permanently.")
     }
 
     func testDesktopTrustedRouterSignInUsesLoopbackOAuth() throws {

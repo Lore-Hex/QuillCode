@@ -4351,3 +4351,20 @@ What changed:
 
 Remaining risk:
 - The guard intentionally allows legacy aliases in `TrustedRouterDefaults.swift`. If future API compatibility requires another legacy model spelling elsewhere, add a focused compatibility object rather than weakening app-surface naming checks.
+
+## 2026-06-24 Top-Bar Disconnect All Wiring
+
+Overall grade after this slice: **A command architecture, A native/menu parity, A regression coverage**.
+
+The macOS menu bar had a visible `Disconnect All` affordance, but it was permanently disabled and wired to no behavior. That was below the bar for Codex parity because it looked like a real command while providing no state transition, and it also meant active MCP server processes could only be stopped through the broader Stop All path.
+
+What changed:
+- Added `disconnect-all` to the shared command catalog, action planner, command executor, native icon catalog, SwiftUI/HTML top-bar overflow projection, desktop menu-bar planner, and desktop controller.
+- Made Disconnect All state-derived: enabled for active MCP servers or a selected SSH Remote project, hidden from the quiet workspace top-bar overflow until actionable, and disabled in the native menu when no connection-like state exists.
+- Reused one `WorkspaceModel` active-work stop helper for Stop All and Disconnect All so composer sends, terminal runs, terminal entries, and MCP server processes cannot drift between commands.
+- Kept SSH Remote semantics explicit: Disconnect All detaches the selected remote project and terminal context without removing the saved project, because SSH remote execution is currently noninteractive per-command rather than a persistent socket.
+- Mirrored the behavior in the Playwright harness and tightened keywords so `>ssh` still finds the Add SSH Remote command without being polluted by Disconnect All.
+- Added focused Swift tests for command availability, action planning, icon coverage, remote detach behavior, HTML overflow visibility, MCP lifecycle shutdown, and native menu-bar non-regression.
+
+Remaining risk:
+- QuillCloud relay sessions and future persistent remote transports will need their own disconnect lifecycle. The current command is ready for that because it already sits behind the shared command/action/executor path, but today it only stops MCP servers and detaches SSH Remote context.

@@ -28,6 +28,7 @@ enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case retryLastTurn
     case forkFromLast
     case compactContext
+    case disconnectAll
 }
 
 struct WorkspaceCommandActionPlanner: Sendable, Hashable {
@@ -106,6 +107,8 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return .forkFromLast
         case .compactContext:
             return .compactContext
+        case .disconnectAll:
+            return .disconnectAll
         }
     }
 }

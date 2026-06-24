@@ -27,6 +27,7 @@ struct QuillCodeDesktopApp: App {
                 onToggleExtensions: controller.toggleExtensions,
                 onToggleMemories: controller.toggleMemories,
                 onStopAll: controller.stopAll,
+                onDisconnectAll: controller.disconnectAll,
                 onComputerUseSetup: controller.openSettings,
                 onQuit: {
                     NSApplication.shared.terminate(nil)

@@ -64,7 +64,8 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
         + WorkspaceCommandStaticCatalog.controlAndSettingsCommands(
             composerIsSending: composerIsSending,
             terminalIsRunning: terminalIsRunning,
-            hasActiveMCPServer: mcpServerStatuses.values.contains { $0.isActive }
+            hasActiveMCPServer: mcpServerStatuses.values.contains { $0.isActive },
+            hasSelectedRemoteProject: selectedProjectIsRemote
         )
         + WorkspaceCommandStaticCatalog.computerUseCommands(
             computerUseStatus: computerUseStatus

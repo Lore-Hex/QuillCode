@@ -203,6 +203,8 @@ final class QuillCodeDesktopController: ObservableObject {
             refresh()
         case .stopAll:
             stopAll()
+        case .disconnectAll:
+            disconnectAll()
         case .retryLastTurn:
             retryLastTurn()
         case .workspaceCommand(let commandID):
@@ -336,6 +338,16 @@ final class QuillCodeDesktopController: ObservableObject {
     func stopAll() {
         tasks.cancel([.send, .terminal, .browserPreview])
         model.cancelActiveWork()
+        draft = ""
+        refresh()
+    }
+
+    func disconnectAll() {
+        tasks.cancel([.send, .terminal, .browserPreview])
+        guard model.disconnectAll() else {
+            refresh()
+            return
+        }
         draft = ""
         refresh()
     }

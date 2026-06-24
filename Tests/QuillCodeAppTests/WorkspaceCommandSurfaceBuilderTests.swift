@@ -14,6 +14,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("git-status", in: commands).isEnabled, false)
         XCTAssertEqual(try command("terminal-clear", in: commands).isEnabled, false)
         XCTAssertEqual(try command("stop-all", in: commands).isEnabled, false)
+        XCTAssertEqual(try command("disconnect-all", in: commands).isEnabled, false)
         XCTAssertEqual(try command("computer-use-setup", in: commands).isEnabled, true)
         XCTAssertEqual(try command("computer-use-open-screen-recording", in: commands).isEnabled, true)
         XCTAssertEqual(try command("computer-use-open-accessibility", in: commands).isEnabled, true)
@@ -135,6 +136,19 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("mcp-start:mcp_server:filesystem", in: commands).isEnabled, false)
         XCTAssertEqual(try command("mcp-stop:mcp_server:filesystem", in: commands).isEnabled, true)
         XCTAssertEqual(try command("stop-all", in: commands).isEnabled, true)
+        XCTAssertEqual(try command("disconnect-all", in: commands).isEnabled, true)
+    }
+
+    func testSelectedRemoteProjectEnablesDisconnectAllWithoutActiveWork() throws {
+        let connection = ProjectConnection.ssh(path: "/srv/quill", host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let commands = makeBuilder(
+            selectedProject: project,
+            hasActiveWorkspaceRoot: true
+        ).commands
+
+        XCTAssertEqual(try command("stop-all", in: commands).isEnabled, false)
+        XCTAssertEqual(try command("disconnect-all", in: commands).isEnabled, true)
     }
 
     func testBrowserTerminalAndComputerUseCommandsReflectRuntimeState() throws {

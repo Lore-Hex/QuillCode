@@ -1386,15 +1386,48 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func cancelActiveWork() {
+        let stoppedWork = stopActiveWorkspaceWork()
+        lastError = nil
+        if stoppedWork.hadActiveWork || stoppedWork.hadRunningMCPServers {
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.stopped)
+        }
+    }
+
+    @discardableResult
+    public func disconnectAll() -> Bool {
+        let stoppedWork = stopActiveWorkspaceWork()
+        let shouldDetachRemoteProject = selectedProject?.isRemote == true
+
+        guard stoppedWork.hadRunningMCPServers || stoppedWork.hadActiveWork || shouldDetachRemoteProject else {
+            return false
+        }
+
+        if shouldDetachRemoteProject,
+           let selection = WorkspaceProjectEngine.selectionAfterSelectingProject(
+            nil,
+            projects: root.projects,
+            threads: root.threads
+           ) {
+            root.selectedProjectID = selection.projectID
+            root.selectedThreadID = selection.threadID
+            syncTerminalSessionToSelectedProject()
+        }
+
+        lastError = nil
+        let status = stoppedWork.hadActiveWork || stoppedWork.hadRunningMCPServers
+            ? TopBarAgentStatusLabel.stopped
+            : TopBarAgentStatusLabel.idle
+        refreshTopBar(agentStatus: status)
+        return true
+    }
+
+    private func stopActiveWorkspaceWork() -> (hadRunningMCPServers: Bool, hadActiveWork: Bool) {
         let hadRunningMCPServers = mcpRuntime.cancelAll(extensions: &extensions)
-        let hadActiveWork = composer.isSending || terminal.isRunning || hadRunningMCPServers
+        let hadActiveWork = composer.isSending || terminal.isRunning
         composer.isSending = false
         terminal.isRunning = false
         WorkspaceTerminalEngine.stopRunningEntries(terminal: &terminal)
-        lastError = nil
-        if hadActiveWork {
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.stopped)
-        }
+        return (hadRunningMCPServers, hadActiveWork)
     }
 
     private func appendToolRun(call: ToolCall, result: ToolResult) {

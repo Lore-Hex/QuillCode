@@ -187,7 +187,8 @@ enum WorkspaceCommandStaticCatalog {
     static func controlAndSettingsCommands(
         composerIsSending: Bool,
         terminalIsRunning: Bool,
-        hasActiveMCPServer: Bool
+        hasActiveMCPServer: Bool,
+        hasSelectedRemoteProject: Bool
     ) -> [WorkspaceCommandSurface] {
         [
             WorkspaceCommandSurface(
@@ -197,6 +198,13 @@ enum WorkspaceCommandStaticCatalog {
                 category: WorkspaceCommandPalette.controlCategory,
                 keywords: ["cancel", "abort", "halt"],
                 isEnabled: composerIsSending || terminalIsRunning || hasActiveMCPServer
+            ),
+            WorkspaceCommandSurface(
+                id: "disconnect-all",
+                title: "Disconnect all",
+                category: WorkspaceCommandPalette.controlCategory,
+                keywords: ["disconnect", "remote", "mcp", "server", "connection"],
+                isEnabled: hasSelectedRemoteProject || hasActiveMCPServer
             ),
             WorkspaceCommandSurface(
                 id: "settings",
