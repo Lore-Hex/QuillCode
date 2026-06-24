@@ -3201,3 +3201,21 @@ Code quality changes:
 Remaining risk:
 
 - `SlashCommand.swift` still owns PR slash parsing and tool-call argument mapping. If pull request slash coverage grows further, split `/pr` parsing into a `SlashPullRequestCommandParser` while keeping shared `ToolArguments` serialization in core.
+
+## 2026-06-24 Mock Pull Request Intent Planner Split
+
+Overall grade after this slice: **A+ mock planner boundaries, A+ PR behavior guard, A helper reuse**.
+
+`MockLLMClient.swift` still carried the deterministic PR intent classifier and argument extraction for create/view/checks/diff/checkout/comment/review/reviewer/label/merge requests. That kept smoke-test behavior correct, but it made the mock LLM file a broad command-heuristic bucket after the earlier extraction from `Agent.swift`. PR-specific mock planning now has one routing entrypoint back into the mock LLM, and argument extraction is separated from intent matching.
+
+Code quality changes:
+
+- Added `MockPullRequestIntentPlanner.swift` for PR request detection and PR `ToolCall` routing.
+- Added `MockPullRequestArgumentExtractor.swift` for selector/title/body/reviewer/label parsing and merge/review/create argument mapping.
+- Reduced `MockLLMClient.swift` to high-level deterministic planning while preserving the same public mock client API.
+- Consolidated repeated PR helper logic inside the extracted PR helpers for tokenization, marker lookup, and backtick-quoted text extraction.
+- Updated the parity gate so mock PR parsing cannot drift back into `MockLLMClient.swift` or `Agent.swift`, and so argument construction cannot drift into the PR intent router.
+
+Remaining risk:
+
+- `MockLLMClient.swift` still owns mixed non-PR heuristics for shell, file, memory, browser, git status/diff, commit, and push requests. The next mock-quality pass should split non-PR command intent into a `MockWorkspaceIntentPlanner` only if new mock flows make this file grow again.
