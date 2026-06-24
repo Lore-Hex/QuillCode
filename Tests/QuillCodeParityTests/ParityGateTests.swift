@@ -995,6 +995,24 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("testArtifactStateDerivesDocumentPreviews"), "WorkspaceModelTests should not own document artifact surface derivation.")
     }
 
+    func testWorkspaceRuntimeIssueIntegrationTestsOwnModelRuntimeIssueFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let runtimeIntegrationTests = try Self.appTestSourceText(named: "WorkspaceRuntimeIssueIntegrationTests.swift")
+
+        XCTAssertTrue(runtimeIntegrationTests.contains("testApplyRuntimeRefreshesAgentStatus"), "Runtime status application should live in focused runtime issue integration tests.")
+        XCTAssertTrue(runtimeIntegrationTests.contains("testRuntimeIssueSurfacesMissingTrustedRouterSignIn"), "Runtime sign-in issue surfacing should live in focused runtime issue integration tests.")
+        XCTAssertTrue(runtimeIntegrationTests.contains("testRuntimeIssueNormalizesRejectedTrustedRouterKey"), "Runtime key rejection surfacing should live in focused runtime issue integration tests.")
+        XCTAssertTrue(runtimeIntegrationTests.contains("testRuntimeIssueNormalizesTrustedRouterRateLimit"), "Runtime rate-limit surfacing should live in focused runtime issue integration tests.")
+        XCTAssertTrue(runtimeIntegrationTests.contains("testRuntimeIssueIncludesRedactedDiagnostics"), "Runtime diagnostic redaction should live in focused runtime issue integration tests.")
+        XCTAssertTrue(runtimeIntegrationTests.contains("testPrepareRetryLastUserTurnUsesLatestUserPromptAndClearsError"), "Retry recovery mutation should live in focused runtime issue integration tests.")
+        XCTAssertFalse(modelTests.contains("testApplyRuntimeRefreshesAgentStatus"), "WorkspaceModelTests should not own runtime status application flows.")
+        XCTAssertFalse(modelTests.contains("testRuntimeIssueSurfacesMissingTrustedRouterSignIn"), "WorkspaceModelTests should not own runtime sign-in issue surfacing.")
+        XCTAssertFalse(modelTests.contains("testRuntimeIssueNormalizesRejectedTrustedRouterKey"), "WorkspaceModelTests should not own runtime key rejection surfacing.")
+        XCTAssertFalse(modelTests.contains("testRuntimeIssueNormalizesTrustedRouterRateLimit"), "WorkspaceModelTests should not own runtime rate-limit surfacing.")
+        XCTAssertFalse(modelTests.contains("testRuntimeIssueIncludesRedactedDiagnostics"), "WorkspaceModelTests should not own runtime diagnostic redaction.")
+        XCTAssertFalse(modelTests.contains("testPrepareRetryLastUserTurnUsesLatestUserPromptAndClearsError"), "WorkspaceModelTests should not own retry recovery mutation flows.")
+    }
+
     func testWorkspaceSlashCommandIntegrationTestsOwnCoreSlashFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let slashIntegrationTests = try Self.appTestSourceText(named: "WorkspaceSlashCommandIntegrationTests.swift")
