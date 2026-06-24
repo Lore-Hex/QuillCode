@@ -64,7 +64,25 @@ Code quality changes:
 
 Remaining risk:
 
-- Review action execution still orchestrates git tool execution plus diff refresh directly in `WorkspaceModel`. If review workflows grow toward multi-step review sessions or GitHub publication, move that side-effect orchestration behind a review workflow coordinator.
+- Review action execution still performs side effects in `WorkspaceModel`, but run sequencing and status derivation now live in the review action planner pass below. If review workflows grow toward multi-step PR publication, add a dedicated workflow coordinator instead of expanding the model.
+
+## 2026-06-24 Review Action Run Planner Pass
+
+Overall grade after this slice: **A review-run boundary, A behavior preservation, A regression guard**.
+
+Review actions already delegated file/hunk tool-call construction to `WorkspaceReviewActionToolCallPlanner`, but `WorkspaceModel` still knew that every review mutation must be followed by `host.git.diff` and that the top-bar status depends on both the action and diff refresh succeeding. That made the model the implicit owner of review-run policy.
+
+Code quality changes:
+
+- Added `WorkspaceReviewActionRunPlan` beside the existing review action planner.
+- Moved review action sequencing, mandatory diff refresh call construction, and final status derivation into the planner.
+- Simplified `WorkspaceModel.runReviewAction` to execute the planned calls, append tool cards, persist the selected thread, and apply the planned status.
+- Added focused planner tests for action-plus-diff ordering and success/failure status rules.
+- Strengthened the parity gate so diff-refresh construction and status derivation stay out of `WorkspaceModel`.
+
+Remaining risk:
+
+- `WorkspaceModel` still performs review-run side effects because it owns thread mutation and persistence. Richer review sessions, PR comment publication, or multi-step review batches should move those side effects into a dedicated review workflow coordinator.
 
 ## 2026-06-24 Focused Test Fixture DRY Pass
 

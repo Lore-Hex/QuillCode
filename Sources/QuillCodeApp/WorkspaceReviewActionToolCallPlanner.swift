@@ -1,7 +1,25 @@
 import QuillCodeCore
 import QuillCodeTools
 
+struct WorkspaceReviewActionRunPlan: Sendable, Hashable {
+    let actionCall: ToolCall
+    let diffRefreshCall: ToolCall
+
+    func finalStatus(actionResult: ToolResult, diffRefreshResult: ToolResult) -> String {
+        actionResult.ok && diffRefreshResult.ok
+            ? TopBarAgentStatusLabel.idle
+            : TopBarAgentStatusLabel.failed
+    }
+}
+
 enum WorkspaceReviewActionToolCallPlanner {
+    static func runPlan(for action: WorkspaceReviewActionSurface) -> WorkspaceReviewActionRunPlan {
+        WorkspaceReviewActionRunPlan(
+            actionCall: toolCall(for: action),
+            diffRefreshCall: ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}")
+        )
+    }
+
     static func toolCall(for action: WorkspaceReviewActionSurface) -> ToolCall {
         switch action.kind {
         case .stage:

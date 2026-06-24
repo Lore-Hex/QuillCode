@@ -4,6 +4,37 @@ import QuillCodeTools
 @testable import QuillCodeApp
 
 final class WorkspaceReviewActionToolCallPlannerTests: XCTestCase {
+    func testRunPlanExecutesReviewActionThenRefreshesDiff() throws {
+        let plan = WorkspaceReviewActionToolCallPlanner.runPlan(
+            for: WorkspaceReviewActionSurface(kind: .stage, path: "Sources/App.swift")
+        )
+        let actionArguments = try ToolArguments(plan.actionCall.argumentsJSON)
+
+        XCTAssertEqual(plan.actionCall.name, ToolDefinition.gitStage.name)
+        XCTAssertEqual(try actionArguments.requiredString("path"), "Sources/App.swift")
+        XCTAssertEqual(plan.diffRefreshCall.name, ToolDefinition.gitDiff.name)
+        XCTAssertEqual(plan.diffRefreshCall.argumentsJSON, "{}")
+    }
+
+    func testRunPlanFinalStatusRequiresActionAndDiffRefreshSuccess() {
+        let plan = WorkspaceReviewActionToolCallPlanner.runPlan(
+            for: WorkspaceReviewActionSurface(kind: .restore, path: "Sources/App.swift")
+        )
+
+        XCTAssertEqual(
+            plan.finalStatus(actionResult: ToolResult(ok: true), diffRefreshResult: ToolResult(ok: true)),
+            TopBarAgentStatusLabel.idle
+        )
+        XCTAssertEqual(
+            plan.finalStatus(actionResult: ToolResult(ok: false), diffRefreshResult: ToolResult(ok: true)),
+            TopBarAgentStatusLabel.failed
+        )
+        XCTAssertEqual(
+            plan.finalStatus(actionResult: ToolResult(ok: true), diffRefreshResult: ToolResult(ok: false)),
+            TopBarAgentStatusLabel.failed
+        )
+    }
+
     func testStageFileBuildsGitStageCall() throws {
         let call = WorkspaceReviewActionToolCallPlanner.toolCall(
             for: WorkspaceReviewActionSurface(kind: .stage, path: "Sources/App.swift")
