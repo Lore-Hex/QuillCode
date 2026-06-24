@@ -2228,7 +2228,7 @@ Claude CLI's interface critique called out the native top bar as the largest vis
 | Surface | Before | After |
 | --- | --- | --- |
 | Native top bar | Visible status and runtime issue pills competed with the active thread title. | Three-slot chrome: quiet context, centered thread title, overflow menu. |
-| Running/error state | Permanent pills added visual weight even when the transcript already showed the active work. | A two-point hairline appears only while an agent state or runtime issue needs attention. |
+| Running/error state | Permanent pills added visual weight even when the transcript already showed the active work. | A one-point hairline appears only while an agent state or runtime issue needs attention. |
 | Overflow button | Drew another outlined control in the top bar. | Keeps a 40-point hit target with a softer fill and no extra stroke. |
 
 Code quality changes:
@@ -2281,3 +2281,20 @@ Code quality changes:
 Remaining risk:
 
 - The model and mode controls are still visually two controls inside the accessory bar. A later pass can design a single compact disclosure affordance if user testing shows that the current split still feels too busy.
+
+## 2026-06-23 HTML Top Bar Quiet Chrome Pass
+
+Overall grade after this slice: **A visual parity, A interaction restraint, A regression coverage**.
+
+Claude CLI's follow-up design review reinforced the same Codex-style direction: the top bar should feel almost empty at rest, with status details living in transcript/tool surfaces and only a subtle activity cue in the chrome. The HTML harness now matches the native top-bar contract so Playwright screenshots test the same quiet workspace users see in SwiftUI.
+
+| Surface | Before | After |
+| --- | --- | --- |
+| HTML top bar | Visible idle/running status menu, runtime issue pill, and metadata cluster crowded the top chrome. | Left context label, centered title, right overflow, and hidden status metadata for tests only. |
+| Activity state | Status text carried the visual state. | A thin activity hairline appears only for running, stopped, failed, or runtime issue states. |
+| Test hooks | Status details were interactive UI because tests needed selectors. | Metadata is `aria-hidden`, visually hidden, and guarded by Playwright so it cannot become visible chrome by accident. |
+| Regression tests | Swift tests expected the old status menu/popover. | Swift and Playwright tests now reject visible status buttons, menus, and popovers in the top bar. |
+
+Remaining risk:
+
+- Claude suggested moving the final visible overflow control to a hover-revealed affordance. That should be a separate native+HTML pass because it changes keyboard discoverability and needs accessibility review.

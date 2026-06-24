@@ -60,44 +60,59 @@
     .topbar {
       position: relative;
       display: grid;
-      grid-template-columns: minmax(180px, 1fr) minmax(0, auto);
+      grid-template-columns: minmax(120px, 240px) minmax(0, 1fr) auto;
       align-items: center;
       gap: 14px;
-      min-height: 58px;
-      padding: 10px 16px 10px 18px;
+      min-height: 40px;
+      padding: 0 14px;
       border-bottom: 1px solid rgba(255,255,255,.10);
       background: rgba(12, 18, 22, .94);
     }
-    .topbar-title-group {
+    .topbar-status-metadata {
+      display: none;
+    }
+    .topbar-context-label {
       min-width: 0;
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
-      gap: 10px;
-      align-items: center;
-    }
-    .topbar-title-group::before {
-      content: "";
-      width: 14px;
-      height: 14px;
-      border-radius: 4px;
-      background: linear-gradient(135deg, #d9f5ff, #72cef2);
-      box-shadow: 0 0 0 1px rgba(255,255,255,.22), 0 6px 18px rgba(65,184,232,.18);
-    }
-    .topbar strong { font-size: 17px; }
-    .topbar p {
-      margin: 2px 0 0;
+      max-width: 240px;
+      margin: 0;
       color: var(--muted);
       font-size: 12px;
       font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .topbar-title-group strong,
-    .topbar-title-group p {
+    .topbar-title-group {
+      min-width: 0;
+      text-align: center;
+    }
+    .topbar strong { font-size: 17px; }
+    .topbar-title-group strong {
       display: block;
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .topbar-activity-hairline {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 1px;
+      background: var(--green);
+      opacity: .9;
+    }
+    .topbar-activity-hairline[data-tone="running"],
+    .topbar-activity-hairline[data-tone="warning"] {
+      background: var(--yellow);
+    }
+    .topbar-activity-hairline[data-tone="failed"],
+    .topbar-activity-hairline[data-tone="error"] {
+      background: var(--red);
+    }
+    .topbar-activity-hairline[data-tone="stopped"] {
+      background: var(--muted);
     }
     .topbar-clusters {
       min-width: 0;
@@ -115,10 +130,6 @@
     }
     .topbar-action-cluster {
       flex-wrap: nowrap;
-    }
-    .topbar-context-cluster {
-      justify-content: flex-end;
-      overflow: visible;
     }
     .topbar-action-cluster button {
       min-height: 34px;
@@ -187,17 +198,17 @@
       width: 7px;
       height: 7px;
       border-radius: 999px;
-      background: var(--success);
+      background: var(--green);
       box-shadow: 0 0 0 2px rgba(255,255,255,.06);
     }
     .mode-pill-button[data-mode-tone="review"] .mode-dot {
-      background: var(--warning);
+      background: var(--yellow);
     }
     .mode-pill-button[data-mode-tone="read-only"] .mode-dot {
       background: var(--muted);
     }
     .mode-pill-button[data-mode-tone="auto"] .mode-dot {
-      background: var(--success);
+      background: var(--green);
     }
     .topbar-action-cluster button {
       width: 40px;
@@ -214,125 +225,6 @@
     }
     .topbar-overflow-menu {
       position: relative;
-    }
-    .topbar-status-menu {
-      position: relative;
-    }
-    .topbar-status-menu summary {
-      width: auto;
-      max-width: 180px;
-      min-width: 40px;
-      min-height: 40px;
-      padding: 0 10px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.10);
-      color: var(--muted);
-      background: transparent;
-      cursor: pointer;
-      list-style: none;
-      line-height: 1;
-    }
-    .topbar-status-menu summary::-webkit-details-marker { display: none; }
-    .topbar-status-menu[open] summary,
-    .topbar-status-menu summary:hover {
-      color: var(--text);
-      background: rgba(255,255,255,.07);
-      border-color: rgba(255,255,255,.16);
-    }
-    .topbar-status-menu [data-testid="agent-status"] {
-      min-width: 0;
-      max-width: 100%;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      color: rgba(238,247,250,.88);
-      font-size: 12px;
-      font-weight: 800;
-      font-variant-numeric: tabular-nums;
-      line-height: 1;
-    }
-    .agent-status-label {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .agent-status-dot {
-      width: 8px;
-      min-width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: var(--green);
-      border: 0;
-      box-shadow: 0 0 0 3px rgba(82, 210, 115, 0.12);
-    }
-    .topbar-status-menu [data-testid="agent-status"][data-indicator="false"] .agent-status-dot {
-      display: none;
-    }
-    .topbar-status-menu [data-testid="agent-status"][data-tone="warning"] .agent-status-dot,
-    .topbar-status-menu [data-testid="agent-status"][data-tone="running"] .agent-status-dot {
-      background: var(--amber);
-      box-shadow: 0 0 0 3px rgba(248,184,78,.14);
-    }
-    .topbar-status-menu [data-testid="agent-status"][data-tone="error"] .agent-status-dot,
-    .topbar-status-menu [data-testid="agent-status"][data-tone="failed"] .agent-status-dot {
-      background: var(--red);
-      box-shadow: 0 0 0 3px rgba(255,93,82,.14);
-    }
-    .topbar-status-menu [data-testid="agent-status"][data-tone="stopped"] .agent-status-dot {
-      background: var(--muted);
-      box-shadow: 0 0 0 3px rgba(147,160,166,.12);
-    }
-    .topbar-status-popover {
-      position: absolute;
-      right: 0;
-      top: calc(100% + 8px);
-      z-index: 8;
-      width: min(320px, calc(100vw - 36px));
-      display: grid;
-      gap: 8px;
-      padding: 10px;
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(22,33,39,.98);
-      box-shadow: 0 14px 42px rgba(0,0,0,.35);
-      transform-origin: top right;
-    }
-    .topbar-status-row {
-      display: grid;
-      grid-template-columns: minmax(92px, auto) minmax(0, 1fr);
-      gap: 12px;
-      align-items: center;
-      min-height: 30px;
-    }
-    .topbar-status-row span {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-    .topbar-status-row strong {
-      display: block;
-      max-width: 100%;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      justify-self: end;
-      color: rgba(238,247,250,.92);
-      font-size: 12px;
-    }
-    .topbar-status-popover [data-testid="runtime-issue-pill"] {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      justify-self: end;
-      color: rgba(238,247,250,.92);
-      font-size: 12px;
     }
     .topbar-overflow-menu summary {
       width: 40px;
@@ -394,23 +286,6 @@
       color: rgba(159,176,184,.45);
       background: transparent;
       border-color: transparent;
-    }
-    .topbar-status-popover [data-testid="runtime-issue-pill"] {
-      justify-self: stretch;
-      min-height: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      padding: 0 8px;
-      border-radius: 999px;
-      color: #ffe2a3;
-      background: rgba(248,184,78,.14);
-      border-color: rgba(248,184,78,.28);
-    }
-    .topbar-status-popover [data-testid="runtime-issue-pill"][data-severity="error"] {
-      color: #ffc4c0;
-      background: rgba(255,93,82,.14);
-      border-color: rgba(255,93,82,.30);
     }
     .model-picker-wrap { display: inline-flex; position: relative; }
     .model-panel {
@@ -2886,12 +2761,25 @@
     function topBarStatusTone() {
       if (state.runtimeIssue?.severity === 'error') return 'error';
       if (state.runtimeIssue) return 'warning';
-      return state.topBar.agentStatus === 'Failed' ? 'error' : 'success';
+      if (state.topBar.agentStatus === 'Running') return 'running';
+      if (state.topBar.agentStatus === 'Failed') return 'failed';
+      if (state.topBar.agentStatus === 'Stopped') return 'stopped';
+      return 'idle';
     }
 
     function topBarStatusIndicator() {
       if (state.runtimeIssue) return 'true';
       return state.topBar.agentStatus === 'Idle' ? 'false' : 'true';
+    }
+
+    function topBarShowsActivityHairline() {
+      return Boolean(state.runtimeIssue) || state.topBar.agentStatus !== 'Idle';
+    }
+
+    function topBarActivityTone() {
+      if (state.runtimeIssue?.severity === 'error') return 'error';
+      if (state.runtimeIssue) return 'warning';
+      return topBarStatusTone();
     }
 
     function topBarOverflowTestID(commandID) {
@@ -4325,42 +4213,18 @@
       document.getElementById('app').innerHTML = `
         <section class="quillcode-workspace" data-testid="workspace">
           <header class="topbar" data-testid="top-bar" aria-label="QuillCode top bar">
+            <div class="topbar-status-metadata" data-testid="top-bar-status-metadata" aria-hidden="true">
+              <span data-testid="agent-status" data-tone="${escapeHTML(topBarStatusTone())}" data-indicator="${topBarStatusIndicator()}">${escapeHTML(state.topBar.agentStatus)}</span>
+              ${state.runtimeIssue ? `<span data-testid="runtime-issue-pill" data-severity="${escapeHTML(state.runtimeIssue.severity || 'warning')}">${escapeHTML(state.runtimeIssue.title)}</span>` : ''}
+              <span data-testid="project-instructions-status" title="${escapeHTML(state.topBar.instructionSources.join(', '))}">${escapeHTML(state.topBar.instructionLabel)}</span>
+              <span data-testid="project-memories-status" title="${escapeHTML(state.topBar.memorySources.join(', '))}">${escapeHTML(state.topBar.memoryLabel)}</span>
+              <span data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</span>
+            </div>
+            <p class="topbar-context-label" data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
             <div class="topbar-title-group" data-testid="top-bar-title-group">
-              <span>
-                <strong data-testid="top-bar-title">${escapeHTML(state.topBar.primaryTitle)}</strong>
-                <p data-testid="top-bar-subtitle">${escapeHTML(state.topBar.subtitle)}</p>
-              </span>
+              <strong data-testid="top-bar-title">${escapeHTML(state.topBar.primaryTitle)}</strong>
             </div>
             <div class="topbar-clusters" data-testid="top-bar-clusters">
-              <div class="topbar-cluster topbar-context-cluster" data-testid="top-bar-context-cluster">
-                <details class="topbar-status-menu" data-testid="top-bar-status-menu">
-                  <summary data-testid="top-bar-status-button" aria-label="Workspace status" title="${escapeHTML(state.topBar.agentStatus)}">
-                    <span class="agent-status-chip" data-testid="agent-status" data-tone="${escapeHTML(topBarStatusTone())}" data-indicator="${topBarStatusIndicator()}">
-                      <span class="agent-status-dot" aria-hidden="true"></span>
-                      <span class="agent-status-label">${escapeHTML(state.topBar.agentStatus)}</span>
-                    </span>
-                  </summary>
-                  <div class="topbar-status-popover" data-testid="top-bar-status-popover">
-                    <div class="topbar-status-row">
-                      <span>Status</span>
-                      <strong>${escapeHTML(state.topBar.agentStatus)}</strong>
-                    </div>
-                    ${state.runtimeIssue ? `<span data-testid="runtime-issue-pill" data-severity="${escapeHTML(state.runtimeIssue.severity || 'warning')}">${escapeHTML(state.runtimeIssue.title)}</span>` : ''}
-                    <div class="topbar-status-row">
-                      <span>Instructions</span>
-                      <strong data-testid="project-instructions-status" title="${escapeHTML(state.topBar.instructionSources.join(', '))}">${escapeHTML(state.topBar.instructionLabel)}</strong>
-                    </div>
-                    <div class="topbar-status-row">
-                      <span>Memories</span>
-                      <strong data-testid="project-memories-status" title="${escapeHTML(state.topBar.memorySources.join(', '))}">${escapeHTML(state.topBar.memoryLabel)}</strong>
-                    </div>
-                    <div class="topbar-status-row">
-                      <span>Computer Use</span>
-                      <strong data-testid="computer-use-status">${escapeHTML(state.topBar.computerUseLabel)}</strong>
-                    </div>
-                  </div>
-                </details>
-              </div>
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
                 <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
                   <summary data-testid="top-bar-overflow-button" aria-label="More" title="More">...</summary>
@@ -4370,6 +4234,7 @@
                 </details>
               </div>
             </div>
+            ${topBarShowsActivityHairline() ? `<div class="topbar-activity-hairline" data-testid="top-bar-activity-hairline" data-tone="${escapeHTML(topBarActivityTone())}" aria-hidden="true"></div>` : ''}
           </header>
           <div class="workspace-grid ${state.activity.isVisible ? 'with-activity' : ''}">
             <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
