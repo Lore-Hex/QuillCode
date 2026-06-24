@@ -4837,3 +4837,21 @@ Current strict grades:
 
 Remaining risk:
 - Continue draining `ParityGateTests.swift` by feature family. The next clean split should move composer/send-session/tool-execution gates to a dedicated workspace execution gate suite.
+
+## 2026-06-24 Workspace Execution Gate Split
+
+Overall grade after this slice: **A focused execution-boundary ownership, A- merge-risk reduction, B+ catch-all size**.
+
+The catch-all parity suite still owned workspace execution gates for composer cancellation/submission, agent send sessions, slash transcript and dispatch planning, command execution planning, tool event recording, tool-call routing, shell tool-call construction, and tool override composition. Those checks are all execution-boundary constraints, so keeping them in the broad suite made failures harder to triage and increased conflict pressure for parallel feature work.
+
+What changed:
+- Added `ParityWorkspaceExecutionGateTests` for workspace execution, command, slash-dispatch, and tool routing boundaries.
+- Moved the coherent execution-boundary cluster out of `ParityGateTests.swift`.
+- Extended the focused-suite guard so execution gates cannot drift back into the catch-all.
+
+Current strict grades:
+- `ParityWorkspaceExecutionGateTests.swift`: **A**. The suite has a clear domain owner and keeps execution-path architecture checks close together.
+- `ParityGateTests.swift`: **B+**. It is materially smaller and still useful as a top-level architecture registry, but it has more domains to drain.
+
+Remaining risk:
+- Memory, project metadata, local environment, automation, worktree, MCP, remote project, and review-runtime gates still live in the catch-all. Continue extracting by domain before adding more Codex-parity gates.
