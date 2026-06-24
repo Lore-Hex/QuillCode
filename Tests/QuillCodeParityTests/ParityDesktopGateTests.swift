@@ -60,6 +60,12 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(capturerText.contains("BrowserLiveDOMCapturing"), "Desktop live DOM capture should implement the shared adapter protocol.")
         XCTAssertTrue(capturerText.contains("WKWebView"), "Desktop live DOM capture should render pages before inspecting DOM.")
         XCTAssertTrue(capturerText.contains("evaluateJavaScript"), "Desktop live DOM capture should inspect the rendered page DOM.")
+        XCTAssertTrue(capturerText.contains("enum DesktopBrowserLiveDOMProfile"), "Desktop live DOM capture should make browser profile persistence explicit.")
+        XCTAssertTrue(capturerText.contains("case persistent"), "Desktop live DOM capture should support persistent signed-in browser profile state.")
+        XCTAssertTrue(capturerText.contains("case ephemeral"), "Desktop live DOM capture should keep an explicit non-persistent option for future privacy/test controls.")
+        XCTAssertTrue(capturerText.contains("profile: DesktopBrowserLiveDOMProfile = .persistent"), "Desktop live DOM capture should default to a persistent profile.")
+        XCTAssertTrue(capturerText.contains("WKWebsiteDataStore"), "Desktop live DOM profile selection should be backed by WebKit data stores.")
+        XCTAssertTrue(capturerText.contains("return .default()"), "Persistent desktop browser capture should reuse WebKit's default cookie/session store.")
         XCTAssertTrue(controllerText.contains("browserLiveDOMCapturer"), "Desktop controller should accept live DOM capture as an injectable dependency.")
         XCTAssertTrue(
             controllerText.contains("refreshRenderedBrowserSnapshot(capturer: browserLiveDOMCapturer)"),
