@@ -356,6 +356,7 @@ final class ParityGateTests: XCTestCase {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceStatusTextBuilder.swift")
+        let topBarBuilderText = try Self.appSourceText(named: "WorkspaceTopBarSurfaceBuilder.swift")
         let slashTranscriptText = try Self.appSourceText(named: "WorkspaceSlashCommandTranscriptPlanner.swift")
 
         XCTAssertTrue(builderText.contains("struct WorkspaceStatusTextBuilder"), "Workspace status text and labels should live in a focused builder.")
@@ -366,9 +367,12 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(builderText.contains("static func modeLabel"), "Mode labels should be shared by status and UI surfaces.")
         XCTAssertTrue(modelText.contains("WorkspaceStatusTextBuilder.statusText"), "WorkspaceModel should delegate /status copy.")
         XCTAssertTrue(slashTranscriptText.contains("WorkspaceStatusTextBuilder.modeLabel"), "Slash mode transcript copy should delegate shared mode labels.")
-        XCTAssertTrue(surfaceText.contains("WorkspaceStatusTextBuilder.topBarSubtitle"), "WorkspaceSurface should delegate top-bar subtitles.")
-        XCTAssertTrue(surfaceText.contains("WorkspaceStatusTextBuilder.instructionLabel"), "WorkspaceSurface should delegate instruction labels.")
-        XCTAssertTrue(surfaceText.contains("WorkspaceStatusTextBuilder.memoryLabel"), "WorkspaceSurface should delegate memory labels.")
+        XCTAssertTrue(topBarBuilderText.contains("WorkspaceStatusTextBuilder.topBarSubtitle"), "Top-bar builder should delegate top-bar subtitles.")
+        XCTAssertTrue(topBarBuilderText.contains("WorkspaceStatusTextBuilder.instructionLabel"), "Top-bar builder should delegate instruction labels.")
+        XCTAssertTrue(topBarBuilderText.contains("WorkspaceStatusTextBuilder.memoryLabel"), "Top-bar builder should delegate memory labels.")
+        XCTAssertFalse(surfaceText.contains("WorkspaceStatusTextBuilder.topBarSubtitle"), "WorkspaceSurface should not own top-bar subtitles.")
+        XCTAssertFalse(surfaceText.contains("WorkspaceStatusTextBuilder.instructionLabel"), "WorkspaceSurface should not own instruction labels.")
+        XCTAssertFalse(surfaceText.contains("WorkspaceStatusTextBuilder.memoryLabel"), "WorkspaceSurface should not own memory labels.")
         XCTAssertFalse(modelText.contains("No project instructions"), "WorkspaceModel should not own instruction status copy.")
         XCTAssertFalse(modelText.contains("No memories"), "WorkspaceModel should not own memory status copy.")
         XCTAssertFalse(modelText.contains("static func instructionStatusLabel"), "WorkspaceModel should not own instruction status labels.")
@@ -1567,12 +1571,14 @@ final class ParityGateTests: XCTestCase {
     func testWorkspaceSurfaceDelegatesModelCatalogBuilding() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceModelCatalogSurfaceBuilder.swift")
+        let topBarBuilderText = try Self.appSourceText(named: "WorkspaceTopBarSurfaceBuilder.swift")
 
         XCTAssertTrue(builderText.contains("struct WorkspaceModelCatalogSurfaceBuilder"), "Model picker category construction should live in a focused builder.")
         XCTAssertTrue(builderText.contains("func modelLabel()"), "Model picker label formatting should be directly testable.")
         XCTAssertTrue(builderText.contains("func categories()"), "Model picker category construction should be directly testable.")
         XCTAssertTrue(builderText.contains("normalizedUniqueModelIDs"), "Model picker builder should normalize favorites and recents defensively.")
-        XCTAssertTrue(surfaceText.contains("WorkspaceModelCatalogSurfaceBuilder("), "WorkspaceSurface should delegate model catalog presentation construction.")
+        XCTAssertTrue(topBarBuilderText.contains("WorkspaceModelCatalogSurfaceBuilder("), "Top-bar builder should delegate model catalog presentation construction.")
+        XCTAssertFalse(surfaceText.contains("WorkspaceModelCatalogSurfaceBuilder("), "WorkspaceSurface should not construct model catalog presentation directly.")
         XCTAssertFalse(surfaceText.contains("func modelCategories(selectedModelID:"), "WorkspaceSurface should not own model category construction.")
         XCTAssertFalse(surfaceText.contains("func modelOption("), "WorkspaceSurface should not own model option badge construction.")
         XCTAssertFalse(surfaceText.contains("func favoriteModelIDs()"), "WorkspaceSurface should not own model favorite normalization.")
@@ -1593,6 +1599,18 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(surfaceText.contains("public struct ModelMetadataRowSurface"), "WorkspaceSurface should not own model metadata rows.")
         XCTAssertFalse(surfaceText.contains("public struct ModelOptionSurface"), "WorkspaceSurface should not own model option records.")
         XCTAssertFalse(surfaceText.contains("filteredModelCategories"), "WorkspaceSurface should not own model picker filtering.")
+    }
+
+    func testWorkspaceSurfaceDelegatesTopBarSurfaceBuilding() throws {
+        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceTopBarSurfaceBuilder.swift")
+
+        XCTAssertTrue(surfaceText.contains("WorkspaceTopBarSurfaceBuilder("), "WorkspaceSurface should delegate top-bar surface assembly.")
+        XCTAssertTrue(builderText.contains("struct WorkspaceTopBarSurfaceBuilder"), "Top-bar surface assembly should live in a focused builder.")
+        XCTAssertTrue(builderText.contains("func surface() -> TopBarSurface"), "Top-bar surface assembly should be directly testable.")
+        XCTAssertTrue(builderText.contains("recentModelIDs()"), "Recent model projection should live with top-bar model presentation.")
+        XCTAssertFalse(surfaceText.contains("TopBarSurface("), "WorkspaceSurface should not construct top-bar records directly.")
+        XCTAssertFalse(surfaceText.contains("private func modelCatalogBuilder"), "WorkspaceSurface should not own top-bar model catalog builder plumbing.")
     }
 
     func testWorkspaceSurfaceDelegatesSidebarSurfaceContracts() throws {

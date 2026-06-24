@@ -49,6 +49,24 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Updated the Playwright harness to preserve branded labels after model selection.
 - Fixed stale decisions documentation that still described recurring automation as deferred.
 
+## 2026-06-24 Top-Bar Surface Builder Pass
+
+Overall grade after this slice: **A top-bar boundary, A behavior preservation, A regression guard**.
+
+`WorkspaceSurface` still assembled the whole top-bar payload inline, including status labels, source lists, runtime issue copy, Computer Use copy, model catalog projection, and recent-model projection. Those are top-bar presentation rules, not aggregate workspace assembly, and they made unrelated surface edits riskier than they needed to be.
+
+Code quality changes:
+
+- Added `WorkspaceTopBarSurfaceBuilder` for `TopBarSurface` assembly.
+- Moved top-bar title/subtitle labels, instruction and memory source lists, runtime issue status, Computer Use setup state, model catalog projection, and recent-model filtering into the focused builder.
+- Simplified `WorkspaceSurface.surface()` to compute shared workspace context once and delegate top-bar construction.
+- Added focused builder tests for thread-backed top bars, empty-project fallback state, model favorites, and unarchived recent-model projection.
+- Added parity gates keeping direct top-bar construction, status-label plumbing, and model-catalog builder ownership out of `WorkspaceSurface`.
+
+Remaining risk:
+
+- `WorkspaceSurface.surface()` still computes active instructions and memories for multiple panes. If those context inputs grow, extract a shared workspace context/source builder instead of pushing more raw state through the surface extension.
+
 ## 2026-06-24 Navigation Surface Builder Pass
 
 Overall grade after this slice: **A navigation boundary, A behavior preservation, A regression guard**.
