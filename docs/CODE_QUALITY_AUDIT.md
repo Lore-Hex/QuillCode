@@ -2158,7 +2158,7 @@ Remaining risk:
 
 Overall grade after this slice: **A architecture boundary, A transport simplicity, A regression coverage**.
 
-`TrustedRouterLLMClient.swift` now owns the TrustedRouter transport and safety-model client only. The action parser moved into `AgentActionJSONParser.swift`, where JSON extraction, tool argument normalization, and conservative malformed-output recovery can evolve without bloating the network client.
+`TrustedRouterLLMClient.swift` now owns the TrustedRouter action transport only. The action parser moved into `AgentActionJSONParser.swift`, where JSON extraction, tool argument normalization, and conservative malformed-output recovery can evolve without bloating the network client.
 
 Code quality changes:
 
@@ -2177,7 +2177,7 @@ Code quality changes:
 
 - Added `TrustedRouterPromptBuilder` as a focused value type with an explicit `historyLimit`.
 - Kept the strict action JSON and canonical tool-argument contract beside the prompt boundary that owns it.
-- Reduced `TrustedRouterLLMClient` to API-key resolution, TrustedRouter SDK calls, and streamed action collection.
+- Reduced `TrustedRouterLLMClient` to API-key delegation, TrustedRouter SDK calls, and streamed action collection.
 - Moved adapter tests for prompt text and message projection to the builder boundary.
 - Added focused coverage proving the builder applies an explicit history window.
 
@@ -2200,7 +2200,24 @@ Code quality changes:
 
 Remaining risk:
 
-- The safety client still lives in `TrustedRouterLLMClient.swift`; if Auto-review behavior grows, split it into its own transport file beside the resolver.
+- Safety-review response framing is still intentionally minimal. If Auto-review needs richer telemetry or structured diagnostic events, add a dedicated response mapper beside the safety client rather than expanding the network method.
+
+## 2026-06-23 TrustedRouter Safety Client File Pass
+
+Overall grade after this slice: **A transport boundaries, A file ownership, A regression coverage**.
+
+The TrustedRouter action client and Auto-review safety client are now separate transport files. `TrustedRouterLLMClient.swift` owns streaming action requests only, while `TrustedRouterSafetyModelClient.swift` owns reviewer-model JSON response calls.
+
+Code quality changes:
+
+- Moved `TrustedRouterSafetyModelClient` into `TrustedRouterSafetyModelClient.swift`.
+- Removed the `QuillCodeSafety` import from the action transport file.
+- Added a parity gate preventing the safety client from drifting back into `TrustedRouterLLMClient.swift`.
+- Extended the API-key resolver parity gate so both action and safety transports must delegate key resolution.
+
+Remaining risk:
+
+- Safety-review transport still shares TrustedRouter JSON response parameters with the action client. That is fine while both request JSON objects; split to a dedicated safety request options type if either endpoint's parameters diverge.
 
 ## 2026-06-23 Native Top Bar Simplification Pass
 

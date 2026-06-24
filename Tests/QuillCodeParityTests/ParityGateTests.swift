@@ -362,6 +362,7 @@ final class ParityGateTests: XCTestCase {
 
     func testTrustedRouterAPIKeyResolutionLivesInFocusedResolver() throws {
         let clientText = try Self.agentSourceText(named: "TrustedRouterLLMClient.swift")
+        let safetyClientText = try Self.agentSourceText(named: "TrustedRouterSafetyModelClient.swift")
         let resolverText = try Self.agentSourceText(named: "TrustedRouterAPIKeyResolver.swift")
 
         XCTAssertTrue(resolverText.contains("public struct TrustedRouterAPIKeyResolver"), "TrustedRouter API-key resolution should live in a focused helper.")
@@ -369,8 +370,21 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(resolverText.contains("sessionStore?.apiKey()"), "Session-store fallback should stay with the resolver.")
         XCTAssertTrue(resolverText.contains("nonEmptyKey"), "Whitespace trimming should stay with the resolver.")
         XCTAssertTrue(clientText.contains("TrustedRouterAPIKeyResolver("), "TrustedRouter clients should delegate key resolution.")
+        XCTAssertTrue(safetyClientText.contains("TrustedRouterAPIKeyResolver("), "TrustedRouter safety clients should delegate key resolution.")
         XCTAssertFalse(clientText.contains("trimmingCharacters(in: .whitespacesAndNewlines)"), "TrustedRouter clients should not duplicate key trimming.")
         XCTAssertFalse(clientText.contains("sessionStore?.apiKey()"), "TrustedRouter clients should not duplicate session-store fallback.")
+        XCTAssertFalse(safetyClientText.contains("sessionStore?.apiKey()"), "TrustedRouter safety clients should not duplicate session-store fallback.")
+    }
+
+    func testTrustedRouterSafetyClientLivesOutsideActionTransportFile() throws {
+        let clientText = try Self.agentSourceText(named: "TrustedRouterLLMClient.swift")
+        let safetyClientText = try Self.agentSourceText(named: "TrustedRouterSafetyModelClient.swift")
+
+        XCTAssertTrue(safetyClientText.contains("public struct TrustedRouterSafetyModelClient"), "TrustedRouter safety-review transport should live in its own file.")
+        XCTAssertTrue(safetyClientText.contains("SafetyModelClient"), "The safety transport file should own the SafetyModelClient conformance.")
+        XCTAssertTrue(safetyClientText.contains("Return only the requested JSON object."), "Safety-review JSON response framing should live with the safety transport.")
+        XCTAssertFalse(clientText.contains("TrustedRouterSafetyModelClient"), "TrustedRouter action transport should not also own the safety-review client.")
+        XCTAssertFalse(clientText.contains("SafetyModelClient"), "TrustedRouter action transport should not import or conform to safety protocols.")
     }
 
     func testAgentToolStepRunnerLivesOutsideAgentRunnerFile() throws {
