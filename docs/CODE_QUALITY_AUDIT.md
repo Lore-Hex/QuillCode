@@ -48,9 +48,9 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Changes From This Pass
 
-- Kept `trustedrouter/fast` stable and moved the fallback model to preferred `/synth`/`tr/synth` while preserving `trustedrouter/fusion`, `tr/fusion`, `/fusion`, `fusion-code`, and `/fusion-code` legacy aliases. User-facing model surfaces brand the defaults as **Nike 1.0** and **Synth**.
+- Kept `trustedrouter/fast` stable and moved the fallback model to preferred `/synth`/`tr/synth` while preserving `trustedrouter/fusion`, `tr/fusion`, `/fusion`, `fusion-code`, and `/fusion-code` legacy aliases. User-facing model surfaces brand the defaults as **Nike 1.0** and **Prometheus 1.0**.
 - Promoted Synth Code (`/synth-code`, `tr/synth-code`) into the bundled Recommended catalog so the preferred code model is visible offline instead of only working as a hidden alias.
-- Added explicit catalog-normalization regression coverage so live or persisted legacy Fusion rows dedupe into Synth/Synth Code and do not reappear as user-facing picker rows.
+- Added explicit catalog-normalization regression coverage so live or persisted legacy Fusion rows dedupe into Prometheus 1.0/Synth Code and do not reappear as user-facing picker rows.
 - Centralized the branded default names in `TrustedRouterDefaults`, with tests proving canonical IDs and display names separately.
 - Removed dead provider plumbing from model metadata summary generation.
 - Refactored model-category construction to compute favorite IDs once and pass a `Set` through option building instead of recomputing favorites for every model.
@@ -450,7 +450,7 @@ Overall grade after this slice: **A core cohesion, A model-default ownership**.
 Code quality changes:
 
 - Moved `ModelInfo` and `ModelSortKey` into `ModelInfo.swift`.
-- Moved `TrustedRouterDefaults` into `TrustedRouterDefaults.swift`, keeping Nike 1.0, Synth, aliases, fallback catalog rows, and catalog normalization together.
+- Moved `TrustedRouterDefaults` into `TrustedRouterDefaults.swift`, keeping Nike 1.0, Prometheus 1.0, aliases, fallback catalog rows, and catalog normalization together.
 - Reduced `Models.swift` by keeping it focused on general domain models and app config/auth records.
 - Added a parity gate that prevents model catalog records, sort keys, TrustedRouter defaults, and model branding copy from drifting back into `Models.swift`.
 
@@ -3799,17 +3799,17 @@ What changed:
 Remaining risk:
 - `SlashCommand.swift` still owns project, terminal, mode, model, and generic routing. That remains reasonable while those branches are small; split `SlashProjectCommandParser` only if project commands gain richer argument parsing or remote-project setup variants.
 
-## 2026-06-24 Synth Model Command Feedback
+## 2026-06-24 Prometheus Model Command Feedback
 
 Overall grade after this slice: **A+ model alias UX, A command transcript clarity, A+ regression coverage**.
 
-The TrustedRouter catalog correctly accepts legacy Fusion IDs as aliases for Synth, but the `/model` command acknowledgement still used the raw command argument. That could make a successful `/model /fusion` look like QuillCode still preferred Fusion terminology even though config, picker rows, and docs now prefer Synth.
+The TrustedRouter catalog correctly accepts legacy Fusion IDs as aliases for Prometheus 1.0, but the `/model` command acknowledgement still used the raw command argument. That could make a successful `/model /fusion` look like QuillCode still preferred Fusion terminology even though config, picker rows, and docs now prefer Prometheus 1.0.
 
 What changed:
 - `QuillCodeWorkspaceModel.setModel` now returns the canonical model ID it actually stored.
 - Slash-command model feedback is rendered from the canonical model ID instead of the raw user input.
-- Recommended models show user-facing brand plus preferred ID, such as `Synth (/synth)`, while arbitrary provider/model IDs stay literal.
-- Added focused planner and integration regressions proving `/model /fusion` stores Synth and confirms `Model set to Synth (/synth).`
+- Recommended models show user-facing brand plus preferred ID, such as `Prometheus 1.0 (/synth)`, while arbitrary provider/model IDs stay literal.
+- Added focused planner and integration regressions proving `/model /fusion` stores Prometheus 1.0 and confirms `Model set to Prometheus 1.0 (/synth).`
 
 Remaining risk:
 - Other non-command surfaces should keep using `TrustedRouterDefaults.preferredDisplayModelID` rather than hand-formatting model IDs. If model picker subtitles or thread metadata gain richer copy, keep the branding policy centralized in `TrustedRouterDefaults` or a small display-label helper.
@@ -3902,3 +3902,19 @@ What changed:
 
 Remaining risk:
 - `SlashCommand.swift` still owns model, scheduling, SSH, memory, and generic routing. Model parsing should stay small while it delegates canonical naming to `TrustedRouterDefaults`; split scheduling or SSH first if either gains richer argument validation.
+
+## 2026-06-24 Model Category Search Filter Split
+
+Overall grade after this slice: **A+ model picker search ownership, A+ direct search coverage, A top-bar DTO boundary**.
+
+`QuillCodeTopBarSurface.swift` still mixed stable top-bar records with model picker query policy: whitespace normalization, Favorites/Recent scoping, searchable model metadata construction, and State-row special handling. That made a public surface DTO responsible for UX search behavior and made future model picker changes more likely to touch serialization-facing records.
+
+What changed:
+- Added `ModelCategorySearchFilter.swift` as the focused owner for model picker search semantics.
+- Reduced `TopBarSurface.filteredModelCategories(matching:)` to a stable compatibility delegator.
+- Added direct regressions for whitespace-tolerant search, special Favorites/Recent category visibility, branded TrustedRouter labels, and State metadata matching.
+- Tightened the top-bar parity gate so query normalization and model metadata haystack construction do not drift back into the surface DTO.
+- Updated the fallback TrustedRouter display contract from Synth to Prometheus 1.0 while preserving the existing `/synth`, `tr/synth`, and legacy Fusion aliases for saved configs.
+
+Remaining risk:
+- The filter still performs simple substring matching. That is appropriate for the Codex-style picker today; if model catalog search grows aliases, fuzzy ranking, or provider/category facets, add a small ranking value type rather than expanding SwiftUI picker state.

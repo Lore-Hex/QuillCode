@@ -56,50 +56,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     }
 
     public func filteredModelCategories(matching query: String) -> [ModelCategorySurface] {
-        let normalizedTerms = query
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-            .split(whereSeparator: \.isWhitespace)
-            .map(String.init)
-        guard !normalizedTerms.isEmpty else {
-            return modelCategories
-        }
-
-        let includesFavoriteTerm = normalizedTerms.contains("favorite") || normalizedTerms.contains("favorites")
-        let includesRecentTerm = normalizedTerms.contains("recent")
-        return modelCategories.compactMap { category in
-            if includesFavoriteTerm && category.category != "Favorites" {
-                return nil
-            }
-            if includesRecentTerm && category.category != "Recent" {
-                return nil
-            }
-            if category.category == "Favorites" && !includesFavoriteTerm {
-                return nil
-            }
-            if category.category == "Recent" && !includesRecentTerm {
-                return nil
-            }
-            let models = category.models.filter { option in
-                let haystack = [
-                    category.category,
-                    option.id,
-                    option.provider,
-                    option.displayName,
-                    option.category,
-                    option.detailTitle,
-                    option.metadataSummary,
-                    option.metadataDetails.joined(separator: " "),
-                    option.metadataRows.map { row in
-                        row.label == "State" ? "state \(row.value)" : row.value
-                    }.joined(separator: " "),
-                    option.badges.joined(separator: " ")
-                ].joined(separator: " ").lowercased()
-                return normalizedTerms.allSatisfy { haystack.contains($0) }
-            }
-            guard !models.isEmpty else { return nil }
-            return ModelCategorySurface(category: category.category, models: models)
-        }
+        ModelCategorySearchFilter.filter(modelCategories, matching: query)
     }
 }
 
