@@ -43,6 +43,90 @@ final class WorkspaceContextResolverTests: XCTestCase {
         )
     }
 
+    func testActiveSourcesPreferThreadContextWhenPresent() {
+        let project = Self.project(
+            instructionTitle: "Project instruction",
+            memoryTitle: "Project memory"
+        )
+        let resolver = WorkspaceContextResolver(
+            projects: [project],
+            globalMemories: [
+                Self.memory(id: "global", scope: .global, title: "Global memory")
+            ],
+            selectedProject: project
+        )
+        let thread = ChatThread(
+            title: "Thread",
+            instructions: [
+                Self.instruction(title: "Thread instruction")
+            ],
+            memories: [
+                Self.memory(id: "thread", scope: .project, title: "Thread memory")
+            ]
+        )
+
+        let sources = resolver.activeSources(for: thread)
+
+        XCTAssertEqual(sources.instructions.map(\.title), ["Thread instruction"])
+        XCTAssertEqual(sources.memories.map(\.title), ["Thread memory"])
+    }
+
+    func testActiveSourcesFallBackToSelectedProjectAndGlobalMemories() {
+        let project = Self.project(
+            instructionTitle: "Project instruction",
+            memoryTitle: "Project memory"
+        )
+        let resolver = WorkspaceContextResolver(
+            projects: [project],
+            globalMemories: [
+                Self.memory(id: "global", scope: .global, title: "Global memory")
+            ],
+            selectedProject: project
+        )
+
+        let sources = resolver.activeSources(for: nil)
+
+        XCTAssertEqual(sources.instructions.map(\.title), ["Project instruction"])
+        XCTAssertEqual(sources.memories.map(\.title), ["Global memory", "Project memory"])
+    }
+
+    func testActiveSourcesFallbacksAreIndependent() {
+        let project = Self.project(
+            instructionTitle: "Project instruction",
+            memoryTitle: "Project memory"
+        )
+        let resolver = WorkspaceContextResolver(
+            projects: [project],
+            globalMemories: [
+                Self.memory(id: "global", scope: .global, title: "Global memory")
+            ],
+            selectedProject: project
+        )
+
+        let instructionOnlyThread = ChatThread(
+            title: "Thread",
+            instructions: [
+                Self.instruction(title: "Thread instruction")
+            ],
+            memories: []
+        )
+        let memoryOnlyThread = ChatThread(
+            title: "Thread",
+            instructions: [],
+            memories: [
+                Self.memory(id: "thread", scope: .project, title: "Thread memory")
+            ]
+        )
+
+        let instructionSources = resolver.activeSources(for: instructionOnlyThread)
+        XCTAssertEqual(instructionSources.instructions.map(\.title), ["Thread instruction"])
+        XCTAssertEqual(instructionSources.memories.map(\.title), ["Global memory", "Project memory"])
+
+        let memorySources = resolver.activeSources(for: memoryOnlyThread)
+        XCTAssertEqual(memorySources.instructions.map(\.title), ["Project instruction"])
+        XCTAssertEqual(memorySources.memories.map(\.title), ["Thread memory"])
+    }
+
     func testResolvesSelectedLocalActionByExactID() {
         let action = Self.localAction(
             id: "local-env:.quillcode/actions/test.sh",
@@ -100,17 +184,21 @@ final class WorkspaceContextResolverTests: XCTestCase {
             name: "Project",
             path: "/tmp/project-\(id.uuidString)",
             instructions: instructionTitle.map {
-                [ProjectInstruction(
-                    path: "AGENTS.md",
-                    title: $0,
-                    content: "Instruction",
-                    byteCount: 11
-                )]
+                [Self.instruction(title: $0)]
             } ?? [],
             localActions: localActions,
             memories: memoryTitle.map {
                 [Self.memory(id: "project-\(id.uuidString)", scope: .project, title: $0)]
             } ?? []
+        )
+    }
+
+    private static func instruction(title: String) -> ProjectInstruction {
+        ProjectInstruction(
+            path: "AGENTS.md",
+            title: title,
+            content: "Instruction",
+            byteCount: 11
         )
     }
 
