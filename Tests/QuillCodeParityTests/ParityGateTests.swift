@@ -462,6 +462,11 @@ final class ParityGateTests: QuillCodeParityTestCase {
     }
 
     func testFocusedWorkspaceUnitSuitesUseSharedTemporaryDirectorySupport() throws {
+        let supportText = try Self.appTestSourceText(named: "WorkspaceModelIntegrationTestSupport.swift")
+        XCTAssertTrue(supportText.contains("extension XCTestCase"), "App integration temp helpers should live on XCTestCase so they can register teardown cleanup.")
+        XCTAssertTrue(supportText.contains("func makeTempDirectory() throws -> URL"), "Legacy app integration tests should route through the shared temp-directory wrapper.")
+        XCTAssertTrue(supportText.contains("makeQuillCodeTestDirectory()"), "App integration temp helpers should delegate to the teardown-backed helper.")
+
         let suiteNames = [
             "WorkspaceAgentRunContextBuilderTests.swift",
             "WorkspaceAgentSendSessionTests.swift",
@@ -482,6 +487,30 @@ final class ParityGateTests: QuillCodeParityTestCase {
             )
             XCTAssertFalse(
                 suiteText.contains("FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)"),
+                "\(suiteName) should not build untracked temp directories inline."
+            )
+        }
+
+        let integrationSuiteNames = [
+            "WorkspaceBrowserIntegrationTests.swift",
+            "WorkspaceBrowserLocationResolverTests.swift",
+            "WorkspaceCommandPlanExecutorTests.swift",
+            "WorkspaceRemoteProjectToolExecutorTests.swift",
+            "WorkspaceSlashCommandIntegrationTests.swift",
+            "WorkspaceSurfaceTests.swift"
+        ]
+        for suiteName in integrationSuiteNames {
+            let suiteText = try Self.appTestSourceText(named: suiteName)
+            XCTAssertFalse(
+                suiteText.contains("private func makeTempDirectory()"),
+                "\(suiteName) should use WorkspaceModelIntegrationTestSupport.makeTempDirectory()."
+            )
+            XCTAssertFalse(
+                suiteText.contains("NSTemporaryDirectory()"),
+                "\(suiteName) should not build untracked temp directories inline."
+            )
+            XCTAssertFalse(
+                suiteText.contains("FileManager.default.temporaryDirectory"),
                 "\(suiteName) should not build untracked temp directories inline."
             )
         }

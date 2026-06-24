@@ -251,44 +251,4 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
         return (root, model)
     }
 
-    private func makeTempGitRepoWithInitialCommit() throws -> URL {
-        let root = try makeQuillCodeTestDirectory().appendingPathComponent("repo")
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        try initializeGitRepository(at: root)
-        try "# Test repo\n".write(to: root.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
-        _ = try runGit(["add", "README.md"], cwd: root)
-        _ = try runGit(["commit", "-m", "initial"], cwd: root)
-        return root
-    }
-
-    private func initializeGitRepository(at root: URL) throws {
-        _ = try runGit(["init"], cwd: root)
-        _ = try runGit(["config", "user.email", "quillcode-tests@example.com"], cwd: root)
-        _ = try runGit(["config", "user.name", "QuillCode Tests"], cwd: root)
-    }
-
-    private func runGit(_ arguments: [String], cwd: URL) throws -> String {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["git"] + arguments
-        process.currentDirectoryURL = cwd
-
-        let stdout = Pipe()
-        let stderr = Pipe()
-        process.standardOutput = stdout
-        process.standardError = stderr
-        try process.run()
-        process.waitUntilExit()
-
-        let out = String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        let err = String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        guard process.terminationStatus == 0 else {
-            throw NSError(
-                domain: "QuillCodeAppTests.Git",
-                code: Int(process.terminationStatus),
-                userInfo: [NSLocalizedDescriptionKey: err.isEmpty ? out : err]
-            )
-        }
-        return out
-    }
 }

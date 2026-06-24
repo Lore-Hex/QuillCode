@@ -225,10 +225,4 @@ final class WorkspaceBrowserIntegrationTests: XCTestCase {
         XCTAssertTrue(thread.messages.last?.content.contains("Visible copy.") == true)
     }
 
-    private func makeTempDirectory() throws -> URL {
-        let url = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("QuillCodeAppTests-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }
 }
