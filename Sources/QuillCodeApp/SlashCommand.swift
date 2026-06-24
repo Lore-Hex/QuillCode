@@ -53,10 +53,8 @@ enum SlashCommandParser {
             return SlashTerminalCommandParser.parse(argument)
         case "browser", "preview":
             return .workspaceCommand("toggle-browser")
-        case "memory", "memories":
-            return .workspaceCommand("toggle-memories")
-        case "remember":
-            return argument.isEmpty ? .workspaceCommand("toggle-memories") : .remember(argument)
+        case let memoryCommand where SlashMemoryCommandParser.supports(memoryCommand):
+            return SlashMemoryCommandParser.parse(name: memoryCommand, argument: argument)
         case "worktree", "worktrees", "wt":
             return .workspaceCommand("git-worktree-list")
         case "pr", "pull-request", "pullrequest":

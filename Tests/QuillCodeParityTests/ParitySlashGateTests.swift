@@ -114,6 +114,22 @@ final class ParitySlashGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(slashText.contains("compact-context"), "Outer slash parser should not own compact-context command IDs.")
     }
 
+    func testSlashParserDelegatesMemorySubcommands() throws {
+        let slashText = try Self.appSourceText(named: "SlashCommand.swift")
+        let memoryParserText = try Self.appSourceText(named: "SlashMemoryCommandParser.swift")
+        let memoryParserTests = try Self.appTestSourceText(named: "SlashMemoryCommandParserTests.swift")
+
+        XCTAssertTrue(slashText.contains("SlashMemoryCommandParser.supports(memoryCommand)"), "Outer slash parser should delegate memory command recognition.")
+        XCTAssertTrue(slashText.contains("SlashMemoryCommandParser.parse(name: memoryCommand, argument: argument)"), "Outer slash parser should delegate memory command parsing.")
+        XCTAssertTrue(memoryParserText.contains("enum SlashMemoryCommandParser"), "Memory slash parsing should live in a focused parser.")
+        XCTAssertTrue(memoryParserText.contains("toggle-memories"), "Memory pane command IDs should live with memory parser semantics.")
+        XCTAssertTrue(memoryParserTests.contains("testMemoryPaneAliasesToggleMemoriesPane"), "Memory pane aliases should have focused parser coverage.")
+        XCTAssertTrue(memoryParserTests.contains("testRememberWithContentTrimsAndBuildsRememberCommand"), "Remember parsing should have focused parser coverage.")
+        XCTAssertFalse(slashText.contains("case \"memory\", \"memories\""), "Outer slash parser should not own memory pane aliases.")
+        XCTAssertFalse(slashText.contains("case \"remember\""), "Outer slash parser should not own remember parsing.")
+        XCTAssertFalse(slashText.contains("toggle-memories"), "Outer slash parser should not own memory pane command IDs.")
+    }
+
     func testSlashParserDelegatesSchedulingSubcommands() throws {
         let slashText = try Self.appSourceText(named: "SlashCommand.swift")
         let schedulingParserText = try Self.appSourceText(named: "SlashSchedulingCommandParser.swift")
