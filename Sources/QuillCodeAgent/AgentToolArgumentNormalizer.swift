@@ -283,7 +283,7 @@ enum AgentToolArgumentNormalizer {
                     .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                     .filter { !$0.isEmpty }
                 if !nonEmptyValues.isEmpty {
-                    return value
+                    return nonEmptyValues
                 }
             }
         }

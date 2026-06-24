@@ -4700,3 +4700,52 @@ What changed:
 
 Remaining risk:
 - Browser session management is still one-window-per-request with shared persistent cookies. Reusable tab/session state and Linux/browser-process adapters remain the next product-completeness step.
+
+## 2026-06-24 Whole Repo Code Grade
+
+Overall strict grade: **B+/A- today, trending toward A**.
+
+This pass graded the current `origin/main` tree after PR #298 by scanning every tracked source/test/doc file and reviewing the main architectural seams. The repo now has 288 production Swift files, 156 Swift test files, about 37.8k production Swift LOC, about 26.8k Swift test LOC, and 1066 listed XCTest cases. Production Swift remains free of ordinary `try!`, `as!`, and force-unwrap patterns. The codebase is much healthier than the early prototype state, but not yet A+ because the app layer is still large, Linux delivery is not proven, and several Codex-parity features are partial.
+
+Module grades:
+
+| Module | Grade | Notes |
+| --- | --- | --- |
+| `QuillCodeCore` | **A** | Compact value models and defaults. Good ownership of config, project, model, automation, and tool contracts. |
+| `QuillCodeAgent` | **A-** | Strong parser/prompt/tool-step boundaries, streaming support, tool feedback loop, and recovery for malformed model actions. Not A+ until live-model UI smoke tests run routinely and prompt compliance is measured. |
+| `QuillCodeTools` | **A-** | Good split across shell, file, git, GitHub PR, worktree, MCP, patch, and SSH executors. Remaining risk is breadth: more focused test-suite splits should continue before adding new tool families. |
+| `QuillCodeSafety` | **B+/A-** | Clear static/model reviewer split and user-intent matching. Needs broader real-world safety fixtures, telemetry, and less phrase-table brittleness before A+. |
+| `QuillCodePersistence` | **A-** | Small and direct JSON stores plus secret-store abstraction. Needs Linux Secret Service/libsecret smoke coverage before cross-platform A+. |
+| `QuillComputerUseKit` | **B+** | Clean protocol and macOS backend seam. Product parity remains partial until Linux and richer permission/app-control flows are implemented. |
+| `QuillCodeApp` | **B+/A-** | Many extracted planners/builders/surfaces are A-level, but the target still owns 26.8k LOC and `WorkspaceModel.swift` remains a 1.5k-line orchestration facade. Continue extracting workflow owners. |
+| `quill-code-desktop` | **A-** | Desktop-specific adapters are now mostly isolated: sign-in, tasks, settings, copy, project import, browser sessions, and commands. Needs packaged native smoke coverage for A+. |
+| `quill-code` CLI | **A-** | Small, understandable CLI. Its parity role is intentionally limited, but live/auth edge cases need more integration coverage. |
+| Tests and parity gates | **A-** | 1066 tests and source-boundary parity gates are a major strength. Biggest weakness is huge catch-all parity suites, especially `ParityGateTests.swift`, which should keep splitting by feature area. |
+| E2E harness | **B+** | Useful Playwright/static harness and polish checks. Needs more live mock-LLM UI flows around browser session, tool approvals, search focus, and model picker before A-level UI confidence. |
+| Docs/decisions | **A-** | Strong architectural memory through `DECISIONS`, `CODEX_PARITY_MATRIX`, `ROADMAP`, and this audit. Needs a generated or checklist-backed release status for public contributors. |
+
+Hotspot file grades:
+
+| File/family | Grade | Notes |
+| --- | --- | --- |
+| `WorkspaceModel.swift` | **B** | Mostly delegates to focused engines now, but it still coordinates browser, threads, projects, terminal, MCP, worktrees, memories, automations, and persistence in one actor. It should become thinner through feature-specific coordinators. |
+| `WorkspaceSwiftUIView.swift` | **A-** | Down to a reasonable shell size and routes typed actions. Keep resisting command-ID switches and feature-specific view logic here. |
+| `QuillCodeDesignSystem.swift` | **A-** | Good shared primitives for hit targets, press feedback, surfaces, palette, and motion. Needs a richer token system if more platform skins arrive. |
+| Command palette/catalog/planner files | **A** | Well factored by command family, typed planner actions, and parity tests. This is one of the best current architecture seams. |
+| Agent action parsing and normalization | **A-** | Explicit JSON contract, alias normalization, empty shell rejection, and conservative prose recovery. This pass trims and drops empty array-valued aliases so reviewer/label commands cannot carry blank values. |
+| `AgentRunner`/tool-step runner | **A-** | Multi-step tool loop is clear and bounded. Needs more cancellation and concurrent-progress stress tests before A+. |
+| Browser workflow/session files | **A-/B+ product** | Good separation between app state, resolver/workflow, desktop WebKit adapters, and command surfaces. Reusable session lifecycle and Linux/browser-process support remain product gaps. |
+| MCP runtime/prober files | **A-** | Strong ownership split across DTOs, codec, prober, result mapping, runtime, and catalog. Needs broader malicious/slow MCP server integration fixtures. |
+| `ParityGateTests.swift` | **B** | Valuable but too large at 1.9k lines. It should keep splitting into narrower parity suites so failures point directly to the violated boundary. |
+| Large integration suites | **B+/A-** | Good behavior coverage, but files over 1k lines such as `WorkspaceSurfaceTests` and `WorkspaceRemoteProjectIntegrationTests` should be split when they are next touched. |
+
+Immediate cleanup done in this pass:
+- Trim and drop empty string entries from array-valued normalized tool arguments. This keeps PR reviewer/label aliases canonical after validation instead of preserving blank model output.
+- Extended TrustedRouter adapter tests so reviewer and label aliases prove trimming and blank removal.
+
+Recommended next A+ work:
+- Split `WorkspaceModel` by workflow side-effect owners: browser coordinator, MCP coordinator, automation coordinator, and thread/project coordinator.
+- Split `ParityGateTests.swift` and `WorkspaceSurfaceTests.swift` along the same feature boundaries.
+- Add repeatable live/mock UI smoke tests for search typing, command palette execution, model picker, approval Run/Edit/Skip, visible browser session, and first-run auth.
+- Add packaged native smoke tests for macOS desktop and a Linux build target/adapters check. The package currently declares macOS as the only platform even though the product goal is macOS plus Linux.
+- Keep every feature slice on merge-train PRs with a focused test list and audit entry.
