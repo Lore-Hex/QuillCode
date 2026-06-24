@@ -946,6 +946,20 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("testLocalEnvironmentActionMetadataPassesBoundedTimeout"), "WorkspaceModelTests should not own local environment timeout integration flows.")
     }
 
+    func testWorkspaceAutomationIntegrationTestsOwnModelAutomationFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let automationIntegrationTests = try Self.appTestSourceText(named: "WorkspaceAutomationIntegrationTests.swift")
+
+        XCTAssertTrue(automationIntegrationTests.contains("testAutomationCommandsCreatePauseResumeAndDeletePersistedFollowUp"), "Automation command persistence should live in focused automation integration tests.")
+        XCTAssertTrue(automationIntegrationTests.contains("testSlashFollowUpSchedulesCurrentThread"), "Slash follow-up scheduling should live in focused automation integration tests.")
+        XCTAssertTrue(automationIntegrationTests.contains("testRunDueAutomationsRunsActiveDueThreadAndWorkspaceSchedules"), "Due automation runs should live in focused automation integration tests.")
+        XCTAssertTrue(automationIntegrationTests.contains("testRunDueAutomationsHonorsLimit"), "Due automation limit integration should live in focused automation integration tests.")
+        XCTAssertFalse(modelTests.contains("testAutomationCommandsCreatePauseResumeAndDeletePersistedFollowUp"), "WorkspaceModelTests should not own automation command persistence flows.")
+        XCTAssertFalse(modelTests.contains("testSlashFollowUpSchedulesCurrentThread"), "WorkspaceModelTests should not own slash follow-up scheduling flows.")
+        XCTAssertFalse(modelTests.contains("testRunDueAutomationsRunsActiveDueThreadAndWorkspaceSchedules"), "WorkspaceModelTests should not own due automation run flows.")
+        XCTAssertFalse(modelTests.contains("testRunDueAutomationsHonorsLimit"), "WorkspaceModelTests should not own due automation limit integration flows.")
+    }
+
     func testWorkspaceModelTestsDoNotOwnRuntimeFactoryCoverage() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let runtimeFactoryTests = try Self.appTestSourceText(named: "WorkspaceRuntimeFactoryTests.swift")
