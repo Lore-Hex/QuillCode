@@ -3390,3 +3390,20 @@ Code quality changes:
 Remaining risk:
 
 - `QuillCodeSidebarView.swift` still builds bulk-action `WorkspaceCommandSurface` values in two local helpers. That duplication is small, but the next sidebar UI pass should extract a tiny command adapter before adding more selection actions.
+
+## 2026-06-24 Sidebar Command Adapter Split
+
+Overall grade after this slice: **A+ command payload consistency, A+ view simplicity, A regression guard**.
+
+`QuillCodeSidebarView.swift` built equivalent `WorkspaceCommandSurface` values in multiple local helpers: one for the thread header select/done button, one for the horizontal bulk-action toolbar, and an inline selection-toggle command in row rendering. The behavior was correct, but the view file was starting to own command payload details that belong to the workspace-command boundary.
+
+Code quality changes:
+
+- Added `QuillCodeSidebarCommandAdapter.swift` for sidebar bulk-action commands and row selection-toggle commands.
+- Removed duplicate `command(for:)` helpers from `QuillCodeSidebarView.swift`.
+- Moved row selection-toggle command construction out of the view row body.
+- Added direct adapter tests and parity coverage preventing inline `WorkspaceCommandSurface` construction from drifting back into the native sidebar view.
+
+Remaining risk:
+
+- Project row menu actions still route directly through typed row actions, which is appropriate for now because they do not need command-palette payloads. Revisit only if project row actions become workspace commands.

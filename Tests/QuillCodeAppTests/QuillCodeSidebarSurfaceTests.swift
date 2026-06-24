@@ -208,4 +208,26 @@ final class QuillCodeSidebarSurfaceTests: XCTestCase {
             XCTAssertEqual(SidebarBulkActionSurface.commandID(for: kind), commandID)
         }
     }
+
+    func testSidebarCommandAdapterBuildsBulkAndToggleCommands() {
+        let delete = SidebarBulkActionSurface(kind: .delete, isEnabled: false, isDestructive: true)
+        let bulkCommand = QuillCodeSidebarCommandAdapter.workspaceCommand(for: delete)
+
+        XCTAssertEqual(bulkCommand.id, "thread-bulk-delete")
+        XCTAssertEqual(bulkCommand.title, "Delete")
+        XCTAssertEqual(bulkCommand.category, WorkspaceCommandPalette.threadCategory)
+        XCTAssertFalse(bulkCommand.isEnabled)
+
+        let thread = ChatThread(title: "Selected")
+        let item = SidebarItemSurface(
+            item: SidebarItem(thread: thread),
+            selectedThreadID: nil,
+            selectedThreadIDs: [thread.id]
+        )
+        let toggleCommand = QuillCodeSidebarCommandAdapter.toggleSelectionCommand(for: item)
+
+        XCTAssertEqual(toggleCommand.id, "thread-selection-toggle:\(thread.id.uuidString)")
+        XCTAssertEqual(toggleCommand.title, "Deselect chat")
+        XCTAssertEqual(toggleCommand.category, WorkspaceCommandPalette.threadCategory)
+    }
 }
