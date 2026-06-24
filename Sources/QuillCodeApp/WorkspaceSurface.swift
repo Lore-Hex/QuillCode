@@ -92,29 +92,20 @@ public extension QuillCodeWorkspaceModel {
             selectionIsActive: sidebarSelection.isActive,
             selectedThreadIDs: sidebarSelectedThreadIDs
         ).surface()
-        let modelCatalog = modelCatalogBuilder(selectedModelID: topBarState.model)
+        let topBar = WorkspaceTopBarSurfaceBuilder(
+            topBarState: topBarState,
+            thread: thread,
+            projectName: root.topBar.projectName,
+            instructions: activeInstructions,
+            memories: activeMemories,
+            modelCatalog: root.modelCatalog,
+            defaultModelID: root.config.defaultModel,
+            favoriteModelIDs: root.config.favoriteModels,
+            recentThreads: root.threads,
+            runtimeIssue: runtimeIssue
+        ).surface()
         return WorkspaceSurface(
-            topBar: TopBarSurface(
-                appName: topBarState.appName,
-                primaryTitle: thread?.title ?? "QuillCode",
-                subtitle: WorkspaceStatusTextBuilder.topBarSubtitle(
-                    projectName: root.topBar.projectName ?? "No project",
-                    thread: thread
-                ),
-                instructionLabel: WorkspaceStatusTextBuilder.instructionLabel(for: activeInstructions),
-                instructionSources: activeInstructions.map(\.path),
-                memoryLabel: WorkspaceStatusTextBuilder.memoryLabel(for: activeMemories),
-                memorySources: activeMemories.map(\.relativePath),
-                modelLabel: modelCatalog.modelLabel(),
-                selectedModelID: topBarState.model,
-                modelCategories: modelCatalog.categories(),
-                modeLabel: WorkspaceStatusTextBuilder.modeLabel(topBarState.mode),
-                agentStatus: topBarState.agentStatus,
-                runtimeIssueLabel: runtimeIssue?.title,
-                runtimeIssueSeverity: runtimeIssue?.severity,
-                computerUseLabel: computerUse.message,
-                showsComputerUseSetup: !computerUse.available
-            ),
+            topBar: topBar,
             projects: navigation.projects,
             sidebar: navigation.sidebar,
             transcript: TranscriptSurface(
@@ -188,20 +179,6 @@ public extension QuillCodeWorkspaceModel {
             agentStatus: root.topBar.agentStatus,
             lastError: lastError
         ).surface()
-    }
-
-    private func modelCatalogBuilder(selectedModelID: String) -> WorkspaceModelCatalogSurfaceBuilder {
-        let recentModelIDs = root.threads
-            .filter { !$0.isArchived }
-            .sorted { $0.updatedAt > $1.updatedAt }
-            .map(\.model)
-        return WorkspaceModelCatalogSurfaceBuilder(
-            catalog: root.modelCatalog,
-            selectedModelID: selectedModelID,
-            defaultModelID: root.config.defaultModel,
-            favoriteModelIDs: root.config.favoriteModels,
-            recentModelIDs: recentModelIDs
-        )
     }
 
     private func commandSurfaceBuilder() -> WorkspaceCommandSurfaceBuilder {
