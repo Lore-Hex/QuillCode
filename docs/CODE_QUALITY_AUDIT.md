@@ -3887,3 +3887,18 @@ What changed:
 
 Remaining risk:
 - `ParityGateTests.swift` is still large because it covers many historical extraction gates. Continue splitting cohesive surface groups into focused parity suites when touching those areas; avoid creating one-test files unless the feature area is likely to grow.
+
+## 2026-06-24 Mode Slash Parser Split
+
+Overall grade after this slice: **A+ mode slash ownership, A+ alias coverage, A outer parser boundary**.
+
+`SlashCommand.swift` still owned `/mode` argument parsing and mode-specific usage/error copy. Mode is a small grammar, but it is central to the send-time UX and appears in composer controls, slash suggestions, transcript copy, and persisted thread configuration. Keeping the mode grammar focused makes future mode additions or copy changes testable without expanding the top-level dispatcher.
+
+What changed:
+- Added `SlashModeCommandParser.swift` for Auto, Review, and Read-only aliases.
+- Reduced `SlashCommand.swift` to top-level `/mode` delegation.
+- Added direct parser tests for aliases, case/whitespace tolerance, empty usage, and unknown-mode copy.
+- Added a parity gate so mode usage/error copy does not drift back into the outer slash parser.
+
+Remaining risk:
+- `SlashCommand.swift` still owns model, scheduling, SSH, memory, and generic routing. Model parsing should stay small while it delegates canonical naming to `TrustedRouterDefaults`; split scheduling or SSH first if either gains richer argument validation.

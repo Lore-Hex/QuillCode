@@ -78,7 +78,7 @@ enum SlashCommandParser {
         case "env", "environment", "local-env":
             return .environmentAction(argument.isEmpty ? nil : argument)
         case "mode":
-            return parseMode(argument)
+            return SlashModeCommandParser.parse(argument)
         case "model":
             guard !argument.isEmpty else {
                 return .invalid("Usage: /model /synth or /model provider/model")
@@ -86,21 +86,6 @@ enum SlashCommandParser {
             return .model(argument)
         default:
             return .unknown(name)
-        }
-    }
-
-    private static func parseMode(_ argument: String) -> SlashCommand {
-        switch argument.lowercased() {
-        case "auto":
-            return .mode(.auto)
-        case "review":
-            return .mode(.review)
-        case "read-only", "readonly", "read_only":
-            return .mode(.readOnly)
-        case "":
-            return .invalid("Usage: /mode auto, /mode review, or /mode read-only")
-        default:
-            return .invalid("Unknown mode '\(argument)'. Use auto, review, or read-only.")
         }
     }
 }

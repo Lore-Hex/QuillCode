@@ -1372,6 +1372,23 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(slashText.contains("terminal-clear"), "Outer slash parser should not own terminal command IDs.")
     }
 
+    func testSlashParserDelegatesModeSubcommands() throws {
+        let slashText = try Self.appSourceText(named: "SlashCommand.swift")
+        let modeParserText = try Self.appSourceText(named: "SlashModeCommandParser.swift")
+        let modeParserTests = try Self.appTestSourceText(named: "SlashModeCommandParserTests.swift")
+
+        XCTAssertTrue(slashText.contains("SlashModeCommandParser.parse(argument)"), "Outer slash parser should delegate mode arguments.")
+        XCTAssertTrue(modeParserText.contains("enum SlashModeCommandParser"), "Mode slash parsing should live in a focused parser.")
+        XCTAssertTrue(modeParserText.contains("read-only"), "Read-only aliases should live with mode parser semantics.")
+        XCTAssertTrue(modeParserText.contains("Unknown mode"), "Mode error copy should live with mode parser semantics.")
+        XCTAssertTrue(modeParserText.contains("Usage: /mode auto"), "Mode usage copy should live with mode parser semantics.")
+        XCTAssertTrue(modeParserTests.contains("testModeAliasesMapToAgentModes"), "Mode aliases should have focused parser coverage.")
+        XCTAssertTrue(modeParserTests.contains("testUnknownModeReturnsTrimmedArgumentInError"), "Mode error copy should have focused parser coverage.")
+        XCTAssertFalse(slashText.contains("private static func parseMode"), "Outer slash parser should not own mode parsing internals.")
+        XCTAssertFalse(slashText.contains("Unknown mode"), "Outer slash parser should not own mode error copy.")
+        XCTAssertFalse(slashText.contains("Usage: /mode auto"), "Outer slash parser should not own mode usage copy.")
+    }
+
     func testWorkspaceLocalEnvironmentIntegrationTestsOwnModelLocalEnvironmentFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let localEnvironmentIntegrationTests = try Self.appTestSourceText(named: "WorkspaceLocalEnvironmentIntegrationTests.swift")
