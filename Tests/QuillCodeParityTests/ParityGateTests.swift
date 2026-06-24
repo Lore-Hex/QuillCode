@@ -280,6 +280,32 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("func test"), "New workspace integration coverage should use a focused feature test suite, not WorkspaceModelTests.")
     }
 
+    func testFocusedWorkspaceUnitSuitesUseSharedTemporaryDirectorySupport() throws {
+        let suiteNames = [
+            "WorkspaceAgentRunContextBuilderTests.swift",
+            "WorkspaceAgentSendSessionTests.swift",
+            "WorkspaceMemoryEngineTests.swift",
+            "WorkspaceTerminalEngineTests.swift",
+            "WorkspaceToolCallExecutorTests.swift"
+        ]
+
+        for suiteName in suiteNames {
+            let suiteText = try Self.appTestSourceText(named: suiteName)
+            XCTAssertTrue(
+                suiteText.contains("makeQuillCodeTestDirectory()"),
+                "\(suiteName) should use the shared teardown-backed test directory helper."
+            )
+            XCTAssertFalse(
+                suiteText.contains("private func temporaryDirectory"),
+                "\(suiteName) should not reintroduce a private temp-directory helper."
+            )
+            XCTAssertFalse(
+                suiteText.contains("FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)"),
+                "\(suiteName) should not build untracked temp directories inline."
+            )
+        }
+    }
+
     func testWorkspaceModelDelegatesStatusTextAndLabels() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")

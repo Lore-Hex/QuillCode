@@ -6,7 +6,7 @@ import QuillCodeTools
 
 final class WorkspaceAgentSendSessionTests: XCTestCase {
     func testRunReturnsCompletedThreadWithoutSavedMemory() async throws {
-        let workspaceRoot = try temporaryDirectory()
+        let workspaceRoot = try makeQuillCodeTestDirectory()
         let thread = ChatThread(title: "New chat")
         let session = WorkspaceAgentSendSession(
             prompt: "say hello",
@@ -25,7 +25,7 @@ final class WorkspaceAgentSendSessionTests: XCTestCase {
     }
 
     func testRunReportsProgressForTheSessionThread() async throws {
-        let workspaceRoot = try temporaryDirectory()
+        let workspaceRoot = try makeQuillCodeTestDirectory()
         let thread = ChatThread(title: "Progress")
         let recorder = ProgressRecorder()
         let session = WorkspaceAgentSendSession(
@@ -45,8 +45,8 @@ final class WorkspaceAgentSendSessionTests: XCTestCase {
     }
 
     func testRunReportsSavedMemoryWhenMemoryToolCompletes() async throws {
-        let workspaceRoot = try temporaryDirectory()
-        let memoryRoot = try temporaryDirectory()
+        let workspaceRoot = try makeQuillCodeTestDirectory()
+        let memoryRoot = try makeQuillCodeTestDirectory()
         let rememberCall = ToolCall(
             name: ToolDefinition.memoryRemember.name,
             argumentsJSON: ToolArguments.json(["content": "Prefer concise status updates."])
@@ -80,13 +80,6 @@ final class WorkspaceAgentSendSessionTests: XCTestCase {
             includingPropertiesForKeys: nil
         )
         XCTAssertEqual(memoryFiles.count, 1)
-    }
-
-    private func temporaryDirectory() throws -> URL {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("quillcode-agent-send-session-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
     }
 }
 
