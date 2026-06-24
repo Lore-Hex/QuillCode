@@ -4819,3 +4819,21 @@ Current strict grades:
 
 Remaining risk:
 - Configuration, retry, context resolving, MCP, and tool execution model gates still live in the catch-all. Continue extracting those by domain before adding more Codex-parity surface checks.
+
+## 2026-06-24 Workspace Context Parity Gate Split
+
+Overall grade after this slice: **A focused context/config ownership, A regression protection, B+ catch-all size**.
+
+The workspace-model suite already owned surface, project, and thread boundary checks. Configuration transitions, retry planning, status copy/context assembly, and context resolving still lived in the broad parity file even though they all protect the same coordinator rule: `WorkspaceModel` delegates state derivation and lookup policy to focused helpers.
+
+What changed:
+- Moved configuration transition, retry planning, status text/label, and context resolving gates into `ParityWorkspaceModelGateTests`.
+- Added drift guards so the moved context/config gates cannot return to the catch-all suite.
+- Reduced the broad parity file again without changing app behavior.
+
+Current strict grades:
+- `ParityWorkspaceModelGateTests.swift`: **A**. It now owns core workspace-model state, context, configuration, retry, and thread boundary checks.
+- `ParityGateTests.swift`: **B+**. Still broad, but continuing to shrink toward only repo-wide and not-yet-extracted architectural rules.
+
+Remaining risk:
+- MCP, tool execution, agent-send, automation, worktree, and slash-command model gates still live in the catch-all. Continue extracting those by domain before adding more Codex-parity surface checks.
