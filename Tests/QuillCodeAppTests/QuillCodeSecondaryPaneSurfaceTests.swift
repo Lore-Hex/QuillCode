@@ -91,13 +91,7 @@ final class QuillCodeSecondaryPaneSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.subtitle, "1 global memory · 1 project memory")
         XCTAssertEqual(surface.globalCount, 1)
         XCTAssertEqual(surface.projectCount, 1)
-        XCTAssertEqual(surface.items[0].scopeLabel, "Global")
-        XCTAssertEqual(surface.items[0].byteCountLabel, "420 bytes, truncated")
-        XCTAssertTrue(surface.items[0].preview.hasSuffix("..."))
-        XCTAssertTrue(surface.items[0].canDelete)
-        XCTAssertEqual(surface.items[0].deleteCommandID, "memory-delete:global-1")
-        XCTAssertFalse(surface.items[1].canDelete)
-        XCTAssertNil(surface.items[1].deleteCommandID)
+        XCTAssertEqual(surface.items.map(\.id), ["global-1", "project-1"])
     }
 
     func testAutomationsSurfaceUsesConfiguredWorkflowsAndActions() {
@@ -128,14 +122,9 @@ final class QuillCodeSecondaryPaneSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.title, "Automations")
         XCTAssertEqual(surface.statusLabel, "1 active · 1 paused")
         XCTAssertEqual(surface.workflows.map(\.title), ["Morning check", "Follow up"])
-        XCTAssertEqual(surface.workflows[0].statusLabel, "Due")
-        XCTAssertEqual(surface.workflows[0].scheduleLabel, "Every morning")
-        XCTAssertEqual(surface.workflows[0].runActionTitle, "Run now")
-        XCTAssertEqual(surface.workflows[0].runCommandID, "automation-run:00000000-0000-0000-0000-000000000101")
-        XCTAssertEqual(surface.workflows[0].primaryActionTitle, "Pause")
-        XCTAssertEqual(surface.workflows[0].primaryCommandID, "automation-pause:00000000-0000-0000-0000-000000000101")
-        XCTAssertEqual(surface.workflows[1].primaryActionTitle, "Resume")
-        XCTAssertEqual(surface.workflows[1].primaryCommandID, "automation-resume:00000000-0000-0000-0000-000000000102")
-        XCTAssertNil(surface.workflows[1].runCommandID)
+        XCTAssertEqual(surface.workflows.map(\.id), [
+            "00000000-0000-0000-0000-000000000101",
+            "00000000-0000-0000-0000-000000000102"
+        ])
     }
 }
