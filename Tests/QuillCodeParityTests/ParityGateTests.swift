@@ -1013,6 +1013,22 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("testPrepareRetryLastUserTurnUsesLatestUserPromptAndClearsError"), "WorkspaceModelTests should not own retry recovery mutation flows.")
     }
 
+    func testWorkspaceThreadLifecycleIntegrationTestsOwnModelLifecycleFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let lifecycleIntegrationTests = try Self.appTestSourceText(named: "WorkspaceThreadLifecycleIntegrationTests.swift")
+
+        XCTAssertTrue(lifecycleIntegrationTests.contains("testNewChatSelectsThreadAndRefreshesTopBar"), "New chat selection and top-bar integration should live in focused thread lifecycle integration tests.")
+        XCTAssertTrue(lifecycleIntegrationTests.contains("testForkFromLastCreatesBoundedThreadFromLatestUserTurn"), "Fork-from-last integration should live in focused thread lifecycle integration tests.")
+        XCTAssertTrue(lifecycleIntegrationTests.contains("testWorkspaceCommandCompactContextCreatesBoundedThread"), "Compact-context integration should live in focused thread lifecycle integration tests.")
+        XCTAssertTrue(lifecycleIntegrationTests.contains("testPinAndArchiveThreadByIDPersistChanges"), "Thread pin/archive persistence should live in focused thread lifecycle integration tests.")
+        XCTAssertTrue(lifecycleIntegrationTests.contains("testRenameDuplicateUnarchiveAndDeleteThreadLifecycle"), "Thread rename/duplicate/unarchive/delete integration should live in focused thread lifecycle integration tests.")
+        XCTAssertFalse(modelTests.contains("testNewChatSelectsThreadAndRefreshesTopBar"), "WorkspaceModelTests should not own new-chat lifecycle integration.")
+        XCTAssertFalse(modelTests.contains("testForkFromLastCreatesBoundedThreadFromLatestUserTurn"), "WorkspaceModelTests should not own fork-from-last integration.")
+        XCTAssertFalse(modelTests.contains("testWorkspaceCommandCompactContextCreatesBoundedThread"), "WorkspaceModelTests should not own compact-context integration.")
+        XCTAssertFalse(modelTests.contains("testPinAndArchiveThreadByIDPersistChanges"), "WorkspaceModelTests should not own thread pin/archive persistence integration.")
+        XCTAssertFalse(modelTests.contains("testRenameDuplicateUnarchiveAndDeleteThreadLifecycle"), "WorkspaceModelTests should not own thread rename/duplicate/unarchive/delete integration.")
+    }
+
     func testWorkspaceSlashCommandIntegrationTestsOwnCoreSlashFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let slashIntegrationTests = try Self.appTestSourceText(named: "WorkspaceSlashCommandIntegrationTests.swift")
