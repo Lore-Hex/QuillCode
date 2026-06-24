@@ -81,6 +81,45 @@ final class WorkspaceProjectContextRefresherTests: XCTestCase {
         XCTAssertEqual(thread.memories.map(\.title), ["Thread memory"])
     }
 
+    func testContextBuildersUseTheSameInstructionAndMemorySnapshot() {
+        let projectID = UUID()
+        let projects = [
+            Self.project(id: projectID, instructionTitle: "Project instruction", memoryTitle: "Project memory")
+        ]
+        let globalMemories = [
+            Self.memory(id: "global", scope: .global, title: "Global memory")
+        ]
+
+        let threadContext = WorkspaceProjectContextRefresher.threadCreationContext(
+            projectID: projectID,
+            mode: .auto,
+            model: TrustedRouterDefaults.fastModel,
+            projects: projects,
+            globalMemories: globalMemories
+        )
+        XCTAssertEqual(threadContext.projectID, projectID)
+        XCTAssertEqual(threadContext.mode, .auto)
+        XCTAssertEqual(threadContext.model, TrustedRouterDefaults.fastModel)
+        XCTAssertEqual(threadContext.instructions.map(\.title), ["Project instruction"])
+        XCTAssertEqual(threadContext.memories.map(\.title), ["Global memory", "Project memory"])
+
+        let request = WorkspaceWorktreeCreateRequest(path: "feature", branch: "feature/context")
+        let worktreeContext = WorkspaceProjectContextRefresher.worktreeOpenContext(
+            request: request,
+            projectID: projectID,
+            mode: .review,
+            model: TrustedRouterDefaults.synthModel,
+            projects: projects,
+            globalMemories: globalMemories
+        )
+        XCTAssertEqual(worktreeContext.request, request)
+        XCTAssertEqual(worktreeContext.projectID, projectID)
+        XCTAssertEqual(worktreeContext.mode, .review)
+        XCTAssertEqual(worktreeContext.model, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(worktreeContext.instructions.map(\.title), ["Project instruction"])
+        XCTAssertEqual(worktreeContext.memories.map(\.title), ["Global memory", "Project memory"])
+    }
+
     private static func project(id: UUID, instructionTitle: String, memoryTitle: String) -> ProjectRef {
         ProjectRef(
             id: id,

@@ -63,6 +63,42 @@ enum WorkspaceProjectContextRefresher {
         )
     }
 
+    static func threadCreationContext(
+        projectID: UUID?,
+        mode: AgentMode,
+        model: String,
+        projects: [ProjectRef],
+        globalMemories: [MemoryNote]
+    ) -> WorkspaceThreadCreationContext {
+        let snapshot = threadContext(projectID: projectID, projects: projects, globalMemories: globalMemories)
+        return WorkspaceThreadCreationContext(
+            projectID: projectID,
+            mode: mode,
+            model: model,
+            instructions: snapshot.instructions,
+            memories: snapshot.memories
+        )
+    }
+
+    static func worktreeOpenContext(
+        request: WorkspaceWorktreeCreateRequest,
+        projectID: UUID,
+        mode: AgentMode,
+        model: String,
+        projects: [ProjectRef],
+        globalMemories: [MemoryNote]
+    ) -> WorkspaceWorktreeOpenContext {
+        let snapshot = threadContext(projectID: projectID, projects: projects, globalMemories: globalMemories)
+        return WorkspaceWorktreeOpenContext(
+            request: request,
+            projectID: projectID,
+            mode: mode,
+            model: model,
+            instructions: snapshot.instructions,
+            memories: snapshot.memories
+        )
+    }
+
     static func syncThreadContext(
         _ thread: inout ChatThread,
         fallbackProjectID: UUID?,

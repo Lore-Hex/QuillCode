@@ -526,13 +526,14 @@ public final class QuillCodeWorkspaceModel {
             refreshProjectMetadata(projectID)
         }
 
+        let context = workspaceThreadContext(projectID)
         let draft = WorkspaceAutomationRunner.workspaceScheduleDraft(
             automation: automation,
             project: project,
             mode: root.config.mode,
             model: root.config.defaultModel,
-            instructions: contextResolver.instructions(for: projectID),
-            memories: contextResolver.memoryNotes(for: projectID),
+            instructions: context.instructions,
+            memories: context.memories,
             now: now
         )
         return applyAutomationRunDraft(draft)
@@ -662,12 +663,12 @@ public final class QuillCodeWorkspaceModel {
     public func newChat(projectID: UUID? = nil) -> UUID {
         let effectiveProjectID = knownProjectID(projectID ?? root.selectedProjectID)
         refreshProjectMetadata(effectiveProjectID)
-        let thread = WorkspaceThreadCreationEngine.newThread(context: WorkspaceThreadCreationContext(
+        let thread = WorkspaceThreadCreationEngine.newThread(context: WorkspaceProjectContextRefresher.threadCreationContext(
             projectID: effectiveProjectID,
             mode: root.config.mode,
             model: root.config.defaultModel,
-            instructions: contextResolver.instructions(for: effectiveProjectID),
-            memories: contextResolver.memoryNotes(for: effectiveProjectID)
+            projects: root.projects,
+            globalMemories: root.globalMemories
         ))
         return insertCreatedThread(thread, selectedProjectID: effectiveProjectID, saveThread: false)
     }
@@ -842,12 +843,11 @@ public final class QuillCodeWorkspaceModel {
             refreshProjectMetadata(id)
         }
         if selectedThread?.projectID == id || root.selectedProjectID == id {
-            let refreshedInstructions = contextResolver.instructions(for: id)
-            let refreshedMemories = contextResolver.memoryNotes(for: id)
+            let refreshedContext = workspaceThreadContext(id)
             mutateSelectedThread { thread in
                 guard thread.projectID == id else { return }
-                thread.instructions = refreshedInstructions
-                thread.memories = refreshedMemories
+                thread.instructions = refreshedContext.instructions
+                thread.memories = refreshedContext.memories
                 thread.events.append(ThreadEvent(
                     kind: .notice,
                     summary: "Refreshed project context",
@@ -1349,11 +1349,7 @@ public final class QuillCodeWorkspaceModel {
         }
         let contextProjectID = selectedThread?.projectID ?? root.selectedProjectID
         refreshProjectMetadata(contextProjectID)
-        let refreshedContext = WorkspaceProjectContextRefresher.threadContext(
-            projectID: contextProjectID,
-            projects: root.projects,
-            globalMemories: root.globalMemories
-        )
+        let refreshedContext = workspaceThreadContext(contextProjectID)
         mutateSelectedThread { thread in
             thread.instructions = refreshedContext.instructions
             thread.memories = refreshedContext.memories
@@ -1498,13 +1494,13 @@ public final class QuillCodeWorkspaceModel {
         projectID: UUID,
         request: WorkspaceWorktreeCreateRequest
     ) -> WorkspaceWorktreeOpenContext {
-        WorkspaceWorktreeOpenContext(
+        WorkspaceProjectContextRefresher.worktreeOpenContext(
             request: request,
             projectID: projectID,
             mode: root.config.mode,
             model: root.config.defaultModel,
-            instructions: contextResolver.instructions(for: projectID),
-            memories: contextResolver.memoryNotes(for: projectID)
+            projects: root.projects,
+            globalMemories: root.globalMemories
         )
     }
 
@@ -1693,11 +1689,12 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func statusText() -> String {
-        WorkspaceStatusTextBuilder.statusText(for: WorkspaceStatusContext(
+        let statusMemories = selectedThread?.memories ?? workspaceThreadContext(root.selectedProjectID).memories
+        return WorkspaceStatusTextBuilder.statusText(for: WorkspaceStatusContext(
             projectName: selectedProject?.name ?? root.topBar.projectName ?? "No project",
             threadTitle: selectedThread?.title ?? "No chat",
             instructions: selectedProject?.instructions ?? selectedThread?.instructions ?? [],
-            memories: selectedThread?.memories ?? contextResolver.memoryNotes(for: root.selectedProjectID),
+            memories: statusMemories,
             mode: root.topBar.mode,
             model: root.topBar.model,
             agentStatus: root.topBar.agentStatus
@@ -1769,11 +1766,7 @@ public final class QuillCodeWorkspaceModel {
     public func refreshSelectedProjectContext() {
         let projectID = selectedThread?.projectID ?? root.selectedProjectID
         refreshProjectMetadata(projectID)
-        let refreshedContext = WorkspaceProjectContextRefresher.threadContext(
-            projectID: projectID,
-            projects: root.projects,
-            globalMemories: root.globalMemories
-        )
+        let refreshedContext = workspaceThreadContext(projectID)
         mutateSelectedThread { thread in
             thread.instructions = refreshedContext.instructions
             thread.memories = refreshedContext.memories
@@ -1794,6 +1787,14 @@ public final class QuillCodeWorkspaceModel {
         WorkspaceProjectContextRefresher.refreshLocalProjectMetadata(
             projectID: id,
             projects: &root.projects
+        )
+    }
+
+    private func workspaceThreadContext(_ projectID: UUID?) -> WorkspaceThreadContextSnapshot {
+        WorkspaceProjectContextRefresher.threadContext(
+            projectID: projectID,
+            projects: root.projects,
+            globalMemories: root.globalMemories
         )
     }
 
@@ -1830,8 +1831,9 @@ public final class QuillCodeWorkspaceModel {
             return
         }
         let projectID = selectedThread?.projectID ?? root.selectedProjectID
+        let refreshedContext = workspaceThreadContext(projectID)
         let update = WorkspaceMemoryEngine.contextUpdate(
-            memories: contextResolver.memoryNotes(for: projectID),
+            memories: refreshedContext.memories,
             summary: summary,
             relativePath: relativePath
         )
