@@ -904,6 +904,7 @@ final class ParityGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesSlashCommandTranscriptPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let actionExecutorText = try Self.appSourceText(named: "WorkspaceSlashCommandActionExecutor.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceSlashCommandTranscriptPlanner.swift")
         let appenderText = try Self.appSourceText(named: "WorkspaceLocalCommandTranscriptAppender.swift")
         let environmentPlannerText = try Self.appSourceText(named: "WorkspaceEnvironmentSlashCommandPlanner.swift")
@@ -926,17 +927,22 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(plannerText.contains("static func sshProjectAdded"), "SSH success copy should be directly testable.")
         XCTAssertTrue(plannerText.contains("static func workspaceCommandFailed"), "Slash command failure copy should be directly testable.")
         XCTAssertTrue(plannerText.contains("SlashCommandCatalog.helpText()"), "Slash help text should stay catalog-backed.")
-        for delegatedCall in [
+        for actionExecutorOwnedCall in [
             "WorkspaceSlashCommandTranscriptPlanner.mode",
             "WorkspaceSlashCommandTranscriptPlanner.model",
             "WorkspaceSlashCommandTranscriptPlanner.renameThread",
             "WorkspaceSlashCommandTranscriptPlanner.renameProject",
             "WorkspaceSlashCommandTranscriptPlanner.sshProjectAdded",
-            "WorkspaceSlashCommandTranscriptPlanner.threadFollowUpScheduled",
-            "WorkspaceSlashCommandTranscriptPlanner.workspaceScheduleScheduled",
             "WorkspaceSlashCommandTranscriptPlanner.workspaceCommandFailed"
         ] {
-            XCTAssertTrue(modelText.contains(delegatedCall), "WorkspaceModel should delegate \(delegatedCall).")
+            XCTAssertTrue(actionExecutorText.contains(actionExecutorOwnedCall), "Slash action execution should delegate \(actionExecutorOwnedCall).")
+            XCTAssertFalse(modelText.contains(actionExecutorOwnedCall), "WorkspaceModel should not directly choose \(actionExecutorOwnedCall).")
+        }
+        for modelOwnedScheduledCall in [
+            "WorkspaceSlashCommandTranscriptPlanner.threadFollowUpScheduled",
+            "WorkspaceSlashCommandTranscriptPlanner.workspaceScheduleScheduled"
+        ] {
+            XCTAssertTrue(modelText.contains(modelOwnedScheduledCall), "WorkspaceModel should keep schedule transcript delegation beside schedule persistence.")
         }
         for dispatchOwnedCall in [
             "WorkspaceSlashCommandTranscriptPlanner.help",
@@ -1375,6 +1381,7 @@ final class ParityGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesSlashCommandDispatchPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceSlashCommandDispatchPlanner.swift")
+        let actionExecutorText = try Self.appSourceText(named: "WorkspaceSlashCommandActionExecutor.swift")
         let plannerTests = try Self.appTestSourceText(named: "WorkspaceSlashCommandDispatchPlannerTests.swift")
 
         XCTAssertTrue(plannerText.contains("enum WorkspaceSlashCommandDispatchAction"), "Slash dispatch actions should be typed values outside WorkspaceModel.")
@@ -1382,10 +1389,17 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(plannerText.contains("static func action("), "Slash dispatch mapping should be directly testable.")
         XCTAssertTrue(plannerText.contains("case .help:"), "Raw parsed slash-command cases should live in the planner.")
         XCTAssertTrue(plannerText.contains("case .environmentAction(let query):"), "Environment slash routing should live in the planner.")
+        XCTAssertTrue(actionExecutorText.contains("extension QuillCodeWorkspaceModel"), "Slash action execution should live in a focused model extension.")
+        XCTAssertTrue(actionExecutorText.contains("func runSlashCommandDispatchAction"), "Typed slash action application should live outside the main model file.")
+        XCTAssertTrue(actionExecutorText.contains("switch action"), "The slash action executor should own the typed action switch.")
         XCTAssertTrue(modelText.contains("WorkspaceSlashCommandDispatchPlanner.action("), "WorkspaceModel should consume the slash dispatch planner.")
-        XCTAssertTrue(modelText.contains("runSlashCommandDispatchAction"), "WorkspaceModel should apply typed slash actions, not parsed command cases.")
+        XCTAssertTrue(modelText.contains("runSlashCommandDispatchAction(action, workspaceRoot: workspaceRoot)"), "WorkspaceModel should delegate typed slash action application.")
         XCTAssertTrue(plannerTests.contains("testExternalCommandFamiliesMapToTypedActions"), "Slash dispatch families should have focused planner coverage.")
         XCTAssertFalse(modelText.contains("switch command {\n        case .help:"), "WorkspaceModel should not switch directly over parsed slash commands.")
+        XCTAssertFalse(modelText.contains("switch action {"), "WorkspaceModel should not own typed slash action application.")
+        XCTAssertFalse(modelText.contains("case .appendTranscript"), "WorkspaceModel should not own typed slash transcript actions.")
+        XCTAssertFalse(modelText.contains("case .setMode"), "WorkspaceModel should not own typed slash mode actions.")
+        XCTAssertFalse(modelText.contains("WorkspaceSlashCommandTranscriptPlanner.workspaceCommandFailed"), "WorkspaceModel should not own slash workspace-command failure transcripts.")
         XCTAssertFalse(modelText.contains("case .unknown(let name):"), "WorkspaceModel should not own unknown slash-command transcripts.")
         XCTAssertFalse(modelText.contains("case .invalid(let message):"), "WorkspaceModel should not own invalid slash-command transcripts.")
     }
