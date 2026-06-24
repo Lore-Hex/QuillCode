@@ -58,6 +58,88 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         XCTAssertTrue(topBar.filteredModelCategories(matching: "does-not-exist").isEmpty)
     }
 
+    func testModelCategorySearchFilterNormalizesWhitespaceAndHidesSpecialCategories() {
+        let categories = [
+            ModelCategorySurface(category: "Favorites", models: [
+                modelOption(
+                    id: TrustedRouterDefaults.defaultModel,
+                    provider: TrustedRouterDefaults.trustedRouterProvider,
+                    displayName: TrustedRouterDefaults.fastModelDisplayName,
+                    category: "Recommended",
+                    isFavorite: true,
+                    badges: ["Favorite"]
+                )
+            ]),
+            ModelCategorySurface(category: "Recent", models: [
+                modelOption(
+                    id: TrustedRouterDefaults.synthModel,
+                    provider: TrustedRouterDefaults.trustedRouterProvider,
+                    displayName: TrustedRouterDefaults.synthModelDisplayName,
+                    category: "Recommended",
+                    badges: ["Recent"]
+                )
+            ]),
+            ModelCategorySurface(category: "Coding", models: [
+                modelOption(
+                    id: "acme/code-pro",
+                    provider: "acme",
+                    displayName: "Code Pro",
+                    category: "Coding",
+                    badges: ["Tool calling"]
+                ),
+                modelOption(
+                    id: "acme/chat-lite",
+                    provider: "acme",
+                    displayName: "Chat Lite",
+                    category: "General"
+                )
+            ])
+        ]
+
+        XCTAssertEqual(
+            ModelCategorySearchFilter.filter(categories, matching: "  CODE    PRO  ").flatMap(\.models).map(\.id),
+            ["acme/code-pro"]
+        )
+        XCTAssertEqual(
+            ModelCategorySearchFilter.filter(categories, matching: "recommended").map(\.category),
+            []
+        )
+        XCTAssertEqual(
+            ModelCategorySearchFilter.filter(categories, matching: "favorites nike").flatMap(\.models).map(\.id),
+            [TrustedRouterDefaults.defaultModel]
+        )
+        XCTAssertEqual(
+            ModelCategorySearchFilter.filter(categories, matching: "recent prometheus").flatMap(\.models).map(\.id),
+            [TrustedRouterDefaults.synthModel]
+        )
+    }
+
+    func testModelCategorySearchFilterMatchesStateMetadataRows() {
+        let categories = [
+            ModelCategorySurface(category: "Coding", models: [
+                modelOption(
+                    id: "acme/default",
+                    provider: "acme",
+                    displayName: "Default Model",
+                    category: "Coding",
+                    selectedModelID: "acme/default",
+                    badges: ["Default"]
+                ),
+                modelOption(
+                    id: "acme/other",
+                    provider: "acme",
+                    displayName: "Other Model",
+                    category: "Coding"
+                )
+            ])
+        ]
+
+        XCTAssertEqual(
+            ModelCategorySearchFilter.filter(categories, matching: "state current").flatMap(\.models).map(\.id),
+            ["acme/default"]
+        )
+    }
+
     func testModelOptionBuildsTrustedRouterRecommendedMetadata() throws {
         let option = modelOption(
             id: TrustedRouterDefaults.defaultModel,

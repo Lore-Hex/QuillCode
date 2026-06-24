@@ -9,7 +9,7 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(TrustedRouterDefaults.synthSlashAlias, "/synth")
         XCTAssertEqual(TrustedRouterDefaults.synthCodeSlashAlias, "/synth-code")
         XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.fastModel), "Nike 1.0")
-        XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.synthModel), "Synth")
+        XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.synthModel), "Prometheus 1.0")
         XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.synthCodeModel), "Synth Code")
         XCTAssertEqual(TrustedRouterDefaults.preferredDisplayModelID(TrustedRouterDefaults.synthModel), "/synth")
         XCTAssertEqual(TrustedRouterDefaults.preferredDisplayModelID(TrustedRouterDefaults.synthCodeModel), "/synth-code")
@@ -46,7 +46,7 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(TrustedRouterDefaults.safetyFallbackModel, "kimi-k2.6")
         XCTAssertLessThan(
             TrustedRouterDefaults.modelSortKey(id: TrustedRouterDefaults.fastModel, provider: "trustedrouter", displayName: "Nike 1.0"),
-            TrustedRouterDefaults.modelSortKey(id: TrustedRouterDefaults.synthModel, provider: "tr", displayName: "Synth")
+            TrustedRouterDefaults.modelSortKey(id: TrustedRouterDefaults.synthModel, provider: "tr", displayName: "Prometheus 1.0")
         )
         XCTAssertLessThan(
             TrustedRouterDefaults.modelCategoryRank(TrustedRouterDefaults.recommendedCategory),
