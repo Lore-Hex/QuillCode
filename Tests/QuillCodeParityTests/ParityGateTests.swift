@@ -46,7 +46,8 @@ final class ParityGateTests: QuillCodeParityTestCase {
         let suiteFiles = [
             "ParityTestSupport.swift",
             "ParityToolGateTests.swift",
-            "ParityDesktopGateTests.swift"
+            "ParityDesktopGateTests.swift",
+            "ParityTopBarGateTests.swift"
         ]
         for suiteFile in suiteFiles {
             XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent(suiteFile).path), suiteFile)
@@ -57,6 +58,7 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(mainLines.contains("    private static func packageRoot() -> URL {"), "Shared source-reading helpers should live in ParityTestSupport.")
         XCTAssertFalse(mainLines.contains("    func testToolArgumentJSONSerializationLivesInCore() throws {"), "Tool/router gates should live in ParityToolGateTests.")
         XCTAssertFalse(mainLines.contains("    func testDesktopDefinesNativeMenuBarWidget() throws {"), "Desktop gates should live in ParityDesktopGateTests.")
+        XCTAssertFalse(mainLines.contains("    func testTopBarViewsDelegateStatusPresentationSemantics() throws {"), "Top-bar/runtime gates should live in ParityTopBarGateTests.")
     }
 
     func testWorkspaceModelDelegatesToolCardSurfaceTypes() throws {
@@ -992,75 +994,6 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelText.contains("case .runTool"), "WorkspaceModel should not own tool command-plan routing.")
     }
 
-    func testTopBarViewsDelegateStatusPresentationSemantics() throws {
-        let topBarViewText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
-        let htmlRendererText = try Self.appSourceText(named: "WorkspaceHTMLTopBarRenderer.swift")
-        let presentationText = try Self.appSourceText(named: "QuillCodeTopBarStatusPresentation.swift")
-
-        XCTAssertTrue(presentationText.contains("public enum TopBarAgentStatusLabel"), "Shared status labels should live beside top-bar presentation semantics.")
-        XCTAssertTrue(presentationText.contains("struct TopBarStatusPresentation"), "Top-bar status semantics should live in a focused presentation value.")
-        XCTAssertTrue(presentationText.contains("static func agentStatus"), "Agent status classification should be directly testable.")
-        XCTAssertTrue(presentationText.contains("struct TopBarRuntimeIssuePresentation"), "Runtime issue pill semantics should be directly testable.")
-        XCTAssertTrue(topBarViewText.contains("topBar.agentStatusPresentation"), "Native top bar should use shared status presentation.")
-        XCTAssertTrue(topBarViewText.contains("topBar.runtimeIssuePresentation"), "Native top bar should use shared runtime issue presentation.")
-        XCTAssertTrue(htmlRendererText.contains("topBar.agentStatusPresentation"), "HTML top bar should use shared status presentation.")
-        XCTAssertTrue(htmlRendererText.contains("topBar.runtimeIssuePresentation"), "HTML top bar should use shared runtime issue presentation.")
-        XCTAssertFalse(topBarViewText.contains("lowercasedStatus.contains"), "Top-bar view should not own status string classification.")
-        XCTAssertFalse(topBarViewText.contains("runtimeIssueSeverity == .error"), "Top-bar view should not own runtime issue tone classification.")
-        XCTAssertFalse(htmlRendererText.contains("runtimeIssueSeverity?.rawValue"), "HTML renderer should not own runtime issue tone fallback logic.")
-    }
-
-    func testNativeTopBarKeepsCodexStyleChromeQuiet() throws {
-        let topBarViewText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
-        let designText = try Self.appSourceText(named: "QuillCodeDesignSystem.swift")
-
-        XCTAssertTrue(topBarViewText.contains("contextLabel"), "Native top bar should preserve a quiet leading context label.")
-        XCTAssertTrue(topBarViewText.contains("threadTitle"), "Native top bar should center the active thread title.")
-        XCTAssertTrue(topBarViewText.contains("showsActivityHairline"), "Native top bar should show run/error state as a subtle hairline instead of another pill.")
-        XCTAssertTrue(designText.contains("static let topBarHeight: CGFloat = 40"), "Native top bar should keep a compact Codex-style height.")
-        XCTAssertFalse(topBarViewText.contains("statusIndicator"), "Native top bar should not reintroduce a permanent status pill.")
-        XCTAssertFalse(topBarViewText.contains("QuillCodeTopBarPill"), "Native top bar should not reintroduce runtime issue pills into the main chrome.")
-    }
-
-    func testTopBarAgentStatusLabelsAreSharedByRuntimePaths() throws {
-        let appStateText = try Self.appSourceText(named: "AppState.swift")
-        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let builderText = try Self.appSourceText(named: "WorkspaceAgentStatusBuilder.swift")
-        let mcpRuntimeText = try Self.appSourceText(named: "WorkspaceMCPRuntime.swift")
-
-        XCTAssertTrue(appStateText.contains("agentStatus: String = TopBarAgentStatusLabel.idle"), "Root state should use the shared idle label default.")
-        XCTAssertTrue(modelText.contains("TopBarAgentStatusLabel.running"), "WorkspaceModel should use shared running status copy.")
-        XCTAssertTrue(modelText.contains("TopBarAgentStatusLabel.terminal"), "WorkspaceModel should use shared terminal status copy.")
-        XCTAssertTrue(builderText.contains("TopBarAgentStatusLabel.streaming"), "Agent progress builder should use shared streaming status copy.")
-        XCTAssertTrue(mcpRuntimeText.contains("TopBarAgentStatusLabel.failed"), "MCP runtime should use shared failed status copy.")
-        XCTAssertFalse(modelText.contains("refreshTopBar(agentStatus: \""), "WorkspaceModel should not pass raw lifecycle status strings to the top bar.")
-        XCTAssertFalse(builderText.contains("return \"Running\""), "Agent progress builder should not return raw lifecycle status strings.")
-        XCTAssertFalse(builderText.contains("return \"Failed\""), "Agent progress builder should not return raw lifecycle status strings.")
-        XCTAssertFalse(mcpRuntimeText.contains("agentStatus: \"Idle\""), "MCP runtime should not return raw idle status strings.")
-        XCTAssertFalse(mcpRuntimeText.contains("agentStatus: \"Failed\""), "MCP runtime should not return raw failed status strings.")
-    }
-
-    func testRuntimeStatusLabelsAreSharedByAuthAndIssuePaths() throws {
-        let labelsText = try Self.appSourceText(named: "QuillCodeRuntimeStatusLabel.swift")
-        let runtimeFactoryText = try Self.appSourceText(named: "RuntimeFactory.swift")
-        let issueBuilderText = try Self.appSourceText(named: "WorkspaceRuntimeIssueBuilder.swift")
-        let desktopControllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
-
-        XCTAssertTrue(labelsText.contains("public enum QuillCodeRuntimeStatusLabel"), "Runtime/auth status labels should live in one focused label boundary.")
-        XCTAssertTrue(runtimeFactoryText.contains("QuillCodeRuntimeStatusLabel.signInWithTrustedRouter"), "RuntimeFactory should use shared sign-in-needed copy.")
-        XCTAssertTrue(runtimeFactoryText.contains("QuillCodeRuntimeStatusLabel.developerKeyNeeded"), "RuntimeFactory should use shared developer-key-needed copy.")
-        XCTAssertTrue(runtimeFactoryText.contains("QuillCodeRuntimeStatusLabel.trustedRouterReady"), "RuntimeFactory should use shared TrustedRouter-ready copy.")
-        XCTAssertTrue(issueBuilderText.contains("case QuillCodeRuntimeStatusLabel.signInWithTrustedRouter"), "Runtime issue builder should branch on shared sign-in-needed copy.")
-        XCTAssertTrue(issueBuilderText.contains("case QuillCodeRuntimeStatusLabel.developerKeyNeeded"), "Runtime issue builder should branch on shared developer-key-needed copy.")
-        XCTAssertTrue(desktopControllerText.contains("QuillCodeRuntimeStatusLabel.signInFailed"), "Desktop sign-in failure should use shared runtime status copy.")
-        XCTAssertFalse(runtimeFactoryText.contains("status: \"Mock LLM\""), "RuntimeFactory should not emit raw mock status copy.")
-        XCTAssertFalse(runtimeFactoryText.contains("status: \"Sign in with TrustedRouter\""), "RuntimeFactory should not emit raw sign-in-needed status copy.")
-        XCTAssertFalse(runtimeFactoryText.contains("status: \"Developer key needed\""), "RuntimeFactory should not emit raw developer-key-needed status copy.")
-        XCTAssertFalse(issueBuilderText.contains("case \"Sign in with TrustedRouter\""), "Runtime issue builder should not branch on raw sign-in-needed copy.")
-        XCTAssertFalse(issueBuilderText.contains("case \"Developer key needed\""), "Runtime issue builder should not branch on raw developer-key-needed copy.")
-        XCTAssertFalse(desktopControllerText.contains("setAgentStatus(\"Sign-in failed\""), "Desktop controller should not emit raw sign-in-failed status copy.")
-    }
-
     func testWorkspaceModelDelegatesAgentRunContextAssembly() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceAgentRunContextBuilder.swift")
@@ -1922,51 +1855,6 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(viewText.contains("command.id == \"thread-rename\""), "WorkspaceSwiftUIView should not own thread rename command routing.")
         XCTAssertFalse(viewText.contains("command.id == \"project-rename\""), "WorkspaceSwiftUIView should not own project rename command routing.")
         XCTAssertFalse(viewText.contains("SlashCommandCatalog.insertText(forCommandPaletteID:"), "WorkspaceSwiftUIView should not own command composer-focus routing.")
-    }
-
-    func testWorkspaceSurfaceDelegatesModelCatalogBuilding() throws {
-        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
-        let builderText = try Self.appSourceText(named: "WorkspaceModelCatalogSurfaceBuilder.swift")
-        let topBarBuilderText = try Self.appSourceText(named: "WorkspaceTopBarSurfaceBuilder.swift")
-
-        XCTAssertTrue(builderText.contains("struct WorkspaceModelCatalogSurfaceBuilder"), "Model picker category construction should live in a focused builder.")
-        XCTAssertTrue(builderText.contains("func modelLabel()"), "Model picker label formatting should be directly testable.")
-        XCTAssertTrue(builderText.contains("func categories()"), "Model picker category construction should be directly testable.")
-        XCTAssertTrue(builderText.contains("normalizedUniqueModelIDs"), "Model picker builder should normalize favorites and recents defensively.")
-        XCTAssertTrue(topBarBuilderText.contains("WorkspaceModelCatalogSurfaceBuilder("), "Top-bar builder should delegate model catalog presentation construction.")
-        XCTAssertFalse(surfaceText.contains("WorkspaceModelCatalogSurfaceBuilder("), "WorkspaceSurface should not construct model catalog presentation directly.")
-        XCTAssertFalse(surfaceText.contains("func modelCategories(selectedModelID:"), "WorkspaceSurface should not own model category construction.")
-        XCTAssertFalse(surfaceText.contains("func modelOption("), "WorkspaceSurface should not own model option badge construction.")
-        XCTAssertFalse(surfaceText.contains("func favoriteModelIDs()"), "WorkspaceSurface should not own model favorite normalization.")
-        XCTAssertFalse(surfaceText.contains("func recentModelIDs("), "WorkspaceSurface should not own recent model normalization.")
-    }
-
-    func testWorkspaceSurfaceDelegatesTopBarSurfaceContracts() throws {
-        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
-        let topBarText = try Self.appSourceText(named: "QuillCodeTopBarSurface.swift")
-
-        XCTAssertTrue(topBarText.contains("public struct TopBarSurface"), "Top-bar aggregate records should live beside top-bar-specific behavior.")
-        XCTAssertTrue(topBarText.contains("public struct ModelCategorySurface"), "Model category rows should live beside model picker filtering.")
-        XCTAssertTrue(topBarText.contains("public struct ModelMetadataRowSurface"), "Model metadata rows should live beside model option compatibility behavior.")
-        XCTAssertTrue(topBarText.contains("public struct ModelOptionSurface"), "Model option records should live beside model option metadata construction.")
-        XCTAssertTrue(topBarText.contains("filteredModelCategories"), "Model picker filtering should be directly testable outside the aggregate workspace surface.")
-        XCTAssertFalse(surfaceText.contains("public struct TopBarSurface"), "WorkspaceSurface should not own top-bar surface records.")
-        XCTAssertFalse(surfaceText.contains("public struct ModelCategorySurface"), "WorkspaceSurface should not own model category records.")
-        XCTAssertFalse(surfaceText.contains("public struct ModelMetadataRowSurface"), "WorkspaceSurface should not own model metadata rows.")
-        XCTAssertFalse(surfaceText.contains("public struct ModelOptionSurface"), "WorkspaceSurface should not own model option records.")
-        XCTAssertFalse(surfaceText.contains("filteredModelCategories"), "WorkspaceSurface should not own model picker filtering.")
-    }
-
-    func testWorkspaceSurfaceDelegatesTopBarSurfaceBuilding() throws {
-        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
-        let builderText = try Self.appSourceText(named: "WorkspaceTopBarSurfaceBuilder.swift")
-
-        XCTAssertTrue(surfaceText.contains("WorkspaceTopBarSurfaceBuilder("), "WorkspaceSurface should delegate top-bar surface assembly.")
-        XCTAssertTrue(builderText.contains("struct WorkspaceTopBarSurfaceBuilder"), "Top-bar surface assembly should live in a focused builder.")
-        XCTAssertTrue(builderText.contains("func surface() -> TopBarSurface"), "Top-bar surface assembly should be directly testable.")
-        XCTAssertTrue(builderText.contains("recentModelIDs()"), "Recent model projection should live with top-bar model presentation.")
-        XCTAssertFalse(surfaceText.contains("TopBarSurface("), "WorkspaceSurface should not construct top-bar records directly.")
-        XCTAssertFalse(surfaceText.contains("private func modelCatalogBuilder"), "WorkspaceSurface should not own top-bar model catalog builder plumbing.")
     }
 
     func testWorkspaceSurfaceDelegatesSidebarSurfaceContracts() throws {
