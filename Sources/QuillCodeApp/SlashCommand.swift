@@ -64,7 +64,7 @@ enum SlashCommandParser {
         case "ssh", "remote":
             return argument.isEmpty ? .invalid("Usage: /ssh user@host:/absolute/path") : .sshProject(argument)
         case "terminal", "term", "shell":
-            return parseTerminal(argument)
+            return SlashTerminalCommandParser.parse(argument)
         case "browser", "preview":
             return .workspaceCommand("toggle-browser")
         case "memory", "memories":
@@ -86,18 +86,6 @@ enum SlashCommandParser {
             return .model(argument)
         default:
             return .unknown(name)
-        }
-    }
-
-    private static func parseTerminal(_ argument: String) -> SlashCommand {
-        guard !argument.isEmpty else {
-            return .workspaceCommand("toggle-terminal")
-        }
-        switch argument.lowercased() {
-        case "clear", "reset":
-            return .workspaceCommand("terminal-clear")
-        default:
-            return .invalid("Usage: /terminal or /terminal clear")
         }
     }
 
