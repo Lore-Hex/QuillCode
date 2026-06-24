@@ -75,4 +75,11 @@ class QuillCodeParityTestCase: XCTestCase {
             .appendingPathComponent(fileName)
         return try String(contentsOf: file, encoding: .utf8)
     }
+
+    static func toolsTestSourceText(named fileName: String) throws -> String {
+        let file = packageRoot()
+            .appendingPathComponent("Tests/QuillCodeToolsTests")
+            .appendingPathComponent(fileName)
+        return try String(contentsOf: file, encoding: .utf8)
+    }
 }
