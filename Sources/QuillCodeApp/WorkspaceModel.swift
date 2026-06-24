@@ -1271,10 +1271,7 @@ public final class QuillCodeWorkspaceModel {
 
     private func appendNotice(_ summary: String) {
         mutateSelectedThread { thread in
-            thread.events.append(.init(kind: .notice, summary: summary))
-        }
-        if let thread = selectedThread {
-            threadPersistence.save(thread)
+            WorkspaceThreadNoticeAppender.appendNotice(summary, to: &thread)
         }
     }
 
@@ -1869,8 +1866,7 @@ public final class QuillCodeWorkspaceModel {
 
     private func appendAssistantNotice(_ text: String) {
         mutateSelectedThread { thread in
-            thread.messages.append(.init(role: .assistant, content: text))
-            thread.events.append(.init(kind: .message, summary: text))
+            WorkspaceThreadNoticeAppender.appendAssistantNotice(text, to: &thread)
         }
     }
 
