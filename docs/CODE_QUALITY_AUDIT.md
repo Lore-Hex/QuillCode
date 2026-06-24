@@ -4383,3 +4383,17 @@ What changed:
 
 Remaining risk:
 - `WorkspaceSurfaceTests.swift` is still large because it covers command, sidebar, browser, memory, activity, and automation projections. Keep extracting feature-family integration suites when a family has enough related tests and active parallel work.
+
+## 2026-06-24 HTML Chrome Renderer Test Split
+
+Overall grade after this slice: **A test ownership, A merge-conflict reduction, A renderer smoke coverage**.
+
+`WorkspaceSurfaceTests.swift` still owned a broad block of static HTML renderer smoke tests. The first half of that block covers app chrome and global transcript scaffolding rather than generic workspace surface projection, so it made the catch-all suite more likely to conflict with active sidebar, top-bar, composer, and HTML harness work.
+
+What changed:
+- Added `WorkspaceHTMLChromeRendererTests` for static HTML primary-region labels, escaping, top-bar overflow, active-send stop markup, multiline composer markup, context banners, runtime issues, and sidebar pinned/today/archive grouping.
+- Removed those HTML chrome tests from `WorkspaceSurfaceTests.swift`.
+- Added `ParityHTMLGateTests` to keep the coverage in the focused suite.
+
+Remaining risk:
+- `WorkspaceSurfaceTests.swift` still owns HTML tool-card, terminal, browser, extensions, memories, and review-pane renderer tests. The next cleanup should split those by renderer family so HTML work can evolve with less conflict and clearer ownership.
