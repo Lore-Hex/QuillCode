@@ -4308,3 +4308,18 @@ What changed:
 
 Remaining risk:
 - `applyAutomationRunDraft` still coordinates automation replacement plus thread insertion because that crosses two state domains. A future extraction should only happen if it can model that cross-domain state transition explicitly.
+
+## 2026-06-24 Browser Workflow Boundary
+
+Overall grade after this slice: **A browser workflow boundary, A stale-fetch safety, A regression guard**.
+
+`WorkspaceModel` still owned browser workflow mechanics directly: resolving addresses, setting invalid-address errors, starting snapshot fetches, checking stale fetch results, applying fetched pages, handling failures, and adding comments. The lower-level browser engine was already focused, but the app coordinator still had enough browser state logic to keep growing as live DOM capture and richer browser tools arrive.
+
+What changed:
+- Added `WorkspaceBrowserWorkflow` to own browser workflow state transitions over `WorkspaceBrowserEngine` and `WorkspaceBrowserLocationResolver`.
+- Kept `WorkspaceModel` as the actor-bound async caller that starts fetches, awaits the injected page fetcher, and refreshes the top bar.
+- Added focused workflow tests for invalid-address handling, successful fetched-page completion, stale fetch protection, navigation, reload, and comments.
+- Updated parity gates so direct browser engine/resolver calls do not drift back into `WorkspaceModel`.
+
+Remaining risk:
+- Browser preview is still a static/metadata adapter rather than a full live DOM runtime. The next product-grade step is a real browser session adapter with lifecycle, navigation events, authenticated-browser options, and screenshot/DOM verification, while keeping those runtime details behind this workflow boundary.

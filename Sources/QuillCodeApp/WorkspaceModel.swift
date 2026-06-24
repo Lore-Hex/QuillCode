@@ -532,41 +532,33 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func openBrowserPreview(_ input: String? = nil, workspaceRoot: URL? = nil) -> Bool {
-        let rawValue = input ?? browser.addressDraft
-        guard let url = WorkspaceBrowserLocationResolver(workspaceRoot: workspaceRoot).resolve(rawValue) else {
-            browser.isVisible = true
-            browser.status = "Invalid address"
-            lastError = "Enter an http, https, file, localhost, or project file URL."
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-            return false
-        }
-
-        WorkspaceBrowserEngine.openPage(url, state: &browser, updateHistory: true)
-        lastError = nil
+        let opened = WorkspaceBrowserWorkflow.openPreview(
+            input,
+            workspaceRoot: workspaceRoot,
+            browser: &browser,
+            lastError: &lastError
+        )
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-        return true
+        return opened
     }
 
     @discardableResult
     public func goBackInBrowser() -> Bool {
-        guard WorkspaceBrowserEngine.goBack(state: &browser) else { return false }
-        lastError = nil
+        guard WorkspaceBrowserWorkflow.goBack(browser: &browser, lastError: &lastError) else { return false }
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
 
     @discardableResult
     public func goForwardInBrowser() -> Bool {
-        guard WorkspaceBrowserEngine.goForward(state: &browser) else { return false }
-        lastError = nil
+        guard WorkspaceBrowserWorkflow.goForward(browser: &browser, lastError: &lastError) else { return false }
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
 
     @discardableResult
     public func reloadBrowserPreview() -> Bool {
-        guard WorkspaceBrowserEngine.reload(state: &browser) else { return false }
-        lastError = nil
+        guard WorkspaceBrowserWorkflow.reload(browser: &browser, lastError: &lastError) else { return false }
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
@@ -584,28 +576,26 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func refreshBrowserSnapshot(pageFetcher: any BrowserPageFetching) async -> Bool {
-        guard let currentURL = browser.currentURL,
-              let url = URL(string: currentURL),
-              WorkspaceBrowserLocationResolver.canFetchSnapshot(for: url)
-        else {
-            return false
-        }
-
-        browser.status = "Fetching snapshot"
+        guard let request = WorkspaceBrowserWorkflow.beginSnapshotFetch(browser: &browser) else { return false }
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
 
         do {
-            let fetchedPage = try await pageFetcher.fetchHTML(from: url)
-            guard browser.currentURL == currentURL else { return false }
-
-            WorkspaceBrowserEngine.applyFetchedPage(fetchedPage, originalURL: url, state: &browser)
-            lastError = nil
+            let fetchedPage = try await pageFetcher.fetchHTML(from: request.fetchURL)
+            guard WorkspaceBrowserWorkflow.applySnapshotFetchSuccess(
+                fetchedPage,
+                request: request,
+                browser: &browser,
+                lastError: &lastError
+            ) else { return false }
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return true
         } catch {
-            guard browser.currentURL == currentURL else { return false }
-            WorkspaceBrowserEngine.markSnapshotFetchFailure(error, state: &browser)
-            lastError = nil
+            guard WorkspaceBrowserWorkflow.applySnapshotFetchFailure(
+                error,
+                request: request,
+                browser: &browser,
+                lastError: &lastError
+            ) else { return false }
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
             return false
         }
@@ -613,7 +603,7 @@ public final class QuillCodeWorkspaceModel {
 
     @discardableResult
     public func addBrowserComment(_ text: String) -> Bool {
-        WorkspaceBrowserEngine.addComment(text, state: &browser)
+        WorkspaceBrowserWorkflow.addComment(text, browser: &browser)
     }
 
     @discardableResult
