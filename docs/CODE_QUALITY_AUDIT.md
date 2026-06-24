@@ -4127,3 +4127,18 @@ What changed:
 
 Remaining risk:
 - `WorkspaceModel.handleSlashCommand` still owns the broad slash-command side-effect switch. That is acceptable while each branch delegates to focused planners/engines, but a future pass can split the switch into a small `WorkspaceSlashCommandExecutor` once more command families have similarly focused execution planners.
+
+## 2026-06-24 Desktop Command Planner Split
+
+Overall grade after this slice: **A desktop command-routing boundary, A controller readability, A parity guard**.
+
+`QuillCodeDesktopController.runCommand` still switched directly over command ID strings for native-only actions, Computer Use settings links, retry, stop, and workspace-command fallback. The controller should apply UI state and delegate platform work, not own the string vocabulary for every desktop command surface.
+
+What changed:
+- Added `QuillCodeDesktopCommandPlanner` to map `WorkspaceCommandSurface` IDs into typed `QuillCodeDesktopCommandAction` values.
+- Reduced `QuillCodeDesktopController.runCommand` to planner delegation plus typed action application.
+- Kept native-only Computer Use System Settings routing and workspace-command fallback behavior unchanged.
+- Added a desktop parity gate so raw command-ID routing does not drift back into the controller.
+
+Remaining risk:
+- The desktop controller still owns applying each typed command action because it owns SwiftUI presentation flags and model refresh sequencing. That is acceptable; if desktop workflows grow more platform-specific side effects, split those into coordinators the same way sign-in, settings, project import, copy feedback, and tasks are already split.
