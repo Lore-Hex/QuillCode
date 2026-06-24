@@ -20,7 +20,7 @@
 
 - Product and repository name: **QuillCode**.
 - License: Apache 2.0.
-- Default model: Nike 1.0 (`trustedrouter/fast`); Synth (`tr/synth`, `/synth`) is the next Recommended option and deterministic fallback, with Synth Code as `tr/synth-code`/`/synth-code`. Legacy `trustedrouter/fusion`, `tr/fusion`, `/fusion`, `fusion-code`, and `/fusion-code` inputs stay valid aliases, but new UI/config/slash-command surfaces prefer Synth naming.
+- Default model: Nike 1.0 (`trustedrouter/fast`); Synth (`tr/synth`, `/synth`) is the next Recommended option and deterministic fallback, with Synth Code (`tr/synth-code`, `/synth-code`) as the third bundled Recommended model for code-focused work. Legacy `trustedrouter/fusion`, `tr/fusion`, `/fusion`, `fusion-code`, and `/fusion-code` inputs stay valid aliases, but new UI/config/slash-command surfaces prefer Synth naming.
 - Auth: TrustedRouter OAuth first; hidden developer override for API key/base URL.
 - Tool modes: `Read-only`, `Review`, `Auto`; do not use the label `Full Access`.
 - Auto reviewer: primary `glm-5.2`, fallback `kimi-k2.6`.

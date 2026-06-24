@@ -20,7 +20,7 @@ public enum TrustedRouterDefaults {
     public static let synthSlashAlias = "/synth"
     public static let synthCodeSlashAlias = "/synth-code"
     public static let trustedRouterProviderAliases: [String: String] = ["tr": trustedRouterProvider]
-    public static let recommendedModelIDs = [fastModel, synthModel]
+    public static let recommendedModelIDs = [fastModel, synthModel, synthCodeModel]
     public static let modelIDAliases: [String: String] = [
         "tr/fast": fastModel,
         "tr/synth": synthModel,
@@ -47,6 +47,7 @@ public enum TrustedRouterDefaults {
     public static let bundledModelCatalog: [ModelInfo] = [
         .init(id: fastModel, provider: trustedRouterProvider, displayName: fastModelDisplayName, category: recommendedCategory),
         .init(id: synthModel, provider: trustedRouterProvider, displayName: synthModelDisplayName, category: recommendedCategory),
+        .init(id: synthCodeModel, provider: trustedRouterProvider, displayName: synthCodeModelDisplayName, category: recommendedCategory),
         .init(id: safetyPrimaryCatalogModel, provider: "z-ai", displayName: "GLM 5.2", category: safetyCategory),
         .init(id: safetyFallbackCatalogModel, provider: "moonshotai", displayName: "Kimi K2.6", category: safetyCategory)
     ]
