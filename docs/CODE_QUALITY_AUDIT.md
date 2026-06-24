@@ -3347,3 +3347,20 @@ Code quality changes:
 Remaining risk:
 
 - The MCP prober still handles optional `resources/list` and `prompts/list` retries inline. That is acceptable while probe behavior is simple; if MCP capability probing grows pagination, caching, or partial-failure reporting, move optional list orchestration into a small capability collector.
+
+## 2026-06-24 Sidebar Thread List Builder Split
+
+Overall grade after this slice: **A+ sidebar DTO focus, A+ shared list derivation, A regression guard**.
+
+`QuillCodeSidebarSurface.swift` still owned both stable sidebar DTO contracts and the derived behavior for search filtering, pinned/recent/archived partitioning, and relative date bucket sectioning. That behavior is shared by native SwiftUI, static HTML, and search dialogs, so it should be easy to test without making the DTO file the landing zone for future sidebar algorithms.
+
+Code quality changes:
+
+- Added `QuillCodeSidebarThreadListBuilder.swift` for query filtering, pinned/recent/archived lists, recent date bucket grouping, and newest-first row sorting inside each bucket.
+- Kept the public `SidebarSurface.filteredItems`, `pinnedItems`, `recentItems`, `recentSections`, and `archivedItems` API stable by delegating to the builder.
+- Removed `SidebarThreadDateBucket` from the aggregate sidebar surface file.
+- Added a parity gate so list derivation and date bucketing cannot drift back into `QuillCodeSidebarSurface.swift`.
+
+Remaining risk:
+
+- `QuillCodeSidebarView.swift` still builds bulk-action `WorkspaceCommandSurface` values in two local helpers. That duplication is small, but the next sidebar UI pass should extract a tiny command adapter before adding more selection actions.
