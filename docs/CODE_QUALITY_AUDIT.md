@@ -47,6 +47,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 - Kept `trustedrouter/fast` stable and moved the fallback model to preferred `/synth`/`tr/synth` while preserving `trustedrouter/fusion`, `tr/fusion`, `/fusion`, `fusion-code`, and `/fusion-code` legacy aliases. User-facing model surfaces brand the defaults as **Nike 1.0** and **Synth**.
 - Promoted Synth Code (`/synth-code`, `tr/synth-code`) into the bundled Recommended catalog so the preferred code model is visible offline instead of only working as a hidden alias.
+- Added explicit catalog-normalization regression coverage so live or persisted legacy Fusion rows dedupe into Synth/Synth Code and do not reappear as user-facing picker rows.
 - Centralized the branded default names in `TrustedRouterDefaults`, with tests proving canonical IDs and display names separately.
 - Removed dead provider plumbing from model metadata summary generation.
 - Refactored model-category construction to compute favorite IDs once and pass a `Set` through option building instead of recomputing favorites for every model.
