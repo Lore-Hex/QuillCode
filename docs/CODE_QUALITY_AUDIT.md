@@ -2728,3 +2728,21 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelTests.swift` still owns review-action, composer/tool-card, and broad runtime/project lifecycle flows. Those remain the next best extraction candidates.
+
+## 2026-06-24 Workspace Review Integration Test Pass
+
+Overall grade after this slice: **A feature grouping, A fixture DRYness, A regression guard**.
+
+Review and diff integration tests moved from `WorkspaceModelTests.swift` into `WorkspaceReviewIntegrationTests`. The model test file no longer owns apply-patch review refresh, local/SSH Remote review stage and restore actions, hunk staging, or review comment event/surface integration.
+
+Code quality changes:
+
+- Added `WorkspaceReviewIntegrationTests` for review flows crossing workspace model, git tools, SSH Remote execution, tool cards, review surfaces, and transcript events.
+- Centralized repeated local and SSH Remote git-review fixture setup inside the focused review suite.
+- Kept pure review comment planning and lower-level git command construction in their existing focused unit tests.
+- Added a parity gate that keeps model-level review integration method names out of `WorkspaceModelTests.swift`.
+- Reduced `WorkspaceModelTests.swift` without weakening review behavior coverage.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still large. Composer send/cancel flows, bootstrap/config, project/worktree command groups, and approval-card behavior remain future extraction candidates.

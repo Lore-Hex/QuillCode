@@ -948,6 +948,22 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("testComposerCanInspectCurrentBrowserPage"), "WorkspaceModelTests should not own composer browser inspection integration flows.")
     }
 
+    func testWorkspaceReviewIntegrationTestsOwnModelReviewFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let reviewIntegrationTests = try Self.appTestSourceText(named: "WorkspaceReviewIntegrationTests.swift")
+
+        XCTAssertTrue(reviewIntegrationTests.contains("testApplyPatchToolRunRefreshesReviewDiff"), "Apply-patch diff refresh integration should live in focused review integration tests.")
+        XCTAssertTrue(reviewIntegrationTests.contains("testRunReviewStageActionStagesFileAndRefreshesDiff"), "Local review stage integration should live in focused review integration tests.")
+        XCTAssertTrue(reviewIntegrationTests.contains("testRemoteProjectReviewStageActionRunsThroughSSHAndRefreshesDiff"), "Remote review stage integration should live in focused review integration tests.")
+        XCTAssertTrue(reviewIntegrationTests.contains("testAddReviewCommentAppendsThreadEventForVisibleDiffFile"), "Review comment integration should live in focused review integration tests.")
+        XCTAssertTrue(reviewIntegrationTests.contains("testRunReviewStageHunkActionStagesPatchAndRefreshesDiff"), "Review hunk integration should live in focused review integration tests.")
+        XCTAssertFalse(modelTests.contains("testApplyPatchToolRunRefreshesReviewDiff"), "WorkspaceModelTests should not own apply-patch review diff refresh integration flows.")
+        XCTAssertFalse(modelTests.contains("testRunReviewStageActionStagesFileAndRefreshesDiff"), "WorkspaceModelTests should not own local review stage integration flows.")
+        XCTAssertFalse(modelTests.contains("testRemoteProjectReviewStageActionRunsThroughSSHAndRefreshesDiff"), "WorkspaceModelTests should not own remote review stage integration flows.")
+        XCTAssertFalse(modelTests.contains("testAddReviewCommentAppendsThreadEventForVisibleDiffFile"), "WorkspaceModelTests should not own review comment integration flows.")
+        XCTAssertFalse(modelTests.contains("testRunReviewStageHunkActionStagesPatchAndRefreshesDiff"), "WorkspaceModelTests should not own review hunk integration flows.")
+    }
+
     func testWorkspaceSlashCommandIntegrationTestsOwnCoreSlashFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let slashIntegrationTests = try Self.appTestSourceText(named: "WorkspaceSlashCommandIntegrationTests.swift")
