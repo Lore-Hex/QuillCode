@@ -3076,3 +3076,22 @@ Code quality changes:
 Remaining risk:
 
 - `QuillCodeToolArtifactSurface.swift` is intentionally cohesive but still algorithm-heavy. If artifact support expands to PDFs, generated previews, or async metadata, split text preview extraction and document-kind classification into dedicated helpers before adding new artifact formats.
+
+## 2026-06-24 Workspace Command Surface Catalog Pass
+
+Overall grade after this slice: **A+ command composition, A+ family ownership, A+ regression guard**.
+
+`WorkspaceCommandSurfaceBuilder.swift` was still a 597-line mixed catalog after earlier extraction from `WorkspaceSurface`: it composed command rows, owned static thread/navigation/workspace/git/control rows, and also derived project-specific rows for local actions, MCP lifecycle, and extension updates. The builder now acts as a composition layer and each command family owns its own rows and availability contract.
+
+Code quality changes:
+
+- Reduced `WorkspaceCommandSurfaceBuilder.swift` to a 107-line composer that derives selected context and calls focused command catalogs.
+- Added `WorkspaceThreadCommandCatalog` and `WorkspaceThreadCommandAvailability` so thread/sidebar command enablement is a value boundary instead of scattered booleans.
+- Added `WorkspaceGitCommandCatalog` for Git, PR, and worktree command rows.
+- Added `WorkspaceProjectCommandCatalog` for project-derived local action, MCP lifecycle, and extension update rows plus their keyword derivation.
+- Kept navigation/workspace/automation/memory/control/Computer Use rows in `WorkspaceCommandStaticCatalog`, which has no selected project or thread model dependency.
+- Expanded the parity gate so new command families stay out of the aggregate workspace surface and out of the command builder.
+
+Remaining risk:
+
+- `WorkspaceCommandStaticCatalog.swift` is intentionally a small static catalog. If Browser, Automations, or Computer Use command sets grow richer, split those families into their own catalogs before adding runtime-specific branching there.
