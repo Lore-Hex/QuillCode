@@ -2486,3 +2486,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelTests.swift` is still too large at roughly 5.2k lines. The next test-quality pass should continue moving feature-specific integration groups into files named after their owning workspace engine or surface.
+
+## 2026-06-24 Workspace Memory Integration Test Pass
+
+Overall grade after this slice: **A feature grouping, A behavior preservation, A regression guard**.
+
+Memory integration tests moved from the workspace-model monolith into `WorkspaceMemoryIntegrationTests`. The model test file no longer owns global/project memory loading, slash remember, agent memory tool execution, credential-like memory rejection, memory deletion, or memory-add command coverage.
+
+Code quality changes:
+
+- Added `WorkspaceMemoryIntegrationTests` as the home for memory flows that cross workspace model, memory loaders, tool cards, transcript events, and surfaces.
+- Reused shared temp-directory support so moved tests clean up after themselves.
+- Added a parity gate that keeps memory integration method names out of `WorkspaceModelTests.swift`.
+- Reduced `WorkspaceModelTests.swift` from roughly 5.2k lines to roughly 5.0k lines without weakening coverage.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still the largest test file. MCP lifecycle and project extension command integration are now the clearest remaining feature groups to extract.
