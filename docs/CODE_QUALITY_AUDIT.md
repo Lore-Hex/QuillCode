@@ -4819,3 +4819,21 @@ Current strict grades:
 
 Remaining risk:
 - Configuration, retry, context resolving, MCP, and tool execution model gates still live in the catch-all. Continue extracting those by domain before adding more Codex-parity surface checks.
+
+## 2026-06-24 Workspace Model Gate Drain
+
+Overall grade after this slice: **A focused workspace-model gate ownership, A- suite maintainability, B+ catch-all size**.
+
+After the thread split, the catch-all parity suite still owned the next contiguous model-boundary cluster: configuration, focused configuration integration ownership, retry, activity, status, context lookup, thread notice mutation, and agent-run update gates. That still made the broad suite a merge-conflict hotspot for parallel agents working near `WorkspaceModel` boundaries.
+
+What changed:
+- Moved the remaining contiguous workspace-model boundary cluster into `ParityWorkspaceModelGateTests`.
+- Converted the top-level focused-suite guard to a table-driven check so future moved tests can be registered without another repeated assertion block.
+- Added explicit drift guards for the moved workspace-model checks.
+
+Current strict grades:
+- `ParityWorkspaceModelGateTests.swift`: **A-**. The file now owns the first large set of workspace-model boundary checks, but should later split again by project/thread/config/activity once it gets too large.
+- `ParityGateTests.swift`: **B+**. The catch-all is substantially smaller and more DRY, but it still owns later workspace-model gates for composer, slash commands, runtime, automation, worktrees, MCP, and execution overrides.
+
+Remaining risk:
+- Continue draining `ParityGateTests.swift` by feature family. The next clean split should move composer/send-session/tool-execution gates to a dedicated workspace execution gate suite.
