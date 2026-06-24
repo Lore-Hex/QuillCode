@@ -4234,3 +4234,18 @@ Immediate A+ path:
 3. Harden `QuillSecretStore` fallback with restrictive permissions and an encrypted-file adapter; keep app code on the single secret-store API.
 4. Replace growing safety string heuristics with typed tool-intent categories and table-driven approval policy tests.
 5. Keep implementing true Codex parity, not just shell surfaces: PTY job control, real browser rendering/live DOM, Linux Computer Use backend, richer memory editing/redaction, and QuillCloud/remote project execution.
+
+## 2026-06-24 File Secret Store Hardening
+
+Overall grade after this slice: **A- fallback secret-store hygiene, A call-site boundary, A regression coverage**.
+
+The fallback `FileSecretStore` was intentionally small, but it wrote plain UTF-8 files without setting restrictive directory or file permissions. That was acceptable for early CLI/dev smoke tests, but not good enough for a public coding agent that stores TrustedRouter delegated keys through one `QuillSecretStore` API.
+
+What changed:
+- `FileSecretStore.write` now prepares the secret directory with `0700` permissions and resets existing broader permissions.
+- Written secret files are forced to `0600` after the atomic write.
+- Secret keys are sanitized to a single filename component using only ASCII letters, digits, `.`, `_`, and `-`, so odd keys cannot create nested/path-like filenames.
+- Persistence tests now prove round-trip behavior, private directory permissions, private file permissions, and single-file key sanitization.
+
+Remaining risk:
+- This is still a fallback/dev backend, not the final platform backend. The A+ path remains adding Apple Keychain, Linux Secret Service/libsecret, and encrypted-file fallback adapters behind the existing `QuillSecretStore` protocol.
