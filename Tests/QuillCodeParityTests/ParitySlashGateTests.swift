@@ -68,6 +68,20 @@ final class ParitySlashGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(slashText.contains("Usage: /mode auto"), "Outer slash parser should not own mode usage copy.")
     }
 
+    func testSlashParserDelegatesModelSubcommands() throws {
+        let slashText = try Self.appSourceText(named: "SlashCommand.swift")
+        let modelParserText = try Self.appSourceText(named: "SlashModelCommandParser.swift")
+        let modelParserTests = try Self.appTestSourceText(named: "SlashModelCommandParserTests.swift")
+
+        XCTAssertTrue(slashText.contains("SlashModelCommandParser.parse(argument)"), "Outer slash parser should delegate model arguments.")
+        XCTAssertTrue(modelParserText.contains("enum SlashModelCommandParser"), "Model slash parsing should live in a focused parser.")
+        XCTAssertTrue(modelParserText.contains("Usage: /model /synth"), "Model usage copy should live with model parser semantics.")
+        XCTAssertTrue(modelParserTests.contains("testModelParsingTrimsModelArgument"), "Model argument trimming should have focused parser coverage.")
+        XCTAssertTrue(modelParserTests.contains("testTopLevelModelCommandDelegatesToModelParser"), "Top-level model command delegation should have focused parser coverage.")
+        XCTAssertFalse(slashText.contains(".model(argument)"), "Outer slash parser should not build model commands inline.")
+        XCTAssertFalse(slashText.contains("Usage: /model /synth"), "Outer slash parser should not own model usage copy.")
+    }
+
     func testSlashParserDelegatesSchedulingSubcommands() throws {
         let slashText = try Self.appSourceText(named: "SlashCommand.swift")
         let schedulingParserText = try Self.appSourceText(named: "SlashSchedulingCommandParser.swift")

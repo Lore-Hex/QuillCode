@@ -76,10 +76,7 @@ enum SlashCommandParser {
         case "mode":
             return SlashModeCommandParser.parse(argument)
         case "model":
-            guard !argument.isEmpty else {
-                return .invalid("Usage: /model /synth or /model provider/model")
-            }
-            return .model(argument)
+            return SlashModelCommandParser.parse(argument)
         default:
             return .unknown(name)
         }
