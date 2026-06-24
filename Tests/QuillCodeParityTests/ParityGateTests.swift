@@ -1616,23 +1616,27 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(shellText.contains("QuillCodeToolCardView"), "Workspace shell should not own tool-card timeline placement.")
     }
 
-    func testNativeReviewPaneUsesFocusedRowFiles() throws {
+    func testNativeReviewPaneDelegatesFileHunkAndLineRendering() throws {
         let paneText = try Self.appSourceText(named: "QuillCodeReviewPaneView.swift")
         let fileRowText = try Self.appSourceText(named: "QuillCodeReviewFileRowView.swift")
-        let lineRowText = try Self.appSourceText(named: "QuillCodeReviewLineRowView.swift")
+        let hunkText = try Self.appSourceText(named: "QuillCodeReviewHunkView.swift")
+        let lineText = try Self.appSourceText(named: "QuillCodeReviewLineRowView.swift")
+        let actionText = try Self.appSourceText(named: "QuillCodeReviewActionButton.swift")
 
         XCTAssertTrue(paneText.contains("struct QuillCodeReviewPaneView"), "Review pane shell should remain a focused root view.")
-        XCTAssertTrue(paneText.contains("QuillCodeReviewFileRowView"), "Review pane shell should compose the focused file-row view.")
-        XCTAssertTrue(fileRowText.contains("struct QuillCodeReviewFileRowView"), "Review file rows should live in a focused file.")
-        XCTAssertTrue(fileRowText.contains("QuillCodeReviewHunkView"), "Review hunk rows should live beside file-row rendering.")
-        XCTAssertTrue(fileRowText.contains("QuillCodeReviewActionButton"), "Review action buttons should live beside file and hunk row rendering.")
-        XCTAssertTrue(fileRowText.contains("QuillCodeReviewLineRowView"), "Review hunk rendering should compose the focused line-row view.")
-        XCTAssertTrue(lineRowText.contains("struct QuillCodeReviewLineRowView"), "Review line rows should live in a focused file.")
-        XCTAssertTrue(lineRowText.contains("markerColor"), "Line marker styling should live beside line-row rendering.")
-        XCTAssertTrue(lineRowText.contains("lineBackground"), "Line background styling should live beside line-row rendering.")
-        XCTAssertFalse(paneText.contains("struct QuillCodeReviewHunkView"), "Review pane shell should not own hunk rendering.")
-        XCTAssertFalse(paneText.contains("struct QuillCodeReviewLineRowView"), "Review pane shell should not own line rendering.")
-        XCTAssertFalse(paneText.contains("struct QuillCodeReviewActionButton"), "Review pane shell should not own row action controls.")
+        XCTAssertTrue(paneText.contains("QuillCodeReviewFileRowView("), "Native review pane should compose focused file-row rendering.")
+        XCTAssertTrue(fileRowText.contains("struct QuillCodeReviewFileRowView"), "Review file-row rendering should live in a focused file.")
+        XCTAssertTrue(fileRowText.contains("QuillCodeReviewHunkView("), "Review file rows should delegate hunk rendering.")
+        XCTAssertTrue(hunkText.contains("struct QuillCodeReviewHunkView"), "Review hunk rendering should live in a focused file.")
+        XCTAssertTrue(hunkText.contains("QuillCodeReviewLineRowView("), "Review hunk rows should delegate line rendering.")
+        XCTAssertTrue(lineText.contains("struct QuillCodeReviewLineRowView"), "Review line rendering should live in a focused file.")
+        XCTAssertTrue(lineText.contains("markerColor"), "Line marker styling should live beside line-row rendering.")
+        XCTAssertTrue(lineText.contains("lineBackground"), "Line background styling should live beside line-row rendering.")
+        XCTAssertTrue(actionText.contains("struct QuillCodeReviewActionButton"), "Review action buttons should live in a focused file.")
+        XCTAssertFalse(paneText.contains("struct QuillCodeReviewFileRowView"), "Native review pane should not own file-row rendering.")
+        XCTAssertFalse(paneText.contains("struct QuillCodeReviewHunkView"), "Native review pane should not own hunk rendering.")
+        XCTAssertFalse(paneText.contains("struct QuillCodeReviewLineRowView"), "Native review pane should not own line rendering.")
+        XCTAssertFalse(paneText.contains("struct QuillCodeReviewActionButton"), "Native review pane should not own action-button rendering.")
     }
 
     func testWorkspaceSwiftUIViewDelegatesSheetPresentation() throws {

@@ -75,6 +75,23 @@ Remaining risk:
 
 - `WorkspaceModel` is still large because it is the app coordinator. The next A+ slices should keep extracting project/context refresh, slash-command dispatch, and tool-run orchestration into directly testable helpers.
 
+## 2026-06-24 Native Review Hunk And Action Split
+
+Overall grade after this slice: **A review hunk boundary, A action-button ownership, A regression coverage**.
+
+After the native review row split, `QuillCodeReviewFileRowView.swift` still owned hunk rows, range comment composer state, hunk-to-line composition, and the shared action button. That was a reasonable first extraction, but hunk controls are the next place likely to grow as Codex-style review workflows add richer range notes, hunk staging, keyboard navigation, and action affordances.
+
+What changed:
+
+- Kept `QuillCodeReviewFileRowView.swift` focused on file-level header, hunk-list placement, file notes, and file comments.
+- Added focused native files for review hunk rows and review action buttons.
+- Preserved existing minimum hit targets, monospaced diff text, tabular numeric labels, and comment composers.
+- Strengthened the parity gate so hunk rendering and action-button controls stay out of the root review pane and file-row shell.
+
+Remaining risk:
+
+- Line and range comment composers are still local `@State` views. That is acceptable while comments are lightweight, but richer Codex-style draft persistence or keyboard navigation should move composer state into a focused reducer instead of expanding the row views.
+
 ## 2026-06-24 Thread Persistence Helper Pass
 
 Overall grade after this slice: **A thread-persistence boundary, A non-fatal persistence semantics, A regression guard**.
