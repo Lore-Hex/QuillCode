@@ -81,72 +81,6 @@ public enum MCPProbeError: LocalizedError, Equatable {
     }
 }
 
-public enum MCPStdioMessageCodec {
-    public static let maxMessageBytes = 5_000_000
-
-    public static func encodeJSONObject(_ object: [String: Any]) throws -> Data {
-        let body = try JSONSerialization.data(withJSONObject: object, options: [])
-        let header = "Content-Length: \(body.count)\r\n\r\n"
-        var data = Data(header.utf8)
-        data.append(body)
-        return data
-    }
-
-    public static func nextMessageData(from buffer: inout Data) throws -> Data? {
-        let separator = Data("\r\n\r\n".utf8)
-        guard let headerRange = buffer.range(of: separator) else {
-            return nil
-        }
-
-        let headerData = buffer.subdata(in: buffer.startIndex..<headerRange.lowerBound)
-        guard let header = String(data: headerData, encoding: .utf8) else {
-            throw MCPProbeError.invalidMessage("MCP message header is not UTF-8.")
-        }
-        let contentLength = try contentLength(from: header)
-        guard contentLength <= maxMessageBytes else {
-            throw MCPProbeError.invalidMessage("MCP message exceeded \(maxMessageBytes) bytes.")
-        }
-
-        let bodyStart = headerRange.upperBound
-        let bodyEnd = bodyStart + contentLength
-        guard buffer.count >= bodyEnd else {
-            return nil
-        }
-
-        let message = buffer.subdata(in: bodyStart..<bodyEnd)
-        buffer.removeSubrange(buffer.startIndex..<bodyEnd)
-        return message
-    }
-
-    public static func decodeJSONObject(_ data: Data) throws -> [String: Any] {
-        let object = try JSONSerialization.jsonObject(with: data, options: [])
-        guard let dictionary = object as? [String: Any] else {
-            throw MCPProbeError.invalidMessage("MCP message body is not a JSON object.")
-        }
-        return dictionary
-    }
-
-    private static func contentLength(from header: String) throws -> Int {
-        for line in header.components(separatedBy: "\r\n") {
-            let parts = line.split(separator: ":", maxSplits: 1).map {
-                $0.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-            guard parts.count == 2,
-                  parts[0].lowercased() == "content-length"
-            else {
-                continue
-            }
-            guard let length = Int(parts[1]),
-                  length >= 0
-            else {
-                break
-            }
-            return length
-        }
-        throw MCPProbeError.invalidMessage("MCP message is missing a valid Content-Length header.")
-    }
-}
-
 public final class MCPStdioProber: @unchecked Sendable {
     private let standardInput: FileHandle
     private let standardOutput: FileHandle
@@ -184,7 +118,7 @@ public final class MCPStdioProber: @unchecked Sendable {
         let toolsList = try readResponse(id: toolsListID, deadline: deadline)
         let toolsResult = try resultDictionary(from: toolsList)
         let tools = (toolsResult["tools"] as? [[String: Any]]) ?? []
-        let toolDescriptors = Self.toolDescriptors(from: tools)
+        let toolDescriptors = MCPStdioResultMapper.toolDescriptors(from: tools)
 
         let capabilities = initializeResult["capabilities"] as? [String: Any]
         let resources = capabilities?["resources"] == nil
@@ -223,7 +157,7 @@ public final class MCPStdioProber: @unchecked Sendable {
         guard !toolName.isEmpty else {
             return ToolResult(ok: false, error: "MCP tool name is required.")
         }
-        let arguments = try Self.argumentsObject(from: argumentsJSON)
+        let arguments = try MCPStdioResultMapper.argumentsObject(from: argumentsJSON)
         let requestID = nextID()
         try write(method: "tools/call", id: requestID, params: [
             "name": toolName,
@@ -231,7 +165,7 @@ public final class MCPStdioProber: @unchecked Sendable {
         ])
         let response = try readResponse(id: requestID, deadline: Date().addingTimeInterval(timeout))
         let result = try resultDictionary(from: response)
-        return Self.toolResult(from: result)
+        return MCPStdioResultMapper.toolResult(from: result)
     }
 
     public func readResource(
@@ -250,7 +184,7 @@ public final class MCPStdioProber: @unchecked Sendable {
         try write(method: "resources/read", id: requestID, params: ["uri": uri])
         let response = try readResponse(id: requestID, deadline: Date().addingTimeInterval(timeout))
         let result = try resultDictionary(from: response)
-        return Self.resourceResult(from: result, uri: uri)
+        return MCPStdioResultMapper.resourceResult(from: result, uri: uri)
     }
 
     public func getPrompt(
@@ -265,7 +199,7 @@ public final class MCPStdioProber: @unchecked Sendable {
         guard !name.isEmpty else {
             return ToolResult(ok: false, error: "MCP prompt name is required.")
         }
-        let arguments = try Self.argumentsObject(from: argumentsJSON)
+        let arguments = try MCPStdioResultMapper.argumentsObject(from: argumentsJSON)
         let requestID = nextID()
         try write(method: "prompts/get", id: requestID, params: [
             "name": name,
@@ -273,7 +207,7 @@ public final class MCPStdioProber: @unchecked Sendable {
         ])
         let response = try readResponse(id: requestID, deadline: Date().addingTimeInterval(timeout))
         let result = try resultDictionary(from: response)
-        return Self.promptResult(from: result, name: name)
+        return MCPStdioResultMapper.promptResult(from: result, name: name)
     }
 
     private func nextID() -> Int {
@@ -354,146 +288,26 @@ public final class MCPStdioProber: @unchecked Sendable {
             try write(method: method, id: requestID, params: [:])
             let response = try readResponse(id: requestID, deadline: deadline)
             let result = try resultDictionary(from: response)
-            let entries = (result[resultKey] as? [[String: Any]]) ?? []
-            return entries.compactMap { entry in
-                firstNonEmptyString(in: entry, keys: nameKeys)
-            }
+            return MCPStdioResultMapper.names(
+                from: result,
+                resultKey: resultKey,
+                nameKeys: nameKeys
+            )
         } catch {
             return []
         }
     }
 
-    private struct ResourceListEntry {
-        var displayName: String
-        var uri: String
-    }
-
-    private func optionalResourceList(deadline: Date) -> [ResourceListEntry] {
+    private func optionalResourceList(deadline: Date) -> [MCPStdioResultMapper.ResourceListEntry] {
         do {
             let requestID = nextID()
             try write(method: "resources/list", id: requestID, params: [:])
             let response = try readResponse(id: requestID, deadline: deadline)
             let result = try resultDictionary(from: response)
-            let entries = (result["resources"] as? [[String: Any]]) ?? []
-            return entries.compactMap { entry in
-                guard let uri = firstNonEmptyString(in: entry, keys: ["uri"]) else { return nil }
-                let displayName = firstNonEmptyString(in: entry, keys: ["name"]) ?? uri
-                return ResourceListEntry(displayName: displayName, uri: uri)
-            }
+            return MCPStdioResultMapper.resourceList(from: result)
         } catch {
             return []
         }
-    }
-
-    private func firstNonEmptyString(in entry: [String: Any], keys: [String]) -> String? {
-        for key in keys {
-            let value = (entry[key] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let value, !value.isEmpty {
-                return value
-            }
-        }
-        return nil
-    }
-
-    private static func toolDescriptors(from tools: [[String: Any]]) -> [MCPToolDescriptor] {
-        tools.compactMap { tool in
-            guard let name = (tool["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !name.isEmpty
-            else {
-                return nil
-            }
-            let description = (tool["description"] as? String)?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let schema = (tool["inputSchema"] as? [String: Any])
-                ?? (tool["input_schema"] as? [String: Any])
-            let arguments = schemaArguments(from: schema)
-            return MCPToolDescriptor(
-                name: name,
-                description: description,
-                requiredArguments: arguments.required,
-                optionalArguments: arguments.optional,
-                schemaSummary: arguments.summary
-            )
-        }
-    }
-
-    private static func schemaArguments(from schema: [String: Any]?) -> (
-        required: [String],
-        optional: [String],
-        summary: String
-    ) {
-        guard let schema else { return ([], [], "") }
-        let requiredNames = ((schema["required"] as? [String]) ?? [])
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        let requiredSet = Set(requiredNames)
-        let properties = (schema["properties"] as? [String: Any]) ?? [:]
-        let propertySummaries = properties
-            .compactMap { name, value -> (name: String, summary: String, isRequired: Bool)? in
-                let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { return nil }
-                return (
-                    name: trimmed,
-                    summary: "\(trimmed):\(schemaTypeLabel(from: value))",
-                    isRequired: requiredSet.contains(trimmed)
-                )
-            }
-
-        let required = propertySummaries
-            .filter(\.isRequired)
-            .sorted { $0.name < $1.name }
-        let optional = propertySummaries
-            .filter { !$0.isRequired }
-            .sorted { $0.name < $1.name }
-        let missingRequired = requiredNames
-            .filter { name in !propertySummaries.contains { $0.name == name } }
-            .sorted()
-            .map { (name: $0, summary: "\($0):any", isRequired: true) }
-
-        let requiredSummaries = (required + missingRequired).map(\.summary)
-        let optionalSummaries = optional.map(\.summary)
-        var parts: [String] = []
-        if !requiredSummaries.isEmpty {
-            parts.append("required: \(boundedSchemaList(requiredSummaries))")
-        }
-        if !optionalSummaries.isEmpty {
-            parts.append("optional: \(boundedSchemaList(optionalSummaries))")
-        }
-        return (
-            required: (required.map(\.name) + missingRequired.map(\.name)),
-            optional: optional.map(\.name),
-            summary: parts.joined(separator: "; ")
-        )
-    }
-
-    private static func schemaTypeLabel(from value: Any) -> String {
-        guard let property = value as? [String: Any] else { return "any" }
-        if let type = property["type"] as? String,
-           !type.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return type.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        if let types = property["type"] as? [String],
-           let type = types.first(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
-            return type.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        if property["enum"] != nil {
-            return "enum"
-        }
-        if property["items"] != nil {
-            return "array"
-        }
-        if property["properties"] != nil {
-            return "object"
-        }
-        return "any"
-    }
-
-    private static func boundedSchemaList(_ summaries: [String]) -> String {
-        let visible = summaries.prefix(5)
-        let remaining = summaries.count - visible.count
-        let joined = visible.joined(separator: ", ")
-        guard remaining > 0 else { return joined }
-        return "\(joined), +\(remaining) more"
     }
 
     private func readAvailableData(timeout: TimeInterval) throws -> Data? {
@@ -519,106 +333,6 @@ public final class MCPStdioProber: @unchecked Sendable {
         return Data(bytes.prefix(byteCount))
     }
 
-    private static func argumentsObject(from json: String) throws -> [String: Any] {
-        let trimmed = json.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return [:] }
-        guard let data = trimmed.data(using: .utf8),
-              let object = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
-        else {
-            throw MCPProbeError.invalidMessage("MCP tool arguments must be a JSON object.")
-        }
-        return object
-    }
-
-    private static func toolResult(from result: [String: Any]) -> ToolResult {
-        let isError = (result["isError"] as? Bool) ?? false
-        let content = (result["content"] as? [[String: Any]]) ?? []
-        let text = content
-            .compactMap { item -> String? in
-                if let text = item["text"] as? String {
-                    return text
-                }
-                if let data = try? JSONSerialization.data(withJSONObject: item, options: [.sortedKeys]) {
-                    return String(decoding: data, as: UTF8.self)
-                }
-                return nil
-            }
-            .joined(separator: "\n")
-        if isError {
-            return ToolResult(ok: false, stderr: text, error: text.isEmpty ? "MCP tool returned an error." : text)
-        }
-        if !text.isEmpty {
-            return ToolResult(ok: true, stdout: text)
-        }
-        if let data = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {
-            return ToolResult(ok: true, stdout: String(decoding: data, as: UTF8.self))
-        }
-        return ToolResult(ok: true)
-    }
-
-    private static func resourceResult(from result: [String: Any], uri: String) -> ToolResult {
-        let contents = (result["contents"] as? [[String: Any]]) ?? []
-        let text = contents
-            .compactMap { item -> String? in
-                if let text = item["text"] as? String {
-                    return text
-                }
-                if let blob = item["blob"] as? String {
-                    let itemURI = item["uri"] as? String ?? uri
-                    let mimeType = item["mimeType"] as? String ?? "binary"
-                    return "[\(itemURI) \(mimeType) blob, \(blob.count) base64 characters]"
-                }
-                if let data = try? JSONSerialization.data(withJSONObject: item, options: [.sortedKeys]) {
-                    return String(decoding: data, as: UTF8.self)
-                }
-                return nil
-            }
-            .joined(separator: "\n")
-        if !text.isEmpty {
-            return ToolResult(ok: true, stdout: text, artifacts: [uri])
-        }
-        if let data = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {
-            return ToolResult(ok: true, stdout: String(decoding: data, as: UTF8.self), artifacts: [uri])
-        }
-        return ToolResult(ok: true, artifacts: [uri])
-    }
-
-    private static func promptResult(from result: [String: Any], name: String) -> ToolResult {
-        var lines: [String] = ["Prompt: \(name)"]
-        if let description = (result["description"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !description.isEmpty {
-            lines.append("Description: \(description)")
-        }
-        let messages = (result["messages"] as? [[String: Any]]) ?? []
-        for message in messages {
-            let role = (message["role"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "message"
-            let content = promptMessageContent(from: message["content"])
-            guard !content.isEmpty else { continue }
-            lines.append("\(role): \(content)")
-        }
-        if lines.count > 1 {
-            return ToolResult(ok: true, stdout: lines.joined(separator: "\n"))
-        }
-        if let data = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {
-            return ToolResult(ok: true, stdout: String(decoding: data, as: UTF8.self))
-        }
-        return ToolResult(ok: true)
-    }
-
-    private static func promptMessageContent(from value: Any?) -> String {
-        if let text = value as? String {
-            return text.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        if let object = value as? [String: Any] {
-            if let text = object["text"] as? String {
-                return text.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-            if let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]) {
-                return String(decoding: data, as: UTF8.self)
-            }
-        }
-        return ""
-    }
 }
 
 public extension ToolDefinition {

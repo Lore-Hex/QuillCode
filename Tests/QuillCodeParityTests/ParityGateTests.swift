@@ -1533,6 +1533,23 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(mcpRuntimeText.contains("func readyPromptDescriptions"), "MCP runtime should not format MCP prompt descriptions directly.")
     }
 
+    func testMCPStdioProberDelegatesCodecAndResultMapping() throws {
+        let proberText = try Self.toolsSourceText(named: "MCPStdioProber.swift")
+        let codecText = try Self.toolsSourceText(named: "MCPStdioMessageCodec.swift")
+        let mapperText = try Self.toolsSourceText(named: "MCPStdioResultMapper.swift")
+
+        XCTAssertTrue(proberText.contains("public final class MCPStdioProber"), "MCP stdio session orchestration should remain in the prober.")
+        XCTAssertTrue(codecText.contains("public enum MCPStdioMessageCodec"), "MCP Content-Length framing should live in a focused codec.")
+        XCTAssertTrue(mapperText.contains("enum MCPStdioResultMapper"), "MCP result mapping should live in a focused mapper.")
+        XCTAssertTrue(proberText.contains("MCPStdioMessageCodec.encodeJSONObject"), "MCP prober should delegate outbound framing to the codec.")
+        XCTAssertTrue(proberText.contains("MCPStdioResultMapper.toolDescriptors"), "MCP prober should delegate tool schema summaries to the mapper.")
+        XCTAssertTrue(proberText.contains("MCPStdioResultMapper.toolResult"), "MCP prober should delegate tool result formatting to the mapper.")
+        XCTAssertFalse(proberText.contains("public enum MCPStdioMessageCodec"), "MCP prober should not own stdio frame parsing.")
+        XCTAssertFalse(proberText.contains("private static func schemaArguments"), "MCP prober should not own JSON schema summary formatting.")
+        XCTAssertFalse(proberText.contains("private static func toolResult"), "MCP prober should not own ToolResult conversion.")
+        XCTAssertFalse(proberText.contains("private static func promptMessageContent"), "MCP prober should not own prompt content flattening.")
+    }
+
     func testWorkspaceSurfaceDelegatesRuntimeIssueBuilding() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceRuntimeIssueBuilder.swift")
