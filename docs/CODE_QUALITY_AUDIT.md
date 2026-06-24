@@ -4005,3 +4005,18 @@ What changed:
 
 Remaining risk:
 - `WorkspaceModel.swift` is still the largest production app file because it coordinates project, thread, browser, terminal, automation, and tool state. Continue extracting pure planners/engines at behavior boundaries, especially where another helper already owns the detailed semantics.
+
+## 2026-06-24 SSH Remote Slash Parser Split
+
+Overall grade after this slice: **A+ SSH Remote slash ownership, A+ remote usage copy, A outer parser boundary**.
+
+`SlashCommand.swift` still owned `/ssh` and `/remote` argument validation plus user-facing remote-project usage copy. The grammar is small today, but remote projects are a core Codex-parity workflow and will likely grow richer address forms, saved hosts, and auth/setup affordances. Keeping that parsing focused makes the current behavior explicit and gives future remote-project work a stable place to evolve.
+
+What changed:
+- Added `SlashRemoteProjectCommandParser.swift` for `/ssh` and `/remote` address trimming and empty-argument usage copy.
+- Reduced `SlashCommand.swift` to top-level SSH Remote delegation.
+- Added direct parser tests for address trimming, empty usage, and top-level `/ssh`/`/remote` aliases.
+- Added a parity gate so SSH Remote usage copy and command construction do not drift back into the outer slash parser.
+
+Remaining risk:
+- `SlashCommand.swift` still owns thread lifecycle, memory, environment action, and generic workspace routing. Thread lifecycle aliases should be the next extraction if rename/archive/new-chat commands gain additional confirmation or batch behavior.

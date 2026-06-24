@@ -82,6 +82,20 @@ final class ParitySlashGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(slashText.contains("Usage: /model /synth"), "Outer slash parser should not own model usage copy.")
     }
 
+    func testSlashParserDelegatesRemoteProjectSubcommands() throws {
+        let slashText = try Self.appSourceText(named: "SlashCommand.swift")
+        let remoteParserText = try Self.appSourceText(named: "SlashRemoteProjectCommandParser.swift")
+        let remoteParserTests = try Self.appTestSourceText(named: "SlashRemoteProjectCommandParserTests.swift")
+
+        XCTAssertTrue(slashText.contains("SlashRemoteProjectCommandParser.parse(argument)"), "Outer slash parser should delegate SSH Remote project arguments.")
+        XCTAssertTrue(remoteParserText.contains("enum SlashRemoteProjectCommandParser"), "SSH Remote slash parsing should live in a focused parser.")
+        XCTAssertTrue(remoteParserText.contains("Usage: /ssh user@host:/absolute/path"), "SSH Remote usage copy should live with remote-project parser semantics.")
+        XCTAssertTrue(remoteParserTests.contains("testRemoteProjectParsingTrimsAddress"), "SSH Remote address trimming should have focused parser coverage.")
+        XCTAssertTrue(remoteParserTests.contains("testTopLevelRemoteAliasesDelegateToRemoteProjectParser"), "Top-level SSH Remote aliases should have focused parser coverage.")
+        XCTAssertFalse(slashText.contains(".sshProject(argument)"), "Outer slash parser should not build SSH Remote commands inline.")
+        XCTAssertFalse(slashText.contains("Usage: /ssh user@host:/absolute/path"), "Outer slash parser should not own SSH Remote usage copy.")
+    }
+
     func testSlashParserDelegatesSchedulingSubcommands() throws {
         let slashText = try Self.appSourceText(named: "SlashCommand.swift")
         let schedulingParserText = try Self.appSourceText(named: "SlashSchedulingCommandParser.swift")
