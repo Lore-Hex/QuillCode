@@ -74,6 +74,19 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(toolCardSurfaceText.contains("public enum ToolArtifactDocumentKind"), "Tool-card state should not own artifact document metadata.")
     }
 
+    func testWorkspaceModelDelegatesUIStateContracts() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let stateText = try Self.appSourceText(named: "WorkspaceUIState.swift")
+
+        XCTAssertTrue(stateText.contains("public struct ComposerState"), "Composer UI state should live in a focused state contract file.")
+        XCTAssertTrue(stateText.contains("public struct MemoriesState"), "Memory-pane UI state should live in a focused state contract file.")
+        XCTAssertTrue(stateText.contains("public struct ActivityState"), "Activity-pane UI state should live in a focused state contract file.")
+        XCTAssertTrue(modelText.contains("public private(set) var composer: ComposerState"), "WorkspaceModel should still own live composer state.")
+        XCTAssertFalse(modelText.contains("public struct ComposerState"), "WorkspaceModel should not define composer UI state contracts.")
+        XCTAssertFalse(modelText.contains("public struct MemoriesState"), "WorkspaceModel should not define memory-pane UI state contracts.")
+        XCTAssertFalse(modelText.contains("public struct ActivityState"), "WorkspaceModel should not define activity-pane UI state contracts.")
+    }
+
     func testActionableReviewCardsStayWiredThroughSurfaces() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let toolCardSurfaceText = try Self.appSourceText(named: "QuillCodeToolCardSurface.swift")

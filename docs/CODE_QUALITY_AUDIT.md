@@ -3581,3 +3581,17 @@ What changed:
 
 Remaining risk:
 - `WorkspaceMemoriesSurface` still computes memory count labels inline, and `WorkspaceAutomationsSurface` still computes aggregate status labels inline. That is appropriate while the aggregate labels remain compact and directly tested; split them only if secondary-pane aggregate state grows beyond count/status projection.
+
+## 2026-06-24 Workspace UI State Contract Split
+
+Overall grade after this slice: **A+ UI state ownership, A workspace-model boundary**.
+
+`WorkspaceModel.swift` still orchestrates live workspace behavior, but it no longer defines the reusable UI state contracts for the composer, Memories pane, and Activity pane. Those DTOs are shared by the native UI, surface builders, and focused tests, so keeping them in the model file made the model look like the owner of presentation contracts that are not actor-bound behavior.
+
+What changed:
+- Added `WorkspaceUIState.swift` for `ComposerState`, `MemoriesState`, and `ActivityState`.
+- Added direct default-state coverage in `WorkspaceUIStateTests`.
+- Added a parity gate so the state contracts do not drift back into `WorkspaceModel.swift`.
+
+Remaining risk:
+- `WorkspaceModel.swift` is still the largest app source file because it owns actor-bound orchestration for sends, tools, terminal, projects, memory, automations, and MCP lifecycle. Continue extracting pure state transitions and copy into focused helpers before adding larger Codex-parity features.
