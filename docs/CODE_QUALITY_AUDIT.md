@@ -48,9 +48,9 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Changes From This Pass
 
-- Kept `trustedrouter/fast` stable and moved the fallback model to preferred `/synth`/`tr/synth` while preserving `trustedrouter/fusion`, `tr/fusion`, `/fusion`, `fusion-code`, and `/fusion-code` legacy aliases. User-facing model surfaces brand the defaults as **Nike 1.0** and **Prometheus 1.0**.
+- Kept `trustedrouter/fast` stable and moved the fallback model to preferred `/synth`/`tr/synth` while preserving `trustedrouter/fusion`, `tr/fusion`, `/fusion`, `fusion-code`, and `/fusion-code` legacy aliases. User-facing model surfaces brand the defaults as **Nike 1.0** and **Synth**.
 - Promoted Synth Code (`/synth-code`, `tr/synth-code`) into the bundled Recommended catalog so the preferred code model is visible offline instead of only working as a hidden alias.
-- Added explicit catalog-normalization regression coverage so live or persisted legacy Fusion rows dedupe into Prometheus 1.0/Synth Code and do not reappear as user-facing picker rows.
+- Added explicit catalog-normalization regression coverage so live or persisted legacy Fusion rows dedupe into Synth/Synth Code and do not reappear as user-facing picker rows.
 - Centralized the branded default names in `TrustedRouterDefaults`, with tests proving canonical IDs and display names separately.
 - Removed dead provider plumbing from model metadata summary generation.
 - Refactored model-category construction to compute favorite IDs once and pass a `Set` through option building instead of recomputing favorites for every model.
@@ -450,7 +450,7 @@ Overall grade after this slice: **A core cohesion, A model-default ownership**.
 Code quality changes:
 
 - Moved `ModelInfo` and `ModelSortKey` into `ModelInfo.swift`.
-- Moved `TrustedRouterDefaults` into `TrustedRouterDefaults.swift`, keeping Nike 1.0, Prometheus 1.0, aliases, fallback catalog rows, and catalog normalization together.
+- Moved `TrustedRouterDefaults` into `TrustedRouterDefaults.swift`, keeping Nike 1.0, Synth, aliases, fallback catalog rows, and catalog normalization together.
 - Reduced `Models.swift` by keeping it focused on general domain models and app config/auth records.
 - Added a parity gate that prevents model catalog records, sort keys, TrustedRouter defaults, and model branding copy from drifting back into `Models.swift`.
 
@@ -3799,17 +3799,17 @@ What changed:
 Remaining risk:
 - `SlashCommand.swift` still owns project, terminal, mode, model, and generic routing. That remains reasonable while those branches are small; split `SlashProjectCommandParser` only if project commands gain richer argument parsing or remote-project setup variants.
 
-## 2026-06-24 Prometheus Model Command Feedback
+## 2026-06-24 Synth Model Command Feedback
 
 Overall grade after this slice: **A+ model alias UX, A command transcript clarity, A+ regression coverage**.
 
-The TrustedRouter catalog correctly accepts legacy Fusion IDs as aliases for Prometheus 1.0, but the `/model` command acknowledgement still used the raw command argument. That could make a successful `/model /fusion` look like QuillCode still preferred Fusion terminology even though config, picker rows, and docs now prefer Prometheus 1.0.
+The TrustedRouter catalog correctly accepts legacy Fusion IDs as aliases for Synth, but the `/model` command acknowledgement still used the raw command argument. That could make a successful `/model /fusion` look like QuillCode still preferred Fusion terminology even though config, picker rows, and docs now prefer Synth.
 
 What changed:
 - `QuillCodeWorkspaceModel.setModel` now returns the canonical model ID it actually stored.
 - Slash-command model feedback is rendered from the canonical model ID instead of the raw user input.
-- Recommended models show user-facing brand plus preferred ID, such as `Prometheus 1.0 (/synth)`, while arbitrary provider/model IDs stay literal.
-- Added focused planner and integration regressions proving `/model /fusion` stores Prometheus 1.0 and confirms `Model set to Prometheus 1.0 (/synth).`
+- Recommended models show user-facing brand plus preferred ID, such as `Synth (/synth)`, while arbitrary provider/model IDs stay literal.
+- Added focused planner and integration regressions proving `/model /fusion` stores Synth and confirms `Model set to Synth (/synth).`
 
 Remaining risk:
 - Other non-command surfaces should keep using `TrustedRouterDefaults.preferredDisplayModelID` rather than hand-formatting model IDs. If model picker subtitles or thread metadata gain richer copy, keep the branding policy centralized in `TrustedRouterDefaults` or a small display-label helper.
@@ -3914,7 +3914,7 @@ What changed:
 - Reduced `TopBarSurface.filteredModelCategories(matching:)` to a stable compatibility delegator.
 - Added direct regressions for whitespace-tolerant search, special Favorites/Recent category visibility, branded TrustedRouter labels, and State metadata matching.
 - Tightened the top-bar parity gate so query normalization and model metadata haystack construction do not drift back into the surface DTO.
-- Updated the fallback TrustedRouter display contract from Synth to Prometheus 1.0 while preserving the existing `/synth`, `tr/synth`, and legacy Fusion aliases for saved configs.
+- Kept the fallback TrustedRouter display contract on Synth while preserving the existing `/synth`, `tr/synth`, and legacy Fusion aliases for saved configs.
 
 Remaining risk:
 - The filter still performs simple substring matching. That is appropriate for the Codex-style picker today; if model catalog search grows aliases, fuzzy ranking, or provider/category facets, add a small ranking value type rather than expanding SwiftUI picker state.
@@ -3932,3 +3932,32 @@ What changed:
 
 Remaining risk:
 - `ParityGateTests.swift` is still large because it owns many historical workspace architecture gates. Continue extracting cohesive groups when touching them; avoid splitting isolated one-off tests unless a feature area is actively growing.
+
+## 2026-06-24 Scheduling Slash Parser Split
+
+Overall grade after this slice: **A+ scheduling slash ownership, A+ alias coverage, A outer parser boundary**.
+
+`SlashCommand.swift` still owned `/follow-up` and `/workspace-check` schedule argument validation plus user-facing usage copy. Those commands are small, but they are tied to persisted automations and visible Automations-pane behavior, so schedule-command grammar needs focused coverage before richer natural-language or recurrence parsing expands.
+
+What changed:
+- Added `SlashSchedulingCommandParser.swift` for thread follow-up and workspace-check schedule arguments.
+- Reduced `SlashCommand.swift` to top-level scheduling alias delegation.
+- Added direct parser tests for schedule argument trimming, empty usage copy, and top-level scheduling aliases.
+- Added a parity gate so scheduling usage copy and command construction do not drift back into the outer slash parser.
+
+Remaining risk:
+- `SlashCommand.swift` still owns model, SSH, memory, and generic routing. SSH parsing should be the next extraction if remote-project setup gains richer validation or additional address forms.
+
+## 2026-06-24 Synth Naming Restoration
+
+Overall grade after this slice: **A+ model naming consistency, A+ alias compatibility, A picker contract**.
+
+A concurrent model-picker cleanup temporarily changed the `tr/synth` display name away from Synth. The latest product direction is to call this model Synth everywhere while retaining `/synth`, `tr/synth`, and the legacy Fusion aliases for saved configs and older commands.
+
+What changed:
+- Restored `TrustedRouterDefaults.synthModelDisplayName` to `Synth`.
+- Updated model, transcript, picker, configuration, and parity regressions back to Synth copy.
+- Kept legacy Fusion IDs as hidden compatibility aliases that normalize to `tr/synth` and display as `/synth`.
+
+Remaining risk:
+- Live provider catalogs can still return arbitrary labels. `TrustedRouterDefaults.normalizedModelCatalog` currently normalizes recommended IDs back to bundled names; keep that invariant if richer provider metadata lands.

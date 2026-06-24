@@ -44,13 +44,9 @@ enum SlashCommandParser {
         case "compact", "compact-context", "context-compact":
             return .workspaceCommand("compact-context")
         case "follow-up", "followup", "schedule", "remind":
-            return argument.isEmpty
-                ? .invalid("Usage: /follow-up in 30 minutes, /follow-up tomorrow at 9 AM, or /follow-up daily")
-                : .threadFollowUp(argument)
+            return SlashSchedulingCommandParser.parseThreadFollowUp(argument)
         case "workspace-check", "workspacecheck", "workspace-schedule", "project-check", "repo-check":
-            return argument.isEmpty
-                ? .invalid("Usage: /workspace-check in 1 hour, /workspace-check tomorrow at 9 AM, or /workspace-check every 2 hours")
-                : .workspaceSchedule(argument)
+            return SlashSchedulingCommandParser.parseWorkspaceSchedule(argument)
         case "rename", "rename-chat", "title":
             return argument.isEmpty ? .invalid("Usage: /rename New chat title") : .renameThread(argument)
         case "duplicate", "duplicate-chat", "copy-chat":

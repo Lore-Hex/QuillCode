@@ -31,14 +31,14 @@ final class WorkspaceSlashCommandTranscriptPlannerTests: XCTestCase {
                 userText: "/model /synth",
                 model: TrustedRouterDefaults.synthModel
             ).assistantText,
-            "Model set to Prometheus 1.0 (/synth)."
+            "Model set to Synth (/synth)."
         )
         XCTAssertEqual(
             WorkspaceSlashCommandTranscriptPlanner.model(
                 userText: "/model /fusion",
                 model: "trustedrouter/fusion"
             ).assistantText,
-            "Model set to Prometheus 1.0 (/synth)."
+            "Model set to Synth (/synth)."
         )
         XCTAssertEqual(
             WorkspaceSlashCommandTranscriptPlanner.model(
