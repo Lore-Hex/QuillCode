@@ -68,18 +68,11 @@ public extension QuillCodeWorkspaceModel {
         let computerUse = topBarState.computerUseStatus
         let toolCards = currentToolCards
         let runtimeIssue = runtimeIssueSurface()
-        let activeInstructions: [ProjectInstruction]
-        if let thread, !thread.instructions.isEmpty {
-            activeInstructions = thread.instructions
-        } else {
-            activeInstructions = selectedProject?.instructions ?? []
-        }
-        let activeMemories: [MemoryNote]
-        if let thread, !thread.memories.isEmpty {
-            activeMemories = thread.memories
-        } else {
-            activeMemories = root.globalMemories + (selectedProject?.memories ?? [])
-        }
+        let activeSources = WorkspaceContextResolver(
+            projects: root.projects,
+            globalMemories: root.globalMemories,
+            selectedProject: selectedProject
+        ).activeSources(for: thread)
         let sidebarSelectedThreadIDs = sidebarSelection.isActive
             ? Set(selectedSidebarThreadIDs())
             : []
@@ -96,8 +89,8 @@ public extension QuillCodeWorkspaceModel {
             topBarState: topBarState,
             thread: thread,
             projectName: root.topBar.projectName,
-            instructions: activeInstructions,
-            memories: activeMemories,
+            instructions: activeSources.instructions,
+            memories: activeSources.memories,
             modelCatalog: root.modelCatalog,
             defaultModelID: root.config.defaultModel,
             favoriteModelIDs: root.config.favoriteModels,
@@ -131,14 +124,14 @@ public extension QuillCodeWorkspaceModel {
             ),
             memories: WorkspaceMemoriesSurface(
                 isVisible: memories.isVisible,
-                notes: activeMemories
+                notes: activeSources.memories
             ),
             activity: WorkspaceActivitySurface(
                 isVisible: activity.isVisible,
                 thread: thread,
                 toolCards: toolCards,
-                instructions: activeInstructions,
-                memories: activeMemories,
+                instructions: activeSources.instructions,
+                memories: activeSources.memories,
                 agentStatus: topBarState.agentStatus,
                 collapsedSectionIDs: activity.collapsedSectionIDs
             ),

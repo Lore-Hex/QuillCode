@@ -382,19 +382,27 @@ final class ParityGateTests: XCTestCase {
 
     func testWorkspaceModelDelegatesContextResolving() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let resolverText = try Self.appSourceText(named: "WorkspaceContextResolver.swift")
 
+        XCTAssertTrue(resolverText.contains("struct WorkspaceActiveContextSources"), "Active workspace context source records should live beside the resolver.")
         XCTAssertTrue(resolverText.contains("struct WorkspaceContextResolver"), "Workspace context lookup should live in a focused resolver.")
         XCTAssertTrue(resolverText.contains("func instructions(for projectID:"), "Project instruction lookup should be directly testable.")
         XCTAssertTrue(resolverText.contains("func memoryNotes(for projectID:"), "Global/project memory merging should be directly testable.")
+        XCTAssertTrue(resolverText.contains("func activeSources(for thread:"), "Active instruction and memory fallback should be directly testable.")
         XCTAssertTrue(resolverText.contains("func selectedLocalAction(withID"), "Local action ID lookup should be directly testable.")
         XCTAssertTrue(resolverText.contains("func selectedLocalAction(matching"), "Local action alias matching should be directly testable.")
         XCTAssertTrue(modelText.contains("WorkspaceContextResolver("), "WorkspaceModel should delegate context lookup through the resolver.")
+        XCTAssertTrue(surfaceText.contains("WorkspaceContextResolver("), "WorkspaceSurface should delegate active context-source lookup through the resolver.")
         XCTAssertFalse(modelText.contains("private func instructions(for projectID"), "WorkspaceModel should not own project instruction lookup.")
         XCTAssertFalse(modelText.contains("private func memoryNotes(for projectID"), "WorkspaceModel should not own memory merging.")
         XCTAssertFalse(modelText.contains("private func localAction(withID"), "WorkspaceModel should not own local action ID lookup.")
         XCTAssertFalse(modelText.contains("private func localAction(matching"), "WorkspaceModel should not own local action matching.")
         XCTAssertFalse(modelText.contains("private static func normalizedActionName"), "WorkspaceModel should not own local action alias normalization.")
+        XCTAssertFalse(surfaceText.contains("thread.instructions.isEmpty"), "WorkspaceSurface should not own thread/project instruction fallback.")
+        XCTAssertFalse(surfaceText.contains("thread.memories.isEmpty"), "WorkspaceSurface should not own thread/project memory fallback.")
+        XCTAssertFalse(surfaceText.contains("selectedProject?.instructions ?? []"), "WorkspaceSurface should not own project instruction fallback.")
+        XCTAssertFalse(surfaceText.contains("root.globalMemories +"), "WorkspaceSurface should not own global/project memory merging.")
     }
 
     func testWorkspaceModelDelegatesAgentProgressStatusCopy() throws {
