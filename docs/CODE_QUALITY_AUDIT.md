@@ -4264,3 +4264,18 @@ What changed:
 
 Remaining risk:
 - The normalizer is intentionally tolerant because live LLMs vary. If alias support keeps growing, the next A+ step is a table-driven schema alias catalog rather than adding more switch branches.
+
+## 2026-06-24 Static Safety Policy Split
+
+Overall grade after this slice: **A safety orchestration boundary, A hard-deny policy boundary, A intent-matching boundary**.
+
+`StaticSafetyReviewer` was compact, but it still mixed mode semantics, hard-deny command fragments, remote shell-pipe checks, pull request intent matching, git/worktree matching, Computer Use matching, diagnostics, and fallback argument-word matching in one file. That made the fallback safety layer harder to tune without accidentally changing mode behavior.
+
+What changed:
+- Added `SafetyHardDenyPolicy` for high-risk command fragments and remote download-to-shell blocks.
+- Added `SafetyUserIntentMatcher` for memory, pull request, file creation, git, worktree, Computer Use, diagnostics, and fallback argument-word intent checks.
+- Reduced `StaticSafetyReviewer` to mode-specific verdict flow plus delegation to the two focused policies.
+- Added a parity gate that prevents raw hard-deny fragments and intent phrase matching from drifting back into `Safety.swift`.
+
+Remaining risk:
+- The intent matcher is still heuristic by design because it is a deterministic fallback when the model-backed Auto reviewer is unavailable. If it grows much further, convert the matcher into table-driven intent records with one focused test table per tool family.

@@ -51,6 +51,9 @@ public protocol SafetyModelClient: Sendable {
 }
 
 public struct StaticSafetyReviewer: SafetyReviewer {
+    private let hardDenyPolicy = SafetyHardDenyPolicy()
+    private let intentMatcher = SafetyUserIntentMatcher()
+
     public init() {}
 
     public func review(_ context: SafetyContext) async -> SafetyReview {
@@ -87,141 +90,11 @@ public struct StaticSafetyReviewer: SafetyReviewer {
     }
 
     public func hardDenyReason(_ context: SafetyContext) -> String? {
-        let haystack = "\(context.toolCall.name) \(context.toolCall.argumentsJSON)"
-            .lowercased()
-            .replacingOccurrences(of: "\\/", with: "/")
-        let blocked = [
-            "rm -rf /",
-            "mkfs",
-            "dd if=",
-            "security find-generic-password",
-            "cat ~/.ssh",
-            "aws_secret_access_key",
-            "chmod -r 777 /",
-            ":(){"
-        ]
-        if haystack.contains("curl ") && haystack.contains("| sh") {
-            return "Auto mode blocks piping remote downloads into a shell."
-        }
-        if haystack.contains("curl ") && haystack.contains("| bash") {
-            return "Auto mode blocks piping remote downloads into a shell."
-        }
-        if let match = blocked.first(where: { haystack.contains($0) }) {
-            return "Auto mode blocks high-risk command pattern: \(match)."
-        }
-        return nil
+        hardDenyPolicy.reason(for: context)
     }
 
     public func userIntentMatches(_ context: SafetyContext) -> Bool {
-        let user = context.userMessage.lowercased()
-        let args = context.toolCall.argumentsJSON.lowercased()
-        if user.contains("remember") || user.contains("memorize") {
-            return context.toolCall.name.contains("memory")
-        }
-        if user.contains("run") || user.contains("execute") {
-            return true
-        }
-        if user.contains("pull request")
-            || user.contains("open pr")
-            || user.contains("open a pr")
-            || user.contains("create pr")
-            || user.contains("create a pr")
-            || user.contains("submit pr")
-            || user.contains("submit a pr")
-            || user.contains("checkout pr")
-            || user.contains("check out pr")
-            || user.contains("switch to pr")
-            || user.contains("merge pr")
-            || user.contains("automerge pr")
-            || user.contains("auto merge pr") {
-            if user.contains("checkout") || user.contains("check out") || user.contains("switch") {
-                return context.toolCall.name.contains("git.pr.checkout")
-                    || context.toolCall.name.contains("git.status")
-            }
-            if user.contains("reviewer")
-                || user.contains("reviewers")
-                || user.contains("request review from") {
-                return context.toolCall.name.contains("git.pr.reviewers")
-                    || context.toolCall.name.contains("git.status")
-            }
-            if user.contains("label")
-                || user.contains("labels")
-                || user.contains("unlabel") {
-                return context.toolCall.name.contains("git.pr.labels")
-                    || context.toolCall.name.contains("git.status")
-            }
-            if user.contains("merge") || user.contains("automerge") {
-                return context.toolCall.name.contains("git.pr.merge")
-                    || context.toolCall.name.contains("git.pr.checks")
-                    || context.toolCall.name.contains("git.status")
-            }
-            if user.contains("approve")
-                || user.contains("request changes")
-                || user.contains("needs changes")
-                || user.contains("review") {
-                return context.toolCall.name.contains("git.pr.review")
-                    || context.toolCall.name.contains("git.status")
-            }
-            if user.contains("comment") || user.contains("reply") {
-                return context.toolCall.name.contains("git.pr.comment")
-            }
-            if user.contains("check") || user.contains("ci") || user.contains("status") {
-                return context.toolCall.name.contains("git.pr.checks")
-                    || context.toolCall.name.contains("git.status")
-            }
-            if user.contains("view")
-                || user.contains("show")
-                || user.contains("inspect")
-                || user.contains("read") {
-                return context.toolCall.name.contains("git.pr.view")
-                    || context.toolCall.name.contains("git.status")
-            }
-            return context.toolCall.name.contains("git.pr.create")
-                || context.toolCall.name.contains("git.pr.comment")
-                || context.toolCall.name.contains("git.push")
-                || context.toolCall.name.contains("git.status")
-        }
-        if user.contains("make") || user.contains("create") || user.contains("write") {
-            return context.toolCall.name.contains("file")
-                || context.toolCall.name.contains("shell")
-                || context.toolCall.name.contains("git.worktree")
-        }
-        if user.contains("commit") {
-            return context.toolCall.name.contains("git.commit")
-                || context.toolCall.name.contains("git.stage")
-                || context.toolCall.name.contains("git.status")
-                || context.toolCall.name.contains("git.diff")
-        }
-        if user.contains("push") || user.contains("publish branch") {
-            return context.toolCall.name.contains("git.push")
-                || context.toolCall.name.contains("git.status")
-        }
-        if user.contains("worktree") {
-            return context.toolCall.name.contains("git.worktree")
-                || context.toolCall.name.contains("git.status")
-                || context.toolCall.name.contains("git.diff")
-        }
-        if context.toolCall.name.contains("computer") {
-            if user.contains("screenshot")
-                || user.contains("screen")
-                || user.contains("click")
-                || user.contains("type")
-                || user.contains("scroll")
-                || user.contains("cursor")
-                || user.contains("mouse")
-                || user.contains("press")
-                || user.contains("key") {
-                return true
-            }
-        }
-        if user.contains("openclaw") || user.contains("whoami") || user.contains("disk") || user.contains("storage") {
-            return true
-        }
-        let words = user
-            .split { !$0.isLetter && !$0.isNumber }
-            .map(String.init)
-            .filter { $0.count >= 3 }
-        return words.contains { args.contains($0) }
+        intentMatcher.matches(context)
     }
 
     private func lowRiskReview(_ context: SafetyContext) -> SafetyReview {

@@ -852,6 +852,21 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(agentText.contains("Tool is not available in this workspace"), "Agent.swift should not own unavailable-tool result copy.")
     }
 
+    func testStaticSafetyReviewerDelegatesPolicyMatching() throws {
+        let safetyText = try Self.safetySourceText(named: "Safety.swift")
+        let hardDenyText = try Self.safetySourceText(named: "SafetyHardDenyPolicy.swift")
+        let intentText = try Self.safetySourceText(named: "SafetyUserIntentMatcher.swift")
+
+        XCTAssertTrue(safetyText.contains("SafetyHardDenyPolicy"), "Static safety reviewer should delegate hard-deny matching.")
+        XCTAssertTrue(safetyText.contains("SafetyUserIntentMatcher"), "Static safety reviewer should delegate user-intent matching.")
+        XCTAssertTrue(hardDenyText.contains("blockedCommandFragments"), "Hard-deny fragments should live in the hard-deny policy.")
+        XCTAssertTrue(intentText.contains("matchesPullRequestIntent"), "User-intent PR matching should live in the intent matcher.")
+        XCTAssertTrue(intentText.contains("matchesComputerUseIntent"), "Computer Use intent matching should live in the intent matcher.")
+        XCTAssertFalse(safetyText.contains("rm -rf /"), "Static safety reviewer should not own raw hard-deny fragments.")
+        XCTAssertFalse(safetyText.contains("open pr"), "Static safety reviewer should not own pull-request phrase matching.")
+        XCTAssertFalse(safetyText.contains("screenshot"), "Static safety reviewer should not own Computer Use phrase matching.")
+    }
+
     func testWorkspaceModelDelegatesComposerCancellationPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceComposerCancellationPlanner.swift")
