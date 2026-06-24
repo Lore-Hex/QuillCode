@@ -2868,7 +2868,7 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceModelTests.swift` still owns approval-card behavior, bootstrap/config, model settings, and plan-update integration coverage.
+- `WorkspaceModelTests.swift` still owns approval-card behavior, bootstrap loaded-state coverage, and plan-update integration coverage.
 
 ## 2026-06-24 Workspace Project Lifecycle Integration Test Pass
 
@@ -2885,7 +2885,24 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceModelTests.swift` still owns approval-card behavior, bootstrap/config, model settings, and plan-update integration coverage.
+- `WorkspaceModelTests.swift` still owns approval-card behavior, bootstrap loaded-state coverage, and plan-update integration coverage.
+
+## 2026-06-24 Workspace Configuration Integration Test Pass
+
+Overall grade after this slice: **A+ configuration ownership, A settings boundary, A+ regression guard**.
+
+Mode/model propagation, favorite-model surface updates, settings application, and TrustedRouter key persistence moved from `WorkspaceModelTests.swift` into `WorkspaceConfigurationIntegrationTests`. Pure reducer behavior remains in `WorkspaceConfigurationEngineTests`, while this suite owns the model-to-surface and bootstrap persistence seams.
+
+Code quality changes:
+
+- Added `WorkspaceConfigurationIntegrationTests` for selected-thread/top-bar mode and model propagation, favorite model surface updates, settings application, and TrustedRouter key save/clear behavior.
+- Removed those configuration/settings cases from `WorkspaceModelTests.swift`, reducing it from 317 lines to 243 lines.
+- Added a parity gate that keeps configuration integration method names out of `WorkspaceModelTests.swift`.
+- Updated the configuration decision to separate pure reducer coverage from workspace/bootstrap integration coverage.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` still owns approval-card behavior, bootstrap loaded-state coverage, and plan-update integration coverage.
 
 ## 2026-06-24 SSH Terminal Integration Test Pass
 
@@ -2902,4 +2919,4 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceModelTests.swift` still owns approval-card behavior, bootstrap/config, model settings, and plan-update integration coverage.
+- `WorkspaceModelTests.swift` still owns approval-card behavior, bootstrap loaded-state coverage, and plan-update integration coverage.

@@ -234,6 +234,20 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("root.trustedRouterAPIKeyConfigured = trustedRouterAPIKeyConfigured"), "WorkspaceModel should not own settings application details.")
     }
 
+    func testWorkspaceConfigurationIntegrationTestsOwnSettingsAndModelFlows() throws {
+        let configurationTests = try Self.appTestSourceText(named: "WorkspaceConfigurationIntegrationTests.swift")
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+
+        XCTAssertTrue(configurationTests.contains("testModeAndModelUpdateSelectedThreadAndTopBar"), "Configuration integration tests should own mode/model surface propagation.")
+        XCTAssertTrue(configurationTests.contains("testToggleModelFavoriteUpdatesConfigAndSurface"), "Configuration integration tests should own favorite model surface propagation.")
+        XCTAssertTrue(configurationTests.contains("testApplySettingsUpdatesConfigThreadAndSettingsSurface"), "Configuration integration tests should own settings application integration.")
+        XCTAssertTrue(configurationTests.contains("testBootstrapPersistsAndClearsTrustedRouterAPIKey"), "Configuration integration tests should own TrustedRouter key settings persistence.")
+        XCTAssertFalse(modelTests.contains("testModeAndModelUpdateSelectedThreadAndTopBar"), "WorkspaceModelTests should not own mode/model configuration integration.")
+        XCTAssertFalse(modelTests.contains("testToggleModelFavoriteUpdatesConfigAndSurface"), "WorkspaceModelTests should not own favorite model configuration integration.")
+        XCTAssertFalse(modelTests.contains("testApplySettingsUpdatesConfigThreadAndSettingsSurface"), "WorkspaceModelTests should not own settings surface integration.")
+        XCTAssertFalse(modelTests.contains("testBootstrapPersistsAndClearsTrustedRouterAPIKey"), "WorkspaceModelTests should not own TrustedRouter key settings persistence.")
+    }
+
     func testWorkspaceModelDelegatesStatusTextAndLabels() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
