@@ -419,6 +419,21 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelsText.contains("Prometheus 1.0"), "General domain models should not own model branding copy.")
     }
 
+    func testAppConfigLivesOutsideGeneralDomainModels() throws {
+        let modelsText = try Self.coreSourceText(named: "Models.swift")
+        let configText = try Self.coreSourceText(named: "AppConfig.swift")
+
+        XCTAssertTrue(configText.contains("public struct AppConfig"), "App config should live in a focused core file.")
+        XCTAssertTrue(configText.contains("public enum TrustedRouterAuthMode"), "TrustedRouter auth mode belongs with app config.")
+        XCTAssertTrue(configText.contains("public struct TrustedRouterAccountProfile"), "Signed-in account metadata belongs with app config.")
+        XCTAssertTrue(configText.contains("normalizedModelIDs"), "Favorite/default model normalization should stay with app config.")
+        XCTAssertTrue(configText.contains("developerOverrideEnabled ? .developerOverride"), "Developer override compatibility should stay with app config.")
+        XCTAssertFalse(modelsText.contains("public struct AppConfig"), "General domain models should not own app configuration.")
+        XCTAssertFalse(modelsText.contains("public enum TrustedRouterAuthMode"), "General domain models should not own TrustedRouter auth mode.")
+        XCTAssertFalse(modelsText.contains("public struct TrustedRouterAccountProfile"), "General domain models should not own account profile metadata.")
+        XCTAssertFalse(modelsText.contains("developerOverrideEnabled ? .developerOverride"), "General domain models should not own settings compatibility rules.")
+    }
+
     func testAgentToolStepRunnerLivesOutsideAgentRunnerFile() throws {
         let agentText = try Self.agentSourceText(named: "Agent.swift")
         let runnerText = try Self.agentSourceText(named: "AgentToolStepRunner.swift")

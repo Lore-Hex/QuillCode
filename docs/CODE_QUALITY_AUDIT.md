@@ -10,7 +10,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 | Component | Grade | Notes |
 | --- | --- | --- |
-| `QuillCodeCore` | A | Stable value models, focused TrustedRouter default/catalog ownership, canonical IDs, branded display names, and compatibility decoding. Keep future provider-specific behavior out of the general domain model file. |
+| `QuillCodeCore` | A | Stable value models, focused app-config ownership, focused TrustedRouter default/catalog ownership, canonical IDs, branded display names, and compatibility decoding. Keep future provider/settings behavior out of the general domain model file. |
 | `QuillCodeAgent` | A- | Runtime/tool loop is well covered and keeps tool feedback hidden from user transcript surfaces. Next grade step is richer retry/cancellation telemetry. |
 | `QuillCodeTools` | A- | Shell/file/git/MCP executors are bounded and testable. Git and MCP files are necessarily dense; keep extracting parsers/policies when behavior grows. |
 | `QuillCodeSafety` | A- | Small, explicit policy layer. Needs more production prompt telemetry once live Auto reviewer tuning begins. |
@@ -30,7 +30,8 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
 | `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback and project-import resolution now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
-| `Sources/QuillCodeCore/Models.swift` | A | General domain models only; TrustedRouter defaults/catalog records now live in focused core files. Watch for persistence or provider-specific behavior trying to drift back in. |
+| `Sources/QuillCodeCore/Models.swift` | A | General domain models only; app config plus TrustedRouter defaults/catalog records now live in focused core files. Watch for persistence or provider-specific behavior trying to drift back in. |
+| `Sources/QuillCodeCore/AppConfig.swift` | A | App settings, auth mode compatibility, signed-in account metadata, and favorite model normalization live together without pulling UI/runtime dependencies into core. |
 | `Sources/QuillCodeCore/TrustedRouterDefaults.swift` | A | Central source of truth for TrustedRouter IDs, aliases, branded model names, fallback catalog rows, and catalog normalization. |
 | `Sources/QuillCodeCore/ModelInfo.swift` | A | Small catalog value records and sort-key semantics with no app/runtime dependency. |
 
@@ -55,6 +56,19 @@ Code quality changes:
 - Moved `TrustedRouterDefaults` into `TrustedRouterDefaults.swift`, keeping Nike 1.0, Prometheus 1.0, aliases, fallback catalog rows, and catalog normalization together.
 - Reduced `Models.swift` by keeping it focused on general domain models and app config/auth records.
 - Added a parity gate that prevents model catalog records, sort keys, TrustedRouter defaults, and model branding copy from drifting back into `Models.swift`.
+
+## 2026-06-23 Core App Config Ownership Pass
+
+Overall grade after this slice: **A core cohesion, A config ownership**.
+
+`Models.swift` also owned app settings, TrustedRouter auth mode, and signed-in account metadata. Those are core records, but they form a cohesive configuration boundary with compatibility rules that should not be hidden among chat/thread/domain models.
+
+Code quality changes:
+
+- Moved `AppConfig`, `TrustedRouterAuthMode`, and `TrustedRouterAccountProfile` into `AppConfig.swift`.
+- Kept developer-override compatibility, OAuth account metadata trimming, and favorite-model normalization in the focused config file.
+- Reduced `Models.swift` again so general domain records, JSON helpers, and config/auth concerns are easier to scan independently.
+- Added a parity gate that prevents config/auth records and settings compatibility rules from drifting back into `Models.swift`.
 
 ## Current Refactor Priority
 
