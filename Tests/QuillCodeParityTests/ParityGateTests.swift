@@ -48,7 +48,8 @@ final class ParityGateTests: QuillCodeParityTestCase {
             "ParityToolGateTests.swift",
             "ParityDesktopGateTests.swift",
             "ParityTopBarGateTests.swift",
-            "ParitySlashGateTests.swift"
+            "ParitySlashGateTests.swift",
+            "ParityModelGateTests.swift"
         ]
         for suiteFile in suiteFiles {
             XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent(suiteFile).path), suiteFile)
@@ -61,6 +62,7 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(mainLines.contains("    func testDesktopDefinesNativeMenuBarWidget() throws {"), "Desktop gates should live in ParityDesktopGateTests.")
         XCTAssertFalse(mainLines.contains("    func testTopBarViewsDelegateStatusPresentationSemantics() throws {"), "Top-bar/runtime gates should live in ParityTopBarGateTests.")
         XCTAssertFalse(mainLines.contains("    func testSlashParserDelegatesPullRequestSubcommands() throws {"), "Slash parser gates should live in ParitySlashGateTests.")
+        XCTAssertFalse(mainLines.contains("    func testTrustedRouterModelCatalogLivesOutsideGeneralDomainModels() throws {"), "Model/config gates should live in ParityModelGateTests.")
     }
 
     func testWorkspaceModelDelegatesToolCardSurfaceTypes() throws {
@@ -689,39 +691,6 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(reviewerText.contains("policy.userIntentMatches"), "StaticSafetyReviewer should delegate intent matching to the policy.")
         XCTAssertFalse(reviewerText.contains(#""rm -rf /""#), "StaticSafetyReviewer should not own raw hard-deny command patterns.")
         XCTAssertFalse(reviewerText.contains("user.contains(\"pull request\")"), "StaticSafetyReviewer should not own raw pull-request intent chains.")
-    }
-
-    func testTrustedRouterModelCatalogLivesOutsideGeneralDomainModels() throws {
-        let modelsText = try Self.coreSourceText(named: "Models.swift")
-        let modelInfoText = try Self.coreSourceText(named: "ModelInfo.swift")
-        let defaultsText = try Self.coreSourceText(named: "TrustedRouterDefaults.swift")
-
-        XCTAssertTrue(modelInfoText.contains("public struct ModelInfo"), "Model catalog records should live in a focused core file.")
-        XCTAssertTrue(modelInfoText.contains("public struct ModelSortKey"), "Model sort policy inputs should live beside model catalog records.")
-        XCTAssertTrue(defaultsText.contains("public enum TrustedRouterDefaults"), "TrustedRouter defaults should live in their own named core file.")
-        XCTAssertTrue(defaultsText.contains("Nike 1.0"), "User-facing default model branding should stay with TrustedRouter defaults.")
-        XCTAssertTrue(defaultsText.contains("Synth"), "User-facing fallback model branding should stay with TrustedRouter defaults.")
-        XCTAssertTrue(defaultsText.contains("normalizedModelCatalog"), "Model catalog normalization should stay with TrustedRouter defaults.")
-        XCTAssertFalse(modelsText.contains("public struct ModelInfo"), "General domain models should not own model catalog records.")
-        XCTAssertFalse(modelsText.contains("public struct ModelSortKey"), "General domain models should not own model sort records.")
-        XCTAssertFalse(modelsText.contains("public enum TrustedRouterDefaults"), "General domain models should not own TrustedRouter defaults.")
-        XCTAssertFalse(modelsText.contains("Nike 1.0"), "General domain models should not own model branding copy.")
-        XCTAssertFalse(modelsText.contains("Synth"), "General domain models should not own model branding copy.")
-    }
-
-    func testAppConfigLivesOutsideGeneralDomainModels() throws {
-        let modelsText = try Self.coreSourceText(named: "Models.swift")
-        let configText = try Self.coreSourceText(named: "AppConfig.swift")
-
-        XCTAssertTrue(configText.contains("public struct AppConfig"), "App config should live in a focused core file.")
-        XCTAssertTrue(configText.contains("public enum TrustedRouterAuthMode"), "TrustedRouter auth mode belongs with app config.")
-        XCTAssertTrue(configText.contains("public struct TrustedRouterAccountProfile"), "Signed-in account metadata belongs with app config.")
-        XCTAssertTrue(configText.contains("normalizedModelIDs"), "Favorite/default model normalization should stay with app config.")
-        XCTAssertTrue(configText.contains("developerOverrideEnabled ? .developerOverride"), "Developer override compatibility should stay with app config.")
-        XCTAssertFalse(modelsText.contains("public struct AppConfig"), "General domain models should not own app configuration.")
-        XCTAssertFalse(modelsText.contains("public enum TrustedRouterAuthMode"), "General domain models should not own TrustedRouter auth mode.")
-        XCTAssertFalse(modelsText.contains("public struct TrustedRouterAccountProfile"), "General domain models should not own account profile metadata.")
-        XCTAssertFalse(modelsText.contains("developerOverrideEnabled ? .developerOverride"), "General domain models should not own settings compatibility rules.")
     }
 
     func testCoreToolModelsLiveOutsideGeneralDomainModels() throws {
