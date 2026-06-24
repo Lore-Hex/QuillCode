@@ -29,6 +29,9 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `Sources/QuillCodeApp/QuillCodeToolCardView.swift` | A- | Native tool-card composition is now separate from reusable controls, artifact previews, and raw detail blocks. Keep future status/action chrome in `QuillCodeToolCardControls.swift` and artifact rendering in `QuillCodeToolArtifactViews.swift`. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is now mostly aggregate payload plus runtime/execution context records. Settings copy/compatibility, runtime issue classification, active context-source selection, model catalog presentation, top-bar/model presentation contracts, project/sidebar navigation assembly, sidebar/project contracts, browser state/presentation contracts, terminal presentation contracts, review presentation contracts, transcript/composer/context presentation contracts, secondary-pane presentation contracts, automation pane command wiring, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are extracted into focused files. Next step is extracting runtime/execution context contracts if their presentation behavior grows. |
 | `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but top-bar HTML delegates to `WorkspaceHTMLTopBarRenderer`, sidebar HTML delegates to `WorkspaceHTMLSidebarRenderer`, tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, review pane HTML delegates to `WorkspaceHTMLReviewRenderer`, secondary pane HTML delegates to `WorkspaceHTMLSecondaryPaneRenderer`, browser pane HTML delegates to `WorkspaceHTMLBrowserRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another transcript/composer family only when renderer drift appears. |
+| `Sources/QuillCodeApp/QuillCodeSidebarView.swift` | A | The native sidebar shell now owns only rail composition, top-level thread header state, primary actions, utility footer, and project/thread component placement. Keep row rendering, row action payloads, and presentation maps in focused sidebar files. |
+| `Sources/QuillCodeApp/QuillCodeSidebarThreadListView.swift` | A- | Thread empty state, pinned/recent/archived sections, bulk selection toolbar, row rendering, and selection toggles live together. Split only if row menus or bulk controls grow into independent workflow state. |
+| `Sources/QuillCodeApp/QuillCodeProjectListView.swift` | A | Project list, header controls, remote badges, and row action menus live together without leaking into the sidebar shell. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
 | `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback and project-import resolution now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
@@ -154,6 +157,23 @@ Code quality changes:
 Remaining risk:
 
 - `QuillCodeWorkspaceMainPaneView` is intentionally a composition view. If pane-specific behavior grows, split those rules into focused planners or pane views instead of adding more branching to the main pane.
+
+## 2026-06-24 Native Sidebar Component Split
+
+Overall grade after this slice: **A sidebar shell boundary, A thread-list boundary, A project-list boundary**.
+
+`QuillCodeSidebarView.swift` still combined the left-rail shell with thread list sections, thread rows, bulk-selection controls, project list rows, project row menus, primary navigation, and utility commands. The behavior was correct, but a 456-line file made the native sidebar too easy to regress while tuning Codex-like left-nav density.
+
+Code quality changes:
+
+- Added `QuillCodeSidebarThreadListView` for empty state, pinned/recent/archived sections, bulk-selection controls, thread rows, row menus, and selection-toggle wiring.
+- Added `QuillCodeProjectListView` for project header controls, selected project rows, remote badges, and project row menus.
+- Reduced `QuillCodeSidebarView.swift` from 456 lines to 171 lines so it mostly owns sidebar rail composition and top-level header/footer placement.
+- Updated parity gates so native row rendering and selection-toggle command wiring stay in focused sidebar files while shared command presentation remains consumed by both native SwiftUI and HTML.
+
+Remaining risk:
+
+- `QuillCodeSidebarThreadListView` is the richer of the two new files because it owns both bulk-selection controls and row rendering. Keep it that way while those controls remain compact; split bulk-selection chrome into its own file only if more selection workflows are added.
 
 ## 2026-06-24 Sidebar Command Grouping Pass
 
