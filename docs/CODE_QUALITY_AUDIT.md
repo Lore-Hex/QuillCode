@@ -4589,3 +4589,38 @@ Current strict grades:
 
 Remaining risk:
 - Native WebView/rendering, signed-in browser profile, and Linux/browser-process implementations are still pending. The new seam should make those additions isolated, but parity is incomplete until a real backend exercises the contract in app smoke tests.
+
+## 2026-06-24 GitHub Pull Request Tool Test Split
+
+Overall grade after this slice: **A test ownership, A fixture reuse, A merge-conflict reduction**.
+
+`ToolTests.swift` still mixed unrelated file, patch, git, GitHub PR, worktree, and router behavior after the shell split. GitHub PR command construction changes are frequent and carry their own input-validation and fake-`gh` fixture needs, so keeping them in the catch-all suite made future PR workflow work harder to review.
+
+What changed:
+- Added `GitHubPullRequestToolExecutorTests` for PR create/view/checks/diff/checkout/reviewer/label/comment/review/merge behavior, shared PR input/output helper coverage, and PR-specific router dispatch.
+- Replaced repeated fake-`gh` setup and argument-file parsing with one small `GitHubCLIFixture`.
+- Removed the same PR-specific tests from `ToolTests.swift`.
+- Added a parity gate so GitHub PR coverage does not drift back into the mixed tool suite.
+
+Remaining risk:
+- `ToolTests.swift` is smaller but still owns several tool families. Next low-risk splits should move file/patch, local git, worktree, or generic router coverage into focused suites before adding more tool behavior.
+
+## 2026-06-24 Desktop Browser Live DOM Adapter
+
+Overall grade after this slice: **A- browser backend, A boundary preservation, A regression guard**.
+
+The browser live-DOM work had a clean shared contract, but the desktop app still only fetched static HTTP(S) HTML. That made the architecture look better than the shipped capability: dynamic pages could not be inspected as rendered DOM in the native app.
+
+What changed:
+- Added `DesktopBrowserLiveDOMCapturer`, a macOS desktop adapter that renders HTTP(S) pages in an offscreen non-persistent `WKWebView`.
+- Captures final URL, title, viewport, bounded visible text, bounded outline, and bounded rendered HTML through one JSON-returning JavaScript evaluation.
+- Wired the desktop preview task to fetch the network HTML snapshot first, then opportunistically upgrade it with rendered live DOM through `refreshRenderedBrowserSnapshot`.
+- Added a desktop parity gate proving WebKit/JavaScript details stay in the focused adapter and do not leak into `QuillCodeDesktopController`.
+
+Current strict grades:
+- `QuillCodeApp browser layer`: **A-**. The model/workflow/engine remain platform-free and now have a real desktop caller for the live-DOM path.
+- `quill-code-desktop browser backend`: **A-**. Rendered DOM capture exists and is bounded. It is not A+ until it supports reusable signed-in browser profiles and a native visible WebView session instead of one-shot offscreen capture.
+- `WorkspaceModel.swift`: **B+/A-**. This slice did not grow the model; the main remaining architectural risk is still broad facade size.
+
+Remaining risk:
+- Signed-in browser profile reuse, richer browser session controls, and Linux/browser-process capture remain deferred. Native smoke tests should exercise this adapter against a real local web app before marking browser parity complete.
