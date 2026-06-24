@@ -64,7 +64,25 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceModelTests.swift` is still large. Pull request/GitHub command flows, bootstrap/config, approval-card behavior, feedback, and artifact-state coverage remain future extraction candidates.
+- `WorkspaceModelTests.swift` is still broad. Bootstrap/config, approval-card behavior, feedback, and artifact-state coverage remain future extraction candidates.
+
+## 2026-06-24 Workspace Pull Request Integration Test Pass
+
+Overall grade after this slice: **A feature grouping, A fixture DRYness, A regression guard**.
+
+Pull request workflow tests moved from `WorkspaceModelTests.swift` into `WorkspacePullRequestIntegrationTests`. The model test file no longer owns SSH Remote PR workspace commands, slash-command PR workflow dispatch, or PR command prefill coverage.
+
+Code quality changes:
+
+- Added `WorkspacePullRequestIntegrationTests` for PR workflows crossing workspace commands, slash routing, SSH Remote execution, fake GitHub CLI behavior, tool cards, PR URL artifacts, and execution-context chips.
+- Centralized repeated fake GitHub CLI plus fake SSH setup inside a `makeRemotePullRequestFixture` helper.
+- Kept primitive GitHub PR command construction, validation, and execution in the existing focused tool and remote-planner tests.
+- Added a parity gate that keeps PR workflow integration method names and fixtures out of `WorkspaceModelTests.swift`.
+- Kept `WorkspaceModelTests.swift` focused at 363 lines after the thread lifecycle, worktree, PR workflow, and terminal SSH extractions.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still broad. Bootstrap/config persistence, approval-card behavior, and plan-update integration are the next extraction candidates.
 
 ## 2026-06-23 Core Model Catalog Ownership Pass
 
