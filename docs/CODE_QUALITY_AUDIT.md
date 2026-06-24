@@ -99,7 +99,24 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceModelTests.swift` is still broad. Approval-card behavior and plan-update integration remain future extraction candidates.
+- Handled by the workspace model test retirement pass below.
+
+## 2026-06-24 Workspace Model Test Retirement Pass
+
+Overall grade after this slice: **A test ownership, A regression guard, A monolith retirement**.
+
+The historical catch-all `WorkspaceModelTests.swift` no longer owns active test cases. The final approval-card and plan-update integration tests moved into focused feature suites: `WorkspaceToolCardIntegrationTests` and `WorkspaceActivityIntegrationTests`. The old file remains only as an explicit retirement marker so parity gates can keep new workspace behavior from drifting back into a generic model test bucket.
+
+Code quality changes:
+
+- Added `WorkspaceToolCardIntegrationTests` for actionable approval-card projection, approval execution, transcript events, tool execution audit, and stopped-tool card projection.
+- Added `WorkspaceActivityIntegrationTests` for plan-update tool execution, normalized activity surface projection, transcript event recording, and multiple-running-step rejection.
+- Kept all behavior assertions from the retired model suite while giving each remaining flow a named feature owner.
+- Added parity gates that require those focused suites to own the moved tests and assert `WorkspaceModelTests.swift` stays intentionally empty.
+
+Remaining risk:
+
+- New workspace integration coverage needs discipline: add it to the focused feature suite matching the behavior, or create a new named suite before adding another catch-all file.
 
 ## 2026-06-23 Core Model Catalog Ownership Pass
 

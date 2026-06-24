@@ -251,6 +251,35 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("testBootstrapPersistsAndClearsTrustedRouterAPIKey"), "WorkspaceModelTests should not own TrustedRouter API key persistence integration.")
     }
 
+    func testWorkspaceActivityIntegrationTestsOwnModelActivityFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let activityIntegrationTests = try Self.appTestSourceText(named: "WorkspaceActivityIntegrationTests.swift")
+
+        XCTAssertTrue(activityIntegrationTests.contains("testPlanUpdateToolRecordsNormalizedActivityPlan"), "Plan-update activity integration should live in focused activity tests.")
+        XCTAssertTrue(activityIntegrationTests.contains("testPlanUpdateToolRejectsMultipleRunningSteps"), "Plan-update rejection integration should live in focused activity tests.")
+        XCTAssertFalse(modelTests.contains("testPlanUpdateToolRecordsNormalizedActivityPlan"), "WorkspaceModelTests should not own plan-update activity integration flows.")
+        XCTAssertFalse(modelTests.contains("testPlanUpdateToolRejectsMultipleRunningSteps"), "WorkspaceModelTests should not own plan-update rejection integration flows.")
+    }
+
+    func testWorkspaceToolCardIntegrationTestsOwnModelToolCardFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let toolCardIntegrationTests = try Self.appTestSourceText(named: "WorkspaceToolCardIntegrationTests.swift")
+
+        XCTAssertTrue(toolCardIntegrationTests.contains("testToolCardsRepresentActionableApprovalReview"), "Tool-card review projection should live in focused tool-card integration tests.")
+        XCTAssertTrue(toolCardIntegrationTests.contains("testToolCardApprovalActionRecordsDecisionAndRunsTool"), "Tool-card approval execution should live in focused tool-card integration tests.")
+        XCTAssertTrue(toolCardIntegrationTests.contains("testToolCardsRepresentStoppedActiveToolAsFailed"), "Stopped tool-card projection should live in focused tool-card integration tests.")
+        XCTAssertFalse(modelTests.contains("testToolCardsRepresentActionableApprovalReview"), "WorkspaceModelTests should not own actionable approval-card projection.")
+        XCTAssertFalse(modelTests.contains("testToolCardApprovalActionRecordsDecisionAndRunsTool"), "WorkspaceModelTests should not own approval-card execution integration.")
+        XCTAssertFalse(modelTests.contains("testToolCardsRepresentStoppedActiveToolAsFailed"), "WorkspaceModelTests should not own stopped tool-card projection.")
+    }
+
+    func testWorkspaceModelTestsRemainRetired() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+
+        XCTAssertTrue(modelTests.contains("Intentionally empty"), "WorkspaceModelTests should stay as a visible retirement marker.")
+        XCTAssertFalse(modelTests.contains("func test"), "New workspace integration coverage should use a focused feature test suite, not WorkspaceModelTests.")
+    }
+
     func testWorkspaceModelDelegatesStatusTextAndLabels() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
