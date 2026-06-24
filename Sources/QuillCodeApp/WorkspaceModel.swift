@@ -1349,11 +1349,14 @@ public final class QuillCodeWorkspaceModel {
         }
         let contextProjectID = selectedThread?.projectID ?? root.selectedProjectID
         refreshProjectMetadata(contextProjectID)
-        let refreshedMemories = contextResolver.memoryNotes(for: contextProjectID)
-        let refreshedInstructions = contextResolver.instructions(for: contextProjectID)
+        let refreshedContext = WorkspaceProjectContextRefresher.threadContext(
+            projectID: contextProjectID,
+            projects: root.projects,
+            globalMemories: root.globalMemories
+        )
         mutateSelectedThread { thread in
-            thread.memories = refreshedMemories
-            thread.instructions = refreshedInstructions
+            thread.instructions = refreshedContext.instructions
+            thread.memories = refreshedContext.memories
         }
         lastError = nil
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
@@ -1776,13 +1779,15 @@ public final class QuillCodeWorkspaceModel {
 
     public func refreshSelectedProjectContext() {
         let projectID = selectedThread?.projectID ?? root.selectedProjectID
-        refreshGlobalMemories()
         refreshProjectMetadata(projectID)
-        let refreshedInstructions = contextResolver.instructions(for: projectID)
-        let refreshedMemories = contextResolver.memoryNotes(for: projectID)
+        let refreshedContext = WorkspaceProjectContextRefresher.threadContext(
+            projectID: projectID,
+            projects: root.projects,
+            globalMemories: root.globalMemories
+        )
         mutateSelectedThread { thread in
-            thread.instructions = refreshedInstructions
-            thread.memories = refreshedMemories
+            thread.instructions = refreshedContext.instructions
+            thread.memories = refreshedContext.memories
         }
         saveProjects()
     }
@@ -1797,33 +1802,24 @@ public final class QuillCodeWorkspaceModel {
 
     private func refreshProjectMetadata(_ id: UUID?) {
         refreshGlobalMemories()
-        guard let id, let index = root.projects.firstIndex(where: { $0.id == id }) else { return }
-        guard !root.projects[index].isRemote else { return }
-        let rootURL = URL(fileURLWithPath: root.projects[index].path)
-        WorkspaceProjectEngine.applyMetadata(
-            WorkspaceProjectMetadataLoader.loadLocal(from: rootURL),
-            to: id,
-            projects: &root.projects,
-            includeLocalExtensions: true
+        WorkspaceProjectContextRefresher.refreshLocalProjectMetadata(
+            projectID: id,
+            projects: &root.projects
         )
     }
 
     private func refreshRemoteProjectContext(_ id: UUID) -> Bool {
         refreshGlobalMemories()
-        guard let index = root.projects.firstIndex(where: { $0.id == id }),
-              root.projects[index].isRemote
-        else {
-            return false
-        }
-
         do {
-            let metadata = try WorkspaceProjectMetadataLoader.loadRemote(
-                connection: root.projects[index].connection,
+            let didRefresh = try WorkspaceProjectContextRefresher.refreshRemoteProjectContext(
+                projectID: id,
+                projects: &root.projects,
                 executor: sshRemoteShellExecutor
             )
-            WorkspaceProjectEngine.applyMetadata(metadata, to: id, projects: &root.projects, includeLocalExtensions: false)
-            lastError = nil
-            return true
+            if didRefresh {
+                lastError = nil
+            }
+            return didRefresh
         } catch {
             lastError = error.localizedDescription
             return false
@@ -1831,7 +1827,7 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func refreshGlobalMemories() {
-        root.globalMemories = WorkspaceMemoryEngine.loadGlobal(from: globalMemoryDirectory)
+        root.globalMemories = WorkspaceProjectContextRefresher.globalMemories(directory: globalMemoryDirectory)
     }
 
     private func applyGlobalMemoryMutation(_ mutation: WorkspaceMemoryMutation) {
@@ -1859,14 +1855,23 @@ public final class QuillCodeWorkspaceModel {
     private func syncThreadContext(into thread: inout ChatThread) {
         let projectID = thread.projectID ?? root.selectedProjectID
         refreshProjectMetadata(projectID)
-        thread.instructions = contextResolver.instructions(for: projectID)
-        thread.memories = contextResolver.memoryNotes(for: projectID)
+        WorkspaceProjectContextRefresher.syncThreadContext(
+            &thread,
+            fallbackProjectID: root.selectedProjectID,
+            projects: root.projects,
+            globalMemories: root.globalMemories
+        )
     }
 
     private func refreshThreadMemoryContext(_ thread: inout ChatThread) {
         let projectID = thread.projectID ?? root.selectedProjectID
         refreshProjectMetadata(projectID)
-        thread.memories = contextResolver.memoryNotes(for: projectID)
+        WorkspaceProjectContextRefresher.syncThreadMemories(
+            &thread,
+            fallbackProjectID: root.selectedProjectID,
+            projects: root.projects,
+            globalMemories: root.globalMemories
+        )
     }
 
     private func knownProjectID(_ id: UUID?) -> UUID? {
