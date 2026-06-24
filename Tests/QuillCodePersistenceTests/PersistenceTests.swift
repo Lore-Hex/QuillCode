@@ -6,7 +6,7 @@ final class PersistenceTests: XCTestCase {
     func testConfigRoundTrips() throws {
         let root = try makeTempDirectory()
         let store = ConfigStore(fileURL: root.appendingPathComponent("config.toml"))
-        let config = AppConfig(defaultModel: "trustedrouter/fusion", mode: .auto, apiBaseURL: "https://api.trustedrouter.com/v1", developerOverrideEnabled: true)
+        let config = AppConfig(defaultModel: "/synth", mode: .auto, apiBaseURL: "https://api.trustedrouter.com/v1", developerOverrideEnabled: true)
         try store.save(config)
         XCTAssertEqual(try store.load(), config)
         XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.synthModel)

@@ -363,7 +363,7 @@ final class WorkspaceAutomationEngineTests: XCTestCase {
             title: "Launch plan",
             projectID: UUID(),
             mode: .review,
-            model: "trustedrouter/fusion",
+            model: "/synth",
             messages: [
                 .init(role: .user, content: "Latest question"),
                 .init(role: .assistant, content: "Latest answer")

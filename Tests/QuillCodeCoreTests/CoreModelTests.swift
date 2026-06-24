@@ -16,6 +16,7 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("Synth"), TrustedRouterDefaults.synthModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/synth"), TrustedRouterDefaults.synthModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/synth"), TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(TrustedRouterDefaults.provider(fromModelID: "/synth"), TrustedRouterDefaults.trustedRouterProvider)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/fusion"), TrustedRouterDefaults.synthModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("FUSION"), TrustedRouterDefaults.synthModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/fusion"), TrustedRouterDefaults.synthModel)
@@ -23,10 +24,10 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/synth-code"), TrustedRouterDefaults.synthCodeModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/synth-code"), TrustedRouterDefaults.synthCodeModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/synth-code"), TrustedRouterDefaults.synthCodeModel)
+        XCTAssertEqual(TrustedRouterDefaults.provider(fromModelID: "/synth-code"), TrustedRouterDefaults.trustedRouterProvider)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/fusion-code"), TrustedRouterDefaults.synthCodeModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/fusion-code"), TrustedRouterDefaults.synthCodeModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/fusion-code"), TrustedRouterDefaults.synthCodeModel)
-        XCTAssertEqual(TrustedRouterDefaults.provider(fromModelID: "tr/fusion"), TrustedRouterDefaults.trustedRouterProvider)
         XCTAssertEqual(TrustedRouterDefaults.safetyPrimaryModel, "glm-5.2")
         XCTAssertEqual(TrustedRouterDefaults.safetyFallbackModel, "kimi-k2.6")
         XCTAssertLessThan(
@@ -142,8 +143,8 @@ final class CoreModelTests: XCTestCase {
     func testModelCatalogNormalizationDeduplicatesAliasesAndSortsDefaultsFirst() {
         let catalog = TrustedRouterDefaults.normalizedModelCatalog([
             .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
-            .init(id: "trustedrouter/fusion", provider: "trustedrouter", displayName: "Fusion Alias", category: "Recommended"),
-            .init(id: "trustedrouter/fusion-code", provider: "trustedrouter", displayName: "Fusion Code Alias", category: "Recommended"),
+            .init(id: "/synth", provider: "trustedrouter", displayName: "Synth Alias", category: "Recommended"),
+            .init(id: "/synth-code", provider: "trustedrouter", displayName: "Synth Code Alias", category: "Recommended"),
             .init(id: "tr/fast", provider: "tr", displayName: "Fast Alias", category: "Recommended")
         ])
 

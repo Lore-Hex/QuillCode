@@ -34,7 +34,7 @@ Agent PRs should merge through the repo merge train instead of racing direct pus
 
 The CLI and desktop shell use a deterministic mock LLM by default so tests and local demos do not require a TrustedRouter account. The desktop shell switches to live TrustedRouter automatically when `QUILLCODE_API_KEY` or `TRUSTEDROUTER_API_KEY` is present, or when an API key is stored in the QuillCode secret store. With a key, the desktop shell also refreshes the TrustedRouter model catalog and groups provider/category/model choices in the top bar. The desktop Settings sheet can save, replace, or clear the local developer key and API base URL. Set `QUILLCODE_USE_MOCK_LLM=true` to force deterministic mock mode.
 
-The default user-facing model is Nike 1.0 (`trustedrouter/fast`). Synth (`tr/synth`) is the next Recommended option for deeper coding and review turns. Legacy `trustedrouter/fusion`, `tr/fusion`, and `fusion-code` IDs remain valid aliases; new configs and picker surfaces prefer `synth` and `synth-code`.
+The default user-facing model is Nike 1.0 (`trustedrouter/fast`). Synth (`tr/synth`, `/synth`) is the next Recommended option for deeper coding and review turns, with Synth Code available as `tr/synth-code` or `/synth-code`. Legacy `trustedrouter/fusion`, `tr/fusion`, `/fusion`, `fusion-code`, and `/fusion-code` IDs remain valid aliases; new configs, slash commands, and picker surfaces prefer Synth naming.
 
 To exercise the live TrustedRouter adapter:
 
