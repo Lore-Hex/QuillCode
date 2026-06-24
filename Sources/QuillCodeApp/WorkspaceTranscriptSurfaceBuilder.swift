@@ -225,6 +225,13 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
                 systemImage: "play.fill"
             ),
             ToolCardActionSurface(
+                title: "Edit",
+                kind: .edit,
+                requestID: request.id,
+                style: .secondary,
+                systemImage: "pencil"
+            ),
+            ToolCardActionSurface(
                 title: "Skip",
                 kind: .deny,
                 requestID: request.id,

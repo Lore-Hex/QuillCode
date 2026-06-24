@@ -129,6 +129,7 @@ final class ParityGateTests: QuillCodeParityTestCase {
 
         XCTAssertTrue(toolCardSurfaceText.contains("public struct ToolCardActionSurface"), "Tool-card actions should be first-class surface state.")
         XCTAssertTrue(toolCardSurfaceText.contains("public enum ToolCardReviewState"), "Tool-card review substates should be explicit surface state.")
+        XCTAssertTrue(toolCardSurfaceText.contains("case edit"), "Approval-card actions should include an edit path for near-correct tool calls.")
         XCTAssertTrue(toolCardSurfaceText.contains("public var actions: [ToolCardActionSurface]"), "Tool-card state should carry available user actions.")
         XCTAssertTrue(toolCardSurfaceText.contains("public var reviewState: ToolCardReviewState"), "Tool-card state should carry semantic review state separately from subtitle copy.")
         XCTAssertTrue(toolCardSurfaceText.contains("statusDisplayLabel"), "Tool-card human-facing status copy should live on the surface state.")
@@ -155,6 +156,8 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(htmlRendererText.contains("card.reviewState.rawValue"), "HTML cards should expose review substate for E2E checks without parsing copy.")
         XCTAssertTrue(approvalPlannerText.contains("enum WorkspaceApprovalActionPlanner"), "Approval-card action planning should live in a focused helper.")
         XCTAssertTrue(approvalPlannerText.contains("static func pendingRequest"), "Approval request lookup should be directly testable outside the workspace model.")
+        XCTAssertTrue(approvalPlannerText.contains("WorkspaceApprovalEditDraftBuilder"), "Approval-card edit draft generation should stay in the pure planner layer.")
+        XCTAssertTrue(approvalPlannerText.contains("composerDraft"), "Approval-card edit actions should preload the composer instead of approving or skipping.")
         XCTAssertTrue(modelText.contains("WorkspaceApprovalActionPlanner.plan"), "Workspace model should delegate approval-card action planning.")
         XCTAssertFalse(modelText.contains("private func pendingApprovalRequest"), "Workspace model should not own approval-request lookup.")
         XCTAssertFalse(modelText.contains("private func appendApprovalDecision"), "Workspace model should not own approval-decision event construction.")

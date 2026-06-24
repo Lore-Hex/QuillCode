@@ -9,7 +9,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - Thread reducers, tool schemas, shell/file/path safety, and SSH Remote command request quoting/validation.
 - Workspace activity reduction from thread events, tool cards, instructions, memories, artifacts, latest assistant answers, deterministic task plans, deterministic handoff summaries, and collapsible shared section state.
 - Multi-step agent tool continuation, hidden tool-feedback serialization, duplicate tool-call loop guards, max-step fallback, and user-visible filtering for sidebar search/fork/compaction.
-- Patch parser, diff parser, file/line/range review comments, Auto reviewer JSON, sandbox policy.
+- Patch parser, diff parser, file/line/range review comments, approval Run/Edit/Skip planning, Auto reviewer JSON, sandbox policy.
 - Project instruction discovery, nested precedence, symlink/root bounds, and byte/file caps.
 - Shortcut registry, command-derived shortcut discoverability, plugin/skill/MCP manifest discovery, MCP structured launch command/args, stdio `Content-Length` framing, bounded MCP `initialize`/`tools/list` probes, MCP `tools/call` request/response parsing, symlink/root bounds, duplicate ID handling, byte/count caps, malformed manifest skips.
 - Computer Use status labeling for all permission combinations, deterministic stub backend action recording, structured tool definitions, and executor argument validation.
