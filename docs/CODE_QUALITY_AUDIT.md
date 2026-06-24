@@ -4064,3 +4064,19 @@ What changed:
 
 Remaining risk:
 - `SlashCommand.swift` still owns worktree, browser, help, status, environment action, and generic routing. Environment action parsing should be the next small extraction if local environment commands gain subcommands or usage copy.
+
+## 2026-06-24 Shared Command Icon Catalog
+
+Overall grade after this slice: **A+ icon ownership, A sidebar compatibility, A command-palette DRYness**.
+
+The native sidebar and command palette both mapped many of the same command IDs to SF Symbols. That duplication was low-level but drift-prone: command IDs like `toggle-terminal`, `toggle-browser`, `toggle-memories`, `settings`, Git PR actions, worktrees, Computer Use, and local environment actions could silently get different icons across surfaces.
+
+What changed:
+- Added `QuillCodeCommandIconCatalog` as the single native SF Symbol map for command IDs.
+- Updated the command palette to consume the shared catalog and removed its private duplicate `QuillCodeCommandIcon`.
+- Kept the sidebar’s deliberate `toggle-activity` override for its compact utility menu while delegating all other native symbols to the catalog.
+- Added direct catalog tests for fixed command IDs, dynamic slash commands, local environment commands, and fallback symbols.
+- Updated parity gates so command icon mapping stays centralized.
+
+Remaining risk:
+- HTML sidebar icon tokens are intentionally separate because they map to CSS token names, not SF Symbols. If the HTML shell grows more native-like, bridge those through a dedicated token catalog instead of mixing HTML token and native symbol concerns.

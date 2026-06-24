@@ -108,32 +108,10 @@ struct QuillCodeSidebarCommandPresentation: Sendable, Hashable {
     }
 
     static func systemImage(for commandID: String) -> String {
-        switch commandID {
-        case "new-chat":
-            return "square.and.pencil"
-        case "search":
-            return "magnifyingglass"
-        case "toggle-extensions":
-            return "puzzlepiece.extension"
-        case "toggle-automations":
-            return "clock.arrow.circlepath"
-        case "toggle-terminal":
-            return "terminal"
-        case "terminal-clear":
-            return "clear"
-        case "toggle-browser":
-            return "globe"
-        case "toggle-memories":
-            return "brain.head.profile"
-        case "toggle-activity":
+        if commandID == "toggle-activity" {
             return "waveform.path.ecg"
-        case "command-palette":
-            return "command"
-        case "settings":
-            return "gearshape"
-        default:
-            return "circle"
         }
+        return QuillCodeCommandIconCatalog.systemImage(for: commandID, fallback: "circle")
     }
 
     static func htmlIconToken(for commandID: String) -> String {
