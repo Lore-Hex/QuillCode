@@ -23,7 +23,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, context/action lookup, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, thread persistence, local command transcript mutation, thread notice mutation, sidebar selection transitions, sidebar bulk action planning, project context refresh, and top-bar state assembly now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, context/action lookup, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, thread persistence, local command transcript mutation, thread notice mutation, sidebar selection transitions, sidebar bulk action planning, project context refresh, `/status` context assembly, and top-bar state assembly now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | A- | The shell is now mostly chrome composition, state, and routing. Transcript layout and workspace sheet presentation live in focused files; keep future modal families and command workflow rules out of the root shell. |
 | `Sources/QuillCodeApp/QuillCodeToolCardView.swift` | A- | Native tool-card composition is now separate from reusable controls, artifact previews, and raw detail blocks. Keep future status/action chrome in `QuillCodeToolCardControls.swift` and artifact rendering in `QuillCodeToolArtifactViews.swift`. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is now mostly aggregate payload plus runtime/execution context records. Settings copy/compatibility, runtime issue classification, active context-source selection, model catalog presentation, top-bar/model presentation contracts, project/sidebar navigation assembly, sidebar/project contracts, browser state/presentation contracts, terminal presentation contracts, review presentation contracts, transcript/composer/context presentation contracts, secondary-pane presentation contracts, automation pane command wiring, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are extracted into focused files. Next step is extracting runtime/execution context contracts if their presentation behavior grows. |
@@ -118,6 +118,24 @@ Code quality changes:
 Remaining risk:
 
 - Some specialized event appends still belong to their domain planners (`WorkspaceComposerCancellationPlanner`, memory context updates, tool events). Keep them there; only shared primitive transcript mutation should use this appender.
+
+## 2026-06-24 Status Context Builder Pass
+
+Overall grade after this slice: **A `/status` context boundary, A behavior preservation, A regression guard**.
+
+`WorkspaceModel` still assembled the `/status` command context inline: project label fallback, selected-thread title fallback, selected project/thread instruction precedence, selected-thread versus fallback memory precedence, and top-bar mode/model/status. That made a user-facing diagnostic command depend on coordinator internals instead of a named, testable policy.
+
+Code quality changes:
+
+- Added `WorkspaceStatusContextBuilder` for `/status` context assembly.
+- Preserved existing project/thread/top-bar/fallback precedence exactly.
+- Simplified `WorkspaceModel.statusText` so it delegates context assembly and formatting separately.
+- Added focused tests for selected project/thread state and no-thread fallback state.
+- Strengthened the parity gate so inline `/status` context construction does not return to `WorkspaceModel`.
+
+Remaining risk:
+
+- Slash-command dispatch still chooses when `/status` runs inside `WorkspaceModel`. That is acceptable while command branches mostly delegate to focused planners; extract command-effect dispatch only when shared command workflow mechanics grow.
 
 ## 2026-06-24 Sidebar Command Grouping Pass
 
