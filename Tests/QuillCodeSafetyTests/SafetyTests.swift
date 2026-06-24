@@ -141,6 +141,31 @@ final class SafetyTests: XCTestCase {
         XCTAssertEqual(review.verdict, ApprovalVerdict.deny)
     }
 
+    func testAutoHardDeniesHighRiskPatternTable() async {
+        let reviewer = StaticSafetyReviewer()
+        let commands = [
+            "rm -rf /tmp/quillcode-test",
+            "mkfs.ext4 /dev/disk2",
+            "dd if=/dev/zero of=/dev/disk2",
+            "security find-generic-password -w QuillCode",
+            "cat ~/.ssh/id_rsa",
+            "echo AWS_SECRET_ACCESS_KEY=abc123",
+            "chmod -R 777 /"
+        ]
+
+        for command in commands {
+            let call = ToolCall(name: shellRun.name, argumentsJSON: #"{"cmd":"\#(command)"}"#)
+            let review = await reviewer.review(.init(
+                mode: .auto,
+                userMessage: "run this maintenance command",
+                toolCall: call,
+                toolDefinition: shellRun,
+                recentMessages: []
+            ))
+            XCTAssertEqual(review.verdict, ApprovalVerdict.deny, command)
+        }
+    }
+
     func testAutoApprovesUserRequestedGitCommit() async {
         let reviewer = StaticSafetyReviewer()
         let call = ToolCall(name: gitCommit.name, argumentsJSON: #"{"message":"Add hello file"}"#)
@@ -290,6 +315,22 @@ final class SafetyTests: XCTestCase {
             recentMessages: [.init(role: .user, content: "auto merge PR 42 when checks pass")]
         ))
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoClarifiesPullRequestMergeWhenUserOnlyAsksToView() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: gitPullRequestMerge.name,
+            argumentsJSON: #"{"selector":"42","method":"squash","auto":false}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "show pull request 42",
+            toolCall: call,
+            toolDefinition: gitPullRequestMerge,
+            recentMessages: [.init(role: .user, content: "show pull request 42")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
     }
 
     func testAutoApprovesUserRequestedWorktree() async {
