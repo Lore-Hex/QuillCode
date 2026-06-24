@@ -4264,3 +4264,19 @@ What changed:
 
 Remaining risk:
 - The normalizer is intentionally tolerant because live LLMs vary. If alias support keeps growing, the next A+ step is a table-driven schema alias catalog rather than adding more switch branches.
+
+## 2026-06-24 Static Safety Policy Table
+
+Overall grade after this slice: **A static policy boundary, A intent-rule maintainability, A regression coverage**.
+
+`StaticSafetyReviewer` had stayed compact, but it still mixed mode decisions with raw hard-deny command strings and a long chain of user-intent phrase checks. That made the fallback Auto policy harder to grow safely as PR, worktree, Computer Use, and shell actions expanded.
+
+What changed:
+- Added `StaticSafetyPolicy` to own normalized hard-deny matching and user-intent matching.
+- Replaced inline blocked-command arrays and phrase chains with `StaticSafetyHardDenyRule`, `StaticSafetyIntentRule`, and `StaticSafetyPullRequestPolicy` tables.
+- Kept `StaticSafetyReviewer` focused on mode behavior, hard-deny precedence, low-risk approval, and model-backed reviewer orchestration.
+- Added safety tests for representative high-risk pattern-table denies and PR intent specificity.
+- Added a parity gate so raw hard-deny patterns and pull-request intent chains do not drift back into `Safety.swift`.
+
+Remaining risk:
+- This is still a deterministic fallback for Auto. The production path should keep collecting reviewer-model telemetry and eventually move richer command intent classification into typed tool-intent categories rather than phrase lists.
