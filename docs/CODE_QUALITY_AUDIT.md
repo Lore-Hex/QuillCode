@@ -2553,3 +2553,21 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelTests.swift` is still large because it contains broad integration coverage for remote projects, review actions, automations, terminal behavior, and composer runs. Continue moving feature-specific integration groups into focused files when the owning boundary is already extracted.
+
+## 2026-06-24 Workspace Project Extension Integration Test Pass
+
+Overall grade after this slice: **A feature grouping, A failure-path coverage, A regression guard**.
+
+Project extension integration tests moved from `WorkspaceModelTests.swift` into `WorkspaceProjectExtensionIntegrationTests`. The model test file no longer owns project extension manifest loading into the workspace surface or extension update command execution.
+
+Code quality changes:
+
+- Added `WorkspaceProjectExtensionIntegrationTests` as the home for extension flows that cross manifest files, project metadata refresh, secondary-pane surfaces, command dispatch, tool execution, and transcript notices.
+- Added explicit failure-path coverage for extension update commands so failed updates keep the manifest available and record a user-visible failure notice.
+- Centralized repeated plugin manifest setup inside the focused integration test file.
+- Added a parity gate that keeps project extension integration method names out of `WorkspaceModelTests.swift`.
+- Reduced `WorkspaceModelTests.swift` without weakening project extension behavior coverage.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still large. Older broad workspace flows around slash commands, automations, terminal behavior, and remote projects are now the clearest remaining extraction candidates.
