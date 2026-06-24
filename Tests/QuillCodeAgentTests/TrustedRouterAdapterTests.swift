@@ -461,9 +461,10 @@ final class TrustedRouterAdapterTests: XCTestCase {
     func testModelCatalogMapsProvidersAndCategories() {
         XCTAssertTrue(TrustedRouterModelCatalog.defaultModels.contains { $0.id == "trustedrouter/fast" })
         XCTAssertTrue(TrustedRouterModelCatalog.defaultModels.contains { $0.id == "tr/synth" })
+        XCTAssertTrue(TrustedRouterModelCatalog.defaultModels.contains { $0.id == "tr/synth-code" })
         XCTAssertTrue(TrustedRouterModelCatalog.defaultModels.contains { $0.id == "z-ai/glm-5.2" })
         XCTAssertTrue(TrustedRouterModelCatalog.defaultModels.contains { $0.id == "moonshotai/kimi-k2.6" })
-        XCTAssertEqual(TrustedRouterModelCatalog.defaultModels.prefix(2).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
+        XCTAssertEqual(TrustedRouterModelCatalog.defaultModels.prefix(3).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
         XCTAssertEqual(TrustedRouterModelCatalogClient.provider(from: "tr/synth"), "trustedrouter")
         XCTAssertEqual(TrustedRouterModelCatalogClient.provider(from: "/synth"), "trustedrouter")
         XCTAssertEqual(TrustedRouterModelCatalogClient.provider(from: "tr/fusion"), "trustedrouter")
@@ -481,7 +482,7 @@ final class TrustedRouterAdapterTests: XCTestCase {
             .init(id: "/synth", provider: "trustedrouter", displayName: "Synth Alias", category: "Recommended")
         ])
 
-        XCTAssertEqual(catalog.models.prefix(2).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
+        XCTAssertEqual(catalog.models.prefix(3).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
         XCTAssertEqual(Array(catalog.categories().prefix(3)), ["Recommended", "Safety", "Coding"])
         XCTAssertEqual(catalog.models.filter { $0.id == TrustedRouterDefaults.fastModel }.count, 1)
         XCTAssertEqual(catalog.models.filter { $0.id == TrustedRouterDefaults.synthModel }.count, 1)
