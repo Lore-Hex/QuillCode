@@ -465,9 +465,11 @@ final class TrustedRouterAdapterTests: XCTestCase {
         XCTAssertTrue(TrustedRouterModelCatalog.defaultModels.contains { $0.id == "moonshotai/kimi-k2.6" })
         XCTAssertEqual(TrustedRouterModelCatalog.defaultModels.prefix(2).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
         XCTAssertEqual(TrustedRouterModelCatalogClient.provider(from: "tr/synth"), "trustedrouter")
+        XCTAssertEqual(TrustedRouterModelCatalogClient.provider(from: "/synth"), "trustedrouter")
         XCTAssertEqual(TrustedRouterModelCatalogClient.provider(from: "tr/fusion"), "trustedrouter")
         XCTAssertEqual(TrustedRouterModelCatalogClient.provider(from: "z-ai/glm-5.2"), "z-ai")
         XCTAssertEqual(TrustedRouterModelCatalogClient.category(for: "tr/synth", provider: "trustedrouter"), "Recommended")
+        XCTAssertEqual(TrustedRouterModelCatalogClient.category(for: "/synth", provider: "trustedrouter"), "Recommended")
         XCTAssertEqual(TrustedRouterModelCatalogClient.category(for: "tr/fusion", provider: "trustedrouter"), "Recommended")
         XCTAssertEqual(TrustedRouterModelCatalogClient.category(for: "moonshotai/kimi-k2.6", provider: "moonshotai"), "Safety")
     }

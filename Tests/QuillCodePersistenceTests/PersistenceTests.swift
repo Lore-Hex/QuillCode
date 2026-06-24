@@ -68,7 +68,7 @@ final class PersistenceTests: XCTestCase {
         let root = try makeTempDirectory()
         let fileURL = root.appendingPathComponent("config.toml")
         try """
-        default_model = "trustedrouter/fusion"
+        default_model = "/synth"
         mode = "auto"
         api_base_url = "https://api.trustedrouter.com/v1"
         auth_mode = "oauth"

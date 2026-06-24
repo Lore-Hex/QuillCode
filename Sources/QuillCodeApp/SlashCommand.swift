@@ -66,7 +66,13 @@ enum SlashCommandCatalog {
         .init(usage: "/pr merge [squash|merge|rebase]", title: "Merge pull request", detail: "Merge or enable auto-merge for the current pull request.", insertText: "/pr merge squash", aliases: ["automerge", "merge train"]),
         .init(usage: "/env name", title: "Run local environment action", detail: "List or run project-local environment scripts.", insertText: "/env ", aliases: ["environment", "local-env"]),
         .init(usage: "/mode auto|review|read-only", title: "Set approval mode", detail: "Switch between Auto, Review, and Read-only behavior.", insertText: "/mode ", aliases: []),
-        .init(usage: "/model provider/model", title: "Set model", detail: "Switch the active TrustedRouter model.", insertText: "/model ", aliases: [])
+        .init(
+            usage: "/model /synth",
+            title: "Set model",
+            detail: "Switch the active TrustedRouter model, for example /synth or provider/model.",
+            insertText: "/model ",
+            aliases: []
+        )
     ]
 
     static func helpText() -> String {
@@ -228,7 +234,7 @@ enum SlashCommandParser {
             return parseMode(argument)
         case "model":
             guard !argument.isEmpty else {
-                return .invalid("Usage: /model provider/model")
+                return .invalid("Usage: /model /synth or /model provider/model")
             }
             return .model(argument)
         default:

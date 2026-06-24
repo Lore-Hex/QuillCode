@@ -149,8 +149,12 @@ final class WorkspaceCommandPlanTests: XCTestCase {
         let modeCommand = try XCTUnwrap(
             SlashCommandCatalog.commandPaletteCommands().first { $0.title == "/mode auto|review|read-only" }
         )
+        let modelCommand = try XCTUnwrap(
+            SlashCommandCatalog.commandPaletteCommands().first { $0.title == "/model /synth" }
+        )
 
         XCTAssertEqual(WorkspaceCommandPlan(commandID: modeCommand.id), .setDraft("/mode "))
+        XCTAssertEqual(WorkspaceCommandPlan(commandID: modelCommand.id), .setDraft("/model "))
     }
 
     func testInvalidCommandsReturnNil() {
