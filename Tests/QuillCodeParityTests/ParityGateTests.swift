@@ -1739,6 +1739,27 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(surfaceText.contains("public struct AutomationWorkflowSurface"), "WorkspaceSurface should not own automation workflow rows.")
     }
 
+    func testNativeSecondaryPanesUseFocusedViewFiles() throws {
+        let workspaceText = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
+        let chromeText = try Self.appSourceText(named: "QuillCodeSecondaryPanesView.swift")
+        let extensionsText = try Self.appSourceText(named: "QuillCodeExtensionsPaneView.swift")
+        let memoriesText = try Self.appSourceText(named: "QuillCodeMemoriesPaneView.swift")
+        let automationsText = try Self.appSourceText(named: "QuillCodeAutomationsPaneView.swift")
+
+        XCTAssertTrue(chromeText.contains("struct QuillCodePaneCountPill"), "Secondary pane count pills should remain shared native chrome.")
+        XCTAssertTrue(chromeText.contains("struct QuillCodePaneEmptyStateView"), "Secondary pane empty states should remain shared native chrome.")
+        XCTAssertTrue(extensionsText.contains("struct QuillCodeExtensionsPaneView"), "Extensions native UI should live in its own focused file.")
+        XCTAssertTrue(extensionsText.contains("ProjectExtensionManifestSurface"), "MCP extension metadata display should stay with the Extensions native pane.")
+        XCTAssertTrue(memoriesText.contains("struct QuillCodeMemoriesPaneView"), "Memories native UI should live in its own focused file.")
+        XCTAssertTrue(automationsText.contains("struct QuillCodeAutomationsPaneView"), "Automations native UI should live in its own focused file.")
+        XCTAssertTrue(workspaceText.contains("QuillCodeExtensionsPaneView"), "Workspace shell should route Extensions pane placement.")
+        XCTAssertTrue(workspaceText.contains("QuillCodeMemoriesPaneView"), "Workspace shell should route Memories pane placement.")
+        XCTAssertTrue(workspaceText.contains("QuillCodeAutomationsPaneView"), "Workspace shell should route Automations pane placement.")
+        XCTAssertFalse(chromeText.contains("struct QuillCodeExtensionsPaneView"), "Shared secondary chrome should not own Extensions pane content.")
+        XCTAssertFalse(chromeText.contains("struct QuillCodeMemoriesPaneView"), "Shared secondary chrome should not own Memories pane content.")
+        XCTAssertFalse(chromeText.contains("struct QuillCodeAutomationsPaneView"), "Shared secondary chrome should not own Automations pane content.")
+    }
+
     func testWorkspaceHTMLRendererDelegatesToolCardRendering() throws {
         let htmlText = try Self.appSourceText(named: "WorkspaceHTMLRenderer.swift")
         let transcriptText = try Self.appSourceText(named: "WorkspaceHTMLTranscriptRenderer.swift")

@@ -3113,3 +3113,21 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceCommandStaticCatalog.swift` is intentionally a small static catalog. If Browser, Automations, or Computer Use command sets grow richer, split those families into their own catalogs before adding runtime-specific branching there.
+
+## 2026-06-24 Native Secondary Pane View Split
+
+Overall grade after this slice: **A+ native pane ownership, A shared chrome, A+ regression guard**.
+
+`QuillCodeSecondaryPanesView.swift` had grown into a 590-line mixed native UI file containing Extensions, Memories, Automations, shared count pills, empty states, MCP probe metadata, memory cards, and automation action routing. It now owns only shared secondary-pane chrome, while each pane family has a focused SwiftUI file.
+
+Code quality changes:
+
+- Added `QuillCodeExtensionsPaneView.swift` for Extensions cards, MCP probe metadata chips, status coloring, and extension lifecycle command routing.
+- Added `QuillCodeMemoriesPaneView.swift` for memory counts, memory cards, and forget/add command routing.
+- Added `QuillCodeAutomationsPaneView.swift` for automation status, create menu routing, workflow cards, and row actions.
+- Reduced `QuillCodeSecondaryPanesView.swift` from 590 lines to shared count-pill and empty-state primitives only.
+- Added a parity gate so native secondary panes remain focused files and the workspace shell remains a placement/router layer.
+
+Remaining risk:
+
+- `QuillCodeExtensionsPaneView.swift` is still the richest secondary pane because MCP probe metadata is visually dense. If MCP resource, prompt, or per-tool schema display grows further, split the probe metadata groups into a dedicated `QuillCodeExtensionProbeMetadataView`.
