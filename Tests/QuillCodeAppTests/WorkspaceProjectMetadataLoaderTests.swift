@@ -4,7 +4,7 @@ import QuillCodeCore
 
 final class WorkspaceProjectMetadataLoaderTests: XCTestCase {
     func testLoadLocalAggregatesInstructionsActionsExtensionsAndMemories() throws {
-        let root = try temporaryDirectory()
+        let root = try makeQuillCodeTestDirectory()
         try "Root rules\n".write(
             to: root.appendingPathComponent("AGENTS.md"),
             atomically: true,
@@ -70,13 +70,4 @@ final class WorkspaceProjectMetadataLoaderTests: XCTestCase {
         XCTAssertTrue(metadata.extensionManifests.isEmpty)
     }
 
-    private func temporaryDirectory() throws -> URL {
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("QuillCodeTests-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        addTeardownBlock {
-            try? FileManager.default.removeItem(at: root)
-        }
-        return root
-    }
 }

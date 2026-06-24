@@ -835,6 +835,23 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("SSHRemoteProjectContextLoader.load"), "WorkspaceModel should not load SSH Remote context directly.")
     }
 
+    func testWorkspaceModelTestsDoNotOwnPureProjectLoaderCoverage() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let instructionTests = try Self.appTestSourceText(named: "ProjectInstructionLoaderTests.swift")
+        let actionTests = try Self.appTestSourceText(named: "LocalEnvironmentActionLoaderTests.swift")
+        let extensionTests = try Self.appTestSourceText(named: "ProjectExtensionManifestLoaderTests.swift")
+        let memoryTests = try Self.appTestSourceText(named: "MemoryNoteLoaderTests.swift")
+
+        XCTAssertTrue(instructionTests.contains("ProjectInstructionLoader.load"), "Project instruction loader coverage should live in its focused test file.")
+        XCTAssertTrue(actionTests.contains("LocalEnvironmentActionLoader.load"), "Local environment loader coverage should live in its focused test file.")
+        XCTAssertTrue(extensionTests.contains("ProjectExtensionManifestLoader.load"), "Project extension loader coverage should live in its focused test file.")
+        XCTAssertTrue(memoryTests.contains("MemoryNoteLoader.loadProject"), "Project memory loader coverage should live in its focused test file.")
+        XCTAssertFalse(modelTests.contains("ProjectInstructionLoader.load"), "WorkspaceModelTests should focus on model integration, not direct project instruction loader tests.")
+        XCTAssertFalse(modelTests.contains("LocalEnvironmentActionLoader.load"), "WorkspaceModelTests should focus on model integration, not direct local environment loader tests.")
+        XCTAssertFalse(modelTests.contains("ProjectExtensionManifestLoader.load"), "WorkspaceModelTests should focus on model integration, not direct extension loader tests.")
+        XCTAssertFalse(modelTests.contains("MemoryNoteLoader.loadProject"), "WorkspaceModelTests should focus on model integration, not direct memory loader tests.")
+    }
+
     func testWorkspaceModelDelegatesAutomationStateMutations() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let automationText = try Self.appSourceText(named: "WorkspaceAutomationEngine.swift")
@@ -2001,6 +2018,13 @@ final class ParityGateTests: XCTestCase {
     private static func appSourceText(named fileName: String) throws -> String {
         let file = packageRoot()
             .appendingPathComponent("Sources/QuillCodeApp")
+            .appendingPathComponent(fileName)
+        return try String(contentsOf: file, encoding: .utf8)
+    }
+
+    private static func appTestSourceText(named fileName: String) throws -> String {
+        let file = packageRoot()
+            .appendingPathComponent("Tests/QuillCodeAppTests")
             .appendingPathComponent(fileName)
         return try String(contentsOf: file, encoding: .utf8)
     }

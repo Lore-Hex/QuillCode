@@ -2467,3 +2467,22 @@ Code quality changes:
 Remaining risk:
 
 - The low-level project instruction, action, extension, and memory loader tests still mostly live in `WorkspaceModelTests.swift`. Future quality passes should move those into focused loader test files to reduce the model test monolith without changing behavior.
+
+## 2026-06-24 Project Loader Test Ownership Pass
+
+Overall grade after this slice: **A test ownership, A behavior preservation, A regression guard**.
+
+The previous project metadata pass left pure loader tests inside `WorkspaceModelTests.swift`, which kept the model test suite oversized and made ownership less clear. This pass moved direct loader coverage into focused test files and left workspace-model tests responsible for integration behavior only.
+
+Code quality changes:
+
+- Added `ProjectInstructionLoaderTests` for nested instruction ordering, truncation, and symlink escape rejection.
+- Added `LocalEnvironmentActionLoaderTests` for sidecar metadata, command construction, unsafe working-directory rejection, timeout bounds, and symlink escape rejection.
+- Added `ProjectExtensionManifestLoaderTests` for plugin/skill/MCP manifest parsing, unsafe directory handling, symlink escape rejection, and fallback display names.
+- Added `MemoryNoteLoaderTests` for project-memory bounds, truncation, and symlink escape rejection.
+- Added shared `makeQuillCodeTestDirectory()` test support and reused it from `WorkspaceProjectMetadataLoaderTests`.
+- Added a parity gate that keeps direct project loader API calls out of `WorkspaceModelTests.swift`.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still too large at roughly 5.2k lines. The next test-quality pass should continue moving feature-specific integration groups into files named after their owning workspace engine or surface.
