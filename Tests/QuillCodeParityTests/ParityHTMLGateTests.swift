@@ -90,6 +90,26 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
         }
     }
 
+    func testHTMLSecondaryPaneRendererCoverageStaysFocused() throws {
+        let broadSurfaceTests = try Self.appTestSourceText(named: "WorkspaceSurfaceTests.swift")
+        let secondaryPaneTests = try Self.appTestSourceText(named: "WorkspaceHTMLSecondaryPaneRendererTests.swift")
+        let secondaryPaneCases = [
+            "testHTMLRendererIncludesVisibleExtensionsPane",
+            "testHTMLRendererIncludesVisibleMemoriesPane"
+        ]
+
+        for testCase in secondaryPaneCases {
+            XCTAssertTrue(
+                secondaryPaneTests.contains("func \(testCase)"),
+                "\(testCase) should live in WorkspaceHTMLSecondaryPaneRendererTests."
+            )
+            XCTAssertFalse(
+                broadSurfaceTests.contains("func \(testCase)"),
+                "\(testCase) should not drift back into the broad WorkspaceSurfaceTests file."
+            )
+        }
+    }
+
     func testWorkspaceHTMLRendererDelegatesToolCardRendering() throws {
         let htmlText = try Self.appSourceText(named: "WorkspaceHTMLRenderer.swift")
         let transcriptText = try Self.appSourceText(named: "WorkspaceHTMLTranscriptRenderer.swift")
