@@ -48,6 +48,12 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
                     style: .primary
                 ),
                 ToolCardActionSurface(
+                    title: "Edit",
+                    kind: .edit,
+                    requestID: "approval-html",
+                    style: .secondary
+                ),
+                ToolCardActionSurface(
                     title: "Skip",
                     kind: .deny,
                     requestID: "approval-html",
@@ -64,6 +70,7 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-status">Ready"#))
         XCTAssertTrue(html.contains(#"aria-label="host.shell.run, ready to run, expanded"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="approve" data-action-style="primary" data-request-id="approval-html">Run"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="edit" data-action-style="secondary" data-request-id="approval-html">Edit"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="deny" data-action-style="secondary" data-request-id="approval-html">Skip"#))
         XCTAssertTrue(html.contains(#"data-timeline-id="timeline-approval""#))
     }

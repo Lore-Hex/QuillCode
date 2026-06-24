@@ -4664,3 +4664,24 @@ Current strict grades:
 
 Remaining risk:
 - This is compile/source-gated and should be followed by a native smoke test that opens the session window, signs into or sets a cookie on a local test page, then verifies `host.browser.inspect` sees rendered signed-in DOM through the persistent profile.
+
+## 2026-06-24 Approval Card Edit Action
+
+Overall grade after this slice: **A approval UX seam, A planner/model boundary, A regression guard**.
+
+The approval-card implementation had reached a usable Run/Skip state, but it still forced a binary decision. That is not good enough for a Codex-style workflow: users often want to correct a nearly-right command or path before it runs, and forcing them to copy raw JSON or retype the command makes safe execution feel brittle.
+
+What changed:
+- Added a first-class `edit` tool-card action alongside `approve` and `deny`.
+- Added an Edit action to ready approval cards, keeping hard-denied cards blocked with no override button.
+- Extended `WorkspaceApprovalActionPlanner` so Run/Skip create approval decisions while Edit only produces a composer draft.
+- Kept `WorkspaceModel` as the side-effect owner: it applies the draft, executes approved tools, or records skipped decisions, but it does not own request lookup or draft construction.
+- Added focused planner, workspace integration, transcript surface, HTML renderer, and parity-gate coverage.
+
+Current strict grades:
+- `WorkspaceApprovalActionPlanner.swift`: **A**. The action semantics are now explicit and pure. It can still become A+ by moving generic non-shell draft copy into a reusable tool-call formatter if more edit surfaces need it.
+- `WorkspaceModel.swift`: **B+/A-**. This pass did not grow the model much, and approval behavior stays delegated, but the file remains a broad facade that should keep shedding orchestration.
+- Tool-card UX parity: **A-**. Approval cards now support Run/Edit/Skip. A later pass should add inline argument editing or a small command-edit sheet when the app has a richer command editor surface.
+
+Remaining risk:
+- The edit path preloads text into the composer instead of editing structured tool-call fields in place. That is a pragmatic, safe first step; full inline editing should be deferred until the command editor can preserve schema validation and safety-review context.

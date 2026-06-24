@@ -16,6 +16,7 @@ public enum ToolCardReviewState: String, Codable, Sendable, Hashable {
 
 public enum ToolCardActionKind: String, Codable, Sendable, Hashable {
     case approve
+    case edit
     case deny
 }
 

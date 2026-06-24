@@ -847,8 +847,17 @@ public final class QuillCodeWorkspaceModel {
             return false
         }
 
-        mutateSelectedThread { thread in
-            thread.events.append(plan.decisionEvent)
+        if let composerDraft = plan.composerDraft {
+            composer.draft = composerDraft
+            lastError = nil
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+            return true
+        }
+
+        if let decisionEvent = plan.decisionEvent {
+            mutateSelectedThread { thread in
+                thread.events.append(decisionEvent)
+            }
         }
 
         if plan.shouldRunTool {
