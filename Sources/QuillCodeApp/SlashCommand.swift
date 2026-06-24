@@ -57,8 +57,8 @@ enum SlashCommandParser {
             return SlashMemoryCommandParser.parse(name: memoryCommand, argument: argument)
         case "pr", "pull-request", "pullrequest":
             return SlashPullRequestCommandParser.parse(argument)
-        case "env", "environment", "local-env":
-            return .environmentAction(argument.isEmpty ? nil : argument)
+        case let environmentCommand where SlashEnvironmentCommandParser.supports(environmentCommand):
+            return SlashEnvironmentCommandParser.parse(argument)
         case "mode":
             return SlashModeCommandParser.parse(argument)
         case "model":
