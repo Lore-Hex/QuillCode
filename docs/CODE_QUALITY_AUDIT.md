@@ -4110,3 +4110,20 @@ What changed:
 
 Remaining risk:
 - `SlashCommand.swift` still owns `/help`, `/status`, and generic unknown routing. Those are now intentionally close to the root dispatcher, but they can move into a tiny top-level parser if help/status copy or unknown-command recovery grows.
+
+## 2026-06-24 Local Environment Slash Command Planner
+
+Overall grade after this slice: **A+ local environment slash orchestration, A+ action matching ownership, A WorkspaceModel boundary**.
+
+`WorkspaceModel.runEnvironmentSlashCommand` still owned the `/env` decision tree: list local actions, match a user query, choose the not-found transcript, or run the selected action. That kept a small but important project-workflow policy inside the largest app model and duplicated responsibility with `WorkspaceContextResolver`'s local-action matching surface.
+
+What changed:
+- Added `LocalEnvironmentActionMatcher` as the single matcher for action IDs, titles, relative paths, and normalized title/path aliases.
+- Updated `WorkspaceContextResolver` to delegate local action lookup through the matcher while keeping its public resolver API intact.
+- Added `WorkspaceEnvironmentSlashCommandPlanner` to return either a local transcript or a local action ID for `/env` commands.
+- Reduced `WorkspaceModel.runEnvironmentSlashCommand` to metadata refresh plus executing the planner result.
+- Added direct tests for matcher aliases, normalized names, list-action plans, not-found plans, and run-action plans.
+- Updated parity gates so `/env` transcript choice and action matching do not drift back into `WorkspaceModel`.
+
+Remaining risk:
+- `WorkspaceModel.handleSlashCommand` still owns the broad slash-command side-effect switch. That is acceptable while each branch delegates to focused planners/engines, but a future pass can split the switch into a small `WorkspaceSlashCommandExecutor` once more command families have similarly focused execution planners.
