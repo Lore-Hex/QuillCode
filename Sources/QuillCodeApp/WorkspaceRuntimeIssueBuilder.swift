@@ -119,7 +119,7 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
             return RuntimeIssueSurface(
                 severity: .warning,
                 title: "Model response was malformed",
-                message: "The selected model did not follow QuillCode's action schema. Try \(TrustedRouterDefaults.fastModelDisplayName), \(TrustedRouterDefaults.fusionModelDisplayName), or another coding model.",
+                message: "The selected model did not follow QuillCode's action schema. Try \(TrustedRouterDefaults.fastModelDisplayName), \(TrustedRouterDefaults.synthModelDisplayName), or another coding model.",
                 actionLabel: "Switch model"
             )
         }

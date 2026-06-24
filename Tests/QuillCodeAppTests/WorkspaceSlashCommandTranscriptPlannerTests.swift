@@ -29,9 +29,9 @@ final class WorkspaceSlashCommandTranscriptPlannerTests: XCTestCase {
         XCTAssertEqual(
             WorkspaceSlashCommandTranscriptPlanner.model(
                 userText: "/model trustedrouter/fusion",
-                model: TrustedRouterDefaults.fusionModel
+                model: TrustedRouterDefaults.synthModel
             ).assistantText,
-            "Model set to \(TrustedRouterDefaults.fusionModel)."
+            "Model set to \(TrustedRouterDefaults.synthModel)."
         )
     }
 

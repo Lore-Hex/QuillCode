@@ -21,14 +21,14 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
         let modelID = WorkspaceConfigurationEngine.setModel(" trustedrouter/fusion ", config: &config)
         WorkspaceConfigurationEngine.setModelID(modelID, thread: &thread)
 
-        XCTAssertEqual(modelID, TrustedRouterDefaults.fusionModel)
-        XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.fusionModel)
-        XCTAssertEqual(thread.model, TrustedRouterDefaults.fusionModel)
+        XCTAssertEqual(modelID, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(thread.model, TrustedRouterDefaults.synthModel)
     }
 
     func testBlankModelFallsBackToDefault() {
-        var config = AppConfig(defaultModel: TrustedRouterDefaults.fusionModel)
-        var thread = ChatThread(model: TrustedRouterDefaults.fusionModel)
+        var config = AppConfig(defaultModel: TrustedRouterDefaults.synthModel)
+        var thread = ChatThread(model: TrustedRouterDefaults.synthModel)
 
         let modelID = WorkspaceConfigurationEngine.setModel("   ", config: &config)
         WorkspaceConfigurationEngine.setModelID(modelID, thread: &thread)
@@ -42,11 +42,11 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
         var config = AppConfig(favoriteModels: ["trustedrouter/fusion", "z-ai/glm-5.2"])
 
         XCTAssertFalse(WorkspaceConfigurationEngine.toggleFavorite("  ", config: &config))
-        XCTAssertEqual(config.favoriteModels, [TrustedRouterDefaults.fusionModel, "z-ai/glm-5.2"])
+        XCTAssertEqual(config.favoriteModels, [TrustedRouterDefaults.synthModel, "z-ai/glm-5.2"])
 
         XCTAssertTrue(WorkspaceConfigurationEngine.toggleFavorite(" tr/fast ", config: &config))
         XCTAssertEqual(config.favoriteModels, [
-            TrustedRouterDefaults.fusionModel,
+            TrustedRouterDefaults.synthModel,
             "z-ai/glm-5.2",
             TrustedRouterDefaults.fastModel
         ])
@@ -63,11 +63,13 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
 
         let catalog = WorkspaceConfigurationEngine.normalizedCatalog(from: [
             ModelInfo(id: " trustedrouter/fusion ", provider: "tr", displayName: "", category: ""),
+            ModelInfo(id: " trustedrouter/fusion-code ", provider: "tr", displayName: "Fusion Code", category: ""),
             ModelInfo(id: "vendor/model", provider: "vendor", displayName: "Model", category: "Vendor")
         ])
 
         XCTAssertEqual(catalog?.first?.id, TrustedRouterDefaults.fastModel)
-        XCTAssertTrue(catalog?.contains { $0.id == TrustedRouterDefaults.fusionModel && $0.displayName == "Prometheus 1.0" } == true)
+        XCTAssertTrue(catalog?.contains { $0.id == TrustedRouterDefaults.synthModel && $0.displayName == "Synth" } == true)
+        XCTAssertTrue(catalog?.contains { $0.id == TrustedRouterDefaults.synthCodeModel && $0.displayName == "Synth Code" } == true)
         XCTAssertTrue(catalog?.contains { $0.id == "vendor/model" } == true)
     }
 
@@ -92,6 +94,6 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
         XCTAssertEqual(root.config, config)
         XCTAssertTrue(root.trustedRouterAPIKeyConfigured)
         XCTAssertEqual(root.threads[selectedIndex].mode, .readOnly)
-        XCTAssertEqual(root.threads[selectedIndex].model, TrustedRouterDefaults.fusionModel)
+        XCTAssertEqual(root.threads[selectedIndex].model, TrustedRouterDefaults.synthModel)
     }
 }

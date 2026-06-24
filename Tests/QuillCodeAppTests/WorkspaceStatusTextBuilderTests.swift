@@ -24,7 +24,7 @@ final class WorkspaceStatusTextBuilderTests: XCTestCase {
             instructions: [instruction],
             memories: [memory],
             mode: .review,
-            model: TrustedRouterDefaults.fusionModel,
+            model: TrustedRouterDefaults.synthModel,
             agentStatus: "Running"
         )
 
@@ -34,7 +34,7 @@ final class WorkspaceStatusTextBuilderTests: XCTestCase {
         Instructions: 1 instruction file loaded
         Memories: 1 memory
         Mode: Review
-        Model: \(TrustedRouterDefaults.fusionModel)
+        Model: \(TrustedRouterDefaults.synthModel)
         Agent: Running
         """)
     }

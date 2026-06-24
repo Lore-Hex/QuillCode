@@ -3893,7 +3893,7 @@ final class WorkspaceModelTests: XCTestCase {
     func testToggleModelFavoriteUpdatesConfigAndSurface() {
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
             config: AppConfig(favoriteModels: ["provider/old"]),
-            topBar: TopBarState(model: TrustedRouterDefaults.fusionModel),
+            topBar: TopBarState(model: TrustedRouterDefaults.synthModel),
             modelCatalog: TrustedRouterModelCatalog.defaultModels
         ))
 
@@ -3994,12 +3994,12 @@ final class WorkspaceModelTests: XCTestCase {
 
     func testRuntimeIssueNormalizesTrustedRouterRateLimit() throws {
         let config = AppConfig(
-            defaultModel: TrustedRouterDefaults.fusionModel,
+            defaultModel: TrustedRouterDefaults.synthModel,
             apiBaseURL: "https://api.trustedrouter.test/v1"
         )
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
             config: config,
-            topBar: TopBarState(model: TrustedRouterDefaults.fusionModel),
+            topBar: TopBarState(model: TrustedRouterDefaults.synthModel),
             trustedRouterAPIKeyConfigured: true
         ))
 
@@ -4244,7 +4244,7 @@ final class WorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.surface().automations.workflows.map(\.title), ["Ship follow-up"])
         XCTAssertEqual(model.surface().automations.workflows.first?.scheduleLabel, "Tomorrow at 9:00 AM")
 
-        let nextConfig = AppConfig(defaultModel: TrustedRouterDefaults.fusionModel, mode: .auto)
+        let nextConfig = AppConfig(defaultModel: TrustedRouterDefaults.synthModel, mode: .auto)
         try QuillCodeWorkspaceBootstrap(paths: paths).saveConfig(nextConfig)
         XCTAssertEqual(try ConfigStore(fileURL: paths.configFile).load(), nextConfig)
     }
@@ -5305,7 +5305,7 @@ final class WorkspaceModelTests: XCTestCase {
 
         XCTAssertEqual(catalog.defaultModelID, TrustedRouterDefaults.defaultModel)
         XCTAssertTrue(catalog.models.contains { $0.id == "trustedrouter/fast" })
-        XCTAssertTrue(catalog.models.contains { $0.id == TrustedRouterDefaults.fusionModel })
+        XCTAssertTrue(catalog.models.contains { $0.id == TrustedRouterDefaults.synthModel })
         XCTAssertTrue(catalog.models.contains { $0.id == "z-ai/glm-5.2" })
     }
 

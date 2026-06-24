@@ -58,7 +58,7 @@ final class WorkspaceThreadCreationEngineTests: XCTestCase {
         XCTAssertEqual(fork.title, "Fork: Investigate issue")
         XCTAssertEqual(fork.projectID, projectID)
         XCTAssertEqual(fork.mode, .readOnly)
-        XCTAssertEqual(fork.model, "tr/fusion")
+        XCTAssertEqual(fork.model, TrustedRouterDefaults.synthModel)
         XCTAssertEqual(fork.messages.map(\.content), ["latest question", "latest answer"])
         XCTAssertFalse(fork.messages.contains { $0.role == .tool })
         XCTAssertEqual(fork.events.first?.summary, "Forked from Investigate issue")

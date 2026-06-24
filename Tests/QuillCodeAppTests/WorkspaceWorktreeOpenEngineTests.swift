@@ -24,7 +24,7 @@ final class WorkspaceWorktreeOpenEngineTests: XCTestCase {
             request: .init(path: "feature", branch: " feature/login "),
             projectID: projectID,
             mode: .review,
-            model: TrustedRouterDefaults.fusionModel,
+            model: TrustedRouterDefaults.synthModel,
             instructions: [instruction],
             memories: [memory]
         )
@@ -39,7 +39,7 @@ final class WorkspaceWorktreeOpenEngineTests: XCTestCase {
         XCTAssertEqual(opened.thread.title, "Worktree: feature/login")
         XCTAssertEqual(opened.thread.projectID, projectID)
         XCTAssertEqual(opened.thread.mode, .review)
-        XCTAssertEqual(opened.thread.model, TrustedRouterDefaults.fusionModel)
+        XCTAssertEqual(opened.thread.model, TrustedRouterDefaults.synthModel)
         XCTAssertEqual(opened.thread.instructions, [instruction])
         XCTAssertEqual(opened.thread.memories, [memory])
         XCTAssertEqual(opened.thread.messages.map(\.content), [

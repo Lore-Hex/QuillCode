@@ -40,7 +40,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Changes From This Pass
 
-- Kept `trustedrouter/fast` and `tr/fusion` as stable API/config IDs while branding them as **Nike 1.0** and **Prometheus 1.0** in user-facing model surfaces.
+- Kept `trustedrouter/fast` stable and moved the fallback model to preferred `tr/synth` while preserving `trustedrouter/fusion`, `tr/fusion`, and `fusion-code` aliases. User-facing model surfaces brand the defaults as **Nike 1.0** and **Synth**.
 - Centralized the branded default names in `TrustedRouterDefaults`, with tests proving canonical IDs and display names separately.
 - Removed dead provider plumbing from model metadata summary generation.
 - Refactored model-category construction to compute favorite IDs once and pass a `Set` through option building instead of recomputing favorites for every model.
@@ -56,7 +56,7 @@ Overall grade after this slice: **A core cohesion, A model-default ownership**.
 Code quality changes:
 
 - Moved `ModelInfo` and `ModelSortKey` into `ModelInfo.swift`.
-- Moved `TrustedRouterDefaults` into `TrustedRouterDefaults.swift`, keeping Nike 1.0, Prometheus 1.0, aliases, fallback catalog rows, and catalog normalization together.
+- Moved `TrustedRouterDefaults` into `TrustedRouterDefaults.swift`, keeping Nike 1.0, Synth, aliases, fallback catalog rows, and catalog normalization together.
 - Reduced `Models.swift` by keeping it focused on general domain models and app config/auth records.
 - Added a parity gate that prevents model catalog records, sort keys, TrustedRouter defaults, and model branding copy from drifting back into `Models.swift`.
 
