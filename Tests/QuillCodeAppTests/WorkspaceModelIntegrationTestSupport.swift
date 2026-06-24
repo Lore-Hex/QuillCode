@@ -4,6 +4,10 @@ import QuillCodeAgent
 import QuillCodeCore
 import QuillCodeTools
 
+private func shellSingleQuoted(_ value: String) -> String {
+    value.replacingOccurrences(of: "'", with: "'\\''")
+}
+
 func makeTempDirectory() throws -> URL {
     let url = FileManager.default.temporaryDirectory
         .appendingPathComponent("QuillCodeAppTests-\(UUID().uuidString)", isDirectory: true)
@@ -13,7 +17,7 @@ func makeTempDirectory() throws -> URL {
 
 func makeFakeSSH(in root: URL, argumentsFile: URL) throws -> URL {
     let script = root.appendingPathComponent("fake-ssh")
-    let argumentsPath = argumentsFile.path.replacingOccurrences(of: "'", with: "'\\''")
+    let argumentsPath = shellSingleQuoted(argumentsFile.path)
     try """
     #!/bin/sh
     printf '%s\\n' "$@" > '\(argumentsPath)'
@@ -25,8 +29,8 @@ func makeFakeSSH(in root: URL, argumentsFile: URL) throws -> URL {
 
 func makeExecutingFakeSSH(in root: URL, argumentsFile: URL, pathPrefix: URL? = nil) throws -> URL {
     let script = root.appendingPathComponent("fake-executing-ssh")
-    let argumentsPath = argumentsFile.path.replacingOccurrences(of: "'", with: "'\\''")
-    let pathExport = pathPrefix.map { "export PATH='\($0.path.replacingOccurrences(of: "'", with: "'\\''"))':$PATH" } ?? ":"
+    let argumentsPath = shellSingleQuoted(argumentsFile.path)
+    let pathExport = pathPrefix.map { "export PATH='\(shellSingleQuoted($0.path))':$PATH" } ?? ":"
     try """
     #!/bin/sh
     : > '\(argumentsPath)'
@@ -44,7 +48,7 @@ func makeExecutingFakeSSH(in root: URL, argumentsFile: URL, pathPrefix: URL? = n
 
 func makeFakeGitHubCLI(in root: URL, argumentsFile: URL) throws -> URL {
     let script = root.appendingPathComponent("gh")
-    let argumentsPath = argumentsFile.path.replacingOccurrences(of: "'", with: "'\\''")
+    let argumentsPath = shellSingleQuoted(argumentsFile.path)
     try """
     #!/bin/sh
     printf '%s\\n' "$@" > '\(argumentsPath)'
@@ -106,7 +110,7 @@ func currentBranchName(in root: URL) throws -> String {
 struct FixedToolLLMClient: LLMClient {
     var call: ToolCall
 
-    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+    func nextAction(thread _: ChatThread, userMessage _: String, tools _: [ToolDefinition]) async throws -> AgentAction {
         .tool(call)
     }
 }
@@ -123,15 +127,15 @@ final class ToolDefinitionRecorder: @unchecked Sendable {
 
     func record(_ tools: [ToolDefinition]) {
         lock.lock()
+        defer { lock.unlock() }
         recordedTools = tools
-        lock.unlock()
     }
 }
 
 struct RecordingLLMClient: LLMClient {
     var recorder: ToolDefinitionRecorder
 
-    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+    func nextAction(thread _: ChatThread, userMessage _: String, tools: [ToolDefinition]) async throws -> AgentAction {
         recorder.record(tools)
         return .say("Recorded tool definitions.")
     }

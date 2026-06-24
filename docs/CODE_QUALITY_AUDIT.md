@@ -2678,3 +2678,19 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelTests.swift` is still large. Browser, review, and composer integration groups remain future extraction candidates.
+
+## 2026-06-24 Workspace Integration Fixture Hardening
+
+Overall grade after this slice: **A shared fixture hygiene, A reviewability, A concurrency discipline**.
+
+The remote integration split made `WorkspaceModelIntegrationTestSupport` a shared test boundary for remote, git, GitHub CLI, and fixed-LLM flows. The fixture layer now needs the same care as production support code because many future Codex-parity slices will build on it.
+
+Code quality changes:
+
+- Centralized shell single-quote escaping for fake SSH and fake GitHub CLI scripts so path quoting does not drift between fixtures.
+- Made fixed/recording LLM test doubles explicitly ignore unused parameters, keeping their behavior clear at call sites.
+- Changed the recording LLM lock release to `defer`, matching the rest of the codebase's lock discipline and avoiding future early-return hazards.
+
+Remaining risk:
+
+- `WorkspaceModelIntegrationTestSupport` is now a useful common fixture boundary, but it should not grow into a second monolith. Future broad fixtures should move into domain-specific support files once two or more focused integration files need them.
