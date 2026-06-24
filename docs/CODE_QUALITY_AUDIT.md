@@ -3766,3 +3766,19 @@ What changed:
 
 Remaining risk:
 - `QuillCodeSidebarThreadListView.swift` still owns the thread section header view. That is acceptable while section policy is just a title and row loop; split it later if sections gain per-group counters, collapsible state, drag targets, or richer Codex-style status summaries.
+
+## 2026-06-24 Native Settings Component Split
+
+Overall grade after this slice: **A+ settings shell focus, A+ shared runtime issue ownership, A settings draft coverage**.
+
+`QuillCodeSettingsView.swift` had grown into a mixed settings shell: authentication controls, Computer Use permission card rendering, reusable runtime issue banner rendering, and settings draft/update state lived in one native view file. The runtime issue banner is also used by the transcript, so keeping it inside the settings file made ownership misleading and raised the odds of settings-specific changes affecting transcript diagnostics.
+
+What changed:
+- Added `QuillCodeComputerUseSettingsCard.swift` for the Computer Use setup card and permission rows.
+- Added `QuillCodeRuntimeIssueView.swift` as the shared runtime issue banner used by settings and transcript surfaces.
+- Added `QuillCodeSettingsDraft.swift` for settings draft state, trimming, and update construction.
+- Reduced `QuillCodeSettingsView.swift` to the settings sheet shell and authentication controls.
+- Added focused draft tests and a parity guard so Computer Use rendering, runtime issue rendering, and draft state do not drift back into the settings shell.
+
+Remaining risk:
+- The settings sheet still owns OAuth and developer-override field rendering directly. That is acceptable while both sections are compact; split them if TrustedRouter account management gains richer flows such as account switching, token refresh status, or model-catalog diagnostics.
