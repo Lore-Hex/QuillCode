@@ -3255,3 +3255,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceTerminalSessionAdapter.swift` still supports both local and SSH Remote transport in one file. If QuillCloud relay terminal execution adds distinct framing, split transport-specific implementations behind a small protocol while keeping `WorkspaceTerminalEngine` unchanged.
+
+## 2026-06-24 MCP Stdio Codec And Result Mapper Split
+
+Overall grade after this slice: **A+ MCP stdio prober focus, A+ codec boundary, A result mapping ownership**.
+
+`MCPStdioProber.swift` owned session request/response orchestration, Content-Length frame parsing, tool schema summarization, resource and prompt list extraction, JSON argument parsing, and `ToolResult` conversion. The class was correct and well tested, but it made future MCP growth likely to pile protocol-framing and presentation mapping into the same file as locked stdio IO.
+
+Code quality changes:
+
+- Added `MCPStdioMessageCodec.swift` as the focused public owner for MCP Content-Length message encoding, incremental frame parsing, and JSON-object decoding.
+- Added `MCPStdioResultMapper.swift` for tool descriptor/schema summaries, resource and prompt list flattening, JSON argument parsing, and tool/resource/prompt `ToolResult` conversion.
+- Reduced `MCPStdioProber.swift` from 648 lines to 362 lines focused on locked request IDs, initialize/list/call/read/get flows, response matching, errors, and fd polling.
+- Added a parity gate so frame parsing, schema summary generation, `ToolResult` conversion, and prompt content flattening stay out of the prober.
+
+Remaining risk:
+
+- `MCPStdioProber.swift` still includes public probe DTOs and MCP `ToolDefinition` declarations. If MCP model or tool-definition coverage grows, split those into `MCPStdioModels.swift` and `MCPToolDefinitions.swift` without changing the prober API.
