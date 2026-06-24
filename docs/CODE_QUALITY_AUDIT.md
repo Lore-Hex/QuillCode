@@ -25,6 +25,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | --- | --- | --- |
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, context/action lookup, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | A- | The shell is now mostly chrome composition, state, and routing. Transcript layout and workspace sheet presentation live in focused files; keep future modal families and command workflow rules out of the root shell. |
+| `Sources/QuillCodeApp/QuillCodeToolCardView.swift` | A- | Native tool-card composition is now separate from reusable controls, artifact previews, and raw detail blocks. Keep future status/action chrome in `QuillCodeToolCardControls.swift` and artifact rendering in `QuillCodeToolArtifactViews.swift`. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is now mostly aggregate payload plus runtime/execution context records. Settings copy/compatibility, runtime issue classification, model catalog presentation, top-bar/model presentation contracts, sidebar/project contracts, browser state/presentation contracts, terminal presentation contracts, review presentation contracts, transcript/composer/context presentation contracts, secondary-pane presentation contracts, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are extracted into focused files. Next step is extracting runtime/execution context contracts if their presentation behavior grows. |
 | `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but top-bar HTML delegates to `WorkspaceHTMLTopBarRenderer`, sidebar HTML delegates to `WorkspaceHTMLSidebarRenderer`, tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, review pane HTML delegates to `WorkspaceHTMLReviewRenderer`, secondary pane HTML delegates to `WorkspaceHTMLSecondaryPaneRenderer`, browser pane HTML delegates to `WorkspaceHTMLBrowserRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another transcript/composer family only when renderer drift appears. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
@@ -525,6 +526,24 @@ Ownership changes:
 Validation:
 
 - `ParityGateTests/testWorkspaceSwiftUIViewDelegatesSheetPresentation` now asserts sheet wiring remains outside the workspace shell and each dialog family remains in its focused owner file.
+
+## 2026-06-24 Native Tool Card Ownership Pass
+
+Overall grade after this slice: **A- foundation, A- native tool-card architecture**.
+
+`QuillCodeToolCardView.swift` was a B+ hotspot after the initial extraction from the workspace shell. It owned the main card, review actions, status badges, execution context chips/rails, artifact chips, document/image/text previews, and raw JSON code blocks in one 758-line file. The behavior was covered, but the file was too broad for parallel work on long-output UX, artifact previews, execution-context visual polish, and approval controls.
+
+Ownership changes:
+
+- `QuillCodeToolCardView.swift` now owns card composition, header status color/icon decisions, disclosure state, and copy-label routing.
+- `QuillCodeToolCardControls.swift` now owns action rows, status badges, and shared execution-context chip/rail controls used by both tool cards and terminal entries.
+- `QuillCodeToolArtifactViews.swift` now owns artifact chips plus text, document, and image preview rendering.
+- `QuillCodeToolCardDetailsView.swift` now owns raw JSON detail blocks.
+
+Validation:
+
+- Focused Swift tests: `QuillCodeToolCardSurfaceTests`, `QuillCodeTranscriptSurfaceTests`, and `ParityGateTests/testActionableReviewCardsStayWiredThroughSurfaces`.
+- Parity gates now assert native tool-card composition delegates controls, artifacts, and raw details to focused files.
 
 ## 2026-06-22 Desktop Bootstrap Split Pass
 
