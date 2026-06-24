@@ -84,6 +84,35 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(desktopControllerText.contains("model.runToolCardAction"), "Desktop controller should forward review-card actions to the model.")
     }
 
+    func testWorkspaceApprovalIntegrationTestsOwnApprovalActionFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let approvalTests = try Self.appTestSourceText(named: "WorkspaceApprovalIntegrationTests.swift")
+        let transcriptTests = try Self.appTestSourceText(named: "WorkspaceTranscriptSurfaceBuilderTests.swift")
+
+        XCTAssertTrue(approvalTests.contains("testToolCardsRepresentActionableApprovalReview"), "Approval integration tests should own actionable approval-card projection.")
+        XCTAssertTrue(approvalTests.contains("testToolCardApprovalActionRecordsDecisionAndRunsTool"), "Approval integration tests should own approval decision execution.")
+        XCTAssertTrue(transcriptTests.contains("testToolCardsRepresentStoppedActiveToolAsFailed"), "Transcript surface tests should own stopped-tool projection.")
+        XCTAssertFalse(modelTests.contains("testToolCardsRepresentActionableApprovalReview"), "WorkspaceModelTests should not own approval-card projection.")
+        XCTAssertFalse(modelTests.contains("testToolCardApprovalActionRecordsDecisionAndRunsTool"), "WorkspaceModelTests should not own approval decision execution.")
+        XCTAssertFalse(modelTests.contains("testToolCardsRepresentStoppedActiveToolAsFailed"), "WorkspaceModelTests should not own stopped-tool projection.")
+    }
+
+    func testWorkspacePlanIntegrationTestsOwnPlanUpdateFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let planTests = try Self.appTestSourceText(named: "WorkspacePlanIntegrationTests.swift")
+
+        XCTAssertTrue(planTests.contains("testPlanUpdateToolRecordsNormalizedActivityPlan"), "Plan integration tests should own successful plan update routing.")
+        XCTAssertTrue(planTests.contains("testPlanUpdateToolRejectsMultipleRunningSteps"), "Plan integration tests should own invalid plan update routing.")
+        XCTAssertFalse(modelTests.contains("testPlanUpdateToolRecordsNormalizedActivityPlan"), "WorkspaceModelTests should not own successful plan update integration.")
+        XCTAssertFalse(modelTests.contains("testPlanUpdateToolRejectsMultipleRunningSteps"), "WorkspaceModelTests should not own invalid plan update integration.")
+    }
+
+    func testWorkspaceModelTestsAreRetiredAfterFocusedExtraction() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+
+        XCTAssertEqual(modelTests, "", "WorkspaceModelTests should stay retired; add new coverage to the focused feature suite instead.")
+    }
+
     func testWorkspaceModelDelegatesExecutionContextSurfaceBuilding() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceExecutionContextSurfaceBuilder.swift")
@@ -2331,6 +2360,10 @@ final class ParityGateTests: XCTestCase {
         let file = packageRoot()
             .appendingPathComponent("Tests/QuillCodeAppTests")
             .appendingPathComponent(fileName)
+        if fileName == "WorkspaceModelTests.swift",
+           !FileManager.default.fileExists(atPath: file.path) {
+            return ""
+        }
         return try String(contentsOf: file, encoding: .utf8)
     }
 

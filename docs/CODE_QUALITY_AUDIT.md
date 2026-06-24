@@ -2887,6 +2887,24 @@ Remaining risk:
 
 - `WorkspaceModelTests.swift` still owns approval-card behavior, bootstrap/config, model settings, and plan-update integration coverage.
 
+## 2026-06-24 Workspace Model Test Retirement Pass
+
+Overall grade after this slice: **A+ feature ownership, A+ test architecture, A+ regression guard**.
+
+The last generic `WorkspaceModelTests.swift` cases moved into feature-owned suites. Approval-card projection and execution now live in `WorkspaceApprovalIntegrationTests`, plan-update tool routing lives in `WorkspacePlanIntegrationTests`, and pure stopped-tool projection lives in `WorkspaceTranscriptSurfaceBuilderTests`. The catch-all model test file is deleted.
+
+Code quality changes:
+
+- Added `WorkspaceApprovalIntegrationTests` for actionable approval-card projection and approve-action tool execution.
+- Added `WorkspacePlanIntegrationTests` for successful and invalid `host.plan.update` workspace flows.
+- Moved stopped active tool projection into `WorkspaceTranscriptSurfaceBuilderTests`, where transcript/tool-card surface behavior already lives.
+- Deleted `WorkspaceModelTests.swift`; parity now treats its absence as the expected retired state and requires future coverage to go to a focused suite.
+- Added approval and plan ownership parity gates so those flows do not drift back into a generic model-test bucket.
+
+Remaining risk:
+
+- The production `WorkspaceModel` still orchestrates many feature boundaries by design. Future code changes should keep adding focused unit/integration tests beside the owning feature instead of recreating a broad model integration suite.
+
 ## 2026-06-24 Workspace Project Lifecycle Integration Test Pass
 
 Overall grade after this slice: **A+ project ownership, A command boundary, A+ regression guard**.

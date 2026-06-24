@@ -62,6 +62,35 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(cards[0].artifacts.map(\.label), ["hello.txt"])
     }
 
+    func testToolCardsRepresentStoppedActiveToolAsFailed() throws {
+        let call = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "sleep 10"])
+        )
+        let callJSON = try JSONHelpers.encodePretty(call)
+        let thread = ChatThread(events: [
+            ThreadEvent(kind: .toolQueued, summary: "queued", payloadJSON: callJSON),
+            ThreadEvent(kind: .toolRunning, summary: "running"),
+            ThreadEvent(
+                kind: .toolFailed,
+                summary: "Stopped by user",
+                payloadJSON: #"{"ok":false,"error":"Stopped by user"}"#
+            ),
+            ThreadEvent(kind: .notice, summary: "Stopped by user")
+        ])
+
+        let cards = WorkspaceTranscriptSurfaceBuilder(thread: thread).toolCards()
+        let timeline = WorkspaceTranscriptSurfaceBuilder(thread: thread).timelineItems()
+
+        XCTAssertEqual(cards.count, 1)
+        XCTAssertEqual(cards[0].status, .failed)
+        XCTAssertEqual(cards[0].subtitle, "Failed · sleep 10")
+        XCTAssertEqual(cards[0].density, .expanded)
+        XCTAssertEqual(cards[0].outputJSON, #"{"ok":false,"error":"Stopped by user"}"#)
+        XCTAssertEqual(timeline.compactMap(\.toolCard).first?.status, .failed)
+        XCTAssertEqual(timeline.compactMap(\.toolCard).first?.density, .expanded)
+    }
+
     func testTimelineFollowsThreadEventsAndAppendsUnmatchedMessages() throws {
         let user = ChatMessage(role: .user, content: "run whoami")
         let assistant = ChatMessage(role: .assistant, content: "You are `quill`.")
