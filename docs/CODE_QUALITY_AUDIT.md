@@ -2538,6 +2538,23 @@ Remaining risk:
 
 - `WorkspaceModelTests.swift` is still the largest test file. Project extension command integration and older broad workspace flows are now the clearest remaining feature groups to extract.
 
+## 2026-06-24 Workspace Project Integration Test Pass
+
+Overall grade after this slice: **A feature grouping, A behavior preservation, A regression guard**.
+
+Project instruction integration moved from the workspace-model monolith into `WorkspaceProjectIntegrationTests`. The model test file no longer owns project instruction loading into new threads or instruction refresh before agent submission.
+
+Code quality changes:
+
+- Added `WorkspaceProjectIntegrationTests` as the home for project instruction flows that cross workspace model, metadata loaders, thread context, agent submission, and surfaces.
+- Reused shared temp-directory support so moved tests clean up after themselves.
+- Added a parity gate that keeps project instruction integration method names out of `WorkspaceModelTests.swift`.
+- Continued shrinking `WorkspaceModelTests.swift` without weakening coverage.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still the largest test file. SSH Remote project integration, local environment integration, terminal integration, browser integration, review actions, and automation flows remain good candidates for focused extraction.
+
 ## 2026-06-24 Runtime Factory Test Ownership Pass
 
 Overall grade after this slice: **A test ownership, A behavior preservation, A regression guard**.

@@ -910,6 +910,14 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("testProjectExtensionUpdateCommandRunsAndRefreshesProjectMetadata"), "WorkspaceModelTests should not own project extension update integration flows.")
     }
 
+    func testWorkspaceProjectIntegrationTestsOwnModelProjectFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let projectIntegrationTests = try Self.appTestSourceText(named: "WorkspaceProjectIntegrationTests.swift")
+
+        XCTAssertTrue(projectIntegrationTests.contains("testProjectInstructionsLoadIntoNewThreadsAndRefreshBeforeRun"), "Project instruction integration should live in focused project tests.")
+        XCTAssertFalse(modelTests.contains("testProjectInstructionsLoadIntoNewThreadsAndRefreshBeforeRun"), "WorkspaceModelTests should not own project instruction integration flows.")
+    }
+
     func testWorkspaceModelTestsDoNotOwnRuntimeFactoryCoverage() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let runtimeFactoryTests = try Self.appTestSourceText(named: "WorkspaceRuntimeFactoryTests.swift")
