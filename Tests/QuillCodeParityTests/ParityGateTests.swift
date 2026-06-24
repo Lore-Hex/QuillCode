@@ -479,14 +479,21 @@ final class ParityGateTests: XCTestCase {
     func testTrustedRouterActionParserLivesOutsideTransportClient() throws {
         let clientText = try Self.agentSourceText(named: "TrustedRouterLLMClient.swift")
         let parserText = try Self.agentSourceText(named: "AgentActionJSONParser.swift")
+        let extractorText = try Self.agentSourceText(named: "AgentActionJSONExtractor.swift")
+        let recoveryText = try Self.agentSourceText(named: "AgentShellCommandRecovery.swift")
 
         XCTAssertTrue(parserText.contains("public enum AgentActionJSONParser"), "Action JSON parsing should live in a focused parser file.")
         XCTAssertTrue(parserText.contains("canonicalArguments"), "Tool argument normalization should stay with the parser.")
-        XCTAssertTrue(parserText.contains("recoverExplicitShellCommand"), "Malformed model-output recovery should stay with the parser.")
+        XCTAssertTrue(parserText.contains("AgentActionJSONExtractor.actionObject"), "Action JSON parsing should delegate messy JSON extraction.")
+        XCTAssertTrue(parserText.contains("AgentShellCommandRecovery.explicitCommand"), "Action JSON parsing should delegate malformed shell recovery.")
+        XCTAssertTrue(extractorText.contains("enum AgentActionJSONExtractor"), "JSON object scanning should live in a focused helper.")
+        XCTAssertTrue(recoveryText.contains("enum AgentShellCommandRecovery"), "Malformed shell-command recovery should live in a focused helper.")
         XCTAssertTrue(clientText.contains("AgentActionStreamCollector.collect"), "TrustedRouter client should delegate action collection/parsing.")
         XCTAssertFalse(clientText.contains("public enum AgentActionJSONParser"), "TrustedRouter transport should not own action parsing.")
         XCTAssertFalse(clientText.contains("canonicalArguments"), "TrustedRouter transport should not own tool argument normalization.")
-        XCTAssertFalse(clientText.contains("recoverExplicitShellCommand"), "TrustedRouter transport should not own malformed-output recovery.")
+        XCTAssertFalse(parserText.contains("jsonObjectCandidates"), "Action parser should not own JSON-object scanning.")
+        XCTAssertFalse(parserText.contains("inlineCodeSpans"), "Action parser should not own prose shell command recovery.")
+        XCTAssertFalse(clientText.contains("AgentShellCommandRecovery"), "TrustedRouter transport should not own malformed-output recovery.")
         XCTAssertFalse(clientText.contains("jsonObjectCandidates"), "TrustedRouter transport should not own JSON-object extraction.")
     }
 
