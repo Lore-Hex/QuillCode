@@ -1548,6 +1548,18 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(htmlSidebarText.contains(#"data-icon="plugins">Plugins"#), "HTML sidebar renderer should not hard-code sidebar plugin markup.")
     }
 
+    func testNativeSidebarDelegatesProjectListRendering() throws {
+        let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
+        let projectListText = try Self.appSourceText(named: "QuillCodeProjectListView.swift")
+
+        XCTAssertTrue(sidebarText.contains("QuillCodeProjectListView("), "Native sidebar should compose a focused project-list view.")
+        XCTAssertTrue(projectListText.contains("struct QuillCodeProjectListView"), "Native project-list rendering should live in a focused file.")
+        XCTAssertTrue(projectListText.contains("struct QuillCodeProjectRowView"), "Native project-row rendering should live beside the project-list view.")
+        XCTAssertTrue(projectListText.contains("maxProjectListHeight"), "Project rows should have an explicit scroll boundary so utility controls stay reachable.")
+        XCTAssertFalse(sidebarText.contains("struct QuillCodeProjectRowView"), "Native sidebar should not own project-row rendering.")
+        XCTAssertFalse(sidebarText.contains("maxProjectListHeight"), "Native sidebar should not own project-list sizing policy.")
+    }
+
     func testWorkspaceSwiftUIViewDelegatesTranscriptFindAndContextBanner() throws {
         let shellText = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
         let mainPaneText = try Self.appSourceText(named: "QuillCodeWorkspaceMainPaneView.swift")
