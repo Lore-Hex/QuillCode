@@ -557,14 +557,18 @@ final class ParityGateTests: QuillCodeParityTestCase {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let resolverText = try Self.appSourceText(named: "WorkspaceContextResolver.swift")
+        let matcherText = try Self.appSourceText(named: "LocalEnvironmentActionMatcher.swift")
 
         XCTAssertTrue(resolverText.contains("struct WorkspaceActiveContextSources"), "Active workspace context source records should live beside the resolver.")
         XCTAssertTrue(resolverText.contains("struct WorkspaceContextResolver"), "Workspace context lookup should live in a focused resolver.")
+        XCTAssertTrue(matcherText.contains("enum LocalEnvironmentActionMatcher"), "Local environment action alias matching should live in a focused matcher.")
         XCTAssertTrue(resolverText.contains("func instructions(for projectID:"), "Project instruction lookup should be directly testable.")
         XCTAssertTrue(resolverText.contains("func memoryNotes(for projectID:"), "Global/project memory merging should be directly testable.")
         XCTAssertTrue(resolverText.contains("func activeSources(for thread:"), "Active instruction and memory fallback should be directly testable.")
         XCTAssertTrue(resolverText.contains("func selectedLocalAction(withID"), "Local action ID lookup should be directly testable.")
         XCTAssertTrue(resolverText.contains("func selectedLocalAction(matching"), "Local action alias matching should be directly testable.")
+        XCTAssertTrue(resolverText.contains("LocalEnvironmentActionMatcher.action(withID"), "Workspace context resolver should delegate local action ID matching.")
+        XCTAssertTrue(resolverText.contains("LocalEnvironmentActionMatcher.action(matching"), "Workspace context resolver should delegate local action alias matching.")
         XCTAssertTrue(modelText.contains("WorkspaceContextResolver("), "WorkspaceModel should delegate context lookup through the resolver.")
         XCTAssertTrue(surfaceText.contains("WorkspaceContextResolver("), "WorkspaceSurface should delegate active context-source lookup through the resolver.")
         XCTAssertFalse(modelText.contains("private func instructions(for projectID"), "WorkspaceModel should not own project instruction lookup.")
@@ -902,13 +906,18 @@ final class ParityGateTests: QuillCodeParityTestCase {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceSlashCommandTranscriptPlanner.swift")
         let appenderText = try Self.appSourceText(named: "WorkspaceLocalCommandTranscriptAppender.swift")
+        let environmentPlannerText = try Self.appSourceText(named: "WorkspaceEnvironmentSlashCommandPlanner.swift")
 
         XCTAssertTrue(plannerText.contains("struct WorkspaceLocalCommandTranscript"), "Local command transcript records should live beside the planner.")
         XCTAssertTrue(plannerText.contains("struct WorkspaceSlashCommandTranscriptPlanner"), "Slash command transcript copy should live in a focused planner.")
         XCTAssertTrue(appenderText.contains("enum WorkspaceLocalCommandTranscriptAppender"), "Local command transcript mutation should live in a focused appender.")
+        XCTAssertTrue(environmentPlannerText.contains("struct WorkspaceEnvironmentSlashCommandPlanner"), "Local environment slash command planning should live in a focused planner.")
+        XCTAssertTrue(environmentPlannerText.contains("WorkspaceSlashCommandTranscriptPlanner.environmentActions"), "Local environment list transcripts should be planned outside WorkspaceModel.")
+        XCTAssertTrue(environmentPlannerText.contains("WorkspaceSlashCommandTranscriptPlanner.environmentActionNotFound"), "Local environment missing-action transcripts should be planned outside WorkspaceModel.")
         XCTAssertTrue(appenderText.contains("thread.messages.append(ChatMessage(role: .user"), "The transcript appender should own user-message insertion.")
         XCTAssertTrue(appenderText.contains("thread.messages.append(ChatMessage(role: .assistant"), "The transcript appender should own assistant-message insertion.")
         XCTAssertTrue(modelText.contains("WorkspaceLocalCommandTranscriptAppender.append"), "WorkspaceModel should delegate local command transcript mutation.")
+        XCTAssertTrue(modelText.contains("WorkspaceEnvironmentSlashCommandPlanner.plan"), "WorkspaceModel should delegate /env list/run/not-found planning.")
         XCTAssertTrue(plannerText.contains("static func sshProjectAdded"), "SSH success copy should be directly testable.")
         XCTAssertTrue(plannerText.contains("static func workspaceCommandFailed"), "Slash command failure copy should be directly testable.")
         XCTAssertTrue(plannerText.contains("SlashCommandCatalog.helpText()"), "Slash help text should stay catalog-backed.")
@@ -923,8 +932,6 @@ final class ParityGateTests: QuillCodeParityTestCase {
             "WorkspaceSlashCommandTranscriptPlanner.threadFollowUpScheduled",
             "WorkspaceSlashCommandTranscriptPlanner.workspaceScheduleScheduled",
             "WorkspaceSlashCommandTranscriptPlanner.workspaceCommandFailed",
-            "WorkspaceSlashCommandTranscriptPlanner.environmentActions",
-            "WorkspaceSlashCommandTranscriptPlanner.environmentActionNotFound",
             "WorkspaceSlashCommandTranscriptPlanner.invalid",
             "WorkspaceSlashCommandTranscriptPlanner.unknown"
         ] {
@@ -935,6 +942,9 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelText.contains("Use SSH format user@host:/path or ssh://user@host/path."), "WorkspaceModel should not own SSH fallback copy.")
         XCTAssertFalse(modelText.contains("Scheduled a thread follow-up for"), "WorkspaceModel should not own follow-up success copy.")
         XCTAssertFalse(modelText.contains("Scheduled a workspace check for"), "WorkspaceModel should not own workspace schedule success copy.")
+        XCTAssertFalse(modelText.contains("WorkspaceSlashCommandTranscriptPlanner.environmentActions"), "WorkspaceModel should not choose /env list transcripts inline.")
+        XCTAssertFalse(modelText.contains("WorkspaceSlashCommandTranscriptPlanner.environmentActionNotFound"), "WorkspaceModel should not choose /env missing-action transcripts inline.")
+        XCTAssertFalse(modelText.contains("contextResolver.selectedLocalAction(matching:"), "WorkspaceModel should not own /env action matching.")
         XCTAssertFalse(modelText.contains("Local environment actions:"), "WorkspaceModel should not own /env list copy.")
         XCTAssertFalse(modelText.contains("No local environment action matches"), "WorkspaceModel should not own /env missing-action copy.")
         XCTAssertFalse(modelText.contains("Unknown slash command"), "WorkspaceModel should not own unknown slash command copy.")

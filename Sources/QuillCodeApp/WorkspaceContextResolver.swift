@@ -27,24 +27,15 @@ struct WorkspaceContextResolver: Sendable {
     }
 
     func selectedLocalAction(withID id: String) -> LocalEnvironmentAction? {
-        selectedProject?.localActions.first { $0.id == id }
+        LocalEnvironmentActionMatcher.action(withID: id, in: selectedProject?.localActions ?? [])
     }
 
     func selectedLocalAction(matching query: String) -> LocalEnvironmentAction? {
-        let normalizedQuery = Self.normalizedActionName(query)
-        return selectedProject?.localActions.first { action in
-            action.id.caseInsensitiveCompare(query) == .orderedSame
-                || action.title.caseInsensitiveCompare(query) == .orderedSame
-                || action.relativePath.caseInsensitiveCompare(query) == .orderedSame
-                || Self.normalizedActionName(action.title) == normalizedQuery
-                || Self.normalizedActionName(action.relativePath) == normalizedQuery
-        }
+        LocalEnvironmentActionMatcher.action(matching: query, in: selectedProject?.localActions ?? [])
     }
 
     static func normalizedActionName(_ value: String) -> String {
-        value
-            .lowercased()
-            .filter { $0.isLetter || $0.isNumber }
+        LocalEnvironmentActionMatcher.normalizedActionName(value)
     }
 
     private func project(id: UUID?) -> ProjectRef? {

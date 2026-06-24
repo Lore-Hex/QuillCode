@@ -1626,22 +1626,17 @@ public final class QuillCodeWorkspaceModel {
 
     private func runEnvironmentSlashCommand(_ query: String?, originalPrompt: String, workspaceRoot: URL) {
         refreshProjectMetadata(root.selectedProjectID)
-        guard let query, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.environmentActions(
-                userText: originalPrompt,
-                actions: selectedProject?.localActions ?? []
-            ))
-            return
+        let plan = WorkspaceEnvironmentSlashCommandPlanner.plan(
+            query: query,
+            userText: originalPrompt,
+            actions: selectedProject?.localActions ?? []
+        )
+        switch plan {
+        case .transcript(let transcript):
+            appendLocalCommandTranscript(transcript)
+        case .runAction(let actionID):
+            _ = runLocalEnvironmentAction(actionID, workspaceRoot: workspaceRoot)
         }
-
-        guard let action = contextResolver.selectedLocalAction(matching: query) else {
-            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.environmentActionNotFound(
-                userText: originalPrompt,
-                query: query
-            ))
-            return
-        }
-        _ = runLocalEnvironmentAction(action.id, workspaceRoot: workspaceRoot)
     }
 
     private func appendLocalCommandTranscript(_ transcript: WorkspaceLocalCommandTranscript) {
