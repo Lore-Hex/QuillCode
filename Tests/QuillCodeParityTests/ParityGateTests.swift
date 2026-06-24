@@ -2144,6 +2144,32 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(htmlText.contains("private static func terminalStatusClass"), "WorkspaceHTMLRenderer should not own terminal status class mapping.")
     }
 
+    func testNativeTerminalAndBrowserPanesUseFocusedViewFiles() throws {
+        let appRoot = Self.packageRoot().appendingPathComponent("Sources/QuillCodeApp")
+        for fileName in [
+            "QuillCodeTerminalPaneView.swift",
+            "QuillCodeTerminalEntryView.swift",
+            "QuillCodeBrowserPaneView.swift"
+        ] {
+            XCTAssertTrue(FileManager.default.fileExists(atPath: appRoot.appendingPathComponent(fileName).path), fileName)
+        }
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: appRoot.appendingPathComponent("QuillCodeTerminalBrowserPaneView.swift").path),
+            "Terminal and browser panes should not drift back into one combined file."
+        )
+
+        let terminalText = try Self.appSourceText(named: "QuillCodeTerminalPaneView.swift")
+        let terminalEntryText = try Self.appSourceText(named: "QuillCodeTerminalEntryView.swift")
+        let browserText = try Self.appSourceText(named: "QuillCodeBrowserPaneView.swift")
+
+        XCTAssertTrue(terminalText.contains("struct QuillCodeTerminalPaneView"), "Native terminal pane should have a focused owner.")
+        XCTAssertTrue(terminalText.contains("QuillCodeTerminalEntryView"), "Terminal pane should compose the focused terminal-entry row.")
+        XCTAssertTrue(terminalEntryText.contains("struct QuillCodeTerminalEntryView"), "Terminal entry rendering should have a focused owner.")
+        XCTAssertTrue(browserText.contains("struct QuillCodeBrowserPaneView"), "Native browser pane should have a focused owner.")
+        XCTAssertFalse(terminalText.contains("struct QuillCodeBrowserPaneView"), "Terminal pane file should not own browser rendering.")
+        XCTAssertFalse(browserText.contains("struct QuillCodeTerminalPaneView"), "Browser pane file should not own terminal rendering.")
+    }
+
     func testWorkspaceSurfaceDelegatesTerminalSurfaceContracts() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let terminalText = try Self.appSourceText(named: "QuillCodeTerminalSurface.swift")
