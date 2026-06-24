@@ -14,6 +14,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onSend: () -> Void
     public var onRunTerminalCommand: () -> Void
     public var onOpenBrowserPreview: () -> Void
+    public var onOpenBrowserSession: (() -> Void)?
     public var onAddBrowserComment: (String) -> Void
     public var onAddProjectRequested: () -> Void
     public var onSelectThread: (UUID) -> Void
@@ -63,6 +64,7 @@ public struct QuillCodeWorkspaceView: View {
         onSend: @escaping () -> Void,
         onRunTerminalCommand: @escaping () -> Void,
         onOpenBrowserPreview: @escaping () -> Void,
+        onOpenBrowserSession: (() -> Void)? = nil,
         onAddBrowserComment: @escaping (String) -> Void,
         onAddProjectRequested: @escaping () -> Void,
         onSelectThread: @escaping (UUID) -> Void,
@@ -96,6 +98,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onSend = onSend
         self.onRunTerminalCommand = onRunTerminalCommand
         self.onOpenBrowserPreview = onOpenBrowserPreview
+        self.onOpenBrowserSession = onOpenBrowserSession
         self.onAddBrowserComment = onAddBrowserComment
         self.onAddProjectRequested = onAddProjectRequested
         self.onSelectThread = onSelectThread
@@ -158,6 +161,7 @@ public struct QuillCodeWorkspaceView: View {
                     onSend: onSend,
                     onRunTerminalCommand: onRunTerminalCommand,
                     onOpenBrowserPreview: onOpenBrowserPreview,
+                    onOpenBrowserSession: onOpenBrowserSession,
                     onAddBrowserComment: onAddBrowserComment,
                     onReviewAction: onReviewAction,
                     onToolCardAction: onToolCardAction,

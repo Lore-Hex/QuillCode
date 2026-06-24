@@ -10,6 +10,7 @@ struct QuillCodeMenuBarView: View {
     var onSettings: () -> Void
     var onToggleTerminal: () -> Void
     var onToggleBrowser: () -> Void
+    var onOpenBrowserSession: () -> Void
     var onToggleExtensions: () -> Void
     var onToggleMemories: () -> Void
     var onStopAll: () -> Void
@@ -40,6 +41,8 @@ struct QuillCodeMenuBarView: View {
         Button("Keyboard Shortcuts", action: onKeyboardShortcuts)
         Button(surface.terminal.isVisible ? "Hide Terminal" : "Show Terminal", action: onToggleTerminal)
         Button(surface.browser.isVisible ? "Hide Browser" : "Show Browser", action: onToggleBrowser)
+        Button("Open Browser Session", action: onOpenBrowserSession)
+            .disabled(surface.browser.currentURL == nil && !surface.browser.canOpen)
         Button(surface.memories.isVisible ? "Hide Memories" : "Show Memories", action: onToggleMemories)
         Button(surface.extensions.isVisible ? "Hide Extensions" : "Show Extensions", action: onToggleExtensions)
         if surface.topBar.showsComputerUseSetup {

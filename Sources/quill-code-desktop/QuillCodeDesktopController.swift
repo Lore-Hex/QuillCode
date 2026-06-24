@@ -21,6 +21,7 @@ final class QuillCodeDesktopController: ObservableObject {
     private let computerUseBackend: MacComputerUseBackend
     private let browserPageFetcher: any BrowserPageFetching
     private let browserLiveDOMCapturer: (any BrowserLiveDOMCapturing)?
+    private let browserSessionPresenter: any DesktopBrowserSessionPresenting
     private let automationNotifier: any QuillCodeAutomationNotifying
     private let workspaceRoot: URL
     private let signInCoordinator: QuillCodeDesktopSignInCoordinator
@@ -34,6 +35,7 @@ final class QuillCodeDesktopController: ObservableObject {
         bootstrap: QuillCodeWorkspaceBootstrap = QuillCodeWorkspaceBootstrap(),
         browserPageFetcher: any BrowserPageFetching = URLSessionBrowserPageFetcher(),
         browserLiveDOMCapturer: (any BrowserLiveDOMCapturing)? = DesktopBrowserLiveDOMCapturer(),
+        browserSessionPresenter: any DesktopBrowserSessionPresenting = DesktopBrowserSessionPresenter(),
         automationNotifier: any QuillCodeAutomationNotifying = MacAutomationNotifier(),
         workspaceRoot: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     ) {
@@ -41,6 +43,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.computerUseBackend = MacComputerUseBackend()
         self.browserPageFetcher = browserPageFetcher
         self.browserLiveDOMCapturer = browserLiveDOMCapturer
+        self.browserSessionPresenter = browserSessionPresenter
         self.automationNotifier = automationNotifier
         self.signInCoordinator = QuillCodeDesktopSignInCoordinator(bootstrap: bootstrap)
         self.settingsCoordinator = QuillCodeDesktopSettingsCoordinator(bootstrap: bootstrap)
@@ -251,6 +254,26 @@ final class QuillCodeDesktopController: ObservableObject {
         } onFinish: { [weak self] in
             self?.refresh()
         }
+    }
+
+    func openBrowserSession() {
+        let root = model.activeWorkspaceRoot ?? workspaceRoot
+        let rawAddress = browserAddressDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallbackAddress = model.browser.currentURL ?? model.browser.addressDraft
+        let targetAddress = rawAddress.isEmpty ? fallbackAddress : rawAddress
+        guard let url = WorkspaceBrowserLocationResolver(workspaceRoot: root).resolve(targetAddress) else {
+            model.setBrowserAddressDraft(targetAddress)
+            _ = model.openBrowserPreview(workspaceRoot: root)
+            refresh()
+            return
+        }
+
+        browserSessionPresenter.openSession(url: url)
+        if model.browser.currentURL != url.absoluteString {
+            model.setBrowserAddressDraft(url.absoluteString)
+            _ = model.openBrowserPreview(workspaceRoot: root)
+        }
+        refresh()
     }
 
     func addBrowserComment(_ comment: String) {

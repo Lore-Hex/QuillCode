@@ -6,12 +6,13 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
 
         XCTAssertTrue(text.contains("MenuBarExtra"), "Desktop app should define a native menu-bar widget.")
         XCTAssertTrue(text.contains(#"systemImage: "q.circle.fill""#), "Menu-bar widget should use a visible QuillCode symbol.")
-        for label in ["New Chat", "Open Project", "Command Palette", "Keyboard Shortcuts", "Computer Use Setup", "Settings", "Stop All", "Disconnect All"] {
+        for label in ["New Chat", "Open Project", "Command Palette", "Keyboard Shortcuts", "Open Browser Session", "Computer Use Setup", "Settings", "Stop All", "Disconnect All"] {
             XCTAssertTrue(text.contains(label), "Menu-bar widget is missing \(label).")
         }
 
         let menuText = try Self.desktopSourceText(named: "QuillCodeMenuBarView.swift")
         XCTAssertTrue(menuText.contains("onDisconnectAll"), "Disconnect All should be wired to a controller action.")
+        XCTAssertTrue(menuText.contains("onOpenBrowserSession"), "Visible browser session should be wired to a controller action.")
         XCTAssertFalse(menuText.contains(#"Button("Disconnect All") {}"#), "Disconnect All must not regress to a no-op button.")
         XCTAssertFalse(menuText.contains(".disabled(true)"), "Menu-bar actions should be disabled from real command state, not permanently.")
     }
@@ -75,6 +76,28 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(controllerText.contains("evaluateJavaScript"), "Desktop controller should not own DOM capture details.")
         XCTAssertFalse(controllerText.contains("import WebKit"), "Desktop controller should not import WebKit.")
         XCTAssertFalse(controllerText.contains("document.body"), "Desktop controller should not embed browser JavaScript.")
+    }
+
+    func testDesktopBrowserVisibleSessionUsesFocusedAdapter() throws {
+        let desktopText = try Self.desktopSourceText()
+        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let appText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
+        let presenterText = try Self.desktopSourceText(named: "DesktopBrowserSessionPresenter.swift")
+        let browserPaneText = try Self.appSourceText(named: "QuillCodeBrowserPaneView.swift")
+
+        XCTAssertTrue(desktopText.contains("DesktopBrowserSessionPresenter"), "Desktop should provide a visible browser session adapter.")
+        XCTAssertTrue(presenterText.contains("protocol DesktopBrowserSessionPresenting"), "Visible browser sessions should be isolated behind an injectable protocol.")
+        XCTAssertTrue(presenterText.contains("WKWebView"), "Visible browser sessions should render with WebKit on desktop.")
+        XCTAssertTrue(presenterText.contains("configuration.websiteDataStore = .default()"), "Visible browser sessions should share the persistent WebKit profile.")
+        XCTAssertTrue(presenterText.contains("loadFileURL"), "Visible browser sessions should support local file previews.")
+        XCTAssertTrue(controllerText.contains("browserSessionPresenter"), "Desktop controller should accept a visible browser session dependency.")
+        XCTAssertTrue(controllerText.contains("WorkspaceBrowserLocationResolver(workspaceRoot: root).resolve"), "Visible browser session URLs should share preview address resolution.")
+        XCTAssertTrue(controllerText.contains("func openBrowserSession()"), "Desktop controller should expose a visible browser session action.")
+        XCTAssertTrue(appText.contains("onOpenBrowserSession: controller.openBrowserSession"), "Desktop app should wire visible browser sessions into shared UI.")
+        XCTAssertTrue(browserPaneText.contains("var onOpenSession: (() -> Void)?"), "Shared browser pane should keep visible sessions optional for non-desktop platforms.")
+        XCTAssertTrue(browserPaneText.contains(#"Button("Session", action: onOpenSession)"#), "Browser pane should expose a compact visible session action when available.")
+        XCTAssertFalse(controllerText.contains("WKWebView"), "Desktop controller should not own WebKit visible-session details.")
+        XCTAssertFalse(controllerText.contains("import WebKit"), "Desktop controller should not import WebKit.")
     }
 
     func testDesktopControllerDelegatesSettingsPersistenceAndSystemSettings() throws {

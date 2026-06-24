@@ -1,9 +1,13 @@
 import Foundation
 
-struct WorkspaceBrowserLocationResolver: Sendable, Hashable {
-    var workspaceRoot: URL?
+public struct WorkspaceBrowserLocationResolver: Sendable, Hashable {
+    public var workspaceRoot: URL?
 
-    func resolve(_ rawValue: String) -> URL? {
+    public init(workspaceRoot: URL? = nil) {
+        self.workspaceRoot = workspaceRoot
+    }
+
+    public func resolve(_ rawValue: String) -> URL? {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
@@ -42,12 +46,12 @@ struct WorkspaceBrowserLocationResolver: Sendable, Hashable {
         return nil
     }
 
-    static func canFetchSnapshot(for url: URL) -> Bool {
+    public static func canFetchSnapshot(for url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased() else { return false }
         return scheme == "http" || scheme == "https"
     }
 
-    static func snapshotFetchMessage(for error: any Error) -> String {
+    public static func snapshotFetchMessage(for error: any Error) -> String {
         if let failure = error as? BrowserPageFetchFailure {
             return failure.description
         }
