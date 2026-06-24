@@ -1140,7 +1140,7 @@
     }
     .browser-nav-controls {
       display: grid;
-      grid-template-columns: repeat(3, 40px);
+      grid-template-columns: repeat(3, 40px) minmax(72px, auto);
       gap: 6px;
       align-items: center;
     }
@@ -1156,8 +1156,18 @@
     .browser-nav-button:not(:disabled):hover {
       background: rgba(255,255,255,.12);
     }
+    [data-testid="browser-session"].browser-nav-button {
+      width: auto;
+      min-width: 72px;
+      padding: 0 10px;
+    }
     .browser-open-button {
       min-width: 78px;
+    }
+    .browser-session-status {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
     }
     .browser-comment-form { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
     .browser-preview,
@@ -2675,6 +2685,7 @@
         { id: 'browser-back', title: 'Browser: Back', shortcut: '', category: 'Workspace', keywords: ['preview', 'web', 'history', 'back'], isEnabled: false },
         { id: 'browser-forward', title: 'Browser: Forward', shortcut: '', category: 'Workspace', keywords: ['preview', 'web', 'history', 'forward'], isEnabled: false },
         { id: 'browser-reload', title: 'Browser: Reload', shortcut: '', category: 'Workspace', keywords: ['preview', 'web', 'refresh', 'reload'], isEnabled: false },
+        { id: 'open-browser-session', title: 'Browser: Open session', shortcut: '', category: 'Workspace', keywords: ['preview', 'web', 'session', 'login', 'cookies', 'sign in'], isEnabled: false },
         { id: 'toggle-activity', title: 'Activity', shortcut: '', category: 'Workspace', keywords: ['task', 'summary', 'sources', 'artifacts', 'tools'], isEnabled: true },
         { id: 'toggle-automations', title: 'Automations', shortcut: '', category: 'Workspace', keywords: ['automation', 'schedule', 'recurring', 'monitor', 'follow-up', 'heartbeat'], isEnabled: true },
         { id: 'automation-create-thread-follow-up', title: 'Create thread follow-up', shortcut: '', category: 'Automations', keywords: ['automation', 'follow-up', 'thread', 'heartbeat', 'schedule'], isEnabled: false },
@@ -2729,6 +2740,8 @@
         historyIndex: null,
         title: 'Browser preview',
         statusLabel: 'Ready',
+        sessionURL: null,
+        sessionOpenCount: 0,
         snapshot: null,
         comments: []
       },
@@ -4931,9 +4944,14 @@
 	      document.querySelector('[data-testid="browser-reload"]')?.addEventListener('click', () => {
 	        browserReload();
 	      });
+	      document.querySelector('[data-testid="browser-session"]')?.addEventListener('click', () => {
+	        openBrowserSession();
+	      });
 	      document.querySelector('[data-testid="browser-address"]')?.addEventListener('input', event => {
 	        state.browser.addressDraft = event.target.value;
 	        document.querySelector('[data-testid="browser-open"]').disabled = !state.browser.addressDraft.trim();
+	        document.querySelector('[data-testid="browser-session"]').disabled = !browserCanOpenSession();
+          syncBrowserCommandStates();
 	      });
 	      document.querySelector('[data-testid="browser-form"]')?.addEventListener('submit', event => {
 	        event.preventDefault();
@@ -5908,10 +5926,12 @@
               <button class="browser-nav-button" type="button" data-testid="browser-back" aria-label="Back" ${browserCanGoBack() ? '' : 'disabled'}>&lt;</button>
               <button class="browser-nav-button" type="button" data-testid="browser-forward" aria-label="Forward" ${browserCanGoForward() ? '' : 'disabled'}>&gt;</button>
               <button class="browser-nav-button" type="button" data-testid="browser-reload" aria-label="Reload" ${browserCanReload() ? '' : 'disabled'}>R</button>
+              <button class="browser-nav-button" type="button" data-testid="browser-session" aria-label="Open visible browser session" ${browserCanOpenSession() ? '' : 'disabled'}>Session</button>
             </div>
 	            <input data-testid="browser-address" aria-label="Browser address" placeholder="localhost:3000 or https://example.com" value="${escapeHTML(state.browser.addressDraft)}">
 	            <button class="browser-open-button" type="submit" data-testid="browser-open" ${state.browser.addressDraft.trim() ? '' : 'disabled'}>Open</button>
 	          </form>
+            ${state.browser.sessionURL ? `<p class="browser-session-status" data-testid="browser-session-status">Visible session ${state.browser.sessionOpenCount}: <code data-testid="browser-session-url">${escapeHTML(state.browser.sessionURL)}</code></p>` : ''}
 	          ${preview}
 	          <form class="browser-comment-form" data-testid="browser-comment-form">
 	            <input data-testid="browser-comment-input" aria-label="Browser comment" placeholder="Add browser comment">
@@ -7076,6 +7096,10 @@
         browserReload();
         return;
       }
+      if (commandID === 'open-browser-session') {
+        openBrowserSession();
+        return;
+      }
       if (commandID === 'toggle-activity') {
         state.activity.isVisible = !state.activity.isVisible;
       }
@@ -7487,11 +7511,21 @@
       return Boolean(state.browser.currentURL);
     }
 
+    function browserSessionTargetURL() {
+      const rawDraft = state.browser.addressDraft.trim();
+      return normalizeBrowserURL(rawDraft || state.browser.currentURL || '');
+    }
+
+    function browserCanOpenSession() {
+      return Boolean(browserSessionTargetURL());
+    }
+
     function syncBrowserCommandStates() {
       const enabled = new Map([
         ['browser-back', browserCanGoBack()],
         ['browser-forward', browserCanGoForward()],
-        ['browser-reload', browserCanReload()]
+        ['browser-reload', browserCanReload()],
+        ['open-browser-session', browserCanOpenSession()]
       ]);
       state.commands = state.commands.map(command => (
         enabled.has(command.id) ? { ...command, isEnabled: enabled.get(command.id) } : command
@@ -7546,6 +7580,25 @@
     function browserReload() {
       if (!browserCanReload()) return;
       setBrowserPage(state.browser.currentURL, { updateHistory: false, statusLabel: 'Reloaded' });
+      render();
+    }
+
+    function openBrowserSession() {
+      const url = browserSessionTargetURL();
+      state.browser.isVisible = true;
+      if (!url) {
+        state.browser.statusLabel = 'Invalid session address';
+        syncBrowserCommandStates();
+        render();
+        return;
+      }
+      if (state.browser.currentURL !== url) {
+        setBrowserPage(url);
+      }
+      state.browser.sessionURL = url;
+      state.browser.sessionOpenCount += 1;
+      state.browser.statusLabel = 'Session open';
+      syncBrowserCommandStates();
       render();
     }
 
