@@ -5,6 +5,7 @@ struct QuillCodeBrowserPaneView: View {
     var browser: BrowserSurface
     @Binding var addressDraft: String
     var onOpen: () -> Void
+    var onOpenSession: (() -> Void)?
     var onAddComment: (String) -> Void
     var onCommand: (String) -> Void
 
@@ -64,6 +65,11 @@ struct QuillCodeBrowserPaneView: View {
                 .onSubmit(onOpen)
             Button("Open", action: onOpen)
                 .disabled(addressDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            if let onOpenSession {
+                Button("Session", action: onOpenSession)
+                    .disabled(!browser.canOpen && browser.currentURL == nil)
+                    .help("Open a visible browser session using QuillCode's persistent browser profile.")
+            }
         }
     }
 

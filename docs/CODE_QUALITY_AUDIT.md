@@ -4643,3 +4643,24 @@ Current strict grades:
 
 Remaining risk:
 - The persistent profile path is compile- and source-gated, but it still needs an interactive smoke path where the user signs into a site through a visible WebKit/browser surface and later `host.browser.inspect` proves the captured DOM reflects that session.
+
+## 2026-06-24 Visible Desktop Browser Session
+
+Overall grade after this slice: **A- browser session seam, A adapter isolation, B+ browser product completeness**.
+
+Persistent rendered-DOM capture is only useful for signed-in pages if users have a visible way to create that browser state. Before this pass, the offscreen capture reused WebKit's default website data store, but there was no QuillCode-owned window where a user could sign into a site using that same profile.
+
+What changed:
+- Added `DesktopBrowserSessionPresenter`, an injectable desktop adapter that opens retained visible `WKWebView` session windows.
+- Backed the visible session window with `WKWebsiteDataStore.default()` so cookies/session state are shared with offscreen live DOM capture.
+- Made `WorkspaceBrowserLocationResolver` public and reused it from the desktop controller, avoiding a second URL parser for localhost, domains, files, and project-relative paths.
+- Added an optional shared browser-pane `Session` action and a menu-bar `Open Browser Session` action. Non-desktop surfaces can omit the closure without carrying WebKit dependencies.
+- Extended desktop parity gates to prevent visible browser sessions from becoming no-op buttons or leaking WebKit into `QuillCodeDesktopController`.
+
+Current strict grades:
+- `DesktopBrowserSessionPresenter.swift`: **A-**. It owns the platform-specific visible WebKit window, persistent data store, file loading, and retention lifecycle in one focused adapter.
+- Browser preview/session architecture: **A-**. Address resolution is now shared, and controller code remains free of WebKit details.
+- Browser product parity: **B+**. Users can sign into sites and then inspect with a shared persistent profile, but reusable tab management, session state display, and Linux browser-process capture remain pending.
+
+Remaining risk:
+- This is compile/source-gated and should be followed by a native smoke test that opens the session window, signs into or sets a cookie on a local test page, then verifies `host.browser.inspect` sees rendered signed-in DOM through the persistent profile.

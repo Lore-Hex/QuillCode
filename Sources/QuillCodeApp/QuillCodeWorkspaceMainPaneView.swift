@@ -18,6 +18,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
     var onSend: () -> Void
     var onRunTerminalCommand: () -> Void
     var onOpenBrowserPreview: () -> Void
+    var onOpenBrowserSession: (() -> Void)?
     var onAddBrowserComment: (String) -> Void
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onToolCardAction: (ToolCardActionSurface) -> Void
@@ -65,6 +66,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
                         browser: surface.browser,
                         addressDraft: $browserAddressDraft,
                         onOpen: onOpenBrowserPreview,
+                        onOpenSession: onOpenBrowserSession,
                         onAddComment: onAddBrowserComment,
                         onCommand: runCommand(id:)
                     )
