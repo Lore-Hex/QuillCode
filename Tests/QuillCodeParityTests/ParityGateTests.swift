@@ -1698,6 +1698,26 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(shellText.contains(".sheet(item:"), "Workspace shell should not own item sheet presentation modifiers.")
     }
 
+    func testNativeSettingsDelegatesFocusedViewsAndDraftState() throws {
+        let settingsText = try Self.appSourceText(named: "QuillCodeSettingsView.swift")
+        let computerUseText = try Self.appSourceText(named: "QuillCodeComputerUseSettingsCard.swift")
+        let runtimeIssueText = try Self.appSourceText(named: "QuillCodeRuntimeIssueView.swift")
+        let draftText = try Self.appSourceText(named: "QuillCodeSettingsDraft.swift")
+
+        XCTAssertTrue(settingsText.contains("struct QuillCodeSettingsView"), "Settings shell should remain in the settings view file.")
+        XCTAssertTrue(settingsText.contains("QuillCodeComputerUseSettingsCard("), "Settings shell should compose focused Computer Use onboarding.")
+        XCTAssertTrue(settingsText.contains("QuillCodeRuntimeIssueView("), "Settings shell should compose the focused runtime issue callout.")
+        XCTAssertTrue(computerUseText.contains("struct QuillCodeComputerUseSettingsCard"), "Computer Use settings UI should live in a focused file.")
+        XCTAssertTrue(computerUseText.contains("struct QuillCodePermissionRow"), "Computer Use permission rows should live beside the Computer Use card.")
+        XCTAssertTrue(runtimeIssueText.contains("struct QuillCodeRuntimeIssueView"), "Reusable runtime issue callout should live in a focused file.")
+        XCTAssertTrue(draftText.contains("struct QuillCodeSettingsDraft"), "Settings draft/update state should live in a focused file.")
+        XCTAssertTrue(draftText.contains("var update: WorkspaceSettingsUpdate"), "Settings draft should own update projection.")
+        XCTAssertFalse(settingsText.contains("struct QuillCodeComputerUseSettingsCard"), "Settings shell should not own Computer Use card internals.")
+        XCTAssertFalse(settingsText.contains("struct QuillCodePermissionRow"), "Settings shell should not own Computer Use permission rows.")
+        XCTAssertFalse(settingsText.contains("struct QuillCodeRuntimeIssueView"), "Settings shell should not own runtime issue callout internals.")
+        XCTAssertFalse(settingsText.contains("struct QuillCodeSettingsDraft"), "Settings shell should not own settings draft state.")
+    }
+
     func testWorkspaceModelDelegatesMCPSupportTypes() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let mcpSurfaceText = try Self.appSourceText(named: "QuillCodeMCPSurface.swift")
