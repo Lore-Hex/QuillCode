@@ -48,6 +48,22 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Updated the Playwright harness to preserve branded labels after model selection.
 - Fixed stale decisions documentation that still described recurring automation as deferred.
 
+## 2026-06-24 Focused Test Fixture DRY Pass
+
+Overall grade after this slice: **A fixture DRYness, A teardown hygiene, A regression guard**.
+
+Several focused workspace unit suites still carried private temporary-directory helpers or inline UUID temp paths even though the repo already has a shared teardown-backed test directory helper. The behavior was correct, but each private helper made cleanup and future fixture changes easier to miss.
+
+Code quality changes:
+
+- Replaced private temporary-directory helpers in agent run-context, agent send-session, memory engine, terminal engine, and tool-call executor tests with `makeQuillCodeTestDirectory()`.
+- Reused the shared git initialization/runner helpers in `WorkspaceToolCallExecutorTests` instead of carrying a second private git process runner.
+- Added a parity gate requiring these focused suites to keep using shared temporary-directory support.
+
+Remaining risk:
+
+- Some broader integration suites still use older cross-domain fixture helpers. Those should be converted only when each suite's shared SSH/GitHub/git fixtures are either moved behind teardown-backed support or split into domain-owned helpers.
+
 ## 2026-06-24 Workspace Worktree Integration Test Pass
 
 Overall grade after this slice: **A feature grouping, A fixture DRYness, A regression guard**.

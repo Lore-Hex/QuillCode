@@ -5,7 +5,7 @@ import QuillCodeTools
 
 final class WorkspaceToolCallExecutorTests: XCTestCase {
     func testBrowserInspectRoutesBeforeLocalRouter() throws {
-        let root = try temporaryDirectory()
+        let root = try makeQuillCodeTestDirectory()
         let executor = WorkspaceToolCallExecutor(
             selectedProject: nil,
             browser: BrowserState(
@@ -32,7 +32,7 @@ final class WorkspaceToolCallExecutorTests: XCTestCase {
     }
 
     func testPlanUpdateRoutesBeforeLocalRouter() throws {
-        let root = try temporaryDirectory()
+        let root = try makeQuillCodeTestDirectory()
         let update = AgentPlanUpdate(plan: [
             AgentPlanItem(step: "Inspect", status: .completed),
             AgentPlanItem(step: "Ship", status: .inProgress)
@@ -85,7 +85,7 @@ final class WorkspaceToolCallExecutorTests: XCTestCase {
     }
 
     func testRemoteProjectRejectsUnsupportedToolsWithoutFallingBackLocal() throws {
-        let root = try temporaryDirectory()
+        let root = try makeQuillCodeTestDirectory()
         let project = ProjectRef(
             name: "Remote",
             path: "/Quill",
@@ -108,46 +108,12 @@ final class WorkspaceToolCallExecutorTests: XCTestCase {
         XCTAssertTrue(execution.followUps.isEmpty)
     }
 
-    private func temporaryDirectory() throws -> URL {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("quillcode-tool-call-executor-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }
-
     private func temporaryGitRepository() throws -> URL {
-        let root = try temporaryDirectory()
-        _ = try runGit(["init"], cwd: root)
-        _ = try runGit(["config", "user.email", "quillcode-tests@example.com"], cwd: root)
-        _ = try runGit(["config", "user.name", "QuillCode Tests"], cwd: root)
+        let root = try makeQuillCodeTestDirectory()
+        try initializeGitRepository(at: root)
         try "old\n".write(to: root.appendingPathComponent("hello.txt"), atomically: true, encoding: .utf8)
         _ = try runGit(["add", "hello.txt"], cwd: root)
         _ = try runGit(["commit", "-m", "initial"], cwd: root)
         return root
-    }
-
-    private func runGit(_ arguments: [String], cwd: URL) throws -> String {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["git"] + arguments
-        process.currentDirectoryURL = cwd
-
-        let stdout = Pipe()
-        let stderr = Pipe()
-        process.standardOutput = stdout
-        process.standardError = stderr
-        try process.run()
-        process.waitUntilExit()
-
-        let out = String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        let err = String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        guard process.terminationStatus == 0 else {
-            throw NSError(
-                domain: "WorkspaceToolCallExecutorTests.Git",
-                code: Int(process.terminationStatus),
-                userInfo: [NSLocalizedDescriptionKey: err.isEmpty ? out : err]
-            )
-        }
-        return out
     }
 }

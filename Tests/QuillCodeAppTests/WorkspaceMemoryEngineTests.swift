@@ -4,7 +4,7 @@ import QuillCodeCore
 
 final class WorkspaceMemoryEngineTests: XCTestCase {
     func testSaveGlobalReturnsTranscriptRefreshAndNotice() throws {
-        let directory = try temporaryDirectory()
+        let directory = try makeQuillCodeTestDirectory()
 
         let mutation = WorkspaceMemoryEngine.saveGlobal(
             content: "Prefer small reviewable commits",
@@ -36,7 +36,7 @@ final class WorkspaceMemoryEngineTests: XCTestCase {
     }
 
     func testDeleteGlobalReturnsTranscriptRefreshAndNotice() throws {
-        let directory = try temporaryDirectory()
+        let directory = try makeQuillCodeTestDirectory()
         let note = try MemoryNoteLoader.saveGlobal(content: "Prefer concise answers", to: directory)
 
         let mutation = try XCTUnwrap(WorkspaceMemoryEngine.deleteGlobal(id: note.id, directory: directory))
@@ -54,7 +54,7 @@ final class WorkspaceMemoryEngineTests: XCTestCase {
     }
 
     func testDeleteUnknownGlobalRefreshesAndReturnsFailureTranscript() throws {
-        let directory = try temporaryDirectory()
+        let directory = try makeQuillCodeTestDirectory()
         _ = try MemoryNoteLoader.saveGlobal(content: "Prefer concise answers", to: directory)
 
         let mutation = try XCTUnwrap(WorkspaceMemoryEngine.deleteGlobal(id: "missing-memory", directory: directory))
@@ -63,12 +63,5 @@ final class WorkspaceMemoryEngineTests: XCTestCase {
         XCTAssertTrue(mutation.transcript.assistantText.contains("not found"))
         XCTAssertEqual(mutation.updatedGlobalMemories?.count, 1)
         XCTAssertFalse(mutation.changedContext)
-    }
-
-    private func temporaryDirectory() throws -> URL {
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("QuillCodeTests-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        return root
     }
 }

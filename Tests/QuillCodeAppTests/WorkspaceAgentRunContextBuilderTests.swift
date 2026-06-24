@@ -47,7 +47,7 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
     }
 
     func testOptionalToolDefinitionsAreAppendedInStableOrder() throws {
-        let memoryDirectory = try temporaryDirectory()
+        let memoryDirectory = try makeQuillCodeTestDirectory()
         let mcpTool = ToolDefinition(
             name: "mcp.echo",
             description: "Echo through MCP",
@@ -73,7 +73,7 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
     }
 
     func testOverrideHandlesPlanBrowserAndMemoryTools() async throws {
-        let memoryDirectory = try temporaryDirectory()
+        let memoryDirectory = try makeQuillCodeTestDirectory()
         let runner = WorkspaceAgentRunContextBuilder(
             selectedProject: nil,
             browser: BrowserState(
@@ -129,13 +129,6 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
         ))
 
         XCTAssertTrue(WorkspaceMemoryRememberToolExecutor.didSaveMemory(in: thread))
-    }
-
-    private func temporaryDirectory() throws -> URL {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("quillcode-agent-run-context-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
     }
 }
 

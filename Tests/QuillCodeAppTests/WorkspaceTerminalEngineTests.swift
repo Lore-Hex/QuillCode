@@ -202,7 +202,7 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
     }
 
     func testTerminalRunLifecycleCompletesAndCancelsWithMarkerCleanup() throws {
-        let root = try temporaryDirectory()
+        let root = try makeQuillCodeTestDirectory()
         let context = WorkspaceTerminalEngine.localExecutionContext(
             command: "pwd",
             workingDirectory: root,
@@ -252,8 +252,8 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: try XCTUnwrap(cancelledContext.cwdMarkerURL).path))
     }
 
-    func testLocalExecutionContextWrapsCommandAndMarkers() {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    func testLocalExecutionContextWrapsCommandAndMarkers() throws {
+        let root = try makeQuillCodeTestDirectory()
         let context = WorkspaceTerminalEngine.localExecutionContext(
             command: "printf hello",
             workingDirectory: root,
@@ -329,7 +329,7 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
     }
 
     func testSessionResultReadsLocalMarkersAndRemovesThem() throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let root = try makeQuillCodeTestDirectory()
         let context = WorkspaceTerminalEngine.localExecutionContext(
             command: "pwd",
             workingDirectory: root,
@@ -368,12 +368,5 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
             data.append(0)
         }
         return data
-    }
-
-    private func temporaryDirectory() throws -> URL {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("quillcode-terminal-tests-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
     }
 }
