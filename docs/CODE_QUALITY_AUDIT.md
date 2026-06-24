@@ -4323,3 +4323,17 @@ What changed:
 
 Remaining risk:
 - Browser preview is still a static/metadata adapter rather than a full live DOM runtime. The next product-grade step is a real browser session adapter with lifecycle, navigation events, authenticated-browser options, and screenshot/DOM verification, while keeping those runtime details behind this workflow boundary.
+
+## 2026-06-24 Browser Parity Gate Suite Split
+
+Overall grade after this slice: **A browser parity ownership, A merge-conflict reduction, A regression guard**.
+
+`ParityGateTests.swift` had already been split by top-bar, slash, tool, and desktop domains, but browser architecture rules were still mixed into the broad catch-all. Browser work is now active enough that those gates should live beside each other, especially while browser workflow, live DOM capture, HTML rendering, and browser-tool contracts evolve.
+
+What changed:
+- Added `ParityBrowserGateTests` for browser surface ownership, static HTML snapshot extraction, browser workflow state transitions, browser location resolving, browser integration test ownership, and HTML browser renderer boundaries.
+- Removed those browser-specific gates from `ParityGateTests.swift`, trimming the broad suite by about 120 lines.
+- Added a guard that fails if browser architecture gates drift back into the broad parity suite.
+
+Remaining risk:
+- `ParityGateTests.swift` is still the largest test file because it owns many general app-surface boundaries. Continue extracting by coherent domains when a feature family has multiple related gates and active parallel work.
