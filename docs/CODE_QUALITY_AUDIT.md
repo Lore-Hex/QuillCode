@@ -2712,3 +2712,19 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelTests.swift` is still large. Review actions, composer send/cancel flows, bootstrap/config, and project/worktree command groups remain future extraction candidates.
+
+## 2026-06-24 Workspace Browser Guardrail Hardening
+
+Overall grade after this slice: **A+ test safety discipline, A+ ownership guard completeness**.
+
+The browser integration split was merged, but two small quality gaps remained: one moved test still used a force unwrap for a static URL, and the parity gate checked only the broadest browser flows. This pass tightens both.
+
+Code quality changes:
+
+- Replaced the browser fetch test's force-unwrapped URL with `XCTUnwrap`, keeping the integration suite aligned with the production-source crash-avoidance standard.
+- Expanded the browser ownership parity gate to cover history navigation and fetch-failure fallback tests, not only preview/comment/fetch/composer inspection flows.
+- Updated the decision note so the guarded browser integration boundary is explicit about URL normalization, history, page comments, fetch fallback, and composer-driven inspection.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` still owns review-action, composer/tool-card, and broad runtime/project lifecycle flows. Those remain the next best extraction candidates.
