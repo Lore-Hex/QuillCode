@@ -283,6 +283,25 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("testPlanUpdateToolRejectsMultipleRunningSteps"), "WorkspaceModelTests should not own plan-update rejection integration flows.")
     }
 
+    func testWorkspaceActivitySurfaceUsesFocusedBuilderAndSectionTypes() throws {
+        let surfaceText = try Self.appSourceText(named: "WorkspaceActivitySurface.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceActivitySurfaceBuilder.swift")
+        let sectionText = try Self.appSourceText(named: "WorkspaceActivitySectionSurface.swift")
+
+        XCTAssertTrue(surfaceText.contains("public struct WorkspaceActivitySurface"), "Activity surface payload should keep the public DTO entry point.")
+        XCTAssertTrue(surfaceText.contains("WorkspaceActivitySurfaceBuilder.sections"), "Activity surface should delegate section construction.")
+        XCTAssertTrue(surfaceText.contains("WorkspaceActivitySurfaceBuilder.planItems"), "Activity surface should delegate derived task-plan rows.")
+        XCTAssertTrue(builderText.contains("enum WorkspaceActivitySurfaceBuilder"), "Activity derivation should live in a focused builder.")
+        XCTAssertTrue(builderText.contains("static func authoredPlanItems"), "Authored plan derivation should stay beside fallback plan derivation.")
+        XCTAssertTrue(builderText.contains("static func handoffSummary"), "Handoff summary copy should stay beside activity derivation.")
+        XCTAssertTrue(sectionText.contains("public enum ActivitySectionKind"), "Activity section metadata should live beside section DTOs.")
+        XCTAssertTrue(sectionText.contains("public struct ActivitySectionSurface"), "Activity section DTOs should live outside the root surface file.")
+        XCTAssertTrue(sectionText.contains("public struct ActivityItemSurface"), "Activity item DTOs should live outside the root surface file.")
+        XCTAssertFalse(surfaceText.contains("private static func planItems"), "Activity surface should not own plan derivation.")
+        XCTAssertFalse(surfaceText.contains("private static func recentSteps"), "Activity surface should not own event-row derivation.")
+        XCTAssertFalse(surfaceText.contains("public enum ActivitySectionKind"), "Activity surface should not own section metadata.")
+    }
+
     func testWorkspaceToolCardIntegrationTestsOwnModelToolCardFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let toolCardIntegrationTests = try Self.appTestSourceText(named: "WorkspaceToolCardIntegrationTests.swift")
