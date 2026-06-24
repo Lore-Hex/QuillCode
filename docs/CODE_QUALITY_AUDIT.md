@@ -3782,3 +3782,19 @@ What changed:
 
 Remaining risk:
 - Authentication controls are still compact enough to live in the settings shell. If TrustedRouter OAuth gains account switching, token diagnostics, or multiple profiles, split authentication sections into a focused settings-authentication view before adding more branching.
+
+## 2026-06-24 Pull Request Slash Parser Split
+
+Overall grade after this slice: **A+ slash parser ownership, A+ PR argument coverage, A regression guard**.
+
+`SlashCommand.swift` still owned general slash command parsing plus every `/pr` subcommand, including selector/body splitting, reviewer and label argument construction, merge flags, and structured `ToolCall` creation. That made a broad parser responsible for one of the highest-growth Codex parity surfaces.
+
+What changed:
+- Added `SlashPullRequestCommandParser.swift` as the focused owner for `/pr` create, view, checks, diff, checkout, comment, review, reviewers, labels, and merge parsing.
+- Reduced `SlashCommand.swift` to top-level command routing and general slash parsing.
+- Added direct parser tests for empty `/pr`, selector normalization, comments, reviews, reviewers, labels, merge flags, and invalid usage copy.
+- Added a parity gate so PR selector/body and reviewer/label parsing do not drift back into the outer slash parser.
+- Updated decisions documentation to mark PR slash parsing as a dedicated owner.
+
+Remaining risk:
+- `SlashCommand.swift` still owns project, terminal, mode, model, and generic routing. That remains reasonable while those branches are small; split `SlashProjectCommandParser` only if project commands gain richer argument parsing or remote-project setup variants.
