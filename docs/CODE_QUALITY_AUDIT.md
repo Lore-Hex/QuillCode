@@ -4749,3 +4749,22 @@ Recommended next A+ work:
 - Add repeatable live/mock UI smoke tests for search typing, command palette execution, model picker, approval Run/Edit/Skip, visible browser session, and first-run auth.
 - Add packaged native smoke tests for macOS desktop and a Linux build target/adapters check. The package currently declares macOS as the only platform even though the product goal is macOS plus Linux.
 - Keep every feature slice on merge-train PRs with a focused test list and audit entry.
+
+## 2026-06-24 Reusable Desktop Browser Session
+
+Overall grade after this slice: **A- browser session UX, A adapter boundary, B+ browser product completeness**.
+
+The visible browser session was wired correctly, but every Session/Menu/Command action created another WebKit window. That made sign-in flows feel noisy and put window lifecycle in the user's lap instead of making QuillCode's browser session feel like a stable Codex-style utility.
+
+What changed:
+- Changed `DesktopBrowserSessionPresenter` from a dictionary of retained windows to one reusable retained session window.
+- Repeated opens now navigate and focus the existing WebKit session; closing the window clears the retained session so the next open recreates it cleanly.
+- Kept focus, navigation, AppKit activation, and WebKit details inside the presenter adapter so `QuillCodeDesktopController` remains platform-lifecycle free.
+- Extended the desktop parity gate so the presenter cannot silently regress to one retained window per click.
+
+Current strict grades:
+- `DesktopBrowserSessionPresenter.swift`: **A-**. The adapter now owns persistence, reuse, focus, navigation, and close cleanup in one focused file.
+- Browser product parity: **B+**. A stable single signed-in browser session exists; multi-tab management, session state display, and Linux/browser-process adapters remain.
+
+Remaining risk:
+- This still needs an interactive native smoke test that opens a session, signs in or sets a cookie, focuses/navigates the existing window, and verifies rendered inspection reuses that profile.
