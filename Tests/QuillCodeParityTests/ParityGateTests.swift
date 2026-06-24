@@ -1550,6 +1550,8 @@ final class ParityGateTests: QuillCodeParityTestCase {
         let iconCatalogText = try Self.appSourceText(named: "QuillCodeCommandIconCatalog.swift")
 
         XCTAssertTrue(presentationText.contains("struct QuillCodeSidebarCommandPresentation"), "Sidebar command labels and icons should live in one focused presentation helper.")
+        XCTAssertTrue(presentationText.contains("QuillCodeSidebarCommandMetadata"), "Sidebar command label/icon/test metadata should share one command table.")
+        XCTAssertTrue(presentationText.contains("metadataByCommandID"), "Sidebar command presentation should centralize command metadata.")
         XCTAssertTrue(presentationText.contains("static let primaryCommandIDs"), "Primary sidebar command order should be explicit.")
         XCTAssertTrue(presentationText.contains("struct QuillCodeSidebarCommandGroup"), "Sidebar utility grouping should be a focused contract.")
         XCTAssertTrue(presentationText.contains("static let utilityCommandGroups"), "Utility sidebar command grouping should be explicit.")
@@ -1583,6 +1585,7 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(sidebarText.contains("struct QuillCodeProjectRowView"), "Native sidebar shell should not own project row rendering.")
         XCTAssertFalse(sidebarText.contains("private func displayTitle"), "Native sidebar should not maintain a second label map.")
         XCTAssertFalse(sidebarText.contains("private func systemImage"), "Native sidebar should not maintain a second icon map.")
+        XCTAssertFalse(presentationText.contains("switch commandID"), "Sidebar command presentation should not repeat command-ID switches for label/icon/test metadata.")
         XCTAssertFalse(sidebarText.contains("WorkspaceCommandSurface("), "Native sidebar should not duplicate command payload construction.")
         XCTAssertFalse(htmlSidebarText.contains(#"data-icon="plugins">Plugins"#), "HTML sidebar renderer should not hard-code sidebar plugin markup.")
     }
