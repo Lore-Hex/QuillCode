@@ -2746,3 +2746,21 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelTests.swift` is still large. Composer send/cancel flows, bootstrap/config, project/worktree command groups, and approval-card behavior remain future extraction candidates.
+
+## 2026-06-24 Workspace Composer Integration Test Pass
+
+Overall grade after this slice: **A feature grouping, A async-fixture ownership, A regression guard**.
+
+Composer send/cancel integration tests moved from `WorkspaceModelTests.swift` into `WorkspaceComposerIntegrationTests`. The model test file no longer owns direct composer submit behavior, tool-card creation, tool artifact surfacing, Computer Use dispatch, queued-tool progress, streaming assistant drafts, cancellation notice routing, empty-draft no-ops, or selection-race behavior.
+
+Code quality changes:
+
+- Added `WorkspaceComposerIntegrationTests` for composer flows crossing workspace model, agent runner, safety review delay, Computer Use backend, tool cards, transcript events, artifacts, and top-bar status.
+- Moved composer-only async wait helpers and streaming/slow LLM doubles beside the focused suite that uses them.
+- Kept pure composer submission and cancellation planning in `WorkspaceComposerSubmissionPlannerTests` and `WorkspaceComposerCancellationPlannerTests`.
+- Added a parity gate that keeps model-level composer integration method names out of `WorkspaceModelTests.swift`.
+- Reduced `WorkspaceModelTests.swift` again without weakening composer behavior coverage.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still large. Bootstrap/config, project/worktree command groups, approval-card behavior, feedback, and artifact-state coverage remain future extraction candidates.
