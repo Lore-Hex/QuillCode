@@ -4589,3 +4589,18 @@ Current strict grades:
 
 Remaining risk:
 - Native WebView/rendering, signed-in browser profile, and Linux/browser-process implementations are still pending. The new seam should make those additions isolated, but parity is incomplete until a real backend exercises the contract in app smoke tests.
+
+## 2026-06-24 GitHub Pull Request Tool Test Split
+
+Overall grade after this slice: **A test ownership, A fixture reuse, A merge-conflict reduction**.
+
+`ToolTests.swift` still mixed unrelated file, patch, git, GitHub PR, worktree, and router behavior after the shell split. GitHub PR command construction changes are frequent and carry their own input-validation and fake-`gh` fixture needs, so keeping them in the catch-all suite made future PR workflow work harder to review.
+
+What changed:
+- Added `GitHubPullRequestToolExecutorTests` for PR create/view/checks/diff/checkout/reviewer/label/comment/review/merge behavior, shared PR input/output helper coverage, and PR-specific router dispatch.
+- Replaced repeated fake-`gh` setup and argument-file parsing with one small `GitHubCLIFixture`.
+- Removed the same PR-specific tests from `ToolTests.swift`.
+- Added a parity gate so GitHub PR coverage does not drift back into the mixed tool suite.
+
+Remaining risk:
+- `ToolTests.swift` is smaller but still owns several tool families. Next low-risk splits should move file/patch, local git, worktree, or generic router coverage into focused suites before adding more tool behavior.

@@ -200,6 +200,40 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(toolTestsText.contains("testSSHRemoteShellBuildsNonInteractiveRequest"), "The mixed ToolTests suite should not own SSH shell coverage.")
     }
 
+    func testGitHubPullRequestToolCoverageLivesOutsideMixedToolSuite() throws {
+        let toolTestsText = try Self.toolsTestSourceText(named: "ToolTests.swift")
+        let pullRequestTestsText = try Self.toolsTestSourceText(named: "GitHubPullRequestToolExecutorTests.swift")
+
+        XCTAssertTrue(
+            pullRequestTestsText.contains("final class GitHubPullRequestToolExecutorTests"),
+            "GitHub PR command construction and routing coverage should live in a focused suite."
+        )
+        XCTAssertTrue(
+            pullRequestTestsText.contains("struct GitHubCLIFixture"),
+            "GitHub PR tests should share the fake gh fixture instead of repeating setup in each test."
+        )
+        XCTAssertTrue(
+            pullRequestTestsText.contains("testCreatePullRequestUsesGitHubCLIArguments"),
+            "PR creation coverage should stay beside the GitHub PR executor tests."
+        )
+        XCTAssertTrue(
+            pullRequestTestsText.contains("testToolRouterRoutesPullRequestReadAndMutationTools"),
+            "PR tool-router coverage should stay beside the PR executor tests."
+        )
+        XCTAssertFalse(
+            toolTestsText.contains("testGitCreatePullRequestUsesGitHubCLIArguments"),
+            "The mixed ToolTests suite should not own GitHub PR executor coverage."
+        )
+        XCTAssertFalse(
+            toolTestsText.contains("testGitPullRequestViewUsesGitHubCLIArguments"),
+            "The mixed ToolTests suite should not own GitHub PR read coverage."
+        )
+        XCTAssertFalse(
+            toolTestsText.contains("testToolRouterRoutesGitPullRequestViewChecksAndDiff"),
+            "The mixed ToolTests suite should not own GitHub PR router coverage."
+        )
+    }
+
     func testGitLocalExecutionLivesOutsideGitExecutor() throws {
         let executorText = try Self.toolsSourceText(named: "GitToolExecutor.swift")
         let localText = try Self.toolsSourceText(named: "GitLocalToolExecutor.swift")
