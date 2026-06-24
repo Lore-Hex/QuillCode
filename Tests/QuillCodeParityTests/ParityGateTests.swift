@@ -196,6 +196,26 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("private static func projectFileBrowserURL"), "WorkspaceModel should not own project file URL resolution.")
     }
 
+    func testWorkspaceModelDelegatesProjectContextRefresh() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let refresherText = try Self.appSourceText(named: "WorkspaceProjectContextRefresher.swift")
+
+        XCTAssertTrue(refresherText.contains("enum WorkspaceProjectContextRefresher"), "Project context refresh should have a focused owner.")
+        XCTAssertTrue(refresherText.contains("refreshLocalProjectMetadata"), "Local project metadata refresh should be directly testable.")
+        XCTAssertTrue(refresherText.contains("refreshRemoteProjectContext"), "Remote project metadata refresh should be directly testable.")
+        XCTAssertTrue(refresherText.contains("syncThreadContext"), "Thread instruction and memory sync should be directly testable.")
+        XCTAssertTrue(refresherText.contains("syncThreadMemories"), "Saved-memory refresh should be directly testable.")
+        XCTAssertTrue(refresherText.contains("static func globalMemories"), "Global memory loading should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.refreshLocalProjectMetadata"), "WorkspaceModel should delegate local project metadata refresh.")
+        XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.refreshRemoteProjectContext"), "WorkspaceModel should delegate remote project metadata refresh.")
+        XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.syncThreadContext"), "WorkspaceModel should delegate thread context sync.")
+        XCTAssertFalse(modelText.contains("WorkspaceProjectMetadataLoader.loadLocal(from: rootURL)"), "WorkspaceModel should not own refresh-time local project metadata loading.")
+        XCTAssertFalse(modelText.contains("WorkspaceProjectMetadataLoader.loadRemote"), "WorkspaceModel should not own remote project metadata loading.")
+        XCTAssertFalse(modelText.contains("WorkspaceMemoryEngine.loadGlobal(from:"), "WorkspaceModel should not own global memory loading.")
+        XCTAssertFalse(modelText.contains("thread.instructions = contextResolver.instructions"), "WorkspaceModel should not directly sync thread instructions from the resolver.")
+        XCTAssertFalse(modelText.contains("thread.memories = contextResolver.memoryNotes"), "WorkspaceModel should not directly sync thread memories from the resolver.")
+    }
+
     func testWorkspaceModelDelegatesThreadSeedBuilding() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let seedBuilderText = try Self.appSourceText(named: "WorkspaceThreadSeedBuilder.swift")
@@ -796,7 +816,7 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(engineText.contains("struct WorkspaceMemoryMutation"), "Memory command outcomes should use a typed mutation value.")
         XCTAssertTrue(modelText.contains("WorkspaceMemoryEngine.saveGlobal"), "WorkspaceModel should delegate global memory saves.")
         XCTAssertTrue(modelText.contains("WorkspaceMemoryEngine.deleteGlobal"), "WorkspaceModel should delegate global memory deletion.")
-        XCTAssertTrue(modelText.contains("WorkspaceMemoryEngine.loadGlobal"), "WorkspaceModel should delegate global memory reloads.")
+        XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.globalMemories"), "WorkspaceModel should delegate global memory reloads through the project context refresher.")
         XCTAssertTrue(modelText.contains("WorkspaceMemoryEngine.contextUpdate"), "WorkspaceModel should delegate memory context update construction.")
         XCTAssertTrue(plannerText.contains("struct WorkspaceMemoryCommandTranscriptPlanner"), "Memory command transcript copy should live in a focused planner.")
         XCTAssertTrue(errorText.contains("enum WorkspaceMemoryErrorMessageBuilder"), "Memory write and delete errors should share one user-facing formatter.")
@@ -1024,7 +1044,7 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(loaderText.contains("MemoryNoteLoader.loadProject"), "Project memory loading should stay with the metadata loader.")
         XCTAssertTrue(loaderText.contains("SSHRemoteProjectContextLoader.load"), "SSH Remote context loading should stay with the metadata loader.")
         XCTAssertTrue(modelText.contains("WorkspaceProjectMetadataLoader.loadLocal"), "WorkspaceModel should delegate local project metadata loading.")
-        XCTAssertTrue(modelText.contains("WorkspaceProjectMetadataLoader.loadRemote"), "WorkspaceModel should delegate SSH Remote project metadata loading.")
+        XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.refreshRemoteProjectContext"), "WorkspaceModel should delegate SSH Remote project metadata refresh.")
         XCTAssertFalse(modelText.contains("ProjectInstructionLoader.load"), "WorkspaceModel should not load instruction files directly.")
         XCTAssertFalse(modelText.contains("LocalEnvironmentActionLoader.load"), "WorkspaceModel should not load local environment actions directly.")
         XCTAssertFalse(modelText.contains("ProjectExtensionManifestLoader.load"), "WorkspaceModel should not load project extensions directly.")
