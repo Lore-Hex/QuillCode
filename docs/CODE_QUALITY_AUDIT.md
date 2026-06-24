@@ -3735,3 +3735,19 @@ What changed:
 
 Remaining risk:
 - `WorkspaceModel.swift` still owns the broader send lifecycle and cancellation side effects. Keep extracting pure send/session planning and small recovery policies before adding larger Codex-parity run controls.
+
+## 2026-06-24 Sidebar Surface Contract Split
+
+Overall grade after this slice: **A+ project-list contract ownership, A+ thread-sidebar contract ownership, A regression guard coverage**.
+
+`QuillCodeSidebarSurface.swift` still mixed two separate surface families: project-list rows/actions and thread-sidebar rows/actions. They happen to render in the same left rail, but they have different compatibility payloads, action defaults, and growth paths. Keeping them in one file made future project workflow changes likely to touch thread selection/search code, and vice versa.
+
+What changed:
+- Added `QuillCodeProjectListSurface.swift` for project-list aggregate records, project rows, project action labels, and project action compatibility decoding.
+- Renamed the remaining sidebar file to `QuillCodeThreadSidebarSurface.swift` so thread rows, bulk actions, selection copy, filtering entry points, and thread action defaults have a precise owner.
+- Split the matching surface tests into project-list and thread-sidebar suites so compatibility coverage follows the owning contract file.
+- Kept public type names stable so existing native SwiftUI, HTML, command-planning, and surface-builder call sites do not need behavioral changes.
+- Tightened the parity gate so project-list contracts, thread-sidebar contracts, and workspace aggregate contracts remain separated.
+
+Remaining risk:
+- `QuillCodeThreadSidebarSurface.swift` still owns both thread row action defaults and the aggregate sidebar wrapper. That is appropriate while the behavior stays compact; if archived/pinned/search behavior gains richer compatibility decoding or row badges, split `SidebarItemSurface` into a focused row contract file.
