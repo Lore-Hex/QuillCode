@@ -1405,6 +1405,23 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(slashText.contains("func parseLabels"), "Outer slash parser should not own PR label parsing internals.")
     }
 
+    func testSlashParserDelegatesProjectSubcommands() throws {
+        let slashText = try Self.appSourceText(named: "SlashCommand.swift")
+        let projectParserText = try Self.appSourceText(named: "SlashProjectCommandParser.swift")
+        let projectParserTests = try Self.appTestSourceText(named: "SlashProjectCommandParserTests.swift")
+
+        XCTAssertTrue(slashText.contains("SlashProjectCommandParser.parse(argument)"), "Outer slash parser should delegate project subcommands.")
+        XCTAssertTrue(projectParserText.contains("enum SlashProjectCommandParser"), "Project slash parsing should live in a focused parser.")
+        XCTAssertTrue(projectParserText.contains("Usage: /project new"), "Project usage copy should live with project parser semantics.")
+        XCTAssertTrue(projectParserText.contains("project-new-chat"), "Project command IDs should live with project parser semantics.")
+        XCTAssertTrue(projectParserText.contains("project-refresh-context"), "Project refresh aliases should live with project parser semantics.")
+        XCTAssertTrue(projectParserTests.contains("testProjectNavigationCommandsMapToWorkspaceCommands"), "Project aliases should have focused parser coverage.")
+        XCTAssertTrue(projectParserTests.contains("testProjectRenameCommandsTrimNames"), "Project rename parsing should have focused parser coverage.")
+        XCTAssertFalse(slashText.contains("private static func parseProject"), "Outer slash parser should not own project parsing internals.")
+        XCTAssertFalse(slashText.contains("Unknown project command"), "Outer slash parser should not own project error copy.")
+        XCTAssertFalse(slashText.contains("Usage: /project new"), "Outer slash parser should not own project usage copy.")
+    }
+
     func testWorkspaceLocalEnvironmentIntegrationTestsOwnModelLocalEnvironmentFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let localEnvironmentIntegrationTests = try Self.appTestSourceText(named: "WorkspaceLocalEnvironmentIntegrationTests.swift")
