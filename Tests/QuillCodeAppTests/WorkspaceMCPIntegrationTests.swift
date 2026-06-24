@@ -45,14 +45,16 @@ final class WorkspaceMCPIntegrationTests: XCTestCase {
         XCTAssertEqual(surface.extensions.items.first?.promptNames, ["summarize_project"])
         XCTAssertEqual(surface.extensions.items.first?.stopCommandID, "mcp-stop:mcp_server:filesystem")
         XCTAssertEqual(surface.commands.first { $0.id == "stop-all" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "disconnect-all" }?.isEnabled, true)
         XCTAssertTrue(model.selectedThread?.events.contains {
             $0.summary == "MCP server Filesystem MCP ready (2 tools: read_file, write_file; 2 resources; 1 prompt)"
         } == true)
 
-        model.cancelActiveWork()
+        XCTAssertTrue(model.runWorkspaceCommand("disconnect-all", workspaceRoot: root))
         surface = model.surface()
         XCTAssertEqual(surface.extensions.items.first?.statusLabel, "Stopped")
         XCTAssertEqual(surface.commands.first { $0.id == "stop-all" }?.isEnabled, false)
+        XCTAssertEqual(surface.commands.first { $0.id == "disconnect-all" }?.isEnabled, false)
 
         XCTAssertTrue(model.runWorkspaceCommand("mcp-start:mcp_server:filesystem", workspaceRoot: root))
         XCTAssertTrue(model.runWorkspaceCommand("mcp-stop:mcp_server:filesystem", workspaceRoot: root))

@@ -78,6 +78,8 @@ extension QuillCodeWorkspaceModel {
             return forkFromLast() != nil
         case .compactContext:
             return compactContext() != nil
+        case .disconnectAll:
+            return disconnectAll()
         }
     }
 }

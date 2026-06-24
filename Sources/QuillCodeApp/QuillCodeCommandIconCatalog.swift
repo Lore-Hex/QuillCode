@@ -64,6 +64,8 @@ enum QuillCodeCommandIconCatalog {
             return "display"
         case "stop-all":
             return "stop.circle"
+        case "disconnect-all":
+            return "network.slash"
         default:
             return fallback
         }

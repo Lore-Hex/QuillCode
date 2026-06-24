@@ -2695,6 +2695,7 @@
         { id: 'git-worktree-remove', title: 'Remove worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace', 'delete'], isEnabled: true },
         { id: 'local-env:.quillcode/actions/bootstrap.sh', title: 'Run Bootstrap', shortcut: '', category: 'Environment', keywords: ['local environment', 'script', 'Install dependencies and warm caches.', 'bootstrap', 'app', 'timeout', '120s', 'QUILL_ENV'], isEnabled: true },
         { id: 'stop-all', title: 'Stop all', shortcut: 'Esc', category: 'Control', keywords: ['cancel', 'abort', 'halt'], isEnabled: false },
+        { id: 'disconnect-all', title: 'Disconnect all', shortcut: '', category: 'Control', keywords: ['disconnect', 'remote', 'mcp', 'server', 'connection'], isEnabled: false },
         { id: 'settings', title: 'Settings', shortcut: 'Cmd+,', category: 'Navigation', keywords: ['preferences', 'trustedrouter', 'auth'], isEnabled: true },
         { id: 'computer-use-setup', title: 'Computer Use setup', shortcut: '', category: 'Computer Use', keywords: ['screen', 'accessibility', 'permissions'], isEnabled: true },
         { id: 'computer-use-open-screen-recording', title: 'Open Screen Recording settings', shortcut: '', category: 'Computer Use', keywords: ['screen', 'recording', 'capture', 'permissions'], isEnabled: true },
@@ -3615,6 +3616,10 @@
       const hasProject = Boolean(state.projects.selectedProjectID);
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       const hasLocalProject = hasProject && !selectedProject?.isRemote;
+      const hasSelectedRemoteProject = Boolean(selectedProject?.isRemote);
+      const hasActiveMCPServer = state.extensions.items.some(item => (
+        item.kind === 'mcp_server' && ['Ready', 'Running', 'Probing'].includes(item.statusLabel)
+      ));
       const selectedThreadIDs = new Set(state.sidebar.selectedThreadIDs);
       const selectedThreads = state.sidebar.items.filter(item => selectedThreadIDs.has(item.id));
       const hasBulkSelection = selectedThreads.length > 0;
@@ -3659,7 +3664,8 @@
         command.id?.startsWith('automation-create-workspace-schedule-after:') ? { ...command, isEnabled: hasProject } :
         command.id === 'automation-create-workspace-schedule-tomorrow' ? { ...command, isEnabled: hasProject } :
         command.id?.startsWith('automation-create-workspace-schedule-every:') ? { ...command, isEnabled: hasProject } :
-        command.id === 'stop-all' ? { ...command, isEnabled: hasActiveWork } :
+        command.id === 'stop-all' ? { ...command, isEnabled: hasActiveWork || hasActiveMCPServer } :
+        command.id === 'disconnect-all' ? { ...command, isEnabled: hasSelectedRemoteProject || hasActiveMCPServer } :
         command
       ));
     }
@@ -4312,11 +4318,12 @@
         'search',
         ...(state.settings.computerUseStatus.available ? [] : ['computer-use-setup']),
         'settings',
-        'keyboard-shortcuts'
+        'keyboard-shortcuts',
+        'disconnect-all'
       ];
       const topBarOverflowCommands = topBarOverflowCommandIDs
         .map(commandByID)
-        .filter(Boolean);
+        .filter(command => command && (command.id !== 'disconnect-all' || command.isEnabled));
       const topBarStopCommand = commandByID('stop-all');
       const topBarStopButton = topBarStopCommand?.isEnabled
         ? `<button type="button" class="topbar-stop-button" data-testid="top-bar-stop-button" data-command-id="stop-all" title="Stop all (${escapeHTML(topBarStopCommand.shortcut || 'Esc')})" aria-label="Stop active work">Stop</button>`
@@ -6794,6 +6801,52 @@
       render();
     }
 
+    function stopActiveWork({ stopMCPServers = true } = {}) {
+      if (activeMockRun?.timer) {
+        window.clearTimeout(activeMockRun.timer);
+        activeMockRun = null;
+      }
+      if (activeTerminalRun?.timer) {
+        window.clearTimeout(activeTerminalRun.timer);
+        activeTerminalRun = null;
+      }
+      state.composer.isSending = false;
+      state.terminal.isRunning = false;
+      state.terminal.entries
+        .filter(entry => terminalStatus(entry) === 'running')
+        .forEach(entry => {
+          entry.status = 'stopped';
+          entry.ok = false;
+          entry.exitCode = null;
+          entry.stderr = entry.stderr || 'Command stopped.';
+        });
+      state.transcript.toolCards
+        .filter(card => card.status === 'queued' || card.status === 'running')
+        .forEach(card => {
+          updateToolCardLifecycle(card, 'failed', 'Stopped');
+          card.outputJSON = JSON.stringify({ ok: false, error: 'Stopped by user' }, null, 2);
+          card.artifacts = [];
+        });
+      if (stopMCPServers) {
+        state.extensions.items
+          .filter(item => item.kind === 'mcp_server' && ['Ready', 'Running', 'Probing'].includes(item.statusLabel))
+          .forEach(item => setMCPStatus(item.id, 'Stopped'));
+      }
+      state.topBar.agentStatus = 'Stopped';
+    }
+
+    function disconnectAll() {
+      stopActiveWork();
+      const project = selectedProject();
+      if (project?.isRemote) {
+        state.projects.selectedProjectID = null;
+        state.projects.items = state.projects.items.map(item => ({ ...item, isSelected: false }));
+        state.terminal.cwdLabel = 'No project';
+        state.terminal.environment = {};
+        state.topBar.subtitle = `No project - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+      }
+    }
+
     function runCommand(commandID) {
       if (commandID === 'command-palette') {
         openCommandPalette();
@@ -7097,35 +7150,10 @@
         return;
       }
       if (commandID === 'stop-all') {
-        if (activeMockRun?.timer) {
-          window.clearTimeout(activeMockRun.timer);
-          activeMockRun = null;
-        }
-        if (activeTerminalRun?.timer) {
-          window.clearTimeout(activeTerminalRun.timer);
-          activeTerminalRun = null;
-        }
-        state.composer.isSending = false;
-        state.terminal.isRunning = false;
-        state.terminal.entries
-          .filter(entry => terminalStatus(entry) === 'running')
-          .forEach(entry => {
-            entry.status = 'stopped';
-            entry.ok = false;
-            entry.exitCode = null;
-            entry.stderr = entry.stderr || 'Command stopped.';
-          });
-        state.transcript.toolCards
-          .filter(card => card.status === 'queued' || card.status === 'running')
-          .forEach(card => {
-            updateToolCardLifecycle(card, 'failed', 'Stopped');
-            card.outputJSON = JSON.stringify({ ok: false, error: 'Stopped by user' }, null, 2);
-            card.artifacts = [];
-          });
-        state.extensions.items
-          .filter(item => item.kind === 'mcp_server' && ['Ready', 'Running', 'Probing'].includes(item.statusLabel))
-          .forEach(item => setMCPStatus(item.id, 'Stopped'));
-        state.topBar.agentStatus = 'Stopped';
+        stopActiveWork();
+      }
+      if (commandID === 'disconnect-all') {
+        disconnectAll();
       }
       if (commandID === 'settings') {
         state.settings.isOpen = true;
@@ -7200,10 +7228,16 @@
       const isActive = status === 'Ready' || status === 'Running' || status === 'Probing';
       if (startCommand) startCommand.isEnabled = !isActive;
       if (stopCommand) stopCommand.isEnabled = isActive;
+      const selectedRemoteProject = Boolean(selectedProject()?.isRemote);
       const stopAll = state.commands.find(command => command.id === 'stop-all');
       if (stopAll) {
         stopAll.isEnabled = state.composer.isSending
           || state.terminal.isRunning
+          || state.extensions.items.some(item => item.kind === 'mcp_server' && ['Ready', 'Running', 'Probing'].includes(item.statusLabel));
+      }
+      const disconnectAll = state.commands.find(command => command.id === 'disconnect-all');
+      if (disconnectAll) {
+        disconnectAll.isEnabled = selectedRemoteProject
           || state.extensions.items.some(item => item.kind === 'mcp_server' && ['Ready', 'Running', 'Probing'].includes(item.statusLabel));
       }
     }

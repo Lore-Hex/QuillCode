@@ -66,7 +66,8 @@ public enum TopBarOverflowCommandCatalog {
         }
         commandIDs.append(contentsOf: [
             "settings",
-            "keyboard-shortcuts"
+            "keyboard-shortcuts",
+            "disconnect-all"
         ])
         return commandIDs
     }
@@ -77,6 +78,8 @@ public enum TopBarOverflowCommandCatalog {
     ) -> [WorkspaceCommandSurface] {
         commandIDs(showsComputerUseSetup: showsComputerUseSetup).compactMap { commandID in
             commands.first { $0.id == commandID }
+        }.filter { command in
+            command.id != "disconnect-all" || command.isEnabled
         }
     }
 

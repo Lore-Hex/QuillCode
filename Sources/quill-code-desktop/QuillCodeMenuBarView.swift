@@ -13,6 +13,7 @@ struct QuillCodeMenuBarView: View {
     var onToggleExtensions: () -> Void
     var onToggleMemories: () -> Void
     var onStopAll: () -> Void
+    var onDisconnectAll: () -> Void
     var onComputerUseSetup: () -> Void
     var onQuit: () -> Void
 
@@ -47,11 +48,19 @@ struct QuillCodeMenuBarView: View {
         Button("Settings...", action: onSettings)
         Divider()
         Button("Stop All", action: onStopAll)
-            .disabled(!surface.composer.isSending && !surface.terminal.isRunning)
-        Button("Disconnect All") {}
-            .disabled(true)
+            .disabled(stopAllCommand?.isEnabled != true)
+        Button("Disconnect All", action: onDisconnectAll)
+            .disabled(disconnectAllCommand?.isEnabled != true)
         Divider()
         Button("Quit QuillCode", action: onQuit)
+    }
+
+    private var stopAllCommand: WorkspaceCommandSurface? {
+        surface.commands.first { $0.id == "stop-all" }
+    }
+
+    private var disconnectAllCommand: WorkspaceCommandSurface? {
+        surface.commands.first { $0.id == "disconnect-all" }
     }
 
     private var statusSystemImage: String {
