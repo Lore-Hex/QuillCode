@@ -3613,3 +3613,18 @@ What changed:
 
 Remaining risk:
 - `WorkspaceModel.swift` is still the largest app source file because it owns actor-bound orchestration for sends, tools, terminal, projects, memory, automations, and MCP lifecycle. Continue extracting pure state transitions and copy into focused helpers before adding larger Codex-parity features.
+
+## 2026-06-24 Native Sidebar Project List Split
+
+Overall grade after this slice: **A+ sidebar project-list ownership, A native sidebar scanability**.
+
+`QuillCodeSidebarView.swift` was still a broad left-rail file: primary actions, thread sections, thread rows, project rows, and utility controls all lived together. Project rows have their own action menu, remote badge, path truncation, selected styling, and growth behavior, so keeping them inline made the sidebar harder to scan and easier to regress when Codex-parity project workflows expand.
+
+What changed:
+- Added `QuillCodeProjectListView.swift` for native project-list and project-row rendering.
+- Bounded project rows in a focused scroll region so many projects do not crowd the bottom Tools and Settings controls.
+- Kept the main sidebar at composition level by delegating project-list rendering.
+- Added a parity gate so project-row rendering and project-list sizing policy do not drift back into `QuillCodeSidebarView.swift`.
+
+Remaining risk:
+- `QuillCodeSidebarView.swift` still owns primary actions, bulk selection controls, thread sections, thread rows, and utility actions. Split thread rows next if the left rail gains more Codex parity controls such as per-thread status badges, drag ordering, or richer context menus.
