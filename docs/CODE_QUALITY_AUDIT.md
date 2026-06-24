@@ -2555,6 +2555,23 @@ Remaining risk:
 
 - `WorkspaceModelTests.swift` is still the largest test file. SSH Remote project integration, local environment integration, terminal integration, browser integration, review actions, and automation flows remain good candidates for focused extraction.
 
+## 2026-06-24 Workspace Local Environment Integration Test Pass
+
+Overall grade after this slice: **A feature grouping, A- duplication reduction, A regression guard**.
+
+Local environment integration tests moved from the workspace-model monolith into `WorkspaceLocalEnvironmentIntegrationTests`. The moved tests now share a small setup helper and shell-result decoder instead of repeating project/action-directory setup and `ToolResult` decoding in each case.
+
+Code quality changes:
+
+- Added `WorkspaceLocalEnvironmentIntegrationTests` as the home for local environment flows that cross workspace model, metadata loading, command-palette execution, shell-call planning, tool cards, and slash transcripts.
+- Removed command-palette execution, environment redaction, bounded working-directory, and timeout coverage from `WorkspaceModelTests.swift`; `/env` listing remains with the slash-command integration suite.
+- Added a parity gate that keeps local environment integration method names out of `WorkspaceModelTests.swift`.
+- Reused shared temp-directory support and local helper methods to make the extracted tests less repetitive than the original monolith section.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still the largest test file. SSH Remote project integration, terminal integration, browser integration, review actions, and automation flows remain good candidates for focused extraction.
+
 ## 2026-06-24 Runtime Factory Test Ownership Pass
 
 Overall grade after this slice: **A test ownership, A behavior preservation, A regression guard**.
