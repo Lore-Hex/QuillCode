@@ -404,7 +404,7 @@ final class WorkspaceAutomationEngineTests: XCTestCase {
         XCTAssertEqual(draft.thread.title, "Follow-up: Launch plan")
         XCTAssertEqual(draft.thread.projectID, projectID)
         XCTAssertEqual(draft.thread.mode, .review)
-        XCTAssertEqual(draft.thread.model, "trustedrouter/fusion")
+        XCTAssertEqual(draft.thread.model, TrustedRouterDefaults.synthModel)
         XCTAssertEqual(draft.thread.messages, source.messages)
         XCTAssertEqual(draft.thread.events.map(\.summary), [
             "Automation ran: Follow up: Launch plan",

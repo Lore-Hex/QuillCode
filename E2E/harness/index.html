@@ -2364,7 +2364,7 @@
             category: 'Recommended',
             models: [
               { id: 'trustedrouter/fast', provider: 'trustedrouter', displayName: 'Nike 1.0', isSelected: true, isFavorite: false, badges: ['Current', 'Default', 'Recommended'] },
-              { id: 'tr/fusion', provider: 'trustedrouter', displayName: 'Prometheus 1.0', isSelected: false, isFavorite: false, badges: [] }
+              { id: 'tr/synth', provider: 'trustedrouter', displayName: 'Synth', isSelected: false, isFavorite: false, badges: [] }
             ]
           },
           {
@@ -4952,7 +4952,7 @@
 
     function modelDisplayLabel(model) {
       if (model.id === 'trustedrouter/fast') return 'Nike 1.0';
-      if (model.id === 'tr/fusion') return 'Prometheus 1.0';
+      if (model.id === 'tr/synth') return 'Synth';
       if (model.provider === 'trustedrouter') return model.id;
       return `${model.provider}/${model.displayName}`;
     }
@@ -5005,7 +5005,7 @@
     function modelMetadataSummary(model, categoryName) {
       if (model.metadataSummary) return model.metadataSummary;
       if (model.id === 'trustedrouter/fast') return 'Fast everyday agent';
-      if (model.id === 'tr/fusion') return 'Deeper planning and review';
+      if (model.id === 'tr/synth') return 'Deeper planning and review';
       const category = model.category || categoryName || 'Models';
       if (category === 'Safety') return 'Auto safety reviewer';
       return `${category} model`;
@@ -5014,7 +5014,7 @@
     function modelCapabilitySummary(model, categoryName) {
       if (model.capabilitySummary) return model.capabilitySummary;
       if (model.id === 'trustedrouter/fast') return 'Nike 1.0 is the fast default for coding, shell, and file-editing turns.';
-      if (model.id === 'tr/fusion') return 'Prometheus 1.0 is the balanced model for deeper coding and review turns.';
+      if (model.id === 'tr/synth') return 'Synth is the balanced model for deeper coding and review turns.';
       if ((model.badges || []).includes('Recommended')) return 'Recommended model profile available through TrustedRouter.';
       const category = model.category || categoryName || 'Models';
       if (category === 'Safety') return 'Lightweight reviewer model for Auto safety decisions.';
@@ -8035,7 +8035,7 @@
         state.runtimeIssue = makeRuntimeIssue({
           severity: 'warning',
           title: 'Model response was malformed',
-          message: "The selected model did not follow QuillCode's action schema. Try Nike 1.0, Prometheus 1.0, or another coding model.",
+          message: "The selected model did not follow QuillCode's action schema. Try Nike 1.0, Synth, or another coding model.",
           actionLabel: 'Switch model'
         }, 'Expected valid QuillCode action JSON but received an empty argument object.');
       } else if (/^\/(new|new-chat|newchat)\b/i.test(text)) {

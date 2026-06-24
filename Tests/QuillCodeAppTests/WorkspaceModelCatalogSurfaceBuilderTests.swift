@@ -8,7 +8,7 @@ final class WorkspaceModelCatalogSurfaceBuilderTests: XCTestCase {
     func testModelLabelUsesBrandedCatalogNameOrCanonicalFallback() {
         let known = WorkspaceModelCatalogSurfaceBuilder(
             catalog: defaultCatalog,
-            selectedModelID: "tr/fusion",
+            selectedModelID: "tr/synth",
             defaultModelID: TrustedRouterDefaults.defaultModel,
             favoriteModelIDs: [],
             recentModelIDs: []
@@ -21,7 +21,7 @@ final class WorkspaceModelCatalogSurfaceBuilderTests: XCTestCase {
             recentModelIDs: []
         )
 
-        XCTAssertEqual(known.modelLabel(), TrustedRouterDefaults.fusionModelDisplayName)
+        XCTAssertEqual(known.modelLabel(), TrustedRouterDefaults.synthModelDisplayName)
         XCTAssertEqual(unknown.modelLabel(), "custom/edge-model")
     }
 
@@ -42,7 +42,7 @@ final class WorkspaceModelCatalogSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(categories.prefix(3).map(\.category), ["Favorites", "Recent", "Recommended"])
 
         let favorite = try XCTUnwrap(categories.first)
-        XCTAssertEqual(favorite.models.map(\.id), [TrustedRouterDefaults.fusionModel])
+        XCTAssertEqual(favorite.models.map(\.id), [TrustedRouterDefaults.synthModel])
         XCTAssertEqual(favorite.models.first?.badges, ["Favorite", "Current", "Recommended"])
         XCTAssertTrue(favorite.models.first?.isFavorite == true)
 
