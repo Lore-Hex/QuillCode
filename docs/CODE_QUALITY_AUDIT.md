@@ -3813,3 +3813,18 @@ What changed:
 
 Remaining risk:
 - Other non-command surfaces should keep using `TrustedRouterDefaults.preferredDisplayModelID` rather than hand-formatting model IDs. If model picker subtitles or thread metadata gain richer copy, keep the branding policy centralized in `TrustedRouterDefaults` or a small display-label helper.
+
+## 2026-06-24 Browser HTML Snapshot Builder Split
+
+Overall grade after this slice: **A+ browser adapter ownership, A+ static HTML extraction tests, A regression guard**.
+
+`BrowserInspector.swift` still mixed browser URL/file/fetched-page orchestration with low-level static HTML parsing: regex capture helpers, outline candidate ordering, HTML entity cleanup, tag counts, and snippet truncation. That made future browser preview work likely to touch fragile parser details while changing unrelated browser tool-result behavior.
+
+What changed:
+- Added `BrowserHTMLSnapshotBuilder.swift` as the focused owner for static HTML snapshot details, outline extraction, text cleanup, and snippet limits.
+- Reduced `BrowserInspector.swift` to browser metadata snapshots, local-file handling, fetched-page adaptation, and browser-inspection tool output.
+- Added focused builder tests for title/heading/count details, ordered outline extraction, fallback labels, script/style removal, entity decoding, outline limits, and snippet truncation.
+- Tightened the parity gate so HTML outline/snippet parsing does not drift back into `BrowserInspector.swift`.
+
+Remaining risk:
+- `BrowserHTMLSnapshotBuilder` intentionally uses lightweight regex extraction for static previews. That is enough for Codex-style preview summaries, but if browser comments or element targeting grow into DOM-level interactions, add a dedicated DOM adapter rather than expanding regex parsing.
