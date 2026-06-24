@@ -722,16 +722,36 @@
       bottom: calc(100% + 8px);
       z-index: 9;
       display: grid;
-      gap: 4px;
-      min-width: 220px;
-      padding: 8px;
-      border-radius: 12px;
+      gap: 8px;
+      min-width: 232px;
+      padding: 10px;
+      border-radius: 14px;
       border: 1px solid rgba(255,255,255,.10);
       background: rgba(18, 29, 35, .98);
       box-shadow: var(--shadow-panel);
     }
+    .sidebar-tools-section {
+      display: grid;
+      gap: 4px;
+      padding: 0 0 6px;
+    }
+    .sidebar-tools-section + .sidebar-tools-section {
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,.08);
+    }
+    .sidebar-tools-section:last-child { padding-bottom: 0; }
+    .sidebar-tools-section-title {
+      margin: 0;
+      padding: 0 8px 2px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .04em;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
     .sidebar-tool-action {
-      min-height: 38px;
+      min-height: 40px;
       padding: 7px 10px;
       display: flex;
       align-items: center;
@@ -743,13 +763,16 @@
       border-radius: 8px;
       font-weight: 650;
       white-space: nowrap;
-      transition-property: background-color, color, border-color;
+      transition-property: background-color, color, border-color, transform;
       transition-duration: 130ms;
       transition-timing-function: var(--ease-out);
     }
     .sidebar-tool-action:hover {
       background: rgba(255,255,255,.075);
       border-color: rgba(255,255,255,.10);
+    }
+    .sidebar-tool-action:active {
+      transform: scale(.96);
     }
     .sidebar-item,
     .project-item {
@@ -4346,14 +4369,29 @@
                 <details class="sidebar-tools-menu" data-testid="sidebar-tools-menu">
                   <summary data-testid="sidebar-tools-button" aria-label="Tools" title="Tools">Tools</summary>
                   <div class="sidebar-tools-popover" role="menu">
-                    <button class="sidebar-tool-action" type="button" data-testid="sidebar-search-button" role="menuitem" aria-label="Search" title="Search" data-icon="search" data-command-id="search">Search</button>
-                    <button class="sidebar-tool-action" type="button" data-testid="command-palette-button" role="menuitem" aria-label="Command palette" title="Command palette" data-icon="command" data-command-id="command-palette">Command palette</button>
-                    <button class="sidebar-tool-action" type="button" data-testid="extensions-button" role="menuitem" aria-label="Plugins" title="Plugins" data-icon="plugins" data-command-id="toggle-extensions">Plugins</button>
-                    <button class="sidebar-tool-action" type="button" data-testid="automations-button" role="menuitem" aria-label="Automations" title="Automations" data-icon="automations" data-command-id="toggle-automations">Automations</button>
-                    <button class="sidebar-tool-action" type="button" data-testid="terminal-button" role="menuitem" aria-label="Terminal" title="Terminal" data-icon="terminal" data-command-id="toggle-terminal">Terminal</button>
-                    <button class="sidebar-tool-action" type="button" data-testid="browser-button" role="menuitem" aria-label="Browser" title="Browser" data-icon="browser" data-command-id="toggle-browser">Browser</button>
-                    <button class="sidebar-tool-action" type="button" data-testid="memories-button" role="menuitem" aria-label="Memories" title="Memories" data-icon="memories" data-command-id="toggle-memories">Memories</button>
-                    <button class="sidebar-tool-action" type="button" data-testid="activity-button" role="menuitem" aria-label="Activity" title="Activity" data-icon="activity" data-command-id="toggle-activity">Activity</button>
+                    <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="navigate">
+                      <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Navigate</h3>
+                      <button class="sidebar-tool-action" type="button" data-testid="sidebar-search-button" role="menuitem" aria-label="Search" title="Search" data-icon="search" data-command-id="search">Search</button>
+                      <button class="sidebar-tool-action" type="button" data-testid="command-palette-button" role="menuitem" aria-label="Command palette" title="Command palette" data-icon="command" data-command-id="command-palette">Command palette</button>
+                    </section>
+                    <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="extensions">
+                      <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Extensions</h3>
+                      <button class="sidebar-tool-action" type="button" data-testid="extensions-button" role="menuitem" aria-label="Plugins" title="Plugins" data-icon="plugins" data-command-id="toggle-extensions">Plugins</button>
+                    </section>
+                    <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="automate">
+                      <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Automate</h3>
+                      <button class="sidebar-tool-action" type="button" data-testid="automations-button" role="menuitem" aria-label="Automations" title="Automations" data-icon="automations" data-command-id="toggle-automations">Automations</button>
+                    </section>
+                    <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="workspace">
+                      <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Workspace</h3>
+                      <button class="sidebar-tool-action" type="button" data-testid="terminal-button" role="menuitem" aria-label="Terminal" title="Terminal" data-icon="terminal" data-command-id="toggle-terminal">Terminal</button>
+                      <button class="sidebar-tool-action" type="button" data-testid="browser-button" role="menuitem" aria-label="Browser" title="Browser" data-icon="browser" data-command-id="toggle-browser">Browser</button>
+                    </section>
+                    <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="context">
+                      <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Context</h3>
+                      <button class="sidebar-tool-action" type="button" data-testid="memories-button" role="menuitem" aria-label="Memories" title="Memories" data-icon="memories" data-command-id="toggle-memories">Memories</button>
+                      <button class="sidebar-tool-action" type="button" data-testid="activity-button" role="menuitem" aria-label="Activity" title="Activity" data-icon="activity" data-command-id="toggle-activity">Activity</button>
+                    </section>
                   </div>
                 </details>
                 <button class="sidebar-settings-button" type="button" data-testid="settings-button" aria-label="Settings" title="Settings">Settings</button>

@@ -30,6 +30,20 @@ final class QuillCodeSidebarCommandPresentationTests: XCTestCase {
     }
 
     func testUtilityCommandsKeepCompactToolsMenuLabels() {
+        XCTAssertEqual(QuillCodeSidebarCommandPresentation.utilityCommandGroups.map(\.id), [
+            "navigate",
+            "extensions",
+            "automate",
+            "workspace",
+            "context"
+        ])
+        XCTAssertEqual(QuillCodeSidebarCommandPresentation.utilityCommandGroups.map(\.title), [
+            "Navigate",
+            "Extensions",
+            "Automate",
+            "Workspace",
+            "Context"
+        ])
         XCTAssertEqual(QuillCodeSidebarCommandPresentation.utilityCommandIDs, [
             "search",
             "command-palette",
@@ -69,5 +83,23 @@ final class QuillCodeSidebarCommandPresentationTests: XCTestCase {
         ])
         XCTAssertEqual(QuillCodeSidebarCommandPresentation.displayTitle("settings", fallback: "settings"), "Settings")
         XCTAssertEqual(QuillCodeSidebarCommandPresentation.systemImage(for: "settings"), "gearshape")
+    }
+
+    func testVisibleUtilityCommandGroupsFilterMissingCommandsWithoutChangingGroupOrder() {
+        let commands = [
+            WorkspaceCommandSurface(id: "command-palette", title: "Command Palette", category: "Global"),
+            WorkspaceCommandSurface(id: "toggle-browser", title: "Browser", category: "Workspace"),
+            WorkspaceCommandSurface(id: "toggle-activity", title: "Activity", category: "Context")
+        ]
+
+        let groups = QuillCodeSidebarCommandPresentation.visibleUtilityCommandGroups(from: commands)
+
+        XCTAssertEqual(groups.map(\.id), ["navigate", "workspace", "context"])
+        XCTAssertEqual(groups.map(\.title), ["Navigate", "Workspace", "Context"])
+        XCTAssertEqual(groups.map { $0.commands.map(\.id) }, [
+            ["command-palette"],
+            ["toggle-browser"],
+            ["toggle-activity"]
+        ])
     }
 }

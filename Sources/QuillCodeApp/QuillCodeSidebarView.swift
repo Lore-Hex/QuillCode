@@ -301,10 +301,8 @@ private struct QuillCodeSidebarUtilityActionsView: View {
     var commands: [WorkspaceCommandSurface]
     var onCommand: (WorkspaceCommandSurface) -> Void
 
-    private var visibleCommands: [WorkspaceCommandSurface] {
-        QuillCodeSidebarCommandPresentation.utilityCommandIDs.compactMap { id in
-            commands.first { $0.id == id }
-        }
+    private var visibleCommandGroups: [QuillCodeSidebarVisibleCommandGroup] {
+        QuillCodeSidebarCommandPresentation.visibleUtilityCommandGroups(from: commands)
     }
 
     private var settingsCommand: WorkspaceCommandSurface? {
@@ -314,16 +312,20 @@ private struct QuillCodeSidebarUtilityActionsView: View {
     var body: some View {
         HStack(spacing: 8) {
             Menu {
-                ForEach(visibleCommands) { command in
-                    Button {
-                        onCommand(command)
-                    } label: {
-                        Label(
-                            QuillCodeSidebarCommandPresentation.displayTitle(for: command),
-                            systemImage: QuillCodeSidebarCommandPresentation.systemImage(for: command.id)
-                        )
+                ForEach(visibleCommandGroups) { group in
+                    Section(group.title) {
+                        ForEach(group.commands) { command in
+                            Button {
+                                onCommand(command)
+                            } label: {
+                                Label(
+                                    QuillCodeSidebarCommandPresentation.displayTitle(for: command),
+                                    systemImage: QuillCodeSidebarCommandPresentation.systemImage(for: command.id)
+                                )
+                            }
+                            .disabled(!command.isEnabled)
+                        }
                     }
-                    .disabled(!command.isEnabled)
                 }
             } label: {
                 Label("Tools", systemImage: "wrench.and.screwdriver")

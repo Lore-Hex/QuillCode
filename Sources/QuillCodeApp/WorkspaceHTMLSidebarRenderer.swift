@@ -152,18 +152,24 @@ enum WorkspaceHTMLSidebarRenderer {
     }
 
     private static func renderUtilityActions(_ commands: [WorkspaceCommandSurface]) -> String {
-        QuillCodeSidebarCommandPresentation.utilityCommandIDs
-            .compactMap { commandID in
-                commands.first { $0.id == commandID }
-            }
-            .map { command in
-                let testID = QuillCodeSidebarCommandPresentation.htmlTestID(for: command.id)
-                let icon = QuillCodeSidebarCommandPresentation.htmlIconToken(for: command.id)
-                let title = QuillCodeSidebarCommandPresentation.displayTitle(for: command)
-                let disabled = command.isEnabled ? "" : #" disabled aria-disabled="true""#
-                return #"<button class="sidebar-tool-action" type="button" data-testid="\#(escape(testID))" role="menuitem" aria-label="\#(escape(title))" title="\#(escape(title))" data-icon="\#(escape(icon))" data-command-id="\#(escape(command.id))"\#(disabled)>\#(escape(title))</button>"#
+        QuillCodeSidebarCommandPresentation.visibleUtilityCommandGroups(from: commands)
+            .map { group in
+                """
+                <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="\(escape(group.id))">
+                  <h3 data-testid="sidebar-tools-section-title">\(escape(group.title))</h3>
+                  \(group.commands.map(renderUtilityAction).joined(separator: "\n"))
+                </section>
+                """
             }
             .joined(separator: "\n")
+    }
+
+    private static func renderUtilityAction(_ command: WorkspaceCommandSurface) -> String {
+        let testID = QuillCodeSidebarCommandPresentation.htmlTestID(for: command.id)
+        let icon = QuillCodeSidebarCommandPresentation.htmlIconToken(for: command.id)
+        let title = QuillCodeSidebarCommandPresentation.displayTitle(for: command)
+        let disabled = command.isEnabled ? "" : #" disabled aria-disabled="true""#
+        return #"<button class="sidebar-tool-action" type="button" data-testid="\#(escape(testID))" role="menuitem" aria-label="\#(escape(title))" title="\#(escape(title))" data-icon="\#(escape(icon))" data-command-id="\#(escape(command.id))"\#(disabled)>\#(escape(title))</button>"#
     }
 
     private static func escape(_ text: String) -> String {

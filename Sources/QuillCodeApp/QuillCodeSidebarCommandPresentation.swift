@@ -1,18 +1,80 @@
+struct QuillCodeSidebarCommandGroup: Sendable, Hashable, Identifiable {
+    var id: String
+    var title: String
+    var commandIDs: [String]
+}
+
+struct QuillCodeSidebarVisibleCommandGroup: Sendable, Hashable, Identifiable {
+    var id: String
+    var title: String
+    var commands: [WorkspaceCommandSurface]
+}
+
 struct QuillCodeSidebarCommandPresentation: Sendable, Hashable {
     static let primaryCommandIDs = [
         "new-chat"
     ]
 
-    static let utilityCommandIDs = [
-        "search",
-        "command-palette",
-        "toggle-extensions",
-        "toggle-automations",
-        "toggle-terminal",
-        "toggle-browser",
-        "toggle-memories",
-        "toggle-activity"
+    static let utilityCommandGroups = [
+        QuillCodeSidebarCommandGroup(
+            id: "navigate",
+            title: "Navigate",
+            commandIDs: [
+                "search",
+                "command-palette"
+            ]
+        ),
+        QuillCodeSidebarCommandGroup(
+            id: "extensions",
+            title: "Extensions",
+            commandIDs: [
+                "toggle-extensions"
+            ]
+        ),
+        QuillCodeSidebarCommandGroup(
+            id: "automate",
+            title: "Automate",
+            commandIDs: [
+                "toggle-automations"
+            ]
+        ),
+        QuillCodeSidebarCommandGroup(
+            id: "workspace",
+            title: "Workspace",
+            commandIDs: [
+                "toggle-terminal",
+                "toggle-browser"
+            ]
+        ),
+        QuillCodeSidebarCommandGroup(
+            id: "context",
+            title: "Context",
+            commandIDs: [
+                "toggle-memories",
+                "toggle-activity"
+            ]
+        )
     ]
+
+    static var utilityCommandIDs: [String] {
+        utilityCommandGroups.flatMap(\.commandIDs)
+    }
+
+    static func visibleUtilityCommandGroups(
+        from commands: [WorkspaceCommandSurface]
+    ) -> [QuillCodeSidebarVisibleCommandGroup] {
+        utilityCommandGroups.compactMap { group in
+            let visibleCommands = group.commandIDs.compactMap { commandID in
+                commands.first { $0.id == commandID }
+            }
+            guard !visibleCommands.isEmpty else { return nil }
+            return QuillCodeSidebarVisibleCommandGroup(
+                id: group.id,
+                title: group.title,
+                commands: visibleCommands
+            )
+        }
+    }
 
     static func displayTitle(for command: WorkspaceCommandSurface) -> String {
         displayTitle(command.id, fallback: command.title)
