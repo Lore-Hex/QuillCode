@@ -4172,7 +4172,22 @@ What changed:
 - Added a parity gate so raw slash-command case handling does not drift back into `WorkspaceModel`.
 
 Remaining risk:
-- `WorkspaceModel.runSlashCommandDispatchAction` still applies the typed action switch because it owns mutable app state. If this grows new side-effect families, split the action application into a dedicated executor that receives a narrow model-facing protocol instead of exposing more raw model internals.
+- The typed slash action switch now belongs in `WorkspaceSlashCommandActionExecutor`, but the executor is still a model extension because it mutates workspace state. A future protocol-based executor would be useful only once another model implementation or deeper isolated unit tests justify that indirection.
+
+## 2026-06-24 Workspace Slash Action Executor
+
+Overall grade after this slice: **A slash action executor boundary, A model readability, A parity guard**.
+
+`WorkspaceModel.runSlashCommandDispatchAction` still applied every typed slash action in the main model file. The planner had already removed raw parsed-command switching from the model, but the typed action switch still made the largest file responsible for transcript execution, mode/model changes, thread/project renames, SSH project setup, memory saves, automations, workspace commands, tool calls, and local environment routing.
+
+What changed:
+- Added `WorkspaceSlashCommandActionExecutor` as a focused `QuillCodeWorkspaceModel` extension for applying typed slash actions.
+- Removed the typed action switch from `WorkspaceModel.swift`, leaving `handleSlashCommand` as parser/dispatch lifecycle coordination.
+- Kept stateful helper methods in `WorkspaceModel` where they still own persistence, selected thread/project mutation, local environment refresh, and top-bar sequencing.
+- Updated parity gates so raw typed slash action application and workspace-command failure transcript selection do not drift back into the main model file.
+
+Remaining risk:
+- The executor still calls model helpers directly because it is an extension over the model. A future protocol-based executor would be useful only if another workspace model implementation or broader isolated executor tests appear.
 
 ## 2026-06-24 Whole-Tree Grade
 
