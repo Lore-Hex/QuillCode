@@ -4496,3 +4496,17 @@ Current strict grades:
 
 Remaining risk:
 - This is still not an A+ whole repo. The top priorities are shrinking `WorkspaceModel.swift`, splitting the largest mixed test files, introducing a real browser session/live DOM adapter, and reducing duplicated UI constants between Swift and the HTML harness.
+
+## 2026-06-24 HTML Secondary Pane Renderer Test Split
+
+Overall grade after this slice: **A renderer test ownership, A conflict reduction, A regression guard**.
+
+`WorkspaceSurfaceTests.swift` still owned Extensions and Memories static HTML coverage after the other HTML renderer splits. Those cases assert `WorkspaceHTMLSecondaryPaneRenderer` markup rather than broad workspace surface projection, so keeping them in the broad suite made renderer work more conflict-prone.
+
+What changed:
+- Added `WorkspaceHTMLSecondaryPaneRendererTests` for Extensions and Memories pane HTML smoke coverage.
+- Removed the same secondary-pane HTML cases from `WorkspaceSurfaceTests.swift`.
+- Added a `ParityHTMLGateTests` guard that fails if those secondary-pane cases drift back into the broad surface suite.
+
+Remaining risk:
+- Browser HTML coverage still has its own active browser ownership path because browser preview/inspection state is broader than secondary-pane rendering. Keep browser-specific tests in browser-focused suites instead of mixing them into this secondary-pane split.
