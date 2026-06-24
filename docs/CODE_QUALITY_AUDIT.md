@@ -910,7 +910,7 @@ Code quality changes:
 - Extracted visible message projection, including hidden tool-message filtering and assistant feedback reduction.
 - Extracted tool-card projection for queued/running/completed/failed tool events and safety-review cards.
 - Extracted timeline interleaving so message events, tool cards, orphan tool completions, and eventless fallback threads are directly testable.
-- Kept artifact preview construction routed through `ToolArtifactPreviewBuilder`.
+- Kept artifact text-preview construction routed through the focused artifact preview helper.
 - Updated model tests to exercise the transcript builder directly and added focused builder tests for feedback, message/tool interleaving, fallback timelines, orphan failures, and safety-review expansion.
 - Extended parity gates so `WorkspaceModel.swift` cannot regain tool-card, message, timeline, or feedback projection helpers.
 
@@ -3182,13 +3182,39 @@ Overall grade after this slice: **A card payload, A artifact ownership, A+ regre
 
 Code quality changes:
 
-- Added `QuillCodeToolArtifactSurface.swift` for `ToolArtifactKind`, document/image preview contracts, `ToolArtifactState`, and `ToolArtifactPreviewBuilder`.
+- Added `QuillCodeToolArtifactSurface.swift` for `ToolArtifactKind`, document/image preview contracts, and `ToolArtifactState`.
 - Reduced `QuillCodeToolCardSurface.swift` to card-level state: status, review state, action surfaces, density defaults, and card-level artifact grouping.
 - Updated the parity gate so artifact preview construction stays with artifact state, while `WorkspaceModel` and card state stay out of artifact parsing.
 
 Remaining risk:
 
-- `QuillCodeToolArtifactSurface.swift` is intentionally cohesive but still algorithm-heavy. If artifact support expands to PDFs, generated previews, or async metadata, split text preview extraction and document-kind classification into dedicated helpers before adding new artifact formats.
+- Resolved in the artifact preview helper split below.
+
+## 2026-06-24 Tool Artifact Preview Helper Split
+
+Overall grade after this slice: **A+ artifact state focus, A+ preview helper ownership, A+ regression guard**.
+
+`QuillCodeToolArtifactSurface.swift` kept the right public surface contracts, but it still owned value classification, image preview classification, document kind mapping, inline-image subtype normalization, href/detail derivation, and text-preview file IO. That made the artifact DTO file algorithm-heavy and likely to grow when adding richer artifact formats.
+
+Code quality changes:
+
+- Added `ToolArtifactValueClassifier` for kind, label, detail, href, path-extension, and inline-image data detection.
+- Added `ToolArtifactImagePreviewBuilder` for image preview eligibility, preview URLs, image preview metadata, and image extension normalization.
+- Added `ToolArtifactDocumentPreviewBuilder` for document/appshot extension mapping and document preview metadata.
+- Added `ToolArtifactTextPreviewBuilder` for local text-file preview IO, text candidate filtering, truncation, and binary-file rejection.
+- Reduced `QuillCodeToolArtifactSurface.swift` to the public artifact enums/preview DTOs plus `ToolArtifactState` delegation.
+- Updated transcript projection to request text previews through `ToolArtifactTextPreviewBuilder`.
+- Expanded focused tests for local text previews, file URLs, appshot exclusion, binary rejection, and remote URL exclusion.
+- Expanded the parity gate so artifact state cannot regain image/document/text-preview algorithms and `WorkspaceModel` stays out of preview requests.
+
+Validation:
+
+- `swift test --filter QuillCodeToolCardSurfaceTests`
+- `swift test --filter ParityGateTests/testWorkspaceModelDelegatesToolCardSurfaceTypes`
+
+Remaining risk:
+
+- Artifact preview helpers now have clear seams for richer formats. If PDF/appshot rendering becomes asynchronous, add a preview metadata service rather than making `ToolArtifactState` perform IO.
 
 ## 2026-06-24 Workspace Command Surface Catalog Pass
 
