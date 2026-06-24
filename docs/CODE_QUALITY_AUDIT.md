@@ -3289,3 +3289,20 @@ Code quality changes:
 Remaining risk:
 
 - Relay terminal execution should reuse this adapter contract or split behind a transport protocol; it should not reintroduce marker parsing into `WorkspaceTerminalEngine`.
+
+## 2026-06-24 MCP Stdio Public Contracts Split
+
+Overall grade after this slice: **A+ MCP stdio prober focus, A+ public MCP contract ownership, A+ parity guard coverage**.
+
+The previous MCP pass removed framing and result mapping from `MCPStdioProber.swift`, but the file still owned public probe DTOs, probe errors, and static MCP `ToolDefinition` factories. That made the stdio session coordinator the easiest place to add unrelated public contract surface.
+
+Code quality changes:
+
+- Added `MCPStdioModels.swift` as the public owner for `MCPServerProbeResult`, `MCPToolDescriptor`, and `MCPProbeError`.
+- Added `MCPToolDefinitions.swift` as the public owner for `ToolDefinition.mcpCall`, `ToolDefinition.mcpReadResource`, and `ToolDefinition.mcpGetPrompt`.
+- Reduced `MCPStdioProber.swift` to locked request IDs, initialize/list/call/read/get flows, response matching, errors surfaced from the shared model file, and fd polling.
+- Extended the parity gate so public MCP models and static MCP tool definitions cannot drift back into the prober.
+
+Remaining risk:
+
+- The MCP prober still handles optional `resources/list` and `prompts/list` retries inline. That is acceptable while probe behavior is simple; if MCP capability probing grows pagination, caching, or partial-failure reporting, move optional list orchestration into a small capability collector.
