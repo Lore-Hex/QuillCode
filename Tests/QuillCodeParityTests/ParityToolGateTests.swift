@@ -169,6 +169,21 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(routerText.contains("Shell timeoutSeconds must be between"), "ToolRouter should not own shell timeout validation copy.")
     }
 
+    func testShellExecutorDelegatesStreamingProcessLifecycle() throws {
+        let executorText = try Self.toolsSourceText(named: "ShellToolExecutor.swift")
+        let runnerText = try Self.toolsSourceText(named: "ShellStreamingProcessRunner.swift")
+        let toolTestsText = try Self.toolsTestSourceText(named: "ToolTests.swift")
+
+        XCTAssertTrue(runnerText.contains("final class ShellStreamingProcessRunner"), "Streaming shell lifecycle should have a focused owner.")
+        XCTAssertTrue(runnerText.contains("AsyncStream<ShellProcessEvent>.Continuation"), "The streaming runner should own event continuation handling.")
+        XCTAssertTrue(runnerText.contains("process.waitUntilExit()"), "The streaming runner should own process waiting.")
+        XCTAssertTrue(runnerText.contains("private func timeout()"), "The streaming runner should own timeout termination.")
+        XCTAssertTrue(executorText.contains("ShellStreamingProcessRunner(request:"), "ShellToolExecutor should delegate streaming execution.")
+        XCTAssertFalse(executorText.contains("private final class StreamingShellProcess"), "ShellToolExecutor should not own streaming process internals.")
+        XCTAssertFalse(executorText.contains("process.waitUntilExit()"), "Blocking ShellToolExecutor should not own streaming wait lifecycle.")
+        XCTAssertTrue(toolTestsText.contains("testStreamingShellTimeoutKeepsPartialOutputAndStopsProcess"), "Streaming timeout behavior should have focused coverage.")
+    }
+
     func testGitLocalExecutionLivesOutsideGitExecutor() throws {
         let executorText = try Self.toolsSourceText(named: "GitToolExecutor.swift")
         let localText = try Self.toolsSourceText(named: "GitLocalToolExecutor.swift")

@@ -80,6 +80,54 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("stream-end"))
     }
 
+    func testStreamingShellRejectsEmptyCommand() async throws {
+        let stream = ShellToolExecutor().runStreaming(.init(
+            command: "   ",
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            timeoutSeconds: 5
+        ))
+
+        var events: [ShellProcessEvent] = []
+        for await event in stream {
+            events.append(event)
+        }
+
+        guard case .finished(let result) = events.last else {
+            return XCTFail("Expected finished event")
+        }
+        XCTAssertEqual(events.count, 1)
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("No shell command") == true, result.error ?? "")
+    }
+
+    func testStreamingShellTimeoutKeepsPartialOutputAndStopsProcess() async throws {
+        let stream = ShellToolExecutor().runStreaming(.init(
+            command: "printf stream-start; sleep 5; printf stream-end",
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            timeoutSeconds: 0.2
+        ))
+
+        var stdout = ""
+        var finishedResult: ToolResult?
+        for await event in stream {
+            switch event {
+            case .stdout(let text):
+                stdout += text
+            case .stderr:
+                continue
+            case .finished(let result):
+                finishedResult = result
+            }
+        }
+
+        let result = try XCTUnwrap(finishedResult)
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("timed out") == true, result.error ?? "")
+        XCTAssertTrue(stdout.contains("stream-start"))
+        XCTAssertTrue(result.stdout.contains("stream-start"))
+        XCTAssertFalse(result.stdout.contains("stream-end"))
+    }
+
     func testSSHRemoteShellBuildsNonInteractiveRequest() throws {
         let root = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("ssh-args.txt")

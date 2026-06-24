@@ -3843,3 +3843,18 @@ What changed:
 
 Remaining risk:
 - `SlashCommand.swift` still owns terminal, mode, model, and generic routing. Split terminal parsing next only if it gains richer shell/session arguments; keep mode/model in the top-level parser while they stay one-argument commands.
+
+## 2026-06-24 Shell Streaming Process Runner Split
+
+Overall grade after this slice: **A shell facade ownership, A+ streaming lifecycle isolation, A regression guard**.
+
+`ShellToolExecutor.swift` still owned the public shell facade plus the full streaming process implementation: async stdout/stderr readers, timeout state, cancellation state, process waiting, and final streamed `ToolResult` emission. That made the core shell executor harder to audit and increased the chance that future streaming UI work would touch blocking shell execution.
+
+What changed:
+- Added `ShellStreamingProcessRunner.swift` as the focused owner for streaming process lifecycle.
+- Kept `ShellToolExecutor` as the stable public facade for blocking, cancellable, and streaming shell entry points.
+- Added streaming regressions for empty-command failure and timeout behavior preserving partial output.
+- Added a parity gate so streaming lifecycle internals do not drift back into `ShellToolExecutor.swift`.
+
+Remaining risk:
+- Blocking shell execution and cancellable blocking execution still share the same file. That is acceptable while the public facade stays compact; if cancellation state grows beyond `CancellableProcessBox`, extract a blocking process runner with the same explicit ownership boundary.
