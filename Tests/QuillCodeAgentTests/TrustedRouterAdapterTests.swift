@@ -186,7 +186,7 @@ final class TrustedRouterAdapterTests: XCTestCase {
 
     func testActionParserNormalizesPullRequestReviewerAliases() throws {
         let action = try AgentActionJSONParser.parse("""
-        {"type":"tool","name":"host.git.pr.reviewers","arguments":{"pr":"42","reviewers":["alice","myorg/team-name"],"removeReviewers":"bob"}}
+        {"type":"tool","name":"host.git.pr.reviewers","arguments":{"pr":"42","reviewers":[" alice ",""," myorg/team-name "],"removeReviewers":"bob"}}
         """)
 
         guard case .tool(let call) = action else {
@@ -201,7 +201,7 @@ final class TrustedRouterAdapterTests: XCTestCase {
 
     func testActionParserNormalizesPullRequestLabelAliases() throws {
         let action = try AgentActionJSONParser.parse("""
-        {"type":"tool","name":"host.git.pr.labels","arguments":{"pr":"42","labels":["merge-train","needs review"],"removeLabels":"blocked"}}
+        {"type":"tool","name":"host.git.pr.labels","arguments":{"pr":"42","labels":[" merge-train ",""," needs review "],"removeLabels":"blocked"}}
         """)
 
         guard case .tool(let call) = action else {
