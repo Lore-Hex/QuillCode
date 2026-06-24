@@ -8,11 +8,21 @@ private func shellSingleQuoted(_ value: String) -> String {
     value.replacingOccurrences(of: "'", with: "'\\''")
 }
 
-func makeTempDirectory() throws -> URL {
-    let url = FileManager.default.temporaryDirectory
-        .appendingPathComponent("QuillCodeAppTests-\(UUID().uuidString)", isDirectory: true)
-    try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-    return url
+extension XCTestCase {
+    func makeTempDirectory() throws -> URL {
+        try makeQuillCodeTestDirectory()
+    }
+
+    func makeTempGitRepoWithInitialCommit() throws -> URL {
+        let parent = try makeTempDirectory()
+        let root = parent.appendingPathComponent("repo")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try initializeGitRepository(at: root)
+        try "# Test repo\n".write(to: root.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
+        _ = try runGit(["add", "README.md"], cwd: root)
+        _ = try runGit(["commit", "-m", "initial"], cwd: root)
+        return root
+    }
 }
 
 func makeFakeSSH(in root: URL, argumentsFile: URL) throws -> URL {
@@ -62,17 +72,6 @@ func initializeGitRepository(at root: URL) throws {
     _ = try runGit(["init"], cwd: root)
     _ = try runGit(["config", "user.email", "quillcode-tests@example.com"], cwd: root)
     _ = try runGit(["config", "user.name", "QuillCode Tests"], cwd: root)
-}
-
-func makeTempGitRepoWithInitialCommit() throws -> URL {
-    let parent = try makeTempDirectory()
-    let root = parent.appendingPathComponent("repo")
-    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-    try initializeGitRepository(at: root)
-    try "# Test repo\n".write(to: root.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
-    _ = try runGit(["add", "README.md"], cwd: root)
-    _ = try runGit(["commit", "-m", "initial"], cwd: root)
-    return root
 }
 
 func runGit(_ arguments: [String], cwd: URL) throws -> String {

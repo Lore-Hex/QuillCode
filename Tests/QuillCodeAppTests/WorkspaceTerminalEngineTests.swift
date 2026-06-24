@@ -48,8 +48,8 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
         XCTAssertEqual(terminal.entries.count, 1)
     }
 
-    func testCurrentDirectoryURLFallsBackToActiveRootWhenTerminalProjectIsStale() {
-        let activeRoot = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("quill-active-root")
+    func testCurrentDirectoryURLFallsBackToActiveRootWhenTerminalProjectIsStale() throws {
+        let activeRoot = try makeQuillCodeTestDirectory()
         let terminal = TerminalState(
             projectID: UUID(),
             currentDirectoryPath: "/wrong/project"

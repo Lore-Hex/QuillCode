@@ -3961,3 +3961,18 @@ What changed:
 
 Remaining risk:
 - Live provider catalogs can still return arbitrary labels. `TrustedRouterDefaults.normalizedModelCatalog` currently normalizes recommended IDs back to bundled names; keep that invariant if richer provider metadata lands.
+
+## 2026-06-24 App Test Fixture Cleanup
+
+Overall grade after this slice: **A+ app fixture ownership, A cleanup discipline, A maintainability**.
+
+Several app integration suites still carried private `makeTempDirectory()` helpers or raw temporary-directory roots even though `TemporaryDirectoryTestSupport` already provides teardown-backed cleanup. `WorkspaceSlashCommandIntegrationTests` also duplicated the app git-repository fixture, making future git fixture changes easier to miss.
+
+What changed:
+- Moved the legacy app integration `makeTempDirectory()` wrapper onto `XCTestCase` and delegated it to `makeQuillCodeTestDirectory()`.
+- Removed private temp-directory helpers from browser, command-plan, remote-project tool, and surface tests.
+- Removed duplicated slash-command git fixture code so slash integration tests use the shared app git helpers.
+- Updated the parity guard to reject private temp helpers and raw temp roots in the cleaned suites.
+
+Remaining risk:
+- `WorkspaceModelIntegrationTestSupport.swift` still contains broad cross-domain fixtures because many workspace integration suites share fake SSH, fake GitHub CLI, and git helpers. If one fixture becomes owned by a single domain, move it into that domain's support file instead of growing this shared support module.

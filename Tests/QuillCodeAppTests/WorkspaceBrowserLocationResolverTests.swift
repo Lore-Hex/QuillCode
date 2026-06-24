@@ -5,7 +5,6 @@ import XCTest
 final class WorkspaceBrowserLocationResolverTests: XCTestCase {
     func testResolvesExplicitHTTPAndFileURLs() throws {
         let tempRoot = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempRoot) }
         let file = tempRoot.appendingPathComponent("preview.html")
         try "<h1>Preview</h1>".write(to: file, atomically: true, encoding: .utf8)
         let resolver = WorkspaceBrowserLocationResolver(workspaceRoot: tempRoot)
@@ -24,14 +23,14 @@ final class WorkspaceBrowserLocationResolverTests: XCTestCase {
     }
 
     func testResolvesProjectRelativeFilesInsideWorkspaceOnly() throws {
-        let tempRoot = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let fixtureRoot = try makeTempDirectory()
+        let tempRoot = fixtureRoot.appendingPathComponent("workspace", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempRoot, withIntermediateDirectories: true)
         let inside = tempRoot.appendingPathComponent("public/preview.html")
         try FileManager.default.createDirectory(at: inside.deletingLastPathComponent(), withIntermediateDirectories: true)
         try "<h1>Inside</h1>".write(to: inside, atomically: true, encoding: .utf8)
-        let outside = tempRoot.deletingLastPathComponent().appendingPathComponent("outside.html")
+        let outside = fixtureRoot.appendingPathComponent("outside.html")
         try "<h1>Outside</h1>".write(to: outside, atomically: true, encoding: .utf8)
-        defer { try? FileManager.default.removeItem(at: outside) }
         let resolver = WorkspaceBrowserLocationResolver(workspaceRoot: tempRoot)
 
         XCTAssertEqual(resolver.resolve("public/preview.html")?.path, inside.standardizedFileURL.resolvingSymlinksInPath().path)
@@ -41,7 +40,6 @@ final class WorkspaceBrowserLocationResolverTests: XCTestCase {
 
     func testResolvesAbsoluteExistingFilesAndDomainShorthand() throws {
         let tempRoot = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempRoot) }
         let file = tempRoot.appendingPathComponent("absolute.html")
         try "<h1>Absolute</h1>".write(to: file, atomically: true, encoding: .utf8)
         let resolver = WorkspaceBrowserLocationResolver()
@@ -67,10 +65,4 @@ final class WorkspaceBrowserLocationResolverTests: XCTestCase {
         XCTAssertEqual(WorkspaceBrowserLocationResolver.snapshotFetchMessage(for: error), "Network unavailable")
     }
 
-    private func makeTempDirectory() throws -> URL {
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("QuillCodeBrowserLocationResolverTests-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        return root
-    }
 }

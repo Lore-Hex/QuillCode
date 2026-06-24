@@ -19,10 +19,4 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
         XCTAssertTrue(model.terminal.isVisible)
     }
 
-    private func makeTempDirectory() throws -> URL {
-        let url = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("QuillCodeCommandPlanExecutorTests-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }
 }

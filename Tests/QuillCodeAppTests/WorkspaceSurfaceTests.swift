@@ -2018,10 +2018,4 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains("1 file changed, +1 -0"))
     }
 
-    private func makeTempDirectory() throws -> URL {
-        let url = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("QuillCodeSurfaceTests-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }
 }

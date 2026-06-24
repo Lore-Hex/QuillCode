@@ -426,13 +426,6 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         return ProjectRef(name: "Feather", path: connection.path, connection: connection)
     }
 
-    private func makeTempDirectory() throws -> URL {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }
-
     private func makeFakeSSH(in root: URL, argumentsFile: URL) throws -> URL {
         let fakeSSH = root.appendingPathComponent("ssh")
         let script = """
