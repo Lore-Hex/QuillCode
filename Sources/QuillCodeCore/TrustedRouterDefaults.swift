@@ -17,13 +17,15 @@ public enum TrustedRouterDefaults {
     public static let fastModelDisplayName = "Nike 1.0"
     public static let synthModelDisplayName = "Synth"
     public static let synthCodeModelDisplayName = "Synth Code"
+    public static let synthSlashAlias = "/synth"
+    public static let synthCodeSlashAlias = "/synth-code"
     public static let trustedRouterProviderAliases: [String: String] = ["tr": trustedRouterProvider]
     public static let recommendedModelIDs = [fastModel, synthModel]
     public static let modelIDAliases: [String: String] = [
         "tr/fast": fastModel,
         "tr/synth": synthModel,
         "synth": synthModel,
-        "/synth": synthModel,
+        synthSlashAlias: synthModel,
         "trustedrouter/synth": synthModel,
         "fusion": synthModel,
         "/fusion": synthModel,
@@ -31,7 +33,7 @@ public enum TrustedRouterDefaults {
         "trustedrouter/fusion": synthModel,
         "tr/synth-code": synthCodeModel,
         "synth-code": synthCodeModel,
-        "/synth-code": synthCodeModel,
+        synthCodeSlashAlias: synthCodeModel,
         "trustedrouter/synth-code": synthCodeModel,
         "fusion-code": synthCodeModel,
         "/fusion-code": synthCodeModel,
