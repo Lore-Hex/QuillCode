@@ -80,6 +80,57 @@ final class WorkspaceTerminalSessionAdapterTests: XCTestCase {
         XCTAssertEqual(delta.removedKeys, ["B"])
     }
 
+    func testRemoteMetadataKeepsVisibleStdoutWhenEnvironmentMarkersAreMissing() throws {
+        let marker = "__TEST_MARKER__"
+        let stdout = [
+            "visible output",
+            "\(marker):cwd",
+            "/srv/new"
+        ].joined(separator: "\n")
+
+        let metadata = try XCTUnwrap(WorkspaceTerminalSessionAdapter.remoteMetadata(
+            from: stdout,
+            marker: marker
+        ))
+
+        XCTAssertEqual(metadata.stdout, "visible output")
+        XCTAssertEqual(metadata.cwd, "/srv/new")
+        XCTAssertNil(metadata.baseEnvironment)
+        XCTAssertNil(metadata.finalEnvironment)
+        XCTAssertNil(WorkspaceTerminalSessionAdapter.remoteEnvironmentDelta(metadata))
+    }
+
+    func testRemoteMetadataRejectsUnknownMarker() {
+        XCTAssertNil(WorkspaceTerminalSessionAdapter.remoteMetadata(
+            from: "visible\n__OTHER__:cwd\n/tmp",
+            marker: "__TEST_MARKER__"
+        ))
+    }
+
+    func testRemoteEnvironmentDeltaRejectsMalformedEnvironmentHex() throws {
+        let marker = "__TEST_MARKER__"
+        let stdout = [
+            "visible output",
+            "\(marker):cwd",
+            "/srv/new",
+            "\(marker):base-env",
+            "0",
+            "\(marker):final-env",
+            hexEncodedEnvironment(["A": "1"]),
+            "\(marker):end",
+            ""
+        ].joined(separator: "\n")
+
+        let metadata = try XCTUnwrap(WorkspaceTerminalSessionAdapter.remoteMetadata(
+            from: stdout,
+            marker: marker
+        ))
+
+        XCTAssertNil(metadata.baseEnvironment)
+        XCTAssertEqual(metadata.finalEnvironment, ["A": "1"])
+        XCTAssertNil(WorkspaceTerminalSessionAdapter.remoteEnvironmentDelta(metadata))
+    }
+
     func testSessionResultReadsLocalMarkersAndRemovesThem() throws {
         let root = try makeQuillCodeTestDirectory()
         let context = WorkspaceTerminalSessionAdapter.localExecutionContext(

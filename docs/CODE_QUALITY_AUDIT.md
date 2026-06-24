@@ -3272,3 +3272,20 @@ Code quality changes:
 Remaining risk:
 
 - `MCPStdioProber.swift` still includes public probe DTOs and MCP `ToolDefinition` declarations. If MCP model or tool-definition coverage grows, split those into `MCPStdioModels.swift` and `MCPToolDefinitions.swift` without changing the prober API.
+
+## 2026-06-24 Terminal Session Adapter Edge Hardening
+
+Overall grade after this slice: **A+ adapter behavior guard, A+ malformed marker coverage, A parity enforcement**.
+
+After the terminal adapter split, the remaining quality risk was malformed SSH Remote marker envelopes: missing environment sections, unrelated marker text, or invalid hex payloads should fail closed without corrupting visible terminal output or session environment. The adapter now has explicit tests for these cases.
+
+Code quality changes:
+
+- Added adapter tests for remote output that has cwd metadata but no environment markers.
+- Added adapter tests that reject unknown remote marker names instead of stripping unrelated output.
+- Added adapter tests that reject malformed environment hex by withholding the environment delta.
+- Tightened the parity gate to verify session result parsing, remote marker parsing, remote environment deltas, and environment hex decoding stay in `WorkspaceTerminalSessionAdapter`.
+
+Remaining risk:
+
+- Relay terminal execution should reuse this adapter contract or split behind a transport protocol; it should not reintroduce marker parsing into `WorkspaceTerminalEngine`.
