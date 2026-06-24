@@ -83,6 +83,15 @@ public extension QuillCodeWorkspaceModel {
         let sidebarSelectedThreadIDs = sidebarSelection.isActive
             ? Set(selectedSidebarThreadIDs())
             : []
+        let navigation = WorkspaceNavigationSurfaceBuilder(
+            projects: root.projects,
+            selectedProjectID: root.selectedProjectID,
+            sidebarItems: root.allSidebarItems,
+            selectedThreadID: root.selectedThreadID,
+            threads: root.threads,
+            selectionIsActive: sidebarSelection.isActive,
+            selectedThreadIDs: sidebarSelectedThreadIDs
+        ).surface()
         let modelCatalog = modelCatalogBuilder(selectedModelID: topBarState.model)
         return WorkspaceSurface(
             topBar: TopBarSurface(
@@ -106,23 +115,8 @@ public extension QuillCodeWorkspaceModel {
                 computerUseLabel: computerUse.message,
                 showsComputerUseSetup: !computerUse.available
             ),
-            projects: ProjectListSurface(
-                items: projectItems(),
-                selectedProjectID: root.selectedProjectID
-            ),
-            sidebar: SidebarSurface(
-                items: root.allSidebarItems.map {
-                    SidebarItemSurface(
-                        item: $0,
-                        selectedThreadID: root.selectedThreadID,
-                        selectedThreadIDs: sidebarSelectedThreadIDs
-                    )
-                },
-                selectedThreadID: root.selectedThreadID,
-                isSelectionMode: sidebarSelection.isActive,
-                selectedThreadIDs: sidebarSelectedThreadIDs,
-                bulkActions: sidebarBulkActions(selectedThreadIDs: sidebarSelectedThreadIDs)
-            ),
+            projects: navigation.projects,
+            sidebar: navigation.sidebar,
             transcript: TranscriptSurface(
                 messages: thread.map { WorkspaceTranscriptSurfaceBuilder(thread: $0).messageSurfaces() } ?? [],
                 toolCards: toolCards,
@@ -194,57 +188,6 @@ public extension QuillCodeWorkspaceModel {
             agentStatus: root.topBar.agentStatus,
             lastError: lastError
         ).surface()
-    }
-
-    private func sidebarBulkActions(selectedThreadIDs: Set<UUID>) -> [SidebarBulkActionSurface] {
-        let selectedThreads = root.threads.filter { selectedThreadIDs.contains($0.id) }
-        let hasSelection = !selectedThreads.isEmpty
-        guard sidebarSelection.isActive else {
-            return [
-                SidebarBulkActionSurface(
-                    kind: .select,
-                    isEnabled: !root.threads.isEmpty
-                )
-            ]
-        }
-
-        let hasPinnedSelection = selectedThreads.contains { $0.isPinned }
-        let hasUnarchivedSelection = selectedThreads.contains { !$0.isArchived }
-        let hasArchivedSelection = selectedThreads.contains { $0.isArchived }
-        return [
-            SidebarBulkActionSurface(kind: .clearSelection),
-            SidebarBulkActionSurface(
-                kind: .selectAll,
-                isEnabled: selectedThreadIDs.count < root.allSidebarItems.count
-            ),
-            SidebarBulkActionSurface(
-                kind: .pin,
-                isEnabled: hasUnarchivedSelection
-            ),
-            SidebarBulkActionSurface(
-                kind: .unpin,
-                isEnabled: hasPinnedSelection
-            ),
-            SidebarBulkActionSurface(
-                kind: .archive,
-                isEnabled: hasUnarchivedSelection
-            ),
-            SidebarBulkActionSurface(
-                kind: .unarchive,
-                isEnabled: hasArchivedSelection
-            ),
-            SidebarBulkActionSurface(
-                kind: .delete,
-                isEnabled: hasSelection,
-                isDestructive: true
-            )
-        ]
-    }
-
-    private func projectItems() -> [ProjectItemSurface] {
-        root.projects
-            .sorted { $0.lastOpenedAt > $1.lastOpenedAt }
-            .map { ProjectItemSurface(project: $0, selectedProjectID: root.selectedProjectID) }
     }
 
     private func modelCatalogBuilder(selectedModelID: String) -> WorkspaceModelCatalogSurfaceBuilder {

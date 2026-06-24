@@ -1625,6 +1625,21 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(surfaceText.contains("selectionLabel(count:"), "WorkspaceSurface should not own sidebar selection copy.")
     }
 
+    func testWorkspaceSurfaceDelegatesNavigationSurfaceBuilding() throws {
+        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceNavigationSurfaceBuilder.swift")
+
+        XCTAssertTrue(surfaceText.contains("WorkspaceNavigationSurfaceBuilder("), "WorkspaceSurface should delegate navigation surface assembly.")
+        XCTAssertTrue(builderText.contains("struct WorkspaceNavigationSurfaceBuilder"), "Navigation surface assembly should live in a focused builder.")
+        XCTAssertTrue(builderText.contains("ProjectListSurface("), "Project list construction should live in the navigation builder.")
+        XCTAssertTrue(builderText.contains("SidebarSurface("), "Sidebar construction should live in the navigation builder.")
+        XCTAssertTrue(builderText.contains("SidebarBulkActionSurface"), "Sidebar bulk-action projection should live in the navigation builder.")
+        XCTAssertFalse(surfaceText.contains("private func sidebarBulkActions"), "WorkspaceSurface should not own sidebar bulk-action projection.")
+        XCTAssertFalse(surfaceText.contains("private func projectItems"), "WorkspaceSurface should not own project row projection.")
+        XCTAssertFalse(surfaceText.contains("ProjectListSurface("), "WorkspaceSurface should not construct project lists directly.")
+        XCTAssertFalse(surfaceText.contains("SidebarSurface("), "WorkspaceSurface should not construct sidebars directly.")
+    }
+
     func testWorkspaceSurfaceDelegatesCommandSurfaceBuilding() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceCommandSurfaceBuilder.swift")
