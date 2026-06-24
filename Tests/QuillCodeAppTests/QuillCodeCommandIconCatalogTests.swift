@@ -1,0 +1,71 @@
+import XCTest
+@testable import QuillCodeApp
+
+final class QuillCodeCommandIconCatalogTests: XCTestCase {
+    func testSharedCommandIconsCoverSidebarAndCommandPaletteCommands() {
+        let expectedSymbols = [
+            "new-chat": "square.and.pencil",
+            "search": "magnifyingglass",
+            "command-palette": "command",
+            "find-in-chat": "text.magnifyingglass",
+            "add-project": "folder.badge.plus",
+            "project-new-chat": "plus.message",
+            "project-refresh-context": "arrow.clockwise",
+            "project-rename": "text.cursor",
+            "project-remove": "minus.circle",
+            "toggle-terminal": "terminal",
+            "terminal-clear": "clear",
+            "toggle-browser": "globe",
+            "toggle-activity": "list.bullet.rectangle",
+            "toggle-automations": "clock.arrow.circlepath",
+            "toggle-memories": "brain.head.profile",
+            "memory-add": "brain.head.profile",
+            "toggle-extensions": "puzzlepiece.extension",
+            "git-pr-create": "arrow.up.doc",
+            "git-pr-checkout": "arrow.down.doc",
+            "git-pr-reviewers": "person.2.badge.gearshape",
+            "git-pr-labels": "tag",
+            "git-pr-merge": "arrow.triangle.merge",
+            "git-worktree-list": "point.3.connected.trianglepath.dotted",
+            "git-worktree-create": "plus.rectangle.on.folder",
+            "git-worktree-remove": "minus.rectangle",
+            "settings": "gearshape",
+            "keyboard-shortcuts": "keyboard",
+            "computer-use-setup": "display",
+            "stop-all": "stop.circle"
+        ]
+
+        for (commandID, symbol) in expectedSymbols {
+            XCTAssertEqual(
+                QuillCodeCommandIconCatalog.systemImage(for: commandID),
+                symbol,
+                commandID
+            )
+        }
+    }
+
+    func testDynamicAndFallbackIconsAreCentralized() {
+        XCTAssertEqual(
+            QuillCodeCommandIconCatalog.systemImage(for: "\(SlashCommandCatalog.commandPaletteIDPrefix)mode"),
+            "slash.circle"
+        )
+        XCTAssertEqual(
+            QuillCodeCommandIconCatalog.systemImage(for: "local-env:.quillcode/actions/bootstrap.sh"),
+            "hammer"
+        )
+        XCTAssertEqual(QuillCodeCommandIconCatalog.systemImage(for: "unknown-command"), "command")
+        XCTAssertEqual(
+            QuillCodeCommandIconCatalog.systemImage(for: "unknown-command", fallback: "circle"),
+            "circle"
+        )
+    }
+
+    func testSidebarCanKeepItsActivitySpecificIconWhileSharingTheCatalog() {
+        XCTAssertEqual(
+            QuillCodeSidebarCommandPresentation.systemImage(for: "toggle-activity"),
+            "waveform.path.ecg"
+        )
+        XCTAssertEqual(QuillCodeSidebarCommandPresentation.systemImage(for: "toggle-terminal"), "terminal")
+        XCTAssertEqual(QuillCodeSidebarCommandPresentation.systemImage(for: "unknown-command"), "circle")
+    }
+}
