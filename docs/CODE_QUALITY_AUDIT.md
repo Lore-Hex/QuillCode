@@ -2623,3 +2623,21 @@ Code quality changes:
 Remaining risk:
 
 - Remote-project and automation-specific slash flows still live in `WorkspaceModelTests.swift` because they cross larger SSH and schedule orchestration boundaries. They are good candidates for future focused integration files once those ownership groups are split.
+
+## 2026-06-24 Workspace Automation Integration Test Pass
+
+Overall grade after this slice: **A feature grouping, A setup DRYness, A regression guard**.
+
+Model-level automation integration tests moved from `WorkspaceModelTests.swift` into `WorkspaceAutomationIntegrationTests`. The model test file no longer owns automation persistence, create/pause/resume/delete command flows, scheduled and natural-language follow-ups/workspace checks, slash scheduling commands, due automation execution, recurrence advancement, or run reports.
+
+Code quality changes:
+
+- Added `WorkspaceAutomationIntegrationTests` for automation flows crossing stores, workspace model, command dispatch, surfaces, thread persistence, and transcripts.
+- Centralized repeated automation workspace setup and common thread-follow-up automation construction.
+- Kept pure reducer/factory tests in `WorkspaceAutomationEngineTests`.
+- Added a parity gate that keeps model-level automation method names out of `WorkspaceModelTests.swift`.
+- Reduced `WorkspaceModelTests.swift` substantially without weakening behavior coverage.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still large. Remote project, review, browser, and composer integration groups remain future extraction candidates.
