@@ -247,6 +247,6 @@ enum WorkspaceRemoteGitHubPullRequestCommandBuilder {
     }
 
     private static func shellCommand(_ arguments: [String]) -> String {
-        arguments.map(WorkspaceTerminalEngine.shellSingleQuoted).joined(separator: " ")
+        arguments.map(WorkspaceTerminalSessionAdapter.shellSingleQuoted).joined(separator: " ")
     }
 }
