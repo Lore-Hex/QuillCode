@@ -77,13 +77,13 @@ enum WorkspaceRemoteGitWorktreeCommandBuilder {
     private static func removeCommand(worktreePath: String, force: Bool) -> String {
         let forceFlag = force ? " --force" : ""
         return [
-            "worktree=\(WorkspaceTerminalEngine.shellSingleQuoted(worktreePath))",
+            "worktree=\(WorkspaceTerminalSessionAdapter.shellSingleQuoted(worktreePath))",
             "git worktree list --porcelain | grep -F -x -- \"worktree $worktree\" >/dev/null || { printf 'Git worktree is not registered: %s\\n' \"$worktree\" >&2; exit 1; }",
             "git worktree remove\(forceFlag) -- \"$worktree\""
         ].joined(separator: " && ")
     }
 
     private static func shellCommand(_ arguments: [String]) -> String {
-        arguments.map(WorkspaceTerminalEngine.shellSingleQuoted).joined(separator: " ")
+        arguments.map(WorkspaceTerminalSessionAdapter.shellSingleQuoted).joined(separator: " ")
     }
 }

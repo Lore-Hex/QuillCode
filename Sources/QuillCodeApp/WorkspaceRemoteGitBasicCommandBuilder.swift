@@ -37,6 +37,6 @@ enum WorkspaceRemoteGitBasicCommandBuilder {
     }
 
     private static func shellSingleQuoted(_ value: String) -> String {
-        WorkspaceTerminalEngine.shellSingleQuoted(value)
+        WorkspaceTerminalSessionAdapter.shellSingleQuoted(value)
     }
 }

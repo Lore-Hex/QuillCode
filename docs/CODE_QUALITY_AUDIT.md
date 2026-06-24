@@ -3201,7 +3201,7 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceTerminalEngine.swift` still owns both local and SSH Remote marker parsing. If relay terminal execution lands soon, split local/remote command wrapping and metadata parsing into adapter-specific helpers before adding a third transport.
+- Resolved in the terminal session adapter split below.
 
 ## 2026-06-24 Slash Command Catalog Split
 
@@ -3237,3 +3237,21 @@ Code quality changes:
 Remaining risk:
 
 - `MockLLMClient.swift` still owns mixed non-PR heuristics for shell, file, memory, browser, git status/diff, commit, and push requests. The next mock-quality pass should split non-PR command intent into a `MockWorkspaceIntentPlanner` only if new mock flows make this file grow again.
+
+## 2026-06-24 Terminal Session Adapter Split
+
+Overall grade after this slice: **A+ terminal lifecycle boundary, A+ transport adapter ownership, A+ regression guard**.
+
+`WorkspaceTerminalEngine.swift` still owned local shell wrapping, SSH Remote command wrapping, environment preambles, shell quoting, cwd/environment marker decoding, and marker cleanup after the state-contract split. That made the lifecycle reducer the likely landing zone for future relay transport behavior. The terminal engine now handles only terminal state transitions and delegates all command-session formatting and marker parsing to a focused adapter.
+
+Code quality changes:
+
+- Added `WorkspaceTerminalSessionAdapter.swift` for local execution context creation, SSH Remote connection path recovery, remote command wrapping, environment preambles, marker parsing, environment deltas, marker cleanup, and shared shell quoting.
+- Reduced `WorkspaceTerminalEngine.swift` from 589 lines before the terminal refactor series to 268 lines focused on input normalization, run lifecycle, streaming events, cancellation, completion, and selected-project session sync.
+- Moved adapter-specific tests into `WorkspaceTerminalSessionAdapterTests.swift` while keeping pure lifecycle coverage in `WorkspaceTerminalEngineTests.swift`.
+- Updated remote Git and remote project command builders to use the shared adapter quoting helper instead of reaching back into the engine.
+- Expanded the parity gate so local/remote shell wrapping and marker parsing cannot drift back into `WorkspaceTerminalEngine.swift`.
+
+Remaining risk:
+
+- `WorkspaceTerminalSessionAdapter.swift` still supports both local and SSH Remote transport in one file. If QuillCloud relay terminal execution adds distinct framing, split transport-specific implementations behind a small protocol while keeping `WorkspaceTerminalEngine` unchanged.

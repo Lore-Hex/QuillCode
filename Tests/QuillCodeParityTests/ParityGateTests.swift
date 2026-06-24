@@ -1914,20 +1914,29 @@ final class ParityGateTests: XCTestCase {
     func testTerminalStateContractsLiveOutsideEngine() throws {
         let engineText = try Self.appSourceText(named: "WorkspaceTerminalEngine.swift")
         let stateText = try Self.appSourceText(named: "WorkspaceTerminalState.swift")
+        let adapterText = try Self.appSourceText(named: "WorkspaceTerminalSessionAdapter.swift")
 
         XCTAssertTrue(stateText.contains("public struct TerminalCommandState"), "Terminal command state should live in the terminal state contract file.")
         XCTAssertTrue(stateText.contains("public enum TerminalCommandStatus"), "Terminal command lifecycle labels should live in the terminal state contract file.")
         XCTAssertTrue(stateText.contains("public struct TerminalState"), "Terminal session state should live in the terminal state contract file.")
         XCTAssertTrue(stateText.contains("struct WorkspaceTerminalExecutionContext"), "Terminal execution context should live beside terminal state contracts.")
         XCTAssertTrue(stateText.contains("struct WorkspaceTerminalSessionResult"), "Terminal session result should live beside terminal state contracts.")
-        XCTAssertTrue(engineText.contains("enum WorkspaceTerminalEngine"), "Terminal reducer and shell wrapping behavior should remain in the terminal engine.")
-        XCTAssertTrue(engineText.contains("static func localExecutionContext"), "Terminal engine should own local shell wrapping.")
-        XCTAssertTrue(engineText.contains("static func remoteWrappedCommand"), "Terminal engine should own remote shell wrapping.")
+        XCTAssertTrue(engineText.contains("enum WorkspaceTerminalEngine"), "Terminal lifecycle reduction should remain in the terminal engine.")
+        XCTAssertTrue(adapterText.contains("enum WorkspaceTerminalSessionAdapter"), "Terminal command wrapping should live in a focused session adapter.")
+        XCTAssertTrue(adapterText.contains("static func localExecutionContext"), "Terminal session adapter should own local shell wrapping.")
+        XCTAssertTrue(adapterText.contains("static func remoteWrappedCommand"), "Terminal session adapter should own remote shell wrapping.")
+        XCTAssertTrue(adapterText.contains("static func remoteMetadata"), "Terminal session adapter should own remote marker parsing.")
+        XCTAssertTrue(adapterText.contains("nonisolated static func shellSingleQuoted"), "Terminal session adapter should expose shared shell quoting for remote command builders.")
+        XCTAssertTrue(engineText.contains("WorkspaceTerminalSessionAdapter.sessionResult"), "Terminal engine should delegate session marker parsing to the adapter.")
         XCTAssertFalse(engineText.contains("public struct TerminalCommandState"), "Terminal engine should not own command state DTO definitions.")
         XCTAssertFalse(engineText.contains("public enum TerminalCommandStatus"), "Terminal engine should not own command status DTO definitions.")
         XCTAssertFalse(engineText.contains("public struct TerminalState"), "Terminal engine should not own terminal session DTO definitions.")
         XCTAssertFalse(engineText.contains("struct WorkspaceTerminalExecutionContext"), "Terminal engine should not own execution context DTO definitions.")
         XCTAssertFalse(engineText.contains("struct WorkspaceTerminalSessionResult"), "Terminal engine should not own session result DTO definitions.")
+        XCTAssertFalse(engineText.contains("static func localExecutionContext"), "Terminal engine should not own local shell wrapping.")
+        XCTAssertFalse(engineText.contains("static func remoteWrappedCommand"), "Terminal engine should not own remote shell wrapping.")
+        XCTAssertFalse(engineText.contains("struct RemoteTerminalMetadata"), "Terminal engine should not own remote marker metadata parsing.")
+        XCTAssertFalse(engineText.contains("environment(fromHex"), "Terminal engine should not own remote environment decoding.")
     }
 
     func testWorkspaceHTMLRendererDelegatesBrowserRendering() throws {
