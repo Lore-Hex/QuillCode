@@ -158,7 +158,9 @@ final class CoreModelTests: XCTestCase {
         let catalog = TrustedRouterDefaults.normalizedModelCatalog([
             .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
             .init(id: "/synth", provider: "trustedrouter", displayName: "Synth Alias", category: "Recommended"),
+            .init(id: "trustedrouter/fusion", provider: "trustedrouter", displayName: "Legacy Fusion", category: "Recommended"),
             .init(id: "/synth-code", provider: "trustedrouter", displayName: "Synth Code Alias", category: "Recommended"),
+            .init(id: "/fusion-code", provider: "trustedrouter", displayName: "Legacy Fusion Code", category: "Recommended"),
             .init(id: "tr/fast", provider: "tr", displayName: "Fast Alias", category: "Recommended")
         ])
 
@@ -166,6 +168,8 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.fastModel }.count, 1)
         XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.synthModel }.count, 1)
         XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.synthCodeModel }.count, 1)
+        XCTAssertFalse(catalog.contains { $0.id.contains("fusion") })
+        XCTAssertFalse(catalog.contains { $0.displayName.contains("Fusion") })
         XCTAssertTrue(catalog.contains { $0.id == "acme/code-pro" })
     }
 

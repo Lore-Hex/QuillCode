@@ -479,15 +479,20 @@ final class TrustedRouterAdapterTests: XCTestCase {
         let catalog = TrustedRouterModelCatalog(models: [
             .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
             .init(id: TrustedRouterDefaults.fastModel, provider: "trustedrouter", displayName: "Fast Duplicate", category: "Recommended"),
-            .init(id: "/synth", provider: "trustedrouter", displayName: "Synth Alias", category: "Recommended")
+            .init(id: "/synth", provider: "trustedrouter", displayName: "Synth Alias", category: "Recommended"),
+            .init(id: "tr/fusion", provider: "trustedrouter", displayName: "Legacy Fusion", category: "Recommended"),
+            .init(id: "/fusion-code", provider: "trustedrouter", displayName: "Legacy Fusion Code", category: "Recommended")
         ])
 
         XCTAssertEqual(catalog.models.prefix(3).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
         XCTAssertEqual(Array(catalog.categories().prefix(3)), ["Recommended", "Safety", "Coding"])
         XCTAssertEqual(catalog.models.filter { $0.id == TrustedRouterDefaults.fastModel }.count, 1)
         XCTAssertEqual(catalog.models.filter { $0.id == TrustedRouterDefaults.synthModel }.count, 1)
+        XCTAssertEqual(catalog.models.filter { $0.id == TrustedRouterDefaults.synthCodeModel }.count, 1)
         XCTAssertFalse(catalog.models.contains { $0.id == "/synth" })
+        XCTAssertFalse(catalog.models.contains { $0.id.contains("fusion") })
         XCTAssertFalse(catalog.models.contains { $0.displayName.contains("Alias") })
+        XCTAssertFalse(catalog.models.contains { $0.displayName.contains("Fusion") })
         XCTAssertTrue(catalog.models.contains { $0.id == "acme/code-pro" })
     }
 
