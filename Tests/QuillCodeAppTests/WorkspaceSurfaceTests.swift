@@ -1354,6 +1354,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(surface.filteredItems(matching: "workspace manager").isEmpty)
         XCTAssertEqual(surface.pinnedItems.map(\.title), ["Review git diff"])
         XCTAssertEqual(surface.recentItems.map(\.title), ["Run whoami"])
+        XCTAssertEqual(surface.recentSections().map(\.title), ["Today"])
         XCTAssertEqual(surface.archivedItems.map(\.title), ["Old release plan"])
         XCTAssertEqual(surface.archivedItems.first?.actions.map(\.kind), [.unarchive, .delete])
     }
@@ -1648,7 +1649,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="runtime-diagnostic-label">Last error"#))
     }
 
-    func testHTMLRendererGroupsPinnedRecentAndArchivedChats() {
+    func testHTMLRendererGroupsPinnedTodayAndArchivedChats() {
         var pinned = ChatThread(title: "Pinned chat", model: TrustedRouterDefaults.fusionModel)
         pinned.isPinned = true
         let recent = ChatThread(title: "Recent chat", model: "z-ai/glm-5.2")
@@ -1662,7 +1663,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         let html = WorkspaceHTMLRenderer.render(model.surface())
 
         XCTAssertTrue(html.contains(#"data-testid="sidebar-section-title">Pinned"#))
-        XCTAssertTrue(html.contains(#"data-testid="sidebar-section-title">Recent"#))
+        XCTAssertTrue(html.contains(#"data-testid="sidebar-section-title">Today"#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar-section-title">Archived"#))
         XCTAssertTrue(html.contains("Pinned chat"))
         XCTAssertTrue(html.contains("Recent chat"))

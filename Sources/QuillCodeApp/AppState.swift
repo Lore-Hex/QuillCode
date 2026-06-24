@@ -8,6 +8,7 @@ public struct SidebarItem: Sendable, Hashable, Identifiable {
     public var title: String
     public var subtitle: String
     public var searchText: String
+    public var updatedAt: Date
     public var isPinned: Bool
     public var isArchived: Bool
 
@@ -15,6 +16,7 @@ public struct SidebarItem: Sendable, Hashable, Identifiable {
         self.id = thread.id
         self.title = thread.title
         self.subtitle = thread.model
+        self.updatedAt = thread.updatedAt
         let combinedSearchText = thread.messages
             .filter { $0.role != .tool }
             .map(\.content)

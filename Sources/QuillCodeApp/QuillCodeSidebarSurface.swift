@@ -206,6 +206,30 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         items.filter { !$0.isPinned && !$0.isArchived }
     }
 
+    public func recentSections(
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [SidebarThreadSectionSurface] {
+        let recent = recentItems
+        guard !recent.isEmpty else { return [] }
+
+        let grouped = Dictionary(grouping: recent) { item in
+            SidebarThreadDateBucket.bucket(
+                for: item.updatedAt,
+                now: now,
+                calendar: calendar
+            )
+        }
+
+        return SidebarThreadDateBucket.allCases.compactMap { bucket in
+            guard let items = grouped[bucket], !items.isEmpty else { return nil }
+            return SidebarThreadSectionSurface(
+                title: bucket.title,
+                items: items.sorted { $0.updatedAt > $1.updatedAt }
+            )
+        }
+    }
+
     public var archivedItems: [SidebarItemSurface] {
         items.filter(\.isArchived)
     }
@@ -222,11 +246,65 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
     }
 }
 
+public struct SidebarThreadSectionSurface: Codable, Sendable, Hashable, Identifiable {
+    public var title: String
+    public var items: [SidebarItemSurface]
+
+    public var id: String { title }
+
+    public init(title: String, items: [SidebarItemSurface]) {
+        self.title = title
+        self.items = items
+    }
+}
+
+private enum SidebarThreadDateBucket: Int, CaseIterable {
+    case today
+    case yesterday
+    case previousSevenDays
+    case older
+
+    var title: String {
+        switch self {
+        case .today:
+            return "Today"
+        case .yesterday:
+            return "Yesterday"
+        case .previousSevenDays:
+            return "Previous 7 days"
+        case .older:
+            return "Older"
+        }
+    }
+
+    static func bucket(
+        for date: Date,
+        now: Date,
+        calendar: Calendar
+    ) -> SidebarThreadDateBucket {
+        let startOfToday = calendar.startOfDay(for: now)
+        let startOfYesterday = calendar.date(byAdding: .day, value: -1, to: startOfToday) ?? startOfToday
+        let startOfPreviousSevenDays = calendar.date(byAdding: .day, value: -8, to: startOfToday) ?? startOfYesterday
+
+        if date >= startOfToday {
+            return .today
+        }
+        if date >= startOfYesterday {
+            return .yesterday
+        }
+        if date >= startOfPreviousSevenDays {
+            return .previousSevenDays
+        }
+        return .older
+    }
+}
+
 public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var title: String
     public var subtitle: String
     public var searchText: String
+    public var updatedAt: Date
     public var actions: [SidebarItemActionSurface]
     public var isSelected: Bool
     public var isBulkSelected: Bool
@@ -238,6 +316,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.title = item.title
         self.subtitle = item.subtitle
         self.searchText = item.searchText
+        self.updatedAt = item.updatedAt
         self.actions = Self.actions(for: item)
         self.isSelected = item.id == selectedThreadID
         self.isBulkSelected = selectedThreadIDs.contains(item.id)
@@ -250,6 +329,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         case title
         case subtitle
         case searchText
+        case updatedAt
         case actions
         case isSelected
         case isBulkSelected
@@ -263,6 +343,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         self.title = try container.decode(String.self, forKey: .title)
         self.subtitle = try container.decode(String.self, forKey: .subtitle)
         self.searchText = try container.decode(String.self, forKey: .searchText)
+        self.updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .distantPast
         self.actions = try container.decodeIfPresent([SidebarItemActionSurface].self, forKey: .actions) ?? []
         self.isSelected = try container.decode(Bool.self, forKey: .isSelected)
         self.isBulkSelected = try container.decodeIfPresent(Bool.self, forKey: .isBulkSelected) ?? false
@@ -276,6 +357,7 @@ public struct SidebarItemSurface: Codable, Sendable, Hashable, Identifiable {
         try container.encode(title, forKey: .title)
         try container.encode(subtitle, forKey: .subtitle)
         try container.encode(searchText, forKey: .searchText)
+        try container.encode(updatedAt, forKey: .updatedAt)
         try container.encode(actions, forKey: .actions)
         try container.encode(isSelected, forKey: .isSelected)
         try container.encode(isBulkSelected, forKey: .isBulkSelected)

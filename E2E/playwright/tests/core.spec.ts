@@ -1329,7 +1329,7 @@ test('mock harness manages chat lifecycle from the sidebar', async ({ page }) =>
   const whoamiRow = page.getByTestId('sidebar-thread-row').filter({ hasText: 'run whoami' });
   await clickThreadAction(whoamiRow, 'Pin');
 
-  await expect(page.getByTestId('sidebar-section-title')).toContainText(['Pinned', 'Recent']);
+  await expect(page.getByTestId('sidebar-section-title')).toContainText(['Pinned', 'Today']);
   await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('run whoami');
   await expect(page.getByTestId('sidebar-thread-row').first()).toContainText('Nike 1.0');
 
@@ -1348,18 +1348,62 @@ test('mock harness manages chat lifecycle from the sidebar', async ({ page }) =>
 
   await clickThreadAction(copiedRow, 'Archive');
 
-  await expect(page.getByTestId('sidebar-section-title')).toContainText(['Pinned', 'Recent', 'Archived']);
+  await expect(page.getByTestId('sidebar-section-title')).toContainText(['Pinned', 'Today', 'Archived']);
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(3);
   await expect(page.getByTestId('sidebar-thread-row').last()).toContainText('Copy: Renamed whoami');
   await expect(page.getByTestId('top-bar-title')).toHaveText('Renamed whoami');
 
   await clickThreadAction(page.getByTestId('sidebar-thread-row').last(), 'Unarchive');
   await expect(page.getByTestId('top-bar-title')).toHaveText('Copy: Renamed whoami');
-  await expect(page.getByTestId('sidebar-section-title')).toContainText(['Pinned', 'Recent']);
+  await expect(page.getByTestId('sidebar-section-title')).toContainText(['Pinned', 'Today']);
 
   await clickThreadAction(page.getByTestId('sidebar-thread-row').filter({ hasText: 'Copy: Renamed whoami' }), 'Delete');
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(2);
   await expect(page.getByTestId('sidebar')).not.toContainText('Copy: Renamed whoami');
+});
+
+test('mock harness groups sidebar chats by recency bucket', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.evaluate(() => {
+    const harness = window as unknown as {
+      sendMessage: (value: string) => void;
+      newChat: () => void;
+      setSidebarItemUpdatedAt: (title: string, updatedAt: string) => void;
+    };
+    const localNoonDaysAgo = (days: number) => {
+      const date = new Date();
+      date.setHours(12, 0, 0, 0);
+      date.setDate(date.getDate() - days);
+      return date.toISOString();
+    };
+
+    harness.sendMessage('today chat');
+    harness.setSidebarItemUpdatedAt('today chat', localNoonDaysAgo(0));
+    harness.newChat();
+    harness.sendMessage('yesterday chat');
+    harness.setSidebarItemUpdatedAt('yesterday chat', localNoonDaysAgo(1));
+    harness.newChat();
+    harness.sendMessage('earlier week chat');
+    harness.setSidebarItemUpdatedAt('earlier week chat', localNoonDaysAgo(3));
+    harness.newChat();
+    harness.sendMessage('older chat');
+    harness.setSidebarItemUpdatedAt('older chat', localNoonDaysAgo(14));
+  });
+
+  await expect(page.getByTestId('sidebar-section-title')).toContainText([
+    'Today',
+    'Yesterday',
+    'Previous 7 days',
+    'Older'
+  ]);
+  const sidebarSection = (title: string) => page.getByTestId('sidebar-section').filter({
+    has: page.getByTestId('sidebar-section-title').filter({ hasText: new RegExp(`^${title}$`) })
+  });
+  await expect(sidebarSection('Today').getByTestId('sidebar-thread-row')).toContainText('today chat');
+  await expect(sidebarSection('Yesterday').getByTestId('sidebar-thread-row')).toContainText('yesterday chat');
+  await expect(sidebarSection('Previous 7 days').getByTestId('sidebar-thread-row')).toContainText('earlier week chat');
+  await expect(sidebarSection('Older').getByTestId('sidebar-thread-row')).toContainText('older chat');
 });
 
 test('mock harness bulk-selects chats from the sidebar', async ({ page }) => {
@@ -1385,7 +1429,7 @@ test('mock harness bulk-selects chats from the sidebar', async ({ page }) => {
     has: page.getByTestId('sidebar-section-title').filter({ hasText: new RegExp(`^${title}$`) })
   });
   await expect(sidebarSection('Archived').getByTestId('sidebar-thread-row')).toHaveCount(2);
-  await expect(sidebarSection('Recent').getByTestId('sidebar-thread-row')).toHaveCount(1);
+  await expect(sidebarSection('Today').getByTestId('sidebar-thread-row')).toHaveCount(1);
 
   await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Select$/ }).click();
   await page.getByTestId('sidebar-bulk-action').filter({ hasText: 'Select all' }).click();

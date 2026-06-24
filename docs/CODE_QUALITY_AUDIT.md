@@ -2330,3 +2330,21 @@ Claude CLI's follow-up design review reinforced the same Codex-style direction: 
 Remaining risk:
 
 - Claude suggested moving the final visible overflow control to a hover-revealed affordance. That should be a separate native+HTML pass because it changes keyboard discoverability and needs accessibility review.
+
+## 2026-06-23 Sidebar Time Grouping Pass
+
+Overall grade after this slice: **A- sidebar scanability, A surface ownership, A regression coverage**.
+
+Claude CLI's sidebar review called out that a single "Recent" bucket makes active chats harder to scan once the project has history. The sidebar now groups non-pinned, non-archived chats by shared recency buckets while preserving explicit Pinned and Archived workflow sections.
+
+| Surface | Before | After |
+| --- | --- | --- |
+| Sidebar sections | Active chats lived under one generic `Recent` section. | Active chats group into Today, Yesterday, Previous 7 days, and Older. |
+| Shared contract | Native SwiftUI and HTML renderers could drift if each owned date bucketing. | `SidebarSurface.recentSections(now:calendar:)` owns section construction and native/static surfaces consume it. |
+| Ordering | Bucket row order was inherited from caller order. | Rows sort newest-first inside each bucket. |
+| Harness parity | New harness chats relied on fallback timestamps and sort only handled pinned/archived state. | Harness chat creation records `updatedAt`, refreshes recency on send, and sorts by archived/pinned/updated time. |
+| Visual weight | Long section labels could wrap or compete with thread rows. | Headers stay small, muted, single-line, and truncated if the sidebar is narrow. |
+
+Remaining risk:
+
+- Sidebar search is currently a modal global search rather than an inline filtered list. If QuillCode adds inline sidebar filtering later, filtered results should collapse section headers to keep scanning fast.

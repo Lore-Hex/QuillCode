@@ -535,7 +535,12 @@
       margin-top: 10px;
     }
     .sidebar h2 { margin: 0 0 12px; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
-    .sidebar h3 { margin: 10px 0 8px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+    .sidebar h3 { margin: 8px 0 4px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+    .sidebar-section > h3[data-testid="sidebar-section-title"] {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .sidebar-section-title {
       display: flex;
       align-items: center;
@@ -4137,9 +4142,38 @@
             </details>
           </div>`).join('')}
         </section>` : '';
+      const sidebarUpdatedTime = item => {
+        const updatedAt = new Date(item.updatedAt || Date.now());
+        return Number.isNaN(updatedAt.getTime()) ? Date.now() : updatedAt.getTime();
+      };
+      const sidebarDateBucket = item => {
+        const timestamp = new Date(sidebarUpdatedTime(item));
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        const startOfYesterday = new Date(startOfToday);
+        startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+        const startOfPreviousSevenDays = new Date(startOfToday);
+        startOfPreviousSevenDays.setDate(startOfPreviousSevenDays.getDate() - 8);
+        if (timestamp >= startOfToday) return 'Today';
+        if (timestamp >= startOfYesterday) return 'Yesterday';
+        if (timestamp >= startOfPreviousSevenDays) return 'Previous 7 days';
+        return 'Older';
+      };
+      const recentSidebarSections = items => {
+        const buckets = ['Today', 'Yesterday', 'Previous 7 days', 'Older'];
+        return buckets
+          .map(title => ({
+            title,
+            items: items
+              .filter(item => sidebarDateBucket(item) === title)
+              .sort((lhs, rhs) => sidebarUpdatedTime(rhs) - sidebarUpdatedTime(lhs))
+          }))
+          .filter(section => section.items.length);
+      };
       const pinnedItems = state.sidebar.items.filter(item => item.isPinned && !item.isArchived);
       const recentItems = state.sidebar.items.filter(item => !item.isPinned && !item.isArchived);
       const archivedItems = state.sidebar.items.filter(item => item.isArchived);
+      const recentSections = recentSidebarSections(recentItems);
       const bulkActions = sidebarBulkActions();
       const sidebarHeaderAction = !state.sidebar.isSelectionMode && bulkActions.length ? `
         <button class="sidebar-bulk-action" type="button" data-testid="sidebar-bulk-action" data-command-id="${escapeHTML(bulkActions[0].commandID)}" data-action="${escapeHTML(bulkActions[0].id)}" data-destructive="false" ${bulkActions[0].enabled ? '' : 'disabled'}>${escapeHTML(bulkActions[0].title)}</button>
@@ -4152,7 +4186,7 @@
           </div>
         </div>` : '';
       const sidebarContent = state.sidebar.items.length
-        ? bulkToolbar + renderSidebarSection('Pinned', pinnedItems) + renderSidebarSection('Recent', recentItems) + renderSidebarSection('Archived', archivedItems)
+        ? bulkToolbar + renderSidebarSection('Pinned', pinnedItems) + recentSections.map(section => renderSidebarSection(section.title, section.items)).join('') + renderSidebarSection('Archived', archivedItems)
         : '<p data-testid="sidebar-empty">No chats yet</p>';
       const sidebarThreadHeader = state.sidebar.items.length || state.sidebar.isSelectionMode ? `
         <div class="sidebar-title-row" data-testid="sidebar-title-row">
@@ -6015,6 +6049,7 @@
           title,
           subtitle: state.topBar.modelLabel,
           searchText: '',
+          updatedAt: new Date().toISOString(),
           isSelected: true,
           isPinned: false,
           isArchived: false
@@ -6067,6 +6102,7 @@
         title,
         subtitle: state.topBar.modelLabel,
         searchText: copiedMessages.map(message => message.text).join('\n'),
+        updatedAt: new Date().toISOString(),
         isSelected: true,
         isPinned: false,
         isArchived: false
@@ -6128,6 +6164,7 @@
         title,
         subtitle: state.topBar.modelLabel,
         searchText: compactedMessages.map(message => message.text).join('\n'),
+        updatedAt: new Date().toISOString(),
         isSelected: true,
         isPinned: false,
         isArchived: false
@@ -6228,6 +6265,7 @@
           title: 'New chat',
           subtitle: state.topBar.modelLabel,
           searchText: '',
+          updatedAt: new Date().toISOString(),
           isSelected: true,
           isPinned: false,
           isArchived: false
@@ -6391,6 +6429,14 @@
 
     function selectedThread() {
       return state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID) || null;
+    }
+
+    function touchSelectedThread() {
+      const threadID = state.sidebar.selectedThreadID;
+      if (!threadID) return;
+      state.sidebar.items = sortSidebarItems(state.sidebar.items.map(item => (
+        item.id === threadID ? { ...item, updatedAt: new Date().toISOString() } : item
+      )));
     }
 
     function followUpDelayDescription(seconds) {
@@ -6585,6 +6631,7 @@
           title,
           subtitle: state.topBar.modelLabel,
           searchText: message.text,
+          updatedAt: new Date().toISOString(),
           isSelected: true,
           isPinned: false,
           isArchived: false
@@ -6620,6 +6667,7 @@
         title,
         subtitle: state.topBar.modelLabel,
         searchText: copiedMessages.map(message => message.text).join('\n'),
+        updatedAt: new Date().toISOString(),
         isSelected: true,
         isPinned: false,
         isArchived: false
@@ -7577,6 +7625,7 @@
         title,
         subtitle: state.topBar.modelLabel,
         searchText: '',
+        updatedAt: new Date().toISOString(),
         isSelected: true,
         isPinned: false,
         isArchived: false
@@ -7758,6 +7807,7 @@
             ...thread,
             id: newThreadID,
             title: `Copy: ${thread.title}`,
+            updatedAt: new Date().toISOString(),
             isPinned: false,
             isArchived: false,
             isSelected: true
@@ -7817,8 +7867,17 @@
       return [...items].sort((lhs, rhs) => {
         if (Boolean(lhs.isArchived) !== Boolean(rhs.isArchived)) return Number(lhs.isArchived) - Number(rhs.isArchived);
         if (Boolean(lhs.isPinned) !== Boolean(rhs.isPinned)) return Number(rhs.isPinned) - Number(lhs.isPinned);
-        return 0;
+        const lhsUpdatedAt = new Date(lhs.updatedAt || 0).getTime();
+        const rhsUpdatedAt = new Date(rhs.updatedAt || 0).getTime();
+        return (Number.isNaN(rhsUpdatedAt) ? 0 : rhsUpdatedAt) - (Number.isNaN(lhsUpdatedAt) ? 0 : lhsUpdatedAt);
       });
+    }
+
+    function setSidebarItemUpdatedAt(title, updatedAt) {
+      state.sidebar.items = sortSidebarItems(state.sidebar.items.map(item => (
+        item.title === title ? { ...item, updatedAt } : item
+      )));
+      render();
     }
 
     function syncSelectedThreadSearchText() {
@@ -7876,6 +7935,7 @@
       state.composer.slashActiveIndex = 0;
       state.runtimeIssue = null;
       addMessage('user', text);
+      touchSelectedThread();
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       const isRemoteProject = Boolean(selectedProject?.isRemote);
       if (text.toLowerCase().includes('slow task')) {
