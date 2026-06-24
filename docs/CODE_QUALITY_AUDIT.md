@@ -2450,3 +2450,20 @@ Overall grade after this slice: **A copy semantics, A safety preservation, A nat
 Remaining risk:
 
 - The approval queue still appears inline per tool card. A future UX slice should explore a compact pending-actions rail for batches of approvals without weakening the underlying safety review.
+
+## 2026-06-23 Project Metadata Loader Pass
+
+Overall grade after this slice: **A project-context boundary, A behavior preservation, A regression coverage**.
+
+Project metadata aggregation moved from `WorkspaceModel` into `WorkspaceProjectMetadataLoader`. Before this pass, the workspace model knew the exact list of project instruction, local environment action, extension manifest, project memory, and SSH Remote context loaders. The model now asks for local or remote metadata and stays focused on applying that metadata to project/thread state.
+
+Code quality changes:
+
+- Added `WorkspaceProjectMetadataLoader.loadLocal(from:)` for local instruction/action/extension/memory aggregation.
+- Added `WorkspaceProjectMetadataLoader.loadRemote(connection:executor:)` and `metadata(from:)` so SSH Remote context becomes the same `WorkspaceProjectMetadata` contract with local-only fields cleared.
+- Updated add-project and refresh-context paths to delegate metadata loading.
+- Added focused loader tests and a parity gate that prevents direct project metadata loader calls from returning to `WorkspaceModel`.
+
+Remaining risk:
+
+- The low-level project instruction, action, extension, and memory loader tests still mostly live in `WorkspaceModelTests.swift`. Future quality passes should move those into focused loader test files to reduce the model test monolith without changing behavior.
