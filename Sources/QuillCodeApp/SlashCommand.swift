@@ -34,27 +34,19 @@ enum SlashCommandParser {
             ? String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
             : ""
 
+        if let threadCommand = SlashThreadCommandParser.parse(name: name, argument: argument) {
+            return threadCommand
+        }
+
         switch name {
         case "?", "help":
             return .help
         case "status":
             return .status
-        case "new", "new-chat", "newchat":
-            return .newChat
-        case "compact", "compact-context", "context-compact":
-            return .workspaceCommand("compact-context")
         case "follow-up", "followup", "schedule", "remind":
             return SlashSchedulingCommandParser.parseThreadFollowUp(argument)
         case "workspace-check", "workspacecheck", "workspace-schedule", "project-check", "repo-check":
             return SlashSchedulingCommandParser.parseWorkspaceSchedule(argument)
-        case "rename", "rename-chat", "title":
-            return argument.isEmpty ? .invalid("Usage: /rename New chat title") : .renameThread(argument)
-        case "duplicate", "duplicate-chat", "copy-chat":
-            return .workspaceCommand("thread-duplicate")
-        case "archive", "archive-chat":
-            return .workspaceCommand("thread-archive")
-        case "unarchive", "unarchive-chat":
-            return .workspaceCommand("thread-unarchive")
         case "project":
             return SlashProjectCommandParser.parse(argument)
         case "ssh", "remote":

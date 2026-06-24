@@ -96,6 +96,24 @@ final class ParitySlashGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(slashText.contains("Usage: /ssh user@host:/absolute/path"), "Outer slash parser should not own SSH Remote usage copy.")
     }
 
+    func testSlashParserDelegatesThreadLifecycleSubcommands() throws {
+        let slashText = try Self.appSourceText(named: "SlashCommand.swift")
+        let threadParserText = try Self.appSourceText(named: "SlashThreadCommandParser.swift")
+        let threadParserTests = try Self.appTestSourceText(named: "SlashThreadCommandParserTests.swift")
+
+        XCTAssertTrue(slashText.contains("SlashThreadCommandParser.parse(name: name, argument: argument)"), "Outer slash parser should delegate thread lifecycle aliases.")
+        XCTAssertTrue(threadParserText.contains("enum SlashThreadCommandParser"), "Thread lifecycle slash parsing should live in a focused parser.")
+        XCTAssertTrue(threadParserText.contains("thread-duplicate"), "Thread duplicate command ID should live with thread parser semantics.")
+        XCTAssertTrue(threadParserText.contains("thread-archive"), "Thread archive command ID should live with thread parser semantics.")
+        XCTAssertTrue(threadParserText.contains("compact-context"), "Context compaction command ID should live with thread parser semantics.")
+        XCTAssertTrue(threadParserText.contains("Usage: /rename New chat title"), "Thread rename usage copy should live with thread parser semantics.")
+        XCTAssertTrue(threadParserTests.contains("testThreadLifecycleAliasesMapToCommands"), "Thread lifecycle aliases should have focused parser coverage.")
+        XCTAssertTrue(threadParserTests.contains("testTopLevelThreadAliasesDelegateToThreadParser"), "Top-level thread aliases should have delegation coverage.")
+        XCTAssertFalse(slashText.contains(".newChat"), "Outer slash parser should not build new-chat commands inline.")
+        XCTAssertFalse(slashText.contains("thread-duplicate"), "Outer slash parser should not own thread duplicate command IDs.")
+        XCTAssertFalse(slashText.contains("Usage: /rename New chat title"), "Outer slash parser should not own thread rename usage copy.")
+    }
+
     func testSlashParserDelegatesSchedulingSubcommands() throws {
         let slashText = try Self.appSourceText(named: "SlashCommand.swift")
         let schedulingParserText = try Self.appSourceText(named: "SlashSchedulingCommandParser.swift")
