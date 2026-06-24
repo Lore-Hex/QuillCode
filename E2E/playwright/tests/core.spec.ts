@@ -1734,6 +1734,20 @@ test('mock harness opens browser preview and records comments', async ({ page })
   await expect(page.getByTestId('browser-status-label')).toHaveText('Comment added');
 });
 
+test('mock harness opens browser preview from chat', async ({ page }) => {
+  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+
+  await page.getByLabel('Message').fill('open localhost:5173 in the browser');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.browser.open');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('localhost:5173');
+  await expect(page.getByText('Opened `Vite Preview` at http://localhost:5173.')).toBeVisible();
+  await expect(page.getByTestId('browser-pane')).toBeVisible();
+  await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
+  await expect(page.getByTestId('browser-inspection-depth')).toHaveText('Static HTML snapshot');
+});
+
 test('mock harness shows project extension manifests from sidebar and command palette', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 

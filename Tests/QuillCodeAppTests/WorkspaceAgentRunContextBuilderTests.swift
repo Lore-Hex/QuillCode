@@ -20,7 +20,8 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
         XCTAssertEqual(runner.baseToolDefinitions.map(\.name), ToolRouter.definitions.map(\.name))
         XCTAssertEqual(runner.additionalToolDefinitions.map(\.name), [
             ToolDefinition.planUpdate.name,
-            ToolDefinition.browserInspect.name
+            ToolDefinition.browserInspect.name,
+            ToolDefinition.browserOpen.name
         ])
     }
 
@@ -66,7 +67,8 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
 
         let expectedNames = [
             ToolDefinition.planUpdate.name,
-            ToolDefinition.browserInspect.name
+            ToolDefinition.browserInspect.name,
+            ToolDefinition.browserOpen.name
         ] + ToolDefinition.computerUseDefinitions.map(\.name)
             + [ToolDefinition.memoryRemember.name, mcpTool.name]
         XCTAssertEqual(runner.additionalToolDefinitions.map(\.name), expectedNames)
@@ -107,6 +109,16 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
         )
         XCTAssertEqual(browserResult?.ok, true)
         XCTAssertTrue(browserResult?.stdout.contains("Example") == true)
+
+        let browserOpenResult = await override(
+            ToolCall(
+                name: ToolDefinition.browserOpen.name,
+                argumentsJSON: ToolArguments.json(["url": "https://example.com/docs"])
+            ),
+            memoryDirectory
+        )
+        XCTAssertEqual(browserOpenResult?.ok, true)
+        XCTAssertTrue(browserOpenResult?.stdout.contains("example.com") == true)
 
         let memoryResult = await override(
             ToolCall(

@@ -3306,6 +3306,7 @@
       if (toolName === 'host.git.worktree.create') return toolCardSanitized(args.branch) || toolCardSanitized(args.path);
       if (toolName === 'host.plan.update') return 'plan';
       if (toolName === 'host.browser.inspect') return toolCardSanitized(args.url);
+      if (toolName === 'host.browser.open') return toolCardSanitized(args.url);
       if (toolName === 'host.memory.remember') return toolCardSanitized(args.content);
       if (toolName === 'host.mcp.call') return toolCardSanitized(args.tool);
       if (toolName === 'host.mcp.read_resource' || toolName === 'host.mcp.get_prompt') {
@@ -7437,6 +7438,28 @@
       return null;
     }
 
+    function browserOpenTargetFromPrompt(text) {
+      if (!/\b(open|browse|go to|visit|preview|show)\b/i.test(text)) return null;
+      const quoted = text.match(/`([^`]+)`/)?.[1]?.trim();
+      if (quoted && looksLikeBrowserTarget(quoted)) return quoted;
+      return text
+        .split(/[\s"'(),<>\[\]{}]+/)
+        .map((token) => token.trim().replace(/[.:;!?]+$/g, ''))
+        .find(looksLikeBrowserTarget) || null;
+    }
+
+    function looksLikeBrowserTarget(value) {
+      const lower = String(value || '').toLowerCase();
+      return lower.startsWith('http://')
+        || lower.startsWith('https://')
+        || lower.startsWith('file://')
+        || lower.startsWith('localhost')
+        || lower.startsWith('127.0.0.1')
+        || lower.endsWith('.html')
+        || lower.endsWith('.htm')
+        || (lower.includes('.') && !lower.includes('@'));
+    }
+
     function browserCanGoBack() {
       return Number.isInteger(state.browser.historyIndex)
         && state.browser.historyIndex > 0
@@ -8069,6 +8092,7 @@
       touchSelectedThread();
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       const isRemoteProject = Boolean(selectedProject?.isRemote);
+      const browserTarget = browserOpenTargetFromPrompt(text);
       if (text.toLowerCase().includes('slow task')) {
         state.composer.isSending = true;
         state.topBar.agentStatus = 'Running';
@@ -8268,6 +8292,41 @@
           outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(update, null, 2) }, null, 2)
         });
         addMessage('assistant', 'Updated the task plan.');
+      } else if (browserTarget) {
+        const url = normalizeBrowserURL(browserTarget);
+        if (url) {
+          setBrowserPage(url);
+          const snapshot = state.browser.snapshot;
+          const inspection = {
+            url,
+            title: state.browser.title,
+            status: state.browser.statusLabel,
+            sourceLabel: snapshot.sourceLabel,
+            inspectionDepth: snapshot.inspectionDepth,
+            summary: snapshot.summary,
+            details: snapshot.details,
+            outline: snapshot.outline,
+            textSnippet: snapshot.textSnippet,
+            comments: []
+          };
+          addToolCard({
+            title: 'host.browser.open',
+            subtitle: 'Completed',
+            status: 'done',
+            inputJSON: JSON.stringify({ url: browserTarget }, null, 2),
+            outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(inspection, null, 2) }, null, 2)
+          });
+          addMessage('assistant', `Opened \`${state.browser.title}\` at ${url}.`);
+        } else {
+          addToolCard({
+            title: 'host.browser.open',
+            subtitle: 'Invalid address',
+            status: 'failed',
+            inputJSON: JSON.stringify({ url: browserTarget }, null, 2),
+            outputJSON: JSON.stringify({ ok: false, error: 'Enter an http, https, file, localhost, or project file URL.' }, null, 2)
+          });
+          addMessage('assistant', 'Command failed:\nEnter an http, https, file, localhost, or project file URL.');
+        }
       } else if (text.toLowerCase().includes('pdf') || text.toLowerCase().includes('document artifact')) {
         const path = '/mock/QuillCode/reports/briefing.pdf';
         addToolCard({
