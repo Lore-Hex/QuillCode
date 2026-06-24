@@ -53,7 +53,7 @@ public final class QuillCodeWorkspaceModel {
     public private(set) var lastError: String?
 
     private var runner: AgentRunner
-    private let threadStore: JSONThreadStore?
+    private let threadPersistence: WorkspaceThreadPersistence
     private let projectStore: JSONProjectStore?
     private let automationStore: JSONAutomationStore?
     private let globalMemoryDirectory: URL?
@@ -89,7 +89,7 @@ public final class QuillCodeWorkspaceModel {
         self.automations = automations
         self.sidebarSelection = sidebarSelection
         self.runner = runner
-        self.threadStore = threadStore
+        self.threadPersistence = WorkspaceThreadPersistence(store: threadStore)
         self.projectStore = projectStore
         self.automationStore = automationStore
         self.globalMemoryDirectory = globalMemoryDirectory
@@ -548,7 +548,7 @@ public final class QuillCodeWorkspaceModel {
         syncTerminalSessionToSelectedProject()
         touchProject(draft.selectedProjectID)
         saveProjects()
-        try? threadStore?.save(draft.thread)
+        threadPersistence.save(draft.thread)
         automations.isVisible = true
         lastError = nil
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
@@ -757,9 +757,9 @@ public final class QuillCodeWorkspaceModel {
         root.threads = result.threads
         root.selectedThreadID = result.selectedThreadID
         root.selectedProjectID = result.selectedProjectID
-        saveThreads(result.changedThreads)
+        threadPersistence.save(result.changedThreads)
         for thread in result.removedThreads {
-            try? threadStore?.delete(thread.id)
+            threadPersistence.delete(thread.id)
         }
         if result.shouldSyncTerminalSession {
             syncTerminalSessionToSelectedProject()
@@ -877,7 +877,7 @@ public final class QuillCodeWorkspaceModel {
         root.threads = threads
         for threadID in result.changedThreadIDs {
             guard let thread = root.threads.first(where: { $0.id == threadID }) else { continue }
-            try? threadStore?.save(thread)
+            threadPersistence.save(thread)
         }
         root.selectedProjectID = result.selectedProjectID
         syncTerminalSessionToSelectedProject()
@@ -907,7 +907,7 @@ public final class QuillCodeWorkspaceModel {
             return false
         }
         root.threads = threads
-        try? threadStore?.save(changedThread)
+        threadPersistence.save(changedThread)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
@@ -937,7 +937,7 @@ public final class QuillCodeWorkspaceModel {
         touchProject(selectedProjectID)
         saveProjects()
         if saveThread {
-            try? threadStore?.save(thread)
+            threadPersistence.save(thread)
         }
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return thread.id
@@ -950,7 +950,7 @@ public final class QuillCodeWorkspaceModel {
             threads: &threads
         ) else { return }
         root.threads = threads
-        try? threadStore?.save(changedThread)
+        threadPersistence.save(changedThread)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
@@ -963,7 +963,7 @@ public final class QuillCodeWorkspaceModel {
         ) else { return }
         root.threads = threads
         root.selectedThreadID = result.selectedThreadID
-        try? threadStore?.save(result.changedThread)
+        threadPersistence.save(result.changedThread)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
@@ -981,7 +981,7 @@ public final class QuillCodeWorkspaceModel {
         root.selectedProjectID = knownProjectID(result.projectID)
         touchProject(root.selectedProjectID)
         saveProjects()
-        try? threadStore?.save(result.changedThread)
+        threadPersistence.save(result.changedThread)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
@@ -997,7 +997,7 @@ public final class QuillCodeWorkspaceModel {
             return false
         }
         root.threads = threads
-        try? threadStore?.delete(id)
+        threadPersistence.delete(id)
         root.selectedThreadID = result.selectedThreadID
         if let selectedThread {
             root.selectedProjectID = knownProjectID(selectedThread.projectID)
@@ -1112,7 +1112,7 @@ public final class QuillCodeWorkspaceModel {
                 refreshThreadMemoryContext(&thread)
             }
             updateThreadFromAgentRun(thread)
-            try threadStore?.save(thread)
+            try threadPersistence.saveOrThrow(thread)
             composer.isSending = false
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         } catch is CancellationError {
@@ -1147,7 +1147,7 @@ public final class QuillCodeWorkspaceModel {
         appendToolRun(call: runPlan.diffRefreshCall, result: diffResult)
 
         if let thread = selectedThread {
-            try? threadStore?.save(thread)
+            threadPersistence.save(thread)
         }
         refreshTopBar(agentStatus: runPlan.finalStatus(actionResult: actionResult, diffRefreshResult: diffResult))
     }
@@ -1171,7 +1171,7 @@ public final class QuillCodeWorkspaceModel {
                 appendAssistantNotice(assistantNotice)
             }
             if let thread = selectedThread {
-                try? threadStore?.save(thread)
+                threadPersistence.save(thread)
             }
             refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         }
@@ -1207,7 +1207,7 @@ public final class QuillCodeWorkspaceModel {
             thread.events.append(event)
         }
         if let thread = selectedThread {
-            try? threadStore?.save(thread)
+            threadPersistence.save(thread)
         }
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
@@ -1274,7 +1274,7 @@ public final class QuillCodeWorkspaceModel {
             thread.events.append(.init(kind: .notice, summary: summary))
         }
         if let thread = selectedThread {
-            try? threadStore?.save(thread)
+            threadPersistence.save(thread)
         }
     }
 
@@ -1366,7 +1366,7 @@ public final class QuillCodeWorkspaceModel {
         }
 
         if let thread = selectedThread {
-            try? threadStore?.save(thread)
+            threadPersistence.save(thread)
         }
         let status = execution.ok ? TopBarAgentStatusLabel.idle : TopBarAgentStatusLabel.failed
         refreshTopBar(agentStatus: status)
@@ -1511,7 +1511,7 @@ public final class QuillCodeWorkspaceModel {
         syncTerminalSessionToSelectedProject()
         touchProject(projectID)
         saveProjects()
-        try? threadStore?.save(thread)
+        threadPersistence.save(thread)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
@@ -1675,7 +1675,7 @@ public final class QuillCodeWorkspaceModel {
             thread.messages.append(ChatMessage(role: .assistant, content: assistantText))
         }
         if let thread = selectedThread {
-            try? threadStore?.save(thread)
+            threadPersistence.save(thread)
         }
     }
 
@@ -1725,20 +1725,9 @@ public final class QuillCodeWorkspaceModel {
         Set(root.threads.map(\.id))
     }
 
-    private func saveThreads(_ threads: [ChatThread]) {
-        for thread in threads {
-            try? threadStore?.save(thread)
-        }
-    }
-
     @discardableResult
     private func mutateThread(_ id: UUID, _ update: (inout ChatThread) -> Void) -> Int? {
-        guard let index = root.threads.firstIndex(where: { $0.id == id }) else {
-            return nil
-        }
-        update(&root.threads[index])
-        root.threads[index].updatedAt = Date()
-        try? threadStore?.save(root.threads[index])
+        guard let index = threadPersistence.mutate(id, threads: &root.threads, update: update) else { return nil }
         refreshTopBar(agentStatus: root.topBar.agentStatus)
         return index
     }

@@ -23,7 +23,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, context/action lookup, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, sidebar bulk action planning, and top-bar state assembly now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, context/action lookup, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, thread persistence, sidebar selection transitions, sidebar bulk action planning, project context refresh, and top-bar state assembly now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | A- | The shell is now mostly chrome composition, state, and routing. Transcript layout and workspace sheet presentation live in focused files; keep future modal families and command workflow rules out of the root shell. |
 | `Sources/QuillCodeApp/QuillCodeToolCardView.swift` | A- | Native tool-card composition is now separate from reusable controls, artifact previews, and raw detail blocks. Keep future status/action chrome in `QuillCodeToolCardControls.swift` and artifact rendering in `QuillCodeToolArtifactViews.swift`. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is now mostly aggregate payload plus runtime/execution context records. Settings copy/compatibility, runtime issue classification, active context-source selection, model catalog presentation, top-bar/model presentation contracts, project/sidebar navigation assembly, sidebar/project contracts, browser state/presentation contracts, terminal presentation contracts, review presentation contracts, transcript/composer/context presentation contracts, secondary-pane presentation contracts, automation pane command wiring, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are extracted into focused files. Next step is extracting runtime/execution context contracts if their presentation behavior grows. |
@@ -66,6 +66,24 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModel` is still large because it is the app coordinator. The next A+ slices should keep extracting project/context refresh, slash-command dispatch, and tool-run orchestration into directly testable helpers.
+
+## 2026-06-24 Thread Persistence Helper Pass
+
+Overall grade after this slice: **A thread-persistence boundary, A non-fatal persistence semantics, A regression guard**.
+
+`WorkspaceModel` still directly called `JSONThreadStore` in many workflows and owned the timestamped “mutate thread, update updatedAt, persist” routine. That scattered persistence mechanics through unrelated flows like approvals, review comments, slash commands, tool runs, and lifecycle actions.
+
+Code quality changes:
+
+- Added `WorkspaceThreadPersistence` for best-effort save/delete, one explicit throwing save path, batch save, and timestamped mutation.
+- Kept the public `QuillCodeWorkspaceModel` initializer unchanged while bridging its optional `JSONThreadStore` into the helper.
+- Replaced direct `threadStore?.save` and `threadStore?.delete` calls with the helper while preserving the existing throwing final-save behavior in `submitComposer`.
+- Added focused tests for deterministic mutation timestamps, batch save/delete, and nil-store no-op behavior.
+- Added a parity gate preventing direct `JSONThreadStore` save/delete calls from returning to `WorkspaceModel`.
+
+Remaining risk:
+
+- `WorkspaceModel` still explicitly decides when thread persistence should happen. That is acceptable for now because each workflow owns its persistence boundary, but command dispatch and tool-run orchestration remain the next places to extract before calling the app coordinator A+.
 
 ## 2026-06-24 Sidebar Command Grouping Pass
 

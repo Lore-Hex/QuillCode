@@ -260,8 +260,12 @@ final class ParityGateTests: XCTestCase {
     func testWorkspaceModelDelegatesThreadLifecycleTransitions() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let lifecycleText = try Self.appSourceText(named: "WorkspaceThreadLifecycleEngine.swift")
+        let persistenceText = try Self.appSourceText(named: "WorkspaceThreadPersistence.swift")
 
         XCTAssertTrue(lifecycleText.contains("struct WorkspaceThreadLifecycleEngine"), "Thread lifecycle transitions should live in a focused engine.")
+        XCTAssertTrue(persistenceText.contains("struct WorkspaceThreadPersistence"), "Thread persistence and timestamped mutation should live in a focused helper.")
+        XCTAssertTrue(persistenceText.contains("func mutate("), "Timestamped thread mutation should be directly testable outside WorkspaceModel.")
+        XCTAssertTrue(persistenceText.contains("func saveOrThrow"), "Throwing save semantics should stay isolated from direct JSONThreadStore calls.")
         XCTAssertTrue(lifecycleText.contains("static func renameThread"), "Thread rename mutation should be directly testable.")
         XCTAssertTrue(lifecycleText.contains("static func archiveThread"), "Thread archive fallback selection should be directly testable.")
         XCTAssertTrue(lifecycleText.contains("static func unarchiveThread"), "Thread unarchive mutation should be directly testable.")
@@ -271,11 +275,15 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(modelText.contains("WorkspaceThreadLifecycleEngine.archiveThread"), "WorkspaceModel should delegate thread archive mutation.")
         XCTAssertTrue(modelText.contains("WorkspaceThreadLifecycleEngine.deleteThread"), "WorkspaceModel should delegate thread delete mutation.")
         XCTAssertTrue(modelText.contains("WorkspaceThreadLifecycleEngine.applyAgentRunThreadUpdate"), "WorkspaceModel should delegate agent-run thread upsert and fallback selection.")
+        XCTAssertTrue(modelText.contains("WorkspaceThreadPersistence(store: threadStore)"), "WorkspaceModel should bridge its existing initializer to the thread persistence helper.")
+        XCTAssertTrue(modelText.contains("threadPersistence.mutate"), "WorkspaceModel should delegate timestamped thread mutation.")
         XCTAssertFalse(modelText.contains("thread.title = trimmed"), "WorkspaceModel should not own thread rename mutation.")
         XCTAssertFalse(modelText.contains("thread.isArchived = true"), "WorkspaceModel should not own thread archive mutation.")
         XCTAssertFalse(modelText.contains("thread.isArchived = false"), "WorkspaceModel should not own thread unarchive mutation.")
         XCTAssertFalse(modelText.contains("private func upsertThread"), "WorkspaceModel should not own generic thread upsert mutation.")
         XCTAssertFalse(modelText.contains("private func selectUpdatedThread"), "WorkspaceModel should not own agent-run fallback selection mutation.")
+        XCTAssertFalse(modelText.contains("threadStore?.save"), "WorkspaceModel should not call JSONThreadStore save directly.")
+        XCTAssertFalse(modelText.contains("threadStore?.delete"), "WorkspaceModel should not call JSONThreadStore delete directly.")
     }
 
     func testWorkspaceModelDelegatesConfigurationTransitions() throws {
