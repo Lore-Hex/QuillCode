@@ -326,7 +326,7 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
         return result.artifacts
             .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
             .map { value in
-                ToolArtifactState(value: value, textPreview: ToolArtifactPreviewBuilder.textPreview(for: value))
+                ToolArtifactState(value: value, textPreview: ToolArtifactTextPreviewBuilder.textPreview(for: value))
             }
     }
 
