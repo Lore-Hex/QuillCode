@@ -68,7 +68,7 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
         ])
 
         XCTAssertEqual(catalog?.first?.id, TrustedRouterDefaults.fastModel)
-        XCTAssertTrue(catalog?.contains { $0.id == TrustedRouterDefaults.synthModel && $0.displayName == "Prometheus 1.0" } == true)
+        XCTAssertTrue(catalog?.contains { $0.id == TrustedRouterDefaults.synthModel && $0.displayName == "Synth" } == true)
         XCTAssertTrue(catalog?.contains { $0.id == TrustedRouterDefaults.synthCodeModel && $0.displayName == "Synth Code" } == true)
         XCTAssertTrue(catalog?.contains { $0.id == "vendor/model" } == true)
     }

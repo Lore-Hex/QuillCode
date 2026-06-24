@@ -721,13 +721,13 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(modelInfoText.contains("public struct ModelSortKey"), "Model sort policy inputs should live beside model catalog records.")
         XCTAssertTrue(defaultsText.contains("public enum TrustedRouterDefaults"), "TrustedRouter defaults should live in their own named core file.")
         XCTAssertTrue(defaultsText.contains("Nike 1.0"), "User-facing default model branding should stay with TrustedRouter defaults.")
-        XCTAssertTrue(defaultsText.contains("Prometheus 1.0"), "User-facing fallback model branding should stay with TrustedRouter defaults.")
+        XCTAssertTrue(defaultsText.contains("Synth"), "User-facing fallback model branding should stay with TrustedRouter defaults.")
         XCTAssertTrue(defaultsText.contains("normalizedModelCatalog"), "Model catalog normalization should stay with TrustedRouter defaults.")
         XCTAssertFalse(modelsText.contains("public struct ModelInfo"), "General domain models should not own model catalog records.")
         XCTAssertFalse(modelsText.contains("public struct ModelSortKey"), "General domain models should not own model sort records.")
         XCTAssertFalse(modelsText.contains("public enum TrustedRouterDefaults"), "General domain models should not own TrustedRouter defaults.")
         XCTAssertFalse(modelsText.contains("Nike 1.0"), "General domain models should not own model branding copy.")
-        XCTAssertFalse(modelsText.contains("Prometheus 1.0"), "General domain models should not own model branding copy.")
+        XCTAssertFalse(modelsText.contains("Synth"), "General domain models should not own model branding copy.")
     }
 
     func testAppConfigLivesOutsideGeneralDomainModels() throws {

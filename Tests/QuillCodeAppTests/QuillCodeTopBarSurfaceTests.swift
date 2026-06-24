@@ -109,7 +109,7 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
             [TrustedRouterDefaults.defaultModel]
         )
         XCTAssertEqual(
-            ModelCategorySearchFilter.filter(categories, matching: "recent prometheus").flatMap(\.models).map(\.id),
+            ModelCategorySearchFilter.filter(categories, matching: "recent synth").flatMap(\.models).map(\.id),
             [TrustedRouterDefaults.synthModel]
         )
     }

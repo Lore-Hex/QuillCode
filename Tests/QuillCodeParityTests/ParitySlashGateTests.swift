@@ -67,4 +67,23 @@ final class ParitySlashGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(slashText.contains("Unknown mode"), "Outer slash parser should not own mode error copy.")
         XCTAssertFalse(slashText.contains("Usage: /mode auto"), "Outer slash parser should not own mode usage copy.")
     }
+
+    func testSlashParserDelegatesSchedulingSubcommands() throws {
+        let slashText = try Self.appSourceText(named: "SlashCommand.swift")
+        let schedulingParserText = try Self.appSourceText(named: "SlashSchedulingCommandParser.swift")
+        let schedulingParserTests = try Self.appTestSourceText(named: "SlashSchedulingCommandParserTests.swift")
+
+        XCTAssertTrue(slashText.contains("SlashSchedulingCommandParser.parseThreadFollowUp(argument)"), "Outer slash parser should delegate thread follow-up scheduling.")
+        XCTAssertTrue(slashText.contains("SlashSchedulingCommandParser.parseWorkspaceSchedule(argument)"), "Outer slash parser should delegate workspace scheduling.")
+        XCTAssertTrue(schedulingParserText.contains("enum SlashSchedulingCommandParser"), "Scheduling slash parsing should live in a focused parser.")
+        XCTAssertTrue(schedulingParserText.contains("Usage: /follow-up in 30 minutes"), "Follow-up usage copy should live with scheduling parser semantics.")
+        XCTAssertTrue(schedulingParserText.contains("Usage: /workspace-check in 1 hour"), "Workspace-check usage copy should live with scheduling parser semantics.")
+        XCTAssertTrue(schedulingParserTests.contains("testThreadFollowUpSchedulesTrimmedArgument"), "Follow-up schedule trimming should have focused parser coverage.")
+        XCTAssertTrue(schedulingParserTests.contains("testWorkspaceScheduleSchedulesTrimmedArgument"), "Workspace schedule trimming should have focused parser coverage.")
+        XCTAssertTrue(schedulingParserTests.contains("testTopLevelSchedulingAliasesDelegateToSchedulingParser"), "Scheduling aliases should have focused parser coverage.")
+        XCTAssertFalse(slashText.contains(".threadFollowUp(argument)"), "Outer slash parser should not build thread follow-up commands inline.")
+        XCTAssertFalse(slashText.contains(".workspaceSchedule(argument)"), "Outer slash parser should not build workspace schedule commands inline.")
+        XCTAssertFalse(slashText.contains("Usage: /follow-up in 30 minutes"), "Outer slash parser should not own follow-up usage copy.")
+        XCTAssertFalse(slashText.contains("Usage: /workspace-check in 1 hour"), "Outer slash parser should not own workspace-check usage copy.")
+    }
 }

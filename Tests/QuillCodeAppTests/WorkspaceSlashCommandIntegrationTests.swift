@@ -140,7 +140,7 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
         XCTAssertTrue(model.currentToolCards.isEmpty)
     }
 
-    func testSlashModelLegacyFusionAliasWritesPreferredPrometheusTranscript() async throws {
+    func testSlashModelLegacyFusionAliasWritesPreferredSynthTranscript() async throws {
         let model = QuillCodeWorkspaceModel()
 
         model.setDraft("/model /fusion")
@@ -148,7 +148,7 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
 
         XCTAssertEqual(model.root.config.defaultModel, TrustedRouterDefaults.synthModel)
         XCTAssertEqual(model.selectedThread?.model, TrustedRouterDefaults.synthModel)
-        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Model set to Prometheus 1.0 (/synth).")
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "Model set to Synth (/synth).")
         XCTAssertTrue(model.currentToolCards.isEmpty)
     }
 

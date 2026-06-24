@@ -15,7 +15,7 @@ public enum TrustedRouterDefaults {
     public static let currentCategory = "Current"
     public static let trustedRouterProvider = "trustedrouter"
     public static let fastModelDisplayName = "Nike 1.0"
-    public static let synthModelDisplayName = "Prometheus 1.0"
+    public static let synthModelDisplayName = "Synth"
     public static let synthCodeModelDisplayName = "Synth Code"
     public static let synthSlashAlias = "/synth"
     public static let synthCodeSlashAlias = "/synth-code"
