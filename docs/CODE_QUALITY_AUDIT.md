@@ -4368,3 +4368,18 @@ What changed:
 
 Remaining risk:
 - QuillCloud relay sessions and future persistent remote transports will need their own disconnect lifecycle. The current command is ready for that because it already sits behind the shared command/action/executor path, but today it only stops MCP servers and detaches SSH Remote context.
+
+## 2026-06-24 Model Picker Surface Integration Split
+
+Overall grade after this slice: **A test ownership, A conflict reduction, A parity guard**.
+
+`WorkspaceSurfaceTests.swift` still owned model-picker integration cases even though model picker construction, filtering, and DTO compatibility had already been split into focused app tests. That kept a large, frequently edited catch-all file in the path of model naming and top-bar work.
+
+What changed:
+- Added `WorkspaceModelPickerSurfaceIntegrationTests` for workspace-state coverage of model category grouping, search, unknown selected models, recent/favorite ordering, and badge metadata.
+- Removed the same coverage from `WorkspaceSurfaceTests.swift`.
+- Left older payload decoding in `QuillCodeTopBarSurfaceTests`, where the `ModelOptionSurface` Codable contract lives.
+- Added a top-bar parity guard that fails if these cases drift back into the broad workspace surface suite.
+
+Remaining risk:
+- `WorkspaceSurfaceTests.swift` is still large because it covers command, sidebar, browser, memory, activity, and automation projections. Keep extracting feature-family integration suites when a family has enough related tests and active parallel work.

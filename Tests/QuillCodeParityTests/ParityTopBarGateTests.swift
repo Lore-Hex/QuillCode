@@ -121,4 +121,37 @@ final class ParityTopBarGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(surfaceText.contains("TopBarSurface("), "WorkspaceSurface should not construct top-bar records directly.")
         XCTAssertFalse(surfaceText.contains("private func modelCatalogBuilder"), "WorkspaceSurface should not own top-bar model catalog builder plumbing.")
     }
+
+    func testModelPickerWorkspaceIntegrationCoverageStaysFocused() throws {
+        let broadSurfaceTests = try Self.appTestSourceText(named: "WorkspaceSurfaceTests.swift")
+        let modelPickerTests = try Self.appTestSourceText(named: "WorkspaceModelPickerSurfaceIntegrationTests.swift")
+        let topBarTests = try Self.appTestSourceText(named: "QuillCodeTopBarSurfaceTests.swift")
+        let modelPickerCases = [
+            "testSurfaceGroupsCustomModelCatalogByCategory",
+            "testTopBarFiltersModelCatalogByProviderCategoryAndModel",
+            "testSurfaceKeepsUnknownSelectedModelVisible",
+            "testModelPickerShowsRecentModelsAndBadges",
+            "testModelPickerShowsFavoriteModelsBeforeRecent"
+        ]
+
+        for testCase in modelPickerCases {
+            XCTAssertTrue(
+                modelPickerTests.contains("func \(testCase)"),
+                "\(testCase) should live in WorkspaceModelPickerSurfaceIntegrationTests."
+            )
+            XCTAssertFalse(
+                broadSurfaceTests.contains("func \(testCase)"),
+                "\(testCase) should not drift back into the broad WorkspaceSurfaceTests file."
+            )
+        }
+
+        XCTAssertTrue(
+            topBarTests.contains("func testModelOptionDecodesOlderPayloadWithoutBadges"),
+            "Model option Codable compatibility belongs with the top-bar surface contract."
+        )
+        XCTAssertFalse(
+            broadSurfaceTests.contains("func testModelOptionDecodesOlderPayloadWithoutBadges"),
+            "Broad workspace surface tests should not duplicate focused top-bar Codable coverage."
+        )
+    }
 }
