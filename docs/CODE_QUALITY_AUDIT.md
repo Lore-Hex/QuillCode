@@ -2694,3 +2694,21 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelIntegrationTestSupport` is now a useful common fixture boundary, but it should not grow into a second monolith. Future broad fixtures should move into domain-specific support files once two or more focused integration files need them.
+
+## 2026-06-24 Workspace Browser Integration Test Pass
+
+Overall grade after this slice: **A feature grouping, A behavior preservation, A regression guard**.
+
+Browser integration tests moved from `WorkspaceModelTests.swift` into `WorkspaceBrowserIntegrationTests`. The model test file no longer owns browser preview normalization, local HTML snapshots, fetched web snapshots, browser comments, history/reload behavior, invalid-address errors, or composer-driven browser inspection flows.
+
+Code quality changes:
+
+- Added `WorkspaceBrowserIntegrationTests` for browser flows crossing workspace model, browser state, static/fetched page snapshots, comments, tool cards, and transcript messages.
+- Moved the fake browser page fetcher into the focused integration suite that uses it.
+- Kept pure browser reducer/location/surface coverage in `WorkspaceBrowserEngineTests`, `WorkspaceBrowserLocationResolverTests`, and `QuillCodeBrowserSurfaceTests`.
+- Added a parity gate that keeps model-level browser integration method names out of `WorkspaceModelTests.swift`.
+- Reduced `WorkspaceModelTests.swift` without weakening browser behavior coverage.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still large. Review actions, composer send/cancel flows, bootstrap/config, and project/worktree command groups remain future extraction candidates.
