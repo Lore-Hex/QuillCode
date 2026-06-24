@@ -3751,3 +3751,18 @@ What changed:
 
 Remaining risk:
 - `QuillCodeThreadSidebarSurface.swift` still owns both thread row action defaults and the aggregate sidebar wrapper. That is appropriate while the behavior stays compact; if archived/pinned/search behavior gains richer compatibility decoding or row badges, split `SidebarItemSurface` into a focused row contract file.
+
+## 2026-06-24 Native Sidebar Thread Row Split
+
+Overall grade after this slice: **A+ sidebar thread-row ownership, A native sidebar scanability, A+ parity guard**.
+
+The native sidebar thread list still owned the per-row interaction details for selecting threads, toggling bulk selection, and opening row actions. Those details are likely to expand as Codex-parity controls grow, so keeping them inline with section/list composition made the list file responsible for both collection layout and individual row behavior.
+
+What changed:
+- Added `QuillCodeSidebarThreadRowView.swift` as the focused owner for thread-row selection, action menus, selected styling, minimum hit targets, and bulk-selection toggles.
+- Kept `QuillCodeSidebarThreadListView.swift` at the collection/section level so it composes pinned, recent, and archived groups without owning row internals.
+- Preserved the shared sidebar command adapter for bulk-selection payload construction.
+- Tightened the parity gate so row rendering and toggle-selection behavior cannot drift back into the thread-list or sidebar shell files.
+
+Remaining risk:
+- `QuillCodeSidebarThreadListView.swift` still owns the thread section header view. That is acceptable while section policy is just a title and row loop; split it later if sections gain per-group counters, collapsible state, drag targets, or richer Codex-style status summaries.
