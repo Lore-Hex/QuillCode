@@ -309,6 +309,33 @@ public final class QuillCodeWorkspaceModel {
     }
 
     @discardableResult
+    public func refreshRenderedBrowserSnapshot(capturer: any BrowserLiveDOMCapturing) async -> Bool {
+        guard let request = WorkspaceBrowserWorkflow.beginLiveDOMCapture(browser: &browser) else { return false }
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+
+        do {
+            let snapshot = try await capturer.captureLiveDOM(for: request.captureURL)
+            guard WorkspaceBrowserWorkflow.applyLiveDOMCaptureSuccess(
+                snapshot,
+                request: request,
+                browser: &browser,
+                lastError: &lastError
+            ) else { return false }
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+            return true
+        } catch {
+            guard WorkspaceBrowserWorkflow.applyLiveDOMCaptureFailure(
+                error,
+                request: request,
+                browser: &browser,
+                lastError: &lastError
+            ) else { return false }
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+            return false
+        }
+    }
+
+    @discardableResult
     public func addBrowserComment(_ text: String) -> Bool {
         WorkspaceBrowserWorkflow.addComment(text, browser: &browser)
     }

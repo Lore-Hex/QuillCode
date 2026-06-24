@@ -72,6 +72,14 @@ enum BrowserInspector {
         )
     }
 
+    static func snapshot(for liveDOMSnapshot: BrowserLiveDOMSnapshot, originalURL: URL) -> BrowserSnapshotState {
+        BrowserLiveDOMSnapshotBuilder.snapshot(
+            liveDOMSnapshot,
+            originalURL: originalURL,
+            sourceLabel: sourceLabel(for: originalURL)
+        )
+    }
+
     static func toolResult(from browser: BrowserState) -> ToolResult {
         guard let currentURL = browser.currentURL else {
             return ToolResult(ok: false, error: "No browser page is open.")

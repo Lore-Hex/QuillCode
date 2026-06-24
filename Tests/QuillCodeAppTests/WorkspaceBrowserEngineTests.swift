@@ -70,6 +70,33 @@ final class WorkspaceBrowserEngineTests: XCTestCase {
         XCTAssertEqual(browser.snapshot?.inspectionDepth, .networkHTMLSnapshot)
     }
 
+    func testLiveDOMSnapshotReplacesCurrentHistoryEntry() throws {
+        var browser = BrowserState()
+        let originalURL = try XCTUnwrap(URL(string: "http://localhost:5173"))
+        WorkspaceBrowserEngine.openPage(originalURL, state: &browser, updateHistory: true)
+
+        WorkspaceBrowserEngine.applyLiveDOMSnapshot(
+            BrowserLiveDOMSnapshot(
+                finalURL: try XCTUnwrap(URL(string: "http://localhost:5173/dashboard")),
+                title: "Rendered Dashboard",
+                visibleText: "Dashboard ready",
+                outline: ["H1: Rendered Dashboard"]
+            ),
+            originalURL: originalURL,
+            state: &browser
+        )
+
+        XCTAssertEqual(browser.currentURL, "http://localhost:5173/dashboard")
+        XCTAssertEqual(browser.addressDraft, "http://localhost:5173/dashboard")
+        XCTAssertEqual(browser.history, ["http://localhost:5173/dashboard"])
+        XCTAssertEqual(browser.historyIndex, 0)
+        XCTAssertEqual(browser.title, "Rendered Dashboard")
+        XCTAssertEqual(browser.status, "Preview ready")
+        XCTAssertEqual(browser.snapshot?.inspectionDepth, .liveDOMSnapshot)
+        XCTAssertEqual(browser.snapshot?.outline, ["H1: Rendered Dashboard"])
+        XCTAssertEqual(browser.snapshot?.textSnippet, "Dashboard ready")
+    }
+
     func testSnapshotFetchFailureKeepsSnapshotAndAddsReadableDetail() throws {
         var browser = BrowserState()
         WorkspaceBrowserEngine.openPage(try XCTUnwrap(URL(string: "https://example.com")), state: &browser, updateHistory: true)
@@ -78,6 +105,16 @@ final class WorkspaceBrowserEngineTests: XCTestCase {
 
         XCTAssertEqual(browser.status, "Preview ready")
         XCTAssertTrue(browser.snapshot?.details.contains("Snapshot fetch: The page returned HTTP 503.") == true)
+    }
+
+    func testLiveDOMCaptureFailureKeepsSnapshotAndAddsReadableDetail() throws {
+        var browser = BrowserState()
+        WorkspaceBrowserEngine.openPage(try XCTUnwrap(URL(string: "https://example.com")), state: &browser, updateHistory: true)
+
+        WorkspaceBrowserEngine.markLiveDOMCaptureFailure(BrowserLiveDOMCaptureFailure.noRenderedSession, state: &browser)
+
+        XCTAssertEqual(browser.status, "Preview ready")
+        XCTAssertTrue(browser.snapshot?.details.contains("Live DOM capture: No rendered browser session is attached.") == true)
     }
 
     func testAddCommentTrimsTextAndRequiresCurrentURL() throws {
