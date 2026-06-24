@@ -508,6 +508,24 @@ Interface polish changes:
 - Worktree and rename dialogs share labeled-field and frame helpers, keeping field labels, helper text, and text-field hit targets consistent.
 - WorkspaceSwiftUIView now only presents dialogs and routes their completed actions; dialog-specific draft, row, icon, and empty-state rendering is isolated.
 
+## 2026-06-24 Workspace Dialog Ownership Pass
+
+Overall grade after this slice: **A- foundation, A- dialog architecture**.
+
+`QuillCodeWorkspaceDialogs.swift` had become another bucket file after the first extraction from `WorkspaceSwiftUIView.swift`: it mixed rename sheets, command palette rendering, keyboard shortcut rows, chat search rows, worktree drafts, worktree sheets, shared dialog fields, and command icon mapping. The behavior was solid, but the file-level ownership was B/B+ because a future command-palette change could collide with unrelated worktree or search edits.
+
+Ownership changes:
+
+- `QuillCodeCommandPaletteDialog.swift` now owns command palette focus, keyboard navigation, grouped command rows, and command icon mapping.
+- `QuillCodeSearchAndShortcutDialogs.swift` now owns chat search and keyboard shortcut rendering.
+- `QuillCodeWorktreeDialogs.swift` now owns worktree create/remove drafts and sheets.
+- `QuillCodeDialogChrome.swift` now owns shared dialog header, section title, empty state, and labeled text-field primitives.
+- `QuillCodeWorkspaceDialogs.swift` is now a small rename-sheet file, keeping rename state separate from broader command and worktree workflows.
+
+Validation:
+
+- `ParityGateTests/testWorkspaceSwiftUIViewDelegatesSheetPresentation` now asserts sheet wiring remains outside the workspace shell and each dialog family remains in its focused owner file.
+
 ## 2026-06-22 Desktop Bootstrap Split Pass
 
 Overall grade after this slice: **A- foundation, B+ product surface maturity**.
