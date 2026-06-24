@@ -18,7 +18,7 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
         var config = AppConfig(defaultModel: TrustedRouterDefaults.fastModel)
         var thread = ChatThread(model: TrustedRouterDefaults.fastModel)
 
-        let modelID = WorkspaceConfigurationEngine.setModel(" trustedrouter/fusion ", config: &config)
+        let modelID = WorkspaceConfigurationEngine.setModel(" /synth ", config: &config)
         WorkspaceConfigurationEngine.setModelID(modelID, thread: &thread)
 
         XCTAssertEqual(modelID, TrustedRouterDefaults.synthModel)
@@ -39,7 +39,7 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
     }
 
     func testFavoriteToggleCanonicalizesDedupesAndRejectsBlank() {
-        var config = AppConfig(favoriteModels: ["trustedrouter/fusion", "z-ai/glm-5.2"])
+        var config = AppConfig(favoriteModels: ["/synth", "z-ai/glm-5.2"])
 
         XCTAssertFalse(WorkspaceConfigurationEngine.toggleFavorite("  ", config: &config))
         XCTAssertEqual(config.favoriteModels, [TrustedRouterDefaults.synthModel, "z-ai/glm-5.2"])
@@ -51,7 +51,7 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
             TrustedRouterDefaults.fastModel
         ])
 
-        XCTAssertTrue(WorkspaceConfigurationEngine.toggleFavorite("trustedrouter/fusion", config: &config))
+        XCTAssertTrue(WorkspaceConfigurationEngine.toggleFavorite("/synth", config: &config))
         XCTAssertEqual(config.favoriteModels, [
             "z-ai/glm-5.2",
             TrustedRouterDefaults.fastModel
@@ -62,8 +62,8 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
         XCTAssertNil(WorkspaceConfigurationEngine.normalizedCatalog(from: []))
 
         let catalog = WorkspaceConfigurationEngine.normalizedCatalog(from: [
-            ModelInfo(id: " trustedrouter/fusion ", provider: "tr", displayName: "", category: ""),
-            ModelInfo(id: " trustedrouter/fusion-code ", provider: "tr", displayName: "Fusion Code", category: ""),
+            ModelInfo(id: " /synth ", provider: "tr", displayName: "", category: ""),
+            ModelInfo(id: " /synth-code ", provider: "tr", displayName: "Synth Code", category: ""),
             ModelInfo(id: "vendor/model", provider: "vendor", displayName: "Model", category: "Vendor")
         ])
 
@@ -77,7 +77,7 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
         let thread = ChatThread(mode: .auto, model: TrustedRouterDefaults.fastModel)
         var root = QuillCodeRootState(threads: [thread], selectedThreadID: thread.id)
         let config = AppConfig(
-            defaultModel: "trustedrouter/fusion",
+            defaultModel: "/synth",
             mode: .readOnly,
             apiBaseURL: "https://api.trustedrouter.test/v1",
             developerOverrideEnabled: true

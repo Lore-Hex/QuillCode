@@ -31,10 +31,10 @@ final class WorkspaceModelCatalogSurfaceBuilderTests: XCTestCase {
                 ModelInfo(id: "tr/fast", provider: "tr", displayName: "", category: ""),
                 ModelInfo(id: "moonshotai/kimi-k2.6", provider: "moonshotai", displayName: "Kimi K2.6", category: "Safety")
             ],
-            selectedModelID: " trustedrouter/fusion ",
+            selectedModelID: " /synth ",
             defaultModelID: "tr/fast",
-            favoriteModelIDs: [" trustedrouter/fusion ", "tr/fusion"],
-            recentModelIDs: ["moonshotai/kimi-k2.6", "tr/fusion", "moonshotai/kimi-k2.6"],
+            favoriteModelIDs: [" /synth ", "tr/synth"],
+            recentModelIDs: ["moonshotai/kimi-k2.6", "/synth", "moonshotai/kimi-k2.6"],
             recentLimit: 4
         )
 
