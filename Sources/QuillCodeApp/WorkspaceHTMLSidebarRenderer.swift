@@ -60,7 +60,7 @@ enum WorkspaceHTMLSidebarRenderer {
 
         return [
             renderSection(title: "Pinned", items: sidebar.pinnedItems),
-            renderSection(title: "Recent", items: sidebar.recentItems),
+            sidebar.recentSections().map { renderSection(title: $0.title, items: $0.items) }.joined(separator: "\n"),
             renderSection(title: "Archived", items: sidebar.archivedItems)
         ]
         .filter { !$0.isEmpty }

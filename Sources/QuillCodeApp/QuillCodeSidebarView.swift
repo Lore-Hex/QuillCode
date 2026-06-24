@@ -84,10 +84,10 @@ struct QuillCodeSidebarView: View {
                             onCommand: onCommand
                         )
                     }
-                    if !sidebar.recentItems.isEmpty {
+                    ForEach(sidebar.recentSections()) { section in
                         QuillCodeSidebarThreadSectionView(
-                            title: "Recent",
-                            items: sidebar.recentItems,
+                            title: section.title,
+                            items: section.items,
                             isSelectionMode: sidebar.isSelectionMode,
                             onSelectThread: onSelectThread,
                             onThreadAction: onThreadAction,
@@ -175,6 +175,8 @@ private struct QuillCodeSidebarThreadSectionView: View {
             Text(title.uppercased())
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)
+                .lineLimit(1)
+                .truncationMode(.tail)
                 .padding(.top, 4)
             ForEach(items) { item in
                 QuillCodeSidebarThreadRowView(

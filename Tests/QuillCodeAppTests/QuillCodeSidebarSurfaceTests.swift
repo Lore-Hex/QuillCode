@@ -76,9 +76,60 @@ final class QuillCodeSidebarSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.filteredItems(matching: "archived").map(\.title), ["Old release plan"])
         XCTAssertEqual(surface.pinnedItems.map(\.title), ["Review git diff"])
         XCTAssertEqual(surface.recentItems.map(\.title), ["Run whoami"])
+        XCTAssertEqual(surface.recentSections().map(\.title), ["Today"])
+        XCTAssertEqual(surface.recentSections().flatMap(\.items).map(\.title), ["Run whoami"])
         XCTAssertEqual(surface.archivedItems.map(\.title), ["Old release plan"])
         XCTAssertEqual(surface.bulkActions.map(\.commandID), ["thread-selection-clear", "thread-bulk-delete"])
         XCTAssertEqual(surface.bulkActions.last?.isDestructive, true)
+    }
+
+    func testSidebarRecentSectionsGroupByTimeBucket() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: 2026,
+            month: 6,
+            day: 24,
+            hour: 12
+        )))
+        func date(day: Int, hour: Int = 9) throws -> Date {
+            try XCTUnwrap(calendar.date(from: DateComponents(
+                timeZone: calendar.timeZone,
+                year: 2026,
+                month: 6,
+                day: day,
+                hour: hour
+            )))
+        }
+
+        let today = ChatThread(title: "Today task", updatedAt: try date(day: 24, hour: 9))
+        let laterToday = ChatThread(title: "Later today task", updatedAt: try date(day: 24, hour: 11))
+        let yesterday = ChatThread(title: "Yesterday task", updatedAt: try date(day: 23))
+        let lastWeek = ChatThread(title: "Earlier this week", updatedAt: try date(day: 19))
+        let sevenDaysAgo = ChatThread(title: "Seven days ago", updatedAt: try date(day: 16))
+        let older = ChatThread(title: "Old notes", updatedAt: try date(day: 1))
+        var pinned = ChatThread(title: "Pinned never grouped", isPinned: true, updatedAt: try date(day: 24))
+        pinned.isPinned = true
+        var archived = ChatThread(title: "Archived never grouped", updatedAt: try date(day: 24))
+        archived.isArchived = true
+
+        let surface = SidebarSurface(
+            items: [today, laterToday, yesterday, lastWeek, sevenDaysAgo, older, pinned, archived].map {
+                SidebarItemSurface(item: SidebarItem(thread: $0), selectedThreadID: nil)
+            },
+            selectedThreadID: nil
+        )
+
+        let sections = surface.recentSections(now: now, calendar: calendar)
+
+        XCTAssertEqual(sections.map(\.title), ["Today", "Yesterday", "Previous 7 days", "Older"])
+        XCTAssertEqual(sections.map { $0.items.map(\.title) }, [
+            ["Later today task", "Today task"],
+            ["Yesterday task"],
+            ["Earlier this week", "Seven days ago"],
+            ["Old notes"]
+        ])
     }
 
     func testSidebarSurfaceDecodesOlderPayloadWithoutSelectionMetadata() throws {
@@ -133,6 +184,7 @@ final class QuillCodeSidebarSurfaceTests: XCTestCase {
         XCTAssertTrue(item.isSelected)
         XCTAssertFalse(item.isBulkSelected)
         XCTAssertFalse(item.isArchived)
+        XCTAssertEqual(item.updatedAt, .distantPast)
         XCTAssertEqual(item.actions, [])
     }
 
