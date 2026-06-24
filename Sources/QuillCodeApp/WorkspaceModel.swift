@@ -1138,22 +1138,18 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
 
         let router = ToolRouter(workspaceRoot: workspaceRoot)
-        let actionCall = WorkspaceReviewActionToolCallPlanner.toolCall(for: action)
+        let runPlan = WorkspaceReviewActionToolCallPlanner.runPlan(for: action)
         let executor = workspaceToolCallExecutor(router: router)
-        let actionResult = executor.executePrimary(actionCall)
-        appendToolRun(call: actionCall, result: actionResult)
+        let actionResult = executor.executePrimary(runPlan.actionCall)
+        appendToolRun(call: runPlan.actionCall, result: actionResult)
 
-        let diffCall = ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}")
-        let diffResult = executor.executePrimary(diffCall)
-        appendToolRun(call: diffCall, result: diffResult)
+        let diffResult = executor.executePrimary(runPlan.diffRefreshCall)
+        appendToolRun(call: runPlan.diffRefreshCall, result: diffResult)
 
         if let thread = selectedThread {
             try? threadStore?.save(thread)
         }
-        let status = actionResult.ok && diffResult.ok
-            ? TopBarAgentStatusLabel.idle
-            : TopBarAgentStatusLabel.failed
-        refreshTopBar(agentStatus: status)
+        refreshTopBar(agentStatus: runPlan.finalStatus(actionResult: actionResult, diffRefreshResult: diffResult))
     }
 
     @discardableResult
