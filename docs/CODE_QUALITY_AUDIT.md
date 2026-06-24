@@ -2217,7 +2217,24 @@ Code quality changes:
 
 Remaining risk:
 
-- Safety-review transport still shares TrustedRouter JSON response parameters with the action client. That is fine while both request JSON objects; split to a dedicated safety request options type if either endpoint's parameters diverge.
+- Safety-review transport is still intentionally thin. If reviewer calls start carrying additional telemetry, retries, or model-specific options, add those beside `TrustedRouterSafetyModelClient` rather than expanding the action transport.
+
+## 2026-06-23 TrustedRouter Chat Parameters Pass
+
+Overall grade after this slice: **A dependency direction, A request-parameter ownership, A regression coverage**.
+
+Shared TrustedRouter JSON response parameters no longer live on the action client. Both action streaming and Auto-review transport now use `TrustedRouterChatParameters.jsonObjectResponse`, so `TrustedRouterSafetyModelClient` has no dependency on `TrustedRouterLLMClient`.
+
+Code quality changes:
+
+- Added `TrustedRouterChatParameters` as the single owner of the JSON-object response-format payload.
+- Rewired action and safety transports to use the shared parameter catalog.
+- Added a parity gate preventing raw response-format payloads from drifting back into either transport.
+- Updated the decision log to document the dependency direction.
+
+Remaining risk:
+
+- If TrustedRouter adds native tool-calling parameters, those should become explicit parameter values here instead of adding one-off dictionaries in transport methods.
 
 ## 2026-06-23 Native Top Bar Simplification Pass
 
