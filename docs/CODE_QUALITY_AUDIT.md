@@ -4157,3 +4157,19 @@ What changed:
 
 Remaining risk:
 - The command palette and sidebar intentionally share SF Symbols through `QuillCodeCommandIconCatalog`, while HTML icon tokens remain sidebar-specific CSS tokens. If the HTML shell later adopts a richer icon system, add a dedicated HTML token catalog rather than mixing native symbol names into static markup.
+
+## 2026-06-24 Workspace Slash Dispatch Planner
+
+Overall grade after this slice: **A slash dispatch boundary, A model readability, A regression guard**.
+
+`WorkspaceModel.handleSlashCommand` still switched directly over every parsed `SlashCommand` case. The individual parsers and command-family planners were already split out, but the largest model still owned the raw parsed-command dispatch vocabulary plus local transcript decisions for help/status/invalid/unknown commands.
+
+What changed:
+- Added `WorkspaceSlashCommandDispatchPlanner` to map parsed slash commands into typed `WorkspaceSlashCommandDispatchAction` values.
+- Reduced `WorkspaceModel.handleSlashCommand` to planner lookup, typed action application, and shared send/top-bar cleanup.
+- Kept stateful effects in the model where they belong: thread/project renames, settings mutation, tool execution, environment actions, and persistence still go through existing model methods.
+- Added direct planner tests for help/status transcripts, stateful command actions, external command families, invalid commands, and unknown commands.
+- Added a parity gate so raw slash-command case handling does not drift back into `WorkspaceModel`.
+
+Remaining risk:
+- `WorkspaceModel.runSlashCommandDispatchAction` still applies the typed action switch because it owns mutable app state. If this grows new side-effect families, split the action application into a dedicated executor that receives a narrow model-facing protocol instead of exposing more raw model internals.
