@@ -2504,6 +2504,23 @@ Code quality changes:
 - Added a parity gate that requires action parsing, argument normalization, and recovery logic to stay outside the TrustedRouter transport client.
 - Preserved existing parser behavior and tests from the hardening pass.
 
+## 2026-06-24 Agent Action Parser Helper Split
+
+Overall grade after this slice: **A+ parser focus, A+ malformed shell recovery boundary, A+ JSON extraction ownership**.
+
+`AgentActionJSONParser.swift` was already separate from TrustedRouter transport, but it still mixed four jobs: stripping fences and finding embedded JSON objects, routing action types, normalizing tool arguments, and recovering explicit shell commands from prose. That made the empty-shell-command reliability path harder to reason about because JSON scanning and natural-language recovery were interleaved with canonical tool argument rules.
+
+Code quality changes:
+
+- Added `AgentActionJSONExtractor.swift` for code-fence stripping and balanced JSON-object extraction from prose.
+- Added `AgentShellCommandRecovery.swift` for conservative explicit shell-command recovery from model prose.
+- Kept `AgentActionJSONParser.swift` focused on action routing, tool-name detection, argument normalization, and final non-empty argument validation.
+- Tightened the parity gate so JSON scanning and prose shell-command recovery cannot drift back into the parser or TrustedRouter transport client.
+
+Remaining risk:
+
+- Tool argument normalization is still a large switch because it mirrors the current built-in tool catalog. If tool aliases grow substantially, split per-tool alias normalization into a small catalog keyed by `ToolDefinition.name`.
+
 ## 2026-06-23 TrustedRouter Prompt Builder Pass
 
 Overall grade after this slice: **A transport boundary, A prompt contract clarity, A regression coverage**.
