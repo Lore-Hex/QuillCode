@@ -51,6 +51,26 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(controllerText.contains("sendTaskID"), "Desktop controller should not own manual task identity bookkeeping.")
     }
 
+    func testDesktopBrowserLiveDOMCaptureUsesFocusedAdapter() throws {
+        let desktopText = try Self.desktopSourceText()
+        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let capturerText = try Self.desktopSourceText(named: "DesktopBrowserLiveDOMCapturer.swift")
+
+        XCTAssertTrue(desktopText.contains("DesktopBrowserLiveDOMCapturer"), "Desktop should provide a native rendered-browser capture adapter.")
+        XCTAssertTrue(capturerText.contains("BrowserLiveDOMCapturing"), "Desktop live DOM capture should implement the shared adapter protocol.")
+        XCTAssertTrue(capturerText.contains("WKWebView"), "Desktop live DOM capture should render pages before inspecting DOM.")
+        XCTAssertTrue(capturerText.contains("evaluateJavaScript"), "Desktop live DOM capture should inspect the rendered page DOM.")
+        XCTAssertTrue(controllerText.contains("browserLiveDOMCapturer"), "Desktop controller should accept live DOM capture as an injectable dependency.")
+        XCTAssertTrue(
+            controllerText.contains("refreshRenderedBrowserSnapshot(capturer: browserLiveDOMCapturer)"),
+            "Desktop browser preview should upgrade fetched snapshots with rendered live DOM when available."
+        )
+        XCTAssertFalse(controllerText.contains("WKWebView"), "Desktop controller should not own WebKit rendering details.")
+        XCTAssertFalse(controllerText.contains("evaluateJavaScript"), "Desktop controller should not own DOM capture details.")
+        XCTAssertFalse(controllerText.contains("import WebKit"), "Desktop controller should not import WebKit.")
+        XCTAssertFalse(controllerText.contains("document.body"), "Desktop controller should not embed browser JavaScript.")
+    }
+
     func testDesktopControllerDelegatesSettingsPersistenceAndSystemSettings() throws {
         let text = try Self.desktopSourceText()
         let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")

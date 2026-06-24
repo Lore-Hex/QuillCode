@@ -4604,3 +4604,23 @@ What changed:
 
 Remaining risk:
 - `ToolTests.swift` is smaller but still owns several tool families. Next low-risk splits should move file/patch, local git, worktree, or generic router coverage into focused suites before adding more tool behavior.
+
+## 2026-06-24 Desktop Browser Live DOM Adapter
+
+Overall grade after this slice: **A- browser backend, A boundary preservation, A regression guard**.
+
+The browser live-DOM work had a clean shared contract, but the desktop app still only fetched static HTTP(S) HTML. That made the architecture look better than the shipped capability: dynamic pages could not be inspected as rendered DOM in the native app.
+
+What changed:
+- Added `DesktopBrowserLiveDOMCapturer`, a macOS desktop adapter that renders HTTP(S) pages in an offscreen non-persistent `WKWebView`.
+- Captures final URL, title, viewport, bounded visible text, bounded outline, and bounded rendered HTML through one JSON-returning JavaScript evaluation.
+- Wired the desktop preview task to fetch the network HTML snapshot first, then opportunistically upgrade it with rendered live DOM through `refreshRenderedBrowserSnapshot`.
+- Added a desktop parity gate proving WebKit/JavaScript details stay in the focused adapter and do not leak into `QuillCodeDesktopController`.
+
+Current strict grades:
+- `QuillCodeApp browser layer`: **A-**. The model/workflow/engine remain platform-free and now have a real desktop caller for the live-DOM path.
+- `quill-code-desktop browser backend`: **A-**. Rendered DOM capture exists and is bounded. It is not A+ until it supports reusable signed-in browser profiles and a native visible WebView session instead of one-shot offscreen capture.
+- `WorkspaceModel.swift`: **B+/A-**. This slice did not grow the model; the main remaining architectural risk is still broad facade size.
+
+Remaining risk:
+- Signed-in browser profile reuse, richer browser session controls, and Linux/browser-process capture remain deferred. Native smoke tests should exercise this adapter against a real local web app before marking browser parity complete.

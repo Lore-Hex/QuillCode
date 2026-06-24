@@ -20,6 +20,7 @@ final class QuillCodeDesktopController: ObservableObject {
     private let bootstrap: QuillCodeWorkspaceBootstrap
     private let computerUseBackend: MacComputerUseBackend
     private let browserPageFetcher: any BrowserPageFetching
+    private let browserLiveDOMCapturer: (any BrowserLiveDOMCapturing)?
     private let automationNotifier: any QuillCodeAutomationNotifying
     private let workspaceRoot: URL
     private let signInCoordinator: QuillCodeDesktopSignInCoordinator
@@ -32,12 +33,14 @@ final class QuillCodeDesktopController: ObservableObject {
     init(
         bootstrap: QuillCodeWorkspaceBootstrap = QuillCodeWorkspaceBootstrap(),
         browserPageFetcher: any BrowserPageFetching = URLSessionBrowserPageFetcher(),
+        browserLiveDOMCapturer: (any BrowserLiveDOMCapturing)? = DesktopBrowserLiveDOMCapturer(),
         automationNotifier: any QuillCodeAutomationNotifying = MacAutomationNotifier(),
         workspaceRoot: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     ) {
         self.bootstrap = bootstrap
         self.computerUseBackend = MacComputerUseBackend()
         self.browserPageFetcher = browserPageFetcher
+        self.browserLiveDOMCapturer = browserLiveDOMCapturer
         self.automationNotifier = automationNotifier
         self.signInCoordinator = QuillCodeDesktopSignInCoordinator(bootstrap: bootstrap)
         self.settingsCoordinator = QuillCodeDesktopSettingsCoordinator(bootstrap: bootstrap)
@@ -242,6 +245,9 @@ final class QuillCodeDesktopController: ObservableObject {
         tasks.replace(.browserPreview) { [weak self] in
             guard let self else { return }
             _ = await self.model.refreshBrowserSnapshot(pageFetcher: self.browserPageFetcher)
+            if let browserLiveDOMCapturer = self.browserLiveDOMCapturer {
+                _ = await self.model.refreshRenderedBrowserSnapshot(capturer: browserLiveDOMCapturer)
+            }
         } onFinish: { [weak self] in
             self?.refresh()
         }
