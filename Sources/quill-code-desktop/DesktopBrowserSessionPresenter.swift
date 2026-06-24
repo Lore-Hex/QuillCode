@@ -11,18 +11,22 @@ protocol DesktopBrowserSessionPresenting: AnyObject {
 
 @MainActor
 final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
-    private var sessions: [ObjectIdentifier: DesktopBrowserSessionWindowController] = [:]
+    private var session: DesktopBrowserSessionWindowController?
 
     func openSession(url: URL) {
-        let session = DesktopBrowserSessionWindowController(url: url)
-        let sessionID = ObjectIdentifier(session)
-        session.onClose = { [weak self] in
-            self?.sessions.removeValue(forKey: sessionID)
+        if let session {
+            session.navigate(to: url)
+            session.present()
+            return
         }
-        sessions[sessionID] = session
-        session.showWindow(nil)
-        session.window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+
+        let session = DesktopBrowserSessionWindowController(url: url)
+        session.onClose = { [weak self, weak session] in
+            guard let session, self?.session === session else { return }
+            self?.session = nil
+        }
+        self.session = session
+        session.present()
     }
 }
 
@@ -70,6 +74,17 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
         } else {
             window?.title = "QuillCode Browser Session"
         }
+    }
+
+    func navigate(to url: URL) {
+        guard webView.url?.absoluteString != url.absoluteString else { return }
+        load(url)
+    }
+
+    func present() {
+        showWindow(nil)
+        window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func load(_ url: URL) {
