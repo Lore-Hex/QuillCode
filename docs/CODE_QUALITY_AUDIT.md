@@ -49,6 +49,24 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Updated the Playwright harness to preserve branded labels after model selection.
 - Fixed stale decisions documentation that still described recurring automation as deferred.
 
+## 2026-06-24 Sidebar Command Grouping Pass
+
+Overall grade after this slice: **A sidebar command presentation boundary, A renderer parity, A menu scanability**.
+
+The sidebar tool menu had shared labels/icons, but it still exposed utility commands as one flat list. That made the native sidebar and HTML harness easy to keep in order but harder to scan as more Codex parity tools were added.
+
+Code quality changes:
+
+- Added explicit sidebar utility command groups in `QuillCodeSidebarCommandPresentation`.
+- Kept the old flat `utilityCommandIDs` as a derived compatibility view so existing ordering tests and callers stay stable.
+- Moved visible-group filtering into the shared presentation helper so native SwiftUI and the HTML harness omit empty groups identically.
+- Rendered native utility commands as titled menu sections and HTML utility commands as matching section markup.
+- Added focused tests for group order, flattened order, labels/icons/test IDs, and missing-command filtering.
+
+Remaining risk:
+
+- The native menu is now grouped, but the visual balance still depends on the surrounding sidebar chrome. The next UI pass should look at the whole left rail hierarchy with screenshots rather than adding more command-level structure.
+
 ## 2026-06-24 Automations Surface Builder Pass
 
 Overall grade after this slice: **A automation-pane boundary, A command availability coverage, A regression guard**.

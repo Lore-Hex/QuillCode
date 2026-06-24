@@ -59,6 +59,19 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('send-button')).toBeDisabled();
 
+  await openSidebarTools(page);
+  await expect(page.getByTestId('sidebar-tools-section-title')).toHaveText([
+    'Navigate',
+    'Extensions',
+    'Automate',
+    'Workspace',
+    'Context'
+  ]);
+  await expect(page.locator('[data-testid="sidebar-tools-section"][data-command-group="navigate"]')).toContainText('Search');
+  await expect(page.locator('[data-testid="sidebar-tools-section"][data-command-group="workspace"]')).toContainText('Terminal');
+  await page.getByTestId('sidebar-tools-button').click();
+  await expect(page.getByTestId('sidebar-tools-menu')).not.toHaveAttribute('open', '');
+
   await openTopBarOverflow(page);
   await expect(page.getByTestId('top-bar-overflow-command-palette')).toBeVisible();
   await expect(page.getByTestId('top-bar-overflow-search')).toBeVisible();
@@ -358,6 +371,7 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
     const agentStatus = styleFor('[data-testid="agent-status"]');
     const sidebar = styleFor('[data-testid="sidebar"]');
     const sidebarToolsButton = styleFor('[data-testid="sidebar-tools-button"]');
+    const sidebarToolAction = styleFor('[data-testid="sidebar-search-button"]');
     const sidebarSettingsButton = styleFor('[data-testid="settings-button"]');
 
     return {
@@ -373,6 +387,8 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
       addProjectHeight: parseFloat(addProjectButton.height),
       sidebarToolsMinHeight: parseFloat(sidebarToolsButton.minHeight),
       sidebarToolsTransitionProperty: sidebarToolsButton.transitionProperty,
+      sidebarToolActionMinHeight: parseFloat(sidebarToolAction.minHeight),
+      sidebarToolActionTransitionProperty: sidebarToolAction.transitionProperty,
       sidebarSettingsWidth: parseFloat(sidebarSettingsButton.width),
       sidebarSettingsMinHeight: parseFloat(sidebarSettingsButton.minHeight),
       sidebarRadius: parseFloat(sidebar.borderRadius)
@@ -393,6 +409,9 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(polish.sidebarToolsMinHeight).toBeGreaterThanOrEqual(40);
   expect(polish.sidebarToolsTransitionProperty).toContain('transform');
   expect(polish.sidebarToolsTransitionProperty).not.toContain('all');
+  expect(polish.sidebarToolActionMinHeight).toBeGreaterThanOrEqual(40);
+  expect(polish.sidebarToolActionTransitionProperty).toContain('transform');
+  expect(polish.sidebarToolActionTransitionProperty).not.toContain('all');
   expect(polish.sidebarSettingsWidth).toBeGreaterThanOrEqual(40);
   expect(polish.sidebarSettingsMinHeight).toBeGreaterThanOrEqual(40);
   expect(polish.titleTextWrap).toContain('balance');
