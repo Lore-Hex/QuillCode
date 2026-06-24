@@ -4280,3 +4280,17 @@ What changed:
 
 Remaining risk:
 - This is still a deterministic fallback for Auto. The production path should keep collecting reviewer-model telemetry and eventually move richer command intent classification into typed tool-intent categories rather than phrase lists.
+
+## 2026-06-24 Worktree Thread Insertion Cleanup
+
+Overall grade after this slice: **A- workspace insertion reuse, A regression coverage, B+ remaining model size**.
+
+`WorkspaceModel` already delegates most thread construction to focused engines, but worktree-created threads still had a separate insertion body that duplicated the central new/fork/compact/duplicate selection, project touch, persistence, and top-bar refresh path. That kind of almost-identical state mutation is where sidebar selection, terminal sync, or persistence behavior can drift.
+
+What changed:
+- `openCreatedWorktreeThread` now delegates to `insertCreatedThread` instead of maintaining a parallel insertion sequence.
+- Worktree-created threads now clear sidebar bulk selection through the same path as every other created thread.
+- Added integration coverage proving a selected source thread is cleared after the worktree thread opens while the original tool audit card remains attached to the source thread.
+
+Remaining risk:
+- `WorkspaceModel` is still the largest app-code coordinator. The next A+ pass should extract another stateful boundary only when it can reuse an existing reducer/engine or add a clear one, not by moving state mutations into a less obvious object.
