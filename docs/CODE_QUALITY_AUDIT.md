@@ -3991,3 +3991,17 @@ What changed:
 
 Remaining risk:
 - `SlashCommand.swift` still owns SSH, memory, and generic routing. SSH should be the next parser extraction if remote-project setup gains additional address formats, auth options, or validation copy.
+
+## 2026-06-24 Tool Execution Recorder Cleanup
+
+Overall grade after this slice: **A+ transcript event ownership, A+ follow-up recording coverage, A model simplicity**.
+
+`WorkspaceModel.runToolCall` still manually appended primary and follow-up tool lifecycle events even though `WorkspaceToolEventRecorder` already owned queued/running/completed event construction and transcript redaction. That made the model retain one more piece of tool sequencing detail and made follow-up recording harder to test directly.
+
+What changed:
+- Added `WorkspaceToolEventRecorder.append(execution:to:)` for `WorkspaceToolCallExecution`.
+- Replaced the manual primary/follow-up loop in `WorkspaceModel.runToolCall` with a single recorder call.
+- Added direct test coverage proving execution-level recording preserves primary and follow-up event order.
+
+Remaining risk:
+- `WorkspaceModel.swift` is still the largest production app file because it coordinates project, thread, browser, terminal, automation, and tool state. Continue extracting pure planners/engines at behavior boundaries, especially where another helper already owns the detailed semantics.

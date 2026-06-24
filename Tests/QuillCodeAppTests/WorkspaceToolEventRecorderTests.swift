@@ -77,4 +77,31 @@ final class WorkspaceToolEventRecorderTests: XCTestCase {
         ])
         XCTAssertEqual(thread.events.last?.summary, "\(ToolDefinition.gitStatus.name) completed")
     }
+
+    func testAppendExecutionRecordsPrimaryAndFollowUpsInOrder() {
+        var thread = ChatThread()
+        let execution = WorkspaceToolCallExecution(
+            primary: WorkspaceRecordedToolResult(
+                call: ToolCall(name: ToolDefinition.applyPatch.name, argumentsJSON: "{}"),
+                result: ToolResult(ok: true)
+            ),
+            followUps: [
+                WorkspaceRecordedToolResult(
+                    call: ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}"),
+                    result: ToolResult(ok: true, stdout: "diff")
+                )
+            ]
+        )
+
+        WorkspaceToolEventRecorder.append(execution: execution, to: &thread)
+
+        XCTAssertEqual(thread.events.map(\.summary), [
+            "\(ToolDefinition.applyPatch.name) queued",
+            "\(ToolDefinition.applyPatch.name) running",
+            "\(ToolDefinition.applyPatch.name) completed",
+            "\(ToolDefinition.gitDiff.name) queued",
+            "\(ToolDefinition.gitDiff.name) running",
+            "\(ToolDefinition.gitDiff.name) completed"
+        ])
+    }
 }

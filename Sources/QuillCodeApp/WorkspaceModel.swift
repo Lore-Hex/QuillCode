@@ -1323,9 +1323,8 @@ public final class QuillCodeWorkspaceModel {
         let router = ToolRouter(workspaceRoot: workspaceRoot)
         let execution = workspaceToolCallExecutor(router: router).execute(call)
         let result = execution.primary.result
-        appendToolRun(call: execution.primary.call, result: result)
-        for followUp in execution.followUps {
-            appendToolRun(call: followUp.call, result: followUp.result)
+        mutateSelectedThread { thread in
+            WorkspaceToolEventRecorder.append(execution: execution, to: &thread)
         }
 
         if let thread = selectedThread {
