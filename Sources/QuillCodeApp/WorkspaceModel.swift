@@ -1671,15 +1671,11 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func statusText() -> String {
-        let statusMemories = selectedThread?.memories ?? workspaceThreadContext(root.selectedProjectID).memories
-        return WorkspaceStatusTextBuilder.statusText(for: WorkspaceStatusContext(
-            projectName: selectedProject?.name ?? root.topBar.projectName ?? "No project",
-            threadTitle: selectedThread?.title ?? "No chat",
-            instructions: selectedProject?.instructions ?? selectedThread?.instructions ?? [],
-            memories: statusMemories,
-            mode: root.topBar.mode,
-            model: root.topBar.model,
-            agentStatus: root.topBar.agentStatus
+        WorkspaceStatusTextBuilder.statusText(for: WorkspaceStatusContextBuilder.context(
+            root: root,
+            selectedProject: selectedProject,
+            selectedThread: selectedThread,
+            fallbackThreadContext: workspaceThreadContext(root.selectedProjectID)
         ))
     }
 
