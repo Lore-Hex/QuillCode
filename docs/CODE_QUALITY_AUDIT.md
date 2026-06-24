@@ -2781,3 +2781,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelTests.swift` is still large. Bootstrap/config, project/worktree command groups, approval-card behavior, runtime issue recovery, and thread lifecycle coverage remain future extraction candidates.
+
+## 2026-06-24 Workspace Runtime Issue Integration Test Pass
+
+Overall grade after this slice: **A boundary clarity, A dependency ownership, A+ regression guard**.
+
+Runtime issue and retry recovery coverage moved from `WorkspaceModelTests.swift` into `WorkspaceRuntimeIssueIntegrationTests`. Pure runtime issue construction and recovery-action mapping remain in their focused builder/planner tests.
+
+Code quality changes:
+
+- Added `WorkspaceRuntimeIssueIntegrationTests` for flows crossing workspace runtime state, top-bar/settings surfaces, diagnostics, and retry composer mutation.
+- Kept `QuillCodeAgent` in `WorkspaceModelTests.swift` because that suite still exercises model-catalog favorites through `TrustedRouterModelCatalog`; the runtime-specific `AgentRunner` dependency moved to the focused suite.
+- Added a parity gate that keeps runtime status, issue surfacing, diagnostic redaction, and retry recovery method names out of `WorkspaceModelTests.swift`.
+- Reduced `WorkspaceModelTests.swift` from 1,160 lines to 1,005 lines without changing runtime behavior.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still large. Bootstrap/config, project/worktree command groups, approval-card behavior, and thread lifecycle coverage remain future extraction candidates.
