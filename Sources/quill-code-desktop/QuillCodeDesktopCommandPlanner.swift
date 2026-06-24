@@ -5,6 +5,7 @@ enum QuillCodeDesktopCommandAction {
     case addProject
     case toggleTerminal
     case toggleBrowser
+    case openBrowserSession
     case toggleExtensions
     case toggleMemories
     case commandPalette
@@ -28,6 +29,8 @@ enum QuillCodeDesktopCommandPlanner {
             return .toggleTerminal
         case "toggle-browser":
             return .toggleBrowser
+        case "open-browser-session":
+            return .openBrowserSession
         case "toggle-extensions":
             return .toggleExtensions
         case "toggle-memories":

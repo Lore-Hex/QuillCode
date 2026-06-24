@@ -16,6 +16,7 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
     var browserCanGoBack: Bool
     var browserCanGoForward: Bool
     var browserCanReload: Bool
+    var browserCanOpenSession: Bool
     var mcpServerStatuses: [String: MCPServerLifecycleStatus]
     var computerUseStatus: ComputerUseStatus
 
@@ -35,7 +36,8 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             terminalIsRunning: terminalIsRunning,
             browserCanGoBack: browserCanGoBack,
             browserCanGoForward: browserCanGoForward,
-            browserCanReload: browserCanReload
+            browserCanReload: browserCanReload,
+            browserCanOpenSession: browserCanOpenSession
         )
         + WorkspaceCommandStaticCatalog.automationCommands(
             hasSelectedThread: hasSelectedThread,

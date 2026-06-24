@@ -32,6 +32,8 @@ enum QuillCodeCommandIconCatalog {
             return "clear"
         case "toggle-browser":
             return "globe"
+        case "open-browser-session":
+            return "person.crop.circle.badge.checkmark"
         case "toggle-activity":
             return "list.bullet.rectangle"
         case "toggle-automations":

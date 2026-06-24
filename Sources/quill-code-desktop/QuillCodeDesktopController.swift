@@ -195,6 +195,8 @@ final class QuillCodeDesktopController: ObservableObject {
             toggleTerminal()
         case .toggleBrowser:
             toggleBrowser()
+        case .openBrowserSession:
+            openBrowserSession()
         case .toggleExtensions:
             toggleExtensions()
         case .toggleMemories:

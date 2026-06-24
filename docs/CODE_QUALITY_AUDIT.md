@@ -4685,3 +4685,18 @@ Current strict grades:
 
 Remaining risk:
 - The edit path preloads text into the composer instead of editing structured tool-call fields in place. That is a pragmatic, safe first step; full inline editing should be deferred until the command editor can preserve schema validation and safety-review context.
+
+## 2026-06-24 Browser Session Command Surface
+
+Overall grade after this slice: **A command routing, A parity guard, B+ browser product completeness**.
+
+The visible browser session existed in the browser pane and native menu bar, but not in the Codex-style command palette. That made it discoverable only from two places and left the command vocabulary incomplete compared with Browser Back/Forward/Reload.
+
+What changed:
+- Added `Browser: Open session` to the workspace command catalog with the same browser-availability gate as the visible pane action.
+- Routed the command through `WorkspaceViewCommandPlanner` as a typed `openBrowserSession` action instead of falling through to generic workspace command execution.
+- Added a typed desktop command action so native command invocations can open the retained WebKit session without switching on raw command IDs in the controller.
+- Extended unit and parity tests so the command cannot become unavailable, no-op, or stringly routed without failing CI.
+
+Remaining risk:
+- Browser session management is still one-window-per-request with shared persistent cookies. Reusable tab/session state and Linux/browser-process adapters remain the next product-completeness step.

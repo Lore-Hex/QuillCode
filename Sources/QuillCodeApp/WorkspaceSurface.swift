@@ -181,6 +181,8 @@ public extension QuillCodeWorkspaceModel {
             browserCanGoBack: browser.canGoBack,
             browserCanGoForward: browser.canGoForward,
             browserCanReload: browser.canReload,
+            browserCanOpenSession: browser.currentURL != nil
+                || !browser.addressDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
             mcpServerStatuses: extensions.mcpServerStatuses,
             computerUseStatus: root.topBar.computerUseStatus
         )

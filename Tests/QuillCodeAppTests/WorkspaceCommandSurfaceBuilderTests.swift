@@ -13,6 +13,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("project-new-chat", in: commands).isEnabled, false)
         XCTAssertEqual(try command("git-status", in: commands).isEnabled, false)
         XCTAssertEqual(try command("terminal-clear", in: commands).isEnabled, false)
+        XCTAssertEqual(try command("open-browser-session", in: commands).isEnabled, false)
         XCTAssertEqual(try command("stop-all", in: commands).isEnabled, false)
         XCTAssertEqual(try command("disconnect-all", in: commands).isEnabled, false)
         XCTAssertEqual(try command("computer-use-setup", in: commands).isEnabled, true)
@@ -163,6 +164,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
             browserCanGoBack: true,
             browserCanGoForward: true,
             browserCanReload: true,
+            browserCanOpenSession: true,
             computerUseStatus: readyComputerUse
         ).commands
 
@@ -170,6 +172,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("browser-back", in: commands).isEnabled, true)
         XCTAssertEqual(try command("browser-forward", in: commands).isEnabled, true)
         XCTAssertEqual(try command("browser-reload", in: commands).isEnabled, true)
+        XCTAssertEqual(try command("open-browser-session", in: commands).isEnabled, true)
         XCTAssertEqual(try command("stop-all", in: commands).isEnabled, true)
         XCTAssertEqual(try command("computer-use-setup", in: commands).isEnabled, false)
         XCTAssertEqual(try command("computer-use-open-screen-recording", in: commands).isEnabled, false)
@@ -190,6 +193,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         browserCanGoBack: Bool = false,
         browserCanGoForward: Bool = false,
         browserCanReload: Bool = false,
+        browserCanOpenSession: Bool = false,
         mcpServerStatuses: [String: MCPServerLifecycleStatus] = [:],
         computerUseStatus: ComputerUseStatus = .permissionStatus(
             screenRecordingGranted: false,
@@ -210,6 +214,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
             browserCanGoBack: browserCanGoBack,
             browserCanGoForward: browserCanGoForward,
             browserCanReload: browserCanReload,
+            browserCanOpenSession: browserCanOpenSession,
             mcpServerStatuses: mcpServerStatuses,
             computerUseStatus: computerUseStatus
         )

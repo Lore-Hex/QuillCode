@@ -84,6 +84,8 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         let appText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
         let presenterText = try Self.desktopSourceText(named: "DesktopBrowserSessionPresenter.swift")
         let browserPaneText = try Self.appSourceText(named: "QuillCodeBrowserPaneView.swift")
+        let commandCatalogText = try Self.appSourceText(named: "WorkspaceCommandStaticCatalog.swift")
+        let viewCommandPlannerText = try Self.appSourceText(named: "QuillCodeWorkspaceViewCommandPlanner.swift")
 
         XCTAssertTrue(desktopText.contains("DesktopBrowserSessionPresenter"), "Desktop should provide a visible browser session adapter.")
         XCTAssertTrue(presenterText.contains("protocol DesktopBrowserSessionPresenting"), "Visible browser sessions should be isolated behind an injectable protocol.")
@@ -96,6 +98,9 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(appText.contains("onOpenBrowserSession: controller.openBrowserSession"), "Desktop app should wire visible browser sessions into shared UI.")
         XCTAssertTrue(browserPaneText.contains("var onOpenSession: (() -> Void)?"), "Shared browser pane should keep visible sessions optional for non-desktop platforms.")
         XCTAssertTrue(browserPaneText.contains(#"Button("Session", action: onOpenSession)"#), "Browser pane should expose a compact visible session action when available.")
+        XCTAssertTrue(commandCatalogText.contains(#"id: "open-browser-session""#), "Command palette should expose visible browser sessions.")
+        XCTAssertTrue(commandCatalogText.contains("browserCanOpenSession"), "Visible browser session command should use real browser availability.")
+        XCTAssertTrue(viewCommandPlannerText.contains(#"case "open-browser-session":"#), "Shared command routing should present visible sessions without falling through to text insertion.")
         XCTAssertFalse(controllerText.contains("WKWebView"), "Desktop controller should not own WebKit visible-session details.")
         XCTAssertFalse(controllerText.contains("import WebKit"), "Desktop controller should not import WebKit.")
     }
@@ -160,6 +165,8 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(plannerText.contains("enum QuillCodeDesktopCommandAction"), "Desktop command actions should be typed values.")
         XCTAssertTrue(plannerText.contains("static func action(for command: WorkspaceCommandSurface)"), "Desktop command planning should be directly inspectable.")
         XCTAssertTrue(plannerText.contains("case \"computer-use-open-screen-recording\""), "Computer Use settings command IDs should live in the desktop planner.")
+        XCTAssertTrue(plannerText.contains("case \"open-browser-session\""), "Visible browser sessions should be a typed desktop command.")
+        XCTAssertTrue(controllerText.contains("case .openBrowserSession:"), "Desktop controller should execute visible browser session actions.")
         XCTAssertTrue(plannerText.contains("return .workspaceCommand(command.id)"), "Unknown desktop commands should still delegate to workspace command execution.")
         XCTAssertTrue(controllerText.contains("QuillCodeDesktopCommandPlanner.action(for: command)"), "Desktop controller should consume the command planner.")
         XCTAssertFalse(controllerText.contains("switch command.id"), "Desktop controller should not switch over raw command IDs.")
