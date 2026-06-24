@@ -1373,6 +1373,22 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelTests.contains("testSlashStatusReportsWorkspaceState"), "WorkspaceModelTests should not own slash status integration flows.")
     }
 
+    func testSlashParserDelegatesPullRequestSubcommands() throws {
+        let slashText = try Self.appSourceText(named: "SlashCommand.swift")
+        let pullRequestParserText = try Self.appSourceText(named: "SlashPullRequestCommandParser.swift")
+        let pullRequestParserTests = try Self.appTestSourceText(named: "SlashPullRequestCommandParserTests.swift")
+
+        XCTAssertTrue(slashText.contains("SlashPullRequestCommandParser.parse(argument)"), "Outer slash parser should delegate PR subcommands.")
+        XCTAssertTrue(pullRequestParserText.contains("enum SlashPullRequestCommandParser"), "PR slash parsing should live in a focused parser.")
+        XCTAssertTrue(pullRequestParserText.contains("selectorAndBody"), "PR selector/body parsing should live with PR parser semantics.")
+        XCTAssertTrue(pullRequestParserText.contains("parseReviewers"), "Reviewer subcommand parsing should live with PR parser semantics.")
+        XCTAssertTrue(pullRequestParserText.contains("parseLabels"), "Label subcommand parsing should live with PR parser semantics.")
+        XCTAssertTrue(pullRequestParserTests.contains("testReviewerLabelAndMergeCommandsBuildStructuredArguments"), "PR parser structured arguments should have focused unit coverage.")
+        XCTAssertFalse(slashText.contains("func parsePullRequest"), "Outer slash parser should not own PR parsing internals.")
+        XCTAssertFalse(slashText.contains("func parseReviewers"), "Outer slash parser should not own PR reviewer parsing internals.")
+        XCTAssertFalse(slashText.contains("func parseLabels"), "Outer slash parser should not own PR label parsing internals.")
+    }
+
     func testWorkspaceLocalEnvironmentIntegrationTestsOwnModelLocalEnvironmentFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let localEnvironmentIntegrationTests = try Self.appTestSourceText(named: "WorkspaceLocalEnvironmentIntegrationTests.swift")

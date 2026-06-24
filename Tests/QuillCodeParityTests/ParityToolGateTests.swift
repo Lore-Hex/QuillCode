@@ -5,6 +5,7 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         let argumentsText = try Self.coreSourceText(named: "Arguments.swift")
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let slashText = try Self.appSourceText(named: "SlashCommand.swift")
+        let pullRequestSlashText = try Self.appSourceText(named: "SlashPullRequestCommandParser.swift")
         let shellPlannerText = try Self.appSourceText(named: "WorkspaceShellToolCallPlanner.swift")
         let worktreePlannerText = try Self.appSourceText(named: "WorkspaceWorktreeToolCallPlanner.swift")
         let reviewPlannerText = try Self.appSourceText(named: "WorkspaceReviewActionToolCallPlanner.swift")
@@ -14,8 +15,8 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
             "Mixed tool argument JSON serialization should live in QuillCodeCore."
         )
         XCTAssertTrue(
-            slashText.contains("ToolArguments.json("),
-            "SlashCommand should use the shared core tool-argument serializer."
+            pullRequestSlashText.contains("ToolArguments.json("),
+            "Slash PR parser should use the shared core tool-argument serializer."
         )
         XCTAssertTrue(
             shellPlannerText.contains("ToolArguments.json("),
@@ -45,6 +46,7 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
 
     func testSlashCommandCatalogLivesOutsideParser() throws {
         let slashText = try Self.appSourceText(named: "SlashCommand.swift")
+        let pullRequestSlashText = try Self.appSourceText(named: "SlashPullRequestCommandParser.swift")
         let catalogText = try Self.appSourceText(named: "SlashCommandCatalog.swift")
 
         XCTAssertTrue(catalogText.contains("public struct SlashCommandSuggestionSurface"), "Slash suggestions should live beside the slash catalog.")
@@ -53,7 +55,7 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(catalogText.contains("static let definitions"), "Slash command definitions should not live beside parser control flow.")
         XCTAssertTrue(catalogText.contains("static func suggestions"), "Composer suggestion ranking should live beside the slash catalog.")
         XCTAssertTrue(slashText.contains("enum SlashCommandParser"), "SlashCommand.swift should own parser control flow.")
-        XCTAssertTrue(slashText.contains("ToolArguments.json("), "Slash parser should still construct structured tool calls through core arguments.")
+        XCTAssertTrue(pullRequestSlashText.contains("ToolArguments.json("), "Slash PR parser should still construct structured tool calls through core arguments.")
         XCTAssertFalse(slashText.contains("public struct SlashCommandSuggestionSurface"), "Slash parser should not own suggestion surface DTOs.")
         XCTAssertFalse(slashText.contains("struct SlashCommandDefinition"), "Slash parser should not own slash command metadata records.")
         XCTAssertFalse(slashText.contains("static let definitions"), "Slash parser should not own the slash command catalog.")
