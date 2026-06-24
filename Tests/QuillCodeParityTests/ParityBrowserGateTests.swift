@@ -98,11 +98,33 @@ final class ParityBrowserGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(browserIntegrationTests.contains("testBrowserPreviewFetchesReachableHTMLSnapshot"), "Browser HTML fetch integration should live in focused browser integration tests.")
         XCTAssertTrue(browserIntegrationTests.contains("testBrowserPreviewKeepsMetadataSnapshotWhenHTMLFetchFails"), "Browser fetch-failure fallback integration should live in focused browser integration tests.")
         XCTAssertTrue(browserIntegrationTests.contains("testComposerCanInspectCurrentBrowserPage"), "Composer browser inspection integration should live in focused browser integration tests.")
+        XCTAssertTrue(browserIntegrationTests.contains("testComposerCanOpenBrowserPage"), "Composer browser navigation integration should live in focused browser integration tests.")
         XCTAssertFalse(modelTests.contains("testBrowserPreviewNormalizesURLsAndStoresComments"), "WorkspaceModelTests should not own browser preview URL and comment integration flows.")
         XCTAssertFalse(modelTests.contains("testBrowserPreviewSupportsHistoryNavigationAndReload"), "WorkspaceModelTests should not own browser history integration flows.")
         XCTAssertFalse(modelTests.contains("testBrowserPreviewFetchesReachableHTMLSnapshot"), "WorkspaceModelTests should not own browser HTML fetch integration flows.")
         XCTAssertFalse(modelTests.contains("testBrowserPreviewKeepsMetadataSnapshotWhenHTMLFetchFails"), "WorkspaceModelTests should not own browser fetch-failure fallback integration flows.")
         XCTAssertFalse(modelTests.contains("testComposerCanInspectCurrentBrowserPage"), "WorkspaceModelTests should not own composer browser inspection integration flows.")
+        XCTAssertFalse(modelTests.contains("testComposerCanOpenBrowserPage"), "WorkspaceModelTests should not own composer browser navigation integration flows.")
+    }
+
+    func testBrowserAgentToolsShareFocusedExecutor() throws {
+        let toolModelsText = try Self.coreSourceText(named: "ToolModels.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceAgentRunContextBuilder.swift")
+        let executorText = try Self.appSourceText(named: "WorkspaceToolCallExecutor.swift")
+        let browserToolText = try Self.appSourceText(named: "WorkspaceBrowserToolExecutor.swift")
+        let normalizerText = try Self.agentSourceText(named: "AgentToolArgumentNormalizer.swift")
+        let finalAnswerText = try Self.agentSourceText(named: "AgentFinalAnswerBuilder.swift")
+
+        XCTAssertTrue(toolModelsText.contains("static let browserOpen"), "Browser navigation should have a first-class tool definition.")
+        XCTAssertTrue(builderText.contains("ToolDefinition.browserOpen"), "Agent run context should expose browser navigation beside inspection.")
+        XCTAssertTrue(executorText.contains("WorkspaceBrowserToolExecutor.execute"), "Workspace tool routing should delegate browser tools to the focused executor.")
+        XCTAssertTrue(browserToolText.contains("ToolDefinition.browserInspect.name"), "Browser inspection should route through the focused browser tool executor.")
+        XCTAssertTrue(browserToolText.contains("ToolDefinition.browserOpen.name"), "Browser navigation should route through the focused browser tool executor.")
+        XCTAssertTrue(browserToolText.contains("WorkspaceBrowserWorkflow.openPreview"), "Browser tool navigation should reuse the normal browser workflow.")
+        XCTAssertTrue(browserToolText.contains("ToolArguments("), "Browser tool argument parsing should reuse the shared core argument parser.")
+        XCTAssertFalse(browserToolText.contains("JSONSerialization"), "Browser tool execution should not own ad hoc JSON parsing.")
+        XCTAssertTrue(normalizerText.contains("ToolDefinition.browserOpen.name"), "Browser open arguments should normalize aliases before execution.")
+        XCTAssertTrue(finalAnswerText.contains("browserOpenAnswer"), "Browser navigation should have a concise final answer.")
     }
 
     func testWorkspaceHTMLRendererDelegatesBrowserRendering() throws {

@@ -31,6 +31,36 @@ final class WorkspaceToolCallExecutorTests: XCTestCase {
         XCTAssertTrue(execution.followUps.isEmpty)
     }
 
+    func testBrowserOpenRoutesThroughBrowserWorkflow() throws {
+        let root = try makeQuillCodeTestDirectory()
+        var browser = BrowserState()
+        var lastError: String?
+        let executor = WorkspaceToolCallExecutor(
+            selectedProject: nil,
+            browser: browser,
+            router: ToolRouter(workspaceRoot: root),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        )
+
+        let execution = executor.execute(
+            ToolCall(
+                name: ToolDefinition.browserOpen.name,
+                argumentsJSON: ToolArguments.json(["url": "localhost:5173/dashboard"])
+            ),
+            browser: &browser,
+            lastError: &lastError
+        )
+        let output = try JSONHelpers.decode(BrowserInspectionToolOutput.self, from: execution.primary.result.stdout)
+
+        XCTAssertTrue(execution.ok, execution.primary.result.error ?? "")
+        XCTAssertEqual(browser.currentURL, "http://localhost:5173/dashboard")
+        XCTAssertEqual(browser.status, "Preview ready")
+        XCTAssertNil(lastError)
+        XCTAssertEqual(output.url, "http://localhost:5173/dashboard")
+        XCTAssertEqual(output.inspectionDepth, .metadataOnly)
+        XCTAssertTrue(execution.followUps.isEmpty)
+    }
+
     func testPlanUpdateRoutesBeforeLocalRouter() throws {
         let root = try makeQuillCodeTestDirectory()
         let update = AgentPlanUpdate(plan: [

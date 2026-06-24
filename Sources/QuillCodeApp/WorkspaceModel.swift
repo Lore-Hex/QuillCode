@@ -1038,6 +1038,10 @@ public final class QuillCodeWorkspaceModel {
             let activeRunner = WorkspaceAgentRunContextBuilder(
                 selectedProject: selectedProject,
                 browser: browser,
+                browserToolOverride: WorkspaceBrowserAgentToolOverride.make { [weak self] call, workspaceRoot in
+                    guard let self else { return nil }
+                    return self.executeBrowserToolForAgent(call, workspaceRoot: workspaceRoot)
+                },
                 computerUseBackend: computerUseBackend,
                 globalMemoryDirectory: globalMemoryDirectory,
                 mcpToolDefinitions: mcpRuntime.toolDefinitions(
@@ -1304,7 +1308,11 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
 
         let router = ToolRouter(workspaceRoot: workspaceRoot)
-        let execution = workspaceToolCallExecutor(router: router).execute(call)
+        let execution = workspaceToolCallExecutor(router: router).execute(
+            call,
+            browser: &browser,
+            lastError: &lastError
+        )
         let result = execution.primary.result
         mutateSelectedThread { thread in
             WorkspaceToolEventRecorder.append(execution: execution, to: &thread)
@@ -1493,6 +1501,17 @@ public final class QuillCodeWorkspaceModel {
             router: router,
             sshRemoteShellExecutor: sshRemoteShellExecutor
         )
+    }
+
+    private func executeBrowserToolForAgent(_ call: ToolCall, workspaceRoot: URL) -> ToolResult? {
+        let result = WorkspaceBrowserToolExecutor.execute(
+            call,
+            workspaceRoot: workspaceRoot,
+            browser: &browser,
+            lastError: &lastError
+        )
+        refreshTopBar(agentStatus: root.topBar.agentStatus)
+        return result
     }
 
     private func handleSlashCommand(_ command: SlashCommand, originalPrompt: String, workspaceRoot: URL) {

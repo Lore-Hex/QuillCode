@@ -246,6 +246,14 @@ public extension ToolDefinition {
         risk: .read
     )
 
+    static let browserOpen = ToolDefinition(
+        name: "host.browser.open",
+        description: "Open an http, https, file, localhost, or project-relative page in the QuillCode browser preview, then return the browser snapshot that is available for agent review.",
+        parametersJSON: #"{"type":"object","properties":{"url":{"type":"string","description":"The page to open. Accepts http, https, file, localhost, or project-relative paths."}},"required":["url"]}"#,
+        host: .browser,
+        risk: .read
+    )
+
     static let memoryRemember = ToolDefinition(
         name: "host.memory.remember",
         description: "Save a durable user preference or stable project fact as explicit memory for future turns. Use only when the user asks QuillCode to remember something, or when the preference/fact is clearly stable and useful. Never save credentials, tokens, passwords, private keys, or other secrets.",

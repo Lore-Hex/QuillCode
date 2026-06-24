@@ -7,6 +7,7 @@ import QuillComputerUseKit
 struct WorkspaceAgentRunContextBuilder: Sendable {
     var selectedProject: ProjectRef?
     var browser: BrowserState
+    var browserToolOverride: AgentToolExecutionOverride? = nil
     var computerUseBackend: (any ComputerUseBackend)?
     var globalMemoryDirectory: URL?
     var mcpToolDefinitions: [ToolDefinition]
@@ -28,7 +29,7 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     }
 
     var additionalToolDefinitions: [ToolDefinition] {
-        [ToolDefinition.planUpdate, ToolDefinition.browserInspect]
+        [ToolDefinition.planUpdate, ToolDefinition.browserInspect, ToolDefinition.browserOpen]
             + computerUseToolDefinitions
             + memoryToolDefinitions
             + mcpToolDefinitions
@@ -61,10 +62,19 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     }
 
     private var browserToolExecutionOverride: AgentToolExecutionOverride {
+        if let browserToolOverride {
+            return browserToolOverride
+        }
         let snapshot = browser
         return { call, _ in
-            guard call.name == ToolDefinition.browserInspect.name else { return nil }
-            return BrowserInspector.toolResult(from: snapshot)
+            var browser = snapshot
+            var lastError: String?
+            return WorkspaceBrowserToolExecutor.execute(
+                call,
+                workspaceRoot: nil,
+                browser: &browser,
+                lastError: &lastError
+            )
         }
     }
 

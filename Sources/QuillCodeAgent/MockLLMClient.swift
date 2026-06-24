@@ -65,6 +65,14 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
+        if let browserTarget = Self.extractBrowserOpenTarget(from: request, lowercasedRequest: lower),
+           tools.contains(where: { $0.name == ToolDefinition.browserOpen.name }) {
+            return .tool(.init(
+                name: ToolDefinition.browserOpen.name,
+                argumentsJSON: ToolArguments.json(["url": browserTarget])
+            ))
+        }
+
         if Self.isBrowserInspectionRequest(lower), tools.contains(where: { $0.name == ToolDefinition.browserInspect.name }) {
             return .tool(.init(name: ToolDefinition.browserInspect.name, argumentsJSON: "{}"))
         }
@@ -220,6 +228,57 @@ public struct MockLLMClient: LLMClient {
             || lowercasedRequest.contains("summarize")
             || lowercasedRequest.contains("snapshot")
         return browserTerms && inspectionTerms
+    }
+
+    static func extractBrowserOpenTarget(from request: String, lowercasedRequest: String) -> String? {
+        let navigationTerms = [
+            "open ",
+            "browse ",
+            "go to ",
+            "visit ",
+            "preview ",
+            "show "
+        ]
+        guard navigationTerms.contains(where: { lowercasedRequest.contains($0) }) else { return nil }
+
+        if let quoted = firstBacktickQuotedValue(in: request), looksLikeBrowserTarget(quoted) {
+            return quoted
+        }
+
+        let tokenSeparators = CharacterSet.whitespacesAndNewlines
+            .union(CharacterSet(charactersIn: "\"'(),<>[]{}"))
+        let tokens = request
+            .components(separatedBy: tokenSeparators)
+            .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: ".:;!?")) }
+            .filter { !$0.isEmpty }
+
+        return tokens.first(where: looksLikeBrowserTarget)
+    }
+
+    private static func firstBacktickQuotedValue(in request: String) -> String? {
+        guard let first = request.firstIndex(of: "`"),
+              let last = request[request.index(after: first)...].lastIndex(of: "`"),
+              first < last
+        else {
+            return nil
+        }
+        let value = String(request[request.index(after: first)..<last])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
+    }
+
+    private static func looksLikeBrowserTarget(_ value: String) -> Bool {
+        let lower = value.lowercased()
+        return lower.hasPrefix("http://")
+            || lower.hasPrefix("https://")
+            || lower.hasPrefix("file://")
+            || lower.hasPrefix("localhost")
+            || lower.hasPrefix("127.0.0.1")
+            || lower.hasPrefix("./")
+            || lower.hasPrefix("/")
+            || lower.hasSuffix(".html")
+            || lower.hasSuffix(".htm")
+            || (lower.contains(".") && !lower.contains("@"))
     }
 
     private static func shellSingleQuoted(_ value: String) -> String {

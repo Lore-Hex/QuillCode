@@ -242,6 +242,15 @@ final class TrustedRouterAdapterTests: XCTestCase {
         XCTAssertEqual(browserCall.name, ToolDefinition.browserInspect.name)
         XCTAssertEqual(browserCall.argumentsJSON, "{}")
 
+        let browserOpenAction = try AgentActionJSONParser.parse("""
+        {"type":"tool","name":"host.browser.open","arguments":{"address":"localhost:5173"}}
+        """)
+        guard case .tool(let browserOpenCall) = browserOpenAction else {
+            return XCTFail("Expected browser open tool action")
+        }
+        XCTAssertEqual(browserOpenCall.name, ToolDefinition.browserOpen.name)
+        XCTAssertEqual(browserOpenCall.argumentsJSON, ToolArguments.json(["url": "localhost:5173"]))
+
         let mergeAction = try AgentActionJSONParser.parse("""
         {"type":"tool","name":"host.git.pr.merge","arguments":{}}
         """)

@@ -67,6 +67,11 @@ enum AgentFinalAnswerBuilder {
             return browserInspectionAnswer(inspection)
         }
 
+        if call.name == ToolDefinition.browserOpen.name,
+           let inspection = try? JSONHelpers.decode(BrowserInspectionToolOutput.self, from: result.stdout) {
+            return browserOpenAnswer(inspection)
+        }
+
         if call.name == ToolDefinition.mcpReadResource.name {
             let output = result.stdout.trimmedNonEmpty
             return output.map { "MCP resource contents:\n\(truncated($0))" }
@@ -112,6 +117,20 @@ enum AgentFinalAnswerBuilder {
         }
         if !inspection.comments.isEmpty {
             lines.append("Browser comments: \(inspection.comments.map(\.text).prefix(3).joined(separator: "; ")).")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private static func browserOpenAnswer(_ inspection: BrowserInspectionToolOutput) -> String {
+        var lines = [
+            "Opened `\(inspection.title)` at \(inspection.url).",
+            inspection.summary
+        ]
+        if !inspection.outline.isEmpty {
+            lines.append("Outline: \(inspection.outline.prefix(5).joined(separator: "; ")).")
+        }
+        if let textSnippet = inspection.textSnippet?.trimmedNonEmpty {
+            lines.append("Text: \(truncated(textSnippet, maxCharacters: 320))")
         }
         return lines.joined(separator: "\n")
     }

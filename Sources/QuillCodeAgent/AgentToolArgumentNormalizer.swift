@@ -25,6 +25,9 @@ enum AgentToolArgumentNormalizer {
         if toolName == ToolDefinition.shellRun.name {
             return stringValue(in: arguments, keys: ["cmd"]) != nil
         }
+        if toolName == ToolDefinition.browserOpen.name {
+            return stringValue(in: arguments, keys: ["url"]) != nil
+        }
         return true
     }
 
@@ -73,6 +76,13 @@ enum AgentToolArgumentNormalizer {
                 &arguments,
                 canonicalKey: "content",
                 aliases: ["memory", "note", "text"],
+                topLevelObject: topLevelObject
+            )
+        case ToolDefinition.browserOpen.name:
+            normalizeStringArgument(
+                &arguments,
+                canonicalKey: "url",
+                aliases: ["address", "href", "target", "page"],
                 topLevelObject: topLevelObject
             )
         case ToolDefinition.gitPullRequestCreate.name:

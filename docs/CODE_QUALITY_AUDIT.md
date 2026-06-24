@@ -4411,3 +4411,19 @@ What changed:
 
 Remaining risk:
 - `ParityGateTests.swift` is still large because it owns general app-surface and workspace-model boundaries. Continue extracting by feature family when a domain has multiple related gates and active development pressure.
+
+## 2026-06-24 Browser Open Tool Parity
+
+Overall grade after this slice: **A browser tool architecture, A agent/browser parity, A regression coverage**.
+
+The browser feature had a product-level asymmetry: users could manually open browser previews and the agent could inspect the current page, but the agent could not navigate the browser itself. That left Codex-style browser workflows incomplete and encouraged future one-off routing if a model tried to inspect a page that had not already been opened by hand.
+
+What changed:
+- Added `host.browser.open` as a first-class browser tool definition with canonical `url` arguments and alias normalization for `address`, `href`, `target`, and `page`.
+- Added `WorkspaceBrowserToolExecutor` so browser inspect and open route through one focused executor, reusing `WorkspaceBrowserWorkflow.openPreview` instead of branching in `WorkspaceModel`.
+- Added a thin main-actor browser override bridge for agent runs so agent-driven browser navigation mutates the live SwiftUI/browser state while keeping the agent package UI-agnostic.
+- Added mock-LLM intent coverage for “open/preview/go to” browser requests and concise final-answer formatting for opened pages.
+- Added focused tests for browser-open routing, composer-driven browser navigation, TrustedRouter action parsing, core tool schema, and browser parity ownership.
+
+Remaining risk:
+- Agent-driven browser open currently gets the same static/metadata snapshot as manual open. Full Codex parity still needs a real live browser session adapter that can navigate, wait for dynamic pages, inspect DOM state, and share signed-in browser profiles behind the same `WorkspaceBrowserToolExecutor` boundary.

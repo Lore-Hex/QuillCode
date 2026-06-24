@@ -225,4 +225,32 @@ final class WorkspaceBrowserIntegrationTests: XCTestCase {
         XCTAssertTrue(thread.messages.last?.content.contains("Visible copy.") == true)
     }
 
+    func testComposerCanOpenBrowserPage() async throws {
+        let root = try makeTempDirectory()
+        let previewFile = root.appendingPathComponent("preview.html")
+        try """
+        <!doctype html>
+        <html>
+          <head><title>Agent Opened Page</title></head>
+          <body>
+            <h1>Opened By Agent</h1>
+            <p>Browser tool navigation works.</p>
+          </body>
+        </html>
+        """.write(to: previewFile, atomically: true, encoding: .utf8)
+        let model = QuillCodeWorkspaceModel()
+
+        model.setDraft("open `preview.html` in the browser")
+        await model.submitComposer(workspaceRoot: root)
+
+        let thread = try XCTUnwrap(model.selectedThread)
+        XCTAssertEqual(model.browser.currentURL, previewFile.standardizedFileURL.resolvingSymlinksInPath().absoluteString)
+        XCTAssertEqual(model.browser.title, "Agent Opened Page")
+        XCTAssertTrue(thread.events.contains { $0.summary.contains(ToolDefinition.browserOpen.name) })
+        XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.browserOpen.name)
+        XCTAssertEqual(model.currentToolCards.last?.status, .done)
+        XCTAssertTrue(thread.messages.last?.content.contains("Opened `Agent Opened Page`") == true)
+        XCTAssertTrue(thread.messages.last?.content.contains("H1: Opened By Agent") == true)
+    }
+
 }
