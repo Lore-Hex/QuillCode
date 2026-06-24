@@ -2486,3 +2486,19 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelTests.swift` is still too large at roughly 5.2k lines. The next test-quality pass should continue moving feature-specific integration groups into files named after their owning workspace engine or surface.
+
+## 2026-06-23 Command Plan Executor Pass
+
+Overall grade after this slice: **A command-plan boundary, A behavior preservation, A regression coverage**.
+
+`WorkspaceModel.runWorkspaceCommand` was still the broad command-plan execution switch even after command parsing and typed action planning had been extracted. The public command API now lives in `WorkspaceCommandPlanExecutor`, which parses command IDs through `WorkspaceCommandPlan` and executes parsed plans through a directly testable `runWorkspaceCommandPlan` entry point.
+
+| Area | Before | After |
+| --- | --- | --- |
+| `WorkspaceModel.swift` | Owned the full `WorkspaceCommandPlan` switch for local environment, memory, automation, MCP, extension, activity, draft, tool, and typed action plans. | Keeps the underlying state helpers, while command-plan routing lives in `WorkspaceCommandPlanExecutor.swift`. |
+| Command execution tests | Covered behavior through `runWorkspaceCommand` and command parsing tests, but not the parsed-plan executor boundary. | Added focused executor tests for parsed draft and static-action plans. |
+| Regression guard | The audit documented command-plan execution as remaining model risk. | Parity gate now prevents command-ID parsing and command-plan switching from returning to `WorkspaceModel.swift`. |
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still the largest test file because it carries many historical integration cases. Future cleanup should move behavior clusters into focused test files as extraction boundaries stabilize.
