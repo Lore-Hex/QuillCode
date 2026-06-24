@@ -1109,11 +1109,15 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(terminalIntegrationTests.contains("testTerminalCommandStreamsOutputBeforeCompletion"), "Terminal streaming integration should live in focused terminal tests.")
         XCTAssertTrue(terminalIntegrationTests.contains("testTerminalCommandPersistsCurrentDirectoryAcrossCommands"), "Terminal cwd persistence integration should live in focused terminal tests.")
         XCTAssertTrue(terminalIntegrationTests.contains("testTerminalCommandPersistsEnvironmentAcrossCommands"), "Terminal environment persistence integration should live in focused terminal tests.")
+        XCTAssertTrue(terminalIntegrationTests.contains("testTerminalCommandRunsThroughSSHRemoteProject"), "SSH Remote terminal execution integration should live in focused terminal tests.")
+        XCTAssertTrue(terminalIntegrationTests.contains("testTerminalCommandPersistsSSHRemoteCWDAndEnvironment"), "SSH Remote terminal cwd/environment integration should live in focused terminal tests.")
         XCTAssertTrue(terminalIntegrationTests.contains("testTerminalCancellationMarksRunningEntryStopped"), "Terminal cancellation integration should live in focused terminal tests.")
         XCTAssertFalse(modelTests.contains("testTerminalCommandRunsInWorkspaceRootAndRecordsOutput"), "WorkspaceModelTests should not own local terminal execution integration flows.")
         XCTAssertFalse(modelTests.contains("testTerminalCommandStreamsOutputBeforeCompletion"), "WorkspaceModelTests should not own terminal streaming integration flows.")
         XCTAssertFalse(modelTests.contains("testTerminalCommandPersistsCurrentDirectoryAcrossCommands"), "WorkspaceModelTests should not own terminal cwd persistence integration flows.")
         XCTAssertFalse(modelTests.contains("testTerminalCommandPersistsEnvironmentAcrossCommands"), "WorkspaceModelTests should not own terminal environment persistence integration flows.")
+        XCTAssertFalse(modelTests.contains("testTerminalCommandRunsThroughSSHRemoteProject"), "WorkspaceModelTests should not own SSH Remote terminal execution integration flows.")
+        XCTAssertFalse(modelTests.contains("testTerminalCommandPersistsSSHRemoteCWDAndEnvironment"), "WorkspaceModelTests should not own SSH Remote terminal cwd/environment integration flows.")
         XCTAssertFalse(modelTests.contains("testTerminalCancellationMarksRunningEntryStopped"), "WorkspaceModelTests should not own terminal cancellation integration flows.")
     }
 

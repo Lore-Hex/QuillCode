@@ -2603,12 +2603,12 @@ Code quality changes:
 - Removed the corresponding local terminal coverage from `WorkspaceModelTests.swift`.
 - Reused shared temp-directory support so the extracted tests clean up after themselves.
 - Added a parity gate that keeps local terminal integration method names out of `WorkspaceModelTests.swift`.
-- Left SSH terminal integration in `WorkspaceModelTests.swift` for now because fake SSH support is still shared with the broader remote-project cluster.
+- Left SSH terminal integration in `WorkspaceModelTests.swift` for that slice because fake SSH support was still shared with the broader remote-project cluster; that follow-up is now complete in the SSH terminal extraction pass.
 
 Remaining risk:
 
 - `WorkspaceModelTests.swift` is still the largest test file. SSH Remote project integration, browser integration, review actions, and automation flows remain good candidates for focused extraction.
-- The next terminal-related cleanup should extract shared fake SSH/GitHub CLI support, then move SSH terminal and remote-project integration flows into focused files.
+- Remote-project file/git/apply-patch flows remain broad, but terminal-specific SSH execution now lives with terminal integration coverage.
 
 ## 2026-06-24 Runtime Factory Test Ownership Pass
 
@@ -2850,4 +2850,21 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceModelTests.swift` still owns project lifecycle, terminal SSH, approval-card behavior, bootstrap/config, model settings, and plan-update integration coverage.
+- `WorkspaceModelTests.swift` still owns project lifecycle, approval-card behavior, bootstrap/config, model settings, and plan-update integration coverage.
+
+## 2026-06-24 SSH Terminal Integration Test Pass
+
+Overall grade after this slice: **A+ terminal ownership, A+ remote execution boundary, A regression guard**.
+
+SSH Remote terminal execution moved from `WorkspaceModelTests.swift` into `WorkspaceTerminalIntegrationTests`. Terminal coverage now owns both local and SSH execution paths, including remote cwd/environment persistence, while remote-project file/git/apply-patch flows remain in their own integration suite.
+
+Code quality changes:
+
+- Moved `testTerminalCommandRunsThroughSSHRemoteProject` and `testTerminalCommandPersistsSSHRemoteCWDAndEnvironment` into `WorkspaceTerminalIntegrationTests`.
+- Added explicit terminal-suite imports for `QuillCodeCore` and `QuillCodeTools` so the moved SSH setup dependencies are visible at the feature boundary.
+- Expanded the terminal parity gate to keep SSH Remote terminal integration method names out of `WorkspaceModelTests.swift`.
+- Reduced `WorkspaceModelTests.swift` from 442 lines to 363 lines.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` still owns project lifecycle, approval-card behavior, bootstrap/config, model settings, and plan-update integration coverage.
