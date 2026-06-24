@@ -2834,3 +2834,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelTests.swift` is still broad. Bootstrap/config, project/worktree command groups, approval-card behavior, and plan-update tool coverage remain future extraction candidates.
+
+## 2026-06-24 Workspace Pull Request Integration Test Pass
+
+Overall grade after this slice: **A+ PR workflow ownership, A command boundary, A+ regression guard**.
+
+Pull request command coverage moved from `WorkspaceModelTests.swift` into `WorkspacePullRequestIntegrationTests`. Tool-level GitHub CLI argument construction remains in `ToolTests`, and remote command construction remains in focused remote git builders; this suite owns only workspace command/slash integration through SSH and composer prefill behavior.
+
+Code quality changes:
+
+- Added `WorkspacePullRequestIntegrationTests` for remote PR view/checks/diff execution through SSH, slash `/pr` command dispatch, and PR command composer prefills.
+- Removed those PR cases from `WorkspaceModelTests.swift`, reducing it from 598 lines to 442 lines.
+- Added a parity gate that keeps PR integration method names out of `WorkspaceModelTests.swift`.
+- Preserved existing tool-level PR executor/parser tests instead of duplicating GitHub CLI argument construction coverage.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` still owns project lifecycle, terminal SSH, approval-card behavior, bootstrap/config, model settings, and plan-update integration coverage.
