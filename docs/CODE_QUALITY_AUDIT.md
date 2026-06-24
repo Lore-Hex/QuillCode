@@ -3131,7 +3131,31 @@ Code quality changes:
 
 Remaining risk:
 
-- `WorkspaceActivitySurfaceBuilder.swift` is now the activity derivation hotspot. If it grows further, split plan-row construction, event/source row projection, and handoff-summary copy into narrower builders before adding richer Codex activity features.
+- Activity derivation now has a clean intermediate builder boundary. Split plan, event/source, and handoff ownership before adding richer Codex activity features.
+
+## 2026-06-24 Activity Derivation Builder Split
+
+Overall grade after this slice: **A activity composition, A focused derivation builders, A+ ownership guard**.
+
+`WorkspaceActivitySurfaceBuilder.swift` had become the new 380+ line activity hotspot after the root payload split. It composed sections, formatted shared labels, projected thread events, projected source rows, built fallback and model-authored plans, and authored handoff-summary copy in one file. That was still correct behaviorally, but it made future Codex activity features likely to pile into the same file.
+
+Code quality changes:
+
+- Added `WorkspaceActivityPlanSurfaceBuilder` for fallback task-plan rows, model-authored plan rows, tool aggregate status, and review-state copy.
+- Added `WorkspaceActivityEventSurfaceBuilder` for recent event rows plus event labels/status labels.
+- Added `WorkspaceActivitySourceSurfaceBuilder` for instruction and memory source rows.
+- Added `WorkspaceActivityHandoffSummaryBuilder` for handoff copy and summary construction.
+- Added `WorkspaceActivityText` and `WorkspaceActivityStatusLabel` so shared row text/status formatting is reused instead of copied.
+- Kept `WorkspaceActivitySurfaceBuilder` as a 149-line composition layer for subtitle/task-title, tool rows, artifact de-duplication, section assembly, and delegation.
+- Expanded the parity gate so plan/event/source/handoff derivation cannot drift back into the root surface or top-level composition builder.
+
+Validation:
+
+- `swift test --filter WorkspaceSurfaceTests/testActivitySurface`
+
+Remaining risk:
+
+- Tool-row projection and artifact de-duplication still live in `WorkspaceActivitySurfaceBuilder`; if tool/activity metadata grows, split a small `WorkspaceActivityToolSurfaceBuilder`.
 
 ## 2026-06-24 Tool Artifact Surface Architecture Pass
 
