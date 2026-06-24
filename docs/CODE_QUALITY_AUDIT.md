@@ -32,6 +32,9 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `Sources/QuillCodeApp/QuillCodeSidebarView.swift` | A | The native sidebar shell now owns only rail composition, top-level thread header state, primary actions, utility footer, and project/thread component placement. Keep row rendering, row action payloads, and presentation maps in focused sidebar files. |
 | `Sources/QuillCodeApp/QuillCodeSidebarThreadListView.swift` | A- | Thread empty state, pinned/recent/archived sections, bulk selection toolbar, row rendering, and selection toggles live together. Split only if row menus or bulk controls grow into independent workflow state. |
 | `Sources/QuillCodeApp/QuillCodeProjectListView.swift` | A | Project list, header controls, remote badges, and row action menus live together without leaking into the sidebar shell. |
+| `Sources/QuillCodeApp/QuillCodeReviewPaneView.swift` | A | The native review pane shell now owns only review header, file-list placement, and pane chrome. Keep diff row rendering and comment controls in focused review row files. |
+| `Sources/QuillCodeApp/QuillCodeReviewFileRowView.swift` | A- | File rows, hunk rows, range-note controls, file/hunk actions, and hunk-to-line composition live together. Split hunk controls only if review workflows grow beyond compact stage/restore/comment actions. |
+| `Sources/QuillCodeApp/QuillCodeReviewLineRowView.swift` | A | Line content, marker/background styling, inline comments, and line-note composer live together without expanding the review pane shell. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
 | `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback and project-import resolution now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
@@ -175,6 +178,23 @@ Code quality changes:
 Remaining risk:
 
 - `QuillCodeSidebarThreadListView` is the richer of the two new files because it owns both bulk-selection controls and row rendering. Keep it that way while those controls remain compact; split bulk-selection chrome into its own file only if more selection workflows are added.
+
+## 2026-06-24 Native Review Row Split
+
+Overall grade after this slice: **A review pane shell, A file/hunk row boundary, A line-row boundary**.
+
+`QuillCodeReviewPaneView.swift` still owned every native review UI level: pane chrome, file rows, hunk rows, range-note state, diff line rendering, inline comment lists, line-note composer state, and action buttons. It was cohesive by feature, but dense enough that future diff-review work could easily make the shell harder to reason about.
+
+Code quality changes:
+
+- Added `QuillCodeReviewFileRowView` for file rows, hunk rows, file/hunk actions, range-note controls, and hunk-to-line composition.
+- Added `QuillCodeReviewLineRowView` for line content, marker/background styling, existing inline comments, and line-note composer state.
+- Reduced `QuillCodeReviewPaneView.swift` to review header, file-list placement, and pane chrome.
+- Added a native review parity gate so hunk/line/action rendering does not drift back into the pane shell.
+
+Remaining risk:
+
+- `QuillCodeReviewFileRowView` intentionally still owns both file and hunk rows because their action and comment workflows are coupled. If hunk-level review grows more controls, split `QuillCodeReviewHunkView` into its own file next.
 
 ## 2026-06-24 Sidebar Command Grouping Pass
 
