@@ -76,13 +76,10 @@ public struct TrustedRouterLLMClient: StreamingLLMClient {
     }
 
     public func configuredAPIKey() throws -> String {
-        if let apiKeyOverride, !apiKeyOverride.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return apiKeyOverride
-        }
-        if let key = try sessionStore?.apiKey(), !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return key
-        }
-        throw TrustedRouterAgentError.missingAPIKey
+        try TrustedRouterAPIKeyResolver(
+            sessionStore: sessionStore,
+            apiKeyOverride: apiKeyOverride
+        ).configuredAPIKey()
     }
 }
 
@@ -121,12 +118,9 @@ public struct TrustedRouterSafetyModelClient: SafetyModelClient {
     }
 
     private func configuredAPIKey() throws -> String {
-        if let apiKeyOverride, !apiKeyOverride.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return apiKeyOverride
-        }
-        if let key = try sessionStore?.apiKey(), !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return key
-        }
-        throw TrustedRouterAgentError.missingAPIKey
+        try TrustedRouterAPIKeyResolver(
+            sessionStore: sessionStore,
+            apiKeyOverride: apiKeyOverride
+        ).configuredAPIKey()
     }
 }
