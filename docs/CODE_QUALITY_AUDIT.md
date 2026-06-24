@@ -3166,3 +3166,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceTerminalEngine.swift` still owns both local and SSH Remote marker parsing. If relay terminal execution lands soon, split local/remote command wrapping and metadata parsing into adapter-specific helpers before adding a third transport.
+
+## 2026-06-24 Slash Command Catalog Split
+
+Overall grade after this slice: **A slash catalog ownership, A parser focus, A+ regression guard**.
+
+`SlashCommand.swift` mixed slash command metadata, command-palette insertion rows, suggestion ranking, help text, parser control flow, and structured tool-call construction. The parser now keeps command interpretation and tool-call payload construction, while discovery metadata and suggestion scoring live in a focused catalog file.
+
+Code quality changes:
+
+- Added `SlashCommandCatalog.swift` for `SlashCommandSuggestionSurface`, `SlashCommandDefinition`, slash definitions, `/help` text, command-palette template rows, insertion lookup, and suggestion ranking.
+- Reduced `SlashCommand.swift` from 517 lines to parser and tool-call construction logic.
+- Updated the slash discovery decision to call out catalog-vs-parser ownership.
+- Added a parity gate that keeps slash metadata and ranking out of parser control flow.
+
+Remaining risk:
+
+- `SlashCommand.swift` still owns PR slash parsing and tool-call argument mapping. If pull request slash coverage grows further, split `/pr` parsing into a `SlashPullRequestCommandParser` while keeping shared `ToolArguments` serialization in core.

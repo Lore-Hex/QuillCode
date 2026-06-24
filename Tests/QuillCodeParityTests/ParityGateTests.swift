@@ -2161,6 +2161,23 @@ final class ParityGateTests: XCTestCase {
         )
     }
 
+    func testSlashCommandCatalogLivesOutsideParser() throws {
+        let slashText = try Self.appSourceText(named: "SlashCommand.swift")
+        let catalogText = try Self.appSourceText(named: "SlashCommandCatalog.swift")
+
+        XCTAssertTrue(catalogText.contains("public struct SlashCommandSuggestionSurface"), "Slash suggestions should live beside the slash catalog.")
+        XCTAssertTrue(catalogText.contains("struct SlashCommandDefinition"), "Slash command metadata should live beside the slash catalog.")
+        XCTAssertTrue(catalogText.contains("enum SlashCommandCatalog"), "Slash command discovery and ranking should live in a focused catalog file.")
+        XCTAssertTrue(catalogText.contains("static let definitions"), "Slash command definitions should not live beside parser control flow.")
+        XCTAssertTrue(catalogText.contains("static func suggestions"), "Composer suggestion ranking should live beside the slash catalog.")
+        XCTAssertTrue(slashText.contains("enum SlashCommandParser"), "SlashCommand.swift should own parser control flow.")
+        XCTAssertTrue(slashText.contains("ToolArguments.json("), "Slash parser should still construct structured tool calls through core arguments.")
+        XCTAssertFalse(slashText.contains("public struct SlashCommandSuggestionSurface"), "Slash parser should not own suggestion surface DTOs.")
+        XCTAssertFalse(slashText.contains("struct SlashCommandDefinition"), "Slash parser should not own slash command metadata records.")
+        XCTAssertFalse(slashText.contains("static let definitions"), "Slash parser should not own the slash command catalog.")
+        XCTAssertFalse(slashText.contains("private static func score"), "Slash parser should not own catalog ranking.")
+    }
+
     func testWorkspaceModelDelegatesRemoteProjectToolExecution() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceAgentRunContextBuilder.swift")
