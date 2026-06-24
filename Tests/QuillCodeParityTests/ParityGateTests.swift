@@ -932,6 +932,23 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("testRemoteProjectRejectsUnsafeWorktreePathBeforeSSH"), "WorkspaceModelTests should not own remote worktree safety integration flows.")
     }
 
+    func testWorkspaceWorktreeIntegrationTestsOwnModelWorktreeFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let worktreeIntegrationTests = try Self.appTestSourceText(named: "WorkspaceWorktreeIntegrationTests.swift")
+
+        XCTAssertTrue(worktreeIntegrationTests.contains("testWorkspaceCommandListsGitWorktrees"), "Local worktree listing should live in focused worktree integration tests.")
+        XCTAssertTrue(worktreeIntegrationTests.contains("testRemoteWorkspaceCommandListsGitWorktreesThroughSSH"), "SSH Remote worktree listing should live in focused worktree integration tests.")
+        XCTAssertTrue(worktreeIntegrationTests.contains("testWorkspaceWorktreeCommandsPrefillComposer"), "Worktree command prefill should live in focused worktree integration tests.")
+        XCTAssertTrue(worktreeIntegrationTests.contains("testWorkspaceCreateWorktreeOpensFocusedThreadAndKeepsToolAudit"), "Local worktree create/open integration should live in focused worktree integration tests.")
+        XCTAssertTrue(worktreeIntegrationTests.contains("testRemoteWorkspaceCreateWorktreeOpensSSHProjectAndKeepsToolAudit"), "SSH Remote worktree create/open integration should live in focused worktree integration tests.")
+
+        XCTAssertFalse(modelTests.contains("testWorkspaceCommandListsGitWorktrees"), "WorkspaceModelTests should not own local worktree listing integration.")
+        XCTAssertFalse(modelTests.contains("testRemoteWorkspaceCommandListsGitWorktreesThroughSSH"), "WorkspaceModelTests should not own SSH Remote worktree listing integration.")
+        XCTAssertFalse(modelTests.contains("testWorkspaceWorktreeCommandsPrefillComposer"), "WorkspaceModelTests should not own worktree command prefill integration.")
+        XCTAssertFalse(modelTests.contains("testWorkspaceCreateWorktreeOpensFocusedThreadAndKeepsToolAudit"), "WorkspaceModelTests should not own local worktree create/open integration.")
+        XCTAssertFalse(modelTests.contains("testRemoteWorkspaceCreateWorktreeOpensSSHProjectAndKeepsToolAudit"), "WorkspaceModelTests should not own SSH Remote worktree create/open integration.")
+    }
+
     func testWorkspaceBrowserIntegrationTestsOwnModelBrowserFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let browserIntegrationTests = try Self.appTestSourceText(named: "WorkspaceBrowserIntegrationTests.swift")

@@ -48,6 +48,24 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Updated the Playwright harness to preserve branded labels after model selection.
 - Fixed stale decisions documentation that still described recurring automation as deferred.
 
+## 2026-06-24 Workspace Worktree Integration Test Pass
+
+Overall grade after this slice: **A feature grouping, A fixture DRYness, A regression guard**.
+
+Worktree integration tests moved from `WorkspaceModelTests.swift` into `WorkspaceWorktreeIntegrationTests`. The model test file no longer owns local/SSH Remote worktree listing, worktree command prefill, local worktree create/remove, or remote SSH worktree project/thread creation.
+
+Code quality changes:
+
+- Added `WorkspaceWorktreeIntegrationTests` for worktree flows crossing workspace model, git tools, SSH Remote execution, tool cards, transcript events, project selection, and top-bar state.
+- Centralized repeated SSH Remote worktree fixture setup inside the focused worktree suite.
+- Kept pull-request command prefill in the PR/workspace model tests instead of hiding it in a worktree-named test.
+- Added a parity gate that keeps model-level worktree integration method names out of `WorkspaceModelTests.swift`.
+- Reduced `WorkspaceModelTests.swift` again without weakening worktree behavior coverage.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still large. Pull request/GitHub command flows, bootstrap/config, approval-card behavior, feedback, and artifact-state coverage remain future extraction candidates.
+
 ## 2026-06-23 Core Model Catalog Ownership Pass
 
 Overall grade after this slice: **A core cohesion, A model-default ownership**.
