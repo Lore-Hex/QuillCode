@@ -1519,6 +1519,7 @@ final class ParityGateTests: XCTestCase {
         let presentationText = try Self.appSourceText(named: "QuillCodeSidebarCommandPresentation.swift")
         let adapterText = try Self.appSourceText(named: "QuillCodeSidebarCommandAdapter.swift")
         let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
+        let threadListText = try Self.appSourceText(named: "QuillCodeSidebarThreadListView.swift")
         let htmlSidebarText = try Self.appSourceText(named: "WorkspaceHTMLSidebarRenderer.swift")
 
         XCTAssertTrue(presentationText.contains("struct QuillCodeSidebarCommandPresentation"), "Sidebar command labels and icons should live in one focused presentation helper.")
@@ -1536,7 +1537,6 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(sidebarText.contains("QuillCodeSidebarCommandPresentation.systemImage"), "Native sidebar should consume shared SF Symbols.")
         XCTAssertTrue(adapterText.contains("enum QuillCodeSidebarCommandAdapter"), "Sidebar command payload construction should live in a focused adapter.")
         XCTAssertTrue(sidebarText.contains("QuillCodeSidebarCommandAdapter.workspaceCommand"), "Native sidebar should use the shared command adapter for bulk actions.")
-        XCTAssertTrue(sidebarText.contains("QuillCodeSidebarCommandAdapter.toggleSelectionCommand"), "Native sidebar should use the shared command adapter for selection toggles.")
         XCTAssertTrue(htmlSidebarText.contains("renderPrimaryActions"), "HTML sidebar renderer should build primary sidebar actions through a helper.")
         XCTAssertTrue(htmlSidebarText.contains("renderUtilityActions"), "HTML sidebar renderer should build utility menu actions through a helper.")
         XCTAssertTrue(htmlSidebarText.contains("QuillCodeSidebarCommandPresentation.primaryCommandIDs"), "HTML sidebar renderer should consume shared primary command ordering.")
@@ -1545,6 +1545,7 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(sidebarText.contains("private func displayTitle"), "Native sidebar should not maintain a second label map.")
         XCTAssertFalse(sidebarText.contains("private func systemImage"), "Native sidebar should not maintain a second icon map.")
         XCTAssertFalse(sidebarText.contains("WorkspaceCommandSurface("), "Native sidebar should not duplicate command payload construction.")
+        XCTAssertTrue(threadListText.contains("QuillCodeSidebarCommandAdapter.toggleSelectionCommand"), "Native sidebar thread rows should use the shared command adapter for selection toggles.")
         XCTAssertFalse(htmlSidebarText.contains(#"data-icon="plugins">Plugins"#), "HTML sidebar renderer should not hard-code sidebar plugin markup.")
     }
 
@@ -1558,6 +1559,19 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(projectListText.contains("maxProjectListHeight"), "Project rows should have an explicit scroll boundary so utility controls stay reachable.")
         XCTAssertFalse(sidebarText.contains("struct QuillCodeProjectRowView"), "Native sidebar should not own project-row rendering.")
         XCTAssertFalse(sidebarText.contains("maxProjectListHeight"), "Native sidebar should not own project-list sizing policy.")
+    }
+
+    func testNativeSidebarDelegatesThreadListRendering() throws {
+        let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
+        let threadListText = try Self.appSourceText(named: "QuillCodeSidebarThreadListView.swift")
+
+        XCTAssertTrue(sidebarText.contains("QuillCodeSidebarThreadListView("), "Native sidebar should compose a focused thread-list view.")
+        XCTAssertTrue(threadListText.contains("struct QuillCodeSidebarThreadListView"), "Thread-list rendering should live in a focused file.")
+        XCTAssertTrue(threadListText.contains("struct QuillCodeSidebarThreadSectionView"), "Thread-section rendering should live beside the thread-list view.")
+        XCTAssertTrue(threadListText.contains("struct QuillCodeSidebarThreadRowView"), "Thread-row rendering should live beside the thread-list view.")
+        XCTAssertTrue(threadListText.contains("toggleSelectionCommand"), "Thread-row selection behavior should stay beside row rendering.")
+        XCTAssertFalse(sidebarText.contains("struct QuillCodeSidebarThreadRowView"), "Native sidebar should not own thread-row rendering.")
+        XCTAssertFalse(sidebarText.contains("sidebar.recentSections()"), "Native sidebar should not own thread sectioning presentation.")
     }
 
     func testWorkspaceSwiftUIViewDelegatesTranscriptFindAndContextBanner() throws {

@@ -3628,3 +3628,18 @@ What changed:
 
 Remaining risk:
 - `QuillCodeSidebarView.swift` still owns primary actions, bulk selection controls, thread sections, thread rows, and utility actions. Split thread rows next if the left rail gains more Codex parity controls such as per-thread status badges, drag ordering, or richer context menus.
+
+## 2026-06-24 Native Sidebar Thread List Split
+
+Overall grade after this slice: **A+ sidebar thread-list ownership, A+ left-rail composition boundary**.
+
+`QuillCodeSidebarView.swift` still owned empty thread copy, pinned/recent/archive rendering, thread section headers, row selection toggles, thread row menus, and selected-row chrome. Those rules are small individually, but together they are the highest-change part of Codex-style navigation: future status badges, drag ordering, richer row menus, and per-thread progress will all land there.
+
+What changed:
+- Added `QuillCodeSidebarThreadListView.swift` for native empty-state, thread-section, and thread-row rendering.
+- Kept selection hit targets and row menus beside row rendering so selection UX can evolve without touching the left-rail shell.
+- Reduced `QuillCodeSidebarView.swift` to left-rail composition for primary actions, thread header, thread list, project list, and utility actions.
+- Added a parity gate so thread-row rendering and recent-section presentation do not drift back into `QuillCodeSidebarView.swift`.
+
+Remaining risk:
+- `QuillCodeSidebarView.swift` still owns the thread header and bulk-selection control. That is acceptable while the header is compact, but split bulk action rendering if selection mode grows into a richer Codex-style batch toolbar.
