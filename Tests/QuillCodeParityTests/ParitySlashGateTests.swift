@@ -130,6 +130,24 @@ final class ParitySlashGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(slashText.contains("toggle-memories"), "Outer slash parser should not own memory pane command IDs.")
     }
 
+    func testSlashParserDelegatesWorkspaceSubcommands() throws {
+        let slashText = try Self.appSourceText(named: "SlashCommand.swift")
+        let workspaceParserText = try Self.appSourceText(named: "SlashWorkspaceCommandParser.swift")
+        let workspaceParserTests = try Self.appTestSourceText(named: "SlashWorkspaceCommandParserTests.swift")
+
+        XCTAssertTrue(slashText.contains("SlashWorkspaceCommandParser.supports(workspaceCommand)"), "Outer slash parser should delegate workspace command recognition.")
+        XCTAssertTrue(slashText.contains("SlashWorkspaceCommandParser.parse(name: workspaceCommand)"), "Outer slash parser should delegate workspace command parsing.")
+        XCTAssertTrue(workspaceParserText.contains("enum SlashWorkspaceCommandParser"), "Workspace slash parsing should live in a focused parser.")
+        XCTAssertTrue(workspaceParserText.contains("toggle-browser"), "Browser command IDs should live with workspace parser semantics.")
+        XCTAssertTrue(workspaceParserText.contains("git-worktree-list"), "Worktree command IDs should live with workspace parser semantics.")
+        XCTAssertTrue(workspaceParserTests.contains("testBrowserAliasesToggleBrowserPane"), "Browser aliases should have focused parser coverage.")
+        XCTAssertTrue(workspaceParserTests.contains("testWorktreeAliasesListGitWorktrees"), "Worktree aliases should have focused parser coverage.")
+        XCTAssertFalse(slashText.contains("case \"browser\", \"preview\""), "Outer slash parser should not own browser aliases.")
+        XCTAssertFalse(slashText.contains("case \"worktree\", \"worktrees\", \"wt\""), "Outer slash parser should not own worktree aliases.")
+        XCTAssertFalse(slashText.contains("toggle-browser"), "Outer slash parser should not own browser command IDs.")
+        XCTAssertFalse(slashText.contains("git-worktree-list"), "Outer slash parser should not own worktree command IDs.")
+    }
+
     func testSlashParserDelegatesSchedulingSubcommands() throws {
         let slashText = try Self.appSourceText(named: "SlashCommand.swift")
         let schedulingParserText = try Self.appSourceText(named: "SlashSchedulingCommandParser.swift")

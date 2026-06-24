@@ -51,12 +51,10 @@ enum SlashCommandParser {
             return SlashRemoteProjectCommandParser.parse(argument)
         case "terminal", "term", "shell":
             return SlashTerminalCommandParser.parse(argument)
-        case "browser", "preview":
-            return .workspaceCommand("toggle-browser")
+        case let workspaceCommand where SlashWorkspaceCommandParser.supports(workspaceCommand):
+            return SlashWorkspaceCommandParser.parse(name: workspaceCommand)
         case let memoryCommand where SlashMemoryCommandParser.supports(memoryCommand):
             return SlashMemoryCommandParser.parse(name: memoryCommand, argument: argument)
-        case "worktree", "worktrees", "wt":
-            return .workspaceCommand("git-worktree-list")
         case "pr", "pull-request", "pullrequest":
             return SlashPullRequestCommandParser.parse(argument)
         case "env", "environment", "local-env":

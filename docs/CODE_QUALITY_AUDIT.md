@@ -4080,3 +4080,18 @@ What changed:
 
 Remaining risk:
 - HTML sidebar icon tokens are intentionally separate because they map to CSS token names, not SF Symbols. If the HTML shell grows more native-like, bridge those through a dedicated token catalog instead of mixing HTML token and native symbol concerns.
+
+## 2026-06-24 Workspace Utility Slash Parser Split
+
+Overall grade after this slice: **A+ workspace utility slash ownership, A+ alias coverage, A outer parser boundary**.
+
+`SlashCommand.swift` still owned direct workspace utility aliases for browser preview and git worktree listing. These commands are small, but they are visible in the command palette, keyboard-shortcut surface, browser pane, worktree workflows, and Codex-style workspace navigation. Keeping the aliases and command IDs in one focused parser prevents the top-level dispatcher from becoming a bag of unrelated workspace toggles.
+
+What changed:
+- Added `SlashWorkspaceCommandParser.swift` for `/browser`, `/preview`, `/worktree`, `/worktrees`, and `/wt`.
+- Reduced `SlashCommand.swift` to top-level workspace utility delegation through `SlashWorkspaceCommandParser.supports`.
+- Added direct parser tests for browser and worktree aliases.
+- Added a parity gate so browser/worktree command IDs do not drift back into the outer slash parser.
+
+Remaining risk:
+- `SlashCommand.swift` still owns help, status, environment action, and generic unknown routing. Environment action parsing should move next if `/env` grows richer subcommands, usage copy, or filtering behavior.
