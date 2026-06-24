@@ -203,4 +203,287 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelText.contains("threadStore?.save"), "WorkspaceModel should not call JSONThreadStore save directly.")
         XCTAssertFalse(modelText.contains("threadStore?.delete"), "WorkspaceModel should not call JSONThreadStore delete directly.")
     }
+
+    func testWorkspaceModelDelegatesConfigurationTransitions() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let configurationText = try Self.appSourceText(named: "WorkspaceConfigurationEngine.swift")
+
+        XCTAssertTrue(configurationText.contains("struct WorkspaceConfigurationEngine"), "Workspace configuration transitions should live in a focused engine.")
+        XCTAssertTrue(configurationText.contains("static func setModel"), "Model selection should be directly testable.")
+        XCTAssertTrue(configurationText.contains("static func setMode"), "Mode selection should be directly testable.")
+        XCTAssertTrue(configurationText.contains("static func toggleFavorite"), "Favorite model mutation should be directly testable.")
+        XCTAssertTrue(configurationText.contains("static func normalizedCatalog"), "Catalog replacement should be directly testable.")
+        XCTAssertTrue(configurationText.contains("static func applySettings"), "Settings application should be directly testable.")
+        XCTAssertTrue(configurationText.contains("static func syncThread"), "Selected-thread config syncing should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceConfigurationEngine.setModel"), "WorkspaceModel should delegate model selection.")
+        XCTAssertTrue(modelText.contains("WorkspaceConfigurationEngine.setMode"), "WorkspaceModel should delegate mode selection.")
+        XCTAssertTrue(modelText.contains("WorkspaceConfigurationEngine.toggleFavorite"), "WorkspaceModel should delegate favorite mutation.")
+        XCTAssertTrue(modelText.contains("WorkspaceConfigurationEngine.normalizedCatalog"), "WorkspaceModel should delegate catalog normalization.")
+        XCTAssertTrue(modelText.contains("WorkspaceConfigurationEngine.applySettings"), "WorkspaceModel should delegate settings application.")
+        XCTAssertFalse(modelText.contains("TrustedRouterDefaults.normalizedDefaultModelID(model)"), "WorkspaceModel should not own model ID normalization.")
+        XCTAssertFalse(modelText.contains("root.config.favoriteModels.append"), "WorkspaceModel should not mutate favorite-model arrays directly.")
+        XCTAssertFalse(modelText.contains("TrustedRouterDefaults.normalizedModelCatalog(models)"), "WorkspaceModel should not own catalog normalization.")
+        XCTAssertFalse(modelText.contains("root.trustedRouterAPIKeyConfigured = trustedRouterAPIKeyConfigured"), "WorkspaceModel should not own settings application details.")
+    }
+
+    func testWorkspaceConfigurationIntegrationTestsOwnModelConfigurationFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let configurationIntegrationTests = try Self.appTestSourceText(named: "WorkspaceConfigurationIntegrationTests.swift")
+
+        XCTAssertTrue(configurationIntegrationTests.contains("testModeAndModelUpdateSelectedThreadAndTopBar"), "Mode/model top-bar integration should live in focused configuration integration tests.")
+        XCTAssertTrue(configurationIntegrationTests.contains("testToggleModelFavoriteUpdatesConfigAndSurface"), "Favorite model config/surface integration should live in focused configuration integration tests.")
+        XCTAssertTrue(configurationIntegrationTests.contains("testApplySettingsUpdatesConfigThreadAndSettingsSurface"), "Settings config/thread/surface integration should live in focused configuration integration tests.")
+        XCTAssertTrue(configurationIntegrationTests.contains("testBootstrapLoadsConfigAndPersistedThreads"), "Bootstrap config/thread/project/automation persistence integration should live in focused configuration integration tests.")
+        XCTAssertTrue(configurationIntegrationTests.contains("testBootstrapPersistsAndClearsTrustedRouterAPIKey"), "TrustedRouter API key persistence integration should live in focused configuration integration tests.")
+
+        XCTAssertFalse(modelTests.contains("testModeAndModelUpdateSelectedThreadAndTopBar"), "WorkspaceModelTests should not own mode/model surface integration flows.")
+        XCTAssertFalse(modelTests.contains("testToggleModelFavoriteUpdatesConfigAndSurface"), "WorkspaceModelTests should not own favorite model config/surface integration flows.")
+        XCTAssertFalse(modelTests.contains("testApplySettingsUpdatesConfigThreadAndSettingsSurface"), "WorkspaceModelTests should not own settings config/thread/surface integration flows.")
+        XCTAssertFalse(modelTests.contains("testBootstrapLoadsConfigAndPersistedThreads"), "WorkspaceModelTests should not own bootstrap config/thread/project/automation persistence integration.")
+        XCTAssertFalse(modelTests.contains("testBootstrapPersistsAndClearsTrustedRouterAPIKey"), "WorkspaceModelTests should not own TrustedRouter API key persistence integration.")
+    }
+
+    func testWorkspaceModelDelegatesRetryPlanning() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let retryPlannerText = try Self.appSourceText(named: "WorkspaceRetryPlanner.swift")
+        let retryPlannerTests = try Self.appTestSourceText(named: "WorkspaceRetryPlannerTests.swift")
+
+        XCTAssertTrue(retryPlannerText.contains("enum WorkspaceRetryPlanner"), "Retry planning should live in a focused helper.")
+        XCTAssertTrue(retryPlannerText.contains("static func canRetryLastUserTurn"), "Retry availability should be directly testable.")
+        XCTAssertTrue(retryPlannerText.contains("static func retryDraft"), "Retry draft selection should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceRetryPlanner.canRetryLastUserTurn"), "WorkspaceModel should delegate retry availability.")
+        XCTAssertTrue(modelText.contains("WorkspaceRetryPlanner.retryDraft"), "WorkspaceModel should delegate retry draft selection.")
+        XCTAssertTrue(retryPlannerTests.contains("testRetryDraftUsesLatestNonEmptyUserMessageAndPreservesOriginalText"), "Retry draft behavior should have focused coverage.")
+        XCTAssertTrue(retryPlannerTests.contains("testRetryRequiresUserMessageAndIdleComposer"), "Retry availability should have focused coverage.")
+        XCTAssertFalse(modelText.contains("messages.last(where:"), "WorkspaceModel should not scan transcript messages for retry drafts.")
+        XCTAssertFalse(modelText.contains("messages.contains {"), "WorkspaceModel should not own retry availability scans.")
+    }
+
+    func testWorkspaceActivityIntegrationTestsOwnModelActivityFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let activityIntegrationTests = try Self.appTestSourceText(named: "WorkspaceActivityIntegrationTests.swift")
+
+        XCTAssertTrue(activityIntegrationTests.contains("testPlanUpdateToolRecordsNormalizedActivityPlan"), "Plan-update activity integration should live in focused activity tests.")
+        XCTAssertTrue(activityIntegrationTests.contains("testPlanUpdateToolRejectsMultipleRunningSteps"), "Plan-update rejection integration should live in focused activity tests.")
+        XCTAssertFalse(modelTests.contains("testPlanUpdateToolRecordsNormalizedActivityPlan"), "WorkspaceModelTests should not own plan-update activity integration flows.")
+        XCTAssertFalse(modelTests.contains("testPlanUpdateToolRejectsMultipleRunningSteps"), "WorkspaceModelTests should not own plan-update rejection integration flows.")
+    }
+
+    func testWorkspaceActivitySurfaceUsesFocusedBuilderAndSectionTypes() throws {
+        let surfaceText = try Self.appSourceText(named: "WorkspaceActivitySurface.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceActivitySurfaceBuilder.swift")
+        let sectionText = try Self.appSourceText(named: "WorkspaceActivitySectionSurface.swift")
+        let planBuilderText = try Self.appSourceText(named: "WorkspaceActivityPlanSurfaceBuilder.swift")
+        let eventBuilderText = try Self.appSourceText(named: "WorkspaceActivityEventSurfaceBuilder.swift")
+        let sourceBuilderText = try Self.appSourceText(named: "WorkspaceActivitySourceSurfaceBuilder.swift")
+        let handoffBuilderText = try Self.appSourceText(named: "WorkspaceActivityHandoffSummaryBuilder.swift")
+        let textHelperText = try Self.appSourceText(named: "WorkspaceActivityText.swift")
+        let statusText = try Self.appSourceText(named: "WorkspaceActivityStatusLabel.swift")
+
+        XCTAssertTrue(surfaceText.contains("public struct WorkspaceActivitySurface"), "Activity surface payload should keep the public DTO entry point.")
+        XCTAssertTrue(surfaceText.contains("WorkspaceActivitySurfaceBuilder.sections"), "Activity surface should delegate section construction.")
+        XCTAssertTrue(surfaceText.contains("WorkspaceActivitySurfaceBuilder.planItems"), "Activity surface should delegate derived task-plan rows.")
+        XCTAssertTrue(builderText.contains("enum WorkspaceActivitySurfaceBuilder"), "Activity derivation should live in a focused builder.")
+        XCTAssertTrue(builderText.contains("WorkspaceActivityPlanSurfaceBuilder.fallbackItems"), "Activity builder should delegate fallback plan rows.")
+        XCTAssertTrue(builderText.contains("WorkspaceActivityPlanSurfaceBuilder.authoredItems"), "Activity builder should delegate authored plan rows.")
+        XCTAssertTrue(builderText.contains("WorkspaceActivityEventSurfaceBuilder.recentSteps"), "Activity builder should delegate event-row projection.")
+        XCTAssertTrue(builderText.contains("WorkspaceActivitySourceSurfaceBuilder.items"), "Activity builder should delegate source-row projection.")
+        XCTAssertTrue(builderText.contains("WorkspaceActivityHandoffSummaryBuilder.summary"), "Activity builder should delegate handoff summary copy.")
+        XCTAssertTrue(planBuilderText.contains("enum WorkspaceActivityPlanSurfaceBuilder"), "Plan-row derivation should have a focused owner.")
+        XCTAssertTrue(planBuilderText.contains("static func authoredItems"), "Authored plan rows should stay beside fallback plan rows.")
+        XCTAssertTrue(planBuilderText.contains("private static func reviewState"), "Fallback plan review-state copy should stay in the plan builder.")
+        XCTAssertTrue(eventBuilderText.contains("enum WorkspaceActivityEventSurfaceBuilder"), "Event-row projection should have a focused owner.")
+        XCTAssertTrue(eventBuilderText.contains("private static func eventKindLabel"), "Event labeling should stay beside event-row projection.")
+        XCTAssertTrue(sourceBuilderText.contains("enum WorkspaceActivitySourceSurfaceBuilder"), "Instruction and memory source rows should have a focused owner.")
+        XCTAssertTrue(handoffBuilderText.contains("enum WorkspaceActivityHandoffSummaryBuilder"), "Handoff summary copy should have a focused owner.")
+        XCTAssertTrue(textHelperText.contains("enum WorkspaceActivityText"), "Shared activity text formatting should not be copied between builders.")
+        XCTAssertTrue(statusText.contains("enum ActivityStatusLabel"), "Activity status labels should be shared by focused builders.")
+        XCTAssertTrue(sectionText.contains("public enum ActivitySectionKind"), "Activity section metadata should live beside section DTOs.")
+        XCTAssertTrue(sectionText.contains("public struct ActivitySectionSurface"), "Activity section DTOs should live outside the root surface file.")
+        XCTAssertTrue(sectionText.contains("public struct ActivityItemSurface"), "Activity item DTOs should live outside the root surface file.")
+        XCTAssertFalse(surfaceText.contains("private static func planItems"), "Activity surface should not own plan derivation.")
+        XCTAssertFalse(surfaceText.contains("private static func recentSteps"), "Activity surface should not own event-row derivation.")
+        XCTAssertFalse(surfaceText.contains("public enum ActivitySectionKind"), "Activity surface should not own section metadata.")
+        XCTAssertFalse(builderText.contains("private static func eventKindLabel"), "Top-level activity builder should not own event labeling.")
+        XCTAssertFalse(builderText.contains("private static func reviewState"), "Top-level activity builder should not own fallback plan review state.")
+        XCTAssertFalse(builderText.contains("Latest answer:"), "Top-level activity builder should not own handoff summary prose.")
+    }
+
+    func testWorkspaceToolCardIntegrationTestsOwnModelToolCardFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let toolCardIntegrationTests = try Self.appTestSourceText(named: "WorkspaceToolCardIntegrationTests.swift")
+
+        XCTAssertTrue(toolCardIntegrationTests.contains("testToolCardsRepresentActionableApprovalReview"), "Tool-card review projection should live in focused tool-card integration tests.")
+        XCTAssertTrue(toolCardIntegrationTests.contains("testToolCardApprovalActionRecordsDecisionAndRunsTool"), "Tool-card approval execution should live in focused tool-card integration tests.")
+        XCTAssertTrue(toolCardIntegrationTests.contains("testToolCardsRepresentStoppedActiveToolAsFailed"), "Stopped tool-card projection should live in focused tool-card integration tests.")
+        XCTAssertFalse(modelTests.contains("testToolCardsRepresentActionableApprovalReview"), "WorkspaceModelTests should not own actionable approval-card projection.")
+        XCTAssertFalse(modelTests.contains("testToolCardApprovalActionRecordsDecisionAndRunsTool"), "WorkspaceModelTests should not own approval-card execution integration.")
+        XCTAssertFalse(modelTests.contains("testToolCardsRepresentStoppedActiveToolAsFailed"), "WorkspaceModelTests should not own stopped tool-card projection.")
+    }
+
+    func testWorkspaceModelTestsRemainRetired() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+
+        XCTAssertTrue(modelTests.contains("Intentionally empty"), "WorkspaceModelTests should stay as a visible retirement marker.")
+        XCTAssertFalse(modelTests.contains("func test"), "New workspace integration coverage should use a focused feature test suite, not WorkspaceModelTests.")
+    }
+
+    func testFocusedWorkspaceUnitSuitesUseSharedTemporaryDirectorySupport() throws {
+        let supportText = try Self.appTestSourceText(named: "WorkspaceModelIntegrationTestSupport.swift")
+        XCTAssertTrue(supportText.contains("extension XCTestCase"), "App integration temp helpers should live on XCTestCase so they can register teardown cleanup.")
+        XCTAssertTrue(supportText.contains("func makeTempDirectory() throws -> URL"), "Legacy app integration tests should route through the shared temp-directory wrapper.")
+        XCTAssertTrue(supportText.contains("makeQuillCodeTestDirectory()"), "App integration temp helpers should delegate to the teardown-backed helper.")
+
+        let suiteNames = [
+            "WorkspaceAgentRunContextBuilderTests.swift",
+            "WorkspaceAgentSendSessionTests.swift",
+            "WorkspaceMemoryEngineTests.swift",
+            "WorkspaceTerminalEngineTests.swift",
+            "WorkspaceToolCallExecutorTests.swift"
+        ]
+
+        for suiteName in suiteNames {
+            let suiteText = try Self.appTestSourceText(named: suiteName)
+            XCTAssertTrue(
+                suiteText.contains("makeQuillCodeTestDirectory()"),
+                "\(suiteName) should use the shared teardown-backed test directory helper."
+            )
+            XCTAssertFalse(
+                suiteText.contains("private func temporaryDirectory"),
+                "\(suiteName) should not reintroduce a private temp-directory helper."
+            )
+            XCTAssertFalse(
+                suiteText.contains("FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)"),
+                "\(suiteName) should not build untracked temp directories inline."
+            )
+        }
+
+        let integrationSuiteNames = [
+            "WorkspaceBrowserIntegrationTests.swift",
+            "WorkspaceBrowserLocationResolverTests.swift",
+            "WorkspaceCommandPlanExecutorTests.swift",
+            "WorkspaceRemoteProjectToolExecutorTests.swift",
+            "WorkspaceSlashCommandIntegrationTests.swift",
+            "WorkspaceSurfaceTests.swift"
+        ]
+        for suiteName in integrationSuiteNames {
+            let suiteText = try Self.appTestSourceText(named: suiteName)
+            XCTAssertFalse(
+                suiteText.contains("private func makeTempDirectory()"),
+                "\(suiteName) should use WorkspaceModelIntegrationTestSupport.makeTempDirectory()."
+            )
+            XCTAssertFalse(
+                suiteText.contains("NSTemporaryDirectory()"),
+                "\(suiteName) should not build untracked temp directories inline."
+            )
+            XCTAssertFalse(
+                suiteText.contains("FileManager.default.temporaryDirectory"),
+                "\(suiteName) should not build untracked temp directories inline."
+            )
+        }
+    }
+
+    func testWorkspaceModelDelegatesStatusTextAndLabels() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceStatusTextBuilder.swift")
+        let contextBuilderText = try Self.appSourceText(named: "WorkspaceStatusContextBuilder.swift")
+        let topBarBuilderText = try Self.appSourceText(named: "WorkspaceTopBarSurfaceBuilder.swift")
+        let topBarStateBuilderText = try Self.appSourceText(named: "WorkspaceTopBarStateBuilder.swift")
+        let slashTranscriptText = try Self.appSourceText(named: "WorkspaceSlashCommandTranscriptPlanner.swift")
+
+        XCTAssertTrue(builderText.contains("struct WorkspaceStatusTextBuilder"), "Workspace status text and labels should live in a focused builder.")
+        XCTAssertTrue(contextBuilderText.contains("enum WorkspaceStatusContextBuilder"), "Workspace status context assembly should live in a focused builder.")
+        XCTAssertTrue(contextBuilderText.contains("static func context"), "Workspace status context assembly should be directly testable.")
+        XCTAssertTrue(builderText.contains("static func statusText"), "Slash status copy should be directly testable.")
+        XCTAssertTrue(builderText.contains("static func topBarSubtitle"), "Top-bar subtitle copy should be directly testable.")
+        XCTAssertTrue(builderText.contains("static func instructionLabel"), "Instruction status labels should be directly testable.")
+        XCTAssertTrue(builderText.contains("static func memoryLabel"), "Memory status labels should be directly testable.")
+        XCTAssertTrue(builderText.contains("static func modeLabel"), "Mode labels should be shared by status and UI surfaces.")
+        XCTAssertTrue(modelText.contains("WorkspaceStatusTextBuilder.statusText"), "WorkspaceModel should delegate /status copy.")
+        XCTAssertTrue(modelText.contains("WorkspaceStatusContextBuilder.context"), "WorkspaceModel should delegate /status context assembly.")
+        XCTAssertTrue(slashTranscriptText.contains("WorkspaceStatusTextBuilder.modeLabel"), "Slash mode transcript copy should delegate shared mode labels.")
+        XCTAssertTrue(topBarBuilderText.contains("WorkspaceStatusTextBuilder.topBarSubtitle"), "Top-bar builder should delegate top-bar subtitles.")
+        XCTAssertTrue(topBarBuilderText.contains("WorkspaceStatusTextBuilder.instructionLabel"), "Top-bar builder should delegate instruction labels.")
+        XCTAssertTrue(topBarBuilderText.contains("WorkspaceStatusTextBuilder.memoryLabel"), "Top-bar builder should delegate memory labels.")
+        XCTAssertTrue(topBarStateBuilderText.contains("enum WorkspaceTopBarStateBuilder"), "Top-bar state assembly should live in a focused builder.")
+        XCTAssertTrue(modelText.contains("WorkspaceTopBarStateBuilder.state"), "WorkspaceModel should delegate top-bar state assembly.")
+        XCTAssertFalse(modelText.contains("root.topBar = TopBarState("), "WorkspaceModel should not assemble top-bar state inline.")
+        XCTAssertFalse(modelText.contains("WorkspaceStatusContext("), "WorkspaceModel should not assemble /status context inline.")
+        XCTAssertFalse(surfaceText.contains("WorkspaceStatusTextBuilder.topBarSubtitle"), "WorkspaceSurface should not own top-bar subtitles.")
+        XCTAssertFalse(surfaceText.contains("WorkspaceStatusTextBuilder.instructionLabel"), "WorkspaceSurface should not own instruction labels.")
+        XCTAssertFalse(surfaceText.contains("WorkspaceStatusTextBuilder.memoryLabel"), "WorkspaceSurface should not own memory labels.")
+        XCTAssertFalse(modelText.contains("No project instructions"), "WorkspaceModel should not own instruction status copy.")
+        XCTAssertFalse(modelText.contains("No memories"), "WorkspaceModel should not own memory status copy.")
+        XCTAssertFalse(modelText.contains("static func instructionStatusLabel"), "WorkspaceModel should not own instruction status labels.")
+        XCTAssertFalse(modelText.contains("static func memoryStatusLabel"), "WorkspaceModel should not own memory status labels.")
+        XCTAssertFalse(surfaceText.contains("static func modeLabel"), "WorkspaceSurface should not own mode label copy.")
+    }
+
+    func testWorkspaceModelDelegatesContextResolving() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
+        let resolverText = try Self.appSourceText(named: "WorkspaceContextResolver.swift")
+        let matcherText = try Self.appSourceText(named: "LocalEnvironmentActionMatcher.swift")
+
+        XCTAssertTrue(resolverText.contains("struct WorkspaceActiveContextSources"), "Active workspace context source records should live beside the resolver.")
+        XCTAssertTrue(resolverText.contains("struct WorkspaceContextResolver"), "Workspace context lookup should live in a focused resolver.")
+        XCTAssertTrue(matcherText.contains("enum LocalEnvironmentActionMatcher"), "Local environment action alias matching should live in a focused matcher.")
+        XCTAssertTrue(resolverText.contains("func instructions(for projectID:"), "Project instruction lookup should be directly testable.")
+        XCTAssertTrue(resolverText.contains("func memoryNotes(for projectID:"), "Global/project memory merging should be directly testable.")
+        XCTAssertTrue(resolverText.contains("func activeSources(for thread:"), "Active instruction and memory fallback should be directly testable.")
+        XCTAssertTrue(resolverText.contains("func selectedLocalAction(withID"), "Local action ID lookup should be directly testable.")
+        XCTAssertTrue(resolverText.contains("func selectedLocalAction(matching"), "Local action alias matching should be directly testable.")
+        XCTAssertTrue(resolverText.contains("LocalEnvironmentActionMatcher.action(withID"), "Workspace context resolver should delegate local action ID matching.")
+        XCTAssertTrue(resolverText.contains("LocalEnvironmentActionMatcher.action(matching"), "Workspace context resolver should delegate local action alias matching.")
+        XCTAssertTrue(modelText.contains("WorkspaceContextResolver("), "WorkspaceModel should delegate context lookup through the resolver.")
+        XCTAssertTrue(surfaceText.contains("WorkspaceContextResolver("), "WorkspaceSurface should delegate active context-source lookup through the resolver.")
+        XCTAssertFalse(modelText.contains("private func instructions(for projectID"), "WorkspaceModel should not own project instruction lookup.")
+        XCTAssertFalse(modelText.contains("private func memoryNotes(for projectID"), "WorkspaceModel should not own memory merging.")
+        XCTAssertFalse(modelText.contains("private func localAction(withID"), "WorkspaceModel should not own local action ID lookup.")
+        XCTAssertFalse(modelText.contains("private func localAction(matching"), "WorkspaceModel should not own local action matching.")
+        XCTAssertFalse(modelText.contains("private static func normalizedActionName"), "WorkspaceModel should not own local action alias normalization.")
+        XCTAssertFalse(surfaceText.contains("thread.instructions.isEmpty"), "WorkspaceSurface should not own thread/project instruction fallback.")
+        XCTAssertFalse(surfaceText.contains("thread.memories.isEmpty"), "WorkspaceSurface should not own thread/project memory fallback.")
+        XCTAssertFalse(surfaceText.contains("selectedProject?.instructions ?? []"), "WorkspaceSurface should not own project instruction fallback.")
+        XCTAssertFalse(surfaceText.contains("root.globalMemories +"), "WorkspaceSurface should not own global/project memory merging.")
+    }
+
+    func testWorkspaceModelDelegatesAgentProgressStatusCopy() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceAgentStatusBuilder.swift")
+
+        XCTAssertTrue(builderText.contains("struct WorkspaceAgentStatusBuilder"), "Agent progress status copy should live in a focused builder.")
+        XCTAssertTrue(builderText.contains("static func status(for thread: ChatThread)"), "Thread-level progress status should be directly testable.")
+        XCTAssertTrue(builderText.contains("static func status(for event: ThreadEvent?)"), "Event-level progress status should be directly testable.")
+        XCTAssertTrue(builderText.contains("AgentRunner.streamingNotice"), "Streaming status should remain tied to the agent streaming notice contract.")
+        XCTAssertTrue(modelText.contains("WorkspaceAgentStatusBuilder.status(for: thread)"), "WorkspaceModel should delegate agent progress status copy.")
+        XCTAssertFalse(modelText.contains("private func agentStatus"), "WorkspaceModel should not own agent progress status copy.")
+        XCTAssertFalse(modelText.contains("case .toolQueued:"), "WorkspaceModel should not switch over progress event kinds for top-bar status.")
+        XCTAssertFalse(modelText.contains("AgentRunner.streamingNotice"), "WorkspaceModel should not know the streaming notice string.")
+    }
+
+    func testWorkspaceModelDelegatesThreadNoticeMutation() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let appenderText = try Self.appSourceText(named: "WorkspaceThreadNoticeAppender.swift")
+
+        XCTAssertTrue(appenderText.contains("enum WorkspaceThreadNoticeAppender"), "Thread notice mutation should live in a focused helper.")
+        XCTAssertTrue(appenderText.contains("static func appendNotice"), "Notice event mutation should be directly testable.")
+        XCTAssertTrue(appenderText.contains("static func appendAssistantNotice"), "Assistant notice mutation should be directly testable.")
+        XCTAssertTrue(modelText.contains("WorkspaceThreadNoticeAppender.appendNotice"), "WorkspaceModel should delegate notice event mutation.")
+        XCTAssertTrue(modelText.contains("WorkspaceThreadNoticeAppender.appendAssistantNotice"), "WorkspaceModel should delegate assistant notice mutation.")
+        XCTAssertFalse(modelText.contains("thread.events.append(.init(kind: .notice"), "WorkspaceModel should not append notice events inline.")
+        XCTAssertFalse(modelText.contains("thread.events.append(.init(kind: .message"), "WorkspaceModel should not append message events inline.")
+        XCTAssertFalse(modelText.contains("thread.messages.append(.init(role: .assistant"), "WorkspaceModel should not append assistant notice messages inline.")
+    }
+
+    func testWorkspaceModelUsesExplicitAgentRunThreadUpdates() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+
+        XCTAssertTrue(modelText.contains("private func updateThreadFromAgentRun"), "Agent-run thread updates should use a named helper that documents focus preservation.")
+        XCTAssertTrue(modelText.contains("updateThreadFromAgentRun(thread)"), "Agent progress and completion should route through the explicit async-update helper.")
+        XCTAssertFalse(modelText.contains("preservingSelection"), "WorkspaceModel should not hide async navigation behavior behind a boolean flag.")
+        XCTAssertFalse(modelText.contains("replaceThread("), "WorkspaceModel should not route async run updates through an ambiguous generic replacement helper.")
+    }
+
 }
