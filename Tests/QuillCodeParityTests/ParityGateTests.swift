@@ -190,6 +190,22 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(workspaceSurfaceText.contains("public struct BrowserCommentSurface"), "WorkspaceSurface should not own browser comment presentation.")
     }
 
+    func testBrowserInspectorDelegatesStaticHTMLSnapshotExtraction() throws {
+        let inspectorText = try Self.appSourceText(named: "BrowserInspector.swift")
+        let builderText = try Self.appSourceText(named: "BrowserHTMLSnapshotBuilder.swift")
+        let builderTests = try Self.appTestSourceText(named: "BrowserHTMLSnapshotBuilderTests.swift")
+
+        XCTAssertTrue(builderText.contains("enum BrowserHTMLSnapshotBuilder"), "Static HTML snapshot extraction should have a focused owner.")
+        XCTAssertTrue(builderText.contains("static func snapshot("), "HTML snapshot extraction should be directly testable.")
+        XCTAssertTrue(builderText.contains("private static func htmlOutline"), "HTML outline extraction should live with the HTML snapshot builder.")
+        XCTAssertTrue(builderText.contains("private static func htmlTextSnippet"), "HTML text snippet extraction should live with the HTML snapshot builder.")
+        XCTAssertTrue(inspectorText.contains("BrowserHTMLSnapshotBuilder.snapshot"), "BrowserInspector should delegate static HTML extraction.")
+        XCTAssertFalse(inspectorText.contains("private static func htmlOutline"), "BrowserInspector should not own HTML outline extraction.")
+        XCTAssertFalse(inspectorText.contains("private static func cleanHTMLText"), "BrowserInspector should not own HTML text cleanup.")
+        XCTAssertTrue(builderTests.contains("testSnapshotExtractsDetailsOutlineAndReadableText"), "HTML snapshot builder behavior should have focused tests.")
+        XCTAssertTrue(builderTests.contains("testSnapshotLimitsOutlineAndTruncatesSnippet"), "HTML snapshot limits should have focused tests.")
+    }
+
     func testWorkspaceModelDelegatesBrowserStateTransitions() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let engineText = try Self.appSourceText(named: "WorkspaceBrowserEngine.swift")

@@ -2,14 +2,6 @@ import Foundation
 import QuillCodeCore
 
 enum BrowserInspector {
-    private struct OutlineCandidate {
-        var location: Int
-        var label: String
-    }
-
-    private static let outlineLimit = 24
-    private static let textSnippetLimit = 800
-
     static func title(for url: URL) -> String {
         if url.isFileURL {
             return url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent
@@ -69,7 +61,7 @@ enum BrowserInspector {
                 : "Size: \(fetchedPage.byteCount) bytes"
         )
 
-        return htmlSnapshot(
+        return BrowserHTMLSnapshotBuilder.snapshot(
             sourceLabel: sourceLabel,
             summary: sourceLabel == "Local web app"
                 ? "Fetched an HTML snapshot for this local page."
@@ -145,7 +137,7 @@ enum BrowserInspector {
             )
         }
 
-        return htmlSnapshot(
+        return BrowserHTMLSnapshotBuilder.snapshot(
             sourceLabel: "Local HTML",
             summary: "HTML snapshot captured for browser review.",
             details: details,
@@ -156,224 +148,5 @@ enum BrowserInspector {
     private static func sourceLabel(for url: URL) -> String {
         let host = url.host ?? url.absoluteString
         return ["localhost", "127.0.0.1", "::1"].contains(host) ? "Local web app" : "Web page"
-    }
-
-    private static func htmlSnapshot(
-        sourceLabel: String,
-        summary: String,
-        details: [String],
-        html: String
-    ) -> BrowserSnapshotState {
-        var details = details
-        if let title = firstHTMLCapture(in: html, pattern: #"<title[^>]*>(.*?)</title>"#) {
-            details.append("Title: \(title)")
-        }
-        if let heading = firstHTMLCapture(in: html, pattern: #"<h[1-2][^>]*>(.*?)</h[1-2]>"#) {
-            details.append("Heading: \(heading)")
-        }
-        details.append("Links: \(htmlTagCount("a", in: html))")
-        details.append("Scripts: \(htmlTagCount("script", in: html))")
-        details.append("Images: \(htmlTagCount("img", in: html))")
-        details.append("Forms: \(htmlTagCount("form", in: html))")
-
-        return BrowserSnapshotState(
-            sourceLabel: sourceLabel,
-            inspectionDepth: .staticHTMLSnapshot,
-            summary: summary,
-            details: details,
-            outline: htmlOutline(in: html),
-            textSnippet: htmlTextSnippet(in: html)
-        )
-    }
-
-    private static func htmlOutline(in html: String) -> [String] {
-        var candidates: [OutlineCandidate] = []
-        candidates.append(contentsOf: htmlOutlineMatches(
-            in: html,
-            pattern: #"<h([1-6])[^>]*>(.*?)</h[1-6]>"#
-        ) { match in
-            guard let level = htmlCapture(1, in: match, source: html),
-                  let text = htmlCapture(2, in: match, source: html).map(cleanHTMLText),
-                  !text.isEmpty
-            else {
-                return nil
-            }
-            return "H\(level): \(text)"
-        })
-        candidates.append(contentsOf: htmlOutlineMatches(
-            in: html,
-            pattern: #"<a\b([^>]*)>(.*?)</a>"#
-        ) { match in
-            let attributes = htmlCapture(1, in: match, source: html) ?? ""
-            let text = htmlCapture(2, in: match, source: html).map(cleanHTMLText) ?? ""
-            let href = htmlAttribute("href", in: attributes)
-            let label = text.isEmpty ? (href ?? "Link") : text
-            return href.map { "Link: \(label) -> \($0)" } ?? "Link: \(label)"
-        })
-        candidates.append(contentsOf: htmlOutlineMatches(
-            in: html,
-            pattern: #"<button\b([^>]*)>(.*?)</button>"#
-        ) { match in
-            let text = htmlCapture(2, in: match, source: html).map(cleanHTMLText) ?? ""
-            return text.isEmpty ? "Button" : "Button: \(text)"
-        })
-        candidates.append(contentsOf: htmlOutlineMatches(
-            in: html,
-            pattern: #"<input\b([^>]*)>"#
-        ) { match in
-            let attributes = htmlCapture(1, in: match, source: html) ?? ""
-            let label = htmlAttribute("aria-label", in: attributes)
-                ?? htmlAttribute("placeholder", in: attributes)
-                ?? htmlAttribute("name", in: attributes)
-                ?? htmlAttribute("type", in: attributes)
-                ?? "input"
-            return "Input: \(label)"
-        })
-        candidates.append(contentsOf: htmlOutlineMatches(
-            in: html,
-            pattern: #"<form\b([^>]*)>"#
-        ) { match in
-            let attributes = htmlCapture(1, in: match, source: html) ?? ""
-            let label = htmlAttribute("aria-label", in: attributes)
-                ?? htmlAttribute("id", in: attributes)
-                ?? htmlAttribute("action", in: attributes)
-            return label.map { "Form: \($0)" } ?? "Form"
-        })
-        candidates.append(contentsOf: htmlOutlineMatches(
-            in: html,
-            pattern: #"<img\b([^>]*)>"#
-        ) { match in
-            let attributes = htmlCapture(1, in: match, source: html) ?? ""
-            let label = htmlAttribute("alt", in: attributes)
-                ?? htmlAttribute("src", in: attributes)
-                ?? "image"
-            return "Image: \(label)"
-        })
-
-        let labels = candidates
-            .sorted { $0.location < $1.location }
-            .map(\.label)
-            .filter { !$0.isEmpty }
-        return Array(labels.prefix(Self.outlineLimit))
-    }
-
-    private static func htmlTextSnippet(in html: String) -> String? {
-        let body = firstHTMLCaptureRaw(in: html, pattern: #"<body[^>]*>(.*?)</body>"#) ?? html
-        let withoutScripts = body
-            .replacingOccurrences(
-                of: #"<script\b[^>]*>.*?</script>"#,
-                with: " ",
-                options: [.regularExpression, .caseInsensitive]
-            )
-            .replacingOccurrences(
-                of: #"<style\b[^>]*>.*?</style>"#,
-                with: " ",
-                options: [.regularExpression, .caseInsensitive]
-            )
-        let text = cleanHTMLText(withoutScripts)
-        guard !text.isEmpty else { return nil }
-        return truncatedText(text)
-    }
-
-    private static func htmlOutlineMatches(
-        in html: String,
-        pattern: String,
-        label: (NSTextCheckingResult) -> String?
-    ) -> [OutlineCandidate] {
-        guard let regex = try? NSRegularExpression(
-            pattern: pattern,
-            options: [.caseInsensitive, .dotMatchesLineSeparators]
-        ) else {
-            return []
-        }
-        let range = NSRange(html.startIndex..<html.endIndex, in: html)
-        return regex.matches(in: html, range: range).compactMap { match in
-            guard let label = label(match), !label.isEmpty else { return nil }
-            return OutlineCandidate(location: match.range.location, label: label)
-        }
-    }
-
-    private static func firstHTMLCapture(in html: String, pattern: String) -> String? {
-        firstHTMLCaptureRaw(in: html, pattern: pattern).map(cleanHTMLText)
-    }
-
-    private static func firstHTMLCaptureRaw(in html: String, pattern: String) -> String? {
-        guard let regex = try? NSRegularExpression(
-            pattern: pattern,
-            options: [.caseInsensitive, .dotMatchesLineSeparators]
-        ) else {
-            return nil
-        }
-        let range = NSRange(html.startIndex..<html.endIndex, in: html)
-        guard let match = regex.firstMatch(in: html, range: range),
-              match.numberOfRanges > 1,
-              let captureRange = Range(match.range(at: 1), in: html)
-        else {
-            return nil
-        }
-        return String(html[captureRange])
-    }
-
-    private static func htmlCapture(_ index: Int, in match: NSTextCheckingResult, source: String) -> String? {
-        guard match.numberOfRanges > index,
-              let range = Range(match.range(at: index), in: source)
-        else {
-            return nil
-        }
-        return String(source[range])
-    }
-
-    private static func htmlAttribute(_ name: String, in attributes: String) -> String? {
-        let escaped = NSRegularExpression.escapedPattern(for: name)
-        guard let regex = try? NSRegularExpression(
-            pattern: #"\b\#(escaped)\s*=\s*["']([^"']+)["']"#,
-            options: [.caseInsensitive]
-        ) else {
-            return nil
-        }
-        let range = NSRange(attributes.startIndex..<attributes.endIndex, in: attributes)
-        guard let match = regex.firstMatch(in: attributes, range: range),
-              let captureRange = Range(match.range(at: 1), in: attributes)
-        else {
-            return nil
-        }
-        let value = cleanHTMLText(String(attributes[captureRange]))
-        return value.isEmpty ? nil : value
-    }
-
-    private static func htmlTagCount(_ tag: String, in html: String) -> Int {
-        let escapedTag = NSRegularExpression.escapedPattern(for: tag)
-        guard let regex = try? NSRegularExpression(
-            pattern: #"<\s*\#(escapedTag)(\s|>|/)"#,
-            options: [.caseInsensitive]
-        ) else {
-            return 0
-        }
-        let range = NSRange(html.startIndex..<html.endIndex, in: html)
-        return regex.numberOfMatches(in: html, range: range)
-    }
-
-    private static func cleanHTMLText(_ raw: String) -> String {
-        let withoutTags = raw.replacingOccurrences(
-            of: #"<[^>]+>"#,
-            with: " ",
-            options: .regularExpression
-        )
-        let decoded = withoutTags
-            .replacingOccurrences(of: "&amp;", with: "&")
-            .replacingOccurrences(of: "&lt;", with: "<")
-            .replacingOccurrences(of: "&gt;", with: ">")
-            .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "&#39;", with: "'")
-            .replacingOccurrences(of: "&apos;", with: "'")
-        return decoded
-            .components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
-    }
-
-    private static func truncatedText(_ text: String) -> String {
-        guard text.count > textSnippetLimit else { return text }
-        return String(text.prefix(textSnippetLimit)).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
     }
 }
