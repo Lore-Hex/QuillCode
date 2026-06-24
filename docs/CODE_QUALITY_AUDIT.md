@@ -788,6 +788,23 @@ Interface polish changes:
 - Browser snapshot rendering keeps bounded detail chips, page outline truncation, and comments in one focused component.
 - Terminal entries keep execution-context accessibility labels and status coloring in the same file as the terminal pane.
 
+## 2026-06-24 Terminal And Browser Pane File Split
+
+Overall grade after this slice: **A terminal-pane ownership, A browser-pane ownership, A terminal-row ownership**.
+
+`QuillCodeTerminalBrowserPaneView.swift` was a useful first extraction from the workspace shell, but it still coupled two independent Codex parity areas: the integrated terminal and browser preview/commenting pane. That made terminal session polish and browser inspection work likely to collide in one file.
+
+Code quality changes:
+
+- Added `QuillCodeTerminalPaneView.swift` for terminal header, entries, and command-line controls.
+- Added `QuillCodeTerminalEntryView.swift` for execution-context chips/rails, terminal output, status color, and accessibility labels.
+- Added `QuillCodeBrowserPaneView.swift` for browser navigation, snapshot summaries, page outline, comments, and browser badges.
+- Removed the combined terminal/browser file and added a parity gate so the split remains stable.
+
+Remaining risk:
+
+- `QuillCodeBrowserPaneView.swift` is still larger than the terminal pane because it owns navigation, snapshots, outline, badges, and comments. Split snapshot summary/comment rows if browser inspection gains richer previews or signed-in browser controls.
+
 ## 2026-06-22 Secondary Utility Pane Refactor Pass
 
 Overall grade after this slice: **A- foundation, B+ product surface maturity**.
