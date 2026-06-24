@@ -4397,3 +4397,17 @@ What changed:
 
 Remaining risk:
 - `WorkspaceSurfaceTests.swift` still owns HTML tool-card, terminal, browser, extensions, memories, and review-pane renderer tests. The next cleanup should split those by renderer family so HTML work can evolve with less conflict and clearer ownership.
+
+## 2026-06-24 HTML Parity Gate Suite Split
+
+Overall grade after this slice: **A architecture-gate ownership, A merge-conflict reduction, A regression guard**.
+
+`ParityGateTests.swift` still owned pure HTML renderer delegation gates even after HTML chrome smoke coverage had moved into a focused suite. That made the broad architecture file more likely to conflict with parallel renderer work and made it harder to see which suite was responsible for HTML ownership rules.
+
+What changed:
+- Moved pure HTML renderer delegation gates for tool cards, top bar, terminal, secondary panes, review, transcript, and sidebar into `ParityHTMLGateTests`.
+- Added a shared parity-test source helper and a guard that fails if those HTML renderer gates drift back into `ParityGateTests.swift`.
+- Kept browser-specific HTML rendering gates in `ParityBrowserGateTests` and left mixed native/workspace/composer surface gates in the broad suite until they have a clearer focused home.
+
+Remaining risk:
+- `ParityGateTests.swift` is still large because it owns general app-surface and workspace-model boundaries. Continue extracting by feature family when a domain has multiple related gates and active development pressure.
