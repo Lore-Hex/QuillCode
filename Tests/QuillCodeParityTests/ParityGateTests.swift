@@ -932,6 +932,19 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("testRemoteProjectRejectsUnsafeWorktreePathBeforeSSH"), "WorkspaceModelTests should not own remote worktree safety integration flows.")
     }
 
+    func testWorkspacePullRequestIntegrationTestsOwnModelPullRequestFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let pullRequestIntegrationTests = try Self.appTestSourceText(named: "WorkspacePullRequestIntegrationTests.swift")
+
+        XCTAssertTrue(pullRequestIntegrationTests.contains("testRemoteWorkspaceCommandsViewPullRequestAndChecksThroughSSH"), "Remote PR workspace commands should live in focused pull request integration tests.")
+        XCTAssertTrue(pullRequestIntegrationTests.contains("testPullRequestSlashCommandsDispatchStructuredGitHubToolsThroughSSH"), "PR slash command dispatch should live in focused pull request integration tests.")
+        XCTAssertTrue(pullRequestIntegrationTests.contains("testWorkspacePullRequestCommandsPrefillComposer"), "PR command prefills should live in focused pull request integration tests.")
+
+        XCTAssertFalse(modelTests.contains("testRemoteWorkspaceCommandsViewPullRequestAndChecksThroughSSH"), "WorkspaceModelTests should not own remote PR workspace command integration.")
+        XCTAssertFalse(modelTests.contains("testPullRequestSlashCommandsDispatchStructuredGitHubToolsThroughSSH"), "WorkspaceModelTests should not own PR slash command integration.")
+        XCTAssertFalse(modelTests.contains("testWorkspacePullRequestCommandsPrefillComposer"), "WorkspaceModelTests should not own PR command prefill integration.")
+    }
+
     func testWorkspaceWorktreeIntegrationTestsOwnModelWorktreeFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let worktreeIntegrationTests = try Self.appTestSourceText(named: "WorkspaceWorktreeIntegrationTests.swift")
