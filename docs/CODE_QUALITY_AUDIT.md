@@ -23,7 +23,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, context/action lookup, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, and sidebar bulk action planning now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, context/action lookup, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, sidebar selection transitions, sidebar bulk action planning, and top-bar state assembly now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | A- | The shell is now mostly chrome composition, state, and routing. Transcript layout and workspace sheet presentation live in focused files; keep future modal families and command workflow rules out of the root shell. |
 | `Sources/QuillCodeApp/QuillCodeToolCardView.swift` | A- | Native tool-card composition is now separate from reusable controls, artifact previews, and raw detail blocks. Keep future status/action chrome in `QuillCodeToolCardControls.swift` and artifact rendering in `QuillCodeToolArtifactViews.swift`. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is now mostly aggregate payload plus runtime/execution context records. Settings copy/compatibility, runtime issue classification, active context-source selection, model catalog presentation, top-bar/model presentation contracts, project/sidebar navigation assembly, sidebar/project contracts, browser state/presentation contracts, terminal presentation contracts, review presentation contracts, transcript/composer/context presentation contracts, secondary-pane presentation contracts, automation pane command wiring, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are extracted into focused files. Next step is extracting runtime/execution context contracts if their presentation behavior grows. |
@@ -48,6 +48,24 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Refactored model-category construction to compute favorite IDs once and pass a `Set` through option building instead of recomputing favorites for every model.
 - Updated the Playwright harness to preserve branded labels after model selection.
 - Fixed stale decisions documentation that still described recurring automation as deferred.
+
+## 2026-06-24 Top-Bar State Builder Pass
+
+Overall grade after this slice: **A top-bar state boundary, A behavior preservation, A regression guard**.
+
+`WorkspaceModel` was still assembling live top-bar state inline while also coordinating threads, projects, tools, automations, persistence, and runtime status. The logic was small, but selected-thread/project precedence is central to Codex parity and easy to regress when status or remote-context features grow.
+
+Code quality changes:
+
+- Added `WorkspaceTopBarStateBuilder` for top-bar state derivation from root state.
+- Preserved selected-thread model/mode/title precedence, selected-thread project precedence over selected project, and existing Computer Use status.
+- Simplified `WorkspaceModel.refreshTopBar` to delegate the state transition.
+- Added focused tests for thread-backed state and no-thread project/config fallback state.
+- Added a parity gate preventing inline `TopBarState` assembly from returning to `WorkspaceModel`.
+
+Remaining risk:
+
+- `WorkspaceModel` is still large because it is the app coordinator. The next A+ slices should keep extracting project/context refresh, slash-command dispatch, and tool-run orchestration into directly testable helpers.
 
 ## 2026-06-24 Sidebar Command Grouping Pass
 

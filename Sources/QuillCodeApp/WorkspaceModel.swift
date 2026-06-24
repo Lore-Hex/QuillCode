@@ -1793,17 +1793,7 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func refreshTopBar(agentStatus: String? = nil) {
-        let thread = selectedThread
-        let projectID = thread?.projectID ?? root.selectedProjectID
-        let project = projectID.flatMap { id in root.projects.first { $0.id == id } }
-        root.topBar = TopBarState(
-            projectName: project?.name,
-            threadTitle: thread?.title,
-            model: thread?.model ?? root.config.defaultModel,
-            mode: thread?.mode ?? root.config.mode,
-            agentStatus: agentStatus ?? root.topBar.agentStatus,
-            computerUseStatus: root.topBar.computerUseStatus
-        )
+        root.topBar = WorkspaceTopBarStateBuilder.state(from: root, agentStatus: agentStatus)
     }
 
     private func touchProject(_ id: UUID?) {
