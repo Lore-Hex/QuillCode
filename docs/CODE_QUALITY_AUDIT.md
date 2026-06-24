@@ -4441,3 +4441,17 @@ What changed:
 
 Remaining risk:
 - `WorkspaceSurfaceTests.swift` still owns terminal, browser, secondary-pane, and review HTML renderer tests. Continue splitting those by renderer family in small slices.
+
+## 2026-06-24 HTML Terminal Renderer Test Split
+
+Overall grade after this slice: **A renderer test ownership, A conflict reduction, A regression guard**.
+
+`WorkspaceSurfaceTests.swift` still owned terminal HTML renderer smoke coverage after the chrome and tool-card splits. Those tests assert terminal pane markup, command rows, clear controls, and running/stopped status classes, which are terminal-renderer concerns rather than broad workspace surface projection.
+
+What changed:
+- Added `WorkspaceHTMLTerminalRendererTests` for visible terminal pane rendering and running/stopped terminal entry labels.
+- Removed the same terminal HTML cases from `WorkspaceSurfaceTests.swift`.
+- Added a `ParityHTMLGateTests` guard that fails if those terminal HTML cases drift back into the broad surface suite.
+
+Remaining risk:
+- `WorkspaceSurfaceTests.swift` still owns browser, secondary-pane, and review HTML renderer tests. Keep splitting those by renderer family in small slices while the HTML harness evolves.
