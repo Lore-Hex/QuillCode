@@ -2817,3 +2817,20 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelTests.swift` is still large. Bootstrap/config, project/worktree command groups, approval-card behavior, and thread lifecycle coverage remain future extraction candidates.
+
+## 2026-06-24 Workspace Thread Lifecycle Integration Test Pass
+
+Overall grade after this slice: **A+ test ownership, A lifecycle boundary, A+ regression guard**.
+
+Thread lifecycle and bounded-context coverage moved from `WorkspaceModelTests.swift` into `WorkspaceThreadLifecycleIntegrationTests`. Pure lifecycle mutation rules remain in `WorkspaceThreadLifecycleEngineTests`, while model/store/sidebar/top-bar interactions stay in the focused integration suite.
+
+Code quality changes:
+
+- Added `WorkspaceThreadLifecycleIntegrationTests` for new chat selection, unknown-project fallback, fork-from-last, compact-context, newest-project-thread selection, pinned ordering, archive fallback selection, persistence, rename, duplicate, unarchive, and delete flows.
+- Removed those lifecycle cases from `WorkspaceModelTests.swift`, reducing it from 1,005 lines to 742 lines.
+- Added a parity gate that keeps lifecycle integration method names out of `WorkspaceModelTests.swift`.
+- Preserved the existing pure engine tests for lifecycle reducers instead of duplicating mutation-rule coverage.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still broad. Bootstrap/config, project/worktree command groups, approval-card behavior, and plan-update tool coverage remain future extraction candidates.
