@@ -172,7 +172,7 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
     func testShellExecutorDelegatesStreamingProcessLifecycle() throws {
         let executorText = try Self.toolsSourceText(named: "ShellToolExecutor.swift")
         let runnerText = try Self.toolsSourceText(named: "ShellStreamingProcessRunner.swift")
-        let toolTestsText = try Self.toolsTestSourceText(named: "ToolTests.swift")
+        let shellTestsText = try Self.toolsTestSourceText(named: "ShellToolExecutorTests.swift")
 
         XCTAssertTrue(runnerText.contains("final class ShellStreamingProcessRunner"), "Streaming shell lifecycle should have a focused owner.")
         XCTAssertTrue(runnerText.contains("AsyncStream<ShellProcessEvent>.Continuation"), "The streaming runner should own event continuation handling.")
@@ -181,7 +181,23 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(executorText.contains("ShellStreamingProcessRunner(request:"), "ShellToolExecutor should delegate streaming execution.")
         XCTAssertFalse(executorText.contains("private final class StreamingShellProcess"), "ShellToolExecutor should not own streaming process internals.")
         XCTAssertFalse(executorText.contains("process.waitUntilExit()"), "Blocking ShellToolExecutor should not own streaming wait lifecycle.")
-        XCTAssertTrue(toolTestsText.contains("testStreamingShellTimeoutKeepsPartialOutputAndStopsProcess"), "Streaming timeout behavior should have focused coverage.")
+        XCTAssertTrue(shellTestsText.contains("testStreamingShellTimeoutKeepsPartialOutputAndStopsProcess"), "Streaming timeout behavior should have focused coverage.")
+    }
+
+    func testShellToolExecutorCoverageLivesOutsideMixedToolSuite() throws {
+        let toolTestsText = try Self.toolsTestSourceText(named: "ToolTests.swift")
+        let shellTestsText = try Self.toolsTestSourceText(named: "ShellToolExecutorTests.swift")
+        let supportText = try Self.toolsTestSourceText(named: "ToolTestSupport.swift")
+
+        XCTAssertTrue(shellTestsText.contains("final class ShellToolExecutorTests"), "Shell and SSH shell executor coverage should live in a focused suite.")
+        XCTAssertTrue(shellTestsText.contains("testShellRunsWhoami"), "Blocking shell coverage should stay beside shell executor tests.")
+        XCTAssertTrue(shellTestsText.contains("testStreamingShellTimeoutKeepsPartialOutputAndStopsProcess"), "Streaming shell coverage should stay beside shell executor tests.")
+        XCTAssertTrue(shellTestsText.contains("testSSHRemoteShellBuildsNonInteractiveRequest"), "SSH shell request coverage should stay beside shell executor tests.")
+        XCTAssertTrue(supportText.contains("extension XCTestCase"), "Tool test fixtures should live in shared support instead of one mixed suite.")
+        XCTAssertTrue(supportText.contains("func makeFakeSSH"), "SSH test fixture creation should be reusable across focused tool suites.")
+        XCTAssertFalse(toolTestsText.contains("testShellRunsWhoami"), "The mixed ToolTests suite should not own shell executor coverage.")
+        XCTAssertFalse(toolTestsText.contains("testStreamingShellTimeoutKeepsPartialOutputAndStopsProcess"), "The mixed ToolTests suite should not own streaming shell coverage.")
+        XCTAssertFalse(toolTestsText.contains("testSSHRemoteShellBuildsNonInteractiveRequest"), "The mixed ToolTests suite should not own SSH shell coverage.")
     }
 
     func testGitLocalExecutionLivesOutsideGitExecutor() throws {

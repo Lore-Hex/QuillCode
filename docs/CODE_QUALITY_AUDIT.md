@@ -4554,3 +4554,17 @@ Current strict grades:
 
 Remaining risk:
 - `WorkspaceModel.swift` still coordinates many side-effect families. Continue shrinking it through focused extensions or coordinators with parity gates, without broadening public state mutability.
+
+## 2026-06-24 Shell Tool Executor Test Split
+
+Overall grade after this slice: **A test ownership, A fixture reuse, A merge-conflict reduction**.
+
+`ToolTests.swift` mixed shell, SSH shell request construction, file, patch, git, GitHub PR, and router coverage in one large suite. Shell behavior changes are common and can be reviewed independently, so keeping shell and SSH shell executor cases in the broad suite created unnecessary conflict pressure.
+
+What changed:
+- Added `ShellToolExecutorTests` for blocking shell, cancellable shell, streaming shell, timeout, and SSH shell request coverage.
+- Moved reusable temp directory, git repo, fake GitHub CLI, and fake SSH fixtures into `ToolTestSupport`.
+- Added a parity gate so shell executor cases and shared tool fixtures do not drift back into the broad mixed suite.
+
+Remaining risk:
+- `ToolTests.swift` still contains several tool families. The next low-risk split should move file/patch or GitHub PR coverage into focused suites before adding more tool behavior.
