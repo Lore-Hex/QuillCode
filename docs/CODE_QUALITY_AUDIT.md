@@ -41,13 +41,30 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Changes From This Pass
 
-- Kept `trustedrouter/fast` stable and moved the fallback model to preferred `tr/synth`/`/synth` while preserving `trustedrouter/fusion`, `tr/fusion`, `/fusion`, `fusion-code`, and `/fusion-code` legacy aliases. User-facing model surfaces brand the defaults as **Nike 1.0** and **Synth**.
-- Promoted Synth Code (`tr/synth-code`, `/synth-code`) into the bundled Recommended catalog so the preferred code model is visible offline instead of only working as a hidden alias.
+- Kept `trustedrouter/fast` stable and moved the fallback model to preferred `/synth`/`tr/synth` while preserving `trustedrouter/fusion`, `tr/fusion`, `/fusion`, `fusion-code`, and `/fusion-code` legacy aliases. User-facing model surfaces brand the defaults as **Nike 1.0** and **Synth**.
+- Promoted Synth Code (`/synth-code`, `tr/synth-code`) into the bundled Recommended catalog so the preferred code model is visible offline instead of only working as a hidden alias.
 - Centralized the branded default names in `TrustedRouterDefaults`, with tests proving canonical IDs and display names separately.
 - Removed dead provider plumbing from model metadata summary generation.
 - Refactored model-category construction to compute favorite IDs once and pass a `Set` through option building instead of recomputing favorites for every model.
 - Updated the Playwright harness to preserve branded labels after model selection.
 - Fixed stale decisions documentation that still described recurring automation as deferred.
+
+## 2026-06-24 Approval Action Planner Pass
+
+Overall grade after this slice: **A approval-card boundary, A behavior preservation, A regression guard**.
+
+Approval-card action handling in `WorkspaceModel` still owned request lookup, decision event construction, approval/skip rationale copy, and tool execution. The side effects belong in the model, but the pure planning rules made the method harder to reason about and harder to test without constructing a full workspace.
+
+Code quality changes:
+
+- Added `WorkspaceApprovalActionPlanner` for approval request lookup, approval/deny decision event construction, run-versus-skip planning, and skip notice copy.
+- Simplified `WorkspaceModel.runToolCardAction` to apply the planner output, then execute the approved tool or append the skip notice.
+- Added focused planner tests for latest-request lookup, malformed payload tolerance, approve decisions, deny decisions, and missing-request failure.
+- Added a parity gate keeping approval request lookup and decision event construction out of `WorkspaceModel`.
+
+Remaining risk:
+
+- Review action execution still orchestrates git tool execution plus diff refresh directly in `WorkspaceModel`. If review workflows grow toward multi-step review sessions or GitHub publication, move that side-effect orchestration behind a review workflow coordinator.
 
 ## 2026-06-24 Focused Test Fixture DRY Pass
 

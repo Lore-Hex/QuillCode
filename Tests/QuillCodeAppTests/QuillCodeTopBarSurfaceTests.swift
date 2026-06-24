@@ -101,6 +101,7 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         XCTAssertEqual(option.badges, [])
         XCTAssertEqual(option.detailTitle, TrustedRouterDefaults.synthModelDisplayName)
         XCTAssertEqual(option.metadataSummary, "Deeper planning and review")
+        XCTAssertEqual(option.metadataRows.first { $0.label == "Model ID" }?.value, "/synth")
         XCTAssertEqual(option.metadataRows.first { $0.label == "State" }?.value, "Current")
         XCTAssertTrue(option.metadataDetails.contains("Current selection"))
     }

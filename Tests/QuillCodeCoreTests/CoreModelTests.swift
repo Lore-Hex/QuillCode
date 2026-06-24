@@ -11,6 +11,11 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.fastModel), "Nike 1.0")
         XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.synthModel), "Synth")
         XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.synthCodeModel), "Synth Code")
+        XCTAssertEqual(TrustedRouterDefaults.preferredDisplayModelID(TrustedRouterDefaults.synthModel), "/synth")
+        XCTAssertEqual(TrustedRouterDefaults.preferredDisplayModelID(TrustedRouterDefaults.synthCodeModel), "/synth-code")
+        XCTAssertEqual(TrustedRouterDefaults.preferredDisplayModelID("trustedrouter/fusion"), "/synth")
+        XCTAssertEqual(TrustedRouterDefaults.preferredDisplayModelID("trustedrouter/fusion-code"), "/synth-code")
+        XCTAssertEqual(TrustedRouterDefaults.preferredDisplayModelID(TrustedRouterDefaults.fastModel), "trustedrouter/fast")
         XCTAssertEqual(TrustedRouterDefaults.defaultModel, TrustedRouterDefaults.fastModel)
         XCTAssertEqual(
             TrustedRouterDefaults.recommendedModelIDs,

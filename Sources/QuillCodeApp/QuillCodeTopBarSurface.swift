@@ -287,9 +287,11 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
             state.append("Recent")
         }
 
+        let displayModelID = TrustedRouterDefaults.preferredDisplayModelID(modelID)
+
         return [
             ModelMetadataRowSurface(label: "Provider", value: provider),
-            ModelMetadataRowSurface(label: "Model ID", value: modelID),
+            ModelMetadataRowSurface(label: "Model ID", value: displayModelID),
             ModelMetadataRowSurface(label: "Category", value: category),
             ModelMetadataRowSurface(label: "State", value: state.isEmpty ? "Available" : unique(state).joined(separator: ", "))
         ]
@@ -303,9 +305,10 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         isFavorite: Bool,
         badges: [String]
     ) -> [String] {
+        let displayModelID = TrustedRouterDefaults.preferredDisplayModelID(modelID)
         var details = [
             "Provider: \(provider)",
-            "Model ID: \(modelID)",
+            "Model ID: \(displayModelID)",
             "Category: \(category)"
         ]
         if isSelected {

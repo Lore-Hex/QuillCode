@@ -93,6 +93,17 @@ public enum TrustedRouterDefaults {
             .joined(separator: " ")
     }
 
+    public static func preferredDisplayModelID(_ modelID: String) -> String {
+        switch canonicalModelID(modelID) {
+        case synthModel:
+            return synthSlashAlias
+        case synthCodeModel:
+            return synthCodeSlashAlias
+        default:
+            return canonicalModelID(modelID)
+        }
+    }
+
     public static func category(forModelID modelID: String, provider: String) -> String {
         if isRecommendedModel(modelID) {
             return recommendedCategory
