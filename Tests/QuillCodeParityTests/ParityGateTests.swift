@@ -883,6 +883,17 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("testMemoryDeleteWorkspaceCommandRemovesGlobalMemoryAndRefreshesThreadSurface"), "WorkspaceModelTests should not own memory delete integration flows.")
     }
 
+    func testWorkspaceModelTestsDoNotOwnRuntimeFactoryCoverage() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let runtimeFactoryTests = try Self.appTestSourceText(named: "WorkspaceRuntimeFactoryTests.swift")
+
+        XCTAssertTrue(runtimeFactoryTests.contains("QuillCodeRuntimeFactory("), "Runtime factory coverage should live in its focused test file.")
+        XCTAssertTrue(runtimeFactoryTests.contains("fetchModelCatalog"), "Model catalog fallback coverage should stay with runtime factory tests.")
+        XCTAssertTrue(runtimeFactoryTests.contains("QUILLCODE_USE_MOCK_LLM"), "Deterministic mock override coverage should stay with runtime factory tests.")
+        XCTAssertFalse(modelTests.contains("QuillCodeRuntimeFactory("), "WorkspaceModelTests should focus on model integration, not runtime factory construction.")
+        XCTAssertFalse(modelTests.contains("func testRuntimeFactory"), "WorkspaceModelTests should not own runtime factory test cases.")
+    }
+
     func testWorkspaceModelDelegatesAutomationStateMutations() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let automationText = try Self.appSourceText(named: "WorkspaceAutomationEngine.swift")

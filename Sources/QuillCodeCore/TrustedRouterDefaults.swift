@@ -21,6 +21,7 @@ public enum TrustedRouterDefaults {
     public static let recommendedModelIDs = [fastModel, synthModel]
     public static let modelIDAliases: [String: String] = [
         "tr/fast": fastModel,
+        "tr/synth": synthModel,
         "synth": synthModel,
         "/synth": synthModel,
         "trustedrouter/synth": synthModel,
@@ -28,6 +29,7 @@ public enum TrustedRouterDefaults {
         "/fusion": synthModel,
         "tr/fusion": synthModel,
         "trustedrouter/fusion": synthModel,
+        "tr/synth-code": synthCodeModel,
         "synth-code": synthCodeModel,
         "/synth-code": synthCodeModel,
         "trustedrouter/synth-code": synthCodeModel,

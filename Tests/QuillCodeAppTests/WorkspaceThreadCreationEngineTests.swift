@@ -43,7 +43,7 @@ final class WorkspaceThreadCreationEngineTests: XCTestCase {
             title: "Investigate issue",
             projectID: projectID,
             mode: .readOnly,
-            model: "tr/fusion",
+            model: "/synth",
             messages: [
                 .init(role: .user, content: "old question"),
                 .init(role: .assistant, content: "old answer"),

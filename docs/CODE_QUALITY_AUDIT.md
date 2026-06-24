@@ -40,7 +40,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Changes From This Pass
 
-- Kept `trustedrouter/fast` stable and moved the fallback model to preferred `tr/synth` while preserving `trustedrouter/fusion`, `tr/fusion`, and `fusion-code` aliases. User-facing model surfaces brand the defaults as **Nike 1.0** and **Synth**.
+- Kept `trustedrouter/fast` stable and moved the fallback model to preferred `tr/synth`/`/synth` while preserving `trustedrouter/fusion`, `tr/fusion`, `/fusion`, `fusion-code`, and `/fusion-code` legacy aliases. User-facing model surfaces brand the defaults as **Nike 1.0** and **Synth**.
 - Centralized the branded default names in `TrustedRouterDefaults`, with tests proving canonical IDs and display names separately.
 - Removed dead provider plumbing from model metadata summary generation.
 - Refactored model-category construction to compute favorite IDs once and pass a `Set` through option building instead of recomputing favorites for every model.
@@ -2519,3 +2519,19 @@ Code quality changes:
 Remaining risk:
 
 - `WorkspaceModelTests.swift` is still the largest test file. MCP lifecycle and project extension command integration are now the clearest remaining feature groups to extract.
+
+## 2026-06-24 Runtime Factory Test Ownership Pass
+
+Overall grade after this slice: **A test ownership, A behavior preservation, A regression guard**.
+
+Runtime factory tests were still embedded in `WorkspaceModelTests.swift` even though they exercised `QuillCodeRuntimeFactory` directly. This made the model test file look more responsible for auth/runtime construction than it really is. The factory tests now live in `WorkspaceRuntimeFactoryTests`, while `WorkspaceModelTests` keeps only model-facing runtime application and issue-surfacing coverage.
+
+Code quality changes:
+
+- Moved environment-key, stored-secret, deterministic mock override, and no-key model-catalog fallback tests into `WorkspaceRuntimeFactoryTests`.
+- Reused the shared `makeQuillCodeTestDirectory()` helper so runtime factory tests clean up their temporary homes automatically.
+- Added a parity gate that keeps direct `QuillCodeRuntimeFactory` construction out of `WorkspaceModelTests.swift`.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still large because it contains broad integration coverage for remote projects, review actions, automations, terminal behavior, and composer runs. Continue moving feature-specific integration groups into focused files when the owning boundary is already extracted.
