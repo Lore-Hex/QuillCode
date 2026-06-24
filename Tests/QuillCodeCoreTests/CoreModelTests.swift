@@ -211,6 +211,19 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(output.inspectionDepth.label, "Metadata only")
     }
 
+    func testBrowserInspectionDepthLabelsAreStable() {
+        XCTAssertEqual(BrowserInspectionDepth.metadataOnly.rawValue, "metadata_only")
+        XCTAssertEqual(BrowserInspectionDepth.metadataOnly.label, "Metadata only")
+        XCTAssertEqual(BrowserInspectionDepth.fileMetadata.rawValue, "file_metadata")
+        XCTAssertEqual(BrowserInspectionDepth.fileMetadata.label, "File metadata")
+        XCTAssertEqual(BrowserInspectionDepth.staticHTMLSnapshot.rawValue, "static_html_snapshot")
+        XCTAssertEqual(BrowserInspectionDepth.staticHTMLSnapshot.label, "Static HTML snapshot")
+        XCTAssertEqual(BrowserInspectionDepth.networkHTMLSnapshot.rawValue, "network_html_snapshot")
+        XCTAssertEqual(BrowserInspectionDepth.networkHTMLSnapshot.label, "Network HTML snapshot")
+        XCTAssertEqual(BrowserInspectionDepth.liveDOMSnapshot.rawValue, "live_dom_snapshot")
+        XCTAssertEqual(BrowserInspectionDepth.liveDOMSnapshot.label, "Live DOM snapshot")
+    }
+
     func testAppConfigDecodesOlderPayloadWithoutFavorites() throws {
         let config = try JSONHelpers.decode(AppConfig.self, from: """
         {

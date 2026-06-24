@@ -17,6 +17,7 @@
       --green: #52d273;
       --red: #ff5d52;
       --yellow: #f8b84e;
+      --purple: #b58cff;
       --ease-out: cubic-bezier(0.2, 0, 0, 1);
       --shadow-border: 0 0 0 1px rgba(255, 255, 255, 0.08);
       --shadow-border-hover: 0 0 0 1px rgba(255, 255, 255, 0.13);
@@ -1219,6 +1220,16 @@
       color: var(--green);
       background: rgba(82,210,115,.13);
       border-color: rgba(82,210,115,.24);
+    }
+    .browser-snapshot [data-testid="browser-inspection-depth"][data-depth="network_html_snapshot"] {
+      color: var(--green);
+      background: rgba(82,210,115,.13);
+      border-color: rgba(82,210,115,.24);
+    }
+    .browser-snapshot [data-testid="browser-inspection-depth"][data-depth="live_dom_snapshot"] {
+      color: var(--purple);
+      background: rgba(181,140,255,.13);
+      border-color: rgba(181,140,255,.24);
     }
     .browser-snapshot p { margin: 0; }
     .browser-snapshot ul {
@@ -7562,9 +7573,9 @@
         if (isLocal) {
           return {
             sourceLabel: 'Local web app',
-            inspectionDepth: 'static_html_snapshot',
-            inspectionDepthLabel: 'Static HTML snapshot',
-            summary: 'Fetched an HTML snapshot for this local page.',
+            inspectionDepth: 'network_html_snapshot',
+            inspectionDepthLabel: 'Network HTML snapshot',
+            summary: 'Fetched a network HTML snapshot for this local page.',
             details: [
               `Host: ${host}`,
               `Scheme: ${parsed.protocol.replace(':', '').toUpperCase()}`,

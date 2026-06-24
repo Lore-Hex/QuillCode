@@ -253,6 +253,10 @@ struct QuillCodeBrowserPaneView: View {
             return QuillCodePalette.blue
         case .staticHTMLSnapshot:
             return QuillCodePalette.green
+        case .networkHTMLSnapshot:
+            return QuillCodePalette.green
+        case .liveDOMSnapshot:
+            return QuillCodePalette.purple
         }
     }
 }

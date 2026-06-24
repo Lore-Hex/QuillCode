@@ -4469,3 +4469,30 @@ What changed:
 
 Remaining risk:
 - `WorkspaceSurfaceTests.swift` still owns browser and secondary-pane HTML renderer tests. Continue splitting those by renderer family in small slices while the HTML harness evolves.
+
+## 2026-06-24 Browser Inspection Depth Contract
+
+Overall grade after this slice: **A browser inspection contract, A regression coverage, B+ overall app architecture**.
+
+The browser surface had one subtle contract problem: local static HTML files and fetched HTTP(S) HTML pages both reported `static_html_snapshot`. That made the current preview look more complete than it is and left no stable vocabulary for the next native WebView/live DOM adapter. The model, SwiftUI surface, Playwright harness, and tool JSON now distinguish the source and depth of browser inspection.
+
+What changed:
+- Added explicit browser inspection depth cases for `network_html_snapshot` and future `live_dom_snapshot`.
+- Let `BrowserHTMLSnapshotBuilder` receive the intended depth from callers instead of hardcoding static HTML.
+- Made fetched web/localhost pages report `Network HTML snapshot`, while local `.html` files remain `Static HTML snapshot` and metadata-only pages remain unchanged.
+- Added Swift and Playwright coverage for the new labels and raw values.
+- Updated the browser decision note so it does not overclaim live DOM or WebView support.
+
+Current strict grades:
+- `QuillCodeCore`: **A**. Data models are explicit, Codable-compatible, and well tested. Continue guarding enum raw values and older payload decoding.
+- `QuillCodeTools`: **A-**. Tool executors are bounded and mostly focused. The large tool test suite still needs family splits for lower merge pressure.
+- `QuillCodeSafety`: **A-**. The policy/model boundary is clear. More live TrustedRouter reviewer telemetry and denial/clarify UX tests are still needed.
+- `QuillCodeAgent`: **A-**. Streaming, parsing, argument recovery, and final-answer formatting are mostly separated. Mock intent planning is still broad and should not absorb more product logic.
+- `QuillCodePersistence`: **A**. Path/config/thread/secret concerns are cleanly isolated with direct tests.
+- `QuillComputerUseKit`: **B+**. macOS status and primitives are isolated, but Linux adapter parity and permission/approval UX remain incomplete.
+- `QuillCodeApp`: **B+**. Many feature boundaries have been split out, but `WorkspaceModel.swift` is still the central architectural risk because it coordinates project, thread, terminal, browser, automation, memory, tool, and persistence side effects.
+- `quill-code-desktop`: **A-**. Native app/menu-bar coordination is in good shape; remaining risk is richer lifecycle handling for long-running agent/router/browser processes.
+- `E2E harness`: **A-**. It exercises core UX flows well and catches UI drift, but duplicated Swift/harness display strings remain a maintenance risk.
+
+Remaining risk:
+- This is still not an A+ whole repo. The top priorities are shrinking `WorkspaceModel.swift`, splitting the largest mixed test files, introducing a real browser session/live DOM adapter, and reducing duplicated UI constants between Swift and the HTML harness.
