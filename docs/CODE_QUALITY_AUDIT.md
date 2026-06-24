@@ -4510,3 +4510,28 @@ What changed:
 
 Remaining risk:
 - Browser HTML coverage still has its own active browser ownership path because browser preview/inspection state is broader than secondary-pane rendering. Keep browser-specific tests in browser-focused suites instead of mixing them into this secondary-pane split.
+
+## 2026-06-24 Workspace Surface Parity Gate Split
+
+Overall grade after this slice: **A test ownership, A merge-conflict reduction, A regression guard**.
+
+`ParityGateTests.swift` had become the largest Swift file in the repository and still owned a broad block of workspace-surface gates covering secondary panes, composer chrome, terminal panes, review panes, transcript contracts, and review action planning. Those checks are important, but keeping them in the generic suite made active UI and surface-contract work noisier for parallel agents.
+
+What changed:
+- Added `ParityWorkspaceSurfaceGateTests` for workspace secondary-pane, composer, terminal, review, and transcript surface ownership gates.
+- Removed the same 11 gates from `ParityGateTests.swift`, reducing the broad suite from 2,199 lines to 1,941 lines.
+- Updated the focused-suite meta-gate so workspace-surface gates cannot drift back into the broad architecture suite.
+
+Current strict grades:
+- `QuillCodeCore`: **A**. Stable data contracts and compatibility gates remain strong.
+- `QuillCodeTools`: **A-**. Tool behavior is well bounded, but `ToolTests.swift` remains a large mixed suite.
+- `QuillCodeSafety`: **A-**. Policy boundaries are cleaner than earlier; live Auto-review telemetry and UX coverage still need depth.
+- `QuillCodeAgent`: **A-**. Good parser/streaming/final-answer splits; mock intent planning should continue shrinking by feature family.
+- `QuillCodePersistence`: **A**. Persistence boundaries remain clean.
+- `QuillComputerUseKit`: **B+**. macOS backend is isolated; Linux backend and app-approval parity remain open.
+- `QuillCodeApp`: **B+**. Surface test ownership improved, but `WorkspaceModel.swift` is still the largest production risk.
+- `quill-code-desktop`: **A-**. Native lifecycle surfaces are good; richer long-running process control still pending.
+- `E2E harness`: **A-**. Coverage is valuable, but the HTML harness and Playwright spec still need more modularization.
+
+Remaining risk:
+- This is still not an A+ whole repo. Next highest-leverage steps are extracting another `WorkspaceModel` workflow boundary, splitting `ToolTests.swift`, adding a real browser session/live DOM adapter, and continuing to reduce duplicated Swift/HTML harness display contracts.
