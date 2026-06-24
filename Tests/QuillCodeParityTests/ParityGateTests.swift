@@ -816,6 +816,25 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelText.contains("let command = manifest.updateCommand"), "WorkspaceModel should not parse extension update commands inline.")
     }
 
+    func testWorkspaceModelDelegatesProjectMetadataLoading() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let loaderText = try Self.appSourceText(named: "WorkspaceProjectMetadataLoader.swift")
+
+        XCTAssertTrue(loaderText.contains("enum WorkspaceProjectMetadataLoader"), "Project metadata loading should live in a focused loader.")
+        XCTAssertTrue(loaderText.contains("ProjectInstructionLoader.load"), "Project instruction loading should stay with the metadata loader.")
+        XCTAssertTrue(loaderText.contains("LocalEnvironmentActionLoader.load"), "Local environment action loading should stay with the metadata loader.")
+        XCTAssertTrue(loaderText.contains("ProjectExtensionManifestLoader.load"), "Project extension loading should stay with the metadata loader.")
+        XCTAssertTrue(loaderText.contains("MemoryNoteLoader.loadProject"), "Project memory loading should stay with the metadata loader.")
+        XCTAssertTrue(loaderText.contains("SSHRemoteProjectContextLoader.load"), "SSH Remote context loading should stay with the metadata loader.")
+        XCTAssertTrue(modelText.contains("WorkspaceProjectMetadataLoader.loadLocal"), "WorkspaceModel should delegate local project metadata loading.")
+        XCTAssertTrue(modelText.contains("WorkspaceProjectMetadataLoader.loadRemote"), "WorkspaceModel should delegate SSH Remote project metadata loading.")
+        XCTAssertFalse(modelText.contains("ProjectInstructionLoader.load"), "WorkspaceModel should not load instruction files directly.")
+        XCTAssertFalse(modelText.contains("LocalEnvironmentActionLoader.load"), "WorkspaceModel should not load local environment actions directly.")
+        XCTAssertFalse(modelText.contains("ProjectExtensionManifestLoader.load"), "WorkspaceModel should not load project extensions directly.")
+        XCTAssertFalse(modelText.contains("MemoryNoteLoader.loadProject"), "WorkspaceModel should not load project memories directly.")
+        XCTAssertFalse(modelText.contains("SSHRemoteProjectContextLoader.load"), "WorkspaceModel should not load SSH Remote context directly.")
+    }
+
     func testWorkspaceModelDelegatesAutomationStateMutations() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let automationText = try Self.appSourceText(named: "WorkspaceAutomationEngine.swift")

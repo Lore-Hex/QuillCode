@@ -776,16 +776,10 @@ public final class QuillCodeWorkspaceModel {
     @discardableResult
     public func addProject(path: URL, name: String? = nil) -> UUID {
         let standardized = path.standardizedFileURL
-        let metadata = WorkspaceProjectMetadata(
-            instructions: ProjectInstructionLoader.load(from: standardized),
-            localActions: LocalEnvironmentActionLoader.load(from: standardized),
-            extensionManifests: ProjectExtensionManifestLoader.load(from: standardized),
-            memories: MemoryNoteLoader.loadProject(from: standardized)
-        )
         let result = WorkspaceProjectEngine.upsertLocalProject(
             path: standardized,
             name: name,
-            metadata: metadata,
+            metadata: WorkspaceProjectMetadataLoader.loadLocal(from: standardized),
             projects: &root.projects
         )
         root.selectedProjectID = result.projectID
@@ -1871,13 +1865,12 @@ public final class QuillCodeWorkspaceModel {
         guard let id, let index = root.projects.firstIndex(where: { $0.id == id }) else { return }
         guard !root.projects[index].isRemote else { return }
         let rootURL = URL(fileURLWithPath: root.projects[index].path)
-        let metadata = WorkspaceProjectMetadata(
-            instructions: ProjectInstructionLoader.load(from: rootURL),
-            localActions: LocalEnvironmentActionLoader.load(from: rootURL),
-            extensionManifests: ProjectExtensionManifestLoader.load(from: rootURL),
-            memories: MemoryNoteLoader.loadProject(from: rootURL)
+        WorkspaceProjectEngine.applyMetadata(
+            WorkspaceProjectMetadataLoader.loadLocal(from: rootURL),
+            to: id,
+            projects: &root.projects,
+            includeLocalExtensions: true
         )
-        WorkspaceProjectEngine.applyMetadata(metadata, to: id, projects: &root.projects, includeLocalExtensions: true)
     }
 
     private func refreshRemoteProjectContext(_ id: UUID) -> Bool {
@@ -1889,15 +1882,9 @@ public final class QuillCodeWorkspaceModel {
         }
 
         do {
-            let context = try SSHRemoteProjectContextLoader.load(
+            let metadata = try WorkspaceProjectMetadataLoader.loadRemote(
                 connection: root.projects[index].connection,
                 executor: sshRemoteShellExecutor
-            )
-            let metadata = WorkspaceProjectMetadata(
-                instructions: context.instructions,
-                localActions: [],
-                extensionManifests: [],
-                memories: context.memories
             )
             WorkspaceProjectEngine.applyMetadata(metadata, to: id, projects: &root.projects, includeLocalExtensions: false)
             lastError = nil
