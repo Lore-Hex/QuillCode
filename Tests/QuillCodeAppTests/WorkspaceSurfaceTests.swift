@@ -31,9 +31,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
         let recommendedModelIDs = surface.topBar.modelCategories
             .first { $0.category == "Recommended" }?
             .models
-            .prefix(2)
+            .prefix(3)
             .map(\.id) ?? []
-        XCTAssertEqual(recommendedModelIDs, [TrustedRouterDefaults.fastModel, TrustedRouterDefaults.synthModel])
+        XCTAssertEqual(recommendedModelIDs, TrustedRouterDefaults.recommendedModelIDs)
         let defaultOption = surface.topBar.modelCategories
             .flatMap(\.models)
             .first { $0.id == TrustedRouterDefaults.defaultModel }
@@ -852,7 +852,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.topBar.modelLabel, "acme/Code Pro")
         XCTAssertEqual(surface.topBar.modelCategories.map(\.category), ["Recommended", "Safety", "Coding"])
         let recommended = surface.topBar.modelCategories.first { $0.category == "Recommended" }
-        XCTAssertEqual(recommended?.models.prefix(2).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
+        XCTAssertEqual(recommended?.models.prefix(3).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
         let coding = surface.topBar.modelCategories.first { $0.category == "Coding" }
         XCTAssertEqual(coding?.models.map(\.id), ["acme/code-pro", "acme/fast"])
         XCTAssertTrue(coding?.models.first?.isSelected == true)
@@ -873,7 +873,14 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         XCTAssertEqual(topBar.filteredModelCategories(matching: "coding").flatMap(\.models).map(\.id), ["acme/code-pro"])
         XCTAssertEqual(topBar.filteredModelCategories(matching: "moon k2").flatMap(\.models).map(\.id), ["moonshotai/kimi-k2.6"])
-        XCTAssertEqual(topBar.filteredModelCategories(matching: "synth").flatMap(\.models).map(\.id), [TrustedRouterDefaults.synthModel])
+        XCTAssertEqual(
+            topBar.filteredModelCategories(matching: "synth").flatMap(\.models).map(\.id),
+            [TrustedRouterDefaults.synthModel, TrustedRouterDefaults.synthCodeModel]
+        )
+        XCTAssertEqual(
+            topBar.filteredModelCategories(matching: "tr/synth-code").flatMap(\.models).map(\.id),
+            [TrustedRouterDefaults.synthCodeModel]
+        )
         XCTAssertEqual(topBar.filteredModelCategories(matching: "default model").flatMap(\.models).map(\.id), [TrustedRouterDefaults.synthModel])
         XCTAssertTrue(topBar.filteredModelCategories(matching: "does-not-exist").isEmpty)
     }

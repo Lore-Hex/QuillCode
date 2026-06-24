@@ -2378,7 +2378,8 @@
             category: 'Recommended',
             models: [
               { id: 'trustedrouter/fast', provider: 'trustedrouter', displayName: 'Nike 1.0', isSelected: true, isFavorite: false, badges: ['Current', 'Default', 'Recommended'] },
-              { id: 'tr/synth', provider: 'trustedrouter', displayName: 'Synth', isSelected: false, isFavorite: false, badges: [] }
+              { id: 'tr/synth', provider: 'trustedrouter', displayName: 'Synth', isSelected: false, isFavorite: false, badges: ['Recommended'] },
+              { id: 'tr/synth-code', provider: 'trustedrouter', displayName: 'Synth Code', isSelected: false, isFavorite: false, badges: ['Recommended'] }
             ]
           },
           {
@@ -4971,6 +4972,7 @@
     function modelDisplayLabel(model) {
       if (model.id === 'trustedrouter/fast') return 'Nike 1.0';
       if (model.id === 'tr/synth') return 'Synth';
+      if (model.id === 'tr/synth-code') return 'Synth Code';
       if (model.provider === 'trustedrouter') return model.id;
       return `${model.provider}/${model.displayName}`;
     }
@@ -5024,6 +5026,7 @@
       if (model.metadataSummary) return model.metadataSummary;
       if (model.id === 'trustedrouter/fast') return 'Fast everyday agent';
       if (model.id === 'tr/synth') return 'Deeper planning and review';
+      if (model.id === 'tr/synth-code') return 'Code-focused model';
       const category = model.category || categoryName || 'Models';
       if (category === 'Safety') return 'Auto safety reviewer';
       return `${category} model`;
@@ -5033,6 +5036,7 @@
       if (model.capabilitySummary) return model.capabilitySummary;
       if (model.id === 'trustedrouter/fast') return 'Nike 1.0 is the fast default for coding, shell, and file-editing turns.';
       if (model.id === 'tr/synth') return 'Synth is the balanced model for deeper coding and review turns.';
+      if (model.id === 'tr/synth-code') return 'Synth Code is the code-focused model for implementation-heavy turns.';
       if ((model.badges || []).includes('Recommended')) return 'Recommended model profile available through TrustedRouter.';
       const category = model.category || categoryName || 'Models';
       if (category === 'Safety') return 'Lightweight reviewer model for Auto safety decisions.';
