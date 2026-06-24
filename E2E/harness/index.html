@@ -1512,7 +1512,8 @@
       box-shadow: 0 16px 38px rgba(0,0,0,.22);
     }
     .tool-card.failed { border-color: rgba(255,93,82,.44); }
-    .tool-card.review { border-color: rgba(255,255,255,.11); }
+    .tool-card.review { border-color: rgba(82,210,115,.32); }
+    .tool-card.review[data-status-label="Needs review"] { border-color: rgba(255,188,66,.42); }
     .tool-card[data-density="collapsed"] {
       min-height: 58px;
     }
@@ -1543,9 +1544,13 @@
       background: var(--accent);
       border-color: rgba(255,255,255,.14);
     }
+    .tool-card-actions button[data-action-style="primary"] {
+      flex: 1 1 240px;
+    }
     .tool-card-actions button[data-action-style="secondary"] {
       color: var(--text);
       background: rgba(255,255,255,.08);
+      flex: 0 0 92px;
     }
     .tool-card-actions button[data-action-style="destructive"] {
       color: #ff7a70;
@@ -3083,6 +3088,7 @@
         artifacts: artifactsFromOutput(card.outputJSON),
         ...card,
         executionContext: card.executionContext || executionContextForTool(card.title),
+        reviewState: card.reviewState || toolCardReviewState(card.status, card.actions, card.subtitle),
         density: card.density || toolCardDensity(card.status, card.isExpanded)
       };
       const stateLabel = toolCardStateLabel(toolCard.status);
@@ -3194,8 +3200,32 @@
       if (status === 'queued') return 'Queued';
       if (status === 'running') return 'Running';
       if (status === 'failed') return 'Failed';
-      if (status === 'review') return 'Review';
+      if (status === 'review') return 'Ready';
       return 'Completed';
+    }
+
+    function toolCardReviewState(status, actions = [], subtitle = '') {
+      if (status !== 'review') return 'none';
+      if (!actions.length && /blocked/i.test(String(subtitle || ''))) return 'needsReview';
+      return 'ready';
+    }
+
+    function toolCardNeedsReview(card) {
+      if (card.reviewState === 'needsReview') return true;
+      return card.status === 'review'
+        && !(card.actions || []).length
+        && /blocked/i.test(String(card.subtitle || ''));
+    }
+
+    function toolCardStatusDisplayLabel(card) {
+      if (card.status === 'review') return toolCardNeedsReview(card) ? 'Needs review' : 'Ready';
+      const raw = String(card.status || '');
+      return raw ? `${raw.charAt(0).toUpperCase()}${raw.slice(1)}` : '';
+    }
+
+    function toolCardStatusAccessibilityLabel(card) {
+      if (card.status === 'review') return toolCardNeedsReview(card) ? 'needs review' : 'ready to run';
+      return String(card.status || '');
     }
 
     function toolCardSubtitle(stateLabel, toolName, inputJSON) {
@@ -3253,6 +3283,7 @@
     function updateToolCardLifecycle(card, status, subtitle) {
       card.status = status;
       card.subtitle = toolCardSubtitle(subtitle, card.title, card.inputJSON);
+      card.reviewState = toolCardReviewState(status, card.actions || [], card.subtitle);
       card.density = toolCardDensity(status, card.isExpanded);
       card.isExpanded = card.density === 'expanded';
     }
@@ -3265,6 +3296,7 @@
       if (!card) return;
       card.actions = [];
       card.status = 'done';
+      card.reviewState = 'none';
       card.subtitle = toolCardSubtitle(kind === 'approve' ? 'Approved' : 'Skipped', card.title, card.inputJSON);
       card.outputJSON = JSON.stringify({
         requestID,
@@ -4076,14 +4108,18 @@
               <button type="button" data-testid="tool-card-action" data-action-kind="${escapeHTML(action.kind)}" data-action-style="${escapeHTML(action.style)}" data-request-id="${escapeHTML(action.requestID)}">${escapeHTML(action.title)}</button>
             `).join('')}
           </div>` : '';
-      const renderToolCard = (card, timelineID = '') => `
-        <article class="tool-card ${escapeHTML(card.status)}${activeClass(timelineID)}" data-testid="tool-card" data-status="${escapeHTML(card.status)}" data-density="${escapeHTML(card.density || toolCardDensity(card.status, card.isExpanded))}" data-timeline-id="${escapeHTML(timelineID)}"${card.executionContext ? ` data-execution-context="${escapeHTML(card.executionContext.kind)}"` : ''} aria-label="${escapeHTML(card.title)}, ${escapeHTML(card.status)}, ${escapeHTML(card.density || toolCardDensity(card.status, card.isExpanded))}${card.executionContext ? `, ${card.executionContext.label} ${card.executionContext.detail}` : ''}">
+      const renderToolCard = (card, timelineID = '') => {
+        const density = card.density || toolCardDensity(card.status, card.isExpanded);
+        const statusDisplayLabel = toolCardStatusDisplayLabel(card);
+        const statusAccessibilityLabel = toolCardStatusAccessibilityLabel(card);
+        return `
+        <article class="tool-card ${escapeHTML(card.status)}${activeClass(timelineID)}" data-testid="tool-card" data-status="${escapeHTML(card.status)}" data-review-state="${escapeHTML(card.reviewState || 'none')}" data-status-label="${escapeHTML(statusDisplayLabel)}" data-density="${escapeHTML(density)}" data-timeline-id="${escapeHTML(timelineID)}"${card.executionContext ? ` data-execution-context="${escapeHTML(card.executionContext.kind)}"` : ''} aria-label="${escapeHTML(card.title)}, ${escapeHTML(statusAccessibilityLabel)}, ${escapeHTML(density)}${card.executionContext ? `, ${card.executionContext.label} ${card.executionContext.detail}` : ''}">
           <header>
             <span class="tool-card-title-row">
               <strong data-testid="tool-card-title">${escapeHTML(card.title)}</strong>
               ${renderExecutionContextChip(card.executionContext, 'tool-card-execution-context')}
             </span>
-            <span data-testid="tool-card-status">${escapeHTML(card.status)}</span>
+            <span data-testid="tool-card-status">${escapeHTML(statusDisplayLabel)}</span>
           </header>
           <p data-testid="tool-card-subtitle">${escapeHTML(card.subtitle)}</p>
           ${renderToolActions(card)}
@@ -4094,6 +4130,7 @@
           ${renderImagePreviews(card.artifacts)}
           ${renderToolDetails(card)}
         </article>`;
+      };
       const transcriptItems = state.transcript.timelineItems.length
         ? state.transcript.timelineItems.map(item => (
           item.kind === 'message'

@@ -207,7 +207,8 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
             status: .review,
             inputJSON: inputJSON,
             actions: actions,
-            isExpanded: true
+            isExpanded: true,
+            reviewState: request?.recommendedVerdict == .deny ? .needsReview : .ready
         )
     }
 
@@ -217,11 +218,11 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
         }
         return [
             ToolCardActionSurface(
-                title: "Allow once",
+                title: "Run",
                 kind: .approve,
                 requestID: request.id,
                 style: .primary,
-                systemImage: "checkmark"
+                systemImage: "play.fill"
             ),
             ToolCardActionSurface(
                 title: "Skip",
@@ -239,17 +240,33 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
         reason: String,
         recommendedVerdict: ApprovalVerdict?
     ) -> String {
-        let stateLabel = recommendedVerdict == .deny ? "Blocked" : "Needs your okay"
+        let stateLabel = recommendedVerdict == .deny ? "Blocked" : "Ready to run"
         let base = toolSubtitle(stateLabel: stateLabel, title: title, inputJSON: inputJSON)
         let cleanedReason = reason
             .replacingOccurrences(of: #"^(approve|deny|clarify):\s*"#, with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleanedReason.isEmpty,
+        guard isMeaningfulApprovalReason(cleanedReason),
               cleanedReason != base
         else {
             return base
         }
         return "\(base) · \(cleanedReason)"
+    }
+
+    private static func isMeaningfulApprovalReason(_ reason: String) -> Bool {
+        let normalized = reason
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard !normalized.isEmpty else {
+            return false
+        }
+        return ![
+            "review required",
+            "approval requested",
+            "approve shell",
+            "needs review",
+            "needs your okay"
+        ].contains(normalized)
     }
 
     private static func updateApprovalCard(_ card: inout ToolCardState, decisionJSON: String?) {
@@ -270,6 +287,7 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
         card.outputJSON = decisionJSON
         card.actions = []
         card.density = ToolCardState.defaultDensity(status: card.status, isExpanded: false)
+        card.reviewState = .none
         card.isExpanded = false
     }
 
@@ -293,6 +311,7 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
         card.status = status
         card.subtitle = toolSubtitle(stateLabel: stateLabel, title: card.title, inputJSON: card.inputJSON)
         card.density = ToolCardState.defaultDensity(status: status, isExpanded: card.isExpanded)
+        card.reviewState = ToolCardState.defaultReviewState(status: status)
         card.isExpanded = card.density == .expanded
         if let outputJSON {
             card.outputJSON = outputJSON

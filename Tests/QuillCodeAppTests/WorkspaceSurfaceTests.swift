@@ -1703,12 +1703,12 @@ final class WorkspaceSurfaceTests: XCTestCase {
         let card = ToolCardState(
             id: "shell-review",
             title: ToolDefinition.shellRun.name,
-            subtitle: "Needs your okay · whoami",
+            subtitle: "Ready to run · whoami",
             status: .review,
             inputJSON: ToolArguments.json(["cmd": "whoami"]),
             actions: [
                 ToolCardActionSurface(
-                    title: "Allow once",
+                    title: "Run",
                     kind: .approve,
                     requestID: "approval-html",
                     style: .primary
@@ -1726,7 +1726,10 @@ final class WorkspaceSurfaceTests: XCTestCase {
         let html = WorkspaceHTMLToolCardRenderer.render(card, timelineItemID: "timeline-approval")
 
         XCTAssertTrue(html.contains(#"data-testid="tool-card-actions""#))
-        XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="approve" data-action-style="primary" data-request-id="approval-html">Allow once"#))
+        XCTAssertTrue(html.contains(#"data-review-state="ready""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-status">Ready"#))
+        XCTAssertTrue(html.contains(#"aria-label="host.shell.run, ready to run, expanded"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="approve" data-action-style="primary" data-request-id="approval-html">Run"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="deny" data-action-style="secondary" data-request-id="approval-html">Skip"#))
         XCTAssertTrue(html.contains(#"data-timeline-id="timeline-approval""#))
     }

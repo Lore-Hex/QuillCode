@@ -9,13 +9,13 @@ enum WorkspaceHTMLToolCardRenderer {
             .map { ", \($0.label) \($0.detail)" } ?? ""
         let copyID = timelineItemID ?? card.id
         return """
-        <article class="tool-card \(card.status.rawValue)" data-testid="tool-card" data-status="\(card.status.rawValue)" data-density="\(card.density.rawValue)" aria-label="\(escape(card.title)), \(escape(card.status.rawValue)), \(escape(card.densityAccessibilityLabel))\(escape(accessibilityContext))"\(timelineAttribute)\(executionContextAttribute)>
+        <article class="tool-card \(card.status.rawValue)" data-testid="tool-card" data-status="\(card.status.rawValue)" data-review-state="\(card.reviewState.rawValue)" data-density="\(card.density.rawValue)" aria-label="\(escape(card.title)), \(escape(card.statusAccessibilityLabel)), \(escape(card.densityAccessibilityLabel))\(escape(accessibilityContext))"\(timelineAttribute)\(executionContextAttribute)>
           <header>
             <span class="tool-card-title-row">
               <strong data-testid="tool-card-title">\(escape(card.title))</strong>
               \(WorkspaceHTMLPrimitives.executionContextChip(card.executionContext, testID: "tool-card-execution-context"))
             </span>
-            <span data-testid="tool-card-status">\(escape(card.status.rawValue))</span>
+            <span data-testid="tool-card-status">\(escape(card.statusDisplayLabel))</span>
           </header>
           <p data-testid="tool-card-subtitle">\(escape(card.subtitle))</p>
           \(renderActions(card.actions))

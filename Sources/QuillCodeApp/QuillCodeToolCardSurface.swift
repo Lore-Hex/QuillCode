@@ -8,6 +8,12 @@ public enum ToolCardStatus: String, Codable, Sendable, Hashable {
     case review
 }
 
+public enum ToolCardReviewState: String, Codable, Sendable, Hashable {
+    case none
+    case ready
+    case needsReview
+}
+
 public enum ToolCardActionKind: String, Codable, Sendable, Hashable {
     case approve
     case deny
@@ -490,6 +496,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
     public var actions: [ToolCardActionSurface]
     public var isExpanded: Bool
     public var density: ToolCardDensity
+    public var reviewState: ToolCardReviewState
 
     public init(
         id: String,
@@ -502,7 +509,8 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         artifacts: [ToolArtifactState] = [],
         actions: [ToolCardActionSurface] = [],
         isExpanded: Bool = false,
-        density: ToolCardDensity? = nil
+        density: ToolCardDensity? = nil,
+        reviewState: ToolCardReviewState? = nil
     ) {
         self.id = id
         self.title = title
@@ -515,6 +523,11 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         self.actions = actions
         self.isExpanded = isExpanded
         self.density = density ?? Self.defaultDensity(status: status, isExpanded: isExpanded)
+        self.reviewState = reviewState ?? Self.defaultReviewState(
+            status: status,
+            actions: actions,
+            subtitle: subtitle
+        )
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -529,6 +542,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         case actions
         case isExpanded
         case density
+        case reviewState
     }
 
     public init(from decoder: Decoder) throws {
@@ -545,6 +559,8 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         self.isExpanded = try container.decodeIfPresent(Bool.self, forKey: .isExpanded) ?? false
         self.density = try container.decodeIfPresent(ToolCardDensity.self, forKey: .density)
             ?? Self.defaultDensity(status: status, isExpanded: isExpanded)
+        self.reviewState = try container.decodeIfPresent(ToolCardReviewState.self, forKey: .reviewState)
+            ?? Self.defaultReviewState(status: status, actions: actions, subtitle: subtitle)
     }
 
     public static func defaultDensity(status: ToolCardStatus, isExpanded: Bool = false) -> ToolCardDensity {
@@ -563,6 +579,50 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
 
     public var opensDetailsByDefault: Bool {
         density == .expanded
+    }
+
+    public static func defaultReviewState(
+        status: ToolCardStatus,
+        actions: [ToolCardActionSurface] = [],
+        subtitle: String = ""
+    ) -> ToolCardReviewState {
+        guard status == .review else {
+            return .none
+        }
+        // Compatibility fallback for older encoded surfaces and simple harness fixtures.
+        if actions.isEmpty,
+           subtitle.localizedCaseInsensitiveContains("Blocked") {
+            return .needsReview
+        }
+        return .ready
+    }
+
+    public var statusDisplayLabel: String {
+        switch status {
+        case .queued:
+            return "Queued"
+        case .running:
+            return "Running"
+        case .done:
+            return "Done"
+        case .failed:
+            return "Failed"
+        case .review:
+            return needsReview ? "Needs review" : "Ready"
+        }
+    }
+
+    public var statusAccessibilityLabel: String {
+        switch status {
+        case .review:
+            return needsReview ? "needs review" : "ready to run"
+        default:
+            return status.rawValue
+        }
+    }
+
+    public var needsReview: Bool {
+        status == .review && reviewState == .needsReview
     }
 
     public var densityAccessibilityLabel: String {

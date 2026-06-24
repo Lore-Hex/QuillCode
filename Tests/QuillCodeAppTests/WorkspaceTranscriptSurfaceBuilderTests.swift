@@ -124,9 +124,12 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(timelineCards[0].id, "shell-approval-1")
         XCTAssertEqual(timelineCards[0].title, ToolDefinition.shellRun.name)
         XCTAssertEqual(timelineCards[0].status, .review)
-        XCTAssertEqual(timelineCards[0].subtitle, "Needs your okay · ls · review required")
+        XCTAssertEqual(timelineCards[0].subtitle, "Ready to run · ls")
+        XCTAssertEqual(timelineCards[0].statusDisplayLabel, "Ready")
+        XCTAssertEqual(timelineCards[0].statusAccessibilityLabel, "ready to run")
+        XCTAssertEqual(timelineCards[0].reviewState, .ready)
         XCTAssertTrue(timelineCards[0].isExpanded)
-        XCTAssertEqual(timelineCards[0].actions.map(\.title), ["Allow once", "Skip"])
+        XCTAssertEqual(timelineCards[0].actions.map(\.title), ["Run", "Skip"])
         XCTAssertEqual(timelineCards[0].actions.map(\.requestID), ["approval-1", "approval-1"])
         XCTAssertEqual(timelineCards[1].title, "Tool")
         XCTAssertEqual(timelineCards[1].status, .failed)
@@ -200,6 +203,9 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
 
         XCTAssertEqual(card.status, .review)
         XCTAssertEqual(card.subtitle, "Blocked · rm -rf / · Auto mode blocks high-risk command pattern: rm -rf /.")
+        XCTAssertEqual(card.statusDisplayLabel, "Needs review")
+        XCTAssertEqual(card.statusAccessibilityLabel, "needs review")
+        XCTAssertEqual(card.reviewState, .needsReview)
         XCTAssertEqual(card.actions, [])
     }
 

@@ -2185,7 +2185,7 @@ Claude CLI's interface review called out review cards as the highest-value inter
 
 | Surface | Before | After |
 | --- | --- | --- |
-| Review cards | A separate warning-styled `Safety Check` card appeared after the queued tool. | The queued tool card becomes a neutral review card with `Allow once` and `Skip` actions. |
+| Review cards | A separate warning-styled `Safety Check` card appeared after the queued tool. | The queued tool card becomes a neutral review card with `Run` and `Skip` actions. |
 | Safety tone | Review states used a warning perimeter even when the model had not found danger. | Review states use neutral chrome; failure remains red and actual denial can still carry stronger copy. |
 | Action path | Approval state was represented in transcript events but had no first-class card action. | `ToolCardActionSurface` flows from transcript projection through SwiftUI, HTML, desktop controller, and workspace model execution. |
 
@@ -2418,3 +2418,18 @@ Overall grade after this slice: **A command orchestration boundary, A behavior p
 Remaining risk:
 
 - `WorkspaceModel.runWorkspaceCommand` still owns broader command-plan execution for local environment actions, memory, automation, MCP, extension, activity, draft, tool, and action plans. Extract command-plan execution if those side effects keep growing.
+
+## 2026-06-23 Calm Approval Card Presentation Pass
+
+Overall grade after this slice: **A copy semantics, A safety preservation, A native/static parity**.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Approval-card copy | Routine approvals surfaced raw `Review` language and `Allow once`/`Skip` actions. | Routine approvals present as `Ready` / `Ready to run` with `Run` and `Skip`. |
+| Blocked safety state | Normal approvals and denied reviews could look equally serious. | Policy-denied reviews keep a softer explicit `Needs review` label and warning tone. |
+| Shared presentation | Native, static HTML, and Playwright harness could drift on status labels. | `ToolCardState` owns display and accessibility labels; renderers consume that contract. |
+| Review substate | Denied review cards were inferred from subtitle copy. | `ToolCardReviewState` carries `ready` versus `needsReview` explicitly, with subtitle parsing only as legacy fallback. |
+
+Remaining risk:
+
+- The approval queue still appears inline per tool card. A future UX slice should explore a compact pending-actions rail for batches of approvals without weakening the underlying safety review.
