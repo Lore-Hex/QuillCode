@@ -149,8 +149,9 @@ final class WorkspaceBrowserIntegrationTests: XCTestCase {
           </body>
         </html>
         """
+        let fetchedURL = try XCTUnwrap(URL(string: "http://localhost:5173/dashboard"))
         let fetcher = FakeBrowserPageFetcher(result: .success(BrowserFetchedPage(
-            finalURL: URL(string: "http://localhost:5173/dashboard")!,
+            finalURL: fetchedURL,
             statusCode: 200,
             contentType: "text/html; charset=utf-8",
             html: html,
