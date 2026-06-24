@@ -1716,6 +1716,7 @@ final class ParityGateTests: XCTestCase {
     func testWorkspaceSurfaceDelegatesSidebarSurfaceContracts() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarSurface.swift")
+        let threadListBuilderText = try Self.appSourceText(named: "QuillCodeSidebarThreadListBuilder.swift")
 
         XCTAssertTrue(sidebarText.contains("public struct ProjectListSurface"), "Project list records should live beside sidebar contracts.")
         XCTAssertTrue(sidebarText.contains("public struct ProjectItemSurface"), "Project rows should live beside sidebar contracts.")
@@ -1729,6 +1730,9 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(sidebarText.contains("public struct SidebarItemActionSurface"), "Thread action records should live beside sidebar contracts.")
         XCTAssertTrue(sidebarText.contains("filteredItems"), "Sidebar search filtering should be directly testable outside the aggregate workspace surface.")
         XCTAssertTrue(sidebarText.contains("selectionLabel"), "Sidebar selection copy should be directly testable outside the aggregate workspace surface.")
+        XCTAssertTrue(sidebarText.contains("SidebarThreadListBuilder(items: items)"), "Sidebar aggregate should delegate thread list derivation.")
+        XCTAssertTrue(threadListBuilderText.contains("struct SidebarThreadListBuilder"), "Sidebar list filtering and sectioning should live in a focused helper.")
+        XCTAssertTrue(threadListBuilderText.contains("private enum SidebarThreadDateBucket"), "Sidebar date buckets should live with list sectioning.")
         XCTAssertFalse(surfaceText.contains("public struct ProjectListSurface"), "WorkspaceSurface should not own project list surface records.")
         XCTAssertFalse(surfaceText.contains("public struct ProjectItemSurface"), "WorkspaceSurface should not own project row records.")
         XCTAssertFalse(surfaceText.contains("public enum ProjectItemActionKind"), "WorkspaceSurface should not own project action labels.")
@@ -1741,6 +1745,7 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(surfaceText.contains("public struct SidebarItemActionSurface"), "WorkspaceSurface should not own thread action records.")
         XCTAssertFalse(surfaceText.contains("filteredItems"), "WorkspaceSurface should not own sidebar search filtering.")
         XCTAssertFalse(surfaceText.contains("selectionLabel(count:"), "WorkspaceSurface should not own sidebar selection copy.")
+        XCTAssertFalse(sidebarText.contains("private enum SidebarThreadDateBucket"), "Sidebar aggregate should not own date bucketing.")
     }
 
     func testWorkspaceSurfaceDelegatesNavigationSurfaceBuilding() throws {
