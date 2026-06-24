@@ -4034,3 +4034,18 @@ What changed:
 
 Remaining risk:
 - `handleSlashCommand` is still the largest remaining private dispatcher in `WorkspaceModel.swift`. The next stronger extraction should group pure local transcript commands or move workspace-action slash effects behind a small typed executor once the model method access boundary is ready.
+
+## 2026-06-24 Thread Lifecycle Slash Parser Split
+
+Overall grade after this slice: **A+ thread lifecycle slash ownership, A+ alias coverage, A outer parser boundary**.
+
+`SlashCommand.swift` still owned thread lifecycle aliases, thread command IDs, and `/rename` usage copy. These commands are visible in the sidebar, command palette, keyboard shortcuts, context banners, and transcript flow, so keeping their slash grammar beside focused parser tests reduces drift between Codex-style thread UX surfaces.
+
+What changed:
+- Added `SlashThreadCommandParser.swift` for `/new`, `/compact`, `/rename`, `/duplicate`, `/archive`, and `/unarchive` aliases.
+- Reduced `SlashCommand.swift` to top-level thread lifecycle delegation through `SlashThreadCommandParser.supports`.
+- Added direct parser tests for alias recognition, new-chat, compact-context, rename trimming/usage validation, duplicate, archive, and unarchive commands.
+- Added a parity gate so thread lifecycle command IDs and `/rename` usage copy do not drift back into the outer slash parser.
+
+Remaining risk:
+- `SlashCommand.swift` still owns memory, environment action, worktree, browser, help, status, and generic routing. Memory should be the next parser extraction if `/remember` grows delete/list/search or memory-scope options.
