@@ -27,7 +27,7 @@ public struct TrustedRouterSafetyModelClient: SafetyModelClient {
                 ["role": "system", "content": "Return only the requested JSON object."],
                 ["role": "user", "content": prompt]
             ],
-            params: TrustedRouterLLMClient.jsonObjectResponseParameters
+            params: TrustedRouterChatParameters.jsonObjectResponse
         )
         guard let text = completion.choices.first?.message.content,
               !text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines).isEmpty

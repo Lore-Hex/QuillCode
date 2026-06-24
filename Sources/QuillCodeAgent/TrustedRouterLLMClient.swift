@@ -23,10 +23,6 @@ public enum TrustedRouterAgentError: Error, CustomStringConvertible {
 }
 
 public struct TrustedRouterLLMClient: StreamingLLMClient {
-    public static var jsonObjectResponseParameters: [String: Any] {
-        ["response_format": ["type": "json_object"]]
-    }
-
     public var promptBuilder: TrustedRouterPromptBuilder
     public var sessionStore: (any TrustedRouterSessionStore)?
     public var apiKeyOverride: String?
@@ -63,7 +59,7 @@ public struct TrustedRouterLLMClient: StreamingLLMClient {
         return try await client.chatCompletionsText(
             model: model,
             messages: messages,
-            params: Self.jsonObjectResponseParameters
+            params: TrustedRouterChatParameters.jsonObjectResponse
         )
     }
 
