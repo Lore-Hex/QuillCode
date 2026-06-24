@@ -2520,6 +2520,24 @@ Remaining risk:
 
 - `WorkspaceModelTests.swift` is still the largest test file. MCP lifecycle and project extension command integration are now the clearest remaining feature groups to extract.
 
+## 2026-06-24 Workspace MCP Integration Test Pass
+
+Overall grade after this slice: **A feature grouping, A behavior preservation, A regression guard**.
+
+MCP integration tests moved from the workspace-model monolith into `WorkspaceMCPIntegrationTests`. The model test file no longer owns MCP server lifecycle, Ready-server surface labels, dynamic MCP tool descriptions, tool/resource/prompt execution from agent turns, or unadvertised-tool rejection.
+
+Code quality changes:
+
+- Added `WorkspaceMCPIntegrationTests` as the home for MCP flows that cross workspace model, project extension manifests, MCP runtime, tool cards, transcript events, and surfaces.
+- Moved the fixture MCP stdio server beside the MCP integration tests so the helper does not sit in the general model test file.
+- Reused shared temp-directory support so moved tests clean up after themselves.
+- Added a parity gate that keeps MCP integration method names out of `WorkspaceModelTests.swift`.
+- Reduced `WorkspaceModelTests.swift` from roughly 5.0k lines to roughly 4.7k lines without weakening coverage.
+
+Remaining risk:
+
+- `WorkspaceModelTests.swift` is still the largest test file. Project extension command integration and older broad workspace flows are now the clearest remaining feature groups to extract.
+
 ## 2026-06-24 Runtime Factory Test Ownership Pass
 
 Overall grade after this slice: **A test ownership, A behavior preservation, A regression guard**.
