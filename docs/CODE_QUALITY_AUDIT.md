@@ -24,7 +24,8 @@ The architecture is moving in the right direction: core state is value typed, pe
 | File | Grade | Next Improvement |
 | --- | --- | --- |
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, context/action lookup, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, thread persistence, local command transcript mutation, thread notice mutation, sidebar selection transitions, sidebar bulk action planning, project context refresh, `/status` context assembly, and top-bar state assembly now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
-| `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | A- | The shell is now mostly chrome composition, state, and routing. Transcript layout and workspace sheet presentation live in focused files; keep future modal families and command workflow rules out of the root shell. |
+| `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | A | The shell is now top-bar/sidebar chrome, state, and routing; center-pane layout and workspace sheet presentation live in focused files. Keep future modal families and command workflow rules out of the root shell. |
+| `Sources/QuillCodeApp/QuillCodeWorkspaceMainPaneView.swift` | A- | Center-pane layout owns transcript/browser/extensions/memories/terminal/composer/activity composition and runtime issue recovery wiring. Keep workflow decisions in planners and avoid growing this into a second root shell. |
 | `Sources/QuillCodeApp/QuillCodeToolCardView.swift` | A- | Native tool-card composition is now separate from reusable controls, artifact previews, and raw detail blocks. Keep future status/action chrome in `QuillCodeToolCardControls.swift` and artifact rendering in `QuillCodeToolArtifactViews.swift`. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is now mostly aggregate payload plus runtime/execution context records. Settings copy/compatibility, runtime issue classification, active context-source selection, model catalog presentation, top-bar/model presentation contracts, project/sidebar navigation assembly, sidebar/project contracts, browser state/presentation contracts, terminal presentation contracts, review presentation contracts, transcript/composer/context presentation contracts, secondary-pane presentation contracts, automation pane command wiring, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are extracted into focused files. Next step is extracting runtime/execution context contracts if their presentation behavior grows. |
 | `Sources/QuillCodeApp/WorkspaceHTMLRenderer.swift` | A- | Static HTML harness rendering is still broad, but top-bar HTML delegates to `WorkspaceHTMLTopBarRenderer`, sidebar HTML delegates to `WorkspaceHTMLSidebarRenderer`, tool-card/artifact preview HTML delegates to `WorkspaceHTMLToolCardRenderer`, review pane HTML delegates to `WorkspaceHTMLReviewRenderer`, secondary pane HTML delegates to `WorkspaceHTMLSecondaryPaneRenderer`, browser pane HTML delegates to `WorkspaceHTMLBrowserRenderer`, terminal pane HTML delegates to `WorkspaceHTMLTerminalRenderer`, and shared escaping/context chips live in `WorkspaceHTMLPrimitives`. Next step is extracting another transcript/composer family only when renderer drift appears. |
@@ -136,6 +137,23 @@ Code quality changes:
 Remaining risk:
 
 - Slash-command dispatch still chooses when `/status` runs inside `WorkspaceModel`. That is acceptable while command branches mostly delegate to focused planners; extract command-effect dispatch only when shared command workflow mechanics grow.
+
+## 2026-06-24 Workspace Main Pane Split
+
+Overall grade after this slice: **A root-shell boundary, A center-pane composition, A regression guard**.
+
+`WorkspaceSwiftUIView` still owned the entire center-pane layout: transcript, browser, extensions, memories, terminal, composer, activity, stop fallback, message-as-draft focus, and runtime issue recovery wiring. That made the root shell harder to scan because it mixed app chrome, sheet state, sidebar row routing, and the live workspace pane stack.
+
+Code quality changes:
+
+- Added `QuillCodeWorkspaceMainPaneView` for transcript/browser/extensions/memories/terminal/composer/activity composition.
+- Reduced `WorkspaceSwiftUIView` from 404 lines to 288 lines so it primarily owns top-bar/sidebar chrome, state, sheets, and routing.
+- Moved stop fallback, message-as-draft focus, command-ID lookup, and runtime issue recovery wiring into the center-pane view where those controls are rendered.
+- Updated parity gates so root shell composition, transcript placement, and runtime issue recovery boundaries stay explicit.
+
+Remaining risk:
+
+- `QuillCodeWorkspaceMainPaneView` is intentionally a composition view. If pane-specific behavior grows, split those rules into focused planners or pane views instead of adding more branching to the main pane.
 
 ## 2026-06-24 Sidebar Command Grouping Pass
 

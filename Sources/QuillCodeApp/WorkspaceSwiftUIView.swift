@@ -141,107 +141,31 @@ public struct QuillCodeWorkspaceView: View {
                 )
                     .frame(width: 280)
                 Divider()
-                HStack(spacing: 0) {
-                    VStack(spacing: 0) {
-                        if surface.automations.isVisible {
-                            QuillCodeAutomationsPaneView(
-                                automations: surface.automations,
-                                onCommand: handleCommand
-                            )
-                            Divider()
-                        }
-                        if !surface.automations.isVisible || !surface.transcript.timelineItems.isEmpty {
-                            QuillCodeTranscriptView(
-                                transcript: surface.transcript,
-                                contextBanner: surface.contextBanner,
-                                runtimeIssue: surface.runtimeIssue,
-                                review: surface.review,
-                                retryLastTurnCommand: surface.commands.first { $0.id == "retry-last-turn" && $0.isEnabled },
-                                isFindPresented: $isFindPresented,
-                                findQuery: $findQuery,
-                                activeFindIndex: $activeFindIndex,
-                                copiedTranscriptItemID: copiedTranscriptItemID,
-                                onContextCommand: handleCommand,
-                                onRuntimeIssueAction: runtimeIssueAction(for: surface.runtimeIssue),
-                                onReviewAction: onReviewAction,
-                                onToolCardAction: onToolCardAction,
-                                onAddReviewComment: onAddReviewComment,
-                                onCopyTranscriptItem: onCopyTranscriptItem,
-                                onUseMessageAsDraft: useMessageAsDraft,
-                                onMessageFeedback: onMessageFeedback
-                            )
-                        } else {
-                            Spacer(minLength: 0)
-                        }
-                        if surface.browser.isVisible {
-                            Divider()
-                            QuillCodeBrowserPaneView(
-                                browser: surface.browser,
-                                addressDraft: $browserAddressDraft,
-                                onOpen: onOpenBrowserPreview,
-                                onAddComment: onAddBrowserComment,
-                                onCommand: runCommand(id:)
-                            )
-                        }
-                        if surface.extensions.isVisible {
-                            Divider()
-                            QuillCodeExtensionsPaneView(
-                                extensions: surface.extensions,
-                                onCommand: handleCommand
-                            )
-                        }
-                        if surface.memories.isVisible {
-                            Divider()
-                            QuillCodeMemoriesPaneView(memories: surface.memories) { commandID in
-                                if let command = surface.commands.first(where: { $0.id == commandID }) {
-                                    handleCommand(command)
-                                } else if commandID.hasPrefix("memory-delete:") {
-                                    handleCommand(WorkspaceCommandSurface(
-                                        id: commandID,
-                                        title: "Forget memory",
-                                        category: WorkspaceCommandPalette.memoriesCategory,
-                                        keywords: ["memory", "forget", "delete"]
-                                    ))
-                                }
-                            }
-                        }
-                        if surface.terminal.isVisible {
-                            Divider()
-                            QuillCodeTerminalPaneView(
-                                terminal: surface.terminal,
-                                draft: $terminalDraft,
-                                onRun: onRunTerminalCommand,
-                                onStop: stopActiveRun,
-                                onClear: { runCommand(id: "terminal-clear") }
-                            )
-                        }
-                        Divider()
-                        QuillCodeComposerView(
-                            composer: surface.composer,
-                            topBar: surface.topBar,
-                            draft: $draft,
-                            isModelPickerPresented: $isModelPickerPresented,
-                            isFocused: $isComposerFocused,
-                            onSetMode: onSetMode,
-                            onSetModel: onSetModel,
-                            onToggleModelFavorite: onToggleModelFavorite,
-                            onSend: onSend,
-                            onStop: stopActiveRun
-                        )
-                    }
-                    if surface.activity.isVisible {
-                        Divider()
-                        QuillCodeActivityPaneView(activity: surface.activity) { commandID in
-                            handleCommand(WorkspaceCommandSurface(
-                                id: commandID,
-                                title: "Toggle activity section",
-                                category: WorkspaceCommandPalette.workspaceCategory,
-                                keywords: ["activity", "task", "collapse", "expand"]
-                            ))
-                        }
-                            .frame(width: 320)
-                    }
-                }
+                QuillCodeWorkspaceMainPaneView(
+                    surface: surface,
+                    draft: $draft,
+                    terminalDraft: $terminalDraft,
+                    browserAddressDraft: $browserAddressDraft,
+                    isModelPickerPresented: $isModelPickerPresented,
+                    isFindPresented: $isFindPresented,
+                    findQuery: $findQuery,
+                    activeFindIndex: $activeFindIndex,
+                    isComposerFocused: $isComposerFocused,
+                    copiedTranscriptItemID: copiedTranscriptItemID,
+                    onSetMode: onSetMode,
+                    onSetModel: onSetModel,
+                    onToggleModelFavorite: onToggleModelFavorite,
+                    onSend: onSend,
+                    onRunTerminalCommand: onRunTerminalCommand,
+                    onOpenBrowserPreview: onOpenBrowserPreview,
+                    onAddBrowserComment: onAddBrowserComment,
+                    onReviewAction: onReviewAction,
+                    onToolCardAction: onToolCardAction,
+                    onAddReviewComment: onAddReviewComment,
+                    onCopyTranscriptItem: onCopyTranscriptItem,
+                    onMessageFeedback: onMessageFeedback,
+                    onCommand: handleCommand
+                )
             }
         }
         .frame(minWidth: 980, minHeight: 640)
@@ -348,46 +272,6 @@ public struct QuillCodeWorkspaceView: View {
         }
     }
 
-    private func runCommand(id: String) {
-        guard let command = surface.commands.first(where: { $0.id == id }) else { return }
-        handleCommand(command)
-    }
-
-    private func stopActiveRun() {
-        if let command = surface.commands.first(where: { $0.id == "stop-all" }) {
-            onCommand(command)
-        } else {
-            onCommand(WorkspaceCommandSurface(
-                id: "stop-all",
-                title: "Stop all",
-                category: WorkspaceCommandPalette.controlCategory,
-                keywords: ["cancel", "abort", "halt"]
-            ))
-        }
-    }
-
-    private func useMessageAsDraft(_ text: String) {
-        draft = text
-        DispatchQueue.main.async {
-            isComposerFocused = true
-        }
-    }
-
-    private func runtimeIssueAction(for issue: RuntimeIssueSurface?) -> (() -> Void)? {
-        guard let action = RuntimeIssueRecoveryPlanner(commands: surface.commands).action(for: issue) else {
-            return nil
-        }
-        switch action {
-        case .presentModelPicker:
-            return {
-                isModelPickerPresented = true
-            }
-        case let .command(command):
-            return {
-                handleCommand(command)
-            }
-        }
-    }
 }
 
 extension AgentMode {

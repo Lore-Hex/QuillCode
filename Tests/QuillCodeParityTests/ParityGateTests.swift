@@ -1550,10 +1550,12 @@ final class ParityGateTests: XCTestCase {
 
     func testWorkspaceSwiftUIViewDelegatesTranscriptFindAndContextBanner() throws {
         let shellText = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
+        let mainPaneText = try Self.appSourceText(named: "QuillCodeWorkspaceMainPaneView.swift")
         let transcriptText = try Self.appSourceText(named: "QuillCodeTranscriptView.swift")
         let findText = try Self.appSourceText(named: "QuillCodeTranscriptFindView.swift")
         let contextBannerText = try Self.appSourceText(named: "QuillCodeContextBannerView.swift")
 
+        XCTAssertTrue(mainPaneText.contains("struct QuillCodeWorkspaceMainPaneView"), "Workspace center-pane layout should live in a focused view file.")
         XCTAssertTrue(transcriptText.contains("struct QuillCodeTranscriptView"), "Transcript layout should live in a focused view file.")
         XCTAssertTrue(transcriptText.contains("QuillCodeTranscriptFindBar"), "Transcript layout should compose the focused Find bar.")
         XCTAssertTrue(transcriptText.contains("QuillCodeContextBannerView"), "Transcript layout should compose the focused context banner.")
@@ -1563,7 +1565,8 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(findText.contains("struct QuillCodeTranscriptFindMatch"), "Transcript Find matching should live in a focused Find file.")
         XCTAssertTrue(findText.contains("struct QuillCodeTranscriptFindBar"), "Transcript Find bar should live in a focused Find file.")
         XCTAssertTrue(contextBannerText.contains("struct QuillCodeContextBannerView"), "Context banner rendering should live in a focused banner file.")
-        XCTAssertTrue(shellText.contains("QuillCodeTranscriptView"), "Workspace shell should compose the extracted transcript view.")
+        XCTAssertTrue(shellText.contains("QuillCodeWorkspaceMainPaneView"), "Workspace shell should compose the extracted center-pane view.")
+        XCTAssertTrue(mainPaneText.contains("QuillCodeTranscriptView"), "Workspace center pane should compose the extracted transcript view.")
         XCTAssertFalse(shellText.contains("struct QuillCodeTranscriptView"), "Workspace shell should not own transcript layout.")
         XCTAssertFalse(shellText.contains("struct QuillCodeTranscriptFindMatch"), "Workspace shell should not own transcript Find matching.")
         XCTAssertFalse(shellText.contains("struct QuillCodeTranscriptFindBar"), "Workspace shell should not own transcript Find UI.")
@@ -1720,6 +1723,7 @@ final class ParityGateTests: XCTestCase {
 
     func testWorkspaceViewDelegatesRuntimeIssueRecoveryPlanning() throws {
         let viewText = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
+        let mainPaneText = try Self.appSourceText(named: "QuillCodeWorkspaceMainPaneView.swift")
         let plannerText = try Self.appSourceText(named: "QuillCodeRuntimeIssueRecoveryPlanner.swift")
 
         XCTAssertTrue(plannerText.contains("struct RuntimeIssueRecoveryPlanner"), "Runtime issue recovery routing should live in a focused planner.")
@@ -1727,7 +1731,8 @@ final class ParityGateTests: XCTestCase {
         XCTAssertTrue(plannerText.contains("case \"Open Settings\", \"Add key\", \"Fix key\""), "Settings recovery labels should be directly testable.")
         XCTAssertTrue(plannerText.contains("case \"Retry\""), "Retry recovery routing should be directly testable.")
         XCTAssertTrue(plannerText.contains("case \"Switch model\""), "Model-switch recovery routing should be directly testable.")
-        XCTAssertTrue(viewText.contains("RuntimeIssueRecoveryPlanner(commands:"), "WorkspaceSwiftUIView should delegate runtime issue recovery planning.")
+        XCTAssertTrue(viewText.contains("QuillCodeWorkspaceMainPaneView"), "WorkspaceSwiftUIView should delegate center-pane layout and recovery wiring.")
+        XCTAssertTrue(mainPaneText.contains("RuntimeIssueRecoveryPlanner(commands:"), "Workspace main pane should delegate runtime issue recovery planning.")
         XCTAssertFalse(viewText.contains("[\"Open Settings\", \"Add key\", \"Fix key\"]"), "WorkspaceSwiftUIView should not own settings recovery labels.")
         XCTAssertFalse(viewText.contains("actionLabel == \"Retry\""), "WorkspaceSwiftUIView should not own retry recovery labels.")
         XCTAssertFalse(viewText.contains("actionLabel == \"Switch model\""), "WorkspaceSwiftUIView should not own model-picker recovery labels.")
@@ -1948,20 +1953,25 @@ final class ParityGateTests: XCTestCase {
 
     func testNativeSecondaryPanesUseFocusedViewFiles() throws {
         let workspaceText = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
+        let mainPaneText = try Self.appSourceText(named: "QuillCodeWorkspaceMainPaneView.swift")
         let chromeText = try Self.appSourceText(named: "QuillCodeSecondaryPanesView.swift")
         let extensionsText = try Self.appSourceText(named: "QuillCodeExtensionsPaneView.swift")
         let memoriesText = try Self.appSourceText(named: "QuillCodeMemoriesPaneView.swift")
         let automationsText = try Self.appSourceText(named: "QuillCodeAutomationsPaneView.swift")
 
+        XCTAssertTrue(workspaceText.contains("QuillCodeWorkspaceMainPaneView"), "Workspace shell should delegate center-pane placement.")
         XCTAssertTrue(chromeText.contains("struct QuillCodePaneCountPill"), "Secondary pane count pills should remain shared native chrome.")
         XCTAssertTrue(chromeText.contains("struct QuillCodePaneEmptyStateView"), "Secondary pane empty states should remain shared native chrome.")
         XCTAssertTrue(extensionsText.contains("struct QuillCodeExtensionsPaneView"), "Extensions native UI should live in its own focused file.")
         XCTAssertTrue(extensionsText.contains("ProjectExtensionManifestSurface"), "MCP extension metadata display should stay with the Extensions native pane.")
         XCTAssertTrue(memoriesText.contains("struct QuillCodeMemoriesPaneView"), "Memories native UI should live in its own focused file.")
         XCTAssertTrue(automationsText.contains("struct QuillCodeAutomationsPaneView"), "Automations native UI should live in its own focused file.")
-        XCTAssertTrue(workspaceText.contains("QuillCodeExtensionsPaneView"), "Workspace shell should route Extensions pane placement.")
-        XCTAssertTrue(workspaceText.contains("QuillCodeMemoriesPaneView"), "Workspace shell should route Memories pane placement.")
-        XCTAssertTrue(workspaceText.contains("QuillCodeAutomationsPaneView"), "Workspace shell should route Automations pane placement.")
+        XCTAssertTrue(mainPaneText.contains("QuillCodeExtensionsPaneView"), "Workspace main pane should route Extensions pane placement.")
+        XCTAssertTrue(mainPaneText.contains("QuillCodeMemoriesPaneView"), "Workspace main pane should route Memories pane placement.")
+        XCTAssertTrue(mainPaneText.contains("QuillCodeAutomationsPaneView"), "Workspace main pane should route Automations pane placement.")
+        XCTAssertFalse(workspaceText.contains("QuillCodeExtensionsPaneView"), "Workspace shell should not own Extensions pane placement.")
+        XCTAssertFalse(workspaceText.contains("QuillCodeMemoriesPaneView"), "Workspace shell should not own Memories pane placement.")
+        XCTAssertFalse(workspaceText.contains("QuillCodeAutomationsPaneView"), "Workspace shell should not own Automations pane placement.")
         XCTAssertFalse(chromeText.contains("struct QuillCodeExtensionsPaneView"), "Shared secondary chrome should not own Extensions pane content.")
         XCTAssertFalse(chromeText.contains("struct QuillCodeMemoriesPaneView"), "Shared secondary chrome should not own Memories pane content.")
         XCTAssertFalse(chromeText.contains("struct QuillCodeAutomationsPaneView"), "Shared secondary chrome should not own Automations pane content.")
