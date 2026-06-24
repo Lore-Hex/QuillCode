@@ -4,19 +4,34 @@ import XCTest
 final class CoreModelTests: XCTestCase {
     func testTrustedRouterDefaults() {
         XCTAssertEqual(TrustedRouterDefaults.fastModel, "trustedrouter/fast")
-        XCTAssertEqual(TrustedRouterDefaults.fusionModel, "tr/fusion")
+        XCTAssertEqual(TrustedRouterDefaults.synthModel, "tr/synth")
+        XCTAssertEqual(TrustedRouterDefaults.synthCodeModel, "tr/synth-code")
         XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.fastModel), "Nike 1.0")
-        XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.fusionModel), "Prometheus 1.0")
+        XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.synthModel), "Synth")
+        XCTAssertEqual(TrustedRouterDefaults.displayName(fromModelID: TrustedRouterDefaults.synthCodeModel), "Synth Code")
         XCTAssertEqual(TrustedRouterDefaults.defaultModel, TrustedRouterDefaults.fastModel)
-        XCTAssertEqual(TrustedRouterDefaults.recommendedModelIDs, [TrustedRouterDefaults.fastModel, TrustedRouterDefaults.fusionModel])
+        XCTAssertEqual(TrustedRouterDefaults.recommendedModelIDs, [TrustedRouterDefaults.fastModel, TrustedRouterDefaults.synthModel])
         XCTAssertEqual(TrustedRouterDefaults.canonicalProvider("tr"), TrustedRouterDefaults.trustedRouterProvider)
-        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/fusion"), TrustedRouterDefaults.fusionModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/synth"), TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("Synth"), TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/synth"), TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/synth"), TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/fusion"), TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("FUSION"), TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/fusion"), TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/fusion"), TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/synth-code"), TrustedRouterDefaults.synthCodeModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/synth-code"), TrustedRouterDefaults.synthCodeModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/synth-code"), TrustedRouterDefaults.synthCodeModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/fusion-code"), TrustedRouterDefaults.synthCodeModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/fusion-code"), TrustedRouterDefaults.synthCodeModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/fusion-code"), TrustedRouterDefaults.synthCodeModel)
         XCTAssertEqual(TrustedRouterDefaults.provider(fromModelID: "tr/fusion"), TrustedRouterDefaults.trustedRouterProvider)
         XCTAssertEqual(TrustedRouterDefaults.safetyPrimaryModel, "glm-5.2")
         XCTAssertEqual(TrustedRouterDefaults.safetyFallbackModel, "kimi-k2.6")
         XCTAssertLessThan(
             TrustedRouterDefaults.modelSortKey(id: TrustedRouterDefaults.fastModel, provider: "trustedrouter", displayName: "Nike 1.0"),
-            TrustedRouterDefaults.modelSortKey(id: TrustedRouterDefaults.fusionModel, provider: "tr", displayName: "Prometheus 1.0")
+            TrustedRouterDefaults.modelSortKey(id: TrustedRouterDefaults.synthModel, provider: "tr", displayName: "Synth")
         )
         XCTAssertLessThan(
             TrustedRouterDefaults.modelCategoryRank(TrustedRouterDefaults.recommendedCategory),
@@ -128,12 +143,14 @@ final class CoreModelTests: XCTestCase {
         let catalog = TrustedRouterDefaults.normalizedModelCatalog([
             .init(id: "acme/code-pro", provider: "acme", displayName: "Code Pro", category: "Coding"),
             .init(id: "trustedrouter/fusion", provider: "trustedrouter", displayName: "Fusion Alias", category: "Recommended"),
+            .init(id: "trustedrouter/fusion-code", provider: "trustedrouter", displayName: "Fusion Code Alias", category: "Recommended"),
             .init(id: "tr/fast", provider: "tr", displayName: "Fast Alias", category: "Recommended")
         ])
 
         XCTAssertEqual(catalog.prefix(2).map(\.id), TrustedRouterDefaults.recommendedModelIDs)
         XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.fastModel }.count, 1)
-        XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.fusionModel }.count, 1)
+        XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.synthModel }.count, 1)
+        XCTAssertEqual(catalog.filter { $0.id == TrustedRouterDefaults.synthCodeModel }.count, 1)
         XCTAssertTrue(catalog.contains { $0.id == "acme/code-pro" })
     }
 
@@ -182,7 +199,7 @@ final class CoreModelTests: XCTestCase {
         }
         """)
 
-        XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.fusionModel)
+        XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.synthModel)
         XCTAssertEqual(config.favoriteModels, [])
     }
 
@@ -217,7 +234,7 @@ final class CoreModelTests: XCTestCase {
           "updatedAt": "\(date)"
         }
         """)
-        XCTAssertEqual(thread.model, TrustedRouterDefaults.fusionModel)
+        XCTAssertEqual(thread.model, TrustedRouterDefaults.synthModel)
         XCTAssertEqual(thread.instructions, [])
         XCTAssertEqual(thread.memories, [])
     }

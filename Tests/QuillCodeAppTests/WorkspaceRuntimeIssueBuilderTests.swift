@@ -28,14 +28,14 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
         let issue = WorkspaceRuntimeIssueBuilder(
             config: AppConfig(authMode: .developerOverride),
             hasStoredAPIKey: false,
-            modelID: TrustedRouterDefaults.fusionModel,
+            modelID: TrustedRouterDefaults.synthModel,
             agentStatus: QuillCodeRuntimeStatusLabel.developerKeyNeeded
         ).surface()
 
         XCTAssertEqual(issue?.title, "Developer key needed")
         XCTAssertEqual(issue?.actionLabel, "Add key")
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Authentication" }?.value, "Developer override")
-        XCTAssertEqual(issue?.diagnostics.first { $0.label == "Model" }?.value, TrustedRouterDefaults.fusionModel)
+        XCTAssertEqual(issue?.diagnostics.first { $0.label == "Model" }?.value, TrustedRouterDefaults.synthModel)
     }
 
     func testRuntimeStatusLabelsPreserveStableUserFacingCopy() {
@@ -92,6 +92,6 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
         XCTAssertEqual(issue?.title, "Model response was malformed")
         XCTAssertEqual(issue?.actionLabel, "Switch model")
         XCTAssertTrue(issue?.message.contains(TrustedRouterDefaults.fastModelDisplayName) == true)
-        XCTAssertTrue(issue?.message.contains(TrustedRouterDefaults.fusionModelDisplayName) == true)
+        XCTAssertTrue(issue?.message.contains(TrustedRouterDefaults.synthModelDisplayName) == true)
     }
 }

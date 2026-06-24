@@ -2,7 +2,8 @@ import Foundation
 
 public enum TrustedRouterDefaults {
     public static let fastModel = "trustedrouter/fast"
-    public static let fusionModel = "tr/fusion"
+    public static let synthModel = "tr/synth"
+    public static let synthCodeModel = "tr/synth-code"
     public static let defaultModel = fastModel
     public static let defaultAPIBaseURL = "https://api.trustedrouter.com/v1"
     public static let signInURL = "https://trustedrouter.com/sign-in-with-trustedrouter"
@@ -14,12 +15,26 @@ public enum TrustedRouterDefaults {
     public static let currentCategory = "Current"
     public static let trustedRouterProvider = "trustedrouter"
     public static let fastModelDisplayName = "Nike 1.0"
-    public static let fusionModelDisplayName = "Prometheus 1.0"
+    public static let synthModelDisplayName = "Synth"
+    public static let synthCodeModelDisplayName = "Synth Code"
     public static let trustedRouterProviderAliases: [String: String] = ["tr": trustedRouterProvider]
-    public static let recommendedModelIDs = [fastModel, fusionModel]
+    public static let recommendedModelIDs = [fastModel, synthModel]
     public static let modelIDAliases: [String: String] = [
         "tr/fast": fastModel,
-        "trustedrouter/fusion": fusionModel
+        "synth": synthModel,
+        "/synth": synthModel,
+        "trustedrouter/synth": synthModel,
+        "fusion": synthModel,
+        "/fusion": synthModel,
+        "tr/fusion": synthModel,
+        "trustedrouter/fusion": synthModel,
+        "synth-code": synthCodeModel,
+        "/synth-code": synthCodeModel,
+        "trustedrouter/synth-code": synthCodeModel,
+        "fusion-code": synthCodeModel,
+        "/fusion-code": synthCodeModel,
+        "tr/fusion-code": synthCodeModel,
+        "trustedrouter/fusion-code": synthCodeModel
     ]
     public static let safetyPrimaryCatalogModel = "z-ai/glm-5.2"
     public static let safetyFallbackCatalogModel = "moonshotai/kimi-k2.6"
@@ -27,14 +42,15 @@ public enum TrustedRouterDefaults {
 
     public static let bundledModelCatalog: [ModelInfo] = [
         .init(id: fastModel, provider: trustedRouterProvider, displayName: fastModelDisplayName, category: recommendedCategory),
-        .init(id: fusionModel, provider: trustedRouterProvider, displayName: fusionModelDisplayName, category: recommendedCategory),
+        .init(id: synthModel, provider: trustedRouterProvider, displayName: synthModelDisplayName, category: recommendedCategory),
         .init(id: safetyPrimaryCatalogModel, provider: "z-ai", displayName: "GLM 5.2", category: safetyCategory),
         .init(id: safetyFallbackCatalogModel, provider: "moonshotai", displayName: "Kimi K2.6", category: safetyCategory)
     ]
 
     public static let recommendedDisplayNames: [String: String] = [
         fastModel: fastModelDisplayName,
-        fusionModel: fusionModelDisplayName
+        synthModel: synthModelDisplayName,
+        synthCodeModel: synthCodeModelDisplayName
     ]
 
     public static func canonicalProvider(_ provider: String) -> String {
@@ -44,7 +60,7 @@ public enum TrustedRouterDefaults {
 
     public static func canonicalModelID(_ id: String) -> String {
         let normalized = id.trimmingCharacters(in: .whitespacesAndNewlines)
-        return modelIDAliases[normalized] ?? normalized
+        return modelIDAliases[normalized.lowercased()] ?? normalized
     }
 
     public static func normalizedDefaultModelID(_ id: String) -> String {
@@ -149,7 +165,7 @@ public enum TrustedRouterDefaults {
         return ModelInfo(
             id: modelID,
             provider: provider,
-            displayName: displayName.isEmpty ? Self.displayName(fromModelID: modelID) : displayName,
+            displayName: recommendedDisplayNames[modelID] ?? (displayName.isEmpty ? Self.displayName(fromModelID: modelID) : displayName),
             category: category.isEmpty ? Self.category(forModelID: modelID, provider: provider) : category
         )
     }

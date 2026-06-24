@@ -234,7 +234,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.instructions = instructions
         self.memories = memories
         self.mode = mode
-        self.model = model
+        self.model = TrustedRouterDefaults.normalizedDefaultModelID(model)
         self.messages = messages
         self.events = events
         self.isPinned = isPinned

@@ -12,14 +12,14 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
             instructionSources: [],
             memoryLabel: "Memory",
             memorySources: [],
-            modelLabel: TrustedRouterDefaults.fusionModelDisplayName,
-            selectedModelID: TrustedRouterDefaults.fusionModel,
+            modelLabel: TrustedRouterDefaults.synthModelDisplayName,
+            selectedModelID: TrustedRouterDefaults.synthModel,
             modelCategories: [
                 ModelCategorySurface(category: "Favorites", models: [
                     modelOption(
-                        id: TrustedRouterDefaults.fusionModel,
+                        id: TrustedRouterDefaults.synthModel,
                         provider: TrustedRouterDefaults.trustedRouterProvider,
-                        displayName: TrustedRouterDefaults.fusionModelDisplayName,
+                        displayName: TrustedRouterDefaults.synthModelDisplayName,
                         category: "Recommended",
                         isFavorite: true,
                         badges: ["Favorite", "Current", "Recommended"]
@@ -52,7 +52,7 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         XCTAssertEqual(topBar.filteredModelCategories(matching: "").map(\.category), ["Favorites", "Recent", "Coding"])
         XCTAssertEqual(topBar.filteredModelCategories(matching: "favorite").map(\.category), ["Favorites"])
         XCTAssertEqual(topBar.filteredModelCategories(matching: "recent").map(\.category), ["Recent"])
-        XCTAssertEqual(filteredModelIDs(topBar, query: "favorite prometheus"), [TrustedRouterDefaults.fusionModel])
+        XCTAssertEqual(filteredModelIDs(topBar, query: "favorite synth"), [TrustedRouterDefaults.synthModel])
         XCTAssertEqual(filteredModelIDs(topBar, query: "recent moon k2"), ["moonshotai/kimi-k2.6"])
         XCTAssertEqual(filteredModelIDs(topBar, query: "coding"), ["acme/code-pro"])
         XCTAssertTrue(topBar.filteredModelCategories(matching: "does-not-exist").isEmpty)
@@ -88,7 +88,7 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         {
           "id": "tr/fusion",
           "provider": "trustedrouter",
-          "displayName": "Prometheus 1.0",
+          "displayName": "Old model label",
           "category": "Recommended",
           "isSelected": true
         }
@@ -96,10 +96,10 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         let data = try XCTUnwrap(json.data(using: .utf8))
         let option = try JSONDecoder().decode(ModelOptionSurface.self, from: data)
 
-        XCTAssertEqual(option.id, TrustedRouterDefaults.fusionModel)
+        XCTAssertEqual(option.id, TrustedRouterDefaults.synthModel)
         XCTAssertEqual(option.isFavorite, false)
         XCTAssertEqual(option.badges, [])
-        XCTAssertEqual(option.detailTitle, TrustedRouterDefaults.fusionModelDisplayName)
+        XCTAssertEqual(option.detailTitle, TrustedRouterDefaults.synthModelDisplayName)
         XCTAssertEqual(option.metadataSummary, "Deeper planning and review")
         XCTAssertEqual(option.metadataRows.first { $0.label == "State" }?.value, "Current")
         XCTAssertTrue(option.metadataDetails.contains("Current selection"))

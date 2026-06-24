@@ -629,9 +629,9 @@ test('mock harness opens model picker from malformed model issue', async ({ page
 
   await expect(page.getByTestId('model-browser')).toBeVisible();
   await expect(page.getByTestId('model-search')).toBeFocused();
-  await page.getByTestId('model-search').fill('prometheus');
+  await page.getByTestId('model-search').fill('synth');
   await expect(page.getByTestId('model-option')).toHaveCount(1);
-  await expect(page.getByTestId('model-option')).toContainText('Prometheus 1.0');
+  await expect(page.getByTestId('model-option')).toContainText('Synth');
 });
 
 test('mock harness surfaces rate limits with model-switch recovery and diagnostics', async ({ page }) => {
@@ -1975,8 +1975,8 @@ test('mock harness searches and selects models from the composer', async ({ page
 
   await page.getByTestId('model-detail-button').nth(1).click();
   await expect(page.getByTestId('model-detail-button').nth(1)).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.getByTestId('model-capability')).toContainText('Prometheus 1.0 is the balanced model');
-  await expect(page.getByTestId('model-metadata-row').filter({ hasText: 'tr/fusion' })).toBeVisible();
+  await expect(page.getByTestId('model-capability')).toContainText('Synth is the balanced model');
+  await expect(page.getByTestId('model-metadata-row').filter({ hasText: 'tr/synth' })).toBeVisible();
 
   await page.getByTestId('model-search').fill('default model');
   await expect(page.getByTestId('model-option')).toHaveCount(1);

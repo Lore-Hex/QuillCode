@@ -188,8 +188,8 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.id = try container.decode(String.self, forKey: .id)
-        self.provider = try container.decode(String.self, forKey: .provider)
+        self.id = TrustedRouterDefaults.canonicalModelID(try container.decode(String.self, forKey: .id))
+        self.provider = TrustedRouterDefaults.canonicalProvider(try container.decode(String.self, forKey: .provider))
         self.displayName = try container.decode(String.self, forKey: .displayName)
         self.category = try container.decode(String.self, forKey: .category)
         self.isSelected = try container.decode(Bool.self, forKey: .isSelected)
@@ -226,7 +226,7 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         if canonicalModelID == TrustedRouterDefaults.defaultModel {
             return "Fast everyday agent"
         }
-        if canonicalModelID == TrustedRouterDefaults.fusionModel {
+        if canonicalModelID == TrustedRouterDefaults.synthModel {
             return "Deeper planning and review"
         }
         if category == TrustedRouterDefaults.safetyCategory {
@@ -250,8 +250,8 @@ public struct ModelOptionSurface: Codable, Sendable, Hashable, Identifiable {
         if modelID == TrustedRouterDefaults.defaultModel {
             return "\(TrustedRouterDefaults.fastModelDisplayName) is the fast default for coding, shell, and file-editing turns."
         }
-        if modelID == TrustedRouterDefaults.fusionModel {
-            return "\(TrustedRouterDefaults.fusionModelDisplayName) is the balanced model for deeper coding and review turns."
+        if modelID == TrustedRouterDefaults.synthModel {
+            return "\(TrustedRouterDefaults.synthModelDisplayName) is the balanced model for deeper coding and review turns."
         }
         if badges.contains("Recommended") {
             return "Recommended model profile available through TrustedRouter."
