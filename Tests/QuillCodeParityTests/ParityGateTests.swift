@@ -932,6 +932,20 @@ final class ParityGateTests: XCTestCase {
         XCTAssertFalse(modelTests.contains("testSlashStatusReportsWorkspaceState"), "WorkspaceModelTests should not own slash status integration flows.")
     }
 
+    func testWorkspaceLocalEnvironmentIntegrationTestsOwnModelLocalEnvironmentFlows() throws {
+        let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let localEnvironmentIntegrationTests = try Self.appTestSourceText(named: "WorkspaceLocalEnvironmentIntegrationTests.swift")
+
+        XCTAssertTrue(localEnvironmentIntegrationTests.contains("testLocalEnvironmentActionsLoadAndRunFromCommandPaletteIDs"), "Local environment command-palette integration should live in focused local environment tests.")
+        XCTAssertTrue(localEnvironmentIntegrationTests.contains("testLocalEnvironmentActionMetadataInjectsBoundedEnvironment"), "Local environment metadata integration should live in focused local environment tests.")
+        XCTAssertTrue(localEnvironmentIntegrationTests.contains("testLocalEnvironmentActionMetadataRunsFromBoundedWorkingDirectory"), "Local environment working-directory integration should live in focused local environment tests.")
+        XCTAssertTrue(localEnvironmentIntegrationTests.contains("testLocalEnvironmentActionMetadataPassesBoundedTimeout"), "Local environment timeout integration should live in focused local environment tests.")
+        XCTAssertFalse(modelTests.contains("testLocalEnvironmentActionsLoadAndRunFromCommandPaletteIDs"), "WorkspaceModelTests should not own local environment command-palette integration flows.")
+        XCTAssertFalse(modelTests.contains("testLocalEnvironmentActionMetadataInjectsBoundedEnvironment"), "WorkspaceModelTests should not own local environment metadata integration flows.")
+        XCTAssertFalse(modelTests.contains("testLocalEnvironmentActionMetadataRunsFromBoundedWorkingDirectory"), "WorkspaceModelTests should not own local environment working-directory integration flows.")
+        XCTAssertFalse(modelTests.contains("testLocalEnvironmentActionMetadataPassesBoundedTimeout"), "WorkspaceModelTests should not own local environment timeout integration flows.")
+    }
+
     func testWorkspaceModelTestsDoNotOwnRuntimeFactoryCoverage() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let runtimeFactoryTests = try Self.appTestSourceText(named: "WorkspaceRuntimeFactoryTests.swift")
