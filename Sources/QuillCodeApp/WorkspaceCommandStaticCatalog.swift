@@ -40,7 +40,8 @@ enum WorkspaceCommandStaticCatalog {
         terminalIsRunning: Bool,
         browserCanGoBack: Bool,
         browserCanGoForward: Bool,
-        browserCanReload: Bool
+        browserCanReload: Bool,
+        browserCanOpenSession: Bool
     ) -> [WorkspaceCommandSurface] {
         [
             WorkspaceCommandSurface(
@@ -125,6 +126,13 @@ enum WorkspaceCommandStaticCatalog {
                 category: WorkspaceCommandPalette.workspaceCategory,
                 keywords: ["preview", "web", "refresh", "reload"],
                 isEnabled: browserCanReload
+            ),
+            WorkspaceCommandSurface(
+                id: "open-browser-session",
+                title: "Browser: Open session",
+                category: WorkspaceCommandPalette.workspaceCategory,
+                keywords: ["preview", "web", "session", "login", "cookies", "sign in"],
+                isEnabled: browserCanOpenSession
             ),
             WorkspaceCommandSurface(
                 id: "toggle-activity",

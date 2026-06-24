@@ -15,6 +15,7 @@ final class QuillCodeWorkspaceViewCommandPlannerTests: XCTestCase {
         XCTAssertEqual(planner.action(for: command("keyboard-shortcuts")), .presentKeyboardShortcuts)
         XCTAssertEqual(planner.action(for: command("git-worktree-create")), .presentCreateWorktree)
         XCTAssertEqual(planner.action(for: command("git-worktree-remove")), .presentRemoveWorktree)
+        XCTAssertEqual(planner.action(for: command("open-browser-session")), .openBrowserSession)
     }
 
     func testRenameCommandsUseSelectedItems() throws {
@@ -52,6 +53,7 @@ final class QuillCodeWorkspaceViewCommandPlannerTests: XCTestCase {
         let slashCommand = try XCTUnwrap(SlashCommandCatalog.commandPaletteCommands().first)
         let memoryCommand = command("memory-add")
         let sshCommand = command("add-ssh-project")
+        let sessionCommand = command("open-browser-session")
         let genericCommand = command("git-status")
 
         XCTAssertEqual(
@@ -65,6 +67,10 @@ final class QuillCodeWorkspaceViewCommandPlannerTests: XCTestCase {
         XCTAssertEqual(
             planner.action(for: sshCommand),
             .dispatch(command: sshCommand, focusesComposer: true)
+        )
+        XCTAssertEqual(
+            planner.action(for: sessionCommand),
+            .openBrowserSession
         )
         XCTAssertEqual(
             planner.action(for: genericCommand),

@@ -11,6 +11,7 @@ enum WorkspaceViewCommandAction: Hashable, Sendable {
     case renameProject(projectID: UUID, name: String)
     case presentCreateWorktree
     case presentRemoveWorktree
+    case openBrowserSession
     case dispatch(command: WorkspaceCommandSurface, focusesComposer: Bool)
 }
 
@@ -40,6 +41,8 @@ struct WorkspaceViewCommandPlanner: Sendable, Hashable {
             return .presentCreateWorktree
         case "git-worktree-remove":
             return .presentRemoveWorktree
+        case "open-browser-session":
+            return .openBrowserSession
         default:
             return .dispatch(
                 command: command,

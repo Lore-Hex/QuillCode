@@ -266,6 +266,8 @@ public struct QuillCodeWorkspaceView: View {
         case .presentRemoveWorktree:
             removeWorktreeDraft = QuillCodeWorktreeRemoveDraft()
             worktreeSheet = .remove
+        case .openBrowserSession:
+            onOpenBrowserSession?()
         case let .dispatch(command, focusesComposer):
             onCommand(command)
             if focusesComposer {

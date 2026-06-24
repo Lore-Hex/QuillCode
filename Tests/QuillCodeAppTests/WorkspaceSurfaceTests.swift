@@ -97,6 +97,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "browser-back",
             "browser-forward",
             "browser-reload",
+            "open-browser-session",
             "toggle-activity",
             "toggle-automations",
             "automation-create-thread-follow-up",
@@ -141,6 +142,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "compact-context" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "find-in-chat" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "open-browser-session" }?.isEnabled, false)
         XCTAssertEqual(surface.commands.first { $0.id == "disconnect-all" }?.isEnabled, false)
         XCTAssertEqual(surface.settings.apiBaseURL, TrustedRouterDefaults.defaultAPIBaseURL)
         XCTAssertFalse(surface.settings.developerOverrideEnabled)
