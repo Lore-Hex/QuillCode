@@ -182,7 +182,8 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func runCommand(_ command: WorkspaceCommandSurface) {
-        runCommandAction(QuillCodeDesktopCommandPlanner.action(for: command))
+        guard let action = QuillCodeDesktopCommandPlanner.action(for: command) else { return }
+        runCommandAction(action)
     }
 
     private func runCommandAction(_ action: QuillCodeDesktopCommandAction) {

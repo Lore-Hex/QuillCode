@@ -19,7 +19,7 @@ enum QuillCodeDesktopCommandAction {
 }
 
 enum QuillCodeDesktopCommandPlanner {
-    static func action(for command: WorkspaceCommandSurface) -> QuillCodeDesktopCommandAction {
+    static func action(for command: WorkspaceCommandSurface) -> QuillCodeDesktopCommandAction? {
         switch command.id {
         case "new-chat":
             return .newChat
@@ -52,6 +52,9 @@ enum QuillCodeDesktopCommandPlanner {
         case "retry-last-turn":
             return .retryLastTurn
         default:
+            guard WorkspaceCommandRoutingCatalog.canRunInWorkspaceModel(command.id) else {
+                return nil
+            }
             return .workspaceCommand(command.id)
         }
     }

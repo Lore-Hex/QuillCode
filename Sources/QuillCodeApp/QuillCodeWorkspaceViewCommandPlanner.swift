@@ -44,6 +44,9 @@ struct WorkspaceViewCommandPlanner: Sendable, Hashable {
         case "open-browser-session":
             return .openBrowserSession
         default:
+            guard WorkspaceCommandRoutingCatalog.isDispatchable(command.id) else {
+                return nil
+            }
             return .dispatch(
                 command: command,
                 focusesComposer: shouldFocusComposer(afterDispatching: command)
