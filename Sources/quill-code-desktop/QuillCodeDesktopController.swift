@@ -27,6 +27,7 @@ final class QuillCodeDesktopController: ObservableObject {
     private let systemSettingsOpener: MacSystemSettingsOpener
     private let copyCoordinator: QuillCodeDesktopCopyCoordinator
     private let projectImportCoordinator: QuillCodeDesktopProjectImportCoordinator
+    private let terminalCoordinator: QuillCodeDesktopTerminalCoordinator
     private let tasks = QuillCodeDesktopTaskCoordinator()
 
     init(
@@ -50,6 +51,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.systemSettingsOpener = MacSystemSettingsOpener()
         self.copyCoordinator = QuillCodeDesktopCopyCoordinator()
         self.projectImportCoordinator = QuillCodeDesktopProjectImportCoordinator()
+        self.terminalCoordinator = QuillCodeDesktopTerminalCoordinator()
         do {
             self.model = try bootstrap.makeModel()
         } catch {
@@ -274,39 +276,31 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func runTerminalCommand() {
-        let command = terminalDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !command.isEmpty, !tasks.isRunning(.terminal) else { return }
-        terminalDraft = ""
-        refresh()
-        tasks.startIfIdle(.terminal) { [weak self] in
-            guard let self else { return }
-            await self.model.runTerminalCommand(
-                command,
-                workspaceRoot: self.model.activeWorkspaceRoot ?? self.workspaceRoot
-            )
-        } onFinish: { [weak self] in
-            self?.refresh()
-        }
+        terminalCoordinator.runCommand(
+            draft: &terminalDraft,
+            model: model,
+            fallbackWorkspaceRoot: workspaceRoot,
+            tasks: tasks,
+            refresh: { [weak self] in self?.refresh() }
+        )
     }
 
     func recallPreviousTerminalCommand() {
-        guard !tasks.isRunning(.terminal) else { return }
-        if terminalDraft != model.terminal.draft {
-            model.setTerminalDraft(terminalDraft)
-        }
-        guard model.recallPreviousTerminalCommand() else { return }
-        terminalDraft = model.terminal.draft
-        refresh()
+        terminalCoordinator.recallPreviousCommand(
+            draft: &terminalDraft,
+            model: model,
+            tasks: tasks,
+            refresh: { [weak self] in self?.refresh() }
+        )
     }
 
     func recallNextTerminalCommand() {
-        guard !tasks.isRunning(.terminal) else { return }
-        if terminalDraft != model.terminal.draft {
-            model.setTerminalDraft(terminalDraft)
-        }
-        guard model.recallNextTerminalCommand() else { return }
-        terminalDraft = model.terminal.draft
-        refresh()
+        terminalCoordinator.recallNextCommand(
+            draft: &terminalDraft,
+            model: model,
+            tasks: tasks,
+            refresh: { [weak self] in self?.refresh() }
+        )
     }
 
     func runReviewAction(_ action: WorkspaceReviewActionSurface) {

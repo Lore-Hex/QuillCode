@@ -41,6 +41,7 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         let text = try Self.desktopSourceText()
         let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
         let browserCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopBrowserCoordinator.swift")
+        let terminalCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopTerminalCoordinator.swift")
         let desktopTaskText = try Self.desktopSourceText(named: "QuillCodeDesktopTaskCoordinator.swift")
         let sharedTaskText = try Self.appSourceText(named: "QuillCodeTaskCoordinator.swift")
         let sharedTaskTests = try Self.appTestSourceText(named: "QuillCodeTaskCoordinatorTests.swift")
@@ -51,7 +52,12 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(sharedTaskText.contains("guard self?.finish(slot, id: id) == true else { return }"), "Cancelled or replaced tasks must not run stale finish callbacks.")
         XCTAssertTrue(sharedTaskTests.contains("testReplaceCancelsStaleTaskAndOnlyFinishesCurrentTask"), "Task replacement semantics need focused regression coverage.")
         XCTAssertTrue(controllerText.contains("tasks.startIfIdle(.send"), "Composer sends should use the task coordinator.")
-        XCTAssertTrue(controllerText.contains("tasks.startIfIdle(.terminal"), "Terminal runs should use the task coordinator.")
+        XCTAssertTrue(controllerText.contains("QuillCodeDesktopTerminalCoordinator"), "Desktop terminal workflow should be isolated behind a coordinator.")
+        XCTAssertTrue(controllerText.contains("terminalCoordinator.runCommand"), "Desktop controller should delegate terminal command execution.")
+        XCTAssertTrue(controllerText.contains("terminalCoordinator.recallPreviousCommand"), "Desktop controller should delegate terminal history recall.")
+        XCTAssertTrue(terminalCoordinatorText.contains("tasks.startIfIdle(.terminal"), "Terminal runs should use the task coordinator.")
+        XCTAssertTrue(terminalCoordinatorText.contains("draft.trimmingCharacters(in: .whitespacesAndNewlines)"), "Terminal coordinator should normalize submitted commands.")
+        XCTAssertTrue(terminalCoordinatorText.contains("model.setTerminalDraft(draft)"), "Terminal history recall should sync unsent UI draft before moving through history.")
         XCTAssertTrue(browserCoordinatorText.contains("tasks.replace(.browserPreview"), "Browser previews should replace stale preview work.")
         XCTAssertTrue(controllerText.contains("tasks.replace(.automationTicker"), "Automation ticks should use the task coordinator.")
         XCTAssertFalse(desktopTaskText.contains("private var tasks"), "Desktop wrapper should not own raw task storage.")
@@ -59,6 +65,7 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(controllerText.contains("private var terminalTask"), "Desktop controller should not own raw terminal task slots.")
         XCTAssertFalse(controllerText.contains("private var browserPreviewTask"), "Desktop controller should not own raw browser-preview task slots.")
         XCTAssertFalse(controllerText.contains("sendTaskID"), "Desktop controller should not own manual task identity bookkeeping.")
+        XCTAssertFalse(controllerText.contains("let command = terminalDraft.trimmingCharacters"), "Desktop controller should not own terminal command normalization.")
     }
 
     func testDesktopBrowserLiveDOMCaptureUsesFocusedAdapter() throws {

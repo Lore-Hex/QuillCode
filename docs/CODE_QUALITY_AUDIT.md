@@ -36,7 +36,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | `Sources/QuillCodeApp/QuillCodeReviewFileRowView.swift` | A- | File rows, hunk rows, range-note controls, file/hunk actions, and hunk-to-line composition live together. Split hunk controls only if review workflows grow beyond compact stage/restore/comment actions. |
 | `Sources/QuillCodeApp/QuillCodeReviewLineRowView.swift` | A | Line content, marker/background styling, inline comments, and line-note composer live together without expanding the review pane shell. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
-| `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback and project-import resolution now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
+| `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI/workspace routing. Pasteboard feedback, project-import resolution, and terminal run/history workflows now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
 | `Sources/QuillCodeCore/Models.swift` | A | General chat/thread/memory domain models only; app config, automation scheduling, project/workspace records, tool payloads, and TrustedRouter defaults/catalog records now live in focused core files. Watch for persistence, workflow, tool, or provider-specific behavior trying to drift back in. |
 | `Sources/QuillCodeCore/AppConfig.swift` | A | App settings, auth mode compatibility, signed-in account metadata, and favorite model normalization live together without pulling UI/runtime dependencies into core. |
@@ -93,6 +93,18 @@ Changes:
 - Added `QuillCodeWorktreeDialogCoordinator` as the single owner of worktree sheet selection, create/open/remove/prune draft state, choice loading, prune-preview loading, retry handling, and task cancellation.
 - Rewired `WorkspaceSwiftUIView` to delegate worktree presentation and retry behavior to the coordinator while keeping the root shell focused on command routing and layout.
 - Added coordinator tests proving successful loads apply to the intended draft, retries do not run against hidden sheets, and late async choice results do not overwrite the currently visible dialog after a sheet switch.
+
+## 2026-06-25 Desktop Terminal Coordinator Pass
+
+Overall grade after this slice: **A desktop terminal routing, A task-slot reuse, A controller boundary**.
+
+`QuillCodeDesktopController.swift` still owned terminal command trimming, run-task startup, UI draft clearing, history-draft synchronization, and previous/next recall. Those rules are small but important for a fast native app: terminal commands should not double-run, stale UI drafts should be preserved correctly when browsing history, and the controller should not become the owner of every desktop workflow.
+
+Changes:
+
+- Added `QuillCodeDesktopTerminalCoordinator` for terminal command execution and history recall wiring.
+- Rewired `QuillCodeDesktopController` to delegate terminal run/previous/next behavior while keeping the controller responsible for published UI state and refresh.
+- Extended the desktop parity gate so terminal task-slot use, command normalization, and draft-history synchronization stay in the focused coordinator instead of drifting back into the controller.
 
 ## 2026-06-25 Shared Task Coordinator Pass
 
