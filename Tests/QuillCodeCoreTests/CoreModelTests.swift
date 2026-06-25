@@ -26,6 +26,9 @@ final class CoreModelTests: XCTestCase {
             ]
         )
         XCTAssertEqual(TrustedRouterDefaults.canonicalProvider("tr"), TrustedRouterDefaults.trustedRouterProvider)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalProvider(" TR "), TrustedRouterDefaults.trustedRouterProvider)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("Nike 1.0"), TrustedRouterDefaults.fastModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/fast"), TrustedRouterDefaults.fastModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/synth"), TrustedRouterDefaults.synthModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("Synth"), TrustedRouterDefaults.synthModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/synth"), TrustedRouterDefaults.synthModel)
@@ -36,6 +39,7 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/fusion"), TrustedRouterDefaults.synthModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("/fusion"), TrustedRouterDefaults.synthModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("tr/synth-code"), TrustedRouterDefaults.synthCodeModel)
+        XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("Synth Code"), TrustedRouterDefaults.synthCodeModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID("trustedrouter/synth-code"), TrustedRouterDefaults.synthCodeModel)
         XCTAssertEqual(TrustedRouterDefaults.canonicalModelID(TrustedRouterDefaults.synthCodeSlashAlias), TrustedRouterDefaults.synthCodeModel)
         XCTAssertEqual(TrustedRouterDefaults.provider(fromModelID: TrustedRouterDefaults.synthCodeSlashAlias), TrustedRouterDefaults.trustedRouterProvider)
