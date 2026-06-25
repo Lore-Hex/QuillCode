@@ -5092,3 +5092,22 @@ Current strict grades:
 
 Remaining risk:
 - The focused-suite registry table is still hand-maintained. If it grows much further, move it into a data helper or manifest so the global gate stays declarative.
+
+## 2026-06-24 Focused Suite Manifest Split
+
+Overall grade after this slice: **A+ global parity gate, A focused-suite registry ownership, A merge-train friendliness**.
+
+The broad parity gate had been reduced to global hygiene and drift checks, but it still carried the full focused-suite registry inline. That made a small global test file visually noisy and kept creating conflict pressure whenever agents split another parity check into a focused suite.
+
+What changed:
+- Added `ParityFocusedSuiteManifest` as the single owner for focused parity suite file names and migrated test-name ownership checks.
+- Reduced `ParityGateTests.swift` to four global checks: platform conditionals, production force operations, required docs, and focused-suite registration.
+- Kept behavior identical while making future focused-suite additions a data-only change in one helper.
+
+Current strict grades:
+- `ParityGateTests.swift`: **A+**. It is now a true global hygiene gate with no embedded feature registry table.
+- `ParityFocusedSuiteManifest.swift`: **A**. It owns one explicit data contract and keeps feature-suite drift checks discoverable.
+- Parity gate architecture: **A+**. Feature ownership now lives in focused suites, with one manifest enforcing registration and no broad catch-all assertions.
+
+Remaining risk:
+- If the manifest grows beyond simple file/test ownership, split it into typed feature groups or generate it from a declarative test manifest. For now, keeping it as Swift data gives compile-time checks and low ceremony.
