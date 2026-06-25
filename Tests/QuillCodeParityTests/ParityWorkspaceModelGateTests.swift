@@ -478,6 +478,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let resolverText = try Self.appSourceText(named: "WorkspaceContextResolver.swift")
+        let refresherText = try Self.appSourceText(named: "WorkspaceProjectContextRefresher.swift")
         let matcherText = try Self.appSourceText(named: "LocalEnvironmentActionMatcher.swift")
 
         XCTAssertTrue(resolverText.contains("struct WorkspaceActiveContextSources"), "Active workspace context source records should live beside the resolver.")
@@ -490,8 +491,9 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(resolverText.contains("func selectedLocalAction(matching"), "Local action alias matching should be directly testable.")
         XCTAssertTrue(resolverText.contains("LocalEnvironmentActionMatcher.action(withID"), "Workspace context resolver should delegate local action ID matching.")
         XCTAssertTrue(resolverText.contains("LocalEnvironmentActionMatcher.action(matching"), "Workspace context resolver should delegate local action alias matching.")
-        XCTAssertTrue(modelText.contains("WorkspaceContextResolver("), "WorkspaceModel should delegate context lookup through the resolver.")
         XCTAssertTrue(surfaceText.contains("WorkspaceContextResolver("), "WorkspaceSurface should delegate active context-source lookup through the resolver.")
+        XCTAssertTrue(refresherText.contains("WorkspaceContextResolver("), "Project context refresher should delegate thread context snapshots through the resolver.")
+        XCTAssertFalse(modelText.contains("WorkspaceContextResolver("), "WorkspaceModel should not retain a dead context resolver property.")
         XCTAssertFalse(modelText.contains("private func instructions(for projectID"), "WorkspaceModel should not own project instruction lookup.")
         XCTAssertFalse(modelText.contains("private func memoryNotes(for projectID"), "WorkspaceModel should not own memory merging.")
         XCTAssertFalse(modelText.contains("private func localAction(withID"), "WorkspaceModel should not own local action ID lookup.")

@@ -49,6 +49,21 @@ extension QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }
 
+    public func refreshSelectedProjectInstructions() {
+        refreshSelectedProjectContext()
+    }
+
+    public func refreshSelectedProjectContext() {
+        let projectID = selectedThread?.projectID ?? root.selectedProjectID
+        refreshProjectMetadata(projectID)
+        let refreshedContext = workspaceThreadContext(projectID)
+        mutateSelectedThread { thread in
+            thread.instructions = refreshedContext.instructions
+            thread.memories = refreshedContext.memories
+        }
+        saveProjects()
+    }
+
     @discardableResult
     public func renameProject(_ id: UUID, to name: String) -> Bool {
         guard WorkspaceProjectEngine.renameProject(id, to: name, projects: &root.projects) else {
@@ -88,6 +103,27 @@ extension QuillCodeWorkspaceModel {
         saveProjects()
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
+    }
+
+    @discardableResult
+    public func runProjectExtensionUpdate(id: String, workspaceRoot: URL) -> Bool {
+        refreshProjectMetadata(root.selectedProjectID)
+        guard let manifest = selectedProject?.extensionManifests.first(where: { $0.id == id }),
+              let toolCall = WorkspaceShellToolCallPlanner.projectExtensionUpdate(manifest)
+        else {
+            return false
+        }
+
+        let result = runToolCall(
+            toolCall,
+            workspaceRoot: workspaceRoot
+        )
+        refreshProjectMetadata(root.selectedProjectID)
+        appendNotice(result.ok
+            ? "Updated extension \(manifest.name)"
+            : "Extension update failed for \(manifest.name)"
+        )
+        return result.ok
     }
 
     @discardableResult
