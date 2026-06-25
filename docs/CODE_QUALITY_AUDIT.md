@@ -5636,3 +5636,23 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `core.spec.ts` by feature family. Composer/model-picker, shortcut/slash, and memory/context flows are still the highest-value next splits.
+
+## 2026-06-25 Playwright Workspace Chrome Spec Split
+
+Overall grade after this slice: **A workspace chrome E2E ownership, A visual stability coverage, A- broad Playwright core spec**.
+
+`core.spec.ts` still owned top-bar overflow utilities, horizontal clipping checks, interface polish primitives, and long top-bar metadata stability. These flows all guard visual/interaction chrome rather than core agent behavior, so they should fail in a focused visual-stability suite instead of broad workspace smoke.
+
+What changed:
+- Added `workspace-chrome.spec.ts` for top-bar overflow utilities, desktop/mobile clipping checks, interface polish primitives, and quiet top-bar metadata stability.
+- Reused shared Playwright `harnessURL()`, `openTopBarOverflow()`, and `openSettings()` helpers in the focused workspace chrome spec.
+- Removed visual chrome and layout stability flows from `core.spec.ts`, leaving the broad smoke suite focused on initial workspace, tool cards, transcript, activity, context, memory, and shortcuts.
+- Added a surface parity gate that keeps workspace chrome flows in the focused spec and registered it in the focused-suite manifest.
+
+Current strict grades:
+- `E2E/playwright/tests/workspace-chrome.spec.ts`: **A**. It owns the visual chrome, clipping, and polish regression checks with a cohesive UI stability boundary.
+- `E2E/playwright/tests/core.spec.ts`: **A-**. It is now materially smaller, but still owns broad workspace smoke plus transcript, activity/context, memory, shortcuts, and review-card behavior.
+- `ParityWorkspaceSurfaceGateTests.swift`: **A**. It now guards focused ownership for terminal, search, extension, artifact, composer, workspace chrome, and review Playwright flow families.
+
+Remaining risk:
+- Continue splitting `core.spec.ts` by feature family. Good next slices are shortcut/find flows and memory/context/activity flows.

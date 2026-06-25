@@ -281,6 +281,34 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         }
     }
 
+    func testPlaywrightWorkspaceChromeFlowsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let chromeSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("workspace-chrome.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let chromeFlowNames = [
+            "opens utilities from the top-bar overflow",
+            "avoids horizontal clipping in key desktop and mobile flows",
+            "applies interface polish primitives",
+            "keeps quiet top bar stable under long status metadata"
+        ]
+
+        XCTAssertTrue(chromeSpecText.contains("harnessURL()"), "Focused workspace chrome flows should reuse the shared harness URL helper.")
+        XCTAssertTrue(chromeSpecText.contains("openTopBarOverflow"), "Focused workspace chrome flows should cover top-bar utility entry points.")
+        XCTAssertTrue(chromeSpecText.contains("openSettings"), "Focused workspace chrome flows should cover settings layout safety.")
+        XCTAssertTrue(chromeSpecText.contains("top-bar-status-metadata"), "Focused workspace chrome flows should cover quiet top-bar metadata.")
+        XCTAssertTrue(chromeSpecText.contains("sendTransitionProperty"), "Focused workspace chrome flows should cover interface polish primitives.")
+        for flowName in chromeFlowNames {
+            XCTAssertTrue(chromeSpecText.contains(flowName), "\(flowName) should live in workspace-chrome.spec.ts.")
+            XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
+        }
+    }
+
     func testWorkspaceSurfaceDelegatesReviewSurfaceContracts() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let reviewText = try Self.appSourceText(named: "QuillCodeReviewSurface.swift")
