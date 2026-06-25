@@ -46,7 +46,7 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
             path: "/Quill",
             connection: .ssh(path: "/Quill", host: "quill-feather.local", user: "quill")
         )
-        let runner = WorkspaceAgentSendSessionFactory(
+        let session = WorkspaceAgentSendSessionFactory(
             baseRunner: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []),
             selectedProject: project,
             browser: BrowserState(),
@@ -57,17 +57,17 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
             mcpToolExecutionOverride: nil,
             sshRemoteShellExecutor: SSHRemoteShellExecutor(),
             workspaceRoot: URL(fileURLWithPath: "/tmp/quill")
-        ).configuredRunner
+        ).makeSession(prompt: "git status", thread: ChatThread(title: "Remote"))
 
         XCTAssertEqual(
-            runner.baseToolDefinitions.map(\.name),
+            session.runner.baseToolDefinitions.map(\.name),
             WorkspaceRemoteProjectToolExecutor.toolDefinitions.map(\.name)
         )
     }
 
     func testFactoryHonorsInjectedBrowserOverride() async throws {
         let workspaceRoot = try makeQuillCodeTestDirectory()
-        let runner = WorkspaceAgentSendSessionFactory(
+        let session = WorkspaceAgentSendSessionFactory(
             baseRunner: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []),
             selectedProject: nil,
             browser: BrowserState(),
@@ -81,8 +81,8 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
             mcpToolExecutionOverride: nil,
             sshRemoteShellExecutor: SSHRemoteShellExecutor(),
             workspaceRoot: workspaceRoot
-        ).configuredRunner
-        let override = try XCTUnwrap(runner.toolExecutionOverride)
+        ).makeSession(prompt: "inspect browser", thread: ChatThread(title: "Browser"))
+        let override = try XCTUnwrap(session.runner.toolExecutionOverride)
 
         let result = await override(
             ToolCall(name: ToolDefinition.browserInspect.name, argumentsJSON: "{}"),
