@@ -4963,3 +4963,21 @@ Current strict grades:
 
 Remaining risk:
 - Continue draining `ParityGateTests.swift` by feature family. Good next splits: runtime/review surface gates, command/settings surface gates, and agent/TrustedRouter implementation gates.
+
+## 2026-06-24 Runtime And Review Parity Gate Split
+
+Overall grade after this slice: **A runtime/review ownership, A drift protection, B+ catch-all size**.
+
+After the automation split, runtime issue building, runtime/execution context contracts, recovery routing, and native review-pane decomposition still lived in the broad parity file. Those checks protect the main coding workflow's failure recovery and diff-review surfaces, so they now have a focused suite.
+
+What changed:
+- Added `ParityWorkspaceRuntimeReviewGateTests` for native review pane decomposition, runtime issue building, runtime/execution context contracts, and runtime recovery planning.
+- Registered the runtime/review suite in the parity drift guard.
+- Reduced `ParityGateTests.swift` again without changing product behavior.
+
+Current strict grades:
+- `ParityWorkspaceRuntimeReviewGateTests.swift`: **A**. It has one coherent owner for runtime failure surfaces and review-pane decomposition.
+- `ParityGateTests.swift`: **B+**. Smaller, but still owns command-surface, settings/sheet, TrustedRouter, agent-runner, and global hygiene gates.
+
+Remaining risk:
+- Continue draining `ParityGateTests.swift` by feature family. Good next splits: command-surface gates, native settings/sheet gates, and agent/TrustedRouter gates.
