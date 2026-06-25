@@ -13,7 +13,8 @@ enum WorkspaceRemoteGitWorktreeCommandBuilder {
         ToolDefinition.gitWorktreeList.name,
         ToolDefinition.gitWorktreeCreate.name,
         ToolDefinition.gitWorktreeOpen.name,
-        ToolDefinition.gitWorktreeRemove.name
+        ToolDefinition.gitWorktreeRemove.name,
+        ToolDefinition.gitWorktreePrune.name
     ]
 
     static func plan(
@@ -68,6 +69,14 @@ enum WorkspaceRemoteGitWorktreeCommandBuilder {
                 ),
                 artifacts: []
             )
+        case ToolDefinition.gitWorktreePrune.name:
+            return WorkspaceRemoteGitWorktreePlan(
+                command: pruneCommand(
+                    dryRun: args.bool("dryRun") ?? false,
+                    verbose: args.bool("verbose") ?? false
+                ),
+                artifacts: []
+            )
         default:
             throw WorkspaceRemoteGitToolRequestPlannerError.unsupportedTool(call.name)
         }
@@ -96,6 +105,17 @@ enum WorkspaceRemoteGitWorktreeCommandBuilder {
             registeredWorktreeCheckCommand(),
             "git worktree remove\(forceFlag) -- \"$worktree\""
         ].joined(separator: " && ")
+    }
+
+    private static func pruneCommand(dryRun: Bool, verbose: Bool) -> String {
+        var arguments = ["git", "worktree", "prune"]
+        if dryRun {
+            arguments.append("--dry-run")
+        }
+        if verbose {
+            arguments.append("--verbose")
+        }
+        return shellCommand(arguments)
     }
 
     private static func openCommand(worktreePath: String) -> String {

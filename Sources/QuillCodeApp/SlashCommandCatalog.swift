@@ -55,6 +55,7 @@ enum SlashCommandCatalog {
         .init(usage: "/worktree create path", title: "Create worktree", detail: "Create and open a sibling git worktree. Add --branch name or --base ref when needed.", insertText: "/worktree create ", aliases: ["worktree add", "wt create"]),
         .init(usage: "/worktree open path", title: "Open worktree", detail: "Open an existing registered git worktree as a focused project.", insertText: "/worktree open ", aliases: ["worktree switch", "wt open"]),
         .init(usage: "/worktree remove path", title: "Remove worktree", detail: "Remove an existing registered git worktree. Add --force only when needed.", insertText: "/worktree remove ", aliases: ["worktree rm", "wt remove"]),
+        .init(usage: "/worktree prune", title: "Prune stale worktrees", detail: "Clean stale git worktree administrative records. Add --dry-run to preview.", insertText: "/worktree prune --dry-run", aliases: ["worktree cleanup", "wt prune"]),
         .init(usage: "/pr create", title: "Create pull request", detail: "Draft a pull request request in the composer.", insertText: "/pr create", aliases: ["pull-request", "pullrequest"]),
         .init(usage: "/pr view [selector]", title: "View pull request", detail: "View the current or selected pull request with comments.", insertText: "/pr view ", aliases: ["pr show", "pull request view"]),
         .init(usage: "/pr checks [selector]", title: "Pull request checks", detail: "Show CI status for the current or selected pull request.", insertText: "/pr checks ", aliases: ["pr ci", "pull request status"]),

@@ -154,6 +154,10 @@ public struct GitToolExecutor: Sendable {
         worktrees.remove(cwd: cwd, path: path, force: force)
     }
 
+    public func pruneWorktrees(cwd: URL, dryRun: Bool = false, verbose: Bool = false) -> ToolResult {
+        worktrees.prune(cwd: cwd, dryRun: dryRun, verbose: verbose)
+    }
+
     public static func trimmedNonEmpty(_ value: String?) -> String? {
         GitInputValidator.trimmedNonEmpty(value)
     }

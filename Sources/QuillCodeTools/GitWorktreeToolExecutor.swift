@@ -83,6 +83,17 @@ public struct GitWorktreeToolExecutor: Sendable {
         }
     }
 
+    public func prune(cwd: URL, dryRun: Bool = false, verbose: Bool = false) -> ToolResult {
+        var arguments = ["worktree", "prune"]
+        if dryRun {
+            arguments.append("--dry-run")
+        }
+        if verbose {
+            arguments.append("--verbose")
+        }
+        return runGit(arguments, cwd: cwd, timeoutSeconds: 30)
+    }
+
     public static func safePath(_ path: String, cwd: URL) throws -> String {
         let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {

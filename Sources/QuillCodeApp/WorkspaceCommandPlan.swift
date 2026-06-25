@@ -19,6 +19,7 @@ enum WorkspaceCommandPlan: Equatable {
     case toggleActivitySection(ActivitySectionKind)
     case setDraft(String)
     case runTool(name: String)
+    case runToolCall(ToolCall)
     case action(WorkspaceCommandAction)
 
     init?(commandID: String) {
@@ -28,6 +29,10 @@ enum WorkspaceCommandPlan: Equatable {
         }
         if let slashInsertText = SlashCommandCatalog.insertText(forCommandPaletteID: commandID) {
             self = .setDraft(slashInsertText)
+            return
+        }
+        if let call = Self.toolCallByCommandID[commandID] {
+            self = .runToolCall(call)
             return
         }
         if let toolName = Self.toolNameByCommandID[commandID] {
@@ -52,6 +57,10 @@ enum WorkspaceCommandPlan: Equatable {
         "git-pr-checks": ToolDefinition.gitPullRequestChecks.name,
         "git-pr-diff": ToolDefinition.gitPullRequestDiff.name,
         "git-worktree-list": ToolDefinition.gitWorktreeList.name
+    ]
+
+    private static let toolCallByCommandID: [String: ToolCall] = [
+        "git-worktree-prune": WorkspaceWorktreeToolCallPlanner.prune(.init(dryRun: true, verbose: true))
     ]
 
     private static let draftByCommandID: [String: String] = [

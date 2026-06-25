@@ -133,6 +133,7 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(definitionsText.contains("static let gitStatus"), "Git command definitions should remain available from the catalog.")
         XCTAssertTrue(definitionsText.contains("static let gitPullRequestMerge"), "GitHub PR definitions should remain available from the catalog.")
         XCTAssertTrue(definitionsText.contains("static let gitWorktreeRemove"), "Worktree definitions should remain available from the catalog.")
+        XCTAssertTrue(definitionsText.contains("static let gitWorktreePrune"), "Worktree cleanup definitions should remain available from the catalog.")
         XCTAssertFalse(executorText.contains("public extension ToolDefinition"), "GitToolExecutor should not own tool schema declarations.")
         XCTAssertFalse(executorText.contains("parametersJSON"), "GitToolExecutor should not own JSON schema strings.")
     }
@@ -351,6 +352,7 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(worktreeText.contains("func create("), "Git worktree creation should be directly testable.")
         XCTAssertTrue(worktreeText.contains("func open("), "Git worktree opening should be directly testable.")
         XCTAssertTrue(worktreeText.contains("func remove("), "Git worktree removal should be directly testable.")
+        XCTAssertTrue(worktreeText.contains("func prune("), "Git worktree cleanup should be directly testable.")
         XCTAssertTrue(worktreeText.contains("static func safePath"), "Git worktree path validation should live beside worktree execution.")
         XCTAssertTrue(worktreeText.contains("registeredPaths"), "Git worktree registered-path lookup should live beside worktree open/remove.")
         XCTAssertTrue(executorText.contains("private let worktrees: GitWorktreeToolExecutor"), "GitToolExecutor should delegate git worktree work.")

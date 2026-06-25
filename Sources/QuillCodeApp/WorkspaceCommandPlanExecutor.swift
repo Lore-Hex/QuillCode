@@ -50,6 +50,9 @@ extension QuillCodeWorkspaceModel {
                 workspaceRoot: workspaceRoot
             )
             return true
+        case .runToolCall(let call):
+            runToolCall(call, workspaceRoot: workspaceRoot)
+            return true
         case .action(let action):
             return runWorkspaceCommandAction(action)
         }

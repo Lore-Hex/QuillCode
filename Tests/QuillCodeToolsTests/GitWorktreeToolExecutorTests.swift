@@ -31,6 +31,9 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
 
         XCTAssertTrue(remove.ok, "\(remove.error ?? "") \(remove.stderr)")
         XCTAssertFalse(FileManager.default.fileExists(atPath: worktree.path))
+
+        let prune = git.pruneWorktrees(cwd: root, dryRun: true, verbose: true)
+        XCTAssertTrue(prune.ok, "\(prune.error ?? "") \(prune.stderr)")
     }
 
     func testCreateRejectsUnsafePath() throws {

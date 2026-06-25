@@ -114,6 +114,13 @@ enum WorkspaceGitCommandCatalog {
                 category: WorkspaceCommandPalette.gitCategory,
                 keywords: ["branch", "git", "workspace", "delete"],
                 isEnabled: hasWorkspaceOrRemoteProject
+            ),
+            WorkspaceCommandSurface(
+                id: "git-worktree-prune",
+                title: "Prune stale worktrees",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["branch", "git", "workspace", "cleanup", "prune"],
+                isEnabled: hasWorkspaceOrRemoteProject
             )
         ]
     }

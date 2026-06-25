@@ -17,6 +17,7 @@ enum SlashCommand: Equatable {
     case worktreeCreate(WorkspaceWorktreeCreateRequest)
     case worktreeOpen(WorkspaceWorktreeOpenRequest)
     case worktreeRemove(WorkspaceWorktreeRemoveRequest)
+    case worktreePrune(WorkspaceWorktreePruneRequest)
     case toolCall(ToolCall)
     case environmentAction(String?)
     case invalid(String)

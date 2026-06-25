@@ -25,8 +25,10 @@ enum SlashWorktreeCommandParser {
             return parseOpen(Array(tokens.dropFirst()))
         case "remove", "rm", "delete":
             return parseRemove(Array(tokens.dropFirst()))
+        case "prune", "cleanup":
+            return parsePrune(Array(tokens.dropFirst()))
         default:
-            return .invalid("Unknown worktree action '\(action)'. Try /worktree create, /worktree open, /worktree remove, or /worktree list.")
+            return .invalid("Unknown worktree action '\(action)'. Try /worktree create, /worktree open, /worktree remove, /worktree prune, or /worktree list.")
         }
     }
 
@@ -102,6 +104,27 @@ enum SlashWorktreeCommandParser {
             return .invalid("Missing worktree path. Try /worktree remove ../feature.")
         }
         return .worktreeRemove(WorkspaceWorktreeRemoveRequest(path: path, force: force))
+    }
+
+    private static func parsePrune(_ tokens: [String]) -> SlashCommand {
+        var dryRun = false
+        var verbose = false
+
+        for token in tokens {
+            switch token {
+            case "--dry-run", "-n":
+                dryRun = true
+            case "--verbose", "-v":
+                verbose = true
+            default:
+                if token.hasPrefix("-") {
+                    return .invalid("Unknown worktree prune option '\(token)'.")
+                }
+                return .invalid("Worktree prune does not take a path. Try /worktree prune --dry-run.")
+            }
+        }
+
+        return .worktreePrune(WorkspaceWorktreePruneRequest(dryRun: dryRun, verbose: verbose))
     }
 
     private static func parseSinglePath(

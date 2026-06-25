@@ -83,13 +83,26 @@ test('mock harness lists worktrees from the command palette', async ({ page }) =
   await clickSidebarTool(page, 'command-palette-button');
   await fillCommandPalette(page, '>worktree');
 
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(4);
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(5);
   await commandPaletteResult(page, 'git-worktree-list').click();
 
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
   await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.worktree.list');
   await expect(page.getByTestId('tool-card-output')).toContainText('/mock/quillcode-existing');
   await expect(page.getByTestId('message').last()).toContainText('worktree /mock/QuillCode');
+});
+
+test('mock harness prunes worktrees from the command palette', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await fillCommandPalette(page, '>prune');
+  await commandPaletteResult(page, 'git-worktree-prune').click();
+
+  await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.worktree.prune');
+  await expect(page.getByTestId('tool-card-input')).toContainText('"dryRun": true');
+  await expect(page.getByTestId('message').last()).toContainText('Checked for stale worktree records.');
 });
 
 test('mock harness prepares pull request creation from the command palette', async ({ page }) => {

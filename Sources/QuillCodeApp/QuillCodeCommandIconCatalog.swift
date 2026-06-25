@@ -60,6 +60,8 @@ enum QuillCodeCommandIconCatalog {
             return "rectangle.on.rectangle"
         case "git-worktree-remove":
             return "minus.rectangle"
+        case "git-worktree-prune":
+            return "trash.slash"
         case "settings":
             return "gearshape"
         case "keyboard-shortcuts":

@@ -16,6 +16,7 @@ enum WorkspaceSlashCommandDispatchAction: Equatable {
     case worktreeCreate(WorkspaceWorktreeCreateRequest, userText: String)
     case worktreeOpen(WorkspaceWorktreeOpenRequest, userText: String)
     case worktreeRemove(WorkspaceWorktreeRemoveRequest, userText: String)
+    case worktreePrune(WorkspaceWorktreePruneRequest, userText: String)
     case toolCall(ToolCall)
     case environmentAction(String?, userText: String)
 }
@@ -60,6 +61,8 @@ struct WorkspaceSlashCommandDispatchPlanner {
             return .worktreeOpen(request, userText: userText)
         case .worktreeRemove(let request):
             return .worktreeRemove(request, userText: userText)
+        case .worktreePrune(let request):
+            return .worktreePrune(request, userText: userText)
         case .toolCall(let call):
             return .toolCall(call)
         case .environmentAction(let query):

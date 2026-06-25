@@ -39,6 +39,7 @@ final class WorkspaceRemoteProjectIntegrationTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-create" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-open" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-remove" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-prune" }?.isEnabled, true)
         XCTAssertEqual(model.selectedThread?.messages.last?.content.contains("Added SSH Remote"), true)
         XCTAssertEqual(model.selectedThread?.messages.last?.content.contains("PR checkout/reviewers/labels/merge"), true)
     }
@@ -168,6 +169,7 @@ final class WorkspaceRemoteProjectIntegrationTests: XCTestCase {
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitWorktreeCreate.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitWorktreeOpen.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitWorktreeRemove.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitWorktreePrune.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.planUpdate.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.browserInspect.name))
     }

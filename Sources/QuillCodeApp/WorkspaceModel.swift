@@ -981,6 +981,13 @@ public final class QuillCodeWorkspaceModel {
         )
     }
 
+    public func pruneWorktrees(_ request: WorkspaceWorktreePruneRequest, workspaceRoot: URL) {
+        runToolCall(
+            WorkspaceWorktreeToolCallPlanner.prune(request),
+            workspaceRoot: workspaceRoot
+        )
+    }
+
     @discardableResult
     public func runToolCall(_ call: ToolCall, workspaceRoot: URL) -> ToolResult {
         if selectedThread == nil {

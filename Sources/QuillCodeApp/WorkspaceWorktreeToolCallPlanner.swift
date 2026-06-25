@@ -41,4 +41,14 @@ enum WorkspaceWorktreeToolCallPlanner {
             ])
         )
     }
+
+    static func prune(_ request: WorkspaceWorktreePruneRequest) -> ToolCall {
+        ToolCall(
+            name: ToolDefinition.gitWorktreePrune.name,
+            argumentsJSON: ToolArguments.json([
+                "dryRun": request.dryRun,
+                "verbose": request.verbose
+            ])
+        )
+    }
 }

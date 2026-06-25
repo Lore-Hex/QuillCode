@@ -42,6 +42,13 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
         await model.submitComposer(workspaceRoot: root)
         XCTAssertEqual(model.currentToolCards.last?.title, "host.git.worktree.list")
 
+        model.setDraft("/worktree prune --dry-run --verbose")
+        await model.submitComposer(workspaceRoot: root)
+        XCTAssertEqual(model.currentToolCards.last?.title, "host.git.worktree.prune")
+        let pruneArguments = try ToolArguments(XCTUnwrap(model.currentToolCards.last?.inputJSON))
+        XCTAssertEqual(pruneArguments.bool("dryRun"), true)
+        XCTAssertEqual(pruneArguments.bool("verbose"), true)
+
         model.setDraft("/pr")
         await model.submitComposer(workspaceRoot: root)
         XCTAssertEqual(model.composer.draft, "Create a pull request titled ")

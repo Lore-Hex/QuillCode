@@ -60,7 +60,8 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
 
         XCTAssertLessThan(index(of: "retry-last-turn", in: commandIDs), index(of: "search", in: commandIDs))
         XCTAssertLessThan(index(of: "toggle-extensions", in: commandIDs), index(of: "git-status", in: commandIDs))
-        XCTAssertLessThan(index(of: "git-worktree-remove", in: commandIDs), index(of: "local-env:.quillcode/actions/bootstrap.sh", in: commandIDs))
+        XCTAssertLessThan(index(of: "git-worktree-remove", in: commandIDs), index(of: "git-worktree-prune", in: commandIDs))
+        XCTAssertLessThan(index(of: "git-worktree-prune", in: commandIDs), index(of: "local-env:.quillcode/actions/bootstrap.sh", in: commandIDs))
         XCTAssertLessThan(index(of: "local-env:.quillcode/actions/bootstrap.sh", in: commandIDs), index(of: "mcp-start:mcp_server:filesystem", in: commandIDs))
         XCTAssertLessThan(index(of: "mcp-stop:mcp_server:filesystem", in: commandIDs), index(of: "extension-update:mcp_server:filesystem", in: commandIDs))
         XCTAssertLessThan(index(of: "extension-update:mcp_server:filesystem", in: commandIDs), index(of: "stop-all", in: commandIDs))

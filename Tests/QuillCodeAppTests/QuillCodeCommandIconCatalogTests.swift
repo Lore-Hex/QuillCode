@@ -30,6 +30,7 @@ final class QuillCodeCommandIconCatalogTests: XCTestCase {
             "git-worktree-create": "plus.rectangle.on.folder",
             "git-worktree-open": "rectangle.on.rectangle",
             "git-worktree-remove": "minus.rectangle",
+            "git-worktree-prune": "trash.slash",
             "settings": "gearshape",
             "keyboard-shortcuts": "keyboard",
             "computer-use-setup": "display",

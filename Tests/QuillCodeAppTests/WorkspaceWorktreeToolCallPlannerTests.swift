@@ -64,4 +64,13 @@ final class WorkspaceWorktreeToolCallPlannerTests: XCTestCase {
         XCTAssertEqual(try arguments.requiredString("path"), "../feature-worktree")
         XCTAssertEqual(arguments.bool("force"), false)
     }
+
+    func testPruneBuildsGitWorktreePruneCall() throws {
+        let call = WorkspaceWorktreeToolCallPlanner.prune(.init(dryRun: true, verbose: true))
+        let arguments = try ToolArguments(call.argumentsJSON)
+
+        XCTAssertEqual(call.name, ToolDefinition.gitWorktreePrune.name)
+        XCTAssertEqual(arguments.bool("dryRun"), true)
+        XCTAssertEqual(arguments.bool("verbose"), true)
+    }
 }
