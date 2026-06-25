@@ -40,11 +40,12 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
     func testDesktopControllerDelegatesCancellableTaskSlots() throws {
         let text = try Self.desktopSourceText()
         let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let browserCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopBrowserCoordinator.swift")
 
         XCTAssertTrue(text.contains("QuillCodeDesktopTaskCoordinator"), "Desktop cancellable tasks should be isolated behind a coordinator.")
         XCTAssertTrue(controllerText.contains("tasks.startIfIdle(.send"), "Composer sends should use the task coordinator.")
         XCTAssertTrue(controllerText.contains("tasks.startIfIdle(.terminal"), "Terminal runs should use the task coordinator.")
-        XCTAssertTrue(controllerText.contains("tasks.replace(.browserPreview"), "Browser previews should replace stale preview work.")
+        XCTAssertTrue(browserCoordinatorText.contains("tasks.replace(.browserPreview"), "Browser previews should replace stale preview work.")
         XCTAssertTrue(controllerText.contains("tasks.replace(.automationTicker"), "Automation ticks should use the task coordinator.")
         XCTAssertFalse(controllerText.contains("private var sendTask"), "Desktop controller should not own raw send task slots.")
         XCTAssertFalse(controllerText.contains("private var terminalTask"), "Desktop controller should not own raw terminal task slots.")
@@ -55,8 +56,10 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
     func testDesktopBrowserLiveDOMCaptureUsesFocusedAdapter() throws {
         let desktopText = try Self.desktopSourceText()
         let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let browserCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopBrowserCoordinator.swift")
         let capturerText = try Self.desktopSourceText(named: "DesktopBrowserLiveDOMCapturer.swift")
 
+        XCTAssertTrue(desktopText.contains("QuillCodeDesktopBrowserCoordinator"), "Desktop browser preview workflow should be isolated behind a coordinator.")
         XCTAssertTrue(desktopText.contains("DesktopBrowserLiveDOMCapturer"), "Desktop should provide a native rendered-browser capture adapter.")
         XCTAssertTrue(capturerText.contains("BrowserLiveDOMCapturing"), "Desktop live DOM capture should implement the shared adapter protocol.")
         XCTAssertTrue(capturerText.contains("WKWebView"), "Desktop live DOM capture should render pages before inspecting DOM.")
@@ -68,9 +71,10 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(capturerText.contains("WKWebsiteDataStore"), "Desktop live DOM profile selection should be backed by WebKit data stores.")
         XCTAssertTrue(capturerText.contains("return .default()"), "Persistent desktop browser capture should reuse WebKit's default cookie/session store.")
         XCTAssertTrue(controllerText.contains("browserLiveDOMCapturer"), "Desktop controller should accept live DOM capture as an injectable dependency.")
+        XCTAssertTrue(controllerText.contains("browserCoordinator.openPreview"), "Desktop controller should delegate browser preview workflow.")
         XCTAssertTrue(
-            controllerText.contains("refreshRenderedBrowserSnapshot(capturer: browserLiveDOMCapturer)"),
-            "Desktop browser preview should upgrade fetched snapshots with rendered live DOM when available."
+            browserCoordinatorText.contains("refreshRenderedBrowserSnapshot(capturer: liveDOMCapturer)"),
+            "Desktop browser preview coordinator should upgrade fetched snapshots with rendered live DOM when available."
         )
         XCTAssertFalse(controllerText.contains("WKWebView"), "Desktop controller should not own WebKit rendering details.")
         XCTAssertFalse(controllerText.contains("evaluateJavaScript"), "Desktop controller should not own DOM capture details.")
@@ -81,6 +85,7 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
     func testDesktopBrowserVisibleSessionUsesFocusedAdapter() throws {
         let desktopText = try Self.desktopSourceText()
         let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let browserCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopBrowserCoordinator.swift")
         let appText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
         let presenterText = try Self.desktopSourceText(named: "DesktopBrowserSessionPresenter.swift")
         let browserPaneText = try Self.appSourceText(named: "QuillCodeBrowserPaneView.swift")
@@ -97,7 +102,8 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(presenterText.contains("func present()"), "Visible browser session focus behavior should stay inside the presenter adapter.")
         XCTAssertFalse(presenterText.contains("sessions: [ObjectIdentifier"), "Visible browser sessions should not regress to one retained window per click.")
         XCTAssertTrue(controllerText.contains("browserSessionPresenter"), "Desktop controller should accept a visible browser session dependency.")
-        XCTAssertTrue(controllerText.contains("WorkspaceBrowserLocationResolver(workspaceRoot: root).resolve"), "Visible browser session URLs should share preview address resolution.")
+        XCTAssertTrue(controllerText.contains("browserCoordinator.openSession"), "Desktop controller should delegate visible browser session workflow.")
+        XCTAssertTrue(browserCoordinatorText.contains("WorkspaceBrowserLocationResolver(workspaceRoot: root).resolve"), "Visible browser session URLs should share preview address resolution.")
         XCTAssertTrue(controllerText.contains("func openBrowserSession()"), "Desktop controller should expose a visible browser session action.")
         XCTAssertTrue(appText.contains("onOpenBrowserSession: controller.openBrowserSession"), "Desktop app should wire visible browser sessions into shared UI.")
         XCTAssertTrue(browserPaneText.contains("var onOpenSession: (() -> Void)?"), "Shared browser pane should keep visible sessions optional for non-desktop platforms.")
