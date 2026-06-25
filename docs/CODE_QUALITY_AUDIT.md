@@ -5852,3 +5852,23 @@ Current strict grades:
 
 Remaining risk:
 - The next high-value extraction is a small send coordinator that groups first-thread creation, context sync, session creation, progress callback wiring, and terminal helper calls into a clearer orchestration boundary without taking over actor-isolated mutations.
+
+## 2026-06-25 Agent Send Start Planner
+
+Overall grade after this slice: **A start planning, A focused lifecycle coverage, A- WorkspaceModel send path**.
+
+`submitComposer` still prepared agent sends inline after prompt classification: it captured the synced thread id, selected the started composer/top-bar lifecycle, and then separately threaded prompt/thread/threadID into session execution and cancellation cleanup. That made the start of a send less explicit than the session factory and terminal planner boundaries.
+
+What changed:
+- Added `WorkspaceAgentSendStartPlanner` and `WorkspaceAgentSendStartPlan` to describe the immutable start contract for an agent send.
+- Routed `submitComposer` through the start plan before applying started lifecycle, making prompt/thread/threadID/start lifecycle travel together.
+- Added focused start planner tests for prompt/thread identity and started lifecycle state.
+- Added parity gates so started lifecycle selection stays out of `submitComposer`.
+
+Current strict grades:
+- `WorkspaceAgentSendStartPlanner.swift`: **A**. It is a pure value planner with no actor, persistence, runner, or workspace dependencies.
+- `WorkspaceModel.submitComposer`: **A-**. It now delegates submission classification, start planning, session composition, and terminal lifecycle selection, but still owns new-chat creation, context sync, progress callback wiring, and terminal helper dispatch.
+- `WorkspaceAgentSendStartPlannerTests.swift`: **A**. It directly covers the start contract and lifecycle state.
+
+Remaining risk:
+- The next extraction should target progress callback wiring or context/new-thread preparation. Keep actor-owned mutations in `WorkspaceModel`; move only pure planning or narrowly injectable execution boundaries.

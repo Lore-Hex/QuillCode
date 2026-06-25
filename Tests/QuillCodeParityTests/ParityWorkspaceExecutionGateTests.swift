@@ -66,6 +66,31 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testWorkspaceModelDelegatesAgentSendStartPlanning() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let plannerText = try Self.appSourceText(named: "WorkspaceAgentSendStartPlanner.swift")
+        let submitStart = try XCTUnwrap(modelText.range(of: "public func submitComposer"))
+        let submitEnd = try XCTUnwrap(modelText.range(of: "private func agentSendSessionFactory"))
+        let submitBody = String(modelText[submitStart.lowerBound..<submitEnd.lowerBound])
+
+        XCTAssertTrue(
+            plannerText.contains("struct WorkspaceAgentSendStartPlan"),
+            "Agent send start should have a typed plan."
+        )
+        XCTAssertTrue(
+            plannerText.contains("enum WorkspaceAgentSendStartPlanner"),
+            "Agent send start planning should live in a focused planner."
+        )
+        XCTAssertTrue(
+            submitBody.contains("WorkspaceAgentSendStartPlanner.started"),
+            "submitComposer should delegate send-start planning."
+        )
+        XCTAssertFalse(
+            submitBody.contains("WorkspaceComposerSendLifecycle.started"),
+            "submitComposer should not choose started lifecycle state inline."
+        )
+    }
+
     func testWorkspaceModelDelegatesAgentSendTerminalPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceAgentSendTerminalPlanner.swift")

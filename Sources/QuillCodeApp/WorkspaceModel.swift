@@ -760,20 +760,23 @@ public final class QuillCodeWorkspaceModel {
         }
         guard var thread = selectedThread else { return }
         syncThreadContext(into: &thread)
-        let threadID = thread.id
-
-        applyComposerSendLifecycle(WorkspaceComposerSendLifecycle.started(from: composer))
+        let sendStart = WorkspaceAgentSendStartPlanner.started(
+            prompt: prompt,
+            thread: thread,
+            composer: composer
+        )
+        applyComposerSendLifecycle(sendStart.lifecycle)
 
         do {
             try Task.checkCancellation()
             let session = agentSendSessionFactory(workspaceRoot: workspaceRoot)
-                .makeSession(prompt: prompt, thread: thread)
+                .makeSession(prompt: sendStart.prompt, thread: sendStart.thread)
             let result = try await session.run { [weak self] progressThread in
-                await self?.applyAgentProgress(progressThread, expectedThreadID: threadID)
+                await self?.applyAgentProgress(progressThread, expectedThreadID: sendStart.threadID)
             }
             try finishCompletedSend(result)
         } catch is CancellationError {
-            finishCancelledSend(userPrompt: prompt, threadID: threadID)
+            finishCancelledSend(userPrompt: sendStart.prompt, threadID: sendStart.threadID)
         } catch {
             finishFailedSend(error)
         }
