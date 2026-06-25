@@ -4,19 +4,21 @@ import QuillCodeCore
 @testable import QuillCodeApp
 
 final class WorkspaceAgentSendProgressPlannerTests: XCTestCase {
-    func testProgressPlanCarriesThreadAndRunningComposerState() throws {
-        var thread = ChatThread(title: "Run tests")
-        thread.events.append(ThreadEvent(kind: .toolQueued, summary: "Run Shell"))
+    func testProgressPlanCarriesThreadAndKeepsComposerSending() throws {
+        let thread = ChatThread(events: [
+            ThreadEvent(kind: .toolRunning, summary: "Running tests")
+        ])
 
         let plan = try XCTUnwrap(WorkspaceAgentSendProgressPlanner.progress(
             thread: thread,
-            expectedThreadID: thread.id
+            expectedThreadID: thread.id,
+            composer: ComposerState(draft: "keep draft", isSending: false)
         ))
 
         XCTAssertEqual(plan.thread.id, thread.id)
-        XCTAssertTrue(plan.composerIsSending)
+        XCTAssertEqual(plan.composer.draft, "keep draft")
+        XCTAssertTrue(plan.composer.isSending)
         XCTAssertNil(plan.lastError)
-        XCTAssertEqual(plan.agentStatus, TopBarAgentStatusLabel.queued)
     }
 
     func testProgressPlanUsesStreamingStatusForStreamingNotice() throws {
@@ -25,10 +27,26 @@ final class WorkspaceAgentSendProgressPlannerTests: XCTestCase {
 
         let plan = try XCTUnwrap(WorkspaceAgentSendProgressPlanner.progress(
             thread: thread,
-            expectedThreadID: thread.id
+            expectedThreadID: thread.id,
+            composer: ComposerState(draft: "", isSending: true)
         ))
 
         XCTAssertEqual(plan.agentStatus, TopBarAgentStatusLabel.streaming)
+    }
+
+    func testProgressPlanUsesLatestThreadEventForStatus() throws {
+        let thread = ChatThread(events: [
+            ThreadEvent(kind: .toolQueued, summary: "Queued"),
+            ThreadEvent(kind: .toolCompleted, summary: "Done")
+        ])
+
+        let plan = try XCTUnwrap(WorkspaceAgentSendProgressPlanner.progress(
+            thread: thread,
+            expectedThreadID: thread.id,
+            composer: ComposerState(draft: "", isSending: true)
+        ))
+
+        XCTAssertEqual(plan.agentStatus, TopBarAgentStatusLabel.finishing)
     }
 
     func testProgressPlanIgnoresProgressFromDifferentThread() {
@@ -36,7 +54,8 @@ final class WorkspaceAgentSendProgressPlannerTests: XCTestCase {
 
         let plan = WorkspaceAgentSendProgressPlanner.progress(
             thread: thread,
-            expectedThreadID: UUID()
+            expectedThreadID: UUID(),
+            composer: ComposerState(draft: "keep draft", isSending: true)
         )
 
         XCTAssertNil(plan)

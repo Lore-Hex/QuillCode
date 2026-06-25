@@ -3,7 +3,7 @@ import QuillCodeCore
 
 struct WorkspaceAgentSendProgressPlan: Sendable {
     var thread: ChatThread
-    var composerIsSending: Bool
+    var composer: ComposerState
     var lastError: String?
     var agentStatus: String
 }
@@ -11,12 +11,15 @@ struct WorkspaceAgentSendProgressPlan: Sendable {
 enum WorkspaceAgentSendProgressPlanner {
     static func progress(
         thread: ChatThread,
-        expectedThreadID: UUID
+        expectedThreadID: UUID,
+        composer: ComposerState
     ) -> WorkspaceAgentSendProgressPlan? {
         guard thread.id == expectedThreadID else { return nil }
+        var nextComposer = composer
+        nextComposer.isSending = true
         return WorkspaceAgentSendProgressPlan(
             thread: thread,
-            composerIsSending: true,
+            composer: nextComposer,
             lastError: nil,
             agentStatus: WorkspaceAgentStatusBuilder.status(for: thread)
         )
