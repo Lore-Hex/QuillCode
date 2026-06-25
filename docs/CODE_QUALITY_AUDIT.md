@@ -5147,3 +5147,21 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `WorkspaceSurfaceTests.swift` by feature family. Good next slices are browser/HTML preview ownership and settings/runtime issue surface ownership.
+
+## 2026-06-24 Browser Surface Test Ownership Split
+
+Overall grade after this slice: **A browser surface ownership, A HTML browser harness ownership, B+ broad workspace surface smoke**.
+
+Browser parity now includes URL normalization, local/web snapshots, comments, live-DOM snapshot fallbacks, agent browser tools, native surface state, and static HTML rendering. Two browser surface assertions still lived in `WorkspaceSurfaceTests.swift`, which made browser regressions look like generic workspace smoke failures.
+
+What changed:
+- Moved browser preview surface-state coverage into `WorkspaceBrowserIntegrationTests`.
+- Moved static HTML browser-pane renderer coverage into `WorkspaceBrowserIntegrationTests`.
+- Reduced `WorkspaceSurfaceTests.swift` below 1,000 lines while preserving the same assertions.
+
+Current strict grades:
+- `WorkspaceBrowserIntegrationTests.swift`: **A**. It owns browser workflow, agent browser tools, surface projection, and HTML harness checks in one cohesive browser parity suite.
+- `WorkspaceSurfaceTests.swift`: **B+**. It is now smaller broad smoke coverage, but still owns several unrelated surface families including settings, runtime issue decoding, memory, extensions/MCP, review, command palette, and sidebar search.
+
+Remaining risk:
+- Continue splitting `WorkspaceSurfaceTests.swift` by feature family. Good next slices are settings/runtime surface ownership and review surface ownership.
