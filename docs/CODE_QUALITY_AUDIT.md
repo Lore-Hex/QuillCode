@@ -5716,3 +5716,23 @@ Current strict grades:
 
 Remaining risk:
 - `core.spec.ts` still includes both the full first-run command smoke and review-card smoke. That is acceptable for now, but the next quality slice could move review-card approval/denial smoke into `review.spec.ts` if core should become a single first-run scenario.
+
+## 2026-06-25 Playwright Review Card Spec Split
+
+Overall grade after this slice: **A review-card E2E ownership, A shared Playwright geometry helpers, A core smoke spec**.
+
+`core.spec.ts` still owned the approval-card and denied-review-card smoke flows. Those checks validate review-card interaction semantics, not first-run workspace setup, so they belong beside the review pane, stage, hunk, and commit flows.
+
+What changed:
+- Moved actionable approval-card and denied-review-card flows into `review.spec.ts`.
+- Reused the shared Playwright `elementRect()` helper for action button geometry instead of keeping local bounding-box unwrap helpers in `core.spec.ts`.
+- Removed the local `expectPresent` helper from `core.spec.ts`, leaving it focused on the first-run command smoke path.
+- Expanded the review Playwright parity gate so approval-card and denied-review-card flows must stay in `review.spec.ts`.
+
+Current strict grades:
+- `E2E/playwright/tests/core.spec.ts`: **A**. It now acts as a true first-run command smoke test.
+- `E2E/playwright/tests/review.spec.ts`: **A**. It owns review-card actions, blocked-review presentation, diff review, staging, hunk staging, and commit flows.
+- `ParityWorkspaceSurfaceGateTests.swift`: **A**. It now guards focused ownership for all review Playwright flow families.
+
+Remaining risk:
+- Good next slices should move beyond E2E suite shape and target deeper Codex parity: richer review diff interactions, worktree lifecycle polish, and real app-shell smoke around browser/Computer Use.

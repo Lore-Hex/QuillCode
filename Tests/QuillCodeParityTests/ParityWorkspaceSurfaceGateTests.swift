@@ -461,6 +461,8 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
             encoding: .utf8
         )
         let reviewFlowNames = [
+            "exposes actionable approval buttons on review cards",
+            "shows denied review cards as needs review without actions",
             "shows git review summary for diff flow",
             "flows apply patch into review diff",
             "stages a changed file from the review pane",
