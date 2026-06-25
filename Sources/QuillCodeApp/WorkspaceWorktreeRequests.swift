@@ -27,3 +27,13 @@ public struct WorkspaceWorktreeRemoveRequest: Sendable, Hashable {
         self.force = force
     }
 }
+
+public struct WorkspaceWorktreePruneRequest: Sendable, Hashable {
+    public var dryRun: Bool
+    public var verbose: Bool
+
+    public init(dryRun: Bool = false, verbose: Bool = false) {
+        self.dryRun = dryRun
+        self.verbose = verbose
+    }
+}

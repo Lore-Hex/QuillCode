@@ -251,6 +251,17 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertTrue(removePlan.command.contains("worktree='/srv/quill-next'"), removePlan.command)
         XCTAssertTrue(removePlan.command.contains("git worktree remove --force -- \"$worktree\""), removePlan.command)
         XCTAssertEqual(removePlan.artifacts, [])
+
+        let prunePlan = try remoteWorktreePlan(
+            name: ToolDefinition.gitWorktreePrune.name,
+            arguments: [
+                "dryRun": true,
+                "verbose": true
+            ],
+            connection: remoteProject(path: "/srv/quill").connection
+        )
+        XCTAssertEqual(prunePlan.command, "'git' 'worktree' 'prune' '--dry-run' '--verbose'")
+        XCTAssertEqual(prunePlan.artifacts, [])
     }
 
     func testRemoteGitPlannerBuildsStageHunkRequestWithSharedPatchValidation() throws {

@@ -69,7 +69,8 @@ final class WorkspaceCommandPaletteRankerTests: XCTestCase {
             "git-worktree-list",
             "git-worktree-create",
             "git-worktree-open",
-            "git-worktree-remove"
+            "git-worktree-remove",
+            "git-worktree-prune"
         ])
     }
 

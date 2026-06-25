@@ -58,6 +58,21 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         )
     }
 
+    func testWorktreePruneParsesTypedRequest() {
+        XCTAssertEqual(
+            SlashCommandParser.parse("/worktree prune --dry-run --verbose"),
+            .worktreePrune(.init(dryRun: true, verbose: true))
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/wt cleanup -n -v"),
+            .worktreePrune(.init(dryRun: true, verbose: true))
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/worktree prune"),
+            .worktreePrune(.init())
+        )
+    }
+
     func testWorktreeSubcommandsRejectAmbiguousOrMissingArguments() {
         XCTAssertEqual(
             SlashCommandParser.parse("/worktree create"),
@@ -82,6 +97,14 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertEqual(
             SlashCommandParser.parse("/worktree remove ../feature --hard"),
             .invalid("Unknown worktree remove option '--hard'.")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/worktree prune ../feature"),
+            .invalid("Worktree prune does not take a path. Try /worktree prune --dry-run.")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/worktree prune --bad"),
+            .invalid("Unknown worktree prune option '--bad'.")
         )
         XCTAssertEqual(
             SlashCommandParser.parse(#"/worktree open "../feature"#),

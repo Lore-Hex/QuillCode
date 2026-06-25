@@ -117,6 +117,12 @@ test('mock harness routes slash commands to workspace actions', async ({ page })
   await expect(page.getByTestId('tool-card-input').last()).toContainText('"force": true');
   await expect(page.getByTestId('message').last()).toContainText('Removed worktree slash-worktree.');
 
+  await page.getByLabel('Message').fill('/worktree prune --dry-run --verbose');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.worktree.prune');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('"dryRun": true');
+  await expect(page.getByTestId('message').last()).toContainText('Checked for stale worktree records.');
+
   await page.getByLabel('Message').fill('/pr');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByLabel('Message')).toHaveValue('Create a pull request titled ');

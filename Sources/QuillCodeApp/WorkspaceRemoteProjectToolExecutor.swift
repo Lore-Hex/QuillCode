@@ -30,7 +30,8 @@ struct WorkspaceRemoteProjectToolExecutor: Sendable, Hashable {
         .gitWorktreeList,
         .gitWorktreeCreate,
         .gitWorktreeOpen,
-        .gitWorktreeRemove
+        .gitWorktreeRemove,
+        .gitWorktreePrune
     ]
 
     static let gitToolNames: Set<String> = [
@@ -55,7 +56,8 @@ struct WorkspaceRemoteProjectToolExecutor: Sendable, Hashable {
         ToolDefinition.gitWorktreeList.name,
         ToolDefinition.gitWorktreeCreate.name,
         ToolDefinition.gitWorktreeOpen.name,
-        ToolDefinition.gitWorktreeRemove.name
+        ToolDefinition.gitWorktreeRemove.name,
+        ToolDefinition.gitWorktreePrune.name
     ]
 
     static func executionOverride(

@@ -326,6 +326,7 @@ enum AgentToolArgumentNormalizer {
             ToolDefinition.gitPullRequestCheckout.name,
             ToolDefinition.gitPullRequestMerge.name,
             ToolDefinition.gitWorktreeList.name,
+            ToolDefinition.gitWorktreePrune.name,
             ToolDefinition.browserInspect.name,
             ToolDefinition.computerScreenshot.name:
             return false

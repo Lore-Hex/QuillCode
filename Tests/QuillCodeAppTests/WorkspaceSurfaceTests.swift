@@ -126,6 +126,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "git-worktree-create",
             "git-worktree-open",
             "git-worktree-remove",
+            "git-worktree-prune",
             "stop-all",
             "disconnect-all",
             "settings",
@@ -193,6 +194,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-list" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-create" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-remove" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-prune" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "add-ssh-project" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "add-ssh-project" }?.title, "Project: Add SSH Remote...")
         XCTAssertEqual(surface.commands.first { $0.id == "disconnect-all" }?.isEnabled, true)

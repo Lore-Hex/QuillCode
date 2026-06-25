@@ -28,6 +28,7 @@ final class GitToolRouterTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.worktree.create"))
         XCTAssertTrue(definitions.contains("host.git.worktree.open"))
         XCTAssertTrue(definitions.contains("host.git.worktree.remove"))
+        XCTAssertTrue(definitions.contains("host.git.worktree.prune"))
     }
 
     func testGitToolCallDispatcherOwnsGitDefinitions() {
@@ -38,6 +39,7 @@ final class GitToolRouterTests: XCTestCase {
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitPullRequestCreate.name))
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitWorktreeOpen.name))
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitWorktreeRemove.name))
+        XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitWorktreePrune.name))
         XCTAssertFalse(GitToolCallDispatcher.handles(ToolDefinition.shellRun.name))
         XCTAssertTrue(gitDefinitions.allSatisfy(routerDefinitions.contains))
     }
@@ -51,6 +53,16 @@ final class GitToolRouterTests: XCTestCase {
 
         XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
         XCTAssertTrue(result.stdout.contains(root.path), result.stdout)
+    }
+
+    func testToolRouterRoutesGitWorktreePrune() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.gitWorktreePrune.name,
+            argumentsJSON: #"{"dryRun":true,"verbose":true}"#
+        ))
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
     }
 
     func testToolRouterRoutesGitPush() throws {

@@ -176,4 +176,12 @@ public extension ToolDefinition {
         host: .local,
         risk: .destructive
     )
+
+    static let gitWorktreePrune = ToolDefinition(
+        name: "host.git.worktree.prune",
+        description: "Prune stale git worktree administrative records for the project.",
+        parametersJSON: #"{"type":"object","properties":{"dryRun":{"type":"boolean","description":"Show stale worktree records without removing them."},"verbose":{"type":"boolean","description":"Print each pruned record."}}}"#,
+        host: .local,
+        risk: .destructive
+    )
 }

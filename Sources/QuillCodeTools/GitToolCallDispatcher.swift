@@ -27,7 +27,8 @@ struct GitToolCallDispatcher: Sendable {
         .gitWorktreeList,
         .gitWorktreeCreate,
         .gitWorktreeOpen,
-        .gitWorktreeRemove
+        .gitWorktreeRemove,
+        .gitWorktreePrune
     ]
 
     private static let toolNames = Set(definitions.map(\.name))
@@ -147,6 +148,12 @@ struct GitToolCallDispatcher: Sendable {
                 cwd: workspaceRoot,
                 path: try args.requiredString("path"),
                 force: args.bool("force") ?? false
+            )
+        case ToolDefinition.gitWorktreePrune.name:
+            return git.pruneWorktrees(
+                cwd: workspaceRoot,
+                dryRun: args.bool("dryRun") ?? false,
+                verbose: args.bool("verbose") ?? false
             )
         default:
             return ToolResult(ok: false, error: "Unknown tool: \(name)")

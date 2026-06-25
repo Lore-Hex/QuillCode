@@ -25,6 +25,24 @@ final class WorkspaceWorktreeIntegrationTests: XCTestCase {
         XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
     }
 
+    func testWorkspaceCommandPrunesGitWorktrees() throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepository(at: root)
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Worktree Project")
+        model.selectProject(projectID)
+
+        XCTAssertTrue(model.runWorkspaceCommand("git-worktree-prune", workspaceRoot: root))
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.gitWorktreePrune.name)
+        XCTAssertEqual(card.status, .done)
+        let arguments = try ToolArguments(XCTUnwrap(card.inputJSON))
+        XCTAssertEqual(arguments.bool("dryRun"), true)
+        XCTAssertEqual(arguments.bool("verbose"), true)
+        XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
+    }
+
     func testRemoteWorkspaceCommandListsGitWorktreesThroughSSH() throws {
         let fixture = try makeRemoteWorktreeFixture()
 

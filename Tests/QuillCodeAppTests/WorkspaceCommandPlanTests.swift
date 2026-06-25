@@ -4,7 +4,7 @@ import QuillCodeTools
 @testable import QuillCodeApp
 
 final class WorkspaceCommandPlanTests: XCTestCase {
-    func testToolCommandsUseCanonicalToolNames() {
+    func testToolCommandsUseCanonicalToolNames() throws {
         XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "git-status"),
             .runTool(name: ToolDefinition.gitStatus.name)
@@ -29,6 +29,13 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             WorkspaceCommandPlan(commandID: "git-worktree-list"),
             .runTool(name: ToolDefinition.gitWorktreeList.name)
         )
+        guard case .runToolCall(let pruneCall) = WorkspaceCommandPlan(commandID: "git-worktree-prune") else {
+            return XCTFail("Expected git worktree prune to dispatch an explicit tool call.")
+        }
+        let pruneArguments = try ToolArguments(pruneCall.argumentsJSON)
+        XCTAssertEqual(pruneCall.name, ToolDefinition.gitWorktreePrune.name)
+        XCTAssertEqual(pruneArguments.bool("dryRun"), true)
+        XCTAssertEqual(pruneArguments.bool("verbose"), true)
     }
 
     func testDraftCommandsMapToComposerText() {

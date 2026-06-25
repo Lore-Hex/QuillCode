@@ -6176,3 +6176,24 @@ Current strict grades:
 
 Remaining risk:
 - The open-worktree UI still requires manual path entry. A stronger Codex-parity follow-up is a picker backed by `git worktree list --porcelain`, especially for SSH Remote projects where paths are harder to type.
+
+## 2026-06-25 Worktree Prune Lifecycle
+
+Overall grade after this slice: **A cleanup affordance, A remote parity, A- command-plan explicitness**.
+
+Codex-style worktree workflows need lifecycle cleanup, not only create/open/remove. `git worktree prune` is the right narrow next step because it cleans stale administrative records without inventing QuillCode-specific state. The important design point was avoiding an unsafe empty-argument command-palette execution path: the palette action dispatches a dry-run verbose tool call by default, while `/worktree prune` remains available for explicit cleanup.
+
+What changed:
+- Added `host.git.worktree.prune` to the tool schema, local executor, git facade, router, remote-safe tool set, SSH Remote command builder, and execution-context surfaces.
+- Added typed `WorkspaceWorktreePruneRequest` and `WorkspaceWorktreeToolCallPlanner.prune` so slash commands and command-palette actions reuse structured JSON.
+- Added `/worktree prune [--dry-run] [--verbose]` and `wt cleanup -n -v` parsing with clear invalid-option and no-path errors.
+- Updated the command palette, icon catalog, Playwright harness, docs, and parity gates.
+
+Current strict grades:
+- `GitWorktreeToolExecutor.prune`: **A**. It is a minimal `git worktree prune` adapter with explicit flag construction and no shell interpolation.
+- `WorkspaceCommandPlan.runToolCall`: **A-**. It gives command IDs a structured-argument escape hatch without changing existing simple tool plans; future use should stay rare and covered by tests.
+- `WorkspaceRemoteGitWorktreeCommandBuilder.pruneCommand`: **A**. It uses the existing shell-quoted argument builder and has direct unit coverage for dry-run/verbose output.
+- `SlashWorktreeCommandParser.parsePrune`: **A-**. The grammar is small, explicit, and tested; future UX could surface known stale records before a destructive prune.
+
+Remaining risk:
+- Prune is still a command, not a rich stale-worktree review UI. Full Codex parity should eventually show stale records from `--dry-run --verbose` and offer a one-click confirm flow.

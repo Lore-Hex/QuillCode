@@ -2717,6 +2717,7 @@
         { id: 'git-worktree-create', title: 'Create worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
         { id: 'git-worktree-open', title: 'Open worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace', 'switch'], isEnabled: true },
         { id: 'git-worktree-remove', title: 'Remove worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace', 'delete'], isEnabled: true },
+        { id: 'git-worktree-prune', title: 'Prune stale worktrees', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace', 'cleanup', 'prune'], isEnabled: true },
         { id: 'local-env:.quillcode/actions/bootstrap.sh', title: 'Run Bootstrap', shortcut: '', category: 'Environment', keywords: ['local environment', 'script', 'Install dependencies and warm caches.', 'bootstrap', 'app', 'timeout', '120s', 'QUILL_ENV'], isEnabled: true },
         { id: 'stop-all', title: 'Stop all', shortcut: 'Esc', category: 'Control', keywords: ['cancel', 'abort', 'halt'], isEnabled: false },
         { id: 'disconnect-all', title: 'Disconnect all', shortcut: '', category: 'Control', keywords: ['disconnect', 'remote', 'mcp', 'server', 'connection'], isEnabled: false },
@@ -2900,6 +2901,7 @@
       { usage: '/worktree create path', title: 'Create worktree', detail: 'Create and switch to a sibling git worktree.', insertText: '/worktree create ', aliases: ['wt create', 'worktree add', 'worktree new'] },
       { usage: '/worktree open path', title: 'Open worktree', detail: 'Open an existing registered git worktree as a focused project.', insertText: '/worktree open ', aliases: ['wt open', 'worktree switch'] },
       { usage: '/worktree remove path', title: 'Remove worktree', detail: 'Remove an existing registered git worktree.', insertText: '/worktree remove ', aliases: ['wt remove', 'worktree rm'] },
+      { usage: '/worktree prune', title: 'Prune stale worktrees', detail: 'Clean stale git worktree administrative records.', insertText: '/worktree prune --dry-run', aliases: ['wt prune', 'worktree cleanup'] },
       { usage: '/pr', title: 'Prepare pull request', detail: 'Draft a pull request request in the composer.', insertText: '/pr', aliases: ['pull-request', 'pullrequest'] },
       { usage: '/env name', title: 'Run local environment action', detail: 'List or run project-local environment scripts.', insertText: '/env ', aliases: ['environment', 'local-env'] },
       { usage: '/mode auto|review|read-only', title: 'Set approval mode', detail: 'Switch between Auto, Review, and Read-only behavior.', insertText: '/mode ', aliases: [] },
@@ -2990,7 +2992,7 @@
 
     function parseWorktreeSlash(text) {
       const match = String(text || '').match(/^\/(worktrees?|wt)\b/i);
-      if (!match) return { kind: 'invalid', message: 'Usage: /worktrees or /worktree create|open|remove path.' };
+      if (!match) return { kind: 'invalid', message: 'Usage: /worktrees or /worktree create|open|remove|prune.' };
       const argument = text.slice(match[0].length).trim();
       const parsed = tokenizeSlashArguments(argument);
       if (parsed.error) return { kind: 'invalid', message: parsed.error };
@@ -3010,7 +3012,10 @@
       if (['remove', 'rm', 'delete'].includes(subcommand)) {
         return parseWorktreeRemoveSlash(tokens);
       }
-      return { kind: 'invalid', message: `Unknown worktree subcommand '${subcommand}'. Try /worktree create, /worktree open, or /worktree remove.` };
+      if (['prune', 'cleanup'].includes(subcommand)) {
+        return parseWorktreePruneSlash(tokens);
+      }
+      return { kind: 'invalid', message: `Unknown worktree subcommand '${subcommand}'. Try /worktree create, /worktree open, /worktree remove, or /worktree prune.` };
     }
 
     function parseWorktreeCreateSlash(tokens) {
@@ -3064,6 +3069,23 @@
       return values.path
         ? { kind: 'remove', values }
         : { kind: 'invalid', message: 'Missing worktree path. Try /worktree remove ../feature.' };
+    }
+
+    function parseWorktreePruneSlash(tokens) {
+      const values = { dryRun: false, verbose: false };
+      for (const token of tokens) {
+        if (token === '--dry-run' || token === '-n') {
+          values.dryRun = true;
+          continue;
+        }
+        if (token === '--verbose' || token === '-v') {
+          values.verbose = true;
+          continue;
+        }
+        if (token.startsWith('-')) return { kind: 'invalid', message: `Unknown worktree prune option '${token}'.` };
+        return { kind: 'invalid', message: 'Worktree prune does not take a path. Try /worktree prune --dry-run.' };
+      }
+      return { kind: 'prune', values };
     }
 
     function clampSlashActiveIndex(suggestions = slashSuggestions(state.composer.draft)) {
@@ -3352,7 +3374,8 @@
         'host.git.pr.diff',
         'host.git.worktree.list',
         'host.git.worktree.create',
-        'host.git.worktree.remove'
+        'host.git.worktree.remove',
+        'host.git.worktree.prune'
       ].includes(toolName);
     }
 
@@ -3803,6 +3826,7 @@
         command.id === 'git-worktree-create' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-worktree-open' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-worktree-remove' ? { ...command, isEnabled: hasLocalProject } :
+        command.id === 'git-worktree-prune' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'fork-from-last' ? { ...command, isEnabled: hasMessages } :
         command.id === 'compact-context' ? { ...command, isEnabled: hasMessages } :
         command.id === 'retry-last-turn' ? { ...command, isEnabled: hasUserMessages && !state.composer.isSending } :
@@ -7331,6 +7355,10 @@
         render();
         return;
       }
+      if (commandID === 'git-worktree-prune') {
+        pruneWorktrees({ dryRun: true, verbose: true });
+        return;
+      }
       if (commandID.startsWith('local-env:')) {
         runLocalEnvironmentAction(commandID);
         return;
@@ -8069,6 +8097,27 @@
       render();
     }
 
+    function pruneWorktrees(values = {}) {
+      ensureThread('Prune worktrees');
+      const dryRun = values.dryRun === true;
+      const verbose = values.verbose === true;
+      const stdout = dryRun
+        ? 'Checking stale worktree administrative records.\n'
+        : 'Pruned stale worktree administrative records.\n';
+      addToolCard({
+        title: 'host.git.worktree.prune',
+        subtitle: dryRun ? 'Completed · dry run' : 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({ dryRun, verbose }, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout }, null, 2)
+      });
+      addMessage('assistant', dryRun
+        ? 'Checked for stale worktree records.'
+        : 'Pruned stale worktree records.');
+      syncSelectedThreadSearchText();
+      render();
+    }
+
     function normalizedSidebarSelectionIDs() {
       const validIDs = new Set(state.sidebar.items.map(item => item.id));
       state.sidebar.selectedThreadIDs = state.sidebar.selectedThreadIDs.filter(id => validIDs.has(id));
@@ -8502,6 +8551,8 @@
           openWorktree(command.values);
         } else if (command.kind === 'remove') {
           removeWorktree(command.values);
+        } else if (command.kind === 'prune') {
+          pruneWorktrees(command.values);
         } else {
           addMessage('assistant', command.message);
           render();

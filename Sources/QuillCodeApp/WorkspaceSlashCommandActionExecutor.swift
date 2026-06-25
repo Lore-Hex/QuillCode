@@ -53,6 +53,8 @@ extension QuillCodeWorkspaceModel {
             openWorktree(request, workspaceRoot: workspaceRoot)
         case .worktreeRemove(let request, _):
             removeWorktree(request, workspaceRoot: workspaceRoot)
+        case .worktreePrune(let request, _):
+            pruneWorktrees(request, workspaceRoot: workspaceRoot)
         case .toolCall(let call):
             _ = runToolCall(call, workspaceRoot: workspaceRoot)
         case .environmentAction(let query, let userText):

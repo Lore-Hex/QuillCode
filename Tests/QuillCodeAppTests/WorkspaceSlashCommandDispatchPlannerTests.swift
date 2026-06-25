@@ -65,6 +65,7 @@ final class WorkspaceSlashCommandDispatchPlannerTests: XCTestCase {
         let createWorktree = WorkspaceWorktreeCreateRequest(path: "../feature", branch: "feature/test", base: "main")
         let openWorktree = WorkspaceWorktreeOpenRequest(path: "../feature")
         let removeWorktree = WorkspaceWorktreeRemoveRequest(path: "../feature", force: true)
+        let pruneWorktrees = WorkspaceWorktreePruneRequest(dryRun: true, verbose: true)
 
         XCTAssertEqual(
             WorkspaceSlashCommandDispatchPlanner.action(
@@ -129,6 +130,14 @@ final class WorkspaceSlashCommandDispatchPlannerTests: XCTestCase {
                 statusText: "unused"
             ),
             .worktreeRemove(removeWorktree, userText: "/worktree remove ../feature --force")
+        )
+        XCTAssertEqual(
+            WorkspaceSlashCommandDispatchPlanner.action(
+                for: .worktreePrune(pruneWorktrees),
+                userText: "/worktree prune --dry-run --verbose",
+                statusText: "unused"
+            ),
+            .worktreePrune(pruneWorktrees, userText: "/worktree prune --dry-run --verbose")
         )
         XCTAssertEqual(
             WorkspaceSlashCommandDispatchPlanner.action(
