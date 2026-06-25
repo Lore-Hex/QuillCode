@@ -90,6 +90,40 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
         XCTAssertEqual(activity.sections.first { $0.kind == .tools }?.toggleCommandID, "activity-toggle-section:tools")
     }
 
+    func testActivitySourcesSurfaceInstructionDiagnostics() throws {
+        let instructions = [
+            ProjectInstruction(path: "AGENTS.md", title: "AGENTS.md", content: "Use Swift.", byteCount: 10),
+            ProjectInstruction(path: ".quillcode/rules.md", title: "rules.md", content: "Use tests.", byteCount: 10),
+            ProjectInstruction(path: "Sources/Feature/AGENTS.md", title: "Feature AGENTS.md", content: "Use feature tests.", byteCount: 18, wasTruncated: true)
+        ]
+        let thread = ChatThread(
+            title: "Inspect rules",
+            messages: [.init(role: .user, content: "what rules apply?")],
+            instructions: instructions
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            activity: ActivityState(isVisible: true)
+        )
+
+        let activity = model.surface().activity
+
+        XCTAssertEqual(activity.sources.map(\.title), [
+            "AGENTS.md",
+            "rules.md",
+            "AGENTS.md",
+            "Shared instruction scope",
+            "Nested instruction override"
+        ])
+        XCTAssertEqual(activity.sources[2].statusLabel, "truncated")
+        XCTAssertEqual(activity.sources[3].detail, "whole project: AGENTS.md, .quillcode/rules.md")
+        XCTAssertEqual(
+            activity.sources[4].detail,
+            "Sources/Feature/** from Sources/Feature/AGENTS.md may override AGENTS.md, .quillcode/rules.md"
+        )
+        XCTAssertEqual(activity.sections.first { $0.kind == .sources }?.countLabel, "5 items")
+    }
+
     func testActivitySurfacePrefersModelAuthoredPlan() throws {
         let update = AgentPlanUpdate(
             explanation: "The model is planning the work directly.",

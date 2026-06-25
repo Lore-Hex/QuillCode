@@ -231,6 +231,10 @@ public struct ProjectInstruction: Codable, Sendable, Hashable, Identifiable {
     }
 
     public var scopeLabel: String {
+        Self.scopeLabel(for: scopePath)
+    }
+
+    public static func scopeLabel(for scopePath: String) -> String {
         scopePath == "." ? "whole project" : "\(scopePath)/**"
     }
 

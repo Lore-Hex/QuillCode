@@ -78,13 +78,19 @@ final class ParityWorkspaceProjectGateTests: QuillCodeParityTestCase {
         let loaderText = try Self.appSourceText(named: "ProjectInstructionLoader.swift")
         let promptText = try Self.agentSourceText(named: "TrustedRouterPromptBuilder.swift")
         let activityText = try Self.appSourceText(named: "WorkspaceActivitySourceSurfaceBuilder.swift")
+        let diagnosticsText = try Self.appSourceText(named: "ProjectInstructionDiagnosticsBuilder.swift")
 
         XCTAssertTrue(projectModelsText.contains("public var scopePath"), "Instruction applicability should be part of the shared instruction model.")
         XCTAssertTrue(projectModelsText.contains("static func scopePath(for instructionPath"), "Scope derivation should be centralized in the shared model.")
+        XCTAssertTrue(projectModelsText.contains("static func scopeLabel(for scopePath"), "Scope display labels should be centralized in the shared model.")
         XCTAssertTrue(loaderText.contains("ProjectInstruction.scopePath(for: relativePath)"), "Local instruction loading should persist explicit applicability scope.")
         XCTAssertTrue(promptText.contains("Scope: \\(instruction.scopeLabel)"), "TrustedRouter prompt context should expose every instruction block scope.")
         XCTAssertTrue(promptText.contains("Apply whole-project instructions everywhere"), "Prompt policy should distinguish project-wide and subtree instructions.")
         XCTAssertTrue(activityText.contains("Scope: \\(instruction.scopeLabel)"), "Activity sources should make instruction applicability auditable.")
+        XCTAssertTrue(activityText.contains("ProjectInstructionDiagnosticsBuilder"), "Activity sources should surface instruction scope diagnostics.")
+        XCTAssertTrue(diagnosticsText.contains("ProjectInstructionDiagnostic"), "Instruction diagnostics should live in a focused builder.")
+        XCTAssertTrue(diagnosticsText.contains("Shared instruction scope"), "Duplicate scope diagnostics should be visible to users.")
+        XCTAssertTrue(diagnosticsText.contains("Nested instruction override"), "Nested override diagnostics should be visible to users.")
         XCTAssertFalse(modelText.contains("scopePath(for:"), "WorkspaceModel should not own instruction scope derivation.")
     }
 

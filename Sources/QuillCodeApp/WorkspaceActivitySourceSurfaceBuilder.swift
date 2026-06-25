@@ -8,9 +8,21 @@ enum WorkspaceActivitySourceSurfaceBuilder {
                 title: WorkspaceActivityText.sourceTitle(instruction.path),
                 detail: "\(instruction.path) · Scope: \(instruction.scopeLabel)",
                 kind: "instruction",
-                statusLabel: "rules"
+                statusLabel: instruction.wasTruncated ? "truncated" : "rules"
             )
         }
+        let diagnosticItems = ProjectInstructionDiagnosticsBuilder
+            .diagnostics(for: instructions)
+            .prefix(4)
+            .map { diagnostic in
+                ActivityItemSurface(
+                    id: diagnostic.id,
+                    title: diagnostic.title,
+                    detail: diagnostic.detail,
+                    kind: "instruction-diagnostic",
+                    statusLabel: diagnostic.statusLabel
+                )
+            }
         let memoryItems = memories.prefix(4).map { memory in
             ActivityItemSurface(
                 id: "memory-\(memory.id)",
@@ -20,6 +32,6 @@ enum WorkspaceActivitySourceSurfaceBuilder {
                 statusLabel: memory.scope.title
             )
         }
-        return Array(instructionItems + memoryItems)
+        return Array(instructionItems + diagnosticItems + memoryItems)
     }
 }
