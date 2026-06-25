@@ -5268,3 +5268,25 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `core.spec.ts` by feature family. Good next slices are terminal flows, extension/MCP flows, and settings/sidebar flows.
+
+## 2026-06-24 Memory And Extensions Surface Test Ownership Split
+
+Overall grade after this slice: **A memory ownership, A extensions/MCP ownership, B+ broad workspace surface smoke**.
+
+`WorkspaceSurfaceTests.swift` still owned memory summary projection, project extension summary projection, and ready MCP probe summary projection. Those assertions protect feature-owned panes, not the broad workspace shell, and they also forced the broad suite to import `QuillCodeTools` only for MCP probe descriptors.
+
+What changed:
+- Moved memory summary and command-category assertions into `WorkspaceMemoryIntegrationTests`.
+- Moved project extension summary and update-command assertions into `WorkspaceProjectExtensionIntegrationTests`.
+- Moved ready MCP server probe summary and start/stop command assertions into `WorkspaceMCPIntegrationTests`.
+- Added parity guards so those focused suites own the moved assertions and `WorkspaceSurfaceTests.swift` does not regain them.
+- Reduced `WorkspaceSurfaceTests.swift` from 743 lines to 575 lines and removed its `QuillCodeTools` import.
+
+Current strict grades:
+- `WorkspaceMemoryIntegrationTests.swift`: **A**. It owns memory loading, `/remember`, agent memory writes, deletion, and memory pane projection together.
+- `WorkspaceProjectExtensionIntegrationTests.swift`: **A**. It owns manifest loading, update behavior, update failure, and extension pane projection together.
+- `WorkspaceMCPIntegrationTests.swift`: **A**. It owns MCP lifecycle, probe surface projection, agent calls, resources, prompts, and advertised-tool safety together.
+- `WorkspaceSurfaceTests.swift`: **B+**. Smaller and no longer coupled to `QuillCodeTools`, but still owns command palette, sidebar search, shortcuts, context banners, and global shell smoke.
+
+Remaining risk:
+- Continue splitting `WorkspaceSurfaceTests.swift` by feature family. Good next slices are command/sidebar search ownership and context banner ownership.

@@ -64,6 +64,76 @@ final class WorkspaceMCPIntegrationTests: XCTestCase {
         XCTAssertTrue(model.selectedThread?.events.contains { $0.summary == "MCP server Filesystem MCP stopped" } == true)
     }
 
+    func testSurfaceShowsReadyMCPServerProbeSummaryAndStopAction() {
+        let project = ProjectRef(
+            name: "QuillCode",
+            path: "/tmp/QuillCode",
+            extensionManifests: [
+                ProjectExtensionManifest(
+                    id: "mcp_server:filesystem",
+                    kind: .mcpServer,
+                    name: "Filesystem MCP",
+                    relativePath: ".quillcode/mcp/filesystem.json",
+                    transport: .stdio,
+                    launchExecutable: "quill-mcp",
+                    launchCommand: "quill-mcp --root .",
+                    launchArguments: ["--root", "."]
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            extensions: ExtensionsState(
+                isVisible: true,
+                mcpServerStatuses: ["mcp_server:filesystem": .ready],
+                mcpServerProbeSummaries: [
+                    "mcp_server:filesystem": MCPServerProbeSummary(
+                        protocolVersion: "2024-11-05",
+                        serverName: "Fixture MCP",
+                        serverVersion: "1.0.0",
+                        toolDescriptors: [
+                            MCPToolDescriptor(
+                                name: "read_file",
+                                description: "Read a file",
+                                requiredArguments: ["path"],
+                                schemaSummary: "required: path:string"
+                            ),
+                            MCPToolDescriptor(
+                                name: "write_file",
+                                requiredArguments: ["content", "path"],
+                                optionalArguments: ["overwrite"],
+                                schemaSummary: "required: content:string, path:string; optional: overwrite:boolean"
+                            )
+                        ],
+                        resourceNames: ["README", "Project config"],
+                        promptNames: ["summarize_project"]
+                    )
+                ]
+            )
+        )
+
+        let surface = model.surface()
+
+        XCTAssertEqual(surface.extensions.items.first?.statusLabel, "Ready")
+        XCTAssertEqual(surface.extensions.items.first?.serverLabel, "Fixture MCP 1.0.0")
+        XCTAssertEqual(surface.extensions.items.first?.protocolLabel, "MCP 2024-11-05")
+        XCTAssertEqual(surface.extensions.items.first?.toolCountLabel, "2 tools")
+        XCTAssertEqual(surface.extensions.items.first?.toolNames, ["read_file", "write_file"])
+        XCTAssertEqual(surface.extensions.items.first?.toolDescriptors.map(\.schemaSummary), [
+            "required: path:string",
+            "required: content:string, path:string; optional: overwrite:boolean"
+        ])
+        XCTAssertEqual(surface.extensions.items.first?.resourceCountLabel, "2 resources")
+        XCTAssertEqual(surface.extensions.items.first?.resourceNames, ["README", "Project config"])
+        XCTAssertEqual(surface.extensions.items.first?.promptCountLabel, "1 prompt")
+        XCTAssertEqual(surface.extensions.items.first?.promptNames, ["summarize_project"])
+        XCTAssertNil(surface.extensions.items.first?.startCommandID)
+        XCTAssertEqual(surface.extensions.items.first?.stopCommandID, "mcp-stop:mcp_server:filesystem")
+        XCTAssertEqual(surface.commands.first { $0.id == "mcp-start:mcp_server:filesystem" }?.isEnabled, false)
+        XCTAssertEqual(surface.commands.first { $0.id == "mcp-stop:mcp_server:filesystem" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "stop-all" }?.isEnabled, true)
+    }
+
     func testReadyMCPServerCanBeCalledFromAgentTurn() async throws {
         let root = try makeQuillCodeTestDirectory()
         let mcpDirectory = root.appendingPathComponent(".quillcode/mcp")
