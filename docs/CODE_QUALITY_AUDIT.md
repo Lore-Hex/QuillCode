@@ -4599,7 +4599,7 @@ What changed:
 
 Current strict grades:
 - `QuillCodeCore`: **A**. Stable data contracts and compatibility gates remain strong.
-- `QuillCodeTools`: **A-**. Tool behavior is well bounded, but `ToolTests.swift` remains a large mixed suite.
+- `QuillCodeTools`: **A- at this slice**. Tool behavior was well bounded, but the broad tool test suite still needed follow-up ownership splits; the 2026-06-25 tool-test slices below retired that catch-all.
 - `QuillCodeSafety`: **A-**. Policy boundaries are cleaner than earlier; live Auto-review telemetry and UX coverage still need depth.
 - `QuillCodeAgent`: **A-**. Good parser/streaming/final-answer splits; mock intent planning should continue shrinking by feature family.
 - `QuillCodePersistence`: **A**. Persistence boundaries remain clean.
@@ -4609,7 +4609,7 @@ Current strict grades:
 - `E2E harness`: **A-**. Coverage is valuable, but the HTML harness and Playwright spec still need more modularization.
 
 Remaining risk:
-- This is still not an A+ whole repo. Next highest-leverage steps are extracting another `WorkspaceModel` workflow boundary, splitting `ToolTests.swift`, adding a real browser session/live DOM adapter, and continuing to reduce duplicated Swift/HTML harness display contracts.
+- This is still not an A+ whole repo. Next highest-leverage steps are extracting another `WorkspaceModel` workflow boundary, adding a real browser session/live DOM adapter, and continuing to reduce duplicated Swift/HTML harness display contracts.
 
 ## 2026-06-24 Workspace Automation Model API Extraction
 
@@ -6089,3 +6089,49 @@ Current strict grades:
 
 Remaining risk:
 - The catalog should stay intentionally narrow. If future host-owned commands are added, add them here with a focused test rather than restoring broad planner fallback.
+
+## 2026-06-25 Local Git Tool Test Split
+
+Overall grade after this slice: **A local git coverage, A router coverage, A mixed-suite containment**.
+
+`ToolTests.swift` had shrunk shell and GitHub PR responsibilities into focused suites, but still owned local git, hunk patch, worktree, and git router coverage. That kept unrelated git failures in one broad catch-all.
+
+What changed:
+- Moved local git stage/restore/commit/push/input-validation tests into `GitLocalToolExecutorTests.swift`.
+- Moved hunk patch staging/restoring and patch-path mismatch tests into `GitPatchToolExecutorTests.swift`.
+- Moved worktree create/list/remove coverage into `GitWorktreeToolExecutorTests.swift`.
+- Moved git dispatcher/router definition and route smoke coverage into `GitToolRouterTests.swift`.
+- Added parity gates so `ToolTests.swift` stays focused on file/patch primitives plus shell router boundary coverage.
+
+Current strict grades:
+- `ToolTests.swift`: **A-**. It is down to focused mixed primitives and shell-router boundary checks, but still can be split further around file/patch primitives later.
+- `GitLocalToolExecutorTests.swift`: **A**. It owns local git user workflows and shared input validation.
+- `GitPatchToolExecutorTests.swift`: **A**. It owns hunk patch behavior and quoted-path mismatch parsing.
+- `GitWorktreeToolExecutorTests.swift`: **A**. It owns worktree lifecycle safety coverage.
+- `GitToolRouterTests.swift`: **A**. It owns git dispatcher and router exposure smoke coverage.
+
+Remaining risk:
+- Superseded by the 2026-06-25 retired mixed tool suite slice below.
+
+## 2026-06-25 Retire Mixed ToolTests Suite
+
+Overall grade after this slice: **A tool test ownership, A suite naming, A mixed-suite containment**.
+
+After the local git split, `ToolTests.swift` contained only file primitives, generic apply-patch primitives, and shell-router boundary checks. Keeping even a small catch-all made it too easy for future tool coverage to drift back into an ambiguous suite, so the better A+ architecture move was to retire the file entirely.
+
+What changed:
+- Moved file read/write path-containment coverage into `FileToolExecutorTests.swift`.
+- Moved generic apply-patch success and unsafe-path coverage into `PatchToolExecutorTests.swift`.
+- Moved shell dispatcher and `ToolRouter` shell boundary coverage into `ShellToolRouterTests.swift`.
+- Deleted `ToolTests.swift`.
+- Added a parity gate that fails if `ToolTests.swift` returns and verifies the focused suites own the remaining primitive coverage.
+
+Current strict grades:
+- `FileToolExecutorTests.swift`: **A**. It owns file primitive behavior and path containment directly.
+- `PatchToolExecutorTests.swift`: **A**. It owns generic patch primitive behavior without mixing git hunk behavior.
+- `ShellToolRouterTests.swift`: **A**. It owns shell-router boundary coverage, separate from process execution and SSH request tests.
+- `ShellToolExecutorTests.swift`: **A**. It remains focused on process execution, streaming, cancellation, and SSH shell request construction.
+- `QuillCodeToolsTests` ownership: **A**. Each current suite now names a tool family or protocol boundary instead of relying on a broad catch-all.
+
+Remaining risk:
+- `MCPStdioProberTests.swift` and `GitHubPullRequestToolExecutorTests.swift` are still the largest tools test files. They are focused enough to keep for now, but should be split by protocol probing and PR command family if they grow materially.
