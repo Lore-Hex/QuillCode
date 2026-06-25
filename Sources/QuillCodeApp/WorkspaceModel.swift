@@ -766,28 +766,8 @@ public final class QuillCodeWorkspaceModel {
 
         do {
             try Task.checkCancellation()
-            let activeRunner = WorkspaceAgentRunContextBuilder(
-                selectedProject: selectedProject,
-                browser: browser,
-                browserToolOverride: WorkspaceBrowserAgentToolOverride.make { [weak self] call, workspaceRoot in
-                    guard let self else { return nil }
-                    return self.executeBrowserToolForAgent(call, workspaceRoot: workspaceRoot)
-                },
-                computerUseBackend: computerUseBackend,
-                globalMemoryDirectory: globalMemoryDirectory,
-                mcpToolDefinitions: mcpRuntime.toolDefinitions(
-                    manifests: selectedProject?.extensionManifests ?? [],
-                    extensions: extensions
-                ),
-                mcpToolExecutionOverride: mcpRuntime.executionOverride(extensions: extensions),
-                sshRemoteShellExecutor: sshRemoteShellExecutor
-            ).configuredRunner(from: runner)
-            let session = WorkspaceAgentSendSession(
-                prompt: prompt,
-                thread: thread,
-                runner: activeRunner,
-                workspaceRoot: workspaceRoot
-            )
+            let session = agentSendSessionFactory(workspaceRoot: workspaceRoot)
+                .makeSession(prompt: prompt, thread: thread)
             let result = try await session.run { [weak self] progressThread in
                 await self?.applyAgentProgress(progressThread, expectedThreadID: threadID)
             }
@@ -803,6 +783,27 @@ public final class QuillCodeWorkspaceModel {
         } catch {
             applyComposerSendLifecycle(WorkspaceComposerSendLifecycle.failed(error, from: composer))
         }
+    }
+
+    private func agentSendSessionFactory(workspaceRoot: URL) -> WorkspaceAgentSendSessionFactory {
+        WorkspaceAgentSendSessionFactory(
+            baseRunner: runner,
+            selectedProject: selectedProject,
+            browser: browser,
+            browserToolOverride: WorkspaceBrowserAgentToolOverride.make { [weak self] call, workspaceRoot in
+                guard let self else { return nil }
+                return self.executeBrowserToolForAgent(call, workspaceRoot: workspaceRoot)
+            },
+            computerUseBackend: computerUseBackend,
+            globalMemoryDirectory: globalMemoryDirectory,
+            mcpToolDefinitions: mcpRuntime.toolDefinitions(
+                manifests: selectedProject?.extensionManifests ?? [],
+                extensions: extensions
+            ),
+            mcpToolExecutionOverride: mcpRuntime.executionOverride(extensions: extensions),
+            sshRemoteShellExecutor: sshRemoteShellExecutor,
+            workspaceRoot: workspaceRoot
+        )
     }
 
     private func applyAgentProgress(_ thread: ChatThread, expectedThreadID: UUID) {
