@@ -6263,3 +6263,24 @@ Current strict grades:
 
 Remaining risk:
 - There is still no cached last-known worktree list when a remote host is offline. Branch lifecycle polish, PR handoff, and a richer stale-worktree cleanup UI remain broader Codex-parity follow-ups.
+
+## 2026-06-25 Workspace Thread API Extension
+
+Overall grade after this slice: **A- thread API ownership, A sidebar parity gates, B+ central model size**.
+
+`WorkspaceModel.swift` was still carrying user-facing thread lifecycle and sidebar-selection API bodies even though the actual record construction, lifecycle mutation, and sidebar reducers already lived in focused helpers. That kept the central model larger than necessary and made future thread or sidebar UX work more likely to collide with unrelated project, tool-run, terminal, and browser changes.
+
+What changed:
+- Added `WorkspaceModelThreads.swift` as the focused same-actor extension for new chat, fork, compact, thread selection, sidebar selection, sidebar bulk actions, thread rename/duplicate/pin/archive/unarchive/delete, and created-thread insertion.
+- Left storage, persistence bridges, selected-thread mutation, project helpers, and top-bar refresh on `QuillCodeWorkspaceModel` so behavior stays actor-owned and side effects remain explicit.
+- Narrowly changed `root` and `sidebarSelection` setters to `public internal(set)` so same-module model extensions can mutate state while external package users still see read-only state.
+- Updated parity gates to require thread/sidebar API bodies and their helper delegations in `WorkspaceModelThreads.swift`, and to prevent them from drifting back into `WorkspaceModel.swift`.
+
+Current strict grades:
+- `WorkspaceModelThreads.swift`: **A-**. It is cohesive and delegates creation/lifecycle/sidebar policy to focused helpers, but still necessarily coordinates persistence, selected project state, and top-bar refresh around thread mutations.
+- `WorkspaceModel.swift`: **B+/A-**. It dropped another large API family and is easier to scan, but remains the central actor for project, send, terminal, tool, MCP, memory, automation, and persistence orchestration.
+- `ParityWorkspaceModelGateTests.swift`: **A-**. It now checks ownership at the extension boundary instead of treating `WorkspaceModel.swift` as the only acceptable delegation site.
+- `ParityWorkspaceSidebarGateTests.swift`: **A**. It keeps sidebar reducer/executor ownership visible while preventing sidebar API bodies from returning to the central model.
+
+Remaining risk:
+- `WorkspaceModel.swift` is still the largest app file. The next high-leverage extraction should move another coherent same-actor API family, likely project APIs or terminal APIs, only if helper access can stay narrow and focused tests prove behavior did not change.
