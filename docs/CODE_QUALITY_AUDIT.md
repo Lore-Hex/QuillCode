@@ -4873,3 +4873,21 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting the broad parity file by remaining domains: memory, MCP, automation/terminal, sidebar, and final workspace-surface contracts.
+
+## 2026-06-24 Workspace Memory Gate Split
+
+Overall grade after this slice: **A memory-gate ownership, A drift protection, B+ catch-all size**.
+
+After the project split, memory command orchestration and memory integration ownership still lived in the broad parity file. Those checks protect a user-visible behavior: memories should be persisted, summarized, deleted, and refreshed through focused engines rather than leaking file and transcript details back into `WorkspaceModel`.
+
+What changed:
+- Added `ParityWorkspaceMemoryGateTests` for memory orchestration and memory integration ownership gates.
+- Registered the memory suite in the top-level parity guard so moved memory gates cannot drift back to the catch-all.
+- Reduced the catch-all parity file again while leaving behavior unchanged.
+
+Current strict grades:
+- `ParityWorkspaceMemoryGateTests.swift`: **A**. Memory persistence, copy, and context-refresh boundaries now have a focused parity owner.
+- `ParityGateTests.swift`: **B+**. Smaller, but still owns MCP, automation, terminal, sidebar, review/runtime, and remaining surface-boundary gates.
+
+Remaining risk:
+- Continue draining `ParityGateTests.swift` by feature family. Good next splits: MCP gates, automation/terminal gates, sidebar gates, and final workspace-surface gates.
