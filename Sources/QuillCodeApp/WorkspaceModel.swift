@@ -762,10 +762,7 @@ public final class QuillCodeWorkspaceModel {
         syncThreadContext(into: &thread)
         let threadID = thread.id
 
-        composer.draft = ""
-        composer.isSending = true
-        lastError = nil
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
+        applyComposerSendLifecycle(WorkspaceComposerSendLifecycle.started(from: composer))
 
         do {
             try Task.checkCancellation()
@@ -800,14 +797,11 @@ public final class QuillCodeWorkspaceModel {
             }
             updateThreadFromAgentRun(thread)
             try threadPersistence.saveOrThrow(thread)
-            composer.isSending = false
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+            applyComposerSendLifecycle(WorkspaceComposerSendLifecycle.completed(from: composer))
         } catch is CancellationError {
             finishCancelledSend(userPrompt: prompt, threadID: threadID)
         } catch {
-            composer.isSending = false
-            lastError = String(describing: error)
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.failed)
+            applyComposerSendLifecycle(WorkspaceComposerSendLifecycle.failed(error, from: composer))
         }
     }
 
@@ -1349,12 +1343,16 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func finishCancelledSend(userPrompt: String, threadID: UUID) {
-        composer.isSending = false
-        lastError = nil
         mutateThread(threadID) { thread in
             WorkspaceComposerCancellationPlanner.applyCancelledSend(userPrompt: userPrompt, to: &thread)
         }
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.stopped)
+        applyComposerSendLifecycle(WorkspaceComposerSendLifecycle.cancelled(from: composer))
+    }
+
+    private func applyComposerSendLifecycle(_ plan: WorkspaceComposerSendLifecyclePlan) {
+        composer = plan.composer
+        lastError = plan.lastError
+        refreshTopBar(agentStatus: plan.agentStatus)
     }
 
     private func statusText() -> String {
