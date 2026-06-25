@@ -77,6 +77,25 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Removed the unused root-model `WorkspaceContextResolver` property; active context lookup now lives only in the surface builder and project context refresher.
 - Split native worktree sheet value state and shared choice-row chrome out of `QuillCodeWorktreeDialogs.swift`.
 - Added focused draft/request tests and parity gates that keep worktree draft state, shared row chrome, minimum hit-targets, and shared 0.96 press feedback out of the dialog composition file.
+- Split native model picker row/detail chrome out of `QuillCodeModelPickerView.swift` into `QuillCodeModelPickerRows.swift`.
+- Added a parity gate that keeps model-picker search/highlight state in the picker shell and row/detail/badge/press-feedback behavior in the focused row file.
+
+## 2026-06-25 Model Picker Row Boundary Pass
+
+Overall grade after this slice: **A model picker interaction ownership, A- row chrome ownership, A parity guard**.
+
+`QuillCodeModelPickerView.swift` had become a mixed SwiftUI file: trigger button, popover search/focus/highlight state, category sections, rows, action buttons, badges, and expanded details lived together. The behavior was correct, but the file made model-picker UX harder to refine and risked search/keyboard behavior getting tangled with row visual polish.
+
+Code quality changes:
+
+- Added `QuillCodeModelPickerRows.swift` for category sections, option rows, badges, favorite/detail buttons, and expanded metadata.
+- Kept `QuillCodeModelPickerView.swift` focused on trigger, popover, search, keyboard navigation, highlighted selection, and final model selection.
+- Preserved shared `QuillCodePressableButtonStyle` and `QuillCodeMetrics.minimumHitTarget` inside the row file.
+- Added a parity gate that prevents row/detail/badge rendering from drifting back into the picker shell.
+
+Remaining risk:
+
+- Model picker row visual behavior is still covered indirectly by SwiftUI compile/parity and Playwright harness behavior. Future native UI automation should cover favorite toggle, details expand/collapse, and keyboard highlight state directly.
 
 ## 2026-06-25 Worktree Dialog Boundary Pass
 
