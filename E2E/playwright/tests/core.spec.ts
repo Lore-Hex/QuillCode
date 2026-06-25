@@ -1,5 +1,17 @@
 import { test, expect, type Page } from '@playwright/test';
-import { clickSidebarTool, openSettings, openSidebarTools, openTopBarOverflow } from './harness-helpers';
+import {
+  clickSidebarTool,
+  computedStyleProperties,
+  elementRect,
+  openSettings,
+  openSidebarTools,
+  openTopBarOverflow
+} from './harness-helpers';
+
+function expectPresent<T>(value: T | null, label: string): T {
+  expect(value, label).not.toBeNull();
+  return value as T;
+}
 
 test('mock harness executes simple command flow', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
@@ -22,9 +34,9 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('composer-agent-status')).toHaveCount(0);
   const modelButtonBox = await page.getByTestId('model-picker-button').boundingBox();
   const modeButtonBox = await page.getByTestId('mode-picker-button').boundingBox();
-  expect(modelButtonBox).not.toBeNull();
-  expect(modeButtonBox).not.toBeNull();
-  expect(modeButtonBox!.x - (modelButtonBox!.x + modelButtonBox!.width)).toBeGreaterThanOrEqual(8);
+  const modelButtonBounds = expectPresent(modelButtonBox, 'model picker button should have bounds');
+  const modeButtonBounds = expectPresent(modeButtonBox, 'mode picker button should have bounds');
+  expect(modeButtonBounds.x - (modelButtonBounds.x + modelButtonBounds.width)).toBeGreaterThanOrEqual(8);
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-category')).toHaveCount(2);
   await page.getByTestId('model-picker-button').click();
@@ -167,9 +179,9 @@ test('mock harness exposes actionable approval buttons on review cards', async (
   await expect(page.getByTestId('tool-card-action').filter({ hasText: 'Skip' })).toBeVisible();
   const runBox = await page.getByTestId('tool-card-action').filter({ hasText: 'Run' }).boundingBox();
   const skipBox = await page.getByTestId('tool-card-action').filter({ hasText: 'Skip' }).boundingBox();
-  expect(runBox).not.toBeNull();
-  expect(skipBox).not.toBeNull();
-  expect(runBox!.width).toBeGreaterThan(skipBox!.width);
+  const runBounds = expectPresent(runBox, 'run approval action should have bounds');
+  const skipBounds = expectPresent(skipBox, 'skip approval action should have bounds');
+  expect(runBounds.width).toBeGreaterThan(skipBounds.width);
 
   await page.getByTestId('tool-card-action').filter({ hasText: 'Run' }).click();
 
@@ -292,39 +304,51 @@ test('mock harness avoids horizontal clipping in key desktop and mobile flows', 
 test('mock harness applies interface polish primitives', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
-  const polish = await page.evaluate(() => {
-    const styleFor = (selector: string) => getComputedStyle(document.querySelector(selector)!);
-    const sendButton = styleFor('[data-testid="send-button"]');
-    const addProjectButton = styleFor('[data-testid="add-project-button"]');
-    const sidebarAction = styleFor('[data-testid="new-chat-button"]');
-    const messageInput = styleFor('#message');
-    const title = styleFor('[data-testid="top-bar-title"]');
-    const agentStatus = styleFor('[data-testid="agent-status"]');
-    const sidebar = styleFor('[data-testid="sidebar"]');
-    const sidebarToolsButton = styleFor('[data-testid="sidebar-tools-button"]');
-    const sidebarToolAction = styleFor('[data-testid="sidebar-search-button"]');
-    const sidebarSettingsButton = styleFor('[data-testid="settings-button"]');
+  const [
+    rootStyle,
+    sendButtonStyle,
+    addProjectButtonStyle,
+    sidebarActionStyle,
+    messageInputStyle,
+    titleStyle,
+    agentStatusStyle,
+    sidebarStyle,
+    sidebarToolsButtonStyle,
+    sidebarToolActionStyle,
+    sidebarSettingsButtonStyle
+  ] = await Promise.all([
+    computedStyleProperties(page, 'html', ['-webkit-font-smoothing']),
+    computedStyleProperties(page, '[data-testid="send-button"]', ['min-height', 'transition-property']),
+    computedStyleProperties(page, '[data-testid="add-project-button"]', ['width', 'height']),
+    computedStyleProperties(page, '[data-testid="new-chat-button"]', ['min-height', 'transition-property']),
+    computedStyleProperties(page, '#message', ['transition-property']),
+    computedStyleProperties(page, '[data-testid="top-bar-title"]', ['text-wrap']),
+    computedStyleProperties(page, '[data-testid="agent-status"]', ['font-variant-numeric']),
+    computedStyleProperties(page, '[data-testid="sidebar"]', ['border-radius']),
+    computedStyleProperties(page, '[data-testid="sidebar-tools-button"]', ['min-height', 'transition-property']),
+    computedStyleProperties(page, '[data-testid="sidebar-search-button"]', ['min-height', 'transition-property']),
+    computedStyleProperties(page, '[data-testid="settings-button"]', ['width', 'min-height'])
+  ]);
 
-    return {
-      rootFontSmoothing: getComputedStyle(document.documentElement).webkitFontSmoothing,
-      sendMinHeight: parseFloat(sendButton.minHeight),
-      sendTransitionProperty: sendButton.transitionProperty,
-      inputTransitionProperty: messageInput.transitionProperty,
-      sidebarActionTransitionProperty: sidebarAction.transitionProperty,
-      sidebarActionMinHeight: parseFloat(sidebarAction.minHeight),
-      titleTextWrap: title.getPropertyValue('text-wrap'),
-      agentStatusNumbers: agentStatus.fontVariantNumeric,
-      addProjectWidth: parseFloat(addProjectButton.width),
-      addProjectHeight: parseFloat(addProjectButton.height),
-      sidebarToolsMinHeight: parseFloat(sidebarToolsButton.minHeight),
-      sidebarToolsTransitionProperty: sidebarToolsButton.transitionProperty,
-      sidebarToolActionMinHeight: parseFloat(sidebarToolAction.minHeight),
-      sidebarToolActionTransitionProperty: sidebarToolAction.transitionProperty,
-      sidebarSettingsWidth: parseFloat(sidebarSettingsButton.width),
-      sidebarSettingsMinHeight: parseFloat(sidebarSettingsButton.minHeight),
-      sidebarRadius: parseFloat(sidebar.borderRadius)
-    };
-  });
+  const polish = {
+    rootFontSmoothing: rootStyle['-webkit-font-smoothing'],
+    sendMinHeight: parseFloat(sendButtonStyle['min-height']),
+    sendTransitionProperty: sendButtonStyle['transition-property'],
+    inputTransitionProperty: messageInputStyle['transition-property'],
+    sidebarActionTransitionProperty: sidebarActionStyle['transition-property'],
+    sidebarActionMinHeight: parseFloat(sidebarActionStyle['min-height']),
+    titleTextWrap: titleStyle['text-wrap'],
+    agentStatusNumbers: agentStatusStyle['font-variant-numeric'],
+    addProjectWidth: parseFloat(addProjectButtonStyle.width),
+    addProjectHeight: parseFloat(addProjectButtonStyle.height),
+    sidebarToolsMinHeight: parseFloat(sidebarToolsButtonStyle['min-height']),
+    sidebarToolsTransitionProperty: sidebarToolsButtonStyle['transition-property'],
+    sidebarToolActionMinHeight: parseFloat(sidebarToolActionStyle['min-height']),
+    sidebarToolActionTransitionProperty: sidebarToolActionStyle['transition-property'],
+    sidebarSettingsWidth: parseFloat(sidebarSettingsButtonStyle.width),
+    sidebarSettingsMinHeight: parseFloat(sidebarSettingsButtonStyle['min-height']),
+    sidebarRadius: parseFloat(sidebarStyle['border-radius'])
+  };
 
   expect(polish.rootFontSmoothing).toBe('antialiased');
   expect(polish.sendMinHeight).toBeGreaterThanOrEqual(40);
@@ -354,25 +378,31 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-density', 'collapsed');
 
-  const transcriptPolish = await page.evaluate(() => {
-    const styleFor = (selector: string) => getComputedStyle(document.querySelector(selector)!);
-    const toolCard = styleFor('[data-testid="tool-card"]');
-    const toolCardRect = document.querySelector('[data-testid="tool-card"]')!.getBoundingClientRect();
-    const toolStatus = styleFor('[data-testid="tool-card-status"]');
-    const toolCopyButton = styleFor('[data-testid="tool-card-copy"]');
-    const messageCopyButton = styleFor('[data-testid="message-copy"]');
-    const sidebarMenuRect = document.querySelector('[data-testid="sidebar-item-actions"] summary')!.getBoundingClientRect();
+  const [
+    toolCardStyle,
+    toolCardRect,
+    toolStatusStyle,
+    toolCopyButtonStyle,
+    messageCopyButtonStyle,
+    sidebarMenuRect
+  ] = await Promise.all([
+    computedStyleProperties(page, '[data-testid="tool-card"]', ['min-height']),
+    elementRect(page, '[data-testid="tool-card"]'),
+    computedStyleProperties(page, '[data-testid="tool-card-status"]', ['font-variant-numeric']),
+    computedStyleProperties(page, '[data-testid="tool-card-copy"]', ['min-height']),
+    computedStyleProperties(page, '[data-testid="message-copy"]', ['min-height']),
+    elementRect(page, '[data-testid="sidebar-item-actions"] summary')
+  ]);
 
-    return {
-      toolCardMinHeight: parseFloat(toolCard.minHeight),
-      toolCardRenderedHeight: toolCardRect.height,
-      toolStatusNumbers: toolStatus.fontVariantNumeric,
-      toolCopyMinHeight: parseFloat(toolCopyButton.minHeight),
-      messageCopyMinHeight: parseFloat(messageCopyButton.minHeight),
-      sidebarMenuWidth: sidebarMenuRect.width,
-      sidebarMenuHeight: sidebarMenuRect.height
-    };
-  });
+  const transcriptPolish = {
+    toolCardMinHeight: parseFloat(toolCardStyle['min-height']),
+    toolCardRenderedHeight: toolCardRect.height,
+    toolStatusNumbers: toolStatusStyle['font-variant-numeric'],
+    toolCopyMinHeight: parseFloat(toolCopyButtonStyle['min-height']),
+    messageCopyMinHeight: parseFloat(messageCopyButtonStyle['min-height']),
+    sidebarMenuWidth: sidebarMenuRect.width,
+    sidebarMenuHeight: sidebarMenuRect.height
+  };
 
   expect(transcriptPolish.toolCardMinHeight).toBeGreaterThanOrEqual(58);
   expect(transcriptPolish.toolCardRenderedHeight).toBeGreaterThanOrEqual(58);
@@ -400,26 +430,38 @@ test('mock harness keeps quiet top bar stable under long status metadata', async
     element.textContent = 'Idle';
   });
 
-  const metrics = await page.evaluate(() => {
-    const styleFor = (selector: string) => getComputedStyle(document.querySelector(selector)!);
-    const rectFor = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
-    const topBarRect = rectFor('[data-testid="top-bar"]');
-    const actionRect = rectFor('[data-testid="top-bar-action-cluster"]');
-    const metadataRect = rectFor('[data-testid="top-bar-status-metadata"]');
-    return {
-      viewportWidth: document.documentElement.clientWidth,
+  const [
+    viewportMetrics,
+    clustersStyle,
+    contextStyle,
+    metadataRect,
+    topBarRect,
+    actionRect
+  ] = await Promise.all([
+    page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
-      clustersDisplay: styleFor('[data-testid="top-bar-clusters"]').display,
-      clustersColumns: styleFor('[data-testid="top-bar-clusters"]').gridTemplateColumns,
-      contextOverflow: styleFor('[data-testid="top-bar-subtitle"]').overflow,
-      contextTextOverflow: styleFor('[data-testid="top-bar-subtitle"]').textOverflow,
-      metadataWidth: metadataRect.width,
-      metadataHeight: metadataRect.height,
-      topBarHeight: topBarRect.height,
-      actionRight: actionRect.right,
-      topBarRight: topBarRect.right
-    };
-  });
+      viewportWidth: document.documentElement.clientWidth
+    })),
+    computedStyleProperties(page, '[data-testid="top-bar-clusters"]', ['display', 'grid-template-columns']),
+    computedStyleProperties(page, '[data-testid="top-bar-subtitle"]', ['overflow', 'text-overflow']),
+    elementRect(page, '[data-testid="top-bar-status-metadata"]'),
+    elementRect(page, '[data-testid="top-bar"]'),
+    elementRect(page, '[data-testid="top-bar-action-cluster"]')
+  ]);
+
+  const metrics = {
+    viewportWidth: viewportMetrics.viewportWidth,
+    scrollWidth: viewportMetrics.scrollWidth,
+    clustersDisplay: clustersStyle.display,
+    clustersColumns: clustersStyle['grid-template-columns'],
+    contextOverflow: contextStyle.overflow,
+    contextTextOverflow: contextStyle['text-overflow'],
+    metadataWidth: metadataRect.width,
+    metadataHeight: metadataRect.height,
+    topBarHeight: topBarRect.height,
+    actionRight: actionRect.right,
+    topBarRight: topBarRect.right
+  };
 
   await expect(page.getByTestId('top-bar-status-button')).toHaveCount(0);
   await expect(page.getByTestId('top-bar-status-menu')).toHaveCount(0);

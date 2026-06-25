@@ -5615,3 +5615,24 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `core.spec.ts` by feature family. Good next slices are top-bar/polish flows, shortcut flows, and memory/context/activity flows.
+
+## 2026-06-25 Playwright DOM Query Hardening
+
+Overall grade after this slice: **A E2E DOM assertion hygiene, A shared Playwright metric helpers, A- broad Playwright core spec**.
+
+The Playwright suite had useful visual-polish checks, but a few still used TypeScript non-null assertions such as `boundingBox()!` and `querySelector(...)!`. Those are acceptable for quick prototypes, but they produce poor diagnostics in CI and encourage fragile browser-side selector probing as the harness grows.
+
+What changed:
+- Added shared Playwright helpers for computed style reads and element rectangle reads.
+- Replaced `core.spec.ts` bounding-box non-null assertions with labeled `expectPresent(...)` checks.
+- Moved style and rect probes out of ad hoc `page.evaluate()` scripts and onto locator-backed helpers.
+- Replaced nested artifact-preview `querySelector(...)!` probes with locator-backed style helper calls.
+- Added a parity gate that scans Playwright tests for DOM force unwraps and TypeScript non-null assertions.
+
+Current strict grades:
+- `E2E/playwright/tests/harness-helpers.ts`: **A**. Shared E2E helpers now cover command palette, sidebar, settings, computed styles, and element rects.
+- `E2E/playwright/tests/core.spec.ts`: **A-**. The broad spec still needs more feature-family splits, but its remaining style and layout checks now fail with better selector diagnostics.
+- `ParityGateTests.swift`: **A**. It now guards both production Swift crash patterns and Playwright DOM assertion hygiene.
+
+Remaining risk:
+- Continue splitting `core.spec.ts` by feature family. Composer/model-picker, shortcut/slash, and memory/context flows are still the highest-value next splits.
