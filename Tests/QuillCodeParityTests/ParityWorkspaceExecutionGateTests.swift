@@ -39,18 +39,56 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let factoryText = try Self.appSourceText(named: "WorkspaceAgentSendSessionFactory.swift")
         let sessionText = try Self.appSourceText(named: "WorkspaceAgentSendSession.swift")
+        let coordinatorText = try Self.appSourceText(named: "WorkspaceAgentSendTaskCoordinator.swift")
+        let coordinatorTests = try Self.appTestSourceText(named: "WorkspaceAgentSendTaskCoordinatorTests.swift")
 
         XCTAssertTrue(
             sessionText.contains("struct WorkspaceAgentSendSession"),
             "Agent send execution should live in a focused session object."
         )
         XCTAssertTrue(
+            coordinatorText.contains("enum WorkspaceAgentSendTaskOutcome"),
+            "Agent send task terminal states should have a typed outcome."
+        )
+        XCTAssertTrue(
+            coordinatorText.contains("struct WorkspaceAgentSendTaskCoordinator"),
+            "Agent send task execution and error classification should live in a focused coordinator."
+        )
+        XCTAssertTrue(
+            coordinatorText.contains("case completed"),
+            "The task coordinator should preserve successful completion as an explicit outcome."
+        )
+        XCTAssertTrue(
+            coordinatorText.contains("case cancelled"),
+            "The task coordinator should preserve cancellation as an explicit outcome."
+        )
+        XCTAssertTrue(
+            coordinatorText.contains("case failed"),
+            "The task coordinator should preserve runtime failures as an explicit outcome."
+        )
+        XCTAssertTrue(
             factoryText.contains("WorkspaceAgentSendSession("),
             "Agent send session construction should live in the send-session factory."
         )
         XCTAssertTrue(
+            coordinatorTests.contains("testRunReturnsCompletedOutcome"),
+            "Focused coordinator tests should cover successful task completion."
+        )
+        XCTAssertTrue(
+            coordinatorTests.contains("testRunConvertsCancellationToStoppedOutcome"),
+            "Focused coordinator tests should cover cancellation classification."
+        )
+        XCTAssertTrue(
+            coordinatorTests.contains("testRunConvertsRuntimeErrorToFailedOutcome"),
+            "Focused coordinator tests should cover runtime failure classification."
+        )
+        XCTAssertTrue(
             modelText.contains("WorkspaceAgentSendSessionFactory("),
             "WorkspaceModel should delegate runner execution setup to the send-session factory."
+        )
+        XCTAssertTrue(
+            modelText.contains("WorkspaceAgentSendTaskCoordinator("),
+            "WorkspaceModel should delegate active send task execution to the focused coordinator."
         )
         XCTAssertFalse(
             modelText.contains("WorkspaceAgentSendSession("),
@@ -148,12 +186,28 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
             "WorkspaceModel should route failed send completion through a named helper."
         )
         XCTAssertTrue(
-            submitBody.contains("try finishCompletedSend(result)"),
-            "submitComposer should delegate successful send completion."
+            modelText.contains("private func finishAgentSend"),
+            "WorkspaceModel should route typed send outcomes through a named terminal helper."
         )
         XCTAssertTrue(
-            submitBody.contains("finishFailedSend(error)"),
-            "submitComposer should delegate failed send completion."
+            submitBody.contains("finishAgentSend(outcome)"),
+            "submitComposer should delegate typed send outcome handling."
+        )
+        XCTAssertTrue(
+            modelText.contains("try finishCompletedSend(result)"),
+            "The terminal helper should delegate successful send completion."
+        )
+        XCTAssertTrue(
+            modelText.contains("finishFailedSend(error)"),
+            "The terminal helper should delegate failed send completion."
+        )
+        XCTAssertFalse(
+            submitBody.contains("catch is CancellationError"),
+            "submitComposer should not classify send cancellation inline."
+        )
+        XCTAssertFalse(
+            submitBody.contains("catch {"),
+            "submitComposer should not classify send failures inline."
         )
         XCTAssertFalse(
             submitBody.contains("result.savedMemory"),
