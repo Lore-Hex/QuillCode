@@ -5165,3 +5165,29 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `WorkspaceSurfaceTests.swift` by feature family. Good next slices are settings/runtime surface ownership and review surface ownership.
+
+## 2026-06-24 Sidebar Primary Action Parity
+
+Overall grade after this slice: **A Codex alignment, A sidebar command ownership, A- visual density**.
+
+The sidebar command presentation was well-factored, but it had drifted too quiet: only New chat was visible in the primary rail while Search, Plugins, and Automations were hidden behind Tools. The Codex reference makes those four actions visible because they anchor the first-read navigation, while lower-frequency utilities can stay in a compact footer.
+
+What changed:
+- Promoted Search, Plugins, and Automations into `QuillCodeSidebarCommandPresentation.primaryCommandIDs` beside New chat.
+- Kept Command Palette, Terminal, Browser, Memories, and Activity in the compact Tools menu.
+- Updated sidebar command presentation tests to lock the visible order, labels, symbols, HTML icon tokens, and test IDs.
+- Updated the Playwright harness smoke flow so the rendered sidebar proves the primary rows are visible and the footer Tools menu only contains secondary utilities.
+- Updated the static browser harness sidebar so it matches the shared Swift/HTML renderer contract.
+- Updated the HTML chrome renderer regression to prove Search, Plugins, and Automations are primary rows and no longer duplicate inside Tools.
+- Updated `docs/DECISIONS.md` so future agents do not re-hide the primary Codex navigation by following stale prose.
+
+Current strict grades:
+- `QuillCodeSidebarCommandPresentation.swift`: **A**. It remains a single presentation boundary for native and HTML sidebar command rows.
+- `QuillCodeSidebarCommandPresentationTests.swift`: **A**. It now protects the Codex-like primary action rail and the compact secondary tools menu separately.
+- `WorkspaceHTMLChromeRendererTests.swift`: **A**. It now guards the static renderer hierarchy directly, including the absence of duplicate Tools rows.
+- `E2E/playwright/tests/core.spec.ts`: **A-**. The smoke harness now exercises the intended hierarchy, though future screenshot diffing would catch spacing regressions more directly.
+- `E2E/harness/index.html`: **B+**. The static harness remains intentionally hand-authored, but this slice closes a visible drift point between the harness and shared renderer.
+- `docs/DECISIONS.md`: **A-**. The chrome decision is current again, though the sidebar still needs rendered screenshot review for exact spacing and hierarchy.
+
+Remaining risk:
+- The native and HTML sidebar styles should get a visual pass after this structural change to ensure four primary rows feel calm rather than bulky in narrow windows.

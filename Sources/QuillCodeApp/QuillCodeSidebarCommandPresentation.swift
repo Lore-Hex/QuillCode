@@ -31,7 +31,10 @@ private struct QuillCodeSidebarCommandMetadata: Sendable, Hashable {
 
 struct QuillCodeSidebarCommandPresentation: Sendable, Hashable {
     static let primaryCommandIDs = [
-        "new-chat"
+        "new-chat",
+        "search",
+        "toggle-extensions",
+        "toggle-automations"
     ]
 
     static let utilityCommandGroups = [
@@ -39,22 +42,7 @@ struct QuillCodeSidebarCommandPresentation: Sendable, Hashable {
             id: "navigate",
             title: "Navigate",
             commandIDs: [
-                "search",
                 "command-palette"
-            ]
-        ),
-        QuillCodeSidebarCommandGroup(
-            id: "extensions",
-            title: "Extensions",
-            commandIDs: [
-                "toggle-extensions"
-            ]
-        ),
-        QuillCodeSidebarCommandGroup(
-            id: "automate",
-            title: "Automate",
-            commandIDs: [
-                "toggle-automations"
             ]
         ),
         QuillCodeSidebarCommandGroup(
