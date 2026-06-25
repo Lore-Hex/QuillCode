@@ -36,6 +36,38 @@ test('mock harness opens utilities from the top-bar overflow', async ({ page }) 
   await expect(page.getByTestId('top-bar-stop-button')).toHaveCount(0);
 });
 
+test('mock harness opens Computer Use setup from the top-bar overflow', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await openTopBarOverflow(page);
+  await page.getByTestId('top-bar-overflow-computer-use').click();
+
+  const settingsPanel = page.getByTestId('settings-panel');
+  await expect(settingsPanel).toBeVisible();
+  await expect(settingsPanel.getByTestId('computer-use-settings')).toBeVisible();
+  await expect(settingsPanel.getByTestId('computer-use-settings-status')).toHaveText('Setup needed');
+  await expect(settingsPanel.getByTestId('computer-use-next-action')).toContainText('Open Screen Recording first');
+
+  await settingsPanel.getByTestId('computer-use-permission-open').first().click();
+  await expect(settingsPanel.getByTestId('computer-use-last-opened')).toContainText('Privacy_ScreenCapture');
+});
+
+test('mock harness disconnects remote project connections from the top-bar overflow', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('/ssh quill@feather.local:/srv/quill');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('feather.local · quill');
+
+  await openTopBarOverflow(page);
+  await expect(page.getByTestId('top-bar-overflow-disconnect-all')).toBeVisible();
+  await page.getByTestId('top-bar-overflow-disconnect-all').click();
+
+  await expect(page.getByTestId('top-bar-subtitle')).toContainText('No project');
+  await openTopBarOverflow(page);
+  await expect(page.getByTestId('top-bar-overflow-disconnect-all')).toHaveCount(0);
+});
+
 test('mock harness avoids horizontal clipping in key desktop and mobile flows', async ({ browser }) => {
   const viewports = [
     { name: 'desktop', width: 1440, height: 1000 },
