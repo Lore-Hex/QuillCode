@@ -5310,3 +5310,30 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `core.spec.ts` by feature family. Good next slices are extension/MCP flows and command/sidebar search flows.
+
+## 2026-06-25 Command, Sidebar, And Context Surface Test Split
+
+Overall grade after this slice: **A command ownership, A sidebar ownership, A context-banner ownership, A- broad workspace smoke**.
+
+`WorkspaceSurfaceTests.swift` still owned command palette ranking, shortcut registry invariants, sidebar search behavior, sidebar bulk-action integration, composer slash suggestions, command-surface decode compatibility, and context-banner behavior. Those assertions each have focused owners now, so broad workspace smoke failures no longer mask command/sidebar/transcript regressions.
+
+What changed:
+- Moved sidebar search filtering into `QuillCodeThreadSidebarSurfaceTests`.
+- Added `WorkspaceSidebarIntegrationTests` for model-level sidebar bulk selection archive/delete behavior.
+- Added `WorkspaceShortcutRegistryTests` for shortcut label mapping and duplicate binding prevention.
+- Moved command-surface decode compatibility into `WorkspaceCommandSurfaceBuilderTests`.
+- Moved full slash suggestion filtering into `QuillCodeTranscriptSurfaceTests`.
+- Moved context-banner surface command and hidden-state behavior into `WorkspaceContextBannerBuilderTests`.
+- Added parity guards so the focused suites keep these responsibilities and `WorkspaceSurfaceTests.swift` does not regain them.
+- Reduced `WorkspaceSurfaceTests.swift` from 575 lines to 274 lines.
+
+Current strict grades:
+- `WorkspaceCommandPaletteRankerTests.swift`: **A**. It owns command palette ranking, scoping, grouping, and public delegation.
+- `WorkspaceShortcutRegistryTests.swift`: **A**. It owns shortcut registry invariants without coupling to workspace surface smoke.
+- `QuillCodeThreadSidebarSurfaceTests.swift`: **A**. It owns sidebar search, grouping, selection labels, archive groups, and compatibility rows.
+- `WorkspaceSidebarIntegrationTests.swift`: **A-**. It is intentionally small and focused on the model bridge for bulk sidebar actions.
+- `WorkspaceContextBannerBuilderTests.swift`: **A**. It owns context estimation, banner copy, compatibility, and surface command enablement.
+- `WorkspaceSurfaceTests.swift`: **A-**. It is now a broad assembly smoke suite plus a handful of high-level workspace checks.
+
+Remaining risk:
+- Continue reducing the largest integration files. Good next slices are `WorkspaceRemoteProjectIntegrationTests.swift`, `AgentTests.swift`, and the remaining broad Playwright `core.spec.ts` flows.

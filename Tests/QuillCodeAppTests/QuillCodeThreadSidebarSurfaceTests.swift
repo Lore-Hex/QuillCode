@@ -33,6 +33,7 @@ final class QuillCodeThreadSidebarSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.filteredItems(matching: "GLM").map(\.title), ["Review git diff"])
         XCTAssertEqual(surface.filteredItems(matching: "browser preview").map(\.title), ["Review git diff"])
         XCTAssertEqual(surface.filteredItems(matching: "archived").map(\.title), ["Old release plan"])
+        XCTAssertTrue(surface.filteredItems(matching: "workspace manager").isEmpty)
         XCTAssertEqual(surface.pinnedItems.map(\.title), ["Review git diff"])
         XCTAssertEqual(surface.recentItems.map(\.title), ["Run whoami"])
         XCTAssertEqual(surface.recentSections().map(\.title), ["Today"])
@@ -40,6 +41,21 @@ final class QuillCodeThreadSidebarSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.archivedItems.map(\.title), ["Old release plan"])
         XCTAssertEqual(surface.bulkActions.map(\.commandID), ["thread-selection-clear", "thread-bulk-delete"])
         XCTAssertEqual(surface.bulkActions.last?.isDestructive, true)
+    }
+
+    func testSidebarSearchExcludesHiddenToolFeedback() {
+        let thread = ChatThread(title: "Visible thread", messages: [
+            .init(role: .user, content: "run whoami"),
+            .init(role: .tool, content: #"{"result":"secret internal feedback"}"#),
+            .init(role: .assistant, content: "Output:\nquill")
+        ])
+        let sidebar = SidebarSurface(
+            items: [SidebarItemSurface(item: SidebarItem(thread: thread), selectedThreadID: thread.id)],
+            selectedThreadID: thread.id
+        )
+
+        XCTAssertEqual(sidebar.filteredItems(matching: "secret internal feedback"), [])
+        XCTAssertEqual(sidebar.filteredItems(matching: "whoami").map(\.id), [thread.id])
     }
 
     func testSidebarRecentSectionsGroupByTimeBucket() throws {

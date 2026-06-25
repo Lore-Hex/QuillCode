@@ -40,6 +40,44 @@ final class WorkspaceContextBannerBuilderTests: XCTestCase {
         XCTAssertNil(WorkspaceContextBannerBuilder(thread: shortThread).banner())
     }
 
+    @MainActor
+    func testSurfaceShowsBannerNearEstimatedLimitAndEnablesCommands() throws {
+        let longMessage = "context " + String(repeating: "word ", count: 26_000)
+        let thread = ChatThread(title: "Long context", messages: [
+            .init(role: .user, content: longMessage)
+        ])
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let surface = model.surface()
+        let banner = try XCTUnwrap(surface.contextBanner)
+
+        XCTAssertTrue(banner.usedPercent >= 80)
+        XCTAssertTrue(banner.title.contains("Context"))
+        XCTAssertEqual(banner.newThreadCommand.id, "new-chat")
+        XCTAssertEqual(banner.forkCommand.id, "fork-from-last")
+        XCTAssertEqual(banner.compactCommand.id, "compact-context")
+        XCTAssertEqual(surface.commands.first { $0.id == "fork-from-last" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "compact-context" }?.isEnabled, true)
+    }
+
+    @MainActor
+    func testSurfaceHidesBannerForShortThreadAndDisablesForkCommands() {
+        let thread = ChatThread(title: "Short")
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let surface = model.surface()
+
+        XCTAssertNil(surface.contextBanner)
+        XCTAssertEqual(surface.commands.first { $0.id == "fork-from-last" }?.isEnabled, false)
+        XCTAssertEqual(surface.commands.first { $0.id == "compact-context" }?.isEnabled, false)
+    }
+
     func testEstimateIncludesMessagesEventsAndInstructions() {
         let thread = ChatThread(
             messages: [

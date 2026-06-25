@@ -55,6 +55,10 @@ final class ParityWorkspaceCommandGateTests: QuillCodeParityTestCase {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let paletteText = try Self.appSourceText(named: "WorkspaceCommandPaletteSurface.swift")
         let rankerText = try Self.appSourceText(named: "WorkspaceCommandPaletteRanker.swift")
+        let broadSurfaceTests = try Self.appTestSourceText(named: "WorkspaceSurfaceTests.swift")
+        let rankerTests = try Self.appTestSourceText(named: "WorkspaceCommandPaletteRankerTests.swift")
+        let commandBuilderTests = try Self.appTestSourceText(named: "WorkspaceCommandSurfaceBuilderTests.swift")
+        let shortcutTests = try Self.appTestSourceText(named: "WorkspaceShortcutRegistryTests.swift")
 
         XCTAssertTrue(paletteText.contains("public struct WorkspaceCommandSurface"), "Command surface records should live beside command palette API types.")
         XCTAssertTrue(paletteText.contains("public enum TopBarOverflowCommandCatalog"), "Top-bar overflow command projection should live beside command surfaces.")
@@ -70,5 +74,13 @@ final class ParityWorkspaceCommandGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(surfaceText.contains("public enum TopBarOverflowCommandCatalog"), "WorkspaceSurface should not own top-bar overflow projection.")
         XCTAssertFalse(surfaceText.contains("public enum WorkspaceCommandPalette"), "WorkspaceSurface should not own command palette ranking.")
         XCTAssertFalse(surfaceText.contains("private struct QueryRequest"), "WorkspaceSurface should not own command palette query scoping.")
+        XCTAssertTrue(rankerTests.contains("testRanksCommandsByShortcutKeywordsAndTitle"), "Palette ranking behavior should live in focused ranker tests.")
+        XCTAssertTrue(rankerTests.contains("testGroupsUsePaletteCategoryOrder"), "Palette grouping behavior should live in focused ranker tests.")
+        XCTAssertTrue(commandBuilderTests.contains("testCommandSurfaceDecodesOlderPayloadWithoutCategoryMetadata"), "Command-surface compatibility should live with command-surface tests.")
+        XCTAssertTrue(shortcutTests.contains("testShortcutRegistryLabelsSurfaceCommands"), "Shortcut-to-command labeling should live in focused shortcut tests.")
+        XCTAssertTrue(shortcutTests.contains("testShortcutRegistryHasNoDuplicateBindings"), "Shortcut uniqueness should live in focused shortcut tests.")
+        XCTAssertFalse(broadSurfaceTests.contains("testCommandPaletteRanksByShortcutKeywordsAndTitle"), "WorkspaceSurfaceTests should not own command palette ranking behavior.")
+        XCTAssertFalse(broadSurfaceTests.contains("testShortcutRegistryLabelsSurfaceCommands"), "WorkspaceSurfaceTests should not own shortcut registry invariants.")
+        XCTAssertFalse(broadSurfaceTests.contains("testWorkspaceCommandSurfaceDecodesOlderPayloadWithoutCategoryMetadata"), "WorkspaceSurfaceTests should not own command-surface compatibility.")
     }
 }

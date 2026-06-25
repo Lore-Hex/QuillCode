@@ -7,6 +7,9 @@ final class ParityWorkspaceTranscriptGateTests: QuillCodeParityTestCase {
         let transcriptText = try Self.appSourceText(named: "QuillCodeTranscriptView.swift")
         let findText = try Self.appSourceText(named: "QuillCodeTranscriptFindView.swift")
         let contextBannerText = try Self.appSourceText(named: "QuillCodeContextBannerView.swift")
+        let broadSurfaceTests = try Self.appTestSourceText(named: "WorkspaceSurfaceTests.swift")
+        let transcriptSurfaceTests = try Self.appTestSourceText(named: "QuillCodeTranscriptSurfaceTests.swift")
+        let contextBannerTests = try Self.appTestSourceText(named: "WorkspaceContextBannerBuilderTests.swift")
 
         XCTAssertTrue(mainPaneText.contains("struct QuillCodeWorkspaceMainPaneView"), "Workspace center-pane layout should live in a focused view file.")
         XCTAssertTrue(transcriptText.contains("struct QuillCodeTranscriptView"), "Transcript layout should live in a focused view file.")
@@ -27,5 +30,13 @@ final class ParityWorkspaceTranscriptGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(shellText.contains("QuillCodeRuntimeIssueView"), "Workspace shell should not own runtime issue transcript placement.")
         XCTAssertFalse(shellText.contains("QuillCodeReviewPaneView"), "Workspace shell should not own review transcript placement.")
         XCTAssertFalse(shellText.contains("QuillCodeToolCardView"), "Workspace shell should not own tool-card timeline placement.")
+        XCTAssertTrue(transcriptSurfaceTests.contains("testComposerSurfaceShowsFilteredSlashSuggestions"), "Composer slash suggestions should live in focused transcript/composer surface tests.")
+        XCTAssertTrue(transcriptSurfaceTests.contains("testContextBannerDecodesOlderPayloadWithoutCompactCommand"), "Context-banner compatibility should live in focused transcript surface tests.")
+        XCTAssertTrue(contextBannerTests.contains("testSurfaceShowsBannerNearEstimatedLimitAndEnablesCommands"), "Context-banner surface command behavior should live in focused context-banner tests.")
+        XCTAssertTrue(contextBannerTests.contains("testSurfaceHidesBannerForShortThreadAndDisablesForkCommands"), "Context-banner hidden state should live in focused context-banner tests.")
+        XCTAssertFalse(broadSurfaceTests.contains("testComposerShowsFilteredSlashSuggestions"), "WorkspaceSurfaceTests should not own composer slash suggestion filtering.")
+        XCTAssertFalse(broadSurfaceTests.contains("testContextBannerDecodesOlderPayloadWithoutCompactCommand"), "WorkspaceSurfaceTests should not own context-banner compatibility.")
+        XCTAssertFalse(broadSurfaceTests.contains("testContextBannerAppearsNearEstimatedLimit"), "WorkspaceSurfaceTests should not own context-banner threshold behavior.")
+        XCTAssertFalse(broadSurfaceTests.contains("testContextBannerHiddenForShortThreadAndForkDisabledWithoutMessages"), "WorkspaceSurfaceTests should not own context-banner hidden-state behavior.")
     }
 }

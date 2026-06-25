@@ -4,6 +4,15 @@ import QuillComputerUseKit
 @testable import QuillCodeApp
 
 final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
+    func testCommandSurfaceDecodesOlderPayloadWithoutCategoryMetadata() throws {
+        let data = #"{"id":"search","title":"Search","shortcut":"Cmd+K","isEnabled":true}"#.data(using: .utf8)!
+
+        let command = try JSONDecoder().decode(WorkspaceCommandSurface.self, from: data)
+
+        XCTAssertEqual(command.category, WorkspaceCommandPalette.workspaceCategory)
+        XCTAssertEqual(command.keywords, [])
+    }
+
     func testDefaultCommandsUseConservativeAvailability() throws {
         let commands = makeBuilder().commands
 

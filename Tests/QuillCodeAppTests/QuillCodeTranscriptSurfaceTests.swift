@@ -61,6 +61,24 @@ final class QuillCodeTranscriptSurfaceTests: XCTestCase {
         XCTAssertFalse(sending.canSend)
     }
 
+    func testComposerSurfaceShowsFilteredSlashSuggestions() {
+        func suggestions(for draft: String) -> [SlashCommandSuggestionSurface] {
+            ComposerSurface(composer: ComposerState(draft: draft)).slashSuggestions
+        }
+
+        XCTAssertEqual(suggestions(for: "/").prefix(3).map(\.usage), ["/help", "/status", "/new"])
+        XCTAssertEqual(suggestions(for: "/workt").first?.usage, "/worktrees")
+        XCTAssertEqual(suggestions(for: "/workt").first?.insertText, "/worktrees")
+        XCTAssertEqual(suggestions(for: "/fol").first?.usage, "/follow-up when")
+        XCTAssertEqual(suggestions(for: "/fol").first?.insertText, "/follow-up in ")
+        XCTAssertEqual(suggestions(for: "/workspace-c").first?.usage, "/workspace-check when")
+        XCTAssertEqual(suggestions(for: "/workspace-c").first?.insertText, "/workspace-check in ")
+        XCTAssertEqual(suggestions(for: "/project r").prefix(2).map(\.usage), ["/project refresh", "/project rename name"])
+        XCTAssertEqual(suggestions(for: "/pr l").first?.usage, "/pr labels add|remove label")
+        XCTAssertEqual(suggestions(for: "/pr l").first?.insertText, "/pr labels add ")
+        XCTAssertEqual(suggestions(for: "run /help"), [])
+    }
+
     func testContextBannerDecodesOlderPayloadWithoutCompactCommand() throws {
         let data = """
         {
