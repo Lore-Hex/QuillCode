@@ -22,7 +22,7 @@ public final class QuillCodeWorkspaceModel {
     let threadPersistence: WorkspaceThreadPersistence
     private let projectStore: JSONProjectStore?
     private let automationStore: JSONAutomationStore?
-    private let globalMemoryDirectory: URL?
+    let globalMemoryDirectory: URL?
     private var computerUseBackend: (any ComputerUseBackend)?
     let sshRemoteShellExecutor: SSHRemoteShellExecutor
     let mcpRuntime: WorkspaceMCPRuntime
@@ -380,16 +380,6 @@ public final class QuillCodeWorkspaceModel {
     }
 
     @discardableResult
-    func deleteGlobalMemory(id: String) -> Bool {
-        guard let mutation = WorkspaceMemoryEngine.deleteGlobal(id: id, directory: globalMemoryDirectory) else {
-            return false
-        }
-        applyGlobalMemoryMutation(mutation)
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-        return true
-    }
-
-    @discardableResult
     public func runProjectExtensionUpdate(id: String, workspaceRoot: URL) -> Bool {
         refreshProjectMetadata(root.selectedProjectID)
         guard let manifest = selectedProject?.extensionManifests.first(where: { $0.id == id }),
@@ -477,15 +467,6 @@ public final class QuillCodeWorkspaceModel {
             .map { success($0.scheduleDescription) }
             ?? failure(lastError)
         appendLocalCommandTranscript(transcript)
-    }
-
-    func runRememberSlashCommand(_ content: String, originalPrompt: String) {
-        let mutation = WorkspaceMemoryEngine.saveGlobal(
-            content: content,
-            userText: originalPrompt,
-            directory: globalMemoryDirectory
-        )
-        applyGlobalMemoryMutation(mutation)
     }
 
     func appendLocalCommandTranscript(_ transcript: WorkspaceLocalCommandTranscript) {
@@ -640,48 +621,10 @@ public final class QuillCodeWorkspaceModel {
         }
     }
 
-    private func refreshGlobalMemories() {
-        root.globalMemories = WorkspaceProjectContextRefresher.globalMemories(directory: globalMemoryDirectory)
-    }
-
-    private func applyGlobalMemoryMutation(_ mutation: WorkspaceMemoryMutation) {
-        appendLocalCommandTranscript(mutation.transcript)
-        if let updatedGlobalMemories = mutation.updatedGlobalMemories {
-            root.globalMemories = updatedGlobalMemories
-        }
-        guard let summary = mutation.noticeSummary,
-              let relativePath = mutation.noticeRelativePath
-        else {
-            return
-        }
-        let projectID = selectedThread?.projectID ?? root.selectedProjectID
-        let refreshedContext = workspaceThreadContext(projectID)
-        let update = WorkspaceMemoryEngine.contextUpdate(
-            memories: refreshedContext.memories,
-            summary: summary,
-            relativePath: relativePath
-        )
-        mutateSelectedThread { thread in
-            thread.memories = update.memories
-            thread.events.append(update.event)
-        }
-    }
-
     private func syncThreadContext(into thread: inout ChatThread) {
         let projectID = thread.projectID ?? root.selectedProjectID
         refreshProjectMetadata(projectID)
         WorkspaceProjectContextRefresher.syncThreadContext(
-            &thread,
-            fallbackProjectID: root.selectedProjectID,
-            projects: root.projects,
-            globalMemories: root.globalMemories
-        )
-    }
-
-    private func refreshThreadMemoryContext(_ thread: inout ChatThread) {
-        let projectID = thread.projectID ?? root.selectedProjectID
-        refreshProjectMetadata(projectID)
-        WorkspaceProjectContextRefresher.syncThreadMemories(
             &thread,
             fallbackProjectID: root.selectedProjectID,
             projects: root.projects,
