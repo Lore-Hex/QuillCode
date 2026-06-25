@@ -26,6 +26,18 @@ final class WorkspaceConfigurationEngineTests: XCTestCase {
         XCTAssertEqual(thread.model, TrustedRouterDefaults.synthModel)
     }
 
+    func testModelUpdatesNormalizeBrandedDefaultName() {
+        var config = AppConfig(defaultModel: TrustedRouterDefaults.synthModel)
+        var thread = ChatThread(model: TrustedRouterDefaults.synthModel)
+
+        let modelID = WorkspaceConfigurationEngine.setModel(" Nike 1.0 ", config: &config)
+        WorkspaceConfigurationEngine.setModelID(modelID, thread: &thread)
+
+        XCTAssertEqual(modelID, TrustedRouterDefaults.fastModel)
+        XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.fastModel)
+        XCTAssertEqual(thread.model, TrustedRouterDefaults.fastModel)
+    }
+
     func testBlankModelFallsBackToDefault() {
         var config = AppConfig(defaultModel: TrustedRouterDefaults.synthModel)
         var thread = ChatThread(model: TrustedRouterDefaults.synthModel)

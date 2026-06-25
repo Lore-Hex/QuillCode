@@ -22,7 +22,13 @@ public enum TrustedRouterDefaults {
     public static let trustedRouterProviderAliases: [String: String] = ["tr": trustedRouterProvider]
     public static let recommendedModelIDs = [fastModel, synthModel, synthCodeModel]
     public static let modelIDAliases: [String: String] = [
+        "fast": fastModel,
+        "/fast": fastModel,
         "tr/fast": fastModel,
+        "nike": fastModel,
+        "/nike": fastModel,
+        "nike 1.0": fastModel,
+        "trustedrouter/nike": fastModel,
         "tr/synth": synthModel,
         "synth": synthModel,
         synthSlashAlias: synthModel,
@@ -33,6 +39,7 @@ public enum TrustedRouterDefaults {
         "trustedrouter/fusion": synthModel,
         "tr/synth-code": synthCodeModel,
         "synth-code": synthCodeModel,
+        "synth code": synthCodeModel,
         synthCodeSlashAlias: synthCodeModel,
         "trustedrouter/synth-code": synthCodeModel,
         "fusion-code": synthCodeModel,
@@ -60,7 +67,7 @@ public enum TrustedRouterDefaults {
 
     public static func canonicalProvider(_ provider: String) -> String {
         let normalized = provider.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trustedRouterProviderAliases[normalized] ?? normalized
+        return trustedRouterProviderAliases[normalized.lowercased()] ?? normalized
     }
 
     public static func canonicalModelID(_ id: String) -> String {

@@ -42,6 +42,13 @@ final class WorkspaceSlashCommandTranscriptPlannerTests: XCTestCase {
         )
         XCTAssertEqual(
             WorkspaceSlashCommandTranscriptPlanner.model(
+                userText: "/model Nike 1.0",
+                model: "Nike 1.0"
+            ).assistantText,
+            "Model set to Nike 1.0 (trustedrouter/fast)."
+        )
+        XCTAssertEqual(
+            WorkspaceSlashCommandTranscriptPlanner.model(
                 userText: "/model z-ai/glm-5.2",
                 model: "z-ai/glm-5.2"
             ).assistantText,
