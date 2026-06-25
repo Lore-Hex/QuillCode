@@ -267,6 +267,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         let plannerText = try Self.appSourceText(named: "WorkspaceSlashCommandTranscriptPlanner.swift")
         let appenderText = try Self.appSourceText(named: "WorkspaceLocalCommandTranscriptAppender.swift")
         let environmentPlannerText = try Self.appSourceText(named: "WorkspaceEnvironmentSlashCommandPlanner.swift")
+        let localEnvironmentModelText = try Self.appSourceText(named: "WorkspaceModelLocalEnvironment.swift")
         let dispatchPlannerText = try Self.appSourceText(named: "WorkspaceSlashCommandDispatchPlanner.swift")
 
         XCTAssertTrue(plannerText.contains("struct WorkspaceLocalCommandTranscript"), "Local command transcript records should live beside the planner.")
@@ -282,7 +283,12 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(appenderText.contains("thread.messages.append(ChatMessage(role: .user"), "The transcript appender should own user-message insertion.")
         XCTAssertTrue(appenderText.contains("thread.messages.append(ChatMessage(role: .assistant"), "The transcript appender should own assistant-message insertion.")
         XCTAssertTrue(modelText.contains("WorkspaceLocalCommandTranscriptAppender.append"), "WorkspaceModel should delegate local command transcript mutation.")
-        XCTAssertTrue(modelText.contains("WorkspaceEnvironmentSlashCommandPlanner.plan"), "WorkspaceModel should delegate /env list/run/not-found planning.")
+        XCTAssertTrue(localEnvironmentModelText.contains("public func runLocalEnvironmentAction"), "Local environment action execution should live in the focused WorkspaceModelLocalEnvironment extension.")
+        XCTAssertTrue(localEnvironmentModelText.contains("func runEnvironmentSlashCommand"), "Local environment slash command dispatch should live in the focused WorkspaceModelLocalEnvironment extension.")
+        XCTAssertTrue(localEnvironmentModelText.contains("WorkspaceEnvironmentSlashCommandPlanner.plan"), "WorkspaceModelLocalEnvironment should delegate /env list/run/not-found planning.")
+        XCTAssertFalse(modelText.contains("public func runLocalEnvironmentAction"), "WorkspaceModel.swift should not own local environment action execution.")
+        XCTAssertFalse(modelText.contains("func runEnvironmentSlashCommand"), "WorkspaceModel.swift should not own local environment slash command dispatch.")
+        XCTAssertFalse(modelText.contains("WorkspaceEnvironmentSlashCommandPlanner.plan"), "WorkspaceModel.swift should not directly choose /env list/run/not-found planning.")
         XCTAssertTrue(plannerText.contains("static func sshProjectAdded"), "SSH success copy should be directly testable.")
         XCTAssertTrue(plannerText.contains("static func workspaceCommandFailed"), "Slash command failure copy should be directly testable.")
         XCTAssertTrue(plannerText.contains("SlashCommandCatalog.helpText()"), "Slash help text should stay catalog-backed.")
@@ -525,6 +531,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesShellToolCallPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let localEnvironmentModelText = try Self.appSourceText(named: "WorkspaceModelLocalEnvironment.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceShellToolCallPlanner.swift")
 
         XCTAssertTrue(plannerText.contains("enum WorkspaceShellToolCallPlanner"), "Local action shell tool-call planning should live in a focused planner.")
@@ -532,10 +539,11 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(plannerText.contains("static func projectExtensionUpdate"), "Extension update tool calls should be directly testable.")
         XCTAssertTrue(plannerText.contains("ToolDefinition.shellRun.name"), "The planner should own the canonical shell tool name.")
         XCTAssertTrue(plannerText.contains("ToolArguments.json(arguments)"), "The planner should own shell argument JSON construction.")
-        XCTAssertTrue(modelText.contains("WorkspaceShellToolCallPlanner.localEnvironmentAction"), "WorkspaceModel should delegate local action shell call construction.")
+        XCTAssertTrue(localEnvironmentModelText.contains("WorkspaceShellToolCallPlanner.localEnvironmentAction"), "WorkspaceModelLocalEnvironment should delegate local action shell call construction.")
         XCTAssertTrue(modelText.contains("WorkspaceShellToolCallPlanner.projectExtensionUpdate"), "WorkspaceModel should delegate extension update shell call construction.")
         XCTAssertFalse(modelText.contains("arguments[\"environment\"] = environment"), "WorkspaceModel should not assemble local action environment arguments inline.")
         XCTAssertFalse(modelText.contains("arguments[\"timeoutSeconds\"] = timeoutSeconds"), "WorkspaceModel should not assemble local action timeout arguments inline.")
+        XCTAssertFalse(modelText.contains("WorkspaceShellToolCallPlanner.localEnvironmentAction"), "WorkspaceModel.swift should not own local action shell call execution.")
         XCTAssertFalse(modelText.contains("let command = manifest.updateCommand"), "WorkspaceModel should not parse extension update commands inline.")
     }
 
