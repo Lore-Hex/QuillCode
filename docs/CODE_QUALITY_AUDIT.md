@@ -4891,3 +4891,21 @@ Current strict grades:
 
 Remaining risk:
 - Continue draining `ParityGateTests.swift` by feature family. Good next splits: MCP gates, automation/terminal gates, sidebar gates, and final workspace-surface gates.
+
+## 2026-06-24 Workspace Integration Gate Split
+
+Overall grade after this slice: **A integration-suite ownership, A merge-risk reduction, B+ catch-all size**.
+
+After the memory split, the broad parity file still owned test-suite ownership gates for MCP, review, feedback/artifacts, runtime issues, thread lifecycle, slash commands, local environments, automations, terminal flows, and runtime factory coverage. Those gates all answer the same architecture question: focused integration suites should own behavior coverage instead of letting `WorkspaceModelTests` grow back into a large catch-all.
+
+What changed:
+- Added `ParityWorkspaceIntegrationGateTests` for integration-suite ownership checks.
+- Moved the coherent integration-ownership cluster out of `ParityGateTests.swift`.
+- Registered the new suite in the parity drift guard so these checks cannot return to the catch-all.
+
+Current strict grades:
+- `ParityWorkspaceIntegrationGateTests.swift`: **A**. It has one job: guard that behavior flows stay in focused integration suites.
+- `ParityGateTests.swift`: **B+**. It is smaller and more registry-like, but still owns sidebar, MCP implementation, automation state, and final workspace-surface boundary gates.
+
+Remaining risk:
+- Continue extracting the remaining implementation-boundary clusters: sidebar, MCP support/runtime, automation state/surface, and final workspace surface contracts.
