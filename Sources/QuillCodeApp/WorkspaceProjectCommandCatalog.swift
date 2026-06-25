@@ -49,6 +49,34 @@ enum WorkspaceProjectCommandCatalog {
             }
     }
 
+    static func mcpReferenceCommands(
+        manifests: [ProjectExtensionManifest],
+        statuses: [String: MCPServerLifecycleStatus],
+        probeSummaries: [String: MCPServerProbeSummary],
+        hasActiveWorkspaceRoot: Bool
+    ) -> [WorkspaceCommandSurface] {
+        manifests
+            .filter { $0.kind == .mcpServer }
+            .filter { manifest in
+                manifest.isEnabled
+                    && statuses[manifest.id] == .ready
+                    && probeSummaries[manifest.id]?.errorMessage == nil
+            }
+            .flatMap { manifest -> [WorkspaceCommandSurface] in
+                let summary = probeSummaries[manifest.id]
+                return resourceCommands(
+                    manifest: manifest,
+                    resources: summary?.resourceNames ?? [],
+                    uris: summary?.resourceURIs ?? [],
+                    isEnabled: hasActiveWorkspaceRoot
+                ) + promptCommands(
+                    manifest: manifest,
+                    prompts: summary?.promptNames ?? [],
+                    isEnabled: hasActiveWorkspaceRoot
+                )
+            }
+    }
+
     static func extensionUpdateCommands(
         manifests: [ProjectExtensionManifest],
         hasActiveWorkspaceRoot: Bool
@@ -119,6 +147,46 @@ enum WorkspaceProjectCommandCatalog {
             manifest.version ?? "",
             manifest.sourceURL ?? ""
         ].filter { !$0.isEmpty }
+    }
+
+    private static func resourceCommands(
+        manifest: ProjectExtensionManifest,
+        resources: [String],
+        uris: [String],
+        isEnabled: Bool
+    ) -> [WorkspaceCommandSurface] {
+        resources.enumerated().map { index, name in
+            WorkspaceCommandSurface(
+                id: "mcp-resource:\(manifest.id):\(index)",
+                title: "Read \(name)",
+                category: WorkspaceCommandPalette.extensionsCategory,
+                keywords: [
+                    "mcp",
+                    "resource",
+                    "read",
+                    manifest.name,
+                    name,
+                    uris.indices.contains(index) ? uris[index] : ""
+                ].filter { !$0.isEmpty },
+                isEnabled: isEnabled
+            )
+        }
+    }
+
+    private static func promptCommands(
+        manifest: ProjectExtensionManifest,
+        prompts: [String],
+        isEnabled: Bool
+    ) -> [WorkspaceCommandSurface] {
+        prompts.enumerated().map { index, name in
+            WorkspaceCommandSurface(
+                id: "mcp-prompt:\(manifest.id):\(index)",
+                title: "Use \(name)",
+                category: WorkspaceCommandPalette.extensionsCategory,
+                keywords: ["mcp", "prompt", "get", manifest.name, name],
+                isEnabled: isEnabled
+            )
+        }
     }
 }
 

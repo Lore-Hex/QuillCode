@@ -6857,3 +6857,30 @@ Strict grades:
 Remaining parity risk:
 
 - Marketplace browsing/install, executable plugin activation beyond explicit shell commands, signed plugin trust, and MCP streaming still need dedicated lifecycle work.
+
+## 2026-06-25 MCP Resource And Prompt Action Slice
+
+Overall grade after this slice: **A- MCP action surface, A runtime reuse, B+/A- extension marketplace parity**.
+
+Ready MCP servers already exposed resources and prompts to the agent through generic allowlisted tools, but the Extensions pane still made that metadata feel passive. Codex-style extension UX needs advertised capabilities to be directly usable without making the user prompt the model to discover them. Ready MCP resources and prompts are now surfaced as bounded actions in the Extensions pane, static HTML renderer, command palette, and Playwright harness.
+
+Code quality changes:
+
+- Added `MCPReferenceActionSurface` so resource/prompt actions share one small surface type instead of duplicating title/detail/command identifiers.
+- Derived resource/prompt action rows from Ready MCP probe summaries only, capped the visible pane actions, and kept command-palette discovery available for the full advertised set.
+- Added typed command-plan cases for `mcp-resource:<server>:<index>` and `mcp-prompt:<server>:<index>`, using last-colon parsing so MCP server IDs can safely contain colons.
+- Exposed a direct `WorkspaceMCPRuntime.execute` path for host MCP resource/prompt tools so UI actions reuse the live session runtime and safety checks instead of inventing a second executor.
+- Routed direct MCP actions through normal queued/running/completed/failed tool-card events plus concise assistant summaries, keeping the user-visible transcript consistent with agent-authored MCP calls.
+- Added focused Swift and Playwright coverage for surface compatibility, command discovery, command parsing, live fixture MCP resource reads, prompt gets, action button rendering, and stop-state cleanup.
+
+Strict grades:
+
+- `ProjectExtensionManifestSurface.swift`: **A-**. The action derivation is deterministic and compatibility-safe; keeping pane actions capped avoids noisy extension cards while leaving command-palette access broader.
+- `WorkspaceProjectCommandCatalog.swift`: **A-**. MCP lifecycle and reference commands now share command-surface conventions. If MCP grows argument-taking prompt/resource forms, promote a typed MCP command descriptor before adding more ID string parsing.
+- `WorkspaceMCPRuntime.swift`: **A-**. Dynamic MCP execution stays centralized around live sessions, summaries, and allowlisted host MCP tools. It now serves both agent-authored and UI-authored actions without duplicating runtime policy.
+- `WorkspaceModelMCP.swift`: **A-**. The model extension coordinates actor-owned transcript/tool-card state while delegating execution to the runtime. It should stay small; future argument forms belong in an MCP action planner.
+- MCP action tests: **A**. The slice covers pure command parsing, surface projection, fixture-backed live MCP execution, and Playwright-visible UI behavior.
+
+Remaining parity risk:
+
+- MCP streaming, marketplace trust/install, richer argument forms for MCP prompts, and executable plugin activation remain pending.

@@ -46,9 +46,19 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await expect(page.getByTestId('extension-mcp-resource')).toContainText(['README', 'Project config']);
   await expect(page.getByTestId('extension-mcp-prompts-count')).toHaveText('1 prompt');
   await expect(page.getByTestId('extension-mcp-prompt')).toContainText(['summarize_project']);
+  await expect(page.getByTestId('extension-mcp-resource-action')).toContainText(['Read README', 'Read Project config']);
+  await expect(page.getByTestId('extension-mcp-prompt-action')).toContainText(['Use summarize_project']);
+  await page.getByTestId('extension-mcp-resource-action').first().click();
+  await expect(page.getByTestId('tool-card').last()).toContainText('host.mcp.resource.read');
+  await expect(page.getByTestId('message').last()).toContainText('MCP resource contents:');
+  await page.getByTestId('extension-mcp-prompt-action').click();
+  await expect(page.getByTestId('tool-card').last()).toContainText('host.mcp.prompt.get');
+  await expect(page.getByTestId('message').last()).toContainText('Prompt: summarize_project');
   await expect(page.getByTestId('extension-stop')).toBeVisible();
   await page.getByTestId('extension-stop').click();
   await expect(page.getByTestId('extension-item').nth(2)).toContainText('Stopped');
+  await expect(page.getByTestId('extension-mcp-resource-action')).toHaveCount(0);
+  await expect(page.getByTestId('extension-mcp-prompt-action')).toHaveCount(0);
 
   await clickSidebarTool(page, 'extensions-button');
   await expect(page.getByTestId('extensions-pane')).toHaveCount(0);
@@ -60,6 +70,8 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await expect(commandPaletteResult(page, 'extension-install:plugin:github')).toContainText('Install GitHub');
   await fillCommandPalette(page, '>update github');
   await expect(commandPaletteResult(page, 'extension-update:plugin:github')).toContainText('Update GitHub');
+  await fillCommandPalette(page, '>read readme');
+  await expect(commandPaletteResult(page, 'mcp-resource:mcp_server:filesystem:0')).toBeDisabled();
   await clickCommandPaletteCommand(page, '>extensions', 'toggle-extensions');
   await expect(page.getByTestId('extensions-pane')).toBeVisible();
 });

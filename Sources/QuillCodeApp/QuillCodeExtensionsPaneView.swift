@@ -120,6 +120,7 @@ struct QuillCodeExtensionsPaneView: View {
                 VStack(alignment: .leading, spacing: 5) {
                     probeMetadataCounts(for: item)
                     probeMetadataChips(for: item)
+                    probeReferenceActions(for: item)
                 }
             }
             HStack(spacing: 8) {
@@ -255,6 +256,49 @@ struct QuillCodeExtensionsPaneView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(QuillCodePalette.blue.opacity(0.10))
                             .clipShape(Capsule())
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func probeReferenceActions(for item: ProjectExtensionManifestSurface) -> some View {
+        if !item.resourceActions.isEmpty || !item.promptActions.isEmpty {
+            VStack(alignment: .leading, spacing: 5) {
+                probeReferenceActionGroup(
+                    title: "Use Resources",
+                    actions: item.resourceActions,
+                    titlePrefix: "Read"
+                )
+                probeReferenceActionGroup(
+                    title: "Use Prompts",
+                    actions: item.promptActions,
+                    titlePrefix: "Use"
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func probeReferenceActionGroup(
+        title: String,
+        actions: [MCPReferenceActionSurface],
+        titlePrefix: String
+    ) -> some View {
+        if !actions.isEmpty {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(1)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 5)], alignment: .leading, spacing: 5) {
+                    ForEach(actions) { action in
+                        Button("\(titlePrefix) \(action.title)") {
+                            onCommand(extensionCommand(id: action.commandID, title: "\(titlePrefix) \(action.title)"))
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
                     }
                 }
             }

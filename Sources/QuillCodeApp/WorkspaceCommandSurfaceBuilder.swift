@@ -18,6 +18,7 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
     var browserCanReload: Bool
     var browserCanOpenSession: Bool
     var mcpServerStatuses: [String: MCPServerLifecycleStatus]
+    var mcpServerProbeSummaries: [String: MCPServerProbeSummary]
     var computerUseStatus: ComputerUseStatus
 
     var commands: [WorkspaceCommandSurface] {
@@ -57,6 +58,12 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
         + WorkspaceProjectCommandCatalog.mcpLifecycleCommands(
             manifests: selectedProject?.extensionManifests ?? [],
             statuses: mcpServerStatuses,
+            hasActiveWorkspaceRoot: hasActiveWorkspaceRoot
+        )
+        + WorkspaceProjectCommandCatalog.mcpReferenceCommands(
+            manifests: selectedProject?.extensionManifests ?? [],
+            statuses: mcpServerStatuses,
+            probeSummaries: mcpServerProbeSummaries,
             hasActiveWorkspaceRoot: hasActiveWorkspaceRoot
         )
         + WorkspaceProjectCommandCatalog.extensionInstallCommands(

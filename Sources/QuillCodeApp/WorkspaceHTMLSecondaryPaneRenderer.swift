@@ -178,6 +178,8 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
           \(renderMCPTools(item.toolDescriptors))
           \(renderMCPNames("Resources", item.resourceNames, groupTestID: "extension-mcp-resources", itemTestID: "extension-mcp-resource"))
           \(renderMCPNames("Prompts", item.promptNames, groupTestID: "extension-mcp-prompts", itemTestID: "extension-mcp-prompt"))
+          \(renderMCPReferenceActions("Resource Actions", item.resourceActions, testID: "extension-mcp-resource-action", titlePrefix: "Read"))
+          \(renderMCPReferenceActions("Prompt Actions", item.promptActions, testID: "extension-mcp-prompt-action", titlePrefix: "Use"))
           \(item.probeError.map { #"<p data-testid="extension-mcp-error">\#(escape($0))</p>"# } ?? "")
           \(renderExtensionActions(item))
         </article>
@@ -215,6 +217,19 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
         guard !names.isEmpty else { return "" }
         let chips = names.map { #"<span data-testid="\#(escape(itemTestID))">\#(escape($0))</span>"# }.joined()
         return #"<div class="extension-mcp-group" data-testid="\#(escape(groupTestID))"><span class="extension-mcp-group-label" data-testid="extension-mcp-group-label">\#(escape(title))</span><div class="extension-mcp-chip-row">\#(chips)</div></div>"#
+    }
+
+    private static func renderMCPReferenceActions(
+        _ title: String,
+        _ actions: [MCPReferenceActionSurface],
+        testID: String,
+        titlePrefix: String
+    ) -> String {
+        guard !actions.isEmpty else { return "" }
+        let buttons = actions.map { action in
+            #"<button type="button" data-testid="\#(escape(testID))" data-command="\#(escape(action.commandID))">\#(escape(titlePrefix)) \#(escape(action.title))</button>"#
+        }.joined()
+        return #"<div class="extension-mcp-group" data-testid="\#(escape(testID))-group"><span class="extension-mcp-group-label" data-testid="extension-mcp-group-label">\#(escape(title))</span><div class="extension-mcp-chip-row">\#(buttons)</div></div>"#
     }
 
     private static func renderExtensionActions(_ item: ProjectExtensionManifestSurface) -> String {

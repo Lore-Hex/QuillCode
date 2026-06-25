@@ -35,6 +35,10 @@ extension QuillCodeWorkspaceModel {
             return startMCPServer(id: id, workspaceRoot: workspaceRoot)
         case .stopMCPServer(let id):
             return stopMCPServer(id: id)
+        case .readMCPResource(let serverID, let index):
+            return readMCPResource(serverID: serverID, index: index)
+        case .getMCPPrompt(let serverID, let index):
+            return getMCPPrompt(serverID: serverID, index: index)
         case .installExtension(let id):
             return runProjectExtensionInstall(id: id, workspaceRoot: workspaceRoot)
         case .updateExtension(let id):

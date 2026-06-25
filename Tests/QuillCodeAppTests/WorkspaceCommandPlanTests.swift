@@ -101,6 +101,14 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .stopMCPServer(id: "mcp_server:filesystem")
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "mcp-resource:mcp_server:filesystem:1"),
+            .readMCPResource(serverID: "mcp_server:filesystem", index: 1)
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "mcp-prompt:mcp_server:filesystem:0"),
+            .getMCPPrompt(serverID: "mcp_server:filesystem", index: 0)
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "extension-update:plugin:github"),
             .updateExtension(id: "plugin:github")
         )
@@ -185,6 +193,9 @@ final class WorkspaceCommandPlanTests: XCTestCase {
         XCTAssertNil(WorkspaceCommandPlan(commandID: "automation-pause:not-a-uuid"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "automation-create-thread-follow-up-after:soon"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "automation-create-workspace-schedule-every:yearly"))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "mcp-resource:mcp_server:filesystem"))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "mcp-resource:mcp_server:filesystem:not-a-number"))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "mcp-prompt::0"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "activity-toggle-section:not-real"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "slash-command:9999"))
     }

@@ -156,3 +156,17 @@ public struct MCPServerProbeSummary: Codable, Sendable, Hashable {
         return "\(promptNames.count) prompt\(promptNames.count == 1 ? "" : "s")"
     }
 }
+
+public struct MCPReferenceActionSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String { commandID }
+
+    public var title: String
+    public var detail: String?
+    public var commandID: String
+
+    public init(title: String, detail: String? = nil, commandID: String) {
+        self.title = title
+        self.detail = detail
+        self.commandID = commandID
+    }
+}
