@@ -1,4 +1,4 @@
-struct WorkspaceComposerSendLifecyclePlan: Equatable {
+struct WorkspaceComposerSendLifecyclePlan: Equatable, Sendable {
     var composer: ComposerState
     var lastError: String?
     var agentStatus: String
