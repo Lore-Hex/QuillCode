@@ -40,6 +40,7 @@ final class ParityBrowserGateTests: QuillCodeParityTestCase {
 
     func testBrowserLiveDOMCaptureStaysBehindAdapterContract() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let browserModelText = try Self.appSourceText(named: "WorkspaceModelBrowser.swift")
         let contractText = try Self.appSourceText(named: "BrowserLiveDOMCapturing.swift")
         let builderText = try Self.appSourceText(named: "BrowserLiveDOMSnapshotBuilder.swift")
         let inspectorText = try Self.appSourceText(named: "BrowserInspector.swift")
@@ -59,7 +60,7 @@ final class ParityBrowserGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(workflowText.contains("static func beginLiveDOMCapture"), "Browser workflow should own live DOM capture setup.")
         XCTAssertTrue(workflowText.contains("applyLiveDOMCaptureSuccess"), "Browser workflow should own live DOM capture success handling.")
         XCTAssertTrue(workflowText.contains("applyLiveDOMCaptureFailure"), "Browser workflow should own live DOM capture failure handling.")
-        XCTAssertTrue(modelText.contains("any BrowserLiveDOMCapturing"), "WorkspaceModel should depend on the adapter protocol, not a platform WebView.")
+        XCTAssertTrue(browserModelText.contains("any BrowserLiveDOMCapturing"), "WorkspaceModel browser APIs should depend on the adapter protocol, not a platform WebView.")
         XCTAssertTrue(builderTests.contains("testLiveDOMSnapshotPrefersRenderedOutlineAndVisibleText"), "Live DOM snapshot builder behavior should have focused tests.")
         XCTAssertTrue(engineTests.contains("testLiveDOMSnapshotReplacesCurrentHistoryEntry"), "Live DOM browser state mutation should have focused engine tests.")
         XCTAssertTrue(integrationTests.contains("testBrowserPreviewCapturesLiveDOMSnapshotWhenSessionIsAvailable"), "Live DOM model orchestration should have focused integration tests.")
@@ -74,6 +75,7 @@ final class ParityBrowserGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesBrowserStateTransitions() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let browserModelText = try Self.appSourceText(named: "WorkspaceModelBrowser.swift")
         let engineText = try Self.appSourceText(named: "WorkspaceBrowserEngine.swift")
         let workflowText = try Self.appSourceText(named: "WorkspaceBrowserWorkflow.swift")
         let workflowTests = try Self.appTestSourceText(named: "WorkspaceBrowserWorkflowTests.swift")
@@ -90,10 +92,14 @@ final class ParityBrowserGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(workflowText.contains("WorkspaceBrowserEngine.openPage"), "Browser workflow should delegate opening to the engine.")
         XCTAssertTrue(workflowText.contains("WorkspaceBrowserEngine.applyFetchedPage"), "Browser workflow should delegate fetched browser state updates.")
         XCTAssertTrue(workflowText.contains("WorkspaceBrowserEngine.addComment"), "Browser workflow should delegate browser comments.")
-        XCTAssertTrue(modelText.contains("WorkspaceBrowserWorkflow.openPreview"), "WorkspaceModel should delegate browser opening workflow.")
-        XCTAssertTrue(modelText.contains("WorkspaceBrowserWorkflow.beginSnapshotFetch"), "WorkspaceModel should delegate browser fetch setup.")
-        XCTAssertTrue(modelText.contains("WorkspaceBrowserWorkflow.applySnapshotFetchSuccess"), "WorkspaceModel should delegate browser fetch success.")
-        XCTAssertTrue(modelText.contains("WorkspaceBrowserWorkflow.applySnapshotFetchFailure"), "WorkspaceModel should delegate browser fetch failures.")
+        XCTAssertTrue(modelText.contains("func mutateBrowserState"), "WorkspaceModel should expose a narrow browser-state mutation helper for model extensions.")
+        XCTAssertTrue(browserModelText.contains("mutateBrowserState"), "WorkspaceModel browser APIs should mutate actor-owned browser state through the narrow helper.")
+        XCTAssertTrue(browserModelText.contains("WorkspaceBrowserWorkflow.openPreview"), "WorkspaceModel browser APIs should delegate browser opening workflow.")
+        XCTAssertTrue(browserModelText.contains("WorkspaceBrowserWorkflow.beginSnapshotFetch"), "WorkspaceModel browser APIs should delegate browser fetch setup.")
+        XCTAssertTrue(browserModelText.contains("WorkspaceBrowserWorkflow.applySnapshotFetchSuccess"), "WorkspaceModel browser APIs should delegate browser fetch success.")
+        XCTAssertTrue(browserModelText.contains("WorkspaceBrowserWorkflow.applySnapshotFetchFailure"), "WorkspaceModel browser APIs should delegate browser fetch failures.")
+        XCTAssertFalse(modelText.contains("public func openBrowserPreview("), "WorkspaceModel should not inline public browser workflow APIs.")
+        XCTAssertFalse(modelText.contains("WorkspaceBrowserWorkflow.openPreview"), "WorkspaceModel should not inline browser workflow delegation.")
         XCTAssertTrue(workflowTests.contains("testStaleSnapshotFetchResultsDoNotOverwriteNewerPage"), "Browser workflow should have focused stale-fetch coverage.")
         XCTAssertFalse(modelText.contains("WorkspaceBrowserEngine.openPage"), "WorkspaceModel should not directly mutate browser pages.")
         XCTAssertFalse(modelText.contains("WorkspaceBrowserEngine.applyFetchedPage"), "WorkspaceModel should not directly apply fetched browser pages.")

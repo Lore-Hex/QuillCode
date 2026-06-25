@@ -105,6 +105,12 @@ public final class QuillCodeWorkspaceModel {
         )
     }
 
+    func mutateBrowserState<Result>(
+        _ mutation: (inout BrowserState, inout String?) -> Result
+    ) -> Result {
+        mutation(&browser, &lastError)
+    }
+
     public var currentToolCards: [ToolCardState] {
         guard let selectedThread else { return [] }
         let cards = WorkspaceTranscriptSurfaceBuilder(thread: selectedThread).toolCards()
@@ -204,14 +210,6 @@ public final class QuillCodeWorkspaceModel {
         return true
     }
 
-    public func setBrowserAddressDraft(_ draft: String) {
-        browser.addressDraft = draft
-    }
-
-    public func toggleBrowser() {
-        browser.isVisible.toggle()
-    }
-
     public func toggleExtensions() {
         extensions.isVisible.toggle()
     }
@@ -235,109 +233,6 @@ public final class QuillCodeWorkspaceModel {
         } else {
             activity.collapsedSectionIDs.insert(section)
         }
-    }
-
-    @discardableResult
-    public func openBrowserPreview(_ input: String? = nil, workspaceRoot: URL? = nil) -> Bool {
-        let opened = WorkspaceBrowserWorkflow.openPreview(
-            input,
-            workspaceRoot: workspaceRoot,
-            browser: &browser,
-            lastError: &lastError
-        )
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-        return opened
-    }
-
-    @discardableResult
-    public func goBackInBrowser() -> Bool {
-        guard WorkspaceBrowserWorkflow.goBack(browser: &browser, lastError: &lastError) else { return false }
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-        return true
-    }
-
-    @discardableResult
-    public func goForwardInBrowser() -> Bool {
-        guard WorkspaceBrowserWorkflow.goForward(browser: &browser, lastError: &lastError) else { return false }
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-        return true
-    }
-
-    @discardableResult
-    public func reloadBrowserPreview() -> Bool {
-        guard WorkspaceBrowserWorkflow.reload(browser: &browser, lastError: &lastError) else { return false }
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-        return true
-    }
-
-    @discardableResult
-    public func openBrowserPreview(
-        _ input: String? = nil,
-        workspaceRoot: URL? = nil,
-        pageFetcher: any BrowserPageFetching
-    ) async -> Bool {
-        guard openBrowserPreview(input, workspaceRoot: workspaceRoot) else { return false }
-        _ = await refreshBrowserSnapshot(pageFetcher: pageFetcher)
-        return true
-    }
-
-    @discardableResult
-    public func refreshBrowserSnapshot(pageFetcher: any BrowserPageFetching) async -> Bool {
-        guard let request = WorkspaceBrowserWorkflow.beginSnapshotFetch(browser: &browser) else { return false }
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-
-        do {
-            let fetchedPage = try await pageFetcher.fetchHTML(from: request.fetchURL)
-            guard WorkspaceBrowserWorkflow.applySnapshotFetchSuccess(
-                fetchedPage,
-                request: request,
-                browser: &browser,
-                lastError: &lastError
-            ) else { return false }
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-            return true
-        } catch {
-            guard WorkspaceBrowserWorkflow.applySnapshotFetchFailure(
-                error,
-                request: request,
-                browser: &browser,
-                lastError: &lastError
-            ) else { return false }
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-            return false
-        }
-    }
-
-    @discardableResult
-    public func refreshRenderedBrowserSnapshot(capturer: any BrowserLiveDOMCapturing) async -> Bool {
-        guard let request = WorkspaceBrowserWorkflow.beginLiveDOMCapture(browser: &browser) else { return false }
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-
-        do {
-            let snapshot = try await capturer.captureLiveDOM(for: request.captureURL)
-            guard WorkspaceBrowserWorkflow.applyLiveDOMCaptureSuccess(
-                snapshot,
-                request: request,
-                browser: &browser,
-                lastError: &lastError
-            ) else { return false }
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-            return true
-        } catch {
-            guard WorkspaceBrowserWorkflow.applyLiveDOMCaptureFailure(
-                error,
-                request: request,
-                browser: &browser,
-                lastError: &lastError
-            ) else { return false }
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-            return false
-        }
-    }
-
-    @discardableResult
-    public func addBrowserComment(_ text: String) -> Bool {
-        WorkspaceBrowserWorkflow.addComment(text, browser: &browser)
     }
 
     @discardableResult
