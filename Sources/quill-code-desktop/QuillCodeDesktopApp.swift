@@ -77,6 +77,8 @@ private struct QuillCodeDesktopRootView: View {
             onListWorktreeChoices: controller.worktreeChoiceLoad,
             onOpenWorktree: controller.openWorktree,
             onRemoveWorktree: controller.removeWorktree,
+            onPreviewWorktreePrune: controller.worktreePrunePreview,
+            onPruneWorktrees: controller.pruneWorktrees,
             onCopyTranscriptItem: controller.copyTranscriptItem,
             onMessageFeedback: controller.setMessageFeedback,
             onCommand: controller.runCommand

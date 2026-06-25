@@ -6262,7 +6262,7 @@ Current strict grades:
 - `command-palette.spec.ts` retry regression: **A**. It covers failed load, visible retry, return to loading, success, and error removal.
 
 Remaining risk:
-- There is still no cached last-known worktree list when a remote host is offline. Branch lifecycle polish, PR handoff, and a richer stale-worktree cleanup UI remain broader Codex-parity follow-ups.
+- There is still no cached last-known worktree list when a remote host is offline. Branch lifecycle polish and PR handoff remain broader Codex-parity follow-ups.
 
 ## 2026-06-25 Workspace Thread API Extension
 
@@ -6304,3 +6304,26 @@ Current strict grades:
 
 Remaining risk:
 - The next central-model extraction should target terminal or tool-run APIs only if the resulting extension can preserve narrow helper access without broadening model storage setters.
+
+## 2026-06-25 Worktree Prune Review Flow
+
+Overall grade after this slice: **A cleanup UX, A side-effect boundary, A harness parity**.
+
+`git worktree prune` was available as a structured command, but the command palette still behaved like an immediate dry-run tool dispatch. That was safe, but not Codex-like: users should see what Git considers stale, recover from a transient preview failure, and explicitly confirm before the real cleanup mutates repository administrative state.
+
+What changed:
+- Added a side-effect-free `WorkspaceWorktreePrunePreviewLoadRequest` that runs `git worktree prune --dry-run --verbose` locally or over SSH Remote without adding transcript tool cards.
+- Added a native Review Stale Worktrees sheet with loading, error/retry, empty, record-list, and disabled-confirm states.
+- Kept `/worktree prune --dry-run` and model-level `WorkspaceCommandPlan("git-worktree-prune")` as explicit audited tool-call paths, while routing the visible command-palette action to the richer review sheet.
+- Updated the Playwright harness to model stale records, preview failure injection, retry, confirm, and post-confirm transcript output.
+- Added focused Swift and E2E coverage for preview parsing, non-auditing local/remote preview, command-palette routing, and retry recovery.
+
+Current strict grades:
+- `WorkspaceWorktreePrunePreviewLoader.swift`: **A**. It keeps preview execution side-effect free, reuses the same local/SSH tool execution paths as real prune, and exposes a small UI-focused result type.
+- `QuillCodeWorktreePruneView`: **A-**. The states are clear and reusable with the existing worktree dialog styling; future polish can add richer record grouping if Git emits more varied verbose messages.
+- `WorkspaceSwiftUIView` worktree sheet orchestration: **A**. Async choice and prune-preview tasks are separate and cancel stale callbacks before opening a different worktree sheet.
+- `E2E/harness/index.html` prune preview model: **A-**. It mirrors the user-visible flow and recovery path without pretending to be a full Git implementation.
+- `command-palette.spec.ts`: **A**. It now proves the command-palette review/confirm flow plus retry after a failed preview.
+
+Remaining risk:
+- The preview currently displays the first 20 non-empty Git output lines as records. That is robust for current `git worktree prune --dry-run --verbose` output, but a future richer UI could classify messages by stale administrative path, missing checkout, or reason when Git exposes more structured detail.

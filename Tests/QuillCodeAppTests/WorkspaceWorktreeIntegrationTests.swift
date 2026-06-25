@@ -43,6 +43,20 @@ final class WorkspaceWorktreeIntegrationTests: XCTestCase {
         XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
     }
 
+    func testWorkspaceWorktreePrunePreviewDoesNotCreateToolAudit() throws {
+        let root = try makeTempDirectory()
+        try initializeGitRepository(at: root)
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Worktree Project")
+        model.selectProject(projectID)
+
+        let preview = model.worktreePrunePreview(workspaceRoot: root)
+
+        XCTAssertNil(preview.errorMessage)
+        XCTAssertEqual(model.currentToolCards, [])
+        XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
+    }
+
     func testRemoteWorkspaceCommandListsGitWorktreesThroughSSH() throws {
         let fixture = try makeRemoteWorktreeFixture()
 
@@ -151,6 +165,20 @@ final class WorkspaceWorktreeIntegrationTests: XCTestCase {
         XCTAssertEqual(choices.first?.detail, branch)
         XCTAssertEqual(fixture.model.currentToolCards, [])
         XCTAssertTrue(try fixture.recordedSSHArguments().contains("git worktree list --porcelain"))
+    }
+
+    func testRemoteWorkspaceWorktreePrunePreviewUsesSSHWithoutToolAudit() throws {
+        let fixture = try makeRemoteWorktreeFixture()
+
+        let preview = fixture.model.worktreePrunePreview(workspaceRoot: fixture.localRoot)
+
+        XCTAssertNil(preview.errorMessage)
+        XCTAssertEqual(fixture.model.currentToolCards, [])
+        let sshArguments = try fixture.recordedSSHArguments()
+        XCTAssertTrue(sshArguments.contains("worktree"), sshArguments)
+        XCTAssertTrue(sshArguments.contains("prune"), sshArguments)
+        XCTAssertTrue(sshArguments.contains("--dry-run"), sshArguments)
+        XCTAssertTrue(sshArguments.contains("--verbose"), sshArguments)
     }
 
     func testWorkspaceCreateWorktreeOpensFocusedThreadAndKeepsToolAudit() throws {

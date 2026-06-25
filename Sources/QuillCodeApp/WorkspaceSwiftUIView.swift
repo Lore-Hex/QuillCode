@@ -35,6 +35,8 @@ public struct QuillCodeWorkspaceView: View {
     public var onListWorktreeChoices: () async -> WorkspaceWorktreeChoiceLoad
     public var onOpenWorktree: (WorkspaceWorktreeOpenRequest) -> Void
     public var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
+    public var onPreviewWorktreePrune: () async -> WorkspaceWorktreePrunePreview
+    public var onPruneWorktrees: (WorkspaceWorktreePruneRequest) -> Void
     public var onCopyTranscriptItem: (String, String) -> Void
     public var onMessageFeedback: (UUID, MessageFeedbackValue) -> Void
     public var onCommand: (WorkspaceCommandSurface) -> Void
@@ -51,7 +53,9 @@ public struct QuillCodeWorkspaceView: View {
     @State private var createWorktreeDraft = QuillCodeWorktreeCreateDraft()
     @State private var openWorktreeDraft = QuillCodeWorktreeOpenDraft()
     @State private var removeWorktreeDraft = QuillCodeWorktreeRemoveDraft()
+    @State private var pruneWorktreeDraft = QuillCodeWorktreePruneDraft()
     @State private var worktreeChoiceLoadTask: Task<Void, Never>?
+    @State private var worktreePrunePreviewTask: Task<Void, Never>?
     @State private var renameThreadDraft: QuillCodeThreadRenameDraft?
     @State private var renameProjectDraft: QuillCodeProjectRenameDraft?
     @FocusState private var isComposerFocused: Bool
@@ -89,6 +93,8 @@ public struct QuillCodeWorkspaceView: View {
         onListWorktreeChoices: @escaping () async -> WorkspaceWorktreeChoiceLoad = { WorkspaceWorktreeChoiceLoad() },
         onOpenWorktree: @escaping (WorkspaceWorktreeOpenRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
+        onPreviewWorktreePrune: @escaping () async -> WorkspaceWorktreePrunePreview = { WorkspaceWorktreePrunePreview() },
+        onPruneWorktrees: @escaping (WorkspaceWorktreePruneRequest) -> Void = { _ in },
         onCopyTranscriptItem: @escaping (String, String) -> Void = { _, _ in },
         onMessageFeedback: @escaping (UUID, MessageFeedbackValue) -> Void = { _, _ in },
         onCommand: @escaping (WorkspaceCommandSurface) -> Void
@@ -125,6 +131,8 @@ public struct QuillCodeWorkspaceView: View {
         self.onListWorktreeChoices = onListWorktreeChoices
         self.onOpenWorktree = onOpenWorktree
         self.onRemoveWorktree = onRemoveWorktree
+        self.onPreviewWorktreePrune = onPreviewWorktreePrune
+        self.onPruneWorktrees = onPruneWorktrees
         self.onCopyTranscriptItem = onCopyTranscriptItem
         self.onMessageFeedback = onMessageFeedback
         self.onCommand = onCommand
@@ -196,6 +204,7 @@ public struct QuillCodeWorkspaceView: View {
             createWorktreeDraft: $createWorktreeDraft,
             openWorktreeDraft: $openWorktreeDraft,
             removeWorktreeDraft: $removeWorktreeDraft,
+            pruneWorktreeDraft: $pruneWorktreeDraft,
             renameThreadDraft: $renameThreadDraft,
             renameProjectDraft: $renameProjectDraft,
             onSelectThread: onSelectThread,
@@ -206,6 +215,8 @@ public struct QuillCodeWorkspaceView: View {
             onRetryWorktreeChoices: retryWorktreeChoices,
             onOpenWorktree: onOpenWorktree,
             onRemoveWorktree: onRemoveWorktree,
+            onRetryWorktreePrunePreview: retryWorktreePrunePreview,
+            onPruneWorktrees: onPruneWorktrees,
             onRenameThread: onRenameThread,
             onRenameProject: onRenameProject
         )
@@ -273,12 +284,15 @@ public struct QuillCodeWorkspaceView: View {
             renameProjectDraft = QuillCodeProjectRenameDraft(projectID: projectID, name: name)
         case .presentCreateWorktree:
             worktreeChoiceLoadTask?.cancel()
+            worktreePrunePreviewTask?.cancel()
             createWorktreeDraft = QuillCodeWorktreeCreateDraft()
             worktreeSheet = .create
         case .presentOpenWorktree:
             presentOpenWorktree()
         case .presentRemoveWorktree:
             presentRemoveWorktree()
+        case .presentPruneWorktrees:
+            presentPruneWorktrees()
         case .openBrowserSession:
             onOpenBrowserSession?()
         case let .dispatch(command, focusesComposer):
@@ -292,15 +306,24 @@ public struct QuillCodeWorkspaceView: View {
     }
 
     private func presentOpenWorktree() {
+        worktreePrunePreviewTask?.cancel()
         openWorktreeDraft = QuillCodeWorktreeOpenDraft(choiceLoad: .loading)
         worktreeSheet = .open
         loadWorktreeChoices(for: .open)
     }
 
     private func presentRemoveWorktree() {
+        worktreePrunePreviewTask?.cancel()
         removeWorktreeDraft = QuillCodeWorktreeRemoveDraft(choiceLoad: .loading)
         worktreeSheet = .remove
         loadWorktreeChoices(for: .remove)
+    }
+
+    private func presentPruneWorktrees() {
+        worktreeChoiceLoadTask?.cancel()
+        pruneWorktreeDraft = QuillCodeWorktreePruneDraft(preview: .loading)
+        worktreeSheet = .prune
+        loadWorktreePrunePreview()
     }
 
     private func retryWorktreeChoices(for sheet: QuillCodeWorktreeSheet) {
@@ -312,9 +335,15 @@ public struct QuillCodeWorkspaceView: View {
         case .remove:
             removeWorktreeDraft.choiceLoad = .loading
             loadWorktreeChoices(for: .remove)
-        case .create:
+        case .create, .prune:
             break
         }
+    }
+
+    private func retryWorktreePrunePreview() {
+        guard worktreeSheet == .prune else { return }
+        pruneWorktreeDraft.preview = .loading
+        loadWorktreePrunePreview()
     }
 
     private func loadWorktreeChoices(for sheet: QuillCodeWorktreeSheet) {
@@ -329,9 +358,21 @@ public struct QuillCodeWorkspaceView: View {
                     openWorktreeDraft.choiceLoad = .loaded(load)
                 case .remove:
                     removeWorktreeDraft.choiceLoad = .loaded(load)
-                case .create:
+                case .create, .prune:
                     break
                 }
+            }
+        }
+    }
+
+    private func loadWorktreePrunePreview() {
+        worktreePrunePreviewTask?.cancel()
+        worktreePrunePreviewTask = Task {
+            let preview = await onPreviewWorktreePrune()
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard worktreeSheet == .prune else { return }
+                pruneWorktreeDraft.preview = .loaded(preview)
             }
         }
     }
