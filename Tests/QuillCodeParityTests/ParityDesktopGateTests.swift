@@ -40,6 +40,7 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
     func testDesktopControllerDelegatesCancellableTaskSlots() throws {
         let text = try Self.desktopSourceText()
         let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let automationCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopAutomationCoordinator.swift")
         let browserCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopBrowserCoordinator.swift")
         let composerCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopComposerCoordinator.swift")
         let terminalCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopTerminalCoordinator.swift")
@@ -65,7 +66,10 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(terminalCoordinatorText.contains("draft.trimmingCharacters(in: .whitespacesAndNewlines)"), "Terminal coordinator should normalize submitted commands.")
         XCTAssertTrue(terminalCoordinatorText.contains("model.setTerminalDraft(draft)"), "Terminal history recall should sync unsent UI draft before moving through history.")
         XCTAssertTrue(browserCoordinatorText.contains("tasks.replace(.browserPreview"), "Browser previews should replace stale preview work.")
-        XCTAssertTrue(controllerText.contains("tasks.replace(.automationTicker"), "Automation ticks should use the task coordinator.")
+        XCTAssertTrue(controllerText.contains("QuillCodeDesktopAutomationCoordinator"), "Desktop automation ticking should be isolated behind a coordinator.")
+        XCTAssertTrue(controllerText.contains("automationCoordinator.startTicker"), "Desktop controller should delegate automation ticking.")
+        XCTAssertTrue(automationCoordinatorText.contains("tasks.replace(.automationTicker"), "Automation ticks should use the task coordinator.")
+        XCTAssertTrue(automationCoordinatorText.contains("Task.sleep(nanoseconds: tickIntervalNanoseconds)"), "Automation tick timing should live in the automation coordinator.")
         XCTAssertFalse(desktopTaskText.contains("private var tasks"), "Desktop wrapper should not own raw task storage.")
         XCTAssertFalse(controllerText.contains("private var sendTask"), "Desktop controller should not own raw send task slots.")
         XCTAssertFalse(controllerText.contains("private var terminalTask"), "Desktop controller should not own raw terminal task slots.")
@@ -74,6 +78,8 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(controllerText.contains("let prompt = draft.trimmingCharacters"), "Desktop controller should not own composer prompt normalization.")
         XCTAssertFalse(controllerText.contains("model.prepareRetryLastUserTurn()"), "Desktop controller should not own retry preparation.")
         XCTAssertFalse(controllerText.contains("let command = terminalDraft.trimmingCharacters"), "Desktop controller should not own terminal command normalization.")
+        XCTAssertFalse(controllerText.contains("tasks.replace(.automationTicker"), "Desktop controller should not own automation ticker task replacement.")
+        XCTAssertFalse(controllerText.contains("30_000_000_000"), "Desktop controller should not own automation tick timing.")
     }
 
     func testDesktopBrowserLiveDOMCaptureUsesFocusedAdapter() throws {
@@ -210,10 +216,17 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
 
     func testDesktopNotifiesWhenDueAutomationsRun() throws {
         let text = try Self.desktopSourceText()
+        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let automationCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopAutomationCoordinator.swift")
 
         XCTAssertTrue(text.contains("UNUserNotificationCenter"), "Desktop app should use native notifications for due automations.")
         XCTAssertTrue(text.contains("MacAutomationNotifier"), "Desktop app should isolate notification delivery behind an adapter.")
-        XCTAssertTrue(text.contains("runDueAutomationReports"), "Desktop app should consume structured automation run reports.")
-        XCTAssertTrue(text.contains("automationNotifier.deliver"), "Desktop app should deliver a notification for each due automation report.")
+        XCTAssertTrue(text.contains("QuillCodeDesktopAutomationCoordinator"), "Desktop automation ticking should be isolated from UI routing.")
+        XCTAssertTrue(controllerText.contains("automationCoordinator.runDueAutomations"), "Desktop controller should delegate startup due-automation runs.")
+        XCTAssertTrue(controllerText.contains("automationCoordinator.startTicker"), "Desktop controller should delegate recurring automation ticks.")
+        XCTAssertTrue(automationCoordinatorText.contains("runDueAutomationReports"), "Desktop automation coordinator should consume structured automation run reports.")
+        XCTAssertTrue(automationCoordinatorText.contains("reports.forEach(notifier.deliver)"), "Desktop automation coordinator should deliver a notification for each due automation report.")
+        XCTAssertFalse(controllerText.contains("let reports = model.runDueAutomationReports()"), "Desktop controller should not query due automations directly.")
+        XCTAssertFalse(controllerText.contains("reports.forEach(automationNotifier.deliver)"), "Desktop controller should not fan out automation notifications directly.")
     }
 }

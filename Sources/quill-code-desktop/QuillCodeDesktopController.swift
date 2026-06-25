@@ -20,6 +20,7 @@ final class QuillCodeDesktopController: ObservableObject {
     private let bootstrap: QuillCodeWorkspaceBootstrap
     private let computerUseBackend: MacComputerUseBackend
     private let browserCoordinator: QuillCodeDesktopBrowserCoordinator
+    private let automationCoordinator: QuillCodeDesktopAutomationCoordinator
     private let automationNotifier: any QuillCodeAutomationNotifying
     private let workspaceRoot: URL
     private let signInCoordinator: QuillCodeDesktopSignInCoordinator
@@ -46,6 +47,7 @@ final class QuillCodeDesktopController: ObservableObject {
             liveDOMCapturer: browserLiveDOMCapturer,
             sessionPresenter: browserSessionPresenter
         )
+        self.automationCoordinator = QuillCodeDesktopAutomationCoordinator()
         self.automationNotifier = automationNotifier
         self.signInCoordinator = QuillCodeDesktopSignInCoordinator(bootstrap: bootstrap)
         self.settingsCoordinator = QuillCodeDesktopSettingsCoordinator(bootstrap: bootstrap)
@@ -68,8 +70,17 @@ final class QuillCodeDesktopController: ObservableObject {
         self.draft = model.composer.draft
         self.terminalDraft = model.terminal.draft
         self.browserAddressDraft = model.browser.addressDraft
-        runDueAutomations()
-        startAutomationTicker()
+        automationCoordinator.runDueAutomations(
+            model: model,
+            notifier: automationNotifier,
+            refresh: { [weak self] in self?.refresh() }
+        )
+        automationCoordinator.startTicker(
+            model: model,
+            tasks: tasks,
+            notifier: automationNotifier,
+            refresh: { [weak self] in self?.refresh() }
+        )
     }
 
     func newChat() {
@@ -435,25 +446,6 @@ final class QuillCodeDesktopController: ObservableObject {
             )
             refresh()
         }
-    }
-
-    private func startAutomationTicker() {
-        tasks.replace(.automationTicker) { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 30_000_000_000)
-                guard let self, !Task.isCancelled else {
-                    return
-                }
-                self.runDueAutomations()
-            }
-        }
-    }
-
-    private func runDueAutomations() {
-        let reports = model.runDueAutomationReports()
-        guard !reports.isEmpty else { return }
-        reports.forEach(automationNotifier.deliver)
-        refresh()
     }
 
     private func refresh() {
