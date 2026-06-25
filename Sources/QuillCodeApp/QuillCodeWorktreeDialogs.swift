@@ -5,6 +5,7 @@ enum QuillCodeWorktreeSheet: String, Identifiable {
     case create
     case open
     case remove
+    case prune
 
     var id: String { rawValue }
 }
@@ -96,6 +97,39 @@ struct QuillCodeWorktreeRemoveDraft: Equatable {
 
     mutating func select(_ choice: WorkspaceWorktreeChoice) {
         path = choice.path
+    }
+}
+
+struct QuillCodeWorktreePrunePreviewLoadState: Equatable {
+    var records: [String] = []
+    var output = ""
+    var isLoading = false
+    var hasLoaded = false
+    var errorMessage: String?
+
+    static var loading: Self {
+        Self(isLoading: true)
+    }
+
+    static func loaded(_ preview: WorkspaceWorktreePrunePreview) -> Self {
+        Self(
+            records: preview.records,
+            output: preview.output,
+            hasLoaded: true,
+            errorMessage: preview.errorMessage
+        )
+    }
+}
+
+struct QuillCodeWorktreePruneDraft: Equatable {
+    var preview = QuillCodeWorktreePrunePreviewLoadState()
+
+    var canPrune: Bool {
+        preview.hasLoaded && !preview.isLoading && preview.errorMessage == nil && !preview.records.isEmpty
+    }
+
+    var confirmRequest: WorkspaceWorktreePruneRequest {
+        WorkspaceWorktreePruneRequest(dryRun: false, verbose: true)
     }
 }
 
@@ -289,6 +323,101 @@ struct QuillCodeWorktreeRemoveView: View {
                     .disabled(!draft.canRemove)
             }
         }
+    }
+}
+
+struct QuillCodeWorktreePruneView: View {
+    @Binding var draft: QuillCodeWorktreePruneDraft
+    var onCancel: () -> Void
+    var onPrune: () -> Void
+    var onRetryPreview: () -> Void
+
+    var body: some View {
+        QuillCodeWorktreeDialogFrame(
+            title: "Review Stale Worktrees",
+            subtitle: "Preview stale git worktree records before pruning them.",
+            systemImage: "trash.slash",
+            iconColor: QuillCodePalette.yellow
+        ) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Dry Run")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .textCase(.uppercase)
+                prunePreviewContent
+            }
+        } footer: {
+            HStack(alignment: .center) {
+                Text("Prune runs `git worktree prune --verbose` for the selected project.")
+                    .font(.caption)
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(2)
+                Spacer()
+                Button("Cancel", action: onCancel)
+                Button("Prune", action: onPrune)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!draft.canPrune)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var prunePreviewContent: some View {
+        if draft.preview.isLoading {
+            QuillCodeWorktreeChoiceStatusRow(
+                systemImage: "clock.arrow.circlepath",
+                message: "Checking stale worktree records...",
+                color: QuillCodePalette.blue,
+                showsSpinner: true
+            )
+        } else if let errorMessage = draft.preview.errorMessage {
+            QuillCodeWorktreeChoiceStatusRow(
+                systemImage: "exclamationmark.triangle",
+                message: errorMessage,
+                color: QuillCodePalette.yellow,
+                actionTitle: "Retry",
+                action: onRetryPreview
+            )
+        } else if draft.preview.hasLoaded && draft.preview.records.isEmpty {
+            QuillCodeWorktreeChoiceStatusRow(
+                systemImage: "checkmark.circle",
+                message: "No stale worktree records found.",
+                color: QuillCodePalette.green
+            )
+        } else {
+            VStack(spacing: 6) {
+                ForEach(Array(draft.preview.records.enumerated()), id: \.offset) { _, record in
+                    QuillCodeWorktreePruneRecordRow(record: record)
+                }
+            }
+        }
+    }
+}
+
+private struct QuillCodeWorktreePruneRecordRow: View {
+    var record: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle")
+                .foregroundStyle(QuillCodePalette.yellow)
+                .accessibilityHidden(true)
+            Text(record)
+                .font(.caption.monospaced())
+                .foregroundStyle(QuillCodePalette.text)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(QuillCodePalette.panel)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(QuillCodePalette.yellow.opacity(0.25))
+        )
     }
 }
 

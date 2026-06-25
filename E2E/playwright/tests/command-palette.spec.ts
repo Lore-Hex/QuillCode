@@ -100,9 +100,37 @@ test('mock harness prunes worktrees from the command palette', async ({ page }) 
   await commandPaletteResult(page, 'git-worktree-prune').click();
 
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+  await expect(page.getByTestId('worktree-prune-panel')).toBeVisible();
+  await expect(page.getByTestId('worktree-prune-loading')).toBeVisible();
+  await expect(page.getByTestId('worktree-prune-record')).toContainText('/mock/quillcode-stale');
+  await expect(page.getByTestId('worktree-prune-submit')).toBeEnabled();
+
+  await page.getByTestId('worktree-prune-submit').click();
+
+  await expect(page.getByTestId('worktree-prune-panel')).toHaveCount(0);
   await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.worktree.prune');
-  await expect(page.getByTestId('tool-card-input')).toContainText('"dryRun": true');
-  await expect(page.getByTestId('message').last()).toContainText('No stale worktree records found.');
+  await expect(page.getByTestId('tool-card-input')).toContainText('"dryRun": false');
+  await expect(page.getByTestId('tool-card-input')).toContainText('"verbose": true');
+  await expect(page.getByTestId('message').last()).toContainText('Pruned stale worktree records.');
+});
+
+test('mock harness retries failed worktree prune preview', async ({ page }) => {
+  await page.goto(harnessURL());
+  await page.evaluate(() => {
+    (window as typeof window & { __quillCodeFailNextWorktreePrunePreview?: boolean }).__quillCodeFailNextWorktreePrunePreview = true;
+  });
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await fillCommandPalette(page, '>prune');
+  await commandPaletteResult(page, 'git-worktree-prune').click();
+
+  await expect(page.getByTestId('worktree-prune-error')).toContainText('Could not preview stale worktree records.');
+  await expect(page.getByTestId('worktree-prune-submit')).toBeDisabled();
+
+  await page.getByTestId('worktree-prune-retry').click();
+
+  await expect(page.getByTestId('worktree-prune-record')).toContainText('/mock/quillcode-stale');
+  await expect(page.getByTestId('worktree-prune-submit')).toBeEnabled();
 });
 
 test('mock harness prepares pull request creation from the command palette', async ({ page }) => {

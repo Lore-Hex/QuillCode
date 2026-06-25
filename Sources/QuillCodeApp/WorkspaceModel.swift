@@ -630,6 +630,18 @@ public final class QuillCodeWorkspaceModel {
         worktreeChoiceLoad(workspaceRoot: workspaceRoot).choices
     }
 
+    public func worktreePrunePreviewLoadRequest(workspaceRoot: URL) -> WorkspaceWorktreePrunePreviewLoadRequest {
+        WorkspaceWorktreePrunePreviewLoadRequest(
+            workspaceRoot: workspaceRoot,
+            selectedProject: selectedProject,
+            sshRemoteShellExecutor: sshRemoteShellExecutor
+        )
+    }
+
+    public func worktreePrunePreview(workspaceRoot: URL) -> WorkspaceWorktreePrunePreview {
+        worktreePrunePreviewLoadRequest(workspaceRoot: workspaceRoot).load()
+    }
+
     public func removeWorktree(_ request: WorkspaceWorktreeRemoveRequest, workspaceRoot: URL) {
         runToolCall(
             WorkspaceWorktreeToolCallPlanner.remove(request),

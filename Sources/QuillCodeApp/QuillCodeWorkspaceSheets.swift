@@ -14,6 +14,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     @Binding var createWorktreeDraft: QuillCodeWorktreeCreateDraft
     @Binding var openWorktreeDraft: QuillCodeWorktreeOpenDraft
     @Binding var removeWorktreeDraft: QuillCodeWorktreeRemoveDraft
+    @Binding var pruneWorktreeDraft: QuillCodeWorktreePruneDraft
     @Binding var renameThreadDraft: QuillCodeThreadRenameDraft?
     @Binding var renameProjectDraft: QuillCodeProjectRenameDraft?
     var onSelectThread: (UUID) -> Void
@@ -24,6 +25,8 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     var onRetryWorktreeChoices: (QuillCodeWorktreeSheet) -> Void
     var onOpenWorktree: (WorkspaceWorktreeOpenRequest) -> Void
     var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
+    var onRetryWorktreePrunePreview: () -> Void
+    var onPruneWorktrees: (WorkspaceWorktreePruneRequest) -> Void
     var onRenameThread: (UUID, String) -> Void
     var onRenameProject: (UUID, String) -> Void
 
@@ -87,6 +90,13 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
                         onCancel: dismissWorktreeSheet,
                         onRemove: removeWorktree,
                         onRetryChoices: retryRemoveWorktreeChoices
+                    )
+                case .prune:
+                    QuillCodeWorktreePruneView(
+                        draft: $pruneWorktreeDraft,
+                        onCancel: dismissWorktreeSheet,
+                        onPrune: pruneWorktrees,
+                        onRetryPreview: onRetryWorktreePrunePreview
                     )
                 }
             }
@@ -164,6 +174,11 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
         onRetryWorktreeChoices(.remove)
     }
 
+    private func pruneWorktrees() {
+        onPruneWorktrees(pruneWorktreeDraft.confirmRequest)
+        worktreeSheet = nil
+    }
+
     private func dismissThreadRename() {
         renameThreadDraft = nil
     }
@@ -197,6 +212,7 @@ extension View {
         createWorktreeDraft: Binding<QuillCodeWorktreeCreateDraft>,
         openWorktreeDraft: Binding<QuillCodeWorktreeOpenDraft>,
         removeWorktreeDraft: Binding<QuillCodeWorktreeRemoveDraft>,
+        pruneWorktreeDraft: Binding<QuillCodeWorktreePruneDraft>,
         renameThreadDraft: Binding<QuillCodeThreadRenameDraft?>,
         renameProjectDraft: Binding<QuillCodeProjectRenameDraft?>,
         onSelectThread: @escaping (UUID) -> Void,
@@ -207,6 +223,8 @@ extension View {
         onRetryWorktreeChoices: @escaping (QuillCodeWorktreeSheet) -> Void,
         onOpenWorktree: @escaping (WorkspaceWorktreeOpenRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
+        onRetryWorktreePrunePreview: @escaping () -> Void,
+        onPruneWorktrees: @escaping (WorkspaceWorktreePruneRequest) -> Void,
         onRenameThread: @escaping (UUID, String) -> Void,
         onRenameProject: @escaping (UUID, String) -> Void
     ) -> some View {
@@ -223,6 +241,7 @@ extension View {
             createWorktreeDraft: createWorktreeDraft,
             openWorktreeDraft: openWorktreeDraft,
             removeWorktreeDraft: removeWorktreeDraft,
+            pruneWorktreeDraft: pruneWorktreeDraft,
             renameThreadDraft: renameThreadDraft,
             renameProjectDraft: renameProjectDraft,
             onSelectThread: onSelectThread,
@@ -233,6 +252,8 @@ extension View {
             onRetryWorktreeChoices: onRetryWorktreeChoices,
             onOpenWorktree: onOpenWorktree,
             onRemoveWorktree: onRemoveWorktree,
+            onRetryWorktreePrunePreview: onRetryWorktreePrunePreview,
+            onPruneWorktrees: onPruneWorktrees,
             onRenameThread: onRenameThread,
             onRenameProject: onRenameProject
         ))

@@ -2547,6 +2547,9 @@
         { path: '/mock/QuillCode', branch: 'main' },
         { path: '/mock/quillcode-existing', branch: 'feature/existing' }
       ],
+      worktreePruneRecords: [
+        'Prunable worktree: /mock/quillcode-stale'
+      ],
       sidebar: {
         title: 'Chats',
         selectedThreadID: null,
@@ -2748,7 +2751,13 @@
         choicesError: '',
         choiceLoadToken: 0,
         removePath: '',
-        removeForce: false
+        removeForce: false,
+        pruneRecords: [],
+        pruneOutput: '',
+        pruneLoading: false,
+        pruneLoaded: false,
+        pruneError: '',
+        pruneLoadToken: 0
       },
       commands: [
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
@@ -5212,6 +5221,11 @@
           force: form.elements.namedItem('force').checked
         });
       });
+      document.querySelector('[data-testid="worktree-prune-retry"]')?.addEventListener('click', retryWorktreePrunePreview);
+      document.querySelector('[data-testid="worktree-prune-form"]')?.addEventListener('submit', event => {
+        event.preventDefault();
+        pruneWorktrees({ dryRun: false, verbose: true });
+      });
       document.querySelector('[data-testid="terminal-input"]')?.addEventListener('input', event => {
         state.terminal.draft = event.target.value;
         document.querySelector('[data-testid="terminal-run"]').disabled =
@@ -7506,7 +7520,18 @@
         return;
       }
       if (commandID === 'git-worktree-prune') {
-        pruneWorktrees({ dryRun: true, verbose: true });
+        state.worktreeDialog = {
+          ...state.worktreeDialog,
+          mode: 'prune',
+          pruneRecords: [],
+          pruneOutput: '',
+          pruneLoading: true,
+          pruneLoaded: false,
+          pruneError: '',
+          pruneLoadToken: state.worktreeDialog.pruneLoadToken + 1
+        };
+        render();
+        loadWorktreePrunePreview(state.worktreeDialog.pruneLoadToken);
         return;
       }
       if (commandID.startsWith('local-env:')) {
@@ -8098,6 +8123,41 @@
             </form>
           </div>`;
       }
+      if (state.worktreeDialog.mode === 'prune') {
+        const dialog = state.worktreeDialog;
+        const body = dialog.pruneLoading
+          ? '<div class="dialog-choice-status" data-testid="worktree-prune-loading"><span class="dialog-choice-spinner" aria-hidden="true"></span><span>Checking stale worktree records...</span></div>'
+          : dialog.pruneError
+            ? `<div class="dialog-choice-status" data-testid="worktree-prune-error"><span>${escapeHTML(dialog.pruneError)}</span><button type="button" data-testid="worktree-prune-retry">Retry</button></div>`
+            : dialog.pruneLoaded && dialog.pruneRecords.length === 0
+              ? '<div class="dialog-choice-status" data-testid="worktree-prune-empty">No stale worktree records found.</div>'
+              : dialog.pruneRecords.map(record => `
+                  <div class="dialog-choice" data-testid="worktree-prune-record">
+                    <strong>${escapeHTML(record.replace(/^Prunable worktree:\\s*/, ''))}</strong>
+                    <code>${escapeHTML(record)}</code>
+                  </div>`).join('');
+        return `
+          <div class="search-panel" data-testid="worktree-prune-panel">
+            <form class="search-card" data-testid="worktree-prune-form" role="dialog" aria-label="Review stale worktrees">
+              <header>
+                <div>
+                  <h2>Review stale worktrees</h2>
+                  <p>Review stale git worktree records before pruning them.</p>
+                </div>
+                <button type="button" data-testid="worktree-dialog-close">Close</button>
+              </header>
+              <div class="dialog-choice-list">
+                <div class="eyebrow">Preview</div>
+                ${body}
+              </div>
+              <p>Prune runs <code>git worktree prune --verbose</code> for the selected project.</p>
+              <div class="settings-actions">
+                <button type="button" data-testid="worktree-dialog-cancel">Cancel</button>
+                <button type="submit" data-testid="worktree-prune-submit" ${dialog.pruneLoaded && !dialog.pruneError && dialog.pruneRecords.length ? '' : 'disabled'}>Prune</button>
+              </div>
+            </form>
+          </div>`;
+      }
       return `
         <div class="search-panel" data-testid="worktree-remove-panel">
           <form class="search-card" data-testid="worktree-remove-form" role="dialog" aria-label="Remove worktree">
@@ -8167,6 +8227,56 @@
       };
       render();
       loadWorktreeChoicesForDialog(mode, state.worktreeDialog.choiceLoadToken);
+    }
+
+    function loadWorktreePrunePreview(token) {
+      window.setTimeout(() => {
+        if (state.worktreeDialog.mode !== 'prune' || state.worktreeDialog.pruneLoadToken !== token) {
+          return;
+        }
+        if (window.__quillCodeFailNextWorktreePrunePreview) {
+          window.__quillCodeFailNextWorktreePrunePreview = false;
+          state.worktreeDialog = {
+            ...state.worktreeDialog,
+            pruneRecords: [],
+            pruneOutput: '',
+            pruneLoading: false,
+            pruneLoaded: true,
+            pruneError: 'Could not preview stale worktree records.'
+          };
+          render();
+          return;
+        }
+        const records = staleWorktreeRecords();
+        state.worktreeDialog = {
+          ...state.worktreeDialog,
+          pruneRecords: records,
+          pruneOutput: records.join('\n'),
+          pruneLoading: false,
+          pruneLoaded: true,
+          pruneError: ''
+        };
+        render();
+      }, 80);
+    }
+
+    function retryWorktreePrunePreview() {
+      if (state.worktreeDialog.mode !== 'prune') return;
+      state.worktreeDialog = {
+        ...state.worktreeDialog,
+        pruneRecords: [],
+        pruneOutput: '',
+        pruneLoading: true,
+        pruneLoaded: false,
+        pruneError: '',
+        pruneLoadToken: state.worktreeDialog.pruneLoadToken + 1
+      };
+      render();
+      loadWorktreePrunePreview(state.worktreeDialog.pruneLoadToken);
+    }
+
+    function staleWorktreeRecords() {
+      return state.worktreePruneRecords.slice();
     }
 
     function renderWorktreeChoiceSection(target, emptyMessage) {
@@ -8347,7 +8457,13 @@
       ensureThread('Prune worktrees');
       const dryRun = values.dryRun === true;
       const verbose = values.verbose === true;
-      const stdout = '';
+      const stdout = dryRun
+        ? `${staleWorktreeRecords().join('\n')}\n`
+        : 'Pruned stale worktree administrative records.\n';
+      if (!dryRun) {
+        state.worktreePruneRecords = [];
+        state.worktreeDialog.mode = null;
+      }
       addToolCard({
         title: 'host.git.worktree.prune',
         subtitle: dryRun ? 'Completed · dry run' : 'Completed',

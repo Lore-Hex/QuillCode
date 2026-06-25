@@ -339,6 +339,13 @@ final class QuillCodeDesktopController: ObservableObject {
         }.value
     }
 
+    func worktreePrunePreview() async -> WorkspaceWorktreePrunePreview {
+        let request = model.worktreePrunePreviewLoadRequest(workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+        return await Task.detached(priority: .userInitiated) {
+            request.load()
+        }.value
+    }
+
     func openWorktree(_ request: WorkspaceWorktreeOpenRequest) {
         model.openWorktree(request, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
         refresh()
@@ -346,6 +353,11 @@ final class QuillCodeDesktopController: ObservableObject {
 
     func removeWorktree(_ request: WorkspaceWorktreeRemoveRequest) {
         model.removeWorktree(request, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+        refresh()
+    }
+
+    func pruneWorktrees(_ request: WorkspaceWorktreePruneRequest) {
+        model.pruneWorktrees(request, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
         refresh()
     }
 

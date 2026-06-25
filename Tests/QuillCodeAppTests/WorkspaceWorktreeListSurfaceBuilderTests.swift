@@ -42,6 +42,55 @@ final class WorkspaceWorktreeListSurfaceBuilderTests: XCTestCase {
         XCTAssertTrue(load.errorMessage?.isEmpty == false)
     }
 
+    func testPrunePreviewLoadStateTracksLoadingSuccessEmptyAndFailure() {
+        XCTAssertTrue(QuillCodeWorktreePrunePreviewLoadState.loading.isLoading)
+
+        let loaded = QuillCodeWorktreePrunePreviewLoadState.loaded(.init(
+            records: ["Prunable worktree: /repo/quill-stale"],
+            output: "Prunable worktree: /repo/quill-stale"
+        ))
+        XCTAssertFalse(loaded.isLoading)
+        XCTAssertTrue(loaded.hasLoaded)
+        XCTAssertEqual(loaded.records, ["Prunable worktree: /repo/quill-stale"])
+        XCTAssertNil(loaded.errorMessage)
+
+        let empty = QuillCodeWorktreePrunePreviewLoadState.loaded(.init())
+        XCTAssertFalse(empty.isLoading)
+        XCTAssertTrue(empty.hasLoaded)
+        XCTAssertEqual(empty.records, [])
+        XCTAssertNil(empty.errorMessage)
+
+        let failed = QuillCodeWorktreePrunePreviewLoadState.loaded(.init(errorMessage: "not a git repo"))
+        XCTAssertFalse(failed.isLoading)
+        XCTAssertTrue(failed.hasLoaded)
+        XCTAssertEqual(failed.records, [])
+        XCTAssertEqual(failed.errorMessage, "not a git repo")
+    }
+
+    func testPrunePreviewRequestReturnsVisibleErrorForNonGitDirectory() throws {
+        let directory = try makeQuillCodeTestDirectory()
+
+        let load = WorkspaceWorktreePrunePreviewLoadRequest(
+            workspaceRoot: directory,
+            selectedProject: nil
+        ).load()
+
+        XCTAssertEqual(load.records, [])
+        XCTAssertTrue(load.errorMessage?.isEmpty == false)
+    }
+
+    func testPrunePreviewRecordsTrimAndCapOutput() {
+        let output = (1...25)
+            .map { index in "  Prunable worktree: /repo/stale-\(index)  " }
+            .joined(separator: "\n")
+
+        let records = WorkspaceWorktreePrunePreviewSurfaceBuilder.records(from: output)
+
+        XCTAssertEqual(records.count, 20)
+        XCTAssertEqual(records.first, "Prunable worktree: /repo/stale-1")
+        XCTAssertEqual(records.last, "Prunable worktree: /repo/stale-20")
+    }
+
     func testChoicesParsePorcelainBranchesAndSkipCurrentProject() {
         let stdout = """
         worktree /repo/quill
