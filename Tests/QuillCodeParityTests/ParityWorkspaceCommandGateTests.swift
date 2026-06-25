@@ -1,0 +1,74 @@
+import XCTest
+
+final class ParityWorkspaceCommandGateTests: QuillCodeParityTestCase {
+    func testWorkspaceViewDelegatesCommandPlanning() throws {
+        let viewText = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
+        let plannerText = try Self.appSourceText(named: "QuillCodeWorkspaceViewCommandPlanner.swift")
+
+        XCTAssertTrue(plannerText.contains("struct WorkspaceViewCommandPlanner"), "Workspace command presentation routing should live in a focused planner.")
+        XCTAssertTrue(plannerText.contains("enum WorkspaceViewCommandAction"), "Workspace view command outcomes should be typed and directly testable.")
+        XCTAssertTrue(plannerText.contains("case \"settings\", \"computer-use-setup\""), "Settings command routing should be directly testable.")
+        XCTAssertTrue(plannerText.contains("case \"thread-rename\""), "Thread rename command routing should be directly testable.")
+        XCTAssertTrue(plannerText.contains("case \"project-rename\""), "Project rename command routing should be directly testable.")
+        XCTAssertTrue(plannerText.contains("shouldFocusComposer(afterDispatching:"), "Composer focus routing should be directly testable.")
+        XCTAssertTrue(viewText.contains("WorkspaceViewCommandPlanner("), "WorkspaceSwiftUIView should delegate command planning.")
+        XCTAssertFalse(viewText.contains("command.id == \"settings\""), "WorkspaceSwiftUIView should not own settings command routing.")
+        XCTAssertFalse(viewText.contains("command.id == \"computer-use-setup\""), "WorkspaceSwiftUIView should not own Computer Use command routing.")
+        XCTAssertFalse(viewText.contains("command.id == \"thread-rename\""), "WorkspaceSwiftUIView should not own thread rename command routing.")
+        XCTAssertFalse(viewText.contains("command.id == \"project-rename\""), "WorkspaceSwiftUIView should not own project rename command routing.")
+        XCTAssertFalse(viewText.contains("SlashCommandCatalog.insertText(forCommandPaletteID:"), "WorkspaceSwiftUIView should not own command composer-focus routing.")
+    }
+
+    func testWorkspaceSurfaceDelegatesCommandSurfaceBuilding() throws {
+        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
+        let builderText = try Self.appSourceText(named: "WorkspaceCommandSurfaceBuilder.swift")
+        let staticCatalogText = try Self.appSourceText(named: "WorkspaceCommandStaticCatalog.swift")
+        let threadCatalogText = try Self.appSourceText(named: "WorkspaceThreadCommandCatalog.swift")
+        let gitCatalogText = try Self.appSourceText(named: "WorkspaceGitCommandCatalog.swift")
+        let projectCatalogText = try Self.appSourceText(named: "WorkspaceProjectCommandCatalog.swift")
+
+        XCTAssertTrue(builderText.contains("struct WorkspaceCommandSurfaceBuilder"), "Command palette construction should live in a focused builder.")
+        XCTAssertTrue(builderText.contains("var commands: [WorkspaceCommandSurface]"), "Command builder should expose directly testable command rows.")
+        XCTAssertTrue(builderText.contains("WorkspaceThreadCommandCatalog.commands"), "Thread command rows should live in the focused thread catalog.")
+        XCTAssertTrue(builderText.contains("WorkspaceGitCommandCatalog.commands"), "Git command rows should live in the focused git catalog.")
+        XCTAssertTrue(builderText.contains("WorkspaceProjectCommandCatalog.localActionCommands"), "Project-derived command rows should live in the focused project catalog.")
+        XCTAssertTrue(builderText.contains("WorkspaceCommandStaticCatalog.workspaceCommands"), "Static command rows should live in the focused static catalog.")
+        XCTAssertTrue(staticCatalogText.contains("enum WorkspaceCommandStaticCatalog"), "Static command rows should live in a focused catalog.")
+        XCTAssertTrue(threadCatalogText.contains("enum WorkspaceThreadCommandCatalog"), "Thread command rows should live in a focused catalog.")
+        XCTAssertTrue(threadCatalogText.contains("struct WorkspaceThreadCommandAvailability"), "Thread command availability should be a directly testable value.")
+        XCTAssertTrue(gitCatalogText.contains("enum WorkspaceGitCommandCatalog"), "Git command rows should live in a focused catalog.")
+        XCTAssertTrue(projectCatalogText.contains("enum WorkspaceProjectCommandCatalog"), "Project-derived command rows should live in a focused catalog.")
+        XCTAssertTrue(projectCatalogText.contains("static func localActionCommands"), "Local environment action command construction should be isolated in the project catalog.")
+        XCTAssertTrue(projectCatalogText.contains("static func mcpLifecycleCommands"), "MCP lifecycle command construction should be isolated in the project catalog.")
+        XCTAssertTrue(projectCatalogText.contains("static func extensionUpdateCommands"), "Extension update command construction should be isolated in the project catalog.")
+        XCTAssertFalse(builderText.contains("private var localActionCommands"), "Command builder should not own local-action command construction.")
+        XCTAssertFalse(builderText.contains("private var mcpLifecycleCommands"), "Command builder should not own MCP lifecycle command construction.")
+        XCTAssertFalse(builderText.contains("private var gitCommands"), "Command builder should not own Git command construction.")
+        XCTAssertTrue(surfaceText.contains("WorkspaceCommandSurfaceBuilder("), "WorkspaceSurface should delegate command construction.")
+        XCTAssertFalse(surfaceText.contains("private func commands() -> [WorkspaceCommandSurface]"), "WorkspaceSurface should not own the command catalog.")
+        XCTAssertFalse(surfaceText.contains("let localActionCommands ="), "WorkspaceSurface should not own local-action command construction.")
+        XCTAssertFalse(surfaceText.contains("let mcpLifecycleCommands ="), "WorkspaceSurface should not own MCP lifecycle command construction.")
+        XCTAssertFalse(surfaceText.contains("let extensionUpdateCommands ="), "WorkspaceSurface should not own extension update command construction.")
+    }
+
+    func testWorkspaceSurfaceDelegatesCommandPaletteContract() throws {
+        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
+        let paletteText = try Self.appSourceText(named: "WorkspaceCommandPaletteSurface.swift")
+        let rankerText = try Self.appSourceText(named: "WorkspaceCommandPaletteRanker.swift")
+
+        XCTAssertTrue(paletteText.contains("public struct WorkspaceCommandSurface"), "Command surface records should live beside command palette API types.")
+        XCTAssertTrue(paletteText.contains("public enum TopBarOverflowCommandCatalog"), "Top-bar overflow command projection should live beside command surfaces.")
+        XCTAssertTrue(paletteText.contains("public enum WorkspaceCommandPalette"), "Command palette API should stay in the focused command surface file.")
+        XCTAssertTrue(paletteText.contains("WorkspaceCommandPaletteRanker.rankedCommands"), "Public palette ranking should delegate to the focused ranker.")
+        XCTAssertTrue(paletteText.contains("WorkspaceCommandPaletteRanker.groupedCommands"), "Public palette grouping should delegate to the focused ranker.")
+        XCTAssertTrue(rankerText.contains("enum WorkspaceCommandPaletteRanker"), "Palette ranking/search should live in its own focused helper.")
+        XCTAssertTrue(rankerText.contains("private static func score"), "Palette scoring should be directly guarded in the ranker.")
+        XCTAssertTrue(rankerText.contains("private struct QueryRequest"), "Palette query scoping should stay with the ranker.")
+        XCTAssertFalse(paletteText.contains("private static func score"), "Command surface API should not own palette scoring internals.")
+        XCTAssertFalse(paletteText.contains("private struct QueryRequest"), "Command surface API should not own query scoping internals.")
+        XCTAssertFalse(surfaceText.contains("public struct WorkspaceCommandSurface"), "WorkspaceSurface should not own command surface records.")
+        XCTAssertFalse(surfaceText.contains("public enum TopBarOverflowCommandCatalog"), "WorkspaceSurface should not own top-bar overflow projection.")
+        XCTAssertFalse(surfaceText.contains("public enum WorkspaceCommandPalette"), "WorkspaceSurface should not own command palette ranking.")
+        XCTAssertFalse(surfaceText.contains("private struct QueryRequest"), "WorkspaceSurface should not own command palette query scoping.")
+    }
+}
