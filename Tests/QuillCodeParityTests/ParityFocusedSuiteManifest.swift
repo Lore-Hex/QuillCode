@@ -65,6 +65,7 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceModelDelegatesContextResolving",
             "testWorkspaceModelDelegatesAgentProgressStatusCopy",
             "testWorkspaceModelDelegatesThreadNoticeMutation",
+            "testWorkspaceModelDelegatesPaneVisibilityMutations",
             "testWorkspaceModelUsesExplicitAgentRunThreadUpdates"
         ]),
         Suite(fileName: "ParityWorkspaceExecutionGateTests.swift", testNames: [

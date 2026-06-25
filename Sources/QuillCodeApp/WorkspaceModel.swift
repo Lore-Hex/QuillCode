@@ -12,9 +12,9 @@ public final class QuillCodeWorkspaceModel {
     public internal(set) var terminal: TerminalState
     public private(set) var browser: BrowserState
     public internal(set) var extensions: ExtensionsState
-    public private(set) var memories: MemoriesState
-    public private(set) var activity: ActivityState
-    public private(set) var automations: AutomationsState
+    public internal(set) var memories: MemoriesState
+    public internal(set) var activity: ActivityState
+    public internal(set) var automations: AutomationsState
     public internal(set) var sidebarSelection: SidebarSelectionState
     public private(set) var lastError: String?
 
@@ -140,57 +140,6 @@ public final class QuillCodeWorkspaceModel {
 
     func project(id: UUID) -> ProjectRef? {
         root.projects.first { $0.id == id }
-    }
-
-    @discardableResult
-    public func setMessageFeedback(messageID: UUID, value: MessageFeedbackValue) -> Bool {
-        guard selectedThread?.messages.contains(where: { $0.id == messageID && $0.role == .assistant }) == true else {
-            return false
-        }
-        let feedback = MessageFeedback(messageID: messageID, value: value)
-        guard let payloadJSON = try? JSONHelpers.encodePretty(feedback) else {
-            return false
-        }
-        let summary: String
-        switch value {
-        case .helpful:
-            summary = "Marked assistant response helpful"
-        case .notHelpful:
-            summary = "Marked assistant response not helpful"
-        }
-        mutateSelectedThread { thread in
-            thread.events.append(ThreadEvent(
-                kind: .messageFeedback,
-                summary: summary,
-                payloadJSON: payloadJSON
-            ))
-        }
-        return true
-    }
-
-    public func toggleExtensions() {
-        extensions.isVisible.toggle()
-    }
-
-    public func toggleMemories() {
-        memories.isVisible.toggle()
-    }
-
-    public func toggleActivity() {
-        activity.isVisible.toggle()
-    }
-
-    public func toggleAutomations() {
-        automations.isVisible.toggle()
-    }
-
-    public func toggleActivitySection(_ section: ActivitySectionKind) {
-        activity.isVisible = true
-        if activity.collapsedSectionIDs.contains(section) {
-            activity.collapsedSectionIDs.remove(section)
-        } else {
-            activity.collapsedSectionIDs.insert(section)
-        }
     }
 
     func appendNotice(_ summary: String) {

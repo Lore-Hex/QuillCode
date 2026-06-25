@@ -70,6 +70,27 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Refactored model-category construction to compute favorite IDs once and pass a `Set` through option building instead of recomputing favorites for every model.
 - Updated the Playwright harness to preserve branded labels after model selection.
 - Fixed stale decisions documentation that still described recurring automation as deferred.
+- Extracted message feedback mutation and pane visibility APIs from `WorkspaceModel.swift` into focused model extensions.
+- Added `WorkspaceMessageFeedbackPlanner` so feedback event construction and summary copy are directly unit tested instead of being embedded in the actor model.
+- Strengthened parity gates so feedback and pane visibility APIs cannot drift back into the central workspace model.
+
+## 2026-06-25 Workspace Feedback And Pane Visibility API Extension
+
+Overall grade after this slice: **A- feedback ownership, A- pane visibility ownership, B+/A- central model size**.
+
+Message feedback and secondary-pane visibility are small workflows, but they were still public API bodies on `WorkspaceModel.swift`. Moving them out keeps the central actor focused on shared state coordination while putting user-facing feedback event construction and pane toggle behavior in named, reviewable extension files.
+
+Code quality changes:
+
+- Added `WorkspaceModelFeedback.swift` for assistant-message feedback mutation.
+- Added `WorkspaceMessageFeedbackPlanner.swift` for feedback event construction and summary copy.
+- Added `WorkspaceModelPaneVisibility.swift` for Extensions, Memories, Activity, Automations, and Activity-section visibility toggles.
+- Narrowly changed secondary pane states to same-module writable so focused model extensions can mutate actor-owned pane visibility while external package clients still observe read-only state.
+- Added focused feedback planner tests and parity gates that require feedback planning and pane visibility mutation APIs to stay outside `WorkspaceModel.swift`.
+
+Remaining risk:
+
+- `WorkspaceModel.swift` still owns project-extension update orchestration and some shared app-actor primitives. Those should only move when the next extraction has a cohesive workflow boundary, not as a mixed utility sweep.
 
 ## 2026-06-25 Workspace Composer API Extension
 
