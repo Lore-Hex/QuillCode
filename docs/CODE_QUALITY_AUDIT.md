@@ -58,6 +58,24 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Updated the Playwright harness to preserve branded labels after model selection.
 - Fixed stale decisions documentation that still described recurring automation as deferred.
 
+## 2026-06-25 Agent Send Progress Planner Pass
+
+Overall grade after this slice: **A live-progress boundary, A async-thread safety, A regression coverage**.
+
+`WorkspaceModel` already delegated send execution setup and successful completion, but live progress still mixed wrong-thread filtering, send-state mutation, and agent-status selection inline. That progress path is the Codex-like responsiveness path: streaming text, queued tools, running tools, and review blocks need to appear before the run fully completes, while late callbacks from an old thread must not steal the current workspace state.
+
+Code quality changes:
+
+- Added `WorkspaceAgentSendProgressPlanner` as the focused owner of accepted live-progress snapshots and their UI status plan.
+- Kept `WorkspaceAgentStatusBuilder` as the single owner of event-to-status copy while routing progress through the typed send-progress plan.
+- Simplified `WorkspaceModel.applyAgentProgress` to apply the plan: update the run thread, keep the composer sending, clear stale errors, and refresh the top bar.
+- Added focused tests for queued-tool progress, streaming-status progress, and wrong-thread progress rejection.
+- Strengthened the parity gate so `WorkspaceModel` no longer chooses live progress status inline.
+
+Remaining risk:
+
+- `WorkspaceModel` still coordinates the active async send task, persistence, and top-bar refresh. That remains acceptable for the app coordinator, but future background/remote runs should move task ownership into a dedicated session coordinator instead of adding more run-state branches here.
+
 ## 2026-06-25 Agent Cancellation Telemetry Pass
 
 Overall grade after this slice: **A agent cancellation telemetry, A focused transcript boundary, A regression coverage**.

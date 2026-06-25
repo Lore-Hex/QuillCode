@@ -818,11 +818,14 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func applyAgentProgress(_ thread: ChatThread, expectedThreadID: UUID) {
-        guard thread.id == expectedThreadID else { return }
-        updateThreadFromAgentRun(thread)
-        composer.isSending = true
-        lastError = nil
-        refreshTopBar(agentStatus: WorkspaceAgentStatusBuilder.status(for: thread))
+        guard let progress = WorkspaceAgentSendProgressPlanner.progress(
+            thread: thread,
+            expectedThreadID: expectedThreadID
+        ) else { return }
+        updateThreadFromAgentRun(progress.thread)
+        composer.isSending = progress.composerIsSending
+        lastError = progress.lastError
+        refreshTopBar(agentStatus: progress.agentStatus)
     }
 
     public func runReviewAction(_ action: WorkspaceReviewActionSurface, workspaceRoot: URL) {
