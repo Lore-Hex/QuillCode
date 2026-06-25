@@ -4737,7 +4737,7 @@ Hotspot file grades:
 | Browser workflow/session files | **A-/B+ product** | Good separation between app state, resolver/workflow, desktop WebKit adapters, and command surfaces. Reusable session lifecycle and Linux/browser-process support remain product gaps. |
 | MCP runtime/prober files | **A-** | Strong ownership split across DTOs, codec, prober, result mapping, runtime, and catalog. Needs broader malicious/slow MCP server integration fixtures. |
 | `ParityGateTests.swift` | **B** | Valuable but too large at 1.9k lines. It should keep splitting into narrower parity suites so failures point directly to the violated boundary. |
-| Large integration suites | **A-/B+** | Good behavior coverage with recent surface and remote-project splits. Remaining oversized hotspots include `AgentTests`, `TrustedRouterAdapterTests`, and a few broad workspace integration suites. |
+| Large integration suites | **A-/B+** | Good behavior coverage with recent surface, remote-project, and agent-test splits. Remaining oversized hotspots include `TrustedRouterAdapterTests`, `WorkspaceAutomationIntegrationTests`, and the broad Playwright core spec. |
 
 Immediate cleanup done in this pass:
 - Trim and drop empty string entries from array-valued normalized tool arguments. This keeps PR reviewer/label aliases canonical after validation instead of preserving blank model output.
@@ -5336,7 +5336,7 @@ Current strict grades:
 - `WorkspaceSurfaceTests.swift`: **A-**. It is now a broad assembly smoke suite plus a handful of high-level workspace checks.
 
 Remaining risk:
-- Continue reducing the largest integration files. Good next slices are `AgentTests.swift`, `TrustedRouterAdapterTests.swift`, and the remaining broad Playwright `core.spec.ts` flows.
+- Continue reducing the largest integration files. Good next slices are `TrustedRouterAdapterTests.swift`, `WorkspaceAutomationIntegrationTests.swift`, and the remaining broad Playwright `core.spec.ts` flows.
 
 ## 2026-06-24 Search Input Stability
 
@@ -5384,7 +5384,7 @@ Current strict grades:
 - `WorkspaceRemoteProjectWorktreeIntegrationTests.swift`: **A**. It owns remote worktree creation plus pre-SSH path rejection.
 
 Remaining risk:
-- Continue reducing the largest broad files. Good next slices are `AgentTests.swift`, `TrustedRouterAdapterTests.swift`, and the remaining broad Playwright `core.spec.ts` flows.
+- Continue reducing the largest broad files. Good next slices are `TrustedRouterAdapterTests.swift`, `WorkspaceAutomationIntegrationTests.swift`, and the remaining broad Playwright `core.spec.ts` flows.
 
 ## 2026-06-24 Playwright Extensions Spec Split
 
@@ -5425,3 +5425,29 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `core.spec.ts` by feature family. Good next slices are settings/runtime issue flows and worktree/project flows.
+
+## 2026-06-25 Agent Behavior Test Split
+
+Overall grade after this slice: **A immediate-action ownership, A tool-loop ownership, A streaming ownership, A mock PR ownership, A final-answer ownership**.
+
+`AgentTests.swift` mixed agent intent heuristics, multi-step tool execution, streaming progress, transcript redaction, patch follow-up behavior, final-answer copy, git execution smoke, and mock PR parsing in one broad file. That made failures hard to triage and duplicated final-answer coverage that already had a focused owner.
+
+What changed:
+- Moved direct one-turn execution smoke tests into `AgentImmediateActionTests.swift`.
+- Moved multi-step tool-loop, plan-update, repeated-tool fallback, environment redaction, and patch diff-refresh behavior into `AgentToolLoopTests.swift`.
+- Moved progress and streaming-action behavior into `AgentStreamingTests.swift`.
+- Moved deterministic mock PR planning assertions into `MockLLMClientPullRequestTests.swift`.
+- Moved the remaining browser/patch final-answer copy assertions into `AgentFinalAnswerBuilderTests.swift` and removed duplicate openclaw/long-output assertions from the deleted broad suite.
+- Added `AgentTestSupport.swift` for shared fake LLMs, streaming clients, progress recording, and temp git helpers.
+- Added a parity gate that keeps the focused agent behavior suites present and prevents broad `AgentTests.swift` from regrowing.
+
+Current strict grades:
+- `AgentImmediateActionTests.swift`: **A**. It owns user-facing “just do it” smoke behavior for shell, file write, commit, and push.
+- `AgentToolLoopTests.swift`: **A**. It owns bounded multi-tool orchestration, audit events, redaction, and follow-up diff refresh behavior.
+- `AgentStreamingTests.swift`: **A**. It owns stream-to-progress behavior and draft assistant message finalization.
+- `MockLLMClientPullRequestTests.swift`: **A**. It owns deterministic PR tool-call planning without coupling to runner orchestration.
+- `AgentFinalAnswerBuilderTests.swift`: **A**. It now owns all final-answer copy cases in one place.
+- `AgentTestSupport.swift`: **A-**. Shared fakes are compact and reusable; if agent test fixtures keep growing, split fake LLMs from filesystem helpers.
+
+Remaining risk:
+- `TrustedRouterAdapterTests.swift` is now the largest agent test hotspot. Split parser, prompt-builder, streaming, model-catalog, and key-resolution coverage when it is next touched.

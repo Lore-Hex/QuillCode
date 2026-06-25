@@ -62,4 +62,23 @@ final class ParityAgentGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(agentText.contains("kind: .toolQueued"), "Agent.swift should not own tool lifecycle event emission.")
         XCTAssertFalse(agentText.contains("Tool is not available in this workspace"), "Agent.swift should not own unavailable-tool result copy.")
     }
+
+    func testAgentBehaviorTestsUseFocusedSuites() throws {
+        let immediateTests = try Self.agentTestSourceText(named: "AgentImmediateActionTests.swift")
+        let toolLoopTests = try Self.agentTestSourceText(named: "AgentToolLoopTests.swift")
+        let streamingTests = try Self.agentTestSourceText(named: "AgentStreamingTests.swift")
+        let pullRequestTests = try Self.agentTestSourceText(named: "MockLLMClientPullRequestTests.swift")
+        let finalAnswerTests = try Self.agentTestSourceText(named: "AgentFinalAnswerBuilderTests.swift")
+        let supportTests = try Self.agentTestSourceText(named: "AgentTestSupport.swift")
+
+        XCTAssertTrue(immediateTests.contains("testRunWhoamiExecutesImmediately"), "Immediate command execution should live in focused agent action tests.")
+        XCTAssertTrue(toolLoopTests.contains("testAgentContinuesAcrossMultipleToolCallsInOneTurn"), "Tool loop behavior should live in focused agent tool-loop tests.")
+        XCTAssertTrue(streamingTests.contains("testStreamingToolActionReportsStatusAndExecutes"), "Streaming behavior should live in focused agent streaming tests.")
+        XCTAssertTrue(pullRequestTests.contains("testPullRequestMergeUsesStructuredToolCall"), "Mock PR planning should live in focused mock PR tests.")
+        XCTAssertTrue(finalAnswerTests.contains("testBrowserInspectFinalAnswerSummarizesPage"), "Final-answer copy should live in focused final-answer tests.")
+        XCTAssertTrue(supportTests.contains("struct FixedToolLLMClient"), "Agent test fakes should be shared instead of duplicated across focused suites.")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: Self.packageRoot()
+            .appendingPathComponent("Tests/QuillCodeAgentTests/AgentTests.swift")
+            .path), "AgentTests.swift should not regrow as a broad mixed-behavior suite.")
+    }
 }
