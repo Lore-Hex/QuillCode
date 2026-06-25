@@ -3,6 +3,7 @@ import XCTest
 final class ParityWorkspaceProjectGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesProjectMetadataLoading() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let projectExtensionText = try Self.appSourceText(named: "WorkspaceModelProjects.swift")
         let loaderText = try Self.appSourceText(named: "WorkspaceProjectMetadataLoader.swift")
 
         XCTAssertTrue(loaderText.contains("enum WorkspaceProjectMetadataLoader"), "Project metadata loading should live in a focused loader.")
@@ -11,13 +12,37 @@ final class ParityWorkspaceProjectGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(loaderText.contains("ProjectExtensionManifestLoader.load"), "Project extension loading should stay with the metadata loader.")
         XCTAssertTrue(loaderText.contains("MemoryNoteLoader.loadProject"), "Project memory loading should stay with the metadata loader.")
         XCTAssertTrue(loaderText.contains("SSHRemoteProjectContextLoader.load"), "SSH Remote context loading should stay with the metadata loader.")
-        XCTAssertTrue(modelText.contains("WorkspaceProjectMetadataLoader.loadLocal"), "WorkspaceModel should delegate local project metadata loading.")
+        XCTAssertTrue(projectExtensionText.contains("WorkspaceProjectMetadataLoader.loadLocal"), "WorkspaceModel project APIs should delegate local project metadata loading.")
         XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.refreshRemoteProjectContext"), "WorkspaceModel should delegate SSH Remote project metadata refresh.")
         XCTAssertFalse(modelText.contains("ProjectInstructionLoader.load"), "WorkspaceModel should not load instruction files directly.")
         XCTAssertFalse(modelText.contains("LocalEnvironmentActionLoader.load"), "WorkspaceModel should not load local environment actions directly.")
         XCTAssertFalse(modelText.contains("ProjectExtensionManifestLoader.load"), "WorkspaceModel should not load project extensions directly.")
         XCTAssertFalse(modelText.contains("MemoryNoteLoader.loadProject"), "WorkspaceModel should not load project memories directly.")
         XCTAssertFalse(modelText.contains("SSHRemoteProjectContextLoader.load"), "WorkspaceModel should not load SSH Remote context directly.")
+    }
+
+    func testWorkspaceModelProjectAPIsLiveInFocusedExtension() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let projectExtensionText = try Self.appSourceText(named: "WorkspaceModelProjects.swift")
+
+        XCTAssertTrue(projectExtensionText.contains("extension QuillCodeWorkspaceModel"), "Project APIs should live in a focused WorkspaceModel extension.")
+        XCTAssertTrue(projectExtensionText.contains("public func addProject"), "Project extension should own local project addition.")
+        XCTAssertTrue(projectExtensionText.contains("public func addSSHProject"), "Project extension should own SSH project addition.")
+        XCTAssertTrue(projectExtensionText.contains("public func selectProject"), "Project extension should own project selection.")
+        XCTAssertTrue(projectExtensionText.contains("public func renameProject"), "Project extension should own project rename.")
+        XCTAssertTrue(projectExtensionText.contains("public func refreshProjectContext"), "Project extension should own explicit project context refresh.")
+        XCTAssertTrue(projectExtensionText.contains("public func removeProject"), "Project extension should own project removal.")
+        XCTAssertTrue(projectExtensionText.contains("WorkspaceProjectEngine.upsertLocalProject"), "Project extension should delegate local project upserts.")
+        XCTAssertTrue(projectExtensionText.contains("WorkspaceProjectEngine.upsertSSHProject"), "Project extension should delegate SSH project upserts.")
+        XCTAssertTrue(projectExtensionText.contains("WorkspaceProjectEngine.selectionAfterSelectingProject"), "Project extension should delegate selected project/thread transitions.")
+        XCTAssertTrue(projectExtensionText.contains("WorkspaceProjectEngine.renameProject"), "Project extension should delegate project renames.")
+        XCTAssertTrue(projectExtensionText.contains("WorkspaceProjectEngine.removeProject"), "Project extension should delegate project removals.")
+        XCTAssertFalse(modelText.contains("public func addProject"), "WorkspaceModel.swift should not own local project addition API bodies.")
+        XCTAssertFalse(modelText.contains("public func addSSHProject"), "WorkspaceModel.swift should not own SSH project addition API bodies.")
+        XCTAssertFalse(modelText.contains("public func selectProject"), "WorkspaceModel.swift should not own project selection API bodies.")
+        XCTAssertFalse(modelText.contains("public func renameProject"), "WorkspaceModel.swift should not own project rename API bodies.")
+        XCTAssertFalse(modelText.contains("public func refreshProjectContext"), "WorkspaceModel.swift should not own project context refresh API bodies.")
+        XCTAssertFalse(modelText.contains("public func removeProject"), "WorkspaceModel.swift should not own project removal API bodies.")
     }
 
     func testWorkspaceModelTestsDoNotOwnPureProjectLoaderCoverage() throws {

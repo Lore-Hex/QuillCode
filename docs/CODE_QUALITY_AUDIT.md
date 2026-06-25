@@ -6284,3 +6284,23 @@ Current strict grades:
 
 Remaining risk:
 - `WorkspaceModel.swift` is still the largest app file. The next high-leverage extraction should move another coherent same-actor API family, likely project APIs or terminal APIs, only if helper access can stay narrow and focused tests prove behavior did not change.
+
+## 2026-06-25 Workspace Project API Extension
+
+Overall grade after this slice: **A- project API ownership, A project parity gates, B+/A- central model size**.
+
+`WorkspaceModel.swift` still owned the public project API bodies even though the actual project registry policy already lived in `WorkspaceProjectEngine` and project context loading lived in the focused metadata/refresher helpers. Moving those public methods into a same-actor extension keeps the central model focused on shared storage, execution, persistence bridges, and actor-bound helper mutation.
+
+What changed:
+- Added `WorkspaceModelProjects.swift` for local project add, SSH project add, project selection, rename, explicit context refresh, and removal.
+- Kept project storage on `QuillCodeWorkspaceModel`, and reused existing helpers for terminal sync, context refresh, persistence, selected-thread mutation, and top-bar refresh.
+- Routed SSH project validation failures through the existing `setLastError` helper instead of widening `lastError` mutation.
+- Updated project parity gates to require project API bodies in the focused extension and prevent them from drifting back into `WorkspaceModel.swift`.
+
+Current strict grades:
+- `WorkspaceModelProjects.swift`: **A-**. It is cohesive and delegates registry policy to `WorkspaceProjectEngine`; it still necessarily coordinates persistence, thread context refresh, terminal sync, and top-bar refresh because those are actor-owned side effects.
+- `WorkspaceModel.swift`: **B+/A-**. It dropped another public API family, but remains the largest app file because send, tool, terminal, MCP, memory, automation, and shared persistence orchestration still live there.
+- `ParityWorkspaceProjectGateTests.swift`: **A**. It now checks both the project API extension boundary and the pure engine/loader ownership boundaries.
+
+Remaining risk:
+- The next central-model extraction should target terminal or tool-run APIs only if the resulting extension can preserve narrow helper access without broadening model storage setters.
