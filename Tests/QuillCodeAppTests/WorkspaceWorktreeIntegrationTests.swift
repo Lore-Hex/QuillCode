@@ -125,6 +125,29 @@ final class WorkspaceWorktreeIntegrationTests: XCTestCase {
         XCTAssertEqual(choices.first?.detail, branch)
     }
 
+    func testRemoteWorkspaceWorktreeChoicesListRegisteredSiblingsThroughSSH() async throws {
+        let fixture = try makeRemoteWorktreeFixture()
+        let worktreeName = "remote-choice-\(UUID().uuidString)"
+        let branch = "remote-choice-\(UUID().uuidString.prefix(8))"
+        let create = GitToolExecutor().createWorktree(
+            cwd: fixture.remoteRoot,
+            path: worktreeName,
+            branch: String(branch)
+        )
+        XCTAssertTrue(create.ok, create.error ?? create.stderr)
+
+        let result = await fixture.model.loadWorktreeChoices(workspaceRoot: fixture.localRoot)
+
+        XCTAssertNil(result.error)
+        XCTAssertTrue(result.choices.contains { choice in
+            choice.path.hasSuffix("/\(worktreeName)")
+                && choice.title == worktreeName
+                && choice.detail == branch
+        }, "\(result.choices)")
+        let sshArguments = try fixture.recordedSSHArguments()
+        XCTAssertTrue(sshArguments.contains("git worktree list --porcelain"), sshArguments)
+    }
+
     func testWorkspaceCreateWorktreeOpensFocusedThreadAndKeepsToolAudit() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let parent = root.deletingLastPathComponent()

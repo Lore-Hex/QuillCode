@@ -32,7 +32,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onToolCardAction: (ToolCardActionSurface) -> Void
     public var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     public var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
-    public var onListWorktreeChoices: () -> [WorkspaceWorktreeChoice]
+    public var onLoadWorktreeChoices: () async -> WorkspaceWorktreeChoiceLoadResult
     public var onOpenWorktree: (WorkspaceWorktreeOpenRequest) -> Void
     public var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
     public var onCopyTranscriptItem: (String, String) -> Void
@@ -85,7 +85,9 @@ public struct QuillCodeWorkspaceView: View {
         onToolCardAction: @escaping (ToolCardActionSurface) -> Void = { _ in },
         onAddReviewComment: @escaping (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
-        onListWorktreeChoices: @escaping () -> [WorkspaceWorktreeChoice] = { [] },
+        onLoadWorktreeChoices: @escaping () async -> WorkspaceWorktreeChoiceLoadResult = {
+            WorkspaceWorktreeChoiceLoadResult(choices: [])
+        },
         onOpenWorktree: @escaping (WorkspaceWorktreeOpenRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
         onCopyTranscriptItem: @escaping (String, String) -> Void = { _, _ in },
@@ -121,7 +123,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onToolCardAction = onToolCardAction
         self.onAddReviewComment = onAddReviewComment
         self.onCreateWorktree = onCreateWorktree
-        self.onListWorktreeChoices = onListWorktreeChoices
+        self.onLoadWorktreeChoices = onLoadWorktreeChoices
         self.onOpenWorktree = onOpenWorktree
         self.onRemoveWorktree = onRemoveWorktree
         self.onCopyTranscriptItem = onCopyTranscriptItem
@@ -273,8 +275,14 @@ public struct QuillCodeWorkspaceView: View {
             createWorktreeDraft = QuillCodeWorktreeCreateDraft()
             worktreeSheet = .create
         case .presentOpenWorktree:
-            openWorktreeDraft = QuillCodeWorktreeOpenDraft(choices: onListWorktreeChoices())
+            openWorktreeDraft = QuillCodeWorktreeOpenDraft()
+            openWorktreeDraft.beginLoadingChoices()
             worktreeSheet = .open
+            Task {
+                let result = await onLoadWorktreeChoices()
+                guard worktreeSheet == .open else { return }
+                openWorktreeDraft.apply(result)
+            }
         case .presentRemoveWorktree:
             removeWorktreeDraft = QuillCodeWorktreeRemoveDraft()
             worktreeSheet = .remove

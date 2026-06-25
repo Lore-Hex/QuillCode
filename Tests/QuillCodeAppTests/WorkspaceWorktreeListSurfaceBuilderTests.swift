@@ -1,4 +1,5 @@
 import XCTest
+import QuillCodeCore
 @testable import QuillCodeApp
 
 final class WorkspaceWorktreeListSurfaceBuilderTests: XCTestCase {
@@ -42,5 +43,15 @@ final class WorkspaceWorktreeListSurfaceBuilderTests: XCTestCase {
 
         XCTAssertEqual(choices.map(\.path), ["/repo/main", "/repo/other"])
         XCTAssertEqual(choices.map(\.detail), ["Bare worktree", "Registered worktree"])
+    }
+
+    func testLoadResultPreservesFailureMessage() {
+        let result = WorkspaceWorktreeChoiceLoadResult.fromToolResult(
+            ToolResult(ok: false, stderr: "fatal: not a git repository\n"),
+            selectedProjectPath: "/repo/main"
+        )
+
+        XCTAssertEqual(result.choices, [])
+        XCTAssertEqual(result.error, "fatal: not a git repository")
     }
 }

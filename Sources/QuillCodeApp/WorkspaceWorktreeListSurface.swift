@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeCore
 
 public struct WorkspaceWorktreeChoice: Sendable, Hashable, Identifiable {
     public var path: String
@@ -11,6 +12,34 @@ public struct WorkspaceWorktreeChoice: Sendable, Hashable, Identifiable {
         self.path = path
         self.title = title
         self.detail = detail
+    }
+}
+
+public struct WorkspaceWorktreeChoiceLoadResult: Sendable, Hashable {
+    public var choices: [WorkspaceWorktreeChoice]
+    public var error: String?
+
+    public init(choices: [WorkspaceWorktreeChoice], error: String? = nil) {
+        self.choices = choices
+        self.error = error
+    }
+
+    public static func fromToolResult(
+        _ result: ToolResult,
+        selectedProjectPath: String?
+    ) -> WorkspaceWorktreeChoiceLoadResult {
+        guard result.ok else {
+            let message = result.error
+                ?? result.stderr.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+                ?? "Could not load git worktrees."
+            return WorkspaceWorktreeChoiceLoadResult(choices: [], error: message)
+        }
+        return WorkspaceWorktreeChoiceLoadResult(
+            choices: WorkspaceWorktreeListSurfaceBuilder.choices(
+                fromPorcelain: result.stdout,
+                selectedProjectPath: selectedProjectPath
+            )
+        )
     }
 }
 
@@ -103,4 +132,10 @@ private struct WorktreeEntry: Equatable {
     var branch: String?
     var isDetached = false
     var isBare = false
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
+    }
 }
