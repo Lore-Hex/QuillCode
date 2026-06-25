@@ -27,9 +27,33 @@ struct QuillCodeWorktreeCreateDraft: Equatable {
     }
 }
 
+struct QuillCodeWorktreeChoiceLoadState: Equatable {
+    var choices: [WorkspaceWorktreeChoice] = []
+    var isLoading = false
+    var hasLoaded = false
+    var errorMessage: String?
+
+    static var loading: Self {
+        Self(isLoading: true)
+    }
+
+    static func loaded(_ load: WorkspaceWorktreeChoiceLoad) -> Self {
+        Self(
+            choices: load.choices,
+            hasLoaded: true,
+            errorMessage: load.errorMessage
+        )
+    }
+}
+
 struct QuillCodeWorktreeOpenDraft: Equatable {
     var path = ""
-    var choices: [WorkspaceWorktreeChoice] = []
+    var choiceLoad = QuillCodeWorktreeChoiceLoadState()
+
+    init(path: String = "", choiceLoad: QuillCodeWorktreeChoiceLoadState = QuillCodeWorktreeChoiceLoadState()) {
+        self.path = path
+        self.choiceLoad = choiceLoad
+    }
 
     var canOpen: Bool {
         !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -46,8 +70,18 @@ struct QuillCodeWorktreeOpenDraft: Equatable {
 
 struct QuillCodeWorktreeRemoveDraft: Equatable {
     var path = ""
-    var choices: [WorkspaceWorktreeChoice] = []
+    var choiceLoad = QuillCodeWorktreeChoiceLoadState()
     var force = false
+
+    init(
+        path: String = "",
+        choiceLoad: QuillCodeWorktreeChoiceLoadState = QuillCodeWorktreeChoiceLoadState(),
+        force: Bool = false
+    ) {
+        self.path = path
+        self.choiceLoad = choiceLoad
+        self.force = force
+    }
 
     var canRemove: Bool {
         !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -77,17 +111,16 @@ struct QuillCodeWorktreeOpenView: View {
             systemImage: "rectangle.on.rectangle",
             iconColor: QuillCodePalette.blue
         ) {
-            if !draft.choices.isEmpty {
-                QuillCodeWorktreeChoiceList(
-                    choices: draft.choices,
-                    selectedPath: draft.request.path,
-                    iconName: "arrow.turn.down.right",
-                    iconColor: QuillCodePalette.blue,
-                    onSelect: { choice in
-                        draft.select(choice)
-                    }
-                )
-            }
+            QuillCodeWorktreeChoiceSection(
+                state: draft.choiceLoad,
+                selectedPath: draft.request.path,
+                iconName: "arrow.turn.down.right",
+                iconColor: QuillCodePalette.blue,
+                emptyMessage: "No other registered worktrees found.",
+                onSelect: { choice in
+                    draft.select(choice)
+                }
+            )
 
             QuillCodeLabeledTextField(
                 title: "Worktree folder",
@@ -149,64 +182,59 @@ struct QuillCodeWorktreeCreateView: View {
     }
 }
 
-private struct QuillCodeWorktreeChoiceList: View {
-    var choices: [WorkspaceWorktreeChoice]
+private struct QuillCodeWorktreeChoiceSection: View {
+    var state: QuillCodeWorktreeChoiceLoadState
     var selectedPath: String
     var iconName: String
     var iconColor: Color
+    var emptyMessage: String
     var onSelect: (WorkspaceWorktreeChoice) -> Void
 
     var body: some View {
+        if shouldShowSection {
+            content
+        }
+    }
+
+    private var shouldShowSection: Bool {
+        state.isLoading || state.hasLoaded || state.errorMessage != nil || !state.choices.isEmpty
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Known Worktrees")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)
                 .textCase(.uppercase)
             VStack(spacing: 6) {
-                ForEach(choices) { choice in
-                    Button {
-                        onSelect(choice)
-                    } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: iconName)
-                                .foregroundStyle(iconColor)
-                                .accessibilityHidden(true)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(choice.title)
-                                    .font(.callout.weight(.semibold))
-                                    .lineLimit(1)
-                                Text(choice.detail)
-                                    .font(.caption)
-                                    .foregroundStyle(QuillCodePalette.muted)
-                                    .lineLimit(1)
-                                Text(choice.path)
-                                    .font(.caption2.monospaced())
-                                    .foregroundStyle(QuillCodePalette.muted.opacity(0.75))
-                                    .lineLimit(1)
-                            }
-                            Spacer(minLength: 8)
-                            if choice.path == selectedPath {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(QuillCodePalette.green)
-                                    .accessibilityLabel("Selected")
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .padding(10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(choice.path == selectedPath
-                                    ? QuillCodePalette.blue.opacity(0.14)
-                                    : QuillCodePalette.panel)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(choice.path == selectedPath
-                                    ? QuillCodePalette.blue.opacity(0.45)
-                                    : Color.white.opacity(0.08))
-                        )
-                    }
-                    .buttonStyle(.plain)
+                if state.isLoading {
+                    QuillCodeWorktreeChoiceStatusRow(
+                        systemImage: "clock.arrow.circlepath",
+                        message: "Loading registered worktrees...",
+                        color: QuillCodePalette.blue,
+                        showsSpinner: true
+                    )
+                } else if let errorMessage = state.errorMessage {
+                    QuillCodeWorktreeChoiceStatusRow(
+                        systemImage: "exclamationmark.triangle",
+                        message: "\(errorMessage) You can still paste a worktree path.",
+                        color: QuillCodePalette.yellow
+                    )
+                } else if state.hasLoaded && state.choices.isEmpty {
+                    QuillCodeWorktreeChoiceStatusRow(
+                        systemImage: "rectangle.stack.badge.questionmark",
+                        message: "\(emptyMessage) You can still paste a path.",
+                        color: QuillCodePalette.muted
+                    )
+                }
+                ForEach(state.choices) { choice in
+                    QuillCodeWorktreeChoiceRow(
+                        choice: choice,
+                        selectedPath: selectedPath,
+                        iconName: iconName,
+                        iconColor: iconColor,
+                        onSelect: onSelect
+                    )
                 }
             }
         }
@@ -225,17 +253,16 @@ struct QuillCodeWorktreeRemoveView: View {
             systemImage: "minus.rectangle",
             iconColor: QuillCodePalette.yellow
         ) {
-            if !draft.choices.isEmpty {
-                QuillCodeWorktreeChoiceList(
-                    choices: draft.choices,
-                    selectedPath: draft.request.path,
-                    iconName: "minus.circle",
-                    iconColor: QuillCodePalette.yellow,
-                    onSelect: { choice in
-                        draft.select(choice)
-                    }
-                )
-            }
+            QuillCodeWorktreeChoiceSection(
+                state: draft.choiceLoad,
+                selectedPath: draft.request.path,
+                iconName: "minus.circle",
+                iconColor: QuillCodePalette.yellow,
+                emptyMessage: "No removable registered worktrees found.",
+                onSelect: { choice in
+                    draft.select(choice)
+                }
+            )
 
             QuillCodeLabeledTextField(
                 title: "Worktree folder",
@@ -255,6 +282,95 @@ struct QuillCodeWorktreeRemoveView: View {
                     .disabled(!draft.canRemove)
             }
         }
+    }
+}
+
+private struct QuillCodeWorktreeChoiceStatusRow: View {
+    var systemImage: String
+    var message: String
+    var color: Color
+    var showsSpinner = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            if showsSpinner {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityLabel("Loading")
+            } else {
+                Image(systemName: systemImage)
+                    .foregroundStyle(color)
+                    .accessibilityHidden(true)
+            }
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(QuillCodePalette.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(QuillCodePalette.panel)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.08))
+        )
+    }
+}
+
+private struct QuillCodeWorktreeChoiceRow: View {
+    var choice: WorkspaceWorktreeChoice
+    var selectedPath: String
+    var iconName: String
+    var iconColor: Color
+    var onSelect: (WorkspaceWorktreeChoice) -> Void
+
+    var body: some View {
+        Button {
+            onSelect(choice)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: iconName)
+                    .foregroundStyle(iconColor)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(choice.title)
+                        .font(.callout.weight(.semibold))
+                        .lineLimit(1)
+                    Text(choice.detail)
+                        .font(.caption)
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(1)
+                    Text(choice.path)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(QuillCodePalette.muted.opacity(0.75))
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                if choice.path == selectedPath {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(QuillCodePalette.green)
+                        .accessibilityLabel("Selected")
+                }
+            }
+            .contentShape(Rectangle())
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(choice.path == selectedPath
+                        ? QuillCodePalette.blue.opacity(0.14)
+                        : QuillCodePalette.panel)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(choice.path == selectedPath
+                        ? QuillCodePalette.blue.opacity(0.45)
+                        : Color.white.opacity(0.08))
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 

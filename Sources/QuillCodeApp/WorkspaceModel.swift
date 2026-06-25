@@ -964,14 +964,20 @@ public final class QuillCodeWorkspaceModel {
         }
     }
 
-    public func worktreeChoices(workspaceRoot: URL) -> [WorkspaceWorktreeChoice] {
-        let result = workspaceToolCallExecutor(router: ToolRouter(workspaceRoot: workspaceRoot))
-            .executePrimary(WorkspaceWorktreeToolCallPlanner.list())
-        guard result.ok else { return [] }
-        return WorkspaceWorktreeListSurfaceBuilder.choices(
-            fromPorcelain: result.stdout,
-            selectedProjectPath: selectedProject?.connection.path ?? selectedProject?.path ?? workspaceRoot.path
+    public func worktreeChoiceLoadRequest(workspaceRoot: URL) -> WorkspaceWorktreeChoiceLoadRequest {
+        WorkspaceWorktreeChoiceLoadRequest(
+            workspaceRoot: workspaceRoot,
+            selectedProject: selectedProject,
+            sshRemoteShellExecutor: sshRemoteShellExecutor
         )
+    }
+
+    public func worktreeChoiceLoad(workspaceRoot: URL) -> WorkspaceWorktreeChoiceLoad {
+        worktreeChoiceLoadRequest(workspaceRoot: workspaceRoot).load()
+    }
+
+    public func worktreeChoices(workspaceRoot: URL) -> [WorkspaceWorktreeChoice] {
+        worktreeChoiceLoad(workspaceRoot: workspaceRoot).choices
     }
 
     public func removeWorktree(_ request: WorkspaceWorktreeRemoveRequest, workspaceRoot: URL) {

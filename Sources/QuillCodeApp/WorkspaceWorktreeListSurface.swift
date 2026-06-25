@@ -14,6 +14,16 @@ public struct WorkspaceWorktreeChoice: Sendable, Hashable, Identifiable {
     }
 }
 
+public struct WorkspaceWorktreeChoiceLoad: Sendable, Hashable {
+    public var choices: [WorkspaceWorktreeChoice]
+    public var errorMessage: String?
+
+    public init(choices: [WorkspaceWorktreeChoice] = [], errorMessage: String? = nil) {
+        self.choices = choices
+        self.errorMessage = errorMessage
+    }
+}
+
 enum WorkspaceWorktreeListSurfaceBuilder {
     static func choices(fromPorcelain stdout: String, selectedProjectPath: String?) -> [WorkspaceWorktreeChoice] {
         let selectedPath = selectedProjectPath.map(normalizedPath)

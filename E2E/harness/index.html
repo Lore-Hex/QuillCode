@@ -462,6 +462,26 @@
     .search-card header { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
     .dialog-choice-list { display: grid; gap: 8px; }
     .dialog-choice-list .eyebrow { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+    .dialog-choice-status {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 14px;
+      background: rgba(255,255,255,.045);
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .dialog-choice-spinner {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      border: 2px solid rgba(65,184,232,.22);
+      border-top-color: var(--accent);
+      animation: spin .85s linear infinite;
+    }
     .dialog-choice {
       min-height: 56px;
       display: grid;
@@ -476,6 +496,7 @@
     .dialog-choice:hover { border-color: rgba(65,184,232,.42); background: rgba(65,184,232,.10); }
     .dialog-choice span { color: var(--muted); font-size: 12px; }
     .dialog-choice code { display: block; color: rgba(231,238,241,.68); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .command-palette-input-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
     .command-scope-badge,
     .command-palette-legend {
@@ -2672,6 +2693,10 @@
         createBase: '',
         openPath: '',
         choices: [],
+        choicesLoading: false,
+        choicesLoaded: false,
+        choicesError: '',
+        choiceLoadToken: 0,
         removePath: '',
         removeForce: false
       },
@@ -7372,9 +7397,14 @@
           ...state.worktreeDialog,
           mode: 'open',
           openPath: '',
-          choices: availableWorktreeChoices()
+          choices: [],
+          choicesLoading: true,
+          choicesLoaded: false,
+          choicesError: '',
+          choiceLoadToken: state.worktreeDialog.choiceLoadToken + 1
         };
         render();
+        loadWorktreeChoicesForDialog('open', state.worktreeDialog.choiceLoadToken);
         return;
       }
       if (commandID === 'git-worktree-remove') {
@@ -7383,9 +7413,14 @@
           mode: 'remove',
           removePath: '',
           removeForce: false,
-          choices: availableWorktreeChoices()
+          choices: [],
+          choicesLoading: true,
+          choicesLoaded: false,
+          choicesError: '',
+          choiceLoadToken: state.worktreeDialog.choiceLoadToken + 1
         };
         render();
+        loadWorktreeChoicesForDialog('remove', state.worktreeDialog.choiceLoadToken);
         return;
       }
       if (commandID === 'git-worktree-prune') {
@@ -7969,18 +8004,7 @@
                 </div>
                 <button type="button" data-testid="worktree-dialog-close">Close</button>
               </header>
-              ${state.worktreeDialog.choices.length ? `
-                <div class="dialog-choice-list" aria-label="Known worktrees">
-                  <p class="eyebrow">Known worktrees</p>
-                  ${state.worktreeDialog.choices.map(choice => `
-                    <button type="button" class="dialog-choice" data-testid="worktree-choice" data-target="open" data-path="${escapeHTML(choice.path)}">
-                      <strong>${escapeHTML(choice.title)}</strong>
-                      <span>${escapeHTML(choice.detail)}</span>
-                      <code>${escapeHTML(choice.path)}</code>
-                    </button>
-                  `).join('')}
-                </div>
-              ` : ''}
+              ${renderWorktreeChoiceSection('open', 'No other registered worktrees found.')}
               <label>
                 Worktree folder
                 <input name="path" aria-label="Worktree folder" placeholder="quillcode-feature" value="${escapeHTML(state.worktreeDialog.openPath)}" autofocus>
@@ -8002,18 +8026,7 @@
               </div>
               <button type="button" data-testid="worktree-dialog-close">Close</button>
             </header>
-            ${state.worktreeDialog.choices.length ? `
-              <div class="dialog-choice-list" aria-label="Known worktrees">
-                <p class="eyebrow">Known worktrees</p>
-                ${state.worktreeDialog.choices.map(choice => `
-                  <button type="button" class="dialog-choice" data-testid="worktree-choice" data-target="remove" data-path="${escapeHTML(choice.path)}">
-                    <strong>${escapeHTML(choice.title)}</strong>
-                    <span>${escapeHTML(choice.detail)}</span>
-                    <code>${escapeHTML(choice.path)}</code>
-                  </button>
-                `).join('')}
-              </div>
-            ` : ''}
+            ${renderWorktreeChoiceSection('remove', 'No removable registered worktrees found.')}
             <label>
               Worktree folder
               <input name="path" aria-label="Worktree folder" placeholder="quillcode-feature" value="${escapeHTML(state.worktreeDialog.removePath)}" autofocus>
@@ -8029,6 +8042,49 @@
               <button type="submit" data-testid="worktree-remove-submit" ${state.worktreeDialog.removePath.trim() ? '' : 'disabled'}>Remove</button>
             </div>
           </form>
+        </div>`;
+    }
+
+    function loadWorktreeChoicesForDialog(mode, token) {
+      window.setTimeout(() => {
+        if (state.worktreeDialog.mode !== mode || state.worktreeDialog.choiceLoadToken !== token) {
+          return;
+        }
+        state.worktreeDialog = {
+          ...state.worktreeDialog,
+          choices: availableWorktreeChoices(),
+          choicesLoading: false,
+          choicesLoaded: true,
+          choicesError: ''
+        };
+        render();
+      }, 80);
+    }
+
+    function renderWorktreeChoiceSection(target, emptyMessage) {
+      const dialog = state.worktreeDialog;
+      const shouldRender = dialog.choicesLoading || dialog.choicesLoaded || dialog.choicesError || dialog.choices.length;
+      if (!shouldRender) {
+        return '';
+      }
+      const status = dialog.choicesLoading
+        ? '<div class="dialog-choice-status" data-testid="worktree-choices-loading"><span class="dialog-choice-spinner" aria-hidden="true"></span><span>Loading registered worktrees...</span></div>'
+        : dialog.choicesError
+          ? `<div class="dialog-choice-status" data-testid="worktree-choices-error">${escapeHTML(dialog.choicesError)} You can still paste a path.</div>`
+          : dialog.choicesLoaded && !dialog.choices.length
+            ? `<div class="dialog-choice-status" data-testid="worktree-choices-empty">${escapeHTML(emptyMessage)} You can still paste a path.</div>`
+            : '';
+      return `
+        <div class="dialog-choice-list" aria-label="Known worktrees">
+          <p class="eyebrow">Known worktrees</p>
+          ${status}
+          ${dialog.choices.map(choice => `
+            <button type="button" class="dialog-choice" data-testid="worktree-choice" data-target="${target}" data-path="${escapeHTML(choice.path)}">
+              <strong>${escapeHTML(choice.title)}</strong>
+              <span>${escapeHTML(choice.detail)}</span>
+              <code>${escapeHTML(choice.path)}</code>
+            </button>
+          `).join('')}
         </div>`;
     }
 

@@ -32,7 +32,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onToolCardAction: (ToolCardActionSurface) -> Void
     public var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     public var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
-    public var onListWorktreeChoices: () -> [WorkspaceWorktreeChoice]
+    public var onListWorktreeChoices: () async -> WorkspaceWorktreeChoiceLoad
     public var onOpenWorktree: (WorkspaceWorktreeOpenRequest) -> Void
     public var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
     public var onCopyTranscriptItem: (String, String) -> Void
@@ -51,6 +51,7 @@ public struct QuillCodeWorkspaceView: View {
     @State private var createWorktreeDraft = QuillCodeWorktreeCreateDraft()
     @State private var openWorktreeDraft = QuillCodeWorktreeOpenDraft()
     @State private var removeWorktreeDraft = QuillCodeWorktreeRemoveDraft()
+    @State private var worktreeChoiceLoadTask: Task<Void, Never>?
     @State private var renameThreadDraft: QuillCodeThreadRenameDraft?
     @State private var renameProjectDraft: QuillCodeProjectRenameDraft?
     @FocusState private var isComposerFocused: Bool
@@ -85,7 +86,7 @@ public struct QuillCodeWorkspaceView: View {
         onToolCardAction: @escaping (ToolCardActionSurface) -> Void = { _ in },
         onAddReviewComment: @escaping (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
-        onListWorktreeChoices: @escaping () -> [WorkspaceWorktreeChoice] = { [] },
+        onListWorktreeChoices: @escaping () async -> WorkspaceWorktreeChoiceLoad = { WorkspaceWorktreeChoiceLoad() },
         onOpenWorktree: @escaping (WorkspaceWorktreeOpenRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
         onCopyTranscriptItem: @escaping (String, String) -> Void = { _, _ in },
@@ -270,14 +271,13 @@ public struct QuillCodeWorkspaceView: View {
         case let .renameProject(projectID, name):
             renameProjectDraft = QuillCodeProjectRenameDraft(projectID: projectID, name: name)
         case .presentCreateWorktree:
+            worktreeChoiceLoadTask?.cancel()
             createWorktreeDraft = QuillCodeWorktreeCreateDraft()
             worktreeSheet = .create
         case .presentOpenWorktree:
-            openWorktreeDraft = QuillCodeWorktreeOpenDraft(choices: onListWorktreeChoices())
-            worktreeSheet = .open
+            presentOpenWorktree()
         case .presentRemoveWorktree:
-            removeWorktreeDraft = QuillCodeWorktreeRemoveDraft(choices: onListWorktreeChoices())
-            worktreeSheet = .remove
+            presentRemoveWorktree()
         case .openBrowserSession:
             onOpenBrowserSession?()
         case let .dispatch(command, focusesComposer):
@@ -285,6 +285,37 @@ public struct QuillCodeWorkspaceView: View {
             if focusesComposer {
                 DispatchQueue.main.async {
                     isComposerFocused = true
+                }
+            }
+        }
+    }
+
+    private func presentOpenWorktree() {
+        openWorktreeDraft = QuillCodeWorktreeOpenDraft(choiceLoad: .loading)
+        worktreeSheet = .open
+        loadWorktreeChoices(for: .open)
+    }
+
+    private func presentRemoveWorktree() {
+        removeWorktreeDraft = QuillCodeWorktreeRemoveDraft(choiceLoad: .loading)
+        worktreeSheet = .remove
+        loadWorktreeChoices(for: .remove)
+    }
+
+    private func loadWorktreeChoices(for sheet: QuillCodeWorktreeSheet) {
+        worktreeChoiceLoadTask?.cancel()
+        worktreeChoiceLoadTask = Task {
+            let load = await onListWorktreeChoices()
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard worktreeSheet == sheet else { return }
+                switch sheet {
+                case .open:
+                    openWorktreeDraft.choiceLoad = .loaded(load)
+                case .remove:
+                    removeWorktreeDraft.choiceLoad = .loaded(load)
+                case .create:
+                    break
                 }
             }
         }
