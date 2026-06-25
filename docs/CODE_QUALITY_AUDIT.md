@@ -5794,3 +5794,21 @@ Current strict grades:
 
 Remaining risk:
 - The next high-value extraction is a send-result/persistence coordinator that turns progress, memory refresh, final save, and cancellation transcript updates into typed effects. That should happen only after the factory boundary has stayed green across CI.
+
+## 2026-06-25 Send Session Factory Hardening
+
+Overall grade after this slice: **A immutable factory boundary, A black-box factory tests**.
+
+The send-session factory had the right responsibility after extraction, but its stored state was mutable and tests reached into `configuredRunner` directly. That made the helper feel more like a bag of fields than a narrow composition boundary.
+
+What changed:
+- Made `WorkspaceAgentSendSessionFactory` immutable with private stored state.
+- Kept configured-runner construction private so callers use one path: `makeSession`.
+- Updated factory tests to assert behavior through the returned `WorkspaceAgentSendSession`.
+
+Current strict grades:
+- `WorkspaceAgentSendSessionFactory.swift`: **A**. It now exposes one construction contract and hides implementation details.
+- `WorkspaceAgentSendSessionFactoryTests.swift`: **A**. Tests cover local, remote, memory, MCP, and browser override wiring through the public factory contract.
+
+Remaining risk:
+- `WorkspaceModel.submitComposer` still owns post-run completion, persistence, and memory-refresh coordination. That remains the next high-value extraction.
