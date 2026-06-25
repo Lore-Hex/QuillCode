@@ -5962,6 +5962,28 @@ What changed:
 Current strict grades:
 - `WorkspaceModel.prepareAgentSendThread`: **A-**. It is intentionally actor-bound and side-effectful, but now names the setup step clearly.
 - `WorkspaceModel.submitComposer`: **A-**. It now reads as prompt classification, thread preparation, start planning, session execution, and terminal routing.
+
+## 2026-06-25 Automation Integration Suite Split
+
+Overall grade after this slice: **A automation command ownership, A scheduling ownership, A run ownership, A shared fixtures**.
+
+`WorkspaceAutomationIntegrationTests.swift` had become the largest app integration suite and mixed three separate failure domains: command/persistence wiring, schedule creation, and automation execution. That made merges noisier and made an automation failure harder to triage because unrelated command, parser, recurrence, due-run, report, persistence, and surface assertions all lived in one file.
+
+What changed:
+- Kept command/persistence flows in `WorkspaceAutomationIntegrationTests.swift`.
+- Moved concrete, natural-language, recurring, and slash schedule creation flows into `WorkspaceAutomationSchedulingIntegrationTests.swift`.
+- Moved manual run, due run, recurrence advancement, report, and limit flows into `WorkspaceAutomationRunIntegrationTests.swift`.
+- Moved shared automation test fixtures into `WorkspaceAutomationIntegrationTestSupport.swift` so the split does not duplicate setup code.
+- Strengthened the workspace integration parity gate so automation coverage stays split by workflow family.
+
+Current strict grades:
+- `WorkspaceAutomationIntegrationTests.swift`: **A**. It now owns the command and store-persistence contract only.
+- `WorkspaceAutomationSchedulingIntegrationTests.swift`: **A**. It owns all schedule-creation entry points and recurrence parsing.
+- `WorkspaceAutomationRunIntegrationTests.swift`: **A**. It owns automation execution, report, recurrence advancement, and limit behavior.
+- `WorkspaceAutomationIntegrationTestSupport.swift`: **A**. Shared fixtures are small, teardown-backed, and local to automation integration tests.
+
+Remaining risk:
+- `WorkspaceAutomationEngineTests.swift` is still a large pure-unit suite. It is acceptable while the engine is evolving, but the next automation quality slice should split factory, runner, and reducer tests if that file grows further.
 - `ParityWorkspaceExecutionGateTests`: **A**. It protects the send-method shape without forcing a premature pure abstraction around actor-isolated state.
 
 Remaining risk:

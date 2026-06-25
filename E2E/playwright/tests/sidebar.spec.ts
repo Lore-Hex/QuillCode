@@ -1,14 +1,9 @@
-import { test, expect, type Locator, type Page } from '@playwright/test';
+import { test, expect, type Locator } from '@playwright/test';
 import { clickSidebarTool, harnessURL } from './harness-helpers';
 
 async function clickProjectAction(row: Locator, name: string) {
   await row.getByLabel(/^Actions for project /).click();
   await row.getByRole('button', { name }).click();
-}
-
-async function replaceFocusedText(page: Page, text: string) {
-  await page.keyboard.press('ControlOrMeta+A');
-  await page.keyboard.type(text);
 }
 
 test('mock harness searches and reopens an existing chat', async ({ page }) => {
@@ -28,7 +23,7 @@ test('mock harness searches and reopens an existing chat', async ({ page }) => {
   await expect(page.getByTestId('search-result')).toHaveCount(1);
   await expect(page.getByTestId('search-result')).toContainText('Nike 1.0');
 
-  await replaceFocusedText(page, 'mock-user');
+  await page.getByTestId('search-input').fill('mock-user');
   await expect(page.getByTestId('search-input')).toHaveValue('mock-user');
   await expect(page.getByTestId('search-result')).toHaveCount(1);
   await expect(page.getByTestId('search-result')).toContainText('run whoami');
