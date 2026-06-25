@@ -48,6 +48,8 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Changes From This Pass
 
+- Extracted composer retry, submit, slash-dispatch, agent-send session construction, progress application, and terminal outcome handling from `WorkspaceModel.swift` into `WorkspaceModelComposer.swift`.
+- Added parity gates that require composer orchestration to stay in the focused extension while keeping send planning/session execution in their existing focused helpers.
 - Extracted mode/model/favorite/catalog/settings/runtime/status APIs from `WorkspaceModel.swift` into `WorkspaceModelConfiguration.swift`.
 - Added a configuration parity gate that requires configuration/runtime APIs to stay in the focused model extension while keeping normalization and settings policy in `WorkspaceConfigurationEngine`.
 - Extracted global memory save/delete, mutation application, global reload, and thread memory refresh from `WorkspaceModel.swift` into `WorkspaceModelMemory.swift`.
@@ -68,6 +70,24 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Refactored model-category construction to compute favorite IDs once and pass a `Set` through option building instead of recomputing favorites for every model.
 - Updated the Playwright harness to preserve branded labels after model selection.
 - Fixed stale decisions documentation that still described recurring automation as deferred.
+
+## 2026-06-25 Workspace Composer API Extension
+
+Overall grade after this slice: **A- composer workflow ownership, A send-planner/session boundaries, A- central model size**.
+
+Composer submission is a cohesive workflow family: retry availability, draft mutation, slash-command dispatch, thread preparation, agent-send session construction, live progress application, cancellation, failure, and successful completion all coordinate the same visible send lifecycle. The detailed policies already lived in focused planners and session objects; the central model no longer needs to own the public API body.
+
+Code quality changes:
+
+- Added `WorkspaceModelComposer.swift` for retry/draft APIs, `submitComposer`, slash dispatch, agent-send thread preparation, send-session factory creation, progress application, terminal outcome handling, and agent-send thread context sync.
+- Kept prompt/slash classification in `WorkspaceComposerSubmissionPlanner`, send-start state in `WorkspaceAgentSendStartPlanner`, live progress state in `WorkspaceAgentSendProgressPlanner`, terminal lifecycle state in `WorkspaceAgentSendTerminalPlanner`, and async send execution in `WorkspaceAgentSendTaskCoordinator`.
+- Moved browser tool mutation for agent sends through `mutateBrowserState` so the composer extension does not need direct write access to `browser` or `lastError`.
+- Kept generic thread mutation and agent-run thread replacement as same-module helpers on the central model because they are shared actor-owned state primitives, not composer policy.
+- Strengthened parity gates so composer submission, slash dispatch consumption, schedule transcripts, session factory usage, and agent-send progress cannot drift back into `WorkspaceModel.swift`.
+
+Remaining risk:
+
+- `WorkspaceModel.swift` still owns message feedback, pane visibility, project-extension update orchestration, project-context refresh primitives, and persistence helpers. Those are smaller than the previous agent-send block, but the next pass should look for another cohesive ownership group rather than moving mixed utilities.
 
 ## 2026-06-25 Workspace Configuration API Extension
 
