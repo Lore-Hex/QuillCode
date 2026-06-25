@@ -63,7 +63,8 @@ final class ParityGateTests: QuillCodeParityTestCase {
             "ParityWorkspaceCommandGateTests.swift",
             "ParityWorkspaceSettingsSheetGateTests.swift",
             "ParityWorkspaceTranscriptGateTests.swift",
-            "ParityAgentRouterGateTests.swift"
+            "ParityAgentGateTests.swift",
+            "ParityTrustedRouterGateTests.swift"
         ]
         for suiteFile in suiteFiles {
             XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent(suiteFile).path), suiteFile)
@@ -178,16 +179,18 @@ final class ParityGateTests: QuillCodeParityTestCase {
             ("ParityWorkspaceTranscriptGateTests", [
                 "testWorkspaceSwiftUIViewDelegatesTranscriptFindAndContextBanner"
             ]),
-            ("ParityAgentRouterGateTests", [
+            ("ParityAgentGateTests", [
                 "testAgentRunnerDelegatesFinalAnswerFormatting",
                 "testMockLLMClientLivesOutsideAgentRunnerFile",
                 "testAgentStreamingHelpersLiveOutsideAgentRunnerFile",
+                "testAgentToolStepRunnerLivesOutsideAgentRunnerFile"
+            ]),
+            ("ParityTrustedRouterGateTests", [
                 "testTrustedRouterActionParserLivesOutsideTransportClient",
                 "testTrustedRouterPromptBuilderLivesOutsideTransportClient",
                 "testTrustedRouterAPIKeyResolutionLivesInFocusedResolver",
                 "testTrustedRouterSafetyClientLivesOutsideActionTransportFile",
-                "testTrustedRouterChatParametersLiveOutsideTransportClients",
-                "testAgentToolStepRunnerLivesOutsideAgentRunnerFile"
+                "testTrustedRouterChatParametersLiveOutsideTransportClients"
             ])
         ]
 

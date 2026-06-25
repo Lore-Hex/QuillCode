@@ -5053,3 +5053,22 @@ Current strict grades:
 
 Remaining risk:
 - Consider one final split for core/project model boundary checks, but the broad suite is now small enough to act as the global parity registry.
+
+## 2026-06-24 Agent And TrustedRouter Parity Gate Split
+
+Overall grade after this slice: **A agent ownership, A TrustedRouter ownership, A drift protection**.
+
+The combined agent/router suite was a good step down from the broad parity registry, but it still coupled local agent-runner decomposition to TrustedRouter transport responsibilities. Splitting those domains makes ownership clearer for future runtime and provider work.
+
+What changed:
+- Replaced `ParityAgentRouterGateTests` with `ParityAgentGateTests` for agent runner, mock LLM, streaming, and tool-step boundaries.
+- Added `ParityTrustedRouterGateTests` for action parsing, prompt building, API-key resolution, safety transport, and shared chat parameters.
+- Updated the parity drift guard so the two domains cannot collapse back together.
+
+Current strict grades:
+- `ParityAgentGateTests.swift`: **A**. It owns local agent-runner decomposition without provider transport concerns.
+- `ParityTrustedRouterGateTests.swift`: **A**. It owns provider transport, parsing, prompt, key, and safety-client boundaries.
+- `ParityGateTests.swift`: **A-**. It remains a small global registry plus global hygiene and core model-boundary checks.
+
+Remaining risk:
+- Optional final split for core/project model boundary checks; otherwise the broad suite is now appropriately small.
