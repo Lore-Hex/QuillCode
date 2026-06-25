@@ -447,7 +447,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         let preparerText = try Self.appSourceText(named: "WorkspaceToolRunPreparer.swift")
         let runToolCallStart = try XCTUnwrap(modelText.range(of: "public func runToolCall"))
         let runToolCallEnd = try XCTUnwrap(modelText.range(
-            of: "public func cancelActiveWork",
+            of: "private func appendToolRun",
             range: runToolCallStart.upperBound..<modelText.endIndex
         ))
         let runToolCallBody = String(modelText[runToolCallStart.lowerBound..<runToolCallEnd.lowerBound])
@@ -467,7 +467,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         let lifecycleText = try Self.appSourceText(named: "WorkspaceToolRunLifecyclePlanner.swift")
         let runToolCallStart = try XCTUnwrap(modelText.range(of: "public func runToolCall"))
         let runToolCallEnd = try XCTUnwrap(modelText.range(
-            of: "public func cancelActiveWork",
+            of: "private func appendToolRun",
             range: runToolCallStart.upperBound..<modelText.endIndex
         ))
         let runToolCallBody = String(modelText[runToolCallStart.lowerBound..<runToolCallEnd.lowerBound])
@@ -505,23 +505,22 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesActiveWorkStopPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let activeWorkText = try Self.appSourceText(named: "WorkspaceModelActiveWork.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceActiveWorkStopPlanner.swift")
-        let cancelStart = try XCTUnwrap(modelText.range(of: "public func cancelActiveWork"))
-        let cancelEnd = try XCTUnwrap(modelText.range(
-            of: "private func appendToolRun",
-            range: cancelStart.upperBound..<modelText.endIndex
-        ))
-        let cancelAndDisconnectBody = String(modelText[cancelStart.lowerBound..<cancelEnd.lowerBound])
 
+        XCTAssertTrue(activeWorkText.contains("extension QuillCodeWorkspaceModel"), "Active-work APIs should live in a focused model extension.")
         XCTAssertTrue(plannerText.contains("enum WorkspaceActiveWorkStopPlanner"), "Stop/disconnect lifecycle status should live in a focused planner.")
         XCTAssertTrue(plannerText.contains("static func cancel"), "Cancel lifecycle should be directly testable.")
         XCTAssertTrue(plannerText.contains("static func disconnectAll"), "Disconnect lifecycle should be directly testable.")
-        XCTAssertTrue(cancelAndDisconnectBody.contains("WorkspaceActiveWorkStopPlanner.cancel"), "WorkspaceModel should delegate cancel lifecycle.")
-        XCTAssertTrue(cancelAndDisconnectBody.contains("WorkspaceActiveWorkStopPlanner.disconnectAll"), "WorkspaceModel should delegate disconnect lifecycle.")
-        XCTAssertTrue(cancelAndDisconnectBody.contains("applyActiveWorkStopPlan"), "WorkspaceModel should share active-work stop plan application.")
-        XCTAssertFalse(cancelAndDisconnectBody.contains("TopBarAgentStatusLabel.stopped"), "WorkspaceModel should not choose stopped status inline for active-work cancellation.")
-        XCTAssertFalse(cancelAndDisconnectBody.contains("TopBarAgentStatusLabel.idle"), "WorkspaceModel should not choose idle status inline for disconnect.")
-        XCTAssertFalse(cancelAndDisconnectBody.contains("? TopBarAgentStatusLabel"), "WorkspaceModel should not choose active-work stop status with inline ternaries.")
+        XCTAssertTrue(activeWorkText.contains("WorkspaceActiveWorkStopPlanner.cancel"), "Active-work extension should delegate cancel lifecycle.")
+        XCTAssertTrue(activeWorkText.contains("WorkspaceActiveWorkStopPlanner.disconnectAll"), "Active-work extension should delegate disconnect lifecycle.")
+        XCTAssertTrue(activeWorkText.contains("applyActiveWorkStopPlan"), "Active-work extension should share active-work stop plan application.")
+        XCTAssertFalse(modelText.contains("public func cancelActiveWork"), "WorkspaceModel.swift should not own active-work cancel APIs.")
+        XCTAssertFalse(modelText.contains("public func disconnectAll"), "WorkspaceModel.swift should not own active-work disconnect APIs.")
+        XCTAssertFalse(modelText.contains("stopActiveWorkspaceWork"), "WorkspaceModel.swift should not own active-work stop aggregation.")
+        XCTAssertFalse(activeWorkText.contains("TopBarAgentStatusLabel.stopped"), "Active-work extension should not choose stopped status inline for cancellation.")
+        XCTAssertFalse(activeWorkText.contains("TopBarAgentStatusLabel.idle"), "Active-work extension should not choose idle status inline for disconnect.")
+        XCTAssertFalse(activeWorkText.contains("? TopBarAgentStatusLabel"), "Active-work extension should not choose stop status with inline ternaries.")
     }
 
     func testWorkspaceModelDelegatesShellToolCallPlanning() throws {
