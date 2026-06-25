@@ -42,8 +42,8 @@ final class WorkspaceMemoryIntegrationTests: XCTestCase {
         XCTAssertEqual(memories.items.last?.editCommandID, "memory-edit:project:.quillcode/memories/project.md")
         XCTAssertEqual(memories.items.first?.canDelete, true)
         XCTAssertNotNil(memories.items.first?.deleteCommandID)
-        XCTAssertEqual(memories.items.last?.canDelete, false)
-        XCTAssertNil(memories.items.last?.deleteCommandID)
+        XCTAssertEqual(memories.items.last?.canDelete, true)
+        XCTAssertEqual(memories.items.last?.deleteCommandID, "memory-delete:project:.quillcode/memories/project.md")
         XCTAssertEqual(model.surface().topBar.memoryLabel, "2 memories")
     }
 
@@ -278,6 +278,43 @@ final class WorkspaceMemoryIntegrationTests: XCTestCase {
         XCTAssertTrue(arguments.contains("QUILLCODE_CONTEXT_"), arguments)
     }
 
+    func testMemoryDeleteWorkspaceCommandRemovesRemoteProjectMemoryThroughSSH() throws {
+        let localRoot = try makeTempDirectory()
+        let remoteRoot = try makeTempDirectory()
+        let projectMemoryDirectory = remoteRoot.appendingPathComponent(".quillcode/memories")
+        try FileManager.default.createDirectory(at: projectMemoryDirectory, withIntermediateDirectories: true)
+        let memoryURL = projectMemoryDirectory.appendingPathComponent("project.md")
+        try "Use SwiftUI.\n".write(to: memoryURL, atomically: true, encoding: .utf8)
+
+        let argumentsFile = localRoot.appendingPathComponent("ssh-memory-delete-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: localRoot, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(path: remoteRoot.path, host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+        _ = model.newChat(projectID: project.id)
+        XCTAssertTrue(model.refreshProjectContext(project.id), model.lastError ?? "")
+        let memory = try XCTUnwrap(model.root.projects.first?.memories.first)
+
+        XCTAssertTrue(model.runWorkspaceCommand("memory-delete:\(memory.id)", workspaceRoot: localRoot))
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: memoryURL.path))
+        XCTAssertEqual(model.root.projects.first?.memories, [])
+        XCTAssertEqual(model.selectedThread?.title, "Forgot memory: \(memory.title)")
+        XCTAssertEqual(model.selectedThread?.memories, [])
+        XCTAssertEqual(model.selectedThread?.events.last?.summary, "Forgot memory: \(memory.title)")
+        XCTAssertEqual(model.selectedThread?.events.last?.payloadJSON, memory.relativePath)
+        XCTAssertEqual(model.surface().memories.items, [])
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+        XCTAssertTrue(arguments.contains("cd '\(remoteRoot.path)' &&"), arguments)
+        XCTAssertTrue(arguments.contains("QUILLCODE_CONTEXT_"), arguments)
+    }
+
     func testAgentRememberToolWritesGlobalMemoryAndRefreshesThreadSurface() async throws {
         let root = try makeQuillCodeTestDirectory()
         let globalMemories = try makeQuillCodeTestDirectory()
@@ -367,6 +404,36 @@ final class WorkspaceMemoryIntegrationTests: XCTestCase {
         XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("Forgot memory: Preferences") == true)
         XCTAssertEqual(model.surface().topBar.memoryLabel, "1 memory")
         XCTAssertEqual(model.surface().memories.items.map(\.scope), [.project])
+    }
+
+    func testMemoryDeleteWorkspaceCommandRemovesProjectMemoryAndRefreshesThreadSurface() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let globalMemories = try makeQuillCodeTestDirectory()
+        let projectMemoryDirectory = root.appendingPathComponent(".quillcode/memories")
+        try FileManager.default.createDirectory(at: projectMemoryDirectory, withIntermediateDirectories: true)
+        try "This project uses SwiftUI.\n".write(
+            to: projectMemoryDirectory.appendingPathComponent("project.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let model = QuillCodeWorkspaceModel(globalMemoryDirectory: globalMemories)
+        let projectID = model.addProject(path: root, name: "Project Memory Delete")
+        model.selectProject(projectID)
+        _ = model.newChat(projectID: projectID)
+        let projectMemory = try XCTUnwrap(model.root.projects.first?.memories.first)
+
+        XCTAssertTrue(model.runWorkspaceCommand("memory-delete:\(projectMemory.id)", workspaceRoot: root))
+
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: projectMemoryDirectory.appendingPathComponent("project.md").path
+        ))
+        XCTAssertEqual(model.root.projects.first?.memories, [])
+        XCTAssertEqual(model.selectedThread?.memories, [])
+        XCTAssertEqual(model.selectedThread?.events.last?.summary, "Forgot memory: Project")
+        XCTAssertEqual(model.selectedThread?.events.last?.payloadJSON, ".quillcode/memories/project.md")
+        XCTAssertEqual(model.surface().topBar.memoryLabel, "No memories")
+        XCTAssertEqual(model.surface().memories.items, [])
     }
 
     func testMemoryDeleteRejectsUnknownGlobalMemoryIDWithoutRemovingFiles() throws {

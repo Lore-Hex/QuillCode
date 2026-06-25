@@ -81,7 +81,7 @@ struct QuillCodeMemoriesPaneView: View {
                                 Label("Edit", systemImage: "pencil")
                                     .labelStyle(.iconOnly)
                             }
-                            .help("Edit this global memory")
+                            .help("Edit this memory")
                         }
                         if let deleteCommandID = item.deleteCommandID {
                             Button {
@@ -90,7 +90,7 @@ struct QuillCodeMemoriesPaneView: View {
                                 Label("Forget", systemImage: "trash")
                                     .labelStyle(.iconOnly)
                             }
-                            .help("Forget this global memory")
+                            .help("Forget this memory")
                         }
                     }
                     .buttonStyle(.plain)

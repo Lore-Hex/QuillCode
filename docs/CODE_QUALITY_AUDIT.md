@@ -6716,3 +6716,30 @@ Strict grades:
 Remaining parity risk:
 
 - Project memory delete/review UX, redaction review, idle Chronicle jobs, conflict handling, and autonomous memory inference are still pending.
+
+## 2026-06-25 Project Memory Forget Slice
+
+Overall grade after this slice: **A- memory mutation symmetry, A remote delete boundary, B+/A- Chronicle parity**.
+
+Global memories already had Forget actions, while local and SSH Remote project memories could be edited but not removed from the Memories pane. That made the memory surface inconsistent and left users with a manual file-editing escape hatch for repository-local or remote notes. Project memories now use the same visible Forget command as global memories while keeping deletion bounded to already loaded `.quillcode/memories` files.
+
+Code quality changes:
+
+- Added `MemoryNoteLoader.deleteProject` with the same project-root and direct-file bounds used by project updates.
+- Added `WorkspaceRemoteProjectMemoryTarget` so remote edit and delete share one known-memory and `.quillcode/memories` path validator.
+- Added `WorkspaceRemoteProjectMemoryDeleter` for SSH Remote `test -f`, `test ! -L`, `rm`, and post-delete context refresh.
+- Routed `memory-delete:*` through one `WorkspaceModelMemory.deleteMemory` path that handles global, local project, and SSH Remote project memories.
+- Updated native SwiftUI/static HTML/Playwright memory cards so active project memories expose Forget alongside Edit.
+- Added loader, engine, model integration, fake-SSH, static HTML, parity, and Playwright coverage for project-memory deletion.
+
+Strict grades:
+
+- `MemoryNoteLoader.swift`: **A-**. Global/local project update/delete operations now share the same path discipline. A tiny future path-target helper could reduce duplication between global and project file lookup.
+- `WorkspaceRemoteProjectMemoryUpdater.swift`: **A-**. The file now owns remote memory mutation helpers, not only update. The target validator keeps delete and edit DRY; if more remote memory operations land, rename this file to a mutation-oriented name.
+- `WorkspaceMemoryEngine.swift`: **A-**. It now returns consistent mutation payloads for save, edit, delete, local, and SSH Remote memory changes. Conflict/review workflows should still get a richer Chronicle coordinator rather than expanding this enum indefinitely.
+- `WorkspaceModelMemory.swift`: **A-**. The actor extension remains thin and chooses global/local/remote dispatch without learning storage or shell details.
+- Memory Playwright harness: **A-**. It covers create, edit, global delete, and project delete in one user-visible flow; the remaining harness risk is still the broad static HTML fixture.
+
+Remaining parity risk:
+
+- Project memory review/conflict UI, redaction review, idle Chronicle jobs, and autonomous memory inference remain pending.

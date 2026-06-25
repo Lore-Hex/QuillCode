@@ -61,4 +61,20 @@ final class MemoryNoteLoaderTests: XCTestCase {
             "Use SwiftPM and keep slices small.\n"
         )
     }
+
+    func testDeleteProjectRemovesExistingMemoryInsideProjectDirectory() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let memoryDirectory = root.appendingPathComponent(".quillcode/memories")
+        try FileManager.default.createDirectory(at: memoryDirectory, withIntermediateDirectories: true)
+        let fileURL = memoryDirectory.appendingPathComponent("project.md")
+        try "Use SwiftPM.\n".write(to: fileURL, atomically: true, encoding: .utf8)
+        let note = try XCTUnwrap(MemoryNoteLoader.loadProject(from: root).first)
+
+        let deleted = try MemoryNoteLoader.deleteProject(id: note.id, from: root)
+
+        XCTAssertEqual(deleted.id, note.id)
+        XCTAssertEqual(deleted.relativePath, ".quillcode/memories/project.md")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path))
+        XCTAssertEqual(MemoryNoteLoader.loadProject(from: root), [])
+    }
 }

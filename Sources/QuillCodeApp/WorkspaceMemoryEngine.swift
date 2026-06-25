@@ -82,6 +82,45 @@ enum WorkspaceMemoryEngine {
         }
     }
 
+    static func deleteProject(
+        id: String,
+        projectRoot: URL?
+    ) -> WorkspaceMemoryMutation {
+        guard let projectRoot else {
+            return memoryNotDeleted(
+                error: MemoryNoteDeleteError.deleteFailed,
+                updatedGlobalMemories: nil,
+                updatedProjectMemories: nil
+            )
+        }
+
+        do {
+            let note = try MemoryNoteLoader.deleteProject(id: id, from: projectRoot)
+            return WorkspaceMemoryMutation(
+                transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryForgotten(
+                    userText: "Forget memory: \(note.title)",
+                    noteTitle: note.title
+                ),
+                updatedGlobalMemories: nil,
+                updatedProjectMemories: MemoryNoteLoader.loadProject(from: projectRoot),
+                noticeSummary: WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary(noteTitle: note.title),
+                noticeRelativePath: note.relativePath
+            )
+        } catch let error as MemoryNoteDeleteError {
+            return memoryNotDeleted(
+                error: error,
+                updatedGlobalMemories: nil,
+                updatedProjectMemories: MemoryNoteLoader.loadProject(from: projectRoot)
+            )
+        } catch {
+            return memoryNotDeleted(
+                error: MemoryNoteDeleteError.deleteFailed,
+                updatedGlobalMemories: nil,
+                updatedProjectMemories: MemoryNoteLoader.loadProject(from: projectRoot)
+            )
+        }
+    }
+
     static func updateGlobal(
         id: String,
         content: String,
@@ -202,6 +241,46 @@ enum WorkspaceMemoryEngine {
         }
     }
 
+    static func deleteRemoteProject(
+        id: String,
+        project: ProjectRef?,
+        executor: SSHRemoteShellExecutor
+    ) -> WorkspaceMemoryMutation {
+        guard let project, project.isRemote else {
+            return memoryNotDeleted(
+                error: WorkspaceRemoteProjectMemoryUpdateError.invalidConnection,
+                updatedGlobalMemories: nil,
+                updatedProjectMemories: project?.memories
+            )
+        }
+
+        do {
+            let result = try WorkspaceRemoteProjectMemoryDeleter.delete(
+                id: id,
+                project: project,
+                executor: executor
+            )
+            return WorkspaceMemoryMutation(
+                transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryForgotten(
+                    userText: "Forget memory: \(result.deleted.title)",
+                    noteTitle: result.deleted.title
+                ),
+                updatedGlobalMemories: nil,
+                updatedProjectMemories: result.updatedMemories,
+                noticeSummary: WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary(
+                    noteTitle: result.deleted.title
+                ),
+                noticeRelativePath: result.deleted.relativePath
+            )
+        } catch {
+            return memoryNotDeleted(
+                error: error,
+                updatedGlobalMemories: nil,
+                updatedProjectMemories: project.memories
+            )
+        }
+    }
+
     static func contextUpdate(
         memories: [MemoryNote],
         summary: String,
@@ -233,7 +312,8 @@ enum WorkspaceMemoryEngine {
 
     private static func memoryNotDeleted(
         error: any Error,
-        updatedGlobalMemories: [MemoryNote]
+        updatedGlobalMemories: [MemoryNote]?,
+        updatedProjectMemories: [MemoryNote]? = nil
     ) -> WorkspaceMemoryMutation {
         WorkspaceMemoryMutation(
             transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted(
@@ -241,7 +321,7 @@ enum WorkspaceMemoryEngine {
                 message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
             ),
             updatedGlobalMemories: updatedGlobalMemories,
-            updatedProjectMemories: nil,
+            updatedProjectMemories: updatedProjectMemories,
             noticeSummary: nil,
             noticeRelativePath: nil
         )

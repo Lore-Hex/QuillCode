@@ -12,6 +12,33 @@ extension QuillCodeWorkspaceModel {
         return true
     }
 
+    @discardableResult
+    func deleteMemory(id: String) -> Bool {
+        if id.hasPrefix("project:") {
+            let project = editableProjectMemory()
+            let mutation = if project?.isRemote == true {
+                WorkspaceMemoryEngine.deleteRemoteProject(
+                    id: id,
+                    project: project,
+                    executor: sshRemoteShellExecutor
+                )
+            } else {
+                WorkspaceMemoryEngine.deleteProject(
+                    id: id,
+                    projectRoot: editableProjectMemoryRoot()
+                )
+            }
+            applyProjectMemoryMutation(mutation)
+        } else {
+            guard let mutation = WorkspaceMemoryEngine.deleteGlobal(id: id, directory: globalMemoryDirectory) else {
+                return false
+            }
+            applyMemoryMutation(mutation)
+        }
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        return true
+    }
+
     func runRememberSlashCommand(_ content: String, originalPrompt: String) {
         let mutation = WorkspaceMemoryEngine.saveGlobal(
             content: content,
