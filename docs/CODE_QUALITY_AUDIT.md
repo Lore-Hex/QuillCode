@@ -5405,3 +5405,23 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `core.spec.ts` by feature family. Good next slices are settings/runtime issue flows and automation flows.
+
+## 2026-06-25 Playwright Automation Spec Split
+
+Overall grade after this slice: **A automation E2E ownership, A shared harness helper reuse, A- broad Playwright core spec**.
+
+Automations are a major Codex parity surface, but the mock harness still kept thread follow-up, workspace schedule, quick-action scheduling, slash scheduling, recurring schedules, and Activity separation inside `core.spec.ts`. Those flows are cohesive and deserve a focused owner so automation changes do not require editing broad workspace smoke.
+
+What changed:
+- Added `automations.spec.ts` for automation pane separation, create/run/pause/delete, quick scheduling, slash scheduling, and recurring schedule behavior.
+- Reused `harnessURL()` and `clickSidebarTool()` from the shared Playwright helper.
+- Removed automation-owned lifecycle flows from `core.spec.ts`.
+- Added an automation parity gate that keeps the flows in the focused spec and registered it in the focused-suite manifest.
+
+Current strict grades:
+- `E2E/playwright/tests/automations.spec.ts`: **A**. It owns automation lifecycle and scheduling behavior with one cohesive feature spec.
+- `E2E/playwright/tests/core.spec.ts`: **A-**. It is smaller, but still owns broad workspace smoke plus feature families such as settings, runtime issues, command palette, worktrees, projects, and remote projects.
+- `ParityAutomationGateTests.swift`: **A**. It now guards automation model ownership, surface building, and focused Playwright ownership.
+
+Remaining risk:
+- Continue splitting `core.spec.ts` by feature family. Good next slices are settings/runtime issue flows and worktree/project flows.
