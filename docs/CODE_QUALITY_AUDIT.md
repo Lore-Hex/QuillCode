@@ -5017,3 +5017,21 @@ Current strict grades:
 
 Remaining risk:
 - Continue draining `ParityGateTests.swift` by feature family. Good next splits: agent/TrustedRouter gates and transcript/context-banner gates.
+
+## 2026-06-24 Transcript Surface Parity Gate Split
+
+Overall grade after this slice: **A transcript-surface ownership, A drift protection, B+ catch-all size**.
+
+Transcript layout, transcript Find, and context banner ownership were the last workspace UI surface gates in the broad parity registry. Those checks protect center-pane composition, not settings or command routing, so they now have their own focused suite.
+
+What changed:
+- Added `ParityWorkspaceTranscriptGateTests` for workspace center-pane, transcript Find, context banner, runtime issue, review, and tool-card placement boundaries.
+- Registered the transcript suite in the parity drift guard.
+- Reduced `ParityGateTests.swift` again without changing product behavior.
+
+Current strict grades:
+- `ParityWorkspaceTranscriptGateTests.swift`: **A**. It owns one center-pane transcript boundary and keeps transcript layout assertions away from settings and command suites.
+- `ParityGateTests.swift`: **B+**. Smaller, but still owns TrustedRouter, agent-runner, core/project model boundaries, and global hygiene gates.
+
+Remaining risk:
+- Continue draining `ParityGateTests.swift` by feature family. Good next split: agent/TrustedRouter gates.
