@@ -2,6 +2,60 @@ import XCTest
 @testable import QuillCodeApp
 
 final class WorkspaceWorktreeListSurfaceBuilderTests: XCTestCase {
+    func testWorktreeCreateDraftTrimsRequestFieldsAndRequiresPath() {
+        var draft = QuillCodeWorktreeCreateDraft()
+        XCTAssertFalse(draft.canCreate)
+
+        draft.path = "  ../quill-feature  "
+        draft.branch = "  feature/quill  "
+        draft.base = "  main  "
+
+        XCTAssertTrue(draft.canCreate)
+        XCTAssertEqual(draft.request.path, "../quill-feature")
+        XCTAssertEqual(draft.request.branch, "feature/quill")
+        XCTAssertEqual(draft.request.base, "main")
+    }
+
+    func testWorktreeOpenAndRemoveDraftsSelectChoicesAndTrimRequests() {
+        let choice = WorkspaceWorktreeChoice(
+            path: "/repo/quill-feature",
+            title: "quill-feature",
+            detail: "feature/picker"
+        )
+
+        var openDraft = QuillCodeWorktreeOpenDraft(path: "  /repo/manual  ")
+        XCTAssertTrue(openDraft.canOpen)
+        XCTAssertEqual(openDraft.request.path, "/repo/manual")
+        openDraft.select(choice)
+        XCTAssertEqual(openDraft.request.path, "/repo/quill-feature")
+
+        var removeDraft = QuillCodeWorktreeRemoveDraft(path: "  /repo/stale  ", force: true)
+        XCTAssertTrue(removeDraft.canRemove)
+        XCTAssertEqual(removeDraft.request.path, "/repo/stale")
+        XCTAssertTrue(removeDraft.request.force)
+        removeDraft.select(choice)
+        XCTAssertEqual(removeDraft.request.path, "/repo/quill-feature")
+    }
+
+    func testPruneDraftOnlyEnablesConfirmedPruneForLoadedNonEmptyPreview() {
+        var draft = QuillCodeWorktreePruneDraft()
+        XCTAssertFalse(draft.canPrune)
+
+        draft.preview = .loading
+        XCTAssertFalse(draft.canPrune)
+
+        draft.preview = .loaded(.init(records: [], output: ""))
+        XCTAssertFalse(draft.canPrune)
+
+        draft.preview = .loaded(.init(errorMessage: "not a git repo"))
+        XCTAssertFalse(draft.canPrune)
+
+        draft.preview = .loaded(.init(records: ["Prunable worktree: /repo/stale"], output: "Prunable worktree: /repo/stale"))
+        XCTAssertTrue(draft.canPrune)
+        XCTAssertFalse(draft.confirmRequest.dryRun)
+        XCTAssertTrue(draft.confirmRequest.verbose)
+    }
+
     func testChoiceLoadStateTracksLoadingSuccessEmptyAndFailure() {
         let choice = WorkspaceWorktreeChoice(
             path: "/repo/quill-feature",

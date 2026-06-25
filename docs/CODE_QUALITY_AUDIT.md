@@ -75,6 +75,26 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Strengthened parity gates so feedback and pane visibility APIs cannot drift back into the central workspace model.
 - Moved selected-project refresh and project-extension update APIs into `WorkspaceModelProjects.swift`.
 - Removed the unused root-model `WorkspaceContextResolver` property; active context lookup now lives only in the surface builder and project context refresher.
+- Split native worktree sheet value state and shared choice-row chrome out of `QuillCodeWorktreeDialogs.swift`.
+- Added focused draft/request tests and parity gates that keep worktree draft state, shared row chrome, minimum hit-targets, and shared 0.96 press feedback out of the dialog composition file.
+
+## 2026-06-25 Worktree Dialog Boundary Pass
+
+Overall grade after this slice: **A worktree dialog ownership, A- worktree row chrome, A draft/request state**.
+
+`QuillCodeWorktreeDialogs.swift` had grown into a mixed file: worktree sheet identity, draft request values, load-state reducers, shared status/choice row rendering, and the four actual dialog bodies all lived together. The behavior was correct, but the file made future worktree UX changes harder to review and encouraged more view-state logic inside the sheet composition file.
+
+Code quality changes:
+
+- Added `QuillCodeWorktreeDrafts.swift` for worktree sheet identity, create/open/remove/prune drafts, choice load state, prune preview load state, and request projection.
+- Added `QuillCodeWorktreeDialogChrome.swift` for known-worktree choice sections, status rows, record rows, and the shared sheet frame.
+- Kept `QuillCodeWorktreeDialogs.swift` focused on the four visible sheet bodies: create, open, remove, and prune.
+- Applied the shared pressable button style and explicit minimum hit target to selectable worktree rows so they match the rest of the Codex-like chrome.
+- Added direct draft/request tests and parity gates so draft state and worktree row chrome cannot drift back into the dialog file.
+
+Remaining risk:
+
+- Worktree dialog accessibility still relies mostly on standard SwiftUI labels. Future product polish should add native UI automation identifiers for each worktree text field and choice row before deeper Playwright/native automation around these sheets.
 
 ## 2026-06-25 Workspace Project API Extension
 
