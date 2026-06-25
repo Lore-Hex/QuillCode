@@ -539,6 +539,24 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelText.contains("thread.messages.append(.init(role: .assistant"), "WorkspaceModel should not append assistant notice messages inline.")
     }
 
+    func testWorkspaceModelDelegatesPaneVisibilityMutations() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let paneVisibilityText = try Self.appSourceText(named: "WorkspaceModelPaneVisibility.swift")
+
+        XCTAssertTrue(paneVisibilityText.contains("extension QuillCodeWorkspaceModel"), "Pane visibility APIs should live in a focused model extension.")
+        XCTAssertTrue(paneVisibilityText.contains("public func toggleExtensions"), "Extension-pane visibility should live in the focused extension.")
+        XCTAssertTrue(paneVisibilityText.contains("public func toggleMemories"), "Memory-pane visibility should live in the focused extension.")
+        XCTAssertTrue(paneVisibilityText.contains("public func toggleActivity"), "Activity-pane visibility should live in the focused extension.")
+        XCTAssertTrue(paneVisibilityText.contains("public func toggleAutomations"), "Automation-pane visibility should live in the focused extension.")
+        XCTAssertTrue(paneVisibilityText.contains("public func toggleActivitySection"), "Activity section visibility should live in the focused extension.")
+        XCTAssertFalse(modelText.contains("public func toggleExtensions"), "WorkspaceModel.swift should not own pane visibility APIs.")
+        XCTAssertFalse(modelText.contains("public func toggleMemories"), "WorkspaceModel.swift should not own pane visibility APIs.")
+        XCTAssertFalse(modelText.contains("public func toggleActivity"), "WorkspaceModel.swift should not own pane visibility APIs.")
+        XCTAssertFalse(modelText.contains("public func toggleAutomations"), "WorkspaceModel.swift should not own pane visibility APIs.")
+        XCTAssertFalse(modelText.contains("public func toggleActivitySection"), "WorkspaceModel.swift should not own activity-section visibility APIs.")
+        XCTAssertFalse(modelText.contains("activity.collapsedSectionIDs"), "WorkspaceModel.swift should not mutate activity section visibility inline.")
+    }
+
     func testWorkspaceModelUsesExplicitAgentRunThreadUpdates() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
