@@ -181,4 +181,36 @@ final class ParityWorkspaceSidebarGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(surfaceText.contains("ProjectListSurface("), "WorkspaceSurface should not construct project lists directly.")
         XCTAssertFalse(surfaceText.contains("SidebarSurface("), "WorkspaceSurface should not construct sidebars directly.")
     }
+
+    func testPlaywrightSidebarAndProjectFlowsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let sidebarSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("sidebar.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let sidebarFlowNames = [
+            "searches and reopens an existing chat",
+            "starts a new chat from the sidebar action",
+            "manages chat lifecycle from the sidebar",
+            "groups sidebar chats by recency bucket",
+            "bulk-selects chats from the sidebar",
+            "manages projects from the sidebar",
+            "adds an SSH remote project from command palette and slash command"
+        ]
+
+        XCTAssertTrue(sidebarSpecText.contains("harnessURL()"), "Focused sidebar flows should reuse the shared harness URL helper.")
+        XCTAssertTrue(sidebarSpecText.contains("clickSidebarTool"), "Focused sidebar flows should reuse shared sidebar utility navigation.")
+        XCTAssertTrue(sidebarSpecText.contains("clickProjectAction"), "Project row action coverage should live with focused sidebar/project flows.")
+        XCTAssertTrue(sidebarSpecText.contains("ssh://quill@feather.local/srv/quill"), "Focused sidebar/project flows should cover SSH remote project creation.")
+        XCTAssertFalse(coreSpecText.contains("clickProjectAction"), "Broad core spec should not own project row action helpers.")
+        XCTAssertFalse(coreSpecText.contains("replaceFocusedText"), "Broad core spec should not own sidebar search editing helpers.")
+        for flowName in sidebarFlowNames {
+            XCTAssertTrue(sidebarSpecText.contains(flowName), "\(flowName) should live in sidebar.spec.ts.")
+            XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
+        }
+    }
 }

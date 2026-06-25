@@ -110,7 +110,8 @@ struct ParityFocusedSuiteManifest {
             "testSidebarCommandPresentationIsSharedByNativeAndHTMLSurfaces",
             "testNativeSidebarDelegatesProjectListRendering",
             "testWorkspaceSurfaceDelegatesSidebarSurfaceContracts",
-            "testWorkspaceSurfaceDelegatesNavigationSurfaceBuilding"
+            "testWorkspaceSurfaceDelegatesNavigationSurfaceBuilding",
+            "testPlaywrightSidebarAndProjectFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityMCPGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesMCPSupportTypes",
