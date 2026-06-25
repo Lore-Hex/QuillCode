@@ -36,10 +36,11 @@ final class ParityTopBarGateTests: QuillCodeParityTestCase {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceAgentStatusBuilder.swift")
         let mcpRuntimeText = try Self.appSourceText(named: "WorkspaceMCPRuntime.swift")
+        let terminalLifecycleText = try Self.appSourceText(named: "WorkspaceTerminalLifecyclePlanner.swift")
 
         XCTAssertTrue(appStateText.contains("agentStatus: String = TopBarAgentStatusLabel.idle"), "Root state should use the shared idle label default.")
         XCTAssertTrue(modelText.contains("TopBarAgentStatusLabel.running"), "WorkspaceModel should use shared running status copy.")
-        XCTAssertTrue(modelText.contains("TopBarAgentStatusLabel.terminal"), "WorkspaceModel should use shared terminal status copy.")
+        XCTAssertTrue(terminalLifecycleText.contains("TopBarAgentStatusLabel.terminal"), "Terminal lifecycle planner should use shared terminal status copy.")
         XCTAssertTrue(builderText.contains("TopBarAgentStatusLabel.streaming"), "Agent progress builder should use shared streaming status copy.")
         XCTAssertTrue(mcpRuntimeText.contains("TopBarAgentStatusLabel.failed"), "MCP runtime should use shared failed status copy.")
         XCTAssertFalse(modelText.contains("refreshTopBar(agentStatus: \""), "WorkspaceModel should not pass raw lifecycle status strings to the top bar.")

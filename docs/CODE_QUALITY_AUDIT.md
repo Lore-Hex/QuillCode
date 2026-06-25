@@ -6028,3 +6028,23 @@ Current strict grades:
 
 Remaining risk:
 - `runToolCall` still sequences executor construction, event recording, selected-thread persistence, and final UI update. That is acceptable for now because those steps share actor-bound state; the next extraction should only happen if it can preserve those mutation semantics without adding callback-heavy indirection.
+
+## 2026-06-25 Terminal Run Lifecycle Planner
+
+Overall grade after this slice: **A terminal lifecycle planning, A focused status coverage, A- WorkspaceModel terminal path**.
+
+`runTerminalCommand` still selected top-bar status inline for terminal start, missing execution context, stop, cancellation, and completion. The terminal engine already owns entry mutation and session-marker cleanup, but the model still mixed lifecycle policy with streaming orchestration. The extraction keeps the async process loop in the model while naming status decisions as a pure value boundary.
+
+What changed:
+- Added `WorkspaceTerminalLifecyclePlanner` with typed lifecycle plans for started, missing execution context, stopped, cancelled, and finished terminal runs.
+- Routed `WorkspaceModel.runTerminalCommand` through the planner using one small `applyTerminalLifecyclePlan` helper for actor-owned state application.
+- Added focused lifecycle planner tests for terminal, failed, stopped, cancelled, idle, and failed-completion statuses.
+- Added a parity gate so `runTerminalCommand` does not reintroduce inline terminal/stopped/final status selection.
+
+Current strict grades:
+- `WorkspaceTerminalLifecyclePlanner.swift`: **A**. It is pure and intentionally limited to top-bar lifecycle planning; it does not know about processes, SSH, session markers, terminal entries, or persistence.
+- `WorkspaceModel.runTerminalCommand`: **A-**. It still owns the async streaming loop and terminal entry mutation sequence, which is appropriate for actor-bound state, but it no longer owns lifecycle status policy.
+- `WorkspaceTerminalLifecyclePlannerTests.swift`: **A**. It covers every branch that previously lived inline in the model.
+
+Remaining risk:
+- `runTerminalCommand` still sequences execution-context lookup, streaming event application, terminal finish mutation, and cancellation handling. A future extraction could isolate the async run coordinator, but only if it avoids callback-heavy indirection and preserves terminal session state updates precisely.
