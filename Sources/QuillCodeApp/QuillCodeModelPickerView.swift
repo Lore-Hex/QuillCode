@@ -16,6 +16,10 @@ struct QuillCodeModelPickerView: View {
         topBar.filteredModelCategories(matching: searchText)
     }
 
+    private var filteredModelCount: Int {
+        filteredCategories.reduce(0) { $0 + $1.models.count }
+    }
+
     private var currentModelID: String? {
         topBar.modelCategories
             .flatMap(\.models)
@@ -68,6 +72,7 @@ struct QuillCodeModelPickerView: View {
         VStack(alignment: .leading, spacing: 12) {
             header
             searchField
+            resultSummary
             modelList
         }
         .padding(14)
@@ -99,36 +104,88 @@ struct QuillCodeModelPickerView: View {
         if filteredCategories.isEmpty {
             emptyState
         } else {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 9) {
-                    ForEach(filteredCategories) { category in
-                        QuillCodeModelCategorySection(
-                            category: category,
-                            expandedModelID: $expandedModelID,
-                            reduceMotion: reduceMotion,
-                            onSetModel: selectModel,
-                            onToggleModelFavorite: onToggleModelFavorite
-                        )
+            VStack(alignment: .leading, spacing: 8) {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 9) {
+                        ForEach(filteredCategories) { category in
+                            QuillCodeModelCategorySection(
+                                category: category,
+                                expandedModelID: $expandedModelID,
+                                reduceMotion: reduceMotion,
+                                onSetModel: selectModel,
+                                onToggleModelFavorite: onToggleModelFavorite
+                            )
+                        }
                     }
+                    .padding(.vertical, 2)
                 }
-                .padding(.vertical, 2)
             }
         }
     }
 
+    private var resultSummary: some View {
+        HStack(spacing: 8) {
+            Text(resultSummaryText)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(QuillCodePalette.muted)
+                .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            if !searchText.isEmpty {
+                Button("Clear") {
+                    clearSearch()
+                }
+                .font(.caption.weight(.semibold))
+                .buttonStyle(.plain)
+                .foregroundStyle(QuillCodePalette.blue)
+                .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .help("Clear model search")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var resultSummaryText: String {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let modelNoun = filteredModelCount == 1 ? "model" : "models"
+        if query.isEmpty {
+            return "\(filteredModelCount) \(modelNoun) available"
+        }
+        return "\(filteredModelCount) \(modelNoun) for \"\(query)\""
+    }
+
     private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("No models match")
                 .font(.headline)
             Text("Try a provider, model name, category, or state.")
                 .font(.caption)
                 .foregroundStyle(QuillCodePalette.muted)
                 .fixedSize(horizontal: false, vertical: true)
+            if !searchText.isEmpty {
+                Button("Clear search") {
+                    clearSearch()
+                }
+                .font(.caption.weight(.semibold))
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .foregroundStyle(QuillCodePalette.blue)
+                .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+                .padding(.top, 2)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(QuillCodePalette.background.opacity(0.72))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func clearSearch() {
+        searchText = ""
+        DispatchQueue.main.async {
+            isSearchFocused = true
+        }
     }
 
     private func selectModel(_ option: ModelOptionSurface) {
@@ -254,8 +311,43 @@ private struct QuillCodeModelRow: View {
                 .foregroundStyle(QuillCodePalette.muted)
                 .lineLimit(1)
                 .truncationMode(.middle)
+            if !option.badges.isEmpty {
+                badgeRow
+            }
         }
         .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var badgeRow: some View {
+        HStack(spacing: 5) {
+            ForEach(option.badges.prefix(3), id: \.self) { badge in
+                Text(badge)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(badgeForeground(for: badge))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(badgeBackground(for: badge))
+                    .clipShape(Capsule())
+            }
+        }
+        .lineLimit(1)
+    }
+
+    private func badgeForeground(for badge: String) -> Color {
+        switch badge {
+        case "Current":
+            return QuillCodePalette.green
+        case "Default", "Recommended":
+            return QuillCodePalette.blue
+        case "Favorite":
+            return QuillCodePalette.yellow
+        default:
+            return QuillCodePalette.muted
+        }
+    }
+
+    private func badgeBackground(for badge: String) -> Color {
+        badgeForeground(for: badge).opacity(0.12)
     }
 
     private func modelActionButton(

@@ -188,7 +188,11 @@ test('mock harness searches and selects models from the composer', async ({ page
 
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-browser')).toBeVisible();
+  await expect(page.getByTestId('model-result-count')).toHaveText('5 models available');
   await expect(page.getByTestId('model-option-summary').first()).toContainText('Fast everyday agent');
+  await expect(page.getByTestId('model-badge').nth(0)).toHaveText('Current');
+  await expect(page.getByTestId('model-badge').nth(1)).toHaveText('Default');
+  await expect(page.getByTestId('model-badge').nth(2)).toHaveText('Recommended');
   await expect(page.getByTestId('model-detail-button').first()).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByTestId('model-capability')).toContainText('Nike 1.0 is the fast default');
   await expect(page.getByTestId('model-metadata-row').filter({ hasText: 'trustedrouter/fast' })).toBeVisible();
@@ -206,6 +210,7 @@ test('mock harness searches and selects models from the composer', async ({ page
   await expect(page.getByTestId('model-metadata-row').filter({ hasText: 'tr/synth-code' })).toBeVisible();
 
   await page.getByTestId('model-search').fill('default model');
+  await expect(page.getByTestId('model-result-count')).toHaveText('1 model for "default model"');
   await expect(page.getByTestId('model-option')).toHaveCount(1);
   await expect(page.getByTestId('model-option')).toContainText('Nike 1.0');
   await page.getByTestId('model-search').fill('');
@@ -232,5 +237,10 @@ test('mock harness searches and selects models from the composer', async ({ page
 
   await page.getByTestId('model-picker-button').click();
   await page.getByTestId('model-search').fill('not-a-model');
+  await expect(page.getByTestId('model-result-count')).toHaveText('0 models for "not-a-model"');
   await expect(page.getByTestId('model-empty')).toBeVisible();
+  await page.getByTestId('model-clear-search').first().click();
+  await expect(page.getByTestId('model-search')).toBeFocused();
+  await expect(page.getByTestId('model-result-count')).toHaveText('6 models available');
+  await expect(page.getByTestId('model-option')).toHaveCount(6);
 });
