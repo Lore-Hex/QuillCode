@@ -63,6 +63,19 @@ final class ParityAgentGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(agentText.contains("Tool is not available in this workspace"), "Agent.swift should not own unavailable-tool result copy.")
     }
 
+    func testAgentCancellationTelemetryLivesInFocusedRecorder() throws {
+        let agentText = try Self.agentSourceText(named: "Agent.swift")
+        let recorderText = try Self.agentSourceText(named: "AgentCancellationRecorder.swift")
+        let streamingTests = try Self.agentTestSourceText(named: "AgentStreamingTests.swift")
+
+        XCTAssertTrue(recorderText.contains("enum AgentCancellationRecorder"), "Agent cancellation transcript mutation should live in a focused recorder.")
+        XCTAssertTrue(recorderText.contains("Stopped by user"), "Stopped-run copy should be centralized in the recorder.")
+        XCTAssertTrue(agentText.contains("AgentCancellationRecorder.recordCancelledRun"), "AgentRunner should delegate cancellation transcript mutation.")
+        XCTAssertFalse(agentText.contains(#""Stopped by user""#), "Agent.swift should not own stopped-run copy inline.")
+        XCTAssertTrue(streamingTests.contains("testCancellingBeforeModelActionPublishesStoppedNotice"), "Agent tests should cover cancellation before a model action arrives.")
+        XCTAssertTrue(streamingTests.contains("testCancellingRunningToolPublishesStoppedToolFailure"), "Agent tests should cover cancellation while a tool is active.")
+    }
+
     func testAgentBehaviorTestsUseFocusedSuites() throws {
         let immediateTests = try Self.agentTestSourceText(named: "AgentImmediateActionTests.swift")
         let toolLoopTests = try Self.agentTestSourceText(named: "AgentToolLoopTests.swift")

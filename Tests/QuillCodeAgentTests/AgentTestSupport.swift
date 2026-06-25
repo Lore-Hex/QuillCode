@@ -22,11 +22,13 @@ func initializeGitRepo(at root: URL) throws {
 actor ProgressRecorder {
     private var kinds: [ThreadEventKind] = []
     private var contents: [[String]] = []
+    private var snapshots: [[ThreadEvent]] = []
 
     func record(_ thread: ChatThread) {
         guard let kind = thread.events.last?.kind else { return }
         kinds.append(kind)
         contents.append(thread.messages.map(\.content))
+        snapshots.append(thread.events)
     }
 
     func eventKinds() -> [ThreadEventKind] {
@@ -35,6 +37,10 @@ actor ProgressRecorder {
 
     func messageContents() -> [[String]] {
         contents
+    }
+
+    func eventSnapshots() -> [[ThreadEvent]] {
+        snapshots
     }
 }
 
