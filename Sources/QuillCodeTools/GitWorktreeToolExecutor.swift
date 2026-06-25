@@ -40,6 +40,27 @@ public struct GitWorktreeToolExecutor: Sendable {
         }
     }
 
+    public func open(cwd: URL, path: String) -> ToolResult {
+        do {
+            let worktreePath = try Self.safePath(path, cwd: cwd)
+            let registered = registeredPaths(cwd: cwd)
+            if let failure = registered.failure {
+                return failure
+            }
+            guard registered.paths.contains(worktreePath) else {
+                throw GitToolError.unregisteredWorktree(worktreePath)
+            }
+
+            return ToolResult(
+                ok: true,
+                stdout: "worktree \(worktreePath)\n",
+                artifacts: [worktreePath]
+            )
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
     public func remove(cwd: URL, path: String, force: Bool = false) -> ToolResult {
         do {
             let worktreePath = try Self.safePath(path, cwd: cwd)

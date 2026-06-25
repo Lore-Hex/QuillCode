@@ -12,6 +12,7 @@ enum WorkspaceRemoteGitWorktreeCommandBuilder {
     static let toolNames: Set<String> = [
         ToolDefinition.gitWorktreeList.name,
         ToolDefinition.gitWorktreeCreate.name,
+        ToolDefinition.gitWorktreeOpen.name,
         ToolDefinition.gitWorktreeRemove.name
     ]
 
@@ -34,6 +35,20 @@ enum WorkspaceRemoteGitWorktreeCommandBuilder {
                     branch: args.string("branch"),
                     base: args.string("base")
                 ),
+                artifacts: [
+                    WorkspaceRemoteProjectPath.artifactPath(
+                        connection: connection,
+                        absolutePath: worktreePath
+                    )
+                ]
+            )
+        case ToolDefinition.gitWorktreeOpen.name:
+            let worktreePath = try WorkspaceRemoteProjectPath.worktreePath(
+                try args.requiredString("path"),
+                connection: connection
+            )
+            return WorkspaceRemoteGitWorktreePlan(
+                command: openCommand(worktreePath: worktreePath),
                 artifacts: [
                     WorkspaceRemoteProjectPath.artifactPath(
                         connection: connection,
@@ -78,8 +93,23 @@ enum WorkspaceRemoteGitWorktreeCommandBuilder {
         let forceFlag = force ? " --force" : ""
         return [
             "worktree=\(WorkspaceTerminalSessionAdapter.shellSingleQuoted(worktreePath))",
-            "git worktree list --porcelain | grep -F -x -- \"worktree $worktree\" >/dev/null || { printf 'Git worktree is not registered: %s\\n' \"$worktree\" >&2; exit 1; }",
+            registeredWorktreeCheckCommand(),
             "git worktree remove\(forceFlag) -- \"$worktree\""
+        ].joined(separator: " && ")
+    }
+
+    private static func openCommand(worktreePath: String) -> String {
+        [
+            "worktree=\(WorkspaceTerminalSessionAdapter.shellSingleQuoted(worktreePath))",
+            registeredWorktreeCheckCommand(),
+            "printf 'worktree %s\\n' \"$worktree\""
+        ].joined(separator: " && ")
+    }
+
+    private static func registeredWorktreeCheckCommand() -> String {
+        [
+            "worktree_real=$(cd \"$worktree\" 2>/dev/null && pwd -P || printf '%s' \"$worktree\")",
+            "git worktree list --porcelain | awk -v wanted=\"$worktree\" -v wanted_real=\"$worktree_real\" '$0 == \"worktree \" wanted || $0 == \"worktree \" wanted_real { found=1 } END { exit found ? 0 : 1 }' || { printf 'Git worktree is not registered: %s\\n' \"$worktree\" >&2; exit 1; }"
         ].joined(separator: " && ")
     }
 

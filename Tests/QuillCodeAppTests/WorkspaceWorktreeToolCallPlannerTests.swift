@@ -44,6 +44,16 @@ final class WorkspaceWorktreeToolCallPlannerTests: XCTestCase {
         XCTAssertEqual(arguments.bool("force"), true)
     }
 
+    func testOpenBuildsGitWorktreeOpenCallWithTrimmedPath() throws {
+        let call = WorkspaceWorktreeToolCallPlanner.open(.init(
+            path: " ../feature-worktree\n"
+        ))
+        let arguments = try ToolArguments(call.argumentsJSON)
+
+        XCTAssertEqual(call.name, ToolDefinition.gitWorktreeOpen.name)
+        XCTAssertEqual(try arguments.requiredString("path"), "../feature-worktree")
+    }
+
     func testRemovePreservesNonForcefulDefault() throws {
         let call = WorkspaceWorktreeToolCallPlanner.remove(.init(
             path: "../feature-worktree"

@@ -12,6 +12,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     @Binding var isKeyboardShortcutsPresented: Bool
     @Binding var worktreeSheet: QuillCodeWorktreeSheet?
     @Binding var createWorktreeDraft: QuillCodeWorktreeCreateDraft
+    @Binding var openWorktreeDraft: QuillCodeWorktreeOpenDraft
     @Binding var removeWorktreeDraft: QuillCodeWorktreeRemoveDraft
     @Binding var renameThreadDraft: QuillCodeThreadRenameDraft?
     @Binding var renameProjectDraft: QuillCodeProjectRenameDraft?
@@ -20,6 +21,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     var onStartTrustedRouterSignIn: () -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
     var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
+    var onOpenWorktree: (WorkspaceWorktreeOpenRequest) -> Void
     var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
     var onRenameThread: (UUID, String) -> Void
     var onRenameProject: (UUID, String) -> Void
@@ -70,6 +72,12 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
                         draft: $createWorktreeDraft,
                         onCancel: dismissWorktreeSheet,
                         onCreate: createWorktree
+                    )
+                case .open:
+                    QuillCodeWorktreeOpenView(
+                        draft: $openWorktreeDraft,
+                        onCancel: dismissWorktreeSheet,
+                        onOpen: openWorktree
                     )
                 case .remove:
                     QuillCodeWorktreeRemoveView(
@@ -135,6 +143,11 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
         worktreeSheet = nil
     }
 
+    private func openWorktree() {
+        onOpenWorktree(openWorktreeDraft.request)
+        worktreeSheet = nil
+    }
+
     private func removeWorktree() {
         onRemoveWorktree(removeWorktreeDraft.request)
         worktreeSheet = nil
@@ -171,6 +184,7 @@ extension View {
         isKeyboardShortcutsPresented: Binding<Bool>,
         worktreeSheet: Binding<QuillCodeWorktreeSheet?>,
         createWorktreeDraft: Binding<QuillCodeWorktreeCreateDraft>,
+        openWorktreeDraft: Binding<QuillCodeWorktreeOpenDraft>,
         removeWorktreeDraft: Binding<QuillCodeWorktreeRemoveDraft>,
         renameThreadDraft: Binding<QuillCodeThreadRenameDraft?>,
         renameProjectDraft: Binding<QuillCodeProjectRenameDraft?>,
@@ -179,6 +193,7 @@ extension View {
         onStartTrustedRouterSignIn: @escaping () -> Void,
         onCommand: @escaping (WorkspaceCommandSurface) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
+        onOpenWorktree: @escaping (WorkspaceWorktreeOpenRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
         onRenameThread: @escaping (UUID, String) -> Void,
         onRenameProject: @escaping (UUID, String) -> Void
@@ -194,6 +209,7 @@ extension View {
             isKeyboardShortcutsPresented: isKeyboardShortcutsPresented,
             worktreeSheet: worktreeSheet,
             createWorktreeDraft: createWorktreeDraft,
+            openWorktreeDraft: openWorktreeDraft,
             removeWorktreeDraft: removeWorktreeDraft,
             renameThreadDraft: renameThreadDraft,
             renameProjectDraft: renameProjectDraft,
@@ -202,6 +218,7 @@ extension View {
             onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
             onCommand: onCommand,
             onCreateWorktree: onCreateWorktree,
+            onOpenWorktree: onOpenWorktree,
             onRemoveWorktree: onRemoveWorktree,
             onRenameThread: onRenameThread,
             onRenameProject: onRenameProject

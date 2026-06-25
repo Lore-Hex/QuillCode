@@ -26,6 +26,7 @@ final class GitToolRouterTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.pr.merge"))
         XCTAssertTrue(definitions.contains("host.git.worktree.list"))
         XCTAssertTrue(definitions.contains("host.git.worktree.create"))
+        XCTAssertTrue(definitions.contains("host.git.worktree.open"))
         XCTAssertTrue(definitions.contains("host.git.worktree.remove"))
     }
 
@@ -35,6 +36,7 @@ final class GitToolRouterTests: XCTestCase {
 
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitStatus.name))
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitPullRequestCreate.name))
+        XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitWorktreeOpen.name))
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitWorktreeRemove.name))
         XCTAssertFalse(GitToolCallDispatcher.handles(ToolDefinition.shellRun.name))
         XCTAssertTrue(gitDefinitions.allSatisfy(routerDefinitions.contains))

@@ -2,7 +2,7 @@ import XCTest
 @testable import QuillCodeTools
 
 final class GitWorktreeToolExecutorTests: XCTestCase {
-    func testCreateListAndRemoveSibling() throws {
+    func testCreateListOpenAndRemoveSibling() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let parent = root.deletingLastPathComponent()
         let worktreeName = "quillcode-worktree-\(UUID().uuidString)"
@@ -20,6 +20,11 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
         XCTAssertTrue(list.ok, "\(list.error ?? "") \(list.stderr)")
         XCTAssertTrue(list.stdout.contains(worktree.path), list.stdout)
         XCTAssertTrue(list.stdout.contains(String(branch)), list.stdout)
+
+        let open = git.openWorktree(cwd: root, path: worktreeName)
+        XCTAssertTrue(open.ok, "\(open.error ?? "") \(open.stderr)")
+        XCTAssertEqual(open.artifacts, [worktree.path])
+        XCTAssertTrue(open.stdout.contains(worktree.path), open.stdout)
 
         let remove = git.removeWorktree(cwd: root, path: worktreeName)
 
@@ -49,7 +54,7 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
         XCTAssertTrue(unsafeBase.error?.contains("unsupported characters") == true, unsafeBase.error ?? "")
     }
 
-    func testRemoveRejectsUnregisteredPath() throws {
+    func testOpenAndRemoveRejectUnregisteredPath() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let parent = root.deletingLastPathComponent()
         let unrelatedName = "not-a-worktree-\(UUID().uuidString)"
@@ -57,8 +62,13 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
             at: parent.appendingPathComponent(unrelatedName),
             withIntermediateDirectories: true
         )
+        let git = GitToolExecutor()
 
-        let result = GitToolExecutor().removeWorktree(cwd: root, path: unrelatedName, force: true)
+        let open = git.openWorktree(cwd: root, path: unrelatedName)
+        XCTAssertFalse(open.ok)
+        XCTAssertTrue(open.error?.contains("not registered") == true, open.error ?? "")
+
+        let result = git.removeWorktree(cwd: root, path: unrelatedName, force: true)
 
         XCTAssertFalse(result.ok)
         XCTAssertTrue(result.error?.contains("not registered") == true, result.error ?? "")

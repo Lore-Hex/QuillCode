@@ -28,4 +28,13 @@ enum WorkspaceWorktreeToolCallPlanner {
             ])
         )
     }
+
+    static func open(_ request: WorkspaceWorktreeOpenRequest) -> ToolCall {
+        ToolCall(
+            name: ToolDefinition.gitWorktreeOpen.name,
+            argumentsJSON: ToolArguments.json([
+                "path": request.path.trimmingCharacters(in: .whitespacesAndNewlines)
+            ])
+        )
+    }
 }

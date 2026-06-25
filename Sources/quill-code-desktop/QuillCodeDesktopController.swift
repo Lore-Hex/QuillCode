@@ -332,6 +332,11 @@ final class QuillCodeDesktopController: ObservableObject {
         refresh()
     }
 
+    func openWorktree(_ request: WorkspaceWorktreeOpenRequest) {
+        model.openWorktree(request, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+        refresh()
+    }
+
     func removeWorktree(_ request: WorkspaceWorktreeRemoveRequest) {
         model.removeWorktree(request, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
         refresh()

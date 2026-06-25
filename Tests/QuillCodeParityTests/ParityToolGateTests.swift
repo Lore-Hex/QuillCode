@@ -285,7 +285,7 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
             "Hunk staging coverage should stay beside git patch executor tests."
         )
         XCTAssertTrue(
-            worktreeTestsText.contains("testCreateListAndRemoveSibling"),
+            worktreeTestsText.contains("testCreateListOpenAndRemoveSibling"),
             "Worktree lifecycle coverage should stay beside git worktree executor tests."
         )
         XCTAssertTrue(
@@ -349,9 +349,10 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(worktreeText.contains("public struct GitWorktreeToolExecutor"), "Git worktree execution should live in a focused executor.")
         XCTAssertTrue(worktreeText.contains("func list("), "Git worktree listing should be directly testable.")
         XCTAssertTrue(worktreeText.contains("func create("), "Git worktree creation should be directly testable.")
+        XCTAssertTrue(worktreeText.contains("func open("), "Git worktree opening should be directly testable.")
         XCTAssertTrue(worktreeText.contains("func remove("), "Git worktree removal should be directly testable.")
         XCTAssertTrue(worktreeText.contains("static func safePath"), "Git worktree path validation should live beside worktree execution.")
-        XCTAssertTrue(worktreeText.contains("registeredPaths"), "Git worktree registered-path lookup should live beside worktree removal.")
+        XCTAssertTrue(worktreeText.contains("registeredPaths"), "Git worktree registered-path lookup should live beside worktree open/remove.")
         XCTAssertTrue(executorText.contains("private let worktrees: GitWorktreeToolExecutor"), "GitToolExecutor should delegate git worktree work.")
         XCTAssertFalse(executorText.contains(#"["worktree", "add"]"#), "GitToolExecutor should not build git worktree add arguments inline.")
         XCTAssertFalse(executorText.contains(#"["worktree", "remove"]"#), "GitToolExecutor should not build git worktree remove arguments inline.")

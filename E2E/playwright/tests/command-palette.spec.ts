@@ -71,8 +71,10 @@ test('mock harness ranks and navigates command palette with keyboard', async ({ 
 
   await page.keyboard.press('ArrowDown');
   await expect(page.locator('[data-testid="command-palette-result"][data-selected="true"]')).toContainText('Create worktree');
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('[data-testid="command-palette-result"][data-selected="true"]')).toContainText('Open worktree');
   await page.keyboard.press('Enter');
-  await expect(page.getByTestId('worktree-create-panel')).toBeVisible();
+  await expect(page.getByTestId('worktree-open-panel')).toBeVisible();
 });
 
 test('mock harness lists worktrees from the command palette', async ({ page }) => {
@@ -81,7 +83,7 @@ test('mock harness lists worktrees from the command palette', async ({ page }) =
   await clickSidebarTool(page, 'command-palette-button');
   await fillCommandPalette(page, '>worktree');
 
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(3);
+  await expect(page.getByTestId('command-palette-result')).toHaveCount(4);
   await commandPaletteResult(page, 'git-worktree-list').click();
 
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
@@ -174,6 +176,20 @@ test('mock harness creates and removes worktrees from dialogs', async ({ page })
   await expect(page.getByTestId('top-bar-title')).toHaveText('Worktree: feature/quillcode');
   await expect(page.getByTestId('top-bar-subtitle')).toContainText('quillcode-feature - Auto - Nike 1.0');
   await expect(page.getByTestId('sidebar-item').first()).toContainText('Worktree: feature/quillcode');
+  await expect(page.getByTestId('message').last()).toContainText('Opened worktree quillcode-feature at /mock/quillcode-feature.');
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await clickCommandPaletteCommand(page, '>open worktree', 'git-worktree-open');
+  await expect(page.getByTestId('worktree-open-panel')).toBeVisible();
+  await expect(page.getByTestId('worktree-open-submit')).toBeDisabled();
+
+  await page.getByLabel('Worktree folder').fill('quillcode-feature');
+  await expect(page.getByTestId('worktree-open-submit')).toBeEnabled();
+  await page.getByTestId('worktree-open-submit').click();
+
+  await expect(page.getByTestId('worktree-open-panel')).toHaveCount(0);
+  await expect(page.getByTestId('project-item').first()).toContainText('quillcode-feature');
+  await expect(page.getByTestId('top-bar-title')).toHaveText('Worktree: quillcode-feature');
   await expect(page.getByTestId('message').last()).toContainText('Opened worktree quillcode-feature at /mock/quillcode-feature.');
 
   await clickSidebarTool(page, 'command-palette-button');

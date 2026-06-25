@@ -222,7 +222,7 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertFalse(request.extractsPullRequestURLs)
     }
 
-    func testRemoteGitWorktreeBuilderBuildsListAndRemovePlans() throws {
+    func testRemoteGitWorktreeBuilderBuildsListOpenAndRemovePlans() throws {
         let listPlan = try remoteWorktreePlan(
             name: ToolDefinition.gitWorktreeList.name,
             arguments: [:],
@@ -230,6 +230,15 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         )
         XCTAssertEqual(listPlan.command, "git worktree list --porcelain")
         XCTAssertEqual(listPlan.artifacts, [])
+
+        let openPlan = try remoteWorktreePlan(
+            name: ToolDefinition.gitWorktreeOpen.name,
+            arguments: ["path": "quill-next"],
+            connection: remoteProject(path: "/srv/quill").connection
+        )
+        XCTAssertTrue(openPlan.command.contains("worktree='/srv/quill-next'"), openPlan.command)
+        XCTAssertTrue(openPlan.command.contains("printf 'worktree %s\\n' \"$worktree\""), openPlan.command)
+        XCTAssertEqual(openPlan.artifacts, ["ssh://quill@feather.local:2222/srv/quill-next"])
 
         let removePlan = try remoteWorktreePlan(
             name: ToolDefinition.gitWorktreeRemove.name,

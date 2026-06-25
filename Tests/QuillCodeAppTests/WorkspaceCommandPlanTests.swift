@@ -49,6 +49,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             WorkspaceCommandPlan(commandID: "git-worktree-remove"),
             .setDraft("Remove git worktree at ")
         )
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "git-worktree-open"),
+            .setDraft("Open git worktree at ")
+        )
     }
 
     func testPrefixCommandsParseStructuredValues() {
