@@ -29,6 +29,7 @@ struct ParityFocusedSuiteManifest {
             "testPlaywrightSearchFlowsStayInFocusedSpec",
             "testPlaywrightExtensionsFlowsStayInFocusedSpec",
             "testPlaywrightArtifactFlowsStayInFocusedSpec",
+            "testPlaywrightComposerFlowsStayInFocusedSpec",
             "testPlaywrightReviewFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityBrowserGateTests.swift", testNames: [

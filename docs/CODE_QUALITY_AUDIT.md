@@ -5595,3 +5595,23 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `core.spec.ts` by feature family. Good next slices are composer/model-picker flows, shortcut/slash flows, and memory/context flows.
+
+## 2026-06-25 Playwright Composer Spec Split
+
+Overall grade after this slice: **A composer E2E ownership, A model/slash interaction coverage, A- broad Playwright core spec**.
+
+`core.spec.ts` still owned multiline composer editing, active-run cancellation, slash command execution and suggestions, approval-mode switching, and model browser search/selection. Those flows all depend on the composer interaction surface and should fail together in a focused composer spec instead of broad workspace smoke.
+
+What changed:
+- Added `composer.spec.ts` for multiline entry, Enter-to-send, run cancellation, slash mode, slash routing, slash suggestions, approval-mode switching, and model browser selection.
+- Reused the shared Playwright `harnessURL()` helper in the focused composer spec.
+- Removed composer/model/slash interaction flows from `core.spec.ts`, leaving the broad smoke suite focused on workspace shell, transcript, context, memory, and UI stability.
+- Added a surface parity gate that keeps composer flows in the focused spec and registered it in the focused-suite manifest.
+
+Current strict grades:
+- `E2E/playwright/tests/composer.spec.ts`: **A**. It owns composer behavior across text entry, slash commands, mode control, cancellation, and model selection with a cohesive interaction boundary.
+- `E2E/playwright/tests/core.spec.ts`: **A-**. It is now substantially smaller, but still owns broad workspace smoke plus top-bar, polish, transcript, activity/context, shortcut, and memory flows.
+- `ParityWorkspaceSurfaceGateTests.swift`: **A**. It now guards focused ownership for terminal, search, extension, artifact, composer, and review Playwright flow families.
+
+Remaining risk:
+- Continue splitting `core.spec.ts` by feature family. Good next slices are top-bar/polish flows, shortcut flows, and memory/context/activity flows.

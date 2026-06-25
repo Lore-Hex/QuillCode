@@ -250,6 +250,37 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         }
     }
 
+    func testPlaywrightComposerFlowsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let composerSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("composer.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let composerFlowNames = [
+            "composer supports multiline editing and Enter-to-send",
+            "stops an active composer run from the composer",
+            "handles slash mode locally",
+            "changes approval mode independently from model selection",
+            "routes slash commands to workspace actions",
+            "suggests slash commands in the composer",
+            "searches and selects models from the composer"
+        ]
+
+        XCTAssertTrue(composerSpecText.contains("harnessURL()"), "Focused composer flows should reuse the shared harness URL helper.")
+        XCTAssertTrue(composerSpecText.contains("slash-suggestions"), "Focused composer flows should cover slash suggestions.")
+        XCTAssertTrue(composerSpecText.contains("model-browser"), "Focused composer flows should cover model browser interactions.")
+        XCTAssertTrue(composerSpecText.contains("mode-picker-button"), "Focused composer flows should cover approval mode switching.")
+        XCTAssertTrue(composerSpecText.contains("stop-button"), "Focused composer flows should cover composer cancellation.")
+        for flowName in composerFlowNames {
+            XCTAssertTrue(composerSpecText.contains(flowName), "\(flowName) should live in composer.spec.ts.")
+            XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
+        }
+    }
+
     func testWorkspaceSurfaceDelegatesReviewSurfaceContracts() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let reviewText = try Self.appSourceText(named: "QuillCodeReviewSurface.swift")
