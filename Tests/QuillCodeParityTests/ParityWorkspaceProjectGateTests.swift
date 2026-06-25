@@ -68,11 +68,14 @@ final class ParityWorkspaceProjectGateTests: QuillCodeParityTestCase {
     func testWorkspaceRemoteProjectIntegrationTestsOwnModelRemoteProjectFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let remoteProjectIntegrationTests = try Self.appTestSourceText(named: "WorkspaceRemoteProjectIntegrationTests.swift")
+        let remoteProjectShellGitTests = try Self.appTestSourceText(named: "WorkspaceRemoteProjectShellGitIntegrationTests.swift")
+        let remoteProjectPullRequestTests = try Self.appTestSourceText(named: "WorkspaceRemoteProjectPullRequestIntegrationTests.swift")
+        let remoteProjectWorktreeTests = try Self.appTestSourceText(named: "WorkspaceRemoteProjectWorktreeIntegrationTests.swift")
 
         XCTAssertTrue(remoteProjectIntegrationTests.contains("testSlashSSHAddsRemoteProjectAndEnablesRemoteGitActions"), "SSH project setup should live in focused remote project integration tests.")
-        XCTAssertTrue(remoteProjectIntegrationTests.contains("testRemoteProjectAgentRunsShellThroughSSH"), "Remote shell agent execution should live in focused remote project integration tests.")
-        XCTAssertTrue(remoteProjectIntegrationTests.contains("testRemoteProjectAgentCreatesPullRequestThroughSSH"), "Remote PR creation should live in focused remote project integration tests.")
-        XCTAssertTrue(remoteProjectIntegrationTests.contains("testRemoteProjectRejectsUnsafeWorktreePathBeforeSSH"), "Remote worktree safety coverage should live in focused remote project integration tests.")
+        XCTAssertTrue(remoteProjectShellGitTests.contains("testRemoteProjectAgentRunsShellThroughSSH"), "Remote shell agent execution should live in focused remote shell/git tests.")
+        XCTAssertTrue(remoteProjectPullRequestTests.contains("testRemoteProjectAgentCreatesPullRequestThroughSSH"), "Remote PR creation should live in focused remote PR tests.")
+        XCTAssertTrue(remoteProjectWorktreeTests.contains("testRemoteProjectRejectsUnsafeWorktreePathBeforeSSH"), "Remote worktree safety coverage should live in focused remote worktree tests.")
         XCTAssertFalse(modelTests.contains("testSlashSSHAddsRemoteProjectAndEnablesRemoteGitActions"), "WorkspaceModelTests should not own SSH project setup integration flows.")
         XCTAssertFalse(modelTests.contains("testRemoteProjectAgentRunsShellThroughSSH"), "WorkspaceModelTests should not own remote shell agent integration flows.")
         XCTAssertFalse(modelTests.contains("testRemoteProjectAgentCreatesPullRequestThroughSSH"), "WorkspaceModelTests should not own remote PR creation integration flows.")
