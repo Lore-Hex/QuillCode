@@ -192,4 +192,19 @@ final class ParityBrowserGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(broadSuiteText.contains("testWorkspaceBrowserIntegrationTestsOwnModelBrowserFlows"), "Browser integration ownership gates should stay in ParityBrowserGateTests.")
         XCTAssertFalse(broadSuiteText.contains("testWorkspaceHTMLRendererDelegatesBrowserRendering"), "Browser renderer gates should stay in ParityBrowserGateTests.")
     }
+
+    func testPlaywrightBrowserFlowsStayInFocusedSpec() throws {
+        let root = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let browserSpecText = try String(contentsOf: root.appendingPathComponent("browser.spec.ts"), encoding: .utf8)
+        let coreSpecText = try String(contentsOf: root.appendingPathComponent("core.spec.ts"), encoding: .utf8)
+        let helperText = try String(contentsOf: root.appendingPathComponent("harness-helpers.ts"), encoding: .utf8)
+
+        XCTAssertTrue(browserSpecText.contains("opens browser preview and records comments"), "Browser E2E preview/comment flow should live in browser.spec.ts.")
+        XCTAssertTrue(browserSpecText.contains("opens browser preview from chat"), "Browser chat-open flow should live in browser.spec.ts.")
+        XCTAssertTrue(browserSpecText.contains("harnessURL()"), "Focused Playwright specs should share the harness URL helper.")
+        XCTAssertTrue(helperText.contains("export function harnessURL"), "Shared Playwright harness URL helper should be available to focused specs.")
+        XCTAssertTrue(helperText.contains("export async function clickSidebarTool"), "Shared sidebar tool navigation should avoid duplicated focused-spec helpers.")
+        XCTAssertFalse(coreSpecText.contains("opens browser preview and records comments"), "The broad core Playwright spec should not own browser-specific E2E flows.")
+        XCTAssertFalse(coreSpecText.contains("opens browser preview from chat"), "The broad core Playwright spec should not own chat-to-browser E2E flows.")
+    }
 }
