@@ -91,4 +91,34 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(surfaceText.contains("private static func computerUseStatusLabel"), "WorkspaceSurface should not own Computer Use settings copy.")
         XCTAssertFalse(surfaceText.contains("TrustedRouterDefaults.loopbackCallbackURL"), "WorkspaceSurface should not own TrustedRouter sign-in copy.")
     }
+
+    func testPlaywrightSettingsAndRuntimeFlowsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let settingsSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("settings.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let settingsFlowNames = [
+            "shows actionable Computer Use setup in settings",
+            "shows actionable TrustedRouter runtime issue",
+            "retries the last user turn from a runtime issue",
+            "shows runtime diagnostics in settings",
+            "opens model picker from malformed model issue",
+            "surfaces rate limits with model-switch recovery and diagnostics"
+        ]
+
+        XCTAssertTrue(settingsSpecText.contains("harnessURL()"), "Focused settings/runtime flows should reuse the shared harness URL helper.")
+        XCTAssertTrue(settingsSpecText.contains("openSettings"), "Focused settings/runtime flows should reuse shared top-bar settings navigation.")
+        XCTAssertTrue(settingsSpecText.contains("computer-use-settings"), "Focused settings flows should cover Computer Use onboarding.")
+        XCTAssertTrue(settingsSpecText.contains("runtime-diagnostics"), "Focused runtime flows should cover diagnostic redaction.")
+        XCTAssertTrue(settingsSpecText.contains("TrustedRouter rate limit reached"), "Focused runtime flows should cover rate-limit recovery.")
+        for flowName in settingsFlowNames {
+            XCTAssertTrue(settingsSpecText.contains(flowName), "\(flowName) should live in settings.spec.ts.")
+            XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
+        }
+    }
 }

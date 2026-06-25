@@ -5451,3 +5451,24 @@ Current strict grades:
 
 Remaining risk:
 - `TrustedRouterAdapterTests.swift` is now the largest agent test hotspot. Split parser, prompt-builder, streaming, model-catalog, and key-resolution coverage when it is next touched.
+
+## 2026-06-25 Playwright Settings And Runtime Spec Split
+
+Overall grade after this slice: **A settings/runtime E2E ownership, A shared top-bar settings helper reuse, A- broad Playwright core spec**.
+
+Settings and runtime recovery are their own Codex parity surface: TrustedRouter sign-in, runtime issue callouts, retry recovery, malformed model recovery, rate-limit diagnostics, and Computer Use permission setup. Keeping those in `core.spec.ts` made broad smoke changes touch unrelated auth/runtime behavior.
+
+What changed:
+- Added `settings.spec.ts` for Computer Use setup, TrustedRouter sign-in-needed recovery, network retry recovery, runtime diagnostics/redaction, malformed model recovery, and rate-limit recovery.
+- Promoted `openTopBarOverflow()` and `openSettings()` into `harness-helpers.ts` so focused specs reuse the same top-bar navigation path.
+- Removed settings/runtime-owned flows from `core.spec.ts`.
+- Added a settings parity gate that keeps these flows in the focused spec and registered it in the focused-suite manifest.
+
+Current strict grades:
+- `E2E/playwright/tests/settings.spec.ts`: **A**. It owns runtime recovery and settings behavior with a cohesive feature boundary.
+- `E2E/playwright/tests/harness-helpers.ts`: **A**. Shared top-bar and sidebar navigation helpers now keep focused specs DRY.
+- `E2E/playwright/tests/core.spec.ts`: **A-**. It is smaller, but still owns broad workspace smoke plus command palette, worktrees, projects, and remote-project flows.
+- `ParityWorkspaceSettingsSheetGateTests.swift`: **A**. It now guards native settings structure, local dialog typing, settings surface contracts, and focused Playwright ownership.
+
+Remaining risk:
+- Continue splitting `core.spec.ts` by feature family. Good next slices are command-palette/git/worktree flows and sidebar/project lifecycle flows.
