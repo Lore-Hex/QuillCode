@@ -5774,3 +5774,23 @@ Current strict grades:
 
 Remaining risk:
 - Native packaged smoke should eventually drive the macOS menu-bar widget and SwiftUI top-bar directly; the current coverage proves the shared HTML harness contract.
+
+## 2026-06-25 Agent Send Session Factory
+
+Overall grade after this slice: **A runner/session composition ownership, A factory coverage, A- WorkspaceModel send path**.
+
+`WorkspaceModel.submitComposer` still assembled the per-turn `AgentRunner` and constructed `WorkspaceAgentSendSession` inline. That kept browser override wiring, MCP tool resolution, memory directory selection, SSH remote executor selection, and workspace-root capture in the same method as composer state, progress updates, memory refresh, persistence, and error handling.
+
+What changed:
+- Added `WorkspaceAgentSendSessionFactory` as the focused composition boundary for current workspace state, configured runner creation, and send-session construction.
+- Simplified `WorkspaceModel.submitComposer` so it asks the factory for a session and then only owns actor-bound UI/persistence side effects.
+- Added focused factory tests for local tool composition, remote project tool composition, workspace/thread capture, memory/MCP tool propagation, and injected browser override behavior.
+- Updated architectural parity gates so `WorkspaceModel` cannot reintroduce inline run-context builder or send-session construction.
+
+Current strict grades:
+- `WorkspaceAgentSendSessionFactory.swift`: **A**. It is a small value boundary that cleanly composes existing runner-context and send-session types without adding new policy.
+- `WorkspaceModel.submitComposer`: **A-**. Runner/session setup is now delegated, but the method still owns progress application, memory refresh, thread persistence, cancellation, and final UI status.
+- `WorkspaceAgentSendSessionFactoryTests.swift`: **A**. It directly checks the factory’s local, remote, and override contracts.
+
+Remaining risk:
+- The next high-value extraction is a send-result/persistence coordinator that turns progress, memory refresh, final save, and cancellation transcript updates into typed effects. That should happen only after the factory boundary has stayed green across CI.

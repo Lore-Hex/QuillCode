@@ -342,6 +342,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
 
         let suiteNames = [
             "WorkspaceAgentRunContextBuilderTests.swift",
+            "WorkspaceAgentSendSessionFactoryTests.swift",
             "WorkspaceAgentSendSessionTests.swift",
             "WorkspaceMemoryEngineTests.swift",
             "WorkspaceTerminalEngineTests.swift",
