@@ -5774,3 +5774,23 @@ Current strict grades:
 
 Remaining risk:
 - Native packaged smoke should eventually drive the macOS menu-bar widget and SwiftUI top-bar directly; the current coverage proves the shared HTML harness contract.
+
+## 2026-06-25 Agent Send Session Factory
+
+Overall grade after this slice: **A send-session construction boundary, A context wiring coverage, A- WorkspaceModel send path**.
+
+`WorkspaceModel.submitComposer` still assembled the active `AgentRunner` inline: local-vs-remote tool definitions, browser overrides, Computer Use tools, memory tools, MCP tool definitions, MCP execution overrides, and SSH Remote execution. That wiring is core to Codex parity because every live send depends on the same local/remote/tool context, but it was mixed into UI send lifecycle and persistence handling.
+
+What changed:
+- Added `WorkspaceAgentSendSessionFactory` as the focused owner for active runner and send-session construction.
+- Kept `WorkspaceModel.submitComposer` responsible for orchestration, progress updates, persistence, and cancellation, while delegating tool-context wiring.
+- Added focused tests for local tool context, SSH Remote tool context, and optional Computer Use, memory, and MCP context.
+- Added a WorkspaceModel parity gate so future work keeps active runner/session construction outside the broad workspace coordinator.
+
+Current strict grades:
+- `WorkspaceAgentSendSessionFactory.swift`: **A**. It has one clear job: convert current workspace context into a configured send session.
+- `WorkspaceAgentSendSessionFactoryTests.swift`: **A**. It directly covers the tool-definition and override combinations that would otherwise only be seen indirectly through composer integration tests.
+- `WorkspaceModel.submitComposer`: **A-**. Runner/session wiring is extracted; result persistence and post-run memory refresh remain the next separable responsibilities.
+
+Remaining risk:
+- The send path still coordinates progress application, saved-memory refresh, thread upsert, persistence, and UI lifecycle in one method. The next architecture pass should extract the agent-run completion/persistence application boundary.

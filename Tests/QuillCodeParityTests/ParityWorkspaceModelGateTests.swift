@@ -53,6 +53,23 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelText.contains("public struct ActivityState"), "WorkspaceModel should not define activity-pane UI state contracts.")
     }
 
+    func testWorkspaceModelDelegatesAgentSendSessionConstruction() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let factoryText = try Self.appSourceText(named: "WorkspaceAgentSendSessionFactory.swift")
+        let factoryTestsText = try Self.appTestSourceText(named: "WorkspaceAgentSendSessionFactoryTests.swift")
+
+        XCTAssertTrue(factoryText.contains("struct WorkspaceAgentSendSessionFactory"), "Agent send-session construction should have a focused owner.")
+        XCTAssertTrue(factoryText.contains("func makeSession("), "The send-session factory should expose one construction boundary.")
+        XCTAssertTrue(factoryText.contains("WorkspaceAgentRunContextBuilder("), "Runner context wiring should live in the focused send-session factory.")
+        XCTAssertTrue(factoryText.contains("WorkspaceAgentSendSession("), "Session construction should live in the focused send-session factory.")
+        XCTAssertTrue(modelText.contains("WorkspaceAgentSendSessionFactory("), "WorkspaceModel should delegate active runner/session construction.")
+        XCTAssertTrue(factoryTestsText.contains("testBuildsLocalSendSessionWithCoreToolContext"), "Local send-session wiring needs focused regression coverage.")
+        XCTAssertTrue(factoryTestsText.contains("testBuildsRemoteSendSessionWithRemoteToolContext"), "Remote send-session wiring needs focused regression coverage.")
+        XCTAssertTrue(factoryTestsText.contains("testBuildsSendSessionWithOptionalComputerMemoryAndMCPContext"), "Optional tool context wiring needs focused regression coverage.")
+        XCTAssertFalse(modelText.contains("WorkspaceAgentRunContextBuilder("), "WorkspaceModel should not own active runner context construction.")
+        XCTAssertFalse(modelText.contains("let activeRunner"), "WorkspaceModel should not keep inline active-runner wiring.")
+    }
+
     func testActionableReviewCardsStayWiredThroughSurfaces() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let toolCardSurfaceText = try Self.appSourceText(named: "QuillCodeToolCardSurface.swift")

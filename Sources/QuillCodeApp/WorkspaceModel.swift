@@ -766,7 +766,7 @@ public final class QuillCodeWorkspaceModel {
 
         do {
             try Task.checkCancellation()
-            let activeRunner = WorkspaceAgentRunContextBuilder(
+            let session = WorkspaceAgentSendSessionFactory(
                 selectedProject: selectedProject,
                 browser: browser,
                 browserToolOverride: WorkspaceBrowserAgentToolOverride.make { [weak self] call, workspaceRoot in
@@ -781,11 +781,10 @@ public final class QuillCodeWorkspaceModel {
                 ),
                 mcpToolExecutionOverride: mcpRuntime.executionOverride(extensions: extensions),
                 sshRemoteShellExecutor: sshRemoteShellExecutor
-            ).configuredRunner(from: runner)
-            let session = WorkspaceAgentSendSession(
+            ).makeSession(
                 prompt: prompt,
                 thread: thread,
-                runner: activeRunner,
+                runner: runner,
                 workspaceRoot: workspaceRoot
             )
             let result = try await session.run { [weak self] progressThread in
