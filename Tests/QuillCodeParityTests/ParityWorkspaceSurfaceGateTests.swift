@@ -204,6 +204,25 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(coreSpecText.contains(searchFlowName), "\(searchFlowName) should not drift back into core.spec.ts.")
     }
 
+    func testPlaywrightExtensionsFlowsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let extensionsSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("extensions.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let extensionsFlowName = "shows project extension manifests from sidebar and command palette"
+
+        XCTAssertTrue(extensionsSpecText.contains("harnessURL()"), "Focused extension flows should reuse the shared harness URL helper.")
+        XCTAssertTrue(extensionsSpecText.contains("extensions-button"), "Focused extension flows should cover the sidebar Extensions entry point.")
+        XCTAssertTrue(extensionsSpecText.contains("extension-mcp-tool-schema"), "Focused extension flows should cover MCP tool schema display.")
+        XCTAssertTrue(extensionsSpecText.contains(extensionsFlowName), "\(extensionsFlowName) should live in extensions.spec.ts.")
+        XCTAssertFalse(coreSpecText.contains(extensionsFlowName), "\(extensionsFlowName) should not drift back into core.spec.ts.")
+    }
+
     func testWorkspaceSurfaceDelegatesReviewSurfaceContracts() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let reviewText = try Self.appSourceText(named: "QuillCodeReviewSurface.swift")

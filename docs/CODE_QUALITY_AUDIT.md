@@ -5385,3 +5385,23 @@ Current strict grades:
 
 Remaining risk:
 - Continue reducing the largest broad files. Good next slices are `AgentTests.swift`, `TrustedRouterAdapterTests.swift`, and the remaining broad Playwright `core.spec.ts` flows.
+
+## 2026-06-24 Playwright Extensions Spec Split
+
+Overall grade after this slice: **A extension/MCP E2E ownership, A shared harness helper reuse, A- broad Playwright core spec**.
+
+The project extension and MCP manifest flow exercises a full Codex extension surface: sidebar entry, plugin update commands, skill rows, MCP process start/stop, advertised tools, resources, prompts, and command-palette discovery. Keeping that in `core.spec.ts` made the broad smoke own too many unrelated feature families.
+
+What changed:
+- Added `extensions.spec.ts` for project extension manifests and MCP probe display.
+- Reused `harnessURL()` and `clickSidebarTool()` from the shared Playwright helper.
+- Removed the extension/MCP-owned flow from `core.spec.ts`.
+- Added a workspace surface parity gate that keeps the extension flow out of `core.spec.ts` and registered it in the focused-suite manifest.
+
+Current strict grades:
+- `E2E/playwright/tests/extensions.spec.ts`: **A**. It owns extension and MCP manifest behavior with one cohesive flow.
+- `E2E/playwright/tests/core.spec.ts`: **A-**. It is smaller, but still owns broad workspace smoke plus several feature families such as settings, composer, runtime issue recovery, automations, remote projects, and worktrees.
+- `ParityWorkspaceSurfaceGateTests.swift`: **A**. It now guards review, terminal, search, and extension E2E ownership.
+
+Remaining risk:
+- Continue splitting `core.spec.ts` by feature family. Good next slices are settings/runtime issue flows and automation flows.
