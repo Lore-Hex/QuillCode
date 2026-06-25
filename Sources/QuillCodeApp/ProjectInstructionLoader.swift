@@ -179,6 +179,7 @@ public enum ProjectInstructionLoader {
 
         return ProjectInstruction(
             path: relativePath,
+            scopePath: ProjectInstruction.scopePath(for: relativePath),
             title: title(for: relativePath),
             content: content,
             byteCount: min(data.count, maxBytes),

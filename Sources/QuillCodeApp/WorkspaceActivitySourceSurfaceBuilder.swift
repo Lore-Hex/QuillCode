@@ -6,7 +6,7 @@ enum WorkspaceActivitySourceSurfaceBuilder {
             ActivityItemSurface(
                 id: "instruction-\(instruction.path)",
                 title: WorkspaceActivityText.sourceTitle(instruction.path),
-                detail: instruction.path,
+                detail: "\(instruction.path) · Scope: \(instruction.scopeLabel)",
                 kind: "instruction",
                 statusLabel: "rules"
             )

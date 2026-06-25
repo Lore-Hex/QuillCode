@@ -72,6 +72,22 @@ final class ParityWorkspaceProjectGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelTests.contains("MemoryNoteLoader.loadProject"), "WorkspaceModelTests should focus on model integration, not direct memory loader tests.")
     }
 
+    func testProjectInstructionScopesStayInCorePromptAndActivityContracts() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let projectModelsText = try Self.coreSourceText(named: "ProjectModels.swift")
+        let loaderText = try Self.appSourceText(named: "ProjectInstructionLoader.swift")
+        let promptText = try Self.agentSourceText(named: "TrustedRouterPromptBuilder.swift")
+        let activityText = try Self.appSourceText(named: "WorkspaceActivitySourceSurfaceBuilder.swift")
+
+        XCTAssertTrue(projectModelsText.contains("public var scopePath"), "Instruction applicability should be part of the shared instruction model.")
+        XCTAssertTrue(projectModelsText.contains("static func scopePath(for instructionPath"), "Scope derivation should be centralized in the shared model.")
+        XCTAssertTrue(loaderText.contains("ProjectInstruction.scopePath(for: relativePath)"), "Local instruction loading should persist explicit applicability scope.")
+        XCTAssertTrue(promptText.contains("Scope: \\(instruction.scopeLabel)"), "TrustedRouter prompt context should expose every instruction block scope.")
+        XCTAssertTrue(promptText.contains("Apply whole-project instructions everywhere"), "Prompt policy should distinguish project-wide and subtree instructions.")
+        XCTAssertTrue(activityText.contains("Scope: \\(instruction.scopeLabel)"), "Activity sources should make instruction applicability auditable.")
+        XCTAssertFalse(modelText.contains("scopePath(for:"), "WorkspaceModel should not own instruction scope derivation.")
+    }
+
     func testWorkspaceProjectExtensionIntegrationTestsOwnModelExtensionFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
         let broadSurfaceTests = try Self.appTestSourceText(named: "WorkspaceSurfaceTests.swift")
