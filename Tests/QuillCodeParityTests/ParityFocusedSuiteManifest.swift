@@ -137,7 +137,8 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceSwiftUIViewDelegatesSheetPresentation",
             "testNativeSettingsDelegatesFocusedViewsAndDraftState",
             "testNativeSearchDialogsKeepLocalTypingState",
-            "testWorkspaceSurfaceDelegatesSettingsSurfaceContract"
+            "testWorkspaceSurfaceDelegatesSettingsSurfaceContract",
+            "testPlaywrightSettingsAndRuntimeFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityWorkspaceTranscriptGateTests.swift", testNames: [
             "testWorkspaceSwiftUIViewDelegatesTranscriptFindAndContextBanner"
