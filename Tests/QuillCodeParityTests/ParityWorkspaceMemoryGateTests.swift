@@ -13,10 +13,12 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(engineText.contains("enum WorkspaceMemoryEngine"), "Memory command orchestration should live in a focused engine.")
         XCTAssertTrue(engineText.contains("struct WorkspaceMemoryMutation"), "Memory command outcomes should use a typed mutation value.")
         XCTAssertTrue(remoteUpdaterText.contains("enum WorkspaceRemoteProjectMemoryUpdater"), "SSH Remote memory writes should live in a focused remote updater.")
+        XCTAssertTrue(remoteUpdaterText.contains("enum WorkspaceRemoteProjectMemoryDeleter"), "SSH Remote memory deletion should stay with the focused remote memory mutation helpers.")
         XCTAssertTrue(remoteUpdaterText.contains("MemoryNoteLoader.validatedUpdateContent"), "Remote project memory edits should share local memory validation.")
         XCTAssertTrue(memoryModelText.contains("func runRememberSlashCommand"), "Memory slash-command execution should live in the focused WorkspaceModelMemory extension.")
         XCTAssertTrue(memoryModelText.contains("func prepareEditMemory"), "Memory edit preparation should live in the focused WorkspaceModelMemory extension.")
         XCTAssertTrue(memoryModelText.contains("func runEditMemorySlashCommand"), "Memory edit slash-command execution should live in the focused WorkspaceModelMemory extension.")
+        XCTAssertTrue(memoryModelText.contains("func deleteMemory"), "Memory deletion should route global, local project, and SSH Remote project memories through the focused WorkspaceModelMemory extension.")
         XCTAssertTrue(memoryModelText.contains("func deleteGlobalMemory"), "Memory deletion execution should live in the focused WorkspaceModelMemory extension.")
         XCTAssertTrue(memoryModelText.contains("func refreshThreadMemoryContext"), "Thread memory refresh should live in the focused WorkspaceModelMemory extension.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.saveGlobal"), "WorkspaceModelMemory should delegate global memory saves.")
@@ -24,6 +26,8 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.updateProject"), "WorkspaceModelMemory should delegate project memory updates.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.updateRemoteProject"), "WorkspaceModelMemory should delegate SSH Remote project memory updates.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.deleteGlobal"), "WorkspaceModelMemory should delegate global memory deletion.")
+        XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.deleteProject"), "WorkspaceModelMemory should delegate local project memory deletion.")
+        XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.deleteRemoteProject"), "WorkspaceModelMemory should delegate SSH Remote project memory deletion.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceProjectContextRefresher.globalMemories"), "WorkspaceModelMemory should delegate global memory reloads through the project context refresher.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.contextUpdate"), "WorkspaceModelMemory should delegate memory context update construction.")
         XCTAssertFalse(modelText.contains("func runRememberSlashCommand"), "WorkspaceModel.swift should not own memory slash-command execution.")
@@ -42,6 +46,7 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
             "WorkspaceMemoryCommandTranscriptPlanner.memoryNotUpdated",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryUpdatedSummary",
             "WorkspaceRemoteProjectMemoryUpdater.update",
+            "WorkspaceRemoteProjectMemoryDeleter.delete",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryForgotten",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary",
@@ -58,6 +63,7 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelText.contains("MemoryNoteLoader.saveGlobal"), "WorkspaceModel should not write memory files directly.")
         XCTAssertFalse(modelText.contains("MemoryNoteLoader.updateGlobal"), "WorkspaceModel should not update memory files directly.")
         XCTAssertFalse(modelText.contains("MemoryNoteLoader.deleteGlobal"), "WorkspaceModel should not delete memory files directly.")
+        XCTAssertFalse(modelText.contains("MemoryNoteLoader.deleteProject"), "WorkspaceModel should not delete project memory files directly.")
         XCTAssertFalse(modelText.contains("MemoryNoteLoader.loadGlobal"), "WorkspaceModel should not reload global memories directly.")
         XCTAssertFalse(modelText.contains("MemoryNoteDeleteError.deleteFailed.localizedDescription"), "WorkspaceModel should not format memory delete errors directly.")
         XCTAssertFalse(modelText.contains("payloadJSON: note.relativePath"), "WorkspaceModel should not build memory change events inline.")
@@ -75,12 +81,16 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(memoryIntegrationTests.contains("testMemoryEditWorkspaceCommandRewritesRemoteProjectMemoryThroughSSH"), "SSH Remote memory edit integration should live in focused memory tests.")
         XCTAssertTrue(memoryIntegrationTests.contains("testAgentRememberToolWritesGlobalMemoryAndRefreshesThreadSurface"), "Agent memory tool integration should live in focused memory tests.")
         XCTAssertTrue(memoryIntegrationTests.contains("testMemoryDeleteWorkspaceCommandRemovesGlobalMemoryAndRefreshesThreadSurface"), "Memory delete integration should live in focused memory tests.")
+        XCTAssertTrue(memoryIntegrationTests.contains("testMemoryDeleteWorkspaceCommandRemovesProjectMemoryAndRefreshesThreadSurface"), "Project memory delete integration should live in focused memory tests.")
+        XCTAssertTrue(memoryIntegrationTests.contains("testMemoryDeleteWorkspaceCommandRemovesRemoteProjectMemoryThroughSSH"), "SSH Remote memory delete integration should live in focused memory tests.")
         XCTAssertFalse(modelTests.contains("testMemoryNotesLoadGlobalAndProjectIntoThreadAndSurface"), "WorkspaceModelTests should not own memory integration flows.")
         XCTAssertFalse(modelTests.contains("testSlashRememberWritesGlobalMemoryAndRefreshesThreadSurface"), "WorkspaceModelTests should not own slash memory integration flows.")
         XCTAssertFalse(modelTests.contains("testMemoryEditWorkspaceCommandPrefillsAndSlashUpdateRewritesGlobalMemory"), "WorkspaceModelTests should not own memory edit integration flows.")
         XCTAssertFalse(modelTests.contains("testMemoryEditWorkspaceCommandRewritesRemoteProjectMemoryThroughSSH"), "WorkspaceModelTests should not own remote memory edit integration flows.")
         XCTAssertFalse(modelTests.contains("testAgentRememberToolWritesGlobalMemoryAndRefreshesThreadSurface"), "WorkspaceModelTests should not own agent memory integration flows.")
         XCTAssertFalse(modelTests.contains("testMemoryDeleteWorkspaceCommandRemovesGlobalMemoryAndRefreshesThreadSurface"), "WorkspaceModelTests should not own memory delete integration flows.")
+        XCTAssertFalse(modelTests.contains("testMemoryDeleteWorkspaceCommandRemovesProjectMemoryAndRefreshesThreadSurface"), "WorkspaceModelTests should not own project memory delete integration flows.")
+        XCTAssertFalse(modelTests.contains("testMemoryDeleteWorkspaceCommandRemovesRemoteProjectMemoryThroughSSH"), "WorkspaceModelTests should not own remote memory delete integration flows.")
         XCTAssertFalse(broadSurfaceTests.contains("testSurfaceIncludesMemorySummariesAndCommand"), "WorkspaceSurfaceTests should not own memory surface summaries.")
     }
 

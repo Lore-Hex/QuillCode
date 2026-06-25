@@ -16,7 +16,7 @@ extension QuillCodeWorkspaceModel {
         case .editMemory(let id):
             return prepareEditMemory(id: id)
         case .deleteMemory(let id):
-            return deleteGlobalMemory(id: id)
+            return deleteMemory(id: id)
         case .updateAutomationStatus(let id, let status):
             return updateAutomationStatus(id: id, status: status)
         case .runAutomation(let id):

@@ -27,8 +27,9 @@ public struct MemoryNoteSurface: Codable, Sendable, Hashable, Identifiable {
         let canEdit = note.scope == .global || (note.scope == .project && canEditProjectMemory)
         self.canEdit = canEdit
         self.editCommandID = canEdit ? "memory-edit:\(note.id)" : nil
-        self.canDelete = note.scope == .global
-        self.deleteCommandID = note.scope == .global ? "memory-delete:\(note.id)" : nil
+        let canDelete = note.scope == .global || (note.scope == .project && canEditProjectMemory)
+        self.canDelete = canDelete
+        self.deleteCommandID = canDelete ? "memory-delete:\(note.id)" : nil
     }
 
     private static func preview(_ content: String) -> String {

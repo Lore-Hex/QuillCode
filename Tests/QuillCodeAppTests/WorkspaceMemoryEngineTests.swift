@@ -53,6 +53,31 @@ final class WorkspaceMemoryEngineTests: XCTestCase {
         XCTAssertEqual(MemoryNoteLoader.loadGlobal(from: directory), [])
     }
 
+    func testDeleteProjectReturnsTranscriptRefreshAndNotice() throws {
+        let projectRoot = try makeQuillCodeTestDirectory()
+        let memoryDirectory = projectRoot.appendingPathComponent(".quillcode/memories")
+        try FileManager.default.createDirectory(at: memoryDirectory, withIntermediateDirectories: true)
+        try "Use SwiftUI.\n".write(
+            to: memoryDirectory.appendingPathComponent("project.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let note = try XCTUnwrap(MemoryNoteLoader.loadProject(from: projectRoot).first)
+
+        let mutation = WorkspaceMemoryEngine.deleteProject(id: note.id, projectRoot: projectRoot)
+
+        XCTAssertEqual(mutation.transcript.userText, "Forget memory: \(note.title)")
+        XCTAssertEqual(mutation.transcript.title, "Forgot memory: \(note.title)")
+        XCTAssertNil(mutation.updatedGlobalMemories)
+        XCTAssertEqual(mutation.updatedProjectMemories, [])
+        XCTAssertEqual(mutation.noticeSummary, "Forgot memory: \(note.title)")
+        XCTAssertEqual(mutation.noticeRelativePath, note.relativePath)
+        XCTAssertTrue(mutation.changedContext)
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: memoryDirectory.appendingPathComponent("project.md").path
+        ))
+    }
+
     func testUpdateGlobalRewritesExistingMemoryAndReturnsNotice() throws {
         let directory = try makeQuillCodeTestDirectory()
         let note = try MemoryNoteLoader.saveGlobal(content: "Prefer concise answers", to: directory)

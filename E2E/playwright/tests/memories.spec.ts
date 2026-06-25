@@ -13,7 +13,7 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
   await expect(page.getByTestId('memory-title').first()).toHaveText('Preferences');
   await expect(page.getByTestId('memory-path').first()).toHaveText('memories/preferences.md');
   await expect(page.getByTestId('memory-edit')).toHaveCount(2);
-  await expect(page.getByTestId('memory-delete')).toHaveCount(1);
+  await expect(page.getByTestId('memory-delete')).toHaveCount(2);
   await expect(page.getByTestId('memories-add')).toBeVisible();
 
   await page.getByTestId('memory-edit').first().click();
@@ -68,7 +68,7 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
   await expect(page.getByTestId('memory-title').first()).toHaveText('Prefer Small Reviewable Commits');
   await expect(page.getByTestId('memory-path').first()).toContainText('memories/manual-');
   await expect(page.getByTestId('memory-edit')).toHaveCount(3);
-  await expect(page.getByTestId('memory-delete')).toHaveCount(2);
+  await expect(page.getByTestId('memory-delete')).toHaveCount(3);
 
   await page.getByTestId('memory-delete').first().click();
 
@@ -79,5 +79,14 @@ test('mock harness shows memories from sidebar and command palette', async ({ pa
   await expect(page.getByTestId('memory-item')).toHaveCount(2);
   await expect(page.getByTestId('memory-title').first()).toHaveText('Prefer Durable Memory Edit Tests');
   await expect(page.getByTestId('memory-edit')).toHaveCount(2);
+  await expect(page.getByTestId('memory-delete')).toHaveCount(2);
+
+  await page.getByTestId('memory-item').filter({ hasText: '.quillcode/memories/project.md' }).getByTestId('memory-delete').click();
+
+  await expect(page.getByText('Forgot memory: Project Memory Edits Should Stay Local And Reviewable. It will no longer be included as background context.')).toBeVisible();
+  await expect(page.getByTestId('project-memories-status')).toHaveText('1 memory');
+  await expect(page.getByTestId('memories-subtitle')).toHaveText('1 global memory · 0 project memories');
+  await expect(page.getByTestId('memory-item')).toHaveCount(1);
+  await expect(page.getByTestId('memory-title').first()).toHaveText('Prefer Durable Memory Edit Tests');
   await expect(page.getByTestId('memory-delete')).toHaveCount(1);
 });

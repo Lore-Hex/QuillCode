@@ -219,6 +219,27 @@ public enum MemoryNoteLoader {
         return note
     }
 
+    public static func deleteProject(
+        id: String,
+        from projectRoot: URL,
+        relativeDirectory: String = projectRelativeDirectory
+    ) throws -> MemoryNote {
+        let root = projectRoot.standardizedFileURL.resolvingSymlinksInPath()
+        guard let directory = projectMemoryDirectory(in: root, relativeDirectory: relativeDirectory),
+              let note = loadProject(from: root, relativeDirectory: relativeDirectory).first(where: { $0.id == id && $0.scope == .project }),
+              let fileURL = projectMemoryFileURL(for: note, root: root, directory: directory, relativeDirectory: relativeDirectory)
+        else {
+            throw MemoryNoteDeleteError.notFound
+        }
+
+        do {
+            try FileManager.default.removeItem(at: fileURL)
+        } catch {
+            throw MemoryNoteDeleteError.deleteFailed
+        }
+        return note
+    }
+
     private static func load(
         root: URL,
         directory: URL,
