@@ -83,4 +83,39 @@ final class ParityWorkspaceCommandGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(broadSurfaceTests.contains("testShortcutRegistryLabelsSurfaceCommands"), "WorkspaceSurfaceTests should not own shortcut registry invariants.")
         XCTAssertFalse(broadSurfaceTests.contains("testWorkspaceCommandSurfaceDecodesOlderPayloadWithoutCategoryMetadata"), "WorkspaceSurfaceTests should not own command-surface compatibility.")
     }
+
+    func testPlaywrightCommandPaletteAndGitFlowsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let commandSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("command-palette.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let commandFlowNames = [
+            "runs a command from the command palette",
+            "command palette scopes actions and slash commands",
+            "ranks and navigates command palette with keyboard",
+            "lists worktrees from the command palette",
+            "prepares pull request creation from the command palette",
+            "views pull request details, checks, and diff from the command palette",
+            "runs local environment action from the command palette",
+            "creates and removes worktrees from dialogs"
+        ]
+
+        XCTAssertTrue(commandSpecText.contains("harnessURL()"), "Focused command palette flows should reuse the shared harness URL helper.")
+        XCTAssertTrue(commandSpecText.contains("clickSidebarTool"), "Focused command palette flows should reuse shared sidebar utility navigation.")
+        XCTAssertTrue(commandSpecText.contains("fillCommandPalette"), "Focused command palette flows should use the shared deterministic command-palette query helper.")
+        XCTAssertTrue(commandSpecText.contains("clickCommandPaletteCommand"), "Focused command palette flows should use the shared command-palette click helper for direct command execution.")
+        XCTAssertTrue(commandSpecText.contains("commandPaletteResult"), "Focused command palette flows should use exact command-result locators instead of role-name matches.")
+        XCTAssertTrue(commandSpecText.contains(">worktree"), "Focused command palette flows should cover Git worktree commands.")
+        XCTAssertTrue(commandSpecText.contains("host.git.pr.view"), "Focused command palette flows should cover pull request command execution.")
+        XCTAssertTrue(commandSpecText.contains(".quillcode/actions/bootstrap.sh"), "Focused command palette flows should cover local environment actions.")
+        for flowName in commandFlowNames {
+            XCTAssertTrue(commandSpecText.contains(flowName), "\(flowName) should live in command-palette.spec.ts.")
+            XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
+        }
+    }
 }

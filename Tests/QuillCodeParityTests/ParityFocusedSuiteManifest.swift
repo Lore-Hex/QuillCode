@@ -132,7 +132,8 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityWorkspaceCommandGateTests.swift", testNames: [
             "testWorkspaceViewDelegatesCommandPlanning",
             "testWorkspaceSurfaceDelegatesCommandSurfaceBuilding",
-            "testWorkspaceSurfaceDelegatesCommandPaletteContract"
+            "testWorkspaceSurfaceDelegatesCommandPaletteContract",
+            "testPlaywrightCommandPaletteAndGitFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityWorkspaceSettingsSheetGateTests.swift", testNames: [
             "testWorkspaceSwiftUIViewDelegatesSheetPresentation",

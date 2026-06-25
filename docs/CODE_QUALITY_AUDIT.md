@@ -5555,3 +5555,23 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `core.spec.ts` by feature family. Good next slices are command-palette/git/worktree flows, artifact-preview flows, and composer/model-picker flows.
+
+## 2026-06-25 Playwright Command Palette Spec Split
+
+Overall grade after this slice: **A command-palette E2E ownership, A Git/worktree command coverage, A- broad Playwright core spec**.
+
+`core.spec.ts` still owned command palette execution, query scoping, keyboard navigation, Git worktree actions, pull request commands, local environment actions, and worktree dialogs. Those all depend on the command surface/ranker/planner stack and should fail together in one focused spec rather than inside the broad smoke file.
+
+What changed:
+- Added `command-palette.spec.ts` for command palette action execution, slash/action query scoping, keyboard ranking/navigation, Git worktree commands, pull request commands, local environment action execution, and worktree create/remove dialogs.
+- Reused the shared Playwright `harnessURL()`, sidebar utility, and deterministic command-palette query/result helpers in the new focused spec.
+- Removed those command palette and Git/worktree/local-environment flows from `core.spec.ts`.
+- Added a command parity gate that keeps these flows in the focused spec and registered it in the focused-suite manifest.
+
+Current strict grades:
+- `E2E/playwright/tests/command-palette.spec.ts`: **A**. It owns command palette and command-dispatched Git/worktree/local-environment behavior with a cohesive feature boundary.
+- `E2E/playwright/tests/core.spec.ts`: **A-**. It is now below 1,000 lines, but still owns broad workspace smoke plus artifact, composer, shortcut, slash, memory, context, and model-picker flows.
+- `ParityWorkspaceCommandGateTests.swift`: **A**. It now guards native command architecture and focused Playwright command ownership.
+
+Remaining risk:
+- Continue splitting `core.spec.ts` by feature family. Good next slices are artifact-preview flows, composer/model-picker flows, shortcut/slash flows, and memory/context flows.
