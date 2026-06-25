@@ -5736,3 +5736,23 @@ Current strict grades:
 
 Remaining risk:
 - Good next slices should move beyond E2E suite shape and target deeper Codex parity: richer review diff interactions, worktree lifecycle polish, and real app-shell smoke around browser/Computer Use.
+
+## 2026-06-25 Composer Send Lifecycle Reducer
+
+Overall grade after this slice: **A composer lifecycle ownership, A cancellation/error state coverage, A- WorkspaceModel send path**.
+
+`WorkspaceModel.submitComposer` still owned low-level composer send state transitions inline: clearing the draft, flipping `isSending`, clearing/reporting `lastError`, and choosing the top-bar status for started, completed, cancelled, and failed sends. That made the agent send path harder to audit because UI state mutation sat beside runner construction, progress application, persistence, and memory refresh.
+
+What changed:
+- Added `WorkspaceComposerSendLifecycle` as a focused reducer for composer send start, completion, cancellation, and failure state.
+- Replaced direct inline composer/top-bar send-state mutations in `WorkspaceModel.submitComposer` and `finishCancelledSend`.
+- Added focused reducer tests for draft clearing, sending flags, stopped status, idle status, and described failure errors.
+- Added a WorkspaceModel parity gate so future refactors keep send lifecycle transitions outside the broad workspace model.
+
+Current strict grades:
+- `WorkspaceComposerSendLifecycle.swift`: **A**. The reducer is small, value-oriented, and directly testable without runner, persistence, or thread dependencies.
+- `WorkspaceModel.submitComposer`: **A-**. It still coordinates runner context, memory refresh, thread persistence, and progress updates, but the repeated composer state transitions are now delegated.
+- `WorkspaceComposerSendLifecycleTests.swift`: **A**. It covers every lifecycle branch and keeps the state contract explicit.
+
+Remaining risk:
+- `WorkspaceModel.submitComposer` remains a high-value extraction target. The next architectural slice should separate runner context creation and result persistence from the UI-facing send orchestration.

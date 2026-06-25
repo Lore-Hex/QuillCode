@@ -37,10 +37,16 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesUIStateContracts() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let stateText = try Self.appSourceText(named: "WorkspaceUIState.swift")
+        let sendLifecycleText = try Self.appSourceText(named: "WorkspaceComposerSendLifecycle.swift")
 
         XCTAssertTrue(stateText.contains("public struct ComposerState"), "Composer UI state should live in a focused state contract file.")
         XCTAssertTrue(stateText.contains("public struct MemoriesState"), "Memory-pane UI state should live in a focused state contract file.")
         XCTAssertTrue(stateText.contains("public struct ActivityState"), "Activity-pane UI state should live in a focused state contract file.")
+        XCTAssertTrue(sendLifecycleText.contains("enum WorkspaceComposerSendLifecycle"), "Composer send lifecycle transitions should live in a focused helper.")
+        XCTAssertTrue(modelText.contains("WorkspaceComposerSendLifecycle.started"), "WorkspaceModel should delegate composer send start transitions.")
+        XCTAssertTrue(modelText.contains("WorkspaceComposerSendLifecycle.completed"), "WorkspaceModel should delegate composer send completion transitions.")
+        XCTAssertTrue(modelText.contains("WorkspaceComposerSendLifecycle.cancelled"), "WorkspaceModel should delegate composer send cancellation transitions.")
+        XCTAssertTrue(modelText.contains("WorkspaceComposerSendLifecycle.failed"), "WorkspaceModel should delegate composer send failure transitions.")
         XCTAssertTrue(modelText.contains("public private(set) var composer: ComposerState"), "WorkspaceModel should still own live composer state.")
         XCTAssertFalse(modelText.contains("public struct ComposerState"), "WorkspaceModel should not define composer UI state contracts.")
         XCTAssertFalse(modelText.contains("public struct MemoriesState"), "WorkspaceModel should not define memory-pane UI state contracts.")
