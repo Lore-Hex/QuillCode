@@ -167,6 +167,24 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(engineText.contains("environment(fromHex"), "Terminal engine should not own remote environment decoding.")
     }
 
+    func testPlaywrightTerminalFlowsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let terminalSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("terminal.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let terminalFlowName = "runs a command in the integrated terminal"
+
+        XCTAssertTrue(terminalSpecText.contains("harnessURL()"), "Focused terminal flows should reuse the shared harness URL helper.")
+        XCTAssertTrue(terminalSpecText.contains("clickSidebarTool"), "Focused terminal flows should reuse shared sidebar tool navigation.")
+        XCTAssertTrue(terminalSpecText.contains(terminalFlowName), "\(terminalFlowName) should live in terminal.spec.ts.")
+        XCTAssertFalse(coreSpecText.contains(terminalFlowName), "\(terminalFlowName) should not drift back into core.spec.ts.")
+    }
+
     func testWorkspaceSurfaceDelegatesReviewSurfaceContracts() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let reviewText = try Self.appSourceText(named: "QuillCodeReviewSurface.swift")
