@@ -36,6 +36,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesUIStateContracts() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let stateText = try Self.appSourceText(named: "WorkspaceUIState.swift")
         let sendLifecycleText = try Self.appSourceText(named: "WorkspaceComposerSendLifecycle.swift")
         let sendStartText = try Self.appSourceText(named: "WorkspaceAgentSendStartPlanner.swift")
@@ -48,14 +49,14 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(sendLifecycleText.contains("enum WorkspaceComposerSendLifecycle"), "Composer send lifecycle transitions should live in a focused helper.")
         XCTAssertTrue(sendStartText.contains("WorkspaceComposerSendLifecycle.started"), "Agent send start should choose started lifecycle through the start planner.")
         XCTAssertTrue(sendProgressText.contains("WorkspaceAgentStatusBuilder.status"), "Agent send progress should choose progress status through the progress planner.")
-        XCTAssertTrue(modelText.contains("WorkspaceAgentSendStartPlanner.started"), "WorkspaceModel should delegate composer send start transitions.")
-        XCTAssertTrue(modelText.contains("WorkspaceAgentSendProgressPlanner.progress"), "WorkspaceModel should delegate composer send progress transitions.")
+        XCTAssertTrue(composerText.contains("WorkspaceAgentSendStartPlanner.started"), "WorkspaceModel composer APIs should delegate composer send start transitions.")
+        XCTAssertTrue(composerText.contains("WorkspaceAgentSendProgressPlanner.progress"), "WorkspaceModel composer APIs should delegate composer send progress transitions.")
         XCTAssertTrue(sendTerminalText.contains("WorkspaceComposerSendLifecycle.completed"), "Successful send completion should choose completed lifecycle through the terminal planner.")
         XCTAssertTrue(sendTerminalText.contains("WorkspaceComposerSendLifecycle.cancelled"), "Cancelled send completion should choose cancelled lifecycle through the terminal planner.")
         XCTAssertTrue(sendTerminalText.contains("WorkspaceComposerSendLifecycle.failed"), "Failed send completion should choose failed lifecycle through the terminal planner.")
-        XCTAssertTrue(modelText.contains("WorkspaceAgentSendTerminalPlanner.completed"), "WorkspaceModel should delegate composer send completion transitions.")
-        XCTAssertTrue(modelText.contains("WorkspaceAgentSendTerminalPlanner.cancelled"), "WorkspaceModel should delegate composer send cancellation transitions.")
-        XCTAssertTrue(modelText.contains("WorkspaceAgentSendTerminalPlanner.failed"), "WorkspaceModel should delegate composer send failure transitions.")
+        XCTAssertTrue(composerText.contains("WorkspaceAgentSendTerminalPlanner.completed"), "WorkspaceModel composer APIs should delegate composer send completion transitions.")
+        XCTAssertTrue(composerText.contains("WorkspaceAgentSendTerminalPlanner.cancelled"), "WorkspaceModel composer APIs should delegate composer send cancellation transitions.")
+        XCTAssertTrue(composerText.contains("WorkspaceAgentSendTerminalPlanner.failed"), "WorkspaceModel composer APIs should delegate composer send failure transitions.")
         XCTAssertTrue(modelText.contains("public internal(set) var composer: ComposerState"), "WorkspaceModel should own live composer state while focused same-module extensions may apply state transitions.")
         XCTAssertFalse(modelText.contains("public struct ComposerState"), "WorkspaceModel should not define composer UI state contracts.")
         XCTAssertFalse(modelText.contains("public struct MemoriesState"), "WorkspaceModel should not define memory-pane UI state contracts.")
@@ -133,6 +134,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesProjectContextRefresh() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let threadExtensionText = try Self.appSourceText(named: "WorkspaceModelThreads.swift")
         let worktreeExtensionText = try Self.appSourceText(named: "WorkspaceModelWorktrees.swift")
         let refresherText = try Self.appSourceText(named: "WorkspaceProjectContextRefresher.swift")
@@ -147,9 +149,10 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(refresherText.contains("static func globalMemories"), "Global memory loading should be directly testable.")
         XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.refreshLocalProjectMetadata"), "WorkspaceModel should delegate local project metadata refresh.")
         XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.refreshRemoteProjectContext"), "WorkspaceModel should delegate remote project metadata refresh.")
-        XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.syncThreadContext"), "WorkspaceModel should delegate thread context sync.")
+        XCTAssertTrue(composerText.contains("WorkspaceProjectContextRefresher.syncThreadContext"), "WorkspaceModel composer APIs should delegate thread context sync.")
         XCTAssertTrue(threadExtensionText.contains("WorkspaceProjectContextRefresher.threadCreationContext"), "WorkspaceModel thread APIs should delegate thread creation context assembly.")
         XCTAssertTrue(worktreeExtensionText.contains("WorkspaceProjectContextRefresher.worktreeOpenContext"), "WorkspaceModel worktree APIs should delegate worktree open context assembly.")
+        XCTAssertFalse(modelText.contains("WorkspaceProjectContextRefresher.syncThreadContext"), "WorkspaceModel.swift should not own agent-send thread context sync.")
         XCTAssertFalse(modelText.contains("WorkspaceProjectContextRefresher.worktreeOpenContext"), "WorkspaceModel.swift should not own worktree open context assembly.")
         XCTAssertFalse(modelText.contains("WorkspaceProjectMetadataLoader.loadLocal(from: rootURL)"), "WorkspaceModel should not own refresh-time local project metadata loading.")
         XCTAssertFalse(modelText.contains("WorkspaceProjectMetadataLoader.loadRemote"), "WorkspaceModel should not own remote project metadata loading.")
@@ -291,18 +294,20 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesRetryPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let retryPlannerText = try Self.appSourceText(named: "WorkspaceRetryPlanner.swift")
         let retryPlannerTests = try Self.appTestSourceText(named: "WorkspaceRetryPlannerTests.swift")
 
         XCTAssertTrue(retryPlannerText.contains("enum WorkspaceRetryPlanner"), "Retry planning should live in a focused helper.")
         XCTAssertTrue(retryPlannerText.contains("static func canRetryLastUserTurn"), "Retry availability should be directly testable.")
         XCTAssertTrue(retryPlannerText.contains("static func retryDraft"), "Retry draft selection should be directly testable.")
-        XCTAssertTrue(modelText.contains("WorkspaceRetryPlanner.canRetryLastUserTurn"), "WorkspaceModel should delegate retry availability.")
-        XCTAssertTrue(modelText.contains("WorkspaceRetryPlanner.retryDraft"), "WorkspaceModel should delegate retry draft selection.")
+        XCTAssertTrue(composerText.contains("WorkspaceRetryPlanner.canRetryLastUserTurn"), "WorkspaceModel composer APIs should delegate retry availability.")
+        XCTAssertTrue(composerText.contains("WorkspaceRetryPlanner.retryDraft"), "WorkspaceModel composer APIs should delegate retry draft selection.")
         XCTAssertTrue(retryPlannerTests.contains("testRetryDraftUsesLatestNonEmptyUserMessageAndPreservesOriginalText"), "Retry draft behavior should have focused coverage.")
         XCTAssertTrue(retryPlannerTests.contains("testRetryRequiresUserMessageAndIdleComposer"), "Retry availability should have focused coverage.")
         XCTAssertFalse(modelText.contains("messages.last(where:"), "WorkspaceModel should not scan transcript messages for retry drafts.")
         XCTAssertFalse(modelText.contains("messages.contains {"), "WorkspaceModel should not own retry availability scans.")
+        XCTAssertFalse(modelText.contains("WorkspaceRetryPlanner.canRetryLastUserTurn"), "WorkspaceModel.swift should not own retry availability APIs.")
     }
 
     func testWorkspaceActivityIntegrationTestsOwnModelActivityFlows() throws {
@@ -432,6 +437,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesStatusTextAndLabels() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceStatusTextBuilder.swift")
         let contextBuilderText = try Self.appSourceText(named: "WorkspaceStatusContextBuilder.swift")
@@ -447,8 +453,8 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(builderText.contains("static func instructionLabel"), "Instruction status labels should be directly testable.")
         XCTAssertTrue(builderText.contains("static func memoryLabel"), "Memory status labels should be directly testable.")
         XCTAssertTrue(builderText.contains("static func modeLabel"), "Mode labels should be shared by status and UI surfaces.")
-        XCTAssertTrue(modelText.contains("WorkspaceStatusTextBuilder.statusText"), "WorkspaceModel should delegate /status copy.")
-        XCTAssertTrue(modelText.contains("WorkspaceStatusContextBuilder.context"), "WorkspaceModel should delegate /status context assembly.")
+        XCTAssertTrue(composerText.contains("WorkspaceStatusTextBuilder.statusText"), "WorkspaceModel composer APIs should delegate /status copy.")
+        XCTAssertTrue(composerText.contains("WorkspaceStatusContextBuilder.context"), "WorkspaceModel composer APIs should delegate /status context assembly.")
         XCTAssertTrue(slashTranscriptText.contains("WorkspaceStatusTextBuilder.modeLabel"), "Slash mode transcript copy should delegate shared mode labels.")
         XCTAssertTrue(topBarBuilderText.contains("WorkspaceStatusTextBuilder.topBarSubtitle"), "Top-bar builder should delegate top-bar subtitles.")
         XCTAssertTrue(topBarBuilderText.contains("WorkspaceStatusTextBuilder.instructionLabel"), "Top-bar builder should delegate instruction labels.")
@@ -457,6 +463,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(modelText.contains("WorkspaceTopBarStateBuilder.state"), "WorkspaceModel should delegate top-bar state assembly.")
         XCTAssertFalse(modelText.contains("root.topBar = TopBarState("), "WorkspaceModel should not assemble top-bar state inline.")
         XCTAssertFalse(modelText.contains("WorkspaceStatusContext("), "WorkspaceModel should not assemble /status context inline.")
+        XCTAssertFalse(modelText.contains("WorkspaceStatusTextBuilder.statusText"), "WorkspaceModel.swift should not own slash status text assembly.")
         XCTAssertFalse(surfaceText.contains("WorkspaceStatusTextBuilder.topBarSubtitle"), "WorkspaceSurface should not own top-bar subtitles.")
         XCTAssertFalse(surfaceText.contains("WorkspaceStatusTextBuilder.instructionLabel"), "WorkspaceSurface should not own instruction labels.")
         XCTAssertFalse(surfaceText.contains("WorkspaceStatusTextBuilder.memoryLabel"), "WorkspaceSurface should not own memory labels.")
@@ -498,6 +505,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesAgentProgressStatusCopy() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceAgentStatusBuilder.swift")
         let progressPlannerText = try Self.appSourceText(named: "WorkspaceAgentSendProgressPlanner.swift")
 
@@ -508,7 +516,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(progressPlannerText.contains("struct WorkspaceAgentSendProgressPlan"), "Live agent progress should have a typed plan.")
         XCTAssertTrue(progressPlannerText.contains("enum WorkspaceAgentSendProgressPlanner"), "Live agent progress planning should live in a focused planner.")
         XCTAssertTrue(progressPlannerText.contains("WorkspaceAgentStatusBuilder.status(for: thread)"), "Progress planning should delegate status copy to the focused status builder.")
-        XCTAssertTrue(modelText.contains("WorkspaceAgentSendProgressPlanner.progress"), "WorkspaceModel should delegate live send progress planning.")
+        XCTAssertTrue(composerText.contains("WorkspaceAgentSendProgressPlanner.progress"), "WorkspaceModel composer APIs should delegate live send progress planning.")
         XCTAssertFalse(modelText.contains("private func agentStatus"), "WorkspaceModel should not own agent progress status copy.")
         XCTAssertFalse(modelText.contains("WorkspaceAgentStatusBuilder.status(for: thread)"), "WorkspaceModel should not choose live progress status inline.")
         XCTAssertFalse(modelText.contains("case .toolQueued:"), "WorkspaceModel should not switch over progress event kinds for top-bar status.")
@@ -533,9 +541,10 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelUsesExplicitAgentRunThreadUpdates() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
 
-        XCTAssertTrue(modelText.contains("private func updateThreadFromAgentRun"), "Agent-run thread updates should use a named helper that documents focus preservation.")
-        XCTAssertTrue(modelText.contains("updateThreadFromAgentRun(thread)"), "Agent progress and completion should route through the explicit async-update helper.")
+        XCTAssertTrue(modelText.contains("func updateThreadFromAgentRun"), "Agent-run thread updates should use a named helper that documents focus preservation.")
+        XCTAssertTrue(composerText.contains("updateThreadFromAgentRun(thread)"), "Agent progress and completion should route through the explicit async-update helper.")
         XCTAssertFalse(modelText.contains("preservingSelection"), "WorkspaceModel should not hide async navigation behavior behind a boolean flag.")
         XCTAssertFalse(modelText.contains("replaceThread("), "WorkspaceModel should not route async run updates through an ambiguous generic replacement helper.")
     }
