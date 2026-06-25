@@ -332,8 +332,11 @@ final class QuillCodeDesktopController: ObservableObject {
         refresh()
     }
 
-    func worktreeChoices() -> [WorkspaceWorktreeChoice] {
-        model.worktreeChoices(workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+    func worktreeChoiceLoad() async -> WorkspaceWorktreeChoiceLoad {
+        let request = model.worktreeChoiceLoadRequest(workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+        return await Task.detached(priority: .userInitiated) {
+            request.load()
+        }.value
     }
 
     func openWorktree(_ request: WorkspaceWorktreeOpenRequest) {
