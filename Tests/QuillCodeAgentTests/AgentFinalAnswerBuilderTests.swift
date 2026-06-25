@@ -42,4 +42,54 @@ final class AgentFinalAnswerBuilderTests: XCTestCase {
         XCTAssertTrue(answer.contains("[truncated in chat; full output is in the tool card]"))
         XCTAssertLessThan(answer.count, 2_100)
     }
+
+    func testBrowserInspectFinalAnswerSummarizesPage() throws {
+        let output = BrowserInspectionToolOutput(
+            url: "http://localhost:5173",
+            title: "Preview Page",
+            status: "Preview ready",
+            sourceLabel: "Local web app",
+            inspectionDepth: .metadataOnly,
+            summary: "Live DOM capture is not attached yet; QuillCode has URL metadata for this local page.",
+            details: ["Host: localhost", "Scheme: HTTP", "Path: /"],
+            outline: ["Page: localhost", "Path: /", "H1: Hero Preview"],
+            textSnippet: "Hero Preview Buy now",
+            comments: [
+                .init(
+                    url: "http://localhost:5173",
+                    text: "Check the hero spacing",
+                    createdAt: Date(timeIntervalSince1970: 0)
+                )
+            ]
+        )
+        let call = ToolCall(name: ToolDefinition.browserInspect.name, argumentsJSON: "{}")
+
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: call,
+            result: ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(output))
+        )
+
+        XCTAssertTrue(answer.contains("Inspected `Preview Page` at http://localhost:5173."))
+        XCTAssertTrue(answer.contains("Inspection depth: Metadata only."))
+        XCTAssertTrue(answer.contains("Outline: Page: localhost; Path: /; H1: Hero Preview."))
+        XCTAssertTrue(answer.contains("Text: Hero Preview Buy now"))
+        XCTAssertTrue(answer.contains("Browser comments: Check the hero spacing."))
+    }
+
+    func testApplyPatchFinalAnswerMentionsDiffRefreshFailure() throws {
+        let call = ToolCall(
+            name: ToolDefinition.applyPatch.name,
+            argumentsJSON: ToolArguments.json(["patch": "diff --git a/a b/a\n"])
+        )
+
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: call,
+            result: ToolResult(ok: true, stdout: "Patch applied.\n"),
+            followUpReviewResult: ToolResult(ok: false, stderr: "not a git repository")
+        )
+
+        XCTAssertTrue(answer.contains("Patch applied"))
+        XCTAssertTrue(answer.contains("could not refresh the review diff"))
+        XCTAssertTrue(answer.contains("not a git repository"))
+    }
 }

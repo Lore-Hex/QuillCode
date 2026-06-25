@@ -146,7 +146,8 @@ struct ParityFocusedSuiteManifest {
             "testAgentRunnerDelegatesFinalAnswerFormatting",
             "testMockLLMClientLivesOutsideAgentRunnerFile",
             "testAgentStreamingHelpersLiveOutsideAgentRunnerFile",
-            "testAgentToolStepRunnerLivesOutsideAgentRunnerFile"
+            "testAgentToolStepRunnerLivesOutsideAgentRunnerFile",
+            "testAgentBehaviorTestsUseFocusedSuites"
         ]),
         Suite(fileName: "ParityTrustedRouterGateTests.swift", testNames: [
             "testTrustedRouterActionParserLivesOutsideTransportClient",
