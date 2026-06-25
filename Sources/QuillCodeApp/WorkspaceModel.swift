@@ -11,7 +11,7 @@ public final class QuillCodeWorkspaceModel {
     public private(set) var composer: ComposerState
     public internal(set) var terminal: TerminalState
     public private(set) var browser: BrowserState
-    public private(set) var extensions: ExtensionsState
+    public internal(set) var extensions: ExtensionsState
     public private(set) var memories: MemoriesState
     public private(set) var activity: ActivityState
     public private(set) var automations: AutomationsState
@@ -25,7 +25,7 @@ public final class QuillCodeWorkspaceModel {
     private let globalMemoryDirectory: URL?
     private var computerUseBackend: (any ComputerUseBackend)?
     let sshRemoteShellExecutor: SSHRemoteShellExecutor
-    private let mcpRuntime: WorkspaceMCPRuntime
+    let mcpRuntime: WorkspaceMCPRuntime
 
     public init(
         root: QuillCodeRootState = QuillCodeRootState(),
@@ -464,63 +464,7 @@ public final class QuillCodeWorkspaceModel {
         return true
     }
 
-    @discardableResult
-    func startMCPServer(id: String, workspaceRoot: URL) -> Bool {
-        guard let manifest = selectedProject?.extensionManifests.first(where: {
-            $0.id == id && $0.kind == .mcpServer
-        }) else {
-            lastError = "MCP server manifest not found."
-            return false
-        }
-        let result = mcpRuntime.startServer(
-            manifest: manifest,
-            workspaceRoot: workspaceRoot,
-            extensions: &extensions
-        ) { [weak self] id, terminationStatus in
-            self?.finishMCPServerProcess(id: id, terminationStatus: terminationStatus)
-        }
-        lastError = result.errorMessage
-        if let agentStatus = result.agentStatus {
-            refreshTopBar(agentStatus: agentStatus)
-        }
-        if let notice = result.notice {
-            appendNotice(notice)
-        }
-        return result.ok
-    }
-
-    @discardableResult
-    func stopMCPServer(id: String) -> Bool {
-        guard let manifest = selectedProject?.extensionManifests.first(where: {
-            $0.id == id && $0.kind == .mcpServer
-        }) else {
-            lastError = "MCP server manifest not found."
-            return false
-        }
-
-        let result = mcpRuntime.stopServer(manifest: manifest, extensions: &extensions)
-        lastError = result.errorMessage
-        if let agentStatus = result.agentStatus {
-            refreshTopBar(agentStatus: agentStatus)
-        }
-        if let notice = result.notice {
-            appendNotice(notice)
-        }
-        return result.ok
-    }
-
-    private func finishMCPServerProcess(id: String, terminationStatus: Int32) {
-        let result = mcpRuntime.finishServer(
-            id: id,
-            terminationStatus: terminationStatus,
-            extensions: &extensions
-        )
-        if let agentStatus = result.agentStatus {
-            refreshTopBar(agentStatus: agentStatus)
-        }
-    }
-
-    private func appendNotice(_ summary: String) {
+    func appendNotice(_ summary: String) {
         mutateSelectedThread { thread in
             WorkspaceThreadNoticeAppender.appendNotice(summary, to: &thread)
         }

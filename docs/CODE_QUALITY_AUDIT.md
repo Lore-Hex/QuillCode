@@ -6348,3 +6348,25 @@ Current strict grades:
 
 Remaining risk:
 - The terminal extension still sequences execution-context lookup, streaming events, stop/cancel detection, and finish mutation. A future extraction could introduce a terminal run coordinator, but only if it keeps actor mutation order explicit and avoids callback-heavy indirection.
+
+## 2026-06-25 Workspace MCP API Extension
+
+Overall grade after this slice: **A- MCP API ownership, A MCP runtime boundary, B+/A- central model size**.
+
+`WorkspaceModel.swift` still owned the MCP start/stop public API bodies and termination callback even though process launch, probe, stop, cancel, catalog, and dynamic tool routing were already delegated to `WorkspaceMCPRuntime` and focused MCP helpers. Moving the actor-facing API to a same-actor extension keeps the central model from becoming the catch-all for every workspace surface while preserving explicit app-state mutation.
+
+What changed:
+- Added `WorkspaceModelMCP.swift` for MCP server start, stop, selected-manifest lookup, runtime-result application, and process termination callback handling.
+- Kept process handles and dynamic MCP execution inside `WorkspaceMCPRuntime`; the extension only coordinates selected-project lookup, actor-owned `ExtensionsState`, notices, last-error state, and top-bar refresh.
+- Narrowly changed `extensions` and `mcpRuntime` to same-module access so the focused extension can mutate actor-owned extension state and use the single runtime instance.
+- Kept transcript notice appending as a shared workspace-model helper because extension update, MCP, and future app-level notices use the same primitive.
+- Updated MCP parity gates to require lifecycle APIs in the focused extension and prevent start/stop/finish callbacks from drifting back into `WorkspaceModel.swift`.
+
+Current strict grades:
+- `WorkspaceModelMCP.swift`: **A-**. It is cohesive and small; its only side effects are actor-owned state mutation, top-bar refresh, and transcript notices.
+- `WorkspaceMCPRuntime.swift`: **A-**. It remains the correct owner for process/session handles, launch/probe/stop/cancel, and dynamic tool routing; no new app UI policy moved into it.
+- `WorkspaceModel.swift`: **B+/A-**. It dropped another lifecycle API group, but still owns send, tool-run, memory, automation, and active-work stop orchestration.
+- `ParityMCPGateTests.swift`: **A**. It now verifies state/runtime/catalog/launcher boundaries plus the app-facing model extension boundary.
+
+Remaining risk:
+- Stop-all still coordinates MCP cancellation with composer and terminal state in `WorkspaceModel.swift`. That is currently a cross-surface app command, but it should be the next extraction candidate if more stop/disconnect semantics are added.
