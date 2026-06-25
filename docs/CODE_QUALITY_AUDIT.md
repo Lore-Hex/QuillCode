@@ -95,6 +95,25 @@ Remaining risk:
 
 - The workspace send lifecycle still owns UI state, persistence timing, and top-bar recovery. That is correct while the app coordinator controls visible selection, but a future session coordinator should own richer retry telemetry if background runs gain more states.
 
+## 2026-06-25 Agent Send Task Coordinator Pass
+
+Overall grade after this slice: **A task-outcome boundary, A cancellation/error classification, A regression coverage**.
+
+`WorkspaceModel.submitComposer` had already delegated prompt planning, run-context construction, live progress planning, and terminal-state planning. The remaining async branch still started the session, awaited progress, caught cancellation/errors, and converted those failures into UI terminal paths inline. That made the app coordinator the owner of send-task classification, which would be the wrong place to add background runs, remote dispatch, or richer retry telemetry.
+
+Code quality changes:
+
+- Added `WorkspaceAgentSendTaskCoordinator` as the focused owner of session execution and terminal outcome classification.
+- Added typed `WorkspaceAgentSendTaskOutcome` values for completed, cancelled, and failed sends.
+- Kept completed-send persistence, cancellation transcript mutation, and UI lifecycle application in `WorkspaceModel`, where selected-thread and visible app state still live.
+- Simplified `submitComposer` so it creates a session, runs the coordinator, and routes the typed outcome to a named terminal helper.
+- Added focused async tests for successful completion, progress forwarding, cancellation classification, and runtime failure classification.
+- Strengthened the parity gate so active send task execution/error classification stays outside `WorkspaceModel`.
+
+Remaining risk:
+
+- `WorkspaceModel` still owns visible selected-thread updates, persistence timing, and top-bar refresh. That remains appropriate for the visible workspace coordinator, but background task queues should build on the task coordinator instead of adding more branches to `submitComposer`.
+
 ## 2026-06-24 Top-Bar State Builder Pass
 
 Overall grade after this slice: **A top-bar state boundary, A behavior preservation, A regression guard**.

@@ -767,19 +767,15 @@ public final class QuillCodeWorkspaceModel {
         )
         applyComposerSendLifecycle(sendStart.lifecycle)
 
-        do {
-            try Task.checkCancellation()
-            let session = agentSendSessionFactory(workspaceRoot: workspaceRoot)
-                .makeSession(prompt: sendStart.prompt, thread: sendStart.thread)
-            let result = try await session.run { [weak self] progressThread in
-                await self?.applyAgentProgress(progressThread, expectedThreadID: sendStart.threadID)
-            }
-            try finishCompletedSend(result)
-        } catch is CancellationError {
-            finishCancelledSend(userPrompt: sendStart.prompt, threadID: sendStart.threadID)
-        } catch {
-            finishFailedSend(error)
+        let session = agentSendSessionFactory(workspaceRoot: workspaceRoot)
+            .makeSession(prompt: sendStart.prompt, thread: sendStart.thread)
+        let outcome = await WorkspaceAgentSendTaskCoordinator(
+            start: sendStart,
+            session: session
+        ).run { [weak self] progressThread in
+            await self?.applyAgentProgress(progressThread, expectedThreadID: sendStart.threadID)
         }
+        finishAgentSend(outcome)
     }
 
     private func agentSendSessionFactory(workspaceRoot: URL) -> WorkspaceAgentSendSessionFactory {
@@ -815,6 +811,24 @@ public final class QuillCodeWorkspaceModel {
         updateThreadFromAgentRun(thread)
         try threadPersistence.saveOrThrow(thread)
         applyComposerSendLifecycle(completion.lifecycle)
+    }
+
+    private func finishAgentSend(_ outcome: WorkspaceAgentSendTaskOutcome) {
+        switch outcome {
+        case .completed(let result):
+            do {
+                try finishCompletedSend(result)
+            } catch {
+                finishFailedSend(error)
+            }
+        case .cancelled(let cancellation):
+            finishCancelledSend(
+                userPrompt: cancellation.userPrompt,
+                threadID: cancellation.threadID
+            )
+        case .failed(let error):
+            finishFailedSend(error)
+        }
     }
 
     private func applyAgentProgress(_ thread: ChatThread, expectedThreadID: UUID) {
