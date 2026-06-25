@@ -56,7 +56,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(modelText.contains("WorkspaceAgentSendTerminalPlanner.completed"), "WorkspaceModel should delegate composer send completion transitions.")
         XCTAssertTrue(modelText.contains("WorkspaceAgentSendTerminalPlanner.cancelled"), "WorkspaceModel should delegate composer send cancellation transitions.")
         XCTAssertTrue(modelText.contains("WorkspaceAgentSendTerminalPlanner.failed"), "WorkspaceModel should delegate composer send failure transitions.")
-        XCTAssertTrue(modelText.contains("public private(set) var composer: ComposerState"), "WorkspaceModel should still own live composer state.")
+        XCTAssertTrue(modelText.contains("public internal(set) var composer: ComposerState"), "WorkspaceModel should own live composer state while focused same-module extensions may apply state transitions.")
         XCTAssertFalse(modelText.contains("public struct ComposerState"), "WorkspaceModel should not define composer UI state contracts.")
         XCTAssertFalse(modelText.contains("public struct MemoriesState"), "WorkspaceModel should not define memory-pane UI state contracts.")
         XCTAssertFalse(modelText.contains("public struct ActivityState"), "WorkspaceModel should not define activity-pane UI state contracts.")

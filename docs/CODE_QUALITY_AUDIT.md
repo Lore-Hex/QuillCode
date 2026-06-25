@@ -76,6 +76,30 @@ Remaining risk:
 
 - This is still line-oriented terminal history, not full interactive PTY parity. Job control, stdin during long-running commands, and curses-style TUI handling remain the larger terminal product gap.
 
+## 2026-06-25 Workspace Active-Work API Extension
+
+Overall grade after this slice: **A- Stop/Disconnect ownership, A planner boundary, B+/A- central model size**.
+
+`WorkspaceModel.swift` still owned the public Stop All and Disconnect All API bodies even though the user-visible lifecycle decisions already lived in `WorkspaceActiveWorkStopPlanner`. Those commands cut across composer sends, terminal runs, MCP processes, and SSH Remote project detachment, so the app actor still needs to coordinate state mutation, but that coordination no longer needs to sit in the central model file.
+
+What changed:
+
+- Added `WorkspaceModelActiveWork.swift` for `cancelActiveWork`, `disconnectAll`, active-work aggregation, and stop-plan application.
+- Kept stop/disconnect status policy in `WorkspaceActiveWorkStopPlanner`; the extension only applies actor-owned state, selected project/thread detachment, terminal state cleanup, and top-bar refresh.
+- Narrowly changed `composer` to same-module writable so the focused model extension can clear send state while external package users still observe read-only state.
+- Updated parity gates to require active-work APIs in the focused extension and prevent cancel/disconnect aggregation from drifting back into `WorkspaceModel.swift`.
+
+Current strict grades:
+
+- `WorkspaceModelActiveWork.swift`: **A-**. It is cohesive and deliberately small; its remaining complexity is the necessary cross-surface cleanup between composer, terminal, MCP, and remote project selection.
+- `WorkspaceActiveWorkStopPlanner.swift`: **A**. Status/last-error choices remain pure and directly tested.
+- `WorkspaceModel.swift`: **B+/A-**. It dropped another cross-surface command group, but still owns send, tool-run, memory, local environment, worktree, review, and shared persistence orchestration.
+- `ParityWorkspaceExecutionGateTests.swift`: **A-**. It now enforces the active-work extension boundary and the planner/status boundary.
+
+Remaining risk:
+
+- `WorkspaceModel.swift` still contains multiple public workflow API families. The next central-model extraction should target a cohesive group such as worktree APIs or review/comment APIs rather than a mixed utility sweep.
+
 ## 2026-06-25 Agent Send Progress Planner Pass
 
 Overall grade after this slice: **A live-progress boundary, A async-thread safety, A regression coverage**.
