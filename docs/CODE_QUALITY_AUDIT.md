@@ -6135,3 +6135,23 @@ Current strict grades:
 
 Remaining risk:
 - `MCPStdioProberTests.swift` and `GitHubPullRequestToolExecutorTests.swift` are still the largest tools test files. They are focused enough to keep for now, but should be split by protocol probing and PR command family if they grow materially.
+
+## 2026-06-25 Browser Model API Extension
+
+Overall grade after this slice: **A- browser model ownership, A workflow preservation, A- state encapsulation**.
+
+`WorkspaceModel.swift` was still the largest production file and owned the public browser API methods inline even after browser state transitions moved into `WorkspaceBrowserWorkflow`. That made the main model a magnet for future browser fetch, navigation, and live-DOM logic. The better architecture is to keep actor-owned storage in the model while giving browser actions their own extension file.
+
+What changed:
+- Added `WorkspaceModelBrowser.swift` for public browser model APIs: draft updates, visibility, navigation, static snapshot fetch, live DOM capture, and browser comments.
+- Kept `WorkspaceBrowserWorkflow` as the only owner of browser state-transition policy.
+- Added a narrow `mutateBrowserState` helper in `WorkspaceModel` so extensions can mutate browser state without widening the public or internal setters on `browser` and `lastError`.
+- Updated browser parity gates to require the extension boundary and prevent browser workflow delegation from drifting back into `WorkspaceModel.swift`.
+
+Current strict grades:
+- `WorkspaceModelBrowser.swift`: **A-**. It is focused and keeps browser workflow delegation together; the remaining repetition is the repeated top-bar refresh after successful state transitions.
+- `WorkspaceModel.swift`: **A-**. It is still large, but browser public APIs moved out and the added state helper is narrow rather than exposing broad setters.
+- `ParityBrowserGateTests.swift`: **A**. It now enforces surface ownership, workflow delegation, adapter boundaries, and the model-extension split.
+
+Remaining risk:
+- `WorkspaceModel.swift` is still the largest app file. Continue extracting focused same-actor API families only when the extracted file owns a real domain boundary and can keep model storage encapsulated.
