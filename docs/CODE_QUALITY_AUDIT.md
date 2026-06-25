@@ -48,6 +48,8 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Changes From This Pass
 
+- Extracted global memory save/delete, mutation application, global reload, and thread memory refresh from `WorkspaceModel.swift` into `WorkspaceModelMemory.swift`.
+- Added a memory parity gate that requires memory workflow APIs to stay in the focused model extension while keeping memory policy in `WorkspaceMemoryEngine`.
 - Extracted local environment action execution and `/env` slash-command dispatch from `WorkspaceModel.swift` into `WorkspaceModelLocalEnvironment.swift`.
 - Added a parity gate that requires local environment action execution to stay in the focused model extension and keeps `/env` transcript planning delegated to `WorkspaceEnvironmentSlashCommandPlanner`.
 - Added keyboard result highlighting to native and harness chat search so users can type, move with ArrowUp/ArrowDown, and press Enter to select a thread.
@@ -64,6 +66,23 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Refactored model-category construction to compute favorite IDs once and pass a `Set` through option building instead of recomputing favorites for every model.
 - Updated the Playwright harness to preserve branded labels after model selection.
 - Fixed stale decisions documentation that still described recurring automation as deferred.
+
+## 2026-06-25 Workspace Memory API Extension
+
+Overall grade after this slice: **A- memory workflow ownership, A memory policy boundary, B+/A- central model size**.
+
+Memory loading, save/delete policy, transcript copy, error copy, and context-update planning were already focused, but the central model still owned the app-coordination methods for `/remember`, global Forget, mutation application, global reload, and thread memory refresh after agent memory writes. Those are cohesive memory workflow APIs and now live together.
+
+Code quality changes:
+
+- Added `WorkspaceModelMemory.swift` for global memory delete, `/remember` execution, global memory reload, mutation application, and thread memory refresh.
+- Kept write/delete policy and user-facing memory transcript summaries in `WorkspaceMemoryEngine` and related planners.
+- Kept central send completion behavior unchanged: completed agent runs still refresh thread memory context when the session reports a saved memory.
+- Strengthened the memory parity gate so memory workflow APIs cannot drift back into `WorkspaceModel.swift`.
+
+Remaining risk:
+
+- Memory editing, richer conflict UI, and autonomous Chronicle-style inference are still product parity gaps. The current change improves ownership and testability, not that broader feature set.
 
 ## 2026-06-25 Workspace Local Environment API Extension
 
