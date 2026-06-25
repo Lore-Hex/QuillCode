@@ -5188,6 +5188,9 @@
           render();
         });
       });
+      document.querySelector('[data-testid="worktree-choices-retry"]')?.addEventListener('click', event => {
+        retryWorktreeChoiceLoad(event.currentTarget?.dataset?.target || state.worktreeDialog.mode);
+      });
       document.querySelector('[data-testid="worktree-open-form"]')?.addEventListener('submit', event => {
         event.preventDefault();
         const form = event.currentTarget;
@@ -8129,6 +8132,18 @@
         if (state.worktreeDialog.mode !== mode || state.worktreeDialog.choiceLoadToken !== token) {
           return;
         }
+        if (window.__quillCodeFailNextWorktreeChoiceLoad) {
+          window.__quillCodeFailNextWorktreeChoiceLoad = false;
+          state.worktreeDialog = {
+            ...state.worktreeDialog,
+            choices: [],
+            choicesLoading: false,
+            choicesLoaded: true,
+            choicesError: 'Could not load registered git worktrees.'
+          };
+          render();
+          return;
+        }
         state.worktreeDialog = {
           ...state.worktreeDialog,
           choices: availableWorktreeChoices(),
@@ -8140,6 +8155,20 @@
       }, 80);
     }
 
+    function retryWorktreeChoiceLoad(mode) {
+      if (!mode || state.worktreeDialog.mode !== mode) return;
+      state.worktreeDialog = {
+        ...state.worktreeDialog,
+        choices: [],
+        choicesLoading: true,
+        choicesLoaded: false,
+        choicesError: '',
+        choiceLoadToken: state.worktreeDialog.choiceLoadToken + 1
+      };
+      render();
+      loadWorktreeChoicesForDialog(mode, state.worktreeDialog.choiceLoadToken);
+    }
+
     function renderWorktreeChoiceSection(target, emptyMessage) {
       const dialog = state.worktreeDialog;
       const shouldRender = dialog.choicesLoading || dialog.choicesLoaded || dialog.choicesError || dialog.choices.length;
@@ -8149,7 +8178,7 @@
       const status = dialog.choicesLoading
         ? '<div class="dialog-choice-status" data-testid="worktree-choices-loading"><span class="dialog-choice-spinner" aria-hidden="true"></span><span>Loading registered worktrees...</span></div>'
         : dialog.choicesError
-          ? `<div class="dialog-choice-status" data-testid="worktree-choices-error">${escapeHTML(dialog.choicesError)} You can still paste a path.</div>`
+          ? `<div class="dialog-choice-status" data-testid="worktree-choices-error"><span>${escapeHTML(dialog.choicesError)} You can still paste a path.</span><button type="button" data-testid="worktree-choices-retry" data-target="${target}">Retry</button></div>`
           : dialog.choicesLoaded && !dialog.choices.length
             ? `<div class="dialog-choice-status" data-testid="worktree-choices-empty">${escapeHTML(emptyMessage)} You can still paste a path.</div>`
             : '';

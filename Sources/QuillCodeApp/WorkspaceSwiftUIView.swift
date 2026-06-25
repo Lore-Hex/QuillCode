@@ -203,6 +203,7 @@ public struct QuillCodeWorkspaceView: View {
             onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
             onCommand: handleCommand,
             onCreateWorktree: onCreateWorktree,
+            onRetryWorktreeChoices: retryWorktreeChoices,
             onOpenWorktree: onOpenWorktree,
             onRemoveWorktree: onRemoveWorktree,
             onRenameThread: onRenameThread,
@@ -300,6 +301,20 @@ public struct QuillCodeWorkspaceView: View {
         removeWorktreeDraft = QuillCodeWorktreeRemoveDraft(choiceLoad: .loading)
         worktreeSheet = .remove
         loadWorktreeChoices(for: .remove)
+    }
+
+    private func retryWorktreeChoices(for sheet: QuillCodeWorktreeSheet) {
+        guard worktreeSheet == sheet else { return }
+        switch sheet {
+        case .open:
+            openWorktreeDraft.choiceLoad = .loading
+            loadWorktreeChoices(for: .open)
+        case .remove:
+            removeWorktreeDraft.choiceLoad = .loading
+            loadWorktreeChoices(for: .remove)
+        case .create:
+            break
+        }
     }
 
     private func loadWorktreeChoices(for sheet: QuillCodeWorktreeSheet) {

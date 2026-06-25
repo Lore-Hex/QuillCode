@@ -21,6 +21,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     var onStartTrustedRouterSignIn: () -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
     var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
+    var onRetryWorktreeChoices: (QuillCodeWorktreeSheet) -> Void
     var onOpenWorktree: (WorkspaceWorktreeOpenRequest) -> Void
     var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
     var onRenameThread: (UUID, String) -> Void
@@ -77,13 +78,15 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
                     QuillCodeWorktreeOpenView(
                         draft: $openWorktreeDraft,
                         onCancel: dismissWorktreeSheet,
-                        onOpen: openWorktree
+                        onOpen: openWorktree,
+                        onRetryChoices: retryOpenWorktreeChoices
                     )
                 case .remove:
                     QuillCodeWorktreeRemoveView(
                         draft: $removeWorktreeDraft,
                         onCancel: dismissWorktreeSheet,
-                        onRemove: removeWorktree
+                        onRemove: removeWorktree,
+                        onRetryChoices: retryRemoveWorktreeChoices
                     )
                 }
             }
@@ -148,9 +151,17 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
         worktreeSheet = nil
     }
 
+    private func retryOpenWorktreeChoices() {
+        onRetryWorktreeChoices(.open)
+    }
+
     private func removeWorktree() {
         onRemoveWorktree(removeWorktreeDraft.request)
         worktreeSheet = nil
+    }
+
+    private func retryRemoveWorktreeChoices() {
+        onRetryWorktreeChoices(.remove)
     }
 
     private func dismissThreadRename() {
@@ -193,6 +204,7 @@ extension View {
         onStartTrustedRouterSignIn: @escaping () -> Void,
         onCommand: @escaping (WorkspaceCommandSurface) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
+        onRetryWorktreeChoices: @escaping (QuillCodeWorktreeSheet) -> Void,
         onOpenWorktree: @escaping (WorkspaceWorktreeOpenRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
         onRenameThread: @escaping (UUID, String) -> Void,
@@ -218,6 +230,7 @@ extension View {
             onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
             onCommand: onCommand,
             onCreateWorktree: onCreateWorktree,
+            onRetryWorktreeChoices: onRetryWorktreeChoices,
             onOpenWorktree: onOpenWorktree,
             onRemoveWorktree: onRemoveWorktree,
             onRenameThread: onRenameThread,

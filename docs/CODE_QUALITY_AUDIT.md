@@ -6240,4 +6240,26 @@ Current strict grades:
 - `WorkspaceWorktreeIntegrationTests.swift`: **A**. It owns local and remote picker proof alongside create/open/remove handoff coverage.
 
 Remaining risk:
-- Choice loading is still synchronous from the SwiftUI presentation call site. That is acceptable for the current slice, but richer production polish should add explicit loading/error rows and avoid blocking a remote SSH picker on a slow network.
+- Choice loading now has explicit async loading/error rows. Richer production polish should keep improving recovery affordances around transient SSH failures and stale-worktree cleanup.
+
+## 2026-06-25 Worktree Choice Retry Recovery
+
+Overall grade after this slice: **A recovery UX, A- native/harness parity, A test coverage**.
+
+Async worktree choice loading solved the slow SSH Remote picker problem, but a transient failure still left users with a warning row and only manual path entry. Codex-style recovery should keep the manual fallback while offering a direct retry that routes through the same side-effect-free choice loader.
+
+What changed:
+- Added a Retry action to failed known-worktree choice rows in the native open/remove worktree dialogs.
+- Routed retry through `QuillCodeWorkspaceSheetsModifier` back into the existing workspace-model async load path instead of duplicating load logic in the dialog.
+- Added Playwright harness fault injection for one failed choice load, then verified Retry returns the dialog to loading and renders known worktree choices.
+- Updated parity docs so worktree picker loading/error/retry states are tracked as implemented rather than pending.
+
+Current strict grades:
+- `QuillCodeWorktreeChoiceSection`: **A-**. The view stays presentational and reusable for open/remove; the small compromise is an optional inline action on the status row.
+- `QuillCodeWorkspaceSheetsModifier`: **A**. Sheet ownership remains thin and forwards retry intent without knowing how choices are loaded.
+- `QuillCodeWorkspaceView.retryWorktreeChoices`: **A**. It guards against stale sheet callbacks and reuses the single async choice-loading pipeline.
+- `E2E/harness/index.html` retry fault injection: **A-**. It proves the user-visible recovery path without over-modeling Git failure causes.
+- `command-palette.spec.ts` retry regression: **A**. It covers failed load, visible retry, return to loading, success, and error removal.
+
+Remaining risk:
+- There is still no cached last-known worktree list when a remote host is offline. Branch lifecycle polish, PR handoff, and a richer stale-worktree cleanup UI remain broader Codex-parity follow-ups.

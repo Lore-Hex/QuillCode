@@ -226,3 +226,23 @@ test('mock harness creates and removes worktrees from dialogs', async ({ page })
   await expect(page.getByTestId('tool-card-input').last()).toContainText('"force": true');
   await expect(page.getByTestId('message').last()).toContainText('Removed worktree quillcode-feature.');
 });
+
+test('mock harness retries failed worktree choice loading', async ({ page }) => {
+  await page.goto(harnessURL());
+  await page.evaluate(() => {
+    (window as typeof window & { __quillCodeFailNextWorktreeChoiceLoad?: boolean }).__quillCodeFailNextWorktreeChoiceLoad = true;
+  });
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await clickCommandPaletteCommand(page, '>open worktree', 'git-worktree-open');
+  await expect(page.getByTestId('worktree-open-panel')).toBeVisible();
+  await expect(page.getByTestId('worktree-choices-loading')).toBeVisible();
+  await expect(page.getByTestId('worktree-choices-error')).toContainText('Could not load registered git worktrees.');
+  await expect(page.getByTestId('worktree-choices-retry')).toBeVisible();
+
+  await page.getByTestId('worktree-choices-retry').click();
+
+  await expect(page.getByTestId('worktree-choices-loading')).toBeVisible();
+  await expect(page.getByTestId('worktree-choice')).toContainText('quillcode-existing');
+  await expect(page.getByTestId('worktree-choices-error')).toHaveCount(0);
+});
