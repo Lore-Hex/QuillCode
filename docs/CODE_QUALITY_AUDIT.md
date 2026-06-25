@@ -82,6 +82,24 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Split memory note content/filename policy and traversal-safe path resolution out of `MemoryNoteLoader.swift`.
 - Added direct path resolver tests and parity gates that keep memory content validation and file-target resolution out of the broad loader.
 
+## 2026-06-25 Shared Task Coordinator Pass
+
+Overall grade after this slice: **A cancellable task lifecycle, A desktop task-slot wrapper, A stale-callback guard**.
+
+Desktop sends, terminal commands, browser previews, and the automation ticker already shared a focused task-slot coordinator, but that coordinator lived only in the desktop executable. That kept the controller clean, but the cancellation semantics themselves had no direct unit tests and could not be reused by future app surfaces.
+
+Code quality changes:
+
+- Added `QuillCodeTaskCoordinator` to `QuillCodeApp` as the shared MainActor task-slot coordinator.
+- Kept `QuillCodeDesktopTaskCoordinator` as a thin desktop slot wrapper around the shared coordinator.
+- Tightened stale task replacement behavior so a cancelled or replaced task cannot run its old `onFinish` callback after it is no longer the current task for that slot.
+- Added focused unit coverage for duplicate start rejection, slot cancellation, replace cancellation, and cancel-all behavior.
+- Added a parity gate that prevents raw task storage from drifting back into the desktop wrapper.
+
+Remaining risk:
+
+- The task coordinator intentionally manages lifecycle slots only; it does not own higher-level send, terminal, browser, or automation policy. Future cancellation telemetry should stay in those workflow planners rather than adding domain-specific branching to this primitive.
+
 ## 2026-06-25 Memory Loader Policy Boundary Pass
 
 Overall grade after this slice: **A memory loader ownership, A path safety, A- content policy boundary**.
