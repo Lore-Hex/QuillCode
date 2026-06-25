@@ -5035,3 +5035,23 @@ Current strict grades:
 
 Remaining risk:
 - Continue draining `ParityGateTests.swift` by feature family. Good next split: agent/TrustedRouter gates.
+
+## 2026-06-24 Agent And TrustedRouter Parity Gate Split
+
+Overall grade after this slice: **A agent-boundary ownership, A TrustedRouter transport ownership, B catch-all size**.
+
+Agent runner decomposition and TrustedRouter transport boundaries were still mixed into the broad parity registry. Those checks protect the highest-risk chat path: model output parsing, prompt construction, key resolution, final-answer formatting, stream handling, and tool-step execution should stay in focused implementation files instead of accreting back into the runner or transport clients.
+
+What changed:
+- Added `ParityAgentGateTests` for final-answer formatting, mock LLM planning, streaming helpers, and tool-step execution delegation.
+- Added `ParityTrustedRouterGateTests` for action parsing, prompt building, API-key resolution, safety transport separation, and shared chat parameter ownership.
+- Registered both suites in the parity drift guard.
+- Reduced `ParityGateTests.swift` again without changing product behavior.
+
+Current strict grades:
+- `ParityAgentGateTests.swift`: **A**. It has one cohesive AgentRunner boundary and covers the split points most likely to regress tool execution UX.
+- `ParityTrustedRouterGateTests.swift`: **A**. It isolates transport, parser, prompt, key-resolution, and safety-client ownership into one focused suite.
+- `ParityGateTests.swift`: **B**. Much smaller, but still owns global hygiene, static safety, and core/project model gates.
+
+Remaining risk:
+- Continue draining `ParityGateTests.swift` by feature family. Good next splits: static safety gates and core/project model gates, leaving global hygiene as the final catch-all.
