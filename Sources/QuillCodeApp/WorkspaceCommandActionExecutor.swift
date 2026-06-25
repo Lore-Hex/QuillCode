@@ -17,6 +17,9 @@ extension QuillCodeWorkspaceModel {
     @discardableResult
     func runWorkspaceCommandActionEffect(_ effect: WorkspaceCommandActionEffect) -> Bool {
         switch effect {
+        case .newChat:
+            _ = newChat()
+            return true
         case .toggleTerminal:
             toggleTerminal()
             return true
