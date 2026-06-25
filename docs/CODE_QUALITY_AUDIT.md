@@ -5231,3 +5231,20 @@ Current strict grades:
 
 Remaining risk:
 - `E2E/harness/index.html` is still a single large static harness. Once the spec files are split by feature, the next larger A+ step is modularizing the harness state/render/event handlers by pane.
+
+## 2026-06-24 Review Surface Test Ownership Split
+
+Overall grade after this slice: **A review surface ownership, A dependency cleanup, B+ broad workspace surface smoke**.
+
+`WorkspaceSurfaceTests.swift` still owned git-diff review surface summaries, review-comment attachment, and stale-diff hiding. Those assertions protect Codex-style review behavior and should fail beside the review action/comment integration tests, not inside the broad workspace smoke suite.
+
+What changed:
+- Moved latest completed diff summary, matching review comments, and failed latest diff hiding coverage into `WorkspaceReviewIntegrationTests`.
+- Reduced `WorkspaceSurfaceTests.swift` from 876 lines to 742 lines while preserving the same assertions.
+
+Current strict grades:
+- `WorkspaceReviewIntegrationTests.swift`: **A**. It now owns review action execution, remote review actions, review-comment events, and review surface projection together.
+- `WorkspaceSurfaceTests.swift`: **B+**. It is materially smaller, but still owns several unrelated surface families including memory, extensions/MCP, command palette, sidebar search, shortcuts, and context banners.
+
+Remaining risk:
+- Continue splitting `WorkspaceSurfaceTests.swift` by feature family. Good next slices are memory/extensions surface ownership and command/sidebar search ownership.
