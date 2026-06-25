@@ -6155,3 +6155,24 @@ Current strict grades:
 
 Remaining risk:
 - `WorkspaceModel.swift` is still the largest app file. Continue extracting focused same-actor API families only when the extracted file owns a real domain boundary and can keep model storage encapsulated.
+
+## 2026-06-25 Open Existing Worktree Flow
+
+Overall grade after this slice: **A worktree parity, A local/remote validation, A- model side-effect boundary**.
+
+Codex-style worktree parity needs more than create/remove. Users also need to reopen a registered local or SSH Remote worktree as a focused project/thread without recreating it. The initial PR covered the surface area but was based on the old mixed `ToolTests.swift` suite and represented open handoff context as a create request. This update brought the branch onto current main, kept the deleted catch-all suite deleted, and tightened the context shape.
+
+What changed:
+- Added `host.git.worktree.open` to local and SSH Remote git worktree execution, with registered-worktree validation before opening.
+- Added command-palette, SwiftUI sheet, desktop-controller, and Playwright harness coverage for opening existing worktrees.
+- Moved open-worktree tool/router assertions into `GitWorktreeToolExecutorTests` and `GitToolRouterTests` instead of resurrecting `ToolTests.swift`.
+- Changed `WorkspaceWorktreeOpenContext` to store neutral `path` and `branch` fields so create and open flows can share `WorkspaceWorktreeOpenEngine` without leaking create-specific request types.
+
+Current strict grades:
+- `GitWorktreeToolExecutor.open`: **A**. It reuses the same safe sibling-path and registered-worktree checks as removal, then returns a path artifact for project handoff.
+- `WorkspaceRemoteGitWorktreeCommandBuilder`: **A-**. It validates registered worktrees remotely and reports SSH artifacts; the shell check is necessarily compact, but directly covered.
+- `WorkspaceWorktreeOpenEngine`: **A**. It owns local/remote thread copy and context preservation with a request-neutral context.
+- `QuillCodeWorktreeDialogs.swift`: **A-**. It now covers create/open/remove sheets in one family file; future polish can add browse/autocomplete for known worktrees.
+
+Remaining risk:
+- The open-worktree UI still requires manual path entry. A stronger Codex-parity follow-up is a picker backed by `git worktree list --porcelain`, especially for SSH Remote projects where paths are harder to type.

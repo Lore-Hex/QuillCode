@@ -2,7 +2,8 @@ import Foundation
 import QuillCodeCore
 
 struct WorkspaceWorktreeOpenContext: Sendable, Hashable {
-    var request: WorkspaceWorktreeCreateRequest
+    var path: String
+    var branch: String
     var projectID: UUID
     var mode: AgentMode
     var model: String
@@ -10,14 +11,16 @@ struct WorkspaceWorktreeOpenContext: Sendable, Hashable {
     var memories: [MemoryNote]
 
     init(
-        request: WorkspaceWorktreeCreateRequest,
+        path: String,
+        branch: String = "",
         projectID: UUID,
         mode: AgentMode,
         model: String,
         instructions: [ProjectInstruction] = [],
         memories: [MemoryNote] = []
     ) {
-        self.request = request
+        self.path = path
+        self.branch = branch
         self.projectID = projectID
         self.mode = mode
         self.model = model
@@ -40,7 +43,7 @@ struct WorkspaceWorktreeOpenEngine {
         let displayName = worktreeURL.lastPathComponent
         let messageText = "Opened worktree `\(displayName)` at `\(worktreeURL.path)`."
         let thread = makeThread(
-            titleLabel: label(request: context.request, url: worktreeURL),
+            titleLabel: label(context: context, url: worktreeURL),
             projectID: context.projectID,
             mode: context.mode,
             model: context.model,
@@ -64,7 +67,7 @@ struct WorkspaceWorktreeOpenEngine {
         let displayName = displayName(forRemotePath: connection.path, fallback: connection.displayLabel)
         let messageText = "Opened remote worktree `\(displayName)` at `\(connection.displayLabel)`."
         let thread = makeThread(
-            titleLabel: label(request: context.request, path: connection.path),
+            titleLabel: label(context: context, path: connection.path),
             projectID: context.projectID,
             mode: context.mode,
             model: context.model,
@@ -81,16 +84,16 @@ struct WorkspaceWorktreeOpenEngine {
         )
     }
 
-    static func label(request: WorkspaceWorktreeCreateRequest, url: URL) -> String {
-        let branch = request.branch.trimmingCharacters(in: .whitespacesAndNewlines)
+    static func label(context: WorkspaceWorktreeOpenContext, url: URL) -> String {
+        let branch = context.branch.trimmingCharacters(in: .whitespacesAndNewlines)
         if !branch.isEmpty {
             return branch
         }
         return WorkspaceProjectEngine.defaultProjectName(for: url)
     }
 
-    static func label(request: WorkspaceWorktreeCreateRequest, path: String) -> String {
-        let branch = request.branch.trimmingCharacters(in: .whitespacesAndNewlines)
+    static func label(context: WorkspaceWorktreeOpenContext, path: String) -> String {
+        let branch = context.branch.trimmingCharacters(in: .whitespacesAndNewlines)
         if !branch.isEmpty {
             return branch
         }
