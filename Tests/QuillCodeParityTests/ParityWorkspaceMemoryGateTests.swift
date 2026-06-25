@@ -72,6 +72,7 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
 
         XCTAssertTrue(memoriesSpecText.contains("harnessURL()"), "Focused memory flows should reuse the shared harness URL helper.")
         XCTAssertTrue(memoriesSpecText.contains("clickSidebarTool"), "Focused memory flows should cover sidebar and command-palette memory entry points.")
+        XCTAssertTrue(memoriesSpecText.contains("project-memories-status"), "Focused memory flows should cover project memory count updates.")
         XCTAssertTrue(memoriesSpecText.contains("/remember Prefer small reviewable commits"), "Focused memory flows should cover memory creation through slash command text.")
         XCTAssertTrue(memoriesSpecText.contains("memory-delete"), "Focused memory flows should cover memory deletion.")
         XCTAssertTrue(memoriesSpecText.contains(memoryFlowName), "\(memoryFlowName) should live in memories.spec.ts.")
