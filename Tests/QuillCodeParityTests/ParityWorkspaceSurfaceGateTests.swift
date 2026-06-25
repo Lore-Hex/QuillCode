@@ -223,6 +223,33 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(coreSpecText.contains(extensionsFlowName), "\(extensionsFlowName) should not drift back into core.spec.ts.")
     }
 
+    func testPlaywrightArtifactFlowsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let artifactsSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("artifacts.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let artifactFlowNames = [
+            "surfaces file artifacts from tool cards",
+            "renders image artifact previews from tool cards",
+            "renders document artifact previews from tool cards",
+            "renders appshot artifact previews from tool cards"
+        ]
+
+        XCTAssertTrue(artifactsSpecText.contains("harnessURL()"), "Focused artifact flows should reuse the shared harness URL helper.")
+        XCTAssertTrue(artifactsSpecText.contains("clickSidebarTool"), "Focused artifact flows should cover Activity artifact surfacing.")
+        XCTAssertTrue(artifactsSpecText.contains("tool-card-image-preview"), "Focused artifact flows should cover image preview chrome.")
+        XCTAssertTrue(artifactsSpecText.contains("tool-card-document-preview"), "Focused artifact flows should cover document and appshot preview chrome.")
+        for flowName in artifactFlowNames {
+            XCTAssertTrue(artifactsSpecText.contains(flowName), "\(flowName) should live in artifacts.spec.ts.")
+            XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
+        }
+    }
+
     func testWorkspaceSurfaceDelegatesReviewSurfaceContracts() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let reviewText = try Self.appSourceText(named: "QuillCodeReviewSurface.swift")

@@ -5575,3 +5575,23 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `core.spec.ts` by feature family. Good next slices are artifact-preview flows, composer/model-picker flows, shortcut/slash flows, and memory/context flows.
+
+## 2026-06-25 Playwright Artifact Spec Split
+
+Overall grade after this slice: **A artifact E2E ownership, A tool-card preview coverage, A- broad Playwright core spec**.
+
+`core.spec.ts` still owned file artifact surfacing plus image, PDF/document, and appshot preview flows. Those flows all exercise the tool-card artifact preview surface and should fail together in a focused artifact spec instead of broad workspace smoke.
+
+What changed:
+- Added `artifacts.spec.ts` for file artifact links/text previews, Activity artifact handoff surfacing, image preview chrome, document preview chrome, and appshot preview chrome.
+- Reused the shared Playwright `harnessURL()` and sidebar utility helper in the focused artifact spec.
+- Removed artifact preview flows from `core.spec.ts`, bringing the broad smoke file down to the remaining workspace/composer/context/model families.
+- Added a surface parity gate that keeps artifact flows in the focused spec and registered it in the focused-suite manifest.
+
+Current strict grades:
+- `E2E/playwright/tests/artifacts.spec.ts`: **A**. It owns artifact preview behavior across file, image, document, and appshot surfaces with a cohesive tool-card boundary.
+- `E2E/playwright/tests/core.spec.ts`: **A-**. It is now smaller, but still owns broad workspace smoke plus composer, shortcut, slash, memory, context, and model-picker flows.
+- `ParityWorkspaceSurfaceGateTests.swift`: **A**. It now guards focused ownership for terminal, search, extension, artifact, and review Playwright flow families.
+
+Remaining risk:
+- Continue splitting `core.spec.ts` by feature family. Good next slices are composer/model-picker flows, shortcut/slash flows, and memory/context flows.
