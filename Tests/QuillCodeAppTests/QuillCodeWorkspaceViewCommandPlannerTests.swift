@@ -1,5 +1,6 @@
 import XCTest
 import QuillCodeCore
+import QuillComputerUseKit
 @testable import QuillCodeApp
 
 final class QuillCodeWorkspaceViewCommandPlannerTests: XCTestCase {
@@ -76,6 +77,100 @@ final class QuillCodeWorkspaceViewCommandPlannerTests: XCTestCase {
             planner.action(for: genericCommand),
             .dispatch(command: genericCommand, focusesComposer: false)
         )
+    }
+
+    func testHostOwnedComputerUseCommandsDispatchThroughHost() {
+        let planner = makePlanner()
+
+        XCTAssertEqual(
+            planner.action(for: command("computer-use-open-screen-recording")),
+            .dispatch(command: command("computer-use-open-screen-recording"), focusesComposer: false)
+        )
+        XCTAssertEqual(
+            planner.action(for: command("computer-use-open-accessibility")),
+            .dispatch(command: command("computer-use-open-accessibility"), focusesComposer: false)
+        )
+        XCTAssertEqual(
+            planner.action(for: command("computer-use-refresh")),
+            .dispatch(command: command("computer-use-refresh"), focusesComposer: false)
+        )
+    }
+
+    func testUnknownCommandsDoNotDispatchAsSilentNoops() {
+        let planner = makePlanner()
+
+        XCTAssertNil(planner.action(for: command("unknown-command")))
+    }
+
+    func testCommandSurfaceEmitsOnlyPresentableOrDispatchableCommands() throws {
+        let threadID = UUID()
+        let projectID = UUID()
+        let selectedThread = ChatThread(
+            id: threadID,
+            title: "Investigate CI",
+            messages: [.init(role: .user, content: "Run tests")]
+        )
+        let selectedProject = ProjectRef(
+            id: projectID,
+            name: "QuillCode",
+            path: "/repo",
+            localActions: [
+                LocalEnvironmentAction(
+                    id: "local-env:.quillcode/actions/bootstrap.sh",
+                    title: "Bootstrap",
+                    relativePath: ".quillcode/actions/bootstrap.sh",
+                    command: "sh .quillcode/actions/bootstrap.sh"
+                )
+            ],
+            extensionManifests: [
+                ProjectExtensionManifest(
+                    id: "mcp_server:filesystem",
+                    kind: .mcpServer,
+                    name: "Filesystem MCP",
+                    relativePath: ".quillcode/mcp/filesystem.json",
+                    launchExecutable: "quill-mcp",
+                    updateCommand: "quill-mcp update"
+                )
+            ]
+        )
+        let commands = WorkspaceCommandSurfaceBuilder(
+            selectedThread: selectedThread,
+            selectedProject: selectedProject,
+            selectedSidebarThreads: [
+                ChatThread(title: "Pinned", isPinned: true),
+                ChatThread(title: "Archived", isArchived: true)
+            ],
+            sidebarSelectionIsActive: true,
+            sidebarItemCount: 3,
+            hasActiveWorkspaceRoot: true,
+            canRetryLastUserTurn: true,
+            composerIsSending: true,
+            terminalHasEntries: true,
+            terminalIsRunning: false,
+            browserCanGoBack: true,
+            browserCanGoForward: true,
+            browserCanReload: true,
+            browserCanOpenSession: true,
+            mcpServerStatuses: ["mcp_server:filesystem": .ready],
+            computerUseStatus: .permissionStatus(
+                screenRecordingGranted: false,
+                accessibilityGranted: false
+            )
+        ).commands
+        let planner = makePlanner(
+            sidebar: SidebarSurface(
+                items: [SidebarItemSurface(item: SidebarItem(thread: selectedThread), selectedThreadID: threadID)],
+                selectedThreadID: threadID
+            ),
+            projects: ProjectListSurface(
+                items: [ProjectItemSurface(project: selectedProject, selectedProjectID: projectID)],
+                selectedProjectID: projectID
+            )
+        )
+
+        let missingCommands = commands.filter { planner.action(for: $0) == nil }.map(\.id)
+
+        XCTAssertEqual(missingCommands, [])
     }
 
     private func makePlanner(

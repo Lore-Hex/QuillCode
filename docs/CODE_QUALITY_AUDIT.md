@@ -6068,3 +6068,24 @@ Current strict grades:
 
 Remaining risk:
 - Stop All and Disconnect All still share actor-bound state mutation with terminal and MCP runtime teardown. That is acceptable for now; a future coordinator should only extract the mutation sequence if persistent remote sessions or resumable work add more teardown cases.
+
+## 2026-06-25 Command Dispatch Routing Coverage
+
+Overall grade after this slice: **A command routing, A desktop fallback safety, A command-surface coverage**.
+
+The command surface had strong coverage for individual commands, but native and desktop planners still had broad fallback behavior: an unknown command ID could be dispatched into the workspace model, where it might fail as a silent no-op. That is the same failure class users see as “buttons don’t work,” so the routing boundary needed to be shared and testable.
+
+What changed:
+- Added `WorkspaceCommandRoutingCatalog` as the shared contract for host-owned commands and workspace-model command plans.
+- `WorkspaceViewCommandPlanner` now rejects unplannable command IDs instead of forwarding them as generic dispatch requests.
+- `QuillCodeDesktopCommandPlanner` now returns optional actions and delegates only commands the workspace model can execute.
+- Added command-surface coverage proving every emitted command is presentational or dispatchable.
+
+Current strict grades:
+- `WorkspaceCommandRoutingCatalog.swift`: **A**. It is deliberately small and owns the one cross-surface distinction between host-owned commands and workspace-model command plans.
+- `QuillCodeWorkspaceViewCommandPlanner.swift`: **A**. Its fallback is no longer permissive; unknown command IDs are rejected before they can become dead UI.
+- `QuillCodeDesktopCommandPlanner.swift`: **A-**. It still has a host-specific switch, which is appropriate for native-only actions, and now avoids accidental workspace fallback.
+- `QuillCodeWorkspaceViewCommandPlannerTests.swift`: **A**. It covers host-owned Computer Use commands, unknown-command rejection, and full command-surface dispatchability.
+
+Remaining risk:
+- The catalog should stay intentionally narrow. If future host-owned commands are added, add them here with a focused test rather than restoring broad planner fallback.
