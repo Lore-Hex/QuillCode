@@ -131,6 +131,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesProjectContextRefresh() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let threadExtensionText = try Self.appSourceText(named: "WorkspaceModelThreads.swift")
         let refresherText = try Self.appSourceText(named: "WorkspaceProjectContextRefresher.swift")
 
         XCTAssertTrue(refresherText.contains("enum WorkspaceProjectContextRefresher"), "Project context refresh should have a focused owner.")
@@ -144,7 +145,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.refreshLocalProjectMetadata"), "WorkspaceModel should delegate local project metadata refresh.")
         XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.refreshRemoteProjectContext"), "WorkspaceModel should delegate remote project metadata refresh.")
         XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.syncThreadContext"), "WorkspaceModel should delegate thread context sync.")
-        XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.threadCreationContext"), "WorkspaceModel should delegate thread creation context assembly.")
+        XCTAssertTrue(threadExtensionText.contains("WorkspaceProjectContextRefresher.threadCreationContext"), "WorkspaceModel thread APIs should delegate thread creation context assembly.")
         XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.worktreeOpenContext"), "WorkspaceModel should delegate worktree open context assembly.")
         XCTAssertFalse(modelText.contains("WorkspaceProjectMetadataLoader.loadLocal(from: rootURL)"), "WorkspaceModel should not own refresh-time local project metadata loading.")
         XCTAssertFalse(modelText.contains("WorkspaceProjectMetadataLoader.loadRemote"), "WorkspaceModel should not own remote project metadata loading.")
@@ -173,18 +174,24 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesThreadCreationRecords() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let threadExtensionText = try Self.appSourceText(named: "WorkspaceModelThreads.swift")
         let creationText = try Self.appSourceText(named: "WorkspaceThreadCreationEngine.swift")
 
+        XCTAssertTrue(threadExtensionText.contains("extension QuillCodeWorkspaceModel"), "Thread APIs should live in a focused WorkspaceModel extension.")
         XCTAssertTrue(creationText.contains("struct WorkspaceThreadCreationContext"), "New-thread context should live beside the focused creation engine.")
         XCTAssertTrue(creationText.contains("struct WorkspaceThreadCreationEngine"), "Thread record construction should live in a focused engine.")
         XCTAssertTrue(creationText.contains("static func newThread"), "New chat construction should be directly testable.")
         XCTAssertTrue(creationText.contains("static func forkThread"), "Fork thread construction should be directly testable.")
         XCTAssertTrue(creationText.contains("static func compactThread"), "Compact thread construction should be directly testable.")
         XCTAssertTrue(creationText.contains("static func duplicateThread"), "Duplicate thread construction should be directly testable.")
-        XCTAssertTrue(modelText.contains("WorkspaceThreadCreationEngine.newThread"), "WorkspaceModel should delegate new chat construction.")
-        XCTAssertTrue(modelText.contains("WorkspaceThreadCreationEngine.forkThread"), "WorkspaceModel should delegate fork construction.")
-        XCTAssertTrue(modelText.contains("WorkspaceThreadCreationEngine.compactThread"), "WorkspaceModel should delegate compact construction.")
-        XCTAssertTrue(modelText.contains("WorkspaceThreadCreationEngine.duplicateThread"), "WorkspaceModel should delegate duplicate construction.")
+        XCTAssertTrue(threadExtensionText.contains("WorkspaceThreadCreationEngine.newThread"), "WorkspaceModel thread APIs should delegate new chat construction.")
+        XCTAssertTrue(threadExtensionText.contains("WorkspaceThreadCreationEngine.forkThread"), "WorkspaceModel thread APIs should delegate fork construction.")
+        XCTAssertTrue(threadExtensionText.contains("WorkspaceThreadCreationEngine.compactThread"), "WorkspaceModel thread APIs should delegate compact construction.")
+        XCTAssertTrue(threadExtensionText.contains("WorkspaceThreadCreationEngine.duplicateThread"), "WorkspaceModel thread APIs should delegate duplicate construction.")
+        XCTAssertFalse(modelText.contains("public func newChat"), "WorkspaceModel.swift should not own thread creation API bodies.")
+        XCTAssertFalse(modelText.contains("public func forkFromLast"), "WorkspaceModel.swift should not own fork API bodies.")
+        XCTAssertFalse(modelText.contains("public func compactContext"), "WorkspaceModel.swift should not own compact API bodies.")
+        XCTAssertFalse(modelText.contains("public func duplicateThread"), "WorkspaceModel.swift should not own duplicate API bodies.")
         XCTAssertFalse(modelText.contains("title: \"Fork:"), "WorkspaceModel should not own fork title copy.")
         XCTAssertFalse(modelText.contains("title: \"Compact:"), "WorkspaceModel should not own compact title copy.")
         XCTAssertFalse(modelText.contains("title: \"Copy:"), "WorkspaceModel should not own duplicate title copy.")
@@ -192,6 +199,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesThreadLifecycleTransitions() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let threadExtensionText = try Self.appSourceText(named: "WorkspaceModelThreads.swift")
         let lifecycleText = try Self.appSourceText(named: "WorkspaceThreadLifecycleEngine.swift")
         let persistenceText = try Self.appSourceText(named: "WorkspaceThreadPersistence.swift")
 
@@ -204,12 +212,16 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(lifecycleText.contains("static func unarchiveThread"), "Thread unarchive mutation should be directly testable.")
         XCTAssertTrue(lifecycleText.contains("static func deleteThread"), "Thread delete fallback selection should be directly testable.")
         XCTAssertTrue(lifecycleText.contains("static func applyAgentRunThreadUpdate"), "Agent-run thread upsert and fallback selection should be directly testable.")
-        XCTAssertTrue(modelText.contains("WorkspaceThreadLifecycleEngine.renameThread"), "WorkspaceModel should delegate thread rename mutation.")
-        XCTAssertTrue(modelText.contains("WorkspaceThreadLifecycleEngine.archiveThread"), "WorkspaceModel should delegate thread archive mutation.")
-        XCTAssertTrue(modelText.contains("WorkspaceThreadLifecycleEngine.deleteThread"), "WorkspaceModel should delegate thread delete mutation.")
+        XCTAssertTrue(threadExtensionText.contains("WorkspaceThreadLifecycleEngine.renameThread"), "WorkspaceModel thread APIs should delegate thread rename mutation.")
+        XCTAssertTrue(threadExtensionText.contains("WorkspaceThreadLifecycleEngine.archiveThread"), "WorkspaceModel thread APIs should delegate thread archive mutation.")
+        XCTAssertTrue(threadExtensionText.contains("WorkspaceThreadLifecycleEngine.deleteThread"), "WorkspaceModel thread APIs should delegate thread delete mutation.")
         XCTAssertTrue(modelText.contains("WorkspaceThreadLifecycleEngine.applyAgentRunThreadUpdate"), "WorkspaceModel should delegate agent-run thread upsert and fallback selection.")
         XCTAssertTrue(modelText.contains("WorkspaceThreadPersistence(store: threadStore)"), "WorkspaceModel should bridge its existing initializer to the thread persistence helper.")
         XCTAssertTrue(modelText.contains("threadPersistence.mutate"), "WorkspaceModel should delegate timestamped thread mutation.")
+        XCTAssertFalse(modelText.contains("public func renameThread"), "WorkspaceModel.swift should not own thread rename API bodies.")
+        XCTAssertFalse(modelText.contains("public func archiveThread"), "WorkspaceModel.swift should not own thread archive API bodies.")
+        XCTAssertFalse(modelText.contains("public func unarchiveThread"), "WorkspaceModel.swift should not own thread unarchive API bodies.")
+        XCTAssertFalse(modelText.contains("public func deleteThread"), "WorkspaceModel.swift should not own thread delete API bodies.")
         XCTAssertFalse(modelText.contains("thread.title = trimmed"), "WorkspaceModel should not own thread rename mutation.")
         XCTAssertFalse(modelText.contains("thread.isArchived = true"), "WorkspaceModel should not own thread archive mutation.")
         XCTAssertFalse(modelText.contains("thread.isArchived = false"), "WorkspaceModel should not own thread unarchive mutation.")
