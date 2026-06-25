@@ -4855,3 +4855,21 @@ Current strict grades:
 
 Remaining risk:
 - Memory, project metadata, local environment, automation, worktree, MCP, remote project, and review-runtime gates still live in the catch-all. Continue extracting by domain before adding more Codex-parity gates.
+
+## 2026-06-24 Workspace Project Gate Split
+
+Overall grade after this slice: **A focused project-boundary ownership, A merge-risk reduction, B+ catch-all size**.
+
+After the execution split, the catch-all parity suite still mixed project metadata loading, project loader ownership, project extension integration, local/remote project flows, pull-request flows, and worktree handoff gates with unrelated memory, MCP, automation, sidebar, and surface checks. Those gates all protect project and remote-project ownership boundaries, so they now have a focused suite.
+
+What changed:
+- Added `ParityWorkspaceProjectGateTests` for project metadata, project loader ownership, project extension, project registry, remote project, pull request, and worktree gates.
+- Moved the project-family gates out of `ParityGateTests.swift`.
+- Extended the focused-suite guard so project-family gates cannot drift back into the catch-all.
+
+Current strict grades:
+- `ParityWorkspaceProjectGateTests.swift`: **A**. The suite is coherent, small, and directly tied to project/remote-project ownership boundaries.
+- `ParityGateTests.swift`: **B+**. The file is smaller again, but still owns memory, MCP, automation, terminal, sidebar, and remaining surface-boundary gates.
+
+Remaining risk:
+- Continue splitting the broad parity file by remaining domains: memory, MCP, automation/terminal, sidebar, and final workspace-surface contracts.
