@@ -5290,3 +5290,23 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `WorkspaceSurfaceTests.swift` by feature family. Good next slices are command/sidebar search ownership and context banner ownership.
+
+## 2026-06-24 Playwright Terminal Spec Split
+
+Overall grade after this slice: **A terminal E2E ownership, A shared harness helper reuse, B+ broad Playwright core spec**.
+
+The integrated terminal flow exercises Codex-critical behavior: cwd display, command execution, streaming output, cwd persistence, environment persistence, cancellation, and clearing. It belonged in a terminal-specific E2E owner instead of the broad core smoke spec.
+
+What changed:
+- Added `terminal.spec.ts` for the integrated terminal execution flow.
+- Reused `harnessURL()` and `clickSidebarTool()` from the shared Playwright helper.
+- Removed the terminal-owned execution flow from `core.spec.ts` while leaving cross-feature terminal smoke paths in core.
+- Added a workspace surface parity gate that keeps the terminal execution flow out of `core.spec.ts` and registered it in the focused-suite manifest.
+
+Current strict grades:
+- `E2E/playwright/tests/terminal.spec.ts`: **A**. It owns the terminal lifecycle behavior and uses shared helpers.
+- `E2E/playwright/tests/core.spec.ts`: **B+**. Smaller again, but still owns unrelated extension/MCP, sidebar, settings, command palette, and slash/workflow coverage.
+- `ParityWorkspaceSurfaceGateTests.swift`: **A**. It guards native terminal architecture plus focused terminal E2E ownership.
+
+Remaining risk:
+- Continue splitting `core.spec.ts` by feature family. Good next slices are extension/MCP flows and command/sidebar search flows.

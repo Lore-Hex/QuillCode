@@ -1594,66 +1594,6 @@ test('mock harness adds an SSH remote project from command palette and slash com
   await expect(page.getByText('Wrote `hello.txt` on feather.local · quill.')).toBeVisible();
 });
 
-test('mock harness runs a command in the integrated terminal', async ({ page }) => {
-  await page.goto('file://' + process.cwd() + '/../harness/index.html');
-
-  await clickSidebarTool(page, 'terminal-button');
-  await expect(page.getByTestId('terminal-pane')).toBeVisible();
-  await expect(page.getByTestId('terminal-cwd')).toHaveText('/mock/QuillCode');
-  await expect(page.getByTestId('terminal-empty')).toBeVisible();
-
-  await page.getByLabel('Terminal command').fill('pwd');
-  await expect(page.getByTestId('terminal-run')).toBeEnabled();
-  await page.getByTestId('terminal-run').click();
-
-  await expect(page.getByTestId('terminal-entry')).toContainText('$ pwd');
-  await expect(page.getByTestId('terminal-status')).toHaveText('Running · running');
-  await expect(page.getByTestId('terminal-status')).toHaveText('Done · exit 0');
-  await expect(page.getByTestId('terminal-stdout')).toContainText('/mock/QuillCode');
-  await expect(page.getByLabel('Terminal command')).toHaveValue('');
-
-  await page.getByLabel('Terminal command').fill('stream-demo');
-  await page.getByTestId('terminal-run').click();
-  await expect(page.getByTestId('terminal-status').last()).toHaveText('Running · running');
-  await expect(page.getByTestId('terminal-stdout').last()).toContainText('stream-start');
-  await expect(page.getByTestId('terminal-status').last()).toHaveText('Done · exit 0');
-  await expect(page.getByTestId('terminal-stdout').last()).toContainText('stream-end');
-
-  await page.getByLabel('Terminal command').fill('cd Packages');
-  await page.getByTestId('terminal-run').click();
-  await expect(page.getByTestId('terminal-status').last()).toHaveText('Done · exit 0');
-  await expect(page.getByTestId('terminal-cwd')).toHaveText('/mock/QuillCode/Packages');
-  await page.getByLabel('Terminal command').fill('pwd');
-  await page.getByTestId('terminal-run').click();
-  await expect(page.getByTestId('terminal-stdout').last()).toContainText('/mock/QuillCode/Packages');
-
-  await page.getByLabel('Terminal command').fill('export QUILL_TERMINAL_TEST=from-harness');
-  await page.getByTestId('terminal-run').click();
-  await expect(page.getByTestId('terminal-status').last()).toHaveText('Done · exit 0');
-  await page.getByLabel('Terminal command').fill('printf \'%s\' "$QUILL_TERMINAL_TEST"');
-  await page.getByTestId('terminal-run').click();
-  await expect(page.getByTestId('terminal-stdout').last()).toHaveText('from-harness');
-  await page.getByLabel('Terminal command').fill('unset QUILL_TERMINAL_TEST');
-  await page.getByTestId('terminal-run').click();
-  await expect(page.getByTestId('terminal-status').last()).toHaveText('Done · exit 0');
-  await page.getByLabel('Terminal command').fill('printf \'%s\' "${QUILL_TERMINAL_TEST:-missing}"');
-  await page.getByTestId('terminal-run').click();
-  await expect(page.getByTestId('terminal-stdout').last()).toHaveText('missing');
-
-  await page.getByLabel('Terminal command').fill('sleep 5');
-  await page.getByTestId('terminal-run').click();
-  await expect(page.getByTestId('terminal-status').last()).toHaveText('Running · running');
-  await page.getByTestId('terminal-stop').click();
-  await expect(page.getByTestId('terminal-status').last()).toHaveText('Stopped · stopped');
-  await expect(page.getByTestId('terminal-stderr').last()).toContainText('Command stopped.');
-
-  await expect(page.getByTestId('terminal-clear')).toBeEnabled();
-  await page.getByTestId('terminal-clear').click();
-  await expect(page.getByTestId('terminal-entry')).toHaveCount(0);
-  await expect(page.getByTestId('terminal-empty')).toBeVisible();
-  await expect(page.getByTestId('terminal-clear')).toBeDisabled();
-});
-
 test('mock harness shows project extension manifests from sidebar and command palette', async ({ page }) => {
   await page.goto('file://' + process.cwd() + '/../harness/index.html');
 
