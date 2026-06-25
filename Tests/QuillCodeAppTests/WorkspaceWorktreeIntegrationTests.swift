@@ -135,6 +135,13 @@ final class WorkspaceWorktreeIntegrationTests: XCTestCase {
             branch: String(branch)
         )
         XCTAssertTrue(create.ok, create.error ?? create.stderr)
+        defer {
+            _ = GitToolExecutor().removeWorktree(
+                cwd: fixture.remoteRoot,
+                path: worktreeName,
+                force: true
+            )
+        }
 
         let result = await fixture.model.loadWorktreeChoices(workspaceRoot: fixture.localRoot)
 
@@ -144,6 +151,7 @@ final class WorkspaceWorktreeIntegrationTests: XCTestCase {
                 && choice.title == worktreeName
                 && choice.detail == branch
         }, "\(result.choices)")
+        XCTAssertEqual(fixture.model.currentToolCards, [])
         let sshArguments = try fixture.recordedSSHArguments()
         XCTAssertTrue(sshArguments.contains("git worktree list --porcelain"), sshArguments)
     }

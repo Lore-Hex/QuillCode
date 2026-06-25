@@ -6220,23 +6220,29 @@ Current strict grades:
 Remaining risk:
 - Prune is still a command, not a rich stale-worktree review UI. Full Codex parity should eventually show stale records from `--dry-run --verbose` and offer a one-click confirm flow.
 
-## 2026-06-25 SSH Remote Worktree Choice Loading
+## 2026-06-25 Remote Worktree Picker Loading And Reuse
 
-Overall grade after this slice: **A- remote picker parity, A UI state clarity, A test ownership**.
+Overall grade after this slice: **A remote picker parity, A worktree picker reuse, A- loading-state maturity**.
 
-The known-worktree picker was useful locally, but SSH Remote projects still opened the dialog with no choices because the first version used a synchronous local-only query. That broke the Codex-style expectation that remote project workflows should feel first-class and discoverable, not require typing absolute remote paths.
+The known-worktree picker was useful locally, but remote and remove flows still had gaps: SSH Remote projects needed nonblocking choice discovery, while remove users still had to type paths even though the same registered-worktree list is available. The combined design keeps one reusable choice surface, avoids transcript tool-card noise for passive picker loading, and gives the open dialog explicit loading/error/empty states for slow or failing remote networks.
 
 What changed:
+- Reused one SwiftUI known-worktree choice list for open and remove dialogs.
+- Passed known choices into the remove dialog so users can select a registered worktree before confirming removal.
 - Added `WorkspaceWorktreeChoiceLoadResult` so worktree choice discovery can return either parsed choices or a visible error without creating transcript tool cards.
-- Added async `QuillCodeWorkspaceModel.loadWorktreeChoices`, which loads local choices through `ToolRouter` and SSH Remote choices through the same remote git execution path, off the main actor.
+- Added async `QuillCodeWorkspaceModel.loadWorktreeChoices`, which loads local choices through `ToolRouter` and SSH Remote choices through the same remote git execution path off the main actor.
 - Updated the SwiftUI open-worktree sheet contract to show loading, error, known-choice, and empty states before falling back to manual path entry.
+- Extended the Playwright harness so remove dialogs render the same known-worktree choices and update the remove path from selection.
 - Added focused parser/model tests proving failure messages are preserved and SSH Remote choice loading uses `git worktree list --porcelain` through the fake SSH executor.
 
 Current strict grades:
 - `WorkspaceWorktreeChoiceLoadResult`: **A**. It keeps parsing/failure policy small, typed, and reusable across local and remote choice discovery.
+- `QuillCodeWorktreeDialogs.swift`: **A**. Create/open/remove stay in one cohesive dialog family, with shared choice rendering and no Git parsing in SwiftUI views.
 - `QuillCodeWorkspaceModel.loadWorktreeChoices`: **A-**. It preserves side-effect-free dialog loading and avoids blocking the main actor; the remaining compromise is that remote loading has no cancellation token beyond the presenting sheet guard.
-- `QuillCodeWorktreeOpenView`: **A-**. It now has explicit loading/error/empty states and keeps Git parsing out of the view; future polish can add a Retry button for transient SSH failures.
-- `WorkspaceWorktreeIntegrationTests`: **A**. Remote choice discovery is covered through the same fake SSH executor used by remote worktree open/create tests.
+- `WorkspaceModel.worktreeChoices`: **A**. It now has local and SSH Remote proof while preserving side-effect-free transcript behavior.
+- `E2E/harness/index.html` worktree dialog state: **A-**. The mock harness mirrors open/remove picker behavior; it is still intentionally synchronous.
+- `WorkspaceWorktreeIntegrationTests.swift`: **A**. It owns local and remote picker proof alongside create/open/remove handoff coverage.
 
 Remaining risk:
-- The open-worktree dialog reports transient SSH failures but does not yet offer an inline Retry action or cached last-known choices. That is the next UX polish step if remote networks are flaky.
+- The open-worktree dialog reports transient SSH failures but does not yet offer an inline Retry action or cached last-known choices. Richer stale-worktree cleanup UI and branch/PR handoff polish remain later Codex parity work.
+

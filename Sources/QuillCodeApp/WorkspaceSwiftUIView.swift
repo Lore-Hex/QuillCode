@@ -33,6 +33,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     public var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
     public var onLoadWorktreeChoices: () async -> WorkspaceWorktreeChoiceLoadResult
+    public var onListWorktreeChoices: () -> [WorkspaceWorktreeChoice]
     public var onOpenWorktree: (WorkspaceWorktreeOpenRequest) -> Void
     public var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
     public var onCopyTranscriptItem: (String, String) -> Void
@@ -88,6 +89,7 @@ public struct QuillCodeWorkspaceView: View {
         onLoadWorktreeChoices: @escaping () async -> WorkspaceWorktreeChoiceLoadResult = {
             WorkspaceWorktreeChoiceLoadResult(choices: [])
         },
+        onListWorktreeChoices: @escaping () -> [WorkspaceWorktreeChoice] = { [] },
         onOpenWorktree: @escaping (WorkspaceWorktreeOpenRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
         onCopyTranscriptItem: @escaping (String, String) -> Void = { _, _ in },
@@ -124,6 +126,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onAddReviewComment = onAddReviewComment
         self.onCreateWorktree = onCreateWorktree
         self.onLoadWorktreeChoices = onLoadWorktreeChoices
+        self.onListWorktreeChoices = onListWorktreeChoices
         self.onOpenWorktree = onOpenWorktree
         self.onRemoveWorktree = onRemoveWorktree
         self.onCopyTranscriptItem = onCopyTranscriptItem
@@ -284,7 +287,7 @@ public struct QuillCodeWorkspaceView: View {
                 openWorktreeDraft.apply(result)
             }
         case .presentRemoveWorktree:
-            removeWorktreeDraft = QuillCodeWorktreeRemoveDraft()
+            removeWorktreeDraft = QuillCodeWorktreeRemoveDraft(choices: onListWorktreeChoices())
             worktreeSheet = .remove
         case .openBrowserSession:
             onOpenBrowserSession?()
