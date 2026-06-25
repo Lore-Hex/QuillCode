@@ -30,6 +30,55 @@ final class AgentFinalAnswerBuilderTests: XCTestCase {
         XCTAssertEqual(answer, "openclaw is not installed or is not on PATH.")
     }
 
+    func testWorktreePruneDryRunReportsNoStaleRecords() {
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.gitWorktreePrune.name,
+                argumentsJSON: ToolArguments.json(["dryRun": true, "verbose": true])
+            ),
+            result: ToolResult(ok: true)
+        )
+
+        XCTAssertEqual(answer, "No stale worktree records found.")
+    }
+
+    func testWorktreePruneDryRunReportsStaleRecordsAndCleanupCommand() {
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.gitWorktreePrune.name,
+                argumentsJSON: ToolArguments.json(["dryRun": true, "verbose": true])
+            ),
+            result: ToolResult(
+                ok: true,
+                stdout: "Removing ../quillcode-old: gitdir file points to non-existent location\n"
+            )
+        )
+
+        XCTAssertTrue(answer.contains("Found 1 stale worktree record."))
+        XCTAssertTrue(answer.contains("Run `/worktree prune` to remove it."))
+        XCTAssertTrue(answer.contains("../quillcode-old"))
+    }
+
+    func testWorktreePruneReportsRemovedRecords() {
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.gitWorktreePrune.name,
+                argumentsJSON: ToolArguments.json(["dryRun": false, "verbose": true])
+            ),
+            result: ToolResult(
+                ok: true,
+                stdout: """
+                Removing ../quillcode-old: gitdir file points to non-existent location
+                Removing ../quillcode-older: gitdir file points to non-existent location
+                """
+            )
+        )
+
+        XCTAssertTrue(answer.contains("Pruned 2 stale worktree records."))
+        XCTAssertTrue(answer.contains("../quillcode-old"))
+        XCTAssertTrue(answer.contains("../quillcode-older"))
+    }
+
     func testLongOutputIsTruncatedWithToolCardHint() {
         let answer = AgentFinalAnswerBuilder.finalAnswer(
             for: ToolCall(
