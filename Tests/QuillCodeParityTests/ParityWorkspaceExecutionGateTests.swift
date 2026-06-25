@@ -505,6 +505,27 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(terminalBody.contains("result.ok ?"), "runTerminalCommand should not choose final status inline.")
     }
 
+    func testWorkspaceModelDelegatesActiveWorkStopPlanning() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let plannerText = try Self.appSourceText(named: "WorkspaceActiveWorkStopPlanner.swift")
+        let cancelStart = try XCTUnwrap(modelText.range(of: "public func cancelActiveWork"))
+        let cancelEnd = try XCTUnwrap(modelText.range(
+            of: "private func appendToolRun",
+            range: cancelStart.upperBound..<modelText.endIndex
+        ))
+        let cancelAndDisconnectBody = String(modelText[cancelStart.lowerBound..<cancelEnd.lowerBound])
+
+        XCTAssertTrue(plannerText.contains("enum WorkspaceActiveWorkStopPlanner"), "Stop/disconnect lifecycle status should live in a focused planner.")
+        XCTAssertTrue(plannerText.contains("static func cancel"), "Cancel lifecycle should be directly testable.")
+        XCTAssertTrue(plannerText.contains("static func disconnectAll"), "Disconnect lifecycle should be directly testable.")
+        XCTAssertTrue(cancelAndDisconnectBody.contains("WorkspaceActiveWorkStopPlanner.cancel"), "WorkspaceModel should delegate cancel lifecycle.")
+        XCTAssertTrue(cancelAndDisconnectBody.contains("WorkspaceActiveWorkStopPlanner.disconnectAll"), "WorkspaceModel should delegate disconnect lifecycle.")
+        XCTAssertTrue(cancelAndDisconnectBody.contains("applyActiveWorkStopPlan"), "WorkspaceModel should share active-work stop plan application.")
+        XCTAssertFalse(cancelAndDisconnectBody.contains("TopBarAgentStatusLabel.stopped"), "WorkspaceModel should not choose stopped status inline for active-work cancellation.")
+        XCTAssertFalse(cancelAndDisconnectBody.contains("TopBarAgentStatusLabel.idle"), "WorkspaceModel should not choose idle status inline for disconnect.")
+        XCTAssertFalse(cancelAndDisconnectBody.contains("? TopBarAgentStatusLabel"), "WorkspaceModel should not choose active-work stop status with inline ternaries.")
+    }
+
     func testWorkspaceModelDelegatesShellToolCallPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceShellToolCallPlanner.swift")

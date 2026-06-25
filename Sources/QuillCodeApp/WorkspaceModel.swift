@@ -1178,11 +1178,9 @@ public final class QuillCodeWorkspaceModel {
     }
 
     public func cancelActiveWork() {
-        let stoppedWork = stopActiveWorkspaceWork()
-        lastError = nil
-        if stoppedWork.hadActiveWork || stoppedWork.hadRunningMCPServers {
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.stopped)
-        }
+        applyActiveWorkStopPlan(
+            WorkspaceActiveWorkStopPlanner.cancel(stoppedWork: stopActiveWorkspaceWork())
+        )
     }
 
     @discardableResult
@@ -1190,7 +1188,10 @@ public final class QuillCodeWorkspaceModel {
         let stoppedWork = stopActiveWorkspaceWork()
         let shouldDetachRemoteProject = selectedProject?.isRemote == true
 
-        guard stoppedWork.hadRunningMCPServers || stoppedWork.hadActiveWork || shouldDetachRemoteProject else {
+        guard let plan = WorkspaceActiveWorkStopPlanner.disconnectAll(
+            stoppedWork: stoppedWork,
+            shouldDetachRemoteProject: shouldDetachRemoteProject
+        ) else {
             return false
         }
 
@@ -1205,21 +1206,27 @@ public final class QuillCodeWorkspaceModel {
             syncTerminalSessionToSelectedProject()
         }
 
-        lastError = nil
-        let status = stoppedWork.hadActiveWork || stoppedWork.hadRunningMCPServers
-            ? TopBarAgentStatusLabel.stopped
-            : TopBarAgentStatusLabel.idle
-        refreshTopBar(agentStatus: status)
+        applyActiveWorkStopPlan(plan)
         return true
     }
 
-    private func stopActiveWorkspaceWork() -> (hadRunningMCPServers: Bool, hadActiveWork: Bool) {
+    private func stopActiveWorkspaceWork() -> WorkspaceStoppedActiveWork {
         let hadRunningMCPServers = mcpRuntime.cancelAll(extensions: &extensions)
         let hadActiveWork = composer.isSending || terminal.isRunning
         composer.isSending = false
         terminal.isRunning = false
         WorkspaceTerminalEngine.stopRunningEntries(terminal: &terminal)
-        return (hadRunningMCPServers, hadActiveWork)
+        return WorkspaceStoppedActiveWork(
+            hadRunningMCPServers: hadRunningMCPServers,
+            hadActiveWork: hadActiveWork
+        )
+    }
+
+    private func applyActiveWorkStopPlan(_ plan: WorkspaceActiveWorkStopPlan) {
+        lastError = plan.lastError
+        if let agentStatus = plan.agentStatus {
+            refreshTopBar(agentStatus: agentStatus)
+        }
     }
 
     private func appendToolRun(call: ToolCall, result: ToolResult) {
