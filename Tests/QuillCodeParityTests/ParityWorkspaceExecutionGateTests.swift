@@ -91,6 +91,39 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testWorkspaceModelDelegatesAgentSendProgressPlanning() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let plannerText = try Self.appSourceText(named: "WorkspaceAgentSendProgressPlanner.swift")
+        let progressStart = try XCTUnwrap(modelText.range(of: "private func applyAgentProgress"))
+        let progressEnd = try XCTUnwrap(modelText.range(of: "public func runReviewAction"))
+        let progressBody = String(modelText[progressStart.lowerBound..<progressEnd.lowerBound])
+
+        XCTAssertTrue(
+            plannerText.contains("struct WorkspaceAgentSendProgressPlan"),
+            "Agent progress updates should have a typed plan."
+        )
+        XCTAssertTrue(
+            plannerText.contains("enum WorkspaceAgentSendProgressPlanner"),
+            "Agent progress planning should live in a focused planner."
+        )
+        XCTAssertTrue(
+            progressBody.contains("WorkspaceAgentSendProgressPlanner.progress"),
+            "WorkspaceModel should delegate agent progress UI-state planning."
+        )
+        XCTAssertFalse(
+            progressBody.contains("WorkspaceAgentStatusBuilder.status"),
+            "WorkspaceModel should not choose progress top-bar copy inline."
+        )
+        XCTAssertFalse(
+            progressBody.contains("composer.isSending = true"),
+            "WorkspaceModel should not choose progress composer state inline."
+        )
+        XCTAssertFalse(
+            progressBody.contains("lastError = nil"),
+            "WorkspaceModel should not clear progress errors inline."
+        )
+    }
+
     func testWorkspaceModelDelegatesAgentSendTerminalPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceAgentSendTerminalPlanner.swift")

@@ -39,6 +39,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         let stateText = try Self.appSourceText(named: "WorkspaceUIState.swift")
         let sendLifecycleText = try Self.appSourceText(named: "WorkspaceComposerSendLifecycle.swift")
         let sendStartText = try Self.appSourceText(named: "WorkspaceAgentSendStartPlanner.swift")
+        let sendProgressText = try Self.appSourceText(named: "WorkspaceAgentSendProgressPlanner.swift")
         let sendTerminalText = try Self.appSourceText(named: "WorkspaceAgentSendTerminalPlanner.swift")
 
         XCTAssertTrue(stateText.contains("public struct ComposerState"), "Composer UI state should live in a focused state contract file.")
@@ -46,7 +47,9 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(stateText.contains("public struct ActivityState"), "Activity-pane UI state should live in a focused state contract file.")
         XCTAssertTrue(sendLifecycleText.contains("enum WorkspaceComposerSendLifecycle"), "Composer send lifecycle transitions should live in a focused helper.")
         XCTAssertTrue(sendStartText.contains("WorkspaceComposerSendLifecycle.started"), "Agent send start should choose started lifecycle through the start planner.")
+        XCTAssertTrue(sendProgressText.contains("WorkspaceAgentStatusBuilder.status"), "Agent send progress should choose progress status through the progress planner.")
         XCTAssertTrue(modelText.contains("WorkspaceAgentSendStartPlanner.started"), "WorkspaceModel should delegate composer send start transitions.")
+        XCTAssertTrue(modelText.contains("WorkspaceAgentSendProgressPlanner.progress"), "WorkspaceModel should delegate composer send progress transitions.")
         XCTAssertTrue(sendTerminalText.contains("WorkspaceComposerSendLifecycle.completed"), "Successful send completion should choose completed lifecycle through the terminal planner.")
         XCTAssertTrue(sendTerminalText.contains("WorkspaceComposerSendLifecycle.cancelled"), "Cancelled send completion should choose cancelled lifecycle through the terminal planner.")
         XCTAssertTrue(sendTerminalText.contains("WorkspaceComposerSendLifecycle.failed"), "Failed send completion should choose failed lifecycle through the terminal planner.")

@@ -5890,3 +5890,23 @@ Current strict grades:
 
 Remaining risk:
 - The next extraction should target progress callback wiring or context/new-thread preparation. Keep actor-owned mutations in `WorkspaceModel`; move only pure planning or narrowly injectable execution boundaries.
+
+## 2026-06-25 Agent Send Progress Planner
+
+Overall grade after this slice: **A progress planning, A focused status coverage, A- WorkspaceModel send path**.
+
+`applyAgentProgress` still mixed actor-owned mutation with policy: it updated the thread, forced the composer into sending state, cleared the last error, and chose the top-bar status from the latest thread event. That made progress handling the only send phase without a focused value boundary.
+
+What changed:
+- Added `WorkspaceAgentSendProgressPlanner` and `WorkspaceAgentSendProgressPlan` to describe progress updates as a typed value.
+- Routed `WorkspaceModel.applyAgentProgress` through the progress plan before applying thread, composer, error, and top-bar state.
+- Added focused progress planner tests for thread identity, composer sending state, stale-error clearing, and latest-event status copy.
+- Added parity gates so `WorkspaceModel` cannot reintroduce inline progress status or composer-state policy.
+
+Current strict grades:
+- `WorkspaceAgentSendProgressPlanner.swift`: **A**. It is pure and depends only on thread/composer input plus the existing status builder.
+- `WorkspaceModel.applyAgentProgress`: **A-**. It now applies a typed plan, but still owns actor-isolated thread mutation and top-bar refresh side effects.
+- `WorkspaceAgentSendProgressPlannerTests.swift`: **A**. It covers the progress contract without duplicating the status builder’s full matrix.
+
+Remaining risk:
+- `submitComposer` still owns new-chat creation and thread context sync before the start planner. That should remain in the model until there is a clean thread-preparation boundary that can preserve actor isolation and selection behavior.
