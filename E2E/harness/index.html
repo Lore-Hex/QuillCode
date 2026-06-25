@@ -5083,7 +5083,11 @@
       });
       document.querySelectorAll('[data-testid="worktree-choice"]').forEach(button => {
         button.addEventListener('click', () => {
-          state.worktreeDialog.openPath = button.dataset.path || '';
+          if (button.dataset.target === 'remove') {
+            state.worktreeDialog.removePath = button.dataset.path || '';
+          } else {
+            state.worktreeDialog.openPath = button.dataset.path || '';
+          }
           render();
         });
       });
@@ -7378,7 +7382,8 @@
           ...state.worktreeDialog,
           mode: 'remove',
           removePath: '',
-          removeForce: false
+          removeForce: false,
+          choices: availableWorktreeChoices()
         };
         render();
         return;
@@ -7968,7 +7973,7 @@
                 <div class="dialog-choice-list" aria-label="Known worktrees">
                   <p class="eyebrow">Known worktrees</p>
                   ${state.worktreeDialog.choices.map(choice => `
-                    <button type="button" class="dialog-choice" data-testid="worktree-choice" data-path="${escapeHTML(choice.path)}">
+                    <button type="button" class="dialog-choice" data-testid="worktree-choice" data-target="open" data-path="${escapeHTML(choice.path)}">
                       <strong>${escapeHTML(choice.title)}</strong>
                       <span>${escapeHTML(choice.detail)}</span>
                       <code>${escapeHTML(choice.path)}</code>
@@ -7997,6 +8002,18 @@
               </div>
               <button type="button" data-testid="worktree-dialog-close">Close</button>
             </header>
+            ${state.worktreeDialog.choices.length ? `
+              <div class="dialog-choice-list" aria-label="Known worktrees">
+                <p class="eyebrow">Known worktrees</p>
+                ${state.worktreeDialog.choices.map(choice => `
+                  <button type="button" class="dialog-choice" data-testid="worktree-choice" data-target="remove" data-path="${escapeHTML(choice.path)}">
+                    <strong>${escapeHTML(choice.title)}</strong>
+                    <span>${escapeHTML(choice.detail)}</span>
+                    <code>${escapeHTML(choice.path)}</code>
+                  </button>
+                `).join('')}
+              </div>
+            ` : ''}
             <label>
               Worktree folder
               <input name="path" aria-label="Worktree folder" placeholder="quillcode-feature" value="${escapeHTML(state.worktreeDialog.removePath)}" autofocus>
@@ -8156,7 +8173,7 @@
         inputJSON: JSON.stringify({ path: values.path, force: values.force }, null, 2),
         outputJSON: JSON.stringify({ ok: true, stdout: '' }, null, 2)
       });
-      addMessage('assistant', `Removed worktree ${values.path}.`);
+      addMessage('assistant', `Removed worktree ${mockWorktreeName(path)}.`);
       state.worktreeDialog.mode = null;
       syncSelectedThreadSearchText();
       render();

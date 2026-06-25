@@ -276,7 +276,7 @@ public struct QuillCodeWorkspaceView: View {
             openWorktreeDraft = QuillCodeWorktreeOpenDraft(choices: onListWorktreeChoices())
             worktreeSheet = .open
         case .presentRemoveWorktree:
-            removeWorktreeDraft = QuillCodeWorktreeRemoveDraft()
+            removeWorktreeDraft = QuillCodeWorktreeRemoveDraft(choices: onListWorktreeChoices())
             worktreeSheet = .remove
         case .openBrowserSession:
             onOpenBrowserSession?()
