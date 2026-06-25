@@ -124,6 +124,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
 
     func testStaticCommandsMapToActions() {
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "new-chat"),
+            .action(.newChat)
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "toggle-terminal"),
             .action(.toggleTerminal)
         )
@@ -159,7 +163,6 @@ final class WorkspaceCommandPlanTests: XCTestCase {
 
     func testInvalidCommandsReturnNil() {
         XCTAssertNil(WorkspaceCommandPlan(commandID: "unknown-command"))
-        XCTAssertNil(WorkspaceCommandPlan(commandID: "new-chat"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "automation-pause:not-a-uuid"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "automation-create-thread-follow-up-after:soon"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "automation-create-workspace-schedule-every:yearly"))

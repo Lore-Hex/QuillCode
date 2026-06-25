@@ -5497,3 +5497,23 @@ Current strict grades:
 
 Remaining risk:
 - The production TrustedRouter adapter boundaries are now well guarded. The next quality slices should target `WorkspaceAutomationIntegrationTests.swift`, remaining broad Playwright `core.spec.ts` flows, or another focused `WorkspaceModel` workflow extraction.
+
+## 2026-06-25 New Chat Command Execution Boundary
+
+Overall grade after this slice: **A command-plan completeness, A action-executor wiring, A regression coverage**.
+
+`new-chat` was exposed through the sidebar command catalog and context warning banner, but it was explicitly invalid in `WorkspaceCommandPlan`. Native SwiftUI command handling sends most ordinary command IDs through the model command executor, so a surfaced `new-chat` button could silently no-op depending on which surface emitted it.
+
+What changed:
+- Added `WorkspaceCommandAction.newChat` so the command ID parses through the same command-plan path as other visible workspace actions.
+- Added `WorkspaceCommandActionEffect.newChat` and executor handling that calls the existing `newChat()` model path, preserving selected-project/default mode/model behavior.
+- Added focused tests for command parsing, action planning, and model execution.
+
+Current strict grades:
+- `WorkspaceCommandPlan.swift`: **A**. Static command IDs that are visible in UI now include the global new-chat action instead of requiring a special missing-command exception.
+- `WorkspaceCommandActionPlanner.swift`: **A**. Context-free workspace actions include new-chat alongside terminal/browser/activity toggles.
+- `WorkspaceCommandActionExecutor.swift`: **A**. New-chat uses the existing model lifecycle API rather than duplicating thread construction.
+- `WorkspaceCommandPlanExecutorTests.swift`: **A**. It now catches visible command IDs that parse but fail to mutate model state.
+
+Remaining risk:
+- Continue auditing command IDs emitted by native-only surfaces. Any command that appears in a `WorkspaceCommandSurface` should either have an explicit view-planner presentation route or a model command plan with an execution test.
