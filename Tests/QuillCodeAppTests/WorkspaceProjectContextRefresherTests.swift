@@ -112,12 +112,26 @@ final class WorkspaceProjectContextRefresherTests: XCTestCase {
             projects: projects,
             globalMemories: globalMemories
         )
-        XCTAssertEqual(worktreeContext.request, request)
+        XCTAssertEqual(worktreeContext.path, request.path)
+        XCTAssertEqual(worktreeContext.branch, request.branch)
         XCTAssertEqual(worktreeContext.projectID, projectID)
         XCTAssertEqual(worktreeContext.mode, .review)
         XCTAssertEqual(worktreeContext.model, TrustedRouterDefaults.synthModel)
         XCTAssertEqual(worktreeContext.instructions.map(\.title), ["Project instruction"])
         XCTAssertEqual(worktreeContext.memories.map(\.title), ["Global memory", "Project memory"])
+
+        let openContext = WorkspaceProjectContextRefresher.worktreeOpenContext(
+            request: WorkspaceWorktreeOpenRequest(path: "feature"),
+            projectID: projectID,
+            mode: .auto,
+            model: TrustedRouterDefaults.fastModel,
+            projects: projects,
+            globalMemories: globalMemories
+        )
+        XCTAssertEqual(openContext.path, "feature")
+        XCTAssertEqual(openContext.branch, "")
+        XCTAssertEqual(openContext.instructions.map(\.title), ["Project instruction"])
+        XCTAssertEqual(openContext.memories.map(\.title), ["Global memory", "Project memory"])
     }
 
     private static func project(id: UUID, instructionTitle: String, memoryTitle: String) -> ProjectRef {

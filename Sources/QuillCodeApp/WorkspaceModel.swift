@@ -946,7 +946,9 @@ public final class QuillCodeWorkspaceModel {
             workspaceRoot: workspaceRoot
         )
         if result.ok {
-            openCreatedWorktree(result, request: request)
+            openToolResultWorktree(result) { projectID in
+                worktreeOpenContext(projectID: projectID, request: request)
+            }
         }
     }
 
@@ -956,10 +958,9 @@ public final class QuillCodeWorkspaceModel {
             workspaceRoot: workspaceRoot
         )
         if result.ok {
-            openCreatedWorktree(
-                result,
-                request: WorkspaceWorktreeCreateRequest(path: request.path)
-            )
+            openToolResultWorktree(result) { projectID in
+                worktreeOpenContext(projectID: projectID, request: request)
+            }
         }
     }
 
@@ -1143,10 +1144,13 @@ public final class QuillCodeWorkspaceModel {
         }
     }
 
-    private func openCreatedWorktree(_ result: ToolResult, request: WorkspaceWorktreeCreateRequest) {
+    private func openToolResultWorktree(
+        _ result: ToolResult,
+        context: (UUID) -> WorkspaceWorktreeOpenContext
+    ) {
         guard let artifact = result.artifacts.first else { return }
         if selectedProject?.isRemote == true {
-            openCreatedRemoteWorktree(artifact, request: request)
+            openToolResultRemoteWorktree(artifact, context: context)
             return
         }
         let worktreeURL = URL(fileURLWithPath: artifact).standardizedFileURL
@@ -1157,12 +1161,15 @@ public final class QuillCodeWorkspaceModel {
 
         let opened = WorkspaceWorktreeOpenEngine.localThread(
             worktreeURL: worktreeURL,
-            context: worktreeOpenContext(projectID: projectID, request: request)
+            context: context(projectID)
         )
         openCreatedWorktreeThread(opened.thread, projectID: projectID)
     }
 
-    private func openCreatedRemoteWorktree(_ artifact: String, request: WorkspaceWorktreeCreateRequest) {
+    private func openToolResultRemoteWorktree(
+        _ artifact: String,
+        context: (UUID) -> WorkspaceWorktreeOpenContext
+    ) {
         guard let connection = ProjectConnection.parseSSH(artifact),
               let projectID = addSSHProject(artifact, name: Self.defaultSSHProjectName(for: connection)) else {
             return
@@ -1170,7 +1177,7 @@ public final class QuillCodeWorkspaceModel {
 
         let opened = WorkspaceWorktreeOpenEngine.remoteThread(
             connection: connection,
-            context: worktreeOpenContext(projectID: projectID, request: request)
+            context: context(projectID)
         )
         openCreatedWorktreeThread(opened.thread, projectID: projectID)
     }
@@ -1178,6 +1185,20 @@ public final class QuillCodeWorkspaceModel {
     private func worktreeOpenContext(
         projectID: UUID,
         request: WorkspaceWorktreeCreateRequest
+    ) -> WorkspaceWorktreeOpenContext {
+        WorkspaceProjectContextRefresher.worktreeOpenContext(
+            request: request,
+            projectID: projectID,
+            mode: root.config.mode,
+            model: root.config.defaultModel,
+            projects: root.projects,
+            globalMemories: root.globalMemories
+        )
+    }
+
+    private func worktreeOpenContext(
+        projectID: UUID,
+        request: WorkspaceWorktreeOpenRequest
     ) -> WorkspaceWorktreeOpenContext {
         WorkspaceProjectContextRefresher.worktreeOpenContext(
             request: request,
