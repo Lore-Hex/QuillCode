@@ -4,6 +4,7 @@ import QuillCodeCore
 struct WorkspaceMemoryMutation: Sendable, Equatable {
     let transcript: WorkspaceLocalCommandTranscript
     let updatedGlobalMemories: [MemoryNote]?
+    let updatedProjectMemories: [MemoryNote]?
     let noticeSummary: String?
     let noticeRelativePath: String?
 
@@ -40,6 +41,7 @@ enum WorkspaceMemoryEngine {
                     noteTitle: note.title
                 ),
                 updatedGlobalMemories: loadGlobal(from: directory),
+                updatedProjectMemories: nil,
                 noticeSummary: WorkspaceMemoryCommandTranscriptPlanner.memorySavedSummary(noteTitle: note.title),
                 noticeRelativePath: note.relativePath
             )
@@ -68,6 +70,7 @@ enum WorkspaceMemoryEngine {
                     noteTitle: note.title
                 ),
                 updatedGlobalMemories: loadGlobal(from: directory),
+                updatedProjectMemories: nil,
                 noticeSummary: WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary(noteTitle: note.title),
                 noticeRelativePath: note.relativePath
             )
@@ -88,7 +91,8 @@ enum WorkspaceMemoryEngine {
             return memoryNotUpdated(
                 userText: userText,
                 error: MemoryNoteUpdateError.updateFailed,
-                updatedGlobalMemories: nil
+                updatedGlobalMemories: nil,
+                updatedProjectMemories: nil
             )
         }
 
@@ -100,6 +104,7 @@ enum WorkspaceMemoryEngine {
                     noteTitle: note.title
                 ),
                 updatedGlobalMemories: loadGlobal(from: directory),
+                updatedProjectMemories: nil,
                 noticeSummary: WorkspaceMemoryCommandTranscriptPlanner.memoryUpdatedSummary(noteTitle: note.title),
                 noticeRelativePath: note.relativePath
             )
@@ -107,7 +112,45 @@ enum WorkspaceMemoryEngine {
             return memoryNotUpdated(
                 userText: userText,
                 error: error,
-                updatedGlobalMemories: loadGlobal(from: directory)
+                updatedGlobalMemories: loadGlobal(from: directory),
+                updatedProjectMemories: nil
+            )
+        }
+    }
+
+    static func updateProject(
+        id: String,
+        content: String,
+        userText: String,
+        projectRoot: URL?
+    ) -> WorkspaceMemoryMutation {
+        guard let projectRoot else {
+            return memoryNotUpdated(
+                userText: userText,
+                error: MemoryNoteUpdateError.updateFailed,
+                updatedGlobalMemories: nil,
+                updatedProjectMemories: nil
+            )
+        }
+
+        do {
+            let note = try MemoryNoteLoader.updateProject(id: id, content: content, in: projectRoot)
+            return WorkspaceMemoryMutation(
+                transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryUpdated(
+                    userText: userText,
+                    noteTitle: note.title
+                ),
+                updatedGlobalMemories: nil,
+                updatedProjectMemories: MemoryNoteLoader.loadProject(from: projectRoot),
+                noticeSummary: WorkspaceMemoryCommandTranscriptPlanner.memoryUpdatedSummary(noteTitle: note.title),
+                noticeRelativePath: note.relativePath
+            )
+        } catch {
+            return memoryNotUpdated(
+                userText: userText,
+                error: error,
+                updatedGlobalMemories: nil,
+                updatedProjectMemories: MemoryNoteLoader.loadProject(from: projectRoot)
             )
         }
     }
@@ -117,7 +160,7 @@ enum WorkspaceMemoryEngine {
         summary: String,
         relativePath: String
     ) -> WorkspaceMemoryContextUpdate {
-        WorkspaceMemoryContextUpdatePlanner.globalMemoryChanged(
+        WorkspaceMemoryContextUpdatePlanner.memoryChanged(
             memories: memories,
             summary: summary,
             relativePath: relativePath
@@ -135,6 +178,7 @@ enum WorkspaceMemoryEngine {
                 message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
             ),
             updatedGlobalMemories: updatedGlobalMemories,
+            updatedProjectMemories: nil,
             noticeSummary: nil,
             noticeRelativePath: nil
         )
@@ -150,6 +194,7 @@ enum WorkspaceMemoryEngine {
                 message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
             ),
             updatedGlobalMemories: updatedGlobalMemories,
+            updatedProjectMemories: nil,
             noticeSummary: nil,
             noticeRelativePath: nil
         )
@@ -158,7 +203,8 @@ enum WorkspaceMemoryEngine {
     private static func memoryNotUpdated(
         userText: String,
         error: any Error,
-        updatedGlobalMemories: [MemoryNote]?
+        updatedGlobalMemories: [MemoryNote]?,
+        updatedProjectMemories: [MemoryNote]?
     ) -> WorkspaceMemoryMutation {
         WorkspaceMemoryMutation(
             transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryNotUpdated(
@@ -166,6 +212,7 @@ enum WorkspaceMemoryEngine {
                 message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
             ),
             updatedGlobalMemories: updatedGlobalMemories,
+            updatedProjectMemories: updatedProjectMemories,
             noticeSummary: nil,
             noticeRelativePath: nil
         )

@@ -38,8 +38,8 @@ final class WorkspaceMemoryIntegrationTests: XCTestCase {
         XCTAssertEqual(memories.items.map { $0.scope }, [MemoryScope.global, .project])
         XCTAssertEqual(memories.items.first?.canEdit, true)
         XCTAssertNotNil(memories.items.first?.editCommandID)
-        XCTAssertEqual(memories.items.last?.canEdit, false)
-        XCTAssertNil(memories.items.last?.editCommandID)
+        XCTAssertEqual(memories.items.last?.canEdit, true)
+        XCTAssertEqual(memories.items.last?.editCommandID, "memory-edit:project:.quillcode/memories/project.md")
         XCTAssertEqual(memories.items.first?.canDelete, true)
         XCTAssertNotNil(memories.items.first?.deleteCommandID)
         XCTAssertEqual(memories.items.last?.canDelete, false)
@@ -89,6 +89,34 @@ final class WorkspaceMemoryIntegrationTests: XCTestCase {
         XCTAssertEqual(surface.memories.items.first?.title, "Preferences")
         XCTAssertEqual(surface.topBar.memoryLabel, "2 memories")
         XCTAssertEqual(surface.commands.first { $0.id == "toggle-memories" }?.category, WorkspaceCommandPalette.memoriesCategory)
+    }
+
+    func testRemoteProjectMemoryDoesNotExposeLocalEditAction() {
+        let project = ProjectRef(
+            name: "Remote QuillCode",
+            path: "/srv/QuillCode",
+            connection: .ssh(path: "/srv/QuillCode", host: "example.com", user: "quill"),
+            memories: [
+                MemoryNote(
+                    id: "project:.quillcode/memories/project.md",
+                    scope: .project,
+                    title: "Project",
+                    content: "Remote memory should not be edited through local file APIs.",
+                    relativePath: ".quillcode/memories/project.md",
+                    byteCount: 60
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            memories: MemoriesState(isVisible: true)
+        )
+
+        let projectMemory = model.surface().memories.items.first
+
+        XCTAssertEqual(projectMemory?.scope, .project)
+        XCTAssertEqual(projectMemory?.canEdit, false)
+        XCTAssertNil(projectMemory?.editCommandID)
     }
 
     func testSlashRememberWritesGlobalMemoryAndRefreshesThreadSurface() async throws {
@@ -155,6 +183,47 @@ final class WorkspaceMemoryIntegrationTests: XCTestCase {
             try String(contentsOf: globalMemories.appendingPathComponent("preferences.md"), encoding: .utf8),
             "Prefer small reviewable commits\n"
         )
+    }
+
+    func testMemoryEditWorkspaceCommandPrefillsAndSlashUpdateRewritesProjectMemory() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let globalMemories = try makeQuillCodeTestDirectory()
+        let projectMemoryDirectory = root.appendingPathComponent(".quillcode/memories")
+        try FileManager.default.createDirectory(at: projectMemoryDirectory, withIntermediateDirectories: true)
+        try "Use SwiftUI.\n".write(
+            to: projectMemoryDirectory.appendingPathComponent("project.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let model = QuillCodeWorkspaceModel(globalMemoryDirectory: globalMemories)
+        let projectID = model.addProject(path: root, name: "Project Memory Edit")
+        _ = model.newChat(projectID: projectID)
+        let memory = try XCTUnwrap(model.root.projects.first?.memories.first)
+
+        XCTAssertTrue(model.runWorkspaceCommand("memory-edit:\(memory.id)", workspaceRoot: root))
+        XCTAssertEqual(model.composer.draft, "/remember-edit \(memory.id)\nUse SwiftUI.")
+
+        model.setDraft("/remember-edit \(memory.id)\nUse SwiftUI and keep UI state deterministic.")
+        await model.submitComposer(workspaceRoot: root)
+
+        let updated = try XCTUnwrap(model.root.projects.first?.memories.first)
+        XCTAssertEqual(updated.id, memory.id)
+        XCTAssertEqual(updated.content, "Use SwiftUI and keep UI state deterministic.")
+        XCTAssertEqual(model.selectedThread?.title, "Updated memory: \(updated.title)")
+        XCTAssertEqual(
+            model.selectedThread?.memories.map(\.content),
+            ["Use SwiftUI and keep UI state deterministic."]
+        )
+        XCTAssertEqual(model.selectedThread?.events.last?.summary, "Updated memory: \(updated.title)")
+        XCTAssertEqual(model.selectedThread?.events.last?.payloadJSON, updated.relativePath)
+        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("Updated memory: \(updated.title)") == true)
+        XCTAssertEqual(
+            try String(contentsOf: projectMemoryDirectory.appendingPathComponent("project.md"), encoding: .utf8),
+            "Use SwiftUI and keep UI state deterministic.\n"
+        )
+        XCTAssertEqual(model.surface().topBar.memoryLabel, "1 memory")
+        XCTAssertEqual(model.surface().memories.items.first?.editCommandID, "memory-edit:\(memory.id)")
     }
 
     func testAgentRememberToolWritesGlobalMemoryAndRefreshesThreadSurface() async throws {

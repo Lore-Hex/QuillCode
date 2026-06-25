@@ -95,6 +95,7 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="memories-pane""#))
         XCTAssertTrue(html.contains(#"data-testid="memory-item""#))
         XCTAssertTrue(html.contains(#"data-testid="memory-edit" data-command-id="memory-edit:global:memories/preferences.md">Edit"#))
+        XCTAssertTrue(html.contains(#"data-testid="memory-edit" data-command-id="memory-edit:project:.quillcode/memories/project.md">Edit"#))
         XCTAssertTrue(html.contains(#"data-testid="memory-delete" data-command-id="memory-delete:global:memories/preferences.md">Forget"#))
         XCTAssertTrue(html.contains("Project"))
         XCTAssertTrue(html.contains(".quillcode/memories/project.md"))

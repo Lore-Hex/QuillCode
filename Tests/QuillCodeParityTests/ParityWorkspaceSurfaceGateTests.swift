@@ -12,7 +12,7 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(secondaryText.contains("public struct WorkspaceMemoriesSurface"), "Memories surface should live beside secondary-pane contracts.")
         XCTAssertTrue(secondaryText.contains("public struct WorkspaceAutomationsSurface"), "Automations surface should live beside secondary-pane contracts.")
         XCTAssertTrue(secondaryText.contains("ProjectExtensionManifestSurface("), "Extensions surface should still delegate row projection to extension manifest rows.")
-        XCTAssertTrue(secondaryText.contains("MemoryNoteSurface.init"), "Memories surface should still delegate row projection to memory note rows.")
+        XCTAssertTrue(secondaryText.contains("MemoryNoteSurface(note:"), "Memories surface should still delegate row projection to memory note rows.")
         XCTAssertTrue(secondaryText.contains("AutomationWorkflowSurface.init"), "Automations surface should still delegate configured workflow row projection.")
         XCTAssertTrue(extensionRowText.contains("public struct ProjectExtensionManifestSurface"), "Extension manifest rows should live in a focused surface row file.")
         XCTAssertTrue(extensionRowText.contains("MCPToolDescriptor"), "MCP probe display compatibility should stay with extension surface rows.")

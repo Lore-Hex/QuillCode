@@ -6,7 +6,7 @@ struct WorkspaceMemoryContextUpdate: Sendable, Hashable {
 }
 
 struct WorkspaceMemoryContextUpdatePlanner {
-    static func globalMemoryChanged(
+    static func memoryChanged(
         memories: [MemoryNote],
         summary: String,
         relativePath: String
@@ -19,5 +19,13 @@ struct WorkspaceMemoryContextUpdatePlanner {
                 payloadJSON: relativePath
             )
         )
+    }
+
+    static func globalMemoryChanged(
+        memories: [MemoryNote],
+        summary: String,
+        relativePath: String
+    ) -> WorkspaceMemoryContextUpdate {
+        memoryChanged(memories: memories, summary: summary, relativePath: relativePath)
     }
 }

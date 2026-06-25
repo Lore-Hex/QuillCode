@@ -14,7 +14,7 @@ extension QuillCodeWorkspaceModel {
         case .localEnvironmentAction(let actionID):
             return runLocalEnvironmentAction(actionID, workspaceRoot: workspaceRoot)
         case .editMemory(let id):
-            return prepareEditGlobalMemory(id: id)
+            return prepareEditMemory(id: id)
         case .deleteMemory(let id):
             return deleteGlobalMemory(id: id)
         case .updateAutomationStatus(let id, let status):
