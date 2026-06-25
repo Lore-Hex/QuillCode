@@ -4909,3 +4909,21 @@ Current strict grades:
 
 Remaining risk:
 - Continue extracting the remaining implementation-boundary clusters: sidebar, MCP support/runtime, automation state/surface, and final workspace surface contracts.
+
+## 2026-06-24 Workspace Sidebar Gate Split
+
+Overall grade after this slice: **A sidebar-boundary ownership, A merge-risk reduction, B+ catch-all size**.
+
+After the integration split, sidebar concerns still lived in two different regions of the broad parity suite: model selection mutations and native/HTML row rendering near the middle, then sidebar surface/navigation contracts later. That made sidebar regressions harder to discover and increased conflict pressure for agents working on navigation UI.
+
+What changed:
+- Added `ParityWorkspaceSidebarGateTests` for sidebar selection, row actions, command presentation, project-list rendering, sidebar surface contracts, and navigation surface assembly.
+- Moved the sidebar/navigation gates out of `ParityGateTests.swift`.
+- Registered the new focused suite in the meta-gate so sidebar ownership checks stay together.
+
+Current strict grades:
+- `ParityWorkspaceSidebarGateTests.swift`: **A**. It has a cohesive UI/navigation boundary and covers both native and HTML sidebar surfaces.
+- `ParityGateTests.swift`: **B+**. It is now under 800 lines and more clearly a global architecture registry, but still owns MCP implementation, automation state/surface, and final workspace-surface contracts.
+
+Remaining risk:
+- Split the remaining broad suite by feature family: MCP implementation gates, automation gates, and final workspace surface/view gates.
