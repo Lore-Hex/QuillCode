@@ -1,7 +1,37 @@
 import { expect, type Page } from '@playwright/test';
 
+export type ElementRect = {
+  height: number;
+  left: number;
+  right: number;
+  top: number;
+  width: number;
+};
+
 export function harnessURL(): string {
   return 'file://' + process.cwd() + '/../harness/index.html';
+}
+
+export async function computedStyleProperties(page: Page, selector: string, properties: string[]) {
+  return page.locator(selector).first().evaluate((element, styleProperties) => {
+    const style = getComputedStyle(element);
+    return Object.fromEntries(
+      styleProperties.map(property => [property, style.getPropertyValue(property)])
+    );
+  }, properties);
+}
+
+export async function elementRect(page: Page, selector: string): Promise<ElementRect> {
+  return page.locator(selector).first().evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    return {
+      height: rect.height,
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      width: rect.width
+    };
+  });
 }
 
 export async function openSidebarTools(page: Page) {

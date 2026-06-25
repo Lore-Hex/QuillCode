@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clickSidebarTool, harnessURL } from './harness-helpers';
+import { clickSidebarTool, computedStyleProperties, harnessURL } from './harness-helpers';
 
 test('mock harness surfaces file artifacts from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
@@ -76,17 +76,22 @@ test('mock harness renders image artifact previews from tool cards', async ({ pa
   await expect(page.getByTestId('tool-card-image-preview-label')).toHaveText('screenshot.png');
   await expect(page.getByTestId('tool-card-image-preview-detail')).toHaveText('/mock/QuillCode/screenshots');
   await expect(page.getByTestId('tool-card-image-preview').locator('img')).toHaveAttribute('src', 'file:///mock/QuillCode/screenshots/screenshot.png');
-  const imageSurface = await page.getByTestId('tool-card-image-preview').evaluate((element) => {
-    const cardStyle = getComputedStyle(element);
-    const imageStyle = getComputedStyle(element.querySelector('img')!);
-    return {
-      cardRadius: cardStyle.borderRadius,
-      imageRadius: imageStyle.borderRadius,
-      imageOutlineColor: imageStyle.outlineColor,
-      imageOutlineWidth: imageStyle.outlineWidth,
-      imageOutlineOffset: imageStyle.outlineOffset
-    };
-  });
+  const [imageCardStyle, imageStyle] = await Promise.all([
+    computedStyleProperties(page, '[data-testid="tool-card-image-preview"]', ['border-radius']),
+    computedStyleProperties(page, '[data-testid="tool-card-image-preview"] img', [
+      'border-radius',
+      'outline-color',
+      'outline-width',
+      'outline-offset'
+    ])
+  ]);
+  const imageSurface = {
+    cardRadius: imageCardStyle['border-radius'],
+    imageRadius: imageStyle['border-radius'],
+    imageOutlineColor: imageStyle['outline-color'],
+    imageOutlineWidth: imageStyle['outline-width'],
+    imageOutlineOffset: imageStyle['outline-offset']
+  };
   expect(imageSurface.cardRadius).toBe('18px');
   expect(imageSurface.imageRadius).toBe('10px');
   expect(imageSurface.imageOutlineColor).toBe('rgba(255, 255, 255, 0.1)');
@@ -110,16 +115,20 @@ test('mock harness renders document artifact previews from tool cards', async ({
   await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('briefing.pdf');
   await expect(page.getByTestId('tool-card-document-preview-detail')).toHaveText('/mock/QuillCode/reports');
   await expect(page.getByTestId('tool-card-document-preview-open')).toHaveAttribute('href', 'file:///mock/QuillCode/reports/briefing.pdf');
-  const documentSurface = await page.getByTestId('tool-card-document-preview').evaluate((element) => {
-    const cardStyle = getComputedStyle(element);
-    const iconStyle = getComputedStyle(element.querySelector('.artifact-document-icon')!);
-    return {
-      cardRadius: cardStyle.borderRadius,
-      cardMinHeight: cardStyle.minHeight,
-      iconRadius: iconStyle.borderRadius,
-      transitionProperty: cardStyle.transitionProperty
-    };
-  });
+  const [documentCardStyle, documentIconStyle] = await Promise.all([
+    computedStyleProperties(page, '[data-testid="tool-card-document-preview"]', [
+      'border-radius',
+      'min-height',
+      'transition-property'
+    ]),
+    computedStyleProperties(page, '[data-testid="tool-card-document-preview"] .artifact-document-icon', ['border-radius'])
+  ]);
+  const documentSurface = {
+    cardRadius: documentCardStyle['border-radius'],
+    cardMinHeight: documentCardStyle['min-height'],
+    iconRadius: documentIconStyle['border-radius'],
+    transitionProperty: documentCardStyle['transition-property']
+  };
   expect(documentSurface.cardRadius).toBe('18px');
   expect(documentSurface.cardMinHeight).toBe('74px');
   expect(documentSurface.iconRadius).toBe('10px');
