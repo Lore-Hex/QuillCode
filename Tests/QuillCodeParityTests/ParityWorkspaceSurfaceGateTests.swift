@@ -293,6 +293,8 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         )
         let chromeFlowNames = [
             "opens utilities from the top-bar overflow",
+            "opens Computer Use setup from the top-bar overflow",
+            "disconnects remote project connections from the top-bar overflow",
             "avoids horizontal clipping in key desktop and mobile flows",
             "applies interface polish primitives",
             "keeps quiet top bar stable under long status metadata"

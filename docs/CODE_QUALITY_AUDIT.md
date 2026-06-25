@@ -5756,3 +5756,21 @@ Current strict grades:
 
 Remaining risk:
 - `WorkspaceModel.submitComposer` remains a high-value extraction target. The next architectural slice should separate runner context creation and result persistence from the UI-facing send orchestration.
+
+## 2026-06-25 Workspace Chrome Action Coverage
+
+Overall grade after this slice: **A workspace chrome action coverage, A focused parity guard, A harness behavior confidence**.
+
+The chrome spec already checked that top-bar utility buttons existed and that a few panels opened, but two user-critical actions were under-covered: Computer Use setup from the top-bar overflow and Disconnect All for remote project sessions. Both are the kind of "button looks present but does nothing useful" regression users feel immediately.
+
+What changed:
+- Added a top-bar overflow Computer Use setup flow that verifies the Settings sheet opens directly to the Computer Use card and routes the Screen Recording permission action.
+- Added a top-bar Disconnect All flow that creates an SSH Remote project through the public `/ssh` path, invokes Disconnect All from the overflow menu, verifies the workspace detaches to `No project`, and verifies the command hides when there is nothing left to disconnect.
+- Expanded the workspace chrome parity gate so these action semantics stay in `workspace-chrome.spec.ts`.
+
+Current strict grades:
+- `E2E/playwright/tests/workspace-chrome.spec.ts`: **A**. The file now owns both visual chrome stability and the critical top-bar action semantics users touch first.
+- `ParityWorkspaceSurfaceGateTests.swift`: **A**. It guards focused ownership without tying the test to implementation details.
+
+Remaining risk:
+- Native packaged smoke should eventually drive the macOS menu-bar widget and SwiftUI top-bar directly; the current coverage proves the shared HTML harness contract.
