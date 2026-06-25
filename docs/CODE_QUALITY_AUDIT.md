@@ -4963,3 +4963,21 @@ Current strict grades:
 
 Remaining risk:
 - Continue draining `ParityGateTests.swift` by feature family. Good next splits: runtime/review surface gates, command/settings surface gates, and agent/TrustedRouter implementation gates.
+
+## 2026-06-24 Runtime And Review Parity Gate Split
+
+Overall grade after this slice: **A runtime/review boundary ownership, A drift protection, B+ catch-all size**.
+
+Runtime issue presentation and review-pane rendering were still mixed into the global parity file even though they are user-facing workspace surfaces with focused implementation files. Keeping those checks together makes it clearer that review panes, runtime issue classification, execution-context contracts, and recovery actions are owned outside the root workspace shell/surface.
+
+What changed:
+- Added `ParityRuntimeReviewGateTests` for review-pane file/hunk/line rendering, runtime issue building, runtime/execution contracts, and runtime recovery planning.
+- Registered the runtime/review suite in the parity drift guard.
+- Reduced `ParityGateTests.swift` again without changing product behavior.
+
+Current strict grades:
+- `ParityRuntimeReviewGateTests.swift`: **A**. It keeps adjacent user-facing runtime/review boundaries together and verifies both native view and surface contracts.
+- `ParityGateTests.swift`: **B+**. Smaller, but still owns transcript/sheets/settings, command surface/palette, and agent/TrustedRouter implementation gates.
+
+Remaining risk:
+- Continue draining `ParityGateTests.swift` by feature family. Good next splits: command/settings surface gates, transcript/sheets gates, and agent/TrustedRouter implementation gates.
