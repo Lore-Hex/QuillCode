@@ -113,6 +113,23 @@ final class ParityTopBarGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(surfaceText.contains("filteredModelCategories"), "WorkspaceSurface should not own model picker filtering.")
     }
 
+    func testNativeModelPickerKeepsRowsAndDetailsFocused() throws {
+        let pickerText = try Self.appSourceText(named: "QuillCodeModelPickerView.swift")
+        let rowText = try Self.appSourceText(named: "QuillCodeModelPickerRows.swift")
+
+        XCTAssertTrue(pickerText.contains("struct QuillCodeModelPickerView"), "Model picker trigger and popover shell should live in the picker view.")
+        XCTAssertTrue(pickerText.contains("@State private var searchText"), "Model picker search state should stay with the popover shell.")
+        XCTAssertTrue(pickerText.contains("ensureHighlightedModel"), "Keyboard highlight behavior should stay with the popover shell.")
+        XCTAssertTrue(rowText.contains("struct QuillCodeModelCategorySection"), "Model picker category rows should live in a focused row file.")
+        XCTAssertTrue(rowText.contains("struct QuillCodeModelRow"), "Model picker option rows should live in a focused row file.")
+        XCTAssertTrue(rowText.contains("struct QuillCodeModelDetails"), "Model picker details should live in a focused row file.")
+        XCTAssertTrue(rowText.contains("QuillCodePressableButtonStyle"), "Model picker row actions should keep shared 0.96 press feedback.")
+        XCTAssertTrue(rowText.contains("QuillCodeMetrics.minimumHitTarget"), "Model picker row actions should keep minimum hit targets.")
+        XCTAssertFalse(pickerText.contains("struct QuillCodeModelRow"), "Model picker shell should not own option-row rendering.")
+        XCTAssertFalse(pickerText.contains("struct QuillCodeModelDetails"), "Model picker shell should not own model details rendering.")
+        XCTAssertFalse(pickerText.contains("badgeForeground"), "Model picker shell should not own model badge tone policy.")
+    }
+
     func testWorkspaceSurfaceDelegatesTopBarSurfaceBuilding() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceTopBarSurfaceBuilder.swift")
