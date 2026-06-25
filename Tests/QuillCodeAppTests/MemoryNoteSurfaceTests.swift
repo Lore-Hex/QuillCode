@@ -49,4 +49,22 @@ final class MemoryNoteSurfaceTests: XCTestCase {
         XCTAssertFalse(surface.canDelete)
         XCTAssertNil(surface.deleteCommandID)
     }
+
+    func testProjectMemoryCanExposeEditActionWhenLocalProjectOwnsIt() {
+        let note = MemoryNote(
+            id: "project:.quillcode/memories/repo.md",
+            scope: .project,
+            title: "Repo note",
+            content: "Use SwiftPM.",
+            relativePath: ".quillcode/memories/repo.md",
+            byteCount: 12
+        )
+
+        let surface = MemoryNoteSurface(note: note, canEditProjectMemory: true)
+
+        XCTAssertTrue(surface.canEdit)
+        XCTAssertEqual(surface.editCommandID, "memory-edit:project:.quillcode/memories/repo.md")
+        XCTAssertFalse(surface.canDelete)
+        XCTAssertNil(surface.deleteCommandID)
+    }
 }

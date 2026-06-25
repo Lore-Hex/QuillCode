@@ -94,12 +94,7 @@ public enum MemoryNoteLoader {
         maxTotalBytes: Int = maxTotalBytes
     ) -> [MemoryNote] {
         let root = projectRoot.standardizedFileURL.resolvingSymlinksInPath()
-        guard !relativeDirectory.contains("..") else { return [] }
-        let directory = root
-            .appendingPathComponent(relativeDirectory)
-            .standardizedFileURL
-            .resolvingSymlinksInPath()
-        guard directory.path.hasPrefix(root.path + "/") else { return [] }
+        guard let directory = projectMemoryDirectory(in: root, relativeDirectory: relativeDirectory) else { return [] }
         return load(
             root: root,
             directory: directory,
@@ -164,6 +159,39 @@ public enum MemoryNoteLoader {
             fileURL: fileURL,
             scope: .global,
             displayPrefix: "memories",
+            maxBytes: maxBytes
+        ) else {
+            throw MemoryNoteUpdateError.updateFailed
+        }
+        return updated
+    }
+
+    public static func updateProject(
+        id: String,
+        content rawContent: String,
+        in projectRoot: URL,
+        relativeDirectory: String = projectRelativeDirectory,
+        maxBytes: Int = maxFileBytes
+    ) throws -> MemoryNote {
+        let root = projectRoot.standardizedFileURL.resolvingSymlinksInPath()
+        guard let directory = projectMemoryDirectory(in: root, relativeDirectory: relativeDirectory),
+              let existing = loadProject(from: root, relativeDirectory: relativeDirectory).first(where: { $0.id == id && $0.scope == .project }),
+              let fileURL = projectMemoryFileURL(for: existing, root: root, directory: directory, relativeDirectory: relativeDirectory)
+        else {
+            throw MemoryNoteUpdateError.notFound
+        }
+
+        let content = try validatedUpdateContent(rawContent, maxBytes: maxBytes)
+        do {
+            try content.appending("\n").write(to: fileURL, atomically: true, encoding: .utf8)
+        } catch {
+            throw MemoryNoteUpdateError.updateFailed
+        }
+        guard let updated = loadFile(
+            root: root,
+            fileURL: fileURL,
+            scope: .project,
+            displayPrefix: relativeDirectory,
             maxBytes: maxBytes
         ) else {
             throw MemoryNoteUpdateError.updateFailed
@@ -272,6 +300,44 @@ public enum MemoryNoteLoader {
             .standardizedFileURL
             .resolvingSymlinksInPath()
         guard fileURL.deletingLastPathComponent().path == root.path else {
+            return nil
+        }
+        return fileURL
+    }
+
+    private static func projectMemoryDirectory(in root: URL, relativeDirectory: String) -> URL? {
+        guard !relativeDirectory.contains("..") else { return nil }
+        let directory = root
+            .appendingPathComponent(relativeDirectory)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        guard directory.path.hasPrefix(root.path + "/") else { return nil }
+        return directory
+    }
+
+    private static func projectMemoryFileURL(
+        for note: MemoryNote,
+        root: URL,
+        directory: URL,
+        relativeDirectory: String
+    ) -> URL? {
+        let prefix = "\(relativeDirectory)/"
+        guard note.scope == .project,
+              note.relativePath.hasPrefix(prefix)
+        else {
+            return nil
+        }
+        let filename = String(note.relativePath.dropFirst(prefix.count))
+        guard !filename.isEmpty, !filename.contains("/") else {
+            return nil
+        }
+        let fileURL = directory
+            .appendingPathComponent(filename)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        guard fileURL.deletingLastPathComponent().path == directory.path,
+              fileURL.path.hasPrefix(root.path + "/")
+        else {
             return nil
         }
         return fileURL

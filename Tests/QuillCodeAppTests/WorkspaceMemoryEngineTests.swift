@@ -78,6 +78,38 @@ final class WorkspaceMemoryEngineTests: XCTestCase {
         )
     }
 
+    func testUpdateProjectRewritesExistingMemoryAndReturnsNotice() throws {
+        let projectRoot = try makeQuillCodeTestDirectory()
+        let memoryDirectory = projectRoot.appendingPathComponent(".quillcode/memories")
+        try FileManager.default.createDirectory(at: memoryDirectory, withIntermediateDirectories: true)
+        try "Use SwiftUI.\n".write(
+            to: memoryDirectory.appendingPathComponent("project.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let note = try XCTUnwrap(MemoryNoteLoader.loadProject(from: projectRoot).first)
+
+        let mutation = WorkspaceMemoryEngine.updateProject(
+            id: note.id,
+            content: "Use SwiftUI and keep UI state deterministic.",
+            userText: "/remember-edit \(note.id)\nUse SwiftUI and keep UI state deterministic.",
+            projectRoot: projectRoot
+        )
+
+        let updated = try XCTUnwrap(mutation.updatedProjectMemories?.first)
+        XCTAssertNil(mutation.updatedGlobalMemories)
+        XCTAssertEqual(updated.id, note.id)
+        XCTAssertEqual(updated.content, "Use SwiftUI and keep UI state deterministic.")
+        XCTAssertEqual(mutation.transcript.title, "Updated memory: \(updated.title)")
+        XCTAssertEqual(mutation.noticeSummary, "Updated memory: \(updated.title)")
+        XCTAssertEqual(mutation.noticeRelativePath, updated.relativePath)
+        XCTAssertTrue(mutation.changedContext)
+        XCTAssertEqual(
+            try String(contentsOf: memoryDirectory.appendingPathComponent("project.md"), encoding: .utf8),
+            "Use SwiftUI and keep UI state deterministic.\n"
+        )
+    }
+
     func testUpdateUnknownGlobalReturnsFailureWithoutContextChange() throws {
         let directory = try makeQuillCodeTestDirectory()
         _ = try MemoryNoteLoader.saveGlobal(content: "Prefer concise answers", to: directory)

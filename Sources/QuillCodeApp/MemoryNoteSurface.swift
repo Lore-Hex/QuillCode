@@ -14,7 +14,7 @@ public struct MemoryNoteSurface: Codable, Sendable, Hashable, Identifiable {
     public var canDelete: Bool
     public var deleteCommandID: String?
 
-    public init(note: MemoryNote) {
+    public init(note: MemoryNote, canEditProjectMemory: Bool = false) {
         self.id = note.id
         self.scope = note.scope
         self.scopeLabel = note.scope.title
@@ -24,8 +24,9 @@ public struct MemoryNoteSurface: Codable, Sendable, Hashable, Identifiable {
         self.byteCountLabel = note.wasTruncated
             ? "\(note.byteCount) bytes, truncated"
             : "\(note.byteCount) bytes"
-        self.canEdit = note.scope == .global
-        self.editCommandID = note.scope == .global ? "memory-edit:\(note.id)" : nil
+        let canEdit = note.scope == .global || (note.scope == .project && canEditProjectMemory)
+        self.canEdit = canEdit
+        self.editCommandID = canEdit ? "memory-edit:\(note.id)" : nil
         self.canDelete = note.scope == .global
         self.deleteCommandID = note.scope == .global ? "memory-delete:\(note.id)" : nil
     }

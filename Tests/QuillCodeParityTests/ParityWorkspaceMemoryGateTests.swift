@@ -12,12 +12,13 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(engineText.contains("enum WorkspaceMemoryEngine"), "Memory command orchestration should live in a focused engine.")
         XCTAssertTrue(engineText.contains("struct WorkspaceMemoryMutation"), "Memory command outcomes should use a typed mutation value.")
         XCTAssertTrue(memoryModelText.contains("func runRememberSlashCommand"), "Memory slash-command execution should live in the focused WorkspaceModelMemory extension.")
-        XCTAssertTrue(memoryModelText.contains("func prepareEditGlobalMemory"), "Memory edit preparation should live in the focused WorkspaceModelMemory extension.")
+        XCTAssertTrue(memoryModelText.contains("func prepareEditMemory"), "Memory edit preparation should live in the focused WorkspaceModelMemory extension.")
         XCTAssertTrue(memoryModelText.contains("func runEditMemorySlashCommand"), "Memory edit slash-command execution should live in the focused WorkspaceModelMemory extension.")
         XCTAssertTrue(memoryModelText.contains("func deleteGlobalMemory"), "Memory deletion execution should live in the focused WorkspaceModelMemory extension.")
         XCTAssertTrue(memoryModelText.contains("func refreshThreadMemoryContext"), "Thread memory refresh should live in the focused WorkspaceModelMemory extension.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.saveGlobal"), "WorkspaceModelMemory should delegate global memory saves.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.updateGlobal"), "WorkspaceModelMemory should delegate global memory updates.")
+        XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.updateProject"), "WorkspaceModelMemory should delegate project memory updates.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.deleteGlobal"), "WorkspaceModelMemory should delegate global memory deletion.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceProjectContextRefresher.globalMemories"), "WorkspaceModelMemory should delegate global memory reloads through the project context refresher.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.contextUpdate"), "WorkspaceModelMemory should delegate memory context update construction.")
@@ -40,7 +41,7 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
             "WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary",
             "WorkspaceMemoryErrorMessageBuilder.userFacingMessage",
-            "WorkspaceMemoryContextUpdatePlanner.globalMemoryChanged"
+            "WorkspaceMemoryContextUpdatePlanner.memoryChanged"
         ] {
             XCTAssertTrue(engineText.contains(delegatedCall), "WorkspaceMemoryEngine should delegate \(delegatedCall).")
         }

@@ -6608,3 +6608,28 @@ Current strict grades:
 
 Remaining risk:
 - Memory editing is explicit and user-driven. Richer redaction review, conflict UI, idle Chronicle jobs, and fully autonomous memory inference are still pending parity work.
+
+## 2026-06-25 Local Project Memory Editing Slice
+
+Overall grade after this slice: **A- memory mutation architecture, A local/remote safety boundary, B+/A- Chronicle parity**.
+
+Global memory editing was available, but project memories loaded from `.quillcode/memories` were still read-only. That made the Memories pane inconsistent: users could revise personal memory but had to manually edit repository-local memory files outside QuillCode. Local project memories now use the same `/remember-edit` command and memory-card Edit flow as global memories, while SSH Remote project memories remain read-only until there is a real remote write path.
+
+Code quality changes:
+
+- Added `MemoryNoteLoader.updateProject` using the same bounded directory resolution and sensitive-content guards as global updates.
+- Extended `WorkspaceMemoryEngine` and `WorkspaceModelMemory` with a typed project-memory update path that refreshes project memory state, selected-thread memory context, transcript copy, and notice events.
+- Kept project Delete out of scope. Global Forget still exists, but project memory files are repository files and need a stronger review/delete UX before QuillCode should remove them.
+- Thread/project editability is explicit in `WorkspaceMemoriesSurface`: local project memories expose Edit; remote project memories do not.
+- Updated the Playwright harness to edit both a global memory and a project memory, while keeping Forget global-only.
+
+Strict grades:
+
+- `MemoryNoteLoader.swift`: **A-**. Project update now reuses shared directory validation and file loading. A future cleanup can split path resolution into a tiny helper type if remote memory mutation lands.
+- `WorkspaceMemoryEngine.swift`: **A-**. Mutation payloads now support global and project refreshes without making the model know file policy. The next Chronicle step should consider a dedicated workflow coordinator before adding conflict review.
+- `WorkspaceModelMemory.swift`: **A-**. The extension remains cohesive: command prefill, slash update dispatch, and selected-thread context refresh live together. Remaining complexity comes from actor-owned state mutation.
+- Memory Playwright harness: **B+/A-**. It covers the user-visible flow, but the harness still duplicates state/render behavior; keep future changes small and surface-contract driven.
+
+Remaining parity risk:
+
+- Remote project memories are intentionally read-only. Conflict UI, redaction review, idle Chronicle jobs, and autonomous memory inference remain the larger Codex-parity gaps.

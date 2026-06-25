@@ -73,6 +73,10 @@ public extension QuillCodeWorkspaceModel {
             globalMemories: root.globalMemories,
             selectedProject: selectedProject
         ).activeSources(for: thread)
+        let activeProjectID = thread?.projectID ?? root.selectedProjectID
+        let canEditProjectMemories = activeProjectID
+            .flatMap { projectID in root.projects.first { $0.id == projectID } }
+            .map { !$0.isRemote } ?? false
         let sidebarSelectedThreadIDs = sidebarSelection.isActive
             ? Set(selectedSidebarThreadIDs())
             : []
@@ -124,7 +128,8 @@ public extension QuillCodeWorkspaceModel {
             ),
             memories: WorkspaceMemoriesSurface(
                 isVisible: memories.isVisible,
-                notes: activeSources.memories
+                notes: activeSources.memories,
+                canEditProjectMemories: canEditProjectMemories
             ),
             activity: WorkspaceActivitySurface(
                 isVisible: activity.isVisible,

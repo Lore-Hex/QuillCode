@@ -2681,8 +2681,8 @@
             preview: 'QuillCode should stay native Swift/SwiftUI and keep Codex parity decisions documented.',
             relativePath: '.quillcode/memories/project.md',
             byteCountLabel: '86 bytes',
-            canEdit: false,
-            editCommandID: null,
+            canEdit: true,
+            editCommandID: 'memory-edit:project:.quillcode/memories/project.md',
             canDelete: false,
             deleteCommandID: null
           }
@@ -3407,7 +3407,7 @@
     }
 
     function prepareEditMemory(id) {
-      const item = state.memories.items.find(candidate => candidate.id === id && candidate.scope === 'global');
+      const item = state.memories.items.find(candidate => candidate.id === id && candidate.canEdit);
       if (!item) {
         addMessage('assistant', 'Memory was not found. It may already have been removed.');
         return false;
@@ -3419,7 +3419,7 @@
 
     function updateMemory(id, content) {
       const trimmed = content.trim();
-      const index = state.memories.items.findIndex(item => item.id === id && item.scope === 'global');
+      const index = state.memories.items.findIndex(item => item.id === id && item.canEdit);
       if (index < 0) {
         addMessage('assistant', 'Memory was not found. It may already have been removed.');
         return false;
@@ -3448,7 +3448,7 @@
     }
 
     function deleteMemory(id) {
-      const index = state.memories.items.findIndex(item => item.id === id && item.scope === 'global');
+      const index = state.memories.items.findIndex(item => item.id === id && item.canDelete);
       if (index < 0) {
         addMessage('assistant', 'Memory was not found. It may already have been removed.');
         return false;

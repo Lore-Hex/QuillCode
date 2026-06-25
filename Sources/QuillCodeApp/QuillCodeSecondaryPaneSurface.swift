@@ -66,11 +66,12 @@ public struct WorkspaceMemoriesSurface: Codable, Sendable, Hashable {
     public init(
         isVisible: Bool = false,
         notes: [MemoryNote] = [],
+        canEditProjectMemories: Bool = false,
         emptyTitle: String = "No memories loaded",
         emptySubtitle: String = "Add Markdown, text, or JSON notes under ~/.quillcode/memories or .quillcode/memories."
     ) {
         self.isVisible = isVisible
-        self.items = notes.map(MemoryNoteSurface.init)
+        self.items = notes.map { MemoryNoteSurface(note: $0, canEditProjectMemory: canEditProjectMemories) }
         self.emptyTitle = emptyTitle
         self.emptySubtitle = emptySubtitle
         self.title = "Memories"

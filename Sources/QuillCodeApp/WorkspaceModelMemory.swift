@@ -7,7 +7,7 @@ extension QuillCodeWorkspaceModel {
         guard let mutation = WorkspaceMemoryEngine.deleteGlobal(id: id, directory: globalMemoryDirectory) else {
             return false
         }
-        applyGlobalMemoryMutation(mutation)
+        applyMemoryMutation(mutation)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
@@ -18,44 +18,79 @@ extension QuillCodeWorkspaceModel {
             userText: originalPrompt,
             directory: globalMemoryDirectory
         )
-        applyGlobalMemoryMutation(mutation)
+        applyMemoryMutation(mutation)
     }
 
     @discardableResult
-    func prepareEditGlobalMemory(id: String) -> Bool {
-        guard let note = root.globalMemories.first(where: { $0.id == id && $0.scope == .global }) else {
+    func prepareEditMemory(id: String) -> Bool {
+        if let note = editableMemoryNote(id: id) {
+            setDraft("/remember-edit \(note.id)\n\(note.content)")
+            return true
+        }
+
+        if id.hasPrefix("project:") {
+            let mutation = WorkspaceMemoryEngine.updateProject(
+                id: id,
+                content: "",
+                userText: "Edit memory",
+                projectRoot: editableProjectMemoryRoot()
+            )
+            applyProjectMemoryMutation(mutation)
+        } else {
             let mutation = WorkspaceMemoryEngine.updateGlobal(
                 id: id,
                 content: "",
                 userText: "Edit memory",
                 directory: globalMemoryDirectory
             )
-            applyGlobalMemoryMutation(mutation)
-            return true
+            applyMemoryMutation(mutation)
         }
-        setDraft("/remember-edit \(note.id)\n\(note.content)")
         return true
     }
 
     func runEditMemorySlashCommand(id: String, content: String, originalPrompt: String) {
-        let mutation = WorkspaceMemoryEngine.updateGlobal(
-            id: id,
-            content: content,
-            userText: originalPrompt,
-            directory: globalMemoryDirectory
-        )
-        applyGlobalMemoryMutation(mutation)
+        if id.hasPrefix("project:") {
+            let mutation = WorkspaceMemoryEngine.updateProject(
+                id: id,
+                content: content,
+                userText: originalPrompt,
+                projectRoot: editableProjectMemoryRoot()
+            )
+            applyProjectMemoryMutation(mutation)
+        } else {
+            let mutation = WorkspaceMemoryEngine.updateGlobal(
+                id: id,
+                content: content,
+                userText: originalPrompt,
+                directory: globalMemoryDirectory
+            )
+            applyMemoryMutation(mutation)
+        }
     }
 
     func refreshGlobalMemories() {
         root.globalMemories = WorkspaceProjectContextRefresher.globalMemories(directory: globalMemoryDirectory)
     }
 
-    func applyGlobalMemoryMutation(_ mutation: WorkspaceMemoryMutation) {
+    func applyMemoryMutation(_ mutation: WorkspaceMemoryMutation) {
         appendLocalCommandTranscript(mutation.transcript)
         if let updatedGlobalMemories = mutation.updatedGlobalMemories {
             root.globalMemories = updatedGlobalMemories
         }
+        applyMemoryContextNotice(mutation)
+    }
+
+    func applyProjectMemoryMutation(_ mutation: WorkspaceMemoryMutation) {
+        appendLocalCommandTranscript(mutation.transcript)
+        if let projectID = editableProjectMemoryID(),
+           let updatedProjectMemories = mutation.updatedProjectMemories,
+           let index = root.projects.firstIndex(where: { $0.id == projectID && !$0.isRemote }) {
+            root.projects[index].memories = updatedProjectMemories
+        }
+        applyMemoryContextNotice(mutation)
+    }
+
+    private func applyMemoryContextNotice(_ mutation: WorkspaceMemoryMutation) {
         guard let summary = mutation.noticeSummary,
               let relativePath = mutation.noticeRelativePath
         else {
@@ -72,6 +107,26 @@ extension QuillCodeWorkspaceModel {
             thread.memories = update.memories
             thread.events.append(update.event)
         }
+    }
+
+    private func editableMemoryNote(id: String) -> MemoryNote? {
+        if id.hasPrefix("project:") {
+            return editableProjectMemory()?.memories.first { $0.id == id && $0.scope == .project }
+        }
+        return root.globalMemories.first { $0.id == id && $0.scope == .global }
+    }
+
+    private func editableProjectMemory() -> ProjectRef? {
+        guard let projectID = editableProjectMemoryID() else { return nil }
+        return root.projects.first { $0.id == projectID && !$0.isRemote }
+    }
+
+    private func editableProjectMemoryID() -> UUID? {
+        selectedThread?.projectID ?? root.selectedProjectID
+    }
+
+    private func editableProjectMemoryRoot() -> URL? {
+        editableProjectMemory().map { URL(fileURLWithPath: $0.path) }
     }
 
     func refreshThreadMemoryContext(_ thread: inout ChatThread) {
