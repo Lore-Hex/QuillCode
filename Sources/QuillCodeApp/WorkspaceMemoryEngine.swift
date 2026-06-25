@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeTools
 
 struct WorkspaceMemoryMutation: Sendable, Equatable {
     let transcript: WorkspaceLocalCommandTranscript
@@ -151,6 +152,52 @@ enum WorkspaceMemoryEngine {
                 error: error,
                 updatedGlobalMemories: nil,
                 updatedProjectMemories: MemoryNoteLoader.loadProject(from: projectRoot)
+            )
+        }
+    }
+
+    static func updateRemoteProject(
+        id: String,
+        content: String,
+        userText: String,
+        project: ProjectRef?,
+        executor: SSHRemoteShellExecutor
+    ) -> WorkspaceMemoryMutation {
+        guard let project, project.isRemote else {
+            return memoryNotUpdated(
+                userText: userText,
+                error: WorkspaceRemoteProjectMemoryUpdateError.invalidConnection,
+                updatedGlobalMemories: nil,
+                updatedProjectMemories: project?.memories
+            )
+        }
+
+        do {
+            let updatedMemories = try WorkspaceRemoteProjectMemoryUpdater.update(
+                id: id,
+                content: content,
+                project: project,
+                executor: executor
+            )
+            let note = updatedMemories.first { $0.id == id }
+            return WorkspaceMemoryMutation(
+                transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryUpdated(
+                    userText: userText,
+                    noteTitle: note?.title ?? "remote project memory"
+                ),
+                updatedGlobalMemories: nil,
+                updatedProjectMemories: updatedMemories,
+                noticeSummary: WorkspaceMemoryCommandTranscriptPlanner.memoryUpdatedSummary(
+                    noteTitle: note?.title ?? "remote project memory"
+                ),
+                noticeRelativePath: note?.relativePath ?? id
+            )
+        } catch {
+            return memoryNotUpdated(
+                userText: userText,
+                error: error,
+                updatedGlobalMemories: nil,
+                updatedProjectMemories: project.memories
             )
         }
     }

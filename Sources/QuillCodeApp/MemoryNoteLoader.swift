@@ -270,7 +270,7 @@ public enum MemoryNoteLoader {
         return content
     }
 
-    private static func validatedUpdateContent(_ rawContent: String, maxBytes: Int) throws -> String {
+    static func validatedUpdateContent(_ rawContent: String, maxBytes: Int = maxFileBytes) throws -> String {
         do {
             return try validatedWriteContent(rawContent, maxBytes: maxBytes)
         } catch MemoryNoteWriteError.empty {

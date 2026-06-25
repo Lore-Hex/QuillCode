@@ -6632,7 +6632,7 @@ Remaining risk:
 
 Overall grade after this slice: **A- memory mutation architecture, A local/remote safety boundary, B+/A- Chronicle parity**.
 
-Global memory editing was available, but project memories loaded from `.quillcode/memories` were still read-only. That made the Memories pane inconsistent: users could revise personal memory but had to manually edit repository-local memory files outside QuillCode. Local project memories now use the same `/remember-edit` command and memory-card Edit flow as global memories, while SSH Remote project memories remain read-only until there is a real remote write path.
+Global memory editing was available, but project memories loaded from `.quillcode/memories` were still read-only. That made the Memories pane inconsistent: users could revise personal memory but had to manually edit repository-local memory files outside QuillCode. Local project memories now use the same `/remember-edit` command and memory-card Edit flow as global memories. At this point in the audit history, SSH Remote project memories were intentionally left read-only until a real remote write path landed.
 
 Code quality changes:
 
@@ -6644,7 +6644,7 @@ Code quality changes:
 
 Strict grades:
 
-- `MemoryNoteLoader.swift`: **A-**. Project update now reuses shared directory validation and file loading. A future cleanup can split path resolution into a tiny helper type if remote memory mutation lands.
+- `MemoryNoteLoader.swift`: **A-**. Project update now reuses shared directory validation and file loading. A future cleanup can split path resolution into a tiny helper type if remote memory mutation keeps growing.
 - `WorkspaceMemoryEngine.swift`: **A-**. Mutation payloads now support global and project refreshes without making the model know file policy. The next Chronicle step should consider a dedicated workflow coordinator before adding conflict review.
 - `WorkspaceModelMemory.swift`: **A-**. The extension remains cohesive: command prefill, slash update dispatch, and selected-thread context refresh live together. Remaining complexity comes from actor-owned state mutation.
 - Memory Playwright harness: **B+/A-**. It covers the user-visible flow, but the harness still duplicates state/render behavior; keep future changes small and surface-contract driven.
@@ -6652,3 +6652,28 @@ Strict grades:
 Remaining parity risk:
 
 - Remote project memories are intentionally read-only. Conflict UI, redaction review, idle Chronicle jobs, and autonomous memory inference remain the larger Codex-parity gaps.
+
+## 2026-06-25 SSH Remote Project Memory Editing Slice
+
+Overall grade after this slice: **A- remote memory boundary, A validation reuse, B+/A- Chronicle parity**.
+
+Local project memories were editable, but SSH Remote project memories still required manual file edits on the remote host. That was inconsistent with the rest of SSH Remote parity: shell, file, patch, git, terminal, and context refresh already route safely through the remote executor. Remote project memories now use the same explicit `/remember-edit` path as global and local project memories while keeping the write narrowly bounded to already loaded `.quillcode/memories` files.
+
+Code quality changes:
+
+- Added `WorkspaceRemoteProjectMemoryUpdater` as the owner for SSH Remote memory ID validation, safe remote path bounding, remote write execution, and post-write context refresh.
+- Reused `MemoryNoteLoader.validatedUpdateContent` so global, local project, and SSH Remote memory edits share empty/size/sensitive-content rejection.
+- Extended `WorkspaceMemoryEngine.updateRemoteProject` and routed project memory edits through local or remote mutation paths based on the active project.
+- Updated the Memories surface so active SSH Remote project memories expose the same Edit command as local project memories.
+- Added fake-SSH integration coverage that edits a remote memory file, verifies the remote file contents, refreshes project context, and updates the selected thread memory snapshot.
+
+Strict grades:
+
+- `WorkspaceRemoteProjectMemoryUpdater.swift`: **A-**. It is focused and defensive: only known project memory IDs under `.quillcode/memories` can be changed, symlink targets are rejected by the remote shell test, and context is refreshed after writes. A future remote-write abstraction could share more code with `WorkspaceRemoteProjectToolExecutor`.
+- `WorkspaceMemoryEngine.swift`: **A-**. It now owns global, local project, and remote project mutation outcomes consistently. The engine is still small enough, but conflict review would justify a richer Chronicle coordinator.
+- `WorkspaceModelMemory.swift`: **A-**. The extension remains the correct actor boundary for memory commands and selected-project dispatch. It now handles remote/local choice without learning shell details.
+- Memory integration tests: **A**. The tests cover UI command prefill, slash execution, fake SSH write behavior, and selected-thread refresh.
+
+Remaining parity risk:
+
+- Project memory delete/review UX, redaction review, idle Chronicle jobs, conflict handling, and autonomous memory inference are still pending.

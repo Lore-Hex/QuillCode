@@ -91,7 +91,7 @@ final class WorkspaceMemoryIntegrationTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "toggle-memories" }?.category, WorkspaceCommandPalette.memoriesCategory)
     }
 
-    func testRemoteProjectMemoryDoesNotExposeLocalEditAction() {
+    func testRemoteProjectMemoryExposesRemoteEditActionWhenProjectIsActive() {
         let project = ProjectRef(
             name: "Remote QuillCode",
             path: "/srv/QuillCode",
@@ -115,8 +115,8 @@ final class WorkspaceMemoryIntegrationTests: XCTestCase {
         let projectMemory = model.surface().memories.items.first
 
         XCTAssertEqual(projectMemory?.scope, .project)
-        XCTAssertEqual(projectMemory?.canEdit, false)
-        XCTAssertNil(projectMemory?.editCommandID)
+        XCTAssertEqual(projectMemory?.canEdit, true)
+        XCTAssertEqual(projectMemory?.editCommandID, "memory-edit:project:.quillcode/memories/project.md")
     }
 
     func testSlashRememberWritesGlobalMemoryAndRefreshesThreadSurface() async throws {
@@ -224,6 +224,58 @@ final class WorkspaceMemoryIntegrationTests: XCTestCase {
         )
         XCTAssertEqual(model.surface().topBar.memoryLabel, "1 memory")
         XCTAssertEqual(model.surface().memories.items.first?.editCommandID, "memory-edit:\(memory.id)")
+    }
+
+    func testMemoryEditWorkspaceCommandRewritesRemoteProjectMemoryThroughSSH() async throws {
+        let localRoot = try makeTempDirectory()
+        let remoteRoot = try makeTempDirectory()
+        let projectMemoryDirectory = remoteRoot.appendingPathComponent(".quillcode/memories")
+        try FileManager.default.createDirectory(at: projectMemoryDirectory, withIntermediateDirectories: true)
+        try "Use SwiftUI.\n".write(
+            to: projectMemoryDirectory.appendingPathComponent("project.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let argumentsFile = localRoot.appendingPathComponent("ssh-memory-edit-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: localRoot, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(path: remoteRoot.path, host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+        _ = model.newChat(projectID: project.id)
+        XCTAssertTrue(model.refreshProjectContext(project.id), model.lastError ?? "")
+        let memory = try XCTUnwrap(model.root.projects.first?.memories.first)
+
+        XCTAssertTrue(model.runWorkspaceCommand("memory-edit:\(memory.id)", workspaceRoot: localRoot))
+        XCTAssertEqual(model.composer.draft, "/remember-edit \(memory.id)\nUse SwiftUI.")
+
+        model.setDraft("/remember-edit \(memory.id)\nUse SwiftUI and keep remote memory editable.")
+        await model.submitComposer(workspaceRoot: localRoot)
+
+        let updated = try XCTUnwrap(model.root.projects.first?.memories.first)
+        XCTAssertEqual(updated.id, memory.id)
+        XCTAssertEqual(updated.content, "Use SwiftUI and keep remote memory editable.")
+        XCTAssertEqual(model.selectedThread?.title, "Updated memory: \(updated.title)")
+        XCTAssertEqual(
+            model.selectedThread?.memories.map(\.content),
+            ["Use SwiftUI and keep remote memory editable."]
+        )
+        XCTAssertEqual(model.selectedThread?.events.last?.summary, "Updated memory: \(updated.title)")
+        XCTAssertEqual(model.selectedThread?.events.last?.payloadJSON, updated.relativePath)
+        XCTAssertEqual(
+            try String(contentsOf: projectMemoryDirectory.appendingPathComponent("project.md"), encoding: .utf8),
+            "Use SwiftUI and keep remote memory editable.\n"
+        )
+        XCTAssertEqual(model.surface().memories.items.first?.editCommandID, "memory-edit:\(memory.id)")
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+        XCTAssertTrue(arguments.contains("cd '\(remoteRoot.path)' &&"), arguments)
+        XCTAssertTrue(arguments.contains("QUILLCODE_CONTEXT_"), arguments)
     }
 
     func testAgentRememberToolWritesGlobalMemoryAndRefreshesThreadSurface() async throws {

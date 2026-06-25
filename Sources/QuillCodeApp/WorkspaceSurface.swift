@@ -76,7 +76,7 @@ public extension QuillCodeWorkspaceModel {
         let activeProjectID = thread?.projectID ?? root.selectedProjectID
         let canEditProjectMemories = activeProjectID
             .flatMap { projectID in root.projects.first { $0.id == projectID } }
-            .map { !$0.isRemote } ?? false
+            .map { _ in true } ?? false
         let sidebarSelectedThreadIDs = sidebarSelection.isActive
             ? Set(selectedSidebarThreadIDs())
             : []
