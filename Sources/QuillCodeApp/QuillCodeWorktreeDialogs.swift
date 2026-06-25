@@ -103,6 +103,7 @@ struct QuillCodeWorktreeOpenView: View {
     @Binding var draft: QuillCodeWorktreeOpenDraft
     var onCancel: () -> Void
     var onOpen: () -> Void
+    var onRetryChoices: () -> Void
 
     var body: some View {
         QuillCodeWorktreeDialogFrame(
@@ -119,7 +120,8 @@ struct QuillCodeWorktreeOpenView: View {
                 emptyMessage: "No other registered worktrees found.",
                 onSelect: { choice in
                     draft.select(choice)
-                }
+                },
+                onRetry: onRetryChoices
             )
 
             QuillCodeLabeledTextField(
@@ -189,6 +191,7 @@ private struct QuillCodeWorktreeChoiceSection: View {
     var iconColor: Color
     var emptyMessage: String
     var onSelect: (WorkspaceWorktreeChoice) -> Void
+    var onRetry: () -> Void
 
     var body: some View {
         if shouldShowSection {
@@ -218,7 +221,9 @@ private struct QuillCodeWorktreeChoiceSection: View {
                     QuillCodeWorktreeChoiceStatusRow(
                         systemImage: "exclamationmark.triangle",
                         message: "\(errorMessage) You can still paste a worktree path.",
-                        color: QuillCodePalette.yellow
+                        color: QuillCodePalette.yellow,
+                        actionTitle: "Retry",
+                        action: onRetry
                     )
                 } else if state.hasLoaded && state.choices.isEmpty {
                     QuillCodeWorktreeChoiceStatusRow(
@@ -245,6 +250,7 @@ struct QuillCodeWorktreeRemoveView: View {
     @Binding var draft: QuillCodeWorktreeRemoveDraft
     var onCancel: () -> Void
     var onRemove: () -> Void
+    var onRetryChoices: () -> Void
 
     var body: some View {
         QuillCodeWorktreeDialogFrame(
@@ -261,7 +267,8 @@ struct QuillCodeWorktreeRemoveView: View {
                 emptyMessage: "No removable registered worktrees found.",
                 onSelect: { choice in
                     draft.select(choice)
-                }
+                },
+                onRetry: onRetryChoices
             )
 
             QuillCodeLabeledTextField(
@@ -290,6 +297,8 @@ private struct QuillCodeWorktreeChoiceStatusRow: View {
     var message: String
     var color: Color
     var showsSpinner = false
+    var actionTitle: String?
+    var action: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 10) {
@@ -307,6 +316,13 @@ private struct QuillCodeWorktreeChoiceStatusRow: View {
                 .foregroundStyle(QuillCodePalette.muted)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
+            if let actionTitle, let action {
+                Button(actionTitle, action: action)
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+                    .font(.caption.weight(.semibold))
+                    .accessibilityIdentifier("quillcode-worktree-choice-retry")
+            }
         }
         .padding(10)
         .background(
