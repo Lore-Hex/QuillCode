@@ -2733,7 +2733,8 @@
       lastOpenedURL: null,
       search: {
         isOpen: false,
-        query: ''
+        query: '',
+        highlightedThreadID: null
       },
       find: {
         isOpen: false,
@@ -4107,6 +4108,15 @@
       });
     }
 
+    function focusSearchInput() {
+      const input = document.querySelector('[data-testid="search-input"]');
+      if (input instanceof HTMLInputElement) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
+      focusInputByTestID('search-input');
+    }
+
     function openCommandPalette() {
       state.commandPalette.isOpen = true;
       state.commandPalette.query = '';
@@ -4118,8 +4128,52 @@
     function openSearchPanel() {
       state.search.isOpen = true;
       state.search.query = '';
+      ensureSearchHighlight(state.sidebar.selectedThreadID);
       render();
       focusInputByTestID('search-input');
+    }
+
+    function filteredSearchResults() {
+      const query = state.search.query.trim().toLowerCase();
+      return state.sidebar.items.filter(item => {
+        if (!query) return true;
+        return item.title.toLowerCase().includes(query)
+          || item.subtitle.toLowerCase().includes(query)
+          || (item.searchText || '').toLowerCase().includes(query)
+          || (item.isPinned ? 'pinned' : '').includes(query)
+          || (item.isArchived ? 'archived' : '').includes(query);
+      });
+    }
+
+    function ensureSearchHighlight(preferredID) {
+      const results = filteredSearchResults();
+      if (preferredID && results.some(item => item.id === preferredID)) {
+        state.search.highlightedThreadID = preferredID;
+        return;
+      }
+      if (state.search.highlightedThreadID && results.some(item => item.id === state.search.highlightedThreadID)) return;
+      state.search.highlightedThreadID = results[0]?.id || null;
+    }
+
+    function moveSearchHighlight(delta) {
+      const results = filteredSearchResults();
+      if (!results.length) {
+        state.search.highlightedThreadID = null;
+        return;
+      }
+      const currentIndex = Math.max(0, results.findIndex(item => item.id === state.search.highlightedThreadID));
+      const nextIndex = (currentIndex + delta + results.length) % results.length;
+      state.search.highlightedThreadID = results[nextIndex].id;
+    }
+
+    function selectSearchHighlight() {
+      ensureSearchHighlight(state.search.highlightedThreadID);
+      const threadID = state.search.highlightedThreadID;
+      if (!threadID) return;
+      selectThread(threadID);
+      state.search.isOpen = false;
+      state.search.highlightedThreadID = null;
+      render();
     }
 
     function moveCommandPaletteSelection(delta) {
@@ -5136,6 +5190,7 @@
       });
       document.querySelector('[data-testid="search-close"]')?.addEventListener('click', () => {
         state.search.isOpen = false;
+        state.search.highlightedThreadID = null;
         render();
       });
       document.querySelector('[data-testid="command-palette-close"]')?.addEventListener('click', () => {
@@ -5148,15 +5203,38 @@
       });
       document.querySelector('[data-testid="search-input"]')?.addEventListener('input', event => {
         state.search.query = event.target.value;
+        ensureSearchHighlight(state.search.highlightedThreadID);
         render();
         const input = document.querySelector('[data-testid="search-input"]');
         input?.focus();
         input?.setSelectionRange(input.value.length, input.value.length);
       });
+      document.querySelector('[data-testid="search-input"]')?.addEventListener('keydown', event => {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          moveSearchHighlight(1);
+          render();
+          focusSearchInput();
+        } else if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          moveSearchHighlight(-1);
+          render();
+          focusSearchInput();
+        } else if (event.key === 'Enter') {
+          event.preventDefault();
+          selectSearchHighlight();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          state.search.isOpen = false;
+          state.search.highlightedThreadID = null;
+          render();
+        }
+      });
       document.querySelectorAll('[data-testid="search-result"]').forEach(button => {
         button.addEventListener('click', event => {
           selectThread(event.currentTarget.getAttribute('data-thread-id'));
           state.search.isOpen = false;
+          state.search.highlightedThreadID = null;
           render();
         });
       });
@@ -5715,15 +5793,7 @@
     }
 
     function renderSearchPanel() {
-      const query = state.search.query.trim().toLowerCase();
-      const results = state.sidebar.items.filter(item => {
-        if (!query) return true;
-        return item.title.toLowerCase().includes(query)
-          || item.subtitle.toLowerCase().includes(query)
-          || (item.searchText || '').toLowerCase().includes(query)
-          || (item.isPinned ? 'pinned' : '').includes(query)
-          || (item.isArchived ? 'archived' : '').includes(query);
-      });
+      const results = filteredSearchResults();
       return `
         <div class="search-panel" data-testid="search-panel">
           <section class="search-card" role="dialog" aria-label="Search chats">
@@ -5737,7 +5807,7 @@
             <input data-testid="search-input" aria-label="Search chats" placeholder="Search chats" value="${escapeHTML(state.search.query)}" autofocus>
             <div class="search-results" data-testid="search-results">
               ${results.length ? results.map(item => `
-                <button class="search-result" type="button" data-testid="search-result" data-thread-id="${escapeHTML(item.id)}">
+                <button class="search-result ${item.id === state.search.highlightedThreadID ? 'selected' : ''}" type="button" data-testid="search-result" data-thread-id="${escapeHTML(item.id)}" data-highlighted="${item.id === state.search.highlightedThreadID ? 'true' : 'false'}">
                   <span>${escapeHTML(item.title)}</span>
                   <small>${escapeHTML(item.subtitle)}${item.isPinned ? ' · pinned' : ''}${item.isArchived ? ' · archived' : ''}</small>
                 </button>`).join('') : '<p data-testid="search-empty">No matching chats</p>'}
