@@ -121,6 +121,9 @@ final class ParityWorkspaceSidebarGateTests: QuillCodeParityTestCase {
         let projectListText = try Self.appSourceText(named: "QuillCodeProjectListSurface.swift")
         let sidebarText = try Self.appSourceText(named: "QuillCodeThreadSidebarSurface.swift")
         let threadListBuilderText = try Self.appSourceText(named: "QuillCodeSidebarThreadListBuilder.swift")
+        let broadSurfaceTests = try Self.appTestSourceText(named: "WorkspaceSurfaceTests.swift")
+        let sidebarSurfaceTests = try Self.appTestSourceText(named: "QuillCodeThreadSidebarSurfaceTests.swift")
+        let sidebarIntegrationTests = try Self.appTestSourceText(named: "WorkspaceSidebarIntegrationTests.swift")
 
         XCTAssertTrue(projectListText.contains("public struct ProjectListSurface"), "Project list aggregate records should live in project-list contracts.")
         XCTAssertTrue(projectListText.contains("public struct ProjectItemSurface"), "Project rows should live in project-list contracts.")
@@ -156,6 +159,12 @@ final class ParityWorkspaceSidebarGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(surfaceText.contains("filteredItems"), "WorkspaceSurface should not own sidebar search filtering.")
         XCTAssertFalse(surfaceText.contains("selectionLabel(count:"), "WorkspaceSurface should not own sidebar selection copy.")
         XCTAssertFalse(sidebarText.contains("private enum SidebarThreadDateBucket"), "Sidebar aggregate should not own date bucketing.")
+        XCTAssertTrue(sidebarSurfaceTests.contains("testSidebarSearchExcludesHiddenToolFeedback"), "Sidebar search filtering should live in focused sidebar surface tests.")
+        XCTAssertTrue(sidebarSurfaceTests.contains("workspace manager"), "Sidebar negative search coverage should live in focused sidebar surface tests.")
+        XCTAssertTrue(sidebarIntegrationTests.contains("testBulkSelectionArchivesAndDeletesChats"), "Sidebar bulk selection integration should live in focused sidebar integration tests.")
+        XCTAssertFalse(broadSurfaceTests.contains("testSidebarSearchExcludesHiddenToolFeedback"), "WorkspaceSurfaceTests should not own sidebar search filtering behavior.")
+        XCTAssertFalse(broadSurfaceTests.contains("testSidebarSearchFiltersByThreadTitleSubtitleAndTranscriptContent"), "WorkspaceSurfaceTests should not own sidebar search projection behavior.")
+        XCTAssertFalse(broadSurfaceTests.contains("testSidebarBulkSelectionArchivesAndDeletesChats"), "WorkspaceSurfaceTests should not own sidebar bulk-action integration.")
     }
 
     func testWorkspaceSurfaceDelegatesNavigationSurfaceBuilding() throws {
