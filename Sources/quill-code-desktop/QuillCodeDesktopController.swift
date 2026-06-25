@@ -24,6 +24,7 @@ final class QuillCodeDesktopController: ObservableObject {
     private let automationCoordinator: QuillCodeDesktopAutomationCoordinator
     private let automationNotifier: any QuillCodeAutomationNotifying
     private let workspaceRoot: URL
+    private let commandCoordinator: QuillCodeDesktopCommandCoordinator
     private let signInCoordinator: QuillCodeDesktopSignInCoordinator
     private let settingsCoordinator: QuillCodeDesktopSettingsCoordinator
     private let systemSettingsOpener: MacSystemSettingsOpener
@@ -51,6 +52,7 @@ final class QuillCodeDesktopController: ObservableObject {
         )
         self.automationCoordinator = QuillCodeDesktopAutomationCoordinator()
         self.automationNotifier = automationNotifier
+        self.commandCoordinator = QuillCodeDesktopCommandCoordinator()
         self.signInCoordinator = QuillCodeDesktopSignInCoordinator(bootstrap: bootstrap)
         self.settingsCoordinator = QuillCodeDesktopSettingsCoordinator(bootstrap: bootstrap)
         self.systemSettingsOpener = MacSystemSettingsOpener()
@@ -204,45 +206,7 @@ final class QuillCodeDesktopController: ObservableObject {
 
     func runCommand(_ command: WorkspaceCommandSurface) {
         guard let action = QuillCodeDesktopCommandPlanner.action(for: command) else { return }
-        runCommandAction(action)
-    }
-
-    private func runCommandAction(_ action: QuillCodeDesktopCommandAction) {
-        switch action {
-        case .newChat:
-            newChat()
-        case .addProject:
-            requestAddProject()
-        case .toggleTerminal:
-            toggleTerminal()
-        case .toggleBrowser:
-            toggleBrowser()
-        case .openBrowserSession:
-            openBrowserSession()
-        case .toggleExtensions:
-            toggleExtensions()
-        case .toggleMemories:
-            toggleMemories()
-        case .commandPalette:
-            openCommandPalette()
-        case .settings:
-            openSettings()
-        case .openComputerUseSystemSettings(let destination):
-            openComputerUseSystemSettings(destination)
-        case .refreshComputerUseStatus:
-            refresh()
-        case .stopAll:
-            stopAll()
-        case .disconnectAll:
-            disconnectAll()
-        case .retryLastTurn:
-            retryLastTurn()
-        case .workspaceCommand(let commandID):
-            if model.runWorkspaceCommand(commandID, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot) {
-                draft = model.composer.draft
-                refresh()
-            }
-        }
+        commandCoordinator.run(action, performer: self)
     }
 
     func toggleTerminal() {
@@ -465,8 +429,22 @@ final class QuillCodeDesktopController: ObservableObject {
         }
     }
 
-    private func openComputerUseSystemSettings(_ destination: MacSystemSettingsOpener.Destination) {
+    func openComputerUseSystemSettings(_ destination: MacSystemSettingsOpener.Destination) {
         systemSettingsOpener.open(destination)
+        refresh()
+    }
+}
+
+extension QuillCodeDesktopController: QuillCodeDesktopCommandPerforming {
+    func refreshComputerUseStatus() {
+        refresh()
+    }
+
+    func runWorkspaceCommand(_ commandID: String) {
+        guard model.runWorkspaceCommand(commandID, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot) else {
+            return
+        }
+        draft = model.composer.draft
         refresh()
     }
 }
