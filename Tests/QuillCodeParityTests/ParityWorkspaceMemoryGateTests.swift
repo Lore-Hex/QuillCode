@@ -4,6 +4,7 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesMemoryCommandOrchestration() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let memoryModelText = try Self.appSourceText(named: "WorkspaceModelMemory.swift")
+        let workflowText = try Self.appSourceText(named: "WorkspaceMemoryWorkflow.swift")
         let engineText = try Self.appSourceText(named: "WorkspaceMemoryEngine.swift")
         let loaderText = try Self.appSourceText(named: "MemoryNoteLoader.swift")
         let contentPolicyText = try Self.appSourceText(named: "MemoryNoteContentPolicy.swift")
@@ -22,6 +23,8 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(loaderText.contains("MemoryNotePathResolver.globalMemoryFileURL"), "MemoryNoteLoader should delegate global file resolution.")
         XCTAssertFalse(loaderText.contains("private static func looksSensitive"), "MemoryNoteLoader should not own sensitive-content detection.")
         XCTAssertFalse(loaderText.contains("private static func projectMemoryFileURL"), "MemoryNoteLoader should not own project memory file path resolution.")
+        XCTAssertTrue(workflowText.contains("enum WorkspaceMemoryWorkflow"), "Memory command routing should live in a focused workflow boundary.")
+        XCTAssertTrue(workflowText.contains("struct WorkspaceMemoryWorkflowContext"), "Memory workflow should receive a typed context instead of reading model state directly.")
         XCTAssertTrue(remoteUpdaterText.contains("enum WorkspaceRemoteProjectMemoryUpdater"), "SSH Remote memory writes should live in a focused remote updater.")
         XCTAssertTrue(remoteUpdaterText.contains("enum WorkspaceRemoteProjectMemoryDeleter"), "SSH Remote memory deletion should stay with the focused remote memory mutation helpers.")
         XCTAssertTrue(remoteUpdaterText.contains("MemoryNoteLoader.validatedUpdateContent"), "Remote project memory edits should share local memory validation.")
@@ -32,14 +35,19 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(memoryModelText.contains("func deleteGlobalMemory"), "Memory deletion execution should live in the focused WorkspaceModelMemory extension.")
         XCTAssertTrue(memoryModelText.contains("func refreshThreadMemoryContext"), "Thread memory refresh should live in the focused WorkspaceModelMemory extension.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.saveGlobal"), "WorkspaceModelMemory should delegate global memory saves.")
-        XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.updateGlobal"), "WorkspaceModelMemory should delegate global memory updates.")
-        XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.updateProject"), "WorkspaceModelMemory should delegate project memory updates.")
-        XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.updateRemoteProject"), "WorkspaceModelMemory should delegate SSH Remote project memory updates.")
-        XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.deleteGlobal"), "WorkspaceModelMemory should delegate global memory deletion.")
-        XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.deleteProject"), "WorkspaceModelMemory should delegate local project memory deletion.")
-        XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.deleteRemoteProject"), "WorkspaceModelMemory should delegate SSH Remote project memory deletion.")
+        XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryWorkflow.update"), "WorkspaceModelMemory should delegate memory update routing to the workflow boundary.")
+        XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryWorkflow.delete"), "WorkspaceModelMemory should delegate memory delete routing to the workflow boundary.")
+        XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryWorkflow.editableNote"), "WorkspaceModelMemory should delegate scoped editable-note lookup to the workflow boundary.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceProjectContextRefresher.globalMemories"), "WorkspaceModelMemory should delegate global memory reloads through the project context refresher.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.contextUpdate"), "WorkspaceModelMemory should delegate memory context update construction.")
+        XCTAssertFalse(memoryModelText.contains("project?.isRemote == true"), "WorkspaceModelMemory should not own local-vs-remote memory routing.")
+        XCTAssertFalse(memoryModelText.contains("id.hasPrefix(\"project:\")"), "WorkspaceModelMemory should not parse memory scope IDs directly.")
+        XCTAssertFalse(memoryModelText.contains("WorkspaceMemoryEngine.updateGlobal"), "WorkspaceModelMemory should not bypass the memory workflow for updates.")
+        XCTAssertFalse(memoryModelText.contains("WorkspaceMemoryEngine.updateProject"), "WorkspaceModelMemory should not bypass the memory workflow for project updates.")
+        XCTAssertFalse(memoryModelText.contains("WorkspaceMemoryEngine.updateRemoteProject"), "WorkspaceModelMemory should not bypass the memory workflow for remote project updates.")
+        XCTAssertFalse(memoryModelText.contains("WorkspaceMemoryEngine.deleteGlobal"), "WorkspaceModelMemory should not bypass the memory workflow for deletes.")
+        XCTAssertFalse(memoryModelText.contains("WorkspaceMemoryEngine.deleteProject"), "WorkspaceModelMemory should not bypass the memory workflow for project deletes.")
+        XCTAssertFalse(memoryModelText.contains("WorkspaceMemoryEngine.deleteRemoteProject"), "WorkspaceModelMemory should not bypass the memory workflow for remote project deletes.")
         XCTAssertFalse(modelText.contains("func runRememberSlashCommand"), "WorkspaceModel.swift should not own memory slash-command execution.")
         XCTAssertFalse(modelText.contains("func runEditMemorySlashCommand"), "WorkspaceModel.swift should not own memory edit slash-command execution.")
         XCTAssertFalse(modelText.contains("func deleteGlobalMemory"), "WorkspaceModel.swift should not own memory deletion execution.")
@@ -55,8 +63,6 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
             "WorkspaceMemoryCommandTranscriptPlanner.memoryUpdated",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryNotUpdated",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryUpdatedSummary",
-            "WorkspaceRemoteProjectMemoryUpdater.update",
-            "WorkspaceRemoteProjectMemoryDeleter.delete",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryForgotten",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary",
@@ -65,6 +71,18 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
         ] {
             XCTAssertTrue(engineText.contains(delegatedCall), "WorkspaceMemoryEngine should delegate \(delegatedCall).")
         }
+        for routedCall in [
+            "WorkspaceMemoryEngine.updateGlobal",
+            "WorkspaceMemoryEngine.updateProject",
+            "WorkspaceMemoryEngine.updateRemoteProject",
+            "WorkspaceMemoryEngine.deleteGlobal",
+            "WorkspaceMemoryEngine.deleteProject",
+            "WorkspaceMemoryEngine.deleteRemoteProject"
+        ] {
+            XCTAssertTrue(workflowText.contains(routedCall), "WorkspaceMemoryWorkflow should route \(routedCall).")
+        }
+        XCTAssertTrue(engineText.contains("WorkspaceRemoteProjectMemoryUpdater.update"), "WorkspaceMemoryEngine should delegate remote memory edits.")
+        XCTAssertTrue(engineText.contains("WorkspaceRemoteProjectMemoryDeleter.delete"), "WorkspaceMemoryEngine should delegate remote memory deletes.")
         XCTAssertFalse(modelText.contains("It will be included as background context in future turns."), "WorkspaceModel should not own memory save success copy.")
         XCTAssertFalse(modelText.contains("Memory not saved"), "WorkspaceModel should not own memory save failure title copy.")
         XCTAssertFalse(modelText.contains("It will no longer be included as background context."), "WorkspaceModel should not own memory delete success copy.")

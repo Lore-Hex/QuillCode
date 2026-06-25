@@ -6764,3 +6764,28 @@ Strict grades:
 Remaining parity risk:
 
 - Project memory review/conflict UI, redaction review, idle Chronicle jobs, and autonomous memory inference remain pending.
+
+## 2026-06-25 Memory Workflow Boundary Slice
+
+Overall grade after this slice: **A memory routing boundary, A- model thinness, B+/A- Chronicle parity**.
+
+The Project Memory Forget slice made global, local project, and SSH Remote project memory mutations symmetric, but `WorkspaceModelMemory` still owned too much routing policy: it parsed memory IDs, selected local vs remote project mutation paths, and applied the resulting model state. That was acceptable while there were only explicit user commands, but conflict review, redaction previews, and autonomous Chronicle inference would have made the model extension a policy magnet.
+
+Code quality changes:
+
+- Added `WorkspaceMemoryWorkflow` and `WorkspaceMemoryWorkflowContext` as the focused boundary for memory ID scope, editable-note lookup, and global/local/SSH Remote update-delete routing.
+- Kept `WorkspaceMemoryEngine` as the mutation-result builder and storage adapter coordinator, so transcript copy, refresh payloads, and remote helpers stay in their existing tested locations.
+- Reduced `WorkspaceModelMemory` to actor-owned state application: build context from selected project state, call the workflow, apply global/project memory mutations, and refresh the top bar.
+- Added focused workflow unit tests for scope lookup, editable-note resolution, global deletion routing, and local project update routing.
+- Tightened the parity gate so `WorkspaceModelMemory` cannot regain direct memory ID parsing or local-vs-remote routing.
+
+Strict grades:
+
+- `WorkspaceMemoryWorkflow.swift`: **A**. It is deliberately small and has one job: route memory commands based on typed context. It does not mutate workspace state, touch files directly, or know UI details.
+- `WorkspaceModelMemory.swift`: **A-**. The extension is now thinner and keeps the necessary actor mutation boundary. It still applies context notices because selected-thread mutation is actor-owned model state.
+- `WorkspaceMemoryEngine.swift`: **A-**. The engine remains the right place for mutation outcome construction. The next Chronicle feature can now add review/conflict state without forcing another routing branch into the model.
+- `WorkspaceMemoryWorkflowTests.swift`: **A**. It directly guards the new seam with cheap unit tests and leaves expensive remote shell behavior in the existing fake-SSH integration tests.
+
+Remaining parity risk:
+
+- Project memory review/conflict UI, redaction review, idle Chronicle jobs, and autonomous memory inference remain pending, but they now have a better architecture boundary to land behind.

@@ -4,37 +4,19 @@ import QuillCodeCore
 extension QuillCodeWorkspaceModel {
     @discardableResult
     func deleteGlobalMemory(id: String) -> Bool {
-        guard let mutation = WorkspaceMemoryEngine.deleteGlobal(id: id, directory: globalMemoryDirectory) else {
-            return false
-        }
-        applyMemoryMutation(mutation)
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-        return true
+        guard WorkspaceMemoryWorkflow.scope(for: id) == .global else { return false }
+        return deleteMemory(id: id)
     }
 
     @discardableResult
     func deleteMemory(id: String) -> Bool {
-        if id.hasPrefix("project:") {
-            let project = editableProjectMemory()
-            let mutation = if project?.isRemote == true {
-                WorkspaceMemoryEngine.deleteRemoteProject(
-                    id: id,
-                    project: project,
-                    executor: sshRemoteShellExecutor
-                )
-            } else {
-                WorkspaceMemoryEngine.deleteProject(
-                    id: id,
-                    projectRoot: editableProjectMemoryRoot()
-                )
-            }
-            applyProjectMemoryMutation(mutation)
-        } else {
-            guard let mutation = WorkspaceMemoryEngine.deleteGlobal(id: id, directory: globalMemoryDirectory) else {
-                return false
-            }
-            applyMemoryMutation(mutation)
+        guard let mutation = WorkspaceMemoryWorkflow.delete(
+            id: id,
+            context: memoryWorkflowContext()
+        ) else {
+            return false
         }
+        applyMemoryMutation(mutation, for: id)
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         return true
     }
@@ -50,60 +32,33 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     func prepareEditMemory(id: String) -> Bool {
-        if let note = editableMemoryNote(id: id) {
+        if let note = WorkspaceMemoryWorkflow.editableNote(
+            id: id,
+            globalMemories: root.globalMemories,
+            project: editableProjectMemory()
+        ) {
             setDraft("/remember-edit \(note.id)\n\(note.content)")
             return true
         }
 
-        if id.hasPrefix("project:") {
-            let mutation = WorkspaceMemoryEngine.updateProject(
-                id: id,
-                content: "",
-                userText: "Edit memory",
-                projectRoot: editableProjectMemoryRoot()
-            )
-            applyProjectMemoryMutation(mutation)
-        } else {
-            let mutation = WorkspaceMemoryEngine.updateGlobal(
-                id: id,
-                content: "",
-                userText: "Edit memory",
-                directory: globalMemoryDirectory
-            )
-            applyMemoryMutation(mutation)
-        }
+        let mutation = WorkspaceMemoryWorkflow.update(
+            id: id,
+            content: "",
+            userText: "Edit memory",
+            context: memoryWorkflowContext()
+        )
+        applyMemoryMutation(mutation, for: id)
         return true
     }
 
     func runEditMemorySlashCommand(id: String, content: String, originalPrompt: String) {
-        if id.hasPrefix("project:") {
-            let project = editableProjectMemory()
-            let mutation = if project?.isRemote == true {
-                WorkspaceMemoryEngine.updateRemoteProject(
-                    id: id,
-                    content: content,
-                    userText: originalPrompt,
-                    project: project,
-                    executor: sshRemoteShellExecutor
-                )
-            } else {
-                WorkspaceMemoryEngine.updateProject(
-                    id: id,
-                    content: content,
-                    userText: originalPrompt,
-                    projectRoot: editableProjectMemoryRoot()
-                )
-            }
-            applyProjectMemoryMutation(mutation)
-        } else {
-            let mutation = WorkspaceMemoryEngine.updateGlobal(
-                id: id,
-                content: content,
-                userText: originalPrompt,
-                directory: globalMemoryDirectory
-            )
-            applyMemoryMutation(mutation)
-        }
+        let mutation = WorkspaceMemoryWorkflow.update(
+            id: id,
+            content: content,
+            userText: originalPrompt,
+            context: memoryWorkflowContext()
+        )
+        applyMemoryMutation(mutation, for: id)
     }
 
     func refreshGlobalMemories() {
@@ -147,11 +102,13 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
-    private func editableMemoryNote(id: String) -> MemoryNote? {
-        if id.hasPrefix("project:") {
-            return editableProjectMemory()?.memories.first { $0.id == id && $0.scope == .project }
+    private func applyMemoryMutation(_ mutation: WorkspaceMemoryMutation, for id: String) {
+        switch WorkspaceMemoryWorkflow.scope(for: id) {
+        case .global:
+            applyMemoryMutation(mutation)
+        case .project:
+            applyProjectMemoryMutation(mutation)
         }
-        return root.globalMemories.first { $0.id == id && $0.scope == .global }
     }
 
     private func editableProjectMemory() -> ProjectRef? {
@@ -166,6 +123,15 @@ extension QuillCodeWorkspaceModel {
     private func editableProjectMemoryRoot() -> URL? {
         guard let project = editableProjectMemory(), !project.isRemote else { return nil }
         return URL(fileURLWithPath: project.path)
+    }
+
+    private func memoryWorkflowContext() -> WorkspaceMemoryWorkflowContext {
+        WorkspaceMemoryWorkflowContext(
+            globalMemoryDirectory: globalMemoryDirectory,
+            editableProject: editableProjectMemory(),
+            editableProjectRoot: editableProjectMemoryRoot(),
+            sshRemoteShellExecutor: sshRemoteShellExecutor
+        )
     }
 
     func refreshThreadMemoryContext(_ thread: inout ChatThread) {
