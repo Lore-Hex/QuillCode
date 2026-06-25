@@ -22,6 +22,7 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
         XCTAssertTrue(list.stdout.contains(String(branch)), list.stdout)
 
         let open = git.openWorktree(cwd: root, path: worktreeName)
+
         XCTAssertTrue(open.ok, "\(open.error ?? "") \(open.stderr)")
         XCTAssertEqual(open.artifacts, [worktree.path])
         XCTAssertTrue(open.stdout.contains(worktree.path), open.stdout)
@@ -62,15 +63,14 @@ final class GitWorktreeToolExecutorTests: XCTestCase {
             at: parent.appendingPathComponent(unrelatedName),
             withIntermediateDirectories: true
         )
-        let git = GitToolExecutor()
 
+        let git = GitToolExecutor()
         let open = git.openWorktree(cwd: root, path: unrelatedName)
+        let remove = git.removeWorktree(cwd: root, path: unrelatedName, force: true)
+
         XCTAssertFalse(open.ok)
         XCTAssertTrue(open.error?.contains("not registered") == true, open.error ?? "")
-
-        let result = git.removeWorktree(cwd: root, path: unrelatedName, force: true)
-
-        XCTAssertFalse(result.ok)
-        XCTAssertTrue(result.error?.contains("not registered") == true, result.error ?? "")
+        XCTAssertFalse(remove.ok)
+        XCTAssertTrue(remove.error?.contains("not registered") == true, remove.error ?? "")
     }
 }

@@ -21,7 +21,8 @@ final class WorkspaceWorktreeOpenEngineTests: XCTestCase {
             byteCount: 17
         )
         let context = WorkspaceWorktreeOpenContext(
-            request: .init(path: "feature", branch: " feature/login "),
+            path: "feature",
+            branch: " feature/login ",
             projectID: projectID,
             mode: .review,
             model: TrustedRouterDefaults.synthModel,
@@ -92,7 +93,8 @@ final class WorkspaceWorktreeOpenEngineTests: XCTestCase {
 
     private func context(request: WorkspaceWorktreeCreateRequest) -> WorkspaceWorktreeOpenContext {
         WorkspaceWorktreeOpenContext(
-            request: request,
+            path: request.path,
+            branch: request.branch,
             projectID: UUID(),
             mode: .auto,
             model: TrustedRouterDefaults.fastModel

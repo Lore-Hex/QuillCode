@@ -88,9 +88,49 @@ enum WorkspaceProjectContextRefresher {
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceWorktreeOpenContext {
+        worktreeOpenContext(
+            path: request.path,
+            branch: request.branch,
+            projectID: projectID,
+            mode: mode,
+            model: model,
+            projects: projects,
+            globalMemories: globalMemories
+        )
+    }
+
+    static func worktreeOpenContext(
+        request: WorkspaceWorktreeOpenRequest,
+        projectID: UUID,
+        mode: AgentMode,
+        model: String,
+        projects: [ProjectRef],
+        globalMemories: [MemoryNote]
+    ) -> WorkspaceWorktreeOpenContext {
+        worktreeOpenContext(
+            path: request.path,
+            branch: "",
+            projectID: projectID,
+            mode: mode,
+            model: model,
+            projects: projects,
+            globalMemories: globalMemories
+        )
+    }
+
+    private static func worktreeOpenContext(
+        path: String,
+        branch: String,
+        projectID: UUID,
+        mode: AgentMode,
+        model: String,
+        projects: [ProjectRef],
+        globalMemories: [MemoryNote]
+    ) -> WorkspaceWorktreeOpenContext {
         let snapshot = threadContext(projectID: projectID, projects: projects, globalMemories: globalMemories)
         return WorkspaceWorktreeOpenContext(
-            request: request,
+            path: path,
+            branch: branch,
             projectID: projectID,
             mode: mode,
             model: model,
