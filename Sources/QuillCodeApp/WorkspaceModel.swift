@@ -18,12 +18,12 @@ public final class QuillCodeWorkspaceModel {
     public internal(set) var sidebarSelection: SidebarSelectionState
     public private(set) var lastError: String?
 
-    private var runner: AgentRunner
+    var runner: AgentRunner
     let threadPersistence: WorkspaceThreadPersistence
     private let projectStore: JSONProjectStore?
     private let automationStore: JSONAutomationStore?
     let globalMemoryDirectory: URL?
-    private var computerUseBackend: (any ComputerUseBackend)?
+    var computerUseBackend: (any ComputerUseBackend)?
     let sshRemoteShellExecutor: SSHRemoteShellExecutor
     let mcpRuntime: WorkspaceMCPRuntime
 
@@ -142,17 +142,6 @@ public final class QuillCodeWorkspaceModel {
         root.projects.first { $0.id == id }
     }
 
-    public var canRetryLastUserTurn: Bool {
-        WorkspaceRetryPlanner.canRetryLastUserTurn(
-            in: selectedThread,
-            isSending: composer.isSending
-        )
-    }
-
-    public func setDraft(_ draft: String) {
-        composer.draft = draft
-    }
-
     @discardableResult
     public func setMessageFeedback(messageID: UUID, value: MessageFeedbackValue) -> Bool {
         guard selectedThread?.messages.contains(where: { $0.id == messageID && $0.role == .assistant }) == true else {
@@ -179,17 +168,6 @@ public final class QuillCodeWorkspaceModel {
         return true
     }
 
-    @discardableResult
-    public func prepareRetryLastUserTurn() -> Bool {
-        guard let draft = WorkspaceRetryPlanner.retryDraft(in: selectedThread) else {
-            return false
-        }
-        composer.draft = draft
-        lastError = nil
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-        return true
-    }
-
     public func toggleExtensions() {
         extensions.isVisible.toggle()
     }
@@ -213,164 +191,6 @@ public final class QuillCodeWorkspaceModel {
         } else {
             activity.collapsedSectionIDs.insert(section)
         }
-    }
-
-    public func setMode(_ mode: AgentMode) {
-        WorkspaceConfigurationEngine.setMode(mode, config: &root.config)
-        mutateSelectedThread { thread in
-            WorkspaceConfigurationEngine.setMode(mode, thread: &thread)
-        }
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-    }
-
-    @discardableResult
-    public func setModel(_ model: String) -> String {
-        let modelID = WorkspaceConfigurationEngine.setModel(model, config: &root.config)
-        mutateSelectedThread { thread in
-            WorkspaceConfigurationEngine.setModelID(modelID, thread: &thread)
-        }
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-        return modelID
-    }
-
-    public func toggleModelFavorite(_ model: String) {
-        guard WorkspaceConfigurationEngine.toggleFavorite(model, config: &root.config) else { return }
-        refreshTopBar(agentStatus: root.topBar.agentStatus)
-    }
-
-    public func setModelCatalog(_ models: [ModelInfo]) {
-        guard let catalog = WorkspaceConfigurationEngine.normalizedCatalog(from: models) else { return }
-        root.modelCatalog = catalog
-    }
-
-    public func applySettings(config: AppConfig, trustedRouterAPIKeyConfigured: Bool) {
-        WorkspaceConfigurationEngine.applySettings(
-            config,
-            trustedRouterAPIKeyConfigured: trustedRouterAPIKeyConfigured,
-            root: &root
-        )
-        mutateSelectedThread { thread in
-            WorkspaceConfigurationEngine.syncThread(&thread, to: config)
-        }
-        refreshTopBar(agentStatus: root.topBar.agentStatus)
-    }
-
-    public func applyRuntime(_ runtime: QuillCodeRuntime) {
-        runner = runtime.runner
-        refreshTopBar(agentStatus: runtime.statusLabel)
-    }
-
-    public func setAgentStatus(_ status: String, lastError: String? = nil) {
-        self.lastError = lastError
-        refreshTopBar(agentStatus: status)
-    }
-
-    public func submitComposer(workspaceRoot: URL) async {
-        let submissionPlan = WorkspaceComposerSubmissionPlanner.plan(draft: composer.draft)
-        let prompt: String
-        switch submissionPlan {
-        case .ignore:
-            return
-        case .slash(let command, let originalPrompt):
-            composer.draft = ""
-            lastError = nil
-            handleSlashCommand(command, originalPrompt: originalPrompt, workspaceRoot: workspaceRoot)
-            return
-        case .agent(let plannedPrompt):
-            prompt = plannedPrompt
-        }
-
-        guard let thread = prepareAgentSendThread() else { return }
-        let sendStart = WorkspaceAgentSendStartPlanner.started(
-            prompt: prompt,
-            thread: thread,
-            composer: composer
-        )
-        applyComposerSendLifecycle(sendStart.lifecycle)
-
-        let session = agentSendSessionFactory(workspaceRoot: workspaceRoot)
-            .makeSession(prompt: sendStart.prompt, thread: sendStart.thread)
-        let outcome = await WorkspaceAgentSendTaskCoordinator(
-            start: sendStart,
-            session: session
-        ).run { [weak self] progressThread in
-            await self?.applyAgentProgress(progressThread, expectedThreadID: sendStart.threadID)
-        }
-        finishAgentSend(outcome)
-    }
-
-    private func prepareAgentSendThread() -> ChatThread? {
-        if selectedThread == nil {
-            _ = newChat()
-        }
-        guard var thread = selectedThread else { return nil }
-        syncThreadContext(into: &thread)
-        return thread
-    }
-
-    private func agentSendSessionFactory(workspaceRoot: URL) -> WorkspaceAgentSendSessionFactory {
-        WorkspaceAgentSendSessionFactory(
-            baseRunner: runner,
-            selectedProject: selectedProject,
-            browser: browser,
-            browserToolOverride: WorkspaceBrowserAgentToolOverride.make { [weak self] call, workspaceRoot in
-                guard let self else { return nil }
-                return self.executeBrowserToolForAgent(call, workspaceRoot: workspaceRoot)
-            },
-            computerUseBackend: computerUseBackend,
-            globalMemoryDirectory: globalMemoryDirectory,
-            mcpToolDefinitions: mcpRuntime.toolDefinitions(
-                manifests: selectedProject?.extensionManifests ?? [],
-                extensions: extensions
-            ),
-            mcpToolExecutionOverride: mcpRuntime.executionOverride(extensions: extensions),
-            sshRemoteShellExecutor: sshRemoteShellExecutor,
-            workspaceRoot: workspaceRoot
-        )
-    }
-
-    private func finishCompletedSend(_ result: WorkspaceAgentSendSessionResult) throws {
-        let completion = WorkspaceAgentSendTerminalPlanner.completed(
-            result: result,
-            composer: composer
-        )
-        var thread = completion.thread
-        if completion.shouldRefreshMemoryContext {
-            refreshThreadMemoryContext(&thread)
-        }
-        updateThreadFromAgentRun(thread)
-        try threadPersistence.saveOrThrow(thread)
-        applyComposerSendLifecycle(completion.lifecycle)
-    }
-
-    private func finishAgentSend(_ outcome: WorkspaceAgentSendTaskOutcome) {
-        switch outcome {
-        case .completed(let result):
-            do {
-                try finishCompletedSend(result)
-            } catch {
-                finishFailedSend(error)
-            }
-        case .cancelled(let cancellation):
-            finishCancelledSend(
-                userPrompt: cancellation.userPrompt,
-                threadID: cancellation.threadID
-            )
-        case .failed(let error):
-            finishFailedSend(error)
-        }
-    }
-
-    private func applyAgentProgress(_ thread: ChatThread, expectedThreadID: UUID) {
-        guard let progress = WorkspaceAgentSendProgressPlanner.progress(
-            thread: thread,
-            expectedThreadID: expectedThreadID,
-            composer: composer
-        ) else { return }
-        updateThreadFromAgentRun(progress.thread)
-        composer = progress.composer
-        lastError = progress.lastError
-        refreshTopBar(agentStatus: progress.agentStatus)
     }
 
     func appendNotice(_ summary: String) {
@@ -400,112 +220,6 @@ public final class QuillCodeWorkspaceModel {
         return result.ok
     }
 
-    private func executeBrowserToolForAgent(_ call: ToolCall, workspaceRoot: URL) -> ToolResult? {
-        let result = WorkspaceBrowserToolExecutor.execute(
-            call,
-            workspaceRoot: workspaceRoot,
-            browser: &browser,
-            lastError: &lastError
-        )
-        refreshTopBar(agentStatus: root.topBar.agentStatus)
-        return result
-    }
-
-    private func handleSlashCommand(_ command: SlashCommand, originalPrompt: String, workspaceRoot: URL) {
-        let action = WorkspaceSlashCommandDispatchPlanner.action(
-            for: command,
-            userText: originalPrompt,
-            statusText: statusText()
-        )
-        runSlashCommandDispatchAction(action, workspaceRoot: workspaceRoot)
-        composer.isSending = false
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-    }
-
-    func runThreadFollowUpSlashCommand(_ scheduleText: String, originalPrompt: String) {
-        appendScheduledAutomationTranscript(
-            createThreadFollowUpAutomation(matching: scheduleText),
-            success: {
-                WorkspaceSlashCommandTranscriptPlanner.threadFollowUpScheduled(
-                    userText: originalPrompt,
-                    scheduleDescription: $0
-                )
-            },
-            failure: {
-                WorkspaceSlashCommandTranscriptPlanner.threadFollowUpFailed(
-                    userText: originalPrompt,
-                    message: $0
-                )
-            }
-        )
-    }
-
-    func runWorkspaceScheduleSlashCommand(_ scheduleText: String, originalPrompt: String) {
-        appendScheduledAutomationTranscript(
-            createWorkspaceScheduleAutomation(matching: scheduleText),
-            success: {
-                WorkspaceSlashCommandTranscriptPlanner.workspaceScheduleScheduled(
-                    userText: originalPrompt,
-                    scheduleDescription: $0
-                )
-            },
-            failure: {
-                WorkspaceSlashCommandTranscriptPlanner.workspaceScheduleFailed(
-                    userText: originalPrompt,
-                    message: $0
-                )
-            }
-        )
-    }
-
-    private func appendScheduledAutomationTranscript(
-        _ automation: QuillAutomation?,
-        success: (String) -> WorkspaceLocalCommandTranscript,
-        failure: (String?) -> WorkspaceLocalCommandTranscript
-    ) {
-        let transcript = automation
-            .map { success($0.scheduleDescription) }
-            ?? failure(lastError)
-        appendLocalCommandTranscript(transcript)
-    }
-
-    func appendLocalCommandTranscript(_ transcript: WorkspaceLocalCommandTranscript) {
-        if selectedThread == nil {
-            _ = newChat()
-        }
-        mutateSelectedThread { thread in
-            WorkspaceLocalCommandTranscriptAppender.append(transcript, to: &thread)
-        }
-    }
-
-    private func finishCancelledSend(userPrompt: String, threadID: UUID) {
-        let terminal = WorkspaceAgentSendTerminalPlanner.cancelled(composer: composer)
-        mutateThread(threadID) { thread in
-            WorkspaceComposerCancellationPlanner.applyCancelledSend(userPrompt: userPrompt, to: &thread)
-        }
-        applyComposerSendLifecycle(terminal.lifecycle)
-    }
-
-    private func finishFailedSend(_ error: any Error) {
-        let terminal = WorkspaceAgentSendTerminalPlanner.failed(error, composer: composer)
-        applyComposerSendLifecycle(terminal.lifecycle)
-    }
-
-    private func applyComposerSendLifecycle(_ plan: WorkspaceComposerSendLifecyclePlan) {
-        composer = plan.composer
-        lastError = plan.lastError
-        refreshTopBar(agentStatus: plan.agentStatus)
-    }
-
-    private func statusText() -> String {
-        WorkspaceStatusTextBuilder.statusText(for: WorkspaceStatusContextBuilder.context(
-            root: root,
-            selectedProject: selectedProject,
-            selectedThread: selectedThread,
-            fallbackThreadContext: workspaceThreadContext(root.selectedProjectID)
-        ))
-    }
-
     func mutateSelectedThread(_ update: (inout ChatThread) -> Void) {
         guard let selectedThreadID = root.selectedThreadID,
               let index = mutateThread(selectedThreadID, update)
@@ -531,13 +245,13 @@ public final class QuillCodeWorkspaceModel {
     }
 
     @discardableResult
-    private func mutateThread(_ id: UUID, _ update: (inout ChatThread) -> Void) -> Int? {
+    func mutateThread(_ id: UUID, _ update: (inout ChatThread) -> Void) -> Int? {
         guard let index = threadPersistence.mutate(id, threads: &root.threads, update: update) else { return nil }
         refreshTopBar(agentStatus: root.topBar.agentStatus)
         return index
     }
 
-    private func updateThreadFromAgentRun(_ thread: ChatThread) {
+    func updateThreadFromAgentRun(_ thread: ChatThread) {
         let result = WorkspaceThreadLifecycleEngine.applyAgentRunThreadUpdate(
             thread,
             threads: &root.threads,
@@ -619,17 +333,6 @@ public final class QuillCodeWorkspaceModel {
             lastError = error.localizedDescription
             return false
         }
-    }
-
-    private func syncThreadContext(into thread: inout ChatThread) {
-        let projectID = thread.projectID ?? root.selectedProjectID
-        refreshProjectMetadata(projectID)
-        WorkspaceProjectContextRefresher.syncThreadContext(
-            &thread,
-            fallbackProjectID: root.selectedProjectID,
-            projects: root.projects,
-            globalMemories: root.globalMemories
-        )
     }
 
     func knownProjectID(_ id: UUID?) -> UUID? {

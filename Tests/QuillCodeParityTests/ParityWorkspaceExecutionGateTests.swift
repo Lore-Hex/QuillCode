@@ -3,18 +3,21 @@ import XCTest
 final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesComposerCancellationPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceComposerCancellationPlanner.swift")
 
         XCTAssertTrue(plannerText.contains("struct WorkspaceComposerCancellationPlanner"), "Composer cancellation mutation should live in a focused planner.")
         XCTAssertTrue(plannerText.contains("static func applyCancelledSend"), "Cancelled-send thread mutation should be directly testable.")
         XCTAssertTrue(plannerText.contains("static let stoppedSummary"), "Cancelled-send copy should be shared through the planner.")
-        XCTAssertTrue(modelText.contains("WorkspaceComposerCancellationPlanner.applyCancelledSend"), "WorkspaceModel should delegate cancelled-send transcript mutation.")
+        XCTAssertTrue(composerText.contains("WorkspaceComposerCancellationPlanner.applyCancelledSend"), "WorkspaceModel composer APIs should delegate cancelled-send transcript mutation.")
+        XCTAssertFalse(modelText.contains("WorkspaceComposerCancellationPlanner.applyCancelledSend"), "WorkspaceModel.swift should not own cancelled-send transcript mutation.")
         XCTAssertFalse(modelText.contains(#""Stopped by user""#), "WorkspaceModel should not own cancelled-send copy.")
         XCTAssertFalse(modelText.contains(#"{"ok":false,"error":"Stopped by user"}"#), "WorkspaceModel should not own cancelled-send result payload copy.")
     }
 
     func testWorkspaceModelDelegatesComposerSubmissionPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceComposerSubmissionPlanner.swift")
 
         XCTAssertTrue(
@@ -22,21 +25,23 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
             "Composer submission planning should live in a focused pure planner."
         )
         XCTAssertTrue(
-            modelText.contains("WorkspaceComposerSubmissionPlanner.plan"),
-            "WorkspaceModel should delegate prompt trimming and slash-command classification."
+            composerText.contains("WorkspaceComposerSubmissionPlanner.plan"),
+            "WorkspaceModel composer APIs should delegate prompt trimming and slash-command classification."
         )
         XCTAssertFalse(
-            modelText.contains("composer.draft.trimmingCharacters"),
-            "WorkspaceModel should not own raw composer prompt normalization."
+            composerText.contains("composer.draft.trimmingCharacters"),
+            "WorkspaceModel composer APIs should not own raw composer prompt normalization."
         )
         XCTAssertFalse(
-            modelText.contains("SlashCommandParser.parse(prompt)"),
+            composerText.contains("SlashCommandParser.parse(prompt)"),
             "WorkspaceModel should not classify slash commands inline."
         )
+        XCTAssertFalse(modelText.contains("public func submitComposer"), "WorkspaceModel.swift should not own composer submission APIs.")
     }
 
     func testWorkspaceModelDelegatesAgentSendSessionExecution() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let factoryText = try Self.appSourceText(named: "WorkspaceAgentSendSessionFactory.swift")
         let sessionText = try Self.appSourceText(named: "WorkspaceAgentSendSession.swift")
         let coordinatorText = try Self.appSourceText(named: "WorkspaceAgentSendTaskCoordinator.swift")
@@ -83,15 +88,15 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
             "Focused coordinator tests should cover runtime failure classification."
         )
         XCTAssertTrue(
-            modelText.contains("WorkspaceAgentSendSessionFactory("),
-            "WorkspaceModel should delegate runner execution setup to the send-session factory."
+            composerText.contains("WorkspaceAgentSendSessionFactory("),
+            "WorkspaceModel composer APIs should delegate runner execution setup to the send-session factory."
         )
         XCTAssertTrue(
-            modelText.contains("WorkspaceAgentSendTaskCoordinator("),
-            "WorkspaceModel should delegate active send task execution to the focused coordinator."
+            composerText.contains("WorkspaceAgentSendTaskCoordinator("),
+            "WorkspaceModel composer APIs should delegate active send task execution to the focused coordinator."
         )
         XCTAssertFalse(
-            modelText.contains("WorkspaceAgentSendSession("),
+            composerText.contains("WorkspaceAgentSendSession("),
             "WorkspaceModel should not construct agent send sessions inline."
         )
         XCTAssertFalse(
@@ -105,11 +110,11 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
     }
 
     func testWorkspaceModelDelegatesAgentSendStartPlanning() throws {
-        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceAgentSendStartPlanner.swift")
-        let submitStart = try XCTUnwrap(modelText.range(of: "public func submitComposer"))
-        let submitEnd = try XCTUnwrap(modelText.range(of: "private func prepareAgentSendThread"))
-        let submitBody = String(modelText[submitStart.lowerBound..<submitEnd.lowerBound])
+        let submitStart = try XCTUnwrap(composerText.range(of: "public func submitComposer"))
+        let submitEnd = try XCTUnwrap(composerText.range(of: "private func prepareAgentSendThread"))
+        let submitBody = String(composerText[submitStart.lowerBound..<submitEnd.lowerBound])
 
         XCTAssertTrue(
             plannerText.contains("struct WorkspaceAgentSendStartPlan"),
@@ -130,12 +135,12 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
     }
 
     func testWorkspaceModelDelegatesAgentSendThreadPreparation() throws {
-        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let submitStart = try XCTUnwrap(modelText.range(of: "public func submitComposer"))
-        let prepareStart = try XCTUnwrap(modelText.range(of: "private func prepareAgentSendThread"))
-        let prepareEnd = try XCTUnwrap(modelText.range(of: "private func agentSendSessionFactory"))
-        let submitBody = String(modelText[submitStart.lowerBound..<prepareStart.lowerBound])
-        let prepareBody = String(modelText[prepareStart.lowerBound..<prepareEnd.lowerBound])
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
+        let submitStart = try XCTUnwrap(composerText.range(of: "public func submitComposer"))
+        let prepareStart = try XCTUnwrap(composerText.range(of: "private func prepareAgentSendThread"))
+        let prepareEnd = try XCTUnwrap(composerText.range(of: "private func agentSendSessionFactory"))
+        let submitBody = String(composerText[submitStart.lowerBound..<prepareStart.lowerBound])
+        let prepareBody = String(composerText[prepareStart.lowerBound..<prepareEnd.lowerBound])
 
         XCTAssertTrue(
             submitBody.contains("prepareAgentSendThread()"),
@@ -161,10 +166,11 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesAgentSendProgressPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceAgentSendProgressPlanner.swift")
-        let progressStart = try XCTUnwrap(modelText.range(of: "private func applyAgentProgress"))
-        let progressEnd = try XCTUnwrap(modelText.range(of: "func appendNotice"))
-        let progressBody = String(modelText[progressStart.lowerBound..<progressEnd.lowerBound])
+        let progressStart = try XCTUnwrap(composerText.range(of: "private func applyAgentProgress"))
+        let progressEnd = try XCTUnwrap(composerText.range(of: "private func executeBrowserToolForAgent"))
+        let progressBody = String(composerText[progressStart.lowerBound..<progressEnd.lowerBound])
 
         XCTAssertTrue(
             plannerText.contains("struct WorkspaceAgentSendProgressPlan"),
@@ -190,14 +196,15 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
             progressBody.contains("lastError = nil"),
             "WorkspaceModel should not clear progress errors inline."
         )
+        XCTAssertFalse(modelText.contains("private func applyAgentProgress"), "WorkspaceModel.swift should not own agent-send progress APIs.")
     }
 
     func testWorkspaceModelDelegatesAgentSendTerminalPlanning() throws {
-        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceAgentSendTerminalPlanner.swift")
-        let submitStart = try XCTUnwrap(modelText.range(of: "public func submitComposer"))
-        let submitEnd = try XCTUnwrap(modelText.range(of: "private func prepareAgentSendThread"))
-        let submitBody = String(modelText[submitStart.lowerBound..<submitEnd.lowerBound])
+        let submitStart = try XCTUnwrap(composerText.range(of: "public func submitComposer"))
+        let submitEnd = try XCTUnwrap(composerText.range(of: "private func prepareAgentSendThread"))
+        let submitBody = String(composerText[submitStart.lowerBound..<submitEnd.lowerBound])
 
         XCTAssertTrue(
             plannerText.contains("struct WorkspaceAgentSendCompletionPlan"),
@@ -208,27 +215,27 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
             "Agent send terminal planning should live in a focused planner."
         )
         XCTAssertTrue(
-            modelText.contains("private func finishCompletedSend"),
-            "WorkspaceModel should route successful send completion through a named helper."
+            composerText.contains("private func finishCompletedSend"),
+            "WorkspaceModel composer APIs should route successful send completion through a named helper."
         )
         XCTAssertTrue(
-            modelText.contains("private func finishFailedSend"),
-            "WorkspaceModel should route failed send completion through a named helper."
+            composerText.contains("private func finishFailedSend"),
+            "WorkspaceModel composer APIs should route failed send completion through a named helper."
         )
         XCTAssertTrue(
-            modelText.contains("private func finishAgentSend"),
-            "WorkspaceModel should route typed send outcomes through a named terminal helper."
+            composerText.contains("private func finishAgentSend"),
+            "WorkspaceModel composer APIs should route typed send outcomes through a named terminal helper."
         )
         XCTAssertTrue(
             submitBody.contains("finishAgentSend(outcome)"),
             "submitComposer should delegate typed send outcome handling."
         )
         XCTAssertTrue(
-            modelText.contains("try finishCompletedSend(result)"),
+            composerText.contains("try finishCompletedSend(result)"),
             "The terminal helper should delegate successful send completion."
         )
         XCTAssertTrue(
-            modelText.contains("finishFailedSend(error)"),
+            composerText.contains("finishFailedSend(error)"),
             "The terminal helper should delegate failed send completion."
         )
         XCTAssertFalse(
@@ -263,6 +270,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesSlashCommandTranscriptPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let actionExecutorText = try Self.appSourceText(named: "WorkspaceSlashCommandActionExecutor.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceSlashCommandTranscriptPlanner.swift")
         let appenderText = try Self.appSourceText(named: "WorkspaceLocalCommandTranscriptAppender.swift")
@@ -282,12 +290,13 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(dispatchPlannerText.contains("WorkspaceSlashCommandTranscriptPlanner.unknown"), "Unknown-command transcripts should be selected by slash dispatch planning.")
         XCTAssertTrue(appenderText.contains("thread.messages.append(ChatMessage(role: .user"), "The transcript appender should own user-message insertion.")
         XCTAssertTrue(appenderText.contains("thread.messages.append(ChatMessage(role: .assistant"), "The transcript appender should own assistant-message insertion.")
-        XCTAssertTrue(modelText.contains("WorkspaceLocalCommandTranscriptAppender.append"), "WorkspaceModel should delegate local command transcript mutation.")
+        XCTAssertTrue(composerText.contains("WorkspaceLocalCommandTranscriptAppender.append"), "WorkspaceModel composer APIs should delegate local command transcript mutation.")
         XCTAssertTrue(localEnvironmentModelText.contains("public func runLocalEnvironmentAction"), "Local environment action execution should live in the focused WorkspaceModelLocalEnvironment extension.")
         XCTAssertTrue(localEnvironmentModelText.contains("func runEnvironmentSlashCommand"), "Local environment slash command dispatch should live in the focused WorkspaceModelLocalEnvironment extension.")
         XCTAssertTrue(localEnvironmentModelText.contains("WorkspaceEnvironmentSlashCommandPlanner.plan"), "WorkspaceModelLocalEnvironment should delegate /env list/run/not-found planning.")
         XCTAssertFalse(modelText.contains("public func runLocalEnvironmentAction"), "WorkspaceModel.swift should not own local environment action execution.")
         XCTAssertFalse(modelText.contains("func runEnvironmentSlashCommand"), "WorkspaceModel.swift should not own local environment slash command dispatch.")
+        XCTAssertFalse(modelText.contains("WorkspaceLocalCommandTranscriptAppender.append"), "WorkspaceModel.swift should not own local command transcript mutation.")
         XCTAssertFalse(modelText.contains("WorkspaceEnvironmentSlashCommandPlanner.plan"), "WorkspaceModel.swift should not directly choose /env list/run/not-found planning.")
         XCTAssertTrue(plannerText.contains("static func sshProjectAdded"), "SSH success copy should be directly testable.")
         XCTAssertTrue(plannerText.contains("static func workspaceCommandFailed"), "Slash command failure copy should be directly testable.")
@@ -307,7 +316,8 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
             "WorkspaceSlashCommandTranscriptPlanner.threadFollowUpScheduled",
             "WorkspaceSlashCommandTranscriptPlanner.workspaceScheduleScheduled"
         ] {
-            XCTAssertTrue(modelText.contains(modelOwnedScheduledCall), "WorkspaceModel should keep schedule transcript delegation beside schedule persistence.")
+            XCTAssertTrue(composerText.contains(modelOwnedScheduledCall), "WorkspaceModel composer APIs should keep schedule transcript delegation beside schedule persistence.")
+            XCTAssertFalse(modelText.contains(modelOwnedScheduledCall), "WorkspaceModel.swift should not own schedule transcript delegation.")
         }
         for dispatchOwnedCall in [
             "WorkspaceSlashCommandTranscriptPlanner.help",
@@ -377,12 +387,13 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesAgentRunContextAssembly() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceAgentRunContextBuilder.swift")
         let factoryText = try Self.appSourceText(named: "WorkspaceAgentSendSessionFactory.swift")
         let memoryExecutorText = try Self.appSourceText(named: "WorkspaceMemoryRememberToolExecutor.swift")
 
         XCTAssertTrue(factoryText.contains("WorkspaceAgentRunContextBuilder("), "The send-session factory should delegate per-run tool assembly.")
-        XCTAssertTrue(modelText.contains("WorkspaceAgentSendSessionFactory("), "WorkspaceModel should delegate per-run session assembly.")
+        XCTAssertTrue(composerText.contains("WorkspaceAgentSendSessionFactory("), "WorkspaceModel composer APIs should delegate per-run session assembly.")
         XCTAssertTrue(builderText.contains("configuredRunner(from runner: AgentRunner)"), "Agent run context builder should own runner configuration.")
         XCTAssertTrue(builderText.contains("ToolDefinition.planUpdate"), "Agent run context builder should attach the plan tool.")
         XCTAssertTrue(builderText.contains("ToolDefinition.browserInspect"), "Agent run context builder should attach the browser tool.")
@@ -401,6 +412,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesAgentSendSession() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let factoryText = try Self.appSourceText(named: "WorkspaceAgentSendSessionFactory.swift")
         let sessionText = try Self.appSourceText(named: "WorkspaceAgentSendSession.swift")
 
@@ -409,7 +421,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(sessionText.contains("runner.send("), "The session should own the runner send call.")
         XCTAssertTrue(sessionText.contains("WorkspaceMemoryRememberToolExecutor.didSaveMemory"), "The session should report whether the run saved memory.")
         XCTAssertTrue(factoryText.contains("WorkspaceAgentSendSession("), "The factory should own agent send session construction.")
-        XCTAssertTrue(modelText.contains("WorkspaceAgentSendSessionFactory("), "WorkspaceModel should delegate agent send execution setup.")
+        XCTAssertTrue(composerText.contains("WorkspaceAgentSendSessionFactory("), "WorkspaceModel composer APIs should delegate agent send execution setup.")
         XCTAssertFalse(modelText.contains("WorkspaceAgentSendSession("), "WorkspaceModel should not construct agent send sessions inline.")
         XCTAssertFalse(modelText.contains("activeRunner.send("), "WorkspaceModel should not own the low-level send call.")
         XCTAssertFalse(modelText.contains("WorkspaceMemoryRememberToolExecutor.didSaveMemory(in: thread)"), "WorkspaceModel should not inspect memory events after each send.")
@@ -575,6 +587,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesSlashCommandDispatchPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceSlashCommandDispatchPlanner.swift")
         let actionExecutorText = try Self.appSourceText(named: "WorkspaceSlashCommandActionExecutor.swift")
         let plannerTests = try Self.appTestSourceText(named: "WorkspaceSlashCommandDispatchPlannerTests.swift")
@@ -587,9 +600,10 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(actionExecutorText.contains("extension QuillCodeWorkspaceModel"), "Slash action execution should live in a focused model extension.")
         XCTAssertTrue(actionExecutorText.contains("func runSlashCommandDispatchAction"), "Typed slash action application should live outside the main model file.")
         XCTAssertTrue(actionExecutorText.contains("switch action"), "The slash action executor should own the typed action switch.")
-        XCTAssertTrue(modelText.contains("WorkspaceSlashCommandDispatchPlanner.action("), "WorkspaceModel should consume the slash dispatch planner.")
-        XCTAssertTrue(modelText.contains("runSlashCommandDispatchAction(action, workspaceRoot: workspaceRoot)"), "WorkspaceModel should delegate typed slash action application.")
+        XCTAssertTrue(composerText.contains("WorkspaceSlashCommandDispatchPlanner.action("), "WorkspaceModel composer APIs should consume the slash dispatch planner.")
+        XCTAssertTrue(composerText.contains("runSlashCommandDispatchAction(action, workspaceRoot: workspaceRoot)"), "WorkspaceModel composer APIs should delegate typed slash action application.")
         XCTAssertTrue(plannerTests.contains("testExternalCommandFamiliesMapToTypedActions"), "Slash dispatch families should have focused planner coverage.")
+        XCTAssertFalse(modelText.contains("WorkspaceSlashCommandDispatchPlanner.action("), "WorkspaceModel.swift should not own slash dispatch planning.")
         XCTAssertFalse(modelText.contains("switch command {\n        case .help:"), "WorkspaceModel should not switch directly over parsed slash commands.")
         XCTAssertFalse(modelText.contains("switch action {"), "WorkspaceModel should not own typed slash action application.")
         XCTAssertFalse(modelText.contains("case .appendTranscript"), "WorkspaceModel should not own typed slash transcript actions.")
