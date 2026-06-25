@@ -31,6 +31,7 @@ struct ParityFocusedSuiteManifest {
             "testPlaywrightArtifactFlowsStayInFocusedSpec",
             "testPlaywrightComposerFlowsStayInFocusedSpec",
             "testPlaywrightWorkspaceChromeFlowsStayInFocusedSpec",
+            "testPlaywrightWorkspaceStateFlowsStayInFocusedSpec",
             "testPlaywrightShortcutFlowsStayInFocusedSpec",
             "testPlaywrightReviewFlowsStayInFocusedSpec"
         ]),
@@ -94,7 +95,8 @@ struct ParityFocusedSuiteManifest {
         ]),
         Suite(fileName: "ParityWorkspaceMemoryGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesMemoryCommandOrchestration",
-            "testWorkspaceMemoryIntegrationTestsOwnModelMemoryFlows"
+            "testWorkspaceMemoryIntegrationTestsOwnModelMemoryFlows",
+            "testPlaywrightMemoryFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityWorkspaceIntegrationGateTests.swift", testNames: [
             "testWorkspaceMCPIntegrationTestsOwnModelMCPFlows",

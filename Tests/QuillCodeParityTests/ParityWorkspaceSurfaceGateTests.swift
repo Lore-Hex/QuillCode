@@ -309,6 +309,32 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         }
     }
 
+    func testPlaywrightWorkspaceStateFlowsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let stateSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("workspace-state.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let stateFlowNames = [
+            "preserves transcript scroll intent as new events append",
+            "shows model-authored task plan in Activity",
+            "shows context pressure banner and compacts or forks from latest turn"
+        ]
+
+        XCTAssertTrue(stateSpecText.contains("harnessURL()"), "Focused workspace state flows should reuse the shared harness URL helper.")
+        XCTAssertTrue(stateSpecText.contains("clickSidebarTool"), "Focused workspace state flows should cover Activity navigation through shared sidebar helpers.")
+        XCTAssertTrue(stateSpecText.contains("context-compact"), "Focused workspace state flows should cover context compaction.")
+        XCTAssertTrue(stateSpecText.contains("context-fork-last"), "Focused workspace state flows should cover context forking.")
+        for flowName in stateFlowNames {
+            XCTAssertTrue(stateSpecText.contains(flowName), "\(flowName) should live in workspace-state.spec.ts.")
+            XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
+        }
+    }
+
     func testPlaywrightShortcutFlowsStayInFocusedSpec() throws {
         let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
         let shortcutSpecText = try String(
