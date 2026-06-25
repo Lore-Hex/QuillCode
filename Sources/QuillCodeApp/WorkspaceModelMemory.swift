@@ -50,12 +50,23 @@ extension QuillCodeWorkspaceModel {
 
     func runEditMemorySlashCommand(id: String, content: String, originalPrompt: String) {
         if id.hasPrefix("project:") {
-            let mutation = WorkspaceMemoryEngine.updateProject(
-                id: id,
-                content: content,
-                userText: originalPrompt,
-                projectRoot: editableProjectMemoryRoot()
-            )
+            let project = editableProjectMemory()
+            let mutation = if project?.isRemote == true {
+                WorkspaceMemoryEngine.updateRemoteProject(
+                    id: id,
+                    content: content,
+                    userText: originalPrompt,
+                    project: project,
+                    executor: sshRemoteShellExecutor
+                )
+            } else {
+                WorkspaceMemoryEngine.updateProject(
+                    id: id,
+                    content: content,
+                    userText: originalPrompt,
+                    projectRoot: editableProjectMemoryRoot()
+                )
+            }
             applyProjectMemoryMutation(mutation)
         } else {
             let mutation = WorkspaceMemoryEngine.updateGlobal(
@@ -84,7 +95,7 @@ extension QuillCodeWorkspaceModel {
         appendLocalCommandTranscript(mutation.transcript)
         if let projectID = editableProjectMemoryID(),
            let updatedProjectMemories = mutation.updatedProjectMemories,
-           let index = root.projects.firstIndex(where: { $0.id == projectID && !$0.isRemote }) {
+           let index = root.projects.firstIndex(where: { $0.id == projectID }) {
             root.projects[index].memories = updatedProjectMemories
         }
         applyMemoryContextNotice(mutation)
@@ -118,7 +129,7 @@ extension QuillCodeWorkspaceModel {
 
     private func editableProjectMemory() -> ProjectRef? {
         guard let projectID = editableProjectMemoryID() else { return nil }
-        return root.projects.first { $0.id == projectID && !$0.isRemote }
+        return root.projects.first { $0.id == projectID }
     }
 
     private func editableProjectMemoryID() -> UUID? {
@@ -126,7 +137,8 @@ extension QuillCodeWorkspaceModel {
     }
 
     private func editableProjectMemoryRoot() -> URL? {
-        editableProjectMemory().map { URL(fileURLWithPath: $0.path) }
+        guard let project = editableProjectMemory(), !project.isRemote else { return nil }
+        return URL(fileURLWithPath: project.path)
     }
 
     func refreshThreadMemoryContext(_ thread: inout ChatThread) {

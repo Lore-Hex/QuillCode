@@ -5,12 +5,15 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let memoryModelText = try Self.appSourceText(named: "WorkspaceModelMemory.swift")
         let engineText = try Self.appSourceText(named: "WorkspaceMemoryEngine.swift")
+        let remoteUpdaterText = try Self.appSourceText(named: "WorkspaceRemoteProjectMemoryUpdater.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceMemoryCommandTranscriptPlanner.swift")
         let errorText = try Self.appSourceText(named: "WorkspaceMemoryErrorMessageBuilder.swift")
         let contextUpdateText = try Self.appSourceText(named: "WorkspaceMemoryContextUpdatePlanner.swift")
 
         XCTAssertTrue(engineText.contains("enum WorkspaceMemoryEngine"), "Memory command orchestration should live in a focused engine.")
         XCTAssertTrue(engineText.contains("struct WorkspaceMemoryMutation"), "Memory command outcomes should use a typed mutation value.")
+        XCTAssertTrue(remoteUpdaterText.contains("enum WorkspaceRemoteProjectMemoryUpdater"), "SSH Remote memory writes should live in a focused remote updater.")
+        XCTAssertTrue(remoteUpdaterText.contains("MemoryNoteLoader.validatedUpdateContent"), "Remote project memory edits should share local memory validation.")
         XCTAssertTrue(memoryModelText.contains("func runRememberSlashCommand"), "Memory slash-command execution should live in the focused WorkspaceModelMemory extension.")
         XCTAssertTrue(memoryModelText.contains("func prepareEditMemory"), "Memory edit preparation should live in the focused WorkspaceModelMemory extension.")
         XCTAssertTrue(memoryModelText.contains("func runEditMemorySlashCommand"), "Memory edit slash-command execution should live in the focused WorkspaceModelMemory extension.")
@@ -19,6 +22,7 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.saveGlobal"), "WorkspaceModelMemory should delegate global memory saves.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.updateGlobal"), "WorkspaceModelMemory should delegate global memory updates.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.updateProject"), "WorkspaceModelMemory should delegate project memory updates.")
+        XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.updateRemoteProject"), "WorkspaceModelMemory should delegate SSH Remote project memory updates.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.deleteGlobal"), "WorkspaceModelMemory should delegate global memory deletion.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceProjectContextRefresher.globalMemories"), "WorkspaceModelMemory should delegate global memory reloads through the project context refresher.")
         XCTAssertTrue(memoryModelText.contains("WorkspaceMemoryEngine.contextUpdate"), "WorkspaceModelMemory should delegate memory context update construction.")
@@ -37,6 +41,7 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
             "WorkspaceMemoryCommandTranscriptPlanner.memoryUpdated",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryNotUpdated",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryUpdatedSummary",
+            "WorkspaceRemoteProjectMemoryUpdater.update",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryForgotten",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted",
             "WorkspaceMemoryCommandTranscriptPlanner.memoryForgottenSummary",
@@ -67,11 +72,13 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(memoryIntegrationTests.contains("testSurfaceIncludesMemorySummariesAndCommand"), "Memory surface summaries should live in focused memory tests.")
         XCTAssertTrue(memoryIntegrationTests.contains("testSlashRememberWritesGlobalMemoryAndRefreshesThreadSurface"), "Slash remember integration should live in focused memory tests.")
         XCTAssertTrue(memoryIntegrationTests.contains("testMemoryEditWorkspaceCommandPrefillsAndSlashUpdateRewritesGlobalMemory"), "Memory edit integration should live in focused memory tests.")
+        XCTAssertTrue(memoryIntegrationTests.contains("testMemoryEditWorkspaceCommandRewritesRemoteProjectMemoryThroughSSH"), "SSH Remote memory edit integration should live in focused memory tests.")
         XCTAssertTrue(memoryIntegrationTests.contains("testAgentRememberToolWritesGlobalMemoryAndRefreshesThreadSurface"), "Agent memory tool integration should live in focused memory tests.")
         XCTAssertTrue(memoryIntegrationTests.contains("testMemoryDeleteWorkspaceCommandRemovesGlobalMemoryAndRefreshesThreadSurface"), "Memory delete integration should live in focused memory tests.")
         XCTAssertFalse(modelTests.contains("testMemoryNotesLoadGlobalAndProjectIntoThreadAndSurface"), "WorkspaceModelTests should not own memory integration flows.")
         XCTAssertFalse(modelTests.contains("testSlashRememberWritesGlobalMemoryAndRefreshesThreadSurface"), "WorkspaceModelTests should not own slash memory integration flows.")
         XCTAssertFalse(modelTests.contains("testMemoryEditWorkspaceCommandPrefillsAndSlashUpdateRewritesGlobalMemory"), "WorkspaceModelTests should not own memory edit integration flows.")
+        XCTAssertFalse(modelTests.contains("testMemoryEditWorkspaceCommandRewritesRemoteProjectMemoryThroughSSH"), "WorkspaceModelTests should not own remote memory edit integration flows.")
         XCTAssertFalse(modelTests.contains("testAgentRememberToolWritesGlobalMemoryAndRefreshesThreadSurface"), "WorkspaceModelTests should not own agent memory integration flows.")
         XCTAssertFalse(modelTests.contains("testMemoryDeleteWorkspaceCommandRemovesGlobalMemoryAndRefreshesThreadSurface"), "WorkspaceModelTests should not own memory delete integration flows.")
         XCTAssertFalse(broadSurfaceTests.contains("testSurfaceIncludesMemorySummariesAndCommand"), "WorkspaceSurfaceTests should not own memory surface summaries.")
