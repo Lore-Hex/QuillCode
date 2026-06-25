@@ -4999,3 +4999,21 @@ Current strict grades:
 
 Remaining risk:
 - Continue draining `ParityGateTests.swift` by feature family. Good next splits: native settings/sheet gates and agent/TrustedRouter gates.
+
+## 2026-06-24 Workspace Settings And Sheet Parity Gate Split
+
+Overall grade after this slice: **A settings/sheet ownership, A shell-surface drift protection, A- catch-all size**.
+
+After the command-surface split, native settings draft state, settings-surface contracts, transcript Find/context-banner composition, and workspace sheet presentation still lived in the broad parity file. These checks protect the root workspace shell boundary: modal wiring, settings records, transcript Find, and context-banner placement should stay in focused surface/view files rather than drifting back into `WorkspaceSwiftUIView` or `WorkspaceSurface`.
+
+What changed:
+- Added `ParityWorkspaceSettingsGateTests` for transcript/context-banner placement, sheet presentation, native settings state, and settings-surface contracts.
+- Registered the settings/sheet suite in the parity drift guard.
+- Reduced `ParityGateTests.swift` again without changing product behavior.
+
+Current strict grades:
+- `ParityWorkspaceSettingsGateTests.swift`: **A**. The suite has a coherent shell/settings boundary and avoids overlapping with `ParityWorkspaceCommandGateTests`.
+- `ParityGateTests.swift`: **A-**. It is now small enough to read as a global architecture and agent/router registry, though it still owns several implementation-boundary checks.
+
+Remaining risk:
+- Continue draining `ParityGateTests.swift` by implementation family. Good next splits: agent-runner gates, TrustedRouter transport/parser gates, and core model/project/tool hygiene gates.
