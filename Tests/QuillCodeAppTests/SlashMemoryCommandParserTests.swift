@@ -6,6 +6,8 @@ final class SlashMemoryCommandParserTests: XCTestCase {
         XCTAssertTrue(SlashMemoryCommandParser.supports("memory"))
         XCTAssertTrue(SlashMemoryCommandParser.supports("memories"))
         XCTAssertTrue(SlashMemoryCommandParser.supports("remember"))
+        XCTAssertTrue(SlashMemoryCommandParser.supports("remember-edit"))
+        XCTAssertTrue(SlashMemoryCommandParser.supports("memory-edit"))
         XCTAssertFalse(SlashMemoryCommandParser.supports("project"))
     }
 
@@ -30,6 +32,31 @@ final class SlashMemoryCommandParserTests: XCTestCase {
         XCTAssertEqual(
             SlashCommandParser.parse("/remember   Prefer fast local tests  "),
             .remember("Prefer fast local tests")
+        )
+    }
+
+    func testRememberEditUsesFirstLineAsMemoryIDAndRemainingTextAsContent() {
+        XCTAssertEqual(
+            SlashMemoryCommandParser.parse(
+                name: "remember-edit",
+                argument: "global:memories/preferences.md\nPrefer durable UI tests"
+            ),
+            .editMemory(id: "global:memories/preferences.md", content: "Prefer durable UI tests")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/memory-edit global:memories/preferences.md\r\nPrefer focused diffs"),
+            .editMemory(id: "global:memories/preferences.md", content: "Prefer focused diffs")
+        )
+    }
+
+    func testRememberEditRequiresIDAndContent() {
+        XCTAssertEqual(
+            SlashCommandParser.parse("/remember-edit global:memories/preferences.md"),
+            .invalid("Use `/remember-edit memory-id` followed by the revised memory on the next line.")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/remember-edit \nPrefer focused diffs"),
+            .invalid("Use `/remember-edit memory-id` followed by the revised memory on the next line.")
         )
     }
 }

@@ -36,6 +36,10 @@ final class WorkspaceMemoryIntegrationTests: XCTestCase {
         XCTAssertEqual(memories.globalCount, 1)
         XCTAssertEqual(memories.projectCount, 1)
         XCTAssertEqual(memories.items.map { $0.scope }, [MemoryScope.global, .project])
+        XCTAssertEqual(memories.items.first?.canEdit, true)
+        XCTAssertNotNil(memories.items.first?.editCommandID)
+        XCTAssertEqual(memories.items.last?.canEdit, false)
+        XCTAssertNil(memories.items.last?.editCommandID)
         XCTAssertEqual(memories.items.first?.canDelete, true)
         XCTAssertNotNil(memories.items.first?.deleteCommandID)
         XCTAssertEqual(memories.items.last?.canDelete, false)
@@ -109,12 +113,48 @@ final class WorkspaceMemoryIntegrationTests: XCTestCase {
         XCTAssertEqual(model.selectedThread?.messages.last?.role, .assistant)
         XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("Saved memory: \(memory.title)") == true)
         XCTAssertEqual(model.surface().topBar.memoryLabel, "1 memory")
+        XCTAssertEqual(model.surface().memories.items.first?.canEdit, true)
+        XCTAssertEqual(model.surface().memories.items.first?.editCommandID, "memory-edit:\(memory.id)")
         XCTAssertEqual(model.surface().memories.items.first?.canDelete, true)
         XCTAssertEqual(model.surface().memories.items.first?.deleteCommandID, "memory-delete:\(memory.id)")
 
         let filename = memory.relativePath.replacingOccurrences(of: "memories/", with: "")
         let savedURL = globalMemories.appendingPathComponent(filename)
         XCTAssertEqual(try String(contentsOf: savedURL, encoding: .utf8), "Prefer small reviewable commits\n")
+    }
+
+    func testMemoryEditWorkspaceCommandPrefillsAndSlashUpdateRewritesGlobalMemory() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let globalMemories = try makeQuillCodeTestDirectory()
+        try "Prefer concise progress updates.\n".write(
+            to: globalMemories.appendingPathComponent("preferences.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let model = QuillCodeWorkspaceModel(globalMemoryDirectory: globalMemories)
+        _ = model.newChat()
+        let memory = try XCTUnwrap(model.root.globalMemories.first)
+
+        XCTAssertTrue(model.runWorkspaceCommand("memory-edit:\(memory.id)", workspaceRoot: root))
+        XCTAssertEqual(model.composer.draft, "/remember-edit \(memory.id)\nPrefer concise progress updates.")
+
+        model.setDraft("/remember-edit \(memory.id)\nPrefer small reviewable commits")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertEqual(model.root.globalMemories.count, 1)
+        let updated = try XCTUnwrap(model.root.globalMemories.first)
+        XCTAssertEqual(updated.id, memory.id)
+        XCTAssertEqual(updated.content, "Prefer small reviewable commits")
+        XCTAssertEqual(model.selectedThread?.title, "Updated memory: \(updated.title)")
+        XCTAssertEqual(model.selectedThread?.memories.map(\.content), ["Prefer small reviewable commits"])
+        XCTAssertEqual(model.selectedThread?.events.last?.summary, "Updated memory: \(updated.title)")
+        XCTAssertEqual(model.selectedThread?.events.last?.payloadJSON, updated.relativePath)
+        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("Updated memory: \(updated.title)") == true)
+        XCTAssertEqual(
+            try String(contentsOf: globalMemories.appendingPathComponent("preferences.md"), encoding: .utf8),
+            "Prefer small reviewable commits\n"
+        )
     }
 
     func testAgentRememberToolWritesGlobalMemoryAndRefreshesThreadSurface() async throws {

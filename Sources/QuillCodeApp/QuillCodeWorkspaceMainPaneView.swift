@@ -85,12 +85,13 @@ struct QuillCodeWorkspaceMainPaneView: View {
                     QuillCodeMemoriesPaneView(memories: surface.memories) { commandID in
                         if let command = surface.commands.first(where: { $0.id == commandID }) {
                             onCommand(command)
-                        } else if commandID.hasPrefix("memory-delete:") {
+                        } else if commandID.hasPrefix("memory-edit:")
+                            || commandID.hasPrefix("memory-delete:") {
                             onCommand(WorkspaceCommandSurface(
                                 id: commandID,
-                                title: "Forget memory",
+                                title: commandID.hasPrefix("memory-edit:") ? "Edit memory" : "Forget memory",
                                 category: WorkspaceCommandPalette.memoriesCategory,
-                                keywords: ["memory", "forget", "delete"]
+                                keywords: ["memory", "edit", "forget", "delete"]
                             ))
                         }
                     }

@@ -1371,6 +1371,7 @@
     .automations-pane header > span,
     .automation-create-actions button,
     .memories-add-button,
+    .memory-edit-button,
     .memory-delete-button,
     .extension-card [data-testid="extension-kind"],
     .extension-card [data-testid="extension-status"],
@@ -1392,15 +1393,18 @@
       border-color: transparent;
     }
     .memories-add-button,
+    .memory-edit-button,
     .memory-delete-button {
       font: inherit;
       cursor: pointer;
+    }
+    .memory-edit-button {
+      margin-left: auto;
     }
     .memory-delete-button {
       color: #ffb7b7;
       background: rgba(255,82,82,.1);
       border-color: rgba(255,82,82,.16);
-      margin-left: auto;
     }
     .extension-card [data-testid="extension-status"] {
       color: var(--green);
@@ -2664,6 +2668,8 @@
             preview: 'Prefer focused tests, small reviewable commits, and direct status updates while work is running.',
             relativePath: 'memories/preferences.md',
             byteCountLabel: '91 bytes',
+            canEdit: true,
+            editCommandID: 'memory-edit:global:memories/preferences.md',
             canDelete: true,
             deleteCommandID: 'memory-delete:global:memories/preferences.md'
           },
@@ -2675,6 +2681,8 @@
             preview: 'QuillCode should stay native Swift/SwiftUI and keep Codex parity decisions documented.',
             relativePath: '.quillcode/memories/project.md',
             byteCountLabel: '86 bytes',
+            canEdit: false,
+            editCommandID: null,
             canDelete: false,
             deleteCommandID: null
           }
@@ -3386,6 +3394,8 @@
         preview: trimmed,
         relativePath: id.replace('global:', ''),
         byteCountLabel: `${new TextEncoder().encode(trimmed).length} bytes`,
+        canEdit: true,
+        editCommandID: `memory-edit:${id}`,
         canDelete: true,
         deleteCommandID: `memory-delete:${id}`
       };
@@ -3394,6 +3404,47 @@
       renameSelectedThread(`Memory: ${title}`);
       addMessage('assistant', `Saved memory: ${title}. It will be included as background context in future turns.`);
       return item;
+    }
+
+    function prepareEditMemory(id) {
+      const item = state.memories.items.find(candidate => candidate.id === id && candidate.scope === 'global');
+      if (!item) {
+        addMessage('assistant', 'Memory was not found. It may already have been removed.');
+        return false;
+      }
+      state.composer.draft = `/remember-edit ${item.id}\n${item.preview}`;
+      state.composer.canSend = true;
+      return true;
+    }
+
+    function updateMemory(id, content) {
+      const trimmed = content.trim();
+      const index = state.memories.items.findIndex(item => item.id === id && item.scope === 'global');
+      if (index < 0) {
+        addMessage('assistant', 'Memory was not found. It may already have been removed.');
+        return false;
+      }
+      if (!trimmed) {
+        addMessage('assistant', 'Memory cannot be empty.');
+        return false;
+      }
+      if (/\b(password|passwd|passphrase|api[_ -]?key|secret|token|credential)\s*[:=]/i.test(trimmed)
+          || /\b(sk|pk|rk|ghp|github_pat|xox[baprs])[-_][A-Za-z0-9_=\-]{16,}/i.test(trimmed)
+          || /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(trimmed)) {
+        addMessage('assistant', 'Memory was not updated because it looks like it contains a credential, token, password, or private key.');
+        return false;
+      }
+      const title = memoryTitle(trimmed);
+      state.memories.items[index] = {
+        ...state.memories.items[index],
+        title,
+        preview: trimmed,
+        byteCountLabel: `${new TextEncoder().encode(trimmed).length} bytes`
+      };
+      refreshMemorySummary();
+      renameSelectedThread(`Updated memory: ${title}`);
+      addMessage('assistant', `Updated memory: ${title}. Future turns will use the revised memory.`);
+      return true;
     }
 
     function deleteMemory(id) {
@@ -5068,6 +5119,11 @@
       document.querySelector('[data-testid="memories-add"]')?.addEventListener('click', event => {
         runCommand(event.currentTarget.getAttribute('data-command-id'));
       });
+      document.querySelectorAll('[data-testid="memory-edit"]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
+        });
+      });
       document.querySelectorAll('[data-testid="memory-delete"]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
@@ -6521,6 +6577,7 @@
               <header>
                 <span data-testid="memory-scope">${escapeHTML(item.scopeLabel)}</span>
                 <span data-testid="memory-size">${escapeHTML(item.byteCountLabel)}</span>
+                ${item.editCommandID ? `<button class="memory-edit-button" type="button" data-testid="memory-edit" data-command-id="${escapeHTML(item.editCommandID)}">Edit</button>` : ''}
                 ${item.deleteCommandID ? `<button class="memory-delete-button" type="button" data-testid="memory-delete" data-command-id="${escapeHTML(item.deleteCommandID)}">Forget</button>` : ''}
               </header>
               <strong data-testid="memory-title">${escapeHTML(item.title)}</strong>
@@ -7383,6 +7440,12 @@
       if (commandID?.startsWith('memory-delete:')) {
         deleteMemory(commandID.slice('memory-delete:'.length));
         render();
+        return;
+      }
+      if (commandID?.startsWith('memory-edit:')) {
+        prepareEditMemory(commandID.slice('memory-edit:'.length));
+        render();
+        focusComposerAtDraftEnd();
         return;
       }
       if (commandID === 'automation-create-thread-follow-up') {
@@ -9110,6 +9173,19 @@
           return;
         }
         addMessage('assistant', 'Usage: /ssh user@host:/absolute/path');
+      } else if (/^\/(remember-edit|memory-edit)\b/i.test(text)) {
+        const editText = text
+          .replace(/^\/(remember-edit|memory-edit)\b/i, '')
+          .replace(/\r\n?/g, '\n')
+          .trim();
+        const lineBreak = editText.indexOf('\n');
+        if (lineBreak > 0) {
+          const id = editText.slice(0, lineBreak).trim();
+          const content = editText.slice(lineBreak + 1).trim();
+          updateMemory(id, content);
+        } else {
+          addMessage('assistant', 'Use `/remember-edit memory-id` followed by the revised memory on the next line.');
+        }
       } else if (/^\/remember\b/i.test(text)) {
         const memoryContent = text.replace(/^\/remember\b/i, '').trim();
         if (memoryContent) {

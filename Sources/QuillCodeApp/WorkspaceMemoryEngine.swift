@@ -78,6 +78,40 @@ enum WorkspaceMemoryEngine {
         }
     }
 
+    static func updateGlobal(
+        id: String,
+        content: String,
+        userText: String,
+        directory: URL?
+    ) -> WorkspaceMemoryMutation {
+        guard let directory else {
+            return memoryNotUpdated(
+                userText: userText,
+                error: MemoryNoteUpdateError.updateFailed,
+                updatedGlobalMemories: nil
+            )
+        }
+
+        do {
+            let note = try MemoryNoteLoader.updateGlobal(id: id, content: content, in: directory)
+            return WorkspaceMemoryMutation(
+                transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryUpdated(
+                    userText: userText,
+                    noteTitle: note.title
+                ),
+                updatedGlobalMemories: loadGlobal(from: directory),
+                noticeSummary: WorkspaceMemoryCommandTranscriptPlanner.memoryUpdatedSummary(noteTitle: note.title),
+                noticeRelativePath: note.relativePath
+            )
+        } catch {
+            return memoryNotUpdated(
+                userText: userText,
+                error: error,
+                updatedGlobalMemories: loadGlobal(from: directory)
+            )
+        }
+    }
+
     static func contextUpdate(
         memories: [MemoryNote],
         summary: String,
@@ -113,6 +147,22 @@ enum WorkspaceMemoryEngine {
         WorkspaceMemoryMutation(
             transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted(
                 userText: "Forget memory",
+                message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
+            ),
+            updatedGlobalMemories: updatedGlobalMemories,
+            noticeSummary: nil,
+            noticeRelativePath: nil
+        )
+    }
+
+    private static func memoryNotUpdated(
+        userText: String,
+        error: any Error,
+        updatedGlobalMemories: [MemoryNote]?
+    ) -> WorkspaceMemoryMutation {
+        WorkspaceMemoryMutation(
+            transcript: WorkspaceMemoryCommandTranscriptPlanner.memoryNotUpdated(
+                userText: userText,
                 message: WorkspaceMemoryErrorMessageBuilder.userFacingMessage(for: error)
             ),
             updatedGlobalMemories: updatedGlobalMemories,

@@ -23,6 +23,8 @@ final class MemoryNoteSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.byteCountLabel, "420 bytes, truncated")
         XCTAssertTrue(surface.preview.hasSuffix("..."))
         XCTAssertLessThanOrEqual(surface.preview.count, 183)
+        XCTAssertTrue(surface.canEdit)
+        XCTAssertEqual(surface.editCommandID, "memory-edit:global-1")
         XCTAssertTrue(surface.canDelete)
         XCTAssertEqual(surface.deleteCommandID, "memory-delete:global-1")
     }
@@ -42,6 +44,8 @@ final class MemoryNoteSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.scopeLabel, "Project")
         XCTAssertEqual(surface.preview, "Use SwiftPM. Keep slices small.")
         XCTAssertEqual(surface.byteCountLabel, "32 bytes")
+        XCTAssertFalse(surface.canEdit)
+        XCTAssertNil(surface.editCommandID)
         XCTAssertFalse(surface.canDelete)
         XCTAssertNil(surface.deleteCommandID)
     }

@@ -53,6 +53,48 @@ final class WorkspaceMemoryEngineTests: XCTestCase {
         XCTAssertEqual(MemoryNoteLoader.loadGlobal(from: directory), [])
     }
 
+    func testUpdateGlobalRewritesExistingMemoryAndReturnsNotice() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let note = try MemoryNoteLoader.saveGlobal(content: "Prefer concise answers", to: directory)
+
+        let mutation = WorkspaceMemoryEngine.updateGlobal(
+            id: note.id,
+            content: "Prefer small reviewable commits",
+            userText: "/remember-edit \(note.id)\nPrefer small reviewable commits",
+            directory: directory
+        )
+
+        let updated = try XCTUnwrap(mutation.updatedGlobalMemories?.first)
+        XCTAssertEqual(updated.id, note.id)
+        XCTAssertEqual(updated.content, "Prefer small reviewable commits")
+        XCTAssertEqual(mutation.transcript.title, "Updated memory: \(updated.title)")
+        XCTAssertEqual(mutation.noticeSummary, "Updated memory: \(updated.title)")
+        XCTAssertEqual(mutation.noticeRelativePath, updated.relativePath)
+        XCTAssertTrue(mutation.changedContext)
+        let filename = note.relativePath.replacingOccurrences(of: "memories/", with: "")
+        XCTAssertEqual(
+            try String(contentsOf: directory.appendingPathComponent(filename), encoding: .utf8),
+            "Prefer small reviewable commits\n"
+        )
+    }
+
+    func testUpdateUnknownGlobalReturnsFailureWithoutContextChange() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        _ = try MemoryNoteLoader.saveGlobal(content: "Prefer concise answers", to: directory)
+
+        let mutation = WorkspaceMemoryEngine.updateGlobal(
+            id: "missing-memory",
+            content: "Prefer small reviewable commits",
+            userText: "/remember-edit missing-memory\nPrefer small reviewable commits",
+            directory: directory
+        )
+
+        XCTAssertEqual(mutation.transcript.title, "Memory not updated")
+        XCTAssertTrue(mutation.transcript.assistantText.contains("not found"))
+        XCTAssertEqual(mutation.updatedGlobalMemories?.count, 1)
+        XCTAssertFalse(mutation.changedContext)
+    }
+
     func testDeleteUnknownGlobalRefreshesAndReturnsFailureTranscript() throws {
         let directory = try makeQuillCodeTestDirectory()
         _ = try MemoryNoteLoader.saveGlobal(content: "Prefer concise answers", to: directory)

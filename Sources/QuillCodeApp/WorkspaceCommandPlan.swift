@@ -4,6 +4,7 @@ import QuillCodeTools
 
 enum WorkspaceCommandPlan: Equatable {
     case localEnvironmentAction(String)
+    case editMemory(id: String)
     case deleteMemory(id: String)
     case updateAutomationStatus(id: UUID, status: QuillAutomationStatus)
     case runAutomation(id: UUID)
@@ -81,6 +82,9 @@ enum WorkspaceCommandPlan: Equatable {
     private static func prefixPlan(_ commandID: String) -> WorkspaceCommandPlan? {
         if commandID.value(after: "local-env:") != nil {
             return .localEnvironmentAction(commandID)
+        }
+        if let id = commandID.value(after: "memory-edit:") {
+            return .editMemory(id: id)
         }
         if let id = commandID.value(after: "memory-delete:") {
             return .deleteMemory(id: id)

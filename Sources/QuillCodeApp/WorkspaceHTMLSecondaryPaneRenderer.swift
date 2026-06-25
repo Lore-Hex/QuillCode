@@ -236,6 +236,7 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
           <header>
             <span data-testid="memory-scope">\(escape(item.scopeLabel))</span>
             <span data-testid="memory-size">\(escape(item.byteCountLabel))</span>
+            \(item.editCommandID.map { #"<button type="button" data-testid="memory-edit" data-command-id="\#(escape($0))">Edit</button>"# } ?? "")
             \(item.deleteCommandID.map { #"<button type="button" data-testid="memory-delete" data-command-id="\#(escape($0))">Forget</button>"# } ?? "")
           </header>
           <strong data-testid="memory-title">\(escape(item.title))</strong>
