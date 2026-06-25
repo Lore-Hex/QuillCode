@@ -24,7 +24,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 | File | Grade | Next Improvement |
 | --- | --- | --- |
 | `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, context/action lookup, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, thread persistence, local command transcript mutation, thread notice mutation, sidebar selection transitions, sidebar bulk action planning, project context refresh, `/status` context assembly, and top-bar state assembly now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
-| `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | A | The shell is now top-bar/sidebar chrome, state, and routing; center-pane layout and workspace sheet presentation live in focused files. Keep future modal families and command workflow rules out of the root shell. |
+| `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | A | The shell is now top-bar/sidebar chrome, state, and routing; center-pane layout, workspace sheet presentation, and worktree dialog lifecycle live in focused files. Keep future modal families and command workflow rules out of the root shell. |
 | `Sources/QuillCodeApp/QuillCodeWorkspaceMainPaneView.swift` | A- | Center-pane layout owns transcript/browser/extensions/memories/terminal/composer/activity composition and runtime issue recovery wiring. Keep workflow decisions in planners and avoid growing this into a second root shell. |
 | `Sources/QuillCodeApp/QuillCodeToolCardView.swift` | A- | Native tool-card composition is now separate from reusable controls, artifact previews, and raw detail blocks. Keep future status/action chrome in `QuillCodeToolCardControls.swift` and artifact rendering in `QuillCodeToolArtifactViews.swift`. |
 | `Sources/QuillCodeApp/WorkspaceSurface.swift` | A- | Surface assembly is now mostly aggregate payload plus runtime/execution context records. Settings copy/compatibility, runtime issue classification, active context-source selection, model catalog presentation, top-bar/model presentation contracts, project/sidebar navigation assembly, sidebar/project contracts, browser state/presentation contracts, terminal presentation contracts, review presentation contracts, transcript/composer/context presentation contracts, secondary-pane presentation contracts, automation pane command wiring, command construction, command palette ranking, review diff construction, context banner estimation, and transcript message projection are extracted into focused files. Next step is extracting runtime/execution context contracts if their presentation behavior grows. |
@@ -81,6 +81,18 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Added a parity gate that keeps model-picker search/highlight state in the picker shell and row/detail/badge/press-feedback behavior in the focused row file.
 - Split memory note content/filename policy and traversal-safe path resolution out of `MemoryNoteLoader.swift`.
 - Added direct path resolver tests and parity gates that keep memory content validation and file-target resolution out of the broad loader.
+
+## 2026-06-25 Worktree Dialog Coordinator Pass
+
+Overall grade after this slice: **A worktree dialog lifecycle, A stale async-result protection, A root shell boundary**.
+
+`WorkspaceSwiftUIView.swift` still owned worktree dialog draft state and async loading tasks after the dialogs and chrome had been split into focused files. That kept stale-result checks close to the view, but it also meant the root shell owned cancellable worktree-specific behavior and made future dialog changes easier to regress.
+
+Changes:
+
+- Added `QuillCodeWorktreeDialogCoordinator` as the single owner of worktree sheet selection, create/open/remove/prune draft state, choice loading, prune-preview loading, retry handling, and task cancellation.
+- Rewired `WorkspaceSwiftUIView` to delegate worktree presentation and retry behavior to the coordinator while keeping the root shell focused on command routing and layout.
+- Added coordinator tests proving successful loads apply to the intended draft, retries do not run against hidden sheets, and late async choice results do not overwrite the currently visible dialog after a sheet switch.
 
 ## 2026-06-25 Shared Task Coordinator Pass
 
