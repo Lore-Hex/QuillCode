@@ -5072,3 +5072,23 @@ Current strict grades:
 
 Remaining risk:
 - Optional final split for core/project model boundary checks; otherwise the broad suite is now appropriately small.
+
+## 2026-06-24 Safety And Core Model Parity Gate Split
+
+Overall grade after this slice: **A safety-boundary ownership, A core-model ownership, A global registry shape**.
+
+The last non-global checks in `ParityGateTests` covered static safety policy and core model decomposition. Those are separate architectural concerns: safety policy should guard the Auto-review fallback boundary, while core/project model checks should guard domain model ownership. Keeping them in focused suites makes the global parity suite a small registry plus hygiene gate instead of a mixed dumping ground.
+
+What changed:
+- Added `ParitySafetyGateTests` for static safety policy ownership and reviewer delegation.
+- Added `ParityCoreModelGateTests` for tool schema/model and project model decomposition.
+- Registered both suites in the parity drift guard.
+- Reduced `ParityGateTests.swift` to global hygiene, docs presence, and focused-suite registration checks.
+
+Current strict grades:
+- `ParitySafetyGateTests.swift`: **A**. It owns one safety policy boundary and directly guards the hard-deny and user-intent delegation points.
+- `ParityCoreModelGateTests.swift`: **A**. It keeps core tool models and project models in one focused domain-boundary suite.
+- `ParityGateTests.swift`: **A**. It is now an intentionally small global gate with no feature-specific architecture assertions.
+
+Remaining risk:
+- The focused-suite registry table is still hand-maintained. If it grows much further, move it into a data helper or manifest so the global gate stays declarative.
