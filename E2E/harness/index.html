@@ -355,6 +355,51 @@
       text-overflow: ellipsis;
     }
     .model-summary { color: var(--muted); }
+    .model-badges {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      margin-top: 2px;
+    }
+    .model-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 18px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      color: var(--blue);
+      background: rgba(65,184,232,.12);
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .model-badge.current {
+      color: var(--green);
+      background: rgba(88,214,141,.12);
+    }
+    .model-badge.favorite {
+      color: var(--yellow);
+      background: rgba(255,184,77,.12);
+    }
+    .model-result-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .model-clear-search {
+      min-height: 40px;
+      padding: 0 8px;
+      border: 0;
+      color: var(--blue);
+      background: transparent;
+      box-shadow: none;
+      font-size: 12px;
+      font-weight: 700;
+    }
     .model-details {
       display: none;
     }
@@ -426,10 +471,15 @@
       font-variant-numeric: tabular-nums;
     }
     .model-empty {
+      display: grid;
+      gap: 8px;
       padding: 12px;
       border-radius: 10px;
       color: var(--muted);
       background: rgba(0,0,0,.22);
+    }
+    .model-empty strong {
+      color: var(--text);
     }
     .settings-panel,
     .search-panel {
@@ -4502,6 +4552,11 @@
         </div>
       ` : '';
       const filteredModelCategories = filterModelCategories(state.topBar.modelSearch);
+      const filteredModelCount = filteredModelCategories.reduce((count, category) => count + category.models.length, 0);
+      const modelSearchQuery = state.topBar.modelSearch.trim();
+      const modelResultSummary = modelSearchQuery
+        ? `${filteredModelCount} ${filteredModelCount === 1 ? 'model' : 'models'} for "${modelSearchQuery}"`
+        : `${filteredModelCount} ${filteredModelCount === 1 ? 'model' : 'models'} available`;
       const modelResults = filteredModelCategories.length ? `
         <div class="model-results" data-testid="model-results">
           ${filteredModelCategories.map(category => `
@@ -4512,6 +4567,7 @@
                   <button class="model-option ${model.id === state.topBar.selectedModelID ? 'selected' : ''}" type="button" data-testid="model-option" data-model-id="${escapeHTML(model.id)}">
                     <span class="model-title">${escapeHTML(modelDisplayLabel(model))}${model.id === state.topBar.selectedModelID ? ' ✓' : ''}</span>
                     <small class="model-summary" data-testid="model-option-summary">${escapeHTML(modelMetadataSummary(model, category.category))}</small>
+                    ${(model.badges || []).length ? `<span class="model-badges" data-testid="model-badges">${(model.badges || []).slice(0, 3).map(badge => `<span class="model-badge ${modelBadgeClass(badge)}" data-testid="model-badge">${escapeHTML(badge)}</span>`).join('')}</span>` : ''}
                   </button>
                   <div class="model-actions">
                     <button class="model-detail-toggle ${state.topBar.expandedModelID === model.id ? 'active' : ''}" type="button" data-testid="model-detail-button" data-model-id="${escapeHTML(model.id)}" aria-expanded="${state.topBar.expandedModelID === model.id ? 'true' : 'false'}" aria-label="${state.topBar.expandedModelID === model.id ? 'Hide model details' : 'Show model details'}">${state.topBar.expandedModelID === model.id ? 'i' : 'ⓘ'}</button>
@@ -4529,7 +4585,12 @@
                     </div>` : ''}
                 </div>`).join('')}
             </section>`).join('')}
-        </div>` : '<div class="model-empty" data-testid="model-empty">No models match. Try a provider, category, model name, or state.</div>';
+        </div>` : `
+        <div class="model-empty" data-testid="model-empty">
+          <strong>No models match</strong>
+          <span>Try a provider, category, model name, or state.</span>
+          ${modelSearchQuery ? '<button class="model-clear-search" type="button" data-testid="model-clear-search">Clear search</button>' : ''}
+        </div>`;
       const modelBrowser = state.topBar.modelPickerOpen ? `
         <section class="model-panel" data-testid="model-browser" aria-label="Model browser">
           <div>
@@ -4537,6 +4598,10 @@
             <p>Search provider, category, model, or state</p>
           </div>
           <input data-testid="model-search" aria-label="Search models" placeholder="Search models" value="${escapeHTML(state.topBar.modelSearch)}">
+          <div class="model-result-summary" data-testid="model-result-summary">
+            <span data-testid="model-result-count">${escapeHTML(modelResultSummary)}</span>
+            ${modelSearchQuery ? '<button class="model-clear-search" type="button" data-testid="model-clear-search">Clear</button>' : ''}
+          </div>
           ${modelResults}
         </section>` : '';
       const topBarOverflowCommandIDs = [
@@ -4767,6 +4832,13 @@
         state.topBar.modelSearch = event.target.value;
         render();
         document.querySelector('[data-testid="model-search"]')?.focus();
+      });
+      document.querySelectorAll('[data-testid="model-clear-search"]').forEach(button => {
+        button.addEventListener('click', () => {
+          state.topBar.modelSearch = '';
+          render();
+          document.querySelector('[data-testid="model-search"]')?.focus();
+        });
       });
       document.querySelectorAll('[data-testid="model-option"]').forEach(button => {
         button.addEventListener('click', event => {
@@ -5267,6 +5339,13 @@
       if (model.id === 'tr/synth-code') return 'Synth Code';
       if (model.provider === 'trustedrouter') return model.id;
       return `${model.provider}/${model.displayName}`;
+    }
+
+    function modelBadgeClass(badge) {
+      const normalized = String(badge || '').toLowerCase();
+      if (normalized === 'current') return 'current';
+      if (normalized === 'favorite') return 'favorite';
+      return '';
     }
 
     function toggleModelFavorite(modelID) {
