@@ -5337,3 +5337,26 @@ Current strict grades:
 
 Remaining risk:
 - Continue reducing the largest integration files. Good next slices are `WorkspaceRemoteProjectIntegrationTests.swift`, `AgentTests.swift`, and the remaining broad Playwright `core.spec.ts` flows.
+
+## 2026-06-24 Search Input Stability
+
+Overall grade after this slice: **A- native dialog typing stability, A focused search E2E coverage, B+ broad Playwright core spec**.
+
+User-facing search and command-palette entry need to behave like Codex: open from visible chrome, take focus immediately, and keep accepting text while the workspace surface continues to update. The previous SwiftUI dialogs bound each keystroke directly to workspace-level sheet state, which was unnecessarily fragile because it let root surface churn participate in every input edit.
+
+What changed:
+- Search and command-palette dialogs now keep active keystrokes in local dialog state and sync outward only as a side effect.
+- Native dialog focus now gets a second post-presentation tick so fields are still focused after sheet/menu animation settles.
+- Both native fields expose stable accessibility identifiers for future native UI automation.
+- Added `search.spec.ts` for chat-search typing from sidebar and top-bar entry points plus command-palette typing from the top-bar entry point.
+- Hardened the HTML harness focus helper so menu-launched search/palette fields receive focus across the next frame and short timeout.
+- Fixed the HTML harness generic `search` command path to call the same focused `openSearchPanel()` helper as the sidebar button instead of falling through to a plain render.
+- Added parity guards for local native dialog typing state and focused Playwright search ownership.
+
+Current strict grades:
+- `QuillCodeSearchAndShortcutDialogs.swift`: **A-**. Search keeps local typing state and stable focus, but the search result row UI still shares the broad shortcut/dialog file.
+- `QuillCodeCommandPaletteDialog.swift`: **A-**. Palette search keeps local typing state and stable focus; richer native keyboard regression tests are still pending.
+- `E2E/playwright/tests/search.spec.ts`: **A**. It owns the user-visible search typing regression directly.
+
+Remaining risk:
+- Add packaged native UI smoke tests that drive `quillcode-search-input` and `quillcode-command-palette-input` directly once the desktop app has a stable automation harness.

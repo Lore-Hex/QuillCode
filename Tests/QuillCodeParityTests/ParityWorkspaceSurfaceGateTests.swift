@@ -185,6 +185,25 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(coreSpecText.contains(terminalFlowName), "\(terminalFlowName) should not drift back into core.spec.ts.")
     }
 
+    func testPlaywrightSearchFlowsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let searchSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("search.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let searchFlowName = "keeps chat search typeable from sidebar and top bar entry points"
+
+        XCTAssertTrue(searchSpecText.contains("harnessURL()"), "Focused search flows should reuse the shared harness URL helper.")
+        XCTAssertTrue(searchSpecText.contains("top-bar-overflow-search"), "Focused search flows should cover the top-bar search entry point.")
+        XCTAssertTrue(searchSpecText.contains("sidebar-search-button"), "Focused search flows should cover the sidebar search entry point.")
+        XCTAssertTrue(searchSpecText.contains(searchFlowName), "\(searchFlowName) should live in search.spec.ts.")
+        XCTAssertFalse(coreSpecText.contains(searchFlowName), "\(searchFlowName) should not drift back into core.spec.ts.")
+    }
+
     func testWorkspaceSurfaceDelegatesReviewSurfaceContracts() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let reviewText = try Self.appSourceText(named: "QuillCodeReviewSurface.swift")

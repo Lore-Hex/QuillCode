@@ -7,15 +7,29 @@ struct QuillCodeCommandPaletteView: View {
     var onSelectCommand: (WorkspaceCommandSurface) -> Void
     var onClose: () -> Void
 
+    @State private var localQuery: String
     @State private var selectedCommandID: String?
     @FocusState private var isSearchFocused: Bool
 
+    init(
+        commands: [WorkspaceCommandSurface],
+        query: Binding<String>,
+        onSelectCommand: @escaping (WorkspaceCommandSurface) -> Void,
+        onClose: @escaping () -> Void
+    ) {
+        self.commands = commands
+        self._query = query
+        self.onSelectCommand = onSelectCommand
+        self.onClose = onClose
+        self._localQuery = State(initialValue: query.wrappedValue)
+    }
+
     private var results: [WorkspaceCommandSurface] {
-        WorkspaceCommandPalette.rankedCommands(commands, matching: query)
+        WorkspaceCommandPalette.rankedCommands(commands, matching: localQuery)
     }
 
     private var groups: [WorkspaceCommandGroupSurface] {
-        WorkspaceCommandPalette.groupedCommands(commands, matching: query)
+        WorkspaceCommandPalette.groupedCommands(commands, matching: localQuery)
     }
 
     private var enabledResults: [WorkspaceCommandSurface] {
@@ -32,9 +46,10 @@ struct QuillCodeCommandPaletteView: View {
             )
 
             HStack(spacing: 10) {
-                TextField("Search commands, > actions, / slash", text: $query)
+                TextField("Search commands, > actions, / slash", text: $localQuery)
                     .textFieldStyle(.roundedBorder)
                     .focused($isSearchFocused)
+                    .accessibilityIdentifier("quillcode-command-palette-input")
                     .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
                     .onSubmit(selectHighlightedCommand)
                 if let label = activeScopeLabel {
@@ -73,15 +88,21 @@ struct QuillCodeCommandPaletteView: View {
         .background(QuillCodePalette.background)
         .onAppear {
             ensureSelection()
-            DispatchQueue.main.async {
-                isSearchFocused = true
-            }
+            focusSearchField()
         }
         .onDisappear {
             isSearchFocused = false
         }
-        .onChange(of: query) { _, _ in
+        .onChange(of: localQuery) { _, newValue in
+            if query != newValue {
+                query = newValue
+            }
             ensureSelection()
+        }
+        .onChange(of: query) { _, newValue in
+            if localQuery != newValue {
+                localQuery = newValue
+            }
         }
         .onMoveCommand { direction in
             switch direction {
@@ -96,7 +117,7 @@ struct QuillCodeCommandPaletteView: View {
     }
 
     private var activeScopeLabel: String? {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = localQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.hasPrefix("/") {
             return "Slash"
         }
@@ -104,6 +125,15 @@ struct QuillCodeCommandPaletteView: View {
             return "Actions"
         }
         return nil
+    }
+
+    private func focusSearchField() {
+        DispatchQueue.main.async {
+            isSearchFocused = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            isSearchFocused = true
+        }
     }
 
     private func ensureSelection() {

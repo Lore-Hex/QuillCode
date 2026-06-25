@@ -47,10 +47,24 @@ struct QuillCodeSearchView: View {
     var onSelectThread: (UUID) -> Void
     var onClose: () -> Void
 
+    @State private var localQuery: String
     @FocusState private var isSearchFocused: Bool
 
+    init(
+        sidebar: SidebarSurface,
+        query: Binding<String>,
+        onSelectThread: @escaping (UUID) -> Void,
+        onClose: @escaping () -> Void
+    ) {
+        self.sidebar = sidebar
+        self._query = query
+        self.onSelectThread = onSelectThread
+        self.onClose = onClose
+        self._localQuery = State(initialValue: query.wrappedValue)
+    }
+
     private var results: [SidebarItemSurface] {
-        sidebar.filteredItems(matching: query)
+        sidebar.filteredItems(matching: localQuery)
     }
 
     var body: some View {
@@ -62,9 +76,10 @@ struct QuillCodeSearchView: View {
                 onClose: onClose
             )
 
-            TextField("Search chats", text: $query)
+            TextField("Search chats", text: $localQuery)
                 .textFieldStyle(.roundedBorder)
                 .focused($isSearchFocused)
+                .accessibilityIdentifier("quillcode-search-input")
                 .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
                 .onSubmit {
                     if let firstResult = results.first {
@@ -92,12 +107,29 @@ struct QuillCodeSearchView: View {
         .frame(width: 560, height: 520)
         .background(QuillCodePalette.background)
         .onAppear {
-            DispatchQueue.main.async {
-                isSearchFocused = true
+            focusSearchField()
+        }
+        .onChange(of: localQuery) { _, newValue in
+            if query != newValue {
+                query = newValue
+            }
+        }
+        .onChange(of: query) { _, newValue in
+            if localQuery != newValue {
+                localQuery = newValue
             }
         }
         .onDisappear {
             isSearchFocused = false
+        }
+    }
+
+    private func focusSearchField() {
+        DispatchQueue.main.async {
+            isSearchFocused = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            isSearchFocused = true
         }
     }
 }

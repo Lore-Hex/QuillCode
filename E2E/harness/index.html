@@ -3828,11 +3828,16 @@
     }
 
     function focusInputByTestID(testID) {
-      requestAnimationFrame(() => {
+      const focus = () => {
         const input = document.querySelector(`[data-testid="${testID}"]`);
         if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement)) return;
         input.focus();
         input.setSelectionRange(input.value.length, input.value.length);
+      };
+      requestAnimationFrame(() => {
+        focus();
+        setTimeout(focus, 0);
+        setTimeout(focus, 50);
       });
     }
 
@@ -7022,8 +7027,8 @@
         return;
       }
       if (commandID === 'search') {
-        state.search.isOpen = true;
-        state.search.query = '';
+        openSearchPanel();
+        return;
       }
       if (commandID === 'find-in-chat') {
         openFindInChat();
