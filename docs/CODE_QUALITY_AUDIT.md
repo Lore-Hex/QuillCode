@@ -48,6 +48,8 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Changes From This Pass
 
+- Added keyboard result highlighting to native and harness chat search so users can type, move with ArrowUp/ArrowDown, and press Enter to select a thread.
+- Added Playwright and parity-gate coverage for chat search keyboard selection.
 - Added keyboard result highlighting to the native and harness model picker so users can type, move with ArrowUp/ArrowDown, and press Enter to select a model without leaving the keyboard.
 - Fixed the harness model-picker button path to focus the search field on open, matching the runtime issue recovery path and Codex-style command popovers.
 - Added Playwright coverage for model picker keyboard selection.

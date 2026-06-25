@@ -48,6 +48,7 @@ struct QuillCodeSearchView: View {
     var onClose: () -> Void
 
     @State private var localQuery: String
+    @State private var highlightedThreadID: UUID?
     @FocusState private var isSearchFocused: Bool
 
     init(
@@ -82,9 +83,7 @@ struct QuillCodeSearchView: View {
                 .accessibilityIdentifier("quillcode-search-input")
                 .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
                 .onSubmit {
-                    if let firstResult = results.first {
-                        onSelectThread(firstResult.id)
-                    }
+                    selectHighlightedResult()
                 }
 
             if results.isEmpty {
@@ -97,7 +96,11 @@ struct QuillCodeSearchView: View {
                 ScrollView {
                     LazyVStack(spacing: 8) {
                         ForEach(results) { item in
-                            QuillCodeSearchResultRow(item: item, onSelect: onSelectThread)
+                            QuillCodeSearchResultRow(
+                                item: item,
+                                isHighlighted: highlightedThreadID == item.id,
+                                onSelect: onSelectThread
+                            )
                         }
                     }
                 }
@@ -107,21 +110,64 @@ struct QuillCodeSearchView: View {
         .frame(width: 560, height: 520)
         .background(QuillCodePalette.background)
         .onAppear {
+            ensureHighlightedResult(preferredID: sidebar.selectedThreadID)
             focusSearchField()
         }
         .onChange(of: localQuery) { _, newValue in
             if query != newValue {
                 query = newValue
             }
+            ensureHighlightedResult(preferredID: highlightedThreadID)
         }
         .onChange(of: query) { _, newValue in
             if localQuery != newValue {
                 localQuery = newValue
             }
         }
+        .onMoveCommand { direction in
+            switch direction {
+            case .up:
+                moveHighlightedResult(by: -1)
+            case .down:
+                moveHighlightedResult(by: 1)
+            default:
+                break
+            }
+        }
         .onDisappear {
             isSearchFocused = false
+            highlightedThreadID = nil
         }
+    }
+
+    private func ensureHighlightedResult(preferredID: UUID?) {
+        if let preferredID, results.contains(where: { $0.id == preferredID }) {
+            highlightedThreadID = preferredID
+            return
+        }
+        if let highlightedThreadID, results.contains(where: { $0.id == highlightedThreadID }) {
+            return
+        }
+        highlightedThreadID = results.first?.id
+    }
+
+    private func moveHighlightedResult(by delta: Int) {
+        guard !results.isEmpty else {
+            highlightedThreadID = nil
+            return
+        }
+        let currentIndex = highlightedThreadID.flatMap { id in
+            results.firstIndex { $0.id == id }
+        } ?? 0
+        let nextIndex = (currentIndex + delta + results.count) % results.count
+        highlightedThreadID = results[nextIndex].id
+    }
+
+    private func selectHighlightedResult() {
+        guard let highlighted = highlightedThreadID.flatMap({ id in
+            results.first { $0.id == id }
+        }) ?? results.first else { return }
+        onSelectThread(highlighted.id)
     }
 
     private func focusSearchField() {
@@ -173,6 +219,7 @@ private struct QuillCodeShortcutRow: View {
 
 private struct QuillCodeSearchResultRow: View {
     var item: SidebarItemSurface
+    var isHighlighted: Bool
     var onSelect: (UUID) -> Void
 
     var body: some View {
@@ -202,10 +249,28 @@ private struct QuillCodeSearchResultRow: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)
-            .background(item.isSelected ? QuillCodePalette.selection : QuillCodePalette.panel)
+            .background(rowBackground)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(rowStroke, lineWidth: 1)
+            )
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(QuillCodePressableButtonStyle())
+    }
+
+    private var rowBackground: Color {
+        if item.isSelected {
+            return QuillCodePalette.selection
+        }
+        return isHighlighted ? QuillCodePalette.blue.opacity(0.08) : QuillCodePalette.panel
+    }
+
+    private var rowStroke: Color {
+        if isHighlighted {
+            return QuillCodePalette.blue.opacity(0.48)
+        }
+        return item.isSelected ? QuillCodePalette.blue.opacity(0.22) : Color.white.opacity(0.08)
     }
 }

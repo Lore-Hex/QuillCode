@@ -30,6 +30,34 @@ test('mock harness keeps chat search typeable from sidebar and top bar entry poi
   await expect(page.getByTestId('search-result')).toContainText('run whoami');
 });
 
+test('mock harness supports keyboard navigation in chat search results', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('alpha navigation');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('sidebar-item')).toContainText('alpha navigation');
+
+  await page.getByTestId('new-chat-button').click();
+  await page.getByLabel('Message').fill('beta navigation');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('top-bar-title')).toHaveText('beta navigation');
+
+  await page.getByTestId('sidebar-search-button').click();
+  await page.getByTestId('search-input').fill('navigation');
+
+  await expect(page.getByTestId('search-result')).toHaveCount(2);
+  await expect(page.getByTestId('search-result').nth(0)).toHaveAttribute('data-highlighted', 'true');
+  await expect(page.getByTestId('search-result').nth(0)).toContainText('beta navigation');
+
+  await page.keyboard.press('ArrowDown');
+  await expect(page.getByTestId('search-result').nth(1)).toHaveAttribute('data-highlighted', 'true');
+  await expect(page.getByTestId('search-result').nth(1)).toContainText('alpha navigation');
+
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('search-panel')).toHaveCount(0);
+  await expect(page.getByTestId('top-bar-title')).toHaveText('alpha navigation');
+});
+
 test('mock harness keeps command palette search typeable from top bar entry point', async ({ page }) => {
   await page.goto(harnessURL());
 

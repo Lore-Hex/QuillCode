@@ -200,6 +200,7 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(searchSpecText.contains("harnessURL()"), "Focused search flows should reuse the shared harness URL helper.")
         XCTAssertTrue(searchSpecText.contains("top-bar-overflow-search"), "Focused search flows should cover the top-bar search entry point.")
         XCTAssertTrue(searchSpecText.contains("sidebar-search-button"), "Focused search flows should cover the sidebar search entry point.")
+        XCTAssertTrue(searchSpecText.contains("supports keyboard navigation in chat search results"), "Focused search flows should cover keyboard result navigation.")
         XCTAssertTrue(searchSpecText.contains(searchFlowName), "\(searchFlowName) should live in search.spec.ts.")
         XCTAssertFalse(coreSpecText.contains(searchFlowName), "\(searchFlowName) should not drift back into core.spec.ts.")
     }
