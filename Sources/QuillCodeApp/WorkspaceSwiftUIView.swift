@@ -32,6 +32,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onToolCardAction: (ToolCardActionSurface) -> Void
     public var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     public var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
+    public var onListWorktreeChoices: () -> [WorkspaceWorktreeChoice]
     public var onOpenWorktree: (WorkspaceWorktreeOpenRequest) -> Void
     public var onRemoveWorktree: (WorkspaceWorktreeRemoveRequest) -> Void
     public var onCopyTranscriptItem: (String, String) -> Void
@@ -84,6 +85,7 @@ public struct QuillCodeWorkspaceView: View {
         onToolCardAction: @escaping (ToolCardActionSurface) -> Void = { _ in },
         onAddReviewComment: @escaping (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
+        onListWorktreeChoices: @escaping () -> [WorkspaceWorktreeChoice] = { [] },
         onOpenWorktree: @escaping (WorkspaceWorktreeOpenRequest) -> Void,
         onRemoveWorktree: @escaping (WorkspaceWorktreeRemoveRequest) -> Void,
         onCopyTranscriptItem: @escaping (String, String) -> Void = { _, _ in },
@@ -119,6 +121,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onToolCardAction = onToolCardAction
         self.onAddReviewComment = onAddReviewComment
         self.onCreateWorktree = onCreateWorktree
+        self.onListWorktreeChoices = onListWorktreeChoices
         self.onOpenWorktree = onOpenWorktree
         self.onRemoveWorktree = onRemoveWorktree
         self.onCopyTranscriptItem = onCopyTranscriptItem
@@ -270,7 +273,7 @@ public struct QuillCodeWorkspaceView: View {
             createWorktreeDraft = QuillCodeWorktreeCreateDraft()
             worktreeSheet = .create
         case .presentOpenWorktree:
-            openWorktreeDraft = QuillCodeWorktreeOpenDraft()
+            openWorktreeDraft = QuillCodeWorktreeOpenDraft(choices: onListWorktreeChoices())
             worktreeSheet = .open
         case .presentRemoveWorktree:
             removeWorktreeDraft = QuillCodeWorktreeRemoveDraft()
