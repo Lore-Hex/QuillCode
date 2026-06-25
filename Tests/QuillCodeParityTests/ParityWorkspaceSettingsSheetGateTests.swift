@@ -62,6 +62,20 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(settingsText.contains("struct QuillCodeSettingsDraft"), "Settings shell should not own settings draft state.")
     }
 
+    func testNativeSearchDialogsKeepLocalTypingState() throws {
+        let searchShortcutText = try Self.appSourceText(named: "QuillCodeSearchAndShortcutDialogs.swift")
+        let commandPaletteText = try Self.appSourceText(named: "QuillCodeCommandPaletteDialog.swift")
+
+        XCTAssertTrue(searchShortcutText.contains("@State private var localQuery"), "Chat search should keep keystrokes in local dialog state while the sheet is active.")
+        XCTAssertTrue(searchShortcutText.contains("TextField(\"Search chats\", text: $localQuery)"), "Chat search text entry should not be wired directly to root workspace state.")
+        XCTAssertTrue(searchShortcutText.contains(".accessibilityIdentifier(\"quillcode-search-input\")"), "Chat search needs a stable native UI automation identifier.")
+        XCTAssertTrue(searchShortcutText.contains("private func focusSearchField()"), "Chat search should refocus after sheet presentation settles.")
+        XCTAssertTrue(commandPaletteText.contains("@State private var localQuery"), "Command palette should keep keystrokes in local dialog state while the sheet is active.")
+        XCTAssertTrue(commandPaletteText.contains("TextField(\"Search commands, > actions, / slash\", text: $localQuery)"), "Command palette text entry should not be wired directly to root workspace state.")
+        XCTAssertTrue(commandPaletteText.contains(".accessibilityIdentifier(\"quillcode-command-palette-input\")"), "Command palette needs a stable native UI automation identifier.")
+        XCTAssertTrue(commandPaletteText.contains("private func focusSearchField()"), "Command palette should refocus after sheet presentation settles.")
+    }
+
     func testWorkspaceSurfaceDelegatesSettingsSurfaceContract() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let settingsText = try Self.appSourceText(named: "QuillCodeSettingsSurface.swift")
