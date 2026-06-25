@@ -38,6 +38,29 @@ public enum MemoryNoteDeleteError: Error, Equatable, LocalizedError {
     }
 }
 
+public enum MemoryNoteUpdateError: Error, Equatable, LocalizedError {
+    case notFound
+    case empty
+    case tooLarge(actual: Int, maximum: Int)
+    case sensitiveContent
+    case updateFailed
+
+    public var errorDescription: String? {
+        switch self {
+        case .notFound:
+            return "Memory was not found. It may already have been removed."
+        case .empty:
+            return "Memory cannot be empty."
+        case .tooLarge(let actual, let maximum):
+            return "Memory is too large (\(actual) bytes). Keep explicit memories under \(maximum) bytes."
+        case .sensitiveContent:
+            return "Memory was not updated because it looks like it contains a credential, token, password, or private key."
+        case .updateFailed:
+            return "Memory could not be updated."
+        }
+    }
+}
+
 public enum MemoryNoteLoader {
     public static let projectRelativeDirectory = ".quillcode/memories"
     public static let supportedExtensions: Set<String> = ["md", "txt", "json"]
@@ -94,18 +117,7 @@ public enum MemoryNoteLoader {
         now: Date = Date(),
         maxBytes: Int = maxFileBytes
     ) throws -> MemoryNote {
-        let content = rawContent.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !content.isEmpty else {
-            throw MemoryNoteWriteError.empty
-        }
-
-        let data = Data(content.utf8)
-        guard data.count <= maxBytes else {
-            throw MemoryNoteWriteError.tooLarge(actual: data.count, maximum: maxBytes)
-        }
-        guard !looksSensitive(content) else {
-            throw MemoryNoteWriteError.sensitiveContent
-        }
+        let content = try validatedWriteContent(rawContent, maxBytes: maxBytes)
 
         let root = directory.standardizedFileURL.resolvingSymlinksInPath()
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -128,6 +140,37 @@ public enum MemoryNoteLoader {
         return note
     }
 
+    public static func updateGlobal(
+        id: String,
+        content rawContent: String,
+        in directory: URL,
+        maxBytes: Int = maxFileBytes
+    ) throws -> MemoryNote {
+        let root = directory.standardizedFileURL.resolvingSymlinksInPath()
+        guard let existing = loadGlobal(from: root).first(where: { $0.id == id && $0.scope == .global }),
+              let fileURL = globalMemoryFileURL(for: existing, in: root)
+        else {
+            throw MemoryNoteUpdateError.notFound
+        }
+
+        let content = try validatedUpdateContent(rawContent, maxBytes: maxBytes)
+        do {
+            try content.appending("\n").write(to: fileURL, atomically: true, encoding: .utf8)
+        } catch {
+            throw MemoryNoteUpdateError.updateFailed
+        }
+        guard let updated = loadFile(
+            root: root,
+            fileURL: fileURL,
+            scope: .global,
+            displayPrefix: "memories",
+            maxBytes: maxBytes
+        ) else {
+            throw MemoryNoteUpdateError.updateFailed
+        }
+        return updated
+    }
+
     public static func deleteGlobal(
         id: String,
         from directory: URL
@@ -136,20 +179,7 @@ public enum MemoryNoteLoader {
         guard let note = loadGlobal(from: root).first(where: { $0.id == id && $0.scope == .global }) else {
             throw MemoryNoteDeleteError.notFound
         }
-
-        let prefix = "memories/"
-        guard note.relativePath.hasPrefix(prefix) else {
-            throw MemoryNoteDeleteError.notFound
-        }
-        let filename = String(note.relativePath.dropFirst(prefix.count))
-        guard !filename.isEmpty, !filename.contains("/") else {
-            throw MemoryNoteDeleteError.notFound
-        }
-        let fileURL = root
-            .appendingPathComponent(filename)
-            .standardizedFileURL
-            .resolvingSymlinksInPath()
-        guard fileURL.deletingLastPathComponent().path == root.path else {
+        guard let fileURL = globalMemoryFileURL(for: note, in: root) else {
             throw MemoryNoteDeleteError.notFound
         }
 
@@ -195,6 +225,56 @@ public enum MemoryNoteLoader {
             notes.append(note)
         }
         return notes
+    }
+
+    private static func validatedWriteContent(_ rawContent: String, maxBytes: Int) throws -> String {
+        let content = rawContent.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !content.isEmpty else {
+            throw MemoryNoteWriteError.empty
+        }
+        let byteCount = Data(content.utf8).count
+        guard byteCount <= maxBytes else {
+            throw MemoryNoteWriteError.tooLarge(actual: byteCount, maximum: maxBytes)
+        }
+        guard !looksSensitive(content) else {
+            throw MemoryNoteWriteError.sensitiveContent
+        }
+        return content
+    }
+
+    private static func validatedUpdateContent(_ rawContent: String, maxBytes: Int) throws -> String {
+        do {
+            return try validatedWriteContent(rawContent, maxBytes: maxBytes)
+        } catch MemoryNoteWriteError.empty {
+            throw MemoryNoteUpdateError.empty
+        } catch MemoryNoteWriteError.tooLarge(let actual, let maximum) {
+            throw MemoryNoteUpdateError.tooLarge(actual: actual, maximum: maximum)
+        } catch MemoryNoteWriteError.sensitiveContent {
+            throw MemoryNoteUpdateError.sensitiveContent
+        } catch {
+            throw MemoryNoteUpdateError.updateFailed
+        }
+    }
+
+    private static func globalMemoryFileURL(for note: MemoryNote, in root: URL) -> URL? {
+        let prefix = "memories/"
+        guard note.scope == .global,
+              note.relativePath.hasPrefix(prefix)
+        else {
+            return nil
+        }
+        let filename = String(note.relativePath.dropFirst(prefix.count))
+        guard !filename.isEmpty, !filename.contains("/") else {
+            return nil
+        }
+        let fileURL = root
+            .appendingPathComponent(filename)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        guard fileURL.deletingLastPathComponent().path == root.path else {
+            return nil
+        }
+        return fileURL
     }
 
     private static func loadFile(

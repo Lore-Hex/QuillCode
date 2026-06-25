@@ -73,7 +73,20 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
             ]
         )
         let model = QuillCodeWorkspaceModel(
-            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                globalMemories: [
+                    MemoryNote(
+                        id: "global:memories/preferences.md",
+                        scope: .global,
+                        title: "Preferences",
+                        content: "Prefer small reviewable commits.",
+                        relativePath: "memories/preferences.md",
+                        byteCount: 32
+                    )
+                ]
+            ),
             memories: MemoriesState(isVisible: true)
         )
 
@@ -81,6 +94,8 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="memories-pane""#))
         XCTAssertTrue(html.contains(#"data-testid="memory-item""#))
+        XCTAssertTrue(html.contains(#"data-testid="memory-edit" data-command-id="memory-edit:global:memories/preferences.md">Edit"#))
+        XCTAssertTrue(html.contains(#"data-testid="memory-delete" data-command-id="memory-delete:global:memories/preferences.md">Forget"#))
         XCTAssertTrue(html.contains("Project"))
         XCTAssertTrue(html.contains(".quillcode/memories/project.md"))
     }

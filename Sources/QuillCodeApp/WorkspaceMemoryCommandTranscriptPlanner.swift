@@ -25,6 +25,22 @@ struct WorkspaceMemoryCommandTranscriptPlanner {
         )
     }
 
+    static func memoryUpdated(userText: String, noteTitle: String) -> WorkspaceLocalCommandTranscript {
+        transcript(
+            userText: userText,
+            assistantText: "\(memoryUpdatedSummary(noteTitle: noteTitle)). Future turns will use the revised memory.",
+            title: "Updated memory: \(noteTitle)"
+        )
+    }
+
+    static func memoryNotUpdated(userText: String, message: String) -> WorkspaceLocalCommandTranscript {
+        transcript(
+            userText: userText,
+            assistantText: message,
+            title: "Memory not updated"
+        )
+    }
+
     static func memoryNotDeleted(userText: String, message: String) -> WorkspaceLocalCommandTranscript {
         transcript(
             userText: userText,
@@ -39,6 +55,10 @@ struct WorkspaceMemoryCommandTranscriptPlanner {
 
     static func memorySavedSummary(noteTitle: String) -> String {
         "Saved memory: \(noteTitle)"
+    }
+
+    static func memoryUpdatedSummary(noteTitle: String) -> String {
+        "Updated memory: \(noteTitle)"
     }
 
     private static func transcript(userText: String, assistantText: String, title: String) -> WorkspaceLocalCommandTranscript {

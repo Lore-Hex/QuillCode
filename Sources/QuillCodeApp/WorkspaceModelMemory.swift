@@ -21,6 +21,32 @@ extension QuillCodeWorkspaceModel {
         applyGlobalMemoryMutation(mutation)
     }
 
+    @discardableResult
+    func prepareEditGlobalMemory(id: String) -> Bool {
+        guard let note = root.globalMemories.first(where: { $0.id == id && $0.scope == .global }) else {
+            let mutation = WorkspaceMemoryEngine.updateGlobal(
+                id: id,
+                content: "",
+                userText: "Edit memory",
+                directory: globalMemoryDirectory
+            )
+            applyGlobalMemoryMutation(mutation)
+            return true
+        }
+        setDraft("/remember-edit \(note.id)\n\(note.content)")
+        return true
+    }
+
+    func runEditMemorySlashCommand(id: String, content: String, originalPrompt: String) {
+        let mutation = WorkspaceMemoryEngine.updateGlobal(
+            id: id,
+            content: content,
+            userText: originalPrompt,
+            directory: globalMemoryDirectory
+        )
+        applyGlobalMemoryMutation(mutation)
+    }
+
     func refreshGlobalMemories() {
         root.globalMemories = WorkspaceProjectContextRefresher.globalMemories(directory: globalMemoryDirectory)
     }

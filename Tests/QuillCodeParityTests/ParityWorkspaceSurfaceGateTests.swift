@@ -18,6 +18,7 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(extensionRowText.contains("MCPToolDescriptor"), "MCP probe display compatibility should stay with extension surface rows.")
         XCTAssertTrue(extensionRowText.contains("public init(from decoder: Decoder)"), "Extension row decode compatibility should stay with the row contract.")
         XCTAssertTrue(memoryRowText.contains("public struct MemoryNoteSurface"), "Memory note rows should live in a focused surface row file.")
+        XCTAssertTrue(memoryRowText.contains("memory-edit:"), "Memory edit command IDs should stay with memory note rows.")
         XCTAssertTrue(memoryRowText.contains("memory-delete:"), "Memory delete command IDs should stay with memory note rows.")
         XCTAssertTrue(automationRowText.contains("public struct AutomationWorkflowSurface"), "Automation workflow rows should live in a focused surface row file.")
         XCTAssertTrue(automationRowText.contains("automation-run:"), "Automation row run actions should stay with automation workflow rows.")

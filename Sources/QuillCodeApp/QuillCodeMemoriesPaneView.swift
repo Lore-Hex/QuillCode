@@ -72,16 +72,29 @@ struct QuillCodeMemoriesPaneView: View {
                     .font(.caption2)
                     .foregroundStyle(QuillCodePalette.muted)
                 Spacer()
-                if item.canDelete, let deleteCommandID = item.deleteCommandID {
-                    Button {
-                        onCommand(deleteCommandID)
-                    } label: {
-                        Label("Forget", systemImage: "trash")
-                            .labelStyle(.iconOnly)
+                if item.canEdit || item.canDelete {
+                    HStack(spacing: 8) {
+                        if let editCommandID = item.editCommandID {
+                            Button {
+                                onCommand(editCommandID)
+                            } label: {
+                                Label("Edit", systemImage: "pencil")
+                                    .labelStyle(.iconOnly)
+                            }
+                            .help("Edit this global memory")
+                        }
+                        if let deleteCommandID = item.deleteCommandID {
+                            Button {
+                                onCommand(deleteCommandID)
+                            } label: {
+                                Label("Forget", systemImage: "trash")
+                                    .labelStyle(.iconOnly)
+                            }
+                            .help("Forget this global memory")
+                        }
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(QuillCodePalette.muted)
-                    .help("Forget this global memory")
                 }
             }
             Text(item.title)

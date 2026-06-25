@@ -10,6 +10,7 @@ enum WorkspaceSlashCommandDispatchAction: Equatable {
     case renameProject(String, userText: String)
     case addSSHProject(String, userText: String)
     case remember(String, userText: String)
+    case editMemory(id: String, content: String, userText: String)
     case threadFollowUp(String, userText: String)
     case workspaceSchedule(String, userText: String)
     case workspaceCommand(String, userText: String)
@@ -49,6 +50,8 @@ struct WorkspaceSlashCommandDispatchPlanner {
             return .addSSHProject(address, userText: userText)
         case .remember(let content):
             return .remember(content, userText: userText)
+        case .editMemory(let id, let content):
+            return .editMemory(id: id, content: content, userText: userText)
         case .threadFollowUp(let scheduleText):
             return .threadFollowUp(scheduleText, userText: userText)
         case .workspaceSchedule(let scheduleText):

@@ -69,6 +69,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .localEnvironmentAction("local-env:bootstrap")
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "memory-edit:global-note"),
+            .editMemory(id: "global-note")
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "memory-delete:global-note"),
             .deleteMemory(id: "global-note")
         )

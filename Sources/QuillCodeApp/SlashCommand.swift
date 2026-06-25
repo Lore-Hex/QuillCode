@@ -11,6 +11,7 @@ enum SlashCommand: Equatable {
     case renameProject(String)
     case sshProject(String)
     case remember(String)
+    case editMemory(id: String, content: String)
     case threadFollowUp(String)
     case workspaceSchedule(String)
     case workspaceCommand(String)

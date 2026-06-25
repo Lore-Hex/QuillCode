@@ -52,6 +52,38 @@ final class WorkspaceMemoryCommandTranscriptPlannerTests: XCTestCase {
         )
     }
 
+    func testMemoryUpdatedTranscriptUsesSharedSummary() {
+        let transcript = WorkspaceMemoryCommandTranscriptPlanner.memoryUpdated(
+            userText: "/remember-edit global:memories/preferences.md\nPrefer focused tests",
+            noteTitle: "Preferences"
+        )
+
+        XCTAssertEqual(transcript.userText, "/remember-edit global:memories/preferences.md\nPrefer focused tests")
+        XCTAssertEqual(transcript.title, "Updated memory: Preferences")
+        XCTAssertEqual(
+            transcript.assistantText,
+            "Updated memory: Preferences. Future turns will use the revised memory."
+        )
+        XCTAssertEqual(
+            WorkspaceMemoryCommandTranscriptPlanner.memoryUpdatedSummary(noteTitle: "Preferences"),
+            "Updated memory: Preferences"
+        )
+    }
+
+    func testMemoryNotUpdatedTranscriptPreservesFailureMessage() {
+        XCTAssertEqual(
+            WorkspaceMemoryCommandTranscriptPlanner.memoryNotUpdated(
+                userText: "Edit memory",
+                message: "Memory cannot be empty."
+            ),
+            WorkspaceLocalCommandTranscript(
+                userText: "Edit memory",
+                assistantText: "Memory cannot be empty.",
+                title: "Memory not updated"
+            )
+        )
+    }
+
     func testMemoryNotDeletedTranscriptPreservesFailureMessage() {
         XCTAssertEqual(
             WorkspaceMemoryCommandTranscriptPlanner.memoryNotDeleted(

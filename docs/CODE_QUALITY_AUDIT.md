@@ -6564,3 +6564,26 @@ Current strict grades:
 
 Remaining risk:
 - Generic `runToolCall` still lives in `WorkspaceModel.swift` because it coordinates project context sync, lifecycle recording, execution, persistence, and top-bar status. It is now the clearest next extraction candidate if the model continues to grow.
+
+## 2026-06-25 Global Memory Editing Slice
+
+Overall grade after this slice: **A- memory workflow, A command/test boundaries, B+/A- Chronicle parity**.
+
+QuillCode could add and forget global memories, but existing global memories could not be revised in place. That left the Memories/Chronicle surface behind Codex-style long-running context management: users had to delete and recreate notes, which lost the original file identity and made context updates noisier than necessary.
+
+What changed:
+- Added bounded global memory update support to `MemoryNoteLoader`, reusing the same global-memory path guard as delete and the same sensitive-content policy as writes.
+- Added `WorkspaceMemoryEngine.updateGlobal` plus focused success/failure transcript planning so `WorkspaceModel` still delegates storage, reload, user-facing copy, and thread-context notices.
+- Added `memory-edit:*` workspace commands that prefill an auditable `/remember-edit <id>` draft with the existing memory content, and added `/remember-edit` parsing to update the existing memory file after user edits.
+- Added native SwiftUI and static HTML memory-card Edit actions for global memories only; project memories remain read-only because they belong to the workspace.
+- Updated the Playwright harness so memory editing is a real state transition, not only static markup.
+
+Current strict grades:
+- `MemoryNoteLoader.swift`: **A-**. Add/update/delete now share bounded path and content validation behavior. The only remaining duplication is save-vs-update user-facing error wording, which keeps messages precise without widening the public API.
+- `WorkspaceMemoryEngine.swift`: **A-**. It owns memory mutation outcomes and transcript intent cleanly; if Chronicle grows conflict review or redaction previews, promote edit/add/delete into a dedicated workflow coordinator.
+- `WorkspaceModelMemory.swift`: **A-**. It stays a thin same-actor extension that coordinates composer prefill, mutation application, and context refresh.
+- `SlashMemoryCommandParser.swift`: **A-**. The command format is explicit and robust across LF/CRLF. A future rich inline editor could hide the memory ID while preserving this slash fallback.
+- `E2E/harness/index.html`: **B+**. The harness mirrors the product behavior, but its monolithic structure remains a long-term test-maintenance cost.
+
+Remaining risk:
+- Memory editing is explicit and user-driven. Richer redaction review, conflict UI, idle Chronicle jobs, and fully autonomous memory inference are still pending parity work.
