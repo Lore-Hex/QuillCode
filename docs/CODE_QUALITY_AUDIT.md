@@ -4837,3 +4837,22 @@ Current strict grades:
 
 Remaining risk:
 - Continue draining `ParityGateTests.swift` by feature family. The next clean split should move composer/send-session/tool-execution gates to a dedicated workspace execution gate suite.
+
+## 2026-06-24 Workspace Execution Gate Split
+
+Overall grade after this slice: **A execution-gate ownership, A drift protection, B+ catch-all size**.
+
+After the workspace-model gate drain, execution-specific boundaries still lived in the broad parity file: composer cancellation/submission, agent send sessions, run-context assembly, tool event recording, tool-call routing, shell call planning, and tool override composition. Those checks all protect the same high-risk behavior: turning a user prompt into safe, auditable, executable work without letting `WorkspaceModel` absorb tool orchestration again.
+
+What changed:
+- Added `ParityWorkspaceExecutionGateTests` for composer, agent-send, and tool-execution boundary gates.
+- Registered the suite in the top-level parity guard and moved the execution gate names into the table-driven drift check.
+- Reduced the catch-all parity file again while leaving behavior unchanged.
+
+Current strict grades:
+- `ParityWorkspaceExecutionGateTests.swift`: **A**. It gives execution reliability and tool-routing boundaries a focused owner.
+- `ParityWorkspaceModelGateTests.swift`: **A-**. It no longer needs to absorb execution-specific gates while it grows model-boundary coverage.
+- `ParityGateTests.swift`: **B+**. Smaller and more DRY, but it still owns later slash-command, memory, automation, worktree, MCP, and command-plan gates.
+
+Remaining risk:
+- Continue draining `ParityGateTests.swift` by feature family. The next clean splits are slash/memory command gates and MCP/worktree/automation gates.
