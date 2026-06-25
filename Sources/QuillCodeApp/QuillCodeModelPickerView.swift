@@ -10,10 +10,15 @@ struct QuillCodeModelPickerView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var searchText = ""
     @State private var expandedModelID: String?
+    @State private var highlightedModelID: String?
     @FocusState private var isSearchFocused: Bool
 
     private var filteredCategories: [ModelCategorySurface] {
         topBar.filteredModelCategories(matching: searchText)
+    }
+
+    private var filteredModels: [ModelOptionSurface] {
+        filteredCategories.flatMap(\.models)
     }
 
     private var filteredModelCount: Int {
@@ -57,12 +62,14 @@ struct QuillCodeModelPickerView: View {
         .onChange(of: isPresented) { _, presented in
             if presented {
                 expandedModelID = currentModelID
+                ensureHighlightedModel(preferredID: currentModelID)
                 DispatchQueue.main.async {
                     isSearchFocused = true
                 }
             } else {
                 searchText = ""
                 expandedModelID = nil
+                highlightedModelID = nil
                 isSearchFocused = false
             }
         }
@@ -78,6 +85,19 @@ struct QuillCodeModelPickerView: View {
         .padding(14)
         .frame(width: 400, height: 500)
         .background(QuillCodePalette.panel)
+        .onMoveCommand { direction in
+            switch direction {
+            case .up:
+                moveHighlightedModel(by: -1)
+            case .down:
+                moveHighlightedModel(by: 1)
+            default:
+                break
+            }
+        }
+        .onChange(of: searchText) { _, _ in
+            ensureHighlightedModel(preferredID: highlightedModelID)
+        }
     }
 
     private var header: some View {
@@ -97,6 +117,7 @@ struct QuillCodeModelPickerView: View {
             .focused($isSearchFocused)
             .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
             .accessibilityLabel("Search models")
+            .onSubmit(selectHighlightedModel)
     }
 
     @ViewBuilder
@@ -111,6 +132,7 @@ struct QuillCodeModelPickerView: View {
                             QuillCodeModelCategorySection(
                                 category: category,
                                 expandedModelID: $expandedModelID,
+                                highlightedModelID: highlightedModelID,
                                 reduceMotion: reduceMotion,
                                 onSetModel: selectModel,
                                 onToggleModelFavorite: onToggleModelFavorite
@@ -183,9 +205,40 @@ struct QuillCodeModelPickerView: View {
 
     private func clearSearch() {
         searchText = ""
+        ensureHighlightedModel(preferredID: currentModelID)
         DispatchQueue.main.async {
             isSearchFocused = true
         }
+    }
+
+    private func ensureHighlightedModel(preferredID: String?) {
+        if let preferredID, filteredModels.contains(where: { $0.id == preferredID }) {
+            highlightedModelID = preferredID
+            return
+        }
+        if let highlightedModelID, filteredModels.contains(where: { $0.id == highlightedModelID }) {
+            return
+        }
+        highlightedModelID = filteredModels.first?.id
+    }
+
+    private func moveHighlightedModel(by delta: Int) {
+        guard !filteredModels.isEmpty else {
+            highlightedModelID = nil
+            return
+        }
+        let currentIndex = highlightedModelID.flatMap { id in
+            filteredModels.firstIndex { $0.id == id }
+        } ?? 0
+        let nextIndex = (currentIndex + delta + filteredModels.count) % filteredModels.count
+        highlightedModelID = filteredModels[nextIndex].id
+    }
+
+    private func selectHighlightedModel() {
+        guard let highlighted = highlightedModelID.flatMap({ id in
+            filteredModels.first { $0.id == id }
+        }) ?? filteredModels.first else { return }
+        selectModel(highlighted)
     }
 
     private func selectModel(_ option: ModelOptionSurface) {
@@ -197,6 +250,7 @@ struct QuillCodeModelPickerView: View {
 private struct QuillCodeModelCategorySection: View {
     var category: ModelCategorySurface
     @Binding var expandedModelID: String?
+    var highlightedModelID: String?
     var reduceMotion: Bool
     var onSetModel: (ModelOptionSurface) -> Void
     var onToggleModelFavorite: (String) -> Void
@@ -211,6 +265,7 @@ private struct QuillCodeModelCategorySection: View {
                 QuillCodeModelRow(
                     option: option,
                     isExpanded: expandedModelID == option.id,
+                    isHighlighted: highlightedModelID == option.id,
                     reduceMotion: reduceMotion,
                     onSelect: onSetModel,
                     onToggleExpanded: toggleExpanded,
@@ -230,6 +285,7 @@ private struct QuillCodeModelCategorySection: View {
 private struct QuillCodeModelRow: View {
     var option: ModelOptionSurface
     var isExpanded: Bool
+    var isHighlighted: Bool
     var reduceMotion: Bool
     var onSelect: (ModelOptionSurface) -> Void
     var onToggleExpanded: (ModelOptionSurface) -> Void
@@ -284,10 +340,10 @@ private struct QuillCodeModelRow: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(option.isSelected ? QuillCodePalette.blue.opacity(0.045) : Color.clear)
+        .background(rowBackground)
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(option.isSelected ? QuillCodePalette.blue.opacity(0.16) : Color.clear, lineWidth: 1)
+                .stroke(rowStroke, lineWidth: 1)
         }
         .overlay(alignment: .leading) {
             if option.isSelected {
@@ -316,6 +372,20 @@ private struct QuillCodeModelRow: View {
             }
         }
         .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var rowBackground: Color {
+        if option.isSelected {
+            return QuillCodePalette.blue.opacity(isHighlighted ? 0.08 : 0.045)
+        }
+        return isHighlighted ? Color.white.opacity(0.05) : Color.clear
+    }
+
+    private var rowStroke: Color {
+        if isHighlighted {
+            return QuillCodePalette.blue.opacity(0.42)
+        }
+        return option.isSelected ? QuillCodePalette.blue.opacity(0.16) : Color.clear
     }
 
     private var badgeRow: some View {

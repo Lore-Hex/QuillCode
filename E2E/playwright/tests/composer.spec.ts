@@ -244,3 +244,21 @@ test('mock harness searches and selects models from the composer', async ({ page
   await expect(page.getByTestId('model-result-count')).toHaveText('6 models available');
   await expect(page.getByTestId('model-option')).toHaveCount(6);
 });
+
+test('mock harness supports keyboard navigation in the model picker', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByTestId('model-picker-button').click();
+  await expect(page.getByTestId('model-search')).toBeFocused();
+  await page.getByTestId('model-search').fill('synth');
+
+  await expect(page.getByTestId('model-option')).toHaveCount(2);
+  await expect(page.getByTestId('model-option').nth(0)).toHaveAttribute('data-highlighted', 'true');
+
+  await page.keyboard.press('ArrowDown');
+  await expect(page.getByTestId('model-option').nth(1)).toHaveAttribute('data-highlighted', 'true');
+
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('model-picker-button')).toHaveText('Synth Code');
+  await expect(page.getByTestId('model-browser')).toHaveCount(0);
+});
