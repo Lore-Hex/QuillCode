@@ -119,7 +119,8 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityAutomationGateTests.swift", testNames: [
             "testAutomationModelsLiveOutsideGeneralDomainModels",
             "testWorkspaceModelDelegatesAutomationStateMutations",
-            "testWorkspaceSurfaceDelegatesAutomationsSurfaceBuilding"
+            "testWorkspaceSurfaceDelegatesAutomationsSurfaceBuilding",
+            "testPlaywrightAutomationFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityWorkspaceRuntimeReviewGateTests.swift", testNames: [
             "testNativeReviewPaneDelegatesFileHunkAndLineRendering",

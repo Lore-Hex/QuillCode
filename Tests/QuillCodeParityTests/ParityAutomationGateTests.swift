@@ -61,4 +61,31 @@ final class ParityAutomationGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(surfaceText.contains("automationScheduleThreadFollowUpCommands"), "WorkspaceSurface should not build thread schedule command variants inline.")
         XCTAssertFalse(surfaceText.contains("automationScheduleWorkspaceScheduleCommands"), "WorkspaceSurface should not build workspace schedule command variants inline.")
     }
+
+    func testPlaywrightAutomationFlowsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let automationSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("automations.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let automationFlowNames = [
+            "separates Automations from Activity in the sidebar",
+            "creates and manages a thread follow-up automation",
+            "creates and runs a workspace schedule automation",
+            "schedules a recurring workspace check from slash text"
+        ]
+
+        XCTAssertTrue(automationSpecText.contains("harnessURL()"), "Focused automation flows should reuse the shared harness URL helper.")
+        XCTAssertTrue(automationSpecText.contains("automations-button"), "Focused automation flows should cover the sidebar Automations entry point.")
+        XCTAssertTrue(automationSpecText.contains("/follow-up tomorrow at 9:30 PM"), "Focused automation flows should cover slash-created thread follow-ups.")
+        XCTAssertTrue(automationSpecText.contains("/workspace-check every 2 hours"), "Focused automation flows should cover recurring workspace schedule slash input.")
+        for flowName in automationFlowNames {
+            XCTAssertTrue(automationSpecText.contains(flowName), "\(flowName) should live in automations.spec.ts.")
+            XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
+        }
+    }
 }
