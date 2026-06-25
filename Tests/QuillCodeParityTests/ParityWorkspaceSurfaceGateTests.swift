@@ -258,4 +258,29 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelText.contains("ToolDefinition.gitStageHunk.name"), "WorkspaceModel should not own hunk review tool-call details.")
         XCTAssertFalse(modelText.contains("ToolDefinition.gitRestoreHunk.name"), "WorkspaceModel should not own hunk review tool-call details.")
     }
+
+    func testPlaywrightReviewFlowsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let reviewSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("review.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let reviewFlowNames = [
+            "shows git review summary for diff flow",
+            "flows apply patch into review diff",
+            "stages a changed file from the review pane",
+            "stages a single hunk from the review pane",
+            "commits staged changes in one turn"
+        ]
+
+        XCTAssertTrue(reviewSpecText.contains("harnessURL()"), "Focused review flows should reuse the shared harness URL helper.")
+        for flowName in reviewFlowNames {
+            XCTAssertTrue(reviewSpecText.contains(flowName), "\(flowName) should live in review.spec.ts.")
+            XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
+        }
+    }
 }

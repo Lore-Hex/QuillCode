@@ -24,7 +24,8 @@ struct ParityFocusedSuiteManifest {
             "testTrustedRouterModelCatalogLivesOutsideGeneralDomainModels"
         ]),
         Suite(fileName: "ParityWorkspaceSurfaceGateTests.swift", testNames: [
-            "testWorkspaceSurfaceDelegatesSecondaryPaneSurfaceContracts"
+            "testWorkspaceSurfaceDelegatesSecondaryPaneSurfaceContracts",
+            "testPlaywrightReviewFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityBrowserGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesBrowserSurfaceTypes",

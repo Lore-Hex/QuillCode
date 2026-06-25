@@ -5248,3 +5248,23 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `WorkspaceSurfaceTests.swift` by feature family. Good next slices are memory/extensions surface ownership and command/sidebar search ownership.
+
+## 2026-06-24 Playwright Review Spec Split
+
+Overall grade after this slice: **A review E2E ownership, A shared harness helper reuse, B+ broad Playwright core spec**.
+
+The review and diff flows are central to Codex parity, but they were still embedded in `core.spec.ts`. Moving them to a focused review spec makes git diff, patch review, staging, hunk staging, review comments, and commit flows easier to maintain without forcing every UI agent to edit the same broad spec file.
+
+What changed:
+- Added `review.spec.ts` for review summary, apply-patch diff, file staging, hunk staging, and one-turn commit flows.
+- Reused `harnessURL()` from the shared Playwright helper instead of rebuilding the file URL in each test.
+- Removed review-specific E2E flows from `core.spec.ts`.
+- Added a workspace surface parity gate that keeps those review flow names out of `core.spec.ts` and registered it in the focused-suite manifest.
+
+Current strict grades:
+- `E2E/playwright/tests/review.spec.ts`: **A**. It owns one review/git workflow area and keeps the assertions cohesive.
+- `E2E/playwright/tests/core.spec.ts`: **B+**. It is smaller again, but still owns several unrelated UI families including terminal, extensions, sidebar, settings, and slash/workflow smoke coverage.
+- `ParityWorkspaceSurfaceGateTests.swift`: **A**. It now guards both review surface architecture and focused review E2E ownership.
+
+Remaining risk:
+- Continue splitting `core.spec.ts` by feature family. Good next slices are terminal flows, extension/MCP flows, and settings/sidebar flows.
