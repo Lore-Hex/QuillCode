@@ -56,7 +56,8 @@ final class ParityGateTests: QuillCodeParityTestCase {
             "ParityWorkspaceProjectGateTests.swift",
             "ParityWorkspaceMemoryGateTests.swift",
             "ParityWorkspaceIntegrationGateTests.swift",
-            "ParityWorkspaceSidebarGateTests.swift"
+            "ParityWorkspaceSidebarGateTests.swift",
+            "ParityMCPGateTests.swift"
         ]
         for suiteFile in suiteFiles {
             XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent(suiteFile).path), suiteFile)
@@ -142,6 +143,10 @@ final class ParityGateTests: QuillCodeParityTestCase {
                 "testNativeSidebarDelegatesProjectListRendering",
                 "testWorkspaceSurfaceDelegatesSidebarSurfaceContracts",
                 "testWorkspaceSurfaceDelegatesNavigationSurfaceBuilding"
+            ]),
+            ("ParityMCPGateTests", [
+                "testWorkspaceModelDelegatesMCPSupportTypes",
+                "testMCPStdioProberDelegatesCodecAndResultMapping"
             ])
         ]
 
@@ -523,74 +528,6 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(settingsText.contains("struct QuillCodePermissionRow"), "Settings shell should not own Computer Use permission rows.")
         XCTAssertFalse(settingsText.contains("struct QuillCodeRuntimeIssueView"), "Settings shell should not own runtime issue callout internals.")
         XCTAssertFalse(settingsText.contains("struct QuillCodeSettingsDraft"), "Settings shell should not own settings draft state.")
-    }
-
-    func testWorkspaceModelDelegatesMCPSupportTypes() throws {
-        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let mcpSurfaceText = try Self.appSourceText(named: "QuillCodeMCPSurface.swift")
-        let mcpRequestText = try Self.appSourceText(named: "WorkspaceMCPRequests.swift")
-        let mcpRuntimeText = try Self.appSourceText(named: "WorkspaceMCPRuntime.swift")
-        let mcpLauncherText = try Self.appSourceText(named: "WorkspaceMCPServerLauncher.swift")
-        let mcpCatalogText = try Self.appSourceText(named: "WorkspaceMCPToolCatalog.swift")
-
-        XCTAssertTrue(mcpSurfaceText.contains("public struct ExtensionsState"), "MCP extension state should live in a focused surface file.")
-        XCTAssertTrue(mcpSurfaceText.contains("public enum MCPServerLifecycleStatus"), "MCP lifecycle status should live in a focused surface file.")
-        XCTAssertTrue(mcpSurfaceText.contains("public struct MCPServerProbeSummary"), "MCP probe summary should live in a focused surface file.")
-        XCTAssertTrue(mcpRequestText.contains("struct MCPToolCallRequest"), "MCP tool-call parsing should live in a focused request parser file.")
-        XCTAssertTrue(mcpRequestText.contains("struct MCPResourceReadRequest"), "MCP resource parsing should live in a focused request parser file.")
-        XCTAssertTrue(mcpRequestText.contains("struct MCPPromptGetRequest"), "MCP prompt parsing should live in a focused request parser file.")
-        XCTAssertTrue(mcpRuntimeText.contains("final class WorkspaceMCPRuntime"), "MCP process lifecycle should live in a focused runtime file.")
-        XCTAssertTrue(mcpRuntimeText.contains("private final class WorkspaceMCPProcessHandle"), "MCP process handles should be private to the runtime.")
-        XCTAssertTrue(mcpLauncherText.contains("protocol WorkspaceMCPServerLaunching"), "MCP process launch should have an injectable launcher protocol.")
-        XCTAssertTrue(mcpLauncherText.contains("struct WorkspaceMCPLaunchRequest"), "MCP launch request validation should live beside the launcher.")
-        XCTAssertTrue(mcpLauncherText.contains("struct WorkspaceMCPProcessLaunchConfiguration"), "MCP command resolution should live beside the launcher.")
-        XCTAssertTrue(mcpLauncherText.contains("struct DefaultWorkspaceMCPServerLauncher"), "Concrete MCP stdio launch should live in a focused launcher.")
-        XCTAssertTrue(mcpRuntimeText.contains("private let launcher"), "MCP runtime should delegate server launch through the launcher seam.")
-        XCTAssertTrue(mcpRuntimeText.contains("WorkspaceMCPLaunchRequest.make"), "MCP runtime should delegate manifest launch validation to launch request construction.")
-        XCTAssertTrue(mcpRuntimeText.contains("launcher.launch("), "MCP runtime should delegate process creation to the launcher.")
-        XCTAssertTrue(mcpCatalogText.contains("struct WorkspaceMCPToolCatalog"), "MCP dynamic tool descriptions should live in a focused catalog file.")
-        XCTAssertTrue(mcpRuntimeText.contains("WorkspaceMCPToolCatalog("), "MCP runtime should delegate dynamic tool definitions to the catalog.")
-        XCTAssertTrue(mcpRuntimeText.contains("static func executionOverride"), "MCP dynamic tool routing should live in the runtime.")
-        XCTAssertFalse(modelText.contains("public struct ExtensionsState"), "WorkspaceModel should not own MCP extension state.")
-        XCTAssertFalse(modelText.contains("public enum MCPServerLifecycleStatus"), "WorkspaceModel should not own MCP lifecycle state.")
-        XCTAssertFalse(modelText.contains("public struct MCPServerProbeSummary"), "WorkspaceModel should not own MCP probe summaries.")
-        XCTAssertFalse(modelText.contains("struct MCPToolCallRequest {"), "WorkspaceModel should not own MCP tool-call request parsing.")
-        XCTAssertFalse(modelText.contains("struct MCPResourceReadRequest {"), "WorkspaceModel should not own MCP resource request parsing.")
-        XCTAssertFalse(modelText.contains("struct MCPPromptGetRequest {"), "WorkspaceModel should not own MCP prompt request parsing.")
-        XCTAssertFalse(modelText.contains("MCPServerProcessHandle"), "WorkspaceModel should not own MCP process handles.")
-        XCTAssertFalse(modelText.contains("Process()"), "WorkspaceModel should not spawn MCP processes directly.")
-        XCTAssertFalse(mcpRuntimeText.contains("Process()"), "WorkspaceMCPRuntime should not construct concrete processes directly.")
-        XCTAssertFalse(mcpRuntimeText.contains("MCPStdioProber("), "WorkspaceMCPRuntime should not construct stdio sessions directly.")
-        XCTAssertFalse(mcpRuntimeText.contains("URL(fileURLWithPath: \"/usr/bin/env\")"), "WorkspaceMCPRuntime should not resolve launch commands directly.")
-        XCTAssertTrue(mcpLauncherText.contains("Process()"), "Concrete process construction should be isolated to the MCP launcher.")
-        XCTAssertFalse(modelText.contains("readyMCPToolDescriptions"), "WorkspaceModel should not format MCP tool descriptions directly.")
-        XCTAssertFalse(mcpRuntimeText.contains("func readyToolDescriptions"), "MCP runtime should not format MCP tool descriptions directly.")
-        XCTAssertFalse(mcpRuntimeText.contains("func readyResourceDescriptions"), "MCP runtime should not format MCP resource descriptions directly.")
-        XCTAssertFalse(mcpRuntimeText.contains("func readyPromptDescriptions"), "MCP runtime should not format MCP prompt descriptions directly.")
-    }
-
-    func testMCPStdioProberDelegatesCodecAndResultMapping() throws {
-        let proberText = try Self.toolsSourceText(named: "MCPStdioProber.swift")
-        let codecText = try Self.toolsSourceText(named: "MCPStdioMessageCodec.swift")
-        let mapperText = try Self.toolsSourceText(named: "MCPStdioResultMapper.swift")
-        let modelsText = try Self.toolsSourceText(named: "MCPStdioModels.swift")
-        let definitionsText = try Self.toolsSourceText(named: "MCPToolDefinitions.swift")
-
-        XCTAssertTrue(proberText.contains("public final class MCPStdioProber"), "MCP stdio session orchestration should remain in the prober.")
-        XCTAssertTrue(codecText.contains("public enum MCPStdioMessageCodec"), "MCP Content-Length framing should live in a focused codec.")
-        XCTAssertTrue(mapperText.contains("enum MCPStdioResultMapper"), "MCP result mapping should live in a focused mapper.")
-        XCTAssertTrue(modelsText.contains("public struct MCPServerProbeResult"), "MCP probe result models should live outside the stdio prober.")
-        XCTAssertTrue(modelsText.contains("public enum MCPProbeError"), "MCP probe errors should live with the public stdio models.")
-        XCTAssertTrue(definitionsText.contains("static let mcpCall"), "MCP tool definitions should live outside the stdio prober.")
-        XCTAssertTrue(proberText.contains("MCPStdioMessageCodec.encodeJSONObject"), "MCP prober should delegate outbound framing to the codec.")
-        XCTAssertTrue(proberText.contains("MCPStdioResultMapper.toolDescriptors"), "MCP prober should delegate tool schema summaries to the mapper.")
-        XCTAssertTrue(proberText.contains("MCPStdioResultMapper.toolResult"), "MCP prober should delegate tool result formatting to the mapper.")
-        XCTAssertFalse(proberText.contains("public enum MCPStdioMessageCodec"), "MCP prober should not own stdio frame parsing.")
-        XCTAssertFalse(proberText.contains("public struct MCPServerProbeResult"), "MCP prober should not own public probe models.")
-        XCTAssertFalse(proberText.contains("public extension ToolDefinition"), "MCP prober should not own static tool definitions.")
-        XCTAssertFalse(proberText.contains("private static func schemaArguments"), "MCP prober should not own JSON schema summary formatting.")
-        XCTAssertFalse(proberText.contains("private static func toolResult"), "MCP prober should not own ToolResult conversion.")
-        XCTAssertFalse(proberText.contains("private static func promptMessageContent"), "MCP prober should not own prompt content flattening.")
     }
 
     func testWorkspaceSurfaceDelegatesRuntimeIssueBuilding() throws {
