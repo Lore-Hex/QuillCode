@@ -62,6 +62,9 @@ final class WorkspaceSlashCommandDispatchPlannerTests: XCTestCase {
 
     func testExternalCommandFamiliesMapToTypedActions() {
         let toolCall = ToolCall(id: "call-1", name: "shell.run", argumentsJSON: #"{"cmd":"whoami"}"#)
+        let createWorktree = WorkspaceWorktreeCreateRequest(path: "../feature", branch: "feature/test", base: "main")
+        let openWorktree = WorkspaceWorktreeOpenRequest(path: "../feature")
+        let removeWorktree = WorkspaceWorktreeRemoveRequest(path: "../feature", force: true)
 
         XCTAssertEqual(
             WorkspaceSlashCommandDispatchPlanner.action(
@@ -102,6 +105,30 @@ final class WorkspaceSlashCommandDispatchPlannerTests: XCTestCase {
                 statusText: "unused"
             ),
             .workspaceCommand("toggle-browser", userText: "/browser")
+        )
+        XCTAssertEqual(
+            WorkspaceSlashCommandDispatchPlanner.action(
+                for: .worktreeCreate(createWorktree),
+                userText: "/worktree create ../feature --branch feature/test --base main",
+                statusText: "unused"
+            ),
+            .worktreeCreate(createWorktree, userText: "/worktree create ../feature --branch feature/test --base main")
+        )
+        XCTAssertEqual(
+            WorkspaceSlashCommandDispatchPlanner.action(
+                for: .worktreeOpen(openWorktree),
+                userText: "/worktree open ../feature",
+                statusText: "unused"
+            ),
+            .worktreeOpen(openWorktree, userText: "/worktree open ../feature")
+        )
+        XCTAssertEqual(
+            WorkspaceSlashCommandDispatchPlanner.action(
+                for: .worktreeRemove(removeWorktree),
+                userText: "/worktree remove ../feature --force",
+                statusText: "unused"
+            ),
+            .worktreeRemove(removeWorktree, userText: "/worktree remove ../feature --force")
         )
         XCTAssertEqual(
             WorkspaceSlashCommandDispatchPlanner.action(

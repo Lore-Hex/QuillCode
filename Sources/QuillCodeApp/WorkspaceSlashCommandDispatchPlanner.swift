@@ -13,6 +13,9 @@ enum WorkspaceSlashCommandDispatchAction: Equatable {
     case threadFollowUp(String, userText: String)
     case workspaceSchedule(String, userText: String)
     case workspaceCommand(String, userText: String)
+    case worktreeCreate(WorkspaceWorktreeCreateRequest, userText: String)
+    case worktreeOpen(WorkspaceWorktreeOpenRequest, userText: String)
+    case worktreeRemove(WorkspaceWorktreeRemoveRequest, userText: String)
     case toolCall(ToolCall)
     case environmentAction(String?, userText: String)
 }
@@ -51,6 +54,12 @@ struct WorkspaceSlashCommandDispatchPlanner {
             return .workspaceSchedule(scheduleText, userText: userText)
         case .workspaceCommand(let commandID):
             return .workspaceCommand(commandID, userText: userText)
+        case .worktreeCreate(let request):
+            return .worktreeCreate(request, userText: userText)
+        case .worktreeOpen(let request):
+            return .worktreeOpen(request, userText: userText)
+        case .worktreeRemove(let request):
+            return .worktreeRemove(request, userText: userText)
         case .toolCall(let call):
             return .toolCall(call)
         case .environmentAction(let query):

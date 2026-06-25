@@ -11,12 +11,12 @@ enum SlashWorkspaceCommandParser {
         }
     }
 
-    static func parse(name: String) -> SlashCommand {
+    static func parse(name: String, argument: String = "") -> SlashCommand {
         switch normalizedName(name) {
         case "browser", "preview":
             return .workspaceCommand("toggle-browser")
         case "worktree", "worktrees", "wt":
-            return .workspaceCommand("git-worktree-list")
+            return SlashWorktreeCommandParser.parse(argument)
         default:
             return .unknown(normalizedName(name))
         }

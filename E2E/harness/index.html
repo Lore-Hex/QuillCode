@@ -2897,6 +2897,9 @@
       { usage: '/memories', title: 'Show memories', detail: 'Show loaded global and project memories.', insertText: '/memories', aliases: ['memory'] },
       { usage: '/remember text', title: 'Add memory', detail: 'Save an explicit global memory after redaction checks.', insertText: '/remember ', aliases: [] },
       { usage: '/worktrees', title: 'List worktrees', detail: 'List git worktrees for the selected project.', insertText: '/worktrees', aliases: ['worktree', 'wt'] },
+      { usage: '/worktree create path', title: 'Create worktree', detail: 'Create and switch to a sibling git worktree.', insertText: '/worktree create ', aliases: ['wt create', 'worktree add', 'worktree new'] },
+      { usage: '/worktree open path', title: 'Open worktree', detail: 'Open an existing registered git worktree as a focused project.', insertText: '/worktree open ', aliases: ['wt open', 'worktree switch'] },
+      { usage: '/worktree remove path', title: 'Remove worktree', detail: 'Remove an existing registered git worktree.', insertText: '/worktree remove ', aliases: ['wt remove', 'worktree rm'] },
       { usage: '/pr', title: 'Prepare pull request', detail: 'Draft a pull request request in the composer.', insertText: '/pr', aliases: ['pull-request', 'pullrequest'] },
       { usage: '/env name', title: 'Run local environment action', detail: 'List or run project-local environment scripts.', insertText: '/env ', aliases: ['environment', 'local-env'] },
       { usage: '/mode auto|review|read-only', title: 'Set approval mode', detail: 'Switch between Auto, Review, and Read-only behavior.', insertText: '/mode ', aliases: [] },
@@ -2941,6 +2944,126 @@
       const searchable = [definition.usage, definition.title, definition.detail, ...definition.aliases]
         .map(normalizeSlashText);
       return searchable.some(value => value.includes(query)) ? 70 : null;
+    }
+
+    function tokenizeSlashArguments(text) {
+      const tokens = [];
+      let current = '';
+      let quote = null;
+      let isEscaped = false;
+      for (const character of String(text || '')) {
+        if (isEscaped) {
+          current += character;
+          isEscaped = false;
+          continue;
+        }
+        if (character === '\\') {
+          isEscaped = true;
+          continue;
+        }
+        if (quote) {
+          if (character === quote) {
+            quote = null;
+          } else {
+            current += character;
+          }
+          continue;
+        }
+        if (character === '"' || character === "'") {
+          quote = character;
+          continue;
+        }
+        if (/\s/.test(character)) {
+          if (current) {
+            tokens.push(current);
+            current = '';
+          }
+          continue;
+        }
+        current += character;
+      }
+      if (isEscaped) current += '\\';
+      if (quote) return { error: 'Unclosed quote in worktree command.', tokens: [] };
+      if (current) tokens.push(current);
+      return { tokens, error: null };
+    }
+
+    function parseWorktreeSlash(text) {
+      const match = String(text || '').match(/^\/(worktrees?|wt)\b/i);
+      if (!match) return { kind: 'invalid', message: 'Usage: /worktrees or /worktree create|open|remove path.' };
+      const argument = text.slice(match[0].length).trim();
+      const parsed = tokenizeSlashArguments(argument);
+      if (parsed.error) return { kind: 'invalid', message: parsed.error };
+      const tokens = parsed.tokens;
+      const subcommand = (tokens.shift() || 'list').toLowerCase();
+      if (['list', 'ls'].includes(subcommand)) {
+        return tokens.length
+          ? { kind: 'invalid', message: 'Usage: /worktree list.' }
+          : { kind: 'list' };
+      }
+      if (['create', 'add', 'new'].includes(subcommand)) {
+        return parseWorktreeCreateSlash(tokens);
+      }
+      if (['open', 'switch'].includes(subcommand)) {
+        return parseSinglePathWorktreeSlash(tokens, 'open');
+      }
+      if (['remove', 'rm', 'delete'].includes(subcommand)) {
+        return parseWorktreeRemoveSlash(tokens);
+      }
+      return { kind: 'invalid', message: `Unknown worktree subcommand '${subcommand}'. Try /worktree create, /worktree open, or /worktree remove.` };
+    }
+
+    function parseWorktreeCreateSlash(tokens) {
+      const values = { path: '', branch: '', base: '' };
+      for (let index = 0; index < tokens.length; index += 1) {
+        const token = tokens[index];
+        if (token === '--branch' || token === '-b') {
+          const next = tokens[++index];
+          if (!next || next.startsWith('-')) return { kind: 'invalid', message: `Missing branch after ${token}.` };
+          values.branch = next;
+          continue;
+        }
+        if (token === '--base' || token === '--from') {
+          const next = tokens[++index];
+          if (!next || next.startsWith('-')) return { kind: 'invalid', message: `Missing base ref after ${token}.` };
+          values.base = next;
+          continue;
+        }
+        if (token.startsWith('-')) return { kind: 'invalid', message: `Unknown worktree create option '${token}'.` };
+        if (values.path) return { kind: 'invalid', message: 'Too many worktree create paths. Quote paths with spaces.' };
+        values.path = token;
+      }
+      return values.path
+        ? { kind: 'create', values }
+        : { kind: 'invalid', message: 'Missing worktree path. Try /worktree create ../feature --branch feature/name.' };
+    }
+
+    function parseSinglePathWorktreeSlash(tokens, action) {
+      let path = '';
+      for (const token of tokens) {
+        if (token.startsWith('-')) return { kind: 'invalid', message: `Unknown worktree ${action} option '${token}'.` };
+        if (path) return { kind: 'invalid', message: `Too many worktree ${action} paths. Quote paths with spaces.` };
+        path = token;
+      }
+      return path
+        ? { kind: action, values: { path } }
+        : { kind: 'invalid', message: `Missing worktree path. Try /worktree ${action} ../feature.` };
+    }
+
+    function parseWorktreeRemoveSlash(tokens) {
+      const values = { path: '', force: false };
+      for (const token of tokens) {
+        if (token === '--force' || token === '-f') {
+          values.force = true;
+          continue;
+        }
+        if (token.startsWith('-')) return { kind: 'invalid', message: `Unknown worktree remove option '${token}'.` };
+        if (values.path) return { kind: 'invalid', message: 'Too many worktree remove paths. Quote paths with spaces.' };
+        values.path = token;
+      }
+      return values.path
+        ? { kind: 'remove', values }
+        : { kind: 'invalid', message: 'Missing worktree path. Try /worktree remove ../feature.' };
     }
 
     function clampSlashActiveIndex(suggestions = slashSuggestions(state.composer.draft)) {
@@ -8370,7 +8493,19 @@
         state.memories.isVisible = !state.memories.isVisible;
         addMessage('assistant', state.memories.isVisible ? 'Memories opened.' : 'Memories hidden.');
       } else if (/^\/(worktrees?|wt)\b/i.test(text)) {
-        listWorktrees();
+        const command = parseWorktreeSlash(text);
+        if (command.kind === 'list') {
+          listWorktrees();
+        } else if (command.kind === 'create') {
+          createWorktree(command.values);
+        } else if (command.kind === 'open') {
+          openWorktree(command.values);
+        } else if (command.kind === 'remove') {
+          removeWorktree(command.values);
+        } else {
+          addMessage('assistant', command.message);
+          render();
+        }
         return;
       } else if (/^\/(pr|pull-?request)\b/i.test(text)) {
         state.composer.draft = 'Create a pull request titled ';
