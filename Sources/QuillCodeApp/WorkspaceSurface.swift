@@ -189,6 +189,7 @@ public extension QuillCodeWorkspaceModel {
             browserCanOpenSession: browser.currentURL != nil
                 || !browser.addressDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
             mcpServerStatuses: extensions.mcpServerStatuses,
+            mcpServerProbeSummaries: extensions.mcpServerProbeSummaries,
             computerUseStatus: root.topBar.computerUseStatus
         )
     }

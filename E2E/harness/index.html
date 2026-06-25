@@ -2645,8 +2645,10 @@
             toolNames: [],
             resourceCountLabel: null,
             resourceNames: [],
+            resourceActions: [],
             promptCountLabel: null,
             promptNames: [],
+            promptActions: [],
             probeError: null,
             startCommandID: 'mcp-start:mcp_server:filesystem',
             stopCommandID: null
@@ -2829,6 +2831,9 @@
         { id: 'toggle-extensions', title: 'Extensions', shortcut: '', category: 'Extensions', keywords: ['plugins', 'skills', 'mcp', 'manifest'], isEnabled: true },
         { id: 'mcp-start:mcp_server:filesystem', title: 'Start Filesystem MCP', shortcut: '', category: 'Extensions', keywords: ['mcp', 'server', 'start', 'stdio', 'filesystem'], isEnabled: true },
         { id: 'mcp-stop:mcp_server:filesystem', title: 'Stop Filesystem MCP', shortcut: '', category: 'Extensions', keywords: ['mcp', 'server', 'stop', 'stdio', 'filesystem'], isEnabled: false },
+        { id: 'mcp-resource:mcp_server:filesystem:0', title: 'Read README', shortcut: '', category: 'Extensions', keywords: ['mcp', 'resource', 'read', 'filesystem', 'README', 'file:///workspace/README.md'], isEnabled: false },
+        { id: 'mcp-resource:mcp_server:filesystem:1', title: 'Read Project config', shortcut: '', category: 'Extensions', keywords: ['mcp', 'resource', 'read', 'filesystem', 'Project config', 'file:///workspace/.quillcode/config.toml'], isEnabled: false },
+        { id: 'mcp-prompt:mcp_server:filesystem:0', title: 'Use summarize_project', shortcut: '', category: 'Extensions', keywords: ['mcp', 'prompt', 'get', 'filesystem', 'summarize_project'], isEnabled: false },
         { id: 'extension-install:plugin:github', title: 'Install GitHub', shortcut: '', category: 'Extensions', keywords: ['extension', 'plugin', 'install', 'GitHub', '1.2.0'], isEnabled: true },
         { id: 'extension-update:plugin:github', title: 'Update GitHub', shortcut: '', category: 'Extensions', keywords: ['extension', 'plugin', 'update', 'GitHub', '1.2.0'], isEnabled: true },
         { id: 'command-palette', title: 'Command palette', shortcut: 'Cmd+Shift+P', category: 'Navigation', keywords: ['commands', 'actions'], isEnabled: true },
@@ -5148,7 +5153,7 @@
 	        state.extensions.isVisible = !state.extensions.isVisible;
 	        render();
 	      });
-      document.querySelectorAll('[data-testid="extension-start"], [data-testid="extension-stop"], [data-testid="extension-install"], [data-testid="extension-update"]').forEach(button => {
+      document.querySelectorAll('[data-testid="extension-start"], [data-testid="extension-stop"], [data-testid="extension-install"], [data-testid="extension-update"], [data-testid="extension-mcp-resource-action"], [data-testid="extension-mcp-prompt-action"]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
@@ -6520,6 +6525,18 @@
       </div>`;
     }
 
+    function renderMCPReferenceActions(title, actions, testID, titlePrefix) {
+      if (!actions?.length) return '';
+      const buttons = actions.map(action => `
+        <button type="button" data-testid="${escapeHTML(testID)}" data-command-id="${escapeHTML(action.commandID)}">
+          ${escapeHTML(titlePrefix)} ${escapeHTML(action.title)}
+        </button>`).join('');
+      return `<div class="extension-mcp-group" data-testid="${escapeHTML(testID)}-group">
+        <span class="extension-mcp-group-label" data-testid="extension-mcp-group-label">${escapeHTML(title)}</span>
+        <div class="extension-mcp-chip-row">${buttons}</div>
+      </div>`;
+    }
+
     function renderExtensionsPane() {
       const counts = `
         <span data-testid="extensions-count">${countLabel(state.extensions.pluginCount, 'plugin')}</span>
@@ -6547,6 +6564,8 @@
               ${renderMCPTools(item.toolDescriptors)}
               ${renderMCPGroup('Resources', item.resourceNames, 'extension-mcp-resources', 'extension-mcp-resource')}
               ${renderMCPGroup('Prompts', item.promptNames, 'extension-mcp-prompts', 'extension-mcp-prompt')}
+              ${renderMCPReferenceActions('Resource Actions', item.resourceActions, 'extension-mcp-resource-action', 'Read')}
+              ${renderMCPReferenceActions('Prompt Actions', item.promptActions, 'extension-mcp-prompt-action', 'Use')}
               ${item.probeError ? `<p data-testid="extension-mcp-error">${escapeHTML(item.probeError)}</p>` : ''}
               ${item.installCommandID ? `<button type="button" data-testid="extension-install" data-command-id="${escapeHTML(item.installCommandID)}">Install</button>` : ''}
               ${item.updateCommandID ? `<button type="button" data-testid="extension-update" data-command-id="${escapeHTML(item.updateCommandID)}">Update</button>` : ''}
@@ -7695,6 +7714,46 @@
         render();
         return;
       }
+      if (commandID?.startsWith('mcp-resource:')) {
+        addToolCard({
+          title: 'host.mcp.resource.read',
+          status: 'Done',
+          kind: 'done',
+          summary: 'Completed',
+          output: {
+            ok: true,
+            serverID: 'mcp_server:filesystem',
+            resourceURI: commandID.endsWith(':1')
+              ? 'file:///workspace/.quillcode/config.toml'
+              : 'file:///workspace/README.md',
+            content: commandID.endsWith(':1')
+              ? '[project]\nname = "QuillCode"'
+              : '# MCP README'
+          }
+        });
+        addMessage('assistant', commandID.endsWith(':1')
+          ? 'MCP resource contents:\n[project]\nname = "QuillCode"'
+          : 'MCP resource contents:\n# MCP README');
+        render();
+        return;
+      }
+      if (commandID?.startsWith('mcp-prompt:')) {
+        addToolCard({
+          title: 'host.mcp.prompt.get',
+          status: 'Done',
+          kind: 'done',
+          summary: 'Completed',
+          output: {
+            ok: true,
+            serverID: 'mcp_server:filesystem',
+            promptName: 'summarize_project',
+            messages: ['user: Summarize this workspace.']
+          }
+        });
+        addMessage('assistant', 'MCP prompt:\nPrompt: summarize_project\nuser: Summarize this workspace.');
+        render();
+        return;
+      }
       if (commandID?.startsWith('extension-update:')) {
         const item = state.extensions.items.find(item => item.updateCommandID === commandID);
         addMessage('assistant', `${item?.name || 'Extension'} update finished.`);
@@ -7842,8 +7901,26 @@
         item.toolNames = ['read_file', 'write_file'];
         item.resourceCountLabel = '2 resources';
         item.resourceNames = ['README', 'Project config'];
+        item.resourceActions = [
+          {
+            title: 'README',
+            detail: 'file:///workspace/README.md',
+            commandID: `mcp-resource:${id}:0`
+          },
+          {
+            title: 'Project config',
+            detail: 'file:///workspace/.quillcode/config.toml',
+            commandID: `mcp-resource:${id}:1`
+          }
+        ];
         item.promptCountLabel = '1 prompt';
         item.promptNames = ['summarize_project'];
+        item.promptActions = [
+          {
+            title: 'summarize_project',
+            commandID: `mcp-prompt:${id}:0`
+          }
+        ];
         item.probeError = null;
         item.startCommandID = null;
         item.stopCommandID = `mcp-stop:${id}`;
@@ -7855,8 +7932,10 @@
         item.toolNames = [];
         item.resourceCountLabel = null;
         item.resourceNames = [];
+        item.resourceActions = [];
         item.promptCountLabel = null;
         item.promptNames = [];
+        item.promptActions = [];
         item.probeError = null;
         item.startCommandID = `mcp-start:${id}`;
         item.stopCommandID = null;
@@ -7866,6 +7945,11 @@
       const isActive = status === 'Ready' || status === 'Running' || status === 'Probing';
       if (startCommand) startCommand.isEnabled = !isActive;
       if (stopCommand) stopCommand.isEnabled = isActive;
+      state.commands
+        .filter(command => command.id.startsWith(`mcp-resource:${id}:`) || command.id.startsWith(`mcp-prompt:${id}:`))
+        .forEach(command => {
+          command.isEnabled = status === 'Ready';
+        });
       const selectedRemoteProject = Boolean(selectedProject()?.isRemote);
       const stopAll = state.commands.find(command => command.id === 'stop-all');
       if (stopAll) {

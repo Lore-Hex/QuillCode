@@ -15,6 +15,8 @@ enum WorkspaceCommandPlan: Equatable {
     case createWorkspaceScheduleEvery(QuillAutomationRecurrence)
     case startMCPServer(id: String)
     case stopMCPServer(id: String)
+    case readMCPResource(serverID: String, index: Int)
+    case getMCPPrompt(serverID: String, index: Int)
     case installExtension(id: String)
     case updateExtension(id: String)
     case toggleThreadSelection(id: UUID)
@@ -124,6 +126,12 @@ enum WorkspaceCommandPlan: Equatable {
         if let id = commandID.value(after: "mcp-stop:") {
             return .stopMCPServer(id: id)
         }
+        if let reference = commandID.mcpReference(after: "mcp-resource:") {
+            return .readMCPResource(serverID: reference.serverID, index: reference.index)
+        }
+        if let reference = commandID.mcpReference(after: "mcp-prompt:") {
+            return .getMCPPrompt(serverID: reference.serverID, index: reference.index)
+        }
         if let id = commandID.value(after: "extension-install:") {
             return .installExtension(id: id)
         }
@@ -201,5 +209,16 @@ private extension String {
 
     func uuidValue(after prefix: String) -> UUID? {
         value(after: prefix).flatMap(UUID.init(uuidString:))
+    }
+
+    func mcpReference(after prefix: String) -> (serverID: String, index: Int)? {
+        guard let payload = value(after: prefix),
+              let separator = payload.lastIndex(of: ":")
+        else { return nil }
+
+        let serverID = String(payload[..<separator])
+        let rawIndex = String(payload[payload.index(after: separator)...])
+        guard !serverID.isEmpty, let index = Int(rawIndex), index >= 0 else { return nil }
+        return (serverID, index)
     }
 }

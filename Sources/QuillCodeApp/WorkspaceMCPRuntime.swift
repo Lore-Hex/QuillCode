@@ -213,70 +213,90 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
         return Self.executionOverride(sessions: sessions, summaries: extensions.mcpServerProbeSummaries)
     }
 
+    func execute(call: ToolCall, extensions: ExtensionsState) -> ToolResult? {
+        let sessions = processes.compactMapValues { handle in
+            handle.process.isRunning ? handle.session : nil
+        }
+        return Self.execute(
+            call: call,
+            sessions: sessions,
+            summaries: extensions.mcpServerProbeSummaries
+        )
+    }
+
     static func executionOverride(
         sessions: [String: any WorkspaceMCPSession],
         summaries: [String: MCPServerProbeSummary]
     ) -> AgentToolExecutionOverride? {
-        let allowedTools = summaries.mapValues { Set($0.toolNames) }
-        let allowedPrompts = summaries.mapValues { Set($0.promptNames) }
         guard !sessions.isEmpty else { return nil }
 
         return { call, _ in
-            do {
-                switch call.name {
-                case ToolDefinition.mcpCall.name:
-                    let request = try MCPToolCallRequest(argumentsJSON: call.argumentsJSON)
-                    guard let session = sessions[request.serverID] else {
-                        return ToolResult(ok: false, error: "MCP server is not running or is not Ready: \(request.serverID)")
-                    }
-                    guard allowedTools[request.serverID]?.contains(request.toolName) == true else {
-                        return ToolResult(
-                            ok: false,
-                            error: "MCP tool \(request.toolName) was not advertised by \(request.serverID)."
-                        )
-                    }
-                    return try session.callTool(
-                        toolName: request.toolName,
-                        argumentsJSON: request.toolArgumentsJSON,
-                        timeout: 10.0
-                    )
+            Self.execute(call: call, sessions: sessions, summaries: summaries)
+        }
+    }
 
-                case ToolDefinition.mcpReadResource.name:
-                    let request = try MCPResourceReadRequest(argumentsJSON: call.argumentsJSON)
-                    guard let session = sessions[request.serverID] else {
-                        return ToolResult(ok: false, error: "MCP server is not running or is not Ready: \(request.serverID)")
-                    }
-                    guard let uri = request.resourceURI(in: summaries[request.serverID]) else {
-                        return ToolResult(
-                            ok: false,
-                            error: "MCP resource \(request.resourceIdentifier) was not advertised by \(request.serverID)."
-                        )
-                    }
-                    return try session.readResource(uri: uri, timeout: 10.0)
+    private static func execute(
+        call: ToolCall,
+        sessions: [String: any WorkspaceMCPSession],
+        summaries: [String: MCPServerProbeSummary]
+    ) -> ToolResult? {
+        let allowedTools = summaries.mapValues { Set($0.toolNames) }
+        let allowedPrompts = summaries.mapValues { Set($0.promptNames) }
 
-                case ToolDefinition.mcpGetPrompt.name:
-                    let request = try MCPPromptGetRequest(argumentsJSON: call.argumentsJSON)
-                    guard let session = sessions[request.serverID] else {
-                        return ToolResult(ok: false, error: "MCP server is not running or is not Ready: \(request.serverID)")
-                    }
-                    guard allowedPrompts[request.serverID]?.contains(request.promptName) == true else {
-                        return ToolResult(
-                            ok: false,
-                            error: "MCP prompt \(request.promptName) was not advertised by \(request.serverID)."
-                        )
-                    }
-                    return try session.getPrompt(
-                        name: request.promptName,
-                        argumentsJSON: request.promptArgumentsJSON,
-                        timeout: 10.0
-                    )
-
-                default:
-                    return nil
+        do {
+            switch call.name {
+            case ToolDefinition.mcpCall.name:
+                let request = try MCPToolCallRequest(argumentsJSON: call.argumentsJSON)
+                guard let session = sessions[request.serverID] else {
+                    return ToolResult(ok: false, error: "MCP server is not running or is not Ready: \(request.serverID)")
                 }
-            } catch {
-                return ToolResult(ok: false, error: Self.userFacingError(error))
+                guard allowedTools[request.serverID]?.contains(request.toolName) == true else {
+                    return ToolResult(
+                        ok: false,
+                        error: "MCP tool \(request.toolName) was not advertised by \(request.serverID)."
+                    )
+                }
+                return try session.callTool(
+                    toolName: request.toolName,
+                    argumentsJSON: request.toolArgumentsJSON,
+                    timeout: 10.0
+                )
+
+            case ToolDefinition.mcpReadResource.name:
+                let request = try MCPResourceReadRequest(argumentsJSON: call.argumentsJSON)
+                guard let session = sessions[request.serverID] else {
+                    return ToolResult(ok: false, error: "MCP server is not running or is not Ready: \(request.serverID)")
+                }
+                guard let uri = request.resourceURI(in: summaries[request.serverID]) else {
+                    return ToolResult(
+                        ok: false,
+                        error: "MCP resource \(request.resourceIdentifier) was not advertised by \(request.serverID)."
+                    )
+                }
+                return try session.readResource(uri: uri, timeout: 10.0)
+
+            case ToolDefinition.mcpGetPrompt.name:
+                let request = try MCPPromptGetRequest(argumentsJSON: call.argumentsJSON)
+                guard let session = sessions[request.serverID] else {
+                    return ToolResult(ok: false, error: "MCP server is not running or is not Ready: \(request.serverID)")
+                }
+                guard allowedPrompts[request.serverID]?.contains(request.promptName) == true else {
+                    return ToolResult(
+                        ok: false,
+                        error: "MCP prompt \(request.promptName) was not advertised by \(request.serverID)."
+                    )
+                }
+                return try session.getPrompt(
+                    name: request.promptName,
+                    argumentsJSON: request.promptArgumentsJSON,
+                    timeout: 10.0
+                )
+
+            default:
+                return nil
             }
+        } catch {
+            return ToolResult(ok: false, error: Self.userFacingError(error))
         }
     }
 

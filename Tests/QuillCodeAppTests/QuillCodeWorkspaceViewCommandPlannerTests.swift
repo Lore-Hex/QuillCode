@@ -154,6 +154,7 @@ final class QuillCodeWorkspaceViewCommandPlannerTests: XCTestCase {
             browserCanReload: true,
             browserCanOpenSession: true,
             mcpServerStatuses: ["mcp_server:filesystem": .ready],
+            mcpServerProbeSummaries: [:],
             computerUseStatus: .permissionStatus(
                 screenRecordingGranted: false,
                 accessibilityGranted: false

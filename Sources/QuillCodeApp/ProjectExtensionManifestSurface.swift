@@ -23,8 +23,10 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
     public var toolNames: [String]
     public var resourceCountLabel: String?
     public var resourceNames: [String]
+    public var resourceActions: [MCPReferenceActionSurface]
     public var promptCountLabel: String?
     public var promptNames: [String]
+    public var promptActions: [MCPReferenceActionSurface]
     public var probeError: String?
     public var canStart: Bool
     public var canStop: Bool
@@ -56,8 +58,10 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         case toolNames
         case resourceCountLabel
         case resourceNames
+        case resourceActions
         case promptCountLabel
         case promptNames
+        case promptActions
         case probeError
         case canStart
         case canStop
@@ -106,6 +110,16 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         self.resourceNames = Array((probeSummary?.resourceNames ?? []).prefix(4))
         self.promptCountLabel = probeSummary?.promptCountLabel
         self.promptNames = Array((probeSummary?.promptNames ?? []).prefix(4))
+        let canUseMCPReferences = manifest.kind == .mcpServer
+            && manifest.isEnabled
+            && mcpServerStatus == .ready
+            && probeSummary?.errorMessage == nil
+        self.resourceActions = canUseMCPReferences
+            ? Self.resourceActions(for: manifest, probeSummary: probeSummary)
+            : []
+        self.promptActions = canUseMCPReferences
+            ? Self.promptActions(for: manifest, probeSummary: probeSummary)
+            : []
         self.probeError = probeSummary?.errorMessage
         self.canStart = manifest.kind == .mcpServer
             && manifest.isEnabled
@@ -149,8 +163,16 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         }
         self.resourceCountLabel = try container.decodeIfPresent(String.self, forKey: .resourceCountLabel)
         self.resourceNames = try container.decodeIfPresent([String].self, forKey: .resourceNames) ?? []
+        self.resourceActions = try container.decodeIfPresent(
+            [MCPReferenceActionSurface].self,
+            forKey: .resourceActions
+        ) ?? []
         self.promptCountLabel = try container.decodeIfPresent(String.self, forKey: .promptCountLabel)
         self.promptNames = try container.decodeIfPresent([String].self, forKey: .promptNames) ?? []
+        self.promptActions = try container.decodeIfPresent(
+            [MCPReferenceActionSurface].self,
+            forKey: .promptActions
+        ) ?? []
         self.probeError = try container.decodeIfPresent(String.self, forKey: .probeError)
         self.canStart = try container.decode(Bool.self, forKey: .canStart)
         self.canStop = try container.decode(Bool.self, forKey: .canStop)
@@ -160,5 +182,32 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         self.stopCommandID = try container.decodeIfPresent(String.self, forKey: .stopCommandID)
         self.installCommandID = try container.decodeIfPresent(String.self, forKey: .installCommandID)
         self.updateCommandID = try container.decodeIfPresent(String.self, forKey: .updateCommandID)
+    }
+
+    private static func resourceActions(
+        for manifest: ProjectExtensionManifest,
+        probeSummary: MCPServerProbeSummary?
+    ) -> [MCPReferenceActionSurface] {
+        let names = probeSummary?.resourceNames ?? []
+        let uris = probeSummary?.resourceURIs ?? []
+        return Array(names.enumerated().prefix(4)).map { index, name in
+            MCPReferenceActionSurface(
+                title: name,
+                detail: uris.indices.contains(index) ? uris[index] : nil,
+                commandID: "mcp-resource:\(manifest.id):\(index)"
+            )
+        }
+    }
+
+    private static func promptActions(
+        for manifest: ProjectExtensionManifest,
+        probeSummary: MCPServerProbeSummary?
+    ) -> [MCPReferenceActionSurface] {
+        Array((probeSummary?.promptNames ?? []).enumerated().prefix(4)).map { index, name in
+            MCPReferenceActionSurface(
+                title: name,
+                commandID: "mcp-prompt:\(manifest.id):\(index)"
+            )
+        }
     }
 }

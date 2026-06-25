@@ -131,7 +131,14 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         let commands = makeBuilder(
             selectedProject: project,
             hasActiveWorkspaceRoot: true,
-            mcpServerStatuses: ["mcp_server:filesystem": .ready]
+            mcpServerStatuses: ["mcp_server:filesystem": .ready],
+            mcpServerProbeSummaries: [
+                "mcp_server:filesystem": MCPServerProbeSummary(
+                    resourceNames: ["README"],
+                    resourceURIs: ["file:///workspace/README.md"],
+                    promptNames: ["summarize_project"]
+                )
+            ]
         ).commands
 
         let localAction = try command("local-env:.quillcode/actions/bootstrap.sh", in: commands)
@@ -150,6 +157,10 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("extension-update:plugin:github", in: commands).isEnabled, true)
         XCTAssertEqual(try command("mcp-start:mcp_server:filesystem", in: commands).isEnabled, false)
         XCTAssertEqual(try command("mcp-stop:mcp_server:filesystem", in: commands).isEnabled, true)
+        XCTAssertEqual(try command("mcp-resource:mcp_server:filesystem:0", in: commands).title, "Read README")
+        XCTAssertEqual(try command("mcp-resource:mcp_server:filesystem:0", in: commands).isEnabled, true)
+        XCTAssertEqual(try command("mcp-prompt:mcp_server:filesystem:0", in: commands).title, "Use summarize_project")
+        XCTAssertEqual(try command("mcp-prompt:mcp_server:filesystem:0", in: commands).isEnabled, true)
         XCTAssertEqual(try command("stop-all", in: commands).isEnabled, true)
         XCTAssertEqual(try command("disconnect-all", in: commands).isEnabled, true)
     }
@@ -209,6 +220,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         browserCanReload: Bool = false,
         browserCanOpenSession: Bool = false,
         mcpServerStatuses: [String: MCPServerLifecycleStatus] = [:],
+        mcpServerProbeSummaries: [String: MCPServerProbeSummary] = [:],
         computerUseStatus: ComputerUseStatus = .permissionStatus(
             screenRecordingGranted: false,
             accessibilityGranted: false
@@ -230,6 +242,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
             browserCanReload: browserCanReload,
             browserCanOpenSession: browserCanOpenSession,
             mcpServerStatuses: mcpServerStatuses,
+            mcpServerProbeSummaries: mcpServerProbeSummaries,
             computerUseStatus: computerUseStatus
         )
     }

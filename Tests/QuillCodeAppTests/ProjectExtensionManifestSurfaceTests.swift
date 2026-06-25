@@ -32,6 +32,7 @@ final class ProjectExtensionManifestSurfaceTests: XCTestCase {
                 )
             ],
             resourceNames: ["README"],
+            resourceURIs: ["file:///workspace/README.md"],
             promptNames: ["summarize_project"]
         )
 
@@ -52,7 +53,20 @@ final class ProjectExtensionManifestSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.toolCountLabel, "1 tool")
         XCTAssertEqual(surface.toolDescriptors.map { $0.schemaSummary }, ["required: path:string"])
         XCTAssertEqual(surface.resourceNames, ["README"])
+        XCTAssertEqual(surface.resourceActions, [
+            MCPReferenceActionSurface(
+                title: "README",
+                detail: "file:///workspace/README.md",
+                commandID: "mcp-resource:mcp_server:filesystem:0"
+            )
+        ])
         XCTAssertEqual(surface.promptNames, ["summarize_project"])
+        XCTAssertEqual(surface.promptActions, [
+            MCPReferenceActionSurface(
+                title: "summarize_project",
+                commandID: "mcp-prompt:mcp_server:filesystem:0"
+            )
+        ])
         XCTAssertFalse(surface.canStart)
         XCTAssertTrue(surface.canStop)
         XCTAssertTrue(surface.canInstall)
@@ -121,7 +135,9 @@ final class ProjectExtensionManifestSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.toolDescriptors.map(\.name), ["read_file", "write_file"])
         XCTAssertEqual(surface.toolDescriptors.map(\.schemaSummary), ["", ""])
         XCTAssertEqual(surface.resourceNames, [])
+        XCTAssertEqual(surface.resourceActions, [])
         XCTAssertEqual(surface.promptNames, [])
+        XCTAssertEqual(surface.promptActions, [])
         XCTAssertNil(surface.resourceCountLabel)
         XCTAssertNil(surface.promptCountLabel)
         XCTAssertNil(surface.versionLabel)

@@ -282,6 +282,80 @@ final class WorkspaceMCPIntegrationTests: XCTestCase {
         XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("user: Summarize this workspace.") == true)
     }
 
+    func testReadyMCPReferencesCanBeUsedFromWorkspaceCommands() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let mcpDirectory = root.appendingPathComponent(".quillcode/mcp")
+        try FileManager.default.createDirectory(at: mcpDirectory, withIntermediateDirectories: true)
+        let server = try writeFixtureMCPServer(
+            in: root,
+            includeResourcesAndPrompts: true,
+            resourceText: "# MCP README"
+        )
+        try #"{"id":"filesystem","name":"Filesystem MCP","command":""#
+            .appending(server.path)
+            .appending(#""}"#)
+            .write(
+                to: mcpDirectory.appendingPathComponent("filesystem.json"),
+                atomically: true,
+                encoding: .utf8
+            )
+
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "MCP Project")
+        model.selectProject(projectID)
+        _ = model.newChat(projectID: projectID)
+
+        XCTAssertTrue(model.runWorkspaceCommand("mcp-start:mcp_server:filesystem", workspaceRoot: root))
+
+        let surface = model.surface()
+        XCTAssertEqual(
+            surface.extensions.items.first?.resourceActions.first?.commandID,
+            "mcp-resource:mcp_server:filesystem:0"
+        )
+        XCTAssertEqual(
+            surface.extensions.items.first?.promptActions.first?.commandID,
+            "mcp-prompt:mcp_server:filesystem:0"
+        )
+        XCTAssertTrue(model.runWorkspaceCommand("mcp-resource:mcp_server:filesystem:0", workspaceRoot: root))
+
+        XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.mcpReadResource.name)
+        XCTAssertEqual(
+            model.selectedThread?.messages.last?.content,
+            "MCP resource contents:\n# MCP README"
+        )
+    }
+
+    func testReadyMCPPromptCanBeUsedFromWorkspaceCommand() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let mcpDirectory = root.appendingPathComponent(".quillcode/mcp")
+        try FileManager.default.createDirectory(at: mcpDirectory, withIntermediateDirectories: true)
+        let server = try writeFixtureMCPServer(
+            in: root,
+            includeResourcesAndPrompts: true,
+            promptText: "Summarize this workspace."
+        )
+        try #"{"id":"filesystem","name":"Filesystem MCP","command":""#
+            .appending(server.path)
+            .appending(#""}"#)
+            .write(
+                to: mcpDirectory.appendingPathComponent("filesystem.json"),
+                atomically: true,
+                encoding: .utf8
+            )
+
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "MCP Project")
+        model.selectProject(projectID)
+        _ = model.newChat(projectID: projectID)
+
+        XCTAssertTrue(model.runWorkspaceCommand("mcp-start:mcp_server:filesystem", workspaceRoot: root))
+        XCTAssertTrue(model.runWorkspaceCommand("mcp-prompt:mcp_server:filesystem:0", workspaceRoot: root))
+
+        XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.mcpGetPrompt.name)
+        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("MCP prompt:\nPrompt: summarize_project") == true)
+        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("user: Summarize this workspace.") == true)
+    }
+
     func testMCPToolCallRejectsUnadvertisedTools() async throws {
         let root = try makeQuillCodeTestDirectory()
         let mcpDirectory = root.appendingPathComponent(".quillcode/mcp")
