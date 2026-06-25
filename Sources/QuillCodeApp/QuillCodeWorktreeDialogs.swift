@@ -46,6 +46,7 @@ struct QuillCodeWorktreeOpenDraft: Equatable {
 
 struct QuillCodeWorktreeRemoveDraft: Equatable {
     var path = ""
+    var choices: [WorkspaceWorktreeChoice] = []
     var force = false
 
     var canRemove: Bool {
@@ -57,6 +58,10 @@ struct QuillCodeWorktreeRemoveDraft: Equatable {
             path: path.trimmingCharacters(in: .whitespacesAndNewlines),
             force: force
         )
+    }
+
+    mutating func select(_ choice: WorkspaceWorktreeChoice) {
+        path = choice.path
     }
 }
 
@@ -73,59 +78,15 @@ struct QuillCodeWorktreeOpenView: View {
             iconColor: QuillCodePalette.blue
         ) {
             if !draft.choices.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Known Worktrees")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(QuillCodePalette.muted)
-                        .textCase(.uppercase)
-                    VStack(spacing: 6) {
-                        ForEach(draft.choices) { choice in
-                            Button {
-                                draft.select(choice)
-                            } label: {
-                                HStack(spacing: 10) {
-                                    Image(systemName: "arrow.turn.down.right")
-                                        .foregroundStyle(QuillCodePalette.blue)
-                                        .accessibilityHidden(true)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(choice.title)
-                                            .font(.callout.weight(.semibold))
-                                            .lineLimit(1)
-                                        Text(choice.detail)
-                                            .font(.caption)
-                                            .foregroundStyle(QuillCodePalette.muted)
-                                            .lineLimit(1)
-                                        Text(choice.path)
-                                            .font(.caption2.monospaced())
-                                            .foregroundStyle(QuillCodePalette.muted.opacity(0.75))
-                                            .lineLimit(1)
-                                    }
-                                    Spacer(minLength: 8)
-                                    if choice.path == draft.request.path {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(QuillCodePalette.green)
-                                            .accessibilityLabel("Selected")
-                                    }
-                                }
-                                .contentShape(Rectangle())
-                                .padding(10)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .fill(choice.path == draft.request.path
-                                            ? QuillCodePalette.blue.opacity(0.14)
-                                            : QuillCodePalette.panel)
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(choice.path == draft.request.path
-                                            ? QuillCodePalette.blue.opacity(0.45)
-                                            : Color.white.opacity(0.08))
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
+                QuillCodeWorktreeChoiceList(
+                    choices: draft.choices,
+                    selectedPath: draft.request.path,
+                    iconName: "arrow.turn.down.right",
+                    iconColor: QuillCodePalette.blue,
+                    onSelect: { choice in
+                        draft.select(choice)
                     }
-                }
+                )
             }
 
             QuillCodeLabeledTextField(
@@ -188,6 +149,70 @@ struct QuillCodeWorktreeCreateView: View {
     }
 }
 
+private struct QuillCodeWorktreeChoiceList: View {
+    var choices: [WorkspaceWorktreeChoice]
+    var selectedPath: String
+    var iconName: String
+    var iconColor: Color
+    var onSelect: (WorkspaceWorktreeChoice) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Known Worktrees")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(QuillCodePalette.muted)
+                .textCase(.uppercase)
+            VStack(spacing: 6) {
+                ForEach(choices) { choice in
+                    Button {
+                        onSelect(choice)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: iconName)
+                                .foregroundStyle(iconColor)
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(choice.title)
+                                    .font(.callout.weight(.semibold))
+                                    .lineLimit(1)
+                                Text(choice.detail)
+                                    .font(.caption)
+                                    .foregroundStyle(QuillCodePalette.muted)
+                                    .lineLimit(1)
+                                Text(choice.path)
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(QuillCodePalette.muted.opacity(0.75))
+                                    .lineLimit(1)
+                            }
+                            Spacer(minLength: 8)
+                            if choice.path == selectedPath {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(QuillCodePalette.green)
+                                    .accessibilityLabel("Selected")
+                            }
+                        }
+                        .contentShape(Rectangle())
+                        .padding(10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(choice.path == selectedPath
+                                    ? QuillCodePalette.blue.opacity(0.14)
+                                    : QuillCodePalette.panel)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(choice.path == selectedPath
+                                    ? QuillCodePalette.blue.opacity(0.45)
+                                    : Color.white.opacity(0.08))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+}
+
 struct QuillCodeWorktreeRemoveView: View {
     @Binding var draft: QuillCodeWorktreeRemoveDraft
     var onCancel: () -> Void
@@ -200,6 +225,18 @@ struct QuillCodeWorktreeRemoveView: View {
             systemImage: "minus.rectangle",
             iconColor: QuillCodePalette.yellow
         ) {
+            if !draft.choices.isEmpty {
+                QuillCodeWorktreeChoiceList(
+                    choices: draft.choices,
+                    selectedPath: draft.request.path,
+                    iconName: "minus.circle",
+                    iconColor: QuillCodePalette.yellow,
+                    onSelect: { choice in
+                        draft.select(choice)
+                    }
+                )
+            }
+
             QuillCodeLabeledTextField(
                 title: "Worktree folder",
                 placeholder: "quillcode-feature",

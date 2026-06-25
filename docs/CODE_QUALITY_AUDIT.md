@@ -6219,3 +6219,25 @@ Current strict grades:
 
 Remaining risk:
 - Prune is still a command, not a rich stale-worktree review UI. Full Codex parity should eventually show stale records from `--dry-run --verbose` and offer a one-click confirm flow.
+
+## 2026-06-25 Remote And Remove Worktree Picker Proof
+
+Overall grade after this slice: **A worktree picker reuse, A SSH Remote proof, A- loading-state maturity**.
+
+The open-worktree picker had the right shape, but it only proved local choice discovery and left remove users typing paths even though the same registered-worktree list is available. This slice keeps the choice surface shared, extends it to remove, and proves SSH Remote choice discovery runs through the remote executor without producing transcript tool-card audit noise.
+
+What changed:
+- Reused one SwiftUI known-worktree choice list for open and remove dialogs.
+- Passed known choices into the remove dialog so users can select a registered worktree before confirming removal.
+- Extended the Playwright harness so remove dialogs render the same known-worktree choices and update the remove path from selection.
+- Added SSH Remote integration coverage proving `worktreeChoices` lists registered sibling worktrees through `ssh ... git worktree list --porcelain`.
+- Verified the non-auditing query leaves `currentToolCards` empty, so opening a picker does not pollute the chat transcript.
+
+Current strict grades:
+- `QuillCodeWorktreeDialogs.swift`: **A**. Create/open/remove stay in one cohesive dialog family, with shared choice rendering and no Git parsing in SwiftUI views.
+- `WorkspaceModel.worktreeChoices`: **A**. It now has local and SSH Remote proof while preserving side-effect-free transcript behavior.
+- `E2E/harness/index.html` worktree dialog state: **A-**. The mock harness now mirrors open/remove picker behavior; it is still intentionally synchronous.
+- `WorkspaceWorktreeIntegrationTests.swift`: **A**. It owns local and remote picker proof alongside create/open/remove handoff coverage.
+
+Remaining risk:
+- Choice loading is still synchronous from the SwiftUI presentation call site. That is acceptable for the current slice, but richer production polish should add explicit loading/error rows and avoid blocking a remote SSH picker on a slow network.

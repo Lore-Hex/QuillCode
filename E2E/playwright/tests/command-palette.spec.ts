@@ -210,8 +210,10 @@ test('mock harness creates and removes worktrees from dialogs', async ({ page })
   await clickSidebarTool(page, 'command-palette-button');
   await clickCommandPaletteCommand(page, '>remove worktree', 'git-worktree-remove');
   await expect(page.getByTestId('worktree-remove-panel')).toBeVisible();
+  await expect(page.getByTestId('worktree-choice')).toContainText(['QuillCode', 'quillcode-feature']);
 
-  await page.getByLabel('Worktree folder').fill('quillcode-feature');
+  await page.getByTestId('worktree-choice').filter({ hasText: 'quillcode-feature' }).click();
+  await expect(page.getByLabel('Worktree folder')).toHaveValue('/mock/quillcode-feature');
   await page.getByLabel('Force removal').check();
   await page.getByTestId('worktree-remove-submit').click();
 
