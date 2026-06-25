@@ -5517,3 +5517,24 @@ Current strict grades:
 
 Remaining risk:
 - Continue auditing command IDs emitted by native-only surfaces. Any command that appears in a `WorkspaceCommandSurface` should either have an explicit view-planner presentation route or a model command plan with an execution test.
+
+## 2026-06-25 Playwright Sidebar And Project Spec Split
+
+Overall grade after this slice: **A sidebar/project E2E ownership, A focused helper locality, A- broad Playwright core spec**.
+
+`core.spec.ts` still owned thread search/reopen, sidebar new-chat behavior, chat lifecycle actions, recency grouping, bulk selection, project row actions, and SSH remote project setup. These are all navigation/sidebar flows with shared failure modes, so keeping them in the broad smoke file made sidebar regressions harder to isolate and kept project row helpers in the wrong place.
+
+What changed:
+- Added `sidebar.spec.ts` for sidebar search/reopen, new chat, chat lifecycle, recency grouping, bulk selection, local project management, and SSH remote project setup.
+- Moved sidebar-specific `replaceFocusedText()` and project-row `clickProjectAction()` helpers next to the focused flows that use them.
+- Reused the shared Playwright `harnessURL()` and sidebar utility helper in the new focused spec.
+- Removed those sidebar/project flows and helpers from `core.spec.ts`.
+- Added a sidebar parity gate that keeps the flows in the focused spec and registered it in the focused-suite manifest.
+
+Current strict grades:
+- `E2E/playwright/tests/sidebar.spec.ts`: **A**. It owns chat/sidebar/project lifecycle behavior with a cohesive feature boundary.
+- `E2E/playwright/tests/core.spec.ts`: **A-**. It is materially smaller, but still owns broad workspace smoke plus command palette, worktree, artifact, composer, and model flows.
+- `ParityWorkspaceSidebarGateTests.swift`: **A**. It now guards native/sidebar architecture and focused Playwright ownership.
+
+Remaining risk:
+- Continue splitting `core.spec.ts` by feature family. Good next slices are command-palette/git/worktree flows, artifact-preview flows, and composer/model-picker flows.
