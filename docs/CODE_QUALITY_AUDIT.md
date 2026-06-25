@@ -114,6 +114,24 @@ Remaining risk:
 
 - `WorkspaceModel` still owns visible selected-thread updates, persistence timing, and top-bar refresh. That remains appropriate for the visible workspace coordinator, but background task queues should build on the task coordinator instead of adding more branches to `submitComposer`.
 
+## 2026-06-25 Review Action Runner Pass
+
+Overall grade after this slice: **A review-action execution boundary, A status/result clarity, A regression coverage**.
+
+Review action planning already lived outside `WorkspaceModel`, but the model still executed the action tool, executed the diff refresh tool, paired those calls with results, and derived the terminal status inline. That sequencing is small today, but Codex-like review workflows will keep expanding around staging, restoring, hunk actions, PR comments, and multi-file batches.
+
+Code quality changes:
+
+- Added `WorkspaceReviewActionRunner` as the focused owner of executing the planned review action and required diff refresh.
+- Added `WorkspaceReviewActionRunResult` so ordered tool results and final status travel as one typed value.
+- Simplified `WorkspaceModel.runReviewAction` so it records runner results, saves the selected thread, and applies the final top-bar state.
+- Added focused tests that prove successful review actions stage files, failed actions still refresh diff state, and final status reflects both tool results.
+- Strengthened the parity gate so review action execution sequencing stays outside `WorkspaceModel`.
+
+Remaining risk:
+
+- `WorkspaceModel` still owns review-action transcript recording and selected-thread persistence because those are actor-bound workspace side effects. Richer review batches or PR publication should build on the runner result instead of adding another tool sequencing branch to the model.
+
 ## 2026-06-24 Top-Bar State Builder Pass
 
 Overall grade after this slice: **A top-bar state boundary, A behavior preservation, A regression guard**.

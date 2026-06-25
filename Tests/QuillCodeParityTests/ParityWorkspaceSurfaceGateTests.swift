@@ -433,6 +433,10 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesReviewActionToolCallPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceReviewActionToolCallPlanner.swift")
+        let runnerText = try Self.appSourceText(named: "WorkspaceReviewActionRunner.swift")
+        let runActionStart = try XCTUnwrap(modelText.range(of: "public func runReviewAction"))
+        let runActionEnd = try XCTUnwrap(modelText.range(of: "public func runToolCardAction"))
+        let runActionBody = String(modelText[runActionStart.lowerBound..<runActionEnd.lowerBound])
 
         XCTAssertTrue(plannerText.contains("struct WorkspaceReviewActionRunPlan"), "Review action run sequencing should live in a focused plan.")
         XCTAssertTrue(plannerText.contains("enum WorkspaceReviewActionToolCallPlanner"), "Review action tool-call planning should live in a focused planner.")
@@ -444,12 +448,22 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(plannerText.contains("ToolDefinition.gitRestore.name"), "File restore calls should live in the planner.")
         XCTAssertTrue(plannerText.contains("ToolDefinition.gitStageHunk.name"), "Hunk stage calls should live in the planner.")
         XCTAssertTrue(plannerText.contains("ToolDefinition.gitRestoreHunk.name"), "Hunk restore calls should live in the planner.")
+        XCTAssertTrue(runnerText.contains("struct WorkspaceReviewActionRunner"), "Review action execution should live in a focused runner.")
+        XCTAssertTrue(runnerText.contains("struct WorkspaceReviewActionRunResult"), "Review action execution should return a typed result.")
+        XCTAssertTrue(runnerText.contains("recordedResults"), "Review action execution should expose ordered tool results for transcript recording.")
+        XCTAssertTrue(runnerText.contains("executor.executePrimary(plan.actionCall)"), "Review action runner should execute the action call.")
+        XCTAssertTrue(runnerText.contains("executor.executePrimary(plan.diffRefreshCall)"), "Review action runner should execute the diff refresh call.")
         XCTAssertTrue(modelText.contains("WorkspaceReviewActionToolCallPlanner.runPlan"), "WorkspaceModel should delegate review action run planning.")
+        XCTAssertTrue(runActionBody.contains("WorkspaceReviewActionRunner("), "WorkspaceModel should delegate review action execution.")
+        XCTAssertTrue(runActionBody.contains("result.recordedResults"), "WorkspaceModel should record typed review action results.")
+        XCTAssertTrue(runActionBody.contains("result.finalStatus"), "WorkspaceModel should use the runner result for final review action status.")
         XCTAssertFalse(modelText.contains("private extension WorkspaceReviewActionSurface"), "WorkspaceModel should not own review action surface extensions.")
         XCTAssertFalse(modelText.contains("var toolCall: ToolCall"), "WorkspaceModel should not own review action tool-call mapping.")
         XCTAssertFalse(modelText.contains("ToolCall(name: ToolDefinition.gitDiff.name"), "WorkspaceModel should not own review diff refresh call construction.")
         XCTAssertFalse(modelText.contains("ToolDefinition.gitStageHunk.name"), "WorkspaceModel should not own hunk review tool-call details.")
         XCTAssertFalse(modelText.contains("ToolDefinition.gitRestoreHunk.name"), "WorkspaceModel should not own hunk review tool-call details.")
+        XCTAssertFalse(runActionBody.contains("executePrimary(runPlan.actionCall)"), "WorkspaceModel should not execute review action calls inline.")
+        XCTAssertFalse(runActionBody.contains("executePrimary(runPlan.diffRefreshCall)"), "WorkspaceModel should not execute review diff refresh calls inline.")
     }
 
     func testPlaywrightReviewFlowsStayInFocusedSpec() throws {
