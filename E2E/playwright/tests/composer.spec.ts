@@ -98,7 +98,7 @@ test('mock harness routes slash commands to workspace actions', async ({ page })
   await page.getByLabel('Message').fill('/worktrees');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.worktree.list');
-  await expect(page.getByTestId('tool-card-output').last()).toContainText('/mock/QuillCode-feature');
+  await expect(page.getByTestId('tool-card-output').last()).toContainText('/mock/quillcode-existing');
 
   await page.getByLabel('Message').fill('/worktree create slash-worktree --branch slash/demo --base main');
   await page.getByRole('button', { name: 'Send' }).click();

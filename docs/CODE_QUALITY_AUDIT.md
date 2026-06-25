@@ -6177,6 +6177,28 @@ Current strict grades:
 Remaining risk:
 - The open-worktree UI still requires manual path entry. A stronger Codex-parity follow-up is a picker backed by `git worktree list --porcelain`, especially for SSH Remote projects where paths are harder to type.
 
+## 2026-06-25 Worktree Open Picker
+
+Overall grade after this slice: **A worktree picker UX, A parser ownership, A harness parity**.
+
+The open-existing-worktree flow was functionally safe but still made users type absolute paths even though Git already knows the registered worktrees. That is slower, error-prone, and especially awkward for SSH Remote projects. The better Codex-parity shape is a dialog that surfaces known worktrees first, then keeps manual path entry as an escape hatch.
+
+What changed:
+- Added `WorkspaceWorktreeListSurfaceBuilder` and `WorkspaceWorktreeChoice` to parse `git worktree list --porcelain` into UI choices with branch/detached/bare detail text.
+- Added a non-auditing workspace-model query for known worktree choices so opening the dialog does not create transcript tool cards.
+- Updated the SwiftUI open-worktree dialog to show selectable known worktrees above the manual path field.
+- Updated the Playwright harness to keep registered mock worktrees as state, render picker rows, and open selected existing worktrees.
+- Added focused Swift parser/integration tests plus E2E coverage for selecting an existing worktree from the dialog.
+
+Current strict grades:
+- `WorkspaceWorktreeListSurfaceBuilder.swift`: **A**. It owns porcelain parsing, current-project filtering, and stable user-facing labels in one pure helper.
+- `QuillCodeWorktreeDialogs.swift`: **A**. The open dialog now handles both discoverable choices and manual paths without leaking Git parsing into view code.
+- `WorkspaceModel.worktreeChoices`: **A-**. It keeps the query side-effect free for transcripts; the remaining compromise is that the first implementation only lists local choices from the active root while richer SSH Remote picker loading can follow.
+- `E2E/harness/index.html` worktree state: **A-**. The mock harness now models registered worktrees instead of fixed one-off strings, though it remains a lightweight stand-in for real Git porcelain.
+
+Remaining risk:
+- SSH Remote open dialogs still need async remote choice loading and loading/error states. The parser and dialog shape are ready for it, but the first slice keeps remote choice discovery out of the UI until the SSH query path can be made nonblocking.
+
 ## 2026-06-25 Worktree Prune Lifecycle
 
 Overall grade after this slice: **A cleanup affordance, A remote parity, A- command-plan explicitness**.

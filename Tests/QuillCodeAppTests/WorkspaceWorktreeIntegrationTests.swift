@@ -103,6 +103,28 @@ final class WorkspaceWorktreeIntegrationTests: XCTestCase {
         model.removeWorktree(.init(path: worktreeName), workspaceRoot: root)
     }
 
+    func testWorkspaceWorktreeChoicesListRegisteredSiblings() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let worktreeName = "quillcode-choice-\(UUID().uuidString)"
+        let branch = "quillcode-choice-\(UUID().uuidString.prefix(8))"
+        let create = GitToolExecutor().createWorktree(cwd: root, path: worktreeName, branch: String(branch))
+        XCTAssertTrue(create.ok, create.error ?? create.stderr)
+        defer {
+            _ = GitToolExecutor().removeWorktree(cwd: root, path: worktreeName, force: true)
+        }
+
+        let project = ProjectRef(name: "QuillCode", path: root.path)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id)
+        )
+        let choices = model.worktreeChoices(workspaceRoot: root)
+
+        XCTAssertEqual(choices.count, 1)
+        XCTAssertTrue(choices.first?.path.hasSuffix("/\(worktreeName)") == true, choices.first?.path ?? "")
+        XCTAssertEqual(choices.first?.title, worktreeName)
+        XCTAssertEqual(choices.first?.detail, branch)
+    }
+
     func testWorkspaceCreateWorktreeOpensFocusedThreadAndKeepsToolAudit() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let parent = root.deletingLastPathComponent()

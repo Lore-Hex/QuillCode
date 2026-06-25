@@ -460,6 +460,22 @@
     .settings-card label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
     .search-card label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
     .search-card header { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
+    .dialog-choice-list { display: grid; gap: 8px; }
+    .dialog-choice-list .eyebrow { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+    .dialog-choice {
+      min-height: 56px;
+      display: grid;
+      gap: 3px;
+      padding: 10px 12px;
+      text-align: left;
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 14px;
+      background: rgba(255,255,255,.045);
+      color: var(--text);
+    }
+    .dialog-choice:hover { border-color: rgba(65,184,232,.42); background: rgba(65,184,232,.10); }
+    .dialog-choice span { color: var(--muted); font-size: 12px; }
+    .dialog-choice code { display: block; color: rgba(231,238,241,.68); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .command-palette-input-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
     .command-scope-badge,
     .command-palette-legend {
@@ -2456,6 +2472,10 @@
           }
         ]
       },
+      worktrees: [
+        { path: '/mock/QuillCode', branch: 'main' },
+        { path: '/mock/quillcode-existing', branch: 'feature/existing' }
+      ],
       sidebar: {
         title: 'Chats',
         selectedThreadID: null,
@@ -2651,6 +2671,7 @@
         createBranch: '',
         createBase: '',
         openPath: '',
+        choices: [],
         removePath: '',
         removeForce: false
       },
@@ -5060,6 +5081,12 @@
         state.worktreeDialog.openPath = form.elements.namedItem('path').value;
         document.querySelector('[data-testid="worktree-open-submit"]').disabled = !state.worktreeDialog.openPath.trim();
       });
+      document.querySelectorAll('[data-testid="worktree-choice"]').forEach(button => {
+        button.addEventListener('click', () => {
+          state.worktreeDialog.openPath = button.dataset.path || '';
+          render();
+        });
+      });
       document.querySelector('[data-testid="worktree-open-form"]')?.addEventListener('submit', event => {
         event.preventDefault();
         const form = event.currentTarget;
@@ -7340,7 +7367,8 @@
         state.worktreeDialog = {
           ...state.worktreeDialog,
           mode: 'open',
-          openPath: ''
+          openPath: '',
+          choices: availableWorktreeChoices()
         };
         render();
         return;
@@ -7936,6 +7964,18 @@
                 </div>
                 <button type="button" data-testid="worktree-dialog-close">Close</button>
               </header>
+              ${state.worktreeDialog.choices.length ? `
+                <div class="dialog-choice-list" aria-label="Known worktrees">
+                  <p class="eyebrow">Known worktrees</p>
+                  ${state.worktreeDialog.choices.map(choice => `
+                    <button type="button" class="dialog-choice" data-testid="worktree-choice" data-path="${escapeHTML(choice.path)}">
+                      <strong>${escapeHTML(choice.title)}</strong>
+                      <span>${escapeHTML(choice.detail)}</span>
+                      <code>${escapeHTML(choice.path)}</code>
+                    </button>
+                  `).join('')}
+                </div>
+              ` : ''}
               <label>
                 Worktree folder
                 <input name="path" aria-label="Worktree folder" placeholder="quillcode-feature" value="${escapeHTML(state.worktreeDialog.openPath)}" autofocus>
@@ -7977,15 +8017,11 @@
 
     function listWorktrees() {
       ensureThread('List worktrees');
-      const stdout = [
-        'worktree /mock/QuillCode',
+      const stdout = state.worktrees.map(worktree => [
+        `worktree ${worktree.path}`,
         'HEAD abc1234',
-        'branch refs/heads/main',
-        '',
-        'worktree /mock/QuillCode-feature',
-        'HEAD def5678',
-        'branch refs/heads/feature/quillcode'
-      ].join('\n') + '\n';
+        `branch refs/heads/${worktree.branch}`
+      ].join('\n')).join('\n\n') + '\n';
       addToolCard({
         title: 'host.git.worktree.list',
         subtitle: 'Completed',
@@ -8003,12 +8039,16 @@
       const args = { path: values.path };
       if (values.branch) args.branch = values.branch;
       if (values.base) args.base = values.base;
+      const path = mockWorktreePath(values.path);
+      if (!state.worktrees.some(worktree => worktree.path === path)) {
+        state.worktrees.push({ path, branch: values.branch || values.path });
+      }
       addToolCard({
         title: 'host.git.worktree.create',
         subtitle: 'Completed',
         status: 'done',
         inputJSON: JSON.stringify(args, null, 2),
-        outputJSON: JSON.stringify({ ok: true, stdout: `Preparing worktree (new branch '${values.branch || 'git-default'}')\\n`, artifacts: [`/mock/${values.path}`] }, null, 2)
+        outputJSON: JSON.stringify({ ok: true, stdout: `Preparing worktree (new branch '${values.branch || 'git-default'}')\\n`, artifacts: [path] }, null, 2)
       });
       state.worktreeDialog.mode = null;
       syncSelectedThreadSearchText();
@@ -8018,12 +8058,13 @@
 
     function openWorktree(values) {
       ensureThread('Open worktree');
+      const path = mockWorktreePath(values.path);
       addToolCard({
         title: 'host.git.worktree.open',
         subtitle: 'Completed',
         status: 'done',
         inputJSON: JSON.stringify({ path: values.path }, null, 2),
-        outputJSON: JSON.stringify({ ok: true, stdout: `Opened registered worktree ${values.path}\\n`, artifacts: [`/mock/${values.path}`] }, null, 2)
+        outputJSON: JSON.stringify({ ok: true, stdout: `Opened registered worktree ${values.path}\\n`, artifacts: [path] }, null, 2)
       });
       state.worktreeDialog.mode = null;
       syncSelectedThreadSearchText();
@@ -8032,11 +8073,12 @@
     }
 
     function openCreatedWorktree(values) {
-      const path = `/mock/${values.path}`;
+      const path = mockWorktreePath(values.path);
+      const name = mockWorktreeName(path);
       const existing = state.projects.items.find(project => project.path === path);
       const project = existing || {
         id: `project-${state.nextProjectIndex++}`,
-        name: values.path,
+        name,
         path,
         connectionKindLabel: 'Local',
         isRemote: false,
@@ -8050,7 +8092,7 @@
           .map(item => ({ ...item, isSelected: false }))
       ];
 
-      const title = `Worktree: ${values.branch || values.path}`;
+      const title = `Worktree: ${values.branch || project.name}`;
       const threadID = `thread-${state.nextThreadIndex++}`;
       state.sidebar.selectedThreadID = threadID;
       state.sidebar.items = [{
@@ -8078,12 +8120,35 @@
       state.terminal.environment = {};
       state.topBar.primaryTitle = title;
       state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
-      addMessage('assistant', `Opened worktree ${values.path} at ${path}.`);
+      addMessage('assistant', `Opened worktree ${project.name} at ${path}.`);
       syncSelectedThreadSearchText();
+    }
+
+    function availableWorktreeChoices() {
+      const selected = selectedProject();
+      return state.worktrees
+        .filter(worktree => worktree.path !== selected?.path)
+        .map(worktree => ({
+          path: worktree.path,
+          title: mockWorktreeName(worktree.path),
+          detail: worktree.branch || 'Registered worktree'
+        }));
+    }
+
+    function mockWorktreePath(path) {
+      if (!path) return '/mock';
+      if (path.startsWith('/')) return path;
+      return `/mock/${path}`;
+    }
+
+    function mockWorktreeName(path) {
+      return path.split('/').filter(Boolean).pop() || path;
     }
 
     function removeWorktree(values) {
       ensureThread('Remove worktree');
+      const path = mockWorktreePath(values.path);
+      state.worktrees = state.worktrees.filter(worktree => worktree.path !== path);
       addToolCard({
         title: 'host.git.worktree.remove',
         subtitle: 'Completed',

@@ -3,6 +3,10 @@ import QuillCodeCore
 import QuillCodeTools
 
 enum WorkspaceWorktreeToolCallPlanner {
+    static func list() -> ToolCall {
+        ToolCall(name: ToolDefinition.gitWorktreeList.name, argumentsJSON: "{}")
+    }
+
     static func create(_ request: WorkspaceWorktreeCreateRequest) -> ToolCall {
         var arguments: [String: Any] = ["path": request.path]
         let branch = request.branch.trimmingCharacters(in: .whitespacesAndNewlines)

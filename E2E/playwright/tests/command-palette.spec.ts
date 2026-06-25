@@ -88,7 +88,7 @@ test('mock harness lists worktrees from the command palette', async ({ page }) =
 
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
   await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.worktree.list');
-  await expect(page.getByTestId('tool-card-output')).toContainText('/mock/QuillCode-feature');
+  await expect(page.getByTestId('tool-card-output')).toContainText('/mock/quillcode-existing');
   await expect(page.getByTestId('message').last()).toContainText('worktree /mock/QuillCode');
 });
 
@@ -195,15 +195,17 @@ test('mock harness creates and removes worktrees from dialogs', async ({ page })
   await clickCommandPaletteCommand(page, '>open worktree', 'git-worktree-open');
   await expect(page.getByTestId('worktree-open-panel')).toBeVisible();
   await expect(page.getByTestId('worktree-open-submit')).toBeDisabled();
+  await expect(page.getByTestId('worktree-choice')).toContainText(['QuillCode', 'quillcode-existing']);
 
-  await page.getByLabel('Worktree folder').fill('quillcode-feature');
+  await page.getByTestId('worktree-choice').filter({ hasText: 'quillcode-existing' }).click();
+  await expect(page.getByLabel('Worktree folder')).toHaveValue('/mock/quillcode-existing');
   await expect(page.getByTestId('worktree-open-submit')).toBeEnabled();
   await page.getByTestId('worktree-open-submit').click();
 
   await expect(page.getByTestId('worktree-open-panel')).toHaveCount(0);
-  await expect(page.getByTestId('project-item').first()).toContainText('quillcode-feature');
-  await expect(page.getByTestId('top-bar-title')).toHaveText('Worktree: quillcode-feature');
-  await expect(page.getByTestId('message').last()).toContainText('Opened worktree quillcode-feature at /mock/quillcode-feature.');
+  await expect(page.getByTestId('project-item').first()).toContainText('quillcode-existing');
+  await expect(page.getByTestId('top-bar-title')).toHaveText('Worktree: quillcode-existing');
+  await expect(page.getByTestId('message').last()).toContainText('Opened worktree quillcode-existing at /mock/quillcode-existing.');
 
   await clickSidebarTool(page, 'command-palette-button');
   await clickCommandPaletteCommand(page, '>remove worktree', 'git-worktree-remove');
