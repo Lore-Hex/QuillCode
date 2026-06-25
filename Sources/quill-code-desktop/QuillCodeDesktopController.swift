@@ -25,6 +25,7 @@ final class QuillCodeDesktopController: ObservableObject {
     private let signInCoordinator: QuillCodeDesktopSignInCoordinator
     private let settingsCoordinator: QuillCodeDesktopSettingsCoordinator
     private let systemSettingsOpener: MacSystemSettingsOpener
+    private let composerCoordinator: QuillCodeDesktopComposerCoordinator
     private let copyCoordinator: QuillCodeDesktopCopyCoordinator
     private let projectImportCoordinator: QuillCodeDesktopProjectImportCoordinator
     private let terminalCoordinator: QuillCodeDesktopTerminalCoordinator
@@ -49,6 +50,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.signInCoordinator = QuillCodeDesktopSignInCoordinator(bootstrap: bootstrap)
         self.settingsCoordinator = QuillCodeDesktopSettingsCoordinator(bootstrap: bootstrap)
         self.systemSettingsOpener = MacSystemSettingsOpener()
+        self.composerCoordinator = QuillCodeDesktopComposerCoordinator()
         self.copyCoordinator = QuillCodeDesktopCopyCoordinator()
         self.projectImportCoordinator = QuillCodeDesktopProjectImportCoordinator()
         self.terminalCoordinator = QuillCodeDesktopTerminalCoordinator()
@@ -168,19 +170,23 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func send() {
-        let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !prompt.isEmpty, !tasks.isRunning(.send) else { return }
-        model.setDraft(prompt)
-        draft = ""
-        refresh()
-        submitPreparedComposer()
+        composerCoordinator.send(
+            draft: &draft,
+            model: model,
+            fallbackWorkspaceRoot: workspaceRoot,
+            tasks: tasks,
+            refresh: { [weak self] in self?.refresh() }
+        )
     }
 
     func retryLastTurn() {
-        guard !tasks.isRunning(.send), model.prepareRetryLastUserTurn() else { return }
-        draft = ""
-        refresh()
-        submitPreparedComposer()
+        composerCoordinator.retryLastTurn(
+            draft: &draft,
+            model: model,
+            fallbackWorkspaceRoot: workspaceRoot,
+            tasks: tasks,
+            refresh: { [weak self] in self?.refresh() }
+        )
     }
 
     func runCommand(_ command: WorkspaceCommandSurface) {
@@ -428,15 +434,6 @@ final class QuillCodeDesktopController: ObservableObject {
                 lastError: String(describing: error)
             )
             refresh()
-        }
-    }
-
-    private func submitPreparedComposer() {
-        tasks.startIfIdle(.send) { [weak self] in
-            guard let self else { return }
-            await self.model.submitComposer(workspaceRoot: self.model.activeWorkspaceRoot ?? self.workspaceRoot)
-        } onFinish: { [weak self] in
-            self?.refresh()
         }
     }
 
