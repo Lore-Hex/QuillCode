@@ -75,6 +75,12 @@ final class ProjectInstructionLoaderTests: XCTestCase {
             "Sources/Feature/AGENTS.md",
             "Sources/Feature/.quillcode/rules.md"
         ])
+        XCTAssertEqual(instructions.map(\.scopePath), [
+            ".",
+            "Sources",
+            "Sources/Feature",
+            "Sources/Feature"
+        ])
         XCTAssertTrue(instructions.last?.content.contains("Feature QuillCode rules") == true)
         XCTAssertFalse(instructions.contains { $0.content.contains("Generated rules") })
     }

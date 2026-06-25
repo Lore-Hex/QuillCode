@@ -8,8 +8,8 @@ import QuillCodeTools
 final class WorkspaceActivityIntegrationTests: XCTestCase {
     func testActivitySurfaceSummarizesThreadToolsSourcesAndArtifacts() throws {
         let instruction = ProjectInstruction(
-            path: ".quillcode/AGENTS.md",
-            title: "AGENTS.md",
+            path: ".quillcode/rules.md",
+            title: "rules.md",
             content: "Use the repo patterns.",
             byteCount: 22
         )
@@ -62,7 +62,8 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
         XCTAssertEqual(activity.tools.map(\.title), [ToolDefinition.shellRun.name])
         XCTAssertEqual(activity.tools.first?.statusLabel, ToolCardStatus.done.rawValue)
         XCTAssertEqual(activity.artifacts.map(\.label), ["quillcode-activity.png"])
-        XCTAssertEqual(activity.sources.map(\.title), ["AGENTS.md", "Prefers concise diffs"])
+        XCTAssertEqual(activity.sources.map(\.title), ["rules.md", "Prefers concise diffs"])
+        XCTAssertEqual(activity.sources.first?.detail, ".quillcode/rules.md · Scope: whole project")
         XCTAssertEqual(activity.finalAnswer, "Output: quill")
         XCTAssertEqual(activity.planItems.map(\.title), [
             "Understand request",

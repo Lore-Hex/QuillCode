@@ -40,8 +40,11 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertEqual(messages[0]["role"] as? String, "system")
         XCTAssertEqual(messages[1]["role"] as? String, "system")
         XCTAssertTrue((messages[1]["content"] as? String)?.contains("AGENTS.md") == true)
+        XCTAssertTrue((messages[1]["content"] as? String)?.contains("Scope: whole project") == true)
         XCTAssertTrue((messages[1]["content"] as? String)?.contains("broadest to most specific") == true)
+        XCTAssertTrue((messages[1]["content"] as? String)?.contains("apply scoped instructions only") == true)
         XCTAssertTrue((messages[1]["content"] as? String)?.contains("Sources/Feature/AGENTS.md") == true)
+        XCTAssertTrue((messages[1]["content"] as? String)?.contains("Scope: Sources/Feature/**") == true)
         XCTAssertTrue((messages[1]["content"] as? String)?.contains("Always run swift test") == true)
     }
 

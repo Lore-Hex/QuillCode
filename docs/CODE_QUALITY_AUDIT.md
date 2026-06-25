@@ -6908,3 +6908,29 @@ Strict grades:
 Remaining parity risk:
 
 - MCP streaming, marketplace trust/install, richer argument forms for MCP prompts, and executable plugin activation remain pending.
+
+## 2026-06-25 Scoped Project Instructions Slice
+
+Overall grade after this slice: **A- instruction scope model, A prompt clarity, B+/A- conflict diagnostics parity**.
+
+Project instructions were already loaded in broad-to-specific order, but each record only exposed the instruction file path. That made nested rules ambiguous in the model context: a deeper `Sources/Feature/AGENTS.md` looked like another general instruction file unless the model inferred path scope from the filename. Instructions now carry an explicit derived scope and the TrustedRouter prompt tells the model when scoped rules apply.
+
+Code quality changes:
+
+- Added backward-compatible `ProjectInstruction.scopePath` decoding and encoding, with older persisted thread/project records deriving scope from `path`.
+- Added `ProjectInstruction.scopePath(for:)` and `scopeLabel` in the core model so loaders, prompts, UI surfaces, and tests use one source of truth.
+- Explicitly set scope during local instruction loading and rely on the same core derivation for SSH Remote refreshed instruction records.
+- Updated the TrustedRouter project-instruction prompt to distinguish whole-project rules from subtree-scoped rules and to preserve broad-to-specific override behavior for matching paths.
+- Updated Activity sources to show instruction applicability scope beside the loaded path so users can audit why a rule is in context.
+- Added focused core, loader, prompt-builder, and Activity integration coverage.
+
+Strict grades:
+
+- `ProjectInstruction` core model: **A-**. Scope derivation is centralized and old JSON remains compatible. If future rule formats add glob patterns, promote scope into a richer value type instead of adding string conventions.
+- `ProjectInstructionLoader.swift`: **A**. Loading semantics remain bounded and unchanged while scope is attached at the model boundary.
+- `TrustedRouterPromptBuilder.swift`: **A-**. The prompt now gives explicit applicability instructions without increasing tool-call complexity.
+- `WorkspaceActivitySourceSurfaceBuilder.swift`: **A-**. Scope is visible in the existing source row instead of adding another pane or noisy control.
+
+Remaining parity risk:
+
+- QuillCode still does not detect contradictory instructions or show a conflict review UI. That remains the next meaningful AGENTS/rules parity slice.

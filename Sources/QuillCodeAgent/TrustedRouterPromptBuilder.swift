@@ -73,11 +73,12 @@ public struct TrustedRouterPromptBuilder: Sendable {
         let blocks = instructions.map { instruction in
             """
             # \(instruction.title) (\(instruction.path))
+            Scope: \(instruction.scopeLabel)
             \(instruction.content)
             """
         }.joined(separator: "\n\n")
         return """
-        Follow these project instructions while working in this project. They are listed from broadest to most specific; when instructions conflict, later nested instructions override earlier project-wide instructions. Higher-priority system and safety instructions still apply.
+        Follow these project instructions while working in this project. Each instruction block includes a scope. Apply whole-project instructions everywhere, and apply scoped instructions only when creating, reading, editing, testing, or reasoning about files under that path. They are listed from broadest to most specific; when instructions conflict for the same file path, later nested instructions override earlier project-wide instructions. Higher-priority system and safety instructions still apply.
 
         \(blocks)
         """

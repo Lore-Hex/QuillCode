@@ -278,4 +278,37 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(thread.instructions, [])
         XCTAssertEqual(thread.memories, [])
     }
+
+    func testProjectInstructionDerivesScopedApplicabilityFromPath() throws {
+        XCTAssertEqual(ProjectInstruction.scopePath(for: "AGENTS.md"), ".")
+        XCTAssertEqual(ProjectInstruction.scopePath(for: ".quillcode/rules.md"), ".")
+        XCTAssertEqual(ProjectInstruction.scopePath(for: "Sources/Feature/AGENTS.md"), "Sources/Feature")
+        XCTAssertEqual(ProjectInstruction.scopePath(for: "Sources/Feature/.quillcode/rules.md"), "Sources/Feature")
+        XCTAssertEqual(ProjectInstruction.scopePath(for: "Sources/Feature/.quillcode/instructions.md"), "Sources/Feature")
+
+        let instruction = ProjectInstruction(
+            path: "Sources/Feature/AGENTS.md",
+            title: "Feature rules",
+            content: "Prefer feature tests.",
+            byteCount: 21
+        )
+
+        XCTAssertEqual(instruction.scopePath, "Sources/Feature")
+        XCTAssertEqual(instruction.scopeLabel, "Sources/Feature/**")
+    }
+
+    func testProjectInstructionDecodesOlderPayloadWithoutScopePath() throws {
+        let instruction = try JSONHelpers.decode(ProjectInstruction.self, from: """
+        {
+          "path": "Sources/Feature/.quillcode/rules.md",
+          "title": "Feature rules",
+          "content": "Prefer feature tests.",
+          "byteCount": 21,
+          "wasTruncated": false
+        }
+        """)
+
+        XCTAssertEqual(instruction.scopePath, "Sources/Feature")
+        XCTAssertEqual(instruction.scopeLabel, "Sources/Feature/**")
+    }
 }
