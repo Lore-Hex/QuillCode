@@ -46,20 +46,14 @@ public struct QuillCodeWorkspaceView: View {
     @State private var isSearchPresented = false
     @State private var isFindPresented = false
     @State private var isModelPickerPresented = false
-    @State private var worktreeSheet: QuillCodeWorktreeSheet?
     @State private var searchQuery = ""
     @State private var findQuery = ""
     @State private var activeFindIndex = 0
     @State private var commandQuery = ""
     @State private var settingsDraft = QuillCodeSettingsDraft()
-    @State private var createWorktreeDraft = QuillCodeWorktreeCreateDraft()
-    @State private var openWorktreeDraft = QuillCodeWorktreeOpenDraft()
-    @State private var removeWorktreeDraft = QuillCodeWorktreeRemoveDraft()
-    @State private var pruneWorktreeDraft = QuillCodeWorktreePruneDraft()
-    @State private var worktreeChoiceLoadTask: Task<Void, Never>?
-    @State private var worktreePrunePreviewTask: Task<Void, Never>?
     @State private var renameThreadDraft: QuillCodeThreadRenameDraft?
     @State private var renameProjectDraft: QuillCodeProjectRenameDraft?
+    @StateObject private var worktreeDialogs = QuillCodeWorktreeDialogCoordinator()
     @FocusState private var isComposerFocused: Bool
 
     public init(
@@ -208,11 +202,11 @@ public struct QuillCodeWorkspaceView: View {
             isSettingsPresented: $isSettingsPresented,
             settingsDraft: $settingsDraft,
             isKeyboardShortcutsPresented: $isKeyboardShortcutsPresented,
-            worktreeSheet: $worktreeSheet,
-            createWorktreeDraft: $createWorktreeDraft,
-            openWorktreeDraft: $openWorktreeDraft,
-            removeWorktreeDraft: $removeWorktreeDraft,
-            pruneWorktreeDraft: $pruneWorktreeDraft,
+            worktreeSheet: $worktreeDialogs.sheet,
+            createWorktreeDraft: $worktreeDialogs.createDraft,
+            openWorktreeDraft: $worktreeDialogs.openDraft,
+            removeWorktreeDraft: $worktreeDialogs.removeDraft,
+            pruneWorktreeDraft: $worktreeDialogs.pruneDraft,
             renameThreadDraft: $renameThreadDraft,
             renameProjectDraft: $renameProjectDraft,
             onSelectThread: onSelectThread,
@@ -291,16 +285,13 @@ public struct QuillCodeWorkspaceView: View {
         case let .renameProject(projectID, name):
             renameProjectDraft = QuillCodeProjectRenameDraft(projectID: projectID, name: name)
         case .presentCreateWorktree:
-            worktreeChoiceLoadTask?.cancel()
-            worktreePrunePreviewTask?.cancel()
-            createWorktreeDraft = QuillCodeWorktreeCreateDraft()
-            worktreeSheet = .create
+            worktreeDialogs.presentCreate()
         case .presentOpenWorktree:
-            presentOpenWorktree()
+            worktreeDialogs.presentOpen(loadChoices: onListWorktreeChoices)
         case .presentRemoveWorktree:
-            presentRemoveWorktree()
+            worktreeDialogs.presentRemove(loadChoices: onListWorktreeChoices)
         case .presentPruneWorktrees:
-            presentPruneWorktrees()
+            worktreeDialogs.presentPrune(loadPreview: onPreviewWorktreePrune)
         case .openBrowserSession:
             onOpenBrowserSession?()
         case let .dispatch(command, focusesComposer):
@@ -313,78 +304,13 @@ public struct QuillCodeWorkspaceView: View {
         }
     }
 
-    private func presentOpenWorktree() {
-        worktreePrunePreviewTask?.cancel()
-        openWorktreeDraft = QuillCodeWorktreeOpenDraft(choiceLoad: .loading)
-        worktreeSheet = .open
-        loadWorktreeChoices(for: .open)
-    }
-
-    private func presentRemoveWorktree() {
-        worktreePrunePreviewTask?.cancel()
-        removeWorktreeDraft = QuillCodeWorktreeRemoveDraft(choiceLoad: .loading)
-        worktreeSheet = .remove
-        loadWorktreeChoices(for: .remove)
-    }
-
-    private func presentPruneWorktrees() {
-        worktreeChoiceLoadTask?.cancel()
-        pruneWorktreeDraft = QuillCodeWorktreePruneDraft(preview: .loading)
-        worktreeSheet = .prune
-        loadWorktreePrunePreview()
-    }
-
     private func retryWorktreeChoices(for sheet: QuillCodeWorktreeSheet) {
-        guard worktreeSheet == sheet else { return }
-        switch sheet {
-        case .open:
-            openWorktreeDraft.choiceLoad = .loading
-            loadWorktreeChoices(for: .open)
-        case .remove:
-            removeWorktreeDraft.choiceLoad = .loading
-            loadWorktreeChoices(for: .remove)
-        case .create, .prune:
-            break
-        }
+        worktreeDialogs.retryChoices(for: sheet, loadChoices: onListWorktreeChoices)
     }
 
     private func retryWorktreePrunePreview() {
-        guard worktreeSheet == .prune else { return }
-        pruneWorktreeDraft.preview = .loading
-        loadWorktreePrunePreview()
+        worktreeDialogs.retryPrunePreview(loadPreview: onPreviewWorktreePrune)
     }
-
-    private func loadWorktreeChoices(for sheet: QuillCodeWorktreeSheet) {
-        worktreeChoiceLoadTask?.cancel()
-        worktreeChoiceLoadTask = Task {
-            let load = await onListWorktreeChoices()
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                guard worktreeSheet == sheet else { return }
-                switch sheet {
-                case .open:
-                    openWorktreeDraft.choiceLoad = .loaded(load)
-                case .remove:
-                    removeWorktreeDraft.choiceLoad = .loaded(load)
-                case .create, .prune:
-                    break
-                }
-            }
-        }
-    }
-
-    private func loadWorktreePrunePreview() {
-        worktreePrunePreviewTask?.cancel()
-        worktreePrunePreviewTask = Task {
-            let preview = await onPreviewWorktreePrune()
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                guard worktreeSheet == .prune else { return }
-                pruneWorktreeDraft.preview = .loaded(preview)
-            }
-        }
-    }
-
 }
 
 extension AgentMode {
