@@ -1,7 +1,5 @@
 import Foundation
-import QuillComputerUseKit
 import QuillCodeCore
-import QuillCodeTools
 
 enum AgentToolArgumentNormalizer {
     static func canonicalArguments(
@@ -36,195 +34,32 @@ enum AgentToolArgumentNormalizer {
         for toolName: String,
         topLevelObject: [String: Any]
     ) {
-        switch toolName {
-        case ToolDefinition.shellRun.name:
-            normalizeStringArgument(
-                &arguments,
-                canonicalKey: "cmd",
-                aliases: ["command", "shellCommand", "shell_command", "script"],
-                topLevelObject: topLevelObject
-            )
-        case ToolDefinition.fileWrite.name:
-            normalizeStringArgument(
-                &arguments,
-                canonicalKey: "path",
-                aliases: ["file", "filename", "fileName", "filepath", "filePath"],
-                topLevelObject: topLevelObject
-            )
-            normalizeStringArgument(
-                &arguments,
-                canonicalKey: "content",
-                aliases: ["text", "contents", "body"],
-                topLevelObject: topLevelObject
-            )
-        case ToolDefinition.fileRead.name:
-            normalizeStringArgument(
-                &arguments,
-                canonicalKey: "path",
-                aliases: ["file", "filename", "fileName", "filepath", "filePath"],
-                topLevelObject: topLevelObject
-            )
-        case ToolDefinition.applyPatch.name:
-            normalizeStringArgument(
-                &arguments,
-                canonicalKey: "patch",
-                aliases: ["diff"],
-                topLevelObject: topLevelObject
-            )
-        case ToolDefinition.memoryRemember.name:
-            normalizeStringArgument(
-                &arguments,
-                canonicalKey: "content",
-                aliases: ["memory", "note", "text"],
-                topLevelObject: topLevelObject
-            )
-        case ToolDefinition.browserOpen.name:
-            normalizeStringArgument(
-                &arguments,
-                canonicalKey: "url",
-                aliases: ["address", "href", "target", "page"],
-                topLevelObject: topLevelObject
-            )
-        case ToolDefinition.gitPullRequestCreate.name:
-            normalizeStringArgument(
-                &arguments,
-                canonicalKey: "title",
-                aliases: ["name", "subject"],
-                topLevelObject: topLevelObject
-            )
-        case ToolDefinition.gitPullRequestView.name,
-            ToolDefinition.gitPullRequestChecks.name,
-            ToolDefinition.gitPullRequestDiff.name,
-            ToolDefinition.gitPullRequestCheckout.name,
-            ToolDefinition.gitPullRequestReviewers.name,
-            ToolDefinition.gitPullRequestLabels.name,
-            ToolDefinition.gitPullRequestComment.name,
-            ToolDefinition.gitPullRequestReview.name,
-            ToolDefinition.gitPullRequestMerge.name:
-            normalizePullRequestArguments(&arguments, for: toolName, topLevelObject: topLevelObject)
-        case ToolDefinition.gitWorktreeCreate.name:
-            normalizeStringArgument(
-                &arguments,
-                canonicalKey: "path",
-                aliases: ["folder", "directory"],
-                topLevelObject: topLevelObject
-            )
-        default:
-            break
+        for rule in AgentToolArgumentNormalizationRules.matching(toolName) {
+            apply(rule, to: &arguments, topLevelObject: topLevelObject)
         }
     }
 
-    private static func normalizePullRequestArguments(
-        _ arguments: inout [String: Any],
-        for toolName: String,
+    private static func apply(
+        _ rule: AgentToolArgumentNormalizationRule,
+        to arguments: inout [String: Any],
         topLevelObject: [String: Any]
     ) {
-        normalizeStringArgument(
-            &arguments,
-            canonicalKey: "selector",
-            aliases: ["number", "pr", "pullRequest", "pull_request", "url", "branch"],
-            topLevelObject: topLevelObject
-        )
-
-        if toolName == ToolDefinition.gitPullRequestComment.name
-            || toolName == ToolDefinition.gitPullRequestReview.name {
+        for normalization in rule.stringArguments {
             normalizeStringArgument(
                 &arguments,
-                canonicalKey: "body",
-                aliases: ["comment", "message", "text", "content"],
+                canonicalKey: normalization.canonicalKey,
+                aliases: normalization.aliases,
                 topLevelObject: topLevelObject
             )
         }
-        if toolName == ToolDefinition.gitPullRequestReviewers.name {
-            normalizePullRequestReviewerArguments(&arguments, topLevelObject: topLevelObject)
-        }
-        if toolName == ToolDefinition.gitPullRequestLabels.name {
-            normalizePullRequestLabelArguments(&arguments, topLevelObject: topLevelObject)
-        }
-        if toolName == ToolDefinition.gitPullRequestReview.name {
-            normalizeStringArgument(
+        for normalization in rule.valueArguments {
+            normalizeValueArgument(
                 &arguments,
-                canonicalKey: "action",
-                aliases: ["review", "verdict", "decision"],
+                canonicalKey: normalization.canonicalKey,
+                aliases: normalization.aliases,
                 topLevelObject: topLevelObject
             )
         }
-        if toolName == ToolDefinition.gitPullRequestMerge.name {
-            normalizeStringArgument(
-                &arguments,
-                canonicalKey: "method",
-                aliases: ["strategy", "mergeMethod", "merge_method"],
-                topLevelObject: topLevelObject
-            )
-        }
-        if toolName == ToolDefinition.gitPullRequestCheckout.name {
-            normalizeStringArgument(
-                &arguments,
-                canonicalKey: "branch",
-                aliases: ["localBranch", "local_branch", "checkoutBranch", "checkout_branch"],
-                topLevelObject: topLevelObject
-            )
-        }
-    }
-
-    private static func normalizePullRequestReviewerArguments(
-        _ arguments: inout [String: Any],
-        topLevelObject: [String: Any]
-    ) {
-        normalizeValueArgument(
-            &arguments,
-            canonicalKey: "add",
-            aliases: [
-                "reviewers",
-                "reviewer",
-                "addReviewers",
-                "add_reviewers",
-                "requestReviewers",
-                "request_reviewers"
-            ],
-            topLevelObject: topLevelObject
-        )
-        normalizeValueArgument(
-            &arguments,
-            canonicalKey: "remove",
-            aliases: [
-                "removeReviewers",
-                "remove_reviewers",
-                "unrequestReviewers",
-                "unrequest_reviewers"
-            ],
-            topLevelObject: topLevelObject
-        )
-    }
-
-    private static func normalizePullRequestLabelArguments(
-        _ arguments: inout [String: Any],
-        topLevelObject: [String: Any]
-    ) {
-        normalizeValueArgument(
-            &arguments,
-            canonicalKey: "add",
-            aliases: [
-                "labels",
-                "label",
-                "addLabels",
-                "add_labels",
-                "applyLabels",
-                "apply_labels"
-            ],
-            topLevelObject: topLevelObject
-        )
-        normalizeValueArgument(
-            &arguments,
-            canonicalKey: "remove",
-            aliases: [
-                "removeLabels",
-                "remove_labels",
-                "deleteLabels",
-                "delete_labels"
-            ],
-            topLevelObject: topLevelObject
-        )
     }
 
     private static func repairEmptyShellCommandIfNeeded(
