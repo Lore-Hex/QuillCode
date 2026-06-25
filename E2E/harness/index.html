@@ -8347,9 +8347,7 @@
       ensureThread('Prune worktrees');
       const dryRun = values.dryRun === true;
       const verbose = values.verbose === true;
-      const stdout = dryRun
-        ? 'Checking stale worktree administrative records.\n'
-        : 'Pruned stale worktree administrative records.\n';
+      const stdout = '';
       addToolCard({
         title: 'host.git.worktree.prune',
         subtitle: dryRun ? 'Completed · dry run' : 'Completed',
@@ -8358,8 +8356,8 @@
         outputJSON: JSON.stringify({ ok: true, stdout }, null, 2)
       });
       addMessage('assistant', dryRun
-        ? 'Checked for stale worktree records.'
-        : 'Pruned stale worktree records.');
+        ? 'No stale worktree records found.'
+        : 'Pruned stale worktree records. Git did not report any entries.');
       syncSelectedThreadSearchText();
       render();
     }

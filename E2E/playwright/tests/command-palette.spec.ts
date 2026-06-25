@@ -102,7 +102,7 @@ test('mock harness prunes worktrees from the command palette', async ({ page }) 
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
   await expect(page.getByTestId('tool-card-title')).toHaveText('host.git.worktree.prune');
   await expect(page.getByTestId('tool-card-input')).toContainText('"dryRun": true');
-  await expect(page.getByTestId('message').last()).toContainText('Checked for stale worktree records.');
+  await expect(page.getByTestId('message').last()).toContainText('No stale worktree records found.');
 });
 
 test('mock harness prepares pull request creation from the command palette', async ({ page }) => {

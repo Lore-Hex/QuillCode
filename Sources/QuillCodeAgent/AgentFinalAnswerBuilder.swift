@@ -44,6 +44,10 @@ enum AgentFinalAnswerBuilder {
                 : "Patch applied. Review the resulting diff below."
         }
 
+        if call.name == ToolDefinition.gitWorktreePrune.name {
+            return gitWorktreePruneAnswer(call: call, result: result)
+        }
+
         if call.name == ToolDefinition.planUpdate.name {
             return "Updated the task plan."
         }
@@ -163,6 +167,43 @@ enum AgentFinalAnswerBuilder {
         return nil
     }
 
+    private static func gitWorktreePruneAnswer(call: ToolCall, result: ToolResult) -> String {
+        let dryRun = boolArgument("dryRun", in: call) ?? false
+        let output = [result.stdout, result.stderr]
+            .compactMap(\.trimmedNonEmpty)
+            .joined(separator: "\n")
+        let lines = output
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        if dryRun {
+            guard !lines.isEmpty else {
+                return "No stale worktree records found."
+            }
+            let count = staleWorktreeRecordCount(in: lines)
+            return [
+                "Found \(count) stale worktree \(count == 1 ? "record" : "records").",
+                "Run `/worktree prune` to remove \(count == 1 ? "it" : "them").",
+                truncated(output)
+            ].joined(separator: "\n")
+        }
+
+        guard !lines.isEmpty else {
+            return "Pruned stale worktree records. Git did not report any entries."
+        }
+        let count = staleWorktreeRecordCount(in: lines)
+        return "Pruned \(count) stale worktree \(count == 1 ? "record" : "records").\n\(truncated(output))"
+    }
+
+    private static func staleWorktreeRecordCount(in lines: [String]) -> Int {
+        let removingLines = lines.filter { line in
+            let lower = line.lowercased()
+            return lower.hasPrefix("removing ") || lower.contains(": gitdir file points")
+        }
+        return removingLines.isEmpty ? lines.count : removingLines.count
+    }
+
     private static func argument(_ key: String, in call: ToolCall) -> String? {
         guard let data = call.argumentsJSON.data(using: .utf8),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -172,6 +213,29 @@ enum AgentFinalAnswerBuilder {
         }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func boolArgument(_ key: String, in call: ToolCall) -> Bool? {
+        guard let data = call.argumentsJSON.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let value = object[key]
+        else {
+            return nil
+        }
+        if let bool = value as? Bool {
+            return bool
+        }
+        if let string = value as? String {
+            switch string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+            case "true":
+                return true
+            case "false":
+                return false
+            default:
+                return nil
+            }
+        }
+        return nil
     }
 
     private static func firstLine(_ text: String) -> String {
