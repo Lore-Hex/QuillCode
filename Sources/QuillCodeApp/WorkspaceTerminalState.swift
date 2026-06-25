@@ -50,6 +50,8 @@ public struct TerminalState: Sendable, Hashable {
     public var removedEnvironmentKeys: Set<String>
     public var isVisible: Bool
     public var draft: String
+    public var historyCursor: Int?
+    public var historyDraft: String?
     public var isRunning: Bool
     public var entries: [TerminalCommandState]
 
@@ -60,6 +62,8 @@ public struct TerminalState: Sendable, Hashable {
         removedEnvironmentKeys: Set<String> = [],
         isVisible: Bool = false,
         draft: String = "",
+        historyCursor: Int? = nil,
+        historyDraft: String? = nil,
         isRunning: Bool = false,
         entries: [TerminalCommandState] = []
     ) {
@@ -69,6 +73,8 @@ public struct TerminalState: Sendable, Hashable {
         self.removedEnvironmentKeys = removedEnvironmentKeys
         self.isVisible = isVisible
         self.draft = draft
+        self.historyCursor = historyCursor
+        self.historyDraft = historyDraft
         self.isRunning = isRunning
         self.entries = entries
     }

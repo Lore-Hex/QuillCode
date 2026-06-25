@@ -58,6 +58,24 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Updated the Playwright harness to preserve branded labels after model selection.
 - Fixed stale decisions documentation that still described recurring automation as deferred.
 
+## 2026-06-25 Terminal History Recall Pass
+
+Overall grade after this slice: **A terminal interaction boundary, A draft-preservation behavior, A regression coverage**.
+
+The integrated terminal had command history as rendered entries, but the input field did not support the Codex-style Up/Down recall loop users expect from a shell. That made repeated terminal work slower and left the native terminal feeling less like a real coding workspace.
+
+Code quality changes:
+
+- Added terminal history cursor and saved draft state to `TerminalState`, with all traversal owned by `WorkspaceTerminalEngine`.
+- Preserved partially typed drafts while walking previous commands, skipped running entries, and reset the cursor on manual edits, command start, project switch, and clear-history.
+- Wired native SwiftUI Up/Down handling through explicit callbacks so the desktop controller can synchronize its live text-field draft without making the view own workflow state.
+- Mirrored the same behavior in the Playwright harness and covered it with a terminal E2E flow.
+- Added focused engine tests for traversal, draft restoration, running-command guards, and reset behavior.
+
+Remaining risk:
+
+- This is still line-oriented terminal history, not full interactive PTY parity. Job control, stdin during long-running commands, and curses-style TUI handling remain the larger terminal product gap.
+
 ## 2026-06-25 Agent Send Progress Planner Pass
 
 Overall grade after this slice: **A live-progress boundary, A async-thread safety, A regression coverage**.

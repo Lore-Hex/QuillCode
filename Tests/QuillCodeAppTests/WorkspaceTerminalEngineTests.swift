@@ -97,6 +97,68 @@ final class WorkspaceTerminalEngineTests: XCTestCase {
         XCTAssertEqual(running.draft, "pwd")
     }
 
+    func testTerminalHistoryRecallWalksCommandsAndRestoresTypedDraft() {
+        var terminal = TerminalState(
+            draft: "git ",
+            entries: [
+                TerminalCommandState(command: "pwd", stdout: "", stderr: "", exitCode: 0, ok: true),
+                TerminalCommandState(command: "swift test", stdout: "", stderr: "", exitCode: 0, ok: true),
+                TerminalCommandState(command: "sleep 10", stdout: "", stderr: "", exitCode: nil, ok: false, status: .running)
+            ]
+        )
+
+        XCTAssertTrue(WorkspaceTerminalEngine.recallPreviousCommand(terminal: &terminal))
+        XCTAssertEqual(terminal.draft, "swift test")
+        XCTAssertTrue(WorkspaceTerminalEngine.recallPreviousCommand(terminal: &terminal))
+        XCTAssertEqual(terminal.draft, "pwd")
+        XCTAssertFalse(WorkspaceTerminalEngine.recallPreviousCommand(terminal: &terminal))
+        XCTAssertEqual(terminal.draft, "pwd")
+
+        XCTAssertTrue(WorkspaceTerminalEngine.recallNextCommand(terminal: &terminal))
+        XCTAssertEqual(terminal.draft, "swift test")
+        XCTAssertTrue(WorkspaceTerminalEngine.recallNextCommand(terminal: &terminal))
+        XCTAssertEqual(terminal.draft, "git ")
+        XCTAssertFalse(WorkspaceTerminalEngine.recallNextCommand(terminal: &terminal))
+    }
+
+    func testTerminalHistoryRecallResetsWhenDraftChangesOrCommandStarts() {
+        var terminal = TerminalState(entries: [
+            TerminalCommandState(command: "pwd", stdout: "", stderr: "", exitCode: 0, ok: true),
+            TerminalCommandState(command: "git status", stdout: "", stderr: "", exitCode: 0, ok: true)
+        ])
+
+        XCTAssertTrue(WorkspaceTerminalEngine.recallPreviousCommand(terminal: &terminal))
+        XCTAssertEqual(terminal.draft, "git status")
+
+        WorkspaceTerminalEngine.setDraft("swift ", terminal: &terminal)
+        XCTAssertNil(terminal.historyCursor)
+        XCTAssertNil(terminal.historyDraft)
+        XCTAssertTrue(WorkspaceTerminalEngine.recallPreviousCommand(terminal: &terminal))
+        XCTAssertEqual(terminal.draft, "git status")
+        XCTAssertTrue(WorkspaceTerminalEngine.recallNextCommand(terminal: &terminal))
+        XCTAssertEqual(terminal.draft, "swift ")
+
+        WorkspaceTerminalEngine.beginRun(command: "swift test", entryID: UUID(), terminal: &terminal)
+        XCTAssertNil(terminal.historyCursor)
+        XCTAssertNil(terminal.historyDraft)
+        XCTAssertFalse(WorkspaceTerminalEngine.recallPreviousCommand(terminal: &terminal))
+    }
+
+    func testTerminalHistoryRecallDropsStaleCursorSafely() {
+        var terminal = TerminalState(
+            historyCursor: 5,
+            historyDraft: "typed",
+            entries: [
+                TerminalCommandState(command: "pwd", stdout: "", stderr: "", exitCode: 0, ok: true)
+            ]
+        )
+
+        XCTAssertFalse(WorkspaceTerminalEngine.recallPreviousCommand(terminal: &terminal))
+        XCTAssertNil(terminal.historyCursor)
+        XCTAssertNil(terminal.historyDraft)
+        XCTAssertFalse(WorkspaceTerminalEngine.recallNextCommand(terminal: &terminal))
+    }
+
     func testStoppedEntryIgnoresLateOutputAndFinish() {
         let id = UUID()
         var terminal = TerminalState(entries: [

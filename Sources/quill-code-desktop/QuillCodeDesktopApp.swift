@@ -55,6 +55,8 @@ private struct QuillCodeDesktopRootView: View {
             copiedTranscriptItemID: controller.copiedTranscriptItemID,
             onSend: controller.send,
             onRunTerminalCommand: controller.runTerminalCommand,
+            onTerminalHistoryPrevious: controller.recallPreviousTerminalCommand,
+            onTerminalHistoryNext: controller.recallNextTerminalCommand,
             onOpenBrowserPreview: controller.openBrowserPreview,
             onOpenBrowserSession: controller.openBrowserSession,
             onAddBrowserComment: controller.addBrowserComment,

@@ -5,7 +5,7 @@ import QuillCodeTools
 @MainActor
 extension QuillCodeWorkspaceModel {
     public func setTerminalDraft(_ draft: String) {
-        terminal.draft = draft
+        WorkspaceTerminalEngine.setDraft(draft, terminal: &terminal)
     }
 
     public func setTerminalVisible(_ isVisible: Bool) {
@@ -22,6 +22,16 @@ extension QuillCodeWorkspaceModel {
         terminal.isVisible = true
         setLastError(nil)
         return true
+    }
+
+    @discardableResult
+    public func recallPreviousTerminalCommand() -> Bool {
+        WorkspaceTerminalEngine.recallPreviousCommand(terminal: &terminal)
+    }
+
+    @discardableResult
+    public func recallNextTerminalCommand() -> Bool {
+        WorkspaceTerminalEngine.recallNextCommand(terminal: &terminal)
     }
 
     public func runTerminalCommand(workspaceRoot: URL) async {

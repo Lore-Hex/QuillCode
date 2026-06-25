@@ -305,6 +305,26 @@ final class QuillCodeDesktopController: ObservableObject {
         }
     }
 
+    func recallPreviousTerminalCommand() {
+        guard !tasks.isRunning(.terminal) else { return }
+        if terminalDraft != model.terminal.draft {
+            model.setTerminalDraft(terminalDraft)
+        }
+        guard model.recallPreviousTerminalCommand() else { return }
+        terminalDraft = model.terminal.draft
+        refresh()
+    }
+
+    func recallNextTerminalCommand() {
+        guard !tasks.isRunning(.terminal) else { return }
+        if terminalDraft != model.terminal.draft {
+            model.setTerminalDraft(terminalDraft)
+        }
+        guard model.recallNextTerminalCommand() else { return }
+        terminalDraft = model.terminal.draft
+        refresh()
+    }
+
     func runReviewAction(_ action: WorkspaceReviewActionSurface) {
         model.runReviewAction(action, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
         refresh()
