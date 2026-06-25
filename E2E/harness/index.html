@@ -4385,6 +4385,9 @@
             <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
               <div class="sidebar-actions" data-testid="sidebar-compose-zone" aria-label="Primary chat actions">
                 <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true" data-icon="new" data-command-id="new-chat">New chat</button>
+                <button class="sidebar-action" type="button" data-testid="sidebar-search-button" data-primary="true" data-icon="search" data-command-id="search">Search</button>
+                <button class="sidebar-action" type="button" data-testid="extensions-button" data-primary="true" data-icon="plugins" data-command-id="toggle-extensions">Plugins</button>
+                <button class="sidebar-action" type="button" data-testid="automations-button" data-primary="true" data-icon="automations" data-command-id="toggle-automations">Automations</button>
               </div>
               <div class="sidebar-threads-zone" data-testid="sidebar-threads-zone">
                 ${sidebarThreadHeader}
@@ -4403,16 +4406,7 @@
                   <div class="sidebar-tools-popover" role="menu">
                     <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="navigate">
                       <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Navigate</h3>
-                      <button class="sidebar-tool-action" type="button" data-testid="sidebar-search-button" role="menuitem" aria-label="Search" title="Search" data-icon="search" data-command-id="search">Search</button>
                       <button class="sidebar-tool-action" type="button" data-testid="command-palette-button" role="menuitem" aria-label="Command palette" title="Command palette" data-icon="command" data-command-id="command-palette">Command palette</button>
-                    </section>
-                    <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="extensions">
-                      <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Extensions</h3>
-                      <button class="sidebar-tool-action" type="button" data-testid="extensions-button" role="menuitem" aria-label="Plugins" title="Plugins" data-icon="plugins" data-command-id="toggle-extensions">Plugins</button>
-                    </section>
-                    <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="automate">
-                      <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Automate</h3>
-                      <button class="sidebar-tool-action" type="button" data-testid="automations-button" role="menuitem" aria-label="Automations" title="Automations" data-icon="automations" data-command-id="toggle-automations">Automations</button>
                     </section>
                     <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="workspace">
                       <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Workspace</h3>

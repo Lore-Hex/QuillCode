@@ -4,7 +4,10 @@ import XCTest
 final class QuillCodeSidebarCommandPresentationTests: XCTestCase {
     func testPrimaryCommandsKeepCodexLikeOrderAndLabels() {
         XCTAssertEqual(QuillCodeSidebarCommandPresentation.primaryCommandIDs, [
-            "new-chat"
+            "new-chat",
+            "search",
+            "toggle-extensions",
+            "toggle-automations"
         ])
 
         let rows = QuillCodeSidebarCommandPresentation.primaryCommandIDs.map { commandID in
@@ -19,36 +22,35 @@ final class QuillCodeSidebarCommandPresentationTests: XCTestCase {
             )
         }
 
-        XCTAssertEqual(rows.map { $0.0 }, ["New chat"])
+        XCTAssertEqual(rows.map { $0.0 }, ["New chat", "Search", "Plugins", "Automations"])
         XCTAssertEqual(rows.map { $0.1 }, [
-            "square.and.pencil"
+            "square.and.pencil",
+            "magnifyingglass",
+            "puzzlepiece.extension",
+            "clock.arrow.circlepath"
         ])
-        XCTAssertEqual(rows.map { $0.2 }, ["new"])
+        XCTAssertEqual(rows.map { $0.2 }, ["new", "search", "plugins", "automations"])
         XCTAssertEqual(rows.map { $0.3 }, [
-            "new-chat-button"
+            "new-chat-button",
+            "sidebar-search-button",
+            "extensions-button",
+            "automations-button"
         ])
     }
 
     func testUtilityCommandsKeepCompactToolsMenuLabels() {
         XCTAssertEqual(QuillCodeSidebarCommandPresentation.utilityCommandGroups.map(\.id), [
             "navigate",
-            "extensions",
-            "automate",
             "workspace",
             "context"
         ])
         XCTAssertEqual(QuillCodeSidebarCommandPresentation.utilityCommandGroups.map(\.title), [
             "Navigate",
-            "Extensions",
-            "Automate",
             "Workspace",
             "Context"
         ])
         XCTAssertEqual(QuillCodeSidebarCommandPresentation.utilityCommandIDs, [
-            "search",
             "command-palette",
-            "toggle-extensions",
-            "toggle-automations",
             "toggle-terminal",
             "toggle-browser",
             "toggle-memories",
@@ -68,14 +70,11 @@ final class QuillCodeSidebarCommandPresentationTests: XCTestCase {
             QuillCodeSidebarCommandPresentation.htmlTestID(for: $0)
         }
 
-        XCTAssertEqual(titles, ["Search", "Command palette", "Plugins", "Automations", "Terminal", "Browser", "Memories", "Activity"])
-        XCTAssertEqual(symbols, ["magnifyingglass", "command", "puzzlepiece.extension", "clock.arrow.circlepath", "terminal", "globe", "brain.head.profile", "waveform.path.ecg"])
-        XCTAssertEqual(iconTokens, ["search", "command", "plugins", "automations", "terminal", "browser", "memories", "activity"])
+        XCTAssertEqual(titles, ["Command palette", "Terminal", "Browser", "Memories", "Activity"])
+        XCTAssertEqual(symbols, ["command", "terminal", "globe", "brain.head.profile", "waveform.path.ecg"])
+        XCTAssertEqual(iconTokens, ["command", "terminal", "browser", "memories", "activity"])
         XCTAssertEqual(testIDs, [
-            "sidebar-search-button",
             "command-palette-button",
-            "extensions-button",
-            "automations-button",
             "terminal-button",
             "browser-button",
             "memories-button",
