@@ -3,9 +3,11 @@ import XCTest
 final class ParityWorkspaceIntegrationGateTests: QuillCodeParityTestCase {
     func testWorkspaceMCPIntegrationTestsOwnModelMCPFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let broadSurfaceTests = try Self.appTestSourceText(named: "WorkspaceSurfaceTests.swift")
         let mcpIntegrationTests = try Self.appTestSourceText(named: "WorkspaceMCPIntegrationTests.swift")
 
         XCTAssertTrue(mcpIntegrationTests.contains("testMCPServerLifecycleStartsStopsAndStopAllTerminatesProcesses"), "MCP lifecycle integration should live in a focused test file.")
+        XCTAssertTrue(mcpIntegrationTests.contains("testSurfaceShowsReadyMCPServerProbeSummaryAndStopAction"), "Ready MCP surface summaries should live in focused MCP tests.")
         XCTAssertTrue(mcpIntegrationTests.contains("testReadyMCPServerCanBeCalledFromAgentTurn"), "MCP tool-call integration should live in focused MCP tests.")
         XCTAssertTrue(mcpIntegrationTests.contains("testReadyMCPResourceCanBeReadFromAgentTurn"), "MCP resource integration should live in focused MCP tests.")
         XCTAssertTrue(mcpIntegrationTests.contains("testReadyMCPPromptCanBeLoadedFromAgentTurn"), "MCP prompt integration should live in focused MCP tests.")
@@ -15,6 +17,7 @@ final class ParityWorkspaceIntegrationGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelTests.contains("testReadyMCPResourceCanBeReadFromAgentTurn"), "WorkspaceModelTests should not own MCP resource integration flows.")
         XCTAssertFalse(modelTests.contains("testReadyMCPPromptCanBeLoadedFromAgentTurn"), "WorkspaceModelTests should not own MCP prompt integration flows.")
         XCTAssertFalse(modelTests.contains("testMCPToolCallRejectsUnadvertisedTools"), "WorkspaceModelTests should not own MCP safety integration flows.")
+        XCTAssertFalse(broadSurfaceTests.contains("testSurfaceShowsReadyMCPServerProbeSummaryAndStopAction"), "WorkspaceSurfaceTests should not own ready MCP surface summaries.")
     }
 
     func testWorkspaceReviewIntegrationTestsOwnModelReviewFlows() throws {

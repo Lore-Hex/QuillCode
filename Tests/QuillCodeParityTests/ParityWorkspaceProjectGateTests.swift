@@ -39,13 +39,16 @@ final class ParityWorkspaceProjectGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceProjectExtensionIntegrationTestsOwnModelExtensionFlows() throws {
         let modelTests = try Self.appTestSourceText(named: "WorkspaceModelTests.swift")
+        let broadSurfaceTests = try Self.appTestSourceText(named: "WorkspaceSurfaceTests.swift")
         let extensionIntegrationTests = try Self.appTestSourceText(named: "WorkspaceProjectExtensionIntegrationTests.swift")
 
         XCTAssertTrue(extensionIntegrationTests.contains("testProjectExtensionManifestsLoadIntoProjectSurface"), "Project extension manifest integration should live in focused extension integration tests.")
+        XCTAssertTrue(extensionIntegrationTests.contains("testSurfaceIncludesProjectExtensionSummaryAndCommand"), "Project extension surface summaries should live in focused extension integration tests.")
         XCTAssertTrue(extensionIntegrationTests.contains("testProjectExtensionUpdateCommandRunsAndRefreshesProjectMetadata"), "Project extension update integration should live in focused extension integration tests.")
         XCTAssertTrue(extensionIntegrationTests.contains("testProjectExtensionUpdateFailureKeepsManifestAndRecordsFailureNotice"), "Project extension update failure integration should live in focused extension integration tests.")
         XCTAssertFalse(modelTests.contains("testProjectExtensionManifestsLoadIntoProjectSurface"), "WorkspaceModelTests should not own project extension manifest integration flows.")
         XCTAssertFalse(modelTests.contains("testProjectExtensionUpdateCommandRunsAndRefreshesProjectMetadata"), "WorkspaceModelTests should not own project extension update integration flows.")
+        XCTAssertFalse(broadSurfaceTests.contains("testSurfaceIncludesProjectExtensionSummaryAndCommand"), "WorkspaceSurfaceTests should not own project extension surface summaries.")
     }
 
     func testWorkspaceProjectIntegrationTestsOwnModelProjectFlows() throws {

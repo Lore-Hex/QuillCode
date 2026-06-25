@@ -43,6 +43,50 @@ final class WorkspaceMemoryIntegrationTests: XCTestCase {
         XCTAssertEqual(model.surface().topBar.memoryLabel, "2 memories")
     }
 
+    func testSurfaceIncludesMemorySummariesAndCommand() {
+        let project = ProjectRef(
+            name: "QuillCode",
+            path: "/tmp/QuillCode",
+            memories: [
+                MemoryNote(
+                    id: "project:.quillcode/memories/project.md",
+                    scope: .project,
+                    title: "Project",
+                    content: "QuillCode should stay native Swift and document major decisions.",
+                    relativePath: ".quillcode/memories/project.md",
+                    byteCount: 63
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                projects: [project],
+                selectedProjectID: project.id,
+                globalMemories: [
+                    MemoryNote(
+                        id: "global:memories/preferences.md",
+                        scope: .global,
+                        title: "Preferences",
+                        content: "Prefer focused tests and small reviewable commits.",
+                        relativePath: "memories/preferences.md",
+                        byteCount: 48
+                    )
+                ]
+            ),
+            memories: MemoriesState(isVisible: true)
+        )
+
+        let surface = model.surface()
+
+        XCTAssertTrue(surface.memories.isVisible)
+        XCTAssertEqual(surface.memories.globalCount, 1)
+        XCTAssertEqual(surface.memories.projectCount, 1)
+        XCTAssertEqual(surface.memories.items.map { $0.scope }, [MemoryScope.global, .project])
+        XCTAssertEqual(surface.memories.items.first?.title, "Preferences")
+        XCTAssertEqual(surface.topBar.memoryLabel, "2 memories")
+        XCTAssertEqual(surface.commands.first { $0.id == "toggle-memories" }?.category, WorkspaceCommandPalette.memoriesCategory)
+    }
+
     func testSlashRememberWritesGlobalMemoryAndRefreshesThreadSurface() async throws {
         let root = try makeQuillCodeTestDirectory()
         let globalMemories = try makeQuillCodeTestDirectory()
