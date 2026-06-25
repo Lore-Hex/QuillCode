@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { clickSidebarTool, harnessURL } from './harness-helpers';
+import {
+  clickCommandPaletteCommand,
+  clickSidebarTool,
+  commandPaletteResult,
+  fillCommandPalette,
+  harnessURL
+} from './harness-helpers';
 
 test('mock harness shows project extension manifests from sidebar and command palette', async ({ page }) => {
   await page.goto(harnessURL());
@@ -44,12 +50,10 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await expect(page.getByTestId('extensions-pane')).toHaveCount(0);
 
   await clickSidebarTool(page, 'command-palette-button');
-  const commandSearch = page.getByLabel('Search commands');
   await expect(page.getByTestId('command-palette-panel')).toBeVisible();
-  await expect(commandSearch).toBeFocused();
-  await commandSearch.fill('>update github');
-  await expect(page.locator('[data-testid="command-palette-result"][data-command-id="extension-update:plugin:github"]')).toContainText('Update GitHub');
-  await commandSearch.fill('>extensions');
-  await page.locator('[data-testid="command-palette-result"][data-command-id="toggle-extensions"]').click();
+  await expect(page.getByTestId('command-palette-input')).toBeFocused();
+  await fillCommandPalette(page, '>update github');
+  await expect(commandPaletteResult(page, 'extension-update:plugin:github')).toContainText('Update GitHub');
+  await clickCommandPaletteCommand(page, '>extensions', 'toggle-extensions');
   await expect(page.getByTestId('extensions-pane')).toBeVisible();
 });

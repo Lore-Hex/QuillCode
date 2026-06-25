@@ -5518,6 +5518,23 @@ Current strict grades:
 Remaining risk:
 - Continue auditing command IDs emitted by native-only surfaces. Any command that appears in a `WorkspaceCommandSurface` should either have an explicit view-planner presentation route or a model command plan with an execution test.
 
+## 2026-06-25 Command Palette Playwright Locator Boundary
+
+Overall grade after this slice: **A E2E interaction determinism, A shared command-palette helper reuse**.
+
+The HTML mock harness intentionally re-renders the command palette as the query changes so it can model SwiftUI-style derived state. A focused extensions E2E test reused a command-palette input locator across two filters, which passed locally but exposed a CI race after main merged: the second query could miss the expected `toggle-extensions` row before the click wait timed out.
+
+What changed:
+- Added shared Playwright helpers that reacquire the current command-palette input, assert the entered query, and wait for an exact command row before clicking.
+- Updated the extensions parity test to use those helpers for both the `>update github` discovery check and the `>extensions` navigation action.
+
+Current strict grades:
+- `E2E/playwright/tests/harness-helpers.ts`: **A**. Command-palette tests now have one deterministic query/click path.
+- `E2E/playwright/tests/extensions.spec.ts`: **A**. The test still owns extension sidebar and command-palette parity without relying on stale input element handles.
+
+Remaining risk:
+- Migrate other command-palette specs to the shared helpers opportunistically as they are touched, especially broad `core.spec.ts` command-palette flows.
+
 ## 2026-06-25 Playwright Sidebar And Project Spec Split
 
 Overall grade after this slice: **A sidebar/project E2E ownership, A focused helper locality, A- broad Playwright core spec**.
