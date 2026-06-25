@@ -4101,11 +4101,7 @@
         input.focus();
         input.setSelectionRange(input.value.length, input.value.length);
       };
-      requestAnimationFrame(() => {
-        focus();
-        setTimeout(focus, 0);
-        setTimeout(focus, 50);
-      });
+      requestAnimationFrame(focus);
     }
 
     function focusSearchInput() {
