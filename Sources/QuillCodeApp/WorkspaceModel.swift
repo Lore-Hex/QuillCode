@@ -130,14 +130,6 @@ public final class QuillCodeWorkspaceModel {
         )
     }
 
-    private var contextResolver: WorkspaceContextResolver {
-        WorkspaceContextResolver(
-            projects: root.projects,
-            globalMemories: root.globalMemories,
-            selectedProject: selectedProject
-        )
-    }
-
     func project(id: UUID) -> ProjectRef? {
         root.projects.first { $0.id == id }
     }
@@ -146,27 +138,6 @@ public final class QuillCodeWorkspaceModel {
         mutateSelectedThread { thread in
             WorkspaceThreadNoticeAppender.appendNotice(summary, to: &thread)
         }
-    }
-
-    @discardableResult
-    public func runProjectExtensionUpdate(id: String, workspaceRoot: URL) -> Bool {
-        refreshProjectMetadata(root.selectedProjectID)
-        guard let manifest = selectedProject?.extensionManifests.first(where: { $0.id == id }),
-              let toolCall = WorkspaceShellToolCallPlanner.projectExtensionUpdate(manifest)
-        else {
-            return false
-        }
-
-        let result = runToolCall(
-            toolCall,
-            workspaceRoot: workspaceRoot
-        )
-        refreshProjectMetadata(root.selectedProjectID)
-        appendNotice(result.ok
-            ? "Updated extension \(manifest.name)"
-            : "Extension update failed for \(manifest.name)"
-        )
-        return result.ok
     }
 
     func mutateSelectedThread(_ update: (inout ChatThread) -> Void) {
@@ -225,21 +196,6 @@ public final class QuillCodeWorkspaceModel {
     public func setComputerUseBackend(_ backend: any ComputerUseBackend) {
         computerUseBackend = backend
         setComputerUseStatus(backend.status)
-    }
-
-    public func refreshSelectedProjectInstructions() {
-        refreshSelectedProjectContext()
-    }
-
-    public func refreshSelectedProjectContext() {
-        let projectID = selectedThread?.projectID ?? root.selectedProjectID
-        refreshProjectMetadata(projectID)
-        let refreshedContext = workspaceThreadContext(projectID)
-        mutateSelectedThread { thread in
-            thread.instructions = refreshedContext.instructions
-            thread.memories = refreshedContext.memories
-        }
-        saveProjects()
     }
 
     func refreshTopBar(agentStatus: String? = nil) {

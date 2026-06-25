@@ -552,6 +552,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesShellToolCallPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let localEnvironmentModelText = try Self.appSourceText(named: "WorkspaceModelLocalEnvironment.swift")
+        let projectModelText = try Self.appSourceText(named: "WorkspaceModelProjects.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceShellToolCallPlanner.swift")
 
         XCTAssertTrue(plannerText.contains("enum WorkspaceShellToolCallPlanner"), "Local action shell tool-call planning should live in a focused planner.")
@@ -560,10 +561,11 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(plannerText.contains("ToolDefinition.shellRun.name"), "The planner should own the canonical shell tool name.")
         XCTAssertTrue(plannerText.contains("ToolArguments.json(arguments)"), "The planner should own shell argument JSON construction.")
         XCTAssertTrue(localEnvironmentModelText.contains("WorkspaceShellToolCallPlanner.localEnvironmentAction"), "WorkspaceModelLocalEnvironment should delegate local action shell call construction.")
-        XCTAssertTrue(modelText.contains("WorkspaceShellToolCallPlanner.projectExtensionUpdate"), "WorkspaceModel should delegate extension update shell call construction.")
+        XCTAssertTrue(projectModelText.contains("WorkspaceShellToolCallPlanner.projectExtensionUpdate"), "WorkspaceModelProjects should delegate extension update shell call construction.")
         XCTAssertFalse(modelText.contains("arguments[\"environment\"] = environment"), "WorkspaceModel should not assemble local action environment arguments inline.")
         XCTAssertFalse(modelText.contains("arguments[\"timeoutSeconds\"] = timeoutSeconds"), "WorkspaceModel should not assemble local action timeout arguments inline.")
         XCTAssertFalse(modelText.contains("WorkspaceShellToolCallPlanner.localEnvironmentAction"), "WorkspaceModel.swift should not own local action shell call execution.")
+        XCTAssertFalse(modelText.contains("WorkspaceShellToolCallPlanner.projectExtensionUpdate"), "WorkspaceModel.swift should not own extension update shell call execution.")
         XCTAssertFalse(modelText.contains("let command = manifest.updateCommand"), "WorkspaceModel should not parse extension update commands inline.")
     }
 

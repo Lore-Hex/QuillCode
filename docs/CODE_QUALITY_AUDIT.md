@@ -73,6 +73,25 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Extracted message feedback mutation and pane visibility APIs from `WorkspaceModel.swift` into focused model extensions.
 - Added `WorkspaceMessageFeedbackPlanner` so feedback event construction and summary copy are directly unit tested instead of being embedded in the actor model.
 - Strengthened parity gates so feedback and pane visibility APIs cannot drift back into the central workspace model.
+- Moved selected-project refresh and project-extension update APIs into `WorkspaceModelProjects.swift`.
+- Removed the unused root-model `WorkspaceContextResolver` property; active context lookup now lives only in the surface builder and project context refresher.
+
+## 2026-06-25 Workspace Project API Extension
+
+Overall grade after this slice: **A- project API ownership, A context resolver boundary, B+/A- central model size**.
+
+Project workflows already had a focused model extension, but the root workspace model still owned selected-project context refresh and project-extension update orchestration. That made `WorkspaceModel.swift` look like the owner of user-facing project behavior even though project registry APIs, metadata refresh helpers, and extension update tests were already focused.
+
+Code quality changes:
+
+- Moved `refreshSelectedProjectInstructions`, `refreshSelectedProjectContext`, and `runProjectExtensionUpdate` into `WorkspaceModelProjects.swift`.
+- Kept local/remote metadata refresh primitives in the root model for now because they are shared actor-owned helpers used by composer, tool runs, automations, memory refresh, and worktrees.
+- Removed the dead `contextResolver` property from `WorkspaceModel.swift`; context lookup now happens in `WorkspaceSurface` and `WorkspaceProjectContextRefresher`.
+- Strengthened project and context parity gates so selected-project refresh, extension-update orchestration, and resolver ownership cannot drift back into the central model.
+
+Remaining risk:
+
+- Shared project helper primitives still sit in `WorkspaceModel.swift`. They should move only if a focused helper can serve all current extension users without widening storage or creating awkward pass-through APIs.
 
 ## 2026-06-25 Workspace Feedback And Pane Visibility API Extension
 
