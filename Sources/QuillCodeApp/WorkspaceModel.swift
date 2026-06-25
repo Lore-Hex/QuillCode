@@ -1070,12 +1070,21 @@ public final class QuillCodeWorkspaceModel {
         guard selectedThread != nil else {
             return ToolResult(ok: false, error: "No active thread")
         }
-        let contextProjectID = selectedThread?.projectID ?? root.selectedProjectID
+        let contextProjectID = WorkspaceToolRunPreparer.effectiveProjectID(
+            thread: selectedThread,
+            fallbackProjectID: root.selectedProjectID
+        )
         refreshProjectMetadata(contextProjectID)
-        let refreshedContext = workspaceThreadContext(contextProjectID)
+        let fallbackProjectID = root.selectedProjectID
+        let projects = root.projects
+        let globalMemories = root.globalMemories
         mutateSelectedThread { thread in
-            thread.instructions = refreshedContext.instructions
-            thread.memories = refreshedContext.memories
+            _ = WorkspaceToolRunPreparer.syncThreadContext(
+                &thread,
+                fallbackProjectID: fallbackProjectID,
+                projects: projects,
+                globalMemories: globalMemories
+            )
         }
         lastError = nil
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)

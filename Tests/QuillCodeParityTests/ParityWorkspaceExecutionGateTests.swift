@@ -442,6 +442,26 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelText.contains("private func executeReviewGitToolCall"), "WorkspaceModel should not own parallel review git routing.")
     }
 
+    func testWorkspaceModelDelegatesToolRunPreparation() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let preparerText = try Self.appSourceText(named: "WorkspaceToolRunPreparer.swift")
+        let runToolCallStart = try XCTUnwrap(modelText.range(of: "public func runToolCall"))
+        let runToolCallEnd = try XCTUnwrap(modelText.range(
+            of: "public func runTerminalCommand",
+            range: runToolCallStart.upperBound..<modelText.endIndex
+        ))
+        let runToolCallBody = String(modelText[runToolCallStart.lowerBound..<runToolCallEnd.lowerBound])
+
+        XCTAssertTrue(preparerText.contains("enum WorkspaceToolRunPreparer"), "Tool-run context preparation should live in a focused helper.")
+        XCTAssertTrue(preparerText.contains("static func effectiveProjectID"), "Effective tool-run project selection should be directly testable.")
+        XCTAssertTrue(preparerText.contains("static func syncThreadContext"), "Tool-run thread context sync should be directly testable.")
+        XCTAssertTrue(runToolCallBody.contains("WorkspaceToolRunPreparer.effectiveProjectID"), "WorkspaceModel should delegate tool-run project selection.")
+        XCTAssertTrue(runToolCallBody.contains("WorkspaceToolRunPreparer.syncThreadContext"), "WorkspaceModel should delegate tool-run thread context sync.")
+        XCTAssertFalse(runToolCallBody.contains("workspaceThreadContext("), "runToolCall should not rebuild thread context inline.")
+        XCTAssertFalse(runToolCallBody.contains("thread.instructions ="), "runToolCall should not assign instruction snapshots inline.")
+        XCTAssertFalse(runToolCallBody.contains("thread.memories ="), "runToolCall should not assign memory snapshots inline.")
+    }
+
     func testWorkspaceModelDelegatesShellToolCallPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceShellToolCallPlanner.swift")

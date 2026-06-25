@@ -5966,3 +5966,23 @@ Current strict grades:
 
 Remaining risk:
 - Progress callback wiring and the do/catch send-session orchestration still live in `submitComposer`. A future coordinator could group those only after resumable or background run semantics are clearer.
+
+## 2026-06-25 Tool Run Preparation Boundary
+
+Overall grade after this slice: **A tool-run context preparation, A parity guard, A- WorkspaceModel tool path**.
+
+`runToolCall` still contained the tool-run context policy inline: it selected the effective project, refreshed metadata, rebuilt instruction/memory snapshots, and assigned those snapshots to the selected thread before executing. That made the command path harder to audit because execution, transcript recording, persistence, and context synchronization were all adjacent.
+
+What changed:
+- Added `WorkspaceToolRunPreparer` and `WorkspacePreparedToolRun` to name the effective project and selected-thread context sync contract for tool execution.
+- Routed `WorkspaceModel.runToolCall` through the preparer while keeping actor-owned mutation, execution, persistence, and top-bar state in the model.
+- Added focused tests for thread-project precedence, selected-project fallback, and instruction/memory snapshot sync.
+- Added a parity gate so `runToolCall` does not reintroduce inline `workspaceThreadContext`, `thread.instructions`, or `thread.memories` assignment.
+
+Current strict grades:
+- `WorkspaceToolRunPreparer.swift`: **A**. It is a pure context-preparation boundary over existing project context rules, with no routing, persistence, UI state, or shell execution.
+- `WorkspaceModel.runToolCall`: **A-**. It now delegates project/context preparation, tool routing, and event recording, but still owns actor-bound orchestration, persistence, and visible status updates.
+- `WorkspaceToolRunPreparerTests.swift`: **A**. It covers the subtle thread-project versus selected-project edge case directly.
+
+Remaining risk:
+- `runToolCall` still sequences status, executor construction, transcript recording, persistence, and final status. A future extraction could group execution plus recording only if it preserves `browser` and `lastError` mutation semantics cleanly.
