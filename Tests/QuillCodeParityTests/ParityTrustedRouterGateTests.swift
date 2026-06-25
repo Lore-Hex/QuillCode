@@ -84,4 +84,37 @@ final class ParityTrustedRouterGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(safetyClientText.contains("\"response_format\""), "Safety transport should not own raw response-format payloads.")
         XCTAssertFalse(safetyClientText.contains("TrustedRouterLLMClient."), "Safety transport should not depend on the action transport type.")
     }
+
+    func testTrustedRouterAdapterTestsUseFocusedSuites() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("Tests/QuillCodeAgentTests")
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: testRoot.appendingPathComponent("TrustedRouterAdapterTests.swift").path),
+            "TrustedRouter adapter coverage should stay split by parser, streaming, prompt, catalog, and key resolver behavior."
+        )
+
+        let actionParserText = try Self.agentTestSourceText(named: "TrustedRouterActionParserTests.swift")
+        XCTAssertTrue(actionParserText.contains("final class TrustedRouterActionParserTests"))
+        XCTAssertTrue(actionParserText.contains("AgentActionJSONParser.parse"))
+        XCTAssertTrue(actionParserText.contains("testActionParserNormalizesPullRequestLabelAliases"))
+
+        let streamingText = try Self.agentTestSourceText(named: "TrustedRouterStreamingActionTests.swift")
+        XCTAssertTrue(streamingText.contains("final class TrustedRouterStreamingActionTests"))
+        XCTAssertTrue(streamingText.contains("AgentActionStreamCollector.collect"))
+        XCTAssertTrue(streamingText.contains("AgentActionStreamPreview.visibleAssistantText"))
+
+        let promptText = try Self.agentTestSourceText(named: "TrustedRouterPromptBuilderTests.swift")
+        XCTAssertTrue(promptText.contains("final class TrustedRouterPromptBuilderTests"))
+        XCTAssertTrue(promptText.contains("TrustedRouterPromptBuilder.systemPrompt"))
+        XCTAssertTrue(promptText.contains("testMessagesIncludeMemoriesAsAuditableSystemContext"))
+
+        let catalogText = try Self.agentTestSourceText(named: "TrustedRouterModelCatalogTests.swift")
+        XCTAssertTrue(catalogText.contains("final class TrustedRouterModelCatalogTests"))
+        XCTAssertTrue(catalogText.contains("TrustedRouterModelCatalog.defaultModels"))
+        XCTAssertTrue(catalogText.contains("testModelCatalogAlwaysIncludesRankedRecommendedFallbacks"))
+
+        let keyResolverText = try Self.agentTestSourceText(named: "TrustedRouterAPIKeyResolverTests.swift")
+        XCTAssertTrue(keyResolverText.contains("final class TrustedRouterAPIKeyResolverTests"))
+        XCTAssertTrue(keyResolverText.contains("TrustedRouterAPIKeyResolver("))
+        XCTAssertTrue(keyResolverText.contains("StaticTrustedRouterSessionStore"))
+    }
 }

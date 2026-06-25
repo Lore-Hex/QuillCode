@@ -155,7 +155,8 @@ struct ParityFocusedSuiteManifest {
             "testTrustedRouterPromptBuilderLivesOutsideTransportClient",
             "testTrustedRouterAPIKeyResolutionLivesInFocusedResolver",
             "testTrustedRouterSafetyClientLivesOutsideActionTransportFile",
-            "testTrustedRouterChatParametersLiveOutsideTransportClients"
+            "testTrustedRouterChatParametersLiveOutsideTransportClients",
+            "testTrustedRouterAdapterTestsUseFocusedSuites"
         ]),
         Suite(fileName: "ParitySafetyGateTests.swift", testNames: [
             "testStaticSafetyPolicyLivesOutsideReviewerControlFlow"

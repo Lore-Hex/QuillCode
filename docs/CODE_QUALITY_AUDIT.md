@@ -5473,3 +5473,27 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `core.spec.ts` by feature family. Good next slices are command-palette/git/worktree flows and sidebar/project lifecycle flows.
+
+## 2026-06-25 TrustedRouter Adapter Test Split
+
+Overall grade after this slice: **A parser ownership, A streaming ownership, A prompt-builder ownership, A model-catalog ownership, A key-resolution ownership**.
+
+`TrustedRouterAdapterTests.swift` mixed five behavior families in one 564-line suite: messy action JSON parsing, streaming collection/draft preview, prompt/message construction, model catalog normalization, and API-key resolution. These are all adjacent TrustedRouter integration concerns, but they fail for different reasons and should not require scanning one large file when tuning prompts, aliases, or transport behavior.
+
+What changed:
+- Moved action parsing, prose recovery, canonical tool arguments, PR aliases, and no-argument tool allowances into `TrustedRouterActionParserTests.swift`.
+- Moved streamed action collection and visible assistant draft preview into `TrustedRouterStreamingActionTests.swift`.
+- Moved system prompt, project instruction projection, memory projection, tool-feedback history, and history-limit behavior into `TrustedRouterPromptBuilderTests.swift`.
+- Moved provider/category mapping and ranked recommended fallback dedupe into `TrustedRouterModelCatalogTests.swift`.
+- Moved missing-key copy, override trimming, stored-key fallback, and actionable missing-key errors into `TrustedRouterAPIKeyResolverTests.swift`.
+- Added a parity gate that keeps these focused suites present and prevents `TrustedRouterAdapterTests.swift` from regrowing.
+
+Current strict grades:
+- `TrustedRouterActionParserTests.swift`: **A**. It owns parser, normalizer, prose recovery, and tool-alias behavior together.
+- `TrustedRouterStreamingActionTests.swift`: **A**. It owns stream assembly and visible assistant draft behavior without prompt/catalog noise.
+- `TrustedRouterPromptBuilderTests.swift`: **A**. It owns prompt and message projection contracts, including project instructions, memories, tool feedback, and history limits.
+- `TrustedRouterModelCatalogTests.swift`: **A**. It owns TrustedRouter catalog fallback and recommended-model dedupe.
+- `TrustedRouterAPIKeyResolverTests.swift`: **A**. It owns key resolution and actionable missing-key behavior.
+
+Remaining risk:
+- The production TrustedRouter adapter boundaries are now well guarded. The next quality slices should target `WorkspaceAutomationIntegrationTests.swift`, remaining broad Playwright `core.spec.ts` flows, or another focused `WorkspaceModel` workflow extraction.
