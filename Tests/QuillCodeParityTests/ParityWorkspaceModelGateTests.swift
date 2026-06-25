@@ -132,6 +132,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesProjectContextRefresh() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let threadExtensionText = try Self.appSourceText(named: "WorkspaceModelThreads.swift")
+        let worktreeExtensionText = try Self.appSourceText(named: "WorkspaceModelWorktrees.swift")
         let refresherText = try Self.appSourceText(named: "WorkspaceProjectContextRefresher.swift")
 
         XCTAssertTrue(refresherText.contains("enum WorkspaceProjectContextRefresher"), "Project context refresh should have a focused owner.")
@@ -146,7 +147,8 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.refreshRemoteProjectContext"), "WorkspaceModel should delegate remote project metadata refresh.")
         XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.syncThreadContext"), "WorkspaceModel should delegate thread context sync.")
         XCTAssertTrue(threadExtensionText.contains("WorkspaceProjectContextRefresher.threadCreationContext"), "WorkspaceModel thread APIs should delegate thread creation context assembly.")
-        XCTAssertTrue(modelText.contains("WorkspaceProjectContextRefresher.worktreeOpenContext"), "WorkspaceModel should delegate worktree open context assembly.")
+        XCTAssertTrue(worktreeExtensionText.contains("WorkspaceProjectContextRefresher.worktreeOpenContext"), "WorkspaceModel worktree APIs should delegate worktree open context assembly.")
+        XCTAssertFalse(modelText.contains("WorkspaceProjectContextRefresher.worktreeOpenContext"), "WorkspaceModel.swift should not own worktree open context assembly.")
         XCTAssertFalse(modelText.contains("WorkspaceProjectMetadataLoader.loadLocal(from: rootURL)"), "WorkspaceModel should not own refresh-time local project metadata loading.")
         XCTAssertFalse(modelText.contains("WorkspaceProjectMetadataLoader.loadRemote"), "WorkspaceModel should not own remote project metadata loading.")
         XCTAssertFalse(modelText.contains("WorkspaceMemoryEngine.loadGlobal(from:"), "WorkspaceModel should not own global memory loading.")

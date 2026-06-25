@@ -103,6 +103,30 @@ Remaining risk:
 
 - `WorkspaceModel.swift` still contains multiple public workflow API families. The next central-model extraction should target a cohesive group such as worktree APIs or review/comment APIs rather than a mixed utility sweep.
 
+## 2026-06-25 Workspace Worktree API Extension
+
+Overall grade after this slice: **A- Worktree workflow ownership, A planner/engine reuse, B+/A- central model size**.
+
+Worktree create/open/remove/prune is a cohesive workflow family: it builds git-worktree tool calls, runs them through the common tool executor, opens local or SSH Remote worktree projects, creates the focused handoff thread, and powers side-effect-free choice/preview loading. Keeping that whole family in `WorkspaceModel.swift` made the central coordinator look like it owned worktree policy even though the detailed tool-call and thread-record decisions already lived in focused helpers.
+
+What changed:
+
+- Added `WorkspaceModelWorktrees.swift` for worktree create/open/remove/prune APIs, choice loading, prune preview loading, and local/SSH Remote worktree handoff helpers.
+- Kept tool-call construction in `WorkspaceWorktreeToolCallPlanner`, handoff thread construction in `WorkspaceWorktreeOpenEngine`, and project/thread context snapshots in `WorkspaceProjectContextRefresher`.
+- Removed now-unused default-project-name wrappers from `WorkspaceModel.swift`; the extension calls the shared `WorkspaceProjectEngine` helpers directly.
+- Updated parity gates so worktree APIs and handoff helpers are required to live in the focused extension and cannot drift back into `WorkspaceModel.swift`.
+
+Current strict grades:
+
+- `WorkspaceModelWorktrees.swift`: **A-**. The file is cohesive and readable; remaining complexity comes from real cross-surface orchestration across tool execution, project registry updates, and thread creation.
+- `WorkspaceWorktreeToolCallPlanner.swift`: **A**. Request-to-tool-call construction remains typed and directly tested.
+- `WorkspaceWorktreeOpenEngine.swift`: **A**. Local and SSH Remote handoff records stay pure and directly tested.
+- `WorkspaceModel.swift`: **B+/A-**. It dropped another large public workflow family, but still owns agent-send, review/action, local environment, memory, and tool-run orchestration.
+
+Remaining risk:
+
+- The next best central-model extraction is probably review/action APIs or local environment action APIs. Tool-run execution is still central by necessity, but its helper boundary is a candidate for a focused extension once review and local-action calls are outside the main file.
+
 ## 2026-06-25 Agent Send Progress Planner Pass
 
 Overall grade after this slice: **A live-progress boundary, A async-thread safety, A regression coverage**.
