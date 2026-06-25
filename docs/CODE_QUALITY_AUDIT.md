@@ -5110,3 +5110,21 @@ Current strict grades:
 
 Remaining risk:
 - If the registry grows substantially again, the next step is a generated or declarative manifest file; for now a typed Swift helper is simple and keeps CI fast.
+
+## 2026-06-24 Typed Focused Suite Manifest
+
+Overall grade after this slice: **A+ manifest clarity, A+ Swift ergonomics, A global gate readability**.
+
+The focused-suite helper removed the broad registry from `ParityGateTests`, but its tuple-shaped API still exposed file and test names as loosely related values. A tiny typed manifest makes the contract clearer: each focused parity suite has one file name and the tests it owns.
+
+What changed:
+- Replaced `ParityFocusedSuiteRegistry` with `ParityFocusedSuiteManifest`.
+- Added a `Suite` value type so each parity suite's file name and test ownership stay together.
+- Updated the global parity gate to iterate typed suite records while keeping required support and manifest files explicit.
+
+Current strict grades:
+- `ParityFocusedSuiteManifest.swift`: **A+**. It is structured, readable Swift data with one responsibility.
+- `ParityGateTests.swift`: **A+**. It stays compact and reads as global hygiene plus manifest enforcement.
+
+Remaining risk:
+- The manifest is still maintained by hand, which is acceptable at this size. If parity suites continue to grow rapidly, move to a generated manifest with a validation script.

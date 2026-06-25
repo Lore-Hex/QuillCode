@@ -43,21 +43,21 @@ final class ParityGateTests: QuillCodeParityTestCase {
 
     func testParityGatesUseFocusedSuitesAndSharedSupport() throws {
         let root = Self.packageRoot().appendingPathComponent("Tests/QuillCodeParityTests")
-        for testFile in ParityFocusedSuiteRegistry.requiredTestFiles {
+        for testFile in ParityFocusedSuiteManifest.requiredFileNames {
             XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent(testFile).path), testFile)
         }
 
         let mainText = try String(contentsOf: root.appendingPathComponent("ParityGateTests.swift"), encoding: .utf8)
         let mainLines = Set(mainText.components(separatedBy: .newlines))
         XCTAssertFalse(mainLines.contains("    private static func packageRoot() -> URL {"), "Shared source-reading helpers should live in ParityTestSupport.")
-        let inlineRegistryNeedle = "static " + "let " + "focusedSuiteTests"
-        XCTAssertFalse(mainText.contains(inlineRegistryNeedle), "Focused-suite registry data should live in ParityFocusedSuiteRegistry.")
+        let inlineRegistryNeedle = "static " + "let " + "suites"
+        XCTAssertFalse(mainText.contains(inlineRegistryNeedle), "Focused-suite manifest data should live in ParityFocusedSuiteManifest.")
 
-        for (suiteName, testNames) in ParityFocusedSuiteRegistry.focusedSuiteTests {
-            for testName in testNames {
+        for suite in ParityFocusedSuiteManifest.suites {
+            for testName in suite.testNames {
                 XCTAssertFalse(
                     mainLines.contains("    func \(testName)() throws {"),
-                    "\(testName) should live in \(suiteName)."
+                    "\(testName) should live in \(suite.fileName)."
                 )
             }
         }

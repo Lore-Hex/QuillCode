@@ -1,39 +1,32 @@
-enum ParityFocusedSuiteRegistry {
-    static let requiredTestFiles = [
-        "ParityTestSupport.swift",
-        "ParityFocusedSuiteRegistry.swift",
-        "ParityToolGateTests.swift",
-        "ParityDesktopGateTests.swift",
-        "ParityTopBarGateTests.swift",
-        "ParitySlashGateTests.swift",
-        "ParityModelGateTests.swift",
-        "ParityWorkspaceSurfaceGateTests.swift",
-        "ParityWorkspaceModelGateTests.swift",
-        "ParityWorkspaceExecutionGateTests.swift",
-        "ParityWorkspaceProjectGateTests.swift",
-        "ParityWorkspaceMemoryGateTests.swift",
-        "ParityWorkspaceIntegrationGateTests.swift",
-        "ParityWorkspaceSidebarGateTests.swift",
-        "ParityMCPGateTests.swift",
-        "ParityAutomationGateTests.swift",
-        "ParityWorkspaceRuntimeReviewGateTests.swift",
-        "ParityWorkspaceCommandGateTests.swift",
-        "ParityWorkspaceSettingsSheetGateTests.swift",
-        "ParityWorkspaceTranscriptGateTests.swift",
-        "ParityAgentGateTests.swift",
-        "ParityTrustedRouterGateTests.swift",
-        "ParitySafetyGateTests.swift",
-        "ParityCoreModelGateTests.swift"
-    ]
+struct ParityFocusedSuiteManifest {
+    struct Suite {
+        let fileName: String
+        let testNames: [String]
+    }
 
-    static let focusedSuiteTests: [(suiteName: String, testNames: [String])] = [
-        ("ParityToolGateTests", ["testToolArgumentJSONSerializationLivesInCore"]),
-        ("ParityDesktopGateTests", ["testDesktopDefinesNativeMenuBarWidget"]),
-        ("ParityTopBarGateTests", ["testTopBarViewsDelegateStatusPresentationSemantics"]),
-        ("ParitySlashGateTests", ["testSlashParserDelegatesPullRequestSubcommands"]),
-        ("ParityModelGateTests", ["testTrustedRouterModelCatalogLivesOutsideGeneralDomainModels"]),
-        ("ParityWorkspaceSurfaceGateTests", ["testWorkspaceSurfaceDelegatesSecondaryPaneSurfaceContracts"]),
-        ("ParityWorkspaceModelGateTests", [
+    static let supportFileName = "ParityTestSupport.swift"
+    static let manifestFileName = "ParityFocusedSuiteManifest.swift"
+
+    static let suites: [Suite] = [
+        Suite(fileName: "ParityToolGateTests.swift", testNames: [
+            "testToolArgumentJSONSerializationLivesInCore"
+        ]),
+        Suite(fileName: "ParityDesktopGateTests.swift", testNames: [
+            "testDesktopDefinesNativeMenuBarWidget"
+        ]),
+        Suite(fileName: "ParityTopBarGateTests.swift", testNames: [
+            "testTopBarViewsDelegateStatusPresentationSemantics"
+        ]),
+        Suite(fileName: "ParitySlashGateTests.swift", testNames: [
+            "testSlashParserDelegatesPullRequestSubcommands"
+        ]),
+        Suite(fileName: "ParityModelGateTests.swift", testNames: [
+            "testTrustedRouterModelCatalogLivesOutsideGeneralDomainModels"
+        ]),
+        Suite(fileName: "ParityWorkspaceSurfaceGateTests.swift", testNames: [
+            "testWorkspaceSurfaceDelegatesSecondaryPaneSurfaceContracts"
+        ]),
+        Suite(fileName: "ParityWorkspaceModelGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesToolCardSurfaceTypes",
             "testWorkspaceModelDelegatesProjectContextRefresh",
             "testWorkspaceModelDelegatesThreadSeedBuilding",
@@ -53,7 +46,7 @@ enum ParityFocusedSuiteRegistry {
             "testWorkspaceModelDelegatesThreadNoticeMutation",
             "testWorkspaceModelUsesExplicitAgentRunThreadUpdates"
         ]),
-        ("ParityWorkspaceExecutionGateTests", [
+        Suite(fileName: "ParityWorkspaceExecutionGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesComposerCancellationPlanning",
             "testWorkspaceModelDelegatesComposerSubmissionPlanning",
             "testWorkspaceModelDelegatesAgentSendSessionExecution",
@@ -69,7 +62,7 @@ enum ParityFocusedSuiteRegistry {
             "testWorkspaceModelDelegatesSlashCommandDispatchPlanning",
             "testWorkspaceModelDelegatesToolExecutionOverrideCombining"
         ]),
-        ("ParityWorkspaceProjectGateTests", [
+        Suite(fileName: "ParityWorkspaceProjectGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesProjectMetadataLoading",
             "testWorkspaceModelTestsDoNotOwnPureProjectLoaderCoverage",
             "testWorkspaceProjectExtensionIntegrationTestsOwnModelExtensionFlows",
@@ -79,11 +72,11 @@ enum ParityFocusedSuiteRegistry {
             "testWorkspaceWorktreeIntegrationTestsOwnModelWorktreeFlows",
             "testWorkspaceModelDelegatesWorktreeOpenRecords"
         ]),
-        ("ParityWorkspaceMemoryGateTests", [
+        Suite(fileName: "ParityWorkspaceMemoryGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesMemoryCommandOrchestration",
             "testWorkspaceMemoryIntegrationTestsOwnModelMemoryFlows"
         ]),
-        ("ParityWorkspaceIntegrationGateTests", [
+        Suite(fileName: "ParityWorkspaceIntegrationGateTests.swift", testNames: [
             "testWorkspaceMCPIntegrationTestsOwnModelMCPFlows",
             "testWorkspaceReviewIntegrationTestsOwnModelReviewFlows",
             "testFocusedFeedbackAndArtifactTestsOwnSurfaceSpecificFlows",
@@ -95,7 +88,7 @@ enum ParityFocusedSuiteRegistry {
             "testWorkspaceTerminalIntegrationTestsOwnModelTerminalFlows",
             "testWorkspaceModelTestsDoNotOwnRuntimeFactoryCoverage"
         ]),
-        ("ParityWorkspaceSidebarGateTests", [
+        Suite(fileName: "ParityWorkspaceSidebarGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesSidebarSelectionTransitions",
             "testSidebarRowActionsUseSharedPlannerAndExecutor",
             "testSidebarCommandPresentationIsSharedByNativeAndHTMLSurfaces",
@@ -103,53 +96,57 @@ enum ParityFocusedSuiteRegistry {
             "testWorkspaceSurfaceDelegatesSidebarSurfaceContracts",
             "testWorkspaceSurfaceDelegatesNavigationSurfaceBuilding"
         ]),
-        ("ParityMCPGateTests", [
+        Suite(fileName: "ParityMCPGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesMCPSupportTypes",
             "testMCPStdioProberDelegatesCodecAndResultMapping"
         ]),
-        ("ParityAutomationGateTests", [
+        Suite(fileName: "ParityAutomationGateTests.swift", testNames: [
             "testAutomationModelsLiveOutsideGeneralDomainModels",
             "testWorkspaceModelDelegatesAutomationStateMutations",
             "testWorkspaceSurfaceDelegatesAutomationsSurfaceBuilding"
         ]),
-        ("ParityWorkspaceRuntimeReviewGateTests", [
+        Suite(fileName: "ParityWorkspaceRuntimeReviewGateTests.swift", testNames: [
             "testNativeReviewPaneDelegatesFileHunkAndLineRendering",
             "testWorkspaceSurfaceDelegatesRuntimeIssueBuilding",
             "testWorkspaceSurfaceDelegatesRuntimeAndExecutionContextContracts",
             "testWorkspaceViewDelegatesRuntimeIssueRecoveryPlanning"
         ]),
-        ("ParityWorkspaceCommandGateTests", [
+        Suite(fileName: "ParityWorkspaceCommandGateTests.swift", testNames: [
             "testWorkspaceViewDelegatesCommandPlanning",
             "testWorkspaceSurfaceDelegatesCommandSurfaceBuilding",
             "testWorkspaceSurfaceDelegatesCommandPaletteContract"
         ]),
-        ("ParityWorkspaceSettingsSheetGateTests", [
+        Suite(fileName: "ParityWorkspaceSettingsSheetGateTests.swift", testNames: [
             "testWorkspaceSwiftUIViewDelegatesSheetPresentation",
             "testNativeSettingsDelegatesFocusedViewsAndDraftState",
             "testWorkspaceSurfaceDelegatesSettingsSurfaceContract"
         ]),
-        ("ParityWorkspaceTranscriptGateTests", [
+        Suite(fileName: "ParityWorkspaceTranscriptGateTests.swift", testNames: [
             "testWorkspaceSwiftUIViewDelegatesTranscriptFindAndContextBanner"
         ]),
-        ("ParityAgentGateTests", [
+        Suite(fileName: "ParityAgentGateTests.swift", testNames: [
             "testAgentRunnerDelegatesFinalAnswerFormatting",
             "testMockLLMClientLivesOutsideAgentRunnerFile",
             "testAgentStreamingHelpersLiveOutsideAgentRunnerFile",
             "testAgentToolStepRunnerLivesOutsideAgentRunnerFile"
         ]),
-        ("ParityTrustedRouterGateTests", [
+        Suite(fileName: "ParityTrustedRouterGateTests.swift", testNames: [
             "testTrustedRouterActionParserLivesOutsideTransportClient",
             "testTrustedRouterPromptBuilderLivesOutsideTransportClient",
             "testTrustedRouterAPIKeyResolutionLivesInFocusedResolver",
             "testTrustedRouterSafetyClientLivesOutsideActionTransportFile",
             "testTrustedRouterChatParametersLiveOutsideTransportClients"
         ]),
-        ("ParitySafetyGateTests", [
+        Suite(fileName: "ParitySafetyGateTests.swift", testNames: [
             "testStaticSafetyPolicyLivesOutsideReviewerControlFlow"
         ]),
-        ("ParityCoreModelGateTests", [
+        Suite(fileName: "ParityCoreModelGateTests.swift", testNames: [
             "testCoreToolModelsLiveOutsideGeneralDomainModels",
             "testProjectModelsLiveOutsideGeneralDomainModels"
         ])
     ]
+
+    static var requiredFileNames: [String] {
+        [supportFileName, manifestFileName] + suites.map(\.fileName)
+    }
 }
