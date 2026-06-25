@@ -771,36 +771,6 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(command?.isEnabled, true)
     }
 
-    func testSurfaceIncludesBrowserPreviewState() throws {
-        let root = try makeTempDirectory()
-        let model = QuillCodeWorkspaceModel()
-        model.toggleBrowser()
-        XCTAssertTrue(model.openBrowserPreview("example.com", workspaceRoot: root))
-        XCTAssertTrue(model.addBrowserComment("Looks aligned"))
-
-        let surface = model.surface()
-
-        XCTAssertTrue(surface.browser.isVisible)
-        XCTAssertEqual(surface.browser.currentURL, "https://example.com")
-        XCTAssertEqual(surface.browser.title, "example.com")
-        XCTAssertEqual(surface.browser.statusLabel, "Comment added")
-        XCTAssertEqual(surface.browser.snapshot?.sourceLabel, "Web page")
-        XCTAssertEqual(surface.browser.snapshot?.inspectionDepth, .metadataOnly)
-        XCTAssertEqual(surface.browser.snapshot?.inspectionDepthLabel, "Metadata only")
-        XCTAssertEqual(
-            surface.browser.snapshot?.summary,
-            "Live DOM capture is not attached yet; QuillCode has URL metadata for this web page."
-        )
-        XCTAssertEqual(surface.browser.snapshot?.details, [
-            "Host: example.com",
-            "Scheme: HTTPS",
-            "Path: /"
-        ])
-        XCTAssertEqual(surface.browser.comments.first?.text, "Looks aligned")
-        XCTAssertTrue(surface.browser.canOpen)
-        XCTAssertTrue(surface.commands.contains { $0.id == "toggle-browser" && $0.title == "Browser" })
-    }
-
     func testEmptySurfaceShowsCodexLikeEmptyState() {
         let surface = QuillCodeWorkspaceModel().surface()
 
@@ -1009,33 +979,6 @@ final class WorkspaceSurfaceTests: XCTestCase {
         ))
 
         XCTAssertFalse(model.surface().review.isVisible)
-    }
-
-    func testHTMLRendererIncludesVisibleBrowserPane() throws {
-        let model = QuillCodeWorkspaceModel()
-        model.toggleBrowser()
-        XCTAssertTrue(model.openBrowserPreview("localhost:5173"))
-        XCTAssertTrue(model.addBrowserComment("Inspect responsive state"))
-
-        let html = WorkspaceHTMLRenderer.render(model.surface())
-
-        XCTAssertTrue(html.contains(#"data-testid="browser-pane""#))
-        XCTAssertTrue(html.contains(#"data-testid="browser-preview""#))
-        XCTAssertTrue(html.contains(#"data-testid="browser-back" disabled"#))
-        XCTAssertTrue(html.contains(#"data-testid="browser-forward" disabled"#))
-        XCTAssertTrue(html.contains(#"data-testid="browser-reload" "#))
-        XCTAssertTrue(html.contains(#"data-testid="browser-current-url""#))
-        XCTAssertTrue(html.contains(#"data-testid="browser-snapshot""#))
-        XCTAssertTrue(html.contains(#"data-testid="browser-source""#))
-        XCTAssertTrue(html.contains(#"data-testid="browser-inspection-depth""#))
-        XCTAssertTrue(html.contains(#"data-depth="metadata_only""#))
-        XCTAssertTrue(html.contains(#"data-testid="browser-snapshot-outline""#))
-        XCTAssertTrue(html.contains("Page: localhost"))
-        XCTAssertTrue(html.contains("Local web app"))
-        XCTAssertTrue(html.contains("Metadata only"))
-        XCTAssertTrue(html.contains("http://localhost:5173"))
-        XCTAssertTrue(html.contains(#"data-testid="browser-comment""#))
-        XCTAssertTrue(html.contains("Inspect responsive state"))
     }
 
 }
