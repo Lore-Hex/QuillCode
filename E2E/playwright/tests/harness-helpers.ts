@@ -14,6 +14,24 @@ export async function clickSidebarTool(page: Page, testID: string) {
   await page.getByTestId(testID).click();
 }
 
+export function commandPaletteResult(page: Page, commandID: string) {
+  return page.locator(`[data-testid="command-palette-result"][data-command-id="${commandID}"]`);
+}
+
+export async function fillCommandPalette(page: Page, query: string) {
+  const input = page.getByTestId('command-palette-input');
+  await expect(input).toBeVisible();
+  await input.fill(query);
+  await expect(input).toHaveValue(query);
+}
+
+export async function clickCommandPaletteCommand(page: Page, query: string, commandID: string) {
+  await fillCommandPalette(page, query);
+  const result = commandPaletteResult(page, commandID);
+  await expect(result).toBeVisible();
+  await result.click();
+}
+
 export async function openTopBarOverflow(page: Page) {
   await page.getByTestId('top-bar-overflow-button').click();
   await expect(page.getByTestId('top-bar-overflow-menu')).toHaveAttribute('open', '');
