@@ -100,6 +100,23 @@ test('mock harness routes slash commands to workspace actions', async ({ page })
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.worktree.list');
   await expect(page.getByTestId('tool-card-output').last()).toContainText('/mock/QuillCode-feature');
 
+  await page.getByLabel('Message').fill('/worktree create slash-worktree --branch slash/demo --base main');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('project-item').first()).toContainText('slash-worktree');
+  await expect(page.getByTestId('top-bar-title')).toHaveText('Worktree: slash/demo');
+  await expect(page.getByTestId('message').last()).toContainText('Opened worktree slash-worktree at /mock/slash-worktree.');
+
+  await page.getByLabel('Message').fill('/worktree open slash-worktree');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('top-bar-title')).toHaveText('Worktree: slash-worktree');
+  await expect(page.getByTestId('message').last()).toContainText('Opened worktree slash-worktree at /mock/slash-worktree.');
+
+  await page.getByLabel('Message').fill('/worktree remove slash-worktree --force');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.worktree.remove');
+  await expect(page.getByTestId('tool-card-input').last()).toContainText('"force": true');
+  await expect(page.getByTestId('message').last()).toContainText('Removed worktree slash-worktree.');
+
   await page.getByLabel('Message').fill('/pr');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByLabel('Message')).toHaveValue('Create a pull request titled ');
@@ -132,6 +149,11 @@ test('mock harness suggests slash commands in the composer', async ({ page }) =>
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('slash-suggestions')).toHaveCount(0);
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.worktree.list');
+
+  await message.fill('/worktree c');
+  await expect(page.getByTestId('slash-suggestion').first()).toContainText('/worktree create path');
+  await page.keyboard.press('Tab');
+  await expect(message).toHaveValue('/worktree create ');
 
   await message.fill('/project r');
   await page.keyboard.press('ArrowDown');

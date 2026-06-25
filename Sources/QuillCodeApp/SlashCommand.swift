@@ -14,6 +14,9 @@ enum SlashCommand: Equatable {
     case threadFollowUp(String)
     case workspaceSchedule(String)
     case workspaceCommand(String)
+    case worktreeCreate(WorkspaceWorktreeCreateRequest)
+    case worktreeOpen(WorkspaceWorktreeOpenRequest)
+    case worktreeRemove(WorkspaceWorktreeRemoveRequest)
     case toolCall(ToolCall)
     case environmentAction(String?)
     case invalid(String)
@@ -52,7 +55,7 @@ enum SlashCommandParser {
         case "terminal", "term", "shell":
             return SlashTerminalCommandParser.parse(argument)
         case let workspaceCommand where SlashWorkspaceCommandParser.supports(workspaceCommand):
-            return SlashWorkspaceCommandParser.parse(name: workspaceCommand)
+            return SlashWorkspaceCommandParser.parse(name: workspaceCommand, argument: argument)
         case let memoryCommand where SlashMemoryCommandParser.supports(memoryCommand):
             return SlashMemoryCommandParser.parse(name: memoryCommand, argument: argument)
         case "pr", "pull-request", "pullrequest":

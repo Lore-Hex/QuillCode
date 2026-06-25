@@ -56,6 +56,56 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
         XCTAssertEqual(model.selectedThread?.projectID, projectID)
     }
 
+    func testSlashWorktreeCreateOpenAndRemoveUseTypedWorktreeFlow() async throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let parent = root.deletingLastPathComponent()
+        let worktreeName = "slash-worktree-\(UUID().uuidString)"
+        let branch = "slash-worktree-\(UUID().uuidString.prefix(8))"
+        let worktree = parent.appendingPathComponent(worktreeName).standardizedFileURL
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Slash Worktree Project")
+        model.selectProject(projectID)
+
+        model.setDraft("/worktree create \(worktreeName) --branch \(branch)")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: worktree.path))
+        XCTAssertEqual(model.selectedProject?.path, worktree.path)
+        XCTAssertEqual(model.selectedThread?.title, "Worktree: \(branch)")
+        XCTAssertEqual(model.root.topBar.projectName, worktreeName)
+
+        model.selectProject(projectID)
+        model.setDraft("/worktree open \(worktreeName)")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertEqual(model.selectedProject?.path, worktree.path)
+        XCTAssertEqual(model.selectedThread?.title, "Worktree: \(worktreeName)")
+        let openCard = try XCTUnwrap(worktreeCard(in: model, title: ToolDefinition.gitWorktreeOpen.name))
+        XCTAssertNotEqual(openCard.threadID, model.selectedThread?.id)
+        XCTAssertEqual(openCard.card.status, .done)
+        XCTAssertTrue(openCard.card.inputJSON?.contains(worktreeName) == true)
+
+        model.selectProject(projectID)
+        model.setDraft("/worktree remove \(worktreeName) --force")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: worktree.path))
+        XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.gitWorktreeRemove.name)
+    }
+
+    private func worktreeCard(
+        in model: QuillCodeWorkspaceModel,
+        title: String
+    ) -> (threadID: UUID, card: ToolCardState)? {
+        for thread in model.root.threads {
+            let cards = WorkspaceTranscriptSurfaceBuilder(thread: thread).toolCards()
+            if let card = cards.last(where: { $0.title == title }) {
+                return (thread.id, card)
+            }
+        }
+        return nil
+    }
+
     func testSlashEnvironmentActionListsAndRunsByName() async throws {
         let setup = try makeProjectWithLocalEnvironmentAction(
             scriptName: "bootstrap-env.sh",

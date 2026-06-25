@@ -24,5 +24,68 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
         XCTAssertEqual(SlashWorkspaceCommandParser.parse(name: "wt"), .workspaceCommand("git-worktree-list"))
         XCTAssertEqual(SlashCommandParser.parse("/worktree"), .workspaceCommand("git-worktree-list"))
         XCTAssertEqual(SlashCommandParser.parse("/wt"), .workspaceCommand("git-worktree-list"))
+        XCTAssertEqual(SlashCommandParser.parse("/worktree list"), .workspaceCommand("git-worktree-list"))
+        XCTAssertEqual(SlashCommandParser.parse("/wt ls"), .workspaceCommand("git-worktree-list"))
+    }
+
+    func testWorktreeCreateParsesPathBranchAndBase() {
+        XCTAssertEqual(
+            SlashCommandParser.parse(#"/worktree create "../quill code feature" --branch feature/quill --base main"#),
+            .worktreeCreate(.init(path: "../quill code feature", branch: "feature/quill", base: "main"))
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/wt add ../quick --from origin/main -b quick/work"),
+            .worktreeCreate(.init(path: "../quick", branch: "quick/work", base: "origin/main"))
+        )
+    }
+
+    func testWorktreeOpenAndRemoveParseTypedRequests() {
+        XCTAssertEqual(
+            SlashCommandParser.parse(#"/worktree open "../quill code feature""#),
+            .worktreeOpen(.init(path: "../quill code feature"))
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/worktree switch ../quick"),
+            .worktreeOpen(.init(path: "../quick"))
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse(#"/wt remove "../quill code feature" --force"#),
+            .worktreeRemove(.init(path: "../quill code feature", force: true))
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/wt rm ../quick -f"),
+            .worktreeRemove(.init(path: "../quick", force: true))
+        )
+    }
+
+    func testWorktreeSubcommandsRejectAmbiguousOrMissingArguments() {
+        XCTAssertEqual(
+            SlashCommandParser.parse("/worktree create"),
+            .invalid("Missing worktree path. Try /worktree create ../feature --branch feature/name.")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/worktree open one two"),
+            .invalid("Too many worktree open paths. Quote paths with spaces.")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/worktree open --bad"),
+            .invalid("Unknown worktree open option '--bad'.")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/worktree list extra"),
+            .invalid("Usage: /worktree list.")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/worktree create ../feature --branch"),
+            .invalid("Missing branch after --branch.")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse("/worktree remove ../feature --hard"),
+            .invalid("Unknown worktree remove option '--hard'.")
+        )
+        XCTAssertEqual(
+            SlashCommandParser.parse(#"/worktree open "../feature"#),
+            .invalid("Unclosed quote in worktree command.")
+        )
     }
 }
