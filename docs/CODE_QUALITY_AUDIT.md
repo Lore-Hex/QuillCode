@@ -4927,3 +4927,21 @@ Current strict grades:
 
 Remaining risk:
 - Split the remaining broad suite by feature family: MCP implementation gates, automation gates, and final workspace surface/view gates.
+
+## 2026-06-24 MCP Parity Gate Split
+
+Overall grade after this slice: **A MCP-gate ownership, A drift protection, B+ catch-all size**.
+
+After the workspace integration and sidebar splits, MCP process/runtime ownership and MCP stdio prober decomposition were still in the broad parity file. Those checks protect plugin-style extension behavior and cross-process tool execution, so they now have a focused owner.
+
+What changed:
+- Added `ParityMCPGateTests` for workspace MCP runtime boundaries and stdio codec/result-mapper boundaries.
+- Registered the MCP suite in the parity drift guard.
+- Reduced `ParityGateTests.swift` again without changing product behavior.
+
+Current strict grades:
+- `ParityMCPGateTests.swift`: **A**. The suite has a clear domain owner covering MCP runtime boundaries and low-level stdio plumbing.
+- `ParityGateTests.swift`: **B+**. Smaller, but still owns automation, terminal, review/runtime, and remaining surface-boundary gates.
+
+Remaining risk:
+- Continue draining `ParityGateTests.swift` by feature family. Good next splits: automation/terminal gates and runtime/review surface gates.
