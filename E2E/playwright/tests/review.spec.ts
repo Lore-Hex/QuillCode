@@ -1,5 +1,93 @@
 import { test, expect } from '@playwright/test';
-import { harnessURL } from './harness-helpers';
+import { elementRect, harnessURL } from './harness-helpers';
+
+test('mock harness exposes actionable approval buttons on review cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.evaluate(() => {
+    const harness = window as typeof window & {
+      addToolCard: (card: Record<string, unknown>) => void;
+      render: () => void;
+    };
+    harness.addToolCard({
+      id: 'shell-review',
+      title: 'host.shell.run',
+      subtitle: 'Ready to run · whoami',
+      status: 'review',
+      reviewState: 'ready',
+      density: 'expanded',
+      inputJSON: JSON.stringify({ cmd: 'whoami' }, null, 2),
+      isExpanded: true,
+      actions: [
+        {
+          id: 'tool-card-action-approve-approval-1',
+          title: 'Run',
+          kind: 'approve',
+          requestID: 'approval-1',
+          style: 'primary'
+        },
+        {
+          id: 'tool-card-action-deny-approval-1',
+          title: 'Skip',
+          kind: 'deny',
+          requestID: 'approval-1',
+          style: 'secondary'
+        }
+      ]
+    });
+    harness.render();
+  });
+
+  await expect(page.getByTestId('tool-card')).toHaveCount(1);
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'review');
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-review-state', 'ready');
+  await expect(page.getByTestId('tool-card-status')).toHaveText('Ready');
+  await expect(page.getByTestId('tool-card-actions')).toBeVisible();
+  await expect(page.getByTestId('tool-card-action').filter({ hasText: 'Run' })).toBeVisible();
+  await expect(page.getByTestId('tool-card-action').filter({ hasText: 'Skip' })).toBeVisible();
+  const runBounds = await elementRect(page, '[data-testid="tool-card-action"]:has-text("Run")');
+  const skipBounds = await elementRect(page, '[data-testid="tool-card-action"]:has-text("Skip")');
+  expect(runBounds.width).toBeGreaterThan(skipBounds.width);
+
+  await page.getByTestId('tool-card-action').filter({ hasText: 'Run' }).click();
+
+  await expect(page.getByTestId('tool-card')).toHaveCount(2);
+  await expect(page.getByTestId('tool-card').first()).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-subtitle').first()).toHaveText('Approved · whoami');
+  await expect(page.getByTestId('tool-card-actions')).toHaveCount(0);
+  await expect(page.getByTestId('tool-card').nth(1)).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-output').last()).toContainText('mock-user');
+  await expect(page.getByTestId('message').last()).toContainText('Approved and ran the tool.');
+});
+
+test('mock harness shows denied review cards as needs review without actions', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.evaluate(() => {
+    const harness = window as typeof window & {
+      addToolCard: (card: Record<string, unknown>) => void;
+      render: () => void;
+    };
+    harness.addToolCard({
+      id: 'shell-blocked-review',
+      title: 'host.shell.run',
+      subtitle: 'Blocked · rm -rf /',
+      status: 'review',
+      reviewState: 'needsReview',
+      density: 'expanded',
+      inputJSON: JSON.stringify({ cmd: 'rm -rf /' }, null, 2),
+      isExpanded: true,
+      actions: []
+    });
+    harness.render();
+  });
+
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'review');
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-review-state', 'needsReview');
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status-label', 'Needs review');
+  await expect(page.getByTestId('tool-card-status')).toHaveText('Needs review');
+  await expect(page.getByTestId('tool-card-action')).toHaveCount(0);
+});
 
 test('mock harness shows git review summary for diff flow', async ({ page }) => {
   await page.goto(harnessURL());

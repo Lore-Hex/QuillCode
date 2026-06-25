@@ -1,14 +1,10 @@
 import { test, expect } from '@playwright/test';
 import {
+  elementRect,
   harnessURL,
   openSidebarTools,
   openTopBarOverflow
 } from './harness-helpers';
-
-function expectPresent<T>(value: T | null, label: string): T {
-  expect(value, label).not.toBeNull();
-  return value as T;
-}
 
 test('mock harness executes simple command flow', async ({ page }) => {
   await page.goto(harnessURL());
@@ -29,11 +25,9 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
   await expect(page.locator('[data-testid="mode-picker-button"] .mode-dot')).toHaveCount(1);
   await expect(page.getByTestId('composer-agent-status')).toHaveCount(0);
-  const modelButtonBox = await page.getByTestId('model-picker-button').boundingBox();
-  const modeButtonBox = await page.getByTestId('mode-picker-button').boundingBox();
-  const modelButtonBounds = expectPresent(modelButtonBox, 'model picker button should have bounds');
-  const modeButtonBounds = expectPresent(modeButtonBox, 'mode picker button should have bounds');
-  expect(modeButtonBounds.x - (modelButtonBounds.x + modelButtonBounds.width)).toBeGreaterThanOrEqual(8);
+  const modelButtonBounds = await elementRect(page, '[data-testid="model-picker-button"]');
+  const modeButtonBounds = await elementRect(page, '[data-testid="mode-picker-button"]');
+  expect(modeButtonBounds.left - modelButtonBounds.right).toBeGreaterThanOrEqual(8);
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-category')).toHaveCount(2);
   await page.getByTestId('model-picker-button').click();
@@ -128,94 +122,4 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('message').filter({ hasText: 'You are `mock-user` in this workspace.' })).toHaveCount(2);
   await expect(page.getByTestId('message-retry')).toHaveCount(1);
   await expect(page.getByTestId('message-use-as-draft')).toHaveCount(2);
-});
-
-test('mock harness exposes actionable approval buttons on review cards', async ({ page }) => {
-  await page.goto(harnessURL());
-
-  await page.evaluate(() => {
-    const harness = window as typeof window & {
-      addToolCard: (card: Record<string, unknown>) => void;
-      render: () => void;
-    };
-    harness.addToolCard({
-      id: 'shell-review',
-      title: 'host.shell.run',
-      subtitle: 'Ready to run · whoami',
-      status: 'review',
-      reviewState: 'ready',
-      density: 'expanded',
-      inputJSON: JSON.stringify({ cmd: 'whoami' }, null, 2),
-      isExpanded: true,
-      actions: [
-        {
-          id: 'tool-card-action-approve-approval-1',
-          title: 'Run',
-          kind: 'approve',
-          requestID: 'approval-1',
-          style: 'primary'
-        },
-        {
-          id: 'tool-card-action-deny-approval-1',
-          title: 'Skip',
-          kind: 'deny',
-          requestID: 'approval-1',
-          style: 'secondary'
-        }
-      ]
-    });
-    harness.render();
-  });
-
-  await expect(page.getByTestId('tool-card')).toHaveCount(1);
-  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'review');
-  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-review-state', 'ready');
-  await expect(page.getByTestId('tool-card-status')).toHaveText('Ready');
-  await expect(page.getByTestId('tool-card-actions')).toBeVisible();
-  await expect(page.getByTestId('tool-card-action').filter({ hasText: 'Run' })).toBeVisible();
-  await expect(page.getByTestId('tool-card-action').filter({ hasText: 'Skip' })).toBeVisible();
-  const runBox = await page.getByTestId('tool-card-action').filter({ hasText: 'Run' }).boundingBox();
-  const skipBox = await page.getByTestId('tool-card-action').filter({ hasText: 'Skip' }).boundingBox();
-  const runBounds = expectPresent(runBox, 'run approval action should have bounds');
-  const skipBounds = expectPresent(skipBox, 'skip approval action should have bounds');
-  expect(runBounds.width).toBeGreaterThan(skipBounds.width);
-
-  await page.getByTestId('tool-card-action').filter({ hasText: 'Run' }).click();
-
-  await expect(page.getByTestId('tool-card')).toHaveCount(2);
-  await expect(page.getByTestId('tool-card').first()).toHaveAttribute('data-status', 'done');
-  await expect(page.getByTestId('tool-card-subtitle').first()).toHaveText('Approved · whoami');
-  await expect(page.getByTestId('tool-card-actions')).toHaveCount(0);
-  await expect(page.getByTestId('tool-card').nth(1)).toHaveAttribute('data-status', 'done');
-  await expect(page.getByTestId('tool-card-output').last()).toContainText('mock-user');
-  await expect(page.getByTestId('message').last()).toContainText('Approved and ran the tool.');
-});
-
-test('mock harness shows denied review cards as needs review without actions', async ({ page }) => {
-  await page.goto(harnessURL());
-
-  await page.evaluate(() => {
-    const harness = window as typeof window & {
-      addToolCard: (card: Record<string, unknown>) => void;
-      render: () => void;
-    };
-    harness.addToolCard({
-      id: 'shell-blocked-review',
-      title: 'host.shell.run',
-      subtitle: 'Blocked · rm -rf /',
-      status: 'review',
-      reviewState: 'needsReview',
-      density: 'expanded',
-      inputJSON: JSON.stringify({ cmd: 'rm -rf /' }, null, 2),
-      isExpanded: true,
-      actions: []
-    });
-    harness.render();
-  });
-
-  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'review');
-  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-review-state', 'needsReview');
-  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status-label', 'Needs review');
-  await expect(page.getByTestId('tool-card-status')).toHaveText('Needs review');
-  await expect(page.getByTestId('tool-card-action')).toHaveCount(0);
 });
