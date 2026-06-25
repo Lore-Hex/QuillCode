@@ -57,4 +57,24 @@ final class ParityWorkspaceMemoryGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelTests.contains("testMemoryDeleteWorkspaceCommandRemovesGlobalMemoryAndRefreshesThreadSurface"), "WorkspaceModelTests should not own memory delete integration flows.")
         XCTAssertFalse(broadSurfaceTests.contains("testSurfaceIncludesMemorySummariesAndCommand"), "WorkspaceSurfaceTests should not own memory surface summaries.")
     }
+
+    func testPlaywrightMemoryFlowsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let memoriesSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("memories.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let memoryFlowName = "shows memories from sidebar and command palette"
+
+        XCTAssertTrue(memoriesSpecText.contains("harnessURL()"), "Focused memory flows should reuse the shared harness URL helper.")
+        XCTAssertTrue(memoriesSpecText.contains("clickSidebarTool"), "Focused memory flows should cover sidebar and command-palette memory entry points.")
+        XCTAssertTrue(memoriesSpecText.contains("/remember Prefer small reviewable commits"), "Focused memory flows should cover memory creation through slash command text.")
+        XCTAssertTrue(memoriesSpecText.contains("memory-delete"), "Focused memory flows should cover memory deletion.")
+        XCTAssertTrue(memoriesSpecText.contains(memoryFlowName), "\(memoryFlowName) should live in memories.spec.ts.")
+        XCTAssertFalse(coreSpecText.contains(memoryFlowName), "\(memoryFlowName) should not drift back into core.spec.ts.")
+    }
 }

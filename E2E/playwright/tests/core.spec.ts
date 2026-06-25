@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
-  clickSidebarTool,
+  harnessURL,
   openSidebarTools,
   openTopBarOverflow
 } from './harness-helpers';
@@ -11,7 +11,7 @@ function expectPresent<T>(value: T | null, label: string): T {
 }
 
 test('mock harness executes simple command flow', async ({ page }) => {
-  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+  await page.goto(harnessURL());
   await expect(page.getByTestId('workspace')).toBeVisible();
   await expect(page.getByTestId('top-bar')).toBeVisible();
   await expect(page.getByTestId('sidebar')).toBeVisible();
@@ -131,7 +131,7 @@ test('mock harness executes simple command flow', async ({ page }) => {
 });
 
 test('mock harness exposes actionable approval buttons on review cards', async ({ page }) => {
-  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+  await page.goto(harnessURL());
 
   await page.evaluate(() => {
     const harness = window as typeof window & {
@@ -192,7 +192,7 @@ test('mock harness exposes actionable approval buttons on review cards', async (
 });
 
 test('mock harness shows denied review cards as needs review without actions', async ({ page }) => {
-  await page.goto('file://' + process.cwd() + '/../harness/index.html');
+  await page.goto(harnessURL());
 
   await page.evaluate(() => {
     const harness = window as typeof window & {
@@ -218,155 +218,4 @@ test('mock harness shows denied review cards as needs review without actions', a
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status-label', 'Needs review');
   await expect(page.getByTestId('tool-card-status')).toHaveText('Needs review');
   await expect(page.getByTestId('tool-card-action')).toHaveCount(0);
-});
-
-test('mock harness preserves transcript scroll intent as new events append', async ({ page }) => {
-  await page.goto('file://' + process.cwd() + '/../harness/index.html');
-
-  await page.evaluate(() => {
-    const harness = window as unknown as { sendMessage: (value: string) => void };
-    for (let index = 0; index < 24; index += 1) {
-      harness.sendMessage(`run whoami ${index}`);
-    }
-  });
-
-  const timeline = page.getByTestId('timeline');
-  await expect(timeline).toBeVisible();
-  const scrollable = await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight);
-  expect(scrollable).toBe(true);
-
-  const midScroll = await page.evaluate(() => {
-    const nextScrollY = Math.floor((document.documentElement.scrollHeight - window.innerHeight) / 2);
-    window.scrollTo(0, nextScrollY);
-    return window.scrollY;
-  });
-  await page.evaluate(() => {
-    const harness = window as unknown as { sendMessage: (value: string) => void };
-    harness.sendMessage('run whoami while reading history');
-  });
-  const afterMidAppend = await page.evaluate(() => window.scrollY);
-  expect(Math.abs(afterMidAppend - midScroll)).toBeLessThanOrEqual(1);
-
-  await page.evaluate(() => {
-    window.scrollTo(0, document.documentElement.scrollHeight);
-  });
-  await page.evaluate(() => {
-    const harness = window as unknown as { sendMessage: (value: string) => void };
-    harness.sendMessage('run whoami at bottom');
-  });
-  const bottomDistance = await page.evaluate(() =>
-    Math.max(0, document.documentElement.scrollHeight - window.innerHeight - window.scrollY)
-  );
-  expect(bottomDistance).toBeLessThanOrEqual(1);
-});
-
-test('mock harness shows model-authored task plan in Activity', async ({ page }) => {
-  await page.goto('file://' + process.cwd() + '/../harness/index.html');
-
-  await page.getByLabel('Message').fill('plan the QuillCode work');
-  await page.getByRole('button', { name: 'Send' }).click();
-
-  await expect(page.getByTestId('tool-card-title')).toHaveText('host.plan.update');
-  await expect(page.getByText('Updated the task plan.')).toBeVisible();
-
-  await clickSidebarTool(page, 'activity-button');
-  await expect(page.getByTestId('activity-pane')).toBeVisible();
-  await expect(page.getByTestId('activity-plan')).toHaveCount(3);
-  await expect(page.getByTestId('activity-plan').nth(0)).toContainText('Inspect current state');
-  await expect(page.getByTestId('activity-plan').nth(0)).toContainText('Done');
-  await expect(page.getByTestId('activity-plan').nth(1)).toContainText('Implement requested change');
-  await expect(page.getByTestId('activity-plan').nth(1)).toContainText('Running');
-  await expect(page.getByTestId('activity-plan').nth(1)).toContainText('Keep the slice reviewable.');
-  await expect(page.getByTestId('activity-plan').nth(2)).toContainText('Validate and summarize');
-  await expect(page.getByTestId('activity-plan').nth(2)).toContainText('Pending');
-  await expect(page.getByTestId('activity-plan-section')).toContainText('3 items');
-});
-
-test('mock harness shows context pressure banner and compacts or forks from latest turn', async ({ page }) => {
-  test.setTimeout(60000);
-  await page.goto('file://' + process.cwd() + '/../harness/index.html');
-
-  const longPrompt = 'long context ' + 'word '.repeat(22000);
-  await page.getByLabel('Message').fill(longPrompt);
-  await page.getByRole('button', { name: 'Send' }).click();
-
-  await expect(page.getByTestId('context-banner')).toBeVisible();
-  await expect(page.getByTestId('context-banner-title')).toContainText(/context limit/i);
-
-  await page.getByLabel('Message').fill('run whoami');
-  await page.getByRole('button', { name: 'Send' }).click();
-  await expect(page.getByTestId('context-banner')).toBeVisible();
-
-  await page.getByTestId('context-compact').click();
-
-  await expect(page.getByTestId('top-bar-title')).toContainText('Compact:');
-  await expect(page.getByTestId('context-banner')).toHaveCount(0);
-  await expect(page.getByTestId('message').first()).toContainText('Context compacted from');
-  await expect(page.getByTestId('message').nth(1)).toContainText('run whoami');
-
-  await page.getByRole('textbox', { name: 'Message' }).fill('long context again ' + 'word '.repeat(22000));
-  await page.getByRole('button', { name: 'Send' }).click();
-  await expect(page.getByTestId('context-banner')).toBeVisible();
-  await page.getByRole('textbox', { name: 'Message' }).fill('run whoami');
-  await page.getByRole('button', { name: 'Send' }).click();
-  await expect(page.getByTestId('context-banner')).toBeVisible();
-
-  await page.getByTestId('context-fork-last').click();
-
-  await expect(page.getByTestId('top-bar-title')).toContainText('Fork:');
-  await expect(page.getByTestId('context-banner')).toHaveCount(0);
-  await expect(page.getByTestId('message').first()).toContainText('run whoami');
-  await expect(page.getByText('You are `mock-user` in this workspace.')).toBeVisible();
-});
-test('mock harness shows memories from sidebar and command palette', async ({ page }) => {
-  await page.goto('file://' + process.cwd() + '/../harness/index.html');
-
-  await expect(page.getByTestId('project-memories-status')).toHaveText('2 memories');
-  await clickSidebarTool(page, 'memories-button');
-
-  await expect(page.getByTestId('memories-pane')).toBeVisible();
-  await expect(page.getByTestId('memories-subtitle')).toHaveText('1 global memory · 1 project memory');
-  await expect(page.getByTestId('memory-item')).toHaveCount(2);
-  await expect(page.getByTestId('memory-title').first()).toHaveText('Preferences');
-  await expect(page.getByTestId('memory-path').first()).toHaveText('memories/preferences.md');
-  await expect(page.getByTestId('memory-delete')).toHaveCount(1);
-  await expect(page.getByTestId('memories-add')).toBeVisible();
-
-  await clickSidebarTool(page, 'command-palette-button');
-  await page.getByLabel('Search commands').fill('>memories');
-  await page.getByTestId('command-palette-result').filter({ hasText: 'Memories' }).click();
-
-  await expect(page.getByTestId('memories-pane')).toHaveCount(0);
-
-  await clickSidebarTool(page, 'command-palette-button');
-  await page.getByLabel('Search commands').fill('>save');
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
-  await expect(page.getByTestId('command-palette-result')).toContainText('Add memory');
-  await page.getByTestId('command-palette-result').click();
-
-  await expect(page.getByLabel('Message')).toHaveValue('/remember ');
-  await page.getByLabel('Message').fill('/remember Prefer small reviewable commits');
-  await page.getByRole('button', { name: 'Send' }).click();
-
-  await expect(page.getByText('Saved memory: Prefer Small Reviewable Commits. It will be included as background context in future turns.')).toBeVisible();
-  await expect(page.getByTestId('project-memories-status')).toHaveText('3 memories');
-  await expect(page.getByTestId('top-bar-title')).toHaveText('Memory: Prefer Small Reviewable Commits');
-
-  await clickSidebarTool(page, 'memories-button');
-  await expect(page.getByTestId('memories-pane')).toBeVisible();
-  await expect(page.getByTestId('memories-subtitle')).toHaveText('2 global memories · 1 project memory');
-  await expect(page.getByTestId('memory-item')).toHaveCount(3);
-  await expect(page.getByTestId('memory-title').first()).toHaveText('Prefer Small Reviewable Commits');
-  await expect(page.getByTestId('memory-path').first()).toContainText('memories/manual-');
-  await expect(page.getByTestId('memory-delete')).toHaveCount(2);
-
-  await page.getByTestId('memory-delete').first().click();
-
-  await expect(page.getByText('Forgot memory: Prefer Small Reviewable Commits. It will no longer be included as background context.')).toBeVisible();
-  await expect(page.getByTestId('project-memories-status')).toHaveText('2 memories');
-  await expect(page.getByTestId('top-bar-title')).toHaveText('Forgot memory: Prefer Small Reviewable Commits');
-  await expect(page.getByTestId('memories-subtitle')).toHaveText('1 global memory · 1 project memory');
-  await expect(page.getByTestId('memory-item')).toHaveCount(2);
-  await expect(page.getByTestId('memory-title').first()).toHaveText('Preferences');
-  await expect(page.getByTestId('memory-delete')).toHaveCount(1);
 });

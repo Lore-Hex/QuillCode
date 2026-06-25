@@ -5676,3 +5676,24 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `core.spec.ts` by feature family. Good next slices are memory/context/activity flows and review-card behavior.
+
+## 2026-06-25 Playwright Workspace State And Memory Spec Split
+
+Overall grade after this slice: **A workspace state E2E ownership, A memory coverage, A core smoke spec**.
+
+`core.spec.ts` still owned transcript scroll retention, model-authored Activity plans, context pressure compaction/forking, and memory creation/deletion. These are durable workspace state and memory flows rather than core startup smoke, so keeping them in `core.spec.ts` made regressions harder to isolate.
+
+What changed:
+- Added `workspace-state.spec.ts` for transcript scroll intent, Activity plan rendering, and context pressure compact/fork flows.
+- Added `memories.spec.ts` for sidebar and command-palette memory flows, including `/remember` creation and deletion.
+- Removed those flows from `core.spec.ts`, leaving core focused on initial workspace command execution and review-card smoke after the shortcut split.
+- Added parity gates that keep state and memory flows in focused specs and registered them in the focused-suite manifest.
+
+Current strict grades:
+- `E2E/playwright/tests/core.spec.ts`: **A**. It now acts like a real smoke spec instead of a catch-all E2E bucket.
+- `E2E/playwright/tests/workspace-state.spec.ts`: **A**. It owns context, Activity, and transcript state flows with a cohesive state boundary.
+- `E2E/playwright/tests/memories.spec.ts`: **A**. It owns memory UX and persistence-facing command flows.
+- `ParityWorkspaceSurfaceGateTests.swift` and `ParityWorkspaceMemoryGateTests.swift`: **A**. They now guard focused Playwright ownership for the remaining extracted flow families.
+
+Remaining risk:
+- `core.spec.ts` still includes both the full first-run command smoke and review-card smoke. That is acceptable for now, but the next quality slice could move review-card approval/denial smoke into `review.spec.ts` if core should become a single first-run scenario.
