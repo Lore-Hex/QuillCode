@@ -5211,3 +5211,23 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `WorkspaceSurfaceTests.swift` by feature family. Good next slices are review surface ownership and memory/extensions surface ownership.
+
+## 2026-06-24 Playwright Browser Spec Split
+
+Overall grade after this slice: **A browser E2E ownership, A shared harness helper boundary, B+ broad Playwright core spec**.
+
+The mock Playwright suite is valuable because it catches Codex-like UI regressions quickly, but `core.spec.ts` was still the owner for browser preview flows. That made browser failures look like global core failures and kept the largest spec file harder for parallel agents to edit safely.
+
+What changed:
+- Added `browser.spec.ts` for browser preview, session, navigation, comments, and chat-to-browser flows.
+- Added `harness-helpers.ts` for shared harness URL and sidebar tool navigation helpers.
+- Removed browser-specific E2E flows from `core.spec.ts` while keeping broad smoke and cross-feature flows there.
+- Added a browser parity gate that enforces focused browser E2E ownership and registered `ParityBrowserGateTests` in the focused-suite manifest.
+
+Current strict grades:
+- `E2E/playwright/tests/browser.spec.ts`: **A**. It owns one browser surface area and keeps browser expectations reviewable.
+- `E2E/playwright/tests/harness-helpers.ts`: **A**. It is tiny, typed, and avoids helper drift between focused specs.
+- `E2E/playwright/tests/core.spec.ts`: **B+**. Smaller and healthier, but still owns many unrelated UI families. Continue splitting settings/runtime, review, terminal, extensions, and sidebar flows into focused specs.
+
+Remaining risk:
+- `E2E/harness/index.html` is still a single large static harness. Once the spec files are split by feature, the next larger A+ step is modularizing the harness state/render/event handlers by pane.

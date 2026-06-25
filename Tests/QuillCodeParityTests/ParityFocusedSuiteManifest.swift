@@ -26,6 +26,18 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityWorkspaceSurfaceGateTests.swift", testNames: [
             "testWorkspaceSurfaceDelegatesSecondaryPaneSurfaceContracts"
         ]),
+        Suite(fileName: "ParityBrowserGateTests.swift", testNames: [
+            "testWorkspaceModelDelegatesBrowserSurfaceTypes",
+            "testBrowserInspectorDelegatesStaticHTMLSnapshotExtraction",
+            "testBrowserLiveDOMCaptureStaysBehindAdapterContract",
+            "testWorkspaceModelDelegatesBrowserStateTransitions",
+            "testWorkspaceModelDelegatesBrowserLocationResolving",
+            "testWorkspaceBrowserIntegrationTestsOwnModelBrowserFlows",
+            "testBrowserAgentToolsShareFocusedExecutor",
+            "testWorkspaceHTMLRendererDelegatesBrowserRendering",
+            "testBrowserArchitectureGatesStayOutOfBroadSuite",
+            "testPlaywrightBrowserFlowsStayInFocusedSpec"
+        ]),
         Suite(fileName: "ParityWorkspaceModelGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesToolCardSurfaceTypes",
             "testWorkspaceModelDelegatesProjectContextRefresh",
