@@ -5092,3 +5092,21 @@ Current strict grades:
 
 Remaining risk:
 - The focused-suite registry table is still hand-maintained. If it grows much further, move it into a data helper or manifest so the global gate stays declarative.
+
+## 2026-06-24 Focused Suite Registry Helper
+
+Overall grade after this slice: **A parity registry shape, A merge ergonomics, A global gate readability**.
+
+After the safety/core split, `ParityGateTests` no longer owned feature-specific assertions, but it still carried the full focused-suite manifest inline. That made the global gate look heavier than its actual responsibility and created an easy merge hotspot for agents adding new parity slices.
+
+What changed:
+- Added `ParityFocusedSuiteRegistry` to own required parity test files and focused-suite test names.
+- Updated `ParityGateTests` to consume the registry helper instead of carrying manifest data inline.
+- Added a guard so the focused-suite registry data does not drift back into the global gate.
+
+Current strict grades:
+- `ParityFocusedSuiteRegistry.swift`: **A**. It has one data-manifest responsibility and no test execution logic.
+- `ParityGateTests.swift`: **A**. It now reads as global hygiene plus registry enforcement, not a mixed feature/assertion dump.
+
+Remaining risk:
+- If the registry grows substantially again, the next step is a generated or declarative manifest file; for now a typed Swift helper is simple and keeps CI fast.
