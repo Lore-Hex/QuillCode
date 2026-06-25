@@ -5986,3 +5986,23 @@ Current strict grades:
 
 Remaining risk:
 - `runToolCall` still sequences status, executor construction, transcript recording, persistence, and final status. A future extraction could group execution plus recording only if it preserves `browser` and `lastError` mutation semantics cleanly.
+
+## 2026-06-25 Tool Run Lifecycle Planner
+
+Overall grade after this slice: **A tool-run lifecycle planning, A focused status coverage, A- WorkspaceModel tool path**.
+
+`runToolCall` still chose the started and finished top-bar states inline. That was not a large defect, but it kept lifecycle policy next to routing, event recording, thread persistence, and actor-owned browser/error mutation. The next small extraction was to name that policy without pretending the whole execution path is pure.
+
+What changed:
+- Added `WorkspaceToolRunLifecyclePlanner` with typed start and finish plans for error clearing, returned primary result, and final top-bar status.
+- Routed `WorkspaceModel.runToolCall` start and finish status selection through the planner while leaving actor-isolated mutation in the model.
+- Added focused unit tests for start state, all-success execution, failed follow-up execution, and failed primary execution.
+- Added a parity gate so `runToolCall` does not reintroduce inline started/final status selection.
+
+Current strict grades:
+- `WorkspaceToolRunLifecyclePlanner.swift`: **A**. It is tiny, pure, and deliberately limited to lifecycle status decisions. It does not know about routers, persistence, browser state, or thread mutation.
+- `WorkspaceModel.runToolCall`: **A-**. It now delegates project/context preparation, execution, event recording, and lifecycle planning, but still owns the actor-isolated orchestration that has to mutate `browser`, `lastError`, selected thread state, and persistence.
+- `WorkspaceToolRunLifecyclePlannerTests.swift`: **A**. It covers the lifecycle branch behavior directly, including the subtle case where a successful primary tool still leaves the overall execution failed because a follow-up failed.
+
+Remaining risk:
+- `runToolCall` still sequences executor construction, event recording, selected-thread persistence, and final UI update. That is acceptable for now because those steps share actor-bound state; the next extraction should only happen if it can preserve those mutation semantics without adding callback-heavy indirection.

@@ -462,6 +462,25 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(runToolCallBody.contains("thread.memories ="), "runToolCall should not assign memory snapshots inline.")
     }
 
+    func testWorkspaceModelDelegatesToolRunLifecyclePlanning() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let lifecycleText = try Self.appSourceText(named: "WorkspaceToolRunLifecyclePlanner.swift")
+        let runToolCallStart = try XCTUnwrap(modelText.range(of: "public func runToolCall"))
+        let runToolCallEnd = try XCTUnwrap(modelText.range(
+            of: "public func runTerminalCommand",
+            range: runToolCallStart.upperBound..<modelText.endIndex
+        ))
+        let runToolCallBody = String(modelText[runToolCallStart.lowerBound..<runToolCallEnd.lowerBound])
+
+        XCTAssertTrue(lifecycleText.contains("enum WorkspaceToolRunLifecyclePlanner"), "Tool-run lifecycle status should live in a focused planner.")
+        XCTAssertTrue(lifecycleText.contains("static func started"), "Tool-run start lifecycle should be directly testable.")
+        XCTAssertTrue(lifecycleText.contains("static func finished"), "Tool-run finish lifecycle should be directly testable.")
+        XCTAssertTrue(runToolCallBody.contains("WorkspaceToolRunLifecyclePlanner.started"), "WorkspaceModel should delegate tool-run start lifecycle.")
+        XCTAssertTrue(runToolCallBody.contains("WorkspaceToolRunLifecyclePlanner.finished"), "WorkspaceModel should delegate tool-run finish lifecycle.")
+        XCTAssertFalse(runToolCallBody.contains("TopBarAgentStatusLabel.running"), "runToolCall should not choose started status inline.")
+        XCTAssertFalse(runToolCallBody.contains("execution.ok ?"), "runToolCall should not choose final status inline.")
+    }
+
     func testWorkspaceModelDelegatesShellToolCallPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceShellToolCallPlanner.swift")

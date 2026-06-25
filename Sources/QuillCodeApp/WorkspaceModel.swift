@@ -1086,8 +1086,9 @@ public final class QuillCodeWorkspaceModel {
                 globalMemories: globalMemories
             )
         }
-        lastError = nil
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
+        let startPlan = WorkspaceToolRunLifecyclePlanner.started()
+        lastError = startPlan.lastError
+        refreshTopBar(agentStatus: startPlan.agentStatus)
 
         let router = ToolRouter(workspaceRoot: workspaceRoot)
         let execution = workspaceToolCallExecutor(router: router).execute(
@@ -1095,7 +1096,7 @@ public final class QuillCodeWorkspaceModel {
             browser: &browser,
             lastError: &lastError
         )
-        let result = execution.primary.result
+        let finishPlan = WorkspaceToolRunLifecyclePlanner.finished(execution: execution)
         mutateSelectedThread { thread in
             WorkspaceToolEventRecorder.append(execution: execution, to: &thread)
         }
@@ -1103,9 +1104,8 @@ public final class QuillCodeWorkspaceModel {
         if let thread = selectedThread {
             threadPersistence.save(thread)
         }
-        let status = execution.ok ? TopBarAgentStatusLabel.idle : TopBarAgentStatusLabel.failed
-        refreshTopBar(agentStatus: status)
-        return result
+        refreshTopBar(agentStatus: finishPlan.agentStatus)
+        return finishPlan.result
     }
 
     public func runTerminalCommand(workspaceRoot: URL) async {
