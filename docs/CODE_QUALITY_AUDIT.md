@@ -5128,3 +5128,22 @@ Current strict grades:
 
 Remaining risk:
 - The manifest is still maintained by hand, which is acceptable at this size. If parity suites continue to grow rapidly, move to a generated manifest with a validation script.
+
+## 2026-06-24 Workspace Surface Test Ownership Split
+
+Overall grade after this slice: **A activity surface ownership, A automation surface ownership, B+ broad workspace surface smoke**.
+
+`WorkspaceSurfaceTests.swift` had become another mixed surface catch-all. It still provided good regression coverage, but activity-plan assertions and automation-pane assertions belonged with their focused integration suites. Moving those tests reduces the broad file's responsibility and makes failures route to the right owner faster.
+
+What changed:
+- Moved activity pane, authored plan, command toggle, and activity section-collapse coverage into `WorkspaceActivityIntegrationTests`.
+- Added `WorkspaceAutomationSurfaceIntegrationTests` for automation pane visibility, configured automation rows, thread follow-up run actions, and creation commands.
+- Removed the now-unused broad-surface agent import.
+
+Current strict grades:
+- `WorkspaceActivityIntegrationTests.swift`: **A**. It owns the activity surface plus plan update tool integration in one cohesive suite.
+- `WorkspaceAutomationSurfaceIntegrationTests.swift`: **A**. It owns automation surface composition and command exposure without coupling to unrelated workspace smoke checks.
+- `WorkspaceSurfaceTests.swift`: **B+**. Smaller and healthier, but still covers several surface families including sidebar, browser, memory, review, settings, and command palette.
+
+Remaining risk:
+- Continue splitting `WorkspaceSurfaceTests.swift` by feature family. Good next slices are browser/HTML preview ownership and settings/runtime issue surface ownership.

@@ -6,6 +6,174 @@ import QuillCodeTools
 
 @MainActor
 final class WorkspaceActivityIntegrationTests: XCTestCase {
+    func testActivitySurfaceSummarizesThreadToolsSourcesAndArtifacts() throws {
+        let instruction = ProjectInstruction(
+            path: ".quillcode/AGENTS.md",
+            title: "AGENTS.md",
+            content: "Use the repo patterns.",
+            byteCount: 22
+        )
+        let memory = MemoryNote(
+            id: "global-note",
+            scope: .global,
+            title: "Prefers concise diffs",
+            content: "Keep changes reviewable.",
+            relativePath: "preferences.md",
+            byteCount: 24
+        )
+        let call = ToolCall(
+            id: "tool-activity",
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"whoami"}"#
+        )
+        let result = ToolResult(
+            ok: true,
+            stdout: "quill\n",
+            artifacts: ["/tmp/quillcode-activity.png"]
+        )
+        let thread = ChatThread(
+            title: "Run command",
+            messages: [
+                .init(role: .user, content: "run whoami"),
+                .init(role: .assistant, content: "Output:\nquill")
+            ],
+            events: [
+                .init(kind: .message, summary: "run whoami"),
+                .init(kind: .toolQueued, summary: "host.shell.run queued", payloadJSON: try JSONHelpers.encodePretty(call)),
+                .init(kind: .toolRunning, summary: "host.shell.run running"),
+                .init(kind: .toolCompleted, summary: "host.shell.run completed", payloadJSON: try JSONHelpers.encodePretty(result)),
+                .init(kind: .message, summary: "Output:\nquill")
+            ],
+            instructions: [instruction],
+            memories: [memory]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                threads: [thread],
+                selectedThreadID: thread.id
+            ),
+            activity: ActivityState(isVisible: true)
+        )
+
+        let activity = model.surface().activity
+
+        XCTAssertTrue(activity.isVisible)
+        XCTAssertEqual(activity.taskTitle, "run whoami")
+        XCTAssertEqual(activity.tools.map(\.title), [ToolDefinition.shellRun.name])
+        XCTAssertEqual(activity.tools.first?.statusLabel, ToolCardStatus.done.rawValue)
+        XCTAssertEqual(activity.artifacts.map(\.label), ["quillcode-activity.png"])
+        XCTAssertEqual(activity.sources.map(\.title), ["AGENTS.md", "Prefers concise diffs"])
+        XCTAssertEqual(activity.finalAnswer, "Output: quill")
+        XCTAssertEqual(activity.planItems.map(\.title), [
+            "Understand request",
+            "Load context",
+            "Use tools",
+            "Review results",
+            "Answer user"
+        ])
+        XCTAssertEqual(activity.planItems.map(\.statusLabel), ["Done", "Done", "Done", "Done", "Done"])
+        XCTAssertTrue(activity.planItems.contains { $0.title == "Use tools" && $0.detail.contains(ToolDefinition.shellRun.name) })
+        XCTAssertTrue(activity.handoffSummary?.contains("Thread: Run command") == true)
+        XCTAssertTrue(activity.handoffSummary?.contains("Latest request: run whoami") == true)
+        XCTAssertTrue(activity.handoffSummary?.contains("Tools: 1 tool (\(ToolDefinition.shellRun.name))") == true)
+        XCTAssertTrue(activity.handoffSummary?.contains("Artifacts: 1 artifact (quillcode-activity.png)") == true)
+        XCTAssertTrue(activity.recentSteps.contains { $0.title == "Tool completed" && $0.statusLabel == "Done" })
+        XCTAssertEqual(activity.sections.map(\.kind), [.plan, .recent, .handoff, .tools, .sources, .artifacts, .latestAnswer])
+        XCTAssertEqual(activity.sections.first { $0.kind == .plan }?.items.map(\.title), activity.planItems.map(\.title))
+        XCTAssertEqual(activity.sections.first { $0.kind == .plan }?.countLabel, "5 items")
+        XCTAssertEqual(activity.sections.first { $0.kind == .handoff }?.bodyText, activity.handoffSummary)
+        XCTAssertEqual(activity.sections.first { $0.kind == .handoff }?.countLabel, "1 summary")
+        XCTAssertEqual(activity.sections.first { $0.kind == .tools }?.items.map(\.title), [ToolDefinition.shellRun.name])
+        XCTAssertEqual(activity.sections.first { $0.kind == .artifacts }?.artifacts.map(\.label), ["quillcode-activity.png"])
+        XCTAssertEqual(activity.sections.first { $0.kind == .latestAnswer }?.bodyText, "Output: quill")
+        XCTAssertEqual(activity.sections.first { $0.kind == .tools }?.toggleCommandID, "activity-toggle-section:tools")
+    }
+
+    func testActivitySurfacePrefersModelAuthoredPlan() throws {
+        let update = AgentPlanUpdate(
+            explanation: "The model is planning the work directly.",
+            plan: [
+                AgentPlanItem(step: "Inspect current state", status: .completed),
+                AgentPlanItem(step: "Apply focused change", status: .inProgress, detail: "Keep the diff small."),
+                AgentPlanItem(step: "Run validation", status: .pending)
+            ]
+        )
+        let result = ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(update))
+        let thread = ChatThread(
+            title: "Plan work",
+            messages: [.init(role: .user, content: "plan the work")],
+            events: [
+                .init(
+                    kind: .toolCompleted,
+                    summary: "\(ToolDefinition.planUpdate.name) completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            activity: ActivityState(isVisible: true)
+        )
+
+        let activity = model.surface().activity
+
+        XCTAssertEqual(activity.planItems.map(\.title), [
+            "Inspect current state",
+            "Apply focused change",
+            "Run validation"
+        ])
+        XCTAssertEqual(activity.planItems.map(\.statusLabel), ["Done", "Running", "Pending"])
+        XCTAssertEqual(activity.planItems[0].detail, "The model is planning the work directly.")
+        XCTAssertEqual(activity.planItems[1].detail, "Keep the diff small.")
+        XCTAssertEqual(activity.sections.first { $0.kind == .plan }?.countLabel, "3 items")
+        XCTAssertEqual(activity.sections.first { $0.kind == .plan }?.items.map(\.kind), [
+            "authored-plan",
+            "authored-plan",
+            "authored-plan"
+        ])
+    }
+
+    func testActivityCommandTogglesActivityPane() {
+        let model = QuillCodeWorkspaceModel()
+
+        XCTAssertFalse(model.surface().activity.isVisible)
+        XCTAssertTrue(model.runWorkspaceCommand("toggle-activity", workspaceRoot: URL(fileURLWithPath: "/tmp")))
+        XCTAssertTrue(model.surface().activity.isVisible)
+    }
+
+    func testActivitySectionToggleCollapsesSharedSurfaceSection() throws {
+        let call = ToolCall(
+            id: "tool-activity",
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"whoami"}"#
+        )
+        let result = ToolResult(ok: true, stdout: "quill\n")
+        let thread = ChatThread(
+            title: "Run command",
+            messages: [.init(role: .user, content: "run whoami")],
+            events: [
+                .init(kind: .toolQueued, summary: "host.shell.run queued", payloadJSON: try JSONHelpers.encodePretty(call)),
+                .init(kind: .toolCompleted, summary: "host.shell.run completed", payloadJSON: try JSONHelpers.encodePretty(result))
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            activity: ActivityState(isVisible: true)
+        )
+
+        XCTAssertEqual(model.surface().activity.sections.first { $0.kind == .tools }?.isCollapsed, false)
+        XCTAssertTrue(model.runWorkspaceCommand("activity-toggle-section:tools", workspaceRoot: URL(fileURLWithPath: "/tmp")))
+        XCTAssertEqual(model.surface().activity.sections.first { $0.kind == .tools }?.isCollapsed, true)
+        XCTAssertTrue(model.surface().activity.isVisible)
+        XCTAssertTrue(model.runWorkspaceCommand("activity-toggle-section:handoff", workspaceRoot: URL(fileURLWithPath: "/tmp")))
+        XCTAssertEqual(model.surface().activity.sections.first { $0.kind == .handoff }?.isCollapsed, true)
+        XCTAssertTrue(model.runWorkspaceCommand("activity-toggle-section:plan", workspaceRoot: URL(fileURLWithPath: "/tmp")))
+        XCTAssertEqual(model.surface().activity.sections.first { $0.kind == .plan }?.isCollapsed, true)
+        XCTAssertTrue(model.runWorkspaceCommand("activity-toggle-section:tools", workspaceRoot: URL(fileURLWithPath: "/tmp")))
+        XCTAssertEqual(model.surface().activity.sections.first { $0.kind == .tools }?.isCollapsed, false)
+        XCTAssertFalse(model.runWorkspaceCommand("activity-toggle-section:not-real", workspaceRoot: URL(fileURLWithPath: "/tmp")))
+    }
+
     func testPlanUpdateToolRecordsNormalizedActivityPlan() throws {
         let model = QuillCodeWorkspaceModel(activity: ActivityState(isVisible: true))
         _ = model.newChat()
