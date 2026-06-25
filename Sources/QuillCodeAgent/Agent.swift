@@ -101,74 +101,80 @@ public struct AgentRunner: Sendable {
         }
         await onProgress?(next)
 
-        try Task.checkCancellation()
-        let tools = Self.mergedToolDefinitions(baseToolDefinitions, additionalToolDefinitions)
-        var toolResults: [ToolResult] = []
-        var lastExecutedCall: ToolCall?
-        var lastCompletion: AgentToolStepCompletion?
-        let limit = max(1, maxToolSteps)
-
-        for _ in 0..<limit {
-            let action = try await nextAction(
-                thread: &next,
-                userMessage: userMessage,
-                tools: tools,
-                onProgress: onProgress
-            )
+        do {
             try Task.checkCancellation()
-            switch action {
-            case .say(let text):
-                appendAssistantMessage(text, to: &next)
-                await onProgress?(next)
-                return AgentRunResult(thread: next, toolResults: toolResults)
-            case .tool(let call):
-                if let lastExecutedCall,
-                   lastExecutedCall.name == call.name,
-                   lastExecutedCall.argumentsJSON == call.argumentsJSON,
-                   let lastCompletion {
-                    appendAssistantMessage(Self.finalAnswer(
-                        for: lastCompletion.call,
-                        result: lastCompletion.result,
-                        followUpReviewResult: lastCompletion.followUpReviewResult
-                    ), to: &next)
-                    await onProgress?(next)
-                    return AgentRunResult(thread: next, toolResults: toolResults)
-                }
+            let tools = Self.mergedToolDefinitions(baseToolDefinitions, additionalToolDefinitions)
+            var toolResults: [ToolResult] = []
+            var lastExecutedCall: ToolCall?
+            var lastCompletion: AgentToolStepCompletion?
+            let limit = max(1, maxToolSteps)
 
-                let step = try await runToolStep(
-                    call,
-                    userMessage: userMessage,
+            for _ in 0..<limit {
+                let action = try await nextAction(
                     thread: &next,
-                    workspaceRoot: workspaceRoot,
-                    toolDefinitions: tools,
+                    userMessage: userMessage,
+                    tools: tools,
                     onProgress: onProgress
                 )
-                switch step {
-                case .blocked:
+                try Task.checkCancellation()
+                switch action {
+                case .say(let text):
+                    appendAssistantMessage(text, to: &next)
+                    await onProgress?(next)
                     return AgentRunResult(thread: next, toolResults: toolResults)
-                case .completed(let completion):
-                    toolResults.append(contentsOf: completion.toolResults)
-                    lastExecutedCall = call
-                    lastCompletion = completion
-                    appendToolFeedback(completion, to: &next)
+                case .tool(let call):
+                    if let lastExecutedCall,
+                       lastExecutedCall.name == call.name,
+                       lastExecutedCall.argumentsJSON == call.argumentsJSON,
+                       let lastCompletion {
+                        appendAssistantMessage(Self.finalAnswer(
+                            for: lastCompletion.call,
+                            result: lastCompletion.result,
+                            followUpReviewResult: lastCompletion.followUpReviewResult
+                        ), to: &next)
+                        await onProgress?(next)
+                        return AgentRunResult(thread: next, toolResults: toolResults)
+                    }
+
+                    let step = try await runToolStep(
+                        call,
+                        userMessage: userMessage,
+                        thread: &next,
+                        workspaceRoot: workspaceRoot,
+                        toolDefinitions: tools,
+                        onProgress: onProgress
+                    )
+                    switch step {
+                    case .blocked:
+                        return AgentRunResult(thread: next, toolResults: toolResults)
+                    case .completed(let completion):
+                        toolResults.append(contentsOf: completion.toolResults)
+                        lastExecutedCall = call
+                        lastCompletion = completion
+                        appendToolFeedback(completion, to: &next)
+                    }
                 }
             }
-        }
 
-        if let lastCompletion {
-            appendAssistantMessage(Self.finalAnswer(
-                for: lastCompletion.call,
-                result: lastCompletion.result,
-                followUpReviewResult: lastCompletion.followUpReviewResult
-            ), to: &next)
-        } else {
-            let message = AgentError.tooManyToolSteps(limit).description
-            next.messages.append(.init(role: .assistant, content: message))
-            next.events.append(.init(kind: .message, summary: message))
-            next.updatedAt = Date()
+            if let lastCompletion {
+                appendAssistantMessage(Self.finalAnswer(
+                    for: lastCompletion.call,
+                    result: lastCompletion.result,
+                    followUpReviewResult: lastCompletion.followUpReviewResult
+                ), to: &next)
+            } else {
+                let message = AgentError.tooManyToolSteps(limit).description
+                next.messages.append(.init(role: .assistant, content: message))
+                next.events.append(.init(kind: .message, summary: message))
+                next.updatedAt = Date()
+            }
+            await onProgress?(next)
+            return AgentRunResult(thread: next, toolResults: toolResults)
+        } catch is CancellationError {
+            AgentCancellationRecorder.recordCancelledRun(in: &next)
+            await onProgress?(next)
+            throw CancellationError()
         }
-        await onProgress?(next)
-        return AgentRunResult(thread: next, toolResults: toolResults)
     }
 
     private func nextAction(

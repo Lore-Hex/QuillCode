@@ -58,6 +58,25 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Updated the Playwright harness to preserve branded labels after model selection.
 - Fixed stale decisions documentation that still described recurring automation as deferred.
 
+## 2026-06-25 Agent Cancellation Telemetry Pass
+
+Overall grade after this slice: **A agent cancellation telemetry, A focused transcript boundary, A regression coverage**.
+
+`AgentRunner.send` already checked cancellation, and the workspace layer repaired cancelled transcripts for the visible app. The agent boundary itself still threw cancellation without publishing a final stopped state, which meant standalone callers and future CLI/remote send sessions could leave the last progress snapshot as queued or running.
+
+Code quality changes:
+
+- Added `AgentCancellationRecorder` as the single owner of agent-level stopped-run transcript mutation.
+- Cancellation before the model returns now publishes a stopped notice after the user message.
+- Cancellation while a tool is queued or running now publishes a stopped `toolFailed` event plus the stopped notice before rethrowing `CancellationError`.
+- Kept `AgentRunner.send` focused on the orchestration loop by delegating stopped-copy and payload JSON to the recorder.
+- Added focused async tests for pre-action cancellation and active-tool cancellation.
+- Added a parity gate so stopped-run copy and mutation rules do not drift back into `Agent.swift`.
+
+Remaining risk:
+
+- The workspace send lifecycle still owns UI state, persistence timing, and top-bar recovery. That is correct while the app coordinator controls visible selection, but a future session coordinator should own richer retry telemetry if background runs gain more states.
+
 ## 2026-06-24 Top-Bar State Builder Pass
 
 Overall grade after this slice: **A top-bar state boundary, A behavior preservation, A regression guard**.
