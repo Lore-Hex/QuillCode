@@ -108,7 +108,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceAgentSendStartPlanner.swift")
         let submitStart = try XCTUnwrap(modelText.range(of: "public func submitComposer"))
-        let submitEnd = try XCTUnwrap(modelText.range(of: "private func agentSendSessionFactory"))
+        let submitEnd = try XCTUnwrap(modelText.range(of: "private func prepareAgentSendThread"))
         let submitBody = String(modelText[submitStart.lowerBound..<submitEnd.lowerBound])
 
         XCTAssertTrue(
@@ -126,6 +126,36 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(
             submitBody.contains("WorkspaceComposerSendLifecycle.started"),
             "submitComposer should not choose started lifecycle state inline."
+        )
+    }
+
+    func testWorkspaceModelDelegatesAgentSendThreadPreparation() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let submitStart = try XCTUnwrap(modelText.range(of: "public func submitComposer"))
+        let prepareStart = try XCTUnwrap(modelText.range(of: "private func prepareAgentSendThread"))
+        let prepareEnd = try XCTUnwrap(modelText.range(of: "private func agentSendSessionFactory"))
+        let submitBody = String(modelText[submitStart.lowerBound..<prepareStart.lowerBound])
+        let prepareBody = String(modelText[prepareStart.lowerBound..<prepareEnd.lowerBound])
+
+        XCTAssertTrue(
+            submitBody.contains("prepareAgentSendThread()"),
+            "submitComposer should delegate thread creation and context sync to a named preparation boundary."
+        )
+        XCTAssertTrue(
+            prepareBody.contains("_ = newChat()"),
+            "The preparation boundary should own first-thread creation."
+        )
+        XCTAssertTrue(
+            prepareBody.contains("syncThreadContext(into: &thread)"),
+            "The preparation boundary should own agent-send context sync."
+        )
+        XCTAssertFalse(
+            submitBody.contains("_ = newChat()"),
+            "submitComposer should not create first threads inline."
+        )
+        XCTAssertFalse(
+            submitBody.contains("syncThreadContext(into:"),
+            "submitComposer should not sync thread context inline."
         )
     }
 
@@ -166,7 +196,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceAgentSendTerminalPlanner.swift")
         let submitStart = try XCTUnwrap(modelText.range(of: "public func submitComposer"))
-        let submitEnd = try XCTUnwrap(modelText.range(of: "private func agentSendSessionFactory"))
+        let submitEnd = try XCTUnwrap(modelText.range(of: "private func prepareAgentSendThread"))
         let submitBody = String(modelText[submitStart.lowerBound..<submitEnd.lowerBound])
 
         XCTAssertTrue(

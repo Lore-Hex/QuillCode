@@ -755,11 +755,7 @@ public final class QuillCodeWorkspaceModel {
             prompt = plannedPrompt
         }
 
-        if selectedThread == nil {
-            _ = newChat()
-        }
-        guard var thread = selectedThread else { return }
-        syncThreadContext(into: &thread)
+        guard let thread = prepareAgentSendThread() else { return }
         let sendStart = WorkspaceAgentSendStartPlanner.started(
             prompt: prompt,
             thread: thread,
@@ -776,6 +772,15 @@ public final class QuillCodeWorkspaceModel {
             await self?.applyAgentProgress(progressThread, expectedThreadID: sendStart.threadID)
         }
         finishAgentSend(outcome)
+    }
+
+    private func prepareAgentSendThread() -> ChatThread? {
+        if selectedThread == nil {
+            _ = newChat()
+        }
+        guard var thread = selectedThread else { return nil }
+        syncThreadContext(into: &thread)
+        return thread
     }
 
     private func agentSendSessionFactory(workspaceRoot: URL) -> WorkspaceAgentSendSessionFactory {

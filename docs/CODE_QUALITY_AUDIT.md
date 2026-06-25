@@ -5929,3 +5929,22 @@ Current strict grades:
 
 Remaining risk:
 - `submitComposer` still owns new-chat creation and thread context sync before the start planner. That should remain in the model until there is a clean thread-preparation boundary that can preserve actor isolation and selection behavior.
+
+## 2026-06-25 Agent Send Thread Preparation Boundary
+
+Overall grade after this slice: **A thread preparation boundary, A parity guard, A- WorkspaceModel send path**.
+
+`submitComposer` still contained the one remaining pre-run setup block: create a first thread when needed, read the selected thread, and sync the active project/instructions/memory context into that thread. Those are actor-owned mutations and should stay in `WorkspaceModel`, but they made the public send method harder to scan beside prompt routing, start planning, session execution, progress, and terminal handling.
+
+What changed:
+- Added `prepareAgentSendThread()` as a named boundary for first-thread creation and context sync.
+- Simplified `submitComposer` so it delegates thread preparation before start planning.
+- Added a parity gate that prevents first-thread creation and context sync from drifting back into `submitComposer`.
+
+Current strict grades:
+- `WorkspaceModel.prepareAgentSendThread`: **A-**. It is intentionally actor-bound and side-effectful, but now names the setup step clearly.
+- `WorkspaceModel.submitComposer`: **A-**. It now reads as prompt classification, thread preparation, start planning, session execution, and terminal routing.
+- `ParityWorkspaceExecutionGateTests`: **A**. It protects the send-method shape without forcing a premature pure abstraction around actor-isolated state.
+
+Remaining risk:
+- Progress callback wiring and the do/catch send-session orchestration still live in `submitComposer`. A future coordinator could group those only after resumable or background run semantics are clearer.
