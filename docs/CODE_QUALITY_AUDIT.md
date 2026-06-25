@@ -4945,3 +4945,21 @@ Current strict grades:
 
 Remaining risk:
 - Continue draining `ParityGateTests.swift` by feature family. Good next splits: automation/terminal gates and runtime/review surface gates.
+
+## 2026-06-24 Automation Parity Gate Split
+
+Overall grade after this slice: **A automation-boundary ownership, A drift protection, B+ catch-all size**.
+
+Automation model isolation and workspace automation state/surface boundaries were still mixed into the global parity registry. Those checks all protect the same feature family: scheduled runs, follow-ups, recurrence records, and automation-pane projection should stay in focused model, reducer, and surface-builder files.
+
+What changed:
+- Added `ParityAutomationGateTests` for automation core model isolation, workspace automation state mutation delegation, and automation surface building.
+- Registered the automation suite in the parity drift guard.
+- Reduced `ParityGateTests.swift` again without changing product behavior.
+
+Current strict grades:
+- `ParityAutomationGateTests.swift`: **A**. The suite has one cohesive feature boundary and covers core, model, and surface layers.
+- `ParityGateTests.swift`: **B+**. Smaller and easier to merge, but still owns terminal, review/runtime, command, settings, and final workspace-surface gates.
+
+Remaining risk:
+- Continue draining `ParityGateTests.swift` by feature family. Good next splits: runtime/review surface gates, command/settings surface gates, and agent/TrustedRouter implementation gates.

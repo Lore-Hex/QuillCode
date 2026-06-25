@@ -57,7 +57,8 @@ final class ParityGateTests: QuillCodeParityTestCase {
             "ParityWorkspaceMemoryGateTests.swift",
             "ParityWorkspaceIntegrationGateTests.swift",
             "ParityWorkspaceSidebarGateTests.swift",
-            "ParityMCPGateTests.swift"
+            "ParityMCPGateTests.swift",
+            "ParityAutomationGateTests.swift"
         ]
         for suiteFile in suiteFiles {
             XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent(suiteFile).path), suiteFile)
@@ -147,6 +148,11 @@ final class ParityGateTests: QuillCodeParityTestCase {
             ("ParityMCPGateTests", [
                 "testWorkspaceModelDelegatesMCPSupportTypes",
                 "testMCPStdioProberDelegatesCodecAndResultMapping"
+            ]),
+            ("ParityAutomationGateTests", [
+                "testAutomationModelsLiveOutsideGeneralDomainModels",
+                "testWorkspaceModelDelegatesAutomationStateMutations",
+                "testWorkspaceSurfaceDelegatesAutomationsSurfaceBuilding"
             ])
         ]
 
@@ -325,23 +331,6 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelsText.contains("public struct MemoryRememberToolOutput"), "General domain models should not own tool-specific output compatibility.")
     }
 
-    func testAutomationModelsLiveOutsideGeneralDomainModels() throws {
-        let modelsText = try Self.coreSourceText(named: "Models.swift")
-        let automationText = try Self.coreSourceText(named: "AutomationModels.swift")
-
-        XCTAssertTrue(automationText.contains("public enum QuillAutomationKind"), "Automation kind should live in a focused core file.")
-        XCTAssertTrue(automationText.contains("public enum QuillAutomationStatus"), "Automation status should live beside automation records.")
-        XCTAssertTrue(automationText.contains("public enum QuillAutomationScheduleKind"), "Automation schedule kind should live beside automation records.")
-        XCTAssertTrue(automationText.contains("public struct QuillAutomationRecurrence"), "Automation recurrence should live beside automation records.")
-        XCTAssertTrue(automationText.contains("nextRun(after"), "Automation recurrence scheduling should stay with recurrence records.")
-        XCTAssertTrue(automationText.contains("sortedForDisplay"), "Automation display sorting should stay with automation records.")
-        XCTAssertFalse(modelsText.contains("public enum QuillAutomationKind"), "General domain models should not own automation records.")
-        XCTAssertFalse(modelsText.contains("public enum QuillAutomationStatus"), "General domain models should not own automation status.")
-        XCTAssertFalse(modelsText.contains("public enum QuillAutomationScheduleKind"), "General domain models should not own automation schedule records.")
-        XCTAssertFalse(modelsText.contains("public struct QuillAutomationRecurrence"), "General domain models should not own automation recurrence.")
-        XCTAssertFalse(modelsText.contains("sortedForDisplay(_ automations"), "General domain models should not own automation sorting.")
-    }
-
     func testProjectModelsLiveOutsideGeneralDomainModels() throws {
         let modelsText = try Self.coreSourceText(named: "Models.swift")
         let projectText = try Self.coreSourceText(named: "ProjectModels.swift")
@@ -372,50 +361,6 @@ final class ParityGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(agentText.contains("private func runToolStep"), "Agent.swift should not own individual tool-step execution.")
         XCTAssertFalse(agentText.contains("kind: .toolQueued"), "Agent.swift should not own tool lifecycle event emission.")
         XCTAssertFalse(agentText.contains("Tool is not available in this workspace"), "Agent.swift should not own unavailable-tool result copy.")
-    }
-
-    func testWorkspaceModelDelegatesAutomationStateMutations() throws {
-        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let modelAutomationText = try Self.appSourceText(named: "WorkspaceModelAutomations.swift")
-        let automationText = try Self.appSourceText(named: "WorkspaceAutomationEngine.swift")
-
-        XCTAssertTrue(modelAutomationText.contains("extension QuillCodeWorkspaceModel"), "Automation model API should live in a focused workspace model extension.")
-        XCTAssertTrue(automationText.contains("enum WorkspaceAutomationStateReducer"), "Automation state mutation should live in a focused reducer.")
-        XCTAssertTrue(automationText.contains("struct WorkspaceAutomationStateMutation"), "Automation state mutations should return typed mutation results.")
-        XCTAssertTrue(automationText.contains("static func setItems"), "Automation sorting and visibility preservation should be reducer-owned.")
-        XCTAssertTrue(automationText.contains("static func createThreadFollowUp"), "Thread follow-up creation should be reducer-owned.")
-        XCTAssertTrue(automationText.contains("static func createWorkspaceSchedule"), "Workspace schedule creation should be reducer-owned.")
-        XCTAssertTrue(automationText.contains("static func updateStatus"), "Automation status mutation should be reducer-owned.")
-        XCTAssertTrue(automationText.contains("static func delete("), "Automation deletion should be reducer-owned.")
-        XCTAssertTrue(automationText.contains("static func replace("), "Automation replacement should be reducer-owned.")
-        XCTAssertTrue(modelAutomationText.contains("WorkspaceAutomationStateReducer.setItems"), "WorkspaceModel automation extension should delegate automation item setting.")
-        XCTAssertTrue(modelAutomationText.contains("WorkspaceAutomationStateReducer.createThreadFollowUp"), "WorkspaceModel automation extension should delegate thread follow-up creation.")
-        XCTAssertTrue(modelAutomationText.contains("WorkspaceAutomationStateReducer.createWorkspaceSchedule"), "WorkspaceModel automation extension should delegate workspace schedule creation.")
-        XCTAssertTrue(modelAutomationText.contains("WorkspaceAutomationStateReducer.updateStatus"), "WorkspaceModel automation extension should delegate status changes.")
-        XCTAssertTrue(modelAutomationText.contains("WorkspaceAutomationStateReducer.delete"), "WorkspaceModel automation extension should delegate deletion.")
-        XCTAssertTrue(modelAutomationText.contains("WorkspaceAutomationStateReducer.replace"), "WorkspaceModel automation extension should delegate replacement.")
-        XCTAssertFalse(modelText.contains("public func createThreadFollowUpAutomation"), "WorkspaceModel.swift should not own automation scheduling APIs.")
-        XCTAssertFalse(modelText.contains("public func createWorkspaceScheduleAutomation"), "WorkspaceModel.swift should not own workspace-check scheduling APIs.")
-        XCTAssertFalse(modelText.contains("public func runDueAutomations"), "WorkspaceModel.swift should not own automation-run orchestration.")
-        XCTAssertFalse(modelText.contains("setAutomations(automations.items + [automation])"), "WorkspaceModel should not append automation records inline.")
-        XCTAssertFalse(modelText.contains("QuillAutomation.sortedForDisplay(items)"), "WorkspaceModel should not own automation display sorting.")
-        XCTAssertFalse(modelText.contains("automations.items[index].status"), "WorkspaceModel should not mutate automation status inline.")
-        XCTAssertFalse(modelText.contains("automations.items.removeAll"), "WorkspaceModel should not delete automation records inline.")
-    }
-
-    func testWorkspaceSurfaceDelegatesAutomationsSurfaceBuilding() throws {
-        let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
-        let builderText = try Self.appSourceText(named: "WorkspaceAutomationsSurfaceBuilder.swift")
-
-        XCTAssertTrue(builderText.contains("struct WorkspaceAutomationsSurfaceBuilder"), "Automation pane assembly should live in a focused builder.")
-        XCTAssertTrue(builderText.contains("func surface() -> WorkspaceAutomationsSurface"), "Automation pane assembly should be directly testable.")
-        XCTAssertTrue(builderText.contains("hasSelectedThread"), "Thread follow-up command availability should be builder-owned.")
-        XCTAssertTrue(builderText.contains("hasSelectedProject"), "Workspace schedule command availability should be builder-owned.")
-        XCTAssertTrue(surfaceText.contains("WorkspaceAutomationsSurfaceBuilder("), "WorkspaceSurface should delegate automation pane assembly.")
-        XCTAssertFalse(surfaceText.contains("automationCreateThreadFollowUp"), "WorkspaceSurface should not build automation follow-up commands inline.")
-        XCTAssertFalse(surfaceText.contains("automationCreateWorkspaceSchedule"), "WorkspaceSurface should not build automation schedule commands inline.")
-        XCTAssertFalse(surfaceText.contains("automationScheduleThreadFollowUpCommands"), "WorkspaceSurface should not build thread schedule command variants inline.")
-        XCTAssertFalse(surfaceText.contains("automationScheduleWorkspaceScheduleCommands"), "WorkspaceSurface should not build workspace schedule command variants inline.")
     }
 
     func testWorkspaceSwiftUIViewDelegatesTranscriptFindAndContextBanner() throws {
