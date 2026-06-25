@@ -68,6 +68,41 @@ final class WorkspaceShellToolCallPlannerTests: XCTestCase {
         XCTAssertNil(arguments.stringDictionary("environment"))
     }
 
+    func testProjectExtensionInstallBuildsShellToolCall() throws {
+        let manifest = ProjectExtensionManifest(
+            id: "plugin:github",
+            kind: .plugin,
+            name: "GitHub",
+            relativePath: ".quillcode/plugins/github.json",
+            installCommand: "git clone https://github.com/Lore-Hex/quillcode-github .quillcode/plugins/github",
+            installTimeoutSeconds: 600
+        )
+
+        let call = try XCTUnwrap(WorkspaceShellToolCallPlanner.projectExtensionInstall(manifest))
+        let arguments = try ToolArguments(call.argumentsJSON)
+
+        XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
+        XCTAssertEqual(
+            try arguments.requiredString("cmd"),
+            "git clone https://github.com/Lore-Hex/quillcode-github .quillcode/plugins/github"
+        )
+        XCTAssertEqual(try arguments.requiredInt("timeoutSeconds"), 600)
+        XCTAssertNil(arguments.stringDictionary("environment"))
+    }
+
+    func testProjectExtensionInstallRejectsBlankCommand() {
+        let manifest = ProjectExtensionManifest(
+            id: "plugin:blank",
+            kind: .plugin,
+            name: "Blank",
+            relativePath: ".quillcode/plugins/blank.json",
+            installCommand: " \n\t ",
+            installTimeoutSeconds: 300
+        )
+
+        XCTAssertNil(WorkspaceShellToolCallPlanner.projectExtensionInstall(manifest))
+    }
+
     func testProjectExtensionUpdateRejectsBlankCommand() {
         let manifest = ProjectExtensionManifest(
             id: "plugin:blank",

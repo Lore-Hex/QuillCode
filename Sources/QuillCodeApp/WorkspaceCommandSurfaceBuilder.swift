@@ -59,6 +59,10 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             statuses: mcpServerStatuses,
             hasActiveWorkspaceRoot: hasActiveWorkspaceRoot
         )
+        + WorkspaceProjectCommandCatalog.extensionInstallCommands(
+            manifests: selectedProject?.extensionManifests ?? [],
+            hasActiveWorkspaceRoot: hasActiveWorkspaceRoot
+        )
         + WorkspaceProjectCommandCatalog.extensionUpdateCommands(
             manifests: selectedProject?.extensionManifests ?? [],
             hasActiveWorkspaceRoot: hasActiveWorkspaceRoot

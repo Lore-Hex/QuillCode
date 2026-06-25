@@ -2608,6 +2608,8 @@
             statusLabel: 'Discovered',
             transportLabel: null,
             launchCommand: null,
+            installCommand: 'git clone https://github.com/Lore-Hex/quillcode-github .quillcode/plugins/github',
+            installCommandID: 'extension-install:plugin:github',
             updateCommand: 'git -C .quillcode/plugins/github pull --ff-only',
             updateCommandID: 'extension-update:plugin:github',
             startCommandID: null,
@@ -2827,6 +2829,7 @@
         { id: 'toggle-extensions', title: 'Extensions', shortcut: '', category: 'Extensions', keywords: ['plugins', 'skills', 'mcp', 'manifest'], isEnabled: true },
         { id: 'mcp-start:mcp_server:filesystem', title: 'Start Filesystem MCP', shortcut: '', category: 'Extensions', keywords: ['mcp', 'server', 'start', 'stdio', 'filesystem'], isEnabled: true },
         { id: 'mcp-stop:mcp_server:filesystem', title: 'Stop Filesystem MCP', shortcut: '', category: 'Extensions', keywords: ['mcp', 'server', 'stop', 'stdio', 'filesystem'], isEnabled: false },
+        { id: 'extension-install:plugin:github', title: 'Install GitHub', shortcut: '', category: 'Extensions', keywords: ['extension', 'plugin', 'install', 'GitHub', '1.2.0'], isEnabled: true },
         { id: 'extension-update:plugin:github', title: 'Update GitHub', shortcut: '', category: 'Extensions', keywords: ['extension', 'plugin', 'update', 'GitHub', '1.2.0'], isEnabled: true },
         { id: 'command-palette', title: 'Command palette', shortcut: 'Cmd+Shift+P', category: 'Navigation', keywords: ['commands', 'actions'], isEnabled: true },
         { id: 'keyboard-shortcuts', title: 'Keyboard shortcuts', shortcut: 'Cmd+/', category: 'Navigation', keywords: ['keyboard', 'shortcuts', 'help', 'commands'], isEnabled: true },
@@ -5145,7 +5148,7 @@
 	        state.extensions.isVisible = !state.extensions.isVisible;
 	        render();
 	      });
-      document.querySelectorAll('[data-testid="extension-start"], [data-testid="extension-stop"], [data-testid="extension-update"]').forEach(button => {
+      document.querySelectorAll('[data-testid="extension-start"], [data-testid="extension-stop"], [data-testid="extension-install"], [data-testid="extension-update"]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
@@ -6536,6 +6539,7 @@
               ${item.sourceURL ? `<code data-testid="extension-source">${escapeHTML(item.sourceURL)}</code>` : ''}
               <code data-testid="extension-path">${escapeHTML(item.relativePath)}</code>
               ${item.launchCommand ? `<code data-testid="extension-command">${escapeHTML(item.launchCommand)}</code>` : ''}
+              ${item.installCommand ? `<code data-testid="extension-install-command">${escapeHTML(item.installCommand)}</code>` : ''}
               ${item.updateCommand ? `<code data-testid="extension-update-command">${escapeHTML(item.updateCommand)}</code>` : ''}
               ${item.transportLabel ? `<span data-testid="extension-transport">${escapeHTML(item.transportLabel)}</span>` : ''}
               ${item.serverLabel ? `<span data-testid="extension-mcp-server">${escapeHTML(item.serverLabel)}</span>` : ''}
@@ -6544,6 +6548,7 @@
               ${renderMCPGroup('Resources', item.resourceNames, 'extension-mcp-resources', 'extension-mcp-resource')}
               ${renderMCPGroup('Prompts', item.promptNames, 'extension-mcp-prompts', 'extension-mcp-prompt')}
               ${item.probeError ? `<p data-testid="extension-mcp-error">${escapeHTML(item.probeError)}</p>` : ''}
+              ${item.installCommandID ? `<button type="button" data-testid="extension-install" data-command-id="${escapeHTML(item.installCommandID)}">Install</button>` : ''}
               ${item.updateCommandID ? `<button type="button" data-testid="extension-update" data-command-id="${escapeHTML(item.updateCommandID)}">Update</button>` : ''}
               ${item.stopCommandID ? `<button type="button" data-testid="extension-stop" data-command-id="${escapeHTML(item.stopCommandID)}">Stop</button>` : ''}
               ${item.startCommandID ? `<button type="button" data-testid="extension-start" data-command-id="${escapeHTML(item.startCommandID)}">Start</button>` : ''}
@@ -7693,6 +7698,12 @@
       if (commandID?.startsWith('extension-update:')) {
         const item = state.extensions.items.find(item => item.updateCommandID === commandID);
         addMessage('assistant', `${item?.name || 'Extension'} update finished.`);
+        render();
+        return;
+      }
+      if (commandID?.startsWith('extension-install:')) {
+        const item = state.extensions.items.find(item => item.installCommandID === commandID);
+        addMessage('assistant', `${item?.name || 'Extension'} install finished.`);
         render();
         return;
       }

@@ -43,6 +43,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
             name: "Filesystem MCP",
             relativePath: ".quillcode/mcp/filesystem.json",
             launchExecutable: "quill-mcp",
+            installCommand: "quill-mcp install",
             updateCommand: "quill-mcp update"
         )
         let project = ProjectRef(
@@ -63,7 +64,8 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertLessThan(index(of: "git-worktree-remove", in: commandIDs), index(of: "git-worktree-prune", in: commandIDs))
         XCTAssertLessThan(index(of: "git-worktree-prune", in: commandIDs), index(of: "local-env:.quillcode/actions/bootstrap.sh", in: commandIDs))
         XCTAssertLessThan(index(of: "local-env:.quillcode/actions/bootstrap.sh", in: commandIDs), index(of: "mcp-start:mcp_server:filesystem", in: commandIDs))
-        XCTAssertLessThan(index(of: "mcp-stop:mcp_server:filesystem", in: commandIDs), index(of: "extension-update:mcp_server:filesystem", in: commandIDs))
+        XCTAssertLessThan(index(of: "mcp-stop:mcp_server:filesystem", in: commandIDs), index(of: "extension-install:mcp_server:filesystem", in: commandIDs))
+        XCTAssertLessThan(index(of: "extension-install:mcp_server:filesystem", in: commandIDs), index(of: "extension-update:mcp_server:filesystem", in: commandIDs))
         XCTAssertLessThan(index(of: "extension-update:mcp_server:filesystem", in: commandIDs), index(of: "stop-all", in: commandIDs))
     }
 
@@ -110,6 +112,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
             version: "1.2.0",
             sourceURL: "https://github.com/Lore-Hex/quillcode-github",
             relativePath: ".quillcode/plugins/github.json",
+            installCommand: "git clone https://github.com/Lore-Hex/quillcode-github .quillcode/plugins/github",
             updateCommand: "git pull --ff-only"
         )
         let mcpManifest = ProjectExtensionManifest(
@@ -143,6 +146,7 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(try command("project-new-chat", in: commands).isEnabled, true)
         XCTAssertEqual(try command("toggle-extensions", in: commands).isEnabled, true)
         XCTAssertEqual(try command("git-status", in: commands).isEnabled, true)
+        XCTAssertEqual(try command("extension-install:plugin:github", in: commands).isEnabled, true)
         XCTAssertEqual(try command("extension-update:plugin:github", in: commands).isEnabled, true)
         XCTAssertEqual(try command("mcp-start:mcp_server:filesystem", in: commands).isEnabled, false)
         XCTAssertEqual(try command("mcp-stop:mcp_server:filesystem", in: commands).isEnabled, true)

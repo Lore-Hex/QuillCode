@@ -15,6 +15,7 @@ enum WorkspaceCommandPlan: Equatable {
     case createWorkspaceScheduleEvery(QuillAutomationRecurrence)
     case startMCPServer(id: String)
     case stopMCPServer(id: String)
+    case installExtension(id: String)
     case updateExtension(id: String)
     case toggleThreadSelection(id: UUID)
     case toggleActivitySection(ActivitySectionKind)
@@ -122,6 +123,9 @@ enum WorkspaceCommandPlan: Equatable {
         }
         if let id = commandID.value(after: "mcp-stop:") {
             return .stopMCPServer(id: id)
+        }
+        if let id = commandID.value(after: "extension-install:") {
+            return .installExtension(id: id)
         }
         if let id = commandID.value(after: "extension-update:") {
             return .updateExtension(id: id)

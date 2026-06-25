@@ -40,6 +40,7 @@ final class ParityWorkspaceCommandGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(projectCatalogText.contains("enum WorkspaceProjectCommandCatalog"), "Project-derived command rows should live in a focused catalog.")
         XCTAssertTrue(projectCatalogText.contains("static func localActionCommands"), "Local environment action command construction should be isolated in the project catalog.")
         XCTAssertTrue(projectCatalogText.contains("static func mcpLifecycleCommands"), "MCP lifecycle command construction should be isolated in the project catalog.")
+        XCTAssertTrue(projectCatalogText.contains("static func extensionInstallCommands"), "Extension install command construction should be isolated in the project catalog.")
         XCTAssertTrue(projectCatalogText.contains("static func extensionUpdateCommands"), "Extension update command construction should be isolated in the project catalog.")
         XCTAssertFalse(builderText.contains("private var localActionCommands"), "Command builder should not own local-action command construction.")
         XCTAssertFalse(builderText.contains("private var mcpLifecycleCommands"), "Command builder should not own MCP lifecycle command construction.")
@@ -48,6 +49,7 @@ final class ParityWorkspaceCommandGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(surfaceText.contains("private func commands() -> [WorkspaceCommandSurface]"), "WorkspaceSurface should not own the command catalog.")
         XCTAssertFalse(surfaceText.contains("let localActionCommands ="), "WorkspaceSurface should not own local-action command construction.")
         XCTAssertFalse(surfaceText.contains("let mcpLifecycleCommands ="), "WorkspaceSurface should not own MCP lifecycle command construction.")
+        XCTAssertFalse(surfaceText.contains("let extensionInstallCommands ="), "WorkspaceSurface should not own extension install command construction.")
         XCTAssertFalse(surfaceText.contains("let extensionUpdateCommands ="), "WorkspaceSurface should not own extension update command construction.")
     }
 

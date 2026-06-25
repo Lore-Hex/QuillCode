@@ -19,6 +19,10 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await expect(page.getByTestId('extension-item').first()).toContainText('GitHub');
   await expect(page.getByTestId('extension-version')).toHaveText('v1.2.0');
   await expect(page.getByTestId('extension-source')).toHaveText('https://github.com/Lore-Hex/quillcode-github');
+  await expect(page.getByTestId('extension-install-command')).toHaveText('git clone https://github.com/Lore-Hex/quillcode-github .quillcode/plugins/github');
+  await expect(page.getByTestId('extension-install')).toBeVisible();
+  await page.getByTestId('extension-install').click();
+  await expect(page.getByTestId('message').last()).toContainText('GitHub install finished.');
   await expect(page.getByTestId('extension-update-command')).toHaveText('git -C .quillcode/plugins/github pull --ff-only');
   await expect(page.getByTestId('extension-update')).toBeVisible();
   await page.getByTestId('extension-update').click();
@@ -52,6 +56,8 @@ test('mock harness shows project extension manifests from sidebar and command pa
   await clickSidebarTool(page, 'command-palette-button');
   await expect(page.getByTestId('command-palette-panel')).toBeVisible();
   await expect(page.getByTestId('command-palette-input')).toBeFocused();
+  await fillCommandPalette(page, '>install github');
+  await expect(commandPaletteResult(page, 'extension-install:plugin:github')).toContainText('Install GitHub');
   await fillCommandPalette(page, '>update github');
   await expect(commandPaletteResult(page, 'extension-update:plugin:github')).toContainText('Update GitHub');
   await clickCommandPaletteCommand(page, '>extensions', 'toggle-extensions');

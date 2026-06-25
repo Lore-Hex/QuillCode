@@ -105,6 +105,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .updateExtension(id: "plugin:github")
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "extension-install:plugin:github"),
+            .installExtension(id: "plugin:github")
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "thread-selection-toggle:\(id.uuidString)"),
             .toggleThreadSelection(id: id)
         )

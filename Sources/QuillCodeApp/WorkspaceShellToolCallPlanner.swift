@@ -12,13 +12,26 @@ enum WorkspaceShellToolCallPlanner {
     }
 
     static func projectExtensionUpdate(_ manifest: ProjectExtensionManifest) -> ToolCall? {
-        let command = manifest.updateCommand?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !command.isEmpty else { return nil }
-        return shellRunToolCall(
-            command: command,
-            environment: nil,
+        projectExtensionCommand(
+            manifest.updateCommand,
             timeoutSeconds: manifest.updateTimeoutSeconds
         )
+    }
+
+    static func projectExtensionInstall(_ manifest: ProjectExtensionManifest) -> ToolCall? {
+        projectExtensionCommand(
+            manifest.installCommand,
+            timeoutSeconds: manifest.installTimeoutSeconds
+        )
+    }
+
+    private static func projectExtensionCommand(
+        _ rawCommand: String?,
+        timeoutSeconds: Int?
+    ) -> ToolCall? {
+        let command = rawCommand?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !command.isEmpty else { return nil }
+        return shellRunToolCall(command: command, environment: nil, timeoutSeconds: timeoutSeconds)
     }
 
     private static func shellRunToolCall(

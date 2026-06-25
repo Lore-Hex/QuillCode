@@ -11,7 +11,7 @@ final class ProjectExtensionManifestLoaderTests: XCTestCase {
         try FileManager.default.createDirectory(at: skillDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: mcpDirectory, withIntermediateDirectories: true)
 
-        try #"{"id":"github","name":"GitHub","description":"PR and issue helpers.","version":"1.2.0","source":"https://github.com/Lore-Hex/quillcode-github","updateCommand":"git -C .quillcode/plugins/github pull --ff-only","updateTimeoutSeconds":300}"#.write(
+        try #"{"id":"github","name":"GitHub","description":"PR and issue helpers.","version":"1.2.0","source":"https://github.com/Lore-Hex/quillcode-github","installCommand":"git clone https://github.com/Lore-Hex/quillcode-github .quillcode/plugins/github","installTimeoutSeconds":600,"updateCommand":"git -C .quillcode/plugins/github pull --ff-only","updateTimeoutSeconds":300}"#.write(
             to: pluginDirectory.appendingPathComponent("github.json"),
             atomically: true,
             encoding: .utf8
@@ -49,6 +49,11 @@ final class ProjectExtensionManifestLoaderTests: XCTestCase {
         XCTAssertEqual(manifests[0].summary, "PR and issue helpers.")
         XCTAssertEqual(manifests[0].version, "1.2.0")
         XCTAssertEqual(manifests[0].sourceURL, "https://github.com/Lore-Hex/quillcode-github")
+        XCTAssertEqual(
+            manifests[0].installCommand,
+            "git clone https://github.com/Lore-Hex/quillcode-github .quillcode/plugins/github"
+        )
+        XCTAssertEqual(manifests[0].installTimeoutSeconds, 600)
         XCTAssertEqual(manifests[0].updateCommand, "git -C .quillcode/plugins/github pull --ff-only")
         XCTAssertEqual(manifests[0].updateTimeoutSeconds, 300)
         XCTAssertEqual(manifests[1].isEnabled, false)

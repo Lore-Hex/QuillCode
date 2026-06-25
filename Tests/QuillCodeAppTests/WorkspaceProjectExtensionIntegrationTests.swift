@@ -33,6 +33,8 @@ final class WorkspaceProjectExtensionIntegrationTests: XCTestCase {
                     version: "1.2.0",
                     sourceURL: "https://github.com/Lore-Hex/quillcode-github",
                     relativePath: ".quillcode/plugins/github.json",
+                    installCommand: "git clone https://github.com/Lore-Hex/quillcode-github .quillcode/plugins/github",
+                    installTimeoutSeconds: 600,
                     updateCommand: "git -C .quillcode/plugins/github pull --ff-only",
                     updateTimeoutSeconds: 300
                 ),
@@ -61,7 +63,10 @@ final class WorkspaceProjectExtensionIntegrationTests: XCTestCase {
         XCTAssertEqual(surface.extensions.items.map(\.statusLabel), ["Discovered", "Stopped"])
         XCTAssertEqual(surface.extensions.items.first?.versionLabel, "v1.2.0")
         XCTAssertEqual(surface.extensions.items.first?.sourceURL, "https://github.com/Lore-Hex/quillcode-github")
+        XCTAssertEqual(surface.extensions.items.first?.installCommandID, "extension-install:plugin:github")
         XCTAssertEqual(surface.extensions.items.first?.updateCommandID, "extension-update:plugin:github")
+        XCTAssertEqual(surface.commands.first { $0.id == "extension-install:plugin:github" }?.title, "Install GitHub")
+        XCTAssertEqual(surface.commands.first { $0.id == "extension-install:plugin:github" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "extension-update:plugin:github" }?.title, "Update GitHub")
         XCTAssertEqual(surface.commands.first { $0.id == "extension-update:plugin:github" }?.isEnabled, true)
         XCTAssertEqual(surface.extensions.items.last?.transportLabel, "STDIO")
@@ -84,6 +89,19 @@ final class WorkspaceProjectExtensionIntegrationTests: XCTestCase {
         XCTAssertEqual(marker, "updated")
         XCTAssertEqual(setup.model.surface().extensions.items.first?.updateCommandID, "extension-update:plugin:github")
         XCTAssertTrue(setup.model.selectedThread?.events.contains { $0.summary == "Updated extension GitHub" } == true)
+    }
+
+    func testProjectExtensionInstallCommandRunsAndRefreshesProjectMetadata() throws {
+        let setup = try makeProjectWithPluginManifest(
+            #"{"id":"github","name":"GitHub","description":"PR workflow helpers.","version":"1.0.0","installCommand":"printf installed > .quillcode/plugins/install.marker","installTimeoutSeconds":30}"#
+        )
+
+        XCTAssertTrue(setup.model.runWorkspaceCommand("extension-install:plugin:github", workspaceRoot: setup.root))
+
+        let marker = try String(contentsOf: setup.pluginDirectory.appendingPathComponent("install.marker"), encoding: .utf8)
+        XCTAssertEqual(marker, "installed")
+        XCTAssertEqual(setup.model.surface().extensions.items.first?.installCommandID, "extension-install:plugin:github")
+        XCTAssertTrue(setup.model.selectedThread?.events.contains { $0.summary == "Installed extension GitHub" } == true)
     }
 
     func testProjectExtensionUpdateFailureKeepsManifestAndRecordsFailureNotice() throws {

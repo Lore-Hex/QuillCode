@@ -170,6 +170,7 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
           \(item.sourceURL.map { #"<code data-testid="extension-source">\#(escape($0))</code>"# } ?? "")
           <code data-testid="extension-path">\(escape(item.relativePath))</code>
           \(item.launchCommand.map { #"<code data-testid="extension-command">\#(escape($0))</code>"# } ?? "")
+          \(item.installCommand.map { #"<code data-testid="extension-install-command">\#(escape($0))</code>"# } ?? "")
           \(item.updateCommand.map { #"<code data-testid="extension-update-command">\#(escape($0))</code>"# } ?? "")
           \(item.transportLabel.map { #"<span data-testid="extension-transport">\#(escape($0))</span>"# } ?? "")
           \(item.serverLabel.map { #"<span data-testid="extension-mcp-server">\#(escape($0))</span>"# } ?? "")
@@ -218,6 +219,9 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
 
     private static func renderExtensionActions(_ item: ProjectExtensionManifestSurface) -> String {
         var buttons: [String] = []
+        if let installCommandID = item.installCommandID {
+            buttons.append(#"<button type="button" data-testid="extension-install" data-command="\#(escape(installCommandID))">Install</button>"#)
+        }
         if let updateCommandID = item.updateCommandID {
             buttons.append(#"<button type="button" data-testid="extension-update" data-command="\#(escape(updateCommandID))">Update</button>"#)
         }
