@@ -40,6 +40,7 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
     func testDesktopControllerDelegatesCancellableTaskSlots() throws {
         let text = try Self.desktopSourceText()
         let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let activeWorkCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopActiveWorkCoordinator.swift")
         let automationCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopAutomationCoordinator.swift")
         let browserCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopBrowserCoordinator.swift")
         let composerCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopComposerCoordinator.swift")
@@ -53,6 +54,12 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(desktopTaskText.contains("QuillCodeTaskCoordinator<Slot>"), "Desktop task slots should delegate to the shared task coordinator.")
         XCTAssertTrue(sharedTaskText.contains("guard self?.finish(slot, id: id) == true else { return }"), "Cancelled or replaced tasks must not run stale finish callbacks.")
         XCTAssertTrue(sharedTaskTests.contains("testReplaceCancelsStaleTaskAndOnlyFinishesCurrentTask"), "Task replacement semantics need focused regression coverage.")
+        XCTAssertTrue(controllerText.contains("QuillCodeDesktopActiveWorkCoordinator"), "Desktop stop/disconnect workflow should be isolated behind a coordinator.")
+        XCTAssertTrue(controllerText.contains("activeWorkCoordinator.stopAll"), "Desktop controller should delegate Stop All.")
+        XCTAssertTrue(controllerText.contains("activeWorkCoordinator.disconnectAll"), "Desktop controller should delegate Disconnect All.")
+        XCTAssertTrue(activeWorkCoordinatorText.contains("tasks.cancel([.send, .terminal, .browserPreview])"), "Stop/disconnect should cancel interactive desktop task slots.")
+        XCTAssertTrue(activeWorkCoordinatorText.contains("model.cancelActiveWork()"), "Stop All should cancel active model work in the coordinator.")
+        XCTAssertTrue(activeWorkCoordinatorText.contains("model.disconnectAll()"), "Disconnect All should disconnect model state in the coordinator.")
         XCTAssertTrue(controllerText.contains("QuillCodeDesktopComposerCoordinator"), "Desktop composer send/retry workflow should be isolated behind a coordinator.")
         XCTAssertTrue(controllerText.contains("composerCoordinator.send"), "Desktop controller should delegate composer sends.")
         XCTAssertTrue(controllerText.contains("composerCoordinator.retryLastTurn"), "Desktop controller should delegate composer retries.")
@@ -80,6 +87,9 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(controllerText.contains("let command = terminalDraft.trimmingCharacters"), "Desktop controller should not own terminal command normalization.")
         XCTAssertFalse(controllerText.contains("tasks.replace(.automationTicker"), "Desktop controller should not own automation ticker task replacement.")
         XCTAssertFalse(controllerText.contains("30_000_000_000"), "Desktop controller should not own automation tick timing.")
+        XCTAssertFalse(controllerText.contains("tasks.cancel([.send, .terminal, .browserPreview])"), "Desktop controller should not own interactive task-slot cancellation.")
+        XCTAssertFalse(controllerText.contains("model.cancelActiveWork()"), "Desktop controller should not own Stop All model cancellation.")
+        XCTAssertFalse(controllerText.contains("model.disconnectAll()"), "Desktop controller should not own Disconnect All model mutation.")
     }
 
     func testDesktopBrowserLiveDOMCaptureUsesFocusedAdapter() throws {
