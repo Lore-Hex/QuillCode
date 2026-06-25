@@ -19,6 +19,7 @@ final class QuillCodeDesktopController: ObservableObject {
     private let model: QuillCodeWorkspaceModel
     private let bootstrap: QuillCodeWorkspaceBootstrap
     private let computerUseBackend: MacComputerUseBackend
+    private let activeWorkCoordinator: QuillCodeDesktopActiveWorkCoordinator
     private let browserCoordinator: QuillCodeDesktopBrowserCoordinator
     private let automationCoordinator: QuillCodeDesktopAutomationCoordinator
     private let automationNotifier: any QuillCodeAutomationNotifying
@@ -42,6 +43,7 @@ final class QuillCodeDesktopController: ObservableObject {
     ) {
         self.bootstrap = bootstrap
         self.computerUseBackend = MacComputerUseBackend()
+        self.activeWorkCoordinator = QuillCodeDesktopActiveWorkCoordinator()
         self.browserCoordinator = QuillCodeDesktopBrowserCoordinator(
             pageFetcher: browserPageFetcher,
             liveDOMCapturer: browserLiveDOMCapturer,
@@ -407,20 +409,21 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func stopAll() {
-        tasks.cancel([.send, .terminal, .browserPreview])
-        model.cancelActiveWork()
-        draft = ""
-        refresh()
+        activeWorkCoordinator.stopAll(
+            draft: &draft,
+            model: model,
+            tasks: tasks,
+            refresh: { [weak self] in self?.refresh() }
+        )
     }
 
     func disconnectAll() {
-        tasks.cancel([.send, .terminal, .browserPreview])
-        guard model.disconnectAll() else {
-            refresh()
-            return
-        }
-        draft = ""
-        refresh()
+        activeWorkCoordinator.disconnectAll(
+            draft: &draft,
+            model: model,
+            tasks: tasks,
+            refresh: { [weak self] in self?.refresh() }
+        )
     }
 
     private func completeTrustedRouterSignIn() async {
