@@ -64,6 +64,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
 
     func testActionableReviewCardsStayWiredThroughSurfaces() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let reviewExtensionText = try Self.appSourceText(named: "WorkspaceModelReview.swift")
         let toolCardSurfaceText = try Self.appSourceText(named: "QuillCodeToolCardSurface.swift")
         let toolCardViewText = try Self.appSourceText(named: "QuillCodeToolCardView.swift")
         let toolCardControlsText = try Self.appSourceText(named: "QuillCodeToolCardControls.swift")
@@ -99,7 +100,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(toolCardViewText.contains("struct QuillCodeArtifactImagePreview"), "Tool-card composition should not own artifact-preview implementation.")
         XCTAssertFalse(toolCardViewText.contains("struct QuillCodeCodeBlock"), "Tool-card composition should not own raw details implementation.")
         XCTAssertTrue(workspaceViewText.contains("onToolCardAction"), "Workspace view should expose review-card actions to the host app.")
-        XCTAssertTrue(modelText.contains("public func runToolCardAction"), "Workspace model should execute approved review-card actions.")
+        XCTAssertTrue(reviewExtensionText.contains("func runToolCardAction"), "Workspace review extension should execute approved review-card actions.")
         XCTAssertTrue(htmlRendererText.contains("data-testid=\"tool-card-actions\""), "HTML harness should expose action buttons for Playwright.")
         XCTAssertTrue(htmlRendererText.contains("card.statusDisplayLabel"), "HTML cards should use the same human-facing status labels as native cards.")
         XCTAssertTrue(htmlRendererText.contains("card.reviewState.rawValue"), "HTML cards should expose review substate for E2E checks without parsing copy.")
@@ -107,7 +108,8 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(approvalPlannerText.contains("static func pendingRequest"), "Approval request lookup should be directly testable outside the workspace model.")
         XCTAssertTrue(approvalPlannerText.contains("WorkspaceApprovalEditDraftBuilder"), "Approval-card edit draft generation should stay in the pure planner layer.")
         XCTAssertTrue(approvalPlannerText.contains("composerDraft"), "Approval-card edit actions should preload the composer instead of approving or skipping.")
-        XCTAssertTrue(modelText.contains("WorkspaceApprovalActionPlanner.plan"), "Workspace model should delegate approval-card action planning.")
+        XCTAssertTrue(reviewExtensionText.contains("WorkspaceApprovalActionPlanner.plan"), "Workspace review extension should delegate approval-card action planning.")
+        XCTAssertFalse(modelText.contains("func runToolCardAction"), "WorkspaceModel should not own review-card action APIs.")
         XCTAssertFalse(modelText.contains("private func pendingApprovalRequest"), "Workspace model should not own approval-request lookup.")
         XCTAssertFalse(modelText.contains("private func appendApprovalDecision"), "Workspace model should not own approval-decision event construction.")
         XCTAssertFalse(modelText.contains("approvalVerdict"), "Workspace model should not own tool-card action verdict mapping.")
@@ -500,13 +502,15 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesThreadNoticeMutation() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let reviewExtensionText = try Self.appSourceText(named: "WorkspaceModelReview.swift")
         let appenderText = try Self.appSourceText(named: "WorkspaceThreadNoticeAppender.swift")
 
         XCTAssertTrue(appenderText.contains("enum WorkspaceThreadNoticeAppender"), "Thread notice mutation should live in a focused helper.")
         XCTAssertTrue(appenderText.contains("static func appendNotice"), "Notice event mutation should be directly testable.")
         XCTAssertTrue(appenderText.contains("static func appendAssistantNotice"), "Assistant notice mutation should be directly testable.")
         XCTAssertTrue(modelText.contains("WorkspaceThreadNoticeAppender.appendNotice"), "WorkspaceModel should delegate notice event mutation.")
-        XCTAssertTrue(modelText.contains("WorkspaceThreadNoticeAppender.appendAssistantNotice"), "WorkspaceModel should delegate assistant notice mutation.")
+        XCTAssertTrue(reviewExtensionText.contains("WorkspaceThreadNoticeAppender.appendAssistantNotice"), "Workspace review extension should delegate assistant notice mutation.")
+        XCTAssertFalse(modelText.contains("WorkspaceThreadNoticeAppender.appendAssistantNotice"), "WorkspaceModel should not own assistant notice mutation for review-card actions.")
         XCTAssertFalse(modelText.contains("thread.events.append(.init(kind: .notice"), "WorkspaceModel should not append notice events inline.")
         XCTAssertFalse(modelText.contains("thread.events.append(.init(kind: .message"), "WorkspaceModel should not append message events inline.")
         XCTAssertFalse(modelText.contains("thread.messages.append(.init(role: .assistant"), "WorkspaceModel should not append assistant notice messages inline.")

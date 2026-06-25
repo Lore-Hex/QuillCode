@@ -6439,3 +6439,25 @@ Current strict grades:
 
 Remaining risk:
 - Stop-all still coordinates MCP cancellation with composer and terminal state in `WorkspaceModel.swift`. That is currently a cross-surface app command, but it should be the next extraction candidate if more stop/disconnect semantics are added.
+
+## 2026-06-25 Workspace Review API Extension
+
+Overall grade after this slice: **A- review API ownership, A review/action parity gates, B+/A- central model size**.
+
+`WorkspaceModel.swift` still owned review action execution, actionable approval-card decisions, and review comment mutation even though those flows already delegated detailed planning to focused review helpers. Moving the actor-facing review API to a same-actor extension keeps review orchestration visible without leaving the central model as the default owner for every UI command.
+
+What changed:
+- Added `WorkspaceModelReview.swift` for review stage/restore actions, tool-card approval/edit/deny actions, review comment insertion, review-result transcript recording, and assistant notice insertion for skipped actions.
+- Kept selected-thread mutation, persistence, top-bar refresh, and tool dispatch on `QuillCodeWorkspaceModel`, but routed error mutation through the existing `setLastError` helper instead of widening property setters.
+- Kept review tool execution on the shared `WorkspaceToolCallExecutor` so local, browser, remote SSH, and apply-patch follow-up routing stay identical between manual tool calls and review actions.
+- Updated review, tool-card, and execution parity gates to require review API bodies in the focused extension and prevent them from drifting back into `WorkspaceModel.swift`.
+
+Current strict grades:
+- `WorkspaceModelReview.swift`: **A-**. It is cohesive and thin; it coordinates actor-owned review side effects while delegating planning and execution mechanics to focused helpers.
+- `WorkspaceReviewActionRunner.swift`: **A**. It still owns ordered action/diff-refresh execution and returns typed recorded results for transcript persistence.
+- `WorkspaceApprovalActionPlanner.swift`: **A**. It remains the correct owner for approve/edit/deny decision planning and keeps composer draft generation pure.
+- `WorkspaceModel.swift`: **B+/A-**. It dropped another public API group and is down to 800 lines, but still owns send, generic tool-run, slash command, memory, automation, and shared persistence orchestration.
+- `ParityWorkspaceSurfaceGateTests.swift` and `ParityWorkspaceModelGateTests.swift`: **A**. They now enforce both helper delegation and focused extension ownership rather than only checking that delegation exists somewhere in the central model.
+
+Remaining risk:
+- Generic `runToolCall` still lives in `WorkspaceModel.swift` because it coordinates project context sync, lifecycle recording, execution, persistence, and top-bar status. It is now the clearest next extraction candidate if the model continues to grow.

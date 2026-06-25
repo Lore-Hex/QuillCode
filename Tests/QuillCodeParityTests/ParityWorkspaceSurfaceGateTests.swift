@@ -416,6 +416,7 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesReviewCommentPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let reviewExtensionText = try Self.appSourceText(named: "WorkspaceModelReview.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceReviewCommentPlanner.swift")
 
         XCTAssertTrue(plannerText.contains("public struct WorkspaceReviewCommentState"), "Review comment payload state should live beside the planner.")
@@ -423,7 +424,8 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(plannerText.contains("static func event"), "Review comment planning should be directly testable.")
         XCTAssertTrue(plannerText.contains("private static func normalizedRange"), "Review line-range normalization should be isolated in the planner.")
         XCTAssertTrue(plannerText.contains("private static func rangeExists"), "Review range validation should be isolated in the planner.")
-        XCTAssertTrue(modelText.contains("WorkspaceReviewCommentPlanner.event"), "WorkspaceModel should delegate review comment planning.")
+        XCTAssertTrue(reviewExtensionText.contains("WorkspaceReviewCommentPlanner.event"), "Workspace review extension should delegate review comment planning.")
+        XCTAssertFalse(modelText.contains("func addReviewComment"), "WorkspaceModel should not own review comment mutation APIs.")
         XCTAssertFalse(modelText.contains("WorkspaceReviewCommentState: Codable"), "WorkspaceModel should not own review comment payload state.")
         XCTAssertFalse(modelText.contains("normalizedReviewRange"), "WorkspaceModel should not own review line-range normalization.")
         XCTAssertFalse(modelText.contains("reviewRangeExists"), "WorkspaceModel should not own review range validation.")
@@ -432,11 +434,12 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesReviewActionToolCallPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let reviewExtensionText = try Self.appSourceText(named: "WorkspaceModelReview.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceReviewActionToolCallPlanner.swift")
         let runnerText = try Self.appSourceText(named: "WorkspaceReviewActionRunner.swift")
-        let runActionStart = try XCTUnwrap(modelText.range(of: "public func runReviewAction"))
-        let runActionEnd = try XCTUnwrap(modelText.range(of: "public func runToolCardAction"))
-        let runActionBody = String(modelText[runActionStart.lowerBound..<runActionEnd.lowerBound])
+        let runActionStart = try XCTUnwrap(reviewExtensionText.range(of: "func runReviewAction"))
+        let runActionEnd = try XCTUnwrap(reviewExtensionText.range(of: "func runToolCardAction"))
+        let runActionBody = String(reviewExtensionText[runActionStart.lowerBound..<runActionEnd.lowerBound])
 
         XCTAssertTrue(plannerText.contains("struct WorkspaceReviewActionRunPlan"), "Review action run sequencing should live in a focused plan.")
         XCTAssertTrue(plannerText.contains("enum WorkspaceReviewActionToolCallPlanner"), "Review action tool-call planning should live in a focused planner.")
@@ -453,10 +456,11 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(runnerText.contains("recordedResults"), "Review action execution should expose ordered tool results for transcript recording.")
         XCTAssertTrue(runnerText.contains("executor.executePrimary(plan.actionCall)"), "Review action runner should execute the action call.")
         XCTAssertTrue(runnerText.contains("executor.executePrimary(plan.diffRefreshCall)"), "Review action runner should execute the diff refresh call.")
-        XCTAssertTrue(modelText.contains("WorkspaceReviewActionToolCallPlanner.runPlan"), "WorkspaceModel should delegate review action run planning.")
-        XCTAssertTrue(runActionBody.contains("WorkspaceReviewActionRunner("), "WorkspaceModel should delegate review action execution.")
-        XCTAssertTrue(runActionBody.contains("result.recordedResults"), "WorkspaceModel should record typed review action results.")
-        XCTAssertTrue(runActionBody.contains("result.finalStatus"), "WorkspaceModel should use the runner result for final review action status.")
+        XCTAssertTrue(reviewExtensionText.contains("WorkspaceReviewActionToolCallPlanner.runPlan"), "Workspace review extension should delegate review action run planning.")
+        XCTAssertTrue(runActionBody.contains("WorkspaceReviewActionRunner("), "Workspace review extension should delegate review action execution.")
+        XCTAssertTrue(runActionBody.contains("result.recordedResults"), "Workspace review extension should record typed review action results.")
+        XCTAssertTrue(runActionBody.contains("result.finalStatus"), "Workspace review extension should use the runner result for final review action status.")
+        XCTAssertFalse(modelText.contains("func runReviewAction"), "WorkspaceModel should not own review action APIs.")
         XCTAssertFalse(modelText.contains("private extension WorkspaceReviewActionSurface"), "WorkspaceModel should not own review action surface extensions.")
         XCTAssertFalse(modelText.contains("var toolCall: ToolCall"), "WorkspaceModel should not own review action tool-call mapping.")
         XCTAssertFalse(modelText.contains("ToolCall(name: ToolDefinition.gitDiff.name"), "WorkspaceModel should not own review diff refresh call construction.")
