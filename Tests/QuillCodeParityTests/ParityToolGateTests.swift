@@ -234,6 +234,63 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testGitToolCoverageLivesOutsideMixedToolSuite() throws {
+        let toolTestsText = try Self.toolsTestSourceText(named: "ToolTests.swift")
+        let localTestsText = try Self.toolsTestSourceText(named: "GitLocalToolExecutorTests.swift")
+        let patchTestsText = try Self.toolsTestSourceText(named: "GitPatchToolExecutorTests.swift")
+        let worktreeTestsText = try Self.toolsTestSourceText(named: "GitWorktreeToolExecutorTests.swift")
+        let routerTestsText = try Self.toolsTestSourceText(named: "GitToolRouterTests.swift")
+
+        XCTAssertTrue(
+            localTestsText.contains("final class GitLocalToolExecutorTests"),
+            "Local git stage, restore, commit, push, and input validation coverage should live in a focused suite."
+        )
+        XCTAssertTrue(
+            patchTestsText.contains("final class GitPatchToolExecutorTests"),
+            "Git hunk stage/restore coverage should live in a focused suite."
+        )
+        XCTAssertTrue(
+            worktreeTestsText.contains("final class GitWorktreeToolExecutorTests"),
+            "Git worktree lifecycle coverage should live in a focused suite."
+        )
+        XCTAssertTrue(
+            routerTestsText.contains("final class GitToolRouterTests"),
+            "Git dispatcher/router coverage should live in a focused suite."
+        )
+        XCTAssertTrue(
+            localTestsText.contains("testPushPushesCurrentBranchToNamedRemote"),
+            "Local git push coverage should stay beside local git executor tests."
+        )
+        XCTAssertTrue(
+            patchTestsText.contains("testStageHunkStagesSelectedPatch"),
+            "Hunk staging coverage should stay beside git patch executor tests."
+        )
+        XCTAssertTrue(
+            worktreeTestsText.contains("testCreateListAndRemoveSibling"),
+            "Worktree lifecycle coverage should stay beside git worktree executor tests."
+        )
+        XCTAssertTrue(
+            routerTestsText.contains("testToolRouterExposesGitDefinitions"),
+            "Git definition exposure coverage should stay beside git router tests."
+        )
+        XCTAssertFalse(
+            toolTestsText.contains("testGitStageStagesWorkspaceFileWithSpaces"),
+            "The mixed ToolTests suite should not own local git executor coverage."
+        )
+        XCTAssertFalse(
+            toolTestsText.contains("testGitStageHunkStagesSelectedPatch"),
+            "The mixed ToolTests suite should not own git patch executor coverage."
+        )
+        XCTAssertFalse(
+            toolTestsText.contains("testGitWorktreeCreateListAndRemoveSibling"),
+            "The mixed ToolTests suite should not own git worktree executor coverage."
+        )
+        XCTAssertFalse(
+            toolTestsText.contains("testToolRouterRoutesGitPush"),
+            "The mixed ToolTests suite should not own git router coverage."
+        )
+    }
+
     func testGitLocalExecutionLivesOutsideGitExecutor() throws {
         let executorText = try Self.toolsSourceText(named: "GitToolExecutor.swift")
         let localText = try Self.toolsSourceText(named: "GitLocalToolExecutor.swift")

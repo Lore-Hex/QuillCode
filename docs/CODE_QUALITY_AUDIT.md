@@ -6089,3 +6089,26 @@ Current strict grades:
 
 Remaining risk:
 - The catalog should stay intentionally narrow. If future host-owned commands are added, add them here with a focused test rather than restoring broad planner fallback.
+
+## 2026-06-25 Local Git Tool Test Split
+
+Overall grade after this slice: **A local git coverage, A router coverage, A mixed-suite containment**.
+
+`ToolTests.swift` had shrunk shell and GitHub PR responsibilities into focused suites, but still owned local git, hunk patch, worktree, and git router coverage. That kept unrelated git failures in one broad catch-all.
+
+What changed:
+- Moved local git stage/restore/commit/push/input-validation tests into `GitLocalToolExecutorTests.swift`.
+- Moved hunk patch staging/restoring and patch-path mismatch tests into `GitPatchToolExecutorTests.swift`.
+- Moved worktree create/list/remove coverage into `GitWorktreeToolExecutorTests.swift`.
+- Moved git dispatcher/router definition and route smoke coverage into `GitToolRouterTests.swift`.
+- Added parity gates so `ToolTests.swift` stays focused on file/patch primitives plus shell router boundary coverage.
+
+Current strict grades:
+- `ToolTests.swift`: **A-**. It is down to focused mixed primitives and shell-router boundary checks, but still can be split further around file/patch primitives later.
+- `GitLocalToolExecutorTests.swift`: **A**. It owns local git user workflows and shared input validation.
+- `GitPatchToolExecutorTests.swift`: **A**. It owns hunk patch behavior and quoted-path mismatch parsing.
+- `GitWorktreeToolExecutorTests.swift`: **A**. It owns worktree lifecycle safety coverage.
+- `GitToolRouterTests.swift`: **A**. It owns git dispatcher and router exposure smoke coverage.
+
+Remaining risk:
+- File write and generic apply-patch primitive tests still live in `ToolTests.swift`. They are small enough for now; if file/patch primitives grow, split them into `FileToolExecutorTests.swift` and `PatchToolExecutorTests.swift`.
