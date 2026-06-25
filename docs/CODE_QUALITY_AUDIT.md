@@ -6048,3 +6048,23 @@ Current strict grades:
 
 Remaining risk:
 - `runTerminalCommand` still sequences execution-context lookup, streaming event application, terminal finish mutation, and cancellation handling. A future extraction could isolate the async run coordinator, but only if it avoids callback-heavy indirection and preserves terminal session state updates precisely.
+
+## 2026-06-25 Active Work Stop Planner
+
+Overall grade after this slice: **A active-work stop planning, A focused command coverage, A- WorkspaceModel top-bar command path**.
+
+`cancelActiveWork` and `disconnectAll` still chose stopped/idle top-bar outcomes inline after cancelling sends, terminal runs, and MCP servers. That kept Stop All and Disconnect All slightly behind the rest of the lifecycle architecture, where send, tool-run, and terminal status decisions already live in focused planners.
+
+What changed:
+- Added `WorkspaceActiveWorkStopPlanner` and `WorkspaceStoppedActiveWork` to describe cancel/disconnect lifecycle decisions as pure values.
+- Routed `WorkspaceModel.cancelActiveWork` and `WorkspaceModel.disconnectAll` through the planner while keeping actor-owned cancellation, remote-project detachment, and top-bar application in the model.
+- Added focused planner tests for cancel, no-op disconnect, active work, MCP server cancellation, and remote-only detach behavior.
+- Added a parity gate so `WorkspaceModel` does not reintroduce inline stopped/idle status selection for Stop All and Disconnect All.
+
+Current strict grades:
+- `WorkspaceActiveWorkStopPlanner.swift`: **A**. It is pure, tiny, and owns only lifecycle status and error-clearing decisions.
+- `WorkspaceModel.cancelActiveWork` / `disconnectAll`: **A-**. They still own actor-isolated mutation and project selection side effects, but the policy branch is now named and directly tested.
+- `WorkspaceActiveWorkStopPlannerTests.swift`: **A**. It covers all branch behavior that previously lived inline in the model.
+
+Remaining risk:
+- Stop All and Disconnect All still share actor-bound state mutation with terminal and MCP runtime teardown. That is acceptable for now; a future coordinator should only extract the mutation sequence if persistent remote sessions or resumable work add more teardown cases.
