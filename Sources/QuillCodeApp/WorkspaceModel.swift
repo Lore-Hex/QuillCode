@@ -390,19 +390,6 @@ public final class QuillCodeWorkspaceModel {
     }
 
     @discardableResult
-    public func runLocalEnvironmentAction(_ actionID: String, workspaceRoot: URL) -> Bool {
-        refreshProjectMetadata(root.selectedProjectID)
-        guard let action = contextResolver.selectedLocalAction(withID: actionID) else {
-            return false
-        }
-        runToolCall(
-            WorkspaceShellToolCallPlanner.localEnvironmentAction(action),
-            workspaceRoot: workspaceRoot
-        )
-        return true
-    }
-
-    @discardableResult
     public func runProjectExtensionUpdate(id: String, workspaceRoot: URL) -> Bool {
         refreshProjectMetadata(root.selectedProjectID)
         guard let manifest = selectedProject?.extensionManifests.first(where: { $0.id == id }),
@@ -554,21 +541,6 @@ public final class QuillCodeWorkspaceModel {
             directory: globalMemoryDirectory
         )
         applyGlobalMemoryMutation(mutation)
-    }
-
-    func runEnvironmentSlashCommand(_ query: String?, originalPrompt: String, workspaceRoot: URL) {
-        refreshProjectMetadata(root.selectedProjectID)
-        let plan = WorkspaceEnvironmentSlashCommandPlanner.plan(
-            query: query,
-            userText: originalPrompt,
-            actions: selectedProject?.localActions ?? []
-        )
-        switch plan {
-        case .transcript(let transcript):
-            appendLocalCommandTranscript(transcript)
-        case .runAction(let actionID):
-            _ = runLocalEnvironmentAction(actionID, workspaceRoot: workspaceRoot)
-        }
     }
 
     func appendLocalCommandTranscript(_ transcript: WorkspaceLocalCommandTranscript) {

@@ -48,6 +48,8 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Changes From This Pass
 
+- Extracted local environment action execution and `/env` slash-command dispatch from `WorkspaceModel.swift` into `WorkspaceModelLocalEnvironment.swift`.
+- Added a parity gate that requires local environment action execution to stay in the focused model extension and keeps `/env` transcript planning delegated to `WorkspaceEnvironmentSlashCommandPlanner`.
 - Added keyboard result highlighting to native and harness chat search so users can type, move with ArrowUp/ArrowDown, and press Enter to select a thread.
 - Added Playwright and parity-gate coverage for chat search keyboard selection.
 - Added keyboard result highlighting to the native and harness model picker so users can type, move with ArrowUp/ArrowDown, and press Enter to select a model without leaving the keyboard.
@@ -62,6 +64,23 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Refactored model-category construction to compute favorite IDs once and pass a `Set` through option building instead of recomputing favorites for every model.
 - Updated the Playwright harness to preserve branded labels after model selection.
 - Fixed stale decisions documentation that still described recurring automation as deferred.
+
+## 2026-06-25 Workspace Local Environment API Extension
+
+Overall grade after this slice: **A- local environment workflow ownership, A planner boundary, B+/A- central model size**.
+
+Local environment action metadata loading, matching, shell-call construction, transcript copy, and integration tests were already focused. The remaining issue was that the central workspace model still owned the public run path and `/env` slash-command dispatch body. That made `WorkspaceModel.swift` look like the owner of local environment workflow policy even though the actual decisions had already moved out.
+
+Code quality changes:
+
+- Added `WorkspaceModelLocalEnvironment.swift` for `runLocalEnvironmentAction` and `runEnvironmentSlashCommand`.
+- Kept action matching in `LocalEnvironmentActionMatcher`, command construction in `WorkspaceShellToolCallPlanner`, and `/env` list/run/not-found planning in `WorkspaceEnvironmentSlashCommandPlanner`.
+- Avoided widening the private `contextResolver` boundary; the extension reads selected project local actions directly and keeps actor-owned coordination explicit.
+- Strengthened the parity gate so local environment execution and slash dispatch cannot drift back into `WorkspaceModel.swift`.
+
+Remaining risk:
+
+- `WorkspaceModel.swift` still owns core tool-run execution and memory workflows. The next extraction should target memory command APIs or tool-run lifecycle ownership only if a cohesive helper boundary emerges.
 
 ## 2026-06-25 Terminal History Recall Pass
 
