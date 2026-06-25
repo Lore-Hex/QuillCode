@@ -373,97 +373,6 @@ public final class QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: progress.agentStatus)
     }
 
-    public func runReviewAction(_ action: WorkspaceReviewActionSurface, workspaceRoot: URL) {
-        guard selectedThread != nil else { return }
-        lastError = nil
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
-
-        let router = ToolRouter(workspaceRoot: workspaceRoot)
-        let runPlan = WorkspaceReviewActionToolCallPlanner.runPlan(for: action)
-        let result = WorkspaceReviewActionRunner(
-            plan: runPlan,
-            executor: workspaceToolCallExecutor(router: router)
-        ).run()
-        for recordedResult in result.recordedResults {
-            appendToolRun(call: recordedResult.call, result: recordedResult.result)
-        }
-
-        if let thread = selectedThread {
-            threadPersistence.save(thread)
-        }
-        refreshTopBar(agentStatus: result.finalStatus)
-    }
-
-    @discardableResult
-    public func runToolCardAction(_ action: ToolCardActionSurface, workspaceRoot: URL) -> Bool {
-        guard let plan = WorkspaceApprovalActionPlanner.plan(action: action, thread: selectedThread) else {
-            lastError = "Approval request is no longer available."
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.failed)
-            return false
-        }
-
-        if let composerDraft = plan.composerDraft {
-            composer.draft = composerDraft
-            lastError = nil
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-            return true
-        }
-
-        if let decisionEvent = plan.decisionEvent {
-            mutateSelectedThread { thread in
-                thread.events.append(decisionEvent)
-            }
-        }
-
-        if plan.shouldRunTool {
-            _ = runToolCall(plan.request.toolCall, workspaceRoot: workspaceRoot)
-        } else {
-            if let assistantNotice = plan.assistantNotice {
-                appendAssistantNotice(assistantNotice)
-            }
-            if let thread = selectedThread {
-                threadPersistence.save(thread)
-            }
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-        }
-        return true
-    }
-
-    @discardableResult
-    public func addReviewComment(path: String, text: String) -> Bool {
-        addReviewComment(path: path, lineNumber: nil, endLineNumber: nil, lineKind: nil, text: text)
-    }
-
-    @discardableResult
-    public func addReviewComment(
-        path: String,
-        lineNumber: Int?,
-        endLineNumber: Int? = nil,
-        lineKind: WorkspaceReviewLineKind?,
-        text: String
-    ) -> Bool {
-        guard selectedThread != nil,
-              let event = WorkspaceReviewCommentPlanner.event(
-                path: path,
-                lineNumber: lineNumber,
-                endLineNumber: endLineNumber,
-                lineKind: lineKind,
-                text: text,
-                review: surface().review
-              )
-        else {
-            return false
-        }
-        mutateSelectedThread { thread in
-            thread.events.append(event)
-        }
-        if let thread = selectedThread {
-            threadPersistence.save(thread)
-        }
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-        return true
-    }
-
     func appendNotice(_ summary: String) {
         mutateSelectedThread { thread in
             WorkspaceThreadNoticeAppender.appendNotice(summary, to: &thread)
@@ -560,13 +469,7 @@ public final class QuillCodeWorkspaceModel {
         return finishPlan.result
     }
 
-    private func appendToolRun(call: ToolCall, result: ToolResult) {
-        mutateSelectedThread { thread in
-            WorkspaceToolEventRecorder.append(call: call, result: result, to: &thread)
-        }
-    }
-
-    private func workspaceToolCallExecutor(router: ToolRouter) -> WorkspaceToolCallExecutor {
+    func workspaceToolCallExecutor(router: ToolRouter) -> WorkspaceToolCallExecutor {
         WorkspaceToolCallExecutor(
             selectedProject: selectedProject,
             browser: browser,
@@ -894,9 +797,4 @@ public final class QuillCodeWorkspaceModel {
         try? automationStore?.save(automations.items)
     }
 
-    private func appendAssistantNotice(_ text: String) {
-        mutateSelectedThread { thread in
-            WorkspaceThreadNoticeAppender.appendAssistantNotice(text, to: &thread)
-        }
-    }
 }

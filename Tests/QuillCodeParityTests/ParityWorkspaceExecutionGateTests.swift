@@ -163,7 +163,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceAgentSendProgressPlanner.swift")
         let progressStart = try XCTUnwrap(modelText.range(of: "private func applyAgentProgress"))
-        let progressEnd = try XCTUnwrap(modelText.range(of: "public func runReviewAction"))
+        let progressEnd = try XCTUnwrap(modelText.range(of: "func appendNotice"))
         let progressBody = String(modelText[progressStart.lowerBound..<progressEnd.lowerBound])
 
         XCTAssertTrue(
@@ -447,7 +447,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         let preparerText = try Self.appSourceText(named: "WorkspaceToolRunPreparer.swift")
         let runToolCallStart = try XCTUnwrap(modelText.range(of: "public func runToolCall"))
         let runToolCallEnd = try XCTUnwrap(modelText.range(
-            of: "private func appendToolRun",
+            of: "func workspaceToolCallExecutor",
             range: runToolCallStart.upperBound..<modelText.endIndex
         ))
         let runToolCallBody = String(modelText[runToolCallStart.lowerBound..<runToolCallEnd.lowerBound])
@@ -467,7 +467,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         let lifecycleText = try Self.appSourceText(named: "WorkspaceToolRunLifecyclePlanner.swift")
         let runToolCallStart = try XCTUnwrap(modelText.range(of: "public func runToolCall"))
         let runToolCallEnd = try XCTUnwrap(modelText.range(
-            of: "private func appendToolRun",
+            of: "func workspaceToolCallExecutor",
             range: runToolCallStart.upperBound..<modelText.endIndex
         ))
         let runToolCallBody = String(modelText[runToolCallStart.lowerBound..<runToolCallEnd.lowerBound])
