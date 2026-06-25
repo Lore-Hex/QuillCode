@@ -5191,3 +5191,23 @@ Current strict grades:
 
 Remaining risk:
 - The native and HTML sidebar styles should get a visual pass after this structural change to ensure four primary rows feel calm rather than bulky in narrow windows.
+
+## 2026-06-24 Settings Runtime Surface Test Ownership Split
+
+Overall grade after this slice: **A settings/runtime ownership, A compatibility coverage, B+ broad workspace surface smoke**.
+
+`WorkspaceSurfaceTests.swift` still owned settings defaults, TrustedRouter account copy, older Computer Use payload decoding, and older runtime issue decoding. Those assertions protect settings/runtime compatibility, not the broad aggregate workspace smoke surface, so failures routed to the wrong owner and kept the broad suite large.
+
+What changed:
+- Added `WorkspaceSettingsRuntimeSurfaceTests` for settings defaults, Computer Use command/status copy, TrustedRouter account labels, old Computer Use payload compatibility, and old runtime issue compatibility.
+- Removed settings/runtime-specific assertions from `WorkspaceSurfaceTests.swift` while preserving the aggregate surface smoke checks.
+- Removed the now-unused Computer Use import from the broad surface suite.
+- Updated the stale sidebar hierarchy decision that still described Search, Plugins, and Automations as hidden secondary tools.
+
+Current strict grades:
+- `WorkspaceSettingsRuntimeSurfaceTests.swift`: **A**. It owns settings/runtime presentation compatibility without coupling to unrelated workspace surface behavior.
+- `WorkspaceSurfaceTests.swift`: **B+**. It is smaller, but still owns several unrelated surface families including memory, extensions/MCP, review, command palette, and sidebar search.
+- `docs/DECISIONS.md`: **A**. The sidebar hierarchy decisions now agree on the current Codex-like primary rail.
+
+Remaining risk:
+- Continue splitting `WorkspaceSurfaceTests.swift` by feature family. Good next slices are review surface ownership and memory/extensions surface ownership.

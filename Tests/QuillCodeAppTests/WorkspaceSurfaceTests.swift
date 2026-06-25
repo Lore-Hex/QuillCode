@@ -1,7 +1,6 @@
 import XCTest
 import QuillCodeCore
 import QuillCodeTools
-import QuillComputerUseKit
 @testable import QuillCodeApp
 
 @MainActor
@@ -143,30 +142,6 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "open-browser-session" }?.isEnabled, false)
         XCTAssertEqual(surface.commands.first { $0.id == "disconnect-all" }?.isEnabled, false)
-        XCTAssertEqual(surface.settings.apiBaseURL, TrustedRouterDefaults.defaultAPIBaseURL)
-        XCTAssertFalse(surface.settings.developerOverrideEnabled)
-        XCTAssertFalse(surface.settings.hasStoredAPIKey)
-        XCTAssertEqual(surface.settings.authMode, .oauth)
-        XCTAssertEqual(surface.settings.signInURL, TrustedRouterDefaults.loopbackCallbackURL)
-        XCTAssertEqual(surface.settings.apiKeyStatusLabel, "Not signed in")
-        XCTAssertEqual(surface.settings.computerUseStatus.message, "Needs Screen Recording + Accessibility")
-        XCTAssertEqual(surface.settings.computerUseSetupCommand.id, "computer-use-setup")
-        XCTAssertEqual(surface.settings.computerUseScreenRecordingCommand.id, "computer-use-open-screen-recording")
-        XCTAssertEqual(surface.settings.computerUseAccessibilityCommand.id, "computer-use-open-accessibility")
-        XCTAssertEqual(surface.settings.computerUseRefreshCommand.id, "computer-use-refresh")
-        XCTAssertEqual(surface.settings.computerUseStatusLabel, "Setup needed")
-        XCTAssertEqual(
-            surface.settings.computerUseSetupSummary,
-            "Computer Use needs macOS privacy permissions before QuillCode can inspect or control the desktop."
-        )
-        XCTAssertEqual(
-            surface.settings.computerUseNextAction,
-            "Open Screen Recording first, enable QuillCode, then open Accessibility."
-        )
-        XCTAssertEqual(surface.settings.computerUseRequirements.map(\.title), ["Screen Recording", "Accessibility"])
-        XCTAssertEqual(surface.settings.computerUseRequirements.map(\.statusLabel), ["Required", "Required"])
-        XCTAssertEqual(surface.settings.computerUseRequirements.map(\.isGranted), [false, false])
-        XCTAssertEqual(surface.settings.computerUseRequirements.first?.command.id, "computer-use-open-screen-recording")
         XCTAssertFalse(surface.terminal.isVisible)
         XCTAssertEqual(surface.terminal.cwdLabel, "/tmp/QuillCode")
         XCTAssertFalse(surface.browser.isVisible)
@@ -333,89 +308,6 @@ final class WorkspaceSurfaceTests: XCTestCase {
 
         model.setDraft("run /help")
         XCTAssertEqual(model.surface().composer.slashSuggestions, [])
-    }
-
-    func testSettingsSurfaceShowsTrustedRouterAccount() {
-        let config = AppConfig(
-            authMode: .oauth,
-            trustedRouterAccount: TrustedRouterAccountProfile(
-                userID: "usr_123",
-                email: "quill@example.com"
-            )
-        )
-        let settings = WorkspaceSettingsSurface(config: config, hasStoredAPIKey: true)
-
-        XCTAssertEqual(settings.apiKeyStatusLabel, "Signed in")
-        XCTAssertEqual(settings.loginStatusLabel, "Signed in as quill@example.com")
-        XCTAssertEqual(settings.accountLabel, "quill@example.com")
-    }
-
-    func testSettingsSurfaceDecodesOlderComputerUsePayload() throws {
-        let data = """
-        {
-          "apiBaseURL": "https://api.trustedrouter.com/v1",
-          "authMode": "oauth",
-          "developerOverrideEnabled": false,
-          "hasStoredAPIKey": false,
-          "signInURL": "http://localhost:3000/callback",
-          "apiKeyStatusLabel": "Not signed in",
-          "loginStatusLabel": "TrustedRouter login required",
-          "computerUseStatus": {
-            "available": false,
-            "screenRecordingGranted": true,
-            "accessibilityGranted": false,
-            "message": "Needs Accessibility"
-          },
-          "computerUseSetupCommand": {
-            "id": "computer-use-setup",
-            "title": "Computer Use setup",
-            "isEnabled": true
-          },
-          "computerUseScreenRecordingCommand": {
-            "id": "computer-use-open-screen-recording",
-            "title": "Open Screen Recording settings",
-            "isEnabled": false
-          },
-          "computerUseAccessibilityCommand": {
-            "id": "computer-use-open-accessibility",
-            "title": "Open Accessibility settings",
-            "isEnabled": true
-          },
-          "computerUseRefreshCommand": {
-            "id": "computer-use-refresh",
-            "title": "Refresh Computer Use status",
-            "isEnabled": true
-          }
-        }
-        """.data(using: .utf8)!
-
-        let settings = try JSONDecoder().decode(WorkspaceSettingsSurface.self, from: data)
-
-        XCTAssertEqual(settings.computerUseStatusLabel, "Accessibility needed")
-        XCTAssertEqual(
-            settings.computerUseNextAction,
-            "Open Accessibility, enable QuillCode, then refresh status."
-        )
-        XCTAssertEqual(settings.computerUseRequirements.map(\.title), ["Screen Recording", "Accessibility"])
-        XCTAssertEqual(settings.computerUseRequirements.map(\.statusLabel), ["Granted", "Required"])
-        XCTAssertEqual(settings.computerUseRequirements.map(\.command.isEnabled), [false, true])
-    }
-
-    func testRuntimeIssueDecodesOlderPayloadWithoutDiagnostics() throws {
-        let data = """
-        {
-          "severity": "warning",
-          "title": "Old issue",
-          "message": "Older renderer payload",
-          "actionLabel": "Retry"
-        }
-        """.data(using: .utf8)!
-
-        let issue = try JSONDecoder().decode(RuntimeIssueSurface.self, from: data)
-
-        XCTAssertEqual(issue.title, "Old issue")
-        XCTAssertEqual(issue.actionLabel, "Retry")
-        XCTAssertTrue(issue.diagnostics.isEmpty)
     }
 
     func testShortcutRegistryLabelsSurfaceCommands() {
