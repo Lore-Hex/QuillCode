@@ -161,6 +161,14 @@ public extension ToolDefinition {
         risk: .append
     )
 
+    static let gitWorktreeOpen = ToolDefinition(
+        name: "host.git.worktree.open",
+        description: "Open a registered sibling git worktree for the project.",
+        parametersJSON: #"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#,
+        host: .local,
+        risk: .read
+    )
+
     static let gitWorktreeRemove = ToolDefinition(
         name: "host.git.worktree.remove",
         description: "Remove a registered sibling git worktree for the project.",

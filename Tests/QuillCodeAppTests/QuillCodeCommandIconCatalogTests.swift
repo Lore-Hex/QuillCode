@@ -28,6 +28,7 @@ final class QuillCodeCommandIconCatalogTests: XCTestCase {
             "git-pr-merge": "arrow.triangle.merge",
             "git-worktree-list": "point.3.connected.trianglepath.dotted",
             "git-worktree-create": "plus.rectangle.on.folder",
+            "git-worktree-open": "rectangle.on.rectangle",
             "git-worktree-remove": "minus.rectangle",
             "settings": "gearshape",
             "keyboard-shortcuts": "keyboard",

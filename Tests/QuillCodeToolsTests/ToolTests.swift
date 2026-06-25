@@ -266,6 +266,11 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(list.stdout.contains(worktree.path), list.stdout)
         XCTAssertTrue(list.stdout.contains(String(branch)), list.stdout)
 
+        let open = git.openWorktree(cwd: root, path: worktreeName)
+        XCTAssertTrue(open.ok, "\(open.error ?? "") \(open.stderr)")
+        XCTAssertEqual(open.artifacts, [worktree.path])
+        XCTAssertTrue(open.stdout.contains(worktree.path), open.stdout)
+
         let remove = git.removeWorktree(cwd: root, path: worktreeName)
 
         XCTAssertTrue(remove.ok, "\(remove.error ?? "") \(remove.stderr)")
@@ -294,7 +299,7 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(unsafeBase.error?.contains("unsupported characters") == true, unsafeBase.error ?? "")
     }
 
-    func testGitWorktreeRemoveRejectsUnregisteredPath() throws {
+    func testGitWorktreeOpenAndRemoveRejectUnregisteredPath() throws {
         let root = try makeTempGitRepoWithInitialCommit()
         let parent = root.deletingLastPathComponent()
         let unrelatedName = "not-a-worktree-\(UUID().uuidString)"
@@ -303,10 +308,14 @@ final class ToolTests: XCTestCase {
             withIntermediateDirectories: true
         )
 
-        let result = GitToolExecutor().removeWorktree(cwd: root, path: unrelatedName, force: true)
+        let git = GitToolExecutor()
+        let open = git.openWorktree(cwd: root, path: unrelatedName)
+        let remove = git.removeWorktree(cwd: root, path: unrelatedName, force: true)
 
-        XCTAssertFalse(result.ok)
-        XCTAssertTrue(result.error?.contains("not registered") == true, result.error ?? "")
+        XCTAssertFalse(open.ok)
+        XCTAssertTrue(open.error?.contains("not registered") == true, open.error ?? "")
+        XCTAssertFalse(remove.ok)
+        XCTAssertTrue(remove.error?.contains("not registered") == true, remove.error ?? "")
     }
 
     func testGitHunkActionsRejectPatchPathMismatch() throws {
@@ -365,6 +374,7 @@ final class ToolTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.pr.merge"))
         XCTAssertTrue(definitions.contains("host.git.worktree.list"))
         XCTAssertTrue(definitions.contains("host.git.worktree.create"))
+        XCTAssertTrue(definitions.contains("host.git.worktree.open"))
         XCTAssertTrue(definitions.contains("host.git.worktree.remove"))
     }
 
@@ -383,6 +393,7 @@ final class ToolTests: XCTestCase {
 
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitStatus.name))
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitPullRequestCreate.name))
+        XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitWorktreeOpen.name))
         XCTAssertTrue(GitToolCallDispatcher.handles(ToolDefinition.gitWorktreeRemove.name))
         XCTAssertFalse(GitToolCallDispatcher.handles(ToolDefinition.shellRun.name))
         XCTAssertTrue(gitDefinitions.allSatisfy(routerDefinitions.contains))

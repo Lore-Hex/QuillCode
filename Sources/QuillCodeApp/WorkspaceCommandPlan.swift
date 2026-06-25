@@ -65,6 +65,7 @@ enum WorkspaceCommandPlan: Equatable {
         "git-pr-labels": "Label the current pull request: ",
         "git-pr-merge": "Merge the current pull request with squash",
         "git-worktree-create": "Create a git worktree named ",
+        "git-worktree-open": "Open git worktree at ",
         "git-worktree-remove": "Remove git worktree at "
     ]
 

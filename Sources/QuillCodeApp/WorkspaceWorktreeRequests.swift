@@ -10,6 +10,14 @@ public struct WorkspaceWorktreeCreateRequest: Sendable, Hashable {
     }
 }
 
+public struct WorkspaceWorktreeOpenRequest: Sendable, Hashable {
+    public var path: String
+
+    public init(path: String) {
+        self.path = path
+    }
+}
+
 public struct WorkspaceWorktreeRemoveRequest: Sendable, Hashable {
     public var path: String
     public var force: Bool

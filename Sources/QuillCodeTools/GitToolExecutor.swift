@@ -146,6 +146,10 @@ public struct GitToolExecutor: Sendable {
         worktrees.create(cwd: cwd, path: path, branch: branch, base: base)
     }
 
+    public func openWorktree(cwd: URL, path: String) -> ToolResult {
+        worktrees.open(cwd: cwd, path: path)
+    }
+
     public func removeWorktree(cwd: URL, path: String, force: Bool = false) -> ToolResult {
         worktrees.remove(cwd: cwd, path: path, force: force)
     }

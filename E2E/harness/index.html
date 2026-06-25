@@ -2650,6 +2650,7 @@
         createPath: '',
         createBranch: '',
         createBase: '',
+        openPath: '',
         removePath: '',
         removeForce: false
       },
@@ -2714,6 +2715,7 @@
         { id: 'git-pr-diff', title: 'Pull request diff', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'pr diff', 'pull request diff', 'diff', 'review', 'changes'], isEnabled: true },
         { id: 'git-worktree-list', title: 'List worktrees', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
         { id: 'git-worktree-create', title: 'Create worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
+        { id: 'git-worktree-open', title: 'Open worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace', 'switch'], isEnabled: true },
         { id: 'git-worktree-remove', title: 'Remove worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace', 'delete'], isEnabled: true },
         { id: 'local-env:.quillcode/actions/bootstrap.sh', title: 'Run Bootstrap', shortcut: '', category: 'Environment', keywords: ['local environment', 'script', 'Install dependencies and warm caches.', 'bootstrap', 'app', 'timeout', '120s', 'QUILL_ENV'], isEnabled: true },
         { id: 'stop-all', title: 'Stop all', shortcut: 'Esc', category: 'Control', keywords: ['cancel', 'abort', 'halt'], isEnabled: false },
@@ -3676,6 +3678,7 @@
         command.id === 'git-pr-create' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-worktree-list' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-worktree-create' ? { ...command, isEnabled: hasLocalProject } :
+        command.id === 'git-worktree-open' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-worktree-remove' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'fork-from-last' ? { ...command, isEnabled: hasMessages } :
         command.id === 'compact-context' ? { ...command, isEnabled: hasMessages } :
@@ -4903,6 +4906,18 @@
           path: form.elements.namedItem('path').value.trim(),
           branch: form.elements.namedItem('branch').value.trim(),
           base: form.elements.namedItem('base').value.trim()
+        });
+      });
+      document.querySelector('[data-testid="worktree-open-form"]')?.addEventListener('input', event => {
+        const form = event.currentTarget;
+        state.worktreeDialog.openPath = form.elements.namedItem('path').value;
+        document.querySelector('[data-testid="worktree-open-submit"]').disabled = !state.worktreeDialog.openPath.trim();
+      });
+      document.querySelector('[data-testid="worktree-open-form"]')?.addEventListener('submit', event => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        openWorktree({
+          path: form.elements.namedItem('path').value.trim()
         });
       });
       document.querySelector('[data-testid="worktree-remove-form"]')?.addEventListener('input', event => {
@@ -7171,6 +7186,17 @@
           createBranch: '',
           createBase: ''
         };
+        render();
+        return;
+      }
+      if (commandID === 'git-worktree-open') {
+        state.worktreeDialog = {
+          ...state.worktreeDialog,
+          mode: 'open',
+          openPath: ''
+        };
+        render();
+        return;
       }
       if (commandID === 'git-worktree-remove') {
         state.worktreeDialog = {
@@ -7179,6 +7205,8 @@
           removePath: '',
           removeForce: false
         };
+        render();
+        return;
       }
       if (commandID.startsWith('local-env:')) {
         runLocalEnvironmentAction(commandID);
@@ -7746,6 +7774,28 @@
             </form>
           </div>`;
       }
+      if (state.worktreeDialog.mode === 'open') {
+        return `
+          <div class="search-panel" data-testid="worktree-open-panel">
+            <form class="search-card" data-testid="worktree-open-form" role="dialog" aria-label="Open worktree">
+              <header>
+                <div>
+                  <h2>Open worktree</h2>
+                  <p>Open an existing registered git worktree as a focused project.</p>
+                </div>
+                <button type="button" data-testid="worktree-dialog-close">Close</button>
+              </header>
+              <label>
+                Worktree folder
+                <input name="path" aria-label="Worktree folder" placeholder="quillcode-feature" value="${escapeHTML(state.worktreeDialog.openPath)}" autofocus>
+              </label>
+              <div class="settings-actions">
+                <button type="button" data-testid="worktree-dialog-cancel">Cancel</button>
+                <button type="submit" data-testid="worktree-open-submit" ${state.worktreeDialog.openPath.trim() ? '' : 'disabled'}>Open</button>
+              </div>
+            </form>
+          </div>`;
+      }
       return `
         <div class="search-panel" data-testid="worktree-remove-panel">
           <form class="search-card" data-testid="worktree-remove-form" role="dialog" aria-label="Remove worktree">
@@ -7812,6 +7862,21 @@
       state.worktreeDialog.mode = null;
       syncSelectedThreadSearchText();
       openCreatedWorktree(values);
+      render();
+    }
+
+    function openWorktree(values) {
+      ensureThread('Open worktree');
+      addToolCard({
+        title: 'host.git.worktree.open',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({ path: values.path }, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: `Opened registered worktree ${values.path}\\n`, artifacts: [`/mock/${values.path}`] }, null, 2)
+      });
+      state.worktreeDialog.mode = null;
+      syncSelectedThreadSearchText();
+      openCreatedWorktree({ path: values.path, branch: '' });
       render();
     }
 

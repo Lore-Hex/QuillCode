@@ -46,8 +46,43 @@ final class WorkspaceWorktreeIntegrationTests: XCTestCase {
         XCTAssertTrue(model.runWorkspaceCommand("git-worktree-create", workspaceRoot: root))
         XCTAssertEqual(model.composer.draft, "Create a git worktree named ")
 
+        XCTAssertTrue(model.runWorkspaceCommand("git-worktree-open", workspaceRoot: root))
+        XCTAssertEqual(model.composer.draft, "Open git worktree at ")
+
         XCTAssertTrue(model.runWorkspaceCommand("git-worktree-remove", workspaceRoot: root))
         XCTAssertEqual(model.composer.draft, "Remove git worktree at ")
+    }
+
+    func testWorkspaceOpenExistingWorktreeOpensFocusedThreadAndKeepsToolAudit() throws {
+        let root = try makeTempGitRepoWithInitialCommit()
+        let parent = root.deletingLastPathComponent()
+        let worktreeName = "quillcode-existing-\(UUID().uuidString)"
+        let branch = "quillcode-existing-\(UUID().uuidString.prefix(8))"
+        let worktree = parent.appendingPathComponent(worktreeName).standardizedFileURL
+        let create = GitToolExecutor().createWorktree(cwd: root, path: worktreeName, branch: String(branch))
+        XCTAssertTrue(create.ok, create.error ?? create.stderr)
+
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Worktree Project")
+        let sourceThreadID = model.newChat(projectID: projectID)
+        model.startSidebarSelection(selecting: sourceThreadID)
+
+        model.openWorktree(.init(path: worktreeName), workspaceRoot: root)
+
+        XCTAssertEqual(model.selectedProject?.path, worktree.path)
+        XCTAssertEqual(model.selectedProject?.name, worktreeName)
+        XCTAssertEqual(model.selectedThread?.projectID, model.selectedProject?.id)
+        XCTAssertEqual(model.selectedThread?.title, "Worktree: \(worktreeName)")
+        XCTAssertTrue(model.selectedThread?.messages.last?.content.contains("Opened worktree `\(worktreeName)`") == true)
+        XCTAssertEqual(model.root.topBar.projectName, worktreeName)
+
+        let openCard = try XCTUnwrap(worktreeCard(in: model, title: ToolDefinition.gitWorktreeOpen.name))
+        XCTAssertNotEqual(openCard.threadID, model.selectedThread?.id)
+        XCTAssertEqual(openCard.card.status, .done)
+        XCTAssertTrue(openCard.card.inputJSON?.contains(worktreeName) == true)
+        XCTAssertEqual(model.selectedSidebarThreadIDs(), [])
+
+        model.removeWorktree(.init(path: worktreeName), workspaceRoot: root)
     }
 
     func testWorkspaceCreateWorktreeOpensFocusedThreadAndKeepsToolAudit() throws {
@@ -73,7 +108,7 @@ final class WorkspaceWorktreeIntegrationTests: XCTestCase {
         XCTAssertEqual(model.root.topBar.projectName, worktreeName)
         XCTAssertEqual(model.root.topBar.threadTitle, "Worktree: \(branch)")
 
-        let createCard = try XCTUnwrap(worktreeCreateCard(in: model))
+        let createCard = try XCTUnwrap(worktreeCard(in: model, title: ToolDefinition.gitWorktreeCreate.name))
         XCTAssertNotEqual(createCard.threadID, model.selectedThread?.id)
         XCTAssertEqual(createCard.card.status, .done)
         XCTAssertTrue(createCard.card.inputJSON?.contains(worktreeName) == true)
@@ -109,11 +144,40 @@ final class WorkspaceWorktreeIntegrationTests: XCTestCase {
         XCTAssertTrue(fixture.model.selectedThread?.messages.last?.content.contains("Opened remote worktree `\(worktreeName)`") == true)
         XCTAssertEqual(fixture.model.root.topBar.projectName, "feather.local · \(worktreeName)")
 
-        let createCard = try XCTUnwrap(worktreeCreateCard(in: fixture.model))
+        let createCard = try XCTUnwrap(worktreeCard(in: fixture.model, title: ToolDefinition.gitWorktreeCreate.name))
         XCTAssertNotEqual(createCard.threadID, fixture.model.selectedThread?.id)
         XCTAssertEqual(createCard.card.status, .done)
         let createResult = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(createCard.card.outputJSON))
         XCTAssertEqual(createResult.artifacts, ["ssh://quill@feather.local:2222\(worktree.path)"])
+    }
+
+    func testRemoteWorkspaceOpenExistingWorktreeOpensSSHProjectAndKeepsToolAudit() throws {
+        let fixture = try makeRemoteWorktreeFixture()
+        let parent = fixture.remoteRoot.deletingLastPathComponent()
+        let worktreeName = "remote-existing-\(UUID().uuidString)"
+        let branch = "remote-existing-\(UUID().uuidString.prefix(8))"
+        let worktree = parent.appendingPathComponent(worktreeName).standardizedFileURL
+        let create = GitToolExecutor().createWorktree(
+            cwd: fixture.remoteRoot,
+            path: worktreeName,
+            branch: String(branch)
+        )
+        XCTAssertTrue(create.ok, create.error ?? create.stderr)
+
+        fixture.model.openWorktree(.init(path: worktreeName), workspaceRoot: fixture.localRoot)
+
+        XCTAssertEqual(fixture.model.selectedProject?.connection.kind, .ssh)
+        XCTAssertEqual(fixture.model.selectedProject?.connection.path, worktree.path)
+        XCTAssertEqual(fixture.model.selectedThread?.title, "Worktree: \(worktreeName)")
+        XCTAssertTrue(fixture.model.selectedThread?.messages.last?.content.contains("Opened remote worktree `\(worktreeName)`") == true)
+
+        let openCard = try XCTUnwrap(worktreeCard(in: fixture.model, title: ToolDefinition.gitWorktreeOpen.name))
+        XCTAssertNotEqual(openCard.threadID, fixture.model.selectedThread?.id)
+        XCTAssertEqual(openCard.card.status, .done)
+        let openResult = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(openCard.card.outputJSON))
+        XCTAssertEqual(openResult.artifacts, ["ssh://quill@feather.local:2222\(worktree.path)"])
+        let sshArguments = try fixture.recordedSSHArguments()
+        XCTAssertTrue(sshArguments.contains("printf 'worktree %s\\n'"), sshArguments)
     }
 
     private func makeRemoteWorktreeFixture() throws -> RemoteWorktreeFixture {
@@ -143,12 +207,13 @@ final class WorkspaceWorktreeIntegrationTests: XCTestCase {
         )
     }
 
-    private func worktreeCreateCard(
-        in model: QuillCodeWorkspaceModel
+    private func worktreeCard(
+        in model: QuillCodeWorkspaceModel,
+        title: String
     ) -> (threadID: UUID, card: ToolCardState)? {
         for thread in model.root.threads {
             let cards = WorkspaceTranscriptSurfaceBuilder(thread: thread).toolCards()
-            if let card = cards.last(where: { $0.title == ToolDefinition.gitWorktreeCreate.name }) {
+            if let card = cards.last(where: { $0.title == title }) {
                 return (thread.id, card)
             }
         }

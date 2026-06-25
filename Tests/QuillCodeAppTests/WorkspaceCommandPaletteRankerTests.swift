@@ -68,6 +68,7 @@ final class WorkspaceCommandPaletteRankerTests: XCTestCase {
         XCTAssertEqual(groups.first?.commands.map(\.id), [
             "git-worktree-list",
             "git-worktree-create",
+            "git-worktree-open",
             "git-worktree-remove"
         ])
     }

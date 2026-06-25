@@ -3,6 +3,7 @@ import QuillCodeCore
 
 enum QuillCodeWorktreeSheet: String, Identifiable {
     case create
+    case open
     case remove
 
     var id: String { rawValue }
@@ -26,6 +27,18 @@ struct QuillCodeWorktreeCreateDraft: Equatable {
     }
 }
 
+struct QuillCodeWorktreeOpenDraft: Equatable {
+    var path = ""
+
+    var canOpen: Bool {
+        !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var request: WorkspaceWorktreeOpenRequest {
+        WorkspaceWorktreeOpenRequest(path: path.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+}
+
 struct QuillCodeWorktreeRemoveDraft: Equatable {
     var path = ""
     var force = false
@@ -39,6 +52,36 @@ struct QuillCodeWorktreeRemoveDraft: Equatable {
             path: path.trimmingCharacters(in: .whitespacesAndNewlines),
             force: force
         )
+    }
+}
+
+struct QuillCodeWorktreeOpenView: View {
+    @Binding var draft: QuillCodeWorktreeOpenDraft
+    var onCancel: () -> Void
+    var onOpen: () -> Void
+
+    var body: some View {
+        QuillCodeWorktreeDialogFrame(
+            title: "Open Worktree",
+            subtitle: "Open an existing registered git worktree as a focused project.",
+            systemImage: "rectangle.on.rectangle",
+            iconColor: QuillCodePalette.blue
+        ) {
+            QuillCodeLabeledTextField(
+                title: "Worktree folder",
+                placeholder: "quillcode-feature",
+                text: $draft.path,
+                footer: "Opening is limited to worktrees registered by git."
+            )
+        } footer: {
+            HStack {
+                Spacer()
+                Button("Cancel", action: onCancel)
+                Button("Open", action: onOpen)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!draft.canOpen)
+            }
+        }
     }
 }
 

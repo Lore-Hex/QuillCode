@@ -56,6 +56,8 @@ enum QuillCodeCommandIconCatalog {
             return "point.3.connected.trianglepath.dotted"
         case "git-worktree-create":
             return "plus.rectangle.on.folder"
+        case "git-worktree-open":
+            return "rectangle.on.rectangle"
         case "git-worktree-remove":
             return "minus.rectangle"
         case "settings":

@@ -102,6 +102,13 @@ enum WorkspaceGitCommandCatalog {
                 isEnabled: hasWorkspaceOrRemoteProject
             ),
             WorkspaceCommandSurface(
+                id: "git-worktree-open",
+                title: "Open worktree",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["branch", "git", "workspace", "switch"],
+                isEnabled: hasWorkspaceOrRemoteProject
+            ),
+            WorkspaceCommandSurface(
                 id: "git-worktree-remove",
                 title: "Remove worktree",
                 category: WorkspaceCommandPalette.gitCategory,

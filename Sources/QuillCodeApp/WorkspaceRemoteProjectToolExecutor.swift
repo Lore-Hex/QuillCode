@@ -29,6 +29,7 @@ struct WorkspaceRemoteProjectToolExecutor: Sendable, Hashable {
         .gitPullRequestMerge,
         .gitWorktreeList,
         .gitWorktreeCreate,
+        .gitWorktreeOpen,
         .gitWorktreeRemove
     ]
 
@@ -53,6 +54,7 @@ struct WorkspaceRemoteProjectToolExecutor: Sendable, Hashable {
         ToolDefinition.gitPullRequestMerge.name,
         ToolDefinition.gitWorktreeList.name,
         ToolDefinition.gitWorktreeCreate.name,
+        ToolDefinition.gitWorktreeOpen.name,
         ToolDefinition.gitWorktreeRemove.name
     ]
 

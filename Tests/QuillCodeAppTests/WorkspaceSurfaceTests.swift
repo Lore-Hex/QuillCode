@@ -124,6 +124,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "git-pr-merge",
             "git-worktree-list",
             "git-worktree-create",
+            "git-worktree-open",
             "git-worktree-remove",
             "stop-all",
             "disconnect-all",

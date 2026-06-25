@@ -1055,6 +1055,19 @@ public final class QuillCodeWorkspaceModel {
         }
     }
 
+    public func openWorktree(_ request: WorkspaceWorktreeOpenRequest, workspaceRoot: URL) {
+        let result = runToolCall(
+            WorkspaceWorktreeToolCallPlanner.open(request),
+            workspaceRoot: workspaceRoot
+        )
+        if result.ok {
+            openCreatedWorktree(
+                result,
+                request: WorkspaceWorktreeCreateRequest(path: request.path)
+            )
+        }
+    }
+
     public func removeWorktree(_ request: WorkspaceWorktreeRemoveRequest, workspaceRoot: URL) {
         runToolCall(
             WorkspaceWorktreeToolCallPlanner.remove(request),

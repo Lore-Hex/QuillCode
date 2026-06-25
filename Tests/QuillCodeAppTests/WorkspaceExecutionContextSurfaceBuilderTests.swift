@@ -124,6 +124,7 @@ final class WorkspaceExecutionContextSurfaceBuilderTests: XCTestCase {
         XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.fileRead.name))
         XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.gitPullRequestMerge.name))
         XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.gitWorktreeCreate.name))
+        XCTAssertTrue(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.gitWorktreeOpen.name))
 
         XCTAssertFalse(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool("Safety Check"))
         XCTAssertFalse(WorkspaceExecutionContextSurfaceBuilder.isProjectExecutionTool(ToolDefinition.memoryRemember.name))
