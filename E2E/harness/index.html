@@ -4172,6 +4172,36 @@
       render();
     }
 
+    function searchResultsHTML() {
+      const results = filteredSearchResults();
+      if (!results.length) {
+        return '<p data-testid="search-empty">No matching chats</p>';
+      }
+      return results.map(item => `
+        <button class="search-result ${item.id === state.search.highlightedThreadID ? 'selected' : ''}" type="button" data-testid="search-result" data-thread-id="${escapeHTML(item.id)}" data-highlighted="${item.id === state.search.highlightedThreadID ? 'true' : 'false'}">
+          <span>${escapeHTML(item.title)}</span>
+          <small>${escapeHTML(item.subtitle)}${item.isPinned ? ' · pinned' : ''}${item.isArchived ? ' · archived' : ''}</small>
+        </button>`).join('');
+    }
+
+    function bindSearchResultHandlers(root = document) {
+      root.querySelectorAll('[data-testid="search-result"]').forEach(button => {
+        button.addEventListener('click', event => {
+          selectThread(event.currentTarget.getAttribute('data-thread-id'));
+          state.search.isOpen = false;
+          state.search.highlightedThreadID = null;
+          render();
+        });
+      });
+    }
+
+    function refreshSearchResults() {
+      const resultsContainer = document.querySelector('[data-testid="search-results"]');
+      if (!resultsContainer) return;
+      resultsContainer.innerHTML = searchResultsHTML();
+      bindSearchResultHandlers(resultsContainer);
+    }
+
     function moveCommandPaletteSelection(delta) {
       const enabled = commandPaletteResults().filter(command => command.isEnabled);
       if (!enabled.length) {
@@ -5200,21 +5230,18 @@
       document.querySelector('[data-testid="search-input"]')?.addEventListener('input', event => {
         state.search.query = event.target.value;
         ensureSearchHighlight(state.search.highlightedThreadID);
-        render();
-        const input = document.querySelector('[data-testid="search-input"]');
-        input?.focus();
-        input?.setSelectionRange(input.value.length, input.value.length);
+        refreshSearchResults();
       });
       document.querySelector('[data-testid="search-input"]')?.addEventListener('keydown', event => {
         if (event.key === 'ArrowDown') {
           event.preventDefault();
           moveSearchHighlight(1);
-          render();
+          refreshSearchResults();
           focusSearchInput();
         } else if (event.key === 'ArrowUp') {
           event.preventDefault();
           moveSearchHighlight(-1);
-          render();
+          refreshSearchResults();
           focusSearchInput();
         } else if (event.key === 'Enter') {
           event.preventDefault();
@@ -5226,14 +5253,7 @@
           render();
         }
       });
-      document.querySelectorAll('[data-testid="search-result"]').forEach(button => {
-        button.addEventListener('click', event => {
-          selectThread(event.currentTarget.getAttribute('data-thread-id'));
-          state.search.isOpen = false;
-          state.search.highlightedThreadID = null;
-          render();
-        });
-      });
+      bindSearchResultHandlers();
       document.querySelector('[data-testid="find-input"]')?.addEventListener('input', event => {
         state.find.query = event.target.value;
         state.find.activeIndex = 0;
@@ -5789,7 +5809,6 @@
     }
 
     function renderSearchPanel() {
-      const results = filteredSearchResults();
       return `
         <div class="search-panel" data-testid="search-panel">
           <section class="search-card" role="dialog" aria-label="Search chats">
@@ -5802,11 +5821,7 @@
             </header>
             <input data-testid="search-input" aria-label="Search chats" placeholder="Search chats" value="${escapeHTML(state.search.query)}" autofocus>
             <div class="search-results" data-testid="search-results">
-              ${results.length ? results.map(item => `
-                <button class="search-result ${item.id === state.search.highlightedThreadID ? 'selected' : ''}" type="button" data-testid="search-result" data-thread-id="${escapeHTML(item.id)}" data-highlighted="${item.id === state.search.highlightedThreadID ? 'true' : 'false'}">
-                  <span>${escapeHTML(item.title)}</span>
-                  <small>${escapeHTML(item.subtitle)}${item.isPinned ? ' · pinned' : ''}${item.isArchived ? ' · archived' : ''}</small>
-                </button>`).join('') : '<p data-testid="search-empty">No matching chats</p>'}
+              ${searchResultsHTML()}
             </div>
           </section>
         </div>`;
