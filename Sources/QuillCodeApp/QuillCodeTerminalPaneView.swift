@@ -7,6 +7,8 @@ struct QuillCodeTerminalPaneView: View {
     var onRun: () -> Void
     var onStop: () -> Void
     var onClear: () -> Void
+    var onHistoryPrevious: () -> Void
+    var onHistoryNext: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -70,6 +72,16 @@ struct QuillCodeTerminalPaneView: View {
             TextField("Run command", text: $draft)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(onRun)
+                .onKeyPress(.upArrow) {
+                    guard !terminal.isRunning else { return .ignored }
+                    onHistoryPrevious()
+                    return .handled
+                }
+                .onKeyPress(.downArrow) {
+                    guard !terminal.isRunning else { return .ignored }
+                    onHistoryNext()
+                    return .handled
+                }
                 .disabled(terminal.isRunning)
             Button("Run", action: onRun)
                 .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || terminal.isRunning)

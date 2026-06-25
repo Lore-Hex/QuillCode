@@ -10,6 +10,12 @@ enum WorkspaceTerminalEngine {
         input.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    static func setDraft(_ draft: String, terminal: inout TerminalState) {
+        terminal.draft = draft
+        terminal.historyCursor = nil
+        terminal.historyDraft = nil
+    }
+
     static func canBeginRun(command: String, terminal: TerminalState) -> Bool {
         !command.isEmpty && !terminal.isRunning
     }
@@ -21,6 +27,8 @@ enum WorkspaceTerminalEngine {
         terminal: inout TerminalState
     ) -> UUID {
         terminal.draft = ""
+        terminal.historyCursor = nil
+        terminal.historyDraft = nil
         terminal.isVisible = true
         terminal.isRunning = true
         terminal.entries.append(TerminalCommandState(
@@ -153,12 +161,60 @@ enum WorkspaceTerminalEngine {
         terminal.currentDirectoryPath = selectedProjectDisplayPath
         terminal.environmentOverrides = [:]
         terminal.removedEnvironmentKeys = []
+        terminal.historyCursor = nil
+        terminal.historyDraft = nil
     }
 
     @discardableResult
     static func clearHistory(terminal: inout TerminalState) -> Bool {
         guard !terminal.isRunning else { return false }
         terminal.entries = []
+        terminal.historyCursor = nil
+        terminal.historyDraft = nil
+        return true
+    }
+
+    @discardableResult
+    static func recallPreviousCommand(terminal: inout TerminalState) -> Bool {
+        guard !terminal.isRunning else { return false }
+        let history = commandHistory(from: terminal)
+        guard !history.isEmpty else { return false }
+        if let cursor = terminal.historyCursor {
+            guard history.indices.contains(cursor) else {
+                terminal.historyCursor = nil
+                terminal.historyDraft = nil
+                return false
+            }
+            guard cursor > history.startIndex else { return false }
+            terminal.historyCursor = history.index(before: cursor)
+        } else {
+            terminal.historyDraft = terminal.draft
+            terminal.historyCursor = history.index(before: history.endIndex)
+        }
+        if let cursor = terminal.historyCursor {
+            terminal.draft = history[cursor]
+        }
+        return true
+    }
+
+    @discardableResult
+    static func recallNextCommand(terminal: inout TerminalState) -> Bool {
+        guard !terminal.isRunning, let cursor = terminal.historyCursor else { return false }
+        let history = commandHistory(from: terminal)
+        guard history.indices.contains(cursor) else {
+            terminal.historyCursor = nil
+            terminal.historyDraft = nil
+            return false
+        }
+        let next = history.index(after: cursor)
+        if next < history.endIndex {
+            terminal.historyCursor = next
+            terminal.draft = history[next]
+        } else {
+            terminal.historyCursor = nil
+            terminal.draft = terminal.historyDraft ?? ""
+            terminal.historyDraft = nil
+        }
         return true
     }
 
@@ -213,6 +269,14 @@ enum WorkspaceTerminalEngine {
             terminal.entries[index].exitCode = nil
             terminal.entries[index].ok = false
             terminal.entries[index].status = .stopped
+        }
+    }
+
+    private static func commandHistory(from terminal: TerminalState) -> [String] {
+        terminal.entries.compactMap { entry in
+            guard entry.status != .running else { return nil }
+            let command = normalizedCommand(entry.command)
+            return command.isEmpty ? nil : command
         }
     }
 

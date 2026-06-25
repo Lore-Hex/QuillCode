@@ -2835,6 +2835,8 @@
       terminal: {
         isVisible: false,
         draft: '',
+        historyCursor: null,
+        historyDraft: null,
         isRunning: false,
         cwdLabel: '/mock/QuillCode',
         environment: {},
@@ -5227,9 +5229,23 @@
         pruneWorktrees({ dryRun: false, verbose: true });
       });
       document.querySelector('[data-testid="terminal-input"]')?.addEventListener('input', event => {
-        state.terminal.draft = event.target.value;
+        setTerminalDraft(event.target.value);
         document.querySelector('[data-testid="terminal-run"]').disabled =
           !state.terminal.draft.trim() || state.terminal.isRunning;
+      });
+      document.querySelector('[data-testid="terminal-input"]')?.addEventListener('keydown', event => {
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+        if (state.terminal.isRunning) return;
+        if (event.currentTarget.value !== state.terminal.draft) {
+          setTerminalDraft(event.currentTarget.value);
+        }
+        const changed = event.key === 'ArrowUp'
+          ? recallPreviousTerminalCommand()
+          : recallNextTerminalCommand();
+        if (!changed) return;
+        event.preventDefault();
+        render();
+        document.querySelector('[data-testid="terminal-input"]')?.focus();
       });
 	      document.querySelector('[data-testid="terminal-form"]')?.addEventListener('submit', event => {
 	        event.preventDefault();
@@ -7388,6 +7404,8 @@
       if (commandID === 'terminal-clear') {
         if (!state.terminal.isRunning) {
           state.terminal.entries = [];
+          state.terminal.historyCursor = null;
+          state.terminal.historyDraft = null;
           state.terminal.isVisible = true;
           updateDynamicCommands();
           render();
@@ -7635,6 +7653,8 @@
       const command = state.terminal.draft.trim();
       if (!command || state.terminal.isRunning) return;
       state.terminal.draft = '';
+      state.terminal.historyCursor = null;
+      state.terminal.historyDraft = null;
       state.terminal.isVisible = true;
       state.terminal.isRunning = true;
       const cwd = state.terminal.cwdLabel;
@@ -7682,6 +7702,49 @@
         render();
       }, completionDelay);
       activeTerminalRun = { entry, timer };
+    }
+
+    function setTerminalDraft(value) {
+      state.terminal.draft = value;
+      state.terminal.historyCursor = null;
+      state.terminal.historyDraft = null;
+    }
+
+    function terminalCommandHistory() {
+      return state.terminal.entries
+        .filter(entry => terminalStatus(entry) !== 'running')
+        .map(entry => entry.command.trim())
+        .filter(Boolean);
+    }
+
+    function recallPreviousTerminalCommand() {
+      const history = terminalCommandHistory();
+      if (!history.length || state.terminal.isRunning) return false;
+      if (state.terminal.historyCursor === null) {
+        state.terminal.historyDraft = state.terminal.draft;
+        state.terminal.historyCursor = history.length - 1;
+      } else if (state.terminal.historyCursor > 0) {
+        state.terminal.historyCursor -= 1;
+      } else {
+        return false;
+      }
+      state.terminal.draft = history[state.terminal.historyCursor];
+      return true;
+    }
+
+    function recallNextTerminalCommand() {
+      const history = terminalCommandHistory();
+      if (state.terminal.historyCursor === null || state.terminal.isRunning) return false;
+      const next = state.terminal.historyCursor + 1;
+      if (next < history.length) {
+        state.terminal.historyCursor = next;
+        state.terminal.draft = history[next];
+      } else {
+        state.terminal.historyCursor = null;
+        state.terminal.draft = state.terminal.historyDraft || '';
+        state.terminal.historyDraft = null;
+      }
+      return true;
     }
 
     function terminalOutput(command, cwd, environment) {

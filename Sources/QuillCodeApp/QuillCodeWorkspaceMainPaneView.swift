@@ -17,6 +17,8 @@ struct QuillCodeWorkspaceMainPaneView: View {
     var onToggleModelFavorite: (String) -> Void
     var onSend: () -> Void
     var onRunTerminalCommand: () -> Void
+    var onTerminalHistoryPrevious: () -> Void
+    var onTerminalHistoryNext: () -> Void
     var onOpenBrowserPreview: () -> Void
     var onOpenBrowserSession: (() -> Void)?
     var onAddBrowserComment: (String) -> Void
@@ -100,7 +102,9 @@ struct QuillCodeWorkspaceMainPaneView: View {
                         draft: $terminalDraft,
                         onRun: onRunTerminalCommand,
                         onStop: stopActiveRun,
-                        onClear: { runCommand(id: "terminal-clear") }
+                        onClear: { runCommand(id: "terminal-clear") },
+                        onHistoryPrevious: onTerminalHistoryPrevious,
+                        onHistoryNext: onTerminalHistoryNext
                     )
                 }
                 Divider()

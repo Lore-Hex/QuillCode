@@ -47,6 +47,17 @@ test('mock harness runs a command in the integrated terminal', async ({ page }) 
   await page.getByTestId('terminal-run').click();
   await expect(page.getByTestId('terminal-stdout').last()).toHaveText('missing');
 
+  const terminalInput = page.getByLabel('Terminal command');
+  await terminalInput.fill('git ');
+  await terminalInput.press('ArrowUp');
+  await expect(terminalInput).toHaveValue('printf \'%s\' "${QUILL_TERMINAL_TEST:-missing}"');
+  await terminalInput.press('ArrowUp');
+  await expect(terminalInput).toHaveValue('unset QUILL_TERMINAL_TEST');
+  await terminalInput.press('ArrowDown');
+  await expect(terminalInput).toHaveValue('printf \'%s\' "${QUILL_TERMINAL_TEST:-missing}"');
+  await terminalInput.press('ArrowDown');
+  await expect(terminalInput).toHaveValue('git ');
+
   await page.getByLabel('Terminal command').fill('sleep 5');
   await page.getByTestId('terminal-run').click();
   await expect(page.getByTestId('terminal-status').last()).toHaveText('Running · running');

@@ -13,6 +13,8 @@ public struct QuillCodeWorkspaceView: View {
     public var copiedTranscriptItemID: String?
     public var onSend: () -> Void
     public var onRunTerminalCommand: () -> Void
+    public var onTerminalHistoryPrevious: () -> Void
+    public var onTerminalHistoryNext: () -> Void
     public var onOpenBrowserPreview: () -> Void
     public var onOpenBrowserSession: (() -> Void)?
     public var onAddBrowserComment: (String) -> Void
@@ -71,6 +73,8 @@ public struct QuillCodeWorkspaceView: View {
         copiedTranscriptItemID: String? = nil,
         onSend: @escaping () -> Void,
         onRunTerminalCommand: @escaping () -> Void,
+        onTerminalHistoryPrevious: @escaping () -> Void = {},
+        onTerminalHistoryNext: @escaping () -> Void = {},
         onOpenBrowserPreview: @escaping () -> Void,
         onOpenBrowserSession: (() -> Void)? = nil,
         onAddBrowserComment: @escaping (String) -> Void,
@@ -109,6 +113,8 @@ public struct QuillCodeWorkspaceView: View {
         self.copiedTranscriptItemID = copiedTranscriptItemID
         self.onSend = onSend
         self.onRunTerminalCommand = onRunTerminalCommand
+        self.onTerminalHistoryPrevious = onTerminalHistoryPrevious
+        self.onTerminalHistoryNext = onTerminalHistoryNext
         self.onOpenBrowserPreview = onOpenBrowserPreview
         self.onOpenBrowserSession = onOpenBrowserSession
         self.onAddBrowserComment = onAddBrowserComment
@@ -176,6 +182,8 @@ public struct QuillCodeWorkspaceView: View {
                     onToggleModelFavorite: onToggleModelFavorite,
                     onSend: onSend,
                     onRunTerminalCommand: onRunTerminalCommand,
+                    onTerminalHistoryPrevious: onTerminalHistoryPrevious,
+                    onTerminalHistoryNext: onTerminalHistoryNext,
                     onOpenBrowserPreview: onOpenBrowserPreview,
                     onOpenBrowserSession: onOpenBrowserSession,
                     onAddBrowserComment: onAddBrowserComment,
