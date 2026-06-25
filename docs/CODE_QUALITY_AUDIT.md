@@ -48,6 +48,8 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Changes From This Pass
 
+- Extracted mode/model/favorite/catalog/settings/runtime/status APIs from `WorkspaceModel.swift` into `WorkspaceModelConfiguration.swift`.
+- Added a configuration parity gate that requires configuration/runtime APIs to stay in the focused model extension while keeping normalization and settings policy in `WorkspaceConfigurationEngine`.
 - Extracted global memory save/delete, mutation application, global reload, and thread memory refresh from `WorkspaceModel.swift` into `WorkspaceModelMemory.swift`.
 - Added a memory parity gate that requires memory workflow APIs to stay in the focused model extension while keeping memory policy in `WorkspaceMemoryEngine`.
 - Extracted local environment action execution and `/env` slash-command dispatch from `WorkspaceModel.swift` into `WorkspaceModelLocalEnvironment.swift`.
@@ -66,6 +68,23 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Refactored model-category construction to compute favorite IDs once and pass a `Set` through option building instead of recomputing favorites for every model.
 - Updated the Playwright harness to preserve branded labels after model selection.
 - Fixed stale decisions documentation that still described recurring automation as deferred.
+
+## 2026-06-25 Workspace Configuration API Extension
+
+Overall grade after this slice: **A- configuration workflow ownership, A policy boundary, B+/A- central model size**.
+
+Model, mode, favorites, catalog replacement, settings application, runtime swaps, and explicit agent-status overrides are one cohesive configuration/runtime workflow family. The detailed policy already lived in `WorkspaceConfigurationEngine`; the central model only needed to coordinate selected-thread synchronization and top-bar refresh. Moving those public API bodies out keeps the root coordinator focused on cross-cutting workspace orchestration.
+
+Code quality changes:
+
+- Added `WorkspaceModelConfiguration.swift` for mode/model selection, favorite mutation, catalog replacement, settings application, runtime replacement, and status overrides.
+- Kept model alias normalization, favorite dedupe, catalog normalization, and config/thread sync policy in `WorkspaceConfigurationEngine`.
+- Kept runtime runner storage same-module only so the focused extension can apply runtime swaps without making the runner public API.
+- Strengthened the configuration parity gate so configuration/runtime APIs cannot drift back into `WorkspaceModel.swift`.
+
+Remaining risk:
+
+- The central model still owns agent-send orchestration, project-context refresh helpers, and generic thread mutation helpers. Those are harder boundaries because they coordinate visible selected state, persistence, and async progress, but they should keep shrinking through focused helpers.
 
 ## 2026-06-25 Workspace Memory API Extension
 
