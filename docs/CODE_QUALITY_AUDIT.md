@@ -5656,3 +5656,23 @@ Current strict grades:
 
 Remaining risk:
 - Continue splitting `core.spec.ts` by feature family. Good next slices are shortcut/find flows and memory/context/activity flows.
+
+## 2026-06-25 Playwright Shortcut Spec Split
+
+Overall grade after this slice: **A shortcut E2E ownership, A transcript find shortcut coverage, A- broad Playwright core spec**.
+
+`core.spec.ts` still owned keyboard shortcut dispatch for search, command palette, shortcuts help, terminal, browser, transcript find, and new chat. Those flows all exercise global keyboard routing and should fail in a focused shortcut suite instead of broad workspace smoke.
+
+What changed:
+- Added `shortcuts.spec.ts` for global keyboard dispatch, transcript find navigation, and new-chat shortcut reset.
+- Reused the shared Playwright `harnessURL()` helper in the focused shortcut spec.
+- Removed shortcut/find dispatch flow from `core.spec.ts`, leaving the broad smoke suite focused on initial workspace, tool cards, transcript scroll, activity, context pressure, memory, and review-card behavior.
+- Added a surface parity gate that keeps shortcut flows in the focused spec and registered it in the focused-suite manifest.
+
+Current strict grades:
+- `E2E/playwright/tests/shortcuts.spec.ts`: **A**. It owns shortcut routing across global app panels, secondary panes, transcript find, and new-chat reset.
+- `E2E/playwright/tests/core.spec.ts`: **A-**. It is smaller again, but still owns broad workspace smoke plus transcript, activity/context, memory, and review-card behavior.
+- `ParityWorkspaceSurfaceGateTests.swift`: **A**. It now guards focused ownership for terminal, search, extension, artifact, composer, workspace chrome, shortcut, and review Playwright flow families.
+
+Remaining risk:
+- Continue splitting `core.spec.ts` by feature family. Good next slices are memory/context/activity flows and review-card behavior.

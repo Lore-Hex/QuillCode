@@ -309,6 +309,29 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         }
     }
 
+    func testPlaywrightShortcutFlowsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let shortcutSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("shortcuts.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let shortcutFlowName = "dispatches workspace keyboard shortcuts"
+
+        XCTAssertTrue(shortcutSpecText.contains("harnessURL()"), "Focused shortcut flows should reuse the shared harness URL helper.")
+        XCTAssertTrue(shortcutSpecText.contains("Meta+K"), "Focused shortcut flows should cover search shortcut dispatch.")
+        XCTAssertTrue(shortcutSpecText.contains("Meta+Shift+P"), "Focused shortcut flows should cover command palette shortcut dispatch.")
+        XCTAssertTrue(shortcutSpecText.contains("Meta+/"), "Focused shortcut flows should cover keyboard-shortcuts help dispatch.")
+        XCTAssertTrue(shortcutSpecText.contains("Control+Backquote"), "Focused shortcut flows should cover terminal shortcut dispatch.")
+        XCTAssertTrue(shortcutSpecText.contains("Meta+F"), "Focused shortcut flows should cover transcript find dispatch.")
+        XCTAssertTrue(shortcutSpecText.contains("Meta+N"), "Focused shortcut flows should cover new-chat shortcut dispatch.")
+        XCTAssertTrue(shortcutSpecText.contains(shortcutFlowName), "\(shortcutFlowName) should live in shortcuts.spec.ts.")
+        XCTAssertFalse(coreSpecText.contains(shortcutFlowName), "\(shortcutFlowName) should not drift back into core.spec.ts.")
+    }
+
     func testWorkspaceSurfaceDelegatesReviewSurfaceContracts() throws {
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
         let reviewText = try Self.appSourceText(named: "QuillCodeReviewSurface.swift")
