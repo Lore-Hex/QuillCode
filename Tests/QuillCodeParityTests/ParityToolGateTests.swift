@@ -185,7 +185,6 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
     }
 
     func testShellToolExecutorCoverageLivesOutsideMixedToolSuite() throws {
-        let toolTestsText = try Self.toolsTestSourceText(named: "ToolTests.swift")
         let shellTestsText = try Self.toolsTestSourceText(named: "ShellToolExecutorTests.swift")
         let supportText = try Self.toolsTestSourceText(named: "ToolTestSupport.swift")
 
@@ -195,13 +194,46 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(shellTestsText.contains("testSSHRemoteShellBuildsNonInteractiveRequest"), "SSH shell request coverage should stay beside shell executor tests.")
         XCTAssertTrue(supportText.contains("extension XCTestCase"), "Tool test fixtures should live in shared support instead of one mixed suite.")
         XCTAssertTrue(supportText.contains("func makeFakeSSH"), "SSH test fixture creation should be reusable across focused tool suites.")
-        XCTAssertFalse(toolTestsText.contains("testShellRunsWhoami"), "The mixed ToolTests suite should not own shell executor coverage.")
-        XCTAssertFalse(toolTestsText.contains("testStreamingShellTimeoutKeepsPartialOutputAndStopsProcess"), "The mixed ToolTests suite should not own streaming shell coverage.")
-        XCTAssertFalse(toolTestsText.contains("testSSHRemoteShellBuildsNonInteractiveRequest"), "The mixed ToolTests suite should not own SSH shell coverage.")
+    }
+
+    func testPrimitiveAndShellRouterToolCoverageLivesOutsideMixedToolSuite() throws {
+        let fileTestsText = try Self.toolsTestSourceText(named: "FileToolExecutorTests.swift")
+        let patchTestsText = try Self.toolsTestSourceText(named: "PatchToolExecutorTests.swift")
+        let shellRouterTestsText = try Self.toolsTestSourceText(named: "ShellToolRouterTests.swift")
+        let mixedSuitePath = Self.packageRoot()
+            .appendingPathComponent("Tests/QuillCodeToolsTests/ToolTests.swift")
+
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: mixedSuitePath.path),
+            "The mixed ToolTests.swift catch-all should stay retired."
+        )
+        XCTAssertTrue(
+            fileTestsText.contains("final class FileToolExecutorTests"),
+            "File primitive coverage should live in a focused suite."
+        )
+        XCTAssertTrue(
+            patchTestsText.contains("final class PatchToolExecutorTests"),
+            "Generic apply-patch primitive coverage should live in a focused suite."
+        )
+        XCTAssertTrue(
+            shellRouterTestsText.contains("final class ShellToolRouterTests"),
+            "Shell tool router boundary coverage should live in a focused suite."
+        )
+        XCTAssertTrue(
+            fileTestsText.contains("testFileWriteStaysInsideWorkspace"),
+            "File path containment coverage should stay beside file tool tests."
+        )
+        XCTAssertTrue(
+            patchTestsText.contains("testApplyPatchRejectsUnsafePaths"),
+            "Patch path containment coverage should stay beside patch tool tests."
+        )
+        XCTAssertTrue(
+            shellRouterTestsText.contains("testToolRouterShellRejectsSymlinkCWDEscape"),
+            "Shell router cwd containment coverage should stay beside shell router tests."
+        )
     }
 
     func testGitHubPullRequestToolCoverageLivesOutsideMixedToolSuite() throws {
-        let toolTestsText = try Self.toolsTestSourceText(named: "ToolTests.swift")
         let pullRequestTestsText = try Self.toolsTestSourceText(named: "GitHubPullRequestToolExecutorTests.swift")
 
         XCTAssertTrue(
@@ -220,22 +252,9 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
             pullRequestTestsText.contains("testToolRouterRoutesPullRequestReadAndMutationTools"),
             "PR tool-router coverage should stay beside the PR executor tests."
         )
-        XCTAssertFalse(
-            toolTestsText.contains("testGitCreatePullRequestUsesGitHubCLIArguments"),
-            "The mixed ToolTests suite should not own GitHub PR executor coverage."
-        )
-        XCTAssertFalse(
-            toolTestsText.contains("testGitPullRequestViewUsesGitHubCLIArguments"),
-            "The mixed ToolTests suite should not own GitHub PR read coverage."
-        )
-        XCTAssertFalse(
-            toolTestsText.contains("testToolRouterRoutesGitPullRequestViewChecksAndDiff"),
-            "The mixed ToolTests suite should not own GitHub PR router coverage."
-        )
     }
 
     func testGitToolCoverageLivesOutsideMixedToolSuite() throws {
-        let toolTestsText = try Self.toolsTestSourceText(named: "ToolTests.swift")
         let localTestsText = try Self.toolsTestSourceText(named: "GitLocalToolExecutorTests.swift")
         let patchTestsText = try Self.toolsTestSourceText(named: "GitPatchToolExecutorTests.swift")
         let worktreeTestsText = try Self.toolsTestSourceText(named: "GitWorktreeToolExecutorTests.swift")
@@ -272,22 +291,6 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             routerTestsText.contains("testToolRouterExposesGitDefinitions"),
             "Git definition exposure coverage should stay beside git router tests."
-        )
-        XCTAssertFalse(
-            toolTestsText.contains("testGitStageStagesWorkspaceFileWithSpaces"),
-            "The mixed ToolTests suite should not own local git executor coverage."
-        )
-        XCTAssertFalse(
-            toolTestsText.contains("testGitStageHunkStagesSelectedPatch"),
-            "The mixed ToolTests suite should not own git patch executor coverage."
-        )
-        XCTAssertFalse(
-            toolTestsText.contains("testGitWorktreeCreateListAndRemoveSibling"),
-            "The mixed ToolTests suite should not own git worktree executor coverage."
-        )
-        XCTAssertFalse(
-            toolTestsText.contains("testToolRouterRoutesGitPush"),
-            "The mixed ToolTests suite should not own git router coverage."
         )
     }
 
