@@ -48,6 +48,9 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 ## Changes From This Pass
 
+- Added keyboard result highlighting to the native and harness model picker so users can type, move with ArrowUp/ArrowDown, and press Enter to select a model without leaving the keyboard.
+- Fixed the harness model-picker button path to focus the search field on open, matching the runtime issue recovery path and Codex-style command popovers.
+- Added Playwright coverage for model picker keyboard selection.
 - Kept `trustedrouter/fast` stable and moved the fallback model to preferred `/synth`/`tr/synth` while preserving `trustedrouter/fusion`, `tr/fusion`, `/fusion`, `fusion-code`, and `/fusion-code` legacy aliases. User-facing model surfaces brand the defaults as **Nike 1.0** and **Synth**.
 - Promoted Synth Code (`/synth-code`, `tr/synth-code`) into the bundled Recommended catalog so the preferred code model is visible offline instead of only working as a hidden alias.
 - Added explicit catalog-normalization regression coverage so live or persisted legacy Fusion rows dedupe into Synth/Synth Code and do not reappear as user-facing picker rows.

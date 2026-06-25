@@ -2417,6 +2417,14 @@
       background: rgba(65,184,232,.07);
       box-shadow: inset 3px 0 0 rgba(65,184,232,.78), inset 0 0 0 1px rgba(65,184,232,.22);
     }
+    .model-option.highlighted {
+      background: rgba(255,255,255,.05);
+      box-shadow: inset 0 0 0 1px rgba(65,184,232,.36);
+    }
+    .model-option.selected.highlighted {
+      background: rgba(65,184,232,.08);
+      box-shadow: inset 3px 0 0 rgba(65,184,232,.78), inset 0 0 0 1px rgba(65,184,232,.42);
+    }
     .topbar-cluster .model-option.selected:not(:disabled):hover {
       background: rgba(65,184,232,.07);
       box-shadow: inset 3px 0 0 rgba(65,184,232,.78), inset 0 0 0 1px rgba(65,184,232,.22);
@@ -2503,6 +2511,7 @@
         selectedModelID: 'trustedrouter/fast',
         modelPickerOpen: false,
         expandedModelID: null,
+        highlightedModelID: null,
         modelSearch: '',
         modelCategories: [
           {
@@ -4575,7 +4584,7 @@
               <h3>${escapeHTML(category.category)}</h3>
               ${category.models.map(model => `
                 <div class="model-row" data-testid="model-row" data-model-id="${escapeHTML(model.id)}">
-                  <button class="model-option ${model.id === state.topBar.selectedModelID ? 'selected' : ''}" type="button" data-testid="model-option" data-model-id="${escapeHTML(model.id)}">
+                  <button class="model-option ${model.id === state.topBar.selectedModelID ? 'selected' : ''} ${model.id === state.topBar.highlightedModelID ? 'highlighted' : ''}" type="button" data-testid="model-option" data-model-id="${escapeHTML(model.id)}" data-highlighted="${model.id === state.topBar.highlightedModelID ? 'true' : 'false'}">
                     <span class="model-title">${escapeHTML(modelDisplayLabel(model))}${model.id === state.topBar.selectedModelID ? ' ✓' : ''}</span>
                     <small class="model-summary" data-testid="model-option-summary">${escapeHTML(modelMetadataSummary(model, category.category))}</small>
                     ${(model.badges || []).length ? `<span class="model-badges" data-testid="model-badges">${(model.badges || []).slice(0, 3).map(badge => `<span class="model-badge ${modelBadgeClass(badge)}" data-testid="model-badge">${escapeHTML(badge)}</span>`).join('')}</span>` : ''}
@@ -4834,19 +4843,44 @@
       document.querySelector('[data-testid="model-picker-button"]').addEventListener('click', () => {
         state.topBar.modelPickerOpen = !state.topBar.modelPickerOpen;
         state.topBar.expandedModelID = state.topBar.modelPickerOpen ? state.topBar.selectedModelID : null;
+        state.topBar.highlightedModelID = state.topBar.modelPickerOpen ? state.topBar.selectedModelID : null;
         render();
+        document.querySelector('[data-testid="model-search"]')?.focus();
       });
       document.querySelector('[data-testid="mode-picker-button"]').addEventListener('click', () => {
         cycleMode();
       });
       document.querySelector('[data-testid="model-search"]')?.addEventListener('input', event => {
         state.topBar.modelSearch = event.target.value;
+        ensureHighlightedModel(state.topBar.highlightedModelID);
         render();
-        document.querySelector('[data-testid="model-search"]')?.focus();
+        const input = document.querySelector('[data-testid="model-search"]');
+        input?.focus();
+        input?.setSelectionRange(input.value.length, input.value.length);
+      });
+      document.querySelector('[data-testid="model-search"]')?.addEventListener('keydown', event => {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          moveHighlightedModel(1);
+        } else if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          moveHighlightedModel(-1);
+        } else if (event.key === 'Enter') {
+          event.preventDefault();
+          selectHighlightedModel();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          state.topBar.modelPickerOpen = false;
+          state.topBar.modelSearch = '';
+          state.topBar.highlightedModelID = null;
+          state.topBar.expandedModelID = null;
+          render();
+        }
       });
       document.querySelectorAll('[data-testid="model-clear-search"]').forEach(button => {
         button.addEventListener('click', () => {
           state.topBar.modelSearch = '';
+          ensureHighlightedModel(state.topBar.selectedModelID);
           render();
           document.querySelector('[data-testid="model-search"]')?.focus();
         });
@@ -4859,6 +4893,7 @@
       document.querySelectorAll('[data-testid="model-detail-button"]').forEach(button => {
         button.addEventListener('click', event => {
           const modelID = event.currentTarget.getAttribute('data-model-id');
+          state.topBar.highlightedModelID = modelID;
           state.topBar.expandedModelID = state.topBar.expandedModelID === modelID ? null : modelID;
           render();
         });
@@ -4902,6 +4937,8 @@
           } else if (label === 'Switch model') {
             state.topBar.modelPickerOpen = true;
             state.topBar.modelSearch = '';
+            state.topBar.expandedModelID = state.topBar.selectedModelID;
+            state.topBar.highlightedModelID = state.topBar.selectedModelID;
             render();
             document.querySelector('[data-testid="model-search"]')?.focus();
           }
@@ -5322,6 +5359,44 @@
         .filter(category => category.models.length > 0);
     }
 
+    function filteredModels() {
+      return filterModelCategories(state.topBar.modelSearch).flatMap(category => category.models);
+    }
+
+    function ensureHighlightedModel(preferredID) {
+      const models = filteredModels();
+      if (preferredID && models.some(model => model.id === preferredID)) {
+        state.topBar.highlightedModelID = preferredID;
+        return;
+      }
+      if (state.topBar.highlightedModelID && models.some(model => model.id === state.topBar.highlightedModelID)) {
+        return;
+      }
+      state.topBar.highlightedModelID = models[0]?.id || null;
+    }
+
+    function moveHighlightedModel(delta) {
+      const models = filteredModels();
+      if (!models.length) {
+        state.topBar.highlightedModelID = null;
+        render();
+        document.querySelector('[data-testid="model-search"]')?.focus();
+        return;
+      }
+      const currentIndex = Math.max(0, models.findIndex(model => model.id === state.topBar.highlightedModelID));
+      const nextIndex = (currentIndex + delta + models.length) % models.length;
+      state.topBar.highlightedModelID = models[nextIndex].id;
+      render();
+      document.querySelector('[data-testid="model-search"]')?.focus();
+    }
+
+    function selectHighlightedModel() {
+      ensureHighlightedModel(state.topBar.highlightedModelID);
+      if (state.topBar.highlightedModelID) {
+        selectModel(state.topBar.highlightedModelID);
+      }
+    }
+
     function selectModel(selectedID) {
       const allModels = state.topBar.modelCategories.flatMap(category => category.models);
       const selected = allModels.find(model => model.id === selectedID);
@@ -5331,6 +5406,7 @@
       state.topBar.modelPickerOpen = false;
       state.topBar.modelSearch = '';
       state.topBar.expandedModelID = null;
+      state.topBar.highlightedModelID = null;
       state.topBar.modelCategories = state.topBar.modelCategories.map(category => ({
         ...category,
         models: category.models.map(model => {
