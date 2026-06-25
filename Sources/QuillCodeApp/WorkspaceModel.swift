@@ -9,7 +9,7 @@ import QuillComputerUseKit
 public final class QuillCodeWorkspaceModel {
     public internal(set) var root: QuillCodeRootState
     public private(set) var composer: ComposerState
-    public private(set) var terminal: TerminalState
+    public internal(set) var terminal: TerminalState
     public private(set) var browser: BrowserState
     public private(set) var extensions: ExtensionsState
     public private(set) var memories: MemoriesState
@@ -24,7 +24,7 @@ public final class QuillCodeWorkspaceModel {
     private let automationStore: JSONAutomationStore?
     private let globalMemoryDirectory: URL?
     private var computerUseBackend: (any ComputerUseBackend)?
-    private let sshRemoteShellExecutor: SSHRemoteShellExecutor
+    let sshRemoteShellExecutor: SSHRemoteShellExecutor
     private let mcpRuntime: WorkspaceMCPRuntime
 
     public init(
@@ -187,26 +187,6 @@ public final class QuillCodeWorkspaceModel {
         composer.draft = draft
         lastError = nil
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-        return true
-    }
-
-    public func setTerminalDraft(_ draft: String) {
-        terminal.draft = draft
-    }
-
-    public func setTerminalVisible(_ isVisible: Bool) {
-        terminal.isVisible = isVisible
-    }
-
-    public func toggleTerminal() {
-        terminal.isVisible.toggle()
-    }
-
-    @discardableResult
-    public func clearTerminalHistory() -> Bool {
-        guard WorkspaceTerminalEngine.clearHistory(terminal: &terminal) else { return false }
-        terminal.isVisible = true
-        lastError = nil
         return true
     }
 
@@ -700,75 +680,6 @@ public final class QuillCodeWorkspaceModel {
         }
         refreshTopBar(agentStatus: finishPlan.agentStatus)
         return finishPlan.result
-    }
-
-    public func runTerminalCommand(workspaceRoot: URL) async {
-        await runTerminalCommand(terminal.draft, workspaceRoot: workspaceRoot)
-    }
-
-    public func runTerminalCommand(_ input: String, workspaceRoot: URL) async {
-        let command = WorkspaceTerminalEngine.normalizedCommand(input)
-        guard WorkspaceTerminalEngine.canBeginRun(command: command, terminal: terminal) else { return }
-        syncTerminalSessionToSelectedProject()
-
-        let entryID = WorkspaceTerminalEngine.beginRun(command: command, terminal: &terminal)
-        applyTerminalLifecyclePlan(WorkspaceTerminalLifecyclePlanner.started())
-
-        guard let executionContext = WorkspaceTerminalEngine.executionContext(
-            command: command,
-            selectedProject: selectedProject,
-            terminalCurrentDirectoryURL: terminalCurrentDirectoryURL,
-            terminal: terminal,
-            workspaceRoot: workspaceRoot,
-            sshRemoteShellExecutor: sshRemoteShellExecutor
-        ) else {
-            WorkspaceTerminalEngine.failMissingExecutionContext(id: entryID, terminal: &terminal)
-            applyTerminalLifecyclePlan(WorkspaceTerminalLifecyclePlanner.missingExecutionContext())
-            return
-        }
-        WorkspaceTerminalEngine.updateExecutionContext(
-            id: entryID,
-            executionContext: executionContext.surface,
-            terminal: &terminal
-        )
-
-        var finalResult: ToolResult?
-        for await event in ShellToolExecutor().runStreaming(executionContext.request) {
-            if Task.isCancelled || WorkspaceTerminalEngine.entryIsStopped(id: entryID, terminal: terminal) {
-                break
-            }
-            if let result = WorkspaceTerminalEngine.applyStreamingEvent(event, id: entryID, terminal: &terminal) {
-                finalResult = result
-            }
-        }
-
-        if WorkspaceTerminalEngine.entryIsStopped(id: entryID, terminal: terminal) {
-            WorkspaceTerminalEngine.finishStoppedRun(executionContext: executionContext, terminal: &terminal)
-            applyTerminalLifecyclePlan(WorkspaceTerminalLifecyclePlanner.stopped())
-            return
-        }
-        guard !Task.isCancelled, let result = finalResult else {
-            WorkspaceTerminalEngine.finishCancelledRun(
-                id: entryID,
-                executionContext: executionContext,
-                terminal: &terminal
-            )
-            applyTerminalLifecyclePlan(WorkspaceTerminalLifecyclePlanner.cancelled())
-            return
-        }
-
-        WorkspaceTerminalEngine.finishCompletedRun(
-            id: entryID,
-            executionContext: executionContext,
-            result: result,
-            terminal: &terminal
-        )
-        applyTerminalLifecyclePlan(WorkspaceTerminalLifecyclePlanner.finished(result: result))
-    }
-
-    private func applyTerminalLifecyclePlan(_ plan: WorkspaceTerminalLifecyclePlan) {
-        lastError = plan.lastError
-        refreshTopBar(agentStatus: plan.agentStatus)
     }
 
     public func cancelActiveWork() {

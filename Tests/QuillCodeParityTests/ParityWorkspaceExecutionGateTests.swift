@@ -447,7 +447,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         let preparerText = try Self.appSourceText(named: "WorkspaceToolRunPreparer.swift")
         let runToolCallStart = try XCTUnwrap(modelText.range(of: "public func runToolCall"))
         let runToolCallEnd = try XCTUnwrap(modelText.range(
-            of: "public func runTerminalCommand",
+            of: "public func cancelActiveWork",
             range: runToolCallStart.upperBound..<modelText.endIndex
         ))
         let runToolCallBody = String(modelText[runToolCallStart.lowerBound..<runToolCallEnd.lowerBound])
@@ -467,7 +467,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         let lifecycleText = try Self.appSourceText(named: "WorkspaceToolRunLifecyclePlanner.swift")
         let runToolCallStart = try XCTUnwrap(modelText.range(of: "public func runToolCall"))
         let runToolCallEnd = try XCTUnwrap(modelText.range(
-            of: "public func runTerminalCommand",
+            of: "public func cancelActiveWork",
             range: runToolCallStart.upperBound..<modelText.endIndex
         ))
         let runToolCallBody = String(modelText[runToolCallStart.lowerBound..<runToolCallEnd.lowerBound])
@@ -483,26 +483,24 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesTerminalLifecyclePlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let terminalText = try Self.appSourceText(named: "WorkspaceModelTerminal.swift")
         let lifecycleText = try Self.appSourceText(named: "WorkspaceTerminalLifecyclePlanner.swift")
-        let terminalStart = try XCTUnwrap(modelText.range(of: "public func runTerminalCommand(_ input"))
-        let terminalEnd = try XCTUnwrap(modelText.range(
-            of: "public func cancelActiveWork",
-            range: terminalStart.upperBound..<modelText.endIndex
-        ))
-        let terminalBody = String(modelText[terminalStart.lowerBound..<terminalEnd.lowerBound])
 
+        XCTAssertTrue(terminalText.contains("extension QuillCodeWorkspaceModel"), "Terminal workspace APIs should live in a focused model extension.")
         XCTAssertTrue(lifecycleText.contains("enum WorkspaceTerminalLifecyclePlanner"), "Terminal lifecycle status should live in a focused planner.")
         XCTAssertTrue(lifecycleText.contains("static func started"), "Terminal start lifecycle should be directly testable.")
         XCTAssertTrue(lifecycleText.contains("static func missingExecutionContext"), "Terminal missing-context lifecycle should be directly testable.")
         XCTAssertTrue(lifecycleText.contains("static func finished"), "Terminal finish lifecycle should be directly testable.")
-        XCTAssertTrue(terminalBody.contains("WorkspaceTerminalLifecyclePlanner.started"), "WorkspaceModel should delegate terminal start lifecycle.")
-        XCTAssertTrue(terminalBody.contains("WorkspaceTerminalLifecyclePlanner.missingExecutionContext"), "WorkspaceModel should delegate terminal missing-context lifecycle.")
-        XCTAssertTrue(terminalBody.contains("WorkspaceTerminalLifecyclePlanner.stopped"), "WorkspaceModel should delegate terminal stopped lifecycle.")
-        XCTAssertTrue(terminalBody.contains("WorkspaceTerminalLifecyclePlanner.cancelled"), "WorkspaceModel should delegate terminal cancelled lifecycle.")
-        XCTAssertTrue(terminalBody.contains("WorkspaceTerminalLifecyclePlanner.finished"), "WorkspaceModel should delegate terminal finish lifecycle.")
-        XCTAssertFalse(terminalBody.contains("TopBarAgentStatusLabel.terminal"), "runTerminalCommand should not choose started status inline.")
-        XCTAssertFalse(terminalBody.contains("TopBarAgentStatusLabel.stopped"), "runTerminalCommand should not choose stopped status inline.")
-        XCTAssertFalse(terminalBody.contains("result.ok ?"), "runTerminalCommand should not choose final status inline.")
+        XCTAssertTrue(terminalText.contains("WorkspaceTerminalLifecyclePlanner.started"), "Terminal API extension should delegate terminal start lifecycle.")
+        XCTAssertTrue(terminalText.contains("WorkspaceTerminalLifecyclePlanner.missingExecutionContext"), "Terminal API extension should delegate terminal missing-context lifecycle.")
+        XCTAssertTrue(terminalText.contains("WorkspaceTerminalLifecyclePlanner.stopped"), "Terminal API extension should delegate terminal stopped lifecycle.")
+        XCTAssertTrue(terminalText.contains("WorkspaceTerminalLifecyclePlanner.cancelled"), "Terminal API extension should delegate terminal cancelled lifecycle.")
+        XCTAssertTrue(terminalText.contains("WorkspaceTerminalLifecyclePlanner.finished"), "Terminal API extension should delegate terminal finish lifecycle.")
+        XCTAssertFalse(modelText.contains("public func runTerminalCommand"), "WorkspaceModel.swift should not own terminal run APIs.")
+        XCTAssertFalse(modelText.contains("public func clearTerminalHistory"), "WorkspaceModel.swift should not own terminal history APIs.")
+        XCTAssertFalse(terminalText.contains("TopBarAgentStatusLabel.terminal"), "runTerminalCommand should not choose started status inline.")
+        XCTAssertFalse(terminalText.contains("TopBarAgentStatusLabel.stopped"), "runTerminalCommand should not choose stopped status inline.")
+        XCTAssertFalse(terminalText.contains("result.ok ?"), "runTerminalCommand should not choose final status inline.")
     }
 
     func testWorkspaceModelDelegatesActiveWorkStopPlanning() throws {

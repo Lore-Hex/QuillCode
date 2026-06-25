@@ -6327,3 +6327,24 @@ Current strict grades:
 
 Remaining risk:
 - The preview currently displays the first 20 non-empty Git output lines as records. That is robust for current `git worktree prune --dry-run --verbose` output, but a future richer UI could classify messages by stale administrative path, missing checkout, or reason when Git exposes more structured detail.
+
+## 2026-06-25 Workspace Terminal API Extension
+
+Overall grade after this slice: **A- terminal API ownership, A terminal parity gates, B+/A- central model size**.
+
+`WorkspaceModel.swift` still owned the public terminal draft, visibility, history, and command-run API bodies even though terminal state transitions already lived in `WorkspaceTerminalEngine` and lifecycle status decisions lived in `WorkspaceTerminalLifecyclePlanner`. Moving the API body to a same-actor extension keeps terminal orchestration discoverable without making the central model carry every workspace surface.
+
+What changed:
+- Added `WorkspaceModelTerminal.swift` for terminal draft mutation, visibility toggles, history clearing, and async command execution.
+- Kept the actor-owned terminal state on `QuillCodeWorkspaceModel`, but narrowed external exposure with `public internal(set)` so same-module extensions can mutate terminal state without making it writable to package users.
+- Widened the immutable SSH executor from file-private to module-internal so terminal, project, and worktree helpers use the same collaborator without a callback bridge.
+- Routed terminal error clearing and lifecycle error writes through the existing `setLastError` helper.
+- Updated parity gates to require terminal lifecycle delegation in the focused extension and prevent terminal run/history APIs from drifting back into `WorkspaceModel.swift`.
+
+Current strict grades:
+- `WorkspaceModelTerminal.swift`: **A-**. It is cohesive and delegates the command/session mechanics to focused helpers; the async streaming loop remains actor-owned because it mutates terminal entries in order.
+- `WorkspaceModel.swift`: **B+/A-**. It dropped another public API family, but still owns send, tool-run, MCP, memory, automation, and shared persistence orchestration.
+- `ParityWorkspaceExecutionGateTests.swift`: **A-**. It now tests the terminal extension boundary directly and catches regression back into the central model.
+
+Remaining risk:
+- The terminal extension still sequences execution-context lookup, streaming events, stop/cancel detection, and finish mutation. A future extraction could introduce a terminal run coordinator, but only if it keeps actor mutation order explicit and avoids callback-heavy indirection.
