@@ -99,6 +99,12 @@ struct QuillCodeExtensionsPaneView: View {
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
             }
+            if let installCommand = item.installCommand {
+                Text(installCommand)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(1)
+            }
             if let serverLabel = item.serverLabel {
                 Text(serverLabel)
                     .font(.caption2.weight(.semibold))
@@ -138,6 +144,13 @@ struct QuillCodeExtensionsPaneView: View {
 
     @ViewBuilder
     private func extensionActionButtons(for item: ProjectExtensionManifestSurface) -> some View {
+        if let installCommandID = item.installCommandID {
+            Button("Install") {
+                onCommand(extensionCommand(id: installCommandID, title: "Install \(item.name)"))
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
         if let updateCommandID = item.updateCommandID {
             Button("Update") {
                 onCommand(extensionCommand(id: updateCommandID, title: "Update \(item.name)"))

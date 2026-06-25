@@ -298,6 +298,8 @@ public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiabl
     public var launchExecutable: String?
     public var launchCommand: String?
     public var launchArguments: [String]?
+    public var installCommand: String?
+    public var installTimeoutSeconds: Int?
     public var updateCommand: String?
     public var updateTimeoutSeconds: Int?
 
@@ -314,6 +316,8 @@ public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiabl
         launchExecutable: String? = nil,
         launchCommand: String? = nil,
         launchArguments: [String]? = nil,
+        installCommand: String? = nil,
+        installTimeoutSeconds: Int? = nil,
         updateCommand: String? = nil,
         updateTimeoutSeconds: Int? = nil
     ) {
@@ -329,6 +333,8 @@ public struct ProjectExtensionManifest: Codable, Sendable, Hashable, Identifiabl
         self.launchExecutable = launchExecutable
         self.launchCommand = launchCommand
         self.launchArguments = launchArguments
+        self.installCommand = installCommand
+        self.installTimeoutSeconds = installTimeoutSeconds
         self.updateCommand = updateCommand
         self.updateTimeoutSeconds = updateTimeoutSeconds
     }

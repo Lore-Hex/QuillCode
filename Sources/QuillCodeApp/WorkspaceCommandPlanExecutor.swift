@@ -35,6 +35,8 @@ extension QuillCodeWorkspaceModel {
             return startMCPServer(id: id, workspaceRoot: workspaceRoot)
         case .stopMCPServer(let id):
             return stopMCPServer(id: id)
+        case .installExtension(let id):
+            return runProjectExtensionInstall(id: id, workspaceRoot: workspaceRoot)
         case .updateExtension(let id):
             return runProjectExtensionUpdate(id: id, workspaceRoot: workspaceRoot)
         case .toggleThreadSelection(let id):

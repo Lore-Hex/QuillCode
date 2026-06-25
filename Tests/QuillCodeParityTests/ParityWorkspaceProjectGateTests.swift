@@ -33,6 +33,7 @@ final class ParityWorkspaceProjectGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(projectExtensionText.contains("public func refreshSelectedProjectContext"), "Project extension should own selected-project context refresh.")
         XCTAssertTrue(projectExtensionText.contains("public func renameProject"), "Project extension should own project rename.")
         XCTAssertTrue(projectExtensionText.contains("public func refreshProjectContext"), "Project extension should own explicit project context refresh.")
+        XCTAssertTrue(projectExtensionText.contains("public func runProjectExtensionInstall"), "Project extension should own project-extension install orchestration.")
         XCTAssertTrue(projectExtensionText.contains("public func runProjectExtensionUpdate"), "Project extension should own project-extension update orchestration.")
         XCTAssertTrue(projectExtensionText.contains("public func removeProject"), "Project extension should own project removal.")
         XCTAssertTrue(projectExtensionText.contains("WorkspaceProjectEngine.upsertLocalProject"), "Project extension should delegate local project upserts.")
@@ -47,7 +48,9 @@ final class ParityWorkspaceProjectGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelText.contains("public func refreshSelectedProjectContext"), "WorkspaceModel.swift should not own selected-project context refresh API bodies.")
         XCTAssertFalse(modelText.contains("public func renameProject"), "WorkspaceModel.swift should not own project rename API bodies.")
         XCTAssertFalse(modelText.contains("public func refreshProjectContext"), "WorkspaceModel.swift should not own project context refresh API bodies.")
+        XCTAssertFalse(modelText.contains("public func runProjectExtensionInstall"), "WorkspaceModel.swift should not own project-extension install API bodies.")
         XCTAssertFalse(modelText.contains("public func runProjectExtensionUpdate"), "WorkspaceModel.swift should not own project-extension update API bodies.")
+        XCTAssertFalse(modelText.contains("Installed extension \\("), "WorkspaceModel.swift should not own project-extension install transcript copy.")
         XCTAssertFalse(modelText.contains("Updated extension \\("), "WorkspaceModel.swift should not own project-extension update transcript copy.")
         XCTAssertFalse(modelText.contains("public func removeProject"), "WorkspaceModel.swift should not own project removal API bodies.")
     }
@@ -76,9 +79,11 @@ final class ParityWorkspaceProjectGateTests: QuillCodeParityTestCase {
 
         XCTAssertTrue(extensionIntegrationTests.contains("testProjectExtensionManifestsLoadIntoProjectSurface"), "Project extension manifest integration should live in focused extension integration tests.")
         XCTAssertTrue(extensionIntegrationTests.contains("testSurfaceIncludesProjectExtensionSummaryAndCommand"), "Project extension surface summaries should live in focused extension integration tests.")
+        XCTAssertTrue(extensionIntegrationTests.contains("testProjectExtensionInstallCommandRunsAndRefreshesProjectMetadata"), "Project extension install integration should live in focused extension integration tests.")
         XCTAssertTrue(extensionIntegrationTests.contains("testProjectExtensionUpdateCommandRunsAndRefreshesProjectMetadata"), "Project extension update integration should live in focused extension integration tests.")
         XCTAssertTrue(extensionIntegrationTests.contains("testProjectExtensionUpdateFailureKeepsManifestAndRecordsFailureNotice"), "Project extension update failure integration should live in focused extension integration tests.")
         XCTAssertFalse(modelTests.contains("testProjectExtensionManifestsLoadIntoProjectSurface"), "WorkspaceModelTests should not own project extension manifest integration flows.")
+        XCTAssertFalse(modelTests.contains("testProjectExtensionInstallCommandRunsAndRefreshesProjectMetadata"), "WorkspaceModelTests should not own project extension install integration flows.")
         XCTAssertFalse(modelTests.contains("testProjectExtensionUpdateCommandRunsAndRefreshesProjectMetadata"), "WorkspaceModelTests should not own project extension update integration flows.")
         XCTAssertFalse(broadSurfaceTests.contains("testSurfaceIncludesProjectExtensionSummaryAndCommand"), "WorkspaceSurfaceTests should not own project extension surface summaries.")
     }

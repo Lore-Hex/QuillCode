@@ -6807,3 +6807,29 @@ Strict grades:
 Remaining parity risk:
 
 - Project memory review/conflict UI, redaction review, idle Chronicle jobs, and autonomous memory inference remain pending, but they now have a better architecture boundary to land behind.
+
+## 2026-06-25 Project Extension Install Lifecycle Slice
+
+Overall grade after this slice: **A- extension lifecycle boundary, A command routing, B+/A- plugin marketplace parity**.
+
+Project extension manifests previously supported discovery, MCP start/stop, and update commands, but there was no first-class install/setup action for project-local plugins, skills, or MCP servers. That left the Extensions pane closer to an inventory than a lifecycle surface. Manifests can now expose bounded `installCommand` and `installTimeoutSeconds` fields that flow through the same shell tool-card path as update commands, refresh project metadata afterward, and record transcript notices.
+
+Code quality changes:
+
+- Added install metadata to `ProjectExtensionManifest` and `ProjectExtensionManifestLoader` with the same trimming, size, and timeout bounds as update commands.
+- Added `WorkspaceShellToolCallPlanner.projectExtensionInstall` and shared install/update shell-call construction through one private helper.
+- Added command-palette rows, command-plan parsing, model execution, SwiftUI Extension pane buttons, and static HTML renderer output for `extension-install:<id>`.
+- Refactored project extension install/update orchestration through one `runProjectExtensionCommand` actor helper to keep refresh, dispatch, and notice behavior DRY.
+- Added loader, surface, shell planner, command-plan, command-palette, integration, and parity coverage so install cannot degrade into a UI-only button.
+
+Strict grades:
+
+- `ProjectExtensionManifestLoader.swift`: **A-**. Install/update lifecycle metadata shares bounded normalization; manifest discovery remains defensive against root escapes and oversized files.
+- `WorkspaceShellToolCallPlanner.swift`: **A**. Local environment, extension install, and extension update shell calls share one canonical argument builder.
+- `WorkspaceProjectCommandCatalog.swift`: **A-**. Install/update rows share lifecycle row construction and keywords. If more extension lifecycle verbs land, promote the action enum only if it needs cross-file reuse.
+- `WorkspaceModelProjects.swift`: **A-**. The actor extension owns orchestration and shares install/update refresh and notice behavior without leaking shell argument details.
+- Extension lifecycle tests: **A**. The slice covers parsing, display compatibility, command routing, real shell execution against a test project, and architecture gates.
+
+Remaining parity risk:
+
+- Marketplace browsing/install, executable plugin activation beyond explicit shell commands, signed plugin trust, and MCP streaming still need dedicated lifecycle work.

@@ -53,17 +53,22 @@ enum WorkspaceProjectCommandCatalog {
         manifests: [ProjectExtensionManifest],
         hasActiveWorkspaceRoot: Bool
     ) -> [WorkspaceCommandSurface] {
-        manifests
-            .filter { $0.updateCommand != nil }
-            .map { manifest in
-                WorkspaceCommandSurface(
-                    id: "extension-update:\(manifest.id)",
-                    title: "Update \(manifest.name)",
-                    category: WorkspaceCommandPalette.extensionsCategory,
-                    keywords: extensionUpdateKeywords(for: manifest),
-                    isEnabled: hasActiveWorkspaceRoot
-                )
-            }
+        extensionLifecycleCommands(
+            manifests: manifests,
+            action: .update,
+            hasActiveWorkspaceRoot: hasActiveWorkspaceRoot
+        )
+    }
+
+    static func extensionInstallCommands(
+        manifests: [ProjectExtensionManifest],
+        hasActiveWorkspaceRoot: Bool
+    ) -> [WorkspaceCommandSurface] {
+        extensionLifecycleCommands(
+            manifests: manifests,
+            action: .install,
+            hasActiveWorkspaceRoot: hasActiveWorkspaceRoot
+        )
     }
 
     private static func keywords(for action: LocalEnvironmentAction) -> [String] {
@@ -81,17 +86,61 @@ enum WorkspaceProjectCommandCatalog {
         return baseKeywords + workingDirectoryKeywords + timeoutKeywords + environmentKeywords
     }
 
-    private static func extensionUpdateKeywords(for manifest: ProjectExtensionManifest) -> [String] {
+    private static func extensionLifecycleCommands(
+        manifests: [ProjectExtensionManifest],
+        action: ExtensionLifecycleAction,
+        hasActiveWorkspaceRoot: Bool
+    ) -> [WorkspaceCommandSurface] {
+        manifests
+            .filter { action.command(for: $0) != nil }
+            .map { manifest in
+                WorkspaceCommandSurface(
+                    id: "extension-\(action.rawValue):\(manifest.id)",
+                    title: "\(action.title) \(manifest.name)",
+                    category: WorkspaceCommandPalette.extensionsCategory,
+                    keywords: extensionLifecycleKeywords(for: manifest, action: action),
+                    isEnabled: hasActiveWorkspaceRoot
+                )
+            }
+    }
+
+    private static func extensionLifecycleKeywords(
+        for manifest: ProjectExtensionManifest,
+        action: ExtensionLifecycleAction
+    ) -> [String] {
         [
             "extension",
             "plugin",
             "skill",
             "mcp",
-            "update",
+            action.rawValue,
             manifest.kind.title,
             manifest.name,
             manifest.version ?? "",
             manifest.sourceURL ?? ""
         ].filter { !$0.isEmpty }
+    }
+}
+
+private enum ExtensionLifecycleAction: String {
+    case install
+    case update
+
+    var title: String {
+        switch self {
+        case .install:
+            return "Install"
+        case .update:
+            return "Update"
+        }
+    }
+
+    func command(for manifest: ProjectExtensionManifest) -> String? {
+        switch self {
+        case .install:
+            return manifest.installCommand
+        case .update:
+            return manifest.updateCommand
+        }
     }
 }

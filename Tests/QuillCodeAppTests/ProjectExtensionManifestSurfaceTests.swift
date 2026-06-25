@@ -16,6 +16,7 @@ final class ProjectExtensionManifestSurfaceTests: XCTestCase {
             transport: .stdio,
             launchExecutable: "quill-mcp",
             launchCommand: "quill-mcp --root .",
+            installCommand: "quill-mcp install",
             updateCommand: "quill-mcp update"
         )
         let probe = MCPServerProbeSummary(
@@ -54,9 +55,11 @@ final class ProjectExtensionManifestSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.promptNames, ["summarize_project"])
         XCTAssertFalse(surface.canStart)
         XCTAssertTrue(surface.canStop)
+        XCTAssertTrue(surface.canInstall)
         XCTAssertTrue(surface.canUpdate)
         XCTAssertNil(surface.startCommandID)
         XCTAssertEqual(surface.stopCommandID, "mcp-stop:mcp_server:filesystem")
+        XCTAssertEqual(surface.installCommandID, "extension-install:mcp_server:filesystem")
         XCTAssertEqual(surface.updateCommandID, "extension-update:mcp_server:filesystem")
     }
 
@@ -123,6 +126,8 @@ final class ProjectExtensionManifestSurfaceTests: XCTestCase {
         XCTAssertNil(surface.promptCountLabel)
         XCTAssertNil(surface.versionLabel)
         XCTAssertNil(surface.sourceURL)
+        XCTAssertFalse(surface.canInstall)
+        XCTAssertNil(surface.installCommandID)
         XCTAssertFalse(surface.canUpdate)
         XCTAssertNil(surface.updateCommandID)
     }

@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeTools
 
 @MainActor
 extension QuillCodeWorkspaceModel {
@@ -107,9 +108,37 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func runProjectExtensionUpdate(id: String, workspaceRoot: URL) -> Bool {
+        runProjectExtensionCommand(
+            id: id,
+            workspaceRoot: workspaceRoot,
+            planToolCall: WorkspaceShellToolCallPlanner.projectExtensionUpdate,
+            successNotice: { "Updated extension \($0.name)" },
+            failureNotice: { "Extension update failed for \($0.name)" }
+        )
+    }
+
+    @discardableResult
+    public func runProjectExtensionInstall(id: String, workspaceRoot: URL) -> Bool {
+        runProjectExtensionCommand(
+            id: id,
+            workspaceRoot: workspaceRoot,
+            planToolCall: WorkspaceShellToolCallPlanner.projectExtensionInstall,
+            successNotice: { "Installed extension \($0.name)" },
+            failureNotice: { "Extension install failed for \($0.name)" }
+        )
+    }
+
+    @discardableResult
+    private func runProjectExtensionCommand(
+        id: String,
+        workspaceRoot: URL,
+        planToolCall: (ProjectExtensionManifest) -> ToolCall?,
+        successNotice: (ProjectExtensionManifest) -> String,
+        failureNotice: (ProjectExtensionManifest) -> String
+    ) -> Bool {
         refreshProjectMetadata(root.selectedProjectID)
         guard let manifest = selectedProject?.extensionManifests.first(where: { $0.id == id }),
-              let toolCall = WorkspaceShellToolCallPlanner.projectExtensionUpdate(manifest)
+              let toolCall = planToolCall(manifest)
         else {
             return false
         }
@@ -119,10 +148,7 @@ extension QuillCodeWorkspaceModel {
             workspaceRoot: workspaceRoot
         )
         refreshProjectMetadata(root.selectedProjectID)
-        appendNotice(result.ok
-            ? "Updated extension \(manifest.name)"
-            : "Extension update failed for \(manifest.name)"
-        )
+        appendNotice(result.ok ? successNotice(manifest) : failureNotice(manifest))
         return result.ok
     }
 

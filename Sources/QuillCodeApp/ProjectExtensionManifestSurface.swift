@@ -14,6 +14,7 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
     public var statusLabel: String
     public var transportLabel: String?
     public var launchCommand: String?
+    public var installCommand: String?
     public var updateCommand: String?
     public var serverLabel: String?
     public var protocolLabel: String?
@@ -27,9 +28,11 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
     public var probeError: String?
     public var canStart: Bool
     public var canStop: Bool
+    public var canInstall: Bool
     public var canUpdate: Bool
     public var startCommandID: String?
     public var stopCommandID: String?
+    public var installCommandID: String?
     public var updateCommandID: String?
 
     private enum CodingKeys: String, CodingKey {
@@ -44,6 +47,7 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         case statusLabel
         case transportLabel
         case launchCommand
+        case installCommand
         case updateCommand
         case serverLabel
         case protocolLabel
@@ -57,9 +61,11 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         case probeError
         case canStart
         case canStop
+        case canInstall
         case canUpdate
         case startCommandID
         case stopCommandID
+        case installCommandID
         case updateCommandID
     }
 
@@ -106,9 +112,12 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
             && manifest.launchExecutable != nil
             && !mcpServerStatus.isActive
         self.canStop = manifest.kind == .mcpServer && mcpServerStatus.isActive
+        self.installCommand = manifest.installCommand
+        self.canInstall = manifest.installCommand != nil
         self.canUpdate = manifest.updateCommand != nil
         self.startCommandID = canStart ? "mcp-start:\(manifest.id)" : nil
         self.stopCommandID = canStop ? "mcp-stop:\(manifest.id)" : nil
+        self.installCommandID = canInstall ? "extension-install:\(manifest.id)" : nil
         self.updateCommandID = canUpdate ? "extension-update:\(manifest.id)" : nil
     }
 
@@ -125,6 +134,7 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         self.statusLabel = try container.decode(String.self, forKey: .statusLabel)
         self.transportLabel = try container.decodeIfPresent(String.self, forKey: .transportLabel)
         self.launchCommand = try container.decodeIfPresent(String.self, forKey: .launchCommand)
+        self.installCommand = try container.decodeIfPresent(String.self, forKey: .installCommand)
         self.updateCommand = try container.decodeIfPresent(String.self, forKey: .updateCommand)
         self.serverLabel = try container.decodeIfPresent(String.self, forKey: .serverLabel)
         self.protocolLabel = try container.decodeIfPresent(String.self, forKey: .protocolLabel)
@@ -144,9 +154,11 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         self.probeError = try container.decodeIfPresent(String.self, forKey: .probeError)
         self.canStart = try container.decode(Bool.self, forKey: .canStart)
         self.canStop = try container.decode(Bool.self, forKey: .canStop)
+        self.canInstall = try container.decodeIfPresent(Bool.self, forKey: .canInstall) ?? false
         self.canUpdate = try container.decodeIfPresent(Bool.self, forKey: .canUpdate) ?? false
         self.startCommandID = try container.decodeIfPresent(String.self, forKey: .startCommandID)
         self.stopCommandID = try container.decodeIfPresent(String.self, forKey: .stopCommandID)
+        self.installCommandID = try container.decodeIfPresent(String.self, forKey: .installCommandID)
         self.updateCommandID = try container.decodeIfPresent(String.self, forKey: .updateCommandID)
     }
 }

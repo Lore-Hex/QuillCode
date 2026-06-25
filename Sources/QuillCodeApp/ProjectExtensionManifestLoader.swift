@@ -153,6 +153,8 @@ public enum ProjectExtensionManifestLoader {
             launchExecutable: payload.launchExecutable,
             launchCommand: payload.launchCommand,
             launchArguments: payload.launchArguments,
+            installCommand: payload.installCommandText,
+            installTimeoutSeconds: payload.installTimeout,
             updateCommand: payload.updateCommandText,
             updateTimeoutSeconds: payload.updateTimeout
         )
@@ -191,6 +193,8 @@ private struct ManifestPayload: Decodable {
     var command: String?
     var args: [String]?
     var transport: String?
+    var installCommand: String?
+    var installTimeoutSeconds: Int?
     var updateCommand: String?
     var updateTimeoutSeconds: Int?
 
@@ -222,9 +226,16 @@ private struct ManifestPayload: Decodable {
         normalizedOptional(updateCommand, maxLength: 1_200)
     }
 
+    var installCommandText: String? {
+        normalizedOptional(installCommand, maxLength: 1_200)
+    }
+
     var updateTimeout: Int? {
-        guard let updateTimeoutSeconds else { return nil }
-        return min(max(updateTimeoutSeconds, 5), 1_800)
+        boundedTimeout(updateTimeoutSeconds)
+    }
+
+    var installTimeout: Int? {
+        boundedTimeout(installTimeoutSeconds)
     }
 
     var launchCommand: String? {
@@ -265,6 +276,11 @@ private struct ManifestPayload: Decodable {
             return parsed
         }
         return kind == .mcpServer && launchCommand != nil ? .stdio : nil
+    }
+
+    private func boundedTimeout(_ seconds: Int?) -> Int? {
+        guard let seconds else { return nil }
+        return min(max(seconds, 5), 1_800)
     }
 
     private func normalizedOptional(_ value: String?, maxLength: Int) -> String? {
