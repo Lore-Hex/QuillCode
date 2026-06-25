@@ -4737,7 +4737,7 @@ Hotspot file grades:
 | Browser workflow/session files | **A-/B+ product** | Good separation between app state, resolver/workflow, desktop WebKit adapters, and command surfaces. Reusable session lifecycle and Linux/browser-process support remain product gaps. |
 | MCP runtime/prober files | **A-** | Strong ownership split across DTOs, codec, prober, result mapping, runtime, and catalog. Needs broader malicious/slow MCP server integration fixtures. |
 | `ParityGateTests.swift` | **B** | Valuable but too large at 1.9k lines. It should keep splitting into narrower parity suites so failures point directly to the violated boundary. |
-| Large integration suites | **B+/A-** | Good behavior coverage, but files over 1k lines such as `WorkspaceSurfaceTests` and `WorkspaceRemoteProjectIntegrationTests` should be split when they are next touched. |
+| Large integration suites | **A-/B+** | Good behavior coverage with recent surface and remote-project splits. Remaining oversized hotspots include `AgentTests`, `TrustedRouterAdapterTests`, and a few broad workspace integration suites. |
 
 Immediate cleanup done in this pass:
 - Trim and drop empty string entries from array-valued normalized tool arguments. This keeps PR reviewer/label aliases canonical after validation instead of preserving blank model output.
@@ -5336,7 +5336,7 @@ Current strict grades:
 - `WorkspaceSurfaceTests.swift`: **A-**. It is now a broad assembly smoke suite plus a handful of high-level workspace checks.
 
 Remaining risk:
-- Continue reducing the largest integration files. Good next slices are `WorkspaceRemoteProjectIntegrationTests.swift`, `AgentTests.swift`, and the remaining broad Playwright `core.spec.ts` flows.
+- Continue reducing the largest integration files. Good next slices are `AgentTests.swift`, `TrustedRouterAdapterTests.swift`, and the remaining broad Playwright `core.spec.ts` flows.
 
 ## 2026-06-24 Search Input Stability
 
@@ -5360,3 +5360,28 @@ Current strict grades:
 
 Remaining risk:
 - Add packaged native UI smoke tests that drive `quillcode-search-input` and `quillcode-command-palette-input` directly once the desktop app has a stable automation harness.
+
+## 2026-06-25 Remote Project Integration Test Split
+
+Overall grade after this slice: **A remote setup/context ownership, A shell/git ownership, A file/patch ownership, A PR ownership, A worktree ownership**.
+
+`WorkspaceRemoteProjectIntegrationTests.swift` had grown into a 1k-line suite covering five separate remote-project domains: SSH setup/context loading, remote shell/git execution, remote file/patch tools, remote GitHub PR tools, and remote worktree safety. That made unrelated SSH regressions look coupled and forced agents to scan too much unrelated setup before changing one remote workflow.
+
+What changed:
+- Kept SSH setup, context refresh, malformed address handling, and remote-safe tool advertisement in `WorkspaceRemoteProjectIntegrationTests.swift`.
+- Moved remote shell, git status, commit, push, workspace git commands, and cwd normalization into `WorkspaceRemoteProjectShellGitIntegrationTests.swift`.
+- Moved remote file write/read, unsafe path rejection, patch apply, and unsafe patch rejection into `WorkspaceRemoteProjectFilePatchIntegrationTests.swift`.
+- Moved remote PR create/comment/review/merge/checkout/reviewer/label flows into `WorkspaceRemoteProjectPullRequestIntegrationTests.swift`.
+- Moved remote worktree create and unsafe worktree path rejection into `WorkspaceRemoteProjectWorktreeIntegrationTests.swift`.
+- Updated the project parity gate so these focused suites own their behavior and `WorkspaceModelTests.swift` stays free of remote-project integration coverage.
+- Reduced `WorkspaceRemoteProjectIntegrationTests.swift` from 1037 lines to 172 lines.
+
+Current strict grades:
+- `WorkspaceRemoteProjectIntegrationTests.swift`: **A**. It now owns only SSH project setup, context refresh, parser rejection, and advertised remote-safe tool surface.
+- `WorkspaceRemoteProjectShellGitIntegrationTests.swift`: **A**. It owns SSH command execution, git execution, current branch push behavior, and remote cwd normalization together.
+- `WorkspaceRemoteProjectFilePatchIntegrationTests.swift`: **A**. It owns remote filesystem mutations and local preflight safety for path/patch escapes.
+- `WorkspaceRemoteProjectPullRequestIntegrationTests.swift`: **A**. It owns remote GitHub CLI command construction through the SSH path.
+- `WorkspaceRemoteProjectWorktreeIntegrationTests.swift`: **A**. It owns remote worktree creation plus pre-SSH path rejection.
+
+Remaining risk:
+- Continue reducing the largest broad files. Good next slices are `AgentTests.swift`, `TrustedRouterAdapterTests.swift`, and the remaining broad Playwright `core.spec.ts` flows.
