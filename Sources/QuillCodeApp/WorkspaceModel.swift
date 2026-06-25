@@ -1118,8 +1118,7 @@ public final class QuillCodeWorkspaceModel {
         syncTerminalSessionToSelectedProject()
 
         let entryID = WorkspaceTerminalEngine.beginRun(command: command, terminal: &terminal)
-        lastError = nil
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.terminal)
+        applyTerminalLifecyclePlan(WorkspaceTerminalLifecyclePlanner.started())
 
         guard let executionContext = WorkspaceTerminalEngine.executionContext(
             command: command,
@@ -1130,7 +1129,7 @@ public final class QuillCodeWorkspaceModel {
             sshRemoteShellExecutor: sshRemoteShellExecutor
         ) else {
             WorkspaceTerminalEngine.failMissingExecutionContext(id: entryID, terminal: &terminal)
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.failed)
+            applyTerminalLifecyclePlan(WorkspaceTerminalLifecyclePlanner.missingExecutionContext())
             return
         }
         WorkspaceTerminalEngine.updateExecutionContext(
@@ -1151,7 +1150,7 @@ public final class QuillCodeWorkspaceModel {
 
         if WorkspaceTerminalEngine.entryIsStopped(id: entryID, terminal: terminal) {
             WorkspaceTerminalEngine.finishStoppedRun(executionContext: executionContext, terminal: &terminal)
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.stopped)
+            applyTerminalLifecyclePlan(WorkspaceTerminalLifecyclePlanner.stopped())
             return
         }
         guard !Task.isCancelled, let result = finalResult else {
@@ -1160,8 +1159,7 @@ public final class QuillCodeWorkspaceModel {
                 executionContext: executionContext,
                 terminal: &terminal
             )
-            lastError = nil
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.stopped)
+            applyTerminalLifecyclePlan(WorkspaceTerminalLifecyclePlanner.cancelled())
             return
         }
 
@@ -1171,8 +1169,12 @@ public final class QuillCodeWorkspaceModel {
             result: result,
             terminal: &terminal
         )
-        let status = result.ok ? TopBarAgentStatusLabel.idle : TopBarAgentStatusLabel.failed
-        refreshTopBar(agentStatus: status)
+        applyTerminalLifecyclePlan(WorkspaceTerminalLifecyclePlanner.finished(result: result))
+    }
+
+    private func applyTerminalLifecyclePlan(_ plan: WorkspaceTerminalLifecyclePlan) {
+        lastError = plan.lastError
+        refreshTopBar(agentStatus: plan.agentStatus)
     }
 
     public func cancelActiveWork() {

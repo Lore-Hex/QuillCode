@@ -481,6 +481,30 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(runToolCallBody.contains("execution.ok ?"), "runToolCall should not choose final status inline.")
     }
 
+    func testWorkspaceModelDelegatesTerminalLifecyclePlanning() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let lifecycleText = try Self.appSourceText(named: "WorkspaceTerminalLifecyclePlanner.swift")
+        let terminalStart = try XCTUnwrap(modelText.range(of: "public func runTerminalCommand(_ input"))
+        let terminalEnd = try XCTUnwrap(modelText.range(
+            of: "public func cancelActiveWork",
+            range: terminalStart.upperBound..<modelText.endIndex
+        ))
+        let terminalBody = String(modelText[terminalStart.lowerBound..<terminalEnd.lowerBound])
+
+        XCTAssertTrue(lifecycleText.contains("enum WorkspaceTerminalLifecyclePlanner"), "Terminal lifecycle status should live in a focused planner.")
+        XCTAssertTrue(lifecycleText.contains("static func started"), "Terminal start lifecycle should be directly testable.")
+        XCTAssertTrue(lifecycleText.contains("static func missingExecutionContext"), "Terminal missing-context lifecycle should be directly testable.")
+        XCTAssertTrue(lifecycleText.contains("static func finished"), "Terminal finish lifecycle should be directly testable.")
+        XCTAssertTrue(terminalBody.contains("WorkspaceTerminalLifecyclePlanner.started"), "WorkspaceModel should delegate terminal start lifecycle.")
+        XCTAssertTrue(terminalBody.contains("WorkspaceTerminalLifecyclePlanner.missingExecutionContext"), "WorkspaceModel should delegate terminal missing-context lifecycle.")
+        XCTAssertTrue(terminalBody.contains("WorkspaceTerminalLifecyclePlanner.stopped"), "WorkspaceModel should delegate terminal stopped lifecycle.")
+        XCTAssertTrue(terminalBody.contains("WorkspaceTerminalLifecyclePlanner.cancelled"), "WorkspaceModel should delegate terminal cancelled lifecycle.")
+        XCTAssertTrue(terminalBody.contains("WorkspaceTerminalLifecyclePlanner.finished"), "WorkspaceModel should delegate terminal finish lifecycle.")
+        XCTAssertFalse(terminalBody.contains("TopBarAgentStatusLabel.terminal"), "runTerminalCommand should not choose started status inline.")
+        XCTAssertFalse(terminalBody.contains("TopBarAgentStatusLabel.stopped"), "runTerminalCommand should not choose stopped status inline.")
+        XCTAssertFalse(terminalBody.contains("result.ok ?"), "runTerminalCommand should not choose final status inline.")
+    }
+
     func testWorkspaceModelDelegatesShellToolCallPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceShellToolCallPlanner.swift")
