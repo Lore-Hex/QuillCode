@@ -64,6 +64,7 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesRemoteProjectToolExecution() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let toolRunsText = try Self.appSourceText(named: "WorkspaceModelToolRuns.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceAgentRunContextBuilder.swift")
         let executorText = try Self.appSourceText(named: "WorkspaceRemoteProjectToolExecutor.swift")
         let gitPlannerText = try Self.appSourceText(named: "WorkspaceRemoteGitToolRequestPlanner.swift")
@@ -102,7 +103,8 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(executorText.contains("WorkspaceRemoteProjectPath.relativePath"), "Remote executor should delegate file path normalization.")
         XCTAssertTrue(builderText.contains("WorkspaceRemoteProjectToolExecutor.toolDefinitions"), "Agent run context builder should delegate remote base tool definitions.")
         XCTAssertTrue(builderText.contains("WorkspaceRemoteProjectToolExecutor.executionOverride"), "Agent run context builder should delegate remote override creation.")
-        XCTAssertTrue(modelText.contains("workspaceToolCallExecutor(router:"), "WorkspaceModel should delegate manual/review tool execution through the shared workspace executor.")
+        XCTAssertTrue(toolRunsText.contains("workspaceToolCallExecutor(router:"), "Generic tool runs should delegate manual tool execution through the shared workspace executor.")
+        XCTAssertFalse(modelText.contains("func workspaceToolCallExecutor"), "WorkspaceModel.swift should not own the shared workspace executor factory.")
         XCTAssertTrue(try Self.appSourceText(named: "WorkspaceToolCallExecutor.swift").contains("WorkspaceRemoteProjectToolExecutor.execute"), "WorkspaceToolCallExecutor should own remote project routing.")
         XCTAssertFalse(modelText.contains("WorkspaceRemoteProjectToolExecutor.toolDefinitions"), "WorkspaceModel should not choose remote base tool definitions inline.")
         XCTAssertFalse(modelText.contains("WorkspaceRemoteProjectToolExecutor.executionOverride"), "WorkspaceModel should not create remote agent overrides inline.")

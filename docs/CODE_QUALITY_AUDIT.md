@@ -148,6 +148,30 @@ Remaining risk:
 
 - The next best central-model extraction is probably review/action APIs or local environment action APIs. Tool-run execution is still central by necessity, but its helper boundary is a candidate for a focused extension once review and local-action calls are outside the main file.
 
+## 2026-06-25 Workspace Tool-Run API Extension
+
+Overall grade after this slice: **A- tool-run API boundary, A executor/planner reuse, B+/A- central model size**.
+
+Manual and review-triggered tool runs are a shared workflow family: they make sure a thread exists, refresh project context, start visible agent status, route the tool through the shared workspace executor, record transcript events, persist the thread, and return the final tool result. Keeping that public API body in `WorkspaceModel.swift` made the central coordinator look like the owner of generic tool execution, even though project selection, lifecycle planning, routing, and transcript event construction already lived in focused helpers.
+
+What changed:
+
+- Added `WorkspaceModelToolRuns.swift` for `runToolCall`, selected-thread context sync, shared workspace executor construction, and tool-run event recording.
+- Kept effective project selection in `WorkspaceToolRunPreparer`, lifecycle status in `WorkspaceToolRunLifecyclePlanner`, routing in `WorkspaceToolCallExecutor`, and queued/completed transcript event construction in `WorkspaceToolEventRecorder`.
+- Left browser mutation, last-error mutation, selected-thread persistence, and top-bar refresh on the app actor where visible workspace state still lives.
+- Updated parity gates so generic tool-run APIs and executor construction are required to live in the focused extension and cannot drift back into `WorkspaceModel.swift`.
+
+Current strict grades:
+
+- `WorkspaceModelToolRuns.swift`: **A-**. Cohesive, short, and deliberately thin around already-tested helpers; remaining complexity is necessary app-actor coordination across selected thread, browser state, persistence, and top-bar status.
+- `WorkspaceToolCallExecutor.swift`: **A**. Centralized tool routing remains directly tested and reusable by manual, review, and future workflow calls.
+- `WorkspaceToolRunPreparer.swift`: **A**. Effective project selection and context sync stay pure enough for focused regression coverage.
+- `WorkspaceModel.swift`: **B+/A-**. It dropped another public workflow family, but still owns agent-send, local environment, memory, and shared persistence orchestration.
+
+Remaining risk:
+
+- The central model still coordinates too many public workflow surfaces. The next high-value extraction should target local environment action APIs or memory APIs, because both are cohesive enough to move without weakening actor-owned state safety.
+
 ## 2026-06-25 Agent Send Progress Planner Pass
 
 Overall grade after this slice: **A live-progress boundary, A async-thread safety, A regression coverage**.

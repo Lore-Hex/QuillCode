@@ -410,61 +410,6 @@ public final class QuillCodeWorkspaceModel {
         return result.ok
     }
 
-    @discardableResult
-    public func runToolCall(_ call: ToolCall, workspaceRoot: URL) -> ToolResult {
-        if selectedThread == nil {
-            _ = newChat()
-        }
-        guard selectedThread != nil else {
-            return ToolResult(ok: false, error: "No active thread")
-        }
-        let contextProjectID = WorkspaceToolRunPreparer.effectiveProjectID(
-            thread: selectedThread,
-            fallbackProjectID: root.selectedProjectID
-        )
-        refreshProjectMetadata(contextProjectID)
-        let fallbackProjectID = root.selectedProjectID
-        let projects = root.projects
-        let globalMemories = root.globalMemories
-        mutateSelectedThread { thread in
-            _ = WorkspaceToolRunPreparer.syncThreadContext(
-                &thread,
-                fallbackProjectID: fallbackProjectID,
-                projects: projects,
-                globalMemories: globalMemories
-            )
-        }
-        let startPlan = WorkspaceToolRunLifecyclePlanner.started()
-        lastError = startPlan.lastError
-        refreshTopBar(agentStatus: startPlan.agentStatus)
-
-        let router = ToolRouter(workspaceRoot: workspaceRoot)
-        let execution = workspaceToolCallExecutor(router: router).execute(
-            call,
-            browser: &browser,
-            lastError: &lastError
-        )
-        let finishPlan = WorkspaceToolRunLifecyclePlanner.finished(execution: execution)
-        mutateSelectedThread { thread in
-            WorkspaceToolEventRecorder.append(execution: execution, to: &thread)
-        }
-
-        if let thread = selectedThread {
-            threadPersistence.save(thread)
-        }
-        refreshTopBar(agentStatus: finishPlan.agentStatus)
-        return finishPlan.result
-    }
-
-    func workspaceToolCallExecutor(router: ToolRouter) -> WorkspaceToolCallExecutor {
-        WorkspaceToolCallExecutor(
-            selectedProject: selectedProject,
-            browser: browser,
-            router: router,
-            sshRemoteShellExecutor: sshRemoteShellExecutor
-        )
-    }
-
     private func executeBrowserToolForAgent(_ call: ToolCall, workspaceRoot: URL) -> ToolResult? {
         let result = WorkspaceBrowserToolExecutor.execute(
             call,
