@@ -4981,3 +4981,21 @@ Current strict grades:
 
 Remaining risk:
 - Continue draining `ParityGateTests.swift` by feature family. Good next splits: command-surface gates, native settings/sheet gates, and agent/TrustedRouter gates.
+
+## 2026-06-24 Command Surface Parity Gate Split
+
+Overall grade after this slice: **A command-surface ownership, A drift protection, B+ catch-all size**.
+
+Command planning, command palette construction, and command surface contract checks were still mixed into the broad parity registry. Those checks all protect the same user-facing surface: slash/command-palette dispatch should stay in focused planner, catalog, builder, and ranker files instead of regressing into aggregate workspace views.
+
+What changed:
+- Added `ParityWorkspaceCommandGateTests` for workspace command planning, command surface building, and command palette contract boundaries.
+- Registered the command suite in the parity drift guard.
+- Reduced `ParityGateTests.swift` again without changing product behavior.
+
+Current strict grades:
+- `ParityWorkspaceCommandGateTests.swift`: **A**. The suite has one cohesive command-surface boundary and covers view routing, catalog construction, and palette ranking ownership.
+- `ParityGateTests.swift`: **B+**. Smaller, but still owns settings/sheet, TrustedRouter, agent-runner, and global hygiene gates.
+
+Remaining risk:
+- Continue draining `ParityGateTests.swift` by feature family. Good next splits: native settings/sheet gates and agent/TrustedRouter gates.
