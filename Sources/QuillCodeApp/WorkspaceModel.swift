@@ -771,13 +771,7 @@ public final class QuillCodeWorkspaceModel {
             let result = try await session.run { [weak self] progressThread in
                 await self?.applyAgentProgress(progressThread, expectedThreadID: threadID)
             }
-            thread = result.thread
-            if result.savedMemory {
-                refreshThreadMemoryContext(&thread)
-            }
-            updateThreadFromAgentRun(thread)
-            try threadPersistence.saveOrThrow(thread)
-            applyComposerSendLifecycle(WorkspaceComposerSendLifecycle.completed(from: composer))
+            try finishCompletedSend(result)
         } catch is CancellationError {
             finishCancelledSend(userPrompt: prompt, threadID: threadID)
         } catch {
@@ -804,6 +798,20 @@ public final class QuillCodeWorkspaceModel {
             sshRemoteShellExecutor: sshRemoteShellExecutor,
             workspaceRoot: workspaceRoot
         )
+    }
+
+    private func finishCompletedSend(_ result: WorkspaceAgentSendSessionResult) throws {
+        let completion = WorkspaceAgentSendCompletionPlanner.completed(
+            result: result,
+            composer: composer
+        )
+        var thread = completion.thread
+        if completion.shouldRefreshMemoryContext {
+            refreshThreadMemoryContext(&thread)
+        }
+        updateThreadFromAgentRun(thread)
+        try threadPersistence.saveOrThrow(thread)
+        applyComposerSendLifecycle(completion.lifecycle)
     }
 
     private func applyAgentProgress(_ thread: ChatThread, expectedThreadID: UUID) {

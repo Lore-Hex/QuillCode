@@ -66,6 +66,47 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testWorkspaceModelDelegatesAgentSendCompletionPlanning() throws {
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let plannerText = try Self.appSourceText(named: "WorkspaceAgentSendCompletionPlanner.swift")
+        let submitStart = try XCTUnwrap(modelText.range(of: "public func submitComposer"))
+        let submitEnd = try XCTUnwrap(modelText.range(of: "private func agentSendSessionFactory"))
+        let submitBody = String(modelText[submitStart.lowerBound..<submitEnd.lowerBound])
+
+        XCTAssertTrue(
+            plannerText.contains("struct WorkspaceAgentSendCompletionPlan"),
+            "Successful send completion should have a typed plan."
+        )
+        XCTAssertTrue(
+            plannerText.contains("enum WorkspaceAgentSendCompletionPlanner"),
+            "Successful send completion planning should live in a focused planner."
+        )
+        XCTAssertTrue(
+            modelText.contains("private func finishCompletedSend"),
+            "WorkspaceModel should route successful send completion through a named helper."
+        )
+        XCTAssertTrue(
+            submitBody.contains("try finishCompletedSend(result)"),
+            "submitComposer should delegate successful send completion."
+        )
+        XCTAssertFalse(
+            submitBody.contains("result.savedMemory"),
+            "submitComposer should not branch on memory-save details inline."
+        )
+        XCTAssertFalse(
+            submitBody.contains("refreshThreadMemoryContext"),
+            "submitComposer should not refresh memory context inline."
+        )
+        XCTAssertFalse(
+            submitBody.contains("threadPersistence.saveOrThrow"),
+            "submitComposer should not own final persistence inline."
+        )
+        XCTAssertFalse(
+            submitBody.contains("WorkspaceComposerSendLifecycle.completed"),
+            "submitComposer should not choose completion lifecycle state inline."
+        )
+    }
+
     func testWorkspaceModelDelegatesSlashCommandTranscriptPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let actionExecutorText = try Self.appSourceText(named: "WorkspaceSlashCommandActionExecutor.swift")

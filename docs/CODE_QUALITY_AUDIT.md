@@ -5812,3 +5812,23 @@ Current strict grades:
 
 Remaining risk:
 - `WorkspaceModel.submitComposer` still owns post-run completion, persistence, and memory-refresh coordination. That remains the next high-value extraction.
+
+## 2026-06-25 Agent Send Completion Planner
+
+Overall grade after this slice: **A completion planning, A focused parity guard, A- WorkspaceModel send path**.
+
+`WorkspaceModel.submitComposer` still owned successful send completion inline after the session returned: copying the completed thread, branching on saved-memory events, refreshing memory context, updating the thread list, throwing on final persistence, and then applying completed composer/top-bar state. That kept final persistence timing and UI completion mixed into the main async send method.
+
+What changed:
+- Added `WorkspaceAgentSendCompletionPlanner` and `WorkspaceAgentSendCompletionPlan` to describe successful send completion from the session result and current composer state.
+- Added `finishCompletedSend(_:)` so `submitComposer` delegates memory refresh, final thread update, throwing persistence, and completed lifecycle application to a named helper.
+- Added focused planner tests for normal completion and saved-memory refresh signaling.
+- Added a parity gate that inspects the `submitComposer` body and prevents inline memory refresh, final save, and completed lifecycle selection from returning there.
+
+Current strict grades:
+- `WorkspaceAgentSendCompletionPlanner.swift`: **A**. It is a tiny pure planner with no actor or persistence dependencies.
+- `WorkspaceModel.submitComposer`: **A-**. It now delegates runner/session setup and successful completion, but still owns first-thread creation, progress callback wiring, cancellation, and failure routing.
+- `WorkspaceAgentSendCompletionPlannerTests.swift`: **A**. It covers the completion lifecycle and memory-refresh flag explicitly.
+
+Remaining risk:
+- The next step should continue shrinking `submitComposer` by moving cancellation and failure routing into the same completion boundary, or by introducing a send coordinator once retry/resumable-run semantics need one.
