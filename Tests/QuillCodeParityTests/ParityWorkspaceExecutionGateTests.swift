@@ -66,9 +66,9 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         )
     }
 
-    func testWorkspaceModelDelegatesAgentSendCompletionPlanning() throws {
+    func testWorkspaceModelDelegatesAgentSendTerminalPlanning() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
-        let plannerText = try Self.appSourceText(named: "WorkspaceAgentSendCompletionPlanner.swift")
+        let plannerText = try Self.appSourceText(named: "WorkspaceAgentSendTerminalPlanner.swift")
         let submitStart = try XCTUnwrap(modelText.range(of: "public func submitComposer"))
         let submitEnd = try XCTUnwrap(modelText.range(of: "private func agentSendSessionFactory"))
         let submitBody = String(modelText[submitStart.lowerBound..<submitEnd.lowerBound])
@@ -78,16 +78,24 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
             "Successful send completion should have a typed plan."
         )
         XCTAssertTrue(
-            plannerText.contains("enum WorkspaceAgentSendCompletionPlanner"),
-            "Successful send completion planning should live in a focused planner."
+            plannerText.contains("enum WorkspaceAgentSendTerminalPlanner"),
+            "Agent send terminal planning should live in a focused planner."
         )
         XCTAssertTrue(
             modelText.contains("private func finishCompletedSend"),
             "WorkspaceModel should route successful send completion through a named helper."
         )
         XCTAssertTrue(
+            modelText.contains("private func finishFailedSend"),
+            "WorkspaceModel should route failed send completion through a named helper."
+        )
+        XCTAssertTrue(
             submitBody.contains("try finishCompletedSend(result)"),
             "submitComposer should delegate successful send completion."
+        )
+        XCTAssertTrue(
+            submitBody.contains("finishFailedSend(error)"),
+            "submitComposer should delegate failed send completion."
         )
         XCTAssertFalse(
             submitBody.contains("result.savedMemory"),
@@ -104,6 +112,10 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(
             submitBody.contains("WorkspaceComposerSendLifecycle.completed"),
             "submitComposer should not choose completion lifecycle state inline."
+        )
+        XCTAssertFalse(
+            submitBody.contains("WorkspaceComposerSendLifecycle.failed"),
+            "submitComposer should not choose failed lifecycle state inline."
         )
     }
 

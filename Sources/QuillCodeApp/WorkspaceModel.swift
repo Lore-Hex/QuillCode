@@ -775,7 +775,7 @@ public final class QuillCodeWorkspaceModel {
         } catch is CancellationError {
             finishCancelledSend(userPrompt: prompt, threadID: threadID)
         } catch {
-            applyComposerSendLifecycle(WorkspaceComposerSendLifecycle.failed(error, from: composer))
+            finishFailedSend(error)
         }
     }
 
@@ -801,7 +801,7 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func finishCompletedSend(_ result: WorkspaceAgentSendSessionResult) throws {
-        let completion = WorkspaceAgentSendCompletionPlanner.completed(
+        let completion = WorkspaceAgentSendTerminalPlanner.completed(
             result: result,
             composer: composer
         )
@@ -1352,10 +1352,16 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func finishCancelledSend(userPrompt: String, threadID: UUID) {
+        let terminal = WorkspaceAgentSendTerminalPlanner.cancelled(composer: composer)
         mutateThread(threadID) { thread in
             WorkspaceComposerCancellationPlanner.applyCancelledSend(userPrompt: userPrompt, to: &thread)
         }
-        applyComposerSendLifecycle(WorkspaceComposerSendLifecycle.cancelled(from: composer))
+        applyComposerSendLifecycle(terminal.lifecycle)
+    }
+
+    private func finishFailedSend(_ error: any Error) {
+        let terminal = WorkspaceAgentSendTerminalPlanner.failed(error, composer: composer)
+        applyComposerSendLifecycle(terminal.lifecycle)
     }
 
     private func applyComposerSendLifecycle(_ plan: WorkspaceComposerSendLifecyclePlan) {
