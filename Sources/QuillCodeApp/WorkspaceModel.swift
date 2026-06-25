@@ -855,17 +855,18 @@ public final class QuillCodeWorkspaceModel {
 
         let router = ToolRouter(workspaceRoot: workspaceRoot)
         let runPlan = WorkspaceReviewActionToolCallPlanner.runPlan(for: action)
-        let executor = workspaceToolCallExecutor(router: router)
-        let actionResult = executor.executePrimary(runPlan.actionCall)
-        appendToolRun(call: runPlan.actionCall, result: actionResult)
-
-        let diffResult = executor.executePrimary(runPlan.diffRefreshCall)
-        appendToolRun(call: runPlan.diffRefreshCall, result: diffResult)
+        let result = WorkspaceReviewActionRunner(
+            plan: runPlan,
+            executor: workspaceToolCallExecutor(router: router)
+        ).run()
+        for recordedResult in result.recordedResults {
+            appendToolRun(call: recordedResult.call, result: recordedResult.result)
+        }
 
         if let thread = selectedThread {
             threadPersistence.save(thread)
         }
-        refreshTopBar(agentStatus: runPlan.finalStatus(actionResult: actionResult, diffRefreshResult: diffResult))
+        refreshTopBar(agentStatus: result.finalStatus)
     }
 
     @discardableResult
