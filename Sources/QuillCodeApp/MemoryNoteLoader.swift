@@ -94,7 +94,7 @@ public enum MemoryNoteLoader {
         maxTotalBytes: Int = maxTotalBytes
     ) -> [MemoryNote] {
         let root = projectRoot.standardizedFileURL.resolvingSymlinksInPath()
-        guard let directory = projectMemoryDirectory(in: root, relativeDirectory: relativeDirectory) else { return [] }
+        guard let directory = MemoryNotePathResolver.projectMemoryDirectory(in: root, relativeDirectory: relativeDirectory) else { return [] }
         return load(
             root: root,
             directory: directory,
@@ -112,14 +112,17 @@ public enum MemoryNoteLoader {
         now: Date = Date(),
         maxBytes: Int = maxFileBytes
     ) throws -> MemoryNote {
-        let content = try validatedWriteContent(rawContent, maxBytes: maxBytes)
+        let content = try MemoryNoteContentPolicy.validatedWriteContent(rawContent, maxBytes: maxBytes)
 
         let root = directory.standardizedFileURL.resolvingSymlinksInPath()
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let filename = availableFilename(
+        let title = MemoryNoteContentPolicy.title(
+            from: MemoryNoteContentPolicy.titleBase(from: content)
+        )
+        let filename = MemoryNoteContentPolicy.availableFilename(
             in: root,
             now: now,
-            title: title(from: titleBase(from: content))
+            title: title
         )
         let fileURL = root.appendingPathComponent(filename)
         try content.appending("\n").write(to: fileURL, atomically: true, encoding: .utf8)
@@ -143,7 +146,7 @@ public enum MemoryNoteLoader {
     ) throws -> MemoryNote {
         let root = directory.standardizedFileURL.resolvingSymlinksInPath()
         guard let existing = loadGlobal(from: root).first(where: { $0.id == id && $0.scope == .global }),
-              let fileURL = globalMemoryFileURL(for: existing, in: root)
+              let fileURL = MemoryNotePathResolver.globalMemoryFileURL(for: existing, in: root)
         else {
             throw MemoryNoteUpdateError.notFound
         }
@@ -174,9 +177,9 @@ public enum MemoryNoteLoader {
         maxBytes: Int = maxFileBytes
     ) throws -> MemoryNote {
         let root = projectRoot.standardizedFileURL.resolvingSymlinksInPath()
-        guard let directory = projectMemoryDirectory(in: root, relativeDirectory: relativeDirectory),
+        guard let directory = MemoryNotePathResolver.projectMemoryDirectory(in: root, relativeDirectory: relativeDirectory),
               let existing = loadProject(from: root, relativeDirectory: relativeDirectory).first(where: { $0.id == id && $0.scope == .project }),
-              let fileURL = projectMemoryFileURL(for: existing, root: root, directory: directory, relativeDirectory: relativeDirectory)
+              let fileURL = MemoryNotePathResolver.projectMemoryFileURL(for: existing, root: root, directory: directory, relativeDirectory: relativeDirectory)
         else {
             throw MemoryNoteUpdateError.notFound
         }
@@ -207,7 +210,7 @@ public enum MemoryNoteLoader {
         guard let note = loadGlobal(from: root).first(where: { $0.id == id && $0.scope == .global }) else {
             throw MemoryNoteDeleteError.notFound
         }
-        guard let fileURL = globalMemoryFileURL(for: note, in: root) else {
+        guard let fileURL = MemoryNotePathResolver.globalMemoryFileURL(for: note, in: root) else {
             throw MemoryNoteDeleteError.notFound
         }
 
@@ -225,9 +228,9 @@ public enum MemoryNoteLoader {
         relativeDirectory: String = projectRelativeDirectory
     ) throws -> MemoryNote {
         let root = projectRoot.standardizedFileURL.resolvingSymlinksInPath()
-        guard let directory = projectMemoryDirectory(in: root, relativeDirectory: relativeDirectory),
+        guard let directory = MemoryNotePathResolver.projectMemoryDirectory(in: root, relativeDirectory: relativeDirectory),
               let note = loadProject(from: root, relativeDirectory: relativeDirectory).first(where: { $0.id == id && $0.scope == .project }),
-              let fileURL = projectMemoryFileURL(for: note, root: root, directory: directory, relativeDirectory: relativeDirectory)
+              let fileURL = MemoryNotePathResolver.projectMemoryFileURL(for: note, root: root, directory: directory, relativeDirectory: relativeDirectory)
         else {
             throw MemoryNoteDeleteError.notFound
         }
@@ -276,92 +279,8 @@ public enum MemoryNoteLoader {
         return notes
     }
 
-    private static func validatedWriteContent(_ rawContent: String, maxBytes: Int) throws -> String {
-        let content = rawContent.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !content.isEmpty else {
-            throw MemoryNoteWriteError.empty
-        }
-        let byteCount = Data(content.utf8).count
-        guard byteCount <= maxBytes else {
-            throw MemoryNoteWriteError.tooLarge(actual: byteCount, maximum: maxBytes)
-        }
-        guard !looksSensitive(content) else {
-            throw MemoryNoteWriteError.sensitiveContent
-        }
-        return content
-    }
-
     static func validatedUpdateContent(_ rawContent: String, maxBytes: Int = maxFileBytes) throws -> String {
-        do {
-            return try validatedWriteContent(rawContent, maxBytes: maxBytes)
-        } catch MemoryNoteWriteError.empty {
-            throw MemoryNoteUpdateError.empty
-        } catch MemoryNoteWriteError.tooLarge(let actual, let maximum) {
-            throw MemoryNoteUpdateError.tooLarge(actual: actual, maximum: maximum)
-        } catch MemoryNoteWriteError.sensitiveContent {
-            throw MemoryNoteUpdateError.sensitiveContent
-        } catch {
-            throw MemoryNoteUpdateError.updateFailed
-        }
-    }
-
-    private static func globalMemoryFileURL(for note: MemoryNote, in root: URL) -> URL? {
-        let prefix = "memories/"
-        guard note.scope == .global,
-              note.relativePath.hasPrefix(prefix)
-        else {
-            return nil
-        }
-        let filename = String(note.relativePath.dropFirst(prefix.count))
-        guard !filename.isEmpty, !filename.contains("/") else {
-            return nil
-        }
-        let fileURL = root
-            .appendingPathComponent(filename)
-            .standardizedFileURL
-            .resolvingSymlinksInPath()
-        guard fileURL.deletingLastPathComponent().path == root.path else {
-            return nil
-        }
-        return fileURL
-    }
-
-    private static func projectMemoryDirectory(in root: URL, relativeDirectory: String) -> URL? {
-        guard !relativeDirectory.contains("..") else { return nil }
-        let directory = root
-            .appendingPathComponent(relativeDirectory)
-            .standardizedFileURL
-            .resolvingSymlinksInPath()
-        guard directory.path.hasPrefix(root.path + "/") else { return nil }
-        return directory
-    }
-
-    private static func projectMemoryFileURL(
-        for note: MemoryNote,
-        root: URL,
-        directory: URL,
-        relativeDirectory: String
-    ) -> URL? {
-        let prefix = "\(relativeDirectory)/"
-        guard note.scope == .project,
-              note.relativePath.hasPrefix(prefix)
-        else {
-            return nil
-        }
-        let filename = String(note.relativePath.dropFirst(prefix.count))
-        guard !filename.isEmpty, !filename.contains("/") else {
-            return nil
-        }
-        let fileURL = directory
-            .appendingPathComponent(filename)
-            .standardizedFileURL
-            .resolvingSymlinksInPath()
-        guard fileURL.deletingLastPathComponent().path == directory.path,
-              fileURL.path.hasPrefix(root.path + "/")
-        else {
-            return nil
-        }
-        return fileURL
+        try MemoryNoteContentPolicy.validatedUpdateContent(rawContent, maxBytes: maxBytes)
     }
 
     private static func loadFile(
@@ -409,7 +328,7 @@ public enum MemoryNoteLoader {
         return MemoryNote(
             id: "\(scope.rawValue):\(relativePath)",
             scope: scope,
-            title: title(from: resolved.deletingPathExtension().lastPathComponent),
+            title: MemoryNoteContentPolicy.title(from: resolved.deletingPathExtension().lastPathComponent),
             content: content,
             relativePath: relativePath,
             byteCount: min(data.count, maxBytes),
@@ -417,75 +336,4 @@ public enum MemoryNoteLoader {
         )
     }
 
-    private static func title(from baseName: String) -> String {
-        let words = baseName
-            .replacingOccurrences(of: "_", with: "-")
-            .split(separator: "-")
-            .map(String.init)
-        guard !words.isEmpty else { return baseName }
-        return words
-            .map { word in
-                guard let first = word.first else { return word }
-                return first.uppercased() + word.dropFirst()
-            }
-            .joined(separator: " ")
-    }
-
-    private static func titleBase(from content: String) -> String {
-        let firstLine = content
-            .split(whereSeparator: \.isNewline)
-            .first
-            .map(String.init) ?? "Memory"
-        var trimmed = firstLine
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        if let range = trimmed.range(
-            of: #"^remember\s+(that\s+)?"#,
-            options: [.regularExpression, .caseInsensitive]
-        ) {
-            trimmed.removeSubrange(range)
-        }
-        trimmed = trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count > 60 else { return trimmed.isEmpty ? "Memory" : trimmed }
-        let end = trimmed.index(trimmed.startIndex, offsetBy: 60)
-        return String(trimmed[..<end])
-    }
-
-    private static func availableFilename(in directory: URL, now: Date, title: String) -> String {
-        let timestamp = String(Int(now.timeIntervalSince1970))
-        let slug = slug(from: title)
-        let base = "manual-\(timestamp)-\(slug)"
-        var candidate = "\(base).md"
-        var index = 2
-        while FileManager.default.fileExists(atPath: directory.appendingPathComponent(candidate).path) {
-            candidate = "\(base)-\(index).md"
-            index += 1
-        }
-        return candidate
-    }
-
-    private static func slug(from title: String) -> String {
-        let lowercased = title.lowercased()
-        let scalars = lowercased.unicodeScalars.map { scalar -> Character in
-            if CharacterSet.alphanumerics.contains(scalar) {
-                return Character(scalar)
-            }
-            return "-"
-        }
-        let collapsed = String(scalars)
-            .split(separator: "-")
-            .prefix(8)
-            .joined(separator: "-")
-        return collapsed.isEmpty ? "memory" : collapsed
-    }
-
-    private static func looksSensitive(_ content: String) -> Bool {
-        let patterns = [
-            #"-----BEGIN [A-Z ]*PRIVATE KEY-----"#,
-            #"(?i)\b(password|passwd|passphrase|api[_ -]?key|secret|token|credential)\s*[:=]"#,
-            #"(?i)\b(sk|pk|rk|ghp|github_pat|xox[baprs])[-_][A-Za-z0-9_=\-]{16,}"#
-        ]
-        return patterns.contains { pattern in
-            content.range(of: pattern, options: .regularExpression) != nil
-        }
-    }
 }

@@ -79,6 +79,27 @@ The architecture is moving in the right direction: core state is value typed, pe
 - Added focused draft/request tests and parity gates that keep worktree draft state, shared row chrome, minimum hit-targets, and shared 0.96 press feedback out of the dialog composition file.
 - Split native model picker row/detail chrome out of `QuillCodeModelPickerView.swift` into `QuillCodeModelPickerRows.swift`.
 - Added a parity gate that keeps model-picker search/highlight state in the picker shell and row/detail/badge/press-feedback behavior in the focused row file.
+- Split memory note content/filename policy and traversal-safe path resolution out of `MemoryNoteLoader.swift`.
+- Added direct path resolver tests and parity gates that keep memory content validation and file-target resolution out of the broad loader.
+
+## 2026-06-25 Memory Loader Policy Boundary Pass
+
+Overall grade after this slice: **A memory loader ownership, A path safety, A- content policy boundary**.
+
+`MemoryNoteLoader.swift` had absorbed memory file loading, content validation, filename generation, sensitive-content detection, and traversal-safe path resolution. That was workable but risky: project/global memory delete and edit behavior depends on exact path bounds, and broad loader edits made those security rules harder to review.
+
+Code quality changes:
+
+- Added `MemoryNoteContentPolicy.swift` for write/update validation, sensitive-content detection, title normalization, slugging, and available filename generation.
+- Added `MemoryNotePathResolver.swift` for global-memory file lookup, project memory directory resolution, and project-memory file lookup.
+- Kept `MemoryNoteLoader.validatedUpdateContent` as the stable compatibility shim used by SSH Remote memory edits.
+- Reduced `MemoryNoteLoader.swift` from 491 lines to 339 lines so it now focuses on orchestration, bounded file reads, and save/update/delete flows.
+- Added direct unit tests for traversal, absolute path, nested path, wrong-prefix, and wrong-scope rejection.
+- Added parity gates that prevent content policy and path resolution from drifting back into the loader.
+
+Remaining risk:
+
+- Memory loading still uses one broad loader function for global and project reads. That is acceptable while both scopes share identical read behavior, but extracting a small file enumeration/reader helper is the next cleanup if read formats or remote-backed memory files grow.
 
 ## 2026-06-25 Model Picker Row Boundary Pass
 
@@ -6683,7 +6704,7 @@ Code quality changes:
 
 Strict grades:
 
-- `MemoryNoteLoader.swift`: **A-**. Project update now reuses shared directory validation and file loading. A future cleanup can split path resolution into a tiny helper type if remote memory mutation keeps growing.
+- `MemoryNoteLoader.swift`: **A-**. Project update now reuses shared directory validation and file loading. The later Memory Loader Policy Boundary pass splits path resolution into a focused helper.
 - `WorkspaceMemoryEngine.swift`: **A-**. Mutation payloads now support global and project refreshes without making the model know file policy. The next Chronicle step should consider a dedicated workflow coordinator before adding conflict review.
 - `WorkspaceModelMemory.swift`: **A-**. The extension remains cohesive: command prefill, slash update dispatch, and selected-thread context refresh live together. Remaining complexity comes from actor-owned state mutation.
 - Memory Playwright harness: **B+/A-**. It covers the user-visible flow, but the harness still duplicates state/render behavior; keep future changes small and surface-contract driven.
@@ -6734,7 +6755,7 @@ Code quality changes:
 
 Strict grades:
 
-- `MemoryNoteLoader.swift`: **A-**. Global/local project update/delete operations now share the same path discipline. A tiny future path-target helper could reduce duplication between global and project file lookup.
+- `MemoryNoteLoader.swift`: **A-**. Global/local project update/delete operations now share the same path discipline. The later Memory Loader Policy Boundary pass extracts that path-target helper.
 - `WorkspaceRemoteProjectMemoryUpdater.swift`: **A-**. The file now owns remote memory mutation helpers, not only update. The target validator keeps delete and edit DRY; if more remote memory operations land, rename this file to a mutation-oriented name.
 - `WorkspaceMemoryEngine.swift`: **A-**. It now returns consistent mutation payloads for save, edit, delete, local, and SSH Remote memory changes. Conflict/review workflows should still get a richer Chronicle coordinator rather than expanding this enum indefinitely.
 - `WorkspaceModelMemory.swift`: **A-**. The actor extension remains thin and chooses global/local/remote dispatch without learning storage or shell details.
