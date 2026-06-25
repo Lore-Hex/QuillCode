@@ -5832,3 +5832,23 @@ Current strict grades:
 
 Remaining risk:
 - The next step should continue shrinking `submitComposer` by moving cancellation and failure routing into the same completion boundary, or by introducing a send coordinator once retry/resumable-run semantics need one.
+
+## 2026-06-25 Agent Send Terminal Planner
+
+Overall grade after this slice: **A terminal send planning, A direct lifecycle coverage, A- WorkspaceModel send path**.
+
+The completion planner boundary was useful but too narrow: successful sends used a focused planner while cancellation and failure still chose composer/top-bar lifecycle in `WorkspaceModel`. That made the method read like it had three separate terminal-state policies.
+
+What changed:
+- Renamed the boundary to `WorkspaceAgentSendTerminalPlanner` so the name matches its broader ownership.
+- Added explicit cancelled and failed terminal plans alongside successful completion.
+- Routed failed sends through `finishFailedSend(_:)`, matching the existing named helpers for completed and cancelled sends.
+- Expanded planner and parity tests so success, cancellation, and failure lifecycle choices stay out of `submitComposer`.
+
+Current strict grades:
+- `WorkspaceAgentSendTerminalPlanner.swift`: **A**. It is a pure terminal-outcome planner with no persistence or actor dependencies.
+- `WorkspaceModel.submitComposer`: **A-**. It delegates runner/session composition and all terminal lifecycle choices, but still owns first-thread creation and progress callback wiring.
+- `WorkspaceAgentSendTerminalPlannerTests.swift`: **A**. It covers success, saved-memory refresh, cancellation, and failure state directly.
+
+Remaining risk:
+- The next high-value extraction is a small send coordinator that groups first-thread creation, context sync, session creation, progress callback wiring, and terminal helper calls into a clearer orchestration boundary without taking over actor-isolated mutations.
