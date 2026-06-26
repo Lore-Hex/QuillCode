@@ -1,5 +1,9 @@
 # QuillCode Decisions
 
+## 2026-06-26
+
+- Composer sends record the user turn before the async agent run starts. `WorkspaceAgentSendStartPlanner` owns the optimistic user message/event/title update, and `WorkspaceAgentSendSession` can run with `recordsUserMessage: false` so the agent does not duplicate that turn. Desktop surfaces are snapshot-based, so `QuillCodeDesktopComposerCoordinator` must refresh on the model's `onStarted` and progress callbacks; otherwise the model state is correct but the macOS window does not paint the user bubble or thinking indicator until the run finishes.
+
 ## 2026-06-23
 
 - Active sidebar chats are grouped by relative recency through `SidebarSurface.recentSections(now:calendar:)`, not renderer-specific date logic. Native SwiftUI, static HTML, and Playwright should use the same sections: Today, Yesterday, Previous 7 days, Older. Rows sort newest-first inside each bucket. Pinned and Archived remain explicit sections because they are user/workflow state, not recency buckets.

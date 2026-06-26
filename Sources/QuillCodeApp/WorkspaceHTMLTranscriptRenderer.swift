@@ -22,7 +22,8 @@ enum WorkspaceHTMLTranscriptRenderer {
                 retryLastTurnCommand: retryLastTurnCommand
             )
         }.joined(separator: "\n")
-        if context.isEmpty && issue.isEmpty && timeline.isEmpty && !review.isVisible {
+        let thinking = renderThinking(transcript.thinking)
+        if context.isEmpty && issue.isEmpty && timeline.isEmpty && thinking.isEmpty && !review.isVisible {
             return """
             <section class="empty" data-testid="transcript-empty">
               <h1>\(escape(transcript.emptyTitle))</h1>
@@ -30,7 +31,7 @@ enum WorkspaceHTMLTranscriptRenderer {
             </section>
             """
         }
-        return context + "\n" + issue + "\n" + reviewPane + "\n" + timeline
+        return context + "\n" + issue + "\n" + reviewPane + "\n" + timeline + "\n" + thinking
     }
 
     static func renderComposer(_ composer: ComposerSurface, topBar: TopBarSurface) -> String {
@@ -87,6 +88,28 @@ enum WorkspaceHTMLTranscriptRenderer {
           \(issue.actionLabel.map { #"<button type="button" data-testid="runtime-issue-action">\#(escape($0))</button>"# } ?? "")
           \(diagnostics)
         </section>
+        """
+    }
+
+    private static func renderThinking(_ thinking: TranscriptThinkingSurface?) -> String {
+        guard let thinking else { return "" }
+        let trace = thinking.traceLines.isEmpty ? "" : """
+          <details data-testid="thinking-trace">
+            <summary>\(escape(thinking.traceTitle))</summary>
+            <ul>
+              \(thinking.traceLines.map { #"<li>\#(escape($0))</li>"# }.joined(separator: "\n"))
+            </ul>
+          </details>
+        """
+        return """
+        <article class="thinking" data-testid="thinking-indicator" data-thinking-id="\(escape(thinking.id))" aria-label="\(escape(thinking.title)): \(escape(thinking.subtitle))">
+          <header>
+            <strong data-testid="thinking-title">\(escape(thinking.title))</strong>
+            <span aria-hidden="true">...</span>
+          </header>
+          <p data-testid="thinking-subtitle">\(escape(thinking.subtitle))</p>
+          \(trace)
+        </article>
         """
     }
 

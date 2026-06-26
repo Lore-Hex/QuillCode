@@ -128,6 +128,29 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="send-button""#))
     }
 
+    func testHTMLRendererIncludesOptimisticThinkingSurface() {
+        let thread = ChatThread(
+            messages: [.init(role: .user, content: "run tests")],
+            events: [
+                .init(kind: .message, summary: "run tests"),
+                .init(kind: .toolQueued, summary: "host.shell.run queued")
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            composer: ComposerState(isSending: true)
+        )
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains("run tests"))
+        XCTAssertTrue(html.contains(#"data-testid="thinking-indicator""#))
+        XCTAssertTrue(html.contains(#"data-testid="thinking-title">Thinking"#))
+        XCTAssertTrue(html.contains(#"data-testid="thinking-subtitle">Queued: host.shell.run queued"#))
+        XCTAssertTrue(html.contains(#"data-testid="thinking-trace""#))
+        XCTAssertFalse(html.contains(#"data-testid="transcript-empty""#))
+    }
+
     func testHTMLRendererUsesMultilineComposer() {
         let model = QuillCodeWorkspaceModel(composer: ComposerState(
             draft: "first line\nsecond line"

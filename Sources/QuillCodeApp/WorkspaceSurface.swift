@@ -108,7 +108,12 @@ public extension QuillCodeWorkspaceModel {
             transcript: TranscriptSurface(
                 messages: thread.map { WorkspaceTranscriptSurfaceBuilder(thread: $0).messageSurfaces() } ?? [],
                 toolCards: toolCards,
-                timelineItems: thread == nil ? nil : currentTimelineItems
+                timelineItems: thread == nil ? nil : currentTimelineItems,
+                thinking: WorkspaceTranscriptThinkingSurfaceBuilder(
+                    thread: thread,
+                    composer: composer,
+                    agentStatus: topBarState.agentStatus
+                ).surface()
             ),
             contextBanner: WorkspaceContextBannerBuilder(thread: thread).banner(),
             review: WorkspaceReviewSurfaceBuilder(

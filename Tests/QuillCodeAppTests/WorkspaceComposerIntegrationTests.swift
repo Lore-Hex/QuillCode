@@ -144,6 +144,56 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         XCTAssertEqual(model.root.topBar.agentStatus, "Idle")
     }
 
+    func testSubmitComposerShowsUserMessageAndThinkingBeforeAgentReturns() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(runner: AgentRunner(llm: SlowLLMClient()))
+
+        model.setDraft("run a slow task")
+        let task = Task {
+            await model.submitComposer(workspaceRoot: root)
+        }
+
+        try await waitUntil(timeoutSeconds: 1) {
+            model.surface().transcript.timelineItems.first?.message?.text == "run a slow task"
+        }
+        XCTAssertEqual(model.composer.draft, "")
+        XCTAssertTrue(model.composer.isSending)
+        XCTAssertEqual(model.selectedThread?.messages.map(\.content), ["run a slow task"])
+        XCTAssertEqual(model.selectedThread?.events.map(\.kind), [.message])
+        XCTAssertEqual(model.surface().transcript.thinking?.title, "Thinking")
+        XCTAssertEqual(model.surface().transcript.thinking?.subtitle, "Preparing the next step")
+
+        task.cancel()
+        await task.value
+    }
+
+    func testSubmitComposerStartedCallbackReceivesOptimisticSurfaceBeforeAgentReturns() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(runner: AgentRunner(llm: SlowLLMClient()))
+        let recorder = StartedSurfaceRecorder()
+
+        model.setDraft("show status quickly")
+        let task = Task {
+            await model.submitComposer(
+                workspaceRoot: root,
+                onStarted: {
+                    recorder.record(model.surface())
+                }
+            )
+        }
+
+        try await waitUntil(timeoutSeconds: 1) {
+            recorder.surface != nil
+        }
+        let surface = try XCTUnwrap(recorder.surface)
+        XCTAssertEqual(surface.transcript.timelineItems.first?.message?.text, "show status quickly")
+        XCTAssertEqual(surface.transcript.thinking?.title, "Thinking")
+        XCTAssertTrue(surface.composer.isSending)
+
+        task.cancel()
+        await task.value
+    }
+
     func testComposerShowsStreamingStatusForStreamingLLM() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel(runner: AgentRunner(
@@ -273,6 +323,15 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
             }
             try await Task.sleep(nanoseconds: 1_000_000)
         }
+    }
+}
+
+@MainActor
+private final class StartedSurfaceRecorder {
+    private(set) var surface: WorkspaceSurface?
+
+    func record(_ surface: WorkspaceSurface) {
+        self.surface = surface
     }
 }
 

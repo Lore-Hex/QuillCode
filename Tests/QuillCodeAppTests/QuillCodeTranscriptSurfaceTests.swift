@@ -22,6 +22,7 @@ final class QuillCodeTranscriptSurfaceTests: XCTestCase {
 
         XCTAssertEqual(transcript.emptyTitle, "Ask QuillCode to inspect, edit, or run this project.")
         XCTAssertEqual(transcript.emptySubtitle, "Use Auto for normal coding work, Review for manual gates, or Read-only for exploration.")
+        XCTAssertNil(transcript.thinking)
         XCTAssertEqual(transcript.timelineItems.map(\.kind), [.message, .toolCard])
         XCTAssertEqual(transcript.timelineItems.map(\.id), [
             "message-00000000-0000-0000-0000-000000000401",
