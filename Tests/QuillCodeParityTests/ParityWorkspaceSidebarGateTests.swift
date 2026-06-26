@@ -44,6 +44,7 @@ final class ParityWorkspaceSidebarGateTests: QuillCodeParityTestCase {
         let workspaceViewText = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
         let plannerText = try Self.appSourceText(named: "WorkspaceSidebarRowActionPlanner.swift")
         let desktopControllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let desktopNavigationText = try Self.desktopSourceText(named: "QuillCodeDesktopNavigationCoordinator.swift")
 
         XCTAssertTrue(plannerText.contains("enum WorkspaceThreadRowMutation"), "Thread row mutations should have typed values.")
         XCTAssertTrue(plannerText.contains("enum WorkspaceProjectRowMutation"), "Project row mutations should have typed values.")
@@ -51,10 +52,11 @@ final class ParityWorkspaceSidebarGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(plannerText.contains("struct WorkspaceSidebarRowMutationExecutor"), "Sidebar row mutations should execute through a focused desktop/model boundary.")
         XCTAssertTrue(workspaceViewText.contains("WorkspaceSidebarRowActionPlanner("), "WorkspaceSwiftUIView should delegate row action planning.")
         XCTAssertTrue(workspaceViewText.contains("handleSidebarRowAction"), "WorkspaceSwiftUIView should execute typed row actions.")
-        XCTAssertTrue(desktopControllerText.contains("WorkspaceSidebarRowMutationExecutor.execute"), "Desktop controller should delegate row mutations.")
+        XCTAssertTrue(desktopNavigationText.contains("WorkspaceSidebarRowMutationExecutor.execute"), "Desktop navigation coordinator should delegate row mutations.")
         XCTAssertFalse(workspaceViewText.contains("action.kind == .rename"), "WorkspaceSwiftUIView should not inline rename row lookup.")
         XCTAssertFalse(workspaceViewText.contains("surface.sidebar.items.first(where:"), "WorkspaceSwiftUIView should not lookup thread row titles directly.")
         XCTAssertFalse(workspaceViewText.contains("surface.projects.items.first(where:"), "WorkspaceSwiftUIView should not lookup project row names directly.")
+        XCTAssertFalse(desktopControllerText.contains("WorkspaceSidebarRowMutationExecutor.execute"), "Desktop controller should not execute row mutations directly.")
         XCTAssertFalse(desktopControllerText.contains("switch action.kind"), "Desktop controller should not switch over row action kinds.")
     }
 
