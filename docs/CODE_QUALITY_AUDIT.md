@@ -6993,3 +6993,30 @@ Strict grades:
 Remaining parity risk:
 
 - QuillCode still does not compare rule prose for contradictory instructions or provide accept/dismiss/resolve workflows for conflicts. The next AGENTS/rules parity slice should add a dedicated review surface if semantic conflict handling becomes necessary.
+
+## 2026-06-25 Tool Run Coordinator Slice
+
+Overall grade after this slice: **A- tool-run orchestration, A executor reuse, B+/A- workspace model size**.
+
+`WorkspaceModelToolRuns.swift` was already extracted from the main model file, but it still owned the full generic tool-run sequence inline. That sequence is central to Codex parity: visible commands, slash actions, review buttons, and model-authored tools all depend on the same context refresh, execution, audit, persistence, and top-bar lifecycle. Keeping it in a named coordinator makes future tool families easier to add without turning the model extension into another broad dispatcher.
+
+Code quality changes:
+
+- Added `WorkspaceToolRunCoordinator` as the focused owner for first-thread creation, effective project refresh, selected-thread instruction/memory sync, lifecycle status application, tool execution, audit-event recording, persistence, and final top-bar refresh.
+- Added `WorkspaceToolCallExecutorFactory` so generic tool runs and review actions share selected-project/browser/SSH executor construction without putting the factory back on `WorkspaceModel`.
+- Kept `QuillCodeWorkspaceModel.runToolCall` as a tiny public same-actor entry point that delegates to the coordinator.
+- Left low-level tool routing in `WorkspaceToolCallExecutor`, audit payload construction in `WorkspaceToolEventRecorder`, context preparation in `WorkspaceToolRunPreparer`, and lifecycle status copy in `WorkspaceToolRunLifecyclePlanner`.
+- Added direct coordinator coverage proving a first tool run creates a thread, runs the shell tool, records queued/running/completed events, and restores idle top-bar state.
+- Updated parity gates so the model extension cannot regain executor construction, context sync, lifecycle planning, or audit-event recording.
+
+Strict grades:
+
+- `WorkspaceToolRunCoordinator.swift`: **A-**. The coordinator still touches actor-owned workspace state, but the side-effect order is now explicit and contained. If async or cancellable direct tool runs expand, promote the coordinator result into a typed plan/outcome before adding more branches.
+- `WorkspaceToolCallExecutorFactory.swift`: **A**. It has one job and keeps review actions aligned with normal tool execution routing.
+- `WorkspaceModelToolRuns.swift`: **A**. It is now a thin API surface instead of an orchestration body.
+- `WorkspaceToolCallExecutor.swift`: **A-**. Routing remains focused and reusable by review actions and the coordinator.
+- `WorkspaceToolRunCoordinatorTests.swift`: **A-**. The test covers the public sequence on a real shell tool. Future direct-tool behavior should add focused coordinator tests instead of relying only on broad workspace integration tests.
+
+Remaining parity risk:
+
+- Generic direct tool runs remain synchronous for UI-authored commands. Richer cancellation/progress parity for direct long-running tool actions should build on this coordinator rather than adding state branches back to `WorkspaceModel`.
