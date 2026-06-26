@@ -233,6 +233,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesThreadLifecycleTransitions() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let threadExtensionText = try Self.appSourceText(named: "WorkspaceModelThreads.swift")
+        let threadMutationText = try Self.appSourceText(named: "WorkspaceModelThreadMutation.swift")
         let lifecycleText = try Self.appSourceText(named: "WorkspaceThreadLifecycleEngine.swift")
         let persistenceText = try Self.appSourceText(named: "WorkspaceThreadPersistence.swift")
 
@@ -248,9 +249,19 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(threadExtensionText.contains("WorkspaceThreadLifecycleEngine.renameThread"), "WorkspaceModel thread APIs should delegate thread rename mutation.")
         XCTAssertTrue(threadExtensionText.contains("WorkspaceThreadLifecycleEngine.archiveThread"), "WorkspaceModel thread APIs should delegate thread archive mutation.")
         XCTAssertTrue(threadExtensionText.contains("WorkspaceThreadLifecycleEngine.deleteThread"), "WorkspaceModel thread APIs should delegate thread delete mutation.")
-        XCTAssertTrue(modelText.contains("WorkspaceThreadLifecycleEngine.applyAgentRunThreadUpdate"), "WorkspaceModel should delegate agent-run thread upsert and fallback selection.")
+        XCTAssertTrue(threadMutationText.contains("WorkspaceThreadLifecycleEngine.applyAgentRunThreadUpdate"), "WorkspaceModel thread mutation extension should delegate agent-run thread upsert and fallback selection.")
         XCTAssertTrue(modelText.contains("WorkspaceThreadPersistence(store: threadStore)"), "WorkspaceModel should bridge its existing initializer to the thread persistence helper.")
-        XCTAssertTrue(modelText.contains("threadPersistence.mutate"), "WorkspaceModel should delegate timestamped thread mutation.")
+        XCTAssertTrue(threadMutationText.contains("func mutateSelectedThread"), "Selected-thread mutation should live in the focused thread mutation extension.")
+        XCTAssertTrue(threadMutationText.contains("func mutateThread"), "Timestamped thread mutation should live in the focused thread mutation extension.")
+        XCTAssertTrue(threadMutationText.contains("func selectedSidebarThreadIDs"), "Sidebar selected-ID resolution should live in the focused thread mutation extension.")
+        XCTAssertTrue(threadMutationText.contains("func validThreadIDs"), "Thread ID validity lookup should live in the focused thread mutation extension.")
+        XCTAssertTrue(threadMutationText.contains("threadPersistence.mutate"), "WorkspaceModel thread mutation extension should delegate timestamped thread mutation.")
+        XCTAssertFalse(modelText.contains("WorkspaceThreadLifecycleEngine.applyAgentRunThreadUpdate"), "WorkspaceModel.swift should not own agent-run thread replacement.")
+        XCTAssertFalse(modelText.contains("func mutateSelectedThread"), "WorkspaceModel.swift should not own selected-thread mutation.")
+        XCTAssertFalse(modelText.contains("func mutateThread"), "WorkspaceModel.swift should not own timestamped thread mutation.")
+        XCTAssertFalse(modelText.contains("func selectedSidebarThreadIDs"), "WorkspaceModel.swift should not own sidebar selected-ID resolution.")
+        XCTAssertFalse(modelText.contains("func validThreadIDs"), "WorkspaceModel.swift should not own thread ID validity lookup.")
+        XCTAssertFalse(modelText.contains("threadPersistence.mutate"), "WorkspaceModel.swift should not own timestamped thread mutation.")
         XCTAssertFalse(modelText.contains("public func renameThread"), "WorkspaceModel.swift should not own thread rename API bodies.")
         XCTAssertFalse(modelText.contains("public func archiveThread"), "WorkspaceModel.swift should not own thread archive API bodies.")
         XCTAssertFalse(modelText.contains("public func unarchiveThread"), "WorkspaceModel.swift should not own thread unarchive API bodies.")
@@ -553,14 +564,16 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesThreadNoticeMutation() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let threadMutationText = try Self.appSourceText(named: "WorkspaceModelThreadMutation.swift")
         let reviewExtensionText = try Self.appSourceText(named: "WorkspaceModelReview.swift")
         let appenderText = try Self.appSourceText(named: "WorkspaceThreadNoticeAppender.swift")
 
         XCTAssertTrue(appenderText.contains("enum WorkspaceThreadNoticeAppender"), "Thread notice mutation should live in a focused helper.")
         XCTAssertTrue(appenderText.contains("static func appendNotice"), "Notice event mutation should be directly testable.")
         XCTAssertTrue(appenderText.contains("static func appendAssistantNotice"), "Assistant notice mutation should be directly testable.")
-        XCTAssertTrue(modelText.contains("WorkspaceThreadNoticeAppender.appendNotice"), "WorkspaceModel should delegate notice event mutation.")
+        XCTAssertTrue(threadMutationText.contains("WorkspaceThreadNoticeAppender.appendNotice"), "Workspace thread mutation extension should delegate notice event mutation.")
         XCTAssertTrue(reviewExtensionText.contains("WorkspaceThreadNoticeAppender.appendAssistantNotice"), "Workspace review extension should delegate assistant notice mutation.")
+        XCTAssertFalse(modelText.contains("WorkspaceThreadNoticeAppender.appendNotice"), "WorkspaceModel.swift should not own notice event mutation.")
         XCTAssertFalse(modelText.contains("WorkspaceThreadNoticeAppender.appendAssistantNotice"), "WorkspaceModel should not own assistant notice mutation for review-card actions.")
         XCTAssertFalse(modelText.contains("thread.events.append(.init(kind: .notice"), "WorkspaceModel should not append notice events inline.")
         XCTAssertFalse(modelText.contains("thread.events.append(.init(kind: .message"), "WorkspaceModel should not append message events inline.")
@@ -587,10 +600,12 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelUsesExplicitAgentRunThreadUpdates() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let threadMutationText = try Self.appSourceText(named: "WorkspaceModelThreadMutation.swift")
         let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
 
-        XCTAssertTrue(modelText.contains("func updateThreadFromAgentRun"), "Agent-run thread updates should use a named helper that documents focus preservation.")
+        XCTAssertTrue(threadMutationText.contains("func updateThreadFromAgentRun"), "Agent-run thread updates should use a named helper that documents focus preservation.")
         XCTAssertTrue(composerText.contains("updateThreadFromAgentRun(thread)"), "Agent progress and completion should route through the explicit async-update helper.")
+        XCTAssertFalse(modelText.contains("func updateThreadFromAgentRun"), "WorkspaceModel.swift should not own agent-run thread replacement.")
         XCTAssertFalse(modelText.contains("preservingSelection"), "WorkspaceModel should not hide async navigation behavior behind a boolean flag.")
         XCTAssertFalse(modelText.contains("replaceThread("), "WorkspaceModel should not route async run updates through an ambiguous generic replacement helper.")
     }
