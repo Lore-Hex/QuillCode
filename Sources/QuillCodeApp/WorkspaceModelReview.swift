@@ -13,7 +13,7 @@ public extension QuillCodeWorkspaceModel {
         let runPlan = WorkspaceReviewActionToolCallPlanner.runPlan(for: action)
         let result = WorkspaceReviewActionRunner(
             plan: runPlan,
-            executor: workspaceToolCallExecutor(router: router)
+            executor: WorkspaceToolCallExecutorFactory.executor(model: self, router: router)
         ).run()
         for recordedResult in result.recordedResults {
             appendToolRun(call: recordedResult.call, result: recordedResult.result)

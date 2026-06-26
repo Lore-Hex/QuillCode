@@ -430,6 +430,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesToolEventRecording() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let toolRunsText = try Self.appSourceText(named: "WorkspaceModelToolRuns.swift")
+        let coordinatorText = try Self.appSourceText(named: "WorkspaceToolRunCoordinator.swift")
         let recorderText = try Self.appSourceText(named: "WorkspaceToolEventRecorder.swift")
 
         XCTAssertTrue(recorderText.contains("struct WorkspaceToolEventRecorder"), "Tool audit event construction should live in a focused recorder.")
@@ -437,7 +438,8 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(recorderText.contains("static func append"), "Thread mutation should be a thin append helper.")
         XCTAssertTrue(recorderText.contains("call.redactedForTranscript()"), "Tool call redaction should live beside queued-event construction.")
         XCTAssertTrue(recorderText.contains("result.ok ? .toolCompleted : .toolFailed"), "Completion/failure classification should live beside tool event construction.")
-        XCTAssertTrue(toolRunsText.contains("WorkspaceToolEventRecorder.append"), "The tool-run extension should delegate tool audit event recording.")
+        XCTAssertTrue(toolRunsText.contains("WorkspaceToolRunCoordinator"), "The tool-run extension should delegate orchestration to the focused coordinator.")
+        XCTAssertTrue(coordinatorText.contains("WorkspaceToolEventRecorder.append"), "The tool-run coordinator should delegate tool audit event recording.")
         XCTAssertFalse(modelText.contains("WorkspaceToolEventRecorder.append(execution:"), "WorkspaceModel.swift should not own generic tool audit event recording.")
         XCTAssertFalse(modelText.contains("call.redactedForTranscript()"), "WorkspaceModel should not own tool call redaction for transcript events.")
         XCTAssertFalse(modelText.contains("let resultJSON ="), "WorkspaceModel should not own tool result JSON payload construction.")
@@ -448,6 +450,8 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesToolCallExecutionRouting() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let toolRunsText = try Self.appSourceText(named: "WorkspaceModelToolRuns.swift")
+        let coordinatorText = try Self.appSourceText(named: "WorkspaceToolRunCoordinator.swift")
+        let factoryText = try Self.appSourceText(named: "WorkspaceToolCallExecutorFactory.swift")
         let executorText = try Self.appSourceText(named: "WorkspaceToolCallExecutor.swift")
 
         XCTAssertTrue(executorText.contains("struct WorkspaceToolCallExecutor"), "Tool-call routing should live in a focused executor.")
@@ -455,8 +459,12 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(executorText.contains("PlanUpdateToolExecutor.execute"), "The executor should own plan update routing.")
         XCTAssertTrue(executorText.contains("WorkspaceRemoteProjectToolExecutor.execute"), "The executor should own remote project routing.")
         XCTAssertTrue(executorText.contains("ToolDefinition.applyPatch.name"), "The executor should own apply-patch follow-up routing.")
-        XCTAssertTrue(toolRunsText.contains("workspaceToolCallExecutor(router:"), "The tool-run extension should delegate tool execution routing.")
+        XCTAssertTrue(toolRunsText.contains("WorkspaceToolRunCoordinator"), "The tool-run extension should delegate orchestration to the focused coordinator.")
+        XCTAssertTrue(factoryText.contains("enum WorkspaceToolCallExecutorFactory"), "Shared executor construction should live in a focused factory.")
+        XCTAssertTrue(factoryText.contains("WorkspaceToolCallExecutor("), "The factory should build the focused executor.")
+        XCTAssertTrue(coordinatorText.contains("WorkspaceToolCallExecutorFactory.executor"), "The tool-run coordinator should reuse the shared executor factory.")
         XCTAssertFalse(modelText.contains("func workspaceToolCallExecutor"), "WorkspaceModel.swift should not own tool execution routing.")
+        XCTAssertFalse(toolRunsText.contains("func workspaceToolCallExecutor"), "The thin tool-run extension should not own tool execution routing.")
         XCTAssertFalse(modelText.contains("call.name == ToolDefinition.browserInspect.name"), "WorkspaceModel should not branch on browser inspect tool execution.")
         XCTAssertFalse(modelText.contains("call.name == ToolDefinition.browserOpen.name"), "WorkspaceModel should not branch on browser open tool execution.")
         XCTAssertFalse(modelText.contains("call.name == ToolDefinition.planUpdate.name"), "WorkspaceModel should not branch on plan update tool execution.")
@@ -467,44 +475,51 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
     func testWorkspaceModelDelegatesToolRunPreparation() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let toolRunsText = try Self.appSourceText(named: "WorkspaceModelToolRuns.swift")
+        let coordinatorText = try Self.appSourceText(named: "WorkspaceToolRunCoordinator.swift")
         let preparerText = try Self.appSourceText(named: "WorkspaceToolRunPreparer.swift")
-        let runToolCallStart = try XCTUnwrap(toolRunsText.range(of: "func runToolCall"))
-        let runToolCallEnd = try XCTUnwrap(toolRunsText.range(
-            of: "func workspaceToolCallExecutor",
-            range: runToolCallStart.upperBound..<toolRunsText.endIndex
+        let runStart = try XCTUnwrap(coordinatorText.range(of: "func run(_ call: ToolCall)"))
+        let runEnd = try XCTUnwrap(coordinatorText.range(
+            of: "private func syncSelectedThreadContextForToolRun",
+            range: runStart.upperBound..<coordinatorText.endIndex
         ))
-        let runToolCallBody = String(toolRunsText[runToolCallStart.lowerBound..<runToolCallEnd.lowerBound])
+        let runBody = String(coordinatorText[runStart.lowerBound..<runEnd.lowerBound])
 
         XCTAssertTrue(toolRunsText.contains("extension QuillCodeWorkspaceModel"), "Generic tool-run APIs should live in a focused model extension.")
+        XCTAssertTrue(toolRunsText.contains("WorkspaceToolRunCoordinator(model: self, workspaceRoot: workspaceRoot).run(call)"), "The extension should delegate generic tool-run orchestration.")
         XCTAssertFalse(modelText.contains("public func runToolCall"), "WorkspaceModel.swift should not own the generic tool-run API body.")
         XCTAssertTrue(preparerText.contains("enum WorkspaceToolRunPreparer"), "Tool-run context preparation should live in a focused helper.")
         XCTAssertTrue(preparerText.contains("static func effectiveProjectID"), "Effective tool-run project selection should be directly testable.")
         XCTAssertTrue(preparerText.contains("static func syncThreadContext"), "Tool-run thread context sync should be directly testable.")
-        XCTAssertTrue(runToolCallBody.contains("WorkspaceToolRunPreparer.effectiveProjectID"), "WorkspaceModel should delegate tool-run project selection.")
-        XCTAssertTrue(runToolCallBody.contains("syncSelectedThreadContextForToolRun"), "runToolCall should delegate selected-thread context sync to a named helper.")
-        XCTAssertTrue(toolRunsText.contains("WorkspaceToolRunPreparer.syncThreadContext"), "The tool-run extension should delegate tool-run thread context sync.")
-        XCTAssertFalse(runToolCallBody.contains("workspaceThreadContext("), "runToolCall should not rebuild thread context inline.")
-        XCTAssertFalse(runToolCallBody.contains("thread.instructions ="), "runToolCall should not assign instruction snapshots inline.")
-        XCTAssertFalse(runToolCallBody.contains("thread.memories ="), "runToolCall should not assign memory snapshots inline.")
+        XCTAssertTrue(runBody.contains("WorkspaceToolRunPreparer.effectiveProjectID"), "The coordinator should delegate tool-run project selection.")
+        XCTAssertTrue(runBody.contains("syncSelectedThreadContextForToolRun"), "The coordinator should delegate selected-thread context sync to a named helper.")
+        XCTAssertTrue(coordinatorText.contains("WorkspaceToolRunPreparer.syncThreadContext"), "The tool-run coordinator should delegate tool-run thread context sync.")
+        XCTAssertFalse(toolRunsText.contains("WorkspaceToolRunPreparer.effectiveProjectID"), "The thin tool-run extension should not own project selection.")
+        XCTAssertFalse(runBody.contains("workspaceThreadContext("), "The coordinator should not rebuild thread context inline.")
+        XCTAssertFalse(runBody.contains("thread.instructions ="), "The coordinator should not assign instruction snapshots inline.")
+        XCTAssertFalse(runBody.contains("thread.memories ="), "The coordinator should not assign memory snapshots inline.")
     }
 
     func testWorkspaceModelDelegatesToolRunLifecyclePlanning() throws {
         let toolRunsText = try Self.appSourceText(named: "WorkspaceModelToolRuns.swift")
+        let coordinatorText = try Self.appSourceText(named: "WorkspaceToolRunCoordinator.swift")
         let lifecycleText = try Self.appSourceText(named: "WorkspaceToolRunLifecyclePlanner.swift")
-        let runToolCallStart = try XCTUnwrap(toolRunsText.range(of: "func runToolCall"))
-        let runToolCallEnd = try XCTUnwrap(toolRunsText.range(
-            of: "func workspaceToolCallExecutor",
-            range: runToolCallStart.upperBound..<toolRunsText.endIndex
+        let runStart = try XCTUnwrap(coordinatorText.range(of: "func run(_ call: ToolCall)"))
+        let runEnd = try XCTUnwrap(coordinatorText.range(
+            of: "private func syncSelectedThreadContextForToolRun",
+            range: runStart.upperBound..<coordinatorText.endIndex
         ))
-        let runToolCallBody = String(toolRunsText[runToolCallStart.lowerBound..<runToolCallEnd.lowerBound])
+        let runBody = String(coordinatorText[runStart.lowerBound..<runEnd.lowerBound])
 
+        XCTAssertTrue(toolRunsText.contains("WorkspaceToolRunCoordinator"), "The tool-run extension should delegate orchestration to the focused coordinator.")
+        XCTAssertTrue(coordinatorText.contains("struct WorkspaceToolRunCoordinator"), "Generic tool-run sequencing should live in a focused coordinator.")
         XCTAssertTrue(lifecycleText.contains("enum WorkspaceToolRunLifecyclePlanner"), "Tool-run lifecycle status should live in a focused planner.")
         XCTAssertTrue(lifecycleText.contains("static func started"), "Tool-run start lifecycle should be directly testable.")
         XCTAssertTrue(lifecycleText.contains("static func finished"), "Tool-run finish lifecycle should be directly testable.")
-        XCTAssertTrue(runToolCallBody.contains("WorkspaceToolRunLifecyclePlanner.started"), "WorkspaceModel should delegate tool-run start lifecycle.")
-        XCTAssertTrue(runToolCallBody.contains("WorkspaceToolRunLifecyclePlanner.finished"), "WorkspaceModel should delegate tool-run finish lifecycle.")
-        XCTAssertFalse(runToolCallBody.contains("TopBarAgentStatusLabel.running"), "runToolCall should not choose started status inline.")
-        XCTAssertFalse(runToolCallBody.contains("execution.ok ?"), "runToolCall should not choose final status inline.")
+        XCTAssertTrue(runBody.contains("WorkspaceToolRunLifecyclePlanner.started"), "The coordinator should delegate tool-run start lifecycle.")
+        XCTAssertTrue(runBody.contains("WorkspaceToolRunLifecyclePlanner.finished"), "The coordinator should delegate tool-run finish lifecycle.")
+        XCTAssertFalse(toolRunsText.contains("WorkspaceToolRunLifecyclePlanner.started"), "The thin tool-run extension should not own lifecycle planning.")
+        XCTAssertFalse(runBody.contains("TopBarAgentStatusLabel.running"), "The coordinator should not choose started status inline.")
+        XCTAssertFalse(runBody.contains("execution.ok ?"), "The coordinator should not choose final status inline.")
     }
 
     func testWorkspaceModelDelegatesTerminalLifecyclePlanning() throws {
