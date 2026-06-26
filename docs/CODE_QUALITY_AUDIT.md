@@ -23,7 +23,7 @@ The architecture is moving in the right direction: core state is value typed, pe
 
 | File | Grade | Next Improvement |
 | --- | --- | --- |
-| `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, context/action lookup, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, thread persistence, local command transcript mutation, thread notice mutation, sidebar selection transitions, sidebar bulk action planning, project context refresh, selected context queries, `/status` context assembly, and top-bar state assembly now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
+| `Sources/QuillCodeApp/WorkspaceModel.swift` | A- | Command parsing, automation records/run drafts, terminal session construction, project registry transitions, context/action lookup, review-comment planning, tool override composition, SSH Remote tool execution, browser location/state transitions, MCP surface state, MCP request parsing, MCP runtime/catalog/launch work, tool-card surface types, execution-context enrichment, thread seeding, thread lifecycle transitions, thread persistence, selected-thread mutation primitives, local command transcript mutation, thread notice mutation, sidebar selection transitions, sidebar bulk action planning, project context refresh, selected context queries, `/status` context assembly, and top-bar state assembly now live in focused helpers; keep extracting pure surface/workflow builders before adding more parity commands. |
 | `Sources/QuillCodeApp/WorkspaceSwiftUIView.swift` | A | The shell is now top-bar/sidebar chrome, state, and routing; center-pane layout, workspace sheet presentation, and worktree dialog lifecycle live in focused files. Keep future modal families and command workflow rules out of the root shell. |
 | `Sources/QuillCodeApp/QuillCodeWorkspaceMainPaneView.swift` | A- | Center-pane layout owns transcript/browser/extensions/memories/terminal/composer/activity composition and runtime issue recovery wiring. Keep workflow decisions in planners and avoid growing this into a second root shell. |
 | `Sources/QuillCodeApp/QuillCodeToolCardView.swift` | A- | Native tool-card composition is now separate from reusable controls, artifact previews, and raw detail blocks. Keep future status/action chrome in `QuillCodeToolCardControls.swift` and artifact rendering in `QuillCodeToolArtifactViews.swift`. |
@@ -129,6 +129,18 @@ Changes:
 - Added `WorkspaceModelContext.swift` for selected thread/project lookup, active workspace root, terminal current directory, current tool cards, current timeline items, and project lookup.
 - Kept execution-context enrichment delegated to `WorkspaceExecutionContextSurfaceBuilder`.
 - Extended the workspace model parity gate so selected context queries and current transcript projections stay out of the root model file.
+
+## 2026-06-25 Workspace Thread Mutation Extension Pass
+
+Overall grade after this slice: **A thread mutation ownership, A persistence helper boundary, A- central model size**.
+
+`WorkspaceModel.swift` still owned selected-thread mutation, timestamped thread mutation, sidebar selected-ID resolution, notice event appending, and asynchronous agent-run thread replacement. These are shared actor-owned side effects, but they are cohesive thread mutation primitives rather than root storage.
+
+Changes:
+
+- Added `WorkspaceModelThreadMutation.swift` for selected-thread mutation, timestamped thread persistence mutation, sidebar selected-ID resolution, notice appending, valid-thread ID lookup, and agent-run thread replacement.
+- Kept pure rename/archive/delete/upsert/fallback logic delegated to `WorkspaceThreadLifecycleEngine` and persistence timestamping delegated to `WorkspaceThreadPersistence`.
+- Extended parity gates so thread mutation primitives stay out of the root model.
 
 ## 2026-06-25 Desktop Automation Coordinator Pass
 
