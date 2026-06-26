@@ -205,6 +205,36 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(controllerText.contains("fileExists(atPath:"), "Desktop controller should not own import directory validation.")
     }
 
+    func testDesktopControllerDelegatesNavigationMutations() throws {
+        let text = try Self.desktopSourceText()
+        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let navigationText = try Self.desktopSourceText(named: "QuillCodeDesktopNavigationCoordinator.swift")
+
+        XCTAssertTrue(text.contains("QuillCodeDesktopNavigationCoordinator"), "Desktop project/thread navigation should be isolated from UI routing.")
+        XCTAssertTrue(controllerText.contains("navigationCoordinator.newChat"), "Desktop controller should delegate new chat creation.")
+        XCTAssertTrue(controllerText.contains("navigationCoordinator.selectThread"), "Desktop controller should delegate thread selection.")
+        XCTAssertTrue(controllerText.contains("navigationCoordinator.runThreadAction"), "Desktop controller should delegate thread row actions.")
+        XCTAssertTrue(controllerText.contains("navigationCoordinator.renameThread"), "Desktop controller should delegate thread renames.")
+        XCTAssertTrue(controllerText.contains("navigationCoordinator.selectProject"), "Desktop controller should delegate project selection.")
+        XCTAssertTrue(controllerText.contains("navigationCoordinator.runProjectAction"), "Desktop controller should delegate project row actions.")
+        XCTAssertTrue(controllerText.contains("navigationCoordinator.renameProject"), "Desktop controller should delegate project renames.")
+        XCTAssertTrue(controllerText.contains("navigationCoordinator.addProject"), "Desktop controller should delegate project creation.")
+        XCTAssertTrue(navigationText.contains("model.newChat()"), "Navigation coordinator should own new chat creation.")
+        XCTAssertTrue(navigationText.contains("model.selectThread(id)"), "Navigation coordinator should own thread selection.")
+        XCTAssertTrue(navigationText.contains("WorkspaceSidebarRowMutationExecutor.execute(mutation, model: model)"), "Navigation coordinator should own sidebar row mutation dispatch.")
+        XCTAssertTrue(navigationText.contains("model.renameThread(id, to: title)"), "Navigation coordinator should own thread rename routing.")
+        XCTAssertTrue(navigationText.contains("model.selectProject(id)"), "Navigation coordinator should own project selection.")
+        XCTAssertTrue(navigationText.contains("model.renameProject(id, to: name)"), "Navigation coordinator should own project rename routing.")
+        XCTAssertTrue(navigationText.contains("model.addProject(path: url)"), "Navigation coordinator should own project creation routing.")
+        XCTAssertFalse(controllerText.contains("_ = model.newChat()"), "Desktop controller should not create threads directly.")
+        XCTAssertFalse(controllerText.contains("model.selectThread(id)"), "Desktop controller should not select threads directly.")
+        XCTAssertFalse(controllerText.contains("WorkspaceSidebarRowMutationExecutor.execute(mutation, model: model)"), "Desktop controller should not execute sidebar row mutations directly.")
+        XCTAssertFalse(controllerText.contains("model.renameThread(id, to: title)"), "Desktop controller should not rename threads directly.")
+        XCTAssertFalse(controllerText.contains("model.selectProject(id)"), "Desktop controller should not select projects directly.")
+        XCTAssertFalse(controllerText.contains("model.renameProject(id, to: name)"), "Desktop controller should not rename projects directly.")
+        XCTAssertFalse(controllerText.contains("model.addProject(path: url)"), "Desktop controller should not create projects directly.")
+    }
+
     func testDesktopControllerDelegatesCommandPlanning() throws {
         let text = try Self.desktopSourceText()
         let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")

@@ -24,6 +24,7 @@ final class QuillCodeDesktopController: ObservableObject {
     private let automationCoordinator: QuillCodeDesktopAutomationCoordinator
     private let automationNotifier: any QuillCodeAutomationNotifying
     private let workspaceRoot: URL
+    private let navigationCoordinator: QuillCodeDesktopNavigationCoordinator
     private let commandCoordinator: QuillCodeDesktopCommandCoordinator
     private let signInCoordinator: QuillCodeDesktopSignInCoordinator
     private let settingsCoordinator: QuillCodeDesktopSettingsCoordinator
@@ -52,6 +53,7 @@ final class QuillCodeDesktopController: ObservableObject {
         )
         self.automationCoordinator = QuillCodeDesktopAutomationCoordinator()
         self.automationNotifier = automationNotifier
+        self.navigationCoordinator = QuillCodeDesktopNavigationCoordinator()
         self.commandCoordinator = QuillCodeDesktopCommandCoordinator()
         self.signInCoordinator = QuillCodeDesktopSignInCoordinator(bootstrap: bootstrap)
         self.settingsCoordinator = QuillCodeDesktopSettingsCoordinator(bootstrap: bootstrap)
@@ -88,37 +90,37 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func newChat() {
-        _ = model.newChat()
+        navigationCoordinator.newChat(model: model)
         refresh()
     }
 
     func selectThread(_ id: UUID) {
-        model.selectThread(id)
+        navigationCoordinator.selectThread(id, model: model)
         refresh()
     }
 
     func runThreadAction(_ mutation: WorkspaceThreadRowMutation) {
-        WorkspaceSidebarRowMutationExecutor.execute(mutation, model: model)
+        navigationCoordinator.runThreadAction(mutation, model: model)
         refresh()
     }
 
     func renameThread(_ id: UUID, title: String) {
-        _ = model.renameThread(id, to: title)
+        _ = navigationCoordinator.renameThread(id, title: title, model: model)
         refresh()
     }
 
     func selectProject(_ id: UUID?) {
-        model.selectProject(id)
+        navigationCoordinator.selectProject(id, model: model)
         refresh()
     }
 
     func runProjectAction(_ mutation: WorkspaceProjectRowMutation) {
-        WorkspaceSidebarRowMutationExecutor.execute(mutation, model: model)
+        navigationCoordinator.runProjectAction(mutation, model: model)
         refresh()
     }
 
     func renameProject(_ id: UUID, name: String) {
-        _ = model.renameProject(id, to: name)
+        _ = navigationCoordinator.renameProject(id, name: name, model: model)
         refresh()
     }
 
@@ -134,7 +136,7 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func addProject(_ url: URL) {
-        _ = model.addProject(path: url)
+        navigationCoordinator.addProject(url, model: model)
         refresh()
     }
 
