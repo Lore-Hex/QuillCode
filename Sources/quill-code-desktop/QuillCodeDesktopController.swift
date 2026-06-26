@@ -33,6 +33,7 @@ final class QuillCodeDesktopController: ObservableObject {
     private let copyCoordinator: QuillCodeDesktopCopyCoordinator
     private let projectImportCoordinator: QuillCodeDesktopProjectImportCoordinator
     private let terminalCoordinator: QuillCodeDesktopTerminalCoordinator
+    private let worktreeCoordinator: QuillCodeDesktopWorktreeCoordinator
     private let tasks = QuillCodeDesktopTaskCoordinator()
 
     init(
@@ -62,6 +63,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.copyCoordinator = QuillCodeDesktopCopyCoordinator()
         self.projectImportCoordinator = QuillCodeDesktopProjectImportCoordinator()
         self.terminalCoordinator = QuillCodeDesktopTerminalCoordinator()
+        self.worktreeCoordinator = QuillCodeDesktopWorktreeCoordinator()
         do {
             self.model = try bootstrap.makeModel()
         } catch {
@@ -311,36 +313,30 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func createWorktree(_ request: WorkspaceWorktreeCreateRequest) {
-        model.createWorktree(request, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+        worktreeCoordinator.createWorktree(request, model: model, fallbackWorkspaceRoot: workspaceRoot)
         refresh()
     }
 
     func worktreeChoiceLoad() async -> WorkspaceWorktreeChoiceLoad {
-        let request = model.worktreeChoiceLoadRequest(workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
-        return await Task.detached(priority: .userInitiated) {
-            request.load()
-        }.value
+        await worktreeCoordinator.worktreeChoiceLoad(model: model, fallbackWorkspaceRoot: workspaceRoot)
     }
 
     func worktreePrunePreview() async -> WorkspaceWorktreePrunePreview {
-        let request = model.worktreePrunePreviewLoadRequest(workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
-        return await Task.detached(priority: .userInitiated) {
-            request.load()
-        }.value
+        await worktreeCoordinator.worktreePrunePreview(model: model, fallbackWorkspaceRoot: workspaceRoot)
     }
 
     func openWorktree(_ request: WorkspaceWorktreeOpenRequest) {
-        model.openWorktree(request, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+        worktreeCoordinator.openWorktree(request, model: model, fallbackWorkspaceRoot: workspaceRoot)
         refresh()
     }
 
     func removeWorktree(_ request: WorkspaceWorktreeRemoveRequest) {
-        model.removeWorktree(request, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+        worktreeCoordinator.removeWorktree(request, model: model, fallbackWorkspaceRoot: workspaceRoot)
         refresh()
     }
 
     func pruneWorktrees(_ request: WorkspaceWorktreePruneRequest) {
-        model.pruneWorktrees(request, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+        worktreeCoordinator.pruneWorktrees(request, model: model, fallbackWorkspaceRoot: workspaceRoot)
         refresh()
     }
 
