@@ -295,6 +295,8 @@ final class CoreModelTests: XCTestCase {
 
         XCTAssertEqual(instruction.scopePath, "Sources/Feature")
         XCTAssertEqual(instruction.scopeLabel, "Sources/Feature/**")
+        XCTAssertEqual(ProjectInstruction.scopeLabel(for: "."), "whole project")
+        XCTAssertEqual(ProjectInstruction.scopeLabel(for: "Sources"), "Sources/**")
     }
 
     func testProjectInstructionDecodesOlderPayloadWithoutScopePath() throws {

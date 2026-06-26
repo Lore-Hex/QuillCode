@@ -6958,3 +6958,26 @@ Strict grades:
 Remaining parity risk:
 
 - QuillCode still does not detect contradictory instructions or show a conflict review UI. That remains the next meaningful AGENTS/rules parity slice.
+
+## 2026-06-25 Project Instruction Diagnostics Slice
+
+Overall grade after this slice: **A- structural diagnostics, A Activity integration, B semantic conflict parity**.
+
+The scoped-instructions slice made rule applicability explicit, but users still had to inspect paths manually to see likely precedence pressure. This slice adds structural diagnostics for the cases QuillCode can prove without interpreting prose: multiple instruction files sharing the same scope, and nested instruction scopes that may override broader project rules.
+
+Code quality changes:
+
+- Added `ProjectInstructionDiagnosticsBuilder` as a focused, pure Activity-support boundary for duplicate-scope and nested-override diagnostics.
+- Added `ProjectInstruction.scopeLabel(for:)` so scope display copy stays centralized instead of reconstructing labels in Activity code.
+- Updated Activity sources to include diagnostic rows and to mark truncated instruction files directly on their source rows.
+- Added focused diagnostics tests, Activity integration coverage, and a parity architecture gate to keep diagnostics out of `WorkspaceModel`.
+
+Strict grades:
+
+- `ProjectInstructionDiagnosticsBuilder.swift`: **A-**. The builder is deterministic, pure, and honest about structural diagnostics. If future work performs semantic comparison, keep it as a separate conflict-review engine rather than extending this simple builder.
+- `WorkspaceActivitySourceSurfaceBuilder.swift`: **A-**. Source rows now combine loaded rule files, bounded diagnostics, and memories without creating another mutable surface.
+- `ProjectInstruction` core model: **A-**. Scope display and derivation are now both centralized.
+
+Remaining parity risk:
+
+- QuillCode still does not compare rule prose for contradictory instructions or provide accept/dismiss/resolve workflows for conflicts. The next AGENTS/rules parity slice should add a dedicated review surface if semantic conflict handling becomes necessary.
