@@ -74,6 +74,13 @@ enum WorkspaceGitCommandCatalog {
                 isEnabled: hasWorkspaceOrRemoteProject
             ),
             WorkspaceCommandSurface(
+                id: "git-pr-review-comment",
+                title: "Comment on pull request line",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["github", "pr", "review", "inline", "line comment", "review comment"],
+                isEnabled: hasWorkspaceOrRemoteProject
+            ),
+            WorkspaceCommandSurface(
                 id: "git-pr-labels",
                 title: "Label pull request",
                 category: WorkspaceCommandPalette.gitCategory,

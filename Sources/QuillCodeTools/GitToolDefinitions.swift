@@ -137,6 +137,14 @@ public extension ToolDefinition {
         risk: .append
     )
 
+    static let gitPullRequestReviewComment = ToolDefinition(
+        name: "host.git.pr.review_comment",
+        description: "Add an inline GitHub pull request review comment to a changed file line. Optional selector may be a PR number, URL, or branch. Use path and line from the pull request diff.",
+        parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."},"path":{"type":"string","description":"Repository-relative file path in the pull request diff."},"line":{"type":"integer","description":"Target line number in the pull request diff file."},"side":{"type":"string","enum":["RIGHT","LEFT"],"description":"Diff side for the target line. Defaults to RIGHT."},"body":{"type":"string","description":"Inline review comment body."},"startLine":{"type":"integer","description":"Optional starting line for a multi-line comment."},"startSide":{"type":"string","enum":["RIGHT","LEFT"],"description":"Optional diff side for startLine. Defaults to side."}},"required":["path","line","body"]}"#,
+        host: .local,
+        risk: .append
+    )
+
     static let gitPullRequestMerge = ToolDefinition(
         name: "host.git.pr.merge",
         description: "Merge or enable auto-merge for the current or selected GitHub pull request using GitHub CLI. Method must be squash, merge, or rebase.",

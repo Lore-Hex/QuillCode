@@ -211,6 +211,61 @@ public struct GitHubPullRequestToolExecutor: Sendable {
         }
     }
 
+    public func reviewComment(
+        cwd: URL,
+        selector: String? = nil,
+        path: String,
+        line: Int,
+        side: String? = nil,
+        body: String,
+        startLine: Int? = nil,
+        startSide: String? = nil
+    ) -> ToolResult {
+        do {
+            guard let body = GitInputValidator.trimmedNonEmpty(body) else {
+                throw GitToolError.emptyPullRequestComment
+            }
+            let relativePath = try GitInputValidator.safeRelativePath(path, cwd: cwd)
+            guard relativePath != "." else {
+                throw GitToolError.emptyPath
+            }
+            let line = try GitHubPullRequestInputValidator.safeReviewLine(line)
+            let startLine = try GitHubPullRequestInputValidator.safeReviewStartLine(startLine, line: line)
+            let side = try GitHubPullRequestInputValidator.safeReviewSide(side)
+            let resolvedStartSide = try startLine.map { _ in
+                try GitHubPullRequestInputValidator.safeReviewSide(startSide ?? side)
+            }
+
+            let pullRequest = try resolvePullRequest(selector: selector, cwd: cwd)
+            let repository = try resolveRepository(cwd: cwd)
+
+            var arguments = [
+                "api",
+                "repos/\(repository.nameWithOwner)/pulls/\(pullRequest.number)/comments",
+                "--raw-field",
+                "body=\(body)",
+                "--raw-field",
+                "commit_id=\(pullRequest.headRefOid)",
+                "--raw-field",
+                "path=\(relativePath)",
+                "--field",
+                "line=\(line)",
+                "--raw-field",
+                "side=\(side)"
+            ]
+            if let startLine {
+                arguments += ["--field", "start_line=\(startLine)"]
+            }
+            if let resolvedStartSide {
+                arguments += ["--raw-field", "start_side=\(resolvedStartSide)"]
+            }
+
+            return addURLArtifacts(to: runner.runGitHub(arguments, cwd: cwd, timeoutSeconds: 60))
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
     public func merge(
         cwd: URL,
         selector: String? = nil,
@@ -237,6 +292,49 @@ public struct GitHubPullRequestToolExecutor: Sendable {
         }
     }
 
+    private struct PullRequestMetadata: Decodable {
+        var number: Int
+        var headRefOid: String
+    }
+
+    private struct RepositoryMetadata: Decodable {
+        var nameWithOwner: String
+    }
+
+    private func resolvePullRequest(selector: String?, cwd: URL) throws -> PullRequestMetadata {
+        var arguments = ["pr", "view"]
+        if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
+            arguments.append(selector)
+        }
+        arguments += ["--json", "number,headRefOid"]
+        let result = runner.runGitHub(arguments, cwd: cwd, timeoutSeconds: 45)
+        guard result.ok else {
+            throw GitHubPullRequestMetadataError.commandFailed(result.error ?? result.stderr)
+        }
+        guard let data = result.stdout.data(using: .utf8),
+              let metadata = try? JSONDecoder().decode(PullRequestMetadata.self, from: data),
+              metadata.number > 0,
+              !metadata.headRefOid.isEmpty
+        else {
+            throw GitHubPullRequestMetadataError.invalidPullRequestMetadata(result.stdout)
+        }
+        return metadata
+    }
+
+    private func resolveRepository(cwd: URL) throws -> RepositoryMetadata {
+        let result = runner.runGitHub(["repo", "view", "--json", "nameWithOwner"], cwd: cwd, timeoutSeconds: 45)
+        guard result.ok else {
+            throw GitHubPullRequestMetadataError.commandFailed(result.error ?? result.stderr)
+        }
+        guard let data = result.stdout.data(using: .utf8),
+              let metadata = try? JSONDecoder().decode(RepositoryMetadata.self, from: data),
+              metadata.nameWithOwner.range(of: #"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"#, options: .regularExpression) != nil
+        else {
+            throw GitHubPullRequestMetadataError.invalidRepositoryMetadata(result.stdout)
+        }
+        return metadata
+    }
+
     private func addURLArtifacts(to result: ToolResult) -> ToolResult {
         guard result.ok else { return result }
         return ToolResult(
@@ -246,5 +344,22 @@ public struct GitHubPullRequestToolExecutor: Sendable {
             exitCode: result.exitCode,
             artifacts: GitHubPullRequestOutputParser.extractURLs(from: result.stdout)
         )
+    }
+}
+
+private enum GitHubPullRequestMetadataError: Error, CustomStringConvertible {
+    case commandFailed(String)
+    case invalidPullRequestMetadata(String)
+    case invalidRepositoryMetadata(String)
+
+    var description: String {
+        switch self {
+        case .commandFailed(let message):
+            return "Failed to resolve GitHub pull request metadata: \(message)"
+        case .invalidPullRequestMetadata(let output):
+            return "GitHub pull request metadata response was invalid: \(output)"
+        case .invalidRepositoryMetadata(let output):
+            return "GitHub repository metadata response was invalid: \(output)"
+        }
     }
 }

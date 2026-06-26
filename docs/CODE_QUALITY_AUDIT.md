@@ -202,6 +202,20 @@ Changes:
 - Rewired `QuillCodeDesktopController` to delegate terminal run/previous/next behavior while keeping the controller responsible for published UI state and refresh.
 - Extended the desktop parity gate so terminal task-slot use, command normalization, and draft-history synchronization stay in the focused coordinator instead of drifting back into the controller.
 
+## 2026-06-25 Inline Pull Request Review Comment Pass
+
+Overall grade after this slice: **A GitHub PR tool schema, A local/SSH Remote parity, A validation boundary**.
+
+Codex-style review workflows need an explicit inline PR review primitive rather than asking the model to compose ad hoc `gh api` commands. Top-level PR comments and review submissions already existed, but changed-line comments were still missing.
+
+Changes:
+
+- Added `host.git.pr.review_comment` with structured selector/path/line/side/body/start-line arguments and conservative append risk.
+- Implemented local execution by resolving PR number/head commit through `gh pr view --json`, resolving repository owner/name through `gh repo view --json`, and posting the inline comment through `gh api`.
+- Implemented SSH Remote parity with the same validation and a quoted remote command that expands only resolved metadata variables.
+- Added `/pr review-comment` plus command-palette prefill, command icon, execution-context classification, and local/remote command-surface coverage.
+- Added focused tests for local API arguments, early validation, router dispatch, slash parsing, SSH Remote command construction, and JSON URL artifact extraction.
+
 ## 2026-06-25 Shared Task Coordinator Pass
 
 Overall grade after this slice: **A cancellable task lifecycle, A desktop task-slot wrapper, A stale-callback guard**.

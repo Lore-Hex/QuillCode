@@ -38,6 +38,8 @@ enum SlashPullRequestCommandParser {
             )
         case "review":
             return parseReview(rest)
+        case "review_comment", "line_comment", "inline_comment", "inline":
+            return parseReviewComment(rest)
         case "approve", "approved":
             let parsed = selectorAndBody(from: rest)
             return pullRequestTool(
@@ -60,7 +62,7 @@ enum SlashPullRequestCommandParser {
         case "merge", "automerge", "auto_merge":
             return parseMerge(rest, autoByDefault: subcommand != "merge")
         default:
-            return .invalid("Unknown pull request command '\(rawSubcommand)'. Use create, view, checks, diff, checkout, comment, review, reviewers, labels, or merge.")
+            return .invalid("Unknown pull request command '\(rawSubcommand)'. Use create, view, checks, diff, checkout, comment, review, review-comment, reviewers, labels, or merge.")
         }
     }
 
@@ -92,6 +94,34 @@ enum SlashPullRequestCommandParser {
         return pullRequestTool(
             .gitPullRequestReview,
             arguments: compact(["selector": parsed.selector, "action": normalizedAction, "body": parsed.body])
+        )
+    }
+
+    private static func parseReviewComment(_ argument: String) -> SlashCommand {
+        let tokens = argument.split(maxSplits: 3, whereSeparator: \.isWhitespace).map(String.init)
+        guard tokens.count >= 3 else {
+            return .invalid("Usage: /pr review-comment OptionalPRSelector path line comment body")
+        }
+
+        let hasSelector = looksLikePullRequestSelector(tokens[0]) && tokens.count >= 4
+        let selector = hasSelector ? normalizedPullRequestSelector(tokens[0]) : nil
+        let pathIndex = hasSelector ? 1 : 0
+        let lineIndex = pathIndex + 1
+        let bodyIndex = pathIndex + 2
+        guard tokens.indices.contains(bodyIndex),
+              let line = Int(tokens[lineIndex])
+        else {
+            return .invalid("Usage: /pr review-comment OptionalPRSelector path line comment body")
+        }
+
+        return pullRequestTool(
+            .gitPullRequestReviewComment,
+            arguments: compact([
+                "selector": selector,
+                "path": tokens[pathIndex],
+                "line": line,
+                "body": tokens[bodyIndex]
+            ])
         )
     }
 
