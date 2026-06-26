@@ -5,6 +5,7 @@ public struct TranscriptSurface: Codable, Sendable, Hashable {
     public var messages: [MessageSurface]
     public var toolCards: [ToolCardState]
     public var timelineItems: [TranscriptTimelineItemSurface]
+    public var thinking: TranscriptThinkingSurface?
     public var emptyTitle: String
     public var emptySubtitle: String
 
@@ -12,6 +13,7 @@ public struct TranscriptSurface: Codable, Sendable, Hashable {
         messages: [MessageSurface],
         toolCards: [ToolCardState],
         timelineItems: [TranscriptTimelineItemSurface]? = nil,
+        thinking: TranscriptThinkingSurface? = nil,
         emptyTitle: String = "Ask QuillCode to inspect, edit, or run this project.",
         emptySubtitle: String = "Use Auto for normal coding work, Review for manual gates, or Read-only for exploration."
     ) {
@@ -19,8 +21,31 @@ public struct TranscriptSurface: Codable, Sendable, Hashable {
         self.toolCards = toolCards
         self.timelineItems = timelineItems ?? messages.map(TranscriptTimelineItemSurface.message)
             + toolCards.map(TranscriptTimelineItemSurface.toolCard)
+        self.thinking = thinking
         self.emptyTitle = emptyTitle
         self.emptySubtitle = emptySubtitle
+    }
+}
+
+public struct TranscriptThinkingSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var title: String
+    public var subtitle: String
+    public var traceTitle: String
+    public var traceLines: [String]
+
+    public init(
+        id: String,
+        title: String,
+        subtitle: String,
+        traceTitle: String = "Trace",
+        traceLines: [String] = []
+    ) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.traceTitle = traceTitle
+        self.traceLines = traceLines
     }
 }
 

@@ -90,14 +90,17 @@ public struct AgentRunner: Sendable {
         _ userMessage: String,
         in thread: ChatThread,
         workspaceRoot: URL,
+        recordUserMessage: Bool = true,
         onProgress: AgentRunProgressHandler? = nil
     ) async throws -> AgentRunResult {
         var next = thread
-        next.messages.append(.init(role: .user, content: userMessage))
-        next.events.append(.init(kind: .message, summary: userMessage))
-        next.updatedAt = Date()
-        if next.title == "New chat" {
-            next.title = Self.title(from: userMessage)
+        if recordUserMessage {
+            next.messages.append(.init(role: .user, content: userMessage))
+            next.events.append(.init(kind: .message, summary: userMessage))
+            next.updatedAt = Date()
+            if next.title == "New chat" {
+                next.title = Self.title(from: userMessage)
+            }
         }
         await onProgress?(next)
 

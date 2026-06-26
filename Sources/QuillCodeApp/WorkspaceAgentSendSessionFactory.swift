@@ -40,12 +40,17 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         self.workspaceRoot = workspaceRoot
     }
 
-    func makeSession(prompt: String, thread: ChatThread) -> WorkspaceAgentSendSession {
+    func makeSession(
+        prompt: String,
+        thread: ChatThread,
+        recordsUserMessage: Bool = true
+    ) -> WorkspaceAgentSendSession {
         WorkspaceAgentSendSession(
             prompt: prompt,
             thread: thread,
             runner: configuredRunner,
-            workspaceRoot: workspaceRoot
+            workspaceRoot: workspaceRoot,
+            recordsUserMessage: recordsUserMessage
         )
     }
 

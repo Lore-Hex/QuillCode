@@ -51,7 +51,11 @@ struct QuillCodeDesktopComposerCoordinator {
     ) {
         tasks.startIfIdle(.send) { [weak model] in
             guard let model else { return }
-            await model.submitComposer(workspaceRoot: model.activeWorkspaceRoot ?? fallbackWorkspaceRoot)
+            await model.submitComposer(
+                workspaceRoot: model.activeWorkspaceRoot ?? fallbackWorkspaceRoot,
+                onStarted: refresh,
+                onProgressUpdated: refresh
+            )
         } onFinish: {
             refresh()
         }

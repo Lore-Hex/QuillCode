@@ -3,6 +3,46 @@ import QuillCodeCore
 @testable import QuillCodeApp
 
 final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
+    func testThinkingSurfaceShowsWhileSendingAndKeepsTraceCollapsedByDefaultData() {
+        let thread = ChatThread(events: [
+            ThreadEvent(kind: .message, summary: "run tests"),
+            ThreadEvent(kind: .notice, summary: "Streaming model response"),
+            ThreadEvent(kind: .toolQueued, summary: "host.shell.run queued"),
+            ThreadEvent(kind: .toolRunning, summary: "host.shell.run running")
+        ])
+
+        let thinking = WorkspaceTranscriptThinkingSurfaceBuilder(
+            thread: thread,
+            composer: ComposerState(isSending: true),
+            agentStatus: TopBarAgentStatusLabel.running
+        ).surface()
+
+        XCTAssertEqual(thinking?.id, "thinking-\(thread.id.uuidString)")
+        XCTAssertEqual(thinking?.title, "Thinking")
+        XCTAssertEqual(thinking?.subtitle, "Running: host.shell.run running")
+        XCTAssertEqual(thinking?.traceTitle, "Trace")
+        XCTAssertEqual(thinking?.traceLines, [
+            "Streaming model response",
+            "Queued: host.shell.run queued",
+            "Running: host.shell.run running"
+        ])
+    }
+
+    func testThinkingSurfaceHidesAfterAssistantTextArrives() {
+        let thread = ChatThread(messages: [
+            ChatMessage(role: .user, content: "say hello"),
+            ChatMessage(role: .assistant, content: "hel")
+        ])
+
+        let thinking = WorkspaceTranscriptThinkingSurfaceBuilder(
+            thread: thread,
+            composer: ComposerState(isSending: true),
+            agentStatus: TopBarAgentStatusLabel.streaming
+        ).surface()
+
+        XCTAssertNil(thinking)
+    }
+
     func testMessageSurfacesHideToolMessagesAndAttachFeedback() throws {
         let user = ChatMessage(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,

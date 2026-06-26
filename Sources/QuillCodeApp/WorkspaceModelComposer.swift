@@ -26,7 +26,11 @@ extension QuillCodeWorkspaceModel {
         return true
     }
 
-    public func submitComposer(workspaceRoot: URL) async {
+    public func submitComposer(
+        workspaceRoot: URL,
+        onStarted: (@MainActor @Sendable () -> Void)? = nil,
+        onProgressUpdated: (@MainActor @Sendable () -> Void)? = nil
+    ) async {
         let submissionPlan = WorkspaceComposerSubmissionPlanner.plan(draft: composer.draft)
         let prompt: String
         switch submissionPlan {
@@ -47,15 +51,23 @@ extension QuillCodeWorkspaceModel {
             thread: thread,
             composer: composer
         )
+        updateThreadFromAgentRun(sendStart.thread)
+        threadPersistence.save(sendStart.thread)
         applyComposerSendLifecycle(sendStart.lifecycle)
+        onStarted?()
 
         let session = agentSendSessionFactory(workspaceRoot: workspaceRoot)
-            .makeSession(prompt: sendStart.prompt, thread: sendStart.thread)
+            .makeSession(
+                prompt: sendStart.prompt,
+                thread: sendStart.thread,
+                recordsUserMessage: false
+            )
         let outcome = await WorkspaceAgentSendTaskCoordinator(
             start: sendStart,
             session: session
         ).run { [weak self] progressThread in
             await self?.applyAgentProgress(progressThread, expectedThreadID: sendStart.threadID)
+            await onProgressUpdated?()
         }
         finishAgentSend(outcome)
     }

@@ -44,6 +44,41 @@ final class WorkspaceAgentSendSessionTests: XCTestCase {
         XCTAssertEqual(Set(ids), [session.threadID])
     }
 
+    func testRunCanUsePreRecordedUserMessageWithoutDuplicatingIt() async throws {
+        let workspaceRoot = try makeQuillCodeTestDirectory()
+        var thread = ChatThread(title: "New chat")
+        thread.messages.append(ChatMessage(role: .user, content: "say hello"))
+        thread.events.append(ThreadEvent(kind: .message, summary: "say hello"))
+        thread.title = "say hello"
+        let session = WorkspaceAgentSendSession(
+            prompt: "say hello",
+            thread: thread,
+            runner: AgentRunner(llm: SequenceLLMClient(actions: [.say("hello")])),
+            workspaceRoot: workspaceRoot,
+            recordsUserMessage: false
+        )
+
+        let result = try await session.run()
+
+        XCTAssertEqual(result.thread.messages.map(\.role), [.user, .assistant])
+        XCTAssertEqual(result.thread.messages.map(\.content), ["say hello", "hello"])
+        XCTAssertEqual(result.thread.events.filter { $0.kind == .message }.map(\.summary), ["say hello", "hello"])
+    }
+
+    func testRunDefaultsToRecordingUserMessage() async throws {
+        let workspaceRoot = try makeQuillCodeTestDirectory()
+        let session = WorkspaceAgentSendSession(
+            prompt: "say hello",
+            thread: ChatThread(title: "New chat"),
+            runner: AgentRunner(llm: SequenceLLMClient(actions: [.say("hello")])),
+            workspaceRoot: workspaceRoot
+        )
+
+        let result = try await session.run()
+
+        XCTAssertEqual(result.thread.messages.map(\.content), ["say hello", "hello"])
+    }
+
     func testRunReportsSavedMemoryWhenMemoryToolCompletes() async throws {
         let workspaceRoot = try makeQuillCodeTestDirectory()
         let memoryRoot = try makeQuillCodeTestDirectory()

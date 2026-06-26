@@ -89,7 +89,8 @@ final class WorkspaceAgentSendTaskCoordinatorTests: XCTestCase {
             prompt: start.prompt,
             thread: start.thread,
             runner: runner,
-            workspaceRoot: try makeQuillCodeTestDirectory()
+            workspaceRoot: try makeQuillCodeTestDirectory(),
+            recordsUserMessage: false
         )
         return WorkspaceAgentSendTaskCoordinator(start: start, session: session)
     }

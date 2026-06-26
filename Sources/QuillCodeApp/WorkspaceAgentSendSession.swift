@@ -13,18 +13,21 @@ struct WorkspaceAgentSendSession: Sendable {
     var threadID: UUID
     var runner: AgentRunner
     var workspaceRoot: URL
+    var recordsUserMessage: Bool
 
     init(
         prompt: String,
         thread: ChatThread,
         runner: AgentRunner,
-        workspaceRoot: URL
+        workspaceRoot: URL,
+        recordsUserMessage: Bool = true
     ) {
         self.prompt = prompt
         self.thread = thread
         self.threadID = thread.id
         self.runner = runner
         self.workspaceRoot = workspaceRoot
+        self.recordsUserMessage = recordsUserMessage
     }
 
     func run(onProgress: AgentRunProgressHandler? = nil) async throws -> WorkspaceAgentSendSessionResult {
@@ -33,6 +36,7 @@ struct WorkspaceAgentSendSession: Sendable {
             prompt,
             in: thread,
             workspaceRoot: workspaceRoot,
+            recordUserMessage: recordsUserMessage,
             onProgress: onProgress
         )
         try Task.checkCancellation()
