@@ -48,6 +48,8 @@ enum QuillCodeCommandIconCatalog {
             return "arrow.down.doc"
         case "git-pr-reviewers":
             return "person.2.badge.gearshape"
+        case "git-pr-review-comment":
+            return "text.bubble"
         case "git-pr-labels":
             return "tag"
         case "git-pr-merge":

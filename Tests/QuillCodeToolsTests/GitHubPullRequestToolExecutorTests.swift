@@ -198,6 +198,52 @@ final class GitHubPullRequestToolExecutorTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.argumentsFile.path))
     }
 
+    func testPullRequestReviewCommentUsesGitHubAPIArguments() throws {
+        let fixture = try makeReviewCommentFixture()
+
+        let result = fixture.git.commentOnPullRequestLine(
+            cwd: fixture.root,
+            selector: "123",
+            path: "Sources/App.swift",
+            line: 42,
+            side: "right",
+            body: "Check this edge case.",
+            startLine: 40
+        )
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(result.artifacts, ["https://github.com/example/repo/pull/123#discussion_r99"])
+        XCTAssertEqual(try fixture.arguments(), [
+            "api",
+            "repos/example/repo/pulls/123/comments",
+            "--raw-field",
+            "body=Check this edge case.",
+            "--raw-field",
+            "commit_id=abc123",
+            "--raw-field",
+            "path=Sources/App.swift",
+            "--field",
+            "line=42",
+            "--raw-field",
+            "side=RIGHT",
+            "--field",
+            "start_line=40",
+            "--raw-field",
+            "start_side=RIGHT"
+        ])
+    }
+
+    func testPullRequestReviewCommentValidatesInputsBeforeGitHubCalls() throws {
+        let fixture = try makeReviewCommentFixture()
+
+        XCTAssertFalse(fixture.git.commentOnPullRequestLine(cwd: fixture.root, path: "../App.swift", line: 42, body: "Comment").ok)
+        XCTAssertFalse(fixture.git.commentOnPullRequestLine(cwd: fixture.root, path: "App.swift", line: 0, body: "Comment").ok)
+        XCTAssertFalse(fixture.git.commentOnPullRequestLine(cwd: fixture.root, path: "App.swift", line: 42, side: "BOTH", body: "Comment").ok)
+        XCTAssertFalse(fixture.git.commentOnPullRequestLine(cwd: fixture.root, path: "App.swift", line: 42, body: " ", startLine: 40).ok)
+        XCTAssertFalse(fixture.git.commentOnPullRequestLine(cwd: fixture.root, path: "App.swift", line: 42, body: "Comment", startLine: 50).ok)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.argumentsFile.path))
+    }
+
     func testPullRequestMergeUsesGitHubCLIArguments() throws {
         let fixture = try makeFixture()
 
@@ -254,8 +300,17 @@ final class GitHubPullRequestToolExecutorTests: XCTestCase {
             ["merge-train", "bug"]
         )
         XCTAssertEqual(try GitHubPullRequestInputValidator.safeReviewFlag("request-change"), "--request-changes")
+        XCTAssertEqual(try GitHubPullRequestInputValidator.safeReviewLine(12), 12)
+        XCTAssertEqual(try GitHubPullRequestInputValidator.safeReviewSide("left"), "LEFT")
         XCTAssertEqual(try GitHubPullRequestInputValidator.safeMergeFlag(nil), "--squash")
         XCTAssertEqual(try GitHubPullRequestInputValidator.safeMergeFlag("merge-commit"), "--merge")
+        XCTAssertEqual(
+            GitHubPullRequestOutputParser.extractURLs(from: #"created https://github.com/example/repo/pull/12 ok {"html_url":"https://github.com/example/repo/pull/12#discussion_r1"}"#),
+            [
+                "https://github.com/example/repo/pull/12",
+                "https://github.com/example/repo/pull/12#discussion_r1"
+            ]
+        )
         XCTAssertEqual(
             GitHubPullRequestOutputParser.extractURLs(from: "created https://github.com/example/repo/pull/12 ok"),
             ["https://github.com/example/repo/pull/12"]
@@ -265,6 +320,8 @@ final class GitHubPullRequestToolExecutorTests: XCTestCase {
         XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeReviewer("bad user"))
         XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeLabel("bad,label"))
         XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeReviewFlag("ship-it"))
+        XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeReviewLine(0))
+        XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeReviewSide("both"))
         XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeMergeFlag("octopus"))
     }
 
@@ -357,6 +414,27 @@ final class GitHubPullRequestToolExecutorTests: XCTestCase {
         XCTAssertTrue(review.ok, "\(review.error ?? "") \(review.stderr)")
         XCTAssertEqual(try fixture.arguments(), ["pr", "review", "123", "--approve"])
 
+        let reviewCommentFixture = try makeReviewCommentFixture()
+        let reviewComment = reviewCommentFixture.router().execute(ToolCall(
+            name: ToolDefinition.gitPullRequestReviewComment.name,
+            argumentsJSON: #"{"selector":"123","path":"Sources/App.swift","line":42,"body":"Looks good."}"#
+        ))
+        XCTAssertTrue(reviewComment.ok, "\(reviewComment.error ?? "") \(reviewComment.stderr)")
+        XCTAssertEqual(try reviewCommentFixture.arguments(), [
+            "api",
+            "repos/example/repo/pulls/123/comments",
+            "--raw-field",
+            "body=Looks good.",
+            "--raw-field",
+            "commit_id=abc123",
+            "--raw-field",
+            "path=Sources/App.swift",
+            "--field",
+            "line=42",
+            "--raw-field",
+            "side=RIGHT"
+        ])
+
         let merge = router.execute(ToolCall(
             name: ToolDefinition.gitPullRequestMerge.name,
             argumentsJSON: #"{"selector":"123","method":"squash","auto":"true","deleteBranch":true}"#
@@ -392,5 +470,38 @@ private extension GitHubPullRequestToolExecutorTests {
             argumentsFile: argumentsFile,
             git: GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
         )
+    }
+
+    func makeReviewCommentFixture() throws -> GitHubCLIFixture {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("gh-args.txt")
+        let fakeGitHubCLI = try makeReviewCommentFakeGitHubCLI(in: root, argumentsFile: argumentsFile)
+        return GitHubCLIFixture(
+            root: root,
+            argumentsFile: argumentsFile,
+            git: GitToolExecutor(githubCLIExecutable: fakeGitHubCLI)
+        )
+    }
+
+    func makeReviewCommentFakeGitHubCLI(in root: URL, argumentsFile: URL) throws -> URL {
+        let script = root.appendingPathComponent("fake-gh-review-comment")
+        let argumentsPath = argumentsFile.path.replacingOccurrences(of: "'", with: "'\\''")
+        try """
+        #!/bin/sh
+        if [ "$1" = "pr" ] && [ "$2" = "view" ]; then
+          echo '{"number":123,"headRefOid":"abc123"}'
+        elif [ "$1" = "repo" ] && [ "$2" = "view" ]; then
+          echo '{"nameWithOwner":"example/repo"}'
+        elif [ "$1" = "api" ]; then
+          printf '%s\\n' "$@" > '\(argumentsPath)'
+          echo '{"html_url":"https://github.com/example/repo/pull/123#discussion_r99"}'
+        else
+          printf '%s\\n' "$@" > '\(argumentsPath)'
+          echo 'unexpected fake gh invocation' >&2
+          exit 1
+        fi
+        """.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        return script
     }
 }

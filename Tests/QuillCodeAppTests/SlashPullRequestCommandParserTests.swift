@@ -43,6 +43,16 @@ final class SlashPullRequestCommandParserTests: XCTestCase {
             name: ToolDefinition.gitPullRequestReview.name,
             arguments: ["selector": "456", "action": "approve"]
         )
+        try assertToolCall(
+            SlashPullRequestCommandParser.parse("review-comment 456 Sources/App.swift 42 Please cover this branch"),
+            name: ToolDefinition.gitPullRequestReviewComment.name,
+            arguments: [
+                "selector": "456",
+                "path": "Sources/App.swift",
+                "line": 42,
+                "body": "Please cover this branch"
+            ]
+        )
     }
 
     func testReviewerLabelAndMergeCommandsBuildStructuredArguments() throws {
@@ -74,7 +84,7 @@ final class SlashPullRequestCommandParserTests: XCTestCase {
         )
         XCTAssertEqual(
             SlashPullRequestCommandParser.parse("unknown"),
-            .invalid("Unknown pull request command 'unknown'. Use create, view, checks, diff, checkout, comment, review, reviewers, labels, or merge.")
+            .invalid("Unknown pull request command 'unknown'. Use create, view, checks, diff, checkout, comment, review, review-comment, reviewers, labels, or merge.")
         )
     }
 

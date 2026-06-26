@@ -53,6 +53,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .setDraft("Review the current pull request: approve")
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "git-pr-review-comment"),
+            .setDraft("Comment on a pull request line: ")
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "git-worktree-remove"),
             .setDraft("Remove git worktree at ")
         )

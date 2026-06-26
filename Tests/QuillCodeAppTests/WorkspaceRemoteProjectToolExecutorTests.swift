@@ -14,6 +14,7 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertTrue(names.contains(ToolDefinition.applyPatch.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitStatus.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestCreate.name))
+        XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestReviewComment.name))
         XCTAssertFalse(names.contains(ToolDefinition.browserInspect.name))
         XCTAssertFalse(names.contains(ToolDefinition.planUpdate.name))
     }
@@ -169,6 +170,29 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
             ]
         )
         XCTAssertEqual(mergeCommand, "'gh' 'pr' 'merge' '42' '--rebase' '--auto' '--delete-branch'")
+    }
+
+    func testRemoteGitHubPullRequestBuilderBuildsInlineReviewCommentCommand() throws {
+        let command = try remotePullRequestCommand(
+            name: ToolDefinition.gitPullRequestReviewComment.name,
+            arguments: [
+                "selector": "42",
+                "path": "Sources/App.swift",
+                "line": 12,
+                "body": "Please cover this branch."
+            ]
+        )
+
+        XCTAssertEqual(
+            command,
+            [
+                "pr_data=$('gh' 'pr' 'view' '42' '--json' 'number,headRefOid' '--jq' '.number + \" \" + .headRefOid')",
+                "pr_number=${pr_data%% *}",
+                "head_oid=${pr_data#* }",
+                "repo=$('gh' 'repo' 'view' '--json' 'nameWithOwner' '--jq' '.nameWithOwner')",
+                "gh api \"repos/${repo}/pulls/${pr_number}/comments\" '--raw-field' 'body=Please cover this branch.' '--raw-field' \"commit_id=${head_oid}\" '--raw-field' 'path=Sources/App.swift' '--field' 'line=12' '--raw-field' 'side=RIGHT'"
+            ].joined(separator: " && ")
+        )
     }
 
     func testRemoteGitHubPullRequestBuilderUsesSharedValidation() {

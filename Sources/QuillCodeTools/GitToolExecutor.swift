@@ -122,6 +122,28 @@ public struct GitToolExecutor: Sendable {
         pullRequests.review(cwd: cwd, selector: selector, action: action, body: body)
     }
 
+    public func commentOnPullRequestLine(
+        cwd: URL,
+        selector: String? = nil,
+        path: String,
+        line: Int,
+        side: String? = nil,
+        body: String,
+        startLine: Int? = nil,
+        startSide: String? = nil
+    ) -> ToolResult {
+        pullRequests.reviewComment(
+            cwd: cwd,
+            selector: selector,
+            path: path,
+            line: line,
+            side: side,
+            body: body,
+            startLine: startLine,
+            startSide: startSide
+        )
+    }
+
     public func mergePullRequest(
         cwd: URL,
         selector: String? = nil,
@@ -192,6 +214,14 @@ public struct GitToolExecutor: Sendable {
 
     public static func safePullRequestMergeFlag(_ value: String?) throws -> String {
         try GitHubPullRequestInputValidator.safeMergeFlag(value)
+    }
+
+    public static func safePullRequestReviewLine(_ value: Int) throws -> Int {
+        try GitHubPullRequestInputValidator.safeReviewLine(value)
+    }
+
+    public static func safePullRequestReviewSide(_ value: String?) throws -> String {
+        try GitHubPullRequestInputValidator.safeReviewSide(value)
     }
 
     public static func extractURLs(from output: String) -> [String] {

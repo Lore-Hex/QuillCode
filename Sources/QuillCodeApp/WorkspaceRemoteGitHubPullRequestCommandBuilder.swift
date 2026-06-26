@@ -14,6 +14,7 @@ enum WorkspaceRemoteGitHubPullRequestCommandBuilder {
         ToolDefinition.gitPullRequestLabels.name,
         ToolDefinition.gitPullRequestComment.name,
         ToolDefinition.gitPullRequestReview.name,
+        ToolDefinition.gitPullRequestReviewComment.name,
         ToolDefinition.gitPullRequestMerge.name
     ]
 
@@ -26,6 +27,7 @@ enum WorkspaceRemoteGitHubPullRequestCommandBuilder {
         ToolDefinition.gitPullRequestLabels.name,
         ToolDefinition.gitPullRequestComment.name,
         ToolDefinition.gitPullRequestReview.name,
+        ToolDefinition.gitPullRequestReviewComment.name,
         ToolDefinition.gitPullRequestMerge.name
     ]
 
@@ -60,6 +62,16 @@ enum WorkspaceRemoteGitHubPullRequestCommandBuilder {
             return try comment(selector: args.string("selector"), body: try args.requiredString("body"))
         case ToolDefinition.gitPullRequestReview.name:
             return try review(selector: args.string("selector"), action: try args.requiredString("action"), body: args.string("body"))
+        case ToolDefinition.gitPullRequestReviewComment.name:
+            return try reviewComment(
+                selector: args.string("selector"),
+                path: try args.requiredString("path"),
+                line: try args.requiredInt("line"),
+                side: args.string("side"),
+                body: try args.requiredString("body"),
+                startLine: args.int("startLine"),
+                startSide: args.string("startSide")
+            )
         case ToolDefinition.gitPullRequestMerge.name:
             return try merge(
                 selector: args.string("selector"),
@@ -226,6 +238,56 @@ enum WorkspaceRemoteGitHubPullRequestCommandBuilder {
         return shellCommand(arguments)
     }
 
+    private static func reviewComment(
+        selector: String?,
+        path: String,
+        line: Int,
+        side: String?,
+        body: String,
+        startLine: Int?,
+        startSide: String?
+    ) throws -> String {
+        guard let body = GitInputValidator.trimmedNonEmpty(body) else {
+            throw GitToolError.emptyPullRequestComment
+        }
+        let relativePath = try WorkspaceRemoteProjectPath.relativePath(path)
+        let line = try GitHubPullRequestInputValidator.safeReviewLine(line)
+        let startLine = try GitHubPullRequestInputValidator.safeReviewStartLine(startLine, line: line)
+        let side = try GitHubPullRequestInputValidator.safeReviewSide(side)
+        let resolvedStartSide = try startLine.map { _ in
+            try GitHubPullRequestInputValidator.safeReviewSide(startSide ?? side)
+        }
+
+        var viewArguments = ["gh", "pr", "view"]
+        if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
+            viewArguments.append(selector)
+        }
+        viewArguments += ["--json", "number,headRefOid", "--jq", ".number + \" \" + .headRefOid"]
+
+        var apiFields = [
+            quoted("--raw-field"), quoted("body=\(body)"),
+            quoted("--raw-field"), "\"commit_id=${head_oid}\"",
+            quoted("--raw-field"), quoted("path=\(relativePath)"),
+            quoted("--field"), quoted("line=\(line)"),
+            quoted("--raw-field"), quoted("side=\(side)")
+        ]
+        if let startLine {
+            apiFields += [quoted("--field"), quoted("start_line=\(startLine)")]
+        }
+        if let resolvedStartSide {
+            apiFields += [quoted("--raw-field"), quoted("start_side=\(resolvedStartSide)")]
+        }
+
+        let apiFieldCommand = apiFields.joined(separator: " ")
+        return [
+            "pr_data=$(\(shellCommand(viewArguments)))",
+            "pr_number=${pr_data%% *}",
+            "head_oid=${pr_data#* }",
+            "repo=$(\(shellCommand(["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"])))",
+            "gh api \"repos/${repo}/pulls/${pr_number}/comments\" \(apiFieldCommand)"
+        ].joined(separator: " && ")
+    }
+
     private static func merge(
         selector: String?,
         method: String?,
@@ -248,5 +310,9 @@ enum WorkspaceRemoteGitHubPullRequestCommandBuilder {
 
     private static func shellCommand(_ arguments: [String]) -> String {
         arguments.map(WorkspaceTerminalSessionAdapter.shellSingleQuoted).joined(separator: " ")
+    }
+
+    private static func quoted(_ argument: String) -> String {
+        WorkspaceTerminalSessionAdapter.shellSingleQuoted(argument)
     }
 }

@@ -108,6 +108,9 @@ final class WorkspacePullRequestIntegrationTests: XCTestCase {
         XCTAssertTrue(model.runWorkspaceCommand("git-pr-review", workspaceRoot: root))
         XCTAssertEqual(model.composer.draft, "Review the current pull request: approve")
 
+        XCTAssertTrue(model.runWorkspaceCommand("git-pr-review-comment", workspaceRoot: root))
+        XCTAssertEqual(model.composer.draft, "Comment on a pull request line: ")
+
         XCTAssertTrue(model.runWorkspaceCommand("git-pr-labels", workspaceRoot: root))
         XCTAssertEqual(model.composer.draft, "Label the current pull request: ")
 

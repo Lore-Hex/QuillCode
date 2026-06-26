@@ -88,6 +88,38 @@ public enum GitHubPullRequestInputValidator {
         }
     }
 
+    public static func safeReviewLine(_ value: Int) throws -> Int {
+        guard value > 0 else {
+            throw GitToolError.invalidPullRequestReviewLine(value)
+        }
+        return value
+    }
+
+    public static func safeReviewStartLine(_ value: Int?, line: Int) throws -> Int? {
+        guard let value else { return nil }
+        guard value > 0 else {
+            throw GitToolError.invalidPullRequestReviewLine(value)
+        }
+        guard value <= line else {
+            throw GitToolError.invalidPullRequestReviewLineRange(startLine: value, line: line)
+        }
+        return value
+    }
+
+    public static func safeReviewSide(_ value: String?) throws -> String {
+        let normalized = (GitInputValidator.trimmedNonEmpty(value) ?? "RIGHT")
+            .uppercased()
+            .replacingOccurrences(of: "-", with: "_")
+        switch normalized {
+        case "RIGHT":
+            return "RIGHT"
+        case "LEFT":
+            return "LEFT"
+        default:
+            throw GitToolError.invalidPullRequestReviewSide(value ?? "")
+        }
+    }
+
     public static func safeMergeFlag(_ value: String?) throws -> String {
         let normalized = (GitInputValidator.trimmedNonEmpty(value) ?? "squash")
             .lowercased()

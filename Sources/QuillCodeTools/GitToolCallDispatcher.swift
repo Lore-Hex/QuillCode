@@ -23,6 +23,7 @@ struct GitToolCallDispatcher: Sendable {
         .gitPullRequestLabels,
         .gitPullRequestComment,
         .gitPullRequestReview,
+        .gitPullRequestReviewComment,
         .gitPullRequestMerge,
         .gitWorktreeList,
         .gitWorktreeCreate,
@@ -120,6 +121,17 @@ struct GitToolCallDispatcher: Sendable {
                 selector: args.string("selector"),
                 action: try args.requiredString("action"),
                 body: args.string("body")
+            )
+        case ToolDefinition.gitPullRequestReviewComment.name:
+            return git.commentOnPullRequestLine(
+                cwd: workspaceRoot,
+                selector: args.string("selector"),
+                path: try args.requiredString("path"),
+                line: try args.requiredInt("line"),
+                side: args.string("side"),
+                body: try args.requiredString("body"),
+                startLine: args.int("startLine"),
+                startSide: args.string("startSide")
             )
         case ToolDefinition.gitPullRequestMerge.name:
             return git.mergePullRequest(
