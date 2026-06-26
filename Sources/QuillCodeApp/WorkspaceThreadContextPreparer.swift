@@ -1,20 +1,17 @@
 import Foundation
 import QuillCodeCore
 
-struct WorkspacePreparedToolRun: Sendable, Hashable {
+struct WorkspacePreparedThreadContext: Sendable, Hashable {
     let threadID: UUID
     let projectID: UUID?
 }
 
-enum WorkspaceToolRunPreparer {
+enum WorkspaceThreadContextPreparer {
     static func effectiveProjectID(
         thread: ChatThread?,
         fallbackProjectID: UUID?
     ) -> UUID? {
-        WorkspaceThreadContextPreparer.effectiveProjectID(
-            thread: thread,
-            fallbackProjectID: fallbackProjectID
-        )
+        thread?.projectID ?? fallbackProjectID
     }
 
     static func syncThreadContext(
@@ -22,16 +19,19 @@ enum WorkspaceToolRunPreparer {
         fallbackProjectID: UUID?,
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
-    ) -> WorkspacePreparedToolRun {
-        let prepared = WorkspaceThreadContextPreparer.syncThreadContext(
+    ) -> WorkspacePreparedThreadContext {
+        WorkspaceProjectContextRefresher.syncThreadContext(
             &thread,
             fallbackProjectID: fallbackProjectID,
             projects: projects,
             globalMemories: globalMemories
         )
-        return WorkspacePreparedToolRun(
-            threadID: prepared.threadID,
-            projectID: prepared.projectID
+        return WorkspacePreparedThreadContext(
+            threadID: thread.id,
+            projectID: effectiveProjectID(
+                thread: thread,
+                fallbackProjectID: fallbackProjectID
+            )
         )
     }
 }

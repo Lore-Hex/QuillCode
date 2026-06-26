@@ -7032,3 +7032,27 @@ Strict grades:
 Remaining parity risk:
 
 - Generic direct tool runs remain synchronous for UI-authored commands. Richer cancellation/progress parity for direct long-running tool actions should build on this coordinator rather than adding state branches back to `WorkspaceModel`.
+
+## 2026-06-25 Shared Thread Context Preparer Slice
+
+Overall grade after this slice: **A thread-context preparation, A tool/agent consistency, A regression guard**.
+
+Agent sends and generic tool runs both need to resolve the effective project for a thread and synchronize project instructions plus memories before execution. Tool runs had a focused preparer, while composer still called the project refresher directly. That made it easy for future Codex-parity execution paths to drift on which project context a model or direct command receives.
+
+Code quality changes:
+
+- Added `WorkspaceThreadContextPreparer` as the shared owner of effective-project selection and thread instruction/memory synchronization.
+- Rewired `WorkspaceToolRunPreparer` to delegate to the shared preparer while keeping its tool-run-specific result type.
+- Rewired agent-send preparation in `WorkspaceModelComposer` to use the same shared context preparer instead of calling `WorkspaceProjectContextRefresher.syncThreadContext` directly.
+- Added focused preparer tests plus parity gates that prevent composer and tool-run code from reintroducing duplicate context-sync behavior.
+
+Strict grades:
+
+- `WorkspaceThreadContextPreparer.swift`: **A**. It is pure, directly tested, and has one project-context responsibility shared by send and direct-tool paths.
+- `WorkspaceToolRunPreparer.swift`: **A**. It is now a thin tool-run adapter over the shared context policy.
+- `WorkspaceModelComposer.swift`: **A-**. The composer still owns agent-send orchestration, but project-context sync no longer lives inline.
+- Context-preparer tests and parity gates: **A**. The slice covers project preference, fallback behavior, memory/instruction sync, and architecture drift.
+
+Remaining parity risk:
+
+- Agent sends still prepare the first thread inside `WorkspaceModelComposer`. If more execution entry points need first-thread creation plus context sync, promote that first-thread setup into a small shared actor coordinator rather than growing the composer extension.

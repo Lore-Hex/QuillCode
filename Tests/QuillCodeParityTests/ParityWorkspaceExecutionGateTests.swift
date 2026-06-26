@@ -136,6 +136,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
 
     func testWorkspaceModelDelegatesAgentSendThreadPreparation() throws {
         let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
+        let preparerText = try Self.appSourceText(named: "WorkspaceThreadContextPreparer.swift")
         let submitStart = try XCTUnwrap(composerText.range(of: "public func submitComposer"))
         let prepareStart = try XCTUnwrap(composerText.range(of: "private func prepareAgentSendThread"))
         let prepareEnd = try XCTUnwrap(composerText.range(of: "private func agentSendSessionFactory"))
@@ -153,6 +154,22 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             prepareBody.contains("syncThreadContext(into: &thread)"),
             "The preparation boundary should own agent-send context sync."
+        )
+        XCTAssertTrue(
+            preparerText.contains("enum WorkspaceThreadContextPreparer"),
+            "Shared thread context preparation should live in a focused helper."
+        )
+        XCTAssertTrue(
+            preparerText.contains("WorkspaceProjectContextRefresher.syncThreadContext"),
+            "The shared preparer should own project instruction and memory synchronization."
+        )
+        XCTAssertTrue(
+            composerText.contains("WorkspaceThreadContextPreparer.syncThreadContext"),
+            "Agent send preparation should use the shared context preparer."
+        )
+        XCTAssertFalse(
+            composerText.contains("WorkspaceProjectContextRefresher.syncThreadContext"),
+            "Agent send preparation should not sync project context directly."
         )
         XCTAssertFalse(
             submitBody.contains("_ = newChat()"),
@@ -477,6 +494,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         let toolRunsText = try Self.appSourceText(named: "WorkspaceModelToolRuns.swift")
         let coordinatorText = try Self.appSourceText(named: "WorkspaceToolRunCoordinator.swift")
         let preparerText = try Self.appSourceText(named: "WorkspaceToolRunPreparer.swift")
+        let sharedPreparerText = try Self.appSourceText(named: "WorkspaceThreadContextPreparer.swift")
         let runStart = try XCTUnwrap(coordinatorText.range(of: "func run(_ call: ToolCall)"))
         let runEnd = try XCTUnwrap(coordinatorText.range(
             of: "private func syncSelectedThreadContextForToolRun",
@@ -490,6 +508,10 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(preparerText.contains("enum WorkspaceToolRunPreparer"), "Tool-run context preparation should live in a focused helper.")
         XCTAssertTrue(preparerText.contains("static func effectiveProjectID"), "Effective tool-run project selection should be directly testable.")
         XCTAssertTrue(preparerText.contains("static func syncThreadContext"), "Tool-run thread context sync should be directly testable.")
+        XCTAssertTrue(sharedPreparerText.contains("enum WorkspaceThreadContextPreparer"), "Generic thread context preparation should live in a shared helper.")
+        XCTAssertTrue(preparerText.contains("WorkspaceThreadContextPreparer.effectiveProjectID"), "Tool-run project selection should reuse shared context preparation.")
+        XCTAssertTrue(preparerText.contains("WorkspaceThreadContextPreparer.syncThreadContext"), "Tool-run context sync should reuse shared context preparation.")
+        XCTAssertFalse(preparerText.contains("WorkspaceProjectContextRefresher.syncThreadContext"), "Tool-run preparation should not sync project context directly.")
         XCTAssertTrue(runBody.contains("WorkspaceToolRunPreparer.effectiveProjectID"), "The coordinator should delegate tool-run project selection.")
         XCTAssertTrue(runBody.contains("syncSelectedThreadContextForToolRun"), "The coordinator should delegate selected-thread context sync to a named helper.")
         XCTAssertTrue(coordinatorText.contains("WorkspaceToolRunPreparer.syncThreadContext"), "The tool-run coordinator should delegate tool-run thread context sync.")
