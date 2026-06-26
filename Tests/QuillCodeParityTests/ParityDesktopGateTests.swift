@@ -235,6 +235,35 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(controllerText.contains("model.addProject(path: url)"), "Desktop controller should not create projects directly.")
     }
 
+    func testDesktopControllerDelegatesWorktreeActions() throws {
+        let text = try Self.desktopSourceText()
+        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let worktreeText = try Self.desktopSourceText(named: "QuillCodeDesktopWorktreeCoordinator.swift")
+
+        XCTAssertTrue(text.contains("QuillCodeDesktopWorktreeCoordinator"), "Desktop worktree bridge should be isolated from UI routing.")
+        XCTAssertTrue(controllerText.contains("worktreeCoordinator.createWorktree"), "Desktop controller should delegate worktree creation.")
+        XCTAssertTrue(controllerText.contains("worktreeCoordinator.worktreeChoiceLoad"), "Desktop controller should delegate worktree choice loading.")
+        XCTAssertTrue(controllerText.contains("worktreeCoordinator.worktreePrunePreview"), "Desktop controller should delegate worktree prune preview loading.")
+        XCTAssertTrue(controllerText.contains("worktreeCoordinator.openWorktree"), "Desktop controller should delegate worktree opening.")
+        XCTAssertTrue(controllerText.contains("worktreeCoordinator.removeWorktree"), "Desktop controller should delegate worktree removal.")
+        XCTAssertTrue(controllerText.contains("worktreeCoordinator.pruneWorktrees"), "Desktop controller should delegate worktree pruning.")
+        XCTAssertTrue(worktreeText.contains("model.createWorktree(request, workspaceRoot:"), "Worktree coordinator should own worktree creation routing.")
+        XCTAssertTrue(worktreeText.contains("model.worktreeChoiceLoadRequest("), "Worktree coordinator should own worktree choice request creation.")
+        XCTAssertTrue(worktreeText.contains("model.worktreePrunePreviewLoadRequest("), "Worktree coordinator should own worktree prune preview request creation.")
+        XCTAssertTrue(worktreeText.contains("model.openWorktree(request, workspaceRoot:"), "Worktree coordinator should own worktree opening routing.")
+        XCTAssertTrue(worktreeText.contains("model.removeWorktree(request, workspaceRoot:"), "Worktree coordinator should own worktree removal routing.")
+        XCTAssertTrue(worktreeText.contains("model.pruneWorktrees(request, workspaceRoot:"), "Worktree coordinator should own worktree pruning routing.")
+        XCTAssertTrue(worktreeText.contains("Task.detached(priority: .userInitiated)"), "Async worktree loads should remain off the main actor while loading git state.")
+        XCTAssertTrue(worktreeText.contains("model.activeWorkspaceRoot ?? workspaceRoot"), "Worktree coordinator should centralize active workspace root fallback.")
+        XCTAssertFalse(controllerText.contains("model.createWorktree(request, workspaceRoot:"), "Desktop controller should not create worktrees directly.")
+        XCTAssertFalse(controllerText.contains("model.worktreeChoiceLoadRequest(workspaceRoot:"), "Desktop controller should not build worktree choice load requests.")
+        XCTAssertFalse(controllerText.contains("model.worktreePrunePreviewLoadRequest(workspaceRoot:"), "Desktop controller should not build worktree prune preview requests.")
+        XCTAssertFalse(controllerText.contains("model.openWorktree(request, workspaceRoot:"), "Desktop controller should not open worktrees directly.")
+        XCTAssertFalse(controllerText.contains("model.removeWorktree(request, workspaceRoot:"), "Desktop controller should not remove worktrees directly.")
+        XCTAssertFalse(controllerText.contains("model.pruneWorktrees(request, workspaceRoot:"), "Desktop controller should not prune worktrees directly.")
+        XCTAssertFalse(controllerText.contains("Task.detached(priority: .userInitiated)"), "Desktop controller should not own async worktree loading mechanics.")
+    }
+
     func testDesktopControllerDelegatesCommandPlanning() throws {
         let text = try Self.desktopSourceText()
         let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
