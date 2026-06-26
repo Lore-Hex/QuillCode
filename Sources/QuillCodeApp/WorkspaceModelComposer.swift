@@ -245,7 +245,7 @@ extension QuillCodeWorkspaceModel {
     private func syncThreadContext(into thread: inout ChatThread) {
         let projectID = thread.projectID ?? root.selectedProjectID
         refreshProjectMetadata(projectID)
-        WorkspaceProjectContextRefresher.syncThreadContext(
+        _ = WorkspaceThreadContextPreparer.syncThreadContext(
             &thread,
             fallbackProjectID: root.selectedProjectID,
             projects: root.projects,
