@@ -277,6 +277,8 @@ test('mock harness audits compact viewport click targets across primary states',
 
   await openTopBarOverflow(page);
   await page.getByTestId('top-bar-overflow-command-palette').click();
+  await expect(page.getByTestId('command-palette-panel')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'compact command palette');
   await clickCommandPaletteCommand(page, '>terminal', 'toggle-terminal');
   await expect(page.getByTestId('terminal-pane')).toBeVisible();
   await expectInteractionTargetsClean(page, 'compact terminal pane');
@@ -286,4 +288,15 @@ test('mock harness audits compact viewport click targets across primary states',
   await clickCommandPaletteCommand(page, '>browser', 'toggle-browser');
   await expect(page.getByTestId('browser-pane')).toBeVisible();
   await expectInteractionTargetsClean(page, 'compact browser pane');
+
+  await page.getByLabel('Message').fill('/git');
+  await expect(page.getByTestId('slash-suggestions')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'compact slash suggestion menu');
+  await page.keyboard.press('Escape');
+  await page.getByLabel('Message').fill('');
+
+  await page.keyboard.press('Meta+F');
+  await expect(page.getByTestId('find-bar')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'compact find bar');
+  await page.getByTestId('find-close').click();
 });
