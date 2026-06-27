@@ -31,6 +31,13 @@ final class SafetyTests: XCTestCase {
         host: .local,
         risk: .append
     )
+    private let gitStatus = ToolDefinition(
+        name: "host.git.status",
+        description: "Get git status",
+        parametersJSON: "{}",
+        host: .local,
+        risk: .read
+    )
     private let gitPullRequestCreate = ToolDefinition(
         name: "host.git.pr.create",
         description: "Create pull request",
@@ -136,6 +143,13 @@ final class SafetyTests: XCTestCase {
         host: .local,
         risk: .append
     )
+    private let applyPatch = ToolDefinition(
+        name: "host.apply_patch",
+        description: "Apply a patch",
+        parametersJSON: "{}",
+        host: .local,
+        risk: .append
+    )
 
     func testAutoApprovesUserRequestedWhoami() async {
         let reviewer = StaticSafetyReviewer()
@@ -208,6 +222,19 @@ final class SafetyTests: XCTestCase {
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }
 
+    func testAutoApprovesUserRequestedApplyPatch() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: applyPatch.name, argumentsJSON: #"{"patch":"diff --git a/a b/a\n"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "apply this patch",
+            toolCall: call,
+            toolDefinition: applyPatch,
+            recentMessages: [.init(role: .user, content: "apply this patch")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
     func testAutoDoesNotTreatRunAsBlanketIntentForGitPush() async {
         let reviewer = StaticSafetyReviewer()
         let call = ToolCall(name: gitPush.name, argumentsJSON: #"{"remote":"origin"}"#)
@@ -267,6 +294,33 @@ final class SafetyTests: XCTestCase {
             recentMessages: [.init(role: .user, content: "run the tests")]
         ))
         XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
+    }
+
+    func testAutoDoesNotUseArgumentWordFallbackForAppendTools() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: gitPush.name, argumentsJSON: #"{"remote":"origin"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "what is origin?",
+            toolCall: call,
+            toolDefinition: gitPush,
+            recentMessages: [.init(role: .user, content: "what is origin?")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
+    }
+
+    func testAutoStillMarksReadOnlyArgumentWordFallbackAsIntentMatched() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: gitStatus.name, argumentsJSON: #"{"path":"Sources/QuillCode"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "show me QuillCode",
+            toolCall: call,
+            toolDefinition: gitStatus,
+            recentMessages: [.init(role: .user, content: "show me QuillCode")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+        XCTAssertTrue(review.userIntentMatched)
     }
 
     func testReadOnlyDeniesWrite() async {
@@ -544,6 +598,19 @@ final class SafetyTests: XCTestCase {
             toolCall: call,
             toolDefinition: gitPullRequestMerge,
             recentMessages: [.init(role: .user, content: "show pull request 42")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
+    }
+
+    func testAutoDoesNotTreatPullRequestTokenAsBlanketIntentForPush() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: gitPush.name, argumentsJSON: #"{"remote":"origin","branch":"main"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "show PR 42",
+            toolCall: call,
+            toolDefinition: gitPush,
+            recentMessages: [.init(role: .user, content: "show PR 42")]
         ))
         XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
     }
