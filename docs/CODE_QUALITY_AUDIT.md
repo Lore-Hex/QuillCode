@@ -7344,3 +7344,26 @@ Strict grades:
 Remaining parity risk:
 
 - Formatter tests still validate behavior through `AgentFinalAnswerBuilderTests`, which is appropriate for user-visible copy. If any formatter family gains branching policy beyond summary formatting, add direct focused tests for that family.
+
+## 2026-06-27 Desktop Computer Use Coordinator Pass
+
+Overall grade after this slice: **A platform capability boundary, A controller ownership, A- direct executable coverage**.
+
+`QuillCodeDesktopController.swift` was already delegating most workflow families, but it still directly owned the macOS Computer Use backend, status refresh, and System Settings opening. That is host capability routing, not controller state ownership, and it would be easy for future Computer Use work to push more platform-specific behavior back into the controller.
+
+Code quality changes:
+
+- Added `QuillCodeDesktopComputerUseCoordinator` as the owner of macOS Computer Use backend installation, status refresh, and System Settings routing.
+- Removed direct `QuillComputerUseKit` import and backend/status mutation from the desktop controller.
+- Kept the controller responsible only for invoking the coordinator and refreshing published surface state.
+- Strengthened the desktop parity gate so backend installation, status refresh, and System Settings opens stay out of the controller.
+
+Strict grades:
+
+- `QuillCodeDesktopController.swift`: **A-**. The file is still broad because it is the desktop UI state bridge, but it no longer owns Computer Use platform capability details.
+- `QuillCodeDesktopComputerUseCoordinator.swift`: **A**. Small focused adapter with injectable backend and System Settings opener.
+- `ParityDesktopGateTests.swift`: **A**. The gate now protects both the settings persistence boundary and the Computer Use capability boundary.
+
+Remaining risk:
+
+- Desktop executable behavior is still guarded through parity/source gates rather than a dedicated desktop XCTest target. If the package later exposes desktop coordinators as a library target, add direct coordinator tests with fake backend and opener injections.
