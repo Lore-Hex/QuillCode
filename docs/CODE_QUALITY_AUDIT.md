@@ -34,6 +34,20 @@ Residual risk:
 
 - The audit implementation is still browser-side TypeScript with DOM heuristics rather than native UI automation. That is appropriate for the HTML harness, but packaged macOS/Linux UI hit targets still need native smoke coverage before release gating can rely on exact platform pixels.
 
+## 2026-06-27 Interaction Audit DRY Pass
+
+Overall grade after this slice: **A helper cohesion, A- browser-side audit simplicity, A regression coverage**.
+
+The interaction audit helper had the right module boundary, but the size audit and overlap audit still duplicated browser-side visibility, active-layer, center-point, clipping, and label helpers. This pass keeps the public Playwright expectations unchanged while running one browser-side audit that computes visible targets once and derives both target-size issues and overlap issues from the same inspected target set.
+
+- Replaced the separate `targetAuditIssues` and `targetOverlapIssues` page evaluations with one `interactionAuditReport`.
+- Preserved the different semantics for clipped/offscreen controls: target-size auditing ignores uninspectable centers, while overlap auditing excludes them from peer-overlap checks.
+- Reused one active interaction layer, one visibility predicate, one clipping predicate, and one interaction-layer label path.
+
+Residual risk:
+
+- The helper remains intentionally browser-DOM specific. Native SwiftUI hit-target confidence still depends on mirrored HTML harness coverage plus smoke tests until a native UI automation layer exists.
+
 ## 2026-06-27 Computer Use Status Contract Pass
 
 Overall grade after this slice: **A- Computer Use executor contract, A status copy accuracy, B+ platform parity**.
