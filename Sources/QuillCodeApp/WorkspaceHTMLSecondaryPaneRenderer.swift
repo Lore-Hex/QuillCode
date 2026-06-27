@@ -227,7 +227,7 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
     ) -> String {
         guard !actions.isEmpty else { return "" }
         let buttons = actions.map { action in
-            #"<button type="button" data-testid="\#(escape(testID))" data-command="\#(escape(action.commandID))">\#(escape(titlePrefix)) \#(escape(action.title))</button>"#
+            #"<button type="button" class="extension-reference-action" data-testid="\#(escape(testID))" data-command="\#(escape(action.commandID))">\#(escape(titlePrefix)) \#(escape(action.title))</button>"#
         }.joined()
         return #"<div class="extension-mcp-group" data-testid="\#(escape(testID))-group"><span class="extension-mcp-group-label" data-testid="extension-mcp-group-label">\#(escape(title))</span><div class="extension-mcp-chip-row">\#(buttons)</div></div>"#
     }
@@ -235,16 +235,16 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
     private static func renderExtensionActions(_ item: ProjectExtensionManifestSurface) -> String {
         var buttons: [String] = []
         if let installCommandID = item.installCommandID {
-            buttons.append(#"<button type="button" data-testid="extension-install" data-command="\#(escape(installCommandID))">Install</button>"#)
+            buttons.append(#"<button type="button" class="extension-action-button" data-testid="extension-install" data-command="\#(escape(installCommandID))">Install</button>"#)
         }
         if let updateCommandID = item.updateCommandID {
-            buttons.append(#"<button type="button" data-testid="extension-update" data-command="\#(escape(updateCommandID))">Update</button>"#)
+            buttons.append(#"<button type="button" class="extension-action-button" data-testid="extension-update" data-command="\#(escape(updateCommandID))">Update</button>"#)
         }
         if let stopCommandID = item.stopCommandID {
-            buttons.append(#"<button type="button" data-testid="extension-stop" data-command="\#(escape(stopCommandID))">Stop</button>"#)
+            buttons.append(#"<button type="button" class="extension-action-button" data-testid="extension-stop" data-command="\#(escape(stopCommandID))">Stop</button>"#)
         }
         if let startCommandID = item.startCommandID {
-            buttons.append(#"<button type="button" data-testid="extension-start" data-command="\#(escape(startCommandID))">Start</button>"#)
+            buttons.append(#"<button type="button" class="extension-action-button" data-testid="extension-start" data-command="\#(escape(startCommandID))">Start</button>"#)
         }
         return buttons.joined(separator: "\n")
     }
@@ -255,8 +255,8 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
           <header>
             <span data-testid="memory-scope">\(escape(item.scopeLabel))</span>
             <span data-testid="memory-size">\(escape(item.byteCountLabel))</span>
-            \(item.editCommandID.map { #"<button type="button" data-testid="memory-edit" data-command-id="\#(escape($0))">Edit</button>"# } ?? "")
-            \(item.deleteCommandID.map { #"<button type="button" data-testid="memory-delete" data-command-id="\#(escape($0))">Forget</button>"# } ?? "")
+            \(item.editCommandID.map { #"<button type="button" class="memory-edit-button" data-testid="memory-edit" data-command-id="\#(escape($0))">Edit</button>"# } ?? "")
+            \(item.deleteCommandID.map { #"<button type="button" class="memory-delete-button" data-testid="memory-delete" data-command-id="\#(escape($0))">Forget</button>"# } ?? "")
           </header>
           <strong data-testid="memory-title">\(escape(item.title))</strong>
           <p data-testid="memory-preview">\(escape(item.preview))</p>

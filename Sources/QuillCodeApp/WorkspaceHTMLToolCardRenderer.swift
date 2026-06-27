@@ -59,7 +59,7 @@ enum WorkspaceHTMLToolCardRenderer {
         guard card.inputJSON != nil || card.outputJSON != nil else { return "" }
         let isOpen = card.opensDetailsByDefault
         return """
-        <details data-testid="tool-card-details"\(isOpen ? " open" : "")>
+        <details class="tool-details" data-testid="tool-card-details"\(isOpen ? " open" : "")>
           <summary>\(detailsLabel(for: card, isOpen: isOpen))</summary>
           \(card.inputJSON.map { #"<pre data-testid="tool-card-input">\#(escape($0))</pre>"# } ?? "")
           \(card.outputJSON.map { #"<pre data-testid="tool-card-output">\#(escape($0))</pre>"# } ?? "")
@@ -88,7 +88,7 @@ enum WorkspaceHTMLToolCardRenderer {
         let chips = artifacts.map { artifact in
             let href = artifact.href.map { #" href="\#(escape($0))""# } ?? ""
             return """
-            <a class="artifact-chip" data-testid="tool-card-artifact" data-kind="\(escape(artifact.kind.rawValue))"\(href)>
+            <a class="artifact-chip \(WorkspaceHTMLPrimitives.interactiveHitTargetClass)" data-testid="tool-card-artifact" data-kind="\(escape(artifact.kind.rawValue))"\(href)>
               <strong data-testid="tool-card-artifact-label">\(escape(artifact.label))</strong>
               <small data-testid="tool-card-artifact-detail">\(escape(artifact.detail))</small>
             </a>
@@ -125,7 +125,7 @@ enum WorkspaceHTMLToolCardRenderer {
         let previews = documentArtifacts.compactMap { artifact -> String? in
             guard let preview = artifact.documentPreview else { return nil }
             let openLink = artifact.href.map {
-                #"<a data-testid="tool-card-document-preview-open" href="\#(escape($0))">Open</a>"#
+                #"<a class="\#(WorkspaceHTMLPrimitives.interactiveHitTargetClass)" data-testid="tool-card-document-preview-open" href="\#(escape($0))">Open</a>"#
             } ?? ""
             return """
             <figure class="artifact-document-preview" data-testid="tool-card-document-preview" data-kind="\(escape(preview.kind.rawValue))">

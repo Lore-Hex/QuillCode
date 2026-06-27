@@ -267,6 +267,59 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(htmlText.contains("project-empty"), "WorkspaceHTMLRenderer should not own project empty-state markup.")
     }
 
+    func testHTMLInteractiveControlsKeepExplicitHitTargets() throws {
+        let primitivesText = try Self.appSourceText(named: "WorkspaceHTMLPrimitives.swift")
+        let toolCardText = try Self.appSourceText(named: "WorkspaceHTMLToolCardRenderer.swift")
+        let reviewText = try Self.appSourceText(named: "WorkspaceHTMLReviewRenderer.swift")
+        let secondaryText = try Self.appSourceText(named: "WorkspaceHTMLSecondaryPaneRenderer.swift")
+        let harnessText = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("E2E/harness/index.html"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(
+            primitivesText.contains("static let interactiveHitTargetClass"),
+            "HTML renderers should share one semantic class for non-button clickable targets."
+        )
+        XCTAssertTrue(
+            toolCardText.contains(#"class="tool-details""#),
+            "Tool-card details disclosures should opt into the harness hit-target styling."
+        )
+        XCTAssertTrue(
+            toolCardText.contains(#"artifact-chip \(WorkspaceHTMLPrimitives.interactiveHitTargetClass)"#),
+            "Artifact links should keep an explicit 44 px hit target instead of relying on chip padding."
+        )
+        XCTAssertTrue(
+            reviewText.contains(#"class="review-action-button""#),
+            "Review action buttons should use a named class that can be target-sized in CSS."
+        )
+        XCTAssertTrue(
+            secondaryText.contains(#"class="extension-action-button""#),
+            "Extension action buttons should use a named class that can be target-sized in CSS."
+        )
+        XCTAssertTrue(
+            secondaryText.contains(#"class="memory-edit-button""#),
+            "Memory edit buttons should keep the shared memory action class."
+        )
+        XCTAssertTrue(
+            harnessText.contains(".interactive-hit-target"),
+            "The Playwright harness should size semantic non-button click targets explicitly."
+        )
+        XCTAssertTrue(
+            harnessText.contains("details > summary"),
+            "Disclosure summaries should keep a minimum click target in the harness."
+        )
+        XCTAssertTrue(
+            harnessText.contains(#"class="artifact-chip interactive-hit-target""#),
+            "Harness artifact links should match the production target class."
+        )
+        XCTAssertTrue(
+            harnessText.contains(#"class="review-action-button""#),
+            "Harness review buttons should match the production review action class."
+        )
+    }
+
     func testHTMLArchitectureGatesStayOutOfBroadSuite() throws {
         let broadSuiteText = try Self.parityTestSourceText(named: "ParityGateTests.swift")
         let htmlGateNames = [

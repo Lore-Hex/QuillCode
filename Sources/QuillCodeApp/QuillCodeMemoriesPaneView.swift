@@ -96,7 +96,7 @@ struct QuillCodeMemoriesPaneView: View {
                             .help("Forget this memory")
                         }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(QuillCodePressableButtonStyle())
                     .foregroundStyle(QuillCodePalette.muted)
                 }
             }
