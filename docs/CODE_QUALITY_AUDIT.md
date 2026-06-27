@@ -7824,3 +7824,19 @@ Code quality changes:
 Remaining risk:
 
 - “Download a site” still needs a product decision: it could mean browser-open, file download into the workspace, or a remote shell `curl`. That should be specified before locking in E2E semantics.
+
+## 2026-06-27 Interaction Target Contract Gate
+
+Overall grade after this slice: **A target contract enforcement, A rendered accessibility coverage, A- native pixel measurement**.
+
+The click-target system had good shared primitives and broad Playwright coverage, but it still depended on reviewers noticing new escaped controls. This pass makes the intent fail-fast in tests: compact native button styles, icon-only buttons, and gesture-based interactions now have explicit source gates, and the rendered harness rejects visible click targets that have no user-facing name.
+
+| Principle | Before | After |
+| --- | --- | --- |
+| Minimum hit area | Existing controls mostly used shared 44 pt/px helpers, but future compact `.bordered`, `.plain`, or icon-only controls could bypass the convention. | `ParityInteractionTargetGateTests` scans SwiftUI app sources and fails compact platform button styles without a `quillCode...Target`, icon-only controls without `quillCodeIconButtonTarget`, and gesture-only click handlers. |
+| Accessible targets | The Playwright audit measured size, clipping, center ownership, and overlap, but a nameless visible control could still pass. | `interaction-audit-helpers.ts` now computes accessible names from ARIA, labelled-by text, title, placeholders, and visible text, and fails `missing_accessible_name`. |
+| Future UI slices | Click-target checks were spread across hand-written source assertions plus rendered state audits. | Native source gates and rendered browser audits now cover different failure modes: misuse at code review time and real layout failure at E2E time. |
+
+Remaining risk:
+
+- Native SwiftUI hit boxes are still source-gated rather than pixel-measured in a packaged app. When native UI automation lands, mirror the Playwright visible-rect and overlap checks against the actual macOS/Linux windows.
