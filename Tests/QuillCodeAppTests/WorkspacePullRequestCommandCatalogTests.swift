@@ -46,4 +46,36 @@ final class WorkspacePullRequestCommandCatalogTests: XCTestCase {
             "checklist"
         )
     }
+
+    func testDescriptorsOwnSlashDefinitionsUsedByCatalog() {
+        let slashDefinitions = WorkspacePullRequestCommandCatalog.slashDefinitions
+        let slashUsages = slashDefinitions.map(\.usage)
+
+        XCTAssertEqual(slashUsages, [
+            "/pr create",
+            "/pr view [selector]",
+            "/pr checks [selector]",
+            "/pr diff [selector]",
+            "/pr checkout selector",
+            "/pr reviewers add|remove login",
+            "/pr comment body",
+            "/pr review approve|comment|request_changes",
+            "/pr review-comment path line body",
+            "/pr review-reply commentId body",
+            "/pr review-threads [selector]",
+            "/pr review-thread resolve|unresolve threadId",
+            "/pr labels add|remove label",
+            "/pr merge [squash|merge|rebase]"
+        ])
+        XCTAssertEqual(
+            slashDefinitions.first { $0.usage == "/pr labels add|remove label" }?.insertText,
+            "/pr labels add "
+        )
+
+        let catalogPullRequestUsages = SlashCommandCatalog.definitions
+            .filter { $0.usage.hasPrefix("/pr ") }
+            .map(\.usage)
+        XCTAssertEqual(catalogPullRequestUsages, slashUsages)
+        XCTAssertTrue(SlashCommandCatalog.helpText().contains("/pr review-threads [selector]"))
+    }
 }

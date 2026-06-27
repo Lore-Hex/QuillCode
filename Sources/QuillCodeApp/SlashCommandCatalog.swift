@@ -30,7 +30,12 @@ struct SlashCommandDefinition: Sendable, Hashable {
 enum SlashCommandCatalog {
     static let commandPaletteIDPrefix = "slash-command:"
 
-    static let definitions: [SlashCommandDefinition] = [
+    static let definitions: [SlashCommandDefinition] =
+        prefixDefinitions
+        + WorkspacePullRequestCommandCatalog.slashDefinitions
+        + suffixDefinitions
+
+    private static let prefixDefinitions: [SlashCommandDefinition] = [
         .init(usage: "/help", title: "Show slash commands", detail: "List the available composer commands.", insertText: "/help", aliases: ["?"]),
         .init(usage: "/status", title: "Show status", detail: "Summarize the active project, mode, model, and loaded context.", insertText: "/status", aliases: []),
         .init(usage: "/new", title: "New chat", detail: "Start a fresh thread in the selected project.", insertText: "/new", aliases: ["new-chat", "newchat"]),
@@ -56,20 +61,9 @@ enum SlashCommandCatalog {
         .init(usage: "/worktree open path", title: "Open worktree", detail: "Open an existing registered git worktree as a focused project.", insertText: "/worktree open ", aliases: ["worktree switch", "wt open"]),
         .init(usage: "/worktree remove path", title: "Remove worktree", detail: "Remove an existing registered git worktree. Add --force only when needed.", insertText: "/worktree remove ", aliases: ["worktree rm", "wt remove"]),
         .init(usage: "/worktree prune", title: "Prune stale worktrees", detail: "Clean stale git worktree administrative records. Add --dry-run to preview.", insertText: "/worktree prune --dry-run", aliases: ["worktree cleanup", "wt prune"]),
-        .init(usage: "/pr create", title: "Create pull request", detail: "Draft a pull request request in the composer.", insertText: "/pr create", aliases: ["pull-request", "pullrequest"]),
-        .init(usage: "/pr view [selector]", title: "View pull request", detail: "View the current or selected pull request with comments.", insertText: "/pr view ", aliases: ["pr show", "pull request view"]),
-        .init(usage: "/pr checks [selector]", title: "Pull request checks", detail: "Show CI status for the current or selected pull request.", insertText: "/pr checks ", aliases: ["pr ci", "pull request status"]),
-        .init(usage: "/pr diff [selector]", title: "Pull request diff", detail: "Show the unified diff for the current or selected pull request.", insertText: "/pr diff ", aliases: ["pr changes", "pull request diff"]),
-        .init(usage: "/pr checkout selector", title: "Checkout pull request", detail: "Check out a pull request branch.", insertText: "/pr checkout ", aliases: ["pr switch"]),
-        .init(usage: "/pr comment body", title: "Comment on pull request", detail: "Post a top-level comment on the current pull request.", insertText: "/pr comment ", aliases: ["pr reply"]),
-        .init(usage: "/pr review approve|comment|request_changes", title: "Review pull request", detail: "Submit an approve, comment, or request_changes review.", insertText: "/pr review approve", aliases: ["pr approve", "request changes"]),
-        .init(usage: "/pr review-comment path line body", title: "Inline pull request comment", detail: "Post an inline review comment on a pull request diff line.", insertText: "/pr review-comment ", aliases: ["pr inline", "line comment", "review comment"]),
-        .init(usage: "/pr review-reply commentId body", title: "Reply to inline review comment", detail: "Reply to an existing pull request line comment.", insertText: "/pr review-reply ", aliases: ["inline reply", "review reply"]),
-        .init(usage: "/pr review-threads [selector]", title: "List review threads", detail: "List review-thread IDs and first comment IDs for reply or resolve actions.", insertText: "/pr review-threads ", aliases: ["pr threads", "review thread ids"]),
-        .init(usage: "/pr review-thread resolve|unresolve threadId", title: "Resolve review thread", detail: "Resolve or unresolve a pull request review thread.", insertText: "/pr review-thread resolve ", aliases: ["resolve thread", "unresolve thread"]),
-        .init(usage: "/pr reviewers add|remove login", title: "Manage pull request reviewers", detail: "Request or remove pull request reviewers.", insertText: "/pr reviewers add ", aliases: ["request reviewer", "remove reviewer"]),
-        .init(usage: "/pr labels add|remove label", title: "Manage pull request labels", detail: "Add or remove pull request labels. Use commas for labels with spaces.", insertText: "/pr labels add ", aliases: ["pr label", "triage label"]),
-        .init(usage: "/pr merge [squash|merge|rebase]", title: "Merge pull request", detail: "Merge or enable auto-merge for the current pull request.", insertText: "/pr merge squash", aliases: ["automerge", "merge train"]),
+    ]
+
+    private static let suffixDefinitions: [SlashCommandDefinition] = [
         .init(usage: "/env name", title: "Run local environment action", detail: "List or run project-local environment scripts.", insertText: "/env ", aliases: ["environment", "local-env"]),
         .init(usage: "/mode auto|review|read-only", title: "Set approval mode", detail: "Switch between Auto, Review, and Read-only behavior.", insertText: "/mode ", aliases: []),
         .init(
