@@ -248,6 +248,29 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(controllerText.contains("fileExists(atPath:"), "Desktop controller should not own import directory validation.")
     }
 
+    func testDesktopControllerDelegatesPaneMutations() throws {
+        let text = try Self.desktopSourceText()
+        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let paneCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopPaneCoordinator.swift")
+
+        XCTAssertTrue(text.contains("QuillCodeDesktopPaneCoordinator"), "Desktop pane visibility and browser comment mutations should be isolated from UI routing.")
+        XCTAssertTrue(controllerText.contains("paneCoordinator.toggleTerminal"), "Desktop controller should delegate terminal pane toggles.")
+        XCTAssertTrue(controllerText.contains("paneCoordinator.toggleBrowser"), "Desktop controller should delegate browser pane toggles.")
+        XCTAssertTrue(controllerText.contains("paneCoordinator.toggleExtensions"), "Desktop controller should delegate extensions pane toggles.")
+        XCTAssertTrue(controllerText.contains("paneCoordinator.toggleMemories"), "Desktop controller should delegate memories pane toggles.")
+        XCTAssertTrue(controllerText.contains("paneCoordinator.addBrowserComment"), "Desktop controller should delegate browser comment mutation.")
+        XCTAssertTrue(paneCoordinatorText.contains("model.toggleTerminal()"), "Pane coordinator should own terminal pane visibility mutation.")
+        XCTAssertTrue(paneCoordinatorText.contains("model.toggleBrowser()"), "Pane coordinator should own browser pane visibility mutation.")
+        XCTAssertTrue(paneCoordinatorText.contains("model.toggleExtensions()"), "Pane coordinator should own extensions pane visibility mutation.")
+        XCTAssertTrue(paneCoordinatorText.contains("model.toggleMemories()"), "Pane coordinator should own memories pane visibility mutation.")
+        XCTAssertTrue(paneCoordinatorText.contains("model.addBrowserComment(comment)"), "Pane coordinator should own browser comment mutation.")
+        XCTAssertFalse(controllerText.contains("model.toggleTerminal()"), "Desktop controller should not mutate terminal pane visibility directly.")
+        XCTAssertFalse(controllerText.contains("model.toggleBrowser()"), "Desktop controller should not mutate browser pane visibility directly.")
+        XCTAssertFalse(controllerText.contains("model.toggleExtensions()"), "Desktop controller should not mutate extensions pane visibility directly.")
+        XCTAssertFalse(controllerText.contains("model.toggleMemories()"), "Desktop controller should not mutate memories pane visibility directly.")
+        XCTAssertFalse(controllerText.contains("model.addBrowserComment(comment)"), "Desktop controller should not add browser comments directly.")
+    }
+
     func testDesktopControllerDelegatesWorkspaceActionMutations() throws {
         let text = try Self.desktopSourceText()
         let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")

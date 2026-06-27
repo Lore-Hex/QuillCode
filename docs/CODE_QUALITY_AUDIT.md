@@ -30,6 +30,20 @@ Residual risk:
 
 - Native SwiftUI hit targets are still source-guarded rather than measured by screenshot/UI automation. Keep mirroring critical controls in Playwright until native UI automation exists.
 
+## 2026-06-27 Desktop Pane Coordinator Pass
+
+Overall grade after this slice: **A- desktop pane routing, A browser-comment mutation ownership, A controller readability**.
+
+Pane visibility toggles and browser comments are small operations, but keeping their model mutations inline in `QuillCodeDesktopController.swift` made the controller the fallback owner for every uncategorized UI action. Moving them behind a named coordinator keeps desktop routing consistent with the existing terminal, browser, workspace action, worktree, and navigation boundaries.
+
+- Added `QuillCodeDesktopPaneCoordinator` for terminal, browser, extensions, and memories pane toggles plus browser comment mutation.
+- Rewired `QuillCodeDesktopController` to delegate pane/comment mutation while retaining refresh and UI action exposure.
+- Added a parity gate so direct pane and browser-comment model mutations do not drift back into the desktop controller.
+
+Residual risk:
+
+- This is still source-gated because desktop coordinators are not yet built as directly importable units. Keep each coordinator thin until the desktop target gains focused unit-test seams.
+
 ## Component Grades
 
 | Component | Grade | Notes |
@@ -60,7 +74,7 @@ Residual risk:
 | `Sources/QuillCodeApp/QuillCodeReviewFileRowView.swift` | A- | File rows, hunk rows, range-note controls, file/hunk actions, and hunk-to-line composition live together. Split hunk controls only if review workflows grow beyond compact stage/restore/comment actions. |
 | `Sources/QuillCodeApp/QuillCodeReviewLineRowView.swift` | A | Line content, marker/background styling, inline comments, and line-note composer live together without expanding the review pane shell. |
 | `Sources/quill-code-desktop/QuillCodeDesktopApp.swift` | A- | App scene composition is now small and declarative. Keep it limited to window/menu-bar wiring and root-view routing. |
-| `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI state, refresh, and host capability routing. Pasteboard feedback, project-import resolution, project/thread navigation, worktree routing/loading, terminal run/history, composer send/retry, automation ticking/notification fan-out, command action dispatch, and stop/disconnect orchestration now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
+| `Sources/quill-code-desktop/QuillCodeDesktopController.swift` | A- | Desktop controller is now mostly UI state, refresh, and host capability routing. Pasteboard feedback, project-import resolution, project/thread navigation, pane toggles/browser comments, worktree routing/loading, terminal run/history, composer send/retry, automation ticking/notification fan-out, command action dispatch, and stop/disconnect orchestration now live in focused coordinators; keep future desktop protocol/workflow details out of the controller. |
 | `Sources/QuillCodeAgent/Agent.swift` | A- | Good test coverage; keep tool continuation limits and transcript filtering explicit. |
 | `Sources/QuillCodeCore/Models.swift` | A | General chat/thread/memory domain models only; app config, automation scheduling, project/workspace records, tool payloads, and TrustedRouter defaults/catalog records now live in focused core files. Watch for persistence, workflow, tool, or provider-specific behavior trying to drift back in. |
 | `Sources/QuillCodeCore/AppConfig.swift` | A | App settings, auth mode compatibility, signed-in account metadata, and favorite model normalization live together without pulling UI/runtime dependencies into core. |
