@@ -150,6 +150,51 @@ final class SafetyTests: XCTestCase {
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }
 
+    func testAutoApprovesDiagnosticShellRunWithoutRunVerb() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: shellRun.name,
+            argumentsJSON: #"{"cmd":"command -v openclaw || which openclaw || echo 'not found'"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "is openclaw installed?",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "is openclaw installed?")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoDoesNotTreatDiagnosticRequestAsBlanketIntentForGitPush() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: gitPush.name, argumentsJSON: #"{"remote":"origin"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "how much disk space is used?",
+            toolCall: call,
+            toolDefinition: gitPush,
+            recentMessages: [.init(role: .user, content: "how much disk space is used?")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
+    }
+
+    func testAutoDoesNotTreatDiagnosticRequestAsBlanketIntentForMCP() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: mcpCall.name,
+            argumentsJSON: #"{"serverID":"mcp_server:filesystem","toolName":"read_file"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "is openclaw installed?",
+            toolCall: call,
+            toolDefinition: mcpCall,
+            recentMessages: [.init(role: .user, content: "is openclaw installed?")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
+    }
+
     func testAutoApprovesUserRequestedShellRun() async {
         let reviewer = StaticSafetyReviewer()
         let call = ToolCall(name: shellRun.name, argumentsJSON: #"{"cmd":"swift test"}"#)

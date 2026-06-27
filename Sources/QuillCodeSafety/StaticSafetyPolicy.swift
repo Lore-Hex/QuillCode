@@ -38,9 +38,6 @@ struct StaticSafetyPolicy: Sendable {
            request.containsAny(StaticSafetyPolicy.computerUseTriggers) {
             return true
         }
-        if request.containsAny(StaticSafetyPolicy.commonDiagnosticTriggers) {
-            return true
-        }
         return request.significantWords.contains { word in
             context.toolCall.argumentsJSON.lowercased().contains(word)
         }
@@ -79,6 +76,10 @@ struct StaticSafetyPolicy: Sendable {
         .init(
             requestTriggers: ["mcp"],
             allowedToolNames: ["mcp.call"]
+        ),
+        .init(
+            requestTriggers: commonDiagnosticTriggers,
+            allowedToolNames: ["shell.run"]
         ),
         .init(
             requestTriggers: ["make", "create", "write"],
