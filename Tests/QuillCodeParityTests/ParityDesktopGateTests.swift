@@ -280,13 +280,19 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(controllerText.contains("workspaceActionCoordinator.runToolCardAction"), "Desktop controller should delegate tool-card actions.")
         XCTAssertTrue(controllerText.contains("workspaceActionCoordinator.runReviewAction"), "Desktop controller should delegate review actions.")
         XCTAssertTrue(controllerText.contains("workspaceActionCoordinator.addReviewComment"), "Desktop controller should delegate review comment mutation.")
+        XCTAssertTrue(controllerText.contains("workspaceActionCoordinator.setMessageFeedback"), "Desktop controller should delegate message feedback mutation.")
+        XCTAssertTrue(controllerText.contains("workspaceActionCoordinator.runWorkspaceCommand"), "Desktop controller should delegate generic workspace command execution.")
         XCTAssertTrue(actionCoordinatorText.contains("model.runToolCardAction"), "Workspace action coordinator should own tool-card mutation routing.")
         XCTAssertTrue(actionCoordinatorText.contains("model.runReviewAction"), "Workspace action coordinator should own review action routing.")
         XCTAssertTrue(actionCoordinatorText.contains("model.addReviewComment"), "Workspace action coordinator should own review-comment mutation routing.")
+        XCTAssertTrue(actionCoordinatorText.contains("model.setMessageFeedback"), "Workspace action coordinator should own message feedback mutation routing.")
+        XCTAssertTrue(actionCoordinatorText.contains("model.runWorkspaceCommand"), "Workspace action coordinator should own generic workspace command execution.")
         XCTAssertTrue(actionCoordinatorText.contains("model.activeWorkspaceRoot ?? fallback"), "Workspace action coordinator should centralize active workspace root fallback.")
         XCTAssertFalse(controllerText.contains("model.runToolCardAction"), "Desktop controller should not run tool-card actions directly.")
         XCTAssertFalse(controllerText.contains("model.runReviewAction"), "Desktop controller should not run review actions directly.")
         XCTAssertFalse(controllerText.contains("model.addReviewComment"), "Desktop controller should not add review comments directly.")
+        XCTAssertFalse(controllerText.contains("model.setMessageFeedback"), "Desktop controller should not mutate message feedback directly.")
+        XCTAssertFalse(controllerText.contains("model.runWorkspaceCommand"), "Desktop controller should not execute generic workspace commands directly.")
     }
 
     func testDesktopControllerDelegatesNavigationMutations() throws {

@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeApp
+import QuillCodeCore
 
 @MainActor
 struct QuillCodeDesktopWorkspaceActionCoordinator {
@@ -39,6 +40,27 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
             endLineNumber: endLineNumber,
             lineKind: lineKind,
             text: text
+        )
+    }
+
+    @discardableResult
+    func setMessageFeedback(
+        messageID: UUID,
+        value: MessageFeedbackValue,
+        model: QuillCodeWorkspaceModel
+    ) -> Bool {
+        model.setMessageFeedback(messageID: messageID, value: value)
+    }
+
+    @discardableResult
+    func runWorkspaceCommand(
+        _ commandID: String,
+        model: QuillCodeWorkspaceModel,
+        fallbackWorkspaceRoot: URL
+    ) -> Bool {
+        model.runWorkspaceCommand(
+            commandID,
+            workspaceRoot: activeWorkspaceRoot(for: model, fallback: fallbackWorkspaceRoot)
         )
     }
 
