@@ -25,7 +25,7 @@ struct StaticSafetyPolicy: Sendable {
         let request = StaticSafetyRequest(context.userMessage)
         let toolName = context.toolCall.name
 
-        if request.containsAny(["remember", "memorize"]) {
+        if request.containsAffirmedAny(["remember", "memorize"]) {
             return toolName.contains("memory")
         }
         if StaticSafetyPullRequestPolicy.requestMatches(request) {
@@ -35,7 +35,7 @@ struct StaticSafetyPolicy: Sendable {
             return true
         }
         if toolName.contains("computer"),
-           request.containsAny(StaticSafetyPolicy.computerUseTriggers) {
+           request.containsAffirmedAny(StaticSafetyPolicy.computerUseTriggers) {
             return true
         }
         guard context.toolDefinition?.risk == .read else {
@@ -151,7 +151,7 @@ struct StaticSafetyIntentRule: Sendable {
     var allowedToolNames: [String]
 
     func matches(request: StaticSafetyRequest) -> Bool {
-        request.containsAny(requestTriggers)
+        request.containsAffirmedAny(requestTriggers)
     }
 
     func allows(toolName: String) -> Bool {
@@ -181,21 +181,121 @@ struct StaticSafetyRequest: Sendable {
     }
 
     var significantWords: [String] {
-        text
-            .split { !$0.isLetter && !$0.isNumber }
-            .map(String.init)
+        tokens
             .filter { $0.count >= 3 }
     }
 
-    func containsAny(_ phrases: [String]) -> Bool {
-        phrases.contains { text.contains($0) }
+    func containsAffirmedAny(_ phrases: [String]) -> Bool {
+        phrases.contains { containsAffirmed($0) }
     }
 
     func containsToken(_ token: String) -> Bool {
         let normalized = token.lowercased()
-        return text
-            .split { !$0.isLetter && !$0.isNumber }
-            .contains { $0 == normalized }
+        return tokens.contains { $0 == normalized }
+    }
+
+    private var tokens: [String] {
+        indexedTokens.map(\.value)
+    }
+
+    private var indexedTokens: [IndexedToken] {
+        Self.tokenizeWithClauseStarts(text)
+    }
+
+    private func containsAffirmed(_ phrase: String) -> Bool {
+        guard text.contains(phrase.lowercased()) else {
+            return false
+        }
+        let phraseTokens = Self.tokenize(phrase)
+        guard !phraseTokens.isEmpty else {
+            return false
+        }
+        let requestTokens = indexedTokens
+        guard requestTokens.count >= phraseTokens.count else {
+            return false
+        }
+        for start in 0...(requestTokens.count - phraseTokens.count) {
+            let end = start + phraseTokens.count
+            let tokenValues = requestTokens[start..<end].map(\.value)
+            guard tokenValues == phraseTokens else {
+                continue
+            }
+            if !hasNegationBefore(start, in: requestTokens) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private func hasNegationBefore(_ index: Int, in tokens: [IndexedToken]) -> Bool {
+        guard index > 0 else {
+            return false
+        }
+        let clauseStart = stride(from: index, through: 0, by: -1)
+            .first { tokens[$0].startsClause } ?? 0
+        let start = max(clauseStart, index - 4)
+        let prefix = tokens[start..<index].map(\.value)
+        if prefix.contains(where: { ["dont", "never", "without"].contains($0) }) {
+            return true
+        }
+        if prefix.last == "no" {
+            return true
+        }
+        return containsAdjacent("do", "not", in: prefix)
+            || containsAdjacent("does", "not", in: prefix)
+            || containsAdjacent("did", "not", in: prefix)
+    }
+
+    private struct IndexedToken: Sendable {
+        var value: String
+        var startsClause: Bool
+    }
+
+    private func containsAdjacent(_ first: String, _ second: String, in tokens: [String]) -> Bool {
+        guard tokens.count >= 2 else {
+            return false
+        }
+        return zip(tokens, tokens.dropFirst()).contains { $0 == first && $1 == second }
+    }
+
+    private static func tokenize(_ value: String) -> [String] {
+        tokenizeWithClauseStarts(value).map(\.value)
+    }
+
+    private static func tokenizeWithClauseStarts(_ value: String) -> [IndexedToken] {
+        var tokens: [IndexedToken] = []
+        var current = ""
+        var nextStartsClause = true
+        let normalized = value
+            .lowercased()
+            .replacingOccurrences(of: "'", with: "")
+            .replacingOccurrences(of: "’", with: "")
+
+        func flushToken() {
+            guard !current.isEmpty else {
+                return
+            }
+            tokens.append(.init(value: current, startsClause: nextStartsClause))
+            current = ""
+            nextStartsClause = false
+        }
+
+        for character in normalized {
+            if character.isLetter || character.isNumber {
+                current.append(character)
+            } else {
+                flushToken()
+                if isClauseBoundary(character) {
+                    nextStartsClause = true
+                }
+            }
+        }
+        flushToken()
+        return tokens
+    }
+
+    private static func isClauseBoundary(_ character: Character) -> Bool {
+        character == ";" || character == "." || character == "!" || character == "?" || character == "\n"
     }
 }
 
@@ -273,7 +373,8 @@ enum StaticSafetyPullRequestPolicy {
     ]
 
     static func requestMatches(_ request: StaticSafetyRequest) -> Bool {
-        request.containsToken("pr") || request.containsAny(requestTriggers)
+        request.containsAffirmedAny(requestTriggers)
+            || (request.containsToken("pr") && specificRules.contains { $0.matches(request: request) })
     }
 
     static func intentMatches(request: StaticSafetyRequest, toolName: String) -> Bool {
