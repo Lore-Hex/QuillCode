@@ -7600,3 +7600,19 @@ Strict grades:
 Remaining risk:
 
 - Handoff summaries are now model-authored when the model calls the tool, but QuillCode does not yet proactively prompt for handoff updates at every long-task boundary. Richer task lifecycle triggers remain part of broader Activity/task parity.
+
+## 2026-06-27 Approval Card Progressive Disclosure Pass
+
+Overall grade after this slice: **A UX contract accuracy, A renderer parity, A future-agent handoff**.
+
+Ready-to-run approval cards now use progressive disclosure: the user sees the decision and Run/Edit/Skip actions immediately, while raw JSON stays closed until requested. Blocked or denied cards still expand as `Needs review` because that is where extra context is useful.
+
+| Area | Before | After |
+| --- | --- | --- |
+| Routine approvals | Docs implied all review cards expanded by default, encouraging raw tool JSON to dominate routine approvals. | Parity docs state that ready approvals peek while keeping direct actions visible. |
+| Blocked approvals | Ready and blocked review density could be described as the same interaction. | The documented contract separates calm ready approvals from expanded blocked review cards. |
+| Agent handoff | Future agents had to infer the new behavior from tests and decisions. | The parity matrix and audit log describe the exact shared UI contract. |
+
+Remaining risk:
+
+- This pass is documentation-only after the implementation merge. If tool-card density evolves again, update `ToolCardState` tests, Playwright review tests, the parity matrix, and this audit together.
