@@ -119,8 +119,14 @@ public struct AgentRunner: Sendable {
                     tools: tools,
                     onProgress: onProgress
                 )
+                let resolvedAction = try await actionByRetryingPromisedWorkIfNeeded(
+                    action,
+                    thread: next,
+                    userMessage: userMessage,
+                    tools: tools
+                )
                 try Task.checkCancellation()
-                switch action {
+                switch resolvedAction {
                 case .say(let text):
                     appendAssistantMessage(text, to: &next)
                     await onProgress?(next)
@@ -178,6 +184,33 @@ public struct AgentRunner: Sendable {
             await onProgress?(next)
             throw CancellationError()
         }
+    }
+
+    private func actionByRetryingPromisedWorkIfNeeded(
+        _ action: AgentAction,
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) async throws -> AgentAction {
+        guard case .say(let text) = action,
+              AgentPromisedWorkGuard.shouldRequestCorrection(for: text, tools: tools)
+        else {
+            return action
+        }
+
+        let correctionPrompt = AgentPromisedWorkGuard.correctionPrompt(
+            assistantText: text,
+            userMessage: userMessage
+        )
+        var retryThread = thread
+        retryThread.messages.append(.init(role: .assistant, content: text))
+        retryThread.messages.append(.init(role: .user, content: correctionPrompt))
+        retryThread.updatedAt = Date()
+        return try await llm.nextAction(
+            thread: retryThread,
+            userMessage: correctionPrompt,
+            tools: tools
+        )
     }
 
     private func nextAction(
