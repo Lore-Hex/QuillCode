@@ -248,6 +248,24 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(controllerText.contains("fileExists(atPath:"), "Desktop controller should not own import directory validation.")
     }
 
+    func testDesktopControllerDelegatesWorkspaceActionMutations() throws {
+        let text = try Self.desktopSourceText()
+        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let actionCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopWorkspaceActionCoordinator.swift")
+
+        XCTAssertTrue(text.contains("QuillCodeDesktopWorkspaceActionCoordinator"), "Desktop workspace action mutations should be isolated from UI routing.")
+        XCTAssertTrue(controllerText.contains("workspaceActionCoordinator.runToolCardAction"), "Desktop controller should delegate tool-card actions.")
+        XCTAssertTrue(controllerText.contains("workspaceActionCoordinator.runReviewAction"), "Desktop controller should delegate review actions.")
+        XCTAssertTrue(controllerText.contains("workspaceActionCoordinator.addReviewComment"), "Desktop controller should delegate review comment mutation.")
+        XCTAssertTrue(actionCoordinatorText.contains("model.runToolCardAction"), "Workspace action coordinator should own tool-card mutation routing.")
+        XCTAssertTrue(actionCoordinatorText.contains("model.runReviewAction"), "Workspace action coordinator should own review action routing.")
+        XCTAssertTrue(actionCoordinatorText.contains("model.addReviewComment"), "Workspace action coordinator should own review-comment mutation routing.")
+        XCTAssertTrue(actionCoordinatorText.contains("model.activeWorkspaceRoot ?? fallback"), "Workspace action coordinator should centralize active workspace root fallback.")
+        XCTAssertFalse(controllerText.contains("model.runToolCardAction"), "Desktop controller should not run tool-card actions directly.")
+        XCTAssertFalse(controllerText.contains("model.runReviewAction"), "Desktop controller should not run review actions directly.")
+        XCTAssertFalse(controllerText.contains("model.addReviewComment"), "Desktop controller should not add review comments directly.")
+    }
+
     func testDesktopControllerDelegatesNavigationMutations() throws {
         let text = try Self.desktopSourceText()
         let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")

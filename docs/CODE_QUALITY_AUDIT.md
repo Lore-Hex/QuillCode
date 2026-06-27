@@ -7454,3 +7454,26 @@ Strict grades:
 Remaining risk:
 
 - This is still source-gated rather than directly unit tested through an importable desktop library. If desktop coordinators move into a testable target, add fake-bootstrap tests for settings save, catalog refresh, API-key clear/replace, and runtime rebuild flows.
+
+## 2026-06-27 Desktop Workspace Action Coordinator Pass
+
+Overall grade after this slice: **A action routing boundary, A active-root fallback ownership, A- desktop executable coverage**.
+
+`QuillCodeDesktopController.swift` still directly routed tool-card actions, review actions, and review-comment mutations into the workspace model. Those calls are compact, but they share active-workspace-root fallback and are likely to grow as review UX, comments, and tool-card affordances mature.
+
+Code quality changes:
+
+- Added `QuillCodeDesktopWorkspaceActionCoordinator` for tool-card actions, review actions, and review-comment mutation routing.
+- Centralized active-workspace-root fallback for desktop tool-card and review actions.
+- Reduced the desktop controller to invoking the coordinator and refreshing published UI state.
+- Strengthened the desktop parity gate so tool-card action routing, review action routing, review-comment mutation, and active-root fallback do not drift back into the controller.
+
+Strict grades:
+
+- `QuillCodeDesktopWorkspaceActionCoordinator.swift`: **A**. Small, focused coordinator with no UI state and one clear fallback rule.
+- `QuillCodeDesktopController.swift`: **A-**. The controller keeps shrinking toward UI-state glue while preserving direct refresh ownership.
+- `ParityDesktopGateTests.swift`: **A**. The new source gate protects the next likely review/tool-card growth boundary.
+
+Remaining risk:
+
+- The coordinator is intentionally source-gated for now. If desktop coordinators move into a testable library target, add direct fake-model tests for review action routing and comment mutation edge cases.
