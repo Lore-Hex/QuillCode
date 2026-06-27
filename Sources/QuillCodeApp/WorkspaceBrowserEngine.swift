@@ -1,6 +1,46 @@
 import Foundation
 
 struct WorkspaceBrowserEngine {
+    static func newTab(state: inout BrowserState) -> UUID {
+        storeSelectedTab(in: &state)
+        let tab = BrowserTabState()
+        state.tabs.append(tab)
+        state.selectedTabID = tab.id
+        loadSelectedTab(into: &state)
+        state.isVisible = true
+        state.status = "New tab"
+        storeSelectedTab(in: &state)
+        return tab.id
+    }
+
+    @discardableResult
+    static func selectTab(id: UUID, state: inout BrowserState) -> Bool {
+        guard state.tabs.contains(where: { $0.id == id }) else { return false }
+        storeSelectedTab(in: &state)
+        state.selectedTabID = id
+        loadSelectedTab(into: &state)
+        state.isVisible = true
+        return true
+    }
+
+    @discardableResult
+    static func closeTab(id: UUID, state: inout BrowserState) -> Bool {
+        guard state.tabs.count > 1,
+              let closedIndex = state.tabs.firstIndex(where: { $0.id == id })
+        else {
+            return false
+        }
+
+        let wasSelected = state.selectedTabID == id
+        state.tabs.remove(at: closedIndex)
+        if wasSelected {
+            let replacementIndex = min(closedIndex, state.tabs.count - 1)
+            state.selectedTabID = state.tabs[replacementIndex].id
+            loadSelectedTab(into: &state)
+        }
+        return true
+    }
+
     static func openPage(_ url: URL, state: inout BrowserState, updateHistory: Bool) {
         state.isVisible = true
         state.currentURL = url.absoluteString
@@ -11,6 +51,7 @@ struct WorkspaceBrowserEngine {
         if updateHistory {
             appendHistory(url.absoluteString, state: &state)
         }
+        storeSelectedTab(in: &state)
     }
 
     @discardableResult
@@ -56,6 +97,7 @@ struct WorkspaceBrowserEngine {
         state.snapshot = BrowserInspector.snapshot(for: fetchedPage, originalURL: originalURL)
         state.title = title(from: state.snapshot, fallbackURL: fetchedPage.finalURL)
         state.status = "Preview ready"
+        storeSelectedTab(in: &state)
     }
 
     static func applyLiveDOMSnapshot(
@@ -69,6 +111,7 @@ struct WorkspaceBrowserEngine {
         state.snapshot = BrowserInspector.snapshot(for: liveDOMSnapshot, originalURL: originalURL)
         state.title = title(from: state.snapshot, fallbackURL: liveDOMSnapshot.finalURL)
         state.status = "Preview ready"
+        storeSelectedTab(in: &state)
     }
 
     static func markSnapshotFetchFailure(_ error: any Error, state: inout BrowserState) {
@@ -77,6 +120,7 @@ struct WorkspaceBrowserEngine {
             state.snapshot = snapshot
         }
         state.status = "Preview ready"
+        storeSelectedTab(in: &state)
     }
 
     static func markLiveDOMCaptureFailure(_ error: any Error, state: inout BrowserState) {
@@ -85,6 +129,7 @@ struct WorkspaceBrowserEngine {
             state.snapshot = snapshot
         }
         state.status = "Preview ready"
+        storeSelectedTab(in: &state)
     }
 
     @discardableResult
@@ -95,7 +140,49 @@ struct WorkspaceBrowserEngine {
         }
         state.comments.append(BrowserCommentState(url: url, text: trimmed))
         state.status = "Comment added"
+        storeSelectedTab(in: &state)
         return true
+    }
+
+    private static func storeSelectedTab(in state: inout BrowserState) {
+        ensureSelectedTab(in: &state)
+        guard let index = state.tabs.firstIndex(where: { $0.id == state.selectedTabID }) else { return }
+        state.tabs[index] = BrowserTabState(
+            id: state.selectedTabID,
+            addressDraft: state.addressDraft,
+            currentURL: state.currentURL,
+            history: state.history,
+            historyIndex: state.historyIndex,
+            title: state.title,
+            status: state.status,
+            snapshot: state.snapshot,
+            comments: state.comments
+        )
+    }
+
+    private static func loadSelectedTab(into state: inout BrowserState) {
+        ensureSelectedTab(in: &state)
+        guard let tab = state.tabs.first(where: { $0.id == state.selectedTabID }) else { return }
+        state.addressDraft = tab.addressDraft
+        state.currentURL = tab.currentURL
+        state.history = tab.history
+        state.historyIndex = tab.historyIndex
+        state.title = tab.title
+        state.status = tab.status
+        state.snapshot = tab.snapshot
+        state.comments = tab.comments
+    }
+
+    private static func ensureSelectedTab(in state: inout BrowserState) {
+        if state.tabs.contains(where: { $0.id == state.selectedTabID }) {
+            return
+        }
+        if let first = state.tabs.first {
+            state.selectedTabID = first.id
+            return
+        }
+        let tab = BrowserTabState(id: state.selectedTabID)
+        state.tabs = [tab]
     }
 
     private static func openHistoryEntry(at index: Int, state: inout BrowserState) -> Bool {

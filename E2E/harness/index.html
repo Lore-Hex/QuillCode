@@ -1336,6 +1336,50 @@
     .terminal-status.stopped { color: var(--muted); }
     .terminal-status.failed { color: var(--red); }
     .terminal-form { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+    .browser-tabs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 100%;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+    .browser-tab,
+    .browser-tab-action {
+      min-height: var(--hit-target);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(255,255,255,.055);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.09);
+    }
+    .browser-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 220px;
+      padding: 0 12px;
+      white-space: nowrap;
+    }
+    .browser-tab span,
+    .browser-tab small {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .browser-tab small {
+      max-width: 90px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .browser-tab.active {
+      color: var(--text);
+      background: rgba(65,184,232,.18);
+      box-shadow: inset 0 0 0 1px rgba(65,184,232,.34);
+    }
+    .browser-tab-action {
+      width: var(--hit-target);
+      padding: 0;
+      font-size: 18px;
+    }
     .browser-form {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr) auto;
@@ -3176,6 +3220,18 @@
       },
       browser: {
         isVisible: false,
+        tabs: [{
+          id: 'browser-tab-1',
+          addressDraft: '',
+          currentURL: null,
+          history: [],
+          historyIndex: null,
+          title: 'Browser preview',
+          statusLabel: 'Ready',
+          snapshot: null,
+          comments: []
+        }],
+        selectedTabID: 'browser-tab-1',
         addressDraft: '',
         currentURL: null,
         history: [],
@@ -5894,6 +5950,19 @@
 	      document.querySelector('[data-testid="browser-session"]')?.addEventListener('click', () => {
 	        openBrowserSession();
 	      });
+          document.querySelector('[data-testid="browser-new-tab"]')?.addEventListener('click', () => {
+            browserNewTab();
+          });
+          document.querySelector('[data-testid="browser-close-tab"]')?.addEventListener('click', () => {
+            browserCloseTab(state.browser.selectedTabID);
+          });
+          document.querySelectorAll('[data-testid="browser-tab"]').forEach(tab => {
+            tab.addEventListener('click', () => {
+              const commandID = tab.getAttribute('data-command-id') || '';
+              const id = commandID.replace(/^browser-tab-select:/, '');
+              browserSelectTab(id);
+            });
+          });
 	      document.querySelector('[data-testid="browser-address"]')?.addEventListener('input', event => {
 	        state.browser.addressDraft = event.target.value;
 	        document.querySelector('[data-testid="browser-open"]').disabled = !state.browser.addressDraft.trim();
@@ -6958,12 +7027,26 @@
 	          <p>${escapeHTML(comment.text)}</p>
 	          <small>${escapeHTML(comment.url)}</small>
 	        </article>`).join('');
+          const tabs = state.browser.tabs.map(tab => {
+            const active = tab.id === state.browser.selectedTabID;
+            const host = browserTabHost(tab);
+            return `
+              <button class="browser-tab hit-target-capsule ${active ? 'active' : ''}" type="button" data-testid="browser-tab" data-command-id="browser-tab-select:${escapeHTML(tab.id)}" aria-pressed="${active ? 'true' : 'false'}">
+                <span>${escapeHTML(browserTabLabel(tab))}</span>
+                ${host ? `<small>${escapeHTML(host)}</small>` : ''}
+              </button>`;
+          }).join('');
 	      return `
 	        <section class="browser-pane" data-testid="browser-pane">
 	          <header>
 	            <strong>Browser</strong>
 	            <span data-testid="browser-status-label">${escapeHTML(state.browser.statusLabel)}</span>
 	          </header>
+              <div class="browser-tabs" data-testid="browser-tabs">
+                ${tabs}
+                <button class="browser-tab-action hit-target-icon" type="button" data-testid="browser-new-tab" aria-label="New browser tab">+</button>
+                <button class="browser-tab-action hit-target-icon" type="button" data-testid="browser-close-tab" aria-label="Close browser tab" ${state.browser.tabs.length > 1 ? '' : 'disabled'}>×</button>
+              </div>
 	          <form class="browser-form" data-testid="browser-form">
             <div class="browser-nav-controls" aria-label="Browser navigation">
               <button class="browser-nav-button" type="button" data-testid="browser-back" aria-label="Back" ${browserCanGoBack() ? '' : 'disabled'}>&lt;</button>
@@ -8778,6 +8861,127 @@
       return Boolean(state.browser.currentURL);
     }
 
+    function ensureBrowserTab() {
+      if (!state.browser.tabs.length) {
+        const id = crypto.randomUUID();
+        state.browser.tabs = [{
+          id,
+          addressDraft: '',
+          currentURL: null,
+          history: [],
+          historyIndex: null,
+          title: 'Browser preview',
+          statusLabel: 'Ready',
+          snapshot: null,
+          comments: []
+        }];
+        state.browser.selectedTabID = id;
+      }
+      if (!state.browser.tabs.some(tab => tab.id === state.browser.selectedTabID)) {
+        state.browser.selectedTabID = state.browser.tabs[0].id;
+      }
+    }
+
+    function storeBrowserTab() {
+      ensureBrowserTab();
+      const index = state.browser.tabs.findIndex(tab => tab.id === state.browser.selectedTabID);
+      if (index < 0) return;
+      state.browser.tabs[index] = {
+        ...state.browser.tabs[index],
+        addressDraft: state.browser.addressDraft,
+        currentURL: state.browser.currentURL,
+        history: [...state.browser.history],
+        historyIndex: state.browser.historyIndex,
+        title: state.browser.title,
+        statusLabel: state.browser.statusLabel,
+        snapshot: state.browser.snapshot,
+        comments: [...state.browser.comments]
+      };
+    }
+
+    function loadBrowserTab() {
+      ensureBrowserTab();
+      const tab = state.browser.tabs.find(item => item.id === state.browser.selectedTabID);
+      if (!tab) return;
+      state.browser.addressDraft = tab.addressDraft;
+      state.browser.currentURL = tab.currentURL;
+      state.browser.history = [...tab.history];
+      state.browser.historyIndex = tab.historyIndex;
+      state.browser.title = tab.title;
+      state.browser.statusLabel = tab.statusLabel;
+      state.browser.snapshot = tab.snapshot;
+      state.browser.comments = [...tab.comments];
+    }
+
+    function browserTabLabel(tab) {
+      if (tab.currentURL) {
+        try {
+          const url = new URL(tab.currentURL);
+          return tab.title === 'Browser preview' ? url.hostname : tab.title;
+        } catch {
+          return tab.title || tab.currentURL;
+        }
+      }
+      return tab.title === 'Browser preview' ? 'New tab' : tab.title;
+    }
+
+    function browserTabHost(tab) {
+      if (!tab.currentURL) return '';
+      try {
+        return new URL(tab.currentURL).hostname;
+      } catch {
+        return tab.currentURL;
+      }
+    }
+
+    function browserNewTab() {
+      storeBrowserTab();
+      const id = crypto.randomUUID();
+      state.browser.tabs.push({
+        id,
+        addressDraft: '',
+        currentURL: null,
+        history: [],
+        historyIndex: null,
+        title: 'Browser preview',
+        statusLabel: 'Ready',
+        snapshot: null,
+        comments: []
+      });
+      state.browser.selectedTabID = id;
+      loadBrowserTab();
+      state.browser.isVisible = true;
+      state.browser.statusLabel = 'New tab';
+      storeBrowserTab();
+      syncBrowserCommandStates();
+      render();
+    }
+
+    function browserSelectTab(id) {
+      if (!state.browser.tabs.some(tab => tab.id === id)) return;
+      storeBrowserTab();
+      state.browser.selectedTabID = id;
+      loadBrowserTab();
+      state.browser.isVisible = true;
+      syncBrowserCommandStates();
+      render();
+    }
+
+    function browserCloseTab(id) {
+      if (state.browser.tabs.length <= 1) return;
+      const index = state.browser.tabs.findIndex(tab => tab.id === id);
+      if (index < 0) return;
+      const wasSelected = state.browser.selectedTabID === id;
+      state.browser.tabs.splice(index, 1);
+      if (wasSelected) {
+        const replacementIndex = Math.min(index, state.browser.tabs.length - 1);
+        state.browser.selectedTabID = state.browser.tabs[replacementIndex].id;
+        loadBrowserTab();
+      }
+      syncBrowserCommandStates();
+      render();
+    }
+
     function browserSessionTargetURL() {
       const rawDraft = state.browser.addressDraft.trim();
       return normalizeBrowserURL(rawDraft || state.browser.currentURL || '');
@@ -8827,6 +9031,7 @@
       if (updateHistory) {
         appendBrowserHistory(url);
       }
+      storeBrowserTab();
       syncBrowserCommandStates();
     }
 
@@ -8855,6 +9060,7 @@
       state.browser.isVisible = true;
       if (!url) {
         state.browser.statusLabel = 'Invalid session address';
+        storeBrowserTab();
         syncBrowserCommandStates();
         render();
         return;
@@ -8941,6 +9147,7 @@
 	      if (!url) {
 	        state.browser.statusLabel = 'Invalid address';
           state.browser.snapshot = null;
+          storeBrowserTab();
           syncBrowserCommandStates();
 	        render();
 	        return;
@@ -8958,6 +9165,7 @@
 	        text: comment
 	      });
 	      state.browser.statusLabel = 'Comment added';
+          storeBrowserTab();
 	      render();
 	    }
 

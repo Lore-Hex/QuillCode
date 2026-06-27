@@ -32,4 +32,21 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
         XCTAssertEqual(model.selectedThread?.title, "New chat")
     }
 
+    func testExecutorRunsBrowserTabCommandPlans() throws {
+        let model = QuillCodeWorkspaceModel()
+        let root = try makeTempDirectory()
+        let firstTabID = model.browser.selectedTabID
+
+        XCTAssertTrue(model.runWorkspaceCommand("browser-tab-new", workspaceRoot: root))
+        let secondTabID = model.browser.selectedTabID
+        XCTAssertNotEqual(firstTabID, secondTabID)
+        XCTAssertEqual(model.browser.tabs.count, 2)
+
+        XCTAssertTrue(model.runWorkspaceCommand("browser-tab-select:\(firstTabID.uuidString)", workspaceRoot: root))
+        XCTAssertEqual(model.browser.selectedTabID, firstTabID)
+        XCTAssertTrue(model.runWorkspaceCommand("browser-tab-close:\(firstTabID.uuidString)", workspaceRoot: root))
+        XCTAssertEqual(model.browser.selectedTabID, secondTabID)
+        XCTAssertEqual(model.browser.tabs.count, 1)
+    }
+
 }

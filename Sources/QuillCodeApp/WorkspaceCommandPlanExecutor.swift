@@ -46,6 +46,13 @@ extension QuillCodeWorkspaceModel {
         case .toggleThreadSelection(let id):
             toggleSidebarThreadSelection(id)
             return true
+        case .newBrowserTab:
+            _ = newBrowserTab()
+            return true
+        case .selectBrowserTab(let id):
+            return selectBrowserTab(id: id)
+        case .closeBrowserTab(let id):
+            return closeBrowserTab(id: id)
         case .toggleActivitySection(let section):
             toggleActivitySection(section)
             return true

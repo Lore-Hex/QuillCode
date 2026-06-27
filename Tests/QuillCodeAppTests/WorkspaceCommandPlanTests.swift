@@ -137,6 +137,18 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .toggleThreadSelection(id: id)
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "browser-tab-new"),
+            .newBrowserTab
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "browser-tab-select:\(id.uuidString)"),
+            .selectBrowserTab(id: id)
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "browser-tab-close:\(id.uuidString)"),
+            .closeBrowserTab(id: id)
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "activity-toggle-section:tools"),
             .toggleActivitySection(.tools)
         )
@@ -212,6 +224,8 @@ final class WorkspaceCommandPlanTests: XCTestCase {
         XCTAssertNil(WorkspaceCommandPlan(commandID: "mcp-resource:mcp_server:filesystem"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "mcp-resource:mcp_server:filesystem:not-a-number"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "mcp-prompt::0"))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "browser-tab-select:not-a-uuid"))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "browser-tab-close:not-a-uuid"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "activity-toggle-section:not-real"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "slash-command:9999"))
     }

@@ -59,6 +59,24 @@ test('mock harness opens browser preview and records comments', async ({ page })
   expect(outlineStyle.backgroundColor).toBe('rgba(0, 0, 0, 0)');
   expect(outlineStyle.borderRadius).toBe('0px');
 
+  await expect(page.getByTestId('browser-tab')).toHaveCount(1);
+  await expect(page.getByTestId('browser-close-tab')).toBeDisabled();
+  await page.getByTestId('browser-new-tab').click();
+  await expect(page.getByTestId('browser-tab')).toHaveCount(2);
+  await expect(page.getByTestId('browser-empty')).toBeVisible();
+  await expect(page.getByTestId('browser-close-tab')).toBeEnabled();
+
+  await page.getByLabel('Browser address').fill('example.com/docs');
+  await page.getByTestId('browser-open').click();
+  await expect(page.getByTestId('browser-current-url')).toHaveText('https://example.com/docs');
+  await page.getByTestId('browser-tab').first().click();
+  await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
+  await page.getByTestId('browser-tab').nth(1).click();
+  await expect(page.getByTestId('browser-current-url')).toHaveText('https://example.com/docs');
+  await page.getByTestId('browser-close-tab').click();
+  await expect(page.getByTestId('browser-tab')).toHaveCount(1);
+  await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
+
   await page.getByLabel('Browser address').fill('example.com/docs');
   await page.getByTestId('browser-open').click();
   await expect(page.getByTestId('browser-current-url')).toHaveText('https://example.com/docs');

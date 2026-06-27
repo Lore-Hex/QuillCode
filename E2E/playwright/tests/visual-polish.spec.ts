@@ -162,6 +162,9 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   await expectHitTarget(page.getByTestId('browser-session'), 'browser session button');
   await expectHitTarget(page.getByTestId('browser-open'), 'browser open button');
   await expectHitTarget(page.getByTestId('browser-add-comment'), 'browser comment button');
+  await expectHitTarget(page.getByTestId('browser-tab'), 'browser tab button');
+  await expectHitTarget(page.getByTestId('browser-new-tab'), 'browser new tab button');
+  await expectHitTarget(page.getByTestId('browser-close-tab'), 'browser close tab button');
 
   await clickSidebarTool(page, 'terminal-button');
   await expect(page.getByTestId('terminal-pane')).toBeVisible();

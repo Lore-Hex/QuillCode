@@ -146,4 +146,33 @@ extension QuillCodeWorkspaceModel {
             WorkspaceBrowserWorkflow.addComment(text, browser: &browser)
         }
     }
+
+    @discardableResult
+    public func newBrowserTab() -> UUID {
+        let tabID = mutateBrowserState { browser, _ in
+            WorkspaceBrowserWorkflow.newTab(browser: &browser)
+        }
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        return tabID
+    }
+
+    @discardableResult
+    public func selectBrowserTab(id: UUID) -> Bool {
+        let selected = mutateBrowserState { browser, _ in
+            WorkspaceBrowserWorkflow.selectTab(id: id, browser: &browser)
+        }
+        guard selected else { return false }
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        return true
+    }
+
+    @discardableResult
+    public func closeBrowserTab(id: UUID) -> Bool {
+        let closed = mutateBrowserState { browser, _ in
+            WorkspaceBrowserWorkflow.closeTab(id: id, browser: &browser)
+        }
+        guard closed else { return false }
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        return true
+    }
 }

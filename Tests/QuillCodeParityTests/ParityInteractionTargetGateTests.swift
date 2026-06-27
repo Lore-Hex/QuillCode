@@ -32,6 +32,12 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && auditHelperText.contains("textarea"),
             "The rendered click-target audit should cover native controls, ARIA controls, tabs, and text entry."
         )
+        XCTAssertTrue(
+            auditHelperText.contains("closestInteractiveAncestor")
+                && auditHelperText.contains("nestedIssues")
+                && auditHelperText.contains("expectNoNestedInteractiveTargets"),
+            "The rendered click-target audit should fail nested interactive controls, not only undersized controls."
+        )
     }
 
 }

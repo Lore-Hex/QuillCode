@@ -359,6 +359,11 @@ final class WorkspaceBrowserIntegrationTests: XCTestCase {
         let html = WorkspaceHTMLRenderer.render(model.surface())
 
         XCTAssertTrue(html.contains(#"data-testid="browser-pane""#))
+        XCTAssertTrue(html.contains(#"data-testid="browser-tabs""#))
+        XCTAssertTrue(html.contains(#"class="browser-tab hit-target-capsule active" type="button" data-testid="browser-tab""#))
+        XCTAssertTrue(html.contains(#"class="browser-tab-action hit-target-icon" type="button" data-testid="browser-new-tab""#))
+        XCTAssertTrue(html.contains(#"class="browser-tab-action hit-target-icon" type="button" data-testid="browser-close-tab""#))
+        XCTAssertTrue(html.contains(#"data-command-id="browser-tab-new""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-preview""#))
         XCTAssertTrue(html.contains(#"class="browser-nav-controls" aria-label="Browser navigation""#))
         XCTAssertTrue(html.contains(#"class="browser-nav-button" type="button" data-testid="browser-back" aria-label="Back" disabled"#))

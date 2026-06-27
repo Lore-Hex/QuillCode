@@ -14,6 +14,7 @@ struct QuillCodeBrowserPaneView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             header
+            tabStrip
             navigationBar
             pageSummary
             commentInput
@@ -34,6 +35,52 @@ struct QuillCodeBrowserPaneView: View {
                 .font(.caption)
                 .foregroundStyle(QuillCodePalette.muted)
             Spacer()
+        }
+    }
+
+    private var tabStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(browser.tabs) { tab in
+                    Button {
+                        onCommand(tab.selectCommandID)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(tab.title)
+                                .font(.caption.weight(tab.isActive ? .semibold : .regular))
+                                .lineLimit(1)
+                            if let urlLabel = tab.urlLabel, tab.isActive {
+                                Text(urlLabel)
+                                    .font(.caption2)
+                                    .foregroundStyle(QuillCodePalette.muted)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .quillCodeCapsuleButtonTarget(minWidth: 112)
+                    }
+                    .buttonStyle(QuillCodePressableButtonStyle())
+                    .foregroundStyle(tab.isActive ? QuillCodePalette.text : QuillCodePalette.muted)
+                    .background(tab.isActive ? QuillCodePalette.selection.opacity(0.42) : QuillCodePalette.panel.opacity(0.8))
+                    .clipShape(Capsule())
+                    .accessibilityLabel(tab.isActive ? "Current browser tab \(tab.title)" : "Switch to browser tab \(tab.title)")
+                }
+
+                browserNavigationButton(
+                    systemName: "plus",
+                    label: "New browser tab",
+                    isEnabled: true
+                ) {
+                    onCommand("browser-tab-new")
+                }
+
+                browserNavigationButton(
+                    systemName: "xmark",
+                    label: "Close browser tab",
+                    isEnabled: browser.canCloseActiveTab
+                ) {
+                    onCommand("browser-tab-close:\(browser.activeTabID.uuidString)")
+                }
+            }
         }
     }
 

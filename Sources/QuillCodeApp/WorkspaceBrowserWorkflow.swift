@@ -1,11 +1,13 @@
 import Foundation
 
 struct WorkspaceBrowserSnapshotRequest: Sendable, Hashable {
+    var tabID: UUID
     var currentURL: String
     var fetchURL: URL
 }
 
 struct WorkspaceBrowserLiveDOMRequest: Sendable, Hashable {
+    var tabID: UUID
     var currentURL: String
     var captureURL: URL
 }
@@ -63,7 +65,11 @@ enum WorkspaceBrowserWorkflow {
         }
 
         browser.status = "Fetching snapshot"
-        return WorkspaceBrowserSnapshotRequest(currentURL: currentURL, fetchURL: url)
+        return WorkspaceBrowserSnapshotRequest(
+            tabID: browser.selectedTabID,
+            currentURL: currentURL,
+            fetchURL: url
+        )
     }
 
     static func beginLiveDOMCapture(browser: inout BrowserState) -> WorkspaceBrowserLiveDOMRequest? {
@@ -75,7 +81,11 @@ enum WorkspaceBrowserWorkflow {
         }
 
         browser.status = "Capturing DOM"
-        return WorkspaceBrowserLiveDOMRequest(currentURL: currentURL, captureURL: url)
+        return WorkspaceBrowserLiveDOMRequest(
+            tabID: browser.selectedTabID,
+            currentURL: currentURL,
+            captureURL: url
+        )
     }
 
     @discardableResult
@@ -85,7 +95,9 @@ enum WorkspaceBrowserWorkflow {
         browser: inout BrowserState,
         lastError: inout String?
     ) -> Bool {
-        guard browser.currentURL == request.currentURL else { return false }
+        guard browser.selectedTabID == request.tabID,
+              browser.currentURL == request.currentURL
+        else { return false }
         WorkspaceBrowserEngine.applyFetchedPage(fetchedPage, originalURL: request.fetchURL, state: &browser)
         lastError = nil
         return true
@@ -98,7 +110,9 @@ enum WorkspaceBrowserWorkflow {
         browser: inout BrowserState,
         lastError: inout String?
     ) -> Bool {
-        guard browser.currentURL == request.currentURL else { return false }
+        guard browser.selectedTabID == request.tabID,
+              browser.currentURL == request.currentURL
+        else { return false }
         WorkspaceBrowserEngine.markSnapshotFetchFailure(error, state: &browser)
         lastError = nil
         return true
@@ -111,7 +125,9 @@ enum WorkspaceBrowserWorkflow {
         browser: inout BrowserState,
         lastError: inout String?
     ) -> Bool {
-        guard browser.currentURL == request.currentURL else { return false }
+        guard browser.selectedTabID == request.tabID,
+              browser.currentURL == request.currentURL
+        else { return false }
         WorkspaceBrowserEngine.applyLiveDOMSnapshot(snapshot, originalURL: request.captureURL, state: &browser)
         lastError = nil
         return true
@@ -124,7 +140,9 @@ enum WorkspaceBrowserWorkflow {
         browser: inout BrowserState,
         lastError: inout String?
     ) -> Bool {
-        guard browser.currentURL == request.currentURL else { return false }
+        guard browser.selectedTabID == request.tabID,
+              browser.currentURL == request.currentURL
+        else { return false }
         WorkspaceBrowserEngine.markLiveDOMCaptureFailure(error, state: &browser)
         lastError = nil
         return true
@@ -133,5 +151,20 @@ enum WorkspaceBrowserWorkflow {
     @discardableResult
     static func addComment(_ text: String, browser: inout BrowserState) -> Bool {
         WorkspaceBrowserEngine.addComment(text, state: &browser)
+    }
+
+    @discardableResult
+    static func newTab(browser: inout BrowserState) -> UUID {
+        WorkspaceBrowserEngine.newTab(state: &browser)
+    }
+
+    @discardableResult
+    static func selectTab(id: UUID, browser: inout BrowserState) -> Bool {
+        WorkspaceBrowserEngine.selectTab(id: id, state: &browser)
+    }
+
+    @discardableResult
+    static func closeTab(id: UUID, browser: inout BrowserState) -> Bool {
+        WorkspaceBrowserEngine.closeTab(id: id, state: &browser)
     }
 }

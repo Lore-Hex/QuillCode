@@ -131,4 +131,45 @@ final class WorkspaceBrowserEngineTests: XCTestCase {
         XCTAssertEqual(browser.comments[0].url, "https://example.com")
         XCTAssertEqual(browser.status, "Comment added")
     }
+
+    func testTabsPreserveIndependentPageState() throws {
+        var browser = BrowserState()
+        WorkspaceBrowserEngine.openPage(try XCTUnwrap(URL(string: "https://example.com/docs")), state: &browser, updateHistory: true)
+        XCTAssertTrue(WorkspaceBrowserEngine.addComment("First tab note", state: &browser))
+        let firstTabID = browser.selectedTabID
+
+        let secondTabID = WorkspaceBrowserEngine.newTab(state: &browser)
+        XCTAssertEqual(browser.selectedTabID, secondTabID)
+        XCTAssertNil(browser.currentURL)
+        XCTAssertEqual(browser.status, "New tab")
+
+        WorkspaceBrowserEngine.openPage(try XCTUnwrap(URL(string: "http://localhost:5173")), state: &browser, updateHistory: true)
+        XCTAssertEqual(browser.currentURL, "http://localhost:5173")
+        XCTAssertEqual(browser.comments, [])
+
+        XCTAssertTrue(WorkspaceBrowserEngine.selectTab(id: firstTabID, state: &browser))
+        XCTAssertEqual(browser.currentURL, "https://example.com/docs")
+        XCTAssertEqual(browser.history, ["https://example.com/docs"])
+        XCTAssertEqual(browser.comments.map(\.text), ["First tab note"])
+
+        XCTAssertTrue(WorkspaceBrowserEngine.selectTab(id: secondTabID, state: &browser))
+        XCTAssertEqual(browser.currentURL, "http://localhost:5173")
+        XCTAssertEqual(browser.history, ["http://localhost:5173"])
+        XCTAssertEqual(browser.comments, [])
+    }
+
+    func testClosingSelectedTabLoadsNeighborAndKeepsLastTabOpen() throws {
+        var browser = BrowserState()
+        let firstTabID = browser.selectedTabID
+        WorkspaceBrowserEngine.openPage(try XCTUnwrap(URL(string: "https://example.com")), state: &browser, updateHistory: true)
+        let secondTabID = WorkspaceBrowserEngine.newTab(state: &browser)
+        WorkspaceBrowserEngine.openPage(try XCTUnwrap(URL(string: "https://trustedrouter.com")), state: &browser, updateHistory: true)
+
+        XCTAssertTrue(WorkspaceBrowserEngine.closeTab(id: secondTabID, state: &browser))
+        XCTAssertEqual(browser.selectedTabID, firstTabID)
+        XCTAssertEqual(browser.currentURL, "https://example.com")
+        XCTAssertEqual(browser.tabs.count, 1)
+        XCTAssertFalse(WorkspaceBrowserEngine.closeTab(id: firstTabID, state: &browser))
+        XCTAssertEqual(browser.tabs.count, 1)
+    }
 }

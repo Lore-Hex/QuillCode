@@ -20,6 +20,9 @@ enum WorkspaceCommandPlan: Equatable {
     case installExtension(id: String)
     case updateExtension(id: String)
     case toggleThreadSelection(id: UUID)
+    case newBrowserTab
+    case selectBrowserTab(id: UUID)
+    case closeBrowserTab(id: UUID)
     case toggleActivitySection(ActivitySectionKind)
     case setDraft(String)
     case runTool(name: String)
@@ -130,6 +133,15 @@ enum WorkspaceCommandPlan: Equatable {
         }
         if let id = commandID.uuidValue(after: "thread-selection-toggle:") {
             return .toggleThreadSelection(id: id)
+        }
+        if commandID == "browser-tab-new" {
+            return .newBrowserTab
+        }
+        if let id = commandID.uuidValue(after: "browser-tab-select:") {
+            return .selectBrowserTab(id: id)
+        }
+        if let id = commandID.uuidValue(after: "browser-tab-close:") {
+            return .closeBrowserTab(id: id)
         }
         if let rawKind = commandID.value(after: "activity-toggle-section:"),
            let section = ActivitySectionKind(rawValue: rawKind) {
