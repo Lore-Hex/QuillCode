@@ -23,6 +23,7 @@
       --shadow-border-hover: 0 0 0 1px rgba(255, 255, 255, 0.13);
       --shadow-panel: 0 0 0 1px rgba(255,255,255,.09), 0 18px 54px rgba(0,0,0,.30);
       --shadow-surface-hover: 0 0 0 1px rgba(255,255,255,.14), 0 12px 30px rgba(0,0,0,.18);
+      --hit-target: 44px;
     }
     * { box-sizing: border-box; }
     .visually-hidden {
@@ -64,7 +65,7 @@
       grid-template-columns: minmax(120px, 240px) minmax(0, 1fr) auto;
       align-items: center;
       gap: 14px;
-      min-height: 40px;
+      min-height: var(--hit-target);
       padding: 0 14px;
       border-bottom: 1px solid rgba(255,255,255,.10);
       background: rgba(12, 18, 22, .94);
@@ -133,7 +134,7 @@
       flex-wrap: nowrap;
     }
     .topbar-action-cluster button {
-      min-height: 34px;
+      min-height: var(--hit-target);
       padding: 5px 9px;
       border-radius: 999px;
       background: rgba(255,255,255,.055);
@@ -143,7 +144,7 @@
     }
     .topbar-action-cluster button { font-weight: 600; }
     .model-picker-wrap [data-testid="model-picker-button"] {
-      min-height: 40px;
+      min-height: var(--hit-target);
       padding: 0 8px;
       border-color: transparent;
       background: transparent;
@@ -168,7 +169,7 @@
       color: var(--text);
     }
     .mode-pill-button {
-      min-height: 40px;
+      min-height: var(--hit-target);
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -212,8 +213,8 @@
       background: var(--green);
     }
     .topbar-action-cluster button {
-      width: 40px;
-      min-height: 40px;
+      width: var(--hit-target);
+      min-height: var(--hit-target);
       padding: 0;
       display: grid;
       place-items: center;
@@ -228,8 +229,8 @@
       position: relative;
     }
     .topbar-overflow-menu summary {
-      width: 40px;
-      min-height: 40px;
+      width: var(--hit-target);
+      min-height: var(--hit-target);
       padding: 0;
       display: grid;
       place-items: center;
@@ -280,7 +281,7 @@
     }
     .topbar-overflow-popover button {
       width: 100%;
-      min-height: 40px;
+      min-height: var(--hit-target);
       padding: 0 10px;
       display: block;
       text-align: left;
@@ -391,7 +392,7 @@
       font-weight: 600;
     }
     .model-clear-search {
-      min-height: 40px;
+      min-height: var(--hit-target);
       padding: 0 8px;
       border: 0;
       color: var(--blue);
@@ -419,9 +420,9 @@
     }
     .model-detail-toggle,
     .model-favorite {
-      width: 40px;
-      min-width: 40px;
-      height: 40px;
+      width: var(--hit-target);
+      min-width: var(--hit-target);
+      height: var(--hit-target);
       padding: 0;
       display: grid;
       place-items: center;
@@ -659,16 +660,16 @@
       margin-bottom: 0;
     }
     .sidebar-title-row .sidebar-bulk-action {
-      min-height: 32px;
-      padding: 4px 9px;
+      min-height: var(--hit-target);
+      padding: 0 10px;
       font-size: 12px;
       color: var(--muted);
       background: transparent;
       border-color: rgba(255,255,255,.08);
     }
     .sidebar-icon-button {
-      width: 40px;
-      height: 40px;
+      width: var(--hit-target);
+      height: var(--hit-target);
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,.12);
       color: var(--blue);
@@ -682,7 +683,7 @@
     }
     .sidebar-action {
       width: 100%;
-      min-height: 40px;
+      min-height: var(--hit-target);
       padding: 7px 10px;
       display: flex;
       align-items: center;
@@ -738,8 +739,8 @@
       padding-left: 2px;
     }
     .sidebar-utility-row .sidebar-action {
-      width: 40px;
-      min-width: 40px;
+      width: var(--hit-target);
+      min-width: var(--hit-target);
       padding: 0;
       display: grid;
       place-items: center;
@@ -762,7 +763,7 @@
     }
     .sidebar-tools-menu summary,
     .sidebar-settings-button {
-      min-height: 40px;
+      min-height: var(--hit-target);
       border: 1px solid rgba(255,255,255,.08);
       background: rgba(255,255,255,.045);
       color: var(--muted);
@@ -839,7 +840,7 @@
       text-transform: uppercase;
     }
     .sidebar-tool-action {
-      min-height: 40px;
+      min-height: var(--hit-target);
       padding: 7px 10px;
       display: flex;
       align-items: center;
@@ -907,7 +908,7 @@
       gap: 6px;
     }
     .sidebar-bulk-action {
-      min-height: 40px;
+      min-height: var(--hit-target);
       padding: 7px 10px;
       font-size: .78rem;
       font-weight: 700;
@@ -924,8 +925,8 @@
       left: 8px;
       top: 10px;
       z-index: 2;
-      width: 40px;
-      height: 40px;
+      width: var(--hit-target);
+      height: var(--hit-target);
       padding: 0;
       border-radius: 999px;
       border-color: rgba(65,184,232,.45);
@@ -973,8 +974,8 @@
     .sidebar-thread-menu summary {
       display: grid;
       place-items: center;
-      width: 40px;
-      height: 40px;
+      width: var(--hit-target);
+      height: var(--hit-target);
       border-radius: 13px;
       border: 1px solid rgba(255,255,255,.1);
       color: var(--muted);
@@ -1005,7 +1006,7 @@
     .sidebar-thread-menu-popover button {
       width: 100%;
       min-width: 0;
-      min-height: 40px;
+      min-height: var(--hit-target);
       padding: 0 9px;
       text-align: left;
       white-space: nowrap;
@@ -1227,13 +1228,13 @@
     }
     .browser-nav-controls {
       display: grid;
-      grid-template-columns: repeat(3, 40px) minmax(72px, auto);
+      grid-template-columns: repeat(3, var(--hit-target)) minmax(72px, auto);
       gap: 6px;
       align-items: center;
     }
     .browser-nav-button {
-      min-width: 40px;
-      width: 40px;
+      min-width: var(--hit-target);
+      width: var(--hit-target);
       padding: 0;
       border-radius: 11px;
       background: rgba(255,255,255,.08);
@@ -1560,7 +1561,7 @@
     [data-testid="automation-create-workspace-schedule"],
     [data-testid="automation-schedule-follow-up"],
     [data-testid="automation-schedule-workspace"] {
-      min-height: 40px;
+      min-height: var(--hit-target);
       border: 1px solid var(--line);
       border-radius: 999px;
       background: rgba(92, 200, 255, 0.12);
@@ -1615,7 +1616,7 @@
     .message.user .transcript-actions { justify-content: flex-end; }
     .message.assistant .transcript-actions { justify-content: flex-start; }
     .transcript-copy-button {
-      min-height: 40px;
+      min-height: var(--hit-target);
       border: 0;
       border-radius: 999px;
       padding: 5px 9px;
@@ -1630,7 +1631,7 @@
       background: rgba(82,210,115,.16);
     }
     .transcript-feedback-button {
-      min-height: 40px;
+      min-height: var(--hit-target);
       border: 0;
       border-radius: 999px;
       padding: 5px 8px;
@@ -1680,7 +1681,7 @@
       margin-top: 10px;
     }
     .tool-card-actions button {
-      min-height: 40px;
+      min-height: var(--hit-target);
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,.10);
       padding: 0 12px;
@@ -1844,8 +1845,8 @@
       color: #75d7ff;
     }
     .artifact-document-preview a {
-      min-width: 40px;
-      min-height: 40px;
+      min-width: var(--hit-target);
+      min-height: var(--hit-target);
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -1914,7 +1915,7 @@
     .tool-details summary {
       display: inline-flex;
       align-items: center;
-      min-height: 40px;
+      min-height: var(--hit-target);
       padding: 0 10px;
       border-radius: 999px;
       cursor: pointer;
@@ -1960,7 +1961,8 @@
     }
     .context-banner div { display: flex; gap: 8px; flex-wrap: wrap; }
     .context-banner button {
-      padding: 8px 12px;
+      min-height: var(--hit-target);
+      padding: 0 12px;
       border-radius: 999px;
       border: 1px solid rgba(248,184,78,.28);
       background: rgba(248,184,78,.14);
@@ -1996,6 +1998,11 @@
       color: var(--yellow);
       font-size: 12px;
       font-weight: 700;
+    }
+    .runtime-issue button {
+      min-height: var(--hit-target);
+      padding: 0 12px;
+      cursor: pointer;
     }
     .runtime-issue.error span,
     .runtime-issue.error button {
@@ -2258,7 +2265,7 @@
     }
     .composer-controls {
       min-width: 0;
-      min-height: 40px;
+      min-height: var(--hit-target);
       display: flex;
       align-items: center;
       gap: 8px;
@@ -2344,7 +2351,7 @@
     input,
     textarea {
       min-width: 0;
-      min-height: 40px;
+      min-height: var(--hit-target);
       padding: 13px 15px;
       border-radius: 13px;
       border: 1px solid rgba(255,255,255,.14);
@@ -2362,7 +2369,7 @@
       box-shadow: 0 0 0 3px rgba(65,184,232,.18);
     }
     button {
-      min-height: 40px;
+      min-height: var(--hit-target);
       padding: 0 18px;
       border: 0;
       border-radius: 13px;
@@ -2407,7 +2414,7 @@
       transition-timing-function: var(--ease-out);
     }
     .topbar-cluster .model-option {
-      min-height: 40px;
+      min-height: var(--hit-target);
       padding: 8px 10px;
       border: 0;
       border-radius: 12px;
@@ -2451,9 +2458,9 @@
     }
     .topbar-cluster .model-detail-toggle,
     .topbar-cluster .model-favorite {
-      width: 40px;
-      min-width: 40px;
-      min-height: 40px;
+      width: var(--hit-target);
+      min-width: var(--hit-target);
+      min-height: var(--hit-target);
       display: grid;
       place-items: center;
       padding: 0;

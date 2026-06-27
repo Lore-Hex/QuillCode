@@ -26,7 +26,7 @@ final class ParityTopBarGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(topBarViewText.contains("contextLabel"), "Native top bar should preserve a quiet leading context label.")
         XCTAssertTrue(topBarViewText.contains("threadTitle"), "Native top bar should center the active thread title.")
         XCTAssertTrue(topBarViewText.contains("showsActivityHairline"), "Native top bar should show run/error state as a subtle hairline instead of another pill.")
-        XCTAssertTrue(designText.contains("static let topBarHeight: CGFloat = 40"), "Native top bar should keep a compact Codex-style height.")
+        XCTAssertTrue(designText.contains("static let topBarHeight: CGFloat = 44"), "Native top bar should keep a compact Codex-style 44 pt hit target height.")
         XCTAssertFalse(topBarViewText.contains("statusIndicator"), "Native top bar should not reintroduce a permanent status pill.")
         XCTAssertFalse(topBarViewText.contains("QuillCodeTopBarPill"), "Native top bar should not reintroduce runtime issue pills into the main chrome.")
     }

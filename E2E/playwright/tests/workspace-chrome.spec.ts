@@ -8,7 +8,7 @@ import {
   openTopBarOverflow
 } from './harness-helpers';
 
-const MINIMUM_HIT_TARGET = 40;
+const MINIMUM_HIT_TARGET = 44;
 
 async function expectHitTarget(locator: Locator, label: string) {
   const target = locator.first();
@@ -181,29 +181,36 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   };
 
   expect(polish.rootFontSmoothing).toBe('antialiased');
-  expect(polish.sendMinHeight).toBeGreaterThanOrEqual(40);
-  expect(polish.addProjectWidth).toBeGreaterThanOrEqual(40);
-  expect(polish.addProjectHeight).toBeGreaterThanOrEqual(40);
+  expect(polish.sendMinHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
+  expect(polish.addProjectWidth).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
+  expect(polish.addProjectHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(polish.sendTransitionProperty).toContain('transform');
   expect(polish.sendTransitionProperty).not.toContain('all');
   expect(polish.inputTransitionProperty).toContain('box-shadow');
   expect(polish.sidebarActionTransitionProperty).toContain('transform');
   expect(polish.sidebarActionTransitionProperty).toContain('box-shadow');
   expect(polish.sidebarActionTransitionProperty).not.toContain('all');
-  expect(polish.sidebarActionMinHeight).toBeGreaterThanOrEqual(40);
-  expect(polish.sidebarToolsMinHeight).toBeGreaterThanOrEqual(40);
+  expect(polish.sidebarActionMinHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
+  expect(polish.sidebarToolsMinHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(polish.sidebarToolsTransitionProperty).toContain('transform');
   expect(polish.sidebarToolsTransitionProperty).not.toContain('all');
-  expect(polish.sidebarToolActionMinHeight).toBeGreaterThanOrEqual(40);
+  expect(polish.sidebarToolActionMinHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(polish.sidebarToolActionTransitionProperty).toContain('transform');
   expect(polish.sidebarToolActionTransitionProperty).not.toContain('all');
-  expect(polish.sidebarSettingsWidth).toBeGreaterThanOrEqual(40);
-  expect(polish.sidebarSettingsMinHeight).toBeGreaterThanOrEqual(40);
+  expect(polish.sidebarSettingsWidth).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
+  expect(polish.sidebarSettingsMinHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(polish.titleTextWrap).toContain('balance');
   expect(polish.agentStatusNumbers).toContain('tabular-nums');
   expect(polish.sidebarRadius).toBeLessThanOrEqual(4);
 
   await expectHitTarget(page.getByTestId('top-bar-overflow-button'), 'top-bar overflow button');
+  await expectHitTarget(page.getByTestId('new-chat-button'), 'new chat button');
+  await expectHitTarget(page.getByTestId('sidebar-search-button'), 'sidebar search button');
+  await expectHitTarget(page.getByTestId('extensions-button'), 'plugins button');
+  await expectHitTarget(page.getByTestId('automations-button'), 'automations button');
+  await expectHitTarget(page.getByTestId('add-project-button'), 'add project button');
+  await expectHitTarget(page.getByTestId('sidebar-tools-button'), 'sidebar tools button');
+  await expectHitTarget(page.getByTestId('settings-button'), 'settings button');
   await expectHitTarget(page.getByTestId('model-picker-button'), 'model picker button');
   await expectHitTarget(page.getByTestId('mode-picker-button'), 'mode picker button');
 
@@ -247,14 +254,31 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(transcriptPolish.toolCardMinHeight).toBeGreaterThanOrEqual(58);
   expect(transcriptPolish.toolCardRenderedHeight).toBeGreaterThanOrEqual(58);
   expect(transcriptPolish.toolStatusNumbers).toContain('tabular-nums');
-  expect(transcriptPolish.toolCopyMinHeight).toBeGreaterThanOrEqual(40);
-  expect(transcriptPolish.messageCopyMinHeight).toBeGreaterThanOrEqual(40);
-  expect(transcriptPolish.sidebarMenuWidth).toBeGreaterThanOrEqual(40);
-  expect(transcriptPolish.sidebarMenuHeight).toBeGreaterThanOrEqual(40);
+  expect(transcriptPolish.toolCopyMinHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
+  expect(transcriptPolish.messageCopyMinHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
+  expect(transcriptPolish.sidebarMenuWidth).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
+  expect(transcriptPolish.sidebarMenuHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   await expectHitTarget(page.locator('[data-testid="tool-card-details"] summary'), 'tool details disclosure');
 });
 
-test('mock harness keeps secondary pane actions at least 40px', async ({ page }) => {
+test('mock harness keeps banner and recovery actions at least 44px', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('long context ' + 'word '.repeat(22000));
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('context-banner')).toBeVisible();
+  await expectHitTarget(page.getByTestId('context-compact'), 'context compact button');
+  await expectHitTarget(page.getByTestId('context-new-thread'), 'context new thread button');
+  await expectHitTarget(page.getByTestId('context-fork-last'), 'context fork button');
+
+  await page.getByLabel('Message').fill('trigger network failure');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('runtime-issue')).toBeVisible();
+  await expectHitTarget(page.getByTestId('runtime-issue-action'), 'runtime recovery button');
+});
+
+test('mock harness keeps secondary pane actions at least 44px', async ({ page }) => {
   await page.goto(harnessURL());
 
   await clickSidebarTool(page, 'terminal-button');
@@ -355,6 +379,6 @@ test('mock harness keeps quiet top bar stable under long status metadata', async
   expect(metrics.contextTextOverflow).toBe('ellipsis');
   expect(metrics.metadataWidth).toBeLessThanOrEqual(1);
   expect(metrics.metadataHeight).toBeLessThanOrEqual(1);
-  expect(metrics.topBarHeight).toBeLessThanOrEqual(44);
+  expect(metrics.topBarHeight).toBeLessThanOrEqual(MINIMUM_HIT_TARGET + 1);
   expect(metrics.actionRight).toBeLessThanOrEqual(metrics.topBarRight);
 });
