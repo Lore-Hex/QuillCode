@@ -21,6 +21,21 @@ Overall grade: **A- foundation, B+ product surface maturity**.
 
 The architecture is moving in the right direction: core state is value typed, persistence and runtime adapters are separated, tools use explicit schemas, and SwiftUI plus the Playwright harness render from the same surface contract. The main drag on the grade is file size and feature density in the workspace layer, not a broken abstraction boundary.
 
+## 2026-06-27 Status E2E Coverage Pass
+
+Overall grade after this slice: **A real-world slash coverage, A status copy parity, A spec ownership**.
+
+The `/status` command had strong Swift coverage but no browser-level path through the composer, even though the Playwright harness advertised the command in slash suggestions. That left a realistic user flow untested: type `/status`, submit, and verify the transcript and top bar present the branded model state users actually see.
+
+- Added `status.spec.ts` with composer-driven `/status` coverage for the default Nike 1.0 model and the Synth model after a real model-picker switch.
+- Implemented `/status` in the HTML harness so the mock app exercises the command end to end instead of only documenting it in suggestions.
+- Hardened the worktree-prune Playwright flow to assert the durable loaded state instead of a transient spinner that can disappear before the browser assertion attaches.
+- Added a parity gate so status E2E ownership stays in the focused spec and does not drift into `core.spec.ts` or `composer.spec.ts`.
+
+Residual risk:
+
+- This still uses the HTML harness rather than packaged native automation. Native smoke should eventually assert the same `/status` transcript after app launch/relaunch once the desktop UI runner can inspect SwiftUI text reliably.
+
 ## 2026-06-27 Shared Playwright Hit-Target Audit Pass
 
 Overall grade after this slice: **A reusable UI audit helper, A chrome spec cohesion, A regression coverage**.
