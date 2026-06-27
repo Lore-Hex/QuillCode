@@ -7995,3 +7995,19 @@ Code quality changes:
 Remaining risk:
 
 - This still exercises the CLI rather than the packaged SwiftUI app. It is valuable because it is cheap and required in CI, but native UI smoke should eventually drive these same prompts through the desktop window.
+
+## 2026-06-27 App Surface Real-World Action Pass
+
+Overall grade after this slice: **A shared-surface coverage, A side-effect verification, B+ packaged-window coverage**.
+
+The default smoke now catches the real prompt family through the CLI, but the app still needed a Swift-side guard that proves those same actions survive through the workspace model and renderable surface contract used by SwiftUI and the HTML harness.
+
+Code quality changes:
+
+- Added a compact table-driven workspace integration smoke that sends `whoami?`, disk usage, OpenClaw discovery, file creation, and local download prompts through `QuillCodeWorkspaceModel.submitComposer`.
+- The test validates the shared `WorkspaceSurface` timeline shape, tool card title/status/input, visible assistant answer, absence of passive “I'll run...” regressions, and real workspace file side effects.
+- The assertions normalize tool input JSON formatting so the test checks behavior and command content without coupling to pretty-print whitespace or JSON slash escaping.
+
+Remaining risk:
+
+- This still stops at the shared Swift app surface, not the packaged macOS window event loop. A future smoke should launch `quill-code-desktop`, drive the native window, and compare an appshot/screenshot against the same prompt family.
