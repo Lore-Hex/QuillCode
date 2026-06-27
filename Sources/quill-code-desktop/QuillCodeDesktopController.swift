@@ -140,43 +140,31 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func setMode(_ mode: AgentMode) {
-        model.setMode(mode)
-        settingsCoordinator.persist(model.root.config)
+        settingsCoordinator.setMode(mode, on: model)
         refresh()
     }
 
     func setModel(_ modelID: String) {
-        model.setModel(modelID)
-        settingsCoordinator.persist(model.root.config)
+        settingsCoordinator.setModel(modelID, on: model)
         refresh()
     }
 
     func toggleModelFavorite(_ modelID: String) {
-        model.toggleModelFavorite(modelID)
-        settingsCoordinator.persist(model.root.config)
+        settingsCoordinator.toggleModelFavorite(modelID, on: model)
         refresh()
     }
 
     func refreshModelCatalog() async {
-        let models = await bootstrap.fetchModelCatalog(config: model.root.config)
-        model.setModelCatalog(models)
+        await settingsCoordinator.refreshModelCatalog(on: model)
         refresh()
     }
 
     func saveSettings(_ update: WorkspaceSettingsUpdate) {
-        let result = settingsCoordinator.apply(
-            update: update,
-            currentConfig: model.root.config
+        settingsCoordinator.saveSettings(
+            update,
+            to: model,
+            refresh: { [weak self] in self?.refresh() }
         )
-        model.applySettings(
-            config: result.config,
-            trustedRouterAPIKeyConfigured: result.trustedRouterAPIKeyConfigured
-        )
-        model.applyRuntime(result.runtime)
-        refresh()
-        Task {
-            await refreshModelCatalog()
-        }
     }
 
     func startTrustedRouterSignIn() {
