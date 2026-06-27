@@ -8130,3 +8130,21 @@ Code quality changes:
 Remaining risk:
 
 - Native SwiftUI controls are still source-gated for target helpers instead of measured by packaged-app UI automation. Playwright continues to measure the mirrored HTML harness until native appshot/Accessibility pixel checks are wired into CI.
+
+## 2026-06-27 Native Desktop Executable Smoke Pass
+
+Overall grade after this slice: **A- product-executable coverage, A rendered side-effect proof, B+ packaged-window automation**.
+
+The previous native render smoke proved the SwiftUI surface in the test bundle, but it did not execute the built `quill-code-desktop` product. That left a gap where app-target initialization, executable wiring, or product-specific imports could fail while unit tests and the HTML harness stayed green.
+
+Code quality changes:
+
+- Added `QuillCodeDesktopSmokeRunner`, an explicit `--native-render-smoke` mode in the desktop executable that builds isolated temp state, forces the mock runtime, sends a real file-writing prompt through `QuillCodeDesktopController`, and verifies the created workspace file plus transcript message/tool/timeline counts.
+- The smoke renders `QuillCodeDesktopRootView` to a deterministic 1280x900 PNG and checks opacity, color diversity, bright text/control pixels, and QuillCode blue-accent pixels before returning a structured JSON report.
+- The same product run writes rendered workspace HTML and verifies that the transcript contains the expected `host.file.write` tool and `Wrote \`hello.txt\`.` final answer, so the gate is not satisfied by a merely nonblank chrome image.
+- Added `scripts/native-desktop-smoke.sh` as a release-gate wrapper that runs the product executable, verifies the JSON report, verifies the expected tool/final-answer/transcript counts, and rejects missing result HTML or suspiciously tiny PNG output.
+- Wired the native executable smoke into `scripts/smoke.sh`, so required CI now covers the desktop product render path in addition to Swift tests, CLI smoke, and Playwright.
+
+Remaining risk:
+
+- This still renders the SwiftUI root view offscreen and exits through a smoke flag; it does not synthesize real clicks/typing against a packaged `.app` window or verify AppKit menu-bar behavior. The next native layer should package the app and drive it through Accessibility/XCTest/appshot automation.
