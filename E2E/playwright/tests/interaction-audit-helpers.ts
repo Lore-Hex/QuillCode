@@ -199,8 +199,43 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
       return points.every(([x, y]) => isPointOwnedBy(element, x, y));
     }
 
+    function labelledByText(element: Element) {
+      const labelledBy = element.getAttribute('aria-labelledby');
+      if (!labelledBy) return '';
+      return labelledBy
+        .split(/\s+/)
+        .map((id) => document.getElementById(id)?.textContent || '')
+        .join(' ');
+    }
+
+    function placeholderText(element: Element) {
+      if (
+        element instanceof HTMLInputElement
+        || element instanceof HTMLTextAreaElement
+        || element instanceof HTMLSelectElement
+      ) {
+        return element.getAttribute('placeholder') || element.getAttribute('aria-placeholder') || '';
+      }
+      return '';
+    }
+
+    function accessibleName(element: Element) {
+      const explicitLabel = element.getAttribute('aria-label') || '';
+      const labelledText = labelledByText(element);
+      const title = element.getAttribute('title') || '';
+      const placeholder = placeholderText(element);
+      const visibleText = element.textContent || '';
+      return [explicitLabel, labelledText, title, placeholder, visibleText]
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
     function auditReason(element: Element, rect: DOMRect, clipped: VisibleRectResult) {
       const reasons = [];
+      if (!accessibleName(element)) {
+        reasons.push('missing_accessible_name');
+      }
       if (Math.round(rect.width) < minimumHitTarget || Math.round(rect.height) < minimumHitTarget) {
         reasons.push('too_small');
       }
