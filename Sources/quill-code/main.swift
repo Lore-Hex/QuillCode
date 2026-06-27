@@ -95,7 +95,8 @@ struct QuillCodeCLI {
             )
             runner = AgentRunner(
                 llm: llm,
-                safety: AutoSafetyReviewer(client: safetyClient)
+                safety: AutoSafetyReviewer(client: safetyClient),
+                enablesImmediateActionPreflight: true
             )
             thread.model = model
         } else {
