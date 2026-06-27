@@ -7271,3 +7271,27 @@ Strict grades:
 Remaining parity risk:
 
 - Browser and PR review-thread summaries are the most likely to grow richer. If either gains substantially more formatting logic, split that formatter family into a separate helper rather than expanding this file again.
+
+## 2026-06-27 Agent Tool Answer Formatter Owner
+
+Overall grade after this slice: **A final-answer reducer boundary, A formatter ownership, A- formatter family size**.
+
+The formatter registry made successful tool summaries extensible, but `AgentFinalAnswerBuilder.swift` still owned every tool-domain branch plus the reducer itself. That kept behavior correct but left the builder as a 496-line mixed file where shell, browser, MCP, Computer Use, PR review-thread, worktree, memory, patch, and file-write copy could collide with top-level failure/default answer changes.
+
+Code quality changes:
+
+- Moved successful tool-specific answer copy into `AgentToolAnswerFormatters`.
+- Reduced `AgentFinalAnswerBuilder` to failure handling, registry dispatch, and default output only.
+- Removed `QuillCodeTools` and `QuillComputerUseKit` imports from the core builder file.
+- Updated the parity gate so future tool-specific branches stay in the formatter owner instead of regrowing the reducer.
+- Preserved existing final-answer copy, truncation behavior, and behavioral test expectations.
+
+Strict grades:
+
+- `AgentFinalAnswerBuilder.swift`: **A**. It now owns one job: reduce a tool result into final chat copy by handling errors/defaults and delegating success formatters.
+- `AgentToolAnswerFormatters.swift`: **A-**. It is the right ownership boundary for current tool-specific copy. If browser, PR review-thread, or shell formatting grows substantially, split those families into smaller formatter files behind this registry.
+- `ParityAgentGateTests.swift`: **A**. The gate now enforces both sides of the boundary: the builder stays lean, and the formatter owner keeps the registry and tool imports.
+
+Remaining parity risk:
+
+- The formatter owner is intentionally broad across tool families. Keep it table-driven for now, but extract per-domain helpers when a formatter family needs more than compact summary logic.
