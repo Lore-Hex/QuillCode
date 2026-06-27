@@ -24,7 +24,7 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
 
     func surface() -> RuntimeIssueSurface? {
         if let lastError,
-           let issue = Self.issue(from: lastError, config: config) {
+           let issue = Self.issue(from: lastError, config: config, modelID: modelID) {
             return issue.withDiagnostics(diagnostics(lastError: lastError))
         }
 
@@ -56,16 +56,22 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
             RuntimeDiagnosticSurface(label: "Authentication", value: Self.authModeLabel(config.authMode)),
             RuntimeDiagnosticSurface(label: "Key state", value: hasStoredAPIKey ? "Configured" : "Missing"),
             RuntimeDiagnosticSurface(label: "Model", value: modelID),
+            RuntimeDiagnosticSurface(label: "Provider", value: Self.providerLabel(for: modelID)),
             RuntimeDiagnosticSurface(label: "Agent status", value: agentStatus)
         ]
         if let lastError {
             diagnostics.append(contentsOf: Self.rateLimitDiagnostics(from: lastError))
+            diagnostics.append(contentsOf: Self.providerOutageDiagnostics(from: lastError))
             diagnostics.append(RuntimeDiagnosticSurface(label: "Last error", value: Self.redactedDiagnosticError(lastError)))
         }
         return diagnostics
     }
 
-    static func issue(from error: String, config: AppConfig) -> RuntimeIssueSurface? {
+    static func issue(
+        from error: String,
+        config: AppConfig,
+        modelID: String = TrustedRouterDefaults.defaultModel
+    ) -> RuntimeIssueSurface? {
         let trimmed = error.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         let normalized = trimmed.lowercased()
@@ -91,6 +97,16 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
                 severity: .warning,
                 title: "TrustedRouter rate limit reached",
                 message: "TrustedRouter or the selected provider is rate limiting this request. Wait for reset, retry later, or switch models.",
+                actionLabel: "Switch model"
+            )
+        }
+        if isProviderOutageError(trimmed) {
+            let provider = providerLabel(for: modelID)
+            let modelName = TrustedRouterDefaults.displayName(fromModelID: modelID)
+            return RuntimeIssueSurface(
+                severity: .warning,
+                title: "TrustedRouter provider unavailable",
+                message: "\(provider) is not completing requests for \(modelName). Retry later or switch models while the provider recovers.",
                 actionLabel: "Switch model"
             )
         }
@@ -152,6 +168,20 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
         return diagnostics
     }
 
+    static func providerOutageDiagnostics(from error: String) -> [RuntimeDiagnosticSurface] {
+        guard isProviderOutageError(error) else { return [] }
+        var diagnostics = [
+            RuntimeDiagnosticSurface(label: "Provider status", value: "Unavailable")
+        ]
+        if let statusCode = httpStatusCode(from: error) {
+            diagnostics.append(RuntimeDiagnosticSurface(label: "HTTP status", value: statusCode))
+        }
+        if let requestID = requestID(from: error) {
+            diagnostics.append(RuntimeDiagnosticSurface(label: "Request ID", value: requestID))
+        }
+        return diagnostics
+    }
+
     static func redactedDiagnosticError(_ error: String) -> String {
         let redacted = error
             .replacingOccurrences(
@@ -177,6 +207,12 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
         }
     }
 
+    private static func providerLabel(for modelID: String) -> String {
+        let provider = TrustedRouterDefaults.provider(fromModelID: modelID)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return provider.isEmpty ? TrustedRouterDefaults.trustedRouterProvider : provider
+    }
+
     private static func firstCapture(in text: String, pattern: String) -> String? {
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
@@ -189,6 +225,20 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
         return String(text[captureRange])
     }
 
+    private static func httpStatusCode(from error: String) -> String? {
+        firstCapture(
+            in: error,
+            pattern: #"(?i)\b(?:http(?:\s+status)?|status(?:\s*code)?|response|server)\s*[:=]?\s*((?:50[0-4])|(?:5\d\d))\b"#
+        )
+    }
+
+    private static func requestID(from error: String) -> String? {
+        firstCapture(
+            in: error,
+            pattern: #"(?i)\b(?:x[-_ ]?)?request[-_ ]?id\b\s*[:=]?\s*([A-Za-z0-9._:-]{4,})"#
+        )
+    }
+
     private static func isRateLimitError(_ normalizedError: String) -> Bool {
         normalizedError.contains("429") ||
             normalizedError.contains("rate limit") ||
@@ -196,5 +246,20 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
             normalizedError.contains("quota exceeded") ||
             normalizedError.contains("usage limit") ||
             normalizedError.contains("too many requests")
+    }
+
+    private static func isProviderOutageError(_ error: String) -> Bool {
+        if httpStatusCode(from: error) != nil {
+            return true
+        }
+        let normalized = error.lowercased()
+        return normalized.contains("bad gateway") ||
+            normalized.contains("gateway timeout") ||
+            normalized.contains("service unavailable") ||
+            normalized.contains("provider unavailable") ||
+            normalized.contains("provider is unavailable") ||
+            normalized.contains("upstream") ||
+            normalized.contains("overloaded") ||
+            normalized.contains("temporarily unavailable")
     }
 }

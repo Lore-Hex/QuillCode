@@ -3304,6 +3304,13 @@
       return authMode === 'developer-override' ? 'Developer override' : 'TrustedRouter login';
     }
 
+    function providerLabel(modelID) {
+      const raw = String(modelID || '').trim();
+      if (!raw.includes('/')) return 'trustedrouter';
+      const provider = raw.split('/')[0].trim().toLowerCase();
+      return provider === 'tr' || provider === '' ? 'trustedrouter' : provider;
+    }
+
     function redactedDiagnosticError(error) {
       return String(error)
         .replace(/sk-[A-Za-z0-9_-]{8,}/g, 'sk-...redacted')
@@ -3336,16 +3343,51 @@
       return diagnostics;
     }
 
+    function httpStatusCode(error) {
+      const match = String(error).match(/\b(?:http(?:\s+status)?|status(?:\s*code)?|response|server)\s*[:=]?\s*((?:50[0-4])|(?:5\d\d))\b/i);
+      return match ? match[1] : null;
+    }
+
+    function requestID(error) {
+      const match = String(error).match(/\b(?:x[-_ ]?)?request[-_ ]?id\b\s*[:=]?\s*([A-Za-z0-9._:-]{4,})/i);
+      return match ? match[1] : null;
+    }
+
+    function isProviderOutageError(error) {
+      if (httpStatusCode(error)) return true;
+      const normalized = String(error).toLowerCase();
+      return normalized.includes('bad gateway')
+        || normalized.includes('gateway timeout')
+        || normalized.includes('service unavailable')
+        || normalized.includes('provider unavailable')
+        || normalized.includes('provider is unavailable')
+        || normalized.includes('upstream')
+        || normalized.includes('overloaded')
+        || normalized.includes('temporarily unavailable');
+    }
+
+    function providerOutageDiagnostics(error) {
+      if (!isProviderOutageError(error)) return [];
+      const diagnostics = [{ label: 'Provider status', value: 'Unavailable' }];
+      const status = httpStatusCode(error);
+      if (status) diagnostics.push({ label: 'HTTP status', value: status });
+      const id = requestID(error);
+      if (id) diagnostics.push({ label: 'Request ID', value: id });
+      return diagnostics;
+    }
+
     function runtimeDiagnostics(lastError = null) {
       const diagnostics = [
         { label: 'API base URL', value: state.settings.apiBaseURL },
         { label: 'Authentication', value: authModeLabel(state.settings.authMode) },
         { label: 'Key state', value: state.settings.hasStoredAPIKey ? 'Configured' : 'Missing' },
         { label: 'Model', value: state.topBar.selectedModelID },
+        { label: 'Provider', value: providerLabel(state.topBar.selectedModelID) },
         { label: 'Agent status', value: state.topBar.agentStatus }
       ];
       if (lastError) {
         diagnostics.push(...rateLimitDiagnostics(lastError));
+        diagnostics.push(...providerOutageDiagnostics(lastError));
         diagnostics.push({ label: 'Last error', value: redactedDiagnosticError(lastError) });
       }
       return diagnostics;
@@ -9190,6 +9232,17 @@
           severity: 'warning',
           title: 'TrustedRouter rate limit reached',
           message: 'TrustedRouter or the selected provider is rate limiting this request. Wait for reset, retry later, or switch models.',
+          actionLabel: 'Switch model'
+        }, lastError);
+      } else if (text.toLowerCase().includes('trigger provider outage')) {
+        state.topBar.agentStatus = 'Failed';
+        state.topBar.selectedModelID = 'deepseek/deepseek-v4-flash';
+        state.topBar.modelLabel = 'Deepseek V4 Flash';
+        const lastError = 'HTTP 503 service unavailable from upstream provider. request-id: req_abc123';
+        state.runtimeIssue = makeRuntimeIssue({
+          severity: 'warning',
+          title: 'TrustedRouter provider unavailable',
+          message: 'deepseek is not completing requests for Deepseek V4 Flash. Retry later or switch models while the provider recovers.',
           actionLabel: 'Switch model'
         }, lastError);
       } else if (text.toLowerCase().includes('trigger network failure')) {
