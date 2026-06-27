@@ -162,6 +162,41 @@ final class AgentStreamingTests: XCTestCase {
         XCTAssertTrue(progressMessages.contains(["say hello", "hello world"]))
     }
 
+    func testStreamingPromisedWorkDraftIsSuppressedBeforeCorrectionToolRuns() async throws {
+        let root = try makeTempDirectory()
+        let recorder = ProgressRecorder()
+        let runner = AgentRunner(llm: PromiseThenToolStreamingLLMClient(
+            promisedChunks: [
+                #"{"type":"say","text":"I'll"#,
+                #" run `whoami` now."}"#
+            ],
+            toolChunks: [
+                #"{"type":"tool","#,
+                #""name":"host.shell.run","#,
+                #""arguments":{"cmd":"whoami"}}"#
+            ]
+        ))
+
+        let result = try await runner.send(
+            "run whoami",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root,
+            onProgress: { thread in
+                await recorder.record(thread)
+            }
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll run") })
+        XCTAssertTrue(result.thread.messages.last?.content.hasPrefix("You are `") == true)
+
+        let progressMessages = await recorder.messageContents()
+        XCTAssertFalse(progressMessages.contains { snapshot in
+            snapshot.contains { $0.contains("I'll run") }
+        })
+    }
+
     private func waitUntil(
         timeoutSeconds: TimeInterval,
         condition: @escaping () async -> Bool
@@ -174,6 +209,62 @@ final class AgentStreamingTests: XCTestCase {
             try await Task.sleep(nanoseconds: 1_000_000)
         }
         XCTFail("Timed out waiting for condition.")
+    }
+}
+
+private actor StreamingRetryState {
+    private var didUsePromise = false
+    private let promisedChunks: [String]
+    private let toolChunks: [String]
+
+    init(promisedChunks: [String], toolChunks: [String]) {
+        self.promisedChunks = promisedChunks
+        self.toolChunks = toolChunks
+    }
+
+    func nextChunks() -> [String] {
+        if didUsePromise {
+            return toolChunks
+        }
+        didUsePromise = true
+        return promisedChunks
+    }
+}
+
+private struct PromiseThenToolStreamingLLMClient: StreamingLLMClient {
+    private let state: StreamingRetryState
+
+    init(promisedChunks: [String], toolChunks: [String]) {
+        self.state = StreamingRetryState(
+            promisedChunks: promisedChunks,
+            toolChunks: toolChunks
+        )
+    }
+
+    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        let stream = try await actionTextStream(
+            thread: thread,
+            userMessage: userMessage,
+            tools: tools
+        )
+        return try await AgentActionStreamCollector.collect(
+            from: stream,
+            emptyError: AgentError.emptyStreamingResponse
+        )
+    }
+
+    func actionTextStream(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) async throws -> AsyncThrowingStream<String, Error> {
+        let chunks = await state.nextChunks()
+        return AsyncThrowingStream { continuation in
+            for chunk in chunks {
+                continuation.yield(chunk)
+            }
+            continuation.finish()
+        }
     }
 }
 
