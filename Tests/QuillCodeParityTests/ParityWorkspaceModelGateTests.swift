@@ -86,6 +86,7 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         let htmlRendererText = try Self.appSourceText(named: "WorkspaceHTMLToolCardRenderer.swift")
         let desktopAppText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
         let desktopControllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let desktopActionCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopWorkspaceActionCoordinator.swift")
 
         XCTAssertTrue(toolCardSurfaceText.contains("public struct ToolCardActionSurface"), "Tool-card actions should be first-class surface state.")
         XCTAssertTrue(toolCardSurfaceText.contains("public enum ToolCardReviewState"), "Tool-card review substates should be explicit surface state.")
@@ -124,7 +125,8 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelText.contains("private func appendApprovalDecision"), "Workspace model should not own approval-decision event construction.")
         XCTAssertFalse(modelText.contains("approvalVerdict"), "Workspace model should not own tool-card action verdict mapping.")
         XCTAssertTrue(desktopAppText.contains("controller.runToolCardAction"), "Desktop app should connect UI actions to the controller.")
-        XCTAssertTrue(desktopControllerText.contains("model.runToolCardAction"), "Desktop controller should forward review-card actions to the model.")
+        XCTAssertTrue(desktopControllerText.contains("workspaceActionCoordinator.runToolCardAction"), "Desktop controller should forward review-card actions through a focused coordinator.")
+        XCTAssertTrue(desktopActionCoordinatorText.contains("model.runToolCardAction"), "Desktop workspace action coordinator should forward review-card actions to the model.")
     }
 
     func testWorkspaceModelDelegatesExecutionContextSurfaceBuilding() throws {

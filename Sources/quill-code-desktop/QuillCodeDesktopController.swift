@@ -30,6 +30,7 @@ final class QuillCodeDesktopController: ObservableObject {
     private let composerCoordinator: QuillCodeDesktopComposerCoordinator
     private let copyCoordinator: QuillCodeDesktopCopyCoordinator
     private let projectImportCoordinator: QuillCodeDesktopProjectImportCoordinator
+    private let workspaceActionCoordinator: QuillCodeDesktopWorkspaceActionCoordinator
     private let terminalCoordinator: QuillCodeDesktopTerminalCoordinator
     private let worktreeCoordinator: QuillCodeDesktopWorktreeCoordinator
     private let tasks = QuillCodeDesktopTaskCoordinator()
@@ -59,6 +60,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.composerCoordinator = QuillCodeDesktopComposerCoordinator()
         self.copyCoordinator = QuillCodeDesktopCopyCoordinator()
         self.projectImportCoordinator = QuillCodeDesktopProjectImportCoordinator()
+        self.workspaceActionCoordinator = QuillCodeDesktopWorkspaceActionCoordinator()
         self.terminalCoordinator = QuillCodeDesktopTerminalCoordinator()
         self.worktreeCoordinator = QuillCodeDesktopWorktreeCoordinator()
         do {
@@ -248,7 +250,7 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func runToolCardAction(_ action: ToolCardActionSurface) {
-        _ = model.runToolCardAction(action, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+        workspaceActionCoordinator.runToolCardAction(action, model: model, fallbackWorkspaceRoot: workspaceRoot)
         refresh()
     }
 
@@ -281,7 +283,7 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func runReviewAction(_ action: WorkspaceReviewActionSurface) {
-        model.runReviewAction(action, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot)
+        workspaceActionCoordinator.runReviewAction(action, model: model, fallbackWorkspaceRoot: workspaceRoot)
         refresh()
     }
 
@@ -292,12 +294,13 @@ final class QuillCodeDesktopController: ObservableObject {
         lineKind: WorkspaceReviewLineKind?,
         text: String
     ) {
-        _ = model.addReviewComment(
+        workspaceActionCoordinator.addReviewComment(
             path: path,
             lineNumber: lineNumber,
             endLineNumber: endLineNumber,
             lineKind: lineKind,
-            text: text
+            text: text,
+            model: model
         )
         refresh()
     }
