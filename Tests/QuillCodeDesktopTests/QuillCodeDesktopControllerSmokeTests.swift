@@ -197,7 +197,8 @@ private enum DesktopRealWorldSmokeSideEffect {
 
 @MainActor
 private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
-    func openSession(url _: URL) {}
+    func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {}
+    func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {}
 }
 
 private struct NoopAutomationNotifier: QuillCodeAutomationNotifying {

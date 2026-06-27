@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeApp
 
 #if canImport(AppKit) && canImport(WebKit)
 import AppKit
@@ -6,21 +7,23 @@ import WebKit
 
 @MainActor
 protocol DesktopBrowserSessionPresenting: AnyObject {
-    func openSession(url: URL)
+    func presentSession(_ snapshot: BrowserSessionSyncSnapshot)
+    func syncSession(_ snapshot: BrowserSessionSyncSnapshot)
 }
 
 @MainActor
 final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
     private var session: DesktopBrowserSessionWindowController?
 
-    func openSession(url: URL) {
+    func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {
+        guard !snapshot.isEmpty else { return }
         if let session {
-            session.navigate(to: url)
+            session.sync(snapshot)
             session.present()
             return
         }
 
-        let session = DesktopBrowserSessionWindowController(url: url)
+        let session = DesktopBrowserSessionWindowController(snapshot: snapshot)
         session.onClose = { [weak self, weak session] in
             guard let session, self?.session === session else { return }
             self?.session = nil
@@ -28,18 +31,28 @@ final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
         self.session = session
         session.present()
     }
+
+    func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {
+        guard let session, !snapshot.isEmpty else { return }
+        session.sync(snapshot)
+    }
 }
 
 @MainActor
 private final class DesktopBrowserSessionWindowController: NSWindowController, NSWindowDelegate, WKNavigationDelegate {
+    private struct SessionTab {
+        var snapshot: BrowserSessionTabSnapshot
+        var item: NSTabViewItem
+        var webView: WKWebView
+    }
+
     var onClose: (() -> Void)?
 
-    private let webView: WKWebView
+    private let tabView: NSTabView
+    private var tabs: [UUID: SessionTab] = [:]
 
-    init(url: URL) {
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .default()
-        self.webView = WKWebView(frame: .zero, configuration: configuration)
+    init(snapshot: BrowserSessionSyncSnapshot) {
+        self.tabView = NSTabView()
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1120, height: 760),
@@ -48,14 +61,13 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
             defer: false
         )
         window.title = "QuillCode Browser Session"
-        window.contentView = webView
+        window.contentView = tabView
         window.center()
 
         super.init(window: window)
 
         window.delegate = self
-        webView.navigationDelegate = self
-        load(url)
+        sync(snapshot)
     }
 
     @available(*, unavailable)
@@ -64,21 +76,31 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
     }
 
     func windowWillClose(_ notification: Notification) {
-        webView.navigationDelegate = nil
+        tabs.values.forEach { $0.webView.navigationDelegate = nil }
         onClose?()
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation?) {
-        if let title = webView.title, !title.isEmpty {
-            window?.title = "QuillCode Browser Session - \(title)"
-        } else {
-            window?.title = "QuillCode Browser Session"
+        guard let id = tabID(for: webView),
+              var tab = tabs[id]
+        else {
+            return
         }
+        let title = nonEmpty(webView.title) ?? tab.snapshot.title
+        tab.snapshot.title = title
+        tab.item.label = title
+        tabs[id] = tab
+        updateWindowTitle()
     }
 
-    func navigate(to url: URL) {
-        guard webView.url?.absoluteString != url.absoluteString else { return }
-        load(url)
+    func sync(_ snapshot: BrowserSessionSyncSnapshot) {
+        removeTabs(excluding: Set(snapshot.tabs.map(\.id)))
+        for tab in snapshot.tabs {
+            sync(tab)
+        }
+        reorderTabs(snapshot.tabs.map(\.id))
+        selectActiveTab(snapshot.activeTabID)
+        updateWindowTitle()
     }
 
     func present() {
@@ -87,22 +109,101 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private func load(_ url: URL) {
+    private func sync(_ snapshot: BrowserSessionTabSnapshot) {
+        if var tab = tabs[snapshot.id] {
+            tab.snapshot = snapshot
+            tab.item.label = snapshot.title
+            navigate(tab.webView, to: snapshot.url)
+            tabs[snapshot.id] = tab
+            return
+        }
+
+        let webView = WKWebView(frame: .zero, configuration: Self.webViewConfiguration())
+        webView.navigationDelegate = self
+        let item = NSTabViewItem(identifier: snapshot.id.uuidString)
+        item.label = snapshot.title
+        item.view = webView
+        tabView.addTabViewItem(item)
+        tabs[snapshot.id] = SessionTab(snapshot: snapshot, item: item, webView: webView)
+        navigate(webView, to: snapshot.url)
+    }
+
+    private func navigate(_ webView: WKWebView, to url: URL) {
+        guard webView.url?.absoluteString != url.absoluteString else { return }
         if url.isFileURL {
             webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
         } else {
             webView.load(URLRequest(url: url))
         }
     }
+
+    private func removeTabs(excluding retainedIDs: Set<UUID>) {
+        for id in tabs.keys where !retainedIDs.contains(id) {
+            guard let tab = tabs.removeValue(forKey: id) else { continue }
+            tab.webView.navigationDelegate = nil
+            tabView.removeTabViewItem(tab.item)
+        }
+    }
+
+    private func reorderTabs(_ orderedIDs: [UUID]) {
+        for (index, id) in orderedIDs.enumerated() {
+            guard let item = tabs[id]?.item else { continue }
+            let currentIndex = tabView.indexOfTabViewItem(item)
+            guard currentIndex != NSNotFound, currentIndex != index else { continue }
+            tabView.removeTabViewItem(item)
+            tabView.insertTabViewItem(item, at: index)
+        }
+    }
+
+    private func selectActiveTab(_ activeTabID: UUID?) {
+        guard let activeTabID,
+              let item = tabs[activeTabID]?.item
+        else {
+            return
+        }
+        tabView.selectTabViewItem(item)
+    }
+
+    private func updateWindowTitle() {
+        let selectedID = selectedTabID()
+        let selectedTitle = selectedID.flatMap { tabs[$0]?.snapshot.title }
+        if let selectedTitle = nonEmpty(selectedTitle) {
+            window?.title = "QuillCode Browser Session - \(selectedTitle)"
+        } else {
+            window?.title = "QuillCode Browser Session"
+        }
+    }
+
+    private func selectedTabID() -> UUID? {
+        guard let selectedItem = tabView.selectedTabViewItem else { return nil }
+        return tabs.first { $0.value.item === selectedItem }?.key
+    }
+
+    private func tabID(for webView: WKWebView) -> UUID? {
+        tabs.first { $0.value.webView === webView }?.key
+    }
+
+    private func nonEmpty(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func webViewConfiguration() -> WKWebViewConfiguration {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .default()
+        return configuration
+    }
 }
 #else
 @MainActor
 protocol DesktopBrowserSessionPresenting: AnyObject {
-    func openSession(url: URL)
+    func presentSession(_ snapshot: BrowserSessionSyncSnapshot)
+    func syncSession(_ snapshot: BrowserSessionSyncSnapshot)
 }
 
 @MainActor
 final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
-    func openSession(url: URL) {}
+    func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {}
+    func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {}
 }
 #endif
