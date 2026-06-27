@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import {
   clickCommandPaletteCommand,
   clickSidebarTool,
@@ -12,106 +12,179 @@ import {
   expectNoOverlappingInteractiveTargets
 } from './interaction-audit-helpers';
 
+async function expectInteractionTargetsClean(page: Page, label: string) {
+  await expectAllVisibleInteractiveTargets(page, label);
+  await expectNoOverlappingInteractiveTargets(page, label);
+}
+
 test('mock harness audits every visible interactive click target across workspace states', async ({ page }) => {
   await page.goto(harnessURL());
 
-  await expectAllVisibleInteractiveTargets(page, 'initial workspace');
-  await expectNoOverlappingInteractiveTargets(page, 'initial workspace');
+  await expectInteractionTargetsClean(page, 'initial workspace');
+
+  await page.getByLabel('Message').fill('run whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('sidebar-item')).toContainText('run whoami');
+  await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
+
+  await page.getByTestId('sidebar-item-actions').first().locator('summary').click();
+  await expect(page.getByTestId('sidebar-item-actions').first()).toHaveAttribute('open', '');
+  await expectInteractionTargetsClean(page, 'sidebar thread action menu');
+  await page.getByTestId('sidebar-item-actions').first().locator('summary').click();
+
+  await page.getByTestId('project-item-actions').first().locator('summary').click();
+  await expect(page.getByTestId('project-item-actions').first()).toHaveAttribute('open', '');
+  await expectInteractionTargetsClean(page, 'project action menu');
+  await page.getByTestId('project-item-actions').first().locator('summary').click();
+
+  await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Select$/ }).click();
+  await expect(page.getByTestId('sidebar-selection')).toHaveAttribute('data-active', 'true');
+  await expectInteractionTargetsClean(page, 'sidebar bulk selection controls');
+  await expectHitTarget(page.getByTestId('sidebar-select-toggle').first(), 'sidebar selection toggle');
+  await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Done$/ }).click();
 
   await openTopBarOverflow(page);
   await expect(page.getByTestId('top-bar-overflow-menu')).toHaveAttribute('open', '');
-  await expectAllVisibleInteractiveTargets(page, 'top-bar overflow menu');
-  await expectNoOverlappingInteractiveTargets(page, 'top-bar overflow menu');
+  await expectInteractionTargetsClean(page, 'top-bar overflow menu');
   await page.getByTestId('top-bar-overflow-button').click();
 
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-browser')).toBeVisible();
-  await expectAllVisibleInteractiveTargets(page, 'model picker');
-  await expectNoOverlappingInteractiveTargets(page, 'model picker');
+  await expectInteractionTargetsClean(page, 'model picker');
+  await page.getByTestId('model-search').fill('no model should match this query');
+  await expect(page.getByTestId('model-empty')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'model picker empty search');
   await page.getByTestId('model-picker-button').click();
 
   await openTopBarOverflow(page);
   await page.getByTestId('top-bar-overflow-search').click();
   await expect(page.getByTestId('search-panel')).toBeVisible();
-  await expectAllVisibleInteractiveTargets(page, 'search panel');
-  await expectNoOverlappingInteractiveTargets(page, 'search panel');
+  await expectInteractionTargetsClean(page, 'search panel');
   await page.getByTestId('search-close').click();
 
   await openTopBarOverflow(page);
   await page.getByTestId('top-bar-overflow-command-palette').click();
   await expect(page.getByTestId('command-palette-panel')).toBeVisible();
-  await expectAllVisibleInteractiveTargets(page, 'command palette');
-  await expectNoOverlappingInteractiveTargets(page, 'command palette');
+  await expectInteractionTargetsClean(page, 'command palette');
   await page.getByTestId('command-palette-close').click();
 
   await openTopBarOverflow(page);
   await page.getByTestId('top-bar-overflow-keyboard-shortcuts').click();
   await expect(page.getByTestId('keyboard-shortcuts-panel')).toBeVisible();
-  await expectAllVisibleInteractiveTargets(page, 'keyboard shortcuts panel');
-  await expectNoOverlappingInteractiveTargets(page, 'keyboard shortcuts panel');
+  await expectInteractionTargetsClean(page, 'keyboard shortcuts panel');
   await page.getByTestId('keyboard-shortcuts-close').click();
 
   await openSettings(page);
   await expect(page.getByTestId('settings-panel')).toBeVisible();
-  await expectAllVisibleInteractiveTargets(page, 'settings panel');
-  await expectNoOverlappingInteractiveTargets(page, 'settings panel');
+  await expectInteractionTargetsClean(page, 'settings panel');
   await page.getByTestId('settings-cancel').click();
 
   await clickSidebarTool(page, 'browser-button');
   await expect(page.getByTestId('browser-pane')).toBeVisible();
-  await expectAllVisibleInteractiveTargets(page, 'browser pane');
-  await expectNoOverlappingInteractiveTargets(page, 'browser pane');
+  await expectInteractionTargetsClean(page, 'browser pane');
 
   await clickSidebarTool(page, 'terminal-button');
   await expect(page.getByTestId('terminal-pane')).toBeVisible();
-  await expectAllVisibleInteractiveTargets(page, 'terminal pane');
-  await expectNoOverlappingInteractiveTargets(page, 'terminal pane');
+  await expectInteractionTargetsClean(page, 'terminal pane');
 
   await page.getByTestId('extensions-button').click();
   await expect(page.getByTestId('extensions-pane')).toBeVisible();
-  await expectAllVisibleInteractiveTargets(page, 'extensions pane');
-  await expectNoOverlappingInteractiveTargets(page, 'extensions pane');
+  await expectInteractionTargetsClean(page, 'extensions pane');
 
   await page.getByTestId('automations-button').click();
   await expect(page.getByTestId('automations-pane')).toBeVisible();
-  await expectAllVisibleInteractiveTargets(page, 'automations pane');
-  await expectNoOverlappingInteractiveTargets(page, 'automations pane');
+  await expectInteractionTargetsClean(page, 'automations pane');
 
   await clickSidebarTool(page, 'command-palette-button');
   await clickCommandPaletteCommand(page, '>create worktree', 'git-worktree-create');
   await expect(page.getByTestId('worktree-create-panel')).toBeVisible();
-  await expectAllVisibleInteractiveTargets(page, 'worktree create dialog');
-  await expectNoOverlappingInteractiveTargets(page, 'worktree create dialog');
+  await expectInteractionTargetsClean(page, 'worktree create dialog');
   await page.getByTestId('worktree-dialog-cancel').click();
 
   await clickSidebarTool(page, 'command-palette-button');
   await clickCommandPaletteCommand(page, '>open worktree', 'git-worktree-open');
   await expect(page.getByTestId('worktree-open-panel')).toBeVisible();
-  await expectAllVisibleInteractiveTargets(page, 'worktree open dialog');
-  await expectNoOverlappingInteractiveTargets(page, 'worktree open dialog');
+  await expectInteractionTargetsClean(page, 'worktree open dialog');
+  await page.getByTestId('worktree-dialog-cancel').click();
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await clickCommandPaletteCommand(page, '>remove worktree', 'git-worktree-remove');
+  await expect(page.getByTestId('worktree-remove-panel')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'worktree remove dialog');
+  await page.getByTestId('worktree-dialog-cancel').click();
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await clickCommandPaletteCommand(page, '>prune', 'git-worktree-prune');
+  await expect(page.getByTestId('worktree-prune-panel')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'worktree prune dialog');
   await page.getByTestId('worktree-dialog-cancel').click();
 
   await clickSidebarTool(page, 'memories-button');
   await expect(page.getByTestId('memories-pane')).toBeVisible();
-  await expectAllVisibleInteractiveTargets(page, 'memories pane');
-  await expectNoOverlappingInteractiveTargets(page, 'memories pane');
+  await expectInteractionTargetsClean(page, 'memories pane');
 
-  await page.getByLabel('Message').fill('git diff');
+  await page.getByLabel('Message').fill('/git');
+  await expect(page.getByTestId('slash-suggestions')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'slash suggestion menu');
+  await page.keyboard.press('Escape');
+  await page.getByLabel('Message').fill('');
+
+  await page.getByLabel('Message').fill('/pr review-threads 123');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('review-pane')).toBeVisible();
-  await expectAllVisibleInteractiveTargets(page, 'review pane');
-  await expectNoOverlappingInteractiveTargets(page, 'review pane');
+  await expect(page.getByTestId('pr-review-thread')).toHaveCount(2);
+  await expectInteractionTargetsClean(page, 'review pane');
+  await page.getByTestId('pr-review-thread-reply').first().click();
+  await expect(page.getByTestId('pr-review-thread-reply-form').first()).toBeVisible();
+  await expectInteractionTargetsClean(page, 'review reply form');
+  await page.getByTestId('pr-review-thread-reply-form').first().getByTestId('pr-review-thread-reply-cancel').click();
 
   await page.getByLabel('Message').fill('run whoami');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
-  await expectAllVisibleInteractiveTargets(page, 'tool-card transcript');
-  await expectNoOverlappingInteractiveTargets(page, 'tool-card transcript');
+  await expectInteractionTargetsClean(page, 'tool-card transcript');
+
+  await page.evaluate(() => {
+    const harness = window as typeof window & {
+      addToolCard: (card: Record<string, unknown>) => void;
+      render: () => void;
+    };
+    harness.addToolCard({
+      actions: [
+        {
+          id: 'tool-card-action-approve-interaction-audit',
+          kind: 'approve',
+          requestID: 'interaction-audit',
+          style: 'primary',
+          title: 'Run'
+        },
+        {
+          id: 'tool-card-action-deny-interaction-audit',
+          kind: 'deny',
+          requestID: 'interaction-audit',
+          style: 'secondary',
+          title: 'Skip'
+        }
+      ],
+      density: 'peek',
+      id: 'shell-review-interaction-audit',
+      inputJSON: JSON.stringify({ cmd: 'whoami' }, null, 2),
+      isExpanded: false,
+      reviewState: 'ready',
+      status: 'review',
+      subtitle: 'Ready to run · whoami',
+      title: 'host.shell.run'
+    });
+    harness.render();
+  });
+  const actionBar = page.getByTestId('tool-card-actions').last();
+  await expect(actionBar.getByRole('button', { name: 'Run' })).toBeVisible();
+  await expect(actionBar.getByRole('button', { name: 'Skip' })).toBeVisible();
+  await expectInteractionTargetsClean(page, 'tool-card action controls');
 
   await page.keyboard.press('Meta+F');
   await expect(page.getByTestId('find-bar')).toBeVisible();
-  await expectAllVisibleInteractiveTargets(page, 'find bar');
-  await expectNoOverlappingInteractiveTargets(page, 'find bar');
+  await expectInteractionTargetsClean(page, 'find bar');
   await page.getByTestId('find-close').click();
 });
 
