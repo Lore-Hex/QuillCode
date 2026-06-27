@@ -28,10 +28,13 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         ])
     }
 
-    func testThinkingSurfaceHidesAfterAssistantTextArrives() {
+    func testThinkingSurfaceStaysVisibleWhileAssistantDraftStreams() {
         let thread = ChatThread(messages: [
             ChatMessage(role: .user, content: "say hello"),
             ChatMessage(role: .assistant, content: "hel")
+        ], events: [
+            ThreadEvent(kind: .message, summary: "say hello"),
+            ThreadEvent(kind: .notice, summary: "Streaming model response")
         ])
 
         let thinking = WorkspaceTranscriptThinkingSurfaceBuilder(
@@ -40,7 +43,8 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
             agentStatus: TopBarAgentStatusLabel.streaming
         ).surface()
 
-        XCTAssertNil(thinking)
+        XCTAssertEqual(thinking?.title, "Streaming")
+        XCTAssertEqual(thinking?.subtitle, "Streaming model response")
     }
 
     func testMessageSurfacesHideToolMessagesAndAttachFeedback() throws {

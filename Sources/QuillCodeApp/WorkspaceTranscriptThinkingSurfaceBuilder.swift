@@ -8,9 +8,6 @@ struct WorkspaceTranscriptThinkingSurfaceBuilder: Sendable, Hashable {
 
     func surface() -> TranscriptThinkingSurface? {
         guard composer.isSending, let thread else { return nil }
-        if thread.messages.last(where: { $0.role != .tool })?.role == .assistant {
-            return nil
-        }
         let traceLines = Self.traceLines(from: thread.events)
         return TranscriptThinkingSurface(
             id: "thinking-\(thread.id.uuidString)",

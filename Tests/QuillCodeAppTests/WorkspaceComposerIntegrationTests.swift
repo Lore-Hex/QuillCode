@@ -216,6 +216,7 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
             model.selectedThread?.messages.last?.content == "stream"
         }
         XCTAssertEqual(model.surface().transcript.timelineItems.last?.message?.text, "stream")
+        XCTAssertEqual(model.surface().transcript.thinking?.title, "Streaming")
 
         await task.value
 
