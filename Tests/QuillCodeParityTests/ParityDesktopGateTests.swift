@@ -3,11 +3,17 @@ import XCTest
 final class ParityDesktopGateTests: QuillCodeParityTestCase {
     func testDesktopDefinesNativeMenuBarWidget() throws {
         let text = try Self.desktopSourceText()
+        let commandsText = try Self.desktopSourceText(named: "DesktopCommands.swift")
+        let appText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
 
         XCTAssertTrue(text.contains("MenuBarExtra"), "Desktop app should define a native menu-bar widget.")
         XCTAssertTrue(text.contains(#"systemImage: "q.circle.fill""#), "Menu-bar widget should use a visible QuillCode symbol.")
         for label in ["New Chat", "Open Project", "Command Palette", "Keyboard Shortcuts", "Open Browser Session", "Computer Use Setup", "Settings", "Stop All", "Disconnect All"] {
             XCTAssertTrue(text.contains(label), "Menu-bar widget is missing \(label).")
+        }
+        for commandID in ["browser-back", "browser-forward", "browser-reload"] {
+            XCTAssertTrue(commandsText.contains(".quillCodeShortcut(\"\(commandID)\")"), "\(commandID) should be wired as a native keyboard shortcut.")
+            XCTAssertTrue(appText.contains("controller.runWorkspaceCommand(\"\(commandID)\")"), "\(commandID) should route through the workspace command executor.")
         }
 
         let menuText = try Self.desktopSourceText(named: "QuillCodeMenuBarView.swift")

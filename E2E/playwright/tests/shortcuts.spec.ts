@@ -15,6 +15,9 @@ test('mock harness dispatches workspace keyboard shortcuts', async ({ page }) =>
   await page.keyboard.press('Meta+/');
   await expect(page.getByTestId('keyboard-shortcuts-panel')).toBeVisible();
   await expect(page.getByTestId('keyboard-shortcut-row').filter({ hasText: 'Keyboard shortcuts' })).toContainText('Cmd+/');
+  await expect(page.getByTestId('keyboard-shortcut-row').filter({ hasText: 'Browser: Back' })).toContainText('Cmd+[');
+  await expect(page.getByTestId('keyboard-shortcut-row').filter({ hasText: 'Browser: Forward' })).toContainText('Cmd+]');
+  await expect(page.getByTestId('keyboard-shortcut-row').filter({ hasText: 'Browser: Reload' })).toContainText('Cmd+R');
   await page.getByTestId('keyboard-shortcuts-close').click();
 
   await page.keyboard.press('Control+Backquote');
@@ -22,6 +25,17 @@ test('mock harness dispatches workspace keyboard shortcuts', async ({ page }) =>
 
   await page.keyboard.press('Meta+Shift+B');
   await expect(page.getByTestId('browser-pane')).toBeVisible();
+  await page.getByLabel('Browser address').fill('localhost:5173');
+  await page.getByTestId('browser-open').click();
+  await page.getByLabel('Browser address').fill('example.com/docs');
+  await page.getByTestId('browser-open').click();
+  await expect(page.getByTestId('browser-current-url')).toHaveText('https://example.com/docs');
+  await page.keyboard.press('Meta+[');
+  await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
+  await page.keyboard.press('Meta+]');
+  await expect(page.getByTestId('browser-current-url')).toHaveText('https://example.com/docs');
+  await page.keyboard.press('Meta+R');
+  await expect(page.getByTestId('browser-status-label')).toHaveText('Reloaded');
 
   await page.getByLabel('Message').fill('run whoami');
   await page.getByRole('button', { name: 'Send' }).click();

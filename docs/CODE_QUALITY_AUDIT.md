@@ -1,5 +1,20 @@
 # Code Quality Audit
 
+## 2026-06-27 Browser Navigation Shortcut Pass
+
+Overall grade after this slice: **A shortcut contract, A native/menu parity, A regression coverage**.
+
+The in-app browser already had visible Back, Forward, and Reload actions, but they behaved like mouse-only controls. Codex-style browser work needs keyboardable history navigation, and shortcut labels are only trustworthy when they route through the same command executor as visible commands.
+
+- Added shared `Cmd+[`, `Cmd+]`, and `Cmd+R` shortcut registry entries for browser Back, Forward, and Reload.
+- Surfaced those labels in the command palette, keyboard-shortcuts panel, static HTML harness, and desktop menus.
+- Routed native menu shortcuts through `runWorkspaceCommand` so disabled browser actions safely no-op instead of bypassing existing command availability policy.
+- Added Playwright coverage for actual keyboard dispatch and a desktop parity gate for native shortcut wiring.
+
+Residual risk:
+
+- Browser shortcuts are still single-tab history controls. Multi-tab browser-session management remains a larger browser parity milestone.
+
 ## 2026-06-22 Pass
 
 Overall grade: **A- foundation, B+ product surface maturity**.

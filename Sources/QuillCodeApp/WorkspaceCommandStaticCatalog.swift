@@ -109,6 +109,7 @@ enum WorkspaceCommandStaticCatalog {
             WorkspaceCommandSurface(
                 id: "browser-back",
                 title: "Browser: Back",
+                shortcut: WorkspaceShortcutRegistry.label(for: "browser-back"),
                 category: WorkspaceCommandPalette.workspaceCategory,
                 keywords: ["preview", "web", "history", "back"],
                 isEnabled: browserCanGoBack
@@ -116,6 +117,7 @@ enum WorkspaceCommandStaticCatalog {
             WorkspaceCommandSurface(
                 id: "browser-forward",
                 title: "Browser: Forward",
+                shortcut: WorkspaceShortcutRegistry.label(for: "browser-forward"),
                 category: WorkspaceCommandPalette.workspaceCategory,
                 keywords: ["preview", "web", "history", "forward"],
                 isEnabled: browserCanGoForward
@@ -123,6 +125,7 @@ enum WorkspaceCommandStaticCatalog {
             WorkspaceCommandSurface(
                 id: "browser-reload",
                 title: "Browser: Reload",
+                shortcut: WorkspaceShortcutRegistry.label(for: "browser-reload"),
                 category: WorkspaceCommandPalette.workspaceCategory,
                 keywords: ["preview", "web", "refresh", "reload"],
                 isEnabled: browserCanReload
