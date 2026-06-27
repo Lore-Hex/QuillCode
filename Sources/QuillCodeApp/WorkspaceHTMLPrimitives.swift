@@ -1,6 +1,8 @@
 import Foundation
 
 enum WorkspaceHTMLPrimitives {
+    static let interactiveHitTargetClass = "interactive-hit-target"
+
     static func escape(_ text: String) -> String {
         text
             .replacingOccurrences(of: "&", with: "&amp;")

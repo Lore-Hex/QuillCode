@@ -7333,6 +7333,33 @@ Residual risk:
 
 - Native SwiftUI hit boxes are compile-covered but still not pixel-measured. When native screenshot/UI automation lands, mirror the Playwright bounding-box assertions for AppKit/SwiftUI controls.
 
+## 2026-06-27 Click Target System Audit
+
+Overall grade after this slice: **A native target contract, A HTML target semantics, A- duplicate harness renderer**.
+
+The first click-target pass established the 44 pt/px policy, but too much of the implementation still depended on each caller remembering to add a frame. This pass moves the guarantee closer to the shared interaction primitives and names the HTML click-target contract for non-button controls.
+
+Changes:
+
+- Updated `QuillCodePressableButtonStyle` to enforce the shared 44 pt minimum target and full `contentShape`, so pressable native buttons cannot silently shrink below the design-system target.
+- Replaced remaining compact native borderless/plain action styling for Computer Use refresh, runtime recovery, memory edit/delete, and worktree retry actions with the shared pressable button style.
+- Kept artifact `Link` controls visually compact while explicitly expanding their native target with `quillCodeHitTarget`.
+- Added a shared HTML `interactive-hit-target` class for semantic clickable links such as artifact chips and document preview opens.
+- Added explicit review, extension, and memory action classes in HTML renderers so target sizing is addressable by CSS and guarded by parity tests.
+- Mirrored those semantics in the Playwright harness, including a generic `details > summary` minimum target guard for disclosure controls.
+
+File grades:
+
+- `QuillCodeDesignSystem.swift`: **A**. Native press feedback and target sizing now share one primitive.
+- `QuillCodeToolArtifactViews.swift`: **A-**. Link styling still needs `.plain` for SwiftUI, but target sizing is explicit and localized.
+- `WorkspaceHTMLPrimitives.swift`: **A**. The target class is a small shared semantic primitive beside escaping and chip rendering.
+- `WorkspaceHTMLToolCardRenderer.swift`: **A**. Artifact links and tool details now declare click-target intent in markup.
+- `E2E/harness/index.html`: **A-**. The harness mirrors production target semantics, though its duplicate renderer remains the long-term cleanup target.
+
+Residual risk:
+
+- AppKit/SwiftUI rendered hit boxes still need native UI automation measurement. Until then, parity gates protect the source contract and Playwright measures the HTML harness.
+
 ## 2026-06-27 Agent Answer Formatter Family Split
 
 Overall grade after this slice: **A registry ownership, A formatter family boundaries, A shared argument parsing**.

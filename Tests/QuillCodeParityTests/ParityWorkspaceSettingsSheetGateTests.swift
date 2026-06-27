@@ -84,12 +84,41 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
     }
 
     func testNativeCompactPlainControlsKeepExplicitHitTargets() throws {
+        let designSystemText = try Self.appSourceText(named: "QuillCodeDesignSystem.swift")
         let computerUseText = try Self.appSourceText(named: "QuillCodeComputerUseSettingsCard.swift")
+        let runtimeIssueText = try Self.appSourceText(named: "QuillCodeRuntimeIssueView.swift")
         let activityText = try Self.appSourceText(named: "WorkspaceActivityPaneView.swift")
+        let memoriesText = try Self.appSourceText(named: "QuillCodeMemoriesPaneView.swift")
+        let worktreeChromeText = try Self.appSourceText(named: "QuillCodeWorktreeDialogChrome.swift")
+
+        XCTAssertTrue(
+            designSystemText.contains("minWidth: QuillCodeMetrics.minimumHitTarget"),
+            "Shared pressable button style should enforce the 44 pt target instead of leaving it to every caller."
+        )
+        XCTAssertTrue(
+            designSystemText.contains(".contentShape(Rectangle())"),
+            "Shared pressable button style should make the full target clickable."
+        )
 
         XCTAssertTrue(
             computerUseText.contains(".quillCodeHitTarget(minWidth: 112, alignment: .leading)"),
             "Computer Use refresh should not rely on borderless button default sizing."
+        )
+        XCTAssertTrue(
+            computerUseText.contains(".buttonStyle(QuillCodePressableButtonStyle())"),
+            "Computer Use refresh should keep press feedback while preserving its expanded hit target."
+        )
+        XCTAssertTrue(
+            runtimeIssueText.contains(".buttonStyle(QuillCodePressableButtonStyle())"),
+            "Runtime issue recovery actions should not use compact borderless defaults."
+        )
+        XCTAssertTrue(
+            memoriesText.contains(".buttonStyle(QuillCodePressableButtonStyle())"),
+            "Memory edit/delete icon buttons should use shared press feedback and hit targets."
+        )
+        XCTAssertTrue(
+            worktreeChromeText.contains(".buttonStyle(QuillCodePressableButtonStyle())"),
+            "Worktree retry actions should use shared press feedback and hit targets."
         )
         XCTAssertTrue(
             activityText.contains(".frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)"),

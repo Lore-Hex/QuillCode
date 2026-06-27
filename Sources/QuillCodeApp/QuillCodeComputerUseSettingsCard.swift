@@ -95,7 +95,7 @@ struct QuillCodeComputerUseSettingsCard: View {
             Button("Refresh status") {
                 onCommand(settings.computerUseRefreshCommand)
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(QuillCodePressableButtonStyle())
             .quillCodeHitTarget(minWidth: 112, alignment: .leading)
             Spacer()
         }

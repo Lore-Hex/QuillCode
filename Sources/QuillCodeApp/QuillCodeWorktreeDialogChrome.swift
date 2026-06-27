@@ -116,7 +116,7 @@ struct QuillCodeWorktreeChoiceStatusRow: View {
             Spacer(minLength: 0)
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
-                    .buttonStyle(.borderless)
+                    .buttonStyle(QuillCodePressableButtonStyle())
                     .controlSize(.small)
                     .font(.caption.weight(.semibold))
                     .quillCodeHitTarget(minWidth: 56)

@@ -15,6 +15,7 @@ struct QuillCodeArtifactChip: View {
             }
         }
         .buttonStyle(.plain)
+        .quillCodeHitTarget(minWidth: 96, alignment: .leading)
         .accessibilityLabel("Artifact \(artifact.label)")
     }
 
@@ -33,7 +34,7 @@ struct QuillCodeArtifactChip: View {
         .font(.caption.weight(.semibold))
         .foregroundStyle(QuillCodePalette.blue)
         .frame(maxWidth: 260, alignment: .leading)
-        .frame(minHeight: 40)
+        .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(QuillCodePalette.blue.opacity(0.12))
@@ -77,6 +78,7 @@ struct QuillCodeArtifactDocumentPreview: View {
             }
         }
         .buttonStyle(.plain)
+        .quillCodeHitTarget(minWidth: 160, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
     }

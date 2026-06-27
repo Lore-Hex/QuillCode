@@ -158,9 +158,9 @@ struct QuillCodeModelPickerView: View {
                     clearSearch()
                 }
                 .font(.caption.weight(.semibold))
-                .buttonStyle(.plain)
+                .buttonStyle(QuillCodePressableButtonStyle())
                 .foregroundStyle(QuillCodePalette.blue)
-                .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+                .frame(minWidth: 56, minHeight: QuillCodeMetrics.minimumHitTarget)
                 .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .help("Clear model search")
             }

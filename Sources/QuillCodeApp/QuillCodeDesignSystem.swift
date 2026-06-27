@@ -41,6 +41,11 @@ struct QuillCodePressableButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .frame(
+                minWidth: QuillCodeMetrics.minimumHitTarget,
+                minHeight: QuillCodeMetrics.minimumHitTarget
+            )
+            .contentShape(Rectangle())
             .scaleEffect(!reduceMotion && configuration.isPressed ? QuillCodeMetrics.pressScale : 1)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: configuration.isPressed)
     }

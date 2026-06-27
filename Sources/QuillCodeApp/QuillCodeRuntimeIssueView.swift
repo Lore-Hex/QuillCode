@@ -19,7 +19,7 @@ struct QuillCodeRuntimeIssueView: View {
                 if let actionLabel = issue.actionLabel {
                     if let onAction {
                         Button(actionLabel, action: onAction)
-                            .buttonStyle(.borderless)
+                            .buttonStyle(QuillCodePressableButtonStyle())
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(tint)
                             .quillCodeHitTarget(minWidth: 72, alignment: .leading)

@@ -58,6 +58,19 @@
     .activity-item span {
       font-variant-numeric: tabular-nums;
     }
+    .interactive-hit-target {
+      min-width: var(--hit-target);
+      min-height: var(--hit-target);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    a.interactive-hit-target {
+      text-decoration: none;
+    }
+    details > summary {
+      min-height: var(--hit-target);
+    }
     .quillcode-workspace { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
     .topbar {
       position: relative;
@@ -4493,8 +4506,8 @@
                 <span data-testid="review-file-path">${escapeHTML(file.path)}</span>
                 <span class="review-actions">
                   <small>${escapeHTML(file.changeLabel)}</small>
-                  <button type="button" data-testid="review-action" data-action="stage" data-path="${escapeHTML(file.path)}">Stage</button>
-                  <button type="button" data-testid="review-action" data-action="restore" data-path="${escapeHTML(file.path)}">Restore</button>
+                  <button type="button" class="review-action-button" data-testid="review-action" data-action="stage" data-path="${escapeHTML(file.path)}">Stage</button>
+                  <button type="button" class="review-action-button" data-testid="review-action" data-action="restore" data-path="${escapeHTML(file.path)}">Restore</button>
                 </span>
                 ${(file.hunks || []).length ? `
                   <div class="review-hunks">
@@ -4504,8 +4517,8 @@
                           <code data-testid="review-hunk-header">${escapeHTML(hunk.header)}</code>
                           <span class="review-actions">
                             <small>${escapeHTML(hunk.changeLabel)}</small>
-                            <button type="button" data-testid="review-action" data-action="stage_hunk" data-path="${escapeHTML(file.path)}">Stage hunk</button>
-                            <button type="button" data-testid="review-action" data-action="restore_hunk" data-path="${escapeHTML(file.path)}">Restore hunk</button>
+                            <button type="button" class="review-action-button" data-testid="review-action" data-action="stage_hunk" data-path="${escapeHTML(file.path)}">Stage hunk</button>
+                            <button type="button" class="review-action-button" data-testid="review-action" data-action="restore_hunk" data-path="${escapeHTML(file.path)}">Restore hunk</button>
                           </span>
                         </div>
                         <form class="review-range-comment-form" data-testid="review-range-comment-form" data-path="${escapeHTML(file.path)}">
@@ -4582,7 +4595,7 @@
           <div class="tool-artifacts" data-testid="tool-card-artifacts" aria-label="Artifacts">
             ${artifacts.map(artifact => {
               const href = artifactHref(artifact);
-              return `<a class="artifact-chip" data-testid="tool-card-artifact" data-kind="${escapeHTML(artifact.kind)}" ${href ? `href="${escapeHTML(href)}"` : ''}>
+              return `<a class="artifact-chip interactive-hit-target" data-testid="tool-card-artifact" data-kind="${escapeHTML(artifact.kind)}" ${href ? `href="${escapeHTML(href)}"` : ''}>
                 <span>
                   <strong data-testid="tool-card-artifact-label">${escapeHTML(artifact.label)}</strong>
                   <small data-testid="tool-card-artifact-detail">${escapeHTML(artifactDetail(artifact))}</small>
@@ -4633,7 +4646,7 @@
                   <strong data-testid="tool-card-document-preview-label">${escapeHTML(artifact.label)}</strong>
                   <small data-testid="tool-card-document-preview-detail">${escapeHTML(preview.detail)}</small>
                 </figcaption>
-                ${href ? `<a data-testid="tool-card-document-preview-open" href="${escapeHTML(href)}">Open</a>` : ''}
+                ${href ? `<a class="interactive-hit-target" data-testid="tool-card-document-preview-open" href="${escapeHTML(href)}">Open</a>` : ''}
               </figure>`;
             }).join('')}
           </div>` : '';
@@ -6598,7 +6611,7 @@
     function renderMCPReferenceActions(title, actions, testID, titlePrefix) {
       if (!actions?.length) return '';
       const buttons = actions.map(action => `
-        <button type="button" data-testid="${escapeHTML(testID)}" data-command-id="${escapeHTML(action.commandID)}">
+        <button type="button" class="extension-reference-action" data-testid="${escapeHTML(testID)}" data-command-id="${escapeHTML(action.commandID)}">
           ${escapeHTML(titlePrefix)} ${escapeHTML(action.title)}
         </button>`).join('');
       return `<div class="extension-mcp-group" data-testid="${escapeHTML(testID)}-group">
@@ -6637,10 +6650,10 @@
               ${renderMCPReferenceActions('Resource Actions', item.resourceActions, 'extension-mcp-resource-action', 'Read')}
               ${renderMCPReferenceActions('Prompt Actions', item.promptActions, 'extension-mcp-prompt-action', 'Use')}
               ${item.probeError ? `<p data-testid="extension-mcp-error">${escapeHTML(item.probeError)}</p>` : ''}
-              ${item.installCommandID ? `<button type="button" data-testid="extension-install" data-command-id="${escapeHTML(item.installCommandID)}">Install</button>` : ''}
-              ${item.updateCommandID ? `<button type="button" data-testid="extension-update" data-command-id="${escapeHTML(item.updateCommandID)}">Update</button>` : ''}
-              ${item.stopCommandID ? `<button type="button" data-testid="extension-stop" data-command-id="${escapeHTML(item.stopCommandID)}">Stop</button>` : ''}
-              ${item.startCommandID ? `<button type="button" data-testid="extension-start" data-command-id="${escapeHTML(item.startCommandID)}">Start</button>` : ''}
+              ${item.installCommandID ? `<button type="button" class="extension-action-button" data-testid="extension-install" data-command-id="${escapeHTML(item.installCommandID)}">Install</button>` : ''}
+              ${item.updateCommandID ? `<button type="button" class="extension-action-button" data-testid="extension-update" data-command-id="${escapeHTML(item.updateCommandID)}">Update</button>` : ''}
+              ${item.stopCommandID ? `<button type="button" class="extension-action-button" data-testid="extension-stop" data-command-id="${escapeHTML(item.stopCommandID)}">Stop</button>` : ''}
+              ${item.startCommandID ? `<button type="button" class="extension-action-button" data-testid="extension-start" data-command-id="${escapeHTML(item.startCommandID)}">Start</button>` : ''}
             </article>`).join('')}
         </div>` : `
         <div class="extensions-empty" data-testid="extensions-empty">

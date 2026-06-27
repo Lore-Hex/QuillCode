@@ -71,7 +71,7 @@ enum WorkspaceHTMLReviewRenderer {
 
     private static func renderAction(_ action: WorkspaceReviewActionSurface) -> String {
         """
-        <button type="button" data-testid="review-action" data-action="\(escape(action.kind.rawValue))" data-path="\(escape(action.path))">
+        <button type="button" class="review-action-button" data-testid="review-action" data-action="\(escape(action.kind.rawValue))" data-path="\(escape(action.path))">
           \(escape(action.kind.title))
         </button>
         """
