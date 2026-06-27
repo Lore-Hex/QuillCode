@@ -45,6 +45,44 @@ final class ComputerUseBackendTests: XCTestCase {
         XCTAssertEqual(status.message, "Needs Accessibility")
     }
 
+    func testUnavailableStatusCarriesBackendReasonSeparatelyFromPermissions() {
+        let status = ComputerUseStatus.unavailable("Computer Use backend is not running.")
+
+        XCTAssertFalse(status.available)
+        XCTAssertFalse(status.screenRecordingGranted)
+        XCTAssertFalse(status.accessibilityGranted)
+        XCTAssertEqual(status.message, "Computer Use backend is not running.")
+        XCTAssertEqual(status.unavailableReason, "Computer Use backend is not running.")
+    }
+
+    func testUnsupportedPlatformStatusIsUnavailableWithPlatformReason() {
+        let status = ComputerUseStatus.unsupportedPlatform("Linux backend not configured.")
+
+        XCTAssertFalse(status.available)
+        XCTAssertEqual(status.message, "Unsupported platform: Linux backend not configured.")
+        XCTAssertEqual(status.unavailableReason, "Unsupported platform: Linux backend not configured.")
+    }
+
+    func testComputerUseStatusDecodesOlderPayloadWithoutUnavailableReason() throws {
+        let status = try JSONDecoder().decode(
+            ComputerUseStatus.self,
+            from: Data("""
+            {
+              "available": false,
+              "screenRecordingGranted": true,
+              "accessibilityGranted": false,
+              "message": "Needs Accessibility"
+            }
+            """.utf8)
+        )
+
+        XCTAssertFalse(status.available)
+        XCTAssertTrue(status.screenRecordingGranted)
+        XCTAssertFalse(status.accessibilityGranted)
+        XCTAssertEqual(status.message, "Needs Accessibility")
+        XCTAssertNil(status.unavailableReason)
+    }
+
     func testStubBackendRecordsActions() async throws {
         let backend = StubComputerUseBackend()
 
@@ -241,6 +279,41 @@ final class ComputerUseBackendTests: XCTestCase {
         XCTAssertTrue(result.ok)
         XCTAssertEqual(actions, ["screenshot"])
         XCTAssertEqual(result.artifacts.count, 1)
+    }
+
+    func testComputerUseToolExecutorReportsUnavailableBackendBeforePermissions() async throws {
+        let backend = PermissionRecordingComputerUseBackend(
+            status: .unavailable("Computer Use backend is not running.")
+        )
+        let executor = ComputerUseToolExecutor(backend: backend)
+
+        let toolResult = await executor.execute(ToolCall(
+            name: ToolDefinition.computerClick.name,
+            argumentsJSON: #"{"x":10,"y":20}"#
+        ))
+        let result = try XCTUnwrap(toolResult)
+        let actions = await backend.recordedActions()
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(
+            result.error,
+            "Computer Use click is unavailable: Computer Use backend is not running."
+        )
+        XCTAssertEqual(actions, [])
+    }
+
+    func testComputerUseToolExecutorIgnoresUnknownToolsEvenWhenBackendUnavailable() async throws {
+        let backend = PermissionRecordingComputerUseBackend(
+            status: .unavailable("Computer Use backend is not running.")
+        )
+        let executor = ComputerUseToolExecutor(backend: backend)
+
+        let toolResult = await executor.execute(ToolCall(
+            name: "host.unknown.tool",
+            argumentsJSON: "{}"
+        ))
+
+        XCTAssertNil(toolResult)
     }
 
     func testMacBackendReportsCurrentPermissionState() {

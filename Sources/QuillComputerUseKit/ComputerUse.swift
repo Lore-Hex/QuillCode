@@ -57,17 +57,20 @@ public struct ComputerUseStatus: Codable, Sendable, Hashable {
     public var screenRecordingGranted: Bool
     public var accessibilityGranted: Bool
     public var message: String
+    public var unavailableReason: String?
 
     public init(
         available: Bool,
         screenRecordingGranted: Bool,
         accessibilityGranted: Bool,
-        message: String
+        message: String,
+        unavailableReason: String? = nil
     ) {
         self.available = available
         self.screenRecordingGranted = screenRecordingGranted
         self.accessibilityGranted = accessibilityGranted
         self.message = message
+        self.unavailableReason = unavailableReason
     }
 
     public static func permissionStatus(
@@ -92,6 +95,20 @@ public struct ComputerUseStatus: Codable, Sendable, Hashable {
             accessibilityGranted: accessibilityGranted,
             message: message
         )
+    }
+
+    public static func unavailable(_ reason: String) -> ComputerUseStatus {
+        ComputerUseStatus(
+            available: false,
+            screenRecordingGranted: false,
+            accessibilityGranted: false,
+            message: reason,
+            unavailableReason: reason
+        )
+    }
+
+    public static func unsupportedPlatform(_ reason: String) -> ComputerUseStatus {
+        unavailable("Unsupported platform: \(reason)")
     }
 }
 
@@ -152,7 +169,7 @@ public struct ComputerUseToolExecutor: Sendable {
     }
 
     public func execute(_ call: ToolCall) async -> ToolResult? {
-        if let failure = permissionPreflightFailure(for: call.name) {
+        if let failure = preflightFailure(for: call.name) {
             return failure
         }
 
@@ -205,8 +222,22 @@ public struct ComputerUseToolExecutor: Sendable {
         }
     }
 
-    private func permissionPreflightFailure(for toolName: String) -> ToolResult? {
+    private func preflightFailure(for toolName: String) -> ToolResult? {
+        guard Self.isComputerUseTool(toolName) else {
+            return nil
+        }
+
         let status = backend.status
+        if let unavailableReason = status.unavailableReason {
+            return ToolResult(
+                ok: false,
+                error: Self.unavailablePreflightMessage(
+                    reason: unavailableReason,
+                    toolName: toolName
+                )
+            )
+        }
+
         let missingPermissions = Self.missingPermissions(for: toolName, status: status)
         guard !missingPermissions.isEmpty else {
             return nil
@@ -219,6 +250,10 @@ public struct ComputerUseToolExecutor: Sendable {
                 toolName: toolName
             )
         )
+    }
+
+    private static func isComputerUseTool(_ toolName: String) -> Bool {
+        ToolDefinition.computerUseDefinitions.contains { $0.name == toolName }
     }
 
     private static func missingPermissions(
@@ -248,6 +283,13 @@ public struct ComputerUseToolExecutor: Sendable {
             .joined(separator: " + ")
         return "Computer Use \(toolDisplayName(for: toolName)) needs \(permissionList). "
             + "Open Computer Use setup from Settings, grant \(permissionList), then refresh status."
+    }
+
+    private static func unavailablePreflightMessage(
+        reason: String,
+        toolName: String
+    ) -> String {
+        "Computer Use \(toolDisplayName(for: toolName)) is unavailable: \(reason)"
     }
 
     private static func toolDisplayName(for toolName: String) -> String {
