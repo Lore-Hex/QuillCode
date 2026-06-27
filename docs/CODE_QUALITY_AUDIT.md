@@ -8011,3 +8011,19 @@ Code quality changes:
 Remaining risk:
 
 - This still stops at the shared Swift app surface, not the packaged macOS window event loop. A future smoke should launch `quill-code-desktop`, drive the native window, and compare an appshot/screenshot against the same prompt family.
+
+## 2026-06-27 Desktop Controller Real-World Action Pass
+
+Overall grade after this slice: **A- native desktop-controller coverage, A side-effect verification, B packaged-window coverage**.
+
+The prior app-surface smoke proved the Swift workspace model and renderable surface, but it did not enter the macOS desktop controller/coordinator layer that owns draft clearing, async task slots, default project bootstrapping, and desktop refresh timing.
+
+Code quality changes:
+
+- Added a dedicated `QuillCodeDesktopTests` target that imports the desktop executable module with `@testable import quill_code_desktop`.
+- Added `QuillCodeDesktopControllerSmokeTests/testDesktopControllerSendPathCoversRealWorldActionPromptFamily`, which builds isolated temp app state, forces the mock runtime, and drives `QuillCodeDesktopController.send()` for `whoami?`, disk usage, OpenClaw discovery, file creation, and local download prompts.
+- The smoke validates desktop-controller surface refresh, nonempty tool-card arguments, completed tool status, concrete final answers, no passive “I'll run...” regression, no empty-command regression, and actual file side effects.
+
+Remaining risk:
+
+- This still does not synthesize native click/key events against a packaged `.app` window. The next coverage layer should launch `quill-code-desktop`, drive the native window with Accessibility/XCTest or a small appshot harness, and capture a screenshot/appshot for the same prompt family.
