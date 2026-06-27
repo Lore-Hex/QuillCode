@@ -196,6 +196,70 @@ final class SafetyTests: XCTestCase {
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }
 
+    func testAutoApprovesExplicitFileDownloadShellRun() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: shellRun.name,
+            argumentsJSON: #"{"cmd":"mkdir -p downloads && curl -L --fail --silent --show-error --output 'downloads/linkedin.com.html' 'https://www.linkedin.com' && ls -lh 'downloads/linkedin.com.html'"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Can you download LinkedIn.com?",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "Can you download LinkedIn.com?")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoDoesNotUseDownloadIntentForUnrelatedShellRun() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: shellRun.name,
+            argumentsJSON: #"{"cmd":"rm -rf build"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Can you download LinkedIn.com?",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "Can you download LinkedIn.com?")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
+    }
+
+    func testAutoDoesNotApproveDownloadForDifferentDomain() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: shellRun.name,
+            argumentsJSON: #"{"cmd":"curl -L --output 'downloads/evil.example.html' 'https://evil.example'"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Can you download LinkedIn.com?",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "Can you download LinkedIn.com?")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
+    }
+
+    func testAutoDoesNotApproveDownloadOutsideWorkspace() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: shellRun.name,
+            argumentsJSON: #"{"cmd":"curl -L --output '/tmp/linkedin.html' 'https://www.linkedin.com'"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Can you download LinkedIn.com?",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "Can you download LinkedIn.com?")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
+    }
+
     func testAutoDoesNotTreatDiagnosticRequestAsBlanketIntentForGitPush() async {
         let reviewer = StaticSafetyReviewer()
         let call = ToolCall(name: gitPush.name, argumentsJSON: #"{"remote":"origin"}"#)

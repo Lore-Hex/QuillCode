@@ -7823,7 +7823,7 @@ Code quality changes:
 
 Remaining risk:
 
-- “Download a site” still needs a product decision: it could mean browser-open, file download into the workspace, or a remote shell `curl`. That should be specified before locking in E2E semantics.
+- “Download a site” is now specified in the follow-up pass as a workspace-bounded file download into `downloads/`; keep browser navigation requests separate from file download requests.
 
 ## 2026-06-27 Interaction Target Contract Gate
 
@@ -7840,3 +7840,21 @@ The click-target system had good shared primitives and broad Playwright coverage
 Remaining risk:
 
 - Native SwiftUI hit boxes are still source-gated rather than pixel-measured in a packaged app. When native UI automation lands, mirror the Playwright visible-rect and overlap checks against the actual macOS/Linux windows.
+
+## 2026-06-27 Explicit Download Prompt Coverage Pass
+
+Overall grade after this slice: **A- real-world download behavior, A safety specificity, A prompt/test alignment**.
+
+The phone-visible `Can you download LinkedIn.com?` failure needed a product-level decision. QuillCode now treats explicit `download`, `save`, or `fetch` requests for a URL/domain as a workspace-bounded file download: use `curl`/`wget`, write under a relative path such as `downloads/linkedin.com.html`, and present a concise final answer with the saved path. Browser navigation remains separate: prompts like `open LinkedIn.com` still route to browser-open semantics.
+
+Code quality changes:
+
+- Added TrustedRouter prompt guidance for safe URL/domain downloads, including relative workspace paths and no remote-content shell piping.
+- Added mock planner support for deterministic download commands so local and browser tests exercise the intended one-turn behavior.
+- Added a specific static safety mini-policy that approves only matching curl/wget file downloads for the requested host, while rejecting unrelated shell commands or domain mismatches.
+- Added final-answer formatting for successful shell downloads so users see `Downloaded to ...` instead of raw `ls` output.
+- Added native and Playwright coverage guarding against empty shell arguments, passive confirmation loops, and scary confirmation copy for explicit downloads.
+
+Remaining risk:
+
+- Live TrustedRouter models can still choose a different safe file name or command variant. The safety policy allows common curl/wget output forms, but live smoke coverage should keep checking that model output stays bounded and useful.

@@ -46,6 +46,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
         - If the user asks to run a command, create a host.shell.run action immediately.
         - host.shell.run MUST include a non-empty "cmd" string. Never emit {} for shell arguments.
         - If the user asks to create or write a file, use host.file.write with non-empty "path" and "content".
+        - If the user asks to download, save, or fetch a URL or domain, use host.shell.run immediately with curl or wget, save into a relative workspace path such as downloads/example.com.html, and do not pipe remote content into a shell.
         - If the user asks to push or publish a git branch, use host.git.push instead of host.shell.run.
         - If the user asks to open or create a pull request/PR, use host.git.pr.create instead of host.shell.run.
         - host.git.pr.create should include a non-empty "title" unless you set "fill": true.

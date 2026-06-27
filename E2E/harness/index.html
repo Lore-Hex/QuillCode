@@ -10053,6 +10053,23 @@
           });
           addMessage('assistant', 'Command failed:\nEnter an http, https, file, localhost, or project file URL.');
         }
+      } else if (text.toLowerCase().includes('download') || text.toLowerCase().includes('fetch')) {
+        const path = 'downloads/linkedin.com.html';
+        const url = 'https://www.linkedin.com';
+        const cmd = `mkdir -p downloads && curl -L --fail --silent --show-error --output '${path}' '${url}' && ls -lh '${path}'`;
+        addToolCard({
+          title: 'host.shell.run',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ cmd }, null, 2),
+          outputJSON: JSON.stringify({
+            ok: true,
+            stdout: `-rw-r--r--  1 mock  staff  42K ${path}\n`,
+            stderr: '',
+            exitCode: 0
+          }, null, 2)
+        });
+        addMessage('assistant', `Downloaded to \`${path}\`.`);
       } else if (text.toLowerCase().includes('pdf') || text.toLowerCase().includes('document artifact')) {
         const path = '/mock/QuillCode/reports/briefing.pdf';
         addToolCard({

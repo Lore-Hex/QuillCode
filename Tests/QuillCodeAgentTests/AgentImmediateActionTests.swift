@@ -49,6 +49,32 @@ final class AgentImmediateActionTests: XCTestCase {
         XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
     }
 
+    func testDownloadDomainExecutesImmediatelyWithWorkspaceBoundedPath() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(toolExecutionOverride: { call, _ in
+            guard call.name == ToolDefinition.shellRun.name else { return nil }
+            return ToolResult(
+                ok: true,
+                stdout: "-rw-r--r--  1 mock  staff  42K downloads/linkedin.com.html\n",
+                stderr: "",
+                exitCode: 0
+            )
+        })
+
+        let result = try await runner.send("Can you download LinkedIn.com?", in: ChatThread(mode: .auto), workspaceRoot: root)
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        let toolResult = try XCTUnwrap(result.toolResults.first)
+        XCTAssertTrue(toolResult.ok, toolResult.error ?? "")
+        XCTAssertEqual(
+            try queuedShellCommand(in: result),
+            "mkdir -p downloads && curl -L --fail --silent --show-error --output 'downloads/linkedin.com.html' 'https://LinkedIn.com' && ls -lh 'downloads/linkedin.com.html'"
+        )
+        XCTAssertEqual(result.thread.messages.last?.content, "Downloaded to `downloads/linkedin.com.html`.")
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll download") })
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
+    }
+
     func testBacktickCommandDoesNotBecomeEmptyToolCall() async throws {
         let root = try makeTempDirectory()
         let result = try await AgentRunner().send("Run `pwd`", in: ChatThread(mode: .auto), workspaceRoot: root)
