@@ -125,6 +125,31 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(result.thread.messages.last?.content, "Finished.")
     }
 
+    func testAgentRetriesNonBacktickedPromisedWorkAnswerBeforeFinalizing() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: SequenceLLMClient(actions: [
+            .say("I'll run whoami on the device."),
+            .tool(.init(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json(["cmd": "whoami"])
+            )),
+            .say("Finished.")
+        ]))
+
+        let result = try await runner.send(
+            "whoami?",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertFalse(result.thread.messages.contains {
+            $0.content.contains("I'll run")
+        })
+        XCTAssertEqual(result.thread.messages.last?.content, "Finished.")
+    }
+
     func testAgentDoesNotRetryInformationalAnswerThatMentionsCapabilities() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(llm: SequenceLLMClient(actions: [
