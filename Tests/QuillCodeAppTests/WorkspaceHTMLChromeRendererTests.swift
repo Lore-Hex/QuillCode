@@ -128,6 +128,17 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="send-button""#))
     }
 
+    func testHTMLRendererIncludesEmptyStarterActions() {
+        let html = WorkspaceHTMLRenderer.render(QuillCodeWorkspaceModel().surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="transcript-empty""#))
+        XCTAssertTrue(html.contains(#"data-testid="empty-starter-actions""#))
+        XCTAssertTrue(html.contains(#"data-testid="empty-starter-action" data-action-id="review-changes""#))
+        XCTAssertTrue(html.contains(#"Review the current git diff and call out risks, missing tests, and next steps."#))
+        XCTAssertTrue(html.contains("Run tests"))
+        XCTAssertTrue(html.contains("Explain project"))
+    }
+
     func testHTMLRendererIncludesOptimisticThinkingSurface() {
         let thread = ChatThread(
             messages: [.init(role: .user, content: "run tests")],

@@ -28,6 +28,7 @@ enum WorkspaceHTMLTranscriptRenderer {
             <section class="empty" data-testid="transcript-empty">
               <h1>\(escape(transcript.emptyTitle))</h1>
               <p>\(escape(transcript.emptySubtitle))</p>
+              \(renderStarterActions(transcript.emptyStarterActions))
             </section>
             """
         }
@@ -67,6 +68,17 @@ enum WorkspaceHTMLTranscriptRenderer {
         default:
             return "auto"
         }
+    }
+
+    private static func renderStarterActions(_ actions: [TranscriptStarterActionSurface]) -> String {
+        guard !actions.isEmpty else { return "" }
+        return """
+        <div class="empty-starters" data-testid="empty-starter-actions">
+          \(actions.map { action in
+            #"<button type="button" class="empty-starter" data-testid="empty-starter-action" data-action-id="\#(escape(action.id))" data-prompt="\#(escape(action.prompt))"><strong>\#(escape(action.title))</strong><span>\#(escape(action.subtitle))</span></button>"#
+          }.joined(separator: "\n"))
+        </div>
+        """
     }
 
     private static func renderRuntimeIssue(_ issue: RuntimeIssueSurface?) -> String {

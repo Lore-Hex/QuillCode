@@ -14,6 +14,12 @@ test('mock harness executes simple command flow', async ({ page }) => {
   await expect(page.getByTestId('project-item')).toContainText('QuillCode');
   await expect(page.getByTestId('project-item')).toHaveAttribute('aria-current', 'true');
   await expect(page.getByTestId('transcript-empty')).toBeVisible();
+  await expect(page.getByTestId('empty-starter-action')).toHaveCount(3);
+  await page.getByTestId('empty-starter-action').filter({ hasText: 'Review changes' }).click();
+  await expect(page.getByLabel('Message')).toHaveValue('Review the current git diff and call out risks, missing tests, and next steps.');
+  await expect(page.getByLabel('Message')).toBeFocused();
+  await expect(page.getByTestId('send-button')).toBeEnabled();
+  await page.getByLabel('Message').fill('');
   await expect(page.locator('[data-testid="top-bar"] [data-testid="model-picker-button"]')).toHaveCount(0);
   await expect(page.getByTestId('composer-surface')).toBeVisible();
   await expect(page.getByTestId('composer-controls')).toBeVisible();

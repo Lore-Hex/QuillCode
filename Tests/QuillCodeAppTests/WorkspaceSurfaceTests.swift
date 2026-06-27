@@ -277,6 +277,11 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.topBar.primaryTitle, "QuillCode")
         XCTAssertEqual(surface.sidebar.items.count, 0)
         XCTAssertEqual(surface.transcript.emptyTitle, "Ask QuillCode to inspect, edit, or run this project.")
+        XCTAssertEqual(surface.transcript.emptyStarterActions.map(\.title), [
+            "Review changes",
+            "Run tests",
+            "Explain project"
+        ])
         XCTAssertFalse(surface.review.isVisible)
         XCTAssertFalse(surface.composer.canSend)
         XCTAssertTrue(surface.topBar.showsComputerUseSetup)
