@@ -10,6 +10,7 @@ enum AgentToolAnswerFormatters {
             AgentGitToolAnswerFormatters.worktreePruneAnswer,
             AgentGitToolAnswerFormatters.pullRequestReviewThreadsAnswer,
             AgentUtilityToolAnswerFormatters.planUpdateAnswer,
+            AgentUtilityToolAnswerFormatters.handoffUpdateAnswer,
             AgentUtilityToolAnswerFormatters.memoryRememberAnswer,
             AgentShellToolAnswerFormatters.shellRunAnswer,
             AgentBrowserToolAnswerFormatters.browserInspectAnswer,

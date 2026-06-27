@@ -29,7 +29,7 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     }
 
     var additionalToolDefinitions: [ToolDefinition] {
-        [ToolDefinition.planUpdate, ToolDefinition.browserInspect, ToolDefinition.browserOpen]
+        [ToolDefinition.planUpdate, ToolDefinition.handoffUpdate, ToolDefinition.browserInspect, ToolDefinition.browserOpen]
             + computerUseToolDefinitions
             + memoryToolDefinitions
             + mcpToolDefinitions
@@ -37,7 +37,7 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
 
     var toolExecutionOverride: AgentToolExecutionOverride? {
         WorkspaceToolExecutionOverrideCombiner.combine(
-            plan: planToolExecutionOverride,
+            activity: activityToolExecutionOverride,
             browser: browserToolExecutionOverride,
             computerUse: computerUseToolExecutionOverride,
             memory: WorkspaceMemoryRememberToolExecutor.executionOverride(directory: globalMemoryDirectory),
@@ -54,10 +54,16 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
         globalMemoryDirectory == nil ? [] : [ToolDefinition.memoryRemember]
     }
 
-    private var planToolExecutionOverride: AgentToolExecutionOverride {
+    private var activityToolExecutionOverride: AgentToolExecutionOverride {
         { call, _ in
-            guard call.name == ToolDefinition.planUpdate.name else { return nil }
-            return PlanUpdateToolExecutor.execute(call)
+            switch call.name {
+            case ToolDefinition.planUpdate.name:
+                return PlanUpdateToolExecutor.execute(call)
+            case ToolDefinition.handoffUpdate.name:
+                return HandoffUpdateToolExecutor.execute(call)
+            default:
+                return nil
+            }
         }
     }
 

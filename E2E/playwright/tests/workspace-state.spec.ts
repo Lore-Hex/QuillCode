@@ -63,6 +63,24 @@ test('mock harness shows model-authored task plan in Activity', async ({ page })
   await expect(page.getByTestId('activity-plan-section')).toContainText('3 items');
 });
 
+test('mock harness shows model-authored handoff summary in Activity', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('write a handoff summary');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.handoff.update');
+  await expect(page.getByText('Updated the handoff summary.')).toBeVisible();
+
+  await clickSidebarTool(page, 'activity-button');
+  await expect(page.getByTestId('activity-pane')).toBeVisible();
+  await expect(page.getByTestId('activity-handoff')).toContainText('Current task state is ready for continuation.');
+  await expect(page.getByTestId('activity-handoff')).toContainText('Next steps:');
+  await expect(page.getByTestId('activity-handoff')).toContainText('1. Review the latest tool output');
+  await expect(page.getByTestId('activity-handoff')).toContainText('2. Continue from the Activity pane');
+  await expect(page.getByTestId('activity-handoff-section')).toContainText('1 summary');
+});
+
 test('mock harness shows context pressure banner and compacts or forks from latest turn', async ({ page }) => {
   test.setTimeout(60000);
   await page.goto(harnessURL());

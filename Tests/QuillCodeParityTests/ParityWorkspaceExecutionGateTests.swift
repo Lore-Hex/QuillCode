@@ -413,6 +413,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(composerText.contains("WorkspaceAgentSendSessionFactory("), "WorkspaceModel composer APIs should delegate per-run session assembly.")
         XCTAssertTrue(builderText.contains("configuredRunner(from runner: AgentRunner)"), "Agent run context builder should own runner configuration.")
         XCTAssertTrue(builderText.contains("ToolDefinition.planUpdate"), "Agent run context builder should attach the plan tool.")
+        XCTAssertTrue(builderText.contains("ToolDefinition.handoffUpdate"), "Agent run context builder should attach the handoff summary tool.")
         XCTAssertTrue(builderText.contains("ToolDefinition.browserInspect"), "Agent run context builder should attach the browser tool.")
         XCTAssertTrue(builderText.contains("ToolDefinition.browserOpen"), "Agent run context builder should attach browser navigation.")
         XCTAssertTrue(builderText.contains("WorkspaceBrowserToolExecutor.execute"), "Browser tool execution should stay in the focused browser executor.")
@@ -421,6 +422,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(memoryExecutorText.contains("didSaveMemory(in thread: ChatThread)"), "Memory save detection should live beside memory tool execution.")
         XCTAssertFalse(modelText.contains("WorkspaceAgentRunContextBuilder("), "WorkspaceModel should not construct the run-context builder inline.")
         XCTAssertFalse(modelText.contains("activeRunner.additionalToolDefinitions"), "WorkspaceModel should not assemble per-run additional tool definitions inline.")
+        XCTAssertFalse(modelText.contains("private func activityToolExecutionOverride"), "WorkspaceModel should not own Activity tool override assembly.")
         XCTAssertFalse(modelText.contains("private func planToolExecutionOverride"), "WorkspaceModel should not own plan tool override assembly.")
         XCTAssertFalse(modelText.contains("private func browserToolExecutionOverride"), "WorkspaceModel should not own browser tool override assembly.")
         XCTAssertFalse(modelText.contains("private func memoryToolExecutionOverride"), "WorkspaceModel should not own memory tool override assembly.")
@@ -474,6 +476,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(executorText.contains("struct WorkspaceToolCallExecutor"), "Tool-call routing should live in a focused executor.")
         XCTAssertTrue(executorText.contains("WorkspaceBrowserToolExecutor.execute"), "The executor should own browser tool routing.")
         XCTAssertTrue(executorText.contains("PlanUpdateToolExecutor.execute"), "The executor should own plan update routing.")
+        XCTAssertTrue(executorText.contains("HandoffUpdateToolExecutor.execute"), "The executor should own handoff summary update routing.")
         XCTAssertTrue(executorText.contains("WorkspaceRemoteProjectToolExecutor.execute"), "The executor should own remote project routing.")
         XCTAssertTrue(executorText.contains("ToolDefinition.applyPatch.name"), "The executor should own apply-patch follow-up routing.")
         XCTAssertTrue(toolRunsText.contains("WorkspaceToolRunCoordinator"), "The tool-run extension should delegate orchestration to the focused coordinator.")
@@ -485,6 +488,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelText.contains("call.name == ToolDefinition.browserInspect.name"), "WorkspaceModel should not branch on browser inspect tool execution.")
         XCTAssertFalse(modelText.contains("call.name == ToolDefinition.browserOpen.name"), "WorkspaceModel should not branch on browser open tool execution.")
         XCTAssertFalse(modelText.contains("call.name == ToolDefinition.planUpdate.name"), "WorkspaceModel should not branch on plan update tool execution.")
+        XCTAssertFalse(modelText.contains("call.name == ToolDefinition.handoffUpdate.name"), "WorkspaceModel should not branch on handoff update tool execution.")
         XCTAssertFalse(modelText.contains("private func appendReviewDiffAfterPatchIfNeeded"), "WorkspaceModel should not own apply-patch review diff follow-up routing.")
         XCTAssertFalse(modelText.contains("private func executeReviewGitToolCall"), "WorkspaceModel should not own parallel review git routing.")
     }
@@ -663,12 +667,13 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
 
         XCTAssertTrue(combinerText.contains("struct WorkspaceToolExecutionOverrideCombiner"), "Tool override composition should live in a focused helper.")
         XCTAssertTrue(combinerText.contains("static func combine"), "Tool override composition should expose a directly testable combine function.")
-        XCTAssertTrue(combinerText.contains("plan?(call, workspaceRoot)"), "Plan override should keep first dispatch priority.")
+        XCTAssertTrue(combinerText.contains("activity?(call, workspaceRoot)"), "Activity tool override should keep first dispatch priority.")
         XCTAssertTrue(combinerText.contains("remoteProject?(call, workspaceRoot)"), "Remote-project override should stay before local browser/computer/memory/MCP overrides.")
         XCTAssertTrue(combinerText.contains("mcp?(call, workspaceRoot)"), "MCP override should keep final fallback priority.")
         XCTAssertTrue(builderText.contains("WorkspaceToolExecutionOverrideCombiner.combine"), "Agent run context builder should delegate override composition.")
         XCTAssertFalse(modelText.contains("WorkspaceToolExecutionOverrideCombiner.combine"), "WorkspaceModel should not compose per-run overrides directly.")
         XCTAssertFalse(modelText.contains("private func combinedToolExecutionOverride"), "WorkspaceModel should not own override composition.")
-        XCTAssertFalse(modelText.contains("if let result = await plan?(call, workspaceRoot)"), "WorkspaceModel should not inline override precedence.")
+        XCTAssertFalse(modelText.contains("if let result = await activity?(call, workspaceRoot)"), "WorkspaceModel should not inline override precedence.")
+        XCTAssertFalse(modelText.contains("if let result = await plan?(call, workspaceRoot)"), "WorkspaceModel should not inline legacy plan override precedence.")
     }
 }

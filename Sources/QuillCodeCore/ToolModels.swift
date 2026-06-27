@@ -244,6 +244,14 @@ public extension ToolDefinition {
         risk: .read
     )
 
+    static let handoffUpdate = ToolDefinition(
+        name: "host.handoff.update",
+        description: "Update the Activity pane handoff summary for the current thread. Use this when a task reaches a handoff point or when the next agent/user needs a concise summary of current state, decisions, verification, and remaining steps.",
+        parametersJSON: #"{"type":"object","properties":{"summary":{"type":"string","description":"Concise handoff summary for the current task state."},"nextSteps":{"type":"array","maxItems":8,"items":{"type":"string"},"description":"Optional ordered next steps for a future continuation."}},"required":["summary"]}"#,
+        host: .local,
+        risk: .read
+    )
+
     static let browserInspect = ToolDefinition(
         name: "host.browser.inspect",
         description: "Inspect the current QuillCode browser preview page, including URL, title, inspection depth, summary, visible page outline, text snippet, and attached browser comments.",

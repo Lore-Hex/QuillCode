@@ -6,7 +6,7 @@ import QuillCodeCore
 final class WorkspaceToolExecutionOverrideCombinerTests: XCTestCase {
     func testReturnsNilWhenNoOverridesAreAvailable() {
         XCTAssertNil(WorkspaceToolExecutionOverrideCombiner.combine(
-            plan: nil,
+            activity: nil,
             browser: nil,
             computerUse: nil,
             memory: nil,
@@ -18,7 +18,7 @@ final class WorkspaceToolExecutionOverrideCombinerTests: XCTestCase {
     func testUsesFirstOverrideWithResultInWorkspaceOrder() async throws {
         let recorder = OverrideRecorder()
         let override = try XCTUnwrap(WorkspaceToolExecutionOverrideCombiner.combine(
-            plan: recordingOverride("plan", result: ToolResult(ok: true, stdout: "plan"), recorder: recorder),
+            activity: recordingOverride("activity", result: ToolResult(ok: true, stdout: "activity"), recorder: recorder),
             browser: recordingOverride("browser", result: ToolResult(ok: true, stdout: "browser"), recorder: recorder),
             computerUse: recordingOverride("computerUse", result: ToolResult(ok: true, stdout: "computer"), recorder: recorder),
             memory: recordingOverride("memory", result: ToolResult(ok: true, stdout: "memory"), recorder: recorder),
@@ -29,14 +29,14 @@ final class WorkspaceToolExecutionOverrideCombinerTests: XCTestCase {
         let result = await override(sampleCall(), sampleWorkspaceRoot())
         let calls = await recorder.snapshot()
 
-        XCTAssertEqual(result?.stdout, "plan")
-        XCTAssertEqual(calls, ["plan"])
+        XCTAssertEqual(result?.stdout, "activity")
+        XCTAssertEqual(calls, ["activity"])
     }
 
     func testFallsThroughNilOverridesUntilLaterHandlerReturnsResult() async throws {
         let recorder = OverrideRecorder()
         let override = try XCTUnwrap(WorkspaceToolExecutionOverrideCombiner.combine(
-            plan: recordingOverride("plan", result: nil, recorder: recorder),
+            activity: recordingOverride("activity", result: nil, recorder: recorder),
             browser: recordingOverride("browser", result: nil, recorder: recorder),
             computerUse: recordingOverride("computerUse", result: ToolResult(ok: true, stdout: "computer"), recorder: recorder),
             memory: recordingOverride("memory", result: ToolResult(ok: true, stdout: "memory"), recorder: recorder),
@@ -48,13 +48,13 @@ final class WorkspaceToolExecutionOverrideCombinerTests: XCTestCase {
         let calls = await recorder.snapshot()
 
         XCTAssertEqual(result?.stdout, "computer")
-        XCTAssertEqual(calls, ["plan", "remoteProject", "browser", "computerUse"])
+        XCTAssertEqual(calls, ["activity", "remoteProject", "browser", "computerUse"])
     }
 
     func testFallsThroughAllOverridesWhenNoHandlerReturnsResult() async throws {
         let recorder = OverrideRecorder()
         let override = try XCTUnwrap(WorkspaceToolExecutionOverrideCombiner.combine(
-            plan: recordingOverride("plan", result: nil, recorder: recorder),
+            activity: recordingOverride("activity", result: nil, recorder: recorder),
             browser: recordingOverride("browser", result: nil, recorder: recorder),
             computerUse: recordingOverride("computerUse", result: nil, recorder: recorder),
             memory: recordingOverride("memory", result: nil, recorder: recorder),
@@ -66,7 +66,7 @@ final class WorkspaceToolExecutionOverrideCombinerTests: XCTestCase {
         let calls = await recorder.snapshot()
 
         XCTAssertNil(result)
-        XCTAssertEqual(calls, ["plan", "remoteProject", "browser", "computerUse", "memory", "mcp"])
+        XCTAssertEqual(calls, ["activity", "remoteProject", "browser", "computerUse", "memory", "mcp"])
     }
 
     private func sampleCall() -> ToolCall {

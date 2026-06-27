@@ -168,6 +168,43 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
         ])
     }
 
+    func testActivitySurfacePrefersModelAuthoredHandoffSummary() throws {
+        let update = AgentHandoffUpdate(
+            summary: "The branch is ready for final validation.",
+            nextSteps: ["Run focused tests", "Open a PR"]
+        )
+        let result = ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(update))
+        let thread = ChatThread(
+            title: "Handoff work",
+            messages: [.init(role: .user, content: "summarize for handoff")],
+            events: [
+                .init(
+                    kind: .toolCompleted,
+                    summary: "\(ToolDefinition.handoffUpdate.name) completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            activity: ActivityState(isVisible: true)
+        )
+
+        let activity = model.surface().activity
+
+        XCTAssertEqual(
+            activity.handoffSummary,
+            """
+            The branch is ready for final validation.
+            Next steps:
+            1. Run focused tests
+            2. Open a PR
+            """
+        )
+        XCTAssertEqual(activity.sections.first { $0.kind == .handoff }?.bodyText, activity.handoffSummary)
+        XCTAssertEqual(activity.sections.first { $0.kind == .handoff }?.countLabel, "1 summary")
+    }
+
     func testActivityCommandTogglesActivityPane() {
         let model = QuillCodeWorkspaceModel()
 
@@ -259,6 +296,44 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
 
         XCTAssertFalse(result.ok)
         XCTAssertEqual(result.error, "Plan update can have at most one in_progress step.")
+        XCTAssertEqual(model.root.topBar.agentStatus, "Failed")
+    }
+
+    func testHandoffUpdateToolRecordsNormalizedActivitySummary() throws {
+        let model = QuillCodeWorkspaceModel(activity: ActivityState(isVisible: true))
+        _ = model.newChat()
+        let update = AgentHandoffUpdate(
+            summary: "  Current state:\n\n  implementation is ready.  ",
+            nextSteps: ["  Run tests  ", "Open PR"]
+        )
+        let call = ToolCall(
+            name: ToolDefinition.handoffUpdate.name,
+            argumentsJSON: try JSONHelpers.encodePretty(update)
+        )
+
+        let result = model.runToolCall(call, workspaceRoot: try makeTempDirectory())
+        let decoded = try JSONHelpers.decode(AgentHandoffUpdate.self, from: result.stdout)
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(decoded.summary, "Current state:\nimplementation is ready.")
+        XCTAssertEqual(decoded.nextSteps, ["Run tests", "Open PR"])
+        XCTAssertEqual(model.selectedThread?.events.last?.summary, "\(ToolDefinition.handoffUpdate.name) completed")
+        XCTAssertTrue(model.surface().activity.handoffSummary?.contains("Current state") == true)
+        XCTAssertTrue(model.surface().activity.handoffSummary?.contains("1. Run tests") == true)
+    }
+
+    func testHandoffUpdateToolRejectsEmptySummary() throws {
+        let model = QuillCodeWorkspaceModel()
+        _ = model.newChat()
+        let call = ToolCall(
+            name: ToolDefinition.handoffUpdate.name,
+            argumentsJSON: try JSONHelpers.encodePretty(AgentHandoffUpdate(summary: "  "))
+        )
+
+        let result = model.runToolCall(call, workspaceRoot: try makeTempDirectory())
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(result.error, "Handoff update requires a non-empty summary.")
         XCTAssertEqual(model.root.topBar.agentStatus, "Failed")
     }
 }

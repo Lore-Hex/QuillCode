@@ -66,6 +66,16 @@ public struct AgentPlanUpdate: Codable, Sendable, Hashable {
     }
 }
 
+public struct AgentHandoffUpdate: Codable, Sendable, Hashable {
+    public var summary: String
+    public var nextSteps: [String]
+
+    public init(summary: String, nextSteps: [String] = []) {
+        self.summary = summary
+        self.nextSteps = nextSteps
+    }
+}
+
 public enum ApprovalVerdict: String, Codable, Sendable {
     case approve
     case deny

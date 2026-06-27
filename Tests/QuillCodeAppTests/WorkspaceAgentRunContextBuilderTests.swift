@@ -20,6 +20,7 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
         XCTAssertEqual(runner.baseToolDefinitions.map(\.name), ToolRouter.definitions.map(\.name))
         XCTAssertEqual(runner.additionalToolDefinitions.map(\.name), [
             ToolDefinition.planUpdate.name,
+            ToolDefinition.handoffUpdate.name,
             ToolDefinition.browserInspect.name,
             ToolDefinition.browserOpen.name
         ])
@@ -67,6 +68,7 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
 
         let expectedNames = [
             ToolDefinition.planUpdate.name,
+            ToolDefinition.handoffUpdate.name,
             ToolDefinition.browserInspect.name,
             ToolDefinition.browserOpen.name
         ] + ToolDefinition.computerUseDefinitions.map(\.name)
@@ -102,6 +104,15 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
             memoryDirectory
         )
         XCTAssertEqual(planResult?.ok, true)
+
+        let handoffResult = await override(
+            ToolCall(
+                name: ToolDefinition.handoffUpdate.name,
+                argumentsJSON: try JSONHelpers.encodePretty(AgentHandoffUpdate(summary: "Ready to continue."))
+            ),
+            memoryDirectory
+        )
+        XCTAssertEqual(handoffResult?.ok, true)
 
         let browserResult = await override(
             ToolCall(name: ToolDefinition.browserInspect.name, argumentsJSON: "{}"),

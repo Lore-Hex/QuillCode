@@ -30,6 +30,33 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(update.plan.map(\.status), [.completed, .inProgress, .pending])
     }
 
+    func testAgentUsesHandoffUpdateToolWhenAvailable() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(
+            additionalToolDefinitions: [ToolDefinition.handoffUpdate],
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.handoffUpdate.name else { return nil }
+                return ToolResult(ok: true, stdout: call.argumentsJSON)
+            }
+        )
+
+        let result = try await runner.send(
+            "write a handoff summary",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok)
+        XCTAssertEqual(result.thread.messages.last?.content, "Updated the handoff summary.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .toolCompleted && $0.summary == "\(ToolDefinition.handoffUpdate.name) completed"
+        })
+        let update = try JSONHelpers.decode(AgentHandoffUpdate.self, from: result.toolResults[0].stdout)
+        XCTAssertEqual(update.summary, "Current task state is ready for continuation.")
+        XCTAssertEqual(update.nextSteps, ["Review the latest tool output", "Continue from the Activity pane"])
+    }
+
     func testAgentContinuesAcrossMultipleToolCallsInOneTurn() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(llm: SequenceLLMClient(actions: [

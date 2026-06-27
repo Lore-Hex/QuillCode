@@ -128,7 +128,10 @@ enum WorkspaceActivitySurfaceBuilder {
         finalAnswer: String?,
         agentStatus: String
     ) -> String {
-        WorkspaceActivityHandoffSummaryBuilder.summary(
+        if let update = HandoffUpdateToolExecutor.latestUpdate(in: thread) {
+            return HandoffUpdateToolExecutor.displayText(for: update)
+        }
+        return WorkspaceActivityHandoffSummaryBuilder.summary(
             for: thread,
             latestRequestTitle: taskTitle(for: thread),
             toolCards: toolCards,
