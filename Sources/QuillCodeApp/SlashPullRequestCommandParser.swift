@@ -40,6 +40,14 @@ enum SlashPullRequestCommandParser {
             return parseReview(rest)
         case "review_comment", "line_comment", "inline_comment", "inline":
             return parseReviewComment(rest)
+        case "review_reply", "inline_reply", "reply_comment":
+            return parseReviewReply(rest)
+        case "review_thread", "thread":
+            return parseReviewThread(rest)
+        case "resolve_thread", "resolve_review_thread":
+            return parseReviewThreadID(rest, action: "resolve")
+        case "unresolve_thread", "unresolve_review_thread", "reopen_thread":
+            return parseReviewThreadID(rest, action: "unresolve")
         case "approve", "approved":
             let parsed = selectorAndBody(from: rest)
             return pullRequestTool(
@@ -62,7 +70,7 @@ enum SlashPullRequestCommandParser {
         case "merge", "automerge", "auto_merge":
             return parseMerge(rest, autoByDefault: subcommand != "merge")
         default:
-            return .invalid("Unknown pull request command '\(rawSubcommand)'. Use create, view, checks, diff, checkout, comment, review, review-comment, reviewers, labels, or merge.")
+            return .invalid("Unknown pull request command '\(rawSubcommand)'. Use create, view, checks, diff, checkout, comment, review, review-comment, review-reply, review-thread, reviewers, labels, or merge.")
         }
     }
 
@@ -98,12 +106,17 @@ enum SlashPullRequestCommandParser {
     }
 
     private static func parseReviewComment(_ argument: String) -> SlashCommand {
-        let tokens = argument.split(maxSplits: 3, whereSeparator: \.isWhitespace).map(String.init)
+        let selectorTokens = argument.split(maxSplits: 3, whereSeparator: \.isWhitespace).map(String.init)
+        let hasSelector = selectorTokens.count >= 4
+            && looksLikePullRequestSelector(selectorTokens[0])
+            && Int(selectorTokens[2]) != nil
+        let tokens = hasSelector
+            ? selectorTokens
+            : argument.split(maxSplits: 2, whereSeparator: \.isWhitespace).map(String.init)
         guard tokens.count >= 3 else {
             return .invalid("Usage: /pr review-comment OptionalPRSelector path line comment body")
         }
 
-        let hasSelector = looksLikePullRequestSelector(tokens[0]) && tokens.count >= 4
         let selector = hasSelector ? normalizedPullRequestSelector(tokens[0]) : nil
         let pathIndex = hasSelector ? 1 : 0
         let lineIndex = pathIndex + 1
@@ -122,6 +135,67 @@ enum SlashPullRequestCommandParser {
                 "line": line,
                 "body": tokens[bodyIndex]
             ])
+        )
+    }
+
+    private static func parseReviewReply(_ argument: String) -> SlashCommand {
+        let selectorTokens = argument.split(maxSplits: 2, whereSeparator: \.isWhitespace).map(String.init)
+        let hasSelector = selectorTokens.count >= 3
+            && looksLikePullRequestSelector(selectorTokens[0])
+            && Int(selectorTokens[1]) != nil
+        let tokens = hasSelector
+            ? selectorTokens
+            : argument.split(maxSplits: 1, whereSeparator: \.isWhitespace).map(String.init)
+        guard tokens.count >= 2 else {
+            return .invalid("Usage: /pr review-reply OptionalPRSelector commentId reply body")
+        }
+
+        let selector = hasSelector ? normalizedPullRequestSelector(tokens[0]) : nil
+        let commentIDIndex = hasSelector ? 1 : 0
+        let bodyIndex = commentIDIndex + 1
+        guard tokens.indices.contains(bodyIndex),
+              let commentID = Int(tokens[commentIDIndex]),
+              !tokens[bodyIndex].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            return .invalid("Usage: /pr review-reply OptionalPRSelector commentId reply body")
+        }
+
+        return pullRequestTool(
+            .gitPullRequestReviewReply,
+            arguments: compact([
+                "selector": selector,
+                "commentId": commentID,
+                "body": tokens[bodyIndex]
+            ])
+        )
+    }
+
+    private static func parseReviewThread(_ argument: String) -> SlashCommand {
+        let parts = argument.split(maxSplits: 1, whereSeparator: \.isWhitespace)
+        guard let rawAction = parts.first?.lowercased(),
+              parts.count > 1
+        else {
+            return .invalid("Usage: /pr review-thread resolve threadId or /pr review-thread unresolve threadId")
+        }
+        let action = rawAction.replacingOccurrences(of: "-", with: "_")
+        switch action {
+        case "resolve", "resolved":
+            return parseReviewThreadID(String(parts[1]), action: "resolve")
+        case "unresolve", "unresolved", "reopen", "open":
+            return parseReviewThreadID(String(parts[1]), action: "unresolve")
+        default:
+            return .invalid("Unknown pull request review thread action '\(rawAction)'. Use resolve or unresolve.")
+        }
+    }
+
+    private static func parseReviewThreadID(_ argument: String, action: String) -> SlashCommand {
+        let threadID = argument.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !threadID.isEmpty else {
+            return .invalid("Usage: /pr \(action)-thread threadId")
+        }
+        return pullRequestTool(
+            .gitPullRequestReviewThread,
+            arguments: ["threadId": threadID, "action": action]
         )
     }
 

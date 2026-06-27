@@ -53,6 +53,44 @@ final class AgentToolArgumentNormalizerTests: XCTestCase {
         XCTAssertNil(arguments["removeReviewers"])
     }
 
+    func testCanonicalArgumentsNormalizePullRequestReviewReplyAliases() {
+        let arguments = AgentToolArgumentNormalizer.canonicalArguments(
+            for: ToolDefinition.gitPullRequestReviewReply.name,
+            in: [
+                "arguments": [
+                    "pr": "42",
+                    "comment_id": 99,
+                    "message": "Updated this."
+                ]
+            ],
+            sourceText: ""
+        )
+
+        XCTAssertEqual(arguments["selector"] as? String, "42")
+        XCTAssertEqual(arguments["commentId"] as? Int, 99)
+        XCTAssertEqual(arguments["body"] as? String, "Updated this.")
+        XCTAssertNil(arguments["comment_id"])
+        XCTAssertNil(arguments["message"])
+    }
+
+    func testCanonicalArgumentsNormalizePullRequestReviewThreadAliases() {
+        let arguments = AgentToolArgumentNormalizer.canonicalArguments(
+            for: ToolDefinition.gitPullRequestReviewThread.name,
+            in: [
+                "arguments": [
+                    "thread_id": "PRRT_kwDOExample",
+                    "state": "unresolve"
+                ]
+            ],
+            sourceText: ""
+        )
+
+        XCTAssertEqual(arguments["threadId"] as? String, "PRRT_kwDOExample")
+        XCTAssertEqual(arguments["action"] as? String, "unresolve")
+        XCTAssertNil(arguments["thread_id"])
+        XCTAssertNil(arguments["state"])
+    }
+
     func testShellCommandRecoveryRepairsEmptyArguments() {
         let arguments = AgentToolArgumentNormalizer.canonicalArguments(
             for: ToolDefinition.shellRun.name,

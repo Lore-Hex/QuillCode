@@ -193,7 +193,11 @@ enum StaticSafetyPullRequestPolicy {
         "switch to pr",
         "merge pr",
         "automerge pr",
-        "auto merge pr"
+        "auto merge pr",
+        "inline comment",
+        "review thread",
+        "resolve thread",
+        "unresolve thread"
     ]
 
     private static let specificRules: [StaticSafetyIntentRule] = [
@@ -214,12 +218,16 @@ enum StaticSafetyPullRequestPolicy {
             allowedToolNames: ["git.pr.merge", "git.pr.checks", "git.status"]
         ),
         .init(
+            requestTriggers: ["resolve", "unresolve", "reopen"],
+            allowedToolNames: ["git.pr.review_thread", "git.status"]
+        ),
+        .init(
             requestTriggers: ["approve", "request changes", "needs changes", "review"],
             allowedToolNames: ["git.pr.review", "git.status"]
         ),
         .init(
             requestTriggers: ["comment", "reply"],
-            allowedToolNames: ["git.pr.comment"]
+            allowedToolNames: ["git.pr.comment", "git.pr.review_comment", "git.pr.review_reply"]
         ),
         .init(
             requestTriggers: ["check", "ci", "status"],

@@ -244,6 +244,56 @@ final class GitHubPullRequestToolExecutorTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.argumentsFile.path))
     }
 
+    func testPullRequestReviewReplyUsesGitHubAPIArguments() throws {
+        let fixture = try makeReviewCommentFixture()
+
+        let result = fixture.git.replyToPullRequestReviewComment(
+            cwd: fixture.root,
+            selector: "123",
+            commentID: 99,
+            body: "Thanks, updated this."
+        )
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(result.artifacts, ["https://github.com/example/repo/pull/123#discussion_r99"])
+        XCTAssertEqual(try fixture.arguments(), [
+            "api",
+            "repos/example/repo/pulls/123/comments/99/replies",
+            "--raw-field",
+            "body=Thanks, updated this."
+        ])
+    }
+
+    func testPullRequestReviewThreadUsesGitHubGraphQLMutation() throws {
+        let fixture = try makeReviewCommentFixture()
+
+        let result = fixture.git.updatePullRequestReviewThread(
+            cwd: fixture.root,
+            threadID: "PRRT_kwDOExample",
+            action: "resolve"
+        )
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(try fixture.arguments(), [
+            "api",
+            "graphql",
+            "--raw-field",
+            "threadId=PRRT_kwDOExample",
+            "--raw-field",
+            "query=mutation($threadId: ID!) { resolveReviewThread(input: {threadId: $threadId}) { thread { id isResolved } } }"
+        ])
+    }
+
+    func testPullRequestReviewReplyAndThreadValidateInputsBeforeGitHubCalls() throws {
+        let fixture = try makeReviewCommentFixture()
+
+        XCTAssertFalse(fixture.git.replyToPullRequestReviewComment(cwd: fixture.root, commentID: 0, body: "Reply").ok)
+        XCTAssertFalse(fixture.git.replyToPullRequestReviewComment(cwd: fixture.root, commentID: 1, body: " ").ok)
+        XCTAssertFalse(fixture.git.updatePullRequestReviewThread(cwd: fixture.root, threadID: "bad id", action: "resolve").ok)
+        XCTAssertFalse(fixture.git.updatePullRequestReviewThread(cwd: fixture.root, threadID: "PRRT_kwDOExample", action: "delete").ok)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.argumentsFile.path))
+    }
+
     func testPullRequestMergeUsesGitHubCLIArguments() throws {
         let fixture = try makeFixture()
 
@@ -302,6 +352,9 @@ final class GitHubPullRequestToolExecutorTests: XCTestCase {
         XCTAssertEqual(try GitHubPullRequestInputValidator.safeReviewFlag("request-change"), "--request-changes")
         XCTAssertEqual(try GitHubPullRequestInputValidator.safeReviewLine(12), 12)
         XCTAssertEqual(try GitHubPullRequestInputValidator.safeReviewSide("left"), "LEFT")
+        XCTAssertEqual(try GitHubPullRequestInputValidator.safeReviewCommentID(99), 99)
+        XCTAssertEqual(try GitHubPullRequestInputValidator.safeReviewThreadID("PRRT_kwDOExample"), "PRRT_kwDOExample")
+        XCTAssertEqual(try GitHubPullRequestInputValidator.safeReviewThreadAction("reopen"), "unresolve")
         XCTAssertEqual(try GitHubPullRequestInputValidator.safeMergeFlag(nil), "--squash")
         XCTAssertEqual(try GitHubPullRequestInputValidator.safeMergeFlag("merge-commit"), "--merge")
         XCTAssertEqual(
@@ -322,6 +375,9 @@ final class GitHubPullRequestToolExecutorTests: XCTestCase {
         XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeReviewFlag("ship-it"))
         XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeReviewLine(0))
         XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeReviewSide("both"))
+        XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeReviewCommentID(0))
+        XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeReviewThreadID("bad id"))
+        XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeReviewThreadAction("delete"))
         XCTAssertThrowsError(try GitHubPullRequestInputValidator.safeMergeFlag("octopus"))
     }
 
@@ -433,6 +489,34 @@ final class GitHubPullRequestToolExecutorTests: XCTestCase {
             "line=42",
             "--raw-field",
             "side=RIGHT"
+        ])
+
+        let reviewReplyFixture = try makeReviewCommentFixture()
+        let reviewReply = reviewReplyFixture.router().execute(ToolCall(
+            name: ToolDefinition.gitPullRequestReviewReply.name,
+            argumentsJSON: #"{"selector":"123","commentId":99,"body":"Updated this."}"#
+        ))
+        XCTAssertTrue(reviewReply.ok, "\(reviewReply.error ?? "") \(reviewReply.stderr)")
+        XCTAssertEqual(try reviewReplyFixture.arguments(), [
+            "api",
+            "repos/example/repo/pulls/123/comments/99/replies",
+            "--raw-field",
+            "body=Updated this."
+        ])
+
+        let reviewThreadFixture = try makeReviewCommentFixture()
+        let reviewThread = reviewThreadFixture.router().execute(ToolCall(
+            name: ToolDefinition.gitPullRequestReviewThread.name,
+            argumentsJSON: #"{"threadId":"PRRT_kwDOExample","action":"unresolve"}"#
+        ))
+        XCTAssertTrue(reviewThread.ok, "\(reviewThread.error ?? "") \(reviewThread.stderr)")
+        XCTAssertEqual(try reviewThreadFixture.arguments(), [
+            "api",
+            "graphql",
+            "--raw-field",
+            "threadId=PRRT_kwDOExample",
+            "--raw-field",
+            "query=mutation($threadId: ID!) { unresolveReviewThread(input: {threadId: $threadId}) { thread { id isResolved } } }"
         ])
 
         let merge = router.execute(ToolCall(

@@ -144,6 +144,23 @@ public struct GitToolExecutor: Sendable {
         )
     }
 
+    public func replyToPullRequestReviewComment(
+        cwd: URL,
+        selector: String? = nil,
+        commentID: Int,
+        body: String
+    ) -> ToolResult {
+        pullRequests.reviewReply(cwd: cwd, selector: selector, commentID: commentID, body: body)
+    }
+
+    public func updatePullRequestReviewThread(
+        cwd: URL,
+        threadID: String,
+        action: String
+    ) -> ToolResult {
+        pullRequests.reviewThread(cwd: cwd, threadID: threadID, action: action)
+    }
+
     public func mergePullRequest(
         cwd: URL,
         selector: String? = nil,
@@ -222,6 +239,18 @@ public struct GitToolExecutor: Sendable {
 
     public static func safePullRequestReviewSide(_ value: String?) throws -> String {
         try GitHubPullRequestInputValidator.safeReviewSide(value)
+    }
+
+    public static func safePullRequestReviewCommentID(_ value: Int) throws -> Int {
+        try GitHubPullRequestInputValidator.safeReviewCommentID(value)
+    }
+
+    public static func safePullRequestReviewThreadID(_ value: String) throws -> String {
+        try GitHubPullRequestInputValidator.safeReviewThreadID(value)
+    }
+
+    public static func safePullRequestReviewThreadAction(_ value: String) throws -> String {
+        try GitHubPullRequestInputValidator.safeReviewThreadAction(value)
     }
 
     public static func extractURLs(from output: String) -> [String] {

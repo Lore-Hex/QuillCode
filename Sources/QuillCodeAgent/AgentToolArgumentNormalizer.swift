@@ -121,6 +121,9 @@ enum AgentToolArgumentNormalizer {
                     return nonEmptyValues
                 }
             }
+            if let value = object[key] as? Int {
+                return value
+            }
         }
         return nil
     }

@@ -89,9 +89,30 @@ enum AgentToolArgumentNormalizationRules {
         .init(
             toolNames: [
                 ToolDefinition.gitPullRequestComment.name,
-                ToolDefinition.gitPullRequestReview.name
+                ToolDefinition.gitPullRequestReview.name,
+                ToolDefinition.gitPullRequestReviewComment.name,
+                ToolDefinition.gitPullRequestReviewReply.name
             ],
             stringArguments: [.init(canonicalKey: "body", aliases: ["comment", "message", "text", "content"])]
+        ),
+        .init(
+            toolNames: [ToolDefinition.gitPullRequestReviewReply.name],
+            valueArguments: [
+                .init(
+                    canonicalKey: "commentId",
+                    aliases: ["comment_id", "commentID", "reviewCommentId", "review_comment_id", "replyTo", "reply_to"]
+                )
+            ]
+        ),
+        .init(
+            toolNames: [ToolDefinition.gitPullRequestReviewThread.name],
+            stringArguments: [
+                .init(
+                    canonicalKey: "threadId",
+                    aliases: ["thread_id", "threadID", "reviewThreadId", "review_thread_id"]
+                ),
+                .init(canonicalKey: "action", aliases: ["state", "operation"])
+            ]
         ),
         .init(
             toolNames: [ToolDefinition.gitPullRequestReviewers.name],
@@ -157,6 +178,8 @@ enum AgentToolArgumentNormalizationRules {
         ToolDefinition.gitPullRequestLabels.name,
         ToolDefinition.gitPullRequestComment.name,
         ToolDefinition.gitPullRequestReview.name,
+        ToolDefinition.gitPullRequestReviewComment.name,
+        ToolDefinition.gitPullRequestReviewReply.name,
         ToolDefinition.gitPullRequestMerge.name
     ]
 }

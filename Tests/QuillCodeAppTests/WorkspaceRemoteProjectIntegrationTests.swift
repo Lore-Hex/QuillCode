@@ -166,6 +166,8 @@ final class WorkspaceRemoteProjectIntegrationTests: XCTestCase {
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestComment.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestReview.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestReviewComment.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestReviewReply.name))
+        XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestReviewThread.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitPullRequestMerge.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitWorktreeList.name))
         XCTAssertTrue(toolNames.contains(ToolDefinition.gitWorktreeCreate.name))

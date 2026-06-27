@@ -7094,3 +7094,28 @@ Strict grades:
 Remaining parity risk:
 
 - Agent sends still prepare the first thread inside `WorkspaceModelComposer`. If more execution entry points need first-thread creation plus context sync, promote that first-thread setup into a small shared actor coordinator rather than growing the composer extension.
+
+## 2026-06-27 GitHub PR Metadata Resolver And Review Thread Slice
+
+Overall grade after this slice: **A metadata lookup boundary, A inline PR review-thread support, A- PR executor size**.
+
+Inline PR review comments and replies need the current pull request number, head commit, and repository owner/name before posting through `gh api`. That lookup and JSON validation had been embedded in `GitHubPullRequestToolExecutor`, making the executor own both command routing and metadata decoding. Review-thread resolve/unresolve also belongs in the structured PR tool family rather than falling back to ad hoc shell commands.
+
+Code quality changes:
+
+- Added `GitHubPullRequestMetadataResolver` for `gh pr view` / `gh repo view` metadata lookup and validation.
+- Rewired `GitHubPullRequestToolExecutor` review comments and replies to delegate metadata lookup while keeping `gh api` argument construction in the executor.
+- Added structured `host.git.pr.review_reply` and `host.git.pr.review_thread` tools with prompt guidance, argument normalization, safety policy, remote execution, slash usage, and transcript subtitles.
+- Added direct resolver tests and parity coverage so metadata records, JSON decoding, and error copy cannot drift back into the executor.
+
+Strict grades:
+
+- `GitHubPullRequestMetadataResolver.swift`: **A**. It has one responsibility, validates the CLI JSON boundary, and is cheap to test with a fake GitHub CLI.
+- `GitHubPullRequestToolExecutor.swift`: **A-**. The executor still owns a broad PR command family, but inline review comments and replies no longer add metadata lookup policy to that surface.
+- `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`: **A-**. Local and SSH Remote PR review-thread actions now share the same structured tool names and validators. Remote command construction remains string-oriented by necessity, so keep adding tests whenever the `gh api` shape changes.
+- `GitHubPullRequestMetadataResolverTests.swift`: **A**. The tests cover success, invalid PR metadata, and invalid repository metadata without depending on a real GitHub repository.
+- `ParityToolGateTests.swift`: **A-**. The new gate protects the ownership boundary. It remains a string-based architecture guard, which is appropriate for broad drift prevention but should not replace behavioral tests.
+
+Remaining parity risk:
+
+- `GitHubPullRequestToolExecutor` is still a large focused executor because PR create/view/check/diff/checkout/comment/review/reviewer/label/merge/review-comment behavior shares validation and fake-CLI fixture needs. If inline comments or review actions grow materially, split by PR command family next rather than expanding one file indefinitely.

@@ -15,6 +15,8 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertTrue(names.contains(ToolDefinition.gitStatus.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestCreate.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestReviewComment.name))
+        XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestReviewReply.name))
+        XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestReviewThread.name))
         XCTAssertFalse(names.contains(ToolDefinition.browserInspect.name))
         XCTAssertFalse(names.contains(ToolDefinition.planUpdate.name))
     }
@@ -192,6 +194,41 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
                 "repo=$('gh' 'repo' 'view' '--json' 'nameWithOwner' '--jq' '.nameWithOwner')",
                 "gh api \"repos/${repo}/pulls/${pr_number}/comments\" '--raw-field' 'body=Please cover this branch.' '--raw-field' \"commit_id=${head_oid}\" '--raw-field' 'path=Sources/App.swift' '--field' 'line=12' '--raw-field' 'side=RIGHT'"
             ].joined(separator: " && ")
+        )
+    }
+
+    func testRemoteGitHubPullRequestBuilderBuildsReviewReplyCommand() throws {
+        let command = try remotePullRequestCommand(
+            name: ToolDefinition.gitPullRequestReviewReply.name,
+            arguments: [
+                "selector": "42",
+                "commentId": 99,
+                "body": "Updated this, thanks."
+            ]
+        )
+
+        XCTAssertEqual(
+            command,
+            [
+                "pr_number=$('gh' 'pr' 'view' '42' '--json' 'number' '--jq' '.number')",
+                "repo=$('gh' 'repo' 'view' '--json' 'nameWithOwner' '--jq' '.nameWithOwner')",
+                "gh api \"repos/${repo}/pulls/${pr_number}/comments/99/replies\" '--raw-field' 'body=Updated this, thanks.'"
+            ].joined(separator: " && ")
+        )
+    }
+
+    func testRemoteGitHubPullRequestBuilderBuildsReviewThreadCommand() throws {
+        let command = try remotePullRequestCommand(
+            name: ToolDefinition.gitPullRequestReviewThread.name,
+            arguments: [
+                "threadId": "PRRT_kwDOExample",
+                "action": "resolve"
+            ]
+        )
+
+        XCTAssertEqual(
+            command,
+            "'gh' 'api' 'graphql' '--raw-field' 'threadId=PRRT_kwDOExample' '--raw-field' 'query=mutation($threadId: ID!) { resolveReviewThread(input: {threadId: $threadId}) { thread { id isResolved } } }'"
         )
     }
 

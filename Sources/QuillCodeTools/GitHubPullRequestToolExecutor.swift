@@ -3,13 +3,15 @@ import QuillCodeCore
 
 public struct GitHubPullRequestToolExecutor: Sendable {
     private let runner: GitProcessRunner
+    private let metadataResolver: GitHubPullRequestMetadataResolver
 
     public init(runner: GitProcessRunner) {
         self.runner = runner
+        self.metadataResolver = GitHubPullRequestMetadataResolver(runner: runner)
     }
 
     public init(githubCLIExecutable: URL?) {
-        self.runner = GitProcessRunner(githubCLIExecutable: githubCLIExecutable)
+        self.init(runner: GitProcessRunner(githubCLIExecutable: githubCLIExecutable))
     }
 
     public func createPullRequest(
@@ -236,8 +238,8 @@ public struct GitHubPullRequestToolExecutor: Sendable {
                 try GitHubPullRequestInputValidator.safeReviewSide(startSide ?? side)
             }
 
-            let pullRequest = try resolvePullRequest(selector: selector, cwd: cwd)
-            let repository = try resolveRepository(cwd: cwd)
+            let pullRequest = try metadataResolver.pullRequest(selector: selector, cwd: cwd)
+            let repository = try metadataResolver.repository(cwd: cwd)
 
             var arguments = [
                 "api",
@@ -261,6 +263,55 @@ public struct GitHubPullRequestToolExecutor: Sendable {
             }
 
             return addURLArtifacts(to: runner.runGitHub(arguments, cwd: cwd, timeoutSeconds: 60))
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
+    public func reviewReply(
+        cwd: URL,
+        selector: String? = nil,
+        commentID: Int,
+        body: String
+    ) -> ToolResult {
+        do {
+            guard let body = GitInputValidator.trimmedNonEmpty(body) else {
+                throw GitToolError.emptyPullRequestComment
+            }
+            let commentID = try GitHubPullRequestInputValidator.safeReviewCommentID(commentID)
+            let pullRequest = try metadataResolver.pullRequest(selector: selector, cwd: cwd)
+            let repository = try metadataResolver.repository(cwd: cwd)
+
+            let arguments = [
+                "api",
+                "repos/\(repository.nameWithOwner)/pulls/\(pullRequest.number)/comments/\(commentID)/replies",
+                "--raw-field",
+                "body=\(body)"
+            ]
+            return addURLArtifacts(to: runner.runGitHub(arguments, cwd: cwd, timeoutSeconds: 60))
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
+    public func reviewThread(
+        cwd: URL,
+        threadID: String,
+        action: String
+    ) -> ToolResult {
+        do {
+            let threadID = try GitHubPullRequestInputValidator.safeReviewThreadID(threadID)
+            let action = try GitHubPullRequestInputValidator.safeReviewThreadAction(action)
+            let mutation = reviewThreadMutation(for: action)
+            let arguments = [
+                "api",
+                "graphql",
+                "--raw-field",
+                "threadId=\(threadID)",
+                "--raw-field",
+                "query=\(mutation)"
+            ]
+            return runner.runGitHub(arguments, cwd: cwd, timeoutSeconds: 60)
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
@@ -292,47 +343,10 @@ public struct GitHubPullRequestToolExecutor: Sendable {
         }
     }
 
-    private struct PullRequestMetadata: Decodable {
-        var number: Int
-        var headRefOid: String
-    }
-
-    private struct RepositoryMetadata: Decodable {
-        var nameWithOwner: String
-    }
-
-    private func resolvePullRequest(selector: String?, cwd: URL) throws -> PullRequestMetadata {
-        var arguments = ["pr", "view"]
-        if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
-            arguments.append(selector)
-        }
-        arguments += ["--json", "number,headRefOid"]
-        let result = runner.runGitHub(arguments, cwd: cwd, timeoutSeconds: 45)
-        guard result.ok else {
-            throw GitHubPullRequestMetadataError.commandFailed(result.error ?? result.stderr)
-        }
-        guard let data = result.stdout.data(using: .utf8),
-              let metadata = try? JSONDecoder().decode(PullRequestMetadata.self, from: data),
-              metadata.number > 0,
-              !metadata.headRefOid.isEmpty
-        else {
-            throw GitHubPullRequestMetadataError.invalidPullRequestMetadata(result.stdout)
-        }
-        return metadata
-    }
-
-    private func resolveRepository(cwd: URL) throws -> RepositoryMetadata {
-        let result = runner.runGitHub(["repo", "view", "--json", "nameWithOwner"], cwd: cwd, timeoutSeconds: 45)
-        guard result.ok else {
-            throw GitHubPullRequestMetadataError.commandFailed(result.error ?? result.stderr)
-        }
-        guard let data = result.stdout.data(using: .utf8),
-              let metadata = try? JSONDecoder().decode(RepositoryMetadata.self, from: data),
-              metadata.nameWithOwner.range(of: #"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"#, options: .regularExpression) != nil
-        else {
-            throw GitHubPullRequestMetadataError.invalidRepositoryMetadata(result.stdout)
-        }
-        return metadata
+    private func reviewThreadMutation(for action: String) -> String {
+        let mutation = action == "resolve" ? "resolveReviewThread" : "unresolveReviewThread"
+        let nonNull = "\u{21}"
+        return "mutation($threadId: ID\(nonNull)) { \(mutation)(input: {threadId: $threadId}) { thread { id isResolved } } }"
     }
 
     private func addURLArtifacts(to result: ToolResult) -> ToolResult {
@@ -344,22 +358,5 @@ public struct GitHubPullRequestToolExecutor: Sendable {
             exitCode: result.exitCode,
             artifacts: GitHubPullRequestOutputParser.extractURLs(from: result.stdout)
         )
-    }
-}
-
-private enum GitHubPullRequestMetadataError: Error, CustomStringConvertible {
-    case commandFailed(String)
-    case invalidPullRequestMetadata(String)
-    case invalidRepositoryMetadata(String)
-
-    var description: String {
-        switch self {
-        case .commandFailed(let message):
-            return "Failed to resolve GitHub pull request metadata: \(message)"
-        case .invalidPullRequestMetadata(let output):
-            return "GitHub pull request metadata response was invalid: \(output)"
-        case .invalidRepositoryMetadata(let output):
-            return "GitHub repository metadata response was invalid: \(output)"
-        }
     }
 }
