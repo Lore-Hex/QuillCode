@@ -60,6 +60,32 @@ struct QuillCodeDesktopSignInCoordinator {
         )
     }
 
+    func completeSignInAndApply(
+        to model: QuillCodeWorkspaceModel,
+        settingsCoordinator: QuillCodeDesktopSettingsCoordinator,
+        refresh: @escaping @MainActor () -> Void
+    ) async {
+        do {
+            let result = try await completeSignIn(
+                currentConfig: model.root.config
+            ) { label, error in
+                model.setAgentStatus(label, lastError: error)
+                refresh()
+            }
+            applySignInResult(result, to: model, settingsCoordinator: settingsCoordinator)
+            refresh()
+            let models = await bootstrap.fetchModelCatalog(config: model.root.config)
+            model.setModelCatalog(models)
+            refresh()
+        } catch {
+            model.setAgentStatus(
+                QuillCodeRuntimeStatusLabel.signInFailed,
+                lastError: String(describing: error)
+            )
+            refresh()
+        }
+    }
+
     private func accountProfile(
         from token: TrustedRouterOAuthToken,
         client: TrustedRouterOAuthClient
@@ -79,5 +105,18 @@ struct QuillCodeDesktopSignInCoordinator {
             )
         }
         return profile.isEmpty ? nil : profile
+    }
+
+    private func applySignInResult(
+        _ result: QuillCodeDesktopSignInResult,
+        to model: QuillCodeWorkspaceModel,
+        settingsCoordinator: QuillCodeDesktopSettingsCoordinator
+    ) {
+        let settings = settingsCoordinator.result(for: result.config)
+        model.applySettings(
+            config: settings.config,
+            trustedRouterAPIKeyConfigured: settings.trustedRouterAPIKeyConfigured
+        )
+        model.applyRuntime(settings.runtime)
     }
 }

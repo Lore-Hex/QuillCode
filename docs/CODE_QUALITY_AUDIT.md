@@ -7393,3 +7393,26 @@ File grades:
 Residual risk:
 
 - This is local runtime-error classification, not live provider-health telemetry. Full parity still needs a stable TrustedRouter provider-status source before QuillCode can proactively warn about outages before a run fails.
+
+## 2026-06-27 Desktop Sign-In Apply Coordinator Pass
+
+Overall grade after this slice: **A OAuth lifecycle ownership, A controller boundary, A- desktop executable coverage**.
+
+`QuillCodeDesktopSignInCoordinator` owned PKCE OAuth, callback capture, token exchange, and key persistence, but `QuillCodeDesktopController` still applied the sign-in result to workspace settings/runtime, refreshed the model catalog, and handled sign-in failure state. That split the OAuth lifecycle across two files and made controller-level auth changes more likely.
+
+Code quality changes:
+
+- Added `completeSignInAndApply` to `QuillCodeDesktopSignInCoordinator`.
+- Moved OAuth result application, runtime refresh, post-auth model catalog refresh, and sign-in failure status into the sign-in coordinator.
+- Reduced the desktop controller to launching the coordinator workflow and refreshing published state through a callback.
+- Strengthened the desktop parity gate so result application and sign-in failure handling do not drift back into the controller.
+
+Strict grades:
+
+- `QuillCodeDesktopSignInCoordinator.swift`: **A-**. It now owns the complete desktop OAuth lifecycle. If it grows further, split raw OAuth transport from model application behind a small result-applier type.
+- `QuillCodeDesktopController.swift`: **A-**. The controller is still broad but no longer owns auth lifecycle decisions.
+- `ParityDesktopGateTests.swift`: **A**. It now protects OAuth transport, result application, post-auth catalog refresh, and failure handling as one coordinator-owned boundary.
+
+Remaining risk:
+
+- Like the other desktop coordinators, this is source-gated rather than covered by a dedicated executable test target. If desktop internals become importable, add fake OAuth/model-application tests around success and failure paths.
