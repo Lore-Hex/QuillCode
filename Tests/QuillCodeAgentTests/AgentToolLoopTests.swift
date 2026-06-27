@@ -100,6 +100,50 @@ final class AgentToolLoopTests: XCTestCase {
         ])
     }
 
+    func testAgentRetriesPromisedWorkAnswerBeforeFinalizing() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: SequenceLLMClient(actions: [
+            .say("I'll run `whoami` on the device."),
+            .tool(.init(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json(["cmd": "whoami"])
+            )),
+            .say("Finished.")
+        ]))
+
+        let result = try await runner.send(
+            "run whoami",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertFalse(result.thread.messages.contains {
+            $0.content.contains("I'll run")
+        })
+        XCTAssertEqual(result.thread.messages.last?.content, "Finished.")
+    }
+
+    func testAgentDoesNotRetryInformationalAnswerThatMentionsCapabilities() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: SequenceLLMClient(actions: [
+            .say("I can run commands, edit files, and review diffs when you ask.")
+        ]))
+
+        let result = try await runner.send(
+            "what can you do?",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 0)
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "I can run commands, edit files, and review diffs when you ask."
+        )
+    }
+
     func testRepeatedToolCallFallsBackToSynthesizedFinalAnswer() async throws {
         let root = try makeTempDirectory()
         let call = ToolCall(
