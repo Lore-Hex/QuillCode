@@ -7175,3 +7175,27 @@ Strict grades:
 Remaining parity risk:
 
 - PR command metadata is still duplicated across command catalog, slash catalog, icon catalog, and draft planner. The code is correct and tested, but a future descriptor table would be more DRY if the PR tool family keeps growing.
+
+## 2026-06-27 PR Command Descriptor Slice
+
+Overall grade after this slice: **A command metadata ownership, A command-plan reuse, A- slash catalog still separate**.
+
+The PR command family had grown enough that every new action needed edits across the palette catalog, command planner, icon catalog, and tests. That made command additions correct but expensive, and created an obvious drift risk for parallel agents adding GitHub parity features.
+
+Code quality changes:
+
+- Added `WorkspacePullRequestCommandCatalog` as the single descriptor table for PR command IDs, titles, keywords, SF Symbols, direct tool mappings, and draft-prefill copy.
+- Rewired `WorkspaceGitCommandCatalog`, `WorkspaceCommandPlan`, and `QuillCodeCommandIconCatalog` to consume the descriptor table instead of repeating PR metadata.
+- Added focused descriptor tests that verify PR command order, enabled command surfaces, direct tool mappings, draft mappings, and icon routing.
+- Kept slash parsing separate in this slice because `/pr` subcommands carry additional argument grammar and aliases that are not one-to-one with palette rows.
+
+Strict grades:
+
+- `WorkspacePullRequestCommandCatalog.swift`: **A**. It is small, declarative, and owns exactly the metadata that had been duplicated.
+- `WorkspaceGitCommandCatalog.swift`: **A**. The file now reads as Git basics plus PR descriptors plus worktree commands.
+- `WorkspaceCommandPlan.swift`: **A**. PR direct-tool and draft plans are table-driven without changing existing command behavior.
+- `QuillCodeCommandIconCatalog.swift`: **A**. PR icons no longer require another switch branch when command metadata changes.
+
+Remaining parity risk:
+
+- Slash command catalog/parser entries remain separate because they include grammar and aliases. If PR slash command help starts drifting from palette metadata, add optional slash-usage fields to the descriptor rather than spreading PR copy across another static table.
