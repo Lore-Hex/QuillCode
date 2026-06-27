@@ -62,6 +62,20 @@ Residual risk:
 
 - The interface polish primitive test still covers a broad visual contract inside `workspace-chrome.spec.ts`. Split it only if the visual contract grows or starts failing independently from chrome behavior.
 
+## 2026-06-27 Visual Polish Spec Split
+
+Overall grade after this slice: **A spec ownership, A visual contract locality, A regression coverage**.
+
+The prior split moved interaction-audit sweeps out of `workspace-chrome.spec.ts`, but clipping, polish primitives, and quiet long-status top-bar checks still lived beside top-bar overflow workflow tests. This pass separates visual contract tests from chrome behavior so failures identify whether the issue is navigation/workflow or visual polish.
+
+- Added `visual-polish.spec.ts` for horizontal clipping, interface polish primitives, and quiet long-status top-bar stability.
+- Kept `workspace-chrome.spec.ts` focused on top-bar overflow utility routing, Computer Use setup routing, and disconnect-all routing.
+- Reduced `workspace-chrome.spec.ts` from 377 lines to 66 lines without changing test behavior.
+
+Residual risk:
+
+- `visual-polish.spec.ts` intentionally spans several UI surfaces because the visual contract is cross-cutting. Extract smaller visual specs only when a specific surface accumulates enough unique polish behavior.
+
 ## 2026-06-27 Computer Use Status Contract Pass
 
 Overall grade after this slice: **A- Computer Use executor contract, A status copy accuracy, B+ platform parity**.

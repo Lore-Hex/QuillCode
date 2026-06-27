@@ -289,6 +289,10 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
             contentsOf: testRoot.appendingPathComponent("workspace-chrome.spec.ts"),
             encoding: .utf8
         )
+        let visualPolishSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("visual-polish.spec.ts"),
+            encoding: .utf8
+        )
         let coreSpecText = try String(
             contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
             encoding: .utf8
@@ -296,7 +300,9 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         let chromeFlowNames = [
             "opens utilities from the top-bar overflow",
             "opens Computer Use setup from the top-bar overflow",
-            "disconnects remote project connections from the top-bar overflow",
+            "disconnects remote project connections from the top-bar overflow"
+        ]
+        let visualPolishFlowNames = [
             "avoids horizontal clipping in key desktop and mobile flows",
             "applies interface polish primitives",
             "keeps quiet top bar stable under long status metadata"
@@ -304,11 +310,17 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
 
         XCTAssertTrue(chromeSpecText.contains("harnessURL()"), "Focused workspace chrome flows should reuse the shared harness URL helper.")
         XCTAssertTrue(chromeSpecText.contains("openTopBarOverflow"), "Focused workspace chrome flows should cover top-bar utility entry points.")
-        XCTAssertTrue(chromeSpecText.contains("openSettings"), "Focused workspace chrome flows should cover settings layout safety.")
-        XCTAssertTrue(chromeSpecText.contains("top-bar-status-metadata"), "Focused workspace chrome flows should cover quiet top-bar metadata.")
-        XCTAssertTrue(chromeSpecText.contains("sendTransitionProperty"), "Focused workspace chrome flows should cover interface polish primitives.")
+        XCTAssertTrue(visualPolishSpecText.contains("openSettings"), "Focused visual polish flows should cover settings layout safety.")
+        XCTAssertTrue(visualPolishSpecText.contains("top-bar-status-metadata"), "Focused visual polish flows should cover quiet top-bar metadata.")
+        XCTAssertTrue(visualPolishSpecText.contains("sendTransitionProperty"), "Focused visual polish flows should cover interface polish primitives.")
         for flowName in chromeFlowNames {
             XCTAssertTrue(chromeSpecText.contains(flowName), "\(flowName) should live in workspace-chrome.spec.ts.")
+            XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
+            XCTAssertFalse(visualPolishSpecText.contains(flowName), "\(flowName) should not drift into visual-polish.spec.ts.")
+        }
+        for flowName in visualPolishFlowNames {
+            XCTAssertTrue(visualPolishSpecText.contains(flowName), "\(flowName) should live in visual-polish.spec.ts.")
+            XCTAssertFalse(chromeSpecText.contains(flowName), "\(flowName) should not drift back into workspace-chrome.spec.ts.")
             XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
         }
     }
