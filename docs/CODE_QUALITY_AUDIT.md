@@ -20,6 +20,20 @@ Residual risk:
 
 - The helper still duplicates some browser-side visibility primitives between size and overlap reporting to keep this pass behavior-preserving. A later cleanup can combine both audits into one browser evaluation if more specs start calling both in the same flow.
 
+## 2026-06-27 Interaction Audit Helper Split
+
+Overall grade after this slice: **A helper ownership, A chrome spec cohesion, A regression coverage**.
+
+The shared hit-target pass made the audits reusable, but it also made `harness-helpers.ts` responsible for both generic harness navigation helpers and a full interaction-audit implementation. This pass splits those concerns so future Playwright specs can opt into UI target auditing without turning the generic helper module into a catch-all.
+
+- Added `interaction-audit-helpers.ts` for the 44 px target contract, visible-interactive-target audits, overlap audits, and single-control hit-target assertions.
+- Kept `harness-helpers.ts` focused on harness URL, style measurement, element geometry, sidebar navigation, command palette, top-bar overflow, and settings navigation.
+- Updated `workspace-chrome.spec.ts` to import generic harness helpers and interaction audit helpers from separate modules.
+
+Residual risk:
+
+- The audit implementation is still browser-side TypeScript with DOM heuristics rather than native UI automation. That is appropriate for the HTML harness, but packaged macOS/Linux UI hit targets still need native smoke coverage before release gating can rely on exact platform pixels.
+
 ## 2026-06-27 Computer Use Status Contract Pass
 
 Overall grade after this slice: **A- Computer Use executor contract, A status copy accuracy, B+ platform parity**.

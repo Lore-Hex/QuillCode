@@ -4,14 +4,16 @@ import {
   clickSidebarTool,
   computedStyleProperties,
   elementRect,
-  expectAllVisibleInteractiveTargets,
-  expectHitTarget,
-  expectNoOverlappingInteractiveTargets,
   harnessURL,
-  MINIMUM_HIT_TARGET,
   openSettings,
   openTopBarOverflow
 } from './harness-helpers';
+import {
+  expectAllVisibleInteractiveTargets,
+  expectHitTarget,
+  expectNoOverlappingInteractiveTargets,
+  MINIMUM_HIT_TARGET
+} from './interaction-audit-helpers';
 
 test('mock harness opens utilities from the top-bar overflow', async ({ page }) => {
   await page.goto(harnessURL());
