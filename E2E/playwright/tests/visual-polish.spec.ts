@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import {
   clickSidebarTool,
   computedStyleProperties,
@@ -10,34 +10,13 @@ import {
   expectHitTarget,
   MINIMUM_HIT_TARGET
 } from './interaction-audit-helpers';
+import { expectNoHorizontalOverflow } from './visual-polish-helpers';
 
 test('mock harness avoids horizontal clipping in key desktop and mobile flows', async ({ browser }) => {
   const viewports = [
     { name: 'desktop', width: 1440, height: 1000 },
     { name: 'mobile', width: 390, height: 844 }
   ];
-
-  const expectNoHorizontalOverflow = async (page: Page, label: string) => {
-    const overflow = await page.evaluate(() => {
-      const viewportWidth = document.documentElement.clientWidth;
-      return [...document.querySelectorAll('body *')]
-        .map((element) => {
-          const rect = element.getBoundingClientRect();
-          return {
-            tag: element.tagName,
-            testid: element.getAttribute('data-testid'),
-            className: String(element.className || ''),
-            left: rect.left,
-            right: rect.right,
-            width: rect.width,
-            text: (element.textContent || '').trim().slice(0, 80)
-          };
-        })
-        .filter((rect) => rect.width > 0 && (rect.left < -1 || rect.right > viewportWidth + 1));
-    });
-
-    expect(overflow, `${label} should not clip horizontally`).toEqual([]);
-  };
 
   for (const viewport of viewports) {
     const page = await browser.newPage({

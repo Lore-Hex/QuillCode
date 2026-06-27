@@ -76,6 +76,20 @@ Residual risk:
 
 - `visual-polish.spec.ts` intentionally spans several UI surfaces because the visual contract is cross-cutting. Extract smaller visual specs only when a specific surface accumulates enough unique polish behavior.
 
+## 2026-06-27 Visual Polish Helper Pass
+
+Overall grade after this slice: **A helper ownership, A visual spec readability, A regression coverage**.
+
+The visual polish split created the right spec boundary, but its horizontal overflow audit still lived as an inline browser-side scanner inside the first test. That made the test harder to scan and made it too easy for future clipping checks to copy broad DOM inspection logic.
+
+- Added `visual-polish-helpers.ts` for the reusable horizontal overflow audit.
+- Kept `visual-polish.spec.ts` focused on scenarios: settings, tool flow, interface primitives, and quiet long-status top bar behavior.
+- Added a parity gate so the broad `body *` overflow scanner stays in the helper instead of drifting back into the spec.
+
+Residual risk:
+
+- The helper currently exposes only the horizontal overflow audit. Add more visual helpers only when a second spec needs them, so the module stays narrow and behavior-preserving.
+
 ## 2026-06-27 Computer Use Status Contract Pass
 
 Overall grade after this slice: **A- Computer Use executor contract, A status copy accuracy, B+ platform parity**.
