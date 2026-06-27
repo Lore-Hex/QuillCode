@@ -17,6 +17,100 @@ enum WorkspaceHTMLPrimitives {
             .replacingOccurrences(of: "'", with: "&#39;")
     }
 
+    static func button(
+        _ label: String,
+        testID: String,
+        type: String = "button",
+        classes: [String] = [],
+        ariaLabel: String? = nil,
+        title: String? = nil,
+        role: String? = nil,
+        disabled: Bool = false,
+        attributes: [(String, String?)] = []
+    ) -> String {
+        """
+        <button\(buttonAttributes(
+            type: type,
+            testID: testID,
+            classes: classes,
+            ariaLabel: ariaLabel,
+            title: title,
+            role: role,
+            disabled: disabled,
+            attributes: attributes
+        ))>\(escape(label))</button>
+        """
+    }
+
+    static func commandButton(
+        _ label: String,
+        testID: String,
+        commandID: String,
+        classes: [String] = [textHitTargetClass],
+        ariaLabel: String? = nil,
+        title: String? = nil,
+        role: String? = nil,
+        disabled: Bool = false,
+        attributes: [(String, String?)] = []
+    ) -> String {
+        button(
+            label,
+            testID: testID,
+            classes: classes,
+            ariaLabel: ariaLabel,
+            title: title,
+            role: role,
+            disabled: disabled,
+            attributes: [("data-command-id", commandID)] + attributes
+        )
+    }
+
+    static func buttonAttributes(
+        type: String = "button",
+        testID: String,
+        classes: [String] = [],
+        ariaLabel: String? = nil,
+        title: String? = nil,
+        role: String? = nil,
+        disabled: Bool = false,
+        attributes: [(String, String?)] = []
+    ) -> String {
+        var parts = [
+            #"type="\#(escape(type))""#
+        ]
+        let classAttribute = classes
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        if !classAttribute.isEmpty {
+            parts.append(#"class="\#(escape(classAttribute))""#)
+        }
+        parts.append(#"data-testid="\#(escape(testID))""#)
+        if let ariaLabel, !ariaLabel.isEmpty {
+            parts.append(#"aria-label="\#(escape(ariaLabel))""#)
+        }
+        if let title, !title.isEmpty {
+            parts.append(#"title="\#(escape(title))""#)
+        }
+        if let role, !role.isEmpty {
+            parts.append(#"role="\#(escape(role))""#)
+        }
+        for (name, value) in attributes {
+            let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedName.isEmpty else { continue }
+            if let value {
+                parts.append(#"\#(escape(trimmedName))="\#(escape(value))""#)
+            } else {
+                parts.append(escape(trimmedName))
+            }
+        }
+        if disabled {
+            parts.append("disabled")
+            parts.append(#"aria-disabled="true""#)
+        }
+        return " " + parts.joined(separator: " ")
+    }
+
     static func executionContextChip(
         _ context: ExecutionContextSurface?,
         testID: String

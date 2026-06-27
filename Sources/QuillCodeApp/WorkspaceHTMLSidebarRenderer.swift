@@ -76,8 +76,17 @@ enum WorkspaceHTMLSidebarRenderer {
                 let testID = QuillCodeSidebarCommandPresentation.htmlTestID(for: command.id)
                 let icon = QuillCodeSidebarCommandPresentation.htmlIconToken(for: command.id)
                 let title = QuillCodeSidebarCommandPresentation.displayTitle(for: command)
-                let disabled = command.isEnabled ? "" : #" disabled aria-disabled="true""#
-                return #"<button class="sidebar-action" type="button" data-testid="\#(escape(testID))" data-primary="true" data-icon="\#(escape(icon))" data-command-id="\#(escape(command.id))"\#(disabled)>\#(escape(title))</button>"#
+                return WorkspaceHTMLPrimitives.commandButton(
+                    title,
+                    testID: testID,
+                    commandID: command.id,
+                    classes: ["sidebar-action", WorkspaceHTMLPrimitives.rowHitTargetClass],
+                    disabled: !command.isEnabled,
+                    attributes: [
+                        ("data-primary", "true"),
+                        ("data-icon", icon)
+                    ]
+                )
             }
             .joined(separator: "\n")
     }
@@ -109,9 +118,16 @@ enum WorkspaceHTMLSidebarRenderer {
     private static func renderBulkToolbar(_ sidebar: SidebarSurface) -> String {
         guard sidebar.isSelectionMode, !sidebar.bulkActions.isEmpty else { return "" }
         let actions = sidebar.bulkActions.map { action in
-            """
-            <button type="button" data-testid="sidebar-bulk-action" data-command-id="\(escape(action.commandID))" data-action="\(escape(action.kind.rawValue))" data-destructive="\(action.isDestructive)" \(action.isEnabled ? "" : "disabled")>\(escape(action.title))</button>
-            """
+            WorkspaceHTMLPrimitives.commandButton(
+                action.title,
+                testID: "sidebar-bulk-action",
+                commandID: action.commandID,
+                disabled: !action.isEnabled,
+                attributes: [
+                    ("data-action", action.kind.rawValue),
+                    ("data-destructive", String(action.isDestructive))
+                ]
+            )
         }.joined(separator: "\n")
         return """
         <div data-testid="sidebar-selection" data-active="\(sidebar.isSelectionMode)" data-selected-count="\(sidebar.selectedThreadIDs.count)">
@@ -126,9 +142,16 @@ enum WorkspaceHTMLSidebarRenderer {
               !sidebar.isSelectionMode,
               let action = sidebar.bulkActions.first(where: { $0.kind == .select })
         else { return "" }
-        return """
-        <button type="button" data-testid="sidebar-bulk-action" data-command-id="\(escape(action.commandID))" data-action="\(escape(action.kind.rawValue))" data-destructive="\(action.isDestructive)" \(action.isEnabled ? "" : "disabled")>\(escape(action.title))</button>
-        """
+        return WorkspaceHTMLPrimitives.commandButton(
+            action.title,
+            testID: "sidebar-bulk-action",
+            commandID: action.commandID,
+            disabled: !action.isEnabled,
+            attributes: [
+                ("data-action", action.kind.rawValue),
+                ("data-destructive", String(action.isDestructive))
+            ]
+        )
     }
 
     private static func renderAction(_ action: SidebarItemActionSurface) -> String {
@@ -168,8 +191,17 @@ enum WorkspaceHTMLSidebarRenderer {
         let testID = QuillCodeSidebarCommandPresentation.htmlTestID(for: command.id)
         let icon = QuillCodeSidebarCommandPresentation.htmlIconToken(for: command.id)
         let title = QuillCodeSidebarCommandPresentation.displayTitle(for: command)
-        let disabled = command.isEnabled ? "" : #" disabled aria-disabled="true""#
-        return #"<button class="sidebar-tool-action" type="button" data-testid="\#(escape(testID))" role="menuitem" aria-label="\#(escape(title))" title="\#(escape(title))" data-icon="\#(escape(icon))" data-command-id="\#(escape(command.id))"\#(disabled)>\#(escape(title))</button>"#
+        return WorkspaceHTMLPrimitives.commandButton(
+            title,
+            testID: testID,
+            commandID: command.id,
+            classes: ["sidebar-tool-action", WorkspaceHTMLPrimitives.rowHitTargetClass],
+            ariaLabel: title,
+            title: title,
+            role: "menuitem",
+            disabled: !command.isEnabled,
+            attributes: [("data-icon", icon)]
+        )
     }
 
     private static func escape(_ text: String) -> String {
