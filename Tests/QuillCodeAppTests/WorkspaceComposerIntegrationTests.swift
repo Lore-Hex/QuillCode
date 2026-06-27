@@ -57,6 +57,88 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         XCTAssertEqual(card.textPreviewArtifacts.map(\.label), ["hello.txt"])
     }
 
+    func testWorkspaceSurfaceCoversRealWorldActionPromptFamily() async throws {
+        let root = try makeTempDirectory()
+        let downloadSource = root.appendingPathComponent("source.html")
+        try "<!doctype html><title>QuillCode surface smoke</title>\n"
+            .write(to: downloadSource, atomically: true, encoding: .utf8)
+
+        let cases = [
+            RealWorldSurfaceCase(
+                prompt: "whoami?",
+                toolName: ToolDefinition.shellRun.name,
+                inputContains: ["\"cmd\":\"whoami\""],
+                answerContains: "You are `",
+                sideEffect: nil
+            ),
+            RealWorldSurfaceCase(
+                prompt: "How much hd?",
+                toolName: ToolDefinition.shellRun.name,
+                inputContains: ["df -h / /Quill"],
+                answerContains: "Disk usage:",
+                sideEffect: nil
+            ),
+            RealWorldSurfaceCase(
+                prompt: "Do you have openclaw?",
+                toolName: ToolDefinition.shellRun.name,
+                inputContains: ["command -v openclaw"],
+                answerContains: "openclaw is",
+                sideEffect: nil
+            ),
+            RealWorldSurfaceCase(
+                prompt: "Can you write a file that says \"hello world\"",
+                toolName: ToolDefinition.fileWrite.name,
+                inputContains: ["\"path\":\"hello.txt\"", "hello world"],
+                answerContains: "Wrote `hello.txt`.",
+                sideEffect: .fileContains(path: "hello.txt", text: "hello world")
+            ),
+            RealWorldSurfaceCase(
+                prompt: "Download \(downloadSource.absoluteString) into `downloads/example.html` in this workspace.",
+                toolName: ToolDefinition.shellRun.name,
+                inputContains: [
+                    "mkdir -p 'downloads'",
+                    "--output 'downloads/example.html'",
+                    downloadSource.absoluteString
+                ],
+                answerContains: "Downloaded to `downloads/example.html`.",
+                sideEffect: .fileContains(path: "downloads/example.html", text: "QuillCode surface smoke")
+            )
+        ]
+
+        for testCase in cases {
+            let model = QuillCodeWorkspaceModel()
+            model.setDraft(testCase.prompt)
+            await model.submitComposer(workspaceRoot: root)
+
+            let surface = model.surface()
+            XCTAssertFalse(model.composer.isSending, testCase.prompt)
+            XCTAssertNil(model.lastError, testCase.prompt)
+            XCTAssertEqual(surface.transcript.timelineItems.map(\.kind), [.message, .toolCard, .message], testCase.prompt)
+            XCTAssertEqual(surface.transcript.messages.first?.text, testCase.prompt)
+            XCTAssertEqual(surface.transcript.toolCards.count, 1, testCase.prompt)
+
+            let card = try XCTUnwrap(surface.transcript.toolCards.first, testCase.prompt)
+            XCTAssertEqual(card.title, testCase.toolName, testCase.prompt)
+            XCTAssertEqual(card.status, .done, testCase.prompt)
+            XCTAssertNotEqual(card.inputJSON, "{}", testCase.prompt)
+            let normalizedInputJSON = normalizeToolInputJSON(card.inputJSON)
+            for expectedInput in testCase.inputContains {
+                let normalizedExpectedInput = expectedInput.replacingOccurrences(of: " ", with: "")
+                XCTAssertTrue(
+                    normalizedInputJSON.contains(normalizedExpectedInput),
+                    "\(testCase.prompt): \(expectedInput)"
+                )
+            }
+
+            let answer = try XCTUnwrap(surface.transcript.messages.last?.text, testCase.prompt)
+            XCTAssertTrue(answer.contains(testCase.answerContains), "\(testCase.prompt): \(answer)")
+            XCTAssertFalse(answer.range(of: #"I'?ll (run|check|do|download|create|write)"#, options: .regularExpression) != nil, testCase.prompt)
+            XCTAssertFalse(answer.localizedCaseInsensitiveContains("No shell command was specified"), testCase.prompt)
+
+            try assertSideEffect(testCase.sideEffect, workspaceRoot: root, label: testCase.prompt)
+        }
+    }
+
     func testSubmitComposerDispatchesComputerUseToolThroughBackend() async throws {
         let root = try makeTempDirectory()
         let backend = StubComputerUseBackend()
@@ -325,6 +407,40 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
             try await Task.sleep(nanoseconds: 1_000_000)
         }
     }
+
+    private func assertSideEffect(
+        _ sideEffect: RealWorldSurfaceSideEffect?,
+        workspaceRoot: URL,
+        label: String
+    ) throws {
+        switch sideEffect {
+        case .fileContains(let path, let text):
+            let url = workspaceRoot.appendingPathComponent(path)
+            let contents = try String(contentsOf: url, encoding: .utf8)
+            XCTAssertTrue(contents.contains(text), "\(label): \(url.path)")
+        case .none:
+            break
+        }
+    }
+
+    private func normalizeToolInputJSON(_ inputJSON: String?) -> String {
+        (inputJSON ?? "")
+            .replacingOccurrences(of: "\\/", with: "/")
+            .replacingOccurrences(of: "\n", with: "")
+            .replacingOccurrences(of: " ", with: "")
+    }
+}
+
+private struct RealWorldSurfaceCase {
+    var prompt: String
+    var toolName: String
+    var inputContains: [String]
+    var answerContains: String
+    var sideEffect: RealWorldSurfaceSideEffect?
+}
+
+private enum RealWorldSurfaceSideEffect {
+    case fileContains(path: String, text: String)
 }
 
 @MainActor
