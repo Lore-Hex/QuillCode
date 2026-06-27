@@ -7925,3 +7925,20 @@ Code quality changes:
 Remaining risk:
 
 - Live provider behavior can be flaky or rate-limited. Keep this out of normal PR gates unless a stable CI secret, retry policy, and provider budget are explicitly configured.
+
+## 2026-06-27 Live File-Write Smoke Pass
+
+Overall grade after this slice: **A- live write-path coverage, A bounded workspace safety, B+ provider-output variability**.
+
+The first live TrustedRouter smoke proved real shell/diagnostic actions, but it still did not cover the user-visible “make a file” workflow that previously regressed into passive promises and empty tool calls. This pass extends the opt-in smoke to require a real temp-workspace file write with exact content verification.
+
+Code quality changes:
+
+- Split live smoke assertions into reusable output-regression checks and expected-output checks.
+- Added a live prompt for `live-smoke.txt` with exact content, then verified the file exists under the temp workspace and contains only the requested content.
+- Kept the write path bounded to a temporary workspace so the smoke tests real model/tool behavior without touching user files.
+- Updated the test plan so release and prompt/parser changes include live write-path validation.
+
+Remaining risk:
+
+- Live file-write behavior can still vary by model. If a model writes a safe alternate file path, the smoke should fail intentionally because the product contract for this prompt is an exact requested path.
