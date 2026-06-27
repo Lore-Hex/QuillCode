@@ -90,6 +90,20 @@ Residual risk:
 
 - The helper currently exposes only the horizontal overflow audit. Add more visual helpers only when a second spec needs them, so the module stays narrow and behavior-preserving.
 
+## 2026-06-27 Click Target Architecture Pass
+
+Overall grade after this slice: **A click-target contract, A- source coverage breadth**.
+
+The rendered Playwright audits already measured 44 px targets across common surfaces, but source gates did not cover the highest-frequency native controls or generated HTML links. That left room for future patches to reintroduce literal frames on composer actions or small link targets while the current harness still passed.
+
+- Moved composer send/stop controls onto semantic hit-target helpers.
+- Made icon target sizing configurable inside the shared design system instead of using literal frames for larger visible icon buttons.
+- Added parity gates for top bar, sidebar, composer, search, command palette, settings, transcript controls, Find, and generated HTML links.
+
+Residual risk:
+
+- This still combines source gates with HTML Playwright audits rather than native UI automation measuring the built SwiftUI app. Add native accessibility-frame checks once the packaged app test runner can inspect SwiftUI controls directly.
+
 ## 2026-06-27 Computer Use Status Contract Pass
 
 Overall grade after this slice: **A- Computer Use executor contract, A status copy accuracy, B+ platform parity**.

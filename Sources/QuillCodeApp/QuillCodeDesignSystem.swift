@@ -32,13 +32,16 @@ struct QuillCodeHitTargetSpec {
     var alignment: Alignment
     var shape: Shape
 
-    static func icon(radius: CGFloat = QuillCodeMetrics.iconControlRadius) -> Self {
+    static func icon(
+        size: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        radius: CGFloat = QuillCodeMetrics.iconControlRadius
+    ) -> Self {
         Self(
             minWidth: nil,
             maxWidth: nil,
-            width: QuillCodeMetrics.minimumHitTarget,
+            width: size,
             minHeight: QuillCodeMetrics.minimumHitTarget,
-            height: QuillCodeMetrics.minimumHitTarget,
+            height: max(size, QuillCodeMetrics.minimumHitTarget),
             alignment: .center,
             shape: .rounded(radius)
         )
@@ -205,9 +208,10 @@ extension View {
     }
 
     func quillCodeIconButtonTarget(
+        size: CGFloat = QuillCodeMetrics.minimumHitTarget,
         radius: CGFloat = QuillCodeMetrics.iconControlRadius
     ) -> some View {
-        quillCodeInteractiveTarget(.icon(radius: radius))
+        quillCodeInteractiveTarget(.icon(size: size, radius: radius))
     }
 
     func quillCodeFullRowButtonTarget(

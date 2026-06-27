@@ -204,6 +204,80 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testNativePrimaryChromeKeepsSemanticHitTargets() throws {
+        let designSystemText = try Self.appSourceText(named: "QuillCodeDesignSystem.swift")
+        let topBarText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
+        let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
+        let sidebarRowsText = try Self.appSourceText(named: "QuillCodeSidebarThreadRowView.swift")
+        let composerText = try Self.appSourceText(named: "QuillCodeComposerView.swift")
+        let searchDialogText = try Self.appSourceText(named: "QuillCodeSearchAndShortcutDialogs.swift")
+        let commandPaletteText = try Self.appSourceText(named: "QuillCodeCommandPaletteDialog.swift")
+        let dialogChromeText = try Self.appSourceText(named: "QuillCodeDialogChrome.swift")
+        let settingsText = try Self.appSourceText(named: "QuillCodeSettingsView.swift")
+        let transcriptMessageText = try Self.appSourceText(named: "QuillCodeTranscriptMessageView.swift")
+        let findText = try Self.appSourceText(named: "QuillCodeTranscriptFindView.swift")
+
+        XCTAssertTrue(
+            designSystemText.contains("static func icon(")
+                && designSystemText.contains("size: CGFloat = QuillCodeMetrics.minimumHitTarget"),
+            "Icon target sizing should stay in the shared hit-target spec so larger visible controls do not fall back to literal frames."
+        )
+        XCTAssertTrue(
+            topBarText.contains(".quillCodeTextButtonTarget(minWidth: 64")
+                && topBarText.contains(".quillCodeIconButtonTarget()"),
+            "Top bar stop and overflow controls should use semantic hit-target helpers."
+        )
+        XCTAssertTrue(
+            sidebarText.contains(".quillCodeFullRowButtonTarget()")
+                && sidebarText.contains(".quillCodeFullRowButtonTarget(alignment: .center")
+                && sidebarText.contains(".quillCodeTextButtonTarget(minWidth: 56)"),
+            "Sidebar primary rows, utility rows, and bulk controls should not depend on default button hit boxes."
+        )
+        XCTAssertTrue(
+            sidebarRowsText.contains(".quillCodeFullRowButtonTarget()")
+                && sidebarRowsText.contains(".quillCodeIconButtonTarget()"),
+            "Sidebar thread rows and menus should preserve full-row and icon hit targets."
+        )
+        XCTAssertTrue(
+            composerText.contains(".quillCodeTextButtonTarget(")
+                && composerText.contains("minWidth: 90")
+                && composerText.contains("minHeight: 46")
+                && composerText.contains(".quillCodeIconButtonTarget(")
+                && composerText.contains("size: 46")
+                && composerText.contains(".quillCodeFullRowButtonTarget(radius: 12)"),
+            "Composer send/stop buttons and slash suggestions should use named target helpers instead of literal clickable frames."
+        )
+        XCTAssertTrue(
+            searchDialogText.contains(".quillCodeFullRowButtonTarget(radius: 12)")
+                && searchDialogText.contains(".frame(minHeight: QuillCodeMetrics.minimumHitTarget)"),
+            "Search results and search input should keep explicit click/type targets."
+        )
+        XCTAssertTrue(
+            commandPaletteText.contains(".quillCodeFullRowButtonTarget(radius: 12)")
+                && commandPaletteText.contains(".frame(minHeight: QuillCodeMetrics.minimumHitTarget)"),
+            "Command palette rows and command input should keep explicit click/type targets."
+        )
+        XCTAssertTrue(
+            dialogChromeText.contains(".quillCodeTextButtonTarget()"),
+            "Shared dialog close buttons should use the common text-button target."
+        )
+        XCTAssertTrue(
+            settingsText.contains(".quillCodeTextButtonTarget(minWidth: 190)")
+                && settingsText.contains(".quillCodeTextButtonTarget(minWidth: 104")
+                && settingsText.contains(".quillCodeTextButtonTarget()"),
+            "Settings sign-in, clear, cancel, and save actions should remain explicit 44 pt targets."
+        )
+        XCTAssertTrue(
+            transcriptMessageText.contains(".quillCodeIconButtonTarget(radius: QuillCodeMetrics.minimumHitTarget / 2)")
+                && transcriptMessageText.contains(".quillCodeTextButtonTarget(minWidth: 64"),
+            "Transcript copy, retry, draft, and feedback controls should keep semantic 44 pt targets."
+        )
+        XCTAssertTrue(
+            findText.contains(".quillCodeIconButtonTarget()"),
+            "Find previous, next, and close controls should use shared icon targets."
+        )
+    }
+
     func testNativeSearchDialogsKeepLocalTypingState() throws {
         let searchShortcutText = try Self.appSourceText(named: "QuillCodeSearchAndShortcutDialogs.swift")
         let commandPaletteText = try Self.appSourceText(named: "QuillCodeCommandPaletteDialog.swift")
