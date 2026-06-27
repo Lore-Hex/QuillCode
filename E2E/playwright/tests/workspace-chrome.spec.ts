@@ -145,7 +145,8 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
     sidebarStyle,
     sidebarToolsButtonStyle,
     sidebarToolActionStyle,
-    sidebarSettingsButtonStyle
+    sidebarSettingsButtonStyle,
+    emptyStarterStyle
   ] = await Promise.all([
     computedStyleProperties(page, 'html', ['-webkit-font-smoothing']),
     computedStyleProperties(page, '[data-testid="send-button"]', ['min-height', 'transition-property']),
@@ -157,7 +158,8 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
     computedStyleProperties(page, '[data-testid="sidebar"]', ['border-radius']),
     computedStyleProperties(page, '[data-testid="sidebar-tools-button"]', ['min-height', 'transition-property']),
     computedStyleProperties(page, '[data-testid="sidebar-search-button"]', ['min-height', 'transition-property']),
-    computedStyleProperties(page, '[data-testid="settings-button"]', ['width', 'min-height'])
+    computedStyleProperties(page, '[data-testid="settings-button"]', ['width', 'min-height']),
+    computedStyleProperties(page, '[data-testid="empty-starter-action"]', ['min-height', 'transition-property', 'border-radius'])
   ]);
 
   const polish = {
@@ -177,7 +179,10 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
     sidebarToolActionTransitionProperty: sidebarToolActionStyle['transition-property'],
     sidebarSettingsWidth: parseFloat(sidebarSettingsButtonStyle.width),
     sidebarSettingsMinHeight: parseFloat(sidebarSettingsButtonStyle['min-height']),
-    sidebarRadius: parseFloat(sidebarStyle['border-radius'])
+    sidebarRadius: parseFloat(sidebarStyle['border-radius']),
+    emptyStarterMinHeight: parseFloat(emptyStarterStyle['min-height']),
+    emptyStarterTransitionProperty: emptyStarterStyle['transition-property'],
+    emptyStarterRadius: parseFloat(emptyStarterStyle['border-radius'])
   };
 
   expect(polish.rootFontSmoothing).toBe('antialiased');
@@ -202,8 +207,14 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(polish.titleTextWrap).toContain('balance');
   expect(polish.agentStatusNumbers).toContain('tabular-nums');
   expect(polish.sidebarRadius).toBeLessThanOrEqual(4);
+  expect(polish.emptyStarterMinHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
+  expect(polish.emptyStarterTransitionProperty).toContain('transform');
+  expect(polish.emptyStarterTransitionProperty).toContain('box-shadow');
+  expect(polish.emptyStarterTransitionProperty).not.toContain('all');
+  expect(polish.emptyStarterRadius).toBe(14);
 
   await expectHitTarget(page.getByTestId('top-bar-overflow-button'), 'top-bar overflow button');
+  await expectHitTarget(page.getByTestId('empty-starter-action'), 'empty starter action');
   await expectHitTarget(page.getByTestId('new-chat-button'), 'new chat button');
   await expectHitTarget(page.getByTestId('sidebar-search-button'), 'sidebar search button');
   await expectHitTarget(page.getByTestId('extensions-button'), 'plugins button');

@@ -2258,7 +2258,9 @@
     pre { overflow: auto; white-space: pre-wrap; background: rgba(0,0,0,.38); border-radius: 10px; padding: 10px; color: #dff8ff; }
     .empty {
       margin: 0 auto;
+      width: min(100%, 620px);
       max-width: 560px;
+      box-sizing: border-box;
       padding: 32px 0 20px;
       color: var(--muted);
       text-align: center;
@@ -2275,6 +2277,57 @@
       margin: 0;
       font-size: 14px;
       line-height: 1.35;
+      text-wrap: pretty;
+    }
+    .empty-starters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(156px, 1fr));
+      gap: 10px;
+      width: 100%;
+      max-width: 620px;
+      margin: 16px auto 0;
+    }
+    .empty-starter {
+      min-height: var(--hit-target);
+      border: 0;
+      border-radius: 14px;
+      padding: 10px 12px;
+      color: var(--text);
+      text-align: left;
+      background: rgba(25, 41, 48, 0.64);
+      box-shadow: var(--shadow-border);
+      cursor: pointer;
+      transition-property: transform, background-color, box-shadow;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .empty-starter:hover {
+      background: rgba(35, 58, 68, 0.78);
+      box-shadow: var(--shadow-border-hover);
+    }
+    .empty-starter:active {
+      transform: scale(0.96);
+    }
+    .empty-starter strong,
+    .empty-starter span {
+      display: block;
+    }
+    .empty-starter strong {
+      font-size: 13px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    .empty-starter span {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+      text-wrap: pretty;
+    }
+    @media (max-width: 600px) {
+      .empty-starters {
+        grid-template-columns: 1fr;
+      }
     }
     .composer {
       align-self: end;
@@ -2641,7 +2694,27 @@
         toolCards: [],
         timelineItems: [],
         emptyTitle: 'Ask QuillCode to inspect, edit, or run this project.',
-        emptySubtitle: 'Use Auto for normal coding work, Review for manual gates, or Read-only for exploration.'
+        emptySubtitle: 'Use Auto for normal coding work, Review for manual gates, or Read-only for exploration.',
+        emptyStarterActions: [
+          {
+            id: 'review-changes',
+            title: 'Review changes',
+            subtitle: 'Find risks in the current diff',
+            prompt: 'Review the current git diff and call out risks, missing tests, and next steps.'
+          },
+          {
+            id: 'run-tests',
+            title: 'Run tests',
+            subtitle: 'Pick the right validation',
+            prompt: 'Find and run the most relevant tests for this project.'
+          },
+          {
+            id: 'explain-project',
+            title: 'Explain project',
+            subtitle: 'Map the important files',
+            prompt: 'Give me a concise map of this project and the most important files.'
+          }
+        ]
       },
       mockFiles: {},
       review: {
@@ -4729,10 +4802,20 @@
           + state.transcript.toolCards.map(renderToolCard).join('');
       const hasTimelineContent = Boolean(context || runtimeIssue || review || transcriptItems);
       const shouldHideEmptyTranscript = state.automations.isVisible && !hasTimelineContent;
+      const emptyStarterActions = (state.transcript.emptyStarterActions || []).length ? `
+        <div class="empty-starters" data-testid="empty-starter-actions">
+          ${state.transcript.emptyStarterActions.map(action => `
+            <button type="button" class="empty-starter" data-testid="empty-starter-action" data-action-id="${escapeHTML(action.id)}" data-prompt="${escapeHTML(action.prompt)}">
+              <strong>${escapeHTML(action.title)}</strong>
+              <span>${escapeHTML(action.subtitle)}</span>
+            </button>
+          `).join('')}
+        </div>` : '';
       const timeline = hasTimelineContent ? context + runtimeIssue + review + transcriptItems : shouldHideEmptyTranscript ? '' : `
         <section class="empty" data-testid="transcript-empty">
           <h1>${escapeHTML(state.transcript.emptyTitle)}</h1>
           <p>${escapeHTML(state.transcript.emptySubtitle)}</p>
+          ${emptyStarterActions}
         </section>`;
       const projectsContent = state.projects.items.length
         ? state.projects.items.map(item => `
@@ -5073,6 +5156,11 @@
       document.querySelectorAll('[data-testid="message-use-as-draft"]').forEach(button => {
         button.addEventListener('click', event => {
           useMessageAsDraft(event.currentTarget.getAttribute('data-message-id'));
+        });
+      });
+      document.querySelectorAll('[data-testid="empty-starter-action"]').forEach(button => {
+        button.addEventListener('click', event => {
+          usePromptAsDraft(event.currentTarget.getAttribute('data-prompt'));
         });
       });
       document.querySelectorAll('[data-testid="message-retry"]').forEach(button => {
@@ -6058,7 +6146,11 @@
       if (!messageID) return;
       const message = state.transcript.messages.find(entry => entry.id === messageID && entry.role === 'user');
       if (!message) return;
-      state.composer.draft = message.text || '';
+      usePromptAsDraft(message.text || '');
+    }
+
+    function usePromptAsDraft(prompt) {
+      state.composer.draft = String(prompt || '');
       state.composer.canSend = state.composer.draft.trim().length > 0;
       state.composer.slashActiveIndex = 0;
       render();

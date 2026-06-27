@@ -176,18 +176,53 @@ struct QuillCodeTranscriptView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 14) {
             Text(transcript.emptyTitle)
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.text)
             Text(transcript.emptySubtitle)
                 .font(.callout)
                 .foregroundStyle(QuillCodePalette.muted)
+            starterActions
+                .padding(.top, 2)
         }
         .multilineTextAlignment(.center)
-        .frame(maxWidth: 540)
+        .frame(maxWidth: 620)
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 22)
+    }
+
+    private var starterActions: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 156), spacing: 10)], spacing: 10) {
+            ForEach(transcript.emptyStarterActions) { action in
+                Button {
+                    onUseMessageAsDraft(action.prompt)
+                } label: {
+                    VStack(spacing: 3) {
+                        Text(action.title)
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(QuillCodePalette.text)
+                        Text(action.subtitle)
+                            .font(.caption)
+                            .foregroundStyle(QuillCodePalette.muted)
+                            .lineLimit(2)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .quillCodeSurface(
+                        fill: QuillCodePalette.panel.opacity(0.62),
+                        radius: 14,
+                        stroke: Color.white.opacity(0.08),
+                        shadow: false
+                    )
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .accessibilityLabel(Text(action.title))
+                .accessibilityHint(Text(action.prompt))
+            }
+        }
+        .frame(maxWidth: 620)
     }
 
     private func copyText(for card: ToolCardState) -> String {

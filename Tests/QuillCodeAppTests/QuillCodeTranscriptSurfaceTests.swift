@@ -22,6 +22,8 @@ final class QuillCodeTranscriptSurfaceTests: XCTestCase {
 
         XCTAssertEqual(transcript.emptyTitle, "Ask QuillCode to inspect, edit, or run this project.")
         XCTAssertEqual(transcript.emptySubtitle, "Use Auto for normal coding work, Review for manual gates, or Read-only for exploration.")
+        XCTAssertEqual(transcript.emptyStarterActions.map(\.id), ["review-changes", "run-tests", "explain-project"])
+        XCTAssertEqual(transcript.emptyStarterActions.first?.prompt, "Review the current git diff and call out risks, missing tests, and next steps.")
         XCTAssertNil(transcript.thinking)
         XCTAssertEqual(transcript.timelineItems.map(\.kind), [.message, .toolCard])
         XCTAssertEqual(transcript.timelineItems.map(\.id), [
@@ -30,6 +32,21 @@ final class QuillCodeTranscriptSurfaceTests: XCTestCase {
         ])
         XCTAssertEqual(transcript.timelineItems[0].message?.text, "run whoami")
         XCTAssertEqual(transcript.timelineItems[1].toolCard?.title, "Run Shell")
+    }
+
+    func testTranscriptSurfaceDecodesOlderPayloadWithDefaultStarterActions() throws {
+        let data = """
+        {
+          "messages": [],
+          "toolCards": [],
+          "emptyTitle": "Ask QuillCode to inspect, edit, or run this project.",
+          "emptySubtitle": "Use Auto for normal coding work, Review for manual gates, or Read-only for exploration."
+        }
+        """.data(using: .utf8)!
+
+        let transcript = try JSONDecoder().decode(TranscriptSurface.self, from: data)
+
+        XCTAssertEqual(transcript.emptyStarterActions, TranscriptStarterActionSurface.defaults)
     }
 
     func testMessageSurfaceMapsRoleContentAccessibilityAndFeedback() {

@@ -30,6 +30,7 @@ final class QuillCodeDesktopController: ObservableObject {
     private let composerCoordinator: QuillCodeDesktopComposerCoordinator
     private let copyCoordinator: QuillCodeDesktopCopyCoordinator
     private let projectImportCoordinator: QuillCodeDesktopProjectImportCoordinator
+    private let modelStateCoordinator: QuillCodeDesktopModelStateCoordinator
     private let paneCoordinator: QuillCodeDesktopPaneCoordinator
     private let workspaceActionCoordinator: QuillCodeDesktopWorkspaceActionCoordinator
     private let terminalCoordinator: QuillCodeDesktopTerminalCoordinator
@@ -61,6 +62,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.composerCoordinator = QuillCodeDesktopComposerCoordinator()
         self.copyCoordinator = QuillCodeDesktopCopyCoordinator()
         self.projectImportCoordinator = QuillCodeDesktopProjectImportCoordinator()
+        self.modelStateCoordinator = QuillCodeDesktopModelStateCoordinator()
         self.paneCoordinator = QuillCodeDesktopPaneCoordinator()
         self.workspaceActionCoordinator = QuillCodeDesktopWorkspaceActionCoordinator()
         self.terminalCoordinator = QuillCodeDesktopTerminalCoordinator()
@@ -71,14 +73,13 @@ final class QuillCodeDesktopController: ObservableObject {
             self.model = QuillCodeWorkspaceModel()
         }
         self.workspaceRoot = workspaceRoot
-        if self.model.root.projects.isEmpty {
-            _ = self.model.addProject(path: workspaceRoot)
-        }
+        modelStateCoordinator.ensureDefaultProject(on: model, workspaceRoot: workspaceRoot)
         self.computerUseCoordinator.install(on: model)
-        self.surface = model.surface()
-        self.draft = model.composer.draft
-        self.terminalDraft = model.terminal.draft
-        self.browserAddressDraft = model.browser.addressDraft
+        let initialState = modelStateCoordinator.initialState(from: model)
+        self.surface = initialState.surface
+        self.draft = initialState.draft
+        self.terminalDraft = initialState.terminalDraft
+        self.browserAddressDraft = initialState.browserAddressDraft
         automationCoordinator.runDueAutomations(
             model: model,
             notifier: automationNotifier,
@@ -387,16 +388,13 @@ final class QuillCodeDesktopController: ObservableObject {
 
     private func refresh() {
         computerUseCoordinator.refreshStatus(on: model)
-        surface = model.surface()
-        if draft != model.composer.draft, !model.composer.isSending {
-            draft = model.composer.draft
-        }
-        if terminalDraft != model.terminal.draft, !model.terminal.isRunning {
-            terminalDraft = model.terminal.draft
-        }
-        if browserAddressDraft != model.browser.addressDraft {
-            browserAddressDraft = model.browser.addressDraft
-        }
+        modelStateCoordinator.refreshState(
+            from: model,
+            surface: &surface,
+            draft: &draft,
+            terminalDraft: &terminalDraft,
+            browserAddressDraft: &browserAddressDraft
+        )
     }
 
     func openComputerUseSystemSettings(_ destination: MacSystemSettingsOpener.Destination) {
@@ -418,7 +416,7 @@ extension QuillCodeDesktopController: QuillCodeDesktopCommandPerforming {
         ) else {
             return
         }
-        draft = model.composer.draft
+        modelStateCoordinator.syncComposerDraft(from: model, draft: &draft)
         refresh()
     }
 }
