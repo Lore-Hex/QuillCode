@@ -293,6 +293,10 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
             contentsOf: testRoot.appendingPathComponent("visual-polish.spec.ts"),
             encoding: .utf8
         )
+        let visualPolishHelperText = try String(
+            contentsOf: testRoot.appendingPathComponent("visual-polish-helpers.ts"),
+            encoding: .utf8
+        )
         let coreSpecText = try String(
             contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
             encoding: .utf8
@@ -313,6 +317,10 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(visualPolishSpecText.contains("openSettings"), "Focused visual polish flows should cover settings layout safety.")
         XCTAssertTrue(visualPolishSpecText.contains("top-bar-status-metadata"), "Focused visual polish flows should cover quiet top-bar metadata.")
         XCTAssertTrue(visualPolishSpecText.contains("sendTransitionProperty"), "Focused visual polish flows should cover interface polish primitives.")
+        XCTAssertTrue(visualPolishSpecText.contains("from './visual-polish-helpers'"), "Visual polish specs should reuse named visual audit helpers.")
+        XCTAssertTrue(visualPolishHelperText.contains("export async function expectNoHorizontalOverflow"), "Horizontal overflow auditing should live in the visual polish helper.")
+        XCTAssertTrue(visualPolishHelperText.contains("document.querySelectorAll('body *')"), "The helper should own broad horizontal overflow inspection.")
+        XCTAssertFalse(visualPolishSpecText.contains("document.querySelectorAll('body *')"), "Visual polish specs should not inline the broad overflow scanner.")
         for flowName in chromeFlowNames {
             XCTAssertTrue(chromeSpecText.contains(flowName), "\(flowName) should live in workspace-chrome.spec.ts.")
             XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
