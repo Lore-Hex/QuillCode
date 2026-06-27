@@ -2572,6 +2572,13 @@
       box-shadow: inset 0 0 0 1px rgba(255,255,255,.07);
     }
     button:disabled { opacity: .45; }
+    .composer [data-testid="send-button"]:disabled {
+      opacity: 1;
+      background: rgba(255,255,255,.055);
+      color: rgba(235,250,255,.42);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.07);
+      cursor: not-allowed;
+    }
     @media (prefers-reduced-motion: reduce) {
       button,
       input,

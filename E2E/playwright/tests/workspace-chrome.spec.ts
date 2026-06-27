@@ -149,7 +149,14 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
     emptyStarterStyle
   ] = await Promise.all([
     computedStyleProperties(page, 'html', ['-webkit-font-smoothing']),
-    computedStyleProperties(page, '[data-testid="send-button"]', ['min-height', 'transition-property']),
+    computedStyleProperties(page, '[data-testid="send-button"]', [
+      'min-height',
+      'transition-property',
+      'opacity',
+      'background-color',
+      'color',
+      'cursor'
+    ]),
     computedStyleProperties(page, '[data-testid="add-project-button"]', ['width', 'height']),
     computedStyleProperties(page, '[data-testid="new-chat-button"]', ['min-height', 'transition-property']),
     computedStyleProperties(page, '#message', ['transition-property']),
@@ -166,6 +173,10 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
     rootFontSmoothing: rootStyle['-webkit-font-smoothing'],
     sendMinHeight: parseFloat(sendButtonStyle['min-height']),
     sendTransitionProperty: sendButtonStyle['transition-property'],
+    sendDisabledOpacity: sendButtonStyle.opacity,
+    sendDisabledBackgroundColor: sendButtonStyle['background-color'],
+    sendDisabledColor: sendButtonStyle.color,
+    sendDisabledCursor: sendButtonStyle.cursor,
     inputTransitionProperty: messageInputStyle['transition-property'],
     sidebarActionTransitionProperty: sidebarActionStyle['transition-property'],
     sidebarActionMinHeight: parseFloat(sidebarActionStyle['min-height']),
@@ -187,6 +198,10 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
 
   expect(polish.rootFontSmoothing).toBe('antialiased');
   expect(polish.sendMinHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
+  expect(polish.sendDisabledOpacity).toBe('1');
+  expect(polish.sendDisabledBackgroundColor).toBe('rgba(255, 255, 255, 0.055)');
+  expect(polish.sendDisabledColor).toBe('rgba(235, 250, 255, 0.42)');
+  expect(polish.sendDisabledCursor).toBe('not-allowed');
   expect(polish.addProjectWidth).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(polish.addProjectHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(polish.sendTransitionProperty).toContain('transform');
