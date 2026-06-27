@@ -71,6 +71,7 @@ Drive the QuillCode test harness with mock LLM:
 ## Native Smoke Tests
 
 - `./scripts/smoke.sh` runs Swift tests, mock CLI `run whoami`, mock CLI file creation in a temp workspace, and Playwright E2E when local node modules are installed.
+- `./scripts/live-tr-smoke.sh` is the opt-in real TrustedRouter smoke. It reads `QUILLCODE_API_KEY`, `TRUSTEDROUTER_API_KEY`, or `~/.quill.code.keyfile`, defaults to the cheap `deepseekv4flash` alias, runs through `quill-code --live`, and fails on empty shell arguments, passive “I’ll run...” answers, missing command output, or unreadable live errors.
 - Packaged macOS and Linux app launch.
 - Login/dev override.
 - Open repo, chat, run `whoami`, create file, confirm the created file appears as a tool-card artifact and text preview, capture or mock a screenshot artifact and confirm the image preview renders, confirm raw successful-tool details can be opened, review diff, add an SSH Remote, run a noninteractive remote terminal `pwd` smoke, then run `cd` plus `export` and confirm the next remote terminal command inherits both.
@@ -82,6 +83,7 @@ Drive the QuillCode test harness with mock LLM:
 - GitHub Actions runs macOS `swift test` and the app-level Linux-conditional guard on each push and PR.
 - GitHub Actions runs Playwright mock-LLM E2E for core agent, tools, approvals, settings, top bar, and browser harness on each push and PR.
 - GitHub Actions runs `./scripts/smoke.sh` from a clean checkout after installing E2E dependencies.
+- Live TrustedRouter smoke is not required for normal PRs; run `./scripts/live-tr-smoke.sh` before releases, model-prompt changes, parser changes, or safety-review changes when a local or CI secret is available.
 - All unit tests pass on macOS and Linux before a stable release.
 - Native app smoke tests pass on packaged macOS and Linux builds.
 - No app target contains `#if linux`; CI enforces this.
