@@ -57,12 +57,8 @@ enum WorkspaceCommandPlan: Equatable {
     private static let toolNameByCommandID: [String: String] = [
         "git-status": ToolDefinition.gitStatus.name,
         "git-diff": ToolDefinition.gitDiff.name,
-        "git-pr-view": ToolDefinition.gitPullRequestView.name,
-        "git-pr-checks": ToolDefinition.gitPullRequestChecks.name,
-        "git-pr-diff": ToolDefinition.gitPullRequestDiff.name,
-        "git-pr-review-threads": ToolDefinition.gitPullRequestReviewThreads.name,
         "git-worktree-list": ToolDefinition.gitWorktreeList.name
-    ]
+    ].merging(WorkspacePullRequestCommandCatalog.toolNameByCommandID) { local, _ in local }
 
     private static let toolCallByCommandID: [String: ToolCall] = [
         "git-worktree-prune": WorkspaceWorktreeToolCallPlanner.prune(.init(dryRun: true, verbose: true))
@@ -71,20 +67,10 @@ enum WorkspaceCommandPlan: Equatable {
     private static let draftByCommandID: [String: String] = [
         "memory-add": "/remember ",
         "add-ssh-project": "/ssh user@host:/absolute/path",
-        "git-pr-create": "Create a pull request titled ",
-        "git-pr-checkout": "Checkout pull request ",
-        "git-pr-reviewers": "Request reviewers for the current pull request: ",
-        "git-pr-comment": "Comment on the current pull request: ",
-        "git-pr-review": "Review the current pull request: approve",
-        "git-pr-review-comment": "Comment on a pull request line: ",
-        "git-pr-review-reply": "Reply to pull request review comment: ",
-        "git-pr-review-thread": "Resolve pull request review thread: ",
-        "git-pr-labels": "Label the current pull request: ",
-        "git-pr-merge": "Merge the current pull request with squash",
         "git-worktree-create": "Create a git worktree named ",
         "git-worktree-open": "Open git worktree at ",
         "git-worktree-remove": "Remove git worktree at "
-    ]
+    ].merging(WorkspacePullRequestCommandCatalog.draftByCommandID) { local, _ in local }
 
     private static func prefixPlan(_ commandID: String) -> WorkspaceCommandPlan? {
         if commandID.value(after: "local-env:") != nil {

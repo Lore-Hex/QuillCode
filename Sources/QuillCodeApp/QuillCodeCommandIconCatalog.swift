@@ -6,6 +6,9 @@ enum QuillCodeCommandIconCatalog {
         if commandID.hasPrefix("local-env:") {
             return "hammer"
         }
+        if let pullRequestIcon = WorkspacePullRequestCommandCatalog.systemImage(for: commandID) {
+            return pullRequestIcon
+        }
 
         switch commandID {
         case "new-chat":
@@ -42,24 +45,6 @@ enum QuillCodeCommandIconCatalog {
             return "brain.head.profile"
         case "toggle-extensions":
             return "puzzlepiece.extension"
-        case "git-pr-create":
-            return "arrow.up.doc"
-        case "git-pr-checkout":
-            return "arrow.down.doc"
-        case "git-pr-reviewers":
-            return "person.2.badge.gearshape"
-        case "git-pr-review-comment":
-            return "text.bubble"
-        case "git-pr-review-reply":
-            return "arrowshape.turn.up.left"
-        case "git-pr-review-threads":
-            return "list.bullet.rectangle"
-        case "git-pr-review-thread":
-            return "checkmark.bubble"
-        case "git-pr-labels":
-            return "tag"
-        case "git-pr-merge":
-            return "arrow.triangle.merge"
         case "git-worktree-list":
             return "point.3.connected.trianglepath.dotted"
         case "git-worktree-create":
