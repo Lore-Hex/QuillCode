@@ -303,6 +303,11 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             "Review action buttons should use a named class that can be target-sized in CSS."
         )
         XCTAssertTrue(
+            reviewText.contains(#"data-testid="pr-review-thread-reply-form""#)
+                && reviewText.contains(#"WorkspaceHTMLPrimitives.formActionHitTargetClass"#),
+            "Pull request review-thread reply forms should expose explicit form-action targets."
+        )
+        XCTAssertTrue(
             secondaryText.contains(#"class="extension-action-button""#),
             "Extension action buttons should use a named class that can be target-sized in CSS."
         )
@@ -354,6 +359,11 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             harnessText.contains(#"class="review-action-button hit-target-text""#),
             "Harness review buttons should match the production review action target class."
+        )
+        XCTAssertTrue(
+            harnessText.contains(#"class="pr-review-thread-reply-form""#)
+                && harnessText.contains(#"data-testid="pr-review-thread-reply-submit""#),
+            "Harness PR review-thread replies should exercise the same expanded form targets as production."
         )
     }
 

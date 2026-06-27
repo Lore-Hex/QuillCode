@@ -299,6 +299,15 @@ final class QuillCodeDesktopController: ObservableObject {
         refresh()
     }
 
+    func runPullRequestReviewThreadReply(_ request: WorkspacePullRequestReviewThreadReplyRequest) {
+        workspaceActionCoordinator.runPullRequestReviewThreadReply(
+            request,
+            model: model,
+            fallbackWorkspaceRoot: workspaceRoot
+        )
+        refresh()
+    }
+
     func usePullRequestReviewThreadReplyDraft(_ draft: String) {
         workspaceActionCoordinator.useComposerDraft(draft, model: model)
         refresh()

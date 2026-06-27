@@ -18,7 +18,7 @@ enum WorkspacePullRequestReviewThreadActionToolCallPlanner {
     ) -> WorkspacePullRequestReviewThreadActionRunPlan {
         WorkspacePullRequestReviewThreadActionRunPlan(
             actionCall: toolCall(for: action),
-            refreshCall: refreshCall(selector: action.selector)
+            refreshCall: WorkspacePullRequestReviewThreadRefreshToolCallPlanner.call(selector: action.selector)
         )
     }
 
@@ -32,10 +32,55 @@ enum WorkspacePullRequestReviewThreadActionToolCallPlanner {
         )
     }
 
-    private static func refreshCall(selector: String?) -> ToolCall {
-        ToolCall(
+}
+
+struct WorkspacePullRequestReviewThreadReplyRunPlan: Sendable, Hashable {
+    let replyCall: ToolCall
+    let refreshCall: ToolCall
+
+    func finalStatus(replyResult: ToolResult, refreshResult: ToolResult) -> String {
+        replyResult.ok && refreshResult.ok
+            ? TopBarAgentStatusLabel.idle
+            : TopBarAgentStatusLabel.failed
+    }
+}
+
+enum WorkspacePullRequestReviewThreadReplyToolCallPlanner {
+    static func runPlan(
+        for request: WorkspacePullRequestReviewThreadReplyRequest
+    ) -> WorkspacePullRequestReviewThreadReplyRunPlan {
+        WorkspacePullRequestReviewThreadReplyRunPlan(
+            replyCall: toolCall(for: request),
+            refreshCall: WorkspacePullRequestReviewThreadRefreshToolCallPlanner.call(selector: request.selector)
+        )
+    }
+
+    static func toolCall(for request: WorkspacePullRequestReviewThreadReplyRequest) -> ToolCall {
+        var arguments: [String: Any] = [
+            "commentId": request.commentID,
+            "body": request.body
+        ]
+        if let selector = normalizedSelector(request.selector) {
+            arguments["selector"] = selector
+        }
+        return ToolCall(
+            name: ToolDefinition.gitPullRequestReviewReply.name,
+            argumentsJSON: ToolArguments.json(arguments)
+        )
+    }
+
+    private static func normalizedSelector(_ selector: String?) -> String? {
+        let trimmed = selector?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+enum WorkspacePullRequestReviewThreadRefreshToolCallPlanner {
+    static func call(selector: String?) -> ToolCall {
+        let trimmedSelector = selector?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return ToolCall(
             name: ToolDefinition.gitPullRequestReviewThreads.name,
-            argumentsJSON: selector.map { ToolArguments.json(["selector": $0]) } ?? "{}"
+            argumentsJSON: trimmedSelector.isEmpty ? "{}" : ToolArguments.json(["selector": trimmedSelector])
         )
     }
 }

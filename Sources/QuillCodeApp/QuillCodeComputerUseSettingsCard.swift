@@ -115,7 +115,7 @@ private struct QuillCodePermissionRow: View {
                 Image(systemName: requirement.isGranted ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                     .foregroundStyle(iconTint)
             }
-            .frame(width: 28, height: 28)
+            .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
             VStack(alignment: .leading, spacing: 2) {
                 Text(requirement.title)
                     .font(.callout.weight(.semibold))
@@ -137,7 +137,6 @@ private struct QuillCodePermissionRow: View {
                 }
                 .buttonStyle(.bordered)
                 .disabled(!requirement.command.isEnabled)
-                .controlSize(.small)
                 .quillCodeTextButtonTarget()
             }
         }

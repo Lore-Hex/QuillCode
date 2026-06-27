@@ -9,9 +9,9 @@ struct QuillCodeContextBannerView: View {
             Image(systemName: "text.bubble.badge.exclamationmark")
                 .font(.title3)
                 .foregroundStyle(QuillCodePalette.yellow)
-                .frame(width: 34, height: 34)
+                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
                 .background(QuillCodePalette.yellow.opacity(0.14))
-                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.iconControlRadius, style: .continuous))
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {

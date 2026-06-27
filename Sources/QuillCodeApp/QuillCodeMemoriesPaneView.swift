@@ -44,7 +44,6 @@ struct QuillCodeMemoriesPaneView: View {
                 Label("Add", systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
-            .controlSize(.small)
             .quillCodeTextButtonTarget()
         }
     }

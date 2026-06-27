@@ -107,11 +107,17 @@ enum WorkspaceHTMLReviewRenderer {
     }
 
     private static func renderPullRequestThreadReply(_ thread: WorkspacePullRequestReviewThreadSurface) -> String {
-        guard let replyDraft = thread.replyDraft else { return "" }
+        guard let replyTarget = thread.replyTarget else { return "" }
+        let selectorAttribute = replyTarget.selector.map { #" data-selector="\#(escape($0))""# } ?? ""
         return """
-        <button type="button" class="review-action-button \(WorkspaceHTMLPrimitives.textHitTargetClass)" data-testid="pr-review-thread-reply" data-reply-draft="\(escape(replyDraft))">
+        <button type="button" class="review-action-button \(WorkspaceHTMLPrimitives.textHitTargetClass)" data-testid="pr-review-thread-reply" data-thread-id="\(escape(replyTarget.threadID))">
           Reply
         </button>
+        <form class="pr-review-thread-reply-form" data-testid="pr-review-thread-reply-form" data-thread-id="\(escape(replyTarget.threadID))" data-comment-id="\(replyTarget.commentID)"\(selectorAttribute) hidden>
+          <textarea data-testid="pr-review-thread-reply-input" aria-label="Reply to review thread" placeholder="Reply to review thread"></textarea>
+          <button type="reset" class="review-action-button \(WorkspaceHTMLPrimitives.formActionHitTargetClass)" data-testid="pr-review-thread-reply-cancel">Cancel</button>
+          <button type="submit" class="review-action-button \(WorkspaceHTMLPrimitives.formActionHitTargetClass)" data-testid="pr-review-thread-reply-submit">Post reply</button>
+        </form>
         """
     }
 

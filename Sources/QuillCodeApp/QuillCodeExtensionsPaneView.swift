@@ -150,7 +150,6 @@ struct QuillCodeExtensionsPaneView: View {
                 onCommand(extensionCommand(id: installCommandID, title: "Install \(item.name)"))
             }
             .buttonStyle(.bordered)
-            .controlSize(.small)
             .quillCodeTextButtonTarget(minWidth: 74)
         }
         if let updateCommandID = item.updateCommandID {
@@ -158,7 +157,6 @@ struct QuillCodeExtensionsPaneView: View {
                 onCommand(extensionCommand(id: updateCommandID, title: "Update \(item.name)"))
             }
             .buttonStyle(.bordered)
-            .controlSize(.small)
             .quillCodeTextButtonTarget(minWidth: 74)
         }
         if let stopCommandID = item.stopCommandID {
@@ -166,14 +164,12 @@ struct QuillCodeExtensionsPaneView: View {
                 onCommand(extensionCommand(id: stopCommandID, title: "Stop \(item.name)"))
             }
             .buttonStyle(.bordered)
-            .controlSize(.small)
             .quillCodeTextButtonTarget(minWidth: 74)
         } else if let startCommandID = item.startCommandID {
             Button("Start") {
                 onCommand(extensionCommand(id: startCommandID, title: "Start \(item.name)"))
             }
             .buttonStyle(.borderedProminent)
-            .controlSize(.small)
             .quillCodeTextButtonTarget(minWidth: 74)
         }
     }
@@ -302,7 +298,6 @@ struct QuillCodeExtensionsPaneView: View {
                             onCommand(extensionCommand(id: action.commandID, title: "\(titlePrefix) \(action.title)"))
                         }
                         .buttonStyle(.bordered)
-                        .controlSize(.small)
                         .quillCodeTextButtonTarget(minWidth: 96)
                     }
                 }

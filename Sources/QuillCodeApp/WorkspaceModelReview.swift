@@ -49,6 +49,30 @@ public extension QuillCodeWorkspaceModel {
         refreshTopBar(agentStatus: result.finalStatus)
     }
 
+    func runPullRequestReviewThreadReply(
+        _ request: WorkspacePullRequestReviewThreadReplyRequest,
+        workspaceRoot: URL
+    ) {
+        guard selectedThread != nil else { return }
+        setLastError(nil)
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
+
+        let router = ToolRouter(workspaceRoot: workspaceRoot)
+        let runPlan = WorkspacePullRequestReviewThreadReplyToolCallPlanner.runPlan(for: request)
+        let result = WorkspacePullRequestReviewThreadReplyRunner(
+            plan: runPlan,
+            executor: WorkspaceToolCallExecutorFactory.executor(model: self, router: router)
+        ).run()
+        for recordedResult in result.recordedResults {
+            appendToolRun(call: recordedResult.call, result: recordedResult.result)
+        }
+
+        if let thread = selectedThread {
+            threadPersistence.save(thread)
+        }
+        refreshTopBar(agentStatus: result.finalStatus)
+    }
+
     @discardableResult
     func runToolCardAction(_ action: ToolCardActionSurface, workspaceRoot: URL) -> Bool {
         guard let plan = WorkspaceApprovalActionPlanner.plan(action: action, thread: selectedThread) else {

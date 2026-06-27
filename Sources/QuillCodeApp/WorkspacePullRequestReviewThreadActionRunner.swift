@@ -17,6 +17,23 @@ struct WorkspacePullRequestReviewThreadActionRunResult: Sendable, Hashable {
     }
 }
 
+struct WorkspacePullRequestReviewThreadReplyRunResult: Sendable, Hashable {
+    let plan: WorkspacePullRequestReviewThreadReplyRunPlan
+    let reply: WorkspaceRecordedToolResult
+    let refresh: WorkspaceRecordedToolResult
+
+    var recordedResults: [WorkspaceRecordedToolResult] {
+        [reply, refresh]
+    }
+
+    var finalStatus: String {
+        plan.finalStatus(
+            replyResult: reply.result,
+            refreshResult: refresh.result
+        )
+    }
+}
+
 struct WorkspacePullRequestReviewThreadActionRunner: Sendable {
     var plan: WorkspacePullRequestReviewThreadActionRunPlan
     var executor: WorkspaceToolCallExecutor
@@ -33,6 +50,27 @@ struct WorkspacePullRequestReviewThreadActionRunner: Sendable {
         return WorkspacePullRequestReviewThreadActionRunResult(
             plan: plan,
             action: action,
+            refresh: refresh
+        )
+    }
+}
+
+struct WorkspacePullRequestReviewThreadReplyRunner: Sendable {
+    var plan: WorkspacePullRequestReviewThreadReplyRunPlan
+    var executor: WorkspaceToolCallExecutor
+
+    func run() -> WorkspacePullRequestReviewThreadReplyRunResult {
+        let reply = WorkspaceRecordedToolResult(
+            call: plan.replyCall,
+            result: executor.executePrimary(plan.replyCall)
+        )
+        let refresh = WorkspaceRecordedToolResult(
+            call: plan.refreshCall,
+            result: executor.executePrimary(plan.refreshCall)
+        )
+        return WorkspacePullRequestReviewThreadReplyRunResult(
+            plan: plan,
+            reply: reply,
             refresh: refresh
         )
     }
