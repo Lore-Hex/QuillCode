@@ -6,6 +6,16 @@ Overall grade: **A- foundation, B+ product surface maturity**.
 
 The architecture is moving in the right direction: core state is value typed, persistence and runtime adapters are separated, tools use explicit schemas, and SwiftUI plus the Playwright harness render from the same surface contract. The main drag on the grade is file size and feature density in the workspace layer, not a broken abstraction boundary.
 
+## 2026-06-27 PR Review Thread Parity Matrix Guard
+
+Overall grade after this slice: **A documentation parity, A regression guard, unchanged execution quality**.
+
+The structured PR review reply and review-thread tools already existed locally, over SSH Remote projects, in slash commands, in visible command surfaces, and in safety coverage, but `docs/CODEX_PARITY_MATRIX.md` still described those workflows as pending. That drift makes agent handoffs worse because future work may reimplement a completed execution path instead of improving the remaining browse/select UI.
+
+- Updated the Tools, Review pane, and Remote rows to mark inline review replies plus review-thread resolve/unresolve as implemented while keeping richer GitHub review-session browse/select UI pending.
+- Added a parity gate that fails if the matrix regresses to saying implemented PR review reply/thread execution is still pending.
+- Kept execution code untouched; existing `WorkspaceRemoteProjectToolExecutorTests`, `SlashPullRequestCommandParserTests`, safety tests, parser tests, and command-surface tests already cover the shipped paths.
+
 ## Component Grades
 
 | Component | Grade | Notes |
