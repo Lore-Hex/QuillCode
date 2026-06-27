@@ -96,6 +96,7 @@ struct QuillCodeComputerUseSettingsCard: View {
                 onCommand(settings.computerUseRefreshCommand)
             }
             .buttonStyle(.borderless)
+            .quillCodeHitTarget(minWidth: 112, alignment: .leading)
             Spacer()
         }
         .font(.caption.weight(.semibold))
