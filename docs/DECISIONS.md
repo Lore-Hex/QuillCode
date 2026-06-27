@@ -1,5 +1,10 @@
 # QuillCode Decisions
 
+## 2026-06-27
+
+- Real-world smoke coverage is a release lane, not a normal PR requirement. `./scripts/real-world-smoke.sh` runs the deterministic suite first and then runs `./scripts/live-tr-smoke.sh` when a TrustedRouter key is available through `QUILLCODE_API_KEY`, `TRUSTEDROUTER_API_KEY`, or `~/.quill.code.keyfile`. Normal CI stays deterministic, while parser, prompt, safety, and runtime changes can be tested against a real cheap model before shipping.
+- Live TrustedRouter smoke artifacts are preserved on failure. Model regressions such as empty shell arguments, passive “I'll do it” replies, missing file side effects, or bad transcript tool events need stdout/stderr/thread JSON left on disk so the failure can be diagnosed instead of disappearing in cleanup.
+
 ## 2026-06-26
 
 - Composer sends record the user turn before the async agent run starts. `WorkspaceAgentSendStartPlanner` owns the optimistic user message/event/title update, and `WorkspaceAgentSendSession` can run with `recordsUserMessage: false` so the agent does not duplicate that turn. Desktop surfaces are snapshot-based, so `QuillCodeDesktopComposerCoordinator` must refresh on the model's `onStarted` and progress callbacks; otherwise the model state is correct but the macOS window does not paint the user bubble or thinking indicator until the run finishes.
