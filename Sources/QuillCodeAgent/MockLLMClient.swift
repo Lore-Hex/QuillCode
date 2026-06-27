@@ -77,6 +77,14 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
+        if let downloadCommand = Self.downloadCommand(from: request, lowercasedRequest: lower),
+           tools.contains(where: { $0.name == ToolDefinition.shellRun.name }) {
+            return .tool(.init(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json(["cmd": downloadCommand])
+            ))
+        }
+
         if let browserTarget = Self.extractBrowserOpenTarget(from: request, lowercasedRequest: lower),
            tools.contains(where: { $0.name == ToolDefinition.browserOpen.name }) {
             return .tool(.init(
@@ -242,6 +250,26 @@ public struct MockLLMClient: LLMClient {
         return browserTerms && inspectionTerms
     }
 
+    static func downloadCommand(from request: String, lowercasedRequest: String) -> String? {
+        let downloadTerms = [
+            "download ",
+            "save ",
+            "fetch "
+        ]
+        guard downloadTerms.contains(where: { lowercasedRequest.contains($0) }),
+              let target = extractDownloadTarget(from: request)
+        else {
+            return nil
+        }
+        let url = normalizedWebURLString(target)
+        let path = "downloads/\(downloadFileName(for: url))"
+        return [
+            "mkdir -p downloads",
+            "curl -L --fail --silent --show-error --output \(shellSingleQuoted(path)) \(shellSingleQuoted(url))",
+            "ls -lh \(shellSingleQuoted(path))"
+        ].joined(separator: " && ")
+    }
+
     static func extractBrowserOpenTarget(from request: String, lowercasedRequest: String) -> String? {
         let navigationTerms = [
             "open ",
@@ -265,6 +293,18 @@ public struct MockLLMClient: LLMClient {
             .filter { !$0.isEmpty }
 
         return tokens.first(where: looksLikeBrowserTarget)
+    }
+
+    private static func extractDownloadTarget(from request: String) -> String? {
+        if let quoted = firstBacktickQuotedValue(in: request), looksLikeBrowserTarget(quoted) {
+            return quoted
+        }
+        let tokenSeparators = CharacterSet.whitespacesAndNewlines
+            .union(CharacterSet(charactersIn: "\"'(),<>[]{}"))
+        return request
+            .components(separatedBy: tokenSeparators)
+            .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: ".:;!?")) }
+            .first(where: looksLikeBrowserTarget)
     }
 
     private static func firstBacktickQuotedValue(in request: String) -> String? {
@@ -291,6 +331,28 @@ public struct MockLLMClient: LLMClient {
             || lower.hasSuffix(".html")
             || lower.hasSuffix(".htm")
             || (lower.contains(".") && !lower.contains("@"))
+    }
+
+    private static func normalizedWebURLString(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.lowercased().hasPrefix("http://") || trimmed.lowercased().hasPrefix("https://") {
+            return trimmed
+        }
+        return "https://\(trimmed)"
+    }
+
+    private static func downloadFileName(for urlString: String) -> String {
+        let url = URL(string: urlString)
+        let host = url?.host?.lowercased().replacingOccurrences(of: "www.", with: "") ?? "download"
+        let lastComponent = url?.lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let base = lastComponent.contains(".") ? lastComponent : "\(host).html"
+        let sanitized = base.map { character in
+            character.isLetter || character.isNumber || character == "." || character == "-" || character == "_"
+                ? character
+                : "-"
+        }
+        let filename = String(sanitized).trimmingCharacters(in: CharacterSet(charactersIn: ".-"))
+        return filename.isEmpty ? "download.html" : filename
     }
 
     private static func shellSingleQuoted(_ value: String) -> String {

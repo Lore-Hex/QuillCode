@@ -41,6 +41,47 @@ enum AgentShellToolAnswerFormatters {
             return "Disk usage:\n\(AgentToolAnswerFormatters.truncated(output))"
         }
 
+        if isDownloadCommand(lower), let path = downloadedPath(from: normalizedCommand) {
+            if result.ok {
+                return "Downloaded to `\(path)`."
+            }
+            let reason = output.isEmpty ? "the command failed with no output" : AgentToolAnswerFormatters.truncated(output)
+            return "Download failed: \(reason)"
+        }
+
         return nil
+    }
+
+    private static func isDownloadCommand(_ command: String) -> Bool {
+        (command.contains("curl ") || command.hasPrefix("curl"))
+            || (command.contains("wget ") || command.hasPrefix("wget"))
+    }
+
+    private static func downloadedPath(from command: String) -> String? {
+        let patterns = [
+            #"--output\s+('[^']+'|"[^"]+"|\S+)"#,
+            #"\s-o\s+('[^']+'|"[^"]+"|\S+)"#,
+            #">\s*('[^']+'|"[^"]+"|\S+)"#
+        ]
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern),
+                  let match = regex.firstMatch(in: command, range: NSRange(command.startIndex..., in: command)),
+                  let range = Range(match.range(at: 1), in: command)
+            else {
+                continue
+            }
+            return unquoted(String(command[range]))
+        }
+        return nil
+    }
+
+    private static func unquoted(_ value: String) -> String {
+        var trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if (trimmed.hasPrefix("'") && trimmed.hasSuffix("'"))
+            || (trimmed.hasPrefix("\"") && trimmed.hasSuffix("\"")) {
+            trimmed.removeFirst()
+            trimmed.removeLast()
+        }
+        return trimmed
     }
 }

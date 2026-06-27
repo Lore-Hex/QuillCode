@@ -31,6 +31,9 @@ struct StaticSafetyPolicy: Sendable {
         if StaticSafetyPullRequestPolicy.requestMatches(request) {
             return StaticSafetyPullRequestPolicy.intentMatches(request: request, toolName: toolName)
         }
+        if StaticSafetyDownloadPolicy.intentMatches(request: request, context: context) {
+            return true
+        }
         if intentRules.contains(where: { $0.matches(request: request) && $0.allows(toolName: toolName) }) {
             return true
         }
@@ -186,6 +189,14 @@ struct StaticSafetyRequest: Sendable {
             .filter { $0.count >= 3 }
     }
 
+    var requestedDownloadHosts: [String] {
+        let separators = CharacterSet.whitespacesAndNewlines
+            .union(CharacterSet(charactersIn: "\"'`()[]{}<>"))
+        return text
+            .components(separatedBy: separators)
+            .compactMap(Self.normalizedHostCandidate)
+    }
+
     func containsAffirmedAny(_ phrases: [String]) -> Bool {
         phrases.contains { containsAffirmed($0) }
     }
@@ -297,6 +308,97 @@ struct StaticSafetyRequest: Sendable {
 
     private static func isClauseBoundary(_ character: Character) -> Bool {
         character == ";" || character == "." || character == "!" || character == "?" || character == "\n"
+    }
+
+    private static func normalizedHostCandidate(_ value: String) -> String? {
+        var candidate = value.trimmingCharacters(in: CharacterSet(charactersIn: ",:;!?"))
+        guard candidate.contains(".") && !candidate.contains("@") else {
+            return nil
+        }
+        if !candidate.contains("://") {
+            candidate = "https://\(candidate)"
+        }
+        guard let host = URL(string: candidate)?.host?.lowercased(),
+              host.contains(".")
+        else {
+            return nil
+        }
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+    }
+}
+
+enum StaticSafetyDownloadPolicy {
+    static func intentMatches(request: StaticSafetyRequest, context: SafetyContext) -> Bool {
+        guard context.toolCall.name.contains("shell.run"),
+              request.containsAffirmedAny(["download", "save", "fetch"]),
+              let command = shellCommand(from: context.toolCall)
+        else {
+            return false
+        }
+        let lowerCommand = command.lowercased()
+        guard containsDownloadSegment(lowerCommand),
+              let outputPath = outputPath(from: lowerCommand),
+              isWorkspaceRelativePath(outputPath),
+              !lowerCommand.contains("|")
+        else {
+            return false
+        }
+        let requestedHosts = request.requestedDownloadHosts
+        guard !requestedHosts.isEmpty else {
+            return false
+        }
+        return requestedHosts.contains { host in
+            lowerCommand.contains(host)
+        }
+    }
+
+    private static func shellCommand(from call: ToolCall) -> String? {
+        try? ToolArguments(call.argumentsJSON).requiredString("cmd")
+    }
+
+    private static func containsDownloadSegment(_ command: String) -> Bool {
+        command
+            .components(separatedBy: "&&")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .contains { segment in
+                segment.hasPrefix("curl ") || segment.hasPrefix("wget ")
+            }
+    }
+
+    private static func outputPath(from command: String) -> String? {
+        let patterns = [
+            #"--output\s+('[^']+'|"[^"]+"|\S+)"#,
+            #"\s-o\s+('[^']+'|"[^"]+"|\S+)"#,
+            #">\s*('[^']+'|"[^"]+"|\S+)"#
+        ]
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern),
+                  let match = regex.firstMatch(in: command, range: NSRange(command.startIndex..., in: command)),
+                  let range = Range(match.range(at: 1), in: command)
+            else {
+                continue
+            }
+            return unquoted(String(command[range]))
+        }
+        return nil
+    }
+
+    private static func isWorkspaceRelativePath(_ path: String) -> Bool {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty
+            && !trimmed.hasPrefix("/")
+            && !trimmed.hasPrefix("~")
+            && !trimmed.contains("..")
+    }
+
+    private static func unquoted(_ value: String) -> String {
+        var trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if (trimmed.hasPrefix("'") && trimmed.hasSuffix("'"))
+            || (trimmed.hasPrefix("\"") && trimmed.hasSuffix("\"")) {
+            trimmed.removeFirst()
+            trimmed.removeLast()
+        }
+        return trimmed
     }
 }
 

@@ -80,3 +80,22 @@ test('answers device diagnostic prompts with concrete shell actions', async ({ p
   await expect(page.getByText(/No shell command was specified/i)).toHaveCount(0);
   await expect(page.getByText(/I'?ll check|should I|do you want me to/i)).toHaveCount(0);
 });
+
+test('downloads requested domains with a bounded concrete shell action', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('Can you download LinkedIn.com?');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card')).toHaveCount(1);
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.shell.run');
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-input')).toContainText('curl -L --fail --silent --show-error');
+  await expect(page.getByTestId('tool-card-input')).toContainText("--output 'downloads/linkedin.com.html'");
+  await expect(page.getByTestId('tool-card-input')).toContainText('https://www.linkedin.com');
+  await expect(page.getByTestId('tool-card-input')).not.toContainText('{}');
+  await expect(page.getByTestId('tool-card-output')).toContainText('downloads/linkedin.com.html');
+  await expect(page.getByText('Downloaded to `downloads/linkedin.com.html`.')).toBeVisible();
+  await expect(page.getByText(/No shell command was specified/i)).toHaveCount(0);
+  await expect(page.getByText(/I'?ll download|should I|do you want me to|confirm user intent/i)).toHaveCount(0);
+});

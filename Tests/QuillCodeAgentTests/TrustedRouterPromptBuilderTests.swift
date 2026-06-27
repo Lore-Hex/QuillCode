@@ -10,6 +10,8 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("canonical argument keys"))
         XCTAssertTrue(prompt.contains("do not use \"command\""))
         XCTAssertTrue(prompt.contains("Do not say \"I'll do it\""))
+        XCTAssertTrue(prompt.contains("save into a relative workspace path"))
+        XCTAssertTrue(prompt.contains("do not pipe remote content into a shell"))
     }
 
     func testMessagesIncludeProjectInstructionsAsSystemContext() {
