@@ -1,8 +1,8 @@
 import SwiftUI
 
 enum QuillCodeMetrics {
-    static let minimumHitTarget: CGFloat = 40
-    static let topBarHeight: CGFloat = 40
+    static let minimumHitTarget: CGFloat = 44
+    static let topBarHeight: CGFloat = 44
     static let composerSurfaceRadius: CGFloat = 12
     static let composerControlRadius: CGFloat = 10
     static let toolCardMinimumHeight: CGFloat = 74

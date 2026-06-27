@@ -1161,7 +1161,7 @@ This pass improves one of the highest-traffic surfaces without changing behavior
 
 Interface polish changes:
 
-- Slash suggestion rows now guarantee the shared 40 pt hit target.
+- Slash suggestion rows now guarantee the shared 44 pt hit target.
 - Suggestion rows use the shared `QuillCodePressableButtonStyle` for consistent `0.96` press feedback.
 - The command usage chip no longer relies on a fixed 230 pt row column; long command names truncate in the chip instead of squeezing row detail text first.
 - The panel includes a quiet keyboard hint for Up/Down and Tab so command discovery feels more self-explanatory.
@@ -1176,9 +1176,9 @@ The native model picker moved out of `WorkspaceSwiftUIView.swift` into `QuillCod
 Interface polish changes:
 
 - The model trigger now uses the shared `0.96` press feedback instead of a borderless static button.
-- Model search controls keep the shared 40 pt minimum hit target.
-- Model rows now guarantee a 40 pt selectable summary area and use the shared press style for tactile feedback.
-- Info and favorite controls now use the same press style as other high-frequency icon buttons while preserving 40 pt hit areas.
+- Model search controls keep the shared 44 pt minimum hit target.
+- Model rows now guarantee a 44 pt selectable summary area and use the shared press style for tactile feedback.
+- Info and favorite controls now use the same press style as other high-frequency icon buttons while preserving 44 pt hit areas.
 - Long provider/model metadata truncates in the middle instead of pushing row actions off-screen.
 - The empty state keeps the same 12 pt inner radius and wraps explanatory copy without clipping.
 
@@ -1191,7 +1191,7 @@ The native top bar moved out of `WorkspaceSwiftUIView.swift` into `QuillCodeTopB
 Interface polish changes:
 
 - The overflow menu uses the shared `0.96` press feedback instead of a static borderless icon.
-- The overflow menu keeps the shared 40 pt hit target while adding a quiet selected-surface background and 10 pt continuous radius.
+- The overflow menu keeps the shared 44 pt hit target while adding a quiet selected-surface background and 10 pt continuous radius.
 - Runtime issue pills stay inside the top-bar file because they are specific to top-bar status density and use tabular caption numerals for stable changing labels.
 - The identity cluster is a single bounded accessibility element, so long project/thread metadata remains available without visually crowding the bar.
 
@@ -1218,9 +1218,9 @@ The native sidebar moved out of `WorkspaceSwiftUIView.swift` into `QuillCodeSide
 
 Interface polish changes:
 
-- Primary sidebar actions now use the shared `0.96` press feedback and a guaranteed 40 pt hit target.
+- Primary sidebar actions now use the shared `0.96` press feedback and a guaranteed 44 pt hit target.
 - Thread rows use a shared selection-toggle helper instead of duplicating command construction in two button handlers.
-- Thread and project row buttons keep 40 pt minimum interactive height while preserving the compact left-rail density.
+- Thread and project row buttons keep 44 pt minimum interactive height while preserving the compact left-rail density.
 - Bulk action buttons, project header icons, row overflow menus, Tools, and Settings now use the same press feedback contract as the composer/model/top-bar controls.
 
 ## 2026-06-22 Review Pane Refactor Pass
@@ -1231,9 +1231,9 @@ The native git review pane moved out of `WorkspaceSwiftUIView.swift` into `Quill
 
 Interface polish changes:
 
-- Review action icon buttons now use the shared `0.96` press feedback and a guaranteed 40 pt hit target.
+- Review action icon buttons now use the shared `0.96` press feedback and a guaranteed 44 pt hit target.
 - File-level, hunk-level, and line-level note actions use the same press feedback contract instead of borderless static controls.
-- Range and line note inputs keep a 40 pt minimum height, so text entry does not feel cramped beside the action buttons.
+- Range and line note inputs keep a 44 pt minimum height, so text entry does not feel cramped beside the action buttons.
 - The review hunk count uses tabular numerals, preventing subtle width shifts as review data changes.
 
 ## 2026-06-22 Design System Refactor Pass
@@ -1244,7 +1244,7 @@ Shared visual primitives moved out of `WorkspaceSwiftUIView.swift` into `QuillCo
 
 Interface polish changes:
 
-- The shared 40 pt hit-target metrics now have design-system ownership instead of workspace-shell ownership.
+- The shared 44 pt hit-target metrics now have design-system ownership instead of workspace-shell ownership.
 - The shared `0.96` press feedback lives beside the metrics it depends on, making tactile button behavior harder to fork.
 - Surface and image-outline modifiers are reusable outside the workspace file while preserving the pure-white dark-mode outline and existing continuous radii.
 
@@ -1256,7 +1256,7 @@ Transcript message bubbles moved out of `WorkspaceSwiftUIView.swift` into `Quill
 
 Interface polish changes:
 
-- Message action controls keep the shared 40 pt minimum hit target and `0.96` press feedback in one focused file.
+- Message action controls keep the shared 44 pt minimum hit target and `0.96` press feedback in one focused file.
 - The transcript copy button is now shared from the transcript-message component file, so message bubbles and tool cards do not need separate copy affordance implementations.
 - The workspace shell shrank by another focused chunk, reducing the risk that future transcript edits accidentally touch terminal, settings, or browser panes.
 
@@ -1269,7 +1269,7 @@ Tool cards and artifact previews moved out of `WorkspaceSwiftUIView.swift` into 
 Interface polish changes:
 
 - Tool-card header density, status rails, and bounded raw details preserve the existing rhythm while making future polish safer to localize.
-- Artifact chips and previews preserve 40 pt minimum hit areas, pure-white image outline behavior through the design system, and bounded raw JSON/details.
+- Artifact chips and previews preserve 44 pt minimum hit areas, pure-white image outline behavior through the design system, and bounded raw JSON/details.
 - The shared transcript copy button is reused from transcript message controls so message and tool-card copy affordances stay consistent.
 
 ## 2026-06-22 Settings Refactor Pass
@@ -1282,7 +1282,7 @@ Interface polish changes:
 
 - Settings now has named subviews for header, authentication picker, API base URL field, OAuth/developer override sections, and footer, reducing body density without changing the visible flow.
 - Computer Use setup keeps its permission/status rows together and uses named subviews for header, requirements, next action, restart hint, and refresh action.
-- Permission action rows preserve the shared 40 pt minimum hit target through `QuillCodeMetrics.minimumHitTarget`.
+- Permission action rows preserve the shared 44 pt minimum hit target through `QuillCodeMetrics.minimumHitTarget`.
 - Runtime issue callouts remain reusable from transcript and settings surfaces, with diagnostics bounded in the same component.
 
 ## 2026-06-22 Terminal And Browser Pane Refactor Pass
@@ -1335,8 +1335,8 @@ Command palette, keyboard shortcuts, search, rename sheets, and worktree sheets 
 
 Interface polish changes:
 
-- Command palette rows now use the shared `0.96` press feedback and guaranteed 40 pt minimum hit target.
-- Search result rows now use the shared press feedback and 40 pt minimum hit target instead of plain static buttons.
+- Command palette rows now use the shared `0.96` press feedback and guaranteed 44 pt minimum hit target.
+- Search result rows now use the shared press feedback and 44 pt minimum hit target instead of plain static buttons.
 - Command palette, search, and keyboard shortcut sheets share header, section-title, and empty-state helpers so copy density and spacing stay consistent.
 - Worktree and rename dialogs share labeled-field and frame helpers, keeping field labels, helper text, and text-field hit targets consistent.
 - WorkspaceSwiftUIView now only presents dialogs and routes their completed actions; dialog-specific draft, row, icon, and empty-state rendering is isolated.
@@ -7235,7 +7235,7 @@ Code quality changes:
 - Added a shared `quillCodeHitTarget` SwiftUI modifier so native views use one explicit minimum target and content shape instead of repeating frame boilerplate.
 - Applied the modifier to compact terminal, browser, settings, memories, extensions, automations, context-banner, worktree, rename-dialog, runtime-issue, and find-bar controls.
 - Removed the web harness model-picker override that set top-bar model rows to `min-height: 0`.
-- Expanded tool-card disclosure summaries to a real 40 px target with specific hover transitions.
+- Expanded tool-card disclosure summaries to a real 44 px target with specific hover transitions.
 - Added Playwright bounding-box assertions for top-bar, model-picker, tool-card, terminal, browser, extension, memory, and automation controls.
 
 Strict grades:
@@ -7295,3 +7295,26 @@ Strict grades:
 Remaining parity risk:
 
 - The formatter owner is intentionally broad across tool families. Keep it table-driven for now, but extract per-domain helpers when a formatter family needs more than compact summary logic.
+
+## 2026-06-27 Click Target Contract Pass
+
+Overall grade after this slice: **A click-target policy, A harness enforcement, A- native visual measurement**.
+
+The previous click-target pass removed the worst compact controls, but the contract still mixed 40 px controls, 32 px header actions, and a 40 pt native metric. That made the UI feel inconsistent and let future work satisfy source-level tests without proving the rendered target was easy to click.
+
+Changes:
+
+- Raised the shared SwiftUI `QuillCodeMetrics.minimumHitTarget` and `topBarHeight` from 40 pt to 44 pt so native controls follow the stricter touch/click target convention.
+- Added a `--hit-target: 44px` CSS primitive in the Playwright harness and routed primary chrome, composer controls, model picker actions, sidebar controls, browser controls, transcript actions, tool disclosures, runtime recovery, context actions, and secondary pane buttons through it.
+- Kept non-interactive badges and line-number columns compact so density stays Codex-like without shrinking real click targets.
+- Expanded Playwright coverage to measure primary sidebar actions, add-project, Tools, Settings, model/mode controls, tool details, context banner actions, runtime recovery, and secondary-pane actions by rendered bounding box.
+
+File grades:
+
+- `QuillCodeDesignSystem.swift`: **A**. The minimum target is now a single 44 pt source of truth for native controls.
+- `E2E/harness/index.html`: **A-**. The harness now has a central hit-target variable, though it remains a large file and should eventually move style primitives into smaller focused assets.
+- `E2E/playwright/tests/workspace-chrome.spec.ts`: **A**. Coverage now checks real click boxes across core chrome and recovery surfaces instead of relying only on CSS text.
+
+Residual risk:
+
+- Native SwiftUI hit boxes are compile-covered but still not pixel-measured. When native screenshot/UI automation lands, mirror the Playwright bounding-box assertions for AppKit/SwiftUI controls.
