@@ -4905,11 +4905,14 @@
         if (card.outputJSON) return 'Show output';
         return 'Show details';
       };
-      const renderToolDetails = card => card.inputJSON || card.outputJSON ? `
+      const hasInputOnlyPayload = card => Boolean(card.inputJSON && !card.outputJSON);
+      const toolCardCopyLabel = card => card.outputJSON ? 'Copy output' : card.inputJSON ? 'Copy input' : 'Copy';
+      const renderToolDetails = (card, copyID = '') => card.inputJSON || card.outputJSON ? `
           <details class="tool-details" data-testid="tool-card-details" ${card.density === 'expanded' ? 'open' : ''}>
             <summary>${detailsLabel(card)}</summary>
             ${card.inputJSON ? `<pre data-testid="tool-card-input">${escapeHTML(card.inputJSON)}</pre>` : ''}
             ${card.outputJSON ? `<pre data-testid="tool-card-output">${escapeHTML(card.outputJSON)}</pre>` : ''}
+            ${hasInputOnlyPayload(card) ? copyButton('tool-card-copy', copyID || card.id, toolCardCopyLabel(card)) : ''}
           </details>` : '';
       const renderToolActions = card => (card.actions || []).length ? `
           <div class="tool-card-actions" data-testid="tool-card-actions">
@@ -4921,6 +4924,7 @@
         const density = card.density || toolCardDensity(card.status, card.isExpanded);
         const statusDisplayLabel = toolCardStatusDisplayLabel(card);
         const statusAccessibilityLabel = toolCardStatusAccessibilityLabel(card);
+        const copyID = timelineID || card.id;
         return `
         <article class="tool-card ${escapeHTML(card.status)}${activeClass(timelineID)}" data-testid="tool-card" data-status="${escapeHTML(card.status)}" data-review-state="${escapeHTML(card.reviewState || 'none')}" data-status-label="${escapeHTML(statusDisplayLabel)}" data-density="${escapeHTML(density)}" data-timeline-id="${escapeHTML(timelineID)}"${card.executionContext ? ` data-execution-context="${escapeHTML(card.executionContext.kind)}"` : ''} aria-label="${escapeHTML(card.title)}, ${escapeHTML(statusAccessibilityLabel)}, ${escapeHTML(density)}${card.executionContext ? `, ${card.executionContext.label} ${card.executionContext.detail}` : ''}">
           <header>
@@ -4932,12 +4936,12 @@
           </header>
           <p data-testid="tool-card-subtitle">${escapeHTML(card.subtitle)}</p>
           ${renderToolActions(card)}
-          ${copyButton('tool-card-copy', timelineID || card.id, card.outputJSON ? 'Copy output' : card.inputJSON ? 'Copy input' : 'Copy')}
+          ${hasInputOnlyPayload(card) ? '' : copyButton('tool-card-copy', copyID, toolCardCopyLabel(card))}
           ${renderArtifacts(card.artifacts)}
           ${renderTextPreviews(card.artifacts)}
           ${renderDocumentPreviews(card.artifacts)}
           ${renderImagePreviews(card.artifacts)}
-          ${renderToolDetails(card)}
+          ${renderToolDetails(card, copyID)}
         </article>`;
       };
       const transcriptItems = state.transcript.timelineItems.length

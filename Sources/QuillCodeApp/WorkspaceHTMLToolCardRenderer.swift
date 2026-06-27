@@ -19,16 +19,36 @@ enum WorkspaceHTMLToolCardRenderer {
           </header>
           <p data-testid="tool-card-subtitle">\(escape(card.subtitle))</p>
           \(renderActions(card.actions))
-          <footer class="transcript-actions">
-            <button type="button" data-testid="tool-card-copy" data-copy-id="\(escape(copyID))">\(escape(copyActionLabel(for: card)))</button>
-          </footer>
+          \(renderTopLevelCopyAction(for: card, copyID: copyID))
           \(renderArtifacts(card.artifacts))
           \(renderTextPreviews(card.artifacts))
           \(renderDocumentPreviews(card.artifacts))
           \(renderImagePreviews(card.artifacts))
-          \(renderDetails(card))
+          \(renderDetails(card, copyID: copyID))
         </article>
         """
+    }
+
+    private static func renderTopLevelCopyAction(for card: ToolCardState, copyID: String) -> String {
+        guard !showsDetailsCopyAction(for: card) else { return "" }
+        return renderCopyAction(for: card, copyID: copyID)
+    }
+
+    private static func renderDetailsCopyAction(for card: ToolCardState, copyID: String) -> String {
+        guard showsDetailsCopyAction(for: card) else { return "" }
+        return renderCopyAction(for: card, copyID: copyID)
+    }
+
+    private static func renderCopyAction(for card: ToolCardState, copyID: String) -> String {
+        """
+        <footer class="transcript-actions">
+          <button type="button" data-testid="tool-card-copy" data-copy-id="\(escape(copyID))">\(escape(copyActionLabel(for: card)))</button>
+        </footer>
+        """
+    }
+
+    private static func showsDetailsCopyAction(for card: ToolCardState) -> Bool {
+        card.inputJSON != nil && card.outputJSON == nil
     }
 
     private static func copyActionLabel(for card: ToolCardState) -> String {
@@ -55,7 +75,7 @@ enum WorkspaceHTMLToolCardRenderer {
         """
     }
 
-    private static func renderDetails(_ card: ToolCardState) -> String {
+    private static func renderDetails(_ card: ToolCardState, copyID: String) -> String {
         guard card.inputJSON != nil || card.outputJSON != nil else { return "" }
         let isOpen = card.opensDetailsByDefault
         return """
@@ -63,6 +83,7 @@ enum WorkspaceHTMLToolCardRenderer {
           <summary>\(detailsLabel(for: card, isOpen: isOpen))</summary>
           \(card.inputJSON.map { #"<pre data-testid="tool-card-input">\#(escape($0))</pre>"# } ?? "")
           \(card.outputJSON.map { #"<pre data-testid="tool-card-output">\#(escape($0))</pre>"# } ?? "")
+          \(renderDetailsCopyAction(for: card, copyID: copyID))
         </details>
         """
     }

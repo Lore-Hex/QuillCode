@@ -45,11 +45,16 @@ test('mock harness exposes actionable approval buttons on review cards', async (
   await expect(page.getByTestId('tool-card-status')).toHaveText('Ready');
   await expect(page.getByTestId('tool-card-actions')).toBeVisible();
   await expect(page.getByTestId('tool-card-input')).not.toBeVisible();
+  await expect(page.getByTestId('tool-card-copy')).not.toBeVisible();
   await expect(page.getByTestId('tool-card-action').filter({ hasText: 'Run' })).toBeVisible();
   await expect(page.getByTestId('tool-card-action').filter({ hasText: 'Skip' })).toBeVisible();
   const runBounds = await elementRect(page, '[data-testid="tool-card-action"]:has-text("Run")');
   const skipBounds = await elementRect(page, '[data-testid="tool-card-action"]:has-text("Skip")');
   expect(runBounds.width).toBeGreaterThan(skipBounds.width);
+  await page.getByTestId('tool-card-details').locator('summary').click();
+  await expect(page.getByTestId('tool-card-input')).toBeVisible();
+  await expect(page.getByTestId('tool-card-copy')).toBeVisible();
+  await expect(page.getByTestId('tool-card-copy')).toHaveText('Copy input');
 
   await page.getByTestId('tool-card-action').filter({ hasText: 'Run' }).click();
 
