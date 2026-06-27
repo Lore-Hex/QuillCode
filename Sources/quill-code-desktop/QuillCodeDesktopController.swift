@@ -180,8 +180,13 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func startTrustedRouterSignIn() {
-        Task { @MainActor in
-            await completeTrustedRouterSignIn()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await signInCoordinator.completeSignInAndApply(
+                to: model,
+                settingsCoordinator: settingsCoordinator,
+                refresh: { [weak self] in self?.refresh() }
+            )
         }
     }
 
@@ -383,31 +388,6 @@ final class QuillCodeDesktopController: ObservableObject {
             tasks: tasks,
             refresh: { [weak self] in self?.refresh() }
         )
-    }
-
-    private func completeTrustedRouterSignIn() async {
-        do {
-            let result = try await signInCoordinator.completeSignIn(
-                currentConfig: model.root.config
-            ) { [weak self] label, error in
-                self?.model.setAgentStatus(label, lastError: error)
-                self?.refresh()
-            }
-            let settings = settingsCoordinator.result(for: result.config)
-            model.applySettings(
-                config: settings.config,
-                trustedRouterAPIKeyConfigured: settings.trustedRouterAPIKeyConfigured
-            )
-            model.applyRuntime(settings.runtime)
-            refresh()
-            await refreshModelCatalog()
-        } catch {
-            model.setAgentStatus(
-                QuillCodeRuntimeStatusLabel.signInFailed,
-                lastError: String(describing: error)
-            )
-            refresh()
-        }
     }
 
     private func refresh() {

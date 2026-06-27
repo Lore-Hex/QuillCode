@@ -20,6 +20,7 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
     func testDesktopTrustedRouterSignInUsesLoopbackOAuth() throws {
         let text = try Self.desktopSourceText()
         let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let signInText = try Self.desktopSourceText(named: "QuillCodeDesktopSignInCoordinator.swift")
 
         XCTAssertTrue(text.contains("QuillCodeDesktopSignInCoordinator"), "Desktop sign-in should be isolated from UI routing.")
         XCTAssertTrue(text.contains("TrustedRouterLoopbackCallbackServer"), "Desktop sign-in should own a loopback callback server.")
@@ -28,9 +29,17 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(text.contains("exchangeCode"), "Desktop sign-in should exchange the callback code for a scoped key.")
         XCTAssertTrue(text.contains("saveTrustedRouterAPIKey"), "Desktop sign-in should persist the returned TrustedRouter key.")
         XCTAssertTrue(text.contains("fetchModelCatalog"), "Desktop sign-in should refresh the model catalog after storing the key.")
+        XCTAssertTrue(signInText.contains("func completeSignInAndApply"), "Desktop sign-in coordinator should own applying sign-in results.")
+        XCTAssertTrue(signInText.contains("model.applySettings"), "Desktop sign-in coordinator should apply OAuth settings to the workspace model.")
+        XCTAssertTrue(signInText.contains("model.applyRuntime"), "Desktop sign-in coordinator should refresh runtime after OAuth settings change.")
+        XCTAssertTrue(signInText.contains("model.setModelCatalog"), "Desktop sign-in coordinator should apply the post-auth model catalog.")
+        XCTAssertTrue(signInText.contains("QuillCodeRuntimeStatusLabel.signInFailed"), "Desktop sign-in coordinator should own sign-in failure status.")
+        XCTAssertTrue(controllerText.contains("signInCoordinator.completeSignInAndApply"), "Desktop controller should launch the sign-in workflow through the coordinator.")
         XCTAssertFalse(controllerText.contains("exchangeCode"), "Desktop controller should delegate OAuth exchange work.")
         XCTAssertFalse(controllerText.contains("TrustedRouterOAuthClient"), "Desktop controller should not own OAuth client construction.")
         XCTAssertFalse(controllerText.contains("TrustedRouterLoopbackCallbackServer"), "Desktop controller should not own loopback callback capture.")
+        XCTAssertFalse(controllerText.contains("private func completeTrustedRouterSignIn"), "Desktop controller should not own sign-in result application.")
+        XCTAssertFalse(controllerText.contains("QuillCodeRuntimeStatusLabel.signInFailed"), "Desktop controller should not own sign-in failure handling.")
         XCTAssertFalse(
             text.contains("NSWorkspace.shared.open(url)") && text.contains("TrustedRouterDefaults.signInURL"),
             "Desktop sign-in should not regress to opening the static sign-in documentation page."
