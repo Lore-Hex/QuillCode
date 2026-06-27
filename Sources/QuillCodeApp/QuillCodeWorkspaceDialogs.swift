@@ -117,8 +117,10 @@ private struct QuillCodeRenameDialog: View {
             HStack {
                 Spacer()
                 Button("Cancel", action: onCancel)
+                    .quillCodeHitTarget(minWidth: 72)
                 Button("Save", action: onSave)
                     .keyboardShortcut(.defaultAction)
+                    .quillCodeHitTarget(minWidth: 72)
                     .disabled(!canSave)
             }
         }

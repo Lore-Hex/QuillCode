@@ -7223,3 +7223,28 @@ Strict grades:
 Remaining parity risk:
 
 - Slash metadata is now DRY, but parser behavior still needs separate tests for every PR grammar branch. That is intentional because parser grammar is behavior, not display metadata.
+
+## 2026-06-27 Click Target Audit Slice
+
+Overall grade after this slice: **A hit-target architecture, A dense-pane coverage, A- native visual regression coverage**.
+
+The app already had a `QuillCodeMetrics.minimumHitTarget` constant, but several dense secondary controls still relied on platform button defaults or compact CSS overrides. That made hit behavior inconsistent across terminal controls, extension cards, memories, dialogs, model rows, and raw tool-data disclosures.
+
+Code quality changes:
+
+- Added a shared `quillCodeHitTarget` SwiftUI modifier so native views use one explicit minimum target and content shape instead of repeating frame boilerplate.
+- Applied the modifier to compact terminal, browser, settings, memories, extensions, automations, context-banner, worktree, rename-dialog, runtime-issue, and find-bar controls.
+- Removed the web harness model-picker override that set top-bar model rows to `min-height: 0`.
+- Expanded tool-card disclosure summaries to a real 40 px target with specific hover transitions.
+- Added Playwright bounding-box assertions for top-bar, model-picker, tool-card, terminal, browser, extension, memory, and automation controls.
+
+Strict grades:
+
+- `QuillCodeDesignSystem.swift`: **A**. Hit-target policy now has a small reusable API alongside existing surface and pressable-button primitives.
+- Dense native pane views: **A-**. The risky controls now explicitly meet the target; a future visual snapshot layer would make native layout drift easier to detect.
+- `E2E/harness/index.html`: **A**. The harness no longer has known compact-control exceptions that violate the minimum hit target.
+- `workspace-chrome.spec.ts`: **A**. It now validates rendered bounds for the most failure-prone desktop controls, not just CSS declarations.
+
+Remaining parity risk:
+
+- SwiftUI hit-target coverage is compile-verified but not pixel-measured in native tests. If QuillCode adds native screenshot testing, promote these Playwright assertions into matching AppKit/SwiftUI smoke checks.

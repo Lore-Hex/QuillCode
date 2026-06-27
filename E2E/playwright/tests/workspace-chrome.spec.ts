@@ -1,11 +1,25 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import {
+  clickSidebarTool,
   computedStyleProperties,
   elementRect,
   harnessURL,
   openSettings,
   openTopBarOverflow
 } from './harness-helpers';
+
+const MINIMUM_HIT_TARGET = 40;
+
+async function expectHitTarget(locator: Locator, label: string) {
+  const target = locator.first();
+  await expect(target, `${label} should be visible`).toBeVisible();
+  await target.scrollIntoViewIfNeeded();
+  const box = await target.boundingBox();
+  expect(box, `${label} should have layout bounds`).not.toBeNull();
+  if (!box) throw new Error(`${label} should have layout bounds`);
+  expect(Math.round(box.width), `${label} width`).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
+  expect(Math.round(box.height), `${label} height`).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
+}
 
 test('mock harness opens utilities from the top-bar overflow', async ({ page }) => {
   await page.goto(harnessURL());
@@ -189,6 +203,16 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(polish.agentStatusNumbers).toContain('tabular-nums');
   expect(polish.sidebarRadius).toBeLessThanOrEqual(4);
 
+  await expectHitTarget(page.getByTestId('top-bar-overflow-button'), 'top-bar overflow button');
+  await expectHitTarget(page.getByTestId('model-picker-button'), 'model picker button');
+  await expectHitTarget(page.getByTestId('mode-picker-button'), 'mode picker button');
+
+  await page.getByTestId('model-picker-button').click();
+  await expectHitTarget(page.getByTestId('model-option'), 'model picker row');
+  await expectHitTarget(page.getByTestId('model-detail-button'), 'model detail button');
+  await expectHitTarget(page.getByTestId('model-favorite-button'), 'model favorite button');
+  await page.getByTestId('model-picker-button').click();
+
   await page.getByLabel('Message').fill('run whoami');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
@@ -227,6 +251,45 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(transcriptPolish.messageCopyMinHeight).toBeGreaterThanOrEqual(40);
   expect(transcriptPolish.sidebarMenuWidth).toBeGreaterThanOrEqual(40);
   expect(transcriptPolish.sidebarMenuHeight).toBeGreaterThanOrEqual(40);
+  await expectHitTarget(page.locator('[data-testid="tool-card-details"] summary'), 'tool details disclosure');
+});
+
+test('mock harness keeps secondary pane actions at least 40px', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await clickSidebarTool(page, 'terminal-button');
+  await expect(page.getByTestId('terminal-pane')).toBeVisible();
+  await expectHitTarget(page.getByTestId('terminal-clear'), 'terminal clear button');
+  await expectHitTarget(page.getByTestId('terminal-run'), 'terminal run button');
+
+  await clickSidebarTool(page, 'browser-button');
+  await expect(page.getByTestId('browser-pane')).toBeVisible();
+  await expectHitTarget(page.getByTestId('browser-back'), 'browser back button');
+  await expectHitTarget(page.getByTestId('browser-forward'), 'browser forward button');
+  await expectHitTarget(page.getByTestId('browser-reload'), 'browser reload button');
+  await expectHitTarget(page.getByTestId('browser-session'), 'browser session button');
+  await expectHitTarget(page.getByTestId('browser-open'), 'browser open button');
+  await expectHitTarget(page.getByTestId('browser-add-comment'), 'browser comment button');
+
+  await page.getByTestId('extensions-button').click();
+  await expect(page.getByTestId('extensions-pane')).toBeVisible();
+  await expectHitTarget(page.getByTestId('extension-install'), 'extension install button');
+  await expectHitTarget(page.getByTestId('extension-start'), 'extension start button');
+
+  await clickSidebarTool(page, 'memories-button');
+  await expect(page.getByTestId('memories-pane')).toBeVisible();
+  await expectHitTarget(page.getByTestId('memories-add'), 'memory add button');
+  await expectHitTarget(page.getByTestId('memory-edit'), 'memory edit button');
+  await expectHitTarget(page.getByTestId('memory-delete'), 'memory delete button');
+
+  await page.getByTestId('automations-button').click();
+  await expect(page.getByTestId('automations-pane')).toBeVisible();
+  await expectHitTarget(page.getByTestId('automation-create-follow-up'), 'automation follow-up button');
+  await expectHitTarget(page.getByTestId('automation-create-workspace-schedule'), 'automation workspace button');
+  await page.getByTestId('automation-create-workspace-schedule').click();
+  await expectHitTarget(page.getByTestId('automation-run'), 'automation run button');
+  await expectHitTarget(page.getByTestId('automation-primary-action'), 'automation primary action button');
+  await expectHitTarget(page.getByTestId('automation-delete'), 'automation delete button');
 });
 
 test('mock harness keeps quiet top bar stable under long status metadata', async ({ page }) => {

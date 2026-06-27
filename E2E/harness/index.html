@@ -1558,8 +1558,9 @@
     .automation-actions button,
     [data-testid="automation-create-follow-up"],
     [data-testid="automation-create-workspace-schedule"],
+    [data-testid="automation-schedule-follow-up"],
     [data-testid="automation-schedule-workspace"] {
-      min-height: 34px;
+      min-height: 40px;
       border: 1px solid var(--line);
       border-radius: 999px;
       background: rgba(92, 200, 255, 0.12);
@@ -1568,14 +1569,18 @@
       font: inherit;
       font-size: 13px;
       font-weight: 700;
-      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+      transition-property: transform, border-color, background-color;
+      transition-duration: 120ms;
+      transition-timing-function: ease;
     }
     .automation-actions button:active,
     [data-testid="automation-create-follow-up"]:active,
     [data-testid="automation-create-workspace-schedule"]:active,
+    [data-testid="automation-schedule-follow-up"]:active,
     [data-testid="automation-schedule-workspace"]:active { transform: scale(0.96); }
     [data-testid="automation-create-follow-up"]:disabled,
     [data-testid="automation-create-workspace-schedule"]:disabled,
+    [data-testid="automation-schedule-follow-up"]:disabled,
     [data-testid="automation-schedule-workspace"]:disabled {
       opacity: 0.44;
       cursor: not-allowed;
@@ -1907,11 +1912,22 @@
       margin-top: 6px;
     }
     .tool-details summary {
+      display: inline-flex;
+      align-items: center;
+      min-height: 40px;
+      padding: 0 10px;
+      border-radius: 999px;
       cursor: pointer;
       color: #8fe2ff;
       font-size: 12px;
       font-weight: 700;
       user-select: none;
+      transition-property: background-color, color;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .tool-details summary:hover {
+      background: rgba(65,184,232,.08);
     }
     .review-pane {
       align-self: flex-start;
@@ -2391,7 +2407,7 @@
       transition-timing-function: var(--ease-out);
     }
     .topbar-cluster .model-option {
-      min-height: 0;
+      min-height: 40px;
       padding: 8px 10px;
       border: 0;
       border-radius: 12px;
@@ -2435,6 +2451,11 @@
     }
     .topbar-cluster .model-detail-toggle,
     .topbar-cluster .model-favorite {
+      width: 40px;
+      min-width: 40px;
+      min-height: 40px;
+      display: grid;
+      place-items: center;
       padding: 0;
       border: 0;
       background: transparent;

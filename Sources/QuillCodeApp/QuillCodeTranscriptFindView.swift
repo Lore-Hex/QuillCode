@@ -79,14 +79,17 @@ struct QuillCodeTranscriptFindBar: View {
             Button(action: onPrevious) {
                 Image(systemName: "chevron.up")
             }
+            .quillCodeHitTarget()
             .disabled(matchCount == 0)
             Button(action: onNext) {
                 Image(systemName: "chevron.down")
             }
+            .quillCodeHitTarget()
             .disabled(matchCount == 0)
             Button(action: onClose) {
                 Image(systemName: "xmark")
             }
+            .quillCodeHitTarget()
             .keyboardShortcut(.cancelAction)
         }
         .padding(.horizontal, 14)

@@ -63,10 +63,13 @@ struct QuillCodeBrowserPaneView: View {
             TextField("localhost:3000, docs/page.html, or https://example.com", text: $addressDraft)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(onOpen)
+                .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
             Button("Open", action: onOpen)
+                .quillCodeHitTarget(minWidth: 72)
                 .disabled(addressDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             if let onOpenSession {
                 Button("Session", action: onOpenSession)
+                    .quillCodeHitTarget(minWidth: 84)
                     .disabled(!browser.canOpen && browser.currentURL == nil)
                     .help("Open a visible browser session using QuillCode's persistent browser profile.")
             }
@@ -177,7 +180,9 @@ struct QuillCodeBrowserPaneView: View {
                 .textFieldStyle(.roundedBorder)
                 .disabled(browser.currentURL == nil)
                 .onSubmit(addComment)
+                .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
             Button("Comment", action: addComment)
+                .quillCodeHitTarget(minWidth: 92)
                 .disabled(browser.currentURL == nil || commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
     }

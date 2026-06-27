@@ -119,6 +119,7 @@ struct QuillCodeWorktreeChoiceStatusRow: View {
                     .buttonStyle(.borderless)
                     .controlSize(.small)
                     .font(.caption.weight(.semibold))
+                    .quillCodeHitTarget(minWidth: 56)
                     .accessibilityIdentifier("quillcode-worktree-choice-retry")
             }
         }
