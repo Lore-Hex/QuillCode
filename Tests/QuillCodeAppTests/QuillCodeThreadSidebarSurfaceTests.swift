@@ -43,6 +43,44 @@ final class QuillCodeThreadSidebarSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.bulkActions.last?.isDestructive, true)
     }
 
+    func testSavedFiltersCountActiveAndRestrictVisibleGroups() {
+        let recent = ChatThread(title: "Recent")
+        var pinned = ChatThread(title: "Pinned")
+        pinned.isPinned = true
+        var archived = ChatThread(title: "Archived")
+        archived.isArchived = true
+
+        let surface = SidebarSurface(
+            items: [recent, pinned, archived].map {
+                SidebarItemSurface(item: SidebarItem(thread: $0), selectedThreadID: nil)
+            },
+            selectedThreadID: nil,
+            activeFilter: .archived
+        )
+
+        XCTAssertEqual(surface.savedFilters.map(\.kind), [.all, .pinned, .recent, .archived])
+        XCTAssertEqual(surface.savedFilters.map(\.count), [3, 1, 1, 1])
+        XCTAssertEqual(surface.savedFilters.map(\.isActive), [false, false, false, true])
+        XCTAssertEqual(surface.visibleItems.map(\.title), ["Archived"])
+        XCTAssertEqual(surface.pinnedItems, [])
+        XCTAssertEqual(surface.recentItems, [])
+        XCTAssertEqual(surface.archivedItems.map(\.title), ["Archived"])
+        XCTAssertEqual(surface.emptyTitle, "No archived chats")
+    }
+
+    func testSavedFilterEmptyTitleKeepsOriginalWhenNoChatsExist() {
+        let surface = SidebarSurface(
+            items: [],
+            selectedThreadID: nil,
+            emptyTitle: "No workspace chats",
+            activeFilter: .pinned
+        )
+
+        XCTAssertEqual(surface.emptyTitle, "No workspace chats")
+        XCTAssertEqual(surface.visibleItems, [])
+        XCTAssertEqual(surface.savedFilters.map(\.count), [0, 0, 0, 0])
+    }
+
     func testSidebarSearchExcludesHiddenToolFeedback() {
         let thread = ChatThread(title: "Visible thread", messages: [
             .init(role: .user, content: "run whoami"),
@@ -123,6 +161,9 @@ final class QuillCodeThreadSidebarSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.selectedThreadIDs, [])
         XCTAssertEqual(surface.selectionLabel, "No chats selected")
         XCTAssertEqual(surface.bulkActions, [])
+        XCTAssertEqual(surface.activeFilter, .all)
+        XCTAssertEqual(surface.savedFilters.map(\.kind), [.all, .pinned, .recent, .archived])
+        XCTAssertEqual(surface.visibleItems, [])
     }
 
     func testSidebarItemSurfaceBuildsActivePinnedAndArchivedActions() {
@@ -204,5 +245,12 @@ final class QuillCodeThreadSidebarSurfaceTests: XCTestCase {
         XCTAssertEqual(toggleCommand.id, "thread-selection-toggle:\(thread.id.uuidString)")
         XCTAssertEqual(toggleCommand.title, "Deselect chat")
         XCTAssertEqual(toggleCommand.category, WorkspaceCommandPalette.threadCategory)
+
+        let filterCommand = QuillCodeSidebarCommandAdapter.workspaceCommand(
+            for: SidebarSavedFilterSurface(kind: .recent, count: 2, isActive: false)
+        )
+        XCTAssertEqual(filterCommand.id, "sidebar-filter:recent")
+        XCTAssertEqual(filterCommand.title, "Show recent chats")
+        XCTAssertEqual(filterCommand.category, WorkspaceCommandPalette.threadCategory)
     }
 }

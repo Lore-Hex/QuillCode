@@ -137,6 +137,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .toggleThreadSelection(id: id)
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "sidebar-filter:pinned"),
+            .setSidebarFilter(.pinned)
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "browser-tab-new"),
             .newBrowserTab
         )
@@ -226,6 +230,7 @@ final class WorkspaceCommandPlanTests: XCTestCase {
         XCTAssertNil(WorkspaceCommandPlan(commandID: "mcp-prompt::0"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "browser-tab-select:not-a-uuid"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "browser-tab-close:not-a-uuid"))
+        XCTAssertNil(WorkspaceCommandPlan(commandID: "sidebar-filter:not-real"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "activity-toggle-section:not-real"))
         XCTAssertNil(WorkspaceCommandPlan(commandID: "slash-command:9999"))
     }

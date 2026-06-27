@@ -18,7 +18,11 @@ final class ParityWorkspaceSidebarGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(threadExtensionText.contains("WorkspaceSidebarSelectionEngine.start"), "WorkspaceModel thread/sidebar extension should delegate selection start.")
         XCTAssertTrue(threadExtensionText.contains("WorkspaceSidebarSelectionEngine.selectAll"), "WorkspaceModel thread/sidebar extension should delegate select-all.")
         XCTAssertTrue(threadExtensionText.contains("WorkspaceSidebarSelectionEngine.toggle"), "WorkspaceModel thread/sidebar extension should delegate selection toggles.")
+        XCTAssertTrue(threadExtensionText.contains("setSidebarFilter"), "WorkspaceModel thread/sidebar extension should own the saved-filter transition API.")
+        XCTAssertTrue(threadExtensionText.contains("clearSidebarSelection()"), "Changing saved filters should clear hidden bulk selections.")
         XCTAssertTrue(threadMutationText.contains("WorkspaceSidebarSelectionEngine.resolve"), "WorkspaceModel thread mutation extension should delegate stale-ID pruning and ordering.")
+        XCTAssertTrue(threadMutationText.contains("func filteredSidebarItems"), "Sidebar filtering should be shared by command availability and selection resolution.")
+        XCTAssertTrue(threadMutationText.contains("sidebarFilter.includes"), "Sidebar selection resolution should use the active saved filter.")
         XCTAssertTrue(bulkPlannerText.contains("struct WorkspaceSidebarBulkActionPlanner"), "Sidebar bulk action planning should live in a focused planner.")
         XCTAssertTrue(bulkPlannerText.contains("static func plan"), "Sidebar bulk action plans should be directly testable.")
         XCTAssertTrue(bulkPlannerText.contains("enum FollowUpSelection"), "Bulk action selection follow-up policy should be explicit.")
@@ -183,6 +187,9 @@ final class ParityWorkspaceSidebarGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(builderText.contains("ProjectListSurface("), "Project list construction should live in the navigation builder.")
         XCTAssertTrue(builderText.contains("SidebarSurface("), "Sidebar construction should live in the navigation builder.")
         XCTAssertTrue(builderText.contains("SidebarBulkActionSurface"), "Sidebar bulk-action projection should live in the navigation builder.")
+        XCTAssertTrue(builderText.contains("activeSidebarFilter"), "Navigation surface builder should receive the active sidebar saved filter.")
+        XCTAssertTrue(builderText.contains("visibleSidebarItems"), "Navigation surface builder should derive visible sidebar rows once.")
+        XCTAssertTrue(builderText.contains("selectedThreadIDs.intersection"), "Navigation surface builder should defend against hidden stale selections.")
         XCTAssertFalse(surfaceText.contains("private func sidebarBulkActions"), "WorkspaceSurface should not own sidebar bulk-action projection.")
         XCTAssertFalse(surfaceText.contains("private func projectItems"), "WorkspaceSurface should not own project row projection.")
         XCTAssertFalse(surfaceText.contains("ProjectListSurface("), "WorkspaceSurface should not construct project lists directly.")
@@ -205,6 +212,7 @@ final class ParityWorkspaceSidebarGateTests: QuillCodeParityTestCase {
             "manages chat lifecycle from the sidebar",
             "groups sidebar chats by recency bucket",
             "bulk-selects chats from the sidebar",
+            "filters sidebar chats with saved filters",
             "manages projects from the sidebar",
             "adds an SSH remote project from command palette and slash command"
         ]

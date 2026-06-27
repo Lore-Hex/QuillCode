@@ -12,11 +12,16 @@ struct WorkspaceNavigationSurfaceBuilder {
     var sidebarItems: [SidebarItem]
     var selectedThreadID: UUID?
     var threads: [ChatThread]
+    var activeSidebarFilter: SidebarSavedFilterKind
     var selectionIsActive: Bool
     var selectedThreadIDs: Set<UUID>
 
     func surface() -> WorkspaceNavigationSurface {
-        let resolvedSelectedThreadIDs = selectionIsActive ? selectedThreadIDs : []
+        let visibleSidebarItems = filteredSidebarItems()
+        let visibleSidebarItemIDs = Set(visibleSidebarItems.map(\.id))
+        let resolvedSelectedThreadIDs = selectionIsActive
+            ? selectedThreadIDs.intersection(visibleSidebarItemIDs)
+            : []
         return WorkspaceNavigationSurface(
             projects: ProjectListSurface(
                 items: projectItems(),
@@ -31,9 +36,13 @@ struct WorkspaceNavigationSurfaceBuilder {
                     )
                 },
                 selectedThreadID: selectedThreadID,
+                activeFilter: activeSidebarFilter,
                 isSelectionMode: selectionIsActive,
                 selectedThreadIDs: resolvedSelectedThreadIDs,
-                bulkActions: sidebarBulkActions(selectedThreadIDs: resolvedSelectedThreadIDs)
+                bulkActions: sidebarBulkActions(
+                    selectedThreadIDs: resolvedSelectedThreadIDs,
+                    visibleSidebarItems: visibleSidebarItems
+                )
             )
         )
     }
@@ -44,30 +53,41 @@ struct WorkspaceNavigationSurfaceBuilder {
             .map { ProjectItemSurface(project: $0, selectedProjectID: selectedProjectID) }
     }
 
-    private func sidebarBulkActions(selectedThreadIDs: Set<UUID>) -> [SidebarBulkActionSurface] {
+    private func filteredSidebarItems() -> [SidebarItem] {
+        sidebarItems.filter {
+            activeSidebarFilter.includes(isPinned: $0.isPinned, isArchived: $0.isArchived)
+        }
+    }
+
+    private func sidebarBulkActions(
+        selectedThreadIDs: Set<UUID>,
+        visibleSidebarItems: [SidebarItem]
+    ) -> [SidebarBulkActionSurface] {
         guard selectionIsActive else {
             return [
                 SidebarBulkActionSurface(
                     kind: .select,
-                    isEnabled: !threads.isEmpty
+                    isEnabled: !visibleSidebarItems.isEmpty
                 )
             ]
         }
 
         let selectedThreads = threads.filter { selectedThreadIDs.contains($0.id) }
+        let visibleSelectedCount = visibleSidebarItems.filter { selectedThreadIDs.contains($0.id) }.count
         let hasSelection = !selectedThreads.isEmpty
         let hasPinnedSelection = selectedThreads.contains { $0.isPinned }
+        let hasUnpinnedUnarchivedSelection = selectedThreads.contains { !$0.isPinned && !$0.isArchived }
         let hasUnarchivedSelection = selectedThreads.contains { !$0.isArchived }
         let hasArchivedSelection = selectedThreads.contains { $0.isArchived }
         return [
             SidebarBulkActionSurface(kind: .clearSelection),
             SidebarBulkActionSurface(
                 kind: .selectAll,
-                isEnabled: selectedThreadIDs.count < sidebarItems.count
+                isEnabled: visibleSelectedCount < visibleSidebarItems.count
             ),
             SidebarBulkActionSurface(
                 kind: .pin,
-                isEnabled: hasUnarchivedSelection
+                isEnabled: hasUnpinnedUnarchivedSelection
             ),
             SidebarBulkActionSurface(
                 kind: .unpin,

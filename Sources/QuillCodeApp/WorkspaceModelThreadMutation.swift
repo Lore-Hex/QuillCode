@@ -22,11 +22,17 @@ extension QuillCodeWorkspaceModel {
     func selectedSidebarThreadIDs() -> [UUID] {
         let resolution = WorkspaceSidebarSelectionEngine.resolve(
             state: sidebarSelection,
-            orderedSidebarThreadIDs: root.allSidebarItems.map(\.id),
+            orderedSidebarThreadIDs: filteredSidebarItems().map(\.id),
             validThreadIDs: validThreadIDs()
         )
         sidebarSelection = resolution.state
         return resolution.selectedThreadIDs
+    }
+
+    func filteredSidebarItems() -> [SidebarItem] {
+        root.allSidebarItems.filter {
+            sidebarFilter.includes(isPinned: $0.isPinned, isArchived: $0.isArchived)
+        }
     }
 
     func validThreadIDs() -> Set<UUID> {

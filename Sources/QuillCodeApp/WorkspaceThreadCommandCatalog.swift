@@ -8,6 +8,7 @@ struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
     var sidebarSelectionIsActive: Bool
     var hasSidebarSelection: Bool
     var hasPinnedSidebarSelection: Bool
+    var hasUnpinnedUnarchivedSidebarSelection: Bool
     var hasUnarchivedSidebarSelection: Bool
     var hasArchivedSidebarSelection: Bool
 
@@ -26,6 +27,10 @@ enum WorkspaceThreadCommandCatalog {
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "conversation"]
             ),
+            savedFilterCommand(.all),
+            savedFilterCommand(.pinned),
+            savedFilterCommand(.recent),
+            savedFilterCommand(.archived),
             WorkspaceCommandSurface(
                 id: "thread-rename",
                 title: "Rename chat",
@@ -87,7 +92,7 @@ enum WorkspaceThreadCommandCatalog {
                 title: "Pin selected chats",
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "chat", "bulk", "pin"],
-                isEnabled: availability.hasUnarchivedSidebarSelection
+                isEnabled: availability.hasUnpinnedUnarchivedSidebarSelection
             ),
             WorkspaceCommandSurface(
                 id: SidebarBulkActionSurface.commandID(for: .unpin),
@@ -132,5 +137,14 @@ enum WorkspaceThreadCommandCatalog {
                 isEnabled: availability.selectedThreadHasMessages
             )
         ]
+    }
+
+    private static func savedFilterCommand(_ filter: SidebarSavedFilterKind) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: filter.commandID,
+            title: "Show \(filter.title.lowercased()) chats",
+            category: WorkspaceCommandPalette.threadCategory,
+            keywords: ["thread", "chat", "sidebar", "filter", filter.title.lowercased()]
+        )
     }
 }

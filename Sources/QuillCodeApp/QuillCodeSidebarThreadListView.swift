@@ -7,7 +7,7 @@ struct QuillCodeSidebarThreadListView: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
-        if sidebar.items.isEmpty {
+        if sidebar.visibleItems.isEmpty {
             Text(sidebar.emptyTitle)
                 .font(.callout)
                 .foregroundStyle(QuillCodePalette.muted)

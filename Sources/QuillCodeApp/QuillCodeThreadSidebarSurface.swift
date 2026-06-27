@@ -6,6 +6,8 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
     public var items: [SidebarItemSurface]
     public var selectedThreadID: UUID?
     public var emptyTitle: String
+    public var activeFilter: SidebarSavedFilterKind
+    public var savedFilters: [SidebarSavedFilterSurface]
     public var isSelectionMode: Bool
     public var selectedThreadIDs: Set<UUID>
     public var selectionLabel: String
@@ -16,6 +18,7 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         items: [SidebarItemSurface],
         selectedThreadID: UUID?,
         emptyTitle: String = "No chats yet",
+        activeFilter: SidebarSavedFilterKind = .all,
         isSelectionMode: Bool = false,
         selectedThreadIDs: Set<UUID> = [],
         bulkActions: [SidebarBulkActionSurface] = []
@@ -23,7 +26,12 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         self.title = title
         self.items = items
         self.selectedThreadID = selectedThreadID
-        self.emptyTitle = emptyTitle
+        self.activeFilter = activeFilter
+        self.savedFilters = SidebarSavedFilterSurface.savedFilters(
+            items: items,
+            activeFilter: activeFilter
+        )
+        self.emptyTitle = items.isEmpty ? emptyTitle : activeFilter.emptyTitle
         self.isSelectionMode = isSelectionMode
         self.selectedThreadIDs = selectedThreadIDs
         self.selectionLabel = Self.selectionLabel(count: selectedThreadIDs.count)
@@ -35,6 +43,8 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         case items
         case selectedThreadID
         case emptyTitle
+        case activeFilter
+        case savedFilters
         case isSelectionMode
         case selectedThreadIDs
         case selectionLabel
@@ -47,6 +57,9 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         self.items = try container.decodeIfPresent([SidebarItemSurface].self, forKey: .items) ?? []
         self.selectedThreadID = try container.decodeIfPresent(UUID.self, forKey: .selectedThreadID)
         self.emptyTitle = try container.decodeIfPresent(String.self, forKey: .emptyTitle) ?? "No chats yet"
+        self.activeFilter = try container.decodeIfPresent(SidebarSavedFilterKind.self, forKey: .activeFilter) ?? .all
+        self.savedFilters = try container.decodeIfPresent([SidebarSavedFilterSurface].self, forKey: .savedFilters)
+            ?? SidebarSavedFilterSurface.savedFilters(items: self.items, activeFilter: self.activeFilter)
         self.isSelectionMode = try container.decodeIfPresent(Bool.self, forKey: .isSelectionMode) ?? false
         self.selectedThreadIDs = try container.decodeIfPresent(Set<UUID>.self, forKey: .selectedThreadIDs) ?? []
         self.selectionLabel = try container.decodeIfPresent(String.self, forKey: .selectionLabel)
@@ -58,23 +71,27 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
         threadListBuilder.filteredItems(matching: query)
     }
 
+    public var visibleItems: [SidebarItemSurface] {
+        threadListBuilder.items(for: activeFilter)
+    }
+
     public var pinnedItems: [SidebarItemSurface] {
-        threadListBuilder.pinnedItems
+        threadListBuilder.pinnedItems(for: activeFilter)
     }
 
     public var recentItems: [SidebarItemSurface] {
-        threadListBuilder.recentItems
+        threadListBuilder.recentItems(for: activeFilter)
     }
 
     public func recentSections(
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> [SidebarThreadSectionSurface] {
-        threadListBuilder.recentSections(now: now, calendar: calendar)
+        threadListBuilder.recentSections(for: activeFilter, now: now, calendar: calendar)
     }
 
     public var archivedItems: [SidebarItemSurface] {
-        threadListBuilder.archivedItems
+        threadListBuilder.archivedItems(for: activeFilter)
     }
 
     private static func selectionLabel(count: Int) -> String {
@@ -90,6 +107,93 @@ public struct SidebarSurface: Codable, Sendable, Hashable {
 
     private var threadListBuilder: SidebarThreadListBuilder {
         SidebarThreadListBuilder(items: items)
+    }
+}
+
+public enum SidebarSavedFilterKind: String, Codable, Sendable, Hashable, CaseIterable {
+    case all
+    case pinned
+    case recent
+    case archived
+
+    public var title: String {
+        switch self {
+        case .all:
+            return "All"
+        case .pinned:
+            return "Pinned"
+        case .recent:
+            return "Recent"
+        case .archived:
+            return "Archived"
+        }
+    }
+
+    public var commandID: String {
+        "sidebar-filter:\(rawValue)"
+    }
+
+    public var emptyTitle: String {
+        switch self {
+        case .all:
+            return "No chats yet"
+        case .pinned:
+            return "No pinned chats"
+        case .recent:
+            return "No recent chats"
+        case .archived:
+            return "No archived chats"
+        }
+    }
+
+    public func includes(isPinned: Bool, isArchived: Bool) -> Bool {
+        switch self {
+        case .all:
+            return true
+        case .pinned:
+            return isPinned && !isArchived
+        case .recent:
+            return !isPinned && !isArchived
+        case .archived:
+            return isArchived
+        }
+    }
+}
+
+public struct SidebarSavedFilterSurface: Codable, Sendable, Hashable, Identifiable {
+    public var kind: SidebarSavedFilterKind
+    public var commandID: String
+    public var title: String
+    public var count: Int
+    public var isActive: Bool
+    public var accessibilityLabel: String
+
+    public var id: String { commandID }
+
+    public init(
+        kind: SidebarSavedFilterKind,
+        count: Int,
+        isActive: Bool
+    ) {
+        self.kind = kind
+        self.commandID = kind.commandID
+        self.title = kind.title
+        self.count = count
+        self.isActive = isActive
+        self.accessibilityLabel = "\(kind.title) chats, \(count)"
+    }
+
+    public static func savedFilters(
+        items: [SidebarItemSurface],
+        activeFilter: SidebarSavedFilterKind
+    ) -> [SidebarSavedFilterSurface] {
+        SidebarSavedFilterKind.allCases.map { kind in
+            SidebarSavedFilterSurface(
+                kind: kind,
+                count: items.filter { kind.includes(isPinned: $0.isPinned, isArchived: $0.isArchived) }.count,
+                isActive: kind == activeFilter
+            )
+        }
     }
 }
 

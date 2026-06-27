@@ -42,4 +42,40 @@ final class WorkspaceSidebarIntegrationTests: XCTestCase {
         XCTAssertNil(surface.sidebar.selectedThreadID)
         XCTAssertFalse(surface.sidebar.isSelectionMode)
     }
+
+    func testSavedFilterClearsSelectionAndSelectAllUsesVisibleRows() {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        let recent = ChatThread(title: "Recent", projectID: project.id)
+        var pinned = ChatThread(title: "Pinned", projectID: project.id)
+        pinned.isPinned = true
+        var archived = ChatThread(title: "Archived", projectID: project.id)
+        archived.isArchived = true
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id,
+            threads: [recent, pinned, archived],
+            selectedThreadID: recent.id
+        ))
+
+        model.startSidebarSelection(selecting: recent.id)
+        XCTAssertEqual(model.selectedSidebarThreadIDs(), [recent.id])
+
+        model.setSidebarFilter(.archived)
+        var surface = model.surface()
+        XCTAssertEqual(surface.sidebar.activeFilter, .archived)
+        XCTAssertFalse(surface.sidebar.isSelectionMode)
+        XCTAssertEqual(surface.sidebar.visibleItems.map(\.title), ["Archived"])
+
+        model.selectAllSidebarThreads()
+        surface = model.surface()
+        XCTAssertTrue(surface.sidebar.isSelectionMode)
+        XCTAssertEqual(surface.sidebar.selectedThreadIDs, [archived.id])
+        XCTAssertEqual(surface.sidebar.selectionLabel, "1 chat selected")
+
+        XCTAssertTrue(model.runWorkspaceCommand("sidebar-filter:pinned", workspaceRoot: URL(fileURLWithPath: "/tmp")))
+        surface = model.surface()
+        XCTAssertEqual(surface.sidebar.activeFilter, .pinned)
+        XCTAssertFalse(surface.sidebar.isSelectionMode)
+        XCTAssertEqual(surface.sidebar.visibleItems.map(\.title), ["Pinned"])
+    }
 }

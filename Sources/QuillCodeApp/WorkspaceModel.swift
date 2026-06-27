@@ -15,6 +15,7 @@ public final class QuillCodeWorkspaceModel {
     public internal(set) var memories: MemoriesState
     public internal(set) var activity: ActivityState
     public internal(set) var automations: AutomationsState
+    public internal(set) var sidebarFilter: SidebarSavedFilterKind
     public internal(set) var sidebarSelection: SidebarSelectionState
     public private(set) var lastError: String?
 
@@ -36,6 +37,7 @@ public final class QuillCodeWorkspaceModel {
         memories: MemoriesState = MemoriesState(),
         activity: ActivityState = ActivityState(),
         automations: AutomationsState = AutomationsState(),
+        sidebarFilter: SidebarSavedFilterKind = .all,
         sidebarSelection: SidebarSelectionState = SidebarSelectionState(),
         runner: AgentRunner = AgentRunner(),
         threadStore: JSONThreadStore? = nil,
@@ -53,6 +55,7 @@ public final class QuillCodeWorkspaceModel {
         self.memories = memories
         self.activity = activity
         self.automations = automations
+        self.sidebarFilter = sidebarFilter
         self.sidebarSelection = sidebarSelection
         self.runner = runner
         self.threadPersistence = WorkspaceThreadPersistence(store: threadStore)

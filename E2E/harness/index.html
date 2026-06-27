@@ -775,6 +775,57 @@
       background: transparent;
       border-color: rgba(255,255,255,.08);
     }
+    .sidebar-filter-bar {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 2px 0 8px;
+      scrollbar-width: none;
+    }
+    .sidebar-filter-bar::-webkit-scrollbar { display: none; }
+    .sidebar-filter {
+      min-height: var(--hit-target);
+      min-width: 66px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      color: var(--muted);
+      background: rgba(255,255,255,.055);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+      transition-property: transform, background-color, border-color, color;
+      transition-duration: 140ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .sidebar-filter:hover {
+      transform: translateY(-1px);
+      color: var(--text);
+      background: rgba(255,255,255,.08);
+      border-color: rgba(255,255,255,.18);
+    }
+    .sidebar-filter.active {
+      color: #061014;
+      background: var(--blue);
+      border-color: rgba(255,255,255,.20);
+    }
+    .sidebar-filter-count {
+      min-width: 18px;
+      min-height: 18px;
+      display: inline-grid;
+      place-items: center;
+      padding: 0 5px;
+      border-radius: 999px;
+      color: inherit;
+      background: rgba(255,255,255,.24);
+      font-size: 10px;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
     .sidebar-icon-button {
       width: var(--hit-target);
       height: var(--hit-target);
@@ -2894,6 +2945,7 @@
       sidebar: {
         title: 'Chats',
         selectedThreadID: null,
+        activeFilter: 'all',
         isSelectionMode: false,
         selectedThreadIDs: [],
         items: []
@@ -3133,6 +3185,10 @@
       },
       commands: [
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
+        { id: 'sidebar-filter:all', title: 'Show all chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter', 'all'], isEnabled: true },
+        { id: 'sidebar-filter:pinned', title: 'Show pinned chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter', 'pinned'], isEnabled: true },
+        { id: 'sidebar-filter:recent', title: 'Show recent chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter', 'recent'], isEnabled: true },
+        { id: 'sidebar-filter:archived', title: 'Show archived chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter', 'archived'], isEnabled: true },
         { id: 'thread-rename', title: 'Rename chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'title'], isEnabled: false },
         { id: 'thread-duplicate', title: 'Duplicate chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'copy'], isEnabled: false },
         { id: 'thread-archive', title: 'Archive chat', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'hide'], isEnabled: false },
@@ -4374,13 +4430,15 @@
       const hasActiveMCPServer = state.extensions.items.some(item => (
         item.kind === 'mcp_server' && ['Ready', 'Running', 'Probing'].includes(item.statusLabel)
       ));
-      const selectedThreadIDs = new Set(state.sidebar.selectedThreadIDs);
-      const selectedThreads = state.sidebar.items.filter(item => selectedThreadIDs.has(item.id));
+      const visibleSidebarItems = filteredSidebarItems();
+      const selectedThreadIDs = new Set(normalizedSidebarSelectionIDs());
+      const selectedThreads = visibleSidebarItems.filter(item => selectedThreadIDs.has(item.id));
       const hasBulkSelection = selectedThreads.length > 0;
       const hasPinnedBulkSelection = selectedThreads.some(item => item.isPinned);
+      const hasUnpinnedUnarchivedBulkSelection = selectedThreads.some(item => !item.isPinned && !item.isArchived);
       const hasUnarchivedBulkSelection = selectedThreads.some(item => !item.isArchived);
       const hasArchivedBulkSelection = selectedThreads.some(item => item.isArchived);
-      const hasSidebarThreads = state.sidebar.items.length > 0;
+      const hasSidebarThreads = visibleSidebarItems.length > 0;
       state.commands = state.commands.map(command => (
         command.id === 'thread-rename' ? { ...command, isEnabled: hasThread } :
         command.id === 'thread-duplicate' ? { ...command, isEnabled: hasThread } :
@@ -4390,7 +4448,7 @@
         command.id === 'thread-selection-start' ? { ...command, isEnabled: hasSidebarThreads } :
         command.id === 'thread-selection-select-all' ? { ...command, isEnabled: hasSidebarThreads } :
         command.id === 'thread-selection-clear' ? { ...command, isEnabled: state.sidebar.isSelectionMode } :
-        command.id === 'thread-bulk-pin' ? { ...command, isEnabled: hasUnarchivedBulkSelection } :
+        command.id === 'thread-bulk-pin' ? { ...command, isEnabled: hasUnpinnedUnarchivedBulkSelection } :
         command.id === 'thread-bulk-unpin' ? { ...command, isEnabled: hasPinnedBulkSelection } :
         command.id === 'thread-bulk-archive' ? { ...command, isEnabled: hasUnarchivedBulkSelection } :
         command.id === 'thread-bulk-unarchive' ? { ...command, isEnabled: hasArchivedBulkSelection } :
@@ -5133,11 +5191,30 @@
           }))
           .filter(section => section.items.length);
       };
-      const pinnedItems = state.sidebar.items.filter(item => item.isPinned && !item.isArchived);
-      const recentItems = state.sidebar.items.filter(item => !item.isPinned && !item.isArchived);
-      const archivedItems = state.sidebar.items.filter(item => item.isArchived);
+      const visibleSidebarItems = filteredSidebarItems();
+      const pinnedItems = visibleSidebarItems.filter(item => item.isPinned && !item.isArchived);
+      const recentItems = visibleSidebarItems.filter(item => !item.isPinned && !item.isArchived);
+      const archivedItems = visibleSidebarItems.filter(item => item.isArchived);
       const recentSections = recentSidebarSections(recentItems);
       const bulkActions = sidebarBulkActions();
+      const savedFilters = sidebarSavedFilters();
+      const activeFilter = sidebarFilterDefinitions.find(filter => filter.id === activeSidebarFilter()) || sidebarFilterDefinitions[0];
+      const filterBar = state.sidebar.items.length ? `
+        <div class="sidebar-filter-bar" data-testid="sidebar-filter-bar">
+          ${savedFilters.map(filter => `
+            <button
+              class="sidebar-filter ${filter.isActive ? 'active' : ''}"
+              type="button"
+              data-testid="sidebar-filter"
+              data-filter-id="${escapeHTML(filter.id)}"
+              data-command-id="${escapeHTML(filter.commandID)}"
+              aria-pressed="${filter.isActive ? 'true' : 'false'}"
+              aria-label="${escapeHTML(`${filter.title} chats, ${filter.count}`)}">
+              <span>${escapeHTML(filter.title)}</span>
+              <span class="sidebar-filter-count" data-testid="sidebar-filter-count">${escapeHTML(String(filter.count))}</span>
+            </button>
+          `).join('')}
+        </div>` : '';
       const sidebarHeaderAction = !state.sidebar.isSelectionMode && bulkActions.length ? `
         <button class="sidebar-bulk-action" type="button" data-testid="sidebar-bulk-action" data-command-id="${escapeHTML(bulkActions[0].commandID)}" data-action="${escapeHTML(bulkActions[0].id)}" data-destructive="false" ${bulkActions[0].enabled ? '' : 'disabled'}>${escapeHTML(bulkActions[0].title)}</button>
       ` : '';
@@ -5148,14 +5225,15 @@
             ${bulkActions.map(action => `<button class="sidebar-bulk-action" type="button" data-testid="sidebar-bulk-action" data-command-id="${escapeHTML(action.commandID)}" data-action="${escapeHTML(action.id)}" data-destructive="${action.destructive ? 'true' : 'false'}" ${action.enabled ? '' : 'disabled'}>${escapeHTML(action.title)}</button>`).join('')}
           </div>
         </div>` : '';
-      const sidebarContent = state.sidebar.items.length
+      const sidebarContent = visibleSidebarItems.length
         ? bulkToolbar + renderSidebarSection('Pinned', pinnedItems) + recentSections.map(section => renderSidebarSection(section.title, section.items)).join('') + renderSidebarSection('Archived', archivedItems)
-        : '<p data-testid="sidebar-empty">No chats yet</p>';
+        : `<p data-testid="sidebar-empty">${escapeHTML(state.sidebar.items.length ? activeFilter.emptyTitle : 'No chats yet')}</p>`;
       const sidebarThreadHeader = state.sidebar.items.length || state.sidebar.isSelectionMode ? `
         <div class="sidebar-title-row" data-testid="sidebar-title-row">
           <h2>${escapeHTML(state.sidebar.title)}</h2>
           ${sidebarHeaderAction}
         </div>
+        ${filterBar}
       ` : '';
       const filteredModelCategories = filterModelCategories(state.topBar.modelSearch);
       const filteredModelCount = filteredModelCategories.reduce((count, category) => count + category.models.length, 0);
@@ -5627,7 +5705,7 @@
           render();
         });
       });
-      document.querySelectorAll('[data-testid="sidebar-bulk-action"]').forEach(button => {
+      document.querySelectorAll('[data-testid="sidebar-bulk-action"], [data-testid="sidebar-filter"]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
@@ -7279,25 +7357,75 @@
       ];
     }
 
+    const sidebarFilterDefinitions = [
+      { id: 'all', title: 'All', emptyTitle: 'No chats yet' },
+      { id: 'pinned', title: 'Pinned', emptyTitle: 'No pinned chats' },
+      { id: 'recent', title: 'Recent', emptyTitle: 'No recent chats' },
+      { id: 'archived', title: 'Archived', emptyTitle: 'No archived chats' }
+    ];
+
+    function activeSidebarFilter() {
+      return sidebarFilterDefinitions.some(filter => filter.id === state.sidebar.activeFilter)
+        ? state.sidebar.activeFilter
+        : 'all';
+    }
+
+    function sidebarFilterIncludes(item, filterID = activeSidebarFilter()) {
+      if (filterID === 'pinned') return Boolean(item.isPinned) && !item.isArchived;
+      if (filterID === 'recent') return !item.isPinned && !item.isArchived;
+      if (filterID === 'archived') return Boolean(item.isArchived);
+      return true;
+    }
+
+    function filteredSidebarItems(filterID = activeSidebarFilter()) {
+      return state.sidebar.items.filter(item => sidebarFilterIncludes(item, filterID));
+    }
+
+    function sidebarFilterCount(filterID) {
+      return filteredSidebarItems(filterID).length;
+    }
+
+    function sidebarSavedFilters() {
+      const activeFilter = activeSidebarFilter();
+      return sidebarFilterDefinitions.map(filter => ({
+        ...filter,
+        commandID: `sidebar-filter:${filter.id}`,
+        count: sidebarFilterCount(filter.id),
+        isActive: filter.id === activeFilter
+      }));
+    }
+
+    function setSidebarFilter(filterID) {
+      if (!sidebarFilterDefinitions.some(filter => filter.id === filterID)) return false;
+      if (state.sidebar.activeFilter !== filterID) {
+        state.sidebar.activeFilter = filterID;
+        clearSidebarSelection();
+      }
+      return true;
+    }
+
     function sidebarBulkActions() {
       const selected = selectedSidebarThreads();
+      const visibleItems = filteredSidebarItems();
       if (!state.sidebar.isSelectionMode) {
         return [{
           id: 'select',
           title: 'Select',
           commandID: 'thread-selection-start',
-          enabled: state.sidebar.items.length > 0,
+          enabled: visibleItems.length > 0,
           destructive: false
         }];
       }
       const hasSelection = selected.length > 0;
       const hasPinned = selected.some(item => item.isPinned);
+      const hasUnpinnedUnarchived = selected.some(item => !item.isPinned && !item.isArchived);
       const hasUnarchived = selected.some(item => !item.isArchived);
       const hasArchived = selected.some(item => item.isArchived);
+      const visibleSelectedCount = visibleItems.filter(item => state.sidebar.selectedThreadIDs.includes(item.id)).length;
       return [
         { id: 'clearSelection', title: 'Done', commandID: 'thread-selection-clear', enabled: true, destructive: false },
-        { id: 'selectAll', title: 'Select all', commandID: 'thread-selection-select-all', enabled: state.sidebar.selectedThreadIDs.length < state.sidebar.items.length, destructive: false },
-        { id: 'pin', title: 'Pin', commandID: 'thread-bulk-pin', enabled: hasUnarchived, destructive: false },
+        { id: 'selectAll', title: 'Select all', commandID: 'thread-selection-select-all', enabled: visibleSelectedCount < visibleItems.length, destructive: false },
+        { id: 'pin', title: 'Pin', commandID: 'thread-bulk-pin', enabled: hasUnpinnedUnarchived, destructive: false },
         { id: 'unpin', title: 'Unpin', commandID: 'thread-bulk-unpin', enabled: hasPinned, destructive: false },
         { id: 'archive', title: 'Archive', commandID: 'thread-bulk-archive', enabled: hasUnarchived, destructive: false },
         { id: 'unarchive', title: 'Unarchive', commandID: 'thread-bulk-unarchive', enabled: hasArchived, destructive: false },
@@ -8108,6 +8236,12 @@
       }
       if (commandID?.startsWith('thread-selection-toggle:')) {
         toggleSidebarThreadSelection(commandID.slice('thread-selection-toggle:'.length));
+        render();
+        return;
+      }
+      if (commandID?.startsWith('sidebar-filter:')) {
+        state.commandPalette.isOpen = false;
+        setSidebarFilter(commandID.slice('sidebar-filter:'.length));
         render();
         return;
       }
@@ -9602,7 +9736,7 @@
     }
 
     function normalizedSidebarSelectionIDs() {
-      const validIDs = new Set(state.sidebar.items.map(item => item.id));
+      const validIDs = new Set(filteredSidebarItems().map(item => item.id));
       state.sidebar.selectedThreadIDs = state.sidebar.selectedThreadIDs.filter(id => validIDs.has(id));
       return state.sidebar.selectedThreadIDs;
     }
@@ -9628,7 +9762,7 @@
     }
 
     function toggleSidebarThreadSelection(threadID) {
-      if (!state.sidebar.items.some(item => item.id === threadID)) return;
+      if (!filteredSidebarItems().some(item => item.id === threadID)) return;
       state.sidebar.isSelectionMode = true;
       state.sidebar.selectedThreadIDs = state.sidebar.selectedThreadIDs.includes(threadID)
         ? state.sidebar.selectedThreadIDs.filter(id => id !== threadID)
@@ -9637,12 +9771,12 @@
 
     function selectAllSidebarThreads() {
       state.sidebar.isSelectionMode = true;
-      state.sidebar.selectedThreadIDs = state.sidebar.items.map(item => item.id);
+      state.sidebar.selectedThreadIDs = filteredSidebarItems().map(item => item.id);
     }
 
     function selectedSidebarThreads() {
       const ids = new Set(normalizedSidebarSelectionIDs());
-      return state.sidebar.items.filter(item => ids.has(item.id));
+      return filteredSidebarItems().filter(item => ids.has(item.id));
     }
 
     function performSidebarBulkAction(action) {
