@@ -16,6 +16,20 @@ The structured PR review reply and review-thread tools already existed locally, 
 - Added a parity gate that fails if the matrix regresses to saying implemented PR review reply/thread execution is still pending.
 - Kept execution code untouched; existing `WorkspaceRemoteProjectToolExecutorTests`, `SlashPullRequestCommandParserTests`, safety tests, parser tests, and command-surface tests already cover the shipped paths.
 
+## 2026-06-27 Compact Click Target Follow-Up
+
+Overall grade after this slice: **A compact control hit targets, A press feedback consistency, A- native measurement**.
+
+The broad click-target pass raised the shared target contract to 44 pt/px and added harness bounding-box coverage. A follow-up audit found two native compact controls that still depended on SwiftUI's small/borderless defaults instead of making the QuillCode hit-target contract explicit.
+
+- Added an explicit 44 pt hit target to the Computer Use settings `Refresh status` action.
+- Made activity-section disclosure rows full-width 44 pt targets with a rectangular content shape and shared 0.96 press feedback.
+- Added a parity gate that keeps those compact/plain controls from regressing back to platform-default hit boxes.
+
+Residual risk:
+
+- Native SwiftUI hit targets are still source-guarded rather than measured by screenshot/UI automation. Keep mirroring critical controls in Playwright until native UI automation exists.
+
 ## Component Grades
 
 | Component | Grade | Notes |

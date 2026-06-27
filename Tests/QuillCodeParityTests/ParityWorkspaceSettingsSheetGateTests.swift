@@ -83,6 +83,28 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(settingsText.contains("struct QuillCodeSettingsDraft"), "Settings shell should not own settings draft state.")
     }
 
+    func testNativeCompactPlainControlsKeepExplicitHitTargets() throws {
+        let computerUseText = try Self.appSourceText(named: "QuillCodeComputerUseSettingsCard.swift")
+        let activityText = try Self.appSourceText(named: "WorkspaceActivityPaneView.swift")
+
+        XCTAssertTrue(
+            computerUseText.contains(".quillCodeHitTarget(minWidth: 112, alignment: .leading)"),
+            "Computer Use refresh should not rely on borderless button default sizing."
+        )
+        XCTAssertTrue(
+            activityText.contains(".frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)"),
+            "Activity section toggles should keep a full-row 44 pt hit target."
+        )
+        XCTAssertTrue(
+            activityText.contains(".contentShape(Rectangle())"),
+            "Activity section toggles should make the full row clickable."
+        )
+        XCTAssertTrue(
+            activityText.contains("QuillCodePressableButtonStyle()"),
+            "Activity section toggles should keep shared 0.96 press feedback."
+        )
+    }
+
     func testNativeSearchDialogsKeepLocalTypingState() throws {
         let searchShortcutText = try Self.appSourceText(named: "QuillCodeSearchAndShortcutDialogs.swift")
         let commandPaletteText = try Self.appSourceText(named: "QuillCodeCommandPaletteDialog.swift")
