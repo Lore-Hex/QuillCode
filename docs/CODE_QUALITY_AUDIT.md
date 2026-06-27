@@ -7199,3 +7199,27 @@ Strict grades:
 Remaining parity risk:
 
 - Slash command catalog/parser entries remain separate because they include grammar and aliases. If PR slash command help starts drifting from palette metadata, add optional slash-usage fields to the descriptor rather than spreading PR copy across another static table.
+
+## 2026-06-27 PR Slash Descriptor Slice
+
+Overall grade after this slice: **A slash discovery ownership, A command descriptor cohesion, A- parser grammar boundary**.
+
+The PR command descriptor table now owns `/pr ...` slash discovery metadata as well as palette rows, direct-tool mappings, icons, and draft-prefill copy. `SlashCommandCatalog` still owns global slash ordering and non-PR commands, but it now imports PR slash definitions from `WorkspacePullRequestCommandCatalog` instead of duplicating another static PR table.
+
+Code quality changes:
+
+- Added optional `SlashCommandDefinition` metadata to `WorkspacePullRequestCommandDescriptor`.
+- Rebuilt `SlashCommandCatalog.definitions` from prefix commands, PR descriptor slash definitions, and suffix commands so `/help`, slash suggestions, and command-palette slash rows use the same PR source.
+- Added descriptor tests that lock PR slash ordering, catalog reuse, labels insert text, and `/pr review-threads` help coverage.
+- Kept `SlashPullRequestCommandParser` separate because it owns grammar, aliases, selector/body parsing, and tool-call construction rather than discovery metadata.
+
+Strict grades:
+
+- `WorkspacePullRequestCommandCatalog.swift`: **A**. PR command metadata is now cohesive and readable; future PR actions can add palette/tool/draft/icon/slash metadata in one row.
+- `SlashCommandCatalog.swift`: **A**. The catalog now describes global slash command order without owning PR copy.
+- `SlashPullRequestCommandParser.swift`: **A-**. Parser ownership remains correct, but PR grammar is still broad enough that grouped parser helpers may be worthwhile if more subcommands land.
+- `WorkspacePullRequestCommandCatalogTests.swift`: **A**. The test catches the exact drift this slice removes.
+
+Remaining parity risk:
+
+- Slash metadata is now DRY, but parser behavior still needs separate tests for every PR grammar branch. That is intentional because parser grammar is behavior, not display metadata.
