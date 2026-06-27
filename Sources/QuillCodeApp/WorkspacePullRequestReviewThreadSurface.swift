@@ -40,6 +40,13 @@ public struct WorkspacePullRequestReviewThreadSurface: Codable, Sendable, Hashab
         comments.first?.author
     }
 
+    public var replyDraft: String? {
+        guard let commentID = comments.first?.databaseID else { return nil }
+        let trimmedSelector = selector?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let selectorPrefix = trimmedSelector.isEmpty ? "" : "\(trimmedSelector) "
+        return "/pr review-reply \(selectorPrefix)\(commentID) "
+    }
+
     public var actions: [WorkspacePullRequestReviewThreadActionSurface] {
         [
             WorkspacePullRequestReviewThreadActionSurface(
