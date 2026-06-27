@@ -117,7 +117,6 @@ struct QuillCodeWorktreeChoiceStatusRow: View {
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
                     .buttonStyle(QuillCodePressableButtonStyle())
-                    .controlSize(.small)
                     .font(.caption.weight(.semibold))
                     .quillCodeTextButtonTarget(minWidth: 56)
                     .accessibilityIdentifier("quillcode-worktree-choice-retry")

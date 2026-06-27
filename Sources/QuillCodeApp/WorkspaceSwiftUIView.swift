@@ -32,7 +32,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onStartTrustedRouterSignIn: () -> Void
     public var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     public var onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
-    public var onPullRequestReviewThreadReplyDraft: (String) -> Void
+    public var onPullRequestReviewThreadReply: (WorkspacePullRequestReviewThreadReplyRequest) -> Void
     public var onToolCardAction: (ToolCardActionSurface) -> Void
     public var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     public var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
@@ -88,7 +88,7 @@ public struct QuillCodeWorkspaceView: View {
         onStartTrustedRouterSignIn: @escaping () -> Void,
         onReviewAction: @escaping (WorkspaceReviewActionSurface) -> Void,
         onPullRequestReviewThreadAction: @escaping (WorkspacePullRequestReviewThreadActionSurface) -> Void = { _ in },
-        onPullRequestReviewThreadReplyDraft: @escaping (String) -> Void = { _ in },
+        onPullRequestReviewThreadReply: @escaping (WorkspacePullRequestReviewThreadReplyRequest) -> Void = { _ in },
         onToolCardAction: @escaping (ToolCardActionSurface) -> Void = { _ in },
         onAddReviewComment: @escaping (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
@@ -130,7 +130,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onStartTrustedRouterSignIn = onStartTrustedRouterSignIn
         self.onReviewAction = onReviewAction
         self.onPullRequestReviewThreadAction = onPullRequestReviewThreadAction
-        self.onPullRequestReviewThreadReplyDraft = onPullRequestReviewThreadReplyDraft
+        self.onPullRequestReviewThreadReply = onPullRequestReviewThreadReply
         self.onToolCardAction = onToolCardAction
         self.onAddReviewComment = onAddReviewComment
         self.onCreateWorktree = onCreateWorktree
@@ -189,7 +189,7 @@ public struct QuillCodeWorkspaceView: View {
                     onAddBrowserComment: onAddBrowserComment,
                     onReviewAction: onReviewAction,
                     onPullRequestReviewThreadAction: onPullRequestReviewThreadAction,
-                    onPullRequestReviewThreadReplyDraft: onPullRequestReviewThreadReplyDraft,
+                    onPullRequestReviewThreadReply: onPullRequestReviewThreadReply,
                     onToolCardAction: onToolCardAction,
                     onAddReviewComment: onAddReviewComment,
                     onCopyTranscriptItem: onCopyTranscriptItem,

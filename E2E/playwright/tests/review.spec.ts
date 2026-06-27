@@ -196,16 +196,40 @@ test('mock harness browses and resolves pull request review threads', async ({ p
   expect(resolveBounds.height).toBeGreaterThanOrEqual(40);
 
   await page.getByTestId('pr-review-thread-reply').first().click();
-  await expect(page.getByLabel('Message')).toHaveValue('/pr review-reply 123 171 ');
+  await expect(page.getByTestId('pr-review-thread-reply-form').first()).toBeVisible();
+  await expect(page.getByTestId('pr-review-thread-reply-input').first()).toBeFocused();
+
+  const replyInputBounds = await elementRect(page, '[data-testid="pr-review-thread-reply-input"]');
+  expect(replyInputBounds.height).toBeGreaterThanOrEqual(40);
+  const cancelBounds = await elementRect(page, '[data-testid="pr-review-thread-reply-cancel"]');
+  expect(cancelBounds.width).toBeGreaterThanOrEqual(40);
+  expect(cancelBounds.height).toBeGreaterThanOrEqual(40);
+  const postBounds = await elementRect(page, '[data-testid="pr-review-thread-reply-submit"]');
+  expect(postBounds.width).toBeGreaterThanOrEqual(40);
+  expect(postBounds.height).toBeGreaterThanOrEqual(40);
+
+  await page.getByTestId('pr-review-thread-reply-input').first().fill('Thanks, fixed in the follow-up.');
+  await page.getByTestId('pr-review-thread-reply-submit').first().click();
+
+  await expect(page.getByTestId('tool-card-title')).toContainText([
+    'host.git.pr.review_threads',
+    'host.git.pr.review_reply',
+    'host.git.pr.review_threads'
+  ]);
+  await expect(page.getByTestId('tool-card-input').nth(1)).toContainText('"commentId": 171');
+  await expect(page.getByTestId('tool-card-input').nth(1)).toContainText('Thanks, fixed in the follow-up.');
+  await expect(page.getByText('Replied to review comment 171.')).toBeVisible();
 
   await page.getByTestId('pr-review-thread-action').first().click();
 
   await expect(page.getByTestId('tool-card-title')).toContainText([
     'host.git.pr.review_threads',
+    'host.git.pr.review_reply',
+    'host.git.pr.review_threads',
     'host.git.pr.review_thread',
     'host.git.pr.review_threads'
   ]);
-  await expect(page.getByTestId('tool-card-input').nth(1)).toContainText('PRRT_kwDOExample001');
+  await expect(page.getByTestId('tool-card-input').nth(3)).toContainText('PRRT_kwDOExample001');
   await expect(page.getByTestId('pr-review-thread-status').first()).toContainText('Resolved');
   await expect(page.getByTestId('pr-review-thread-action').first()).toHaveText('Unresolve');
   await expect(page.getByText('Resolved review thread PRRT_kwDOExample001.')).toBeVisible();

@@ -2311,6 +2311,39 @@
       font-size: 12px;
       overflow-wrap: anywhere;
     }
+    .pr-review-thread-reply-form {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 8px;
+      padding: 8px;
+      border-radius: 14px;
+      background: rgba(25,41,48,.54);
+    }
+    .pr-review-thread-reply-form[hidden] {
+      display: none;
+    }
+    .pr-review-thread-reply-form textarea {
+      min-width: 0;
+      resize: vertical;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.18);
+      color: var(--text);
+      padding: 9px 10px;
+      font: inherit;
+    }
+    .pr-review-thread-reply-form button {
+      border: 1px solid rgba(65,184,232,.28);
+      background: rgba(65,184,232,.14);
+      color: #b6eaff;
+      padding: 7px 12px;
+    }
+    .pr-review-thread-reply-form button[type="reset"] {
+      color: var(--muted);
+      border-color: rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+    }
     .review-comment-form {
       grid-column: 1 / -1;
       display: grid;
@@ -2809,7 +2842,8 @@
         pullRequestThreads: [],
         totalInsertions: 0,
         totalDeletions: 0,
-        totalHunks: 0
+        totalHunks: 0,
+        activeReplyThreadID: null
       },
       extensions: {
         isVisible: false,
@@ -4756,9 +4790,15 @@
                     <code data-testid="pr-review-thread-location">${escapeHTML(thread.locationLabel || 'Unknown location')}</code>
                     <blockquote data-testid="pr-review-thread-comment">${escapeHTML(thread.summaryText || '')}</blockquote>
                     <span class="review-actions">
-                      ${thread.replyDraft ? `<button type="button" class="review-action-button hit-target-text" data-testid="pr-review-thread-reply" data-reply-draft="${escapeHTML(thread.replyDraft)}">Reply</button>` : ''}
+                      ${thread.replyTarget ? `<button type="button" class="review-action-button hit-target-text" data-testid="pr-review-thread-reply" data-thread-id="${escapeHTML(thread.id)}">Reply</button>` : ''}
                       <button type="button" class="review-action-button hit-target-text" data-testid="pr-review-thread-action" data-action="${thread.isResolved ? 'unresolve' : 'resolve'}" data-thread-id="${escapeHTML(thread.id)}">${thread.isResolved ? 'Unresolve' : 'Resolve'}</button>
                     </span>
+                    ${thread.replyTarget ? `
+                      <form class="pr-review-thread-reply-form" data-testid="pr-review-thread-reply-form" data-thread-id="${escapeHTML(thread.id)}" data-comment-id="${escapeHTML(thread.replyTarget.commentID)}" data-selector="${escapeHTML(thread.replyTarget.selector || '')}" ${state.review.activeReplyThreadID === thread.id ? '' : 'hidden'}>
+                        <textarea data-testid="pr-review-thread-reply-input" aria-label="Reply to review thread" placeholder="Reply to review thread"></textarea>
+                        <button type="reset" class="review-action-button hit-target-form-action" data-testid="pr-review-thread-reply-cancel">Cancel</button>
+                        <button type="submit" class="review-action-button hit-target-form-action" data-testid="pr-review-thread-reply-submit">Post reply</button>
+                      </form>` : ''}
                   </li>`).join('')}
               </ul>
             </section>` : ''}
@@ -5509,7 +5549,29 @@
       });
       document.querySelectorAll('[data-testid="pr-review-thread-reply"]').forEach(button => {
         button.addEventListener('click', event => {
-          usePromptAsDraft(event.currentTarget.getAttribute('data-reply-draft') || '');
+          state.review.activeReplyThreadID = event.currentTarget.getAttribute('data-thread-id');
+          render();
+          document
+            .querySelector(`[data-testid="pr-review-thread-reply-form"][data-thread-id="${CSS.escape(state.review.activeReplyThreadID || '')}"] textarea`)
+            ?.focus();
+        });
+      });
+      document.querySelectorAll('[data-testid="pr-review-thread-reply-form"]').forEach(form => {
+        form.addEventListener('reset', event => {
+          event.preventDefault();
+          state.review.activeReplyThreadID = null;
+          render();
+        });
+        form.addEventListener('submit', event => {
+          event.preventDefault();
+          const formElement = event.currentTarget;
+          const textarea = formElement.querySelector('[data-testid="pr-review-thread-reply-input"]');
+          runPullRequestReviewThreadReply({
+            threadID: formElement.getAttribute('data-thread-id'),
+            commentID: Number(formElement.getAttribute('data-comment-id')),
+            selector: formElement.getAttribute('data-selector') || null,
+            body: textarea.value
+          });
         });
       });
       document.querySelectorAll('[data-testid="review-comment-form"]').forEach(form => {
@@ -9521,6 +9583,13 @@
           replyDraft: thread.comments.nodes[0]?.databaseId
             ? `/pr review-reply ${selector} ${thread.comments.nodes[0].databaseId} `
             : null,
+          replyTarget: thread.comments.nodes[0]?.databaseId
+            ? {
+                threadID: thread.id,
+                commentID: thread.comments.nodes[0].databaseId,
+                selector
+              }
+            : null,
           selector
         }))
       };
@@ -10106,6 +10175,44 @@
         outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(currentPayload, null, 2), stderr: '', exitCode: 0 }, null, 2)
       });
       addMessage('assistant', `${shouldResolve ? 'Resolved' : 'Reopened'} review thread ${threadID}.`);
+      state.topBar.agentStatus = 'Idle';
+      render();
+    }
+
+    function runPullRequestReviewThreadReply(request) {
+      const body = String(request?.body || '').trim();
+      if (!request?.threadID || !Number.isFinite(request.commentID) || !body) return;
+      state.topBar.agentStatus = 'Running';
+      const input = {
+        commentId: request.commentID,
+        body
+      };
+      if (request.selector) input.selector = request.selector;
+      addToolCard({
+        title: 'host.git.pr.review_reply',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify(input, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: '', stderr: '', exitCode: 0 }, null, 2)
+      });
+
+      const currentPayload = mockPullRequestReviewThreadsPayload(false);
+      const refreshed = reviewThreadSurfaceFromPayload(currentPayload);
+      state.review = {
+        ...state.review,
+        title: refreshed.title,
+        subtitle: refreshed.subtitle,
+        pullRequestThreads: refreshed.pullRequestThreads,
+        activeReplyThreadID: null
+      };
+      addToolCard({
+        title: 'host.git.pr.review_threads',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({ selector: request.selector || '123' }, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(currentPayload, null, 2), stderr: '', exitCode: 0 }, null, 2)
+      });
+      addMessage('assistant', `Replied to review comment ${request.commentID}.`);
       state.topBar.agentStatus = 'Idle';
       render();
     }

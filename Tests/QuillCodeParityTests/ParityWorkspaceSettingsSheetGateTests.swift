@@ -96,6 +96,7 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         let reviewActionText = try Self.appSourceText(named: "QuillCodeReviewActionButton.swift")
         let reviewLineText = try Self.appSourceText(named: "QuillCodeReviewLineRowView.swift")
         let reviewHunkText = try Self.appSourceText(named: "QuillCodeReviewHunkView.swift")
+        let reviewPaneText = try Self.appSourceText(named: "QuillCodeReviewPaneView.swift")
         let modelRowsText = try Self.appSourceText(named: "QuillCodeModelPickerRows.swift")
 
         XCTAssertTrue(
@@ -168,6 +169,10 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
                 && browserText.contains(".quillCodeTextButtonTarget(minWidth: 92)"),
             "Browser nav and comment controls should use semantic 44 pt click targets."
         )
+        XCTAssertFalse(
+            browserText.contains(".controlSize(.small)"),
+            "Browser nav buttons should not wrap 44 pt labels in visually small controls."
+        )
         XCTAssertTrue(
             terminalText.contains(".quillCodeTextButtonTarget(minWidth: 56)")
                 && terminalText.contains(".quillCodeTextButtonTarget(minWidth: 64)"),
@@ -186,6 +191,11 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
             reviewLineText.contains(".quillCodeFormActionTarget()")
                 && reviewHunkText.contains(".quillCodeFormActionTarget()"),
             "Review note Add controls should use the compact form-action target instead of ad hoc small buttons."
+        )
+        XCTAssertTrue(
+            reviewPaneText.contains(".quillCodeCapsuleButtonTarget(minWidth: 86)")
+                && reviewPaneText.contains(".quillCodeFormActionTarget(minWidth: 92)"),
+            "Pull request review-thread actions and reply posting should use semantic 44 pt targets."
         )
         XCTAssertTrue(
             modelRowsText.contains(".quillCodeFullRowButtonTarget(radius: 10)")

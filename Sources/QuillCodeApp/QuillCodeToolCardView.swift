@@ -143,7 +143,7 @@ struct QuillCodeToolCardView: View {
             Image(systemName: iconName)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(statusColor)
-                .frame(width: 34, height: 34)
+                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
                 .background(statusColor.opacity(0.14))
                 .clipShape(Circle())
                 .accessibilityHidden(true)

@@ -4,7 +4,7 @@ struct QuillCodeReviewPaneView: View {
     var review: WorkspaceReviewSurface
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
-    var onPullRequestReviewThreadReplyDraft: (String) -> Void
+    var onPullRequestReviewThreadReply: (WorkspacePullRequestReviewThreadReplyRequest) -> Void
     var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
 
     var body: some View {
@@ -36,9 +36,9 @@ struct QuillCodeReviewPaneView: View {
             Image(systemName: "doc.text.magnifyingglass")
                 .font(.title3)
                 .foregroundStyle(QuillCodePalette.blue)
-                .frame(width: 34, height: 34)
+                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
                 .background(QuillCodePalette.blue.opacity(0.14))
-                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.iconControlRadius, style: .continuous))
             VStack(alignment: .leading, spacing: 3) {
                 Text(review.title)
                     .font(.headline)
@@ -82,7 +82,7 @@ struct QuillCodeReviewPaneView: View {
                 QuillCodePullRequestReviewThreadRowView(
                     thread: thread,
                     onAction: onPullRequestReviewThreadAction,
-                    onReplyDraft: onPullRequestReviewThreadReplyDraft
+                    onReply: onPullRequestReviewThreadReply
                 )
             }
         }
@@ -92,71 +92,158 @@ struct QuillCodeReviewPaneView: View {
 private struct QuillCodePullRequestReviewThreadRowView: View {
     var thread: WorkspacePullRequestReviewThreadSurface
     var onAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
-    var onReplyDraft: (String) -> Void
+    var onReply: (WorkspacePullRequestReviewThreadReplyRequest) -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @FocusState private var isReplyFocused: Bool
+    @State private var isReplyExpanded = false
+    @State private var replyDraft = ""
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: thread.isResolved ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                .font(.body.weight(.semibold))
-                .foregroundStyle(thread.isResolved ? QuillCodePalette.green : QuillCodePalette.yellow)
-                .frame(width: 28, height: 28)
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 7) {
-                    Text(thread.statusLabel)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(thread.isResolved ? QuillCodePalette.green : QuillCodePalette.yellow)
-                    Text(thread.locationLabel)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(QuillCodePalette.muted)
-                        .lineLimit(1)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: thread.isResolved ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(thread.isResolved ? QuillCodePalette.green : QuillCodePalette.yellow)
+                    .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+                    .background((thread.isResolved ? QuillCodePalette.green : QuillCodePalette.yellow).opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.iconControlRadius, style: .continuous))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 7) {
+                        Text(thread.statusLabel)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(thread.isResolved ? QuillCodePalette.green : QuillCodePalette.yellow)
+                        Text(thread.locationLabel)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(QuillCodePalette.muted)
+                            .lineLimit(1)
+                    }
+                    Text(thread.summaryText)
+                        .font(.callout)
+                        .lineLimit(2)
+                    if let author = thread.authorLabel {
+                        Text(author)
+                            .font(.caption)
+                            .foregroundStyle(QuillCodePalette.muted)
+                    }
                 }
-                Text(thread.summaryText)
-                    .font(.callout)
-                    .lineLimit(2)
-                if let author = thread.authorLabel {
-                    Text(author)
-                        .font(.caption)
-                        .foregroundStyle(QuillCodePalette.muted)
-                }
+                Spacer(minLength: 12)
+                threadActions
             }
-            Spacer(minLength: 12)
-            HStack(spacing: 8) {
-                if let replyDraft = thread.replyDraft {
-                    Button {
-                        onReplyDraft(replyDraft)
-                    } label: {
-                        Label("Reply", systemImage: "arrowshape.turn.up.left")
-                            .font(.caption.weight(.semibold))
-                            .labelStyle(.titleAndIcon)
-                            .padding(.horizontal, 12)
-                            .frame(minWidth: 86, minHeight: 40)
-                            .background(QuillCodePalette.blue.opacity(0.12))
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(QuillCodePressableButtonStyle())
-                    .foregroundStyle(QuillCodePalette.blue)
-                    .help("Draft a reply to review comment \(thread.comments.first?.databaseID ?? 0)")
-                }
-                ForEach(thread.actions) { action in
-                    Button {
-                        onAction(action)
-                    } label: {
-                        Label(action.kind.title, systemImage: action.kind.systemImage)
-                            .font(.caption.weight(.semibold))
-                            .labelStyle(.titleAndIcon)
-                            .padding(.horizontal, 12)
-                            .frame(minWidth: 92, minHeight: 40)
-                            .background(QuillCodePalette.blue.opacity(0.14))
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(QuillCodePressableButtonStyle())
-                    .foregroundStyle(QuillCodePalette.blue)
-                    .help("\(action.kind.title) review thread \(thread.id)")
-                }
+            if isReplyExpanded, thread.replyTarget != nil {
+                replyForm
+                    .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(10)
         .background(QuillCodePalette.background.opacity(0.64))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isReplyExpanded)
+    }
+
+    private var threadActions: some View {
+        HStack(spacing: 8) {
+            if let replyTarget = thread.replyTarget {
+                Button {
+                    isReplyExpanded.toggle()
+                    if isReplyExpanded {
+                        focusReplyField()
+                    }
+                } label: {
+                    Label("Reply", systemImage: "arrowshape.turn.up.left")
+                        .font(.caption.weight(.semibold))
+                        .labelStyle(.titleAndIcon)
+                        .padding(.horizontal, 12)
+                        .quillCodeCapsuleButtonTarget(minWidth: 86)
+                        .background(replyButtonBackground)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .foregroundStyle(QuillCodePalette.blue)
+                .help("Reply to review comment \(replyTarget.commentID)")
+            }
+            ForEach(thread.actions) { action in
+                Button {
+                    onAction(action)
+                } label: {
+                    Label(action.kind.title, systemImage: action.kind.systemImage)
+                        .font(.caption.weight(.semibold))
+                        .labelStyle(.titleAndIcon)
+                        .padding(.horizontal, 12)
+                        .quillCodeCapsuleButtonTarget(minWidth: 96)
+                        .background(QuillCodePalette.blue.opacity(0.14))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .foregroundStyle(QuillCodePalette.blue)
+                .help("\(action.kind.title) review thread \(thread.id)")
+            }
+        }
+    }
+
+    private var replyButtonBackground: Color {
+        isReplyExpanded
+            ? QuillCodePalette.blue.opacity(0.20)
+            : QuillCodePalette.blue.opacity(0.12)
+    }
+
+    private var replyForm: some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            TextField("Reply to review thread", text: $replyDraft, axis: .vertical)
+                .textFieldStyle(.plain)
+                .font(.callout)
+                .lineLimit(1...4)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 9)
+                .frame(minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .center)
+                .background(QuillCodePalette.panel.opacity(0.82))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .focused($isReplyFocused)
+                .onSubmit(submitReply)
+                .accessibilityLabel("Review thread reply")
+
+            Button("Cancel", action: cancelReply)
+                .font(.caption.weight(.semibold))
+                .quillCodeFormActionTarget(minWidth: 74)
+                .foregroundStyle(QuillCodePalette.muted)
+                .background(QuillCodePalette.selection.opacity(0.45))
+                .clipShape(Capsule())
+                .buttonStyle(QuillCodePressableButtonStyle())
+
+            Button("Post reply", action: submitReply)
+                .font(.caption.weight(.semibold))
+                .quillCodeFormActionTarget(minWidth: 92)
+                .foregroundStyle(replyCanSubmit ? Color.white : QuillCodePalette.muted)
+                .background(replyCanSubmit ? QuillCodePalette.blue : QuillCodePalette.selection.opacity(0.45))
+                .clipShape(Capsule())
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .disabled(!replyCanSubmit)
+        }
+        .padding(8)
+        .background(QuillCodePalette.panel.opacity(0.42))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var replyCanSubmit: Bool {
+        !replyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func focusReplyField() {
+        DispatchQueue.main.async {
+            isReplyFocused = true
+        }
+    }
+
+    private func cancelReply() {
+        isReplyExpanded = false
+        replyDraft = ""
+        isReplyFocused = false
+    }
+
+    private func submitReply() {
+        guard let request = thread.replyRequest(body: replyDraft) else { return }
+        onReply(request)
+        cancelReply()
     }
 }

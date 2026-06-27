@@ -225,9 +225,11 @@ struct QuillCodeBrowserPaneView: View {
         Button(action: action) {
             Image(systemName: systemName)
                 .quillCodeIconButtonTarget()
+                .foregroundStyle(isEnabled ? QuillCodePalette.blue : QuillCodePalette.muted.opacity(0.55))
+                .background(QuillCodePalette.selection.opacity(isEnabled ? 0.34 : 0.16))
+                .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.iconControlRadius, style: .continuous))
         }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
+        .buttonStyle(QuillCodePressableButtonStyle())
         .disabled(!isEnabled)
         .accessibilityLabel(label)
     }

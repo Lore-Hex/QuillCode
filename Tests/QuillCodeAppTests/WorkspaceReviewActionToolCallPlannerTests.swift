@@ -143,4 +143,47 @@ final class WorkspaceReviewActionToolCallPlannerTests: XCTestCase {
             TopBarAgentStatusLabel.failed
         )
     }
+
+    func testPullRequestReviewThreadReplyRunPlanExecutesReplyThenRefreshesThreads() throws {
+        let plan = WorkspacePullRequestReviewThreadReplyToolCallPlanner.runPlan(
+            for: WorkspacePullRequestReviewThreadReplyRequest(
+                threadID: "PRRT_one",
+                commentID: 171,
+                body: "Thanks, fixed.",
+                selector: "123"
+            )
+        )
+        let replyArguments = try ToolArguments(plan.replyCall.argumentsJSON)
+        let refreshArguments = try ToolArguments(plan.refreshCall.argumentsJSON)
+
+        XCTAssertEqual(plan.replyCall.name, ToolDefinition.gitPullRequestReviewReply.name)
+        XCTAssertEqual(try replyArguments.requiredInt("commentId"), 171)
+        XCTAssertEqual(try replyArguments.requiredString("body"), "Thanks, fixed.")
+        XCTAssertEqual(try replyArguments.requiredString("selector"), "123")
+        XCTAssertEqual(plan.refreshCall.name, ToolDefinition.gitPullRequestReviewThreads.name)
+        XCTAssertEqual(try refreshArguments.requiredString("selector"), "123")
+    }
+
+    func testPullRequestReviewThreadReplyRunPlanFinalStatusRequiresReplyAndRefreshSuccess() {
+        let plan = WorkspacePullRequestReviewThreadReplyToolCallPlanner.runPlan(
+            for: WorkspacePullRequestReviewThreadReplyRequest(
+                threadID: "PRRT_one",
+                commentID: 171,
+                body: "Thanks."
+            )
+        )
+
+        XCTAssertEqual(
+            plan.finalStatus(replyResult: ToolResult(ok: true), refreshResult: ToolResult(ok: true)),
+            TopBarAgentStatusLabel.idle
+        )
+        XCTAssertEqual(
+            plan.finalStatus(replyResult: ToolResult(ok: false), refreshResult: ToolResult(ok: true)),
+            TopBarAgentStatusLabel.failed
+        )
+        XCTAssertEqual(
+            plan.finalStatus(replyResult: ToolResult(ok: true), refreshResult: ToolResult(ok: false)),
+            TopBarAgentStatusLabel.failed
+        )
+    }
 }

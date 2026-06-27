@@ -33,7 +33,6 @@ struct QuillCodeTerminalPaneView: View {
                 .lineLimit(1)
             Spacer()
             Button("Clear", action: onClear)
-                .controlSize(.small)
                 .quillCodeTextButtonTarget(minWidth: 56)
                 .disabled(!terminal.canClear)
             if terminal.isRunning {
@@ -41,7 +40,6 @@ struct QuillCodeTerminalPaneView: View {
                     .controlSize(.small)
                 Button("Stop", action: onStop)
                     .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
                     .quillCodeTextButtonTarget(minWidth: 56)
                     .tint(QuillCodePalette.red)
             }
