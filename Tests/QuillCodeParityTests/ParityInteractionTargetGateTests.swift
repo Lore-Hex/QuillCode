@@ -2,10 +2,13 @@ import XCTest
 
 final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
     func testNativeInteractionControlsUseSharedTargetContracts() throws {
+        let appFiles = try Self.swiftSourceFiles(in: "Sources/QuillCodeApp")
+        let visibleDesktopFiles = try Self.swiftSourceFiles(in: "Sources/quill-code-desktop")
+            .filter { $0.lastPathComponent != "DesktopCommands.swift" }
         let violations = try SwiftSourceInteractionTargetAudit(
             packageRoot: Self.packageRoot()
         )
-        .violations(in: Self.swiftSourceFiles(in: "Sources/QuillCodeApp"))
+        .violations(in: appFiles + visibleDesktopFiles)
 
         XCTAssertTrue(
             violations.isEmpty,
@@ -36,6 +39,12 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             auditHelperText.contains("MINIMUM_HIT_TARGET = 44")
                 && auditHelperText.contains("expectHitTarget(locator: Locator"),
             "The rendered click-target audit should keep the same 44 px minimum for whole-screen audits and explicit critical-control probes."
+        )
+        XCTAssertTrue(
+            auditHelperText.contains("target.evaluate")
+                && auditHelperText.contains("elementFromPoint")
+                && auditHelperText.contains("clickableInteriorIssues"),
+            "Explicit critical-control probes should test the clickable interior, not only raw bounding-box dimensions."
         )
         XCTAssertTrue(
             auditHelperText.contains("closestInteractiveAncestor")
@@ -69,6 +78,24 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && designText.contains("static func formAction(")
                 && designText.contains("static func capsule("),
             "Shared target specs should cover icon, row, form-action, and capsule controls instead of ad hoc sizing."
+        )
+    }
+
+    func testDesktopMenuBarPopoverUsesSharedFullRowTargets() throws {
+        let menuBarText = try Self.desktopSourceText(named: "QuillCodeMenuBarView.swift")
+
+        XCTAssertTrue(
+            menuBarText.contains("menuActionButton("),
+            "Menu bar popover actions should route through one shared full-row target helper."
+        )
+        XCTAssertTrue(
+            menuBarText.contains(".buttonStyle(QuillCodePressableButtonStyle())")
+                && menuBarText.contains(".quillCodeFullRowButtonTarget()"),
+            "Menu bar popover buttons should keep 44 pt full-row click targets and press feedback."
+        )
+        XCTAssertFalse(
+            menuBarText.contains(#"Button("Stop All", action: onStopAll)"#),
+            "Menu bar popover actions should not regress to raw SwiftUI buttons."
         )
     }
 

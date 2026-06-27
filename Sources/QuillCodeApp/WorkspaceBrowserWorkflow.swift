@@ -154,6 +154,11 @@ enum WorkspaceBrowserWorkflow {
     }
 
     @discardableResult
+    static func applySessionUpdate(_ update: BrowserSessionUpdate, browser: inout BrowserState) -> Bool {
+        WorkspaceBrowserEngine.applySessionUpdate(update, state: &browser)
+    }
+
+    @discardableResult
     static func newTab(browser: inout BrowserState) -> UUID {
         WorkspaceBrowserEngine.newTab(state: &browser)
     }

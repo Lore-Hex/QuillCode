@@ -8148,3 +8148,38 @@ Code quality changes:
 Remaining risk:
 
 - This still renders the SwiftUI root view offscreen and exits through a smoke flag; it does not synthesize real clicks/typing against a packaged `.app` window or verify AppKit menu-bar behavior. The next native layer should package the app and drive it through Accessibility/XCTest/appshot automation.
+
+## 2026-06-27 Browser Session Reverse Sync Pass
+
+Overall grade after this slice: **A- app-layer sync architecture, A focused state coverage, B+ live browser feedback loop**.
+
+The visible macOS browser session could already mirror QuillCode browser tabs, but it was still one-way. If a user signed in, clicked through a site, or selected a different tab inside the WebKit session, QuillCode's preview model could remain stale until another model-driven browser action happened.
+
+Code quality changes:
+
+- Added `BrowserSessionUpdate` and `BrowserSessionTabUpdate` as app-layer reverse-sync data types next to the existing sync snapshot.
+- Added `WorkspaceBrowserEngine.applySessionUpdate` so visible-session URL/title/active-tab changes update isolated tab state, append browser history, refresh metadata snapshots, and preserve the AppKit/WebKit boundary.
+- Exposed `QuillCodeWorkspaceModel.applyBrowserSessionUpdate` through `WorkspaceBrowserWorkflow`, keeping state mutation actor-owned and focused.
+- Wired `DesktopBrowserSessionPresenter` to emit reverse updates from native tab selection and WebKit navigation finish events, with `QuillCodeDesktopBrowserCoordinator` installing the model update handler.
+- Added focused unit, integration, desktop-controller, and parity coverage for the bidirectional session seam.
+
+Remaining risk:
+
+- Reverse sync currently captures title, URL, and selected tab. Rich live-DOM feedback from user navigation and Linux/browser-process adapters remain pending, but they now have a clear snapshot/update seam to plug into without leaking platform types into `QuillCodeApp`.
+
+## 2026-06-27 Desktop Click Target Hardening Pass
+
+Overall grade after this slice: **A shared target reuse, A rendered clickability checks, A- native pixel measurement**.
+
+The click-target contract covered the main app module and rendered HTML harness, but it still missed visible desktop-only SwiftUI chrome. The menu-bar popover used raw SwiftUI buttons, and explicit Playwright `expectHitTarget` probes measured box size without proving the center and inset corners were actually owned by the intended target.
+
+Code quality changes:
+
+- Made the shared `QuillCodeMetrics`, target modifiers, and `QuillCodePressableButtonStyle` public so desktop SwiftUI can reuse the same hit-target design system instead of copying frame/content-shape logic.
+- Routed every visible `QuillCodeMenuBarView` action through one `menuActionButton` helper with full-row 44 pt targets and the standard 0.96 press feedback.
+- Expanded native source gating to include visible desktop SwiftUI sources while keeping true AppKit-owned command menu items exempt.
+- Strengthened Playwright `expectHitTarget` to require an accessible name, reject `pointer-events: none`, and sample the center plus inset corners with `elementFromPoint`.
+
+Remaining risk:
+
+- The native desktop popover is still source-gated rather than measured by Accessibility/UI automation. The shared primitive and rendered HTML audit reduce drift, but a packaged-app pixel probe remains the next stronger validation layer.

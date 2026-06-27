@@ -307,6 +307,8 @@ private struct RenderedWorkspacePixelStats {
 
 @MainActor
 private final class RenderSmokeNoopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
+    var onSessionUpdate: (@MainActor (BrowserSessionUpdate) -> Void)?
+
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {}
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {}
 }

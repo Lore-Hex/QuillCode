@@ -1,20 +1,20 @@
 import SwiftUI
 
-enum QuillCodeMetrics {
-    static let minimumHitTarget: CGFloat = 44
-    static let compactTextButtonMinWidth: CGFloat = 72
-    static let compactFormActionMinWidth: CGFloat = 56
-    static let compactControlRadius: CGFloat = 9
-    static let iconControlRadius: CGFloat = 10
-    static let topBarHeight: CGFloat = 44
-    static let composerSurfaceRadius: CGFloat = 12
-    static let composerControlRadius: CGFloat = 10
-    static let toolCardMinimumHeight: CGFloat = 74
-    static let compactToolCardMinimumHeight: CGFloat = 58
-    static let toolCardHeaderHeight: CGFloat = 44
-    static let toolCardRawDetailsMaxHeight: CGFloat = 240
-    static let toolCardRadius: CGFloat = 20
-    static let pressScale: CGFloat = 0.96
+public enum QuillCodeMetrics {
+    public static let minimumHitTarget: CGFloat = 44
+    public static let compactTextButtonMinWidth: CGFloat = 72
+    public static let compactFormActionMinWidth: CGFloat = 56
+    public static let compactControlRadius: CGFloat = 9
+    public static let iconControlRadius: CGFloat = 10
+    public static let topBarHeight: CGFloat = 44
+    public static let composerSurfaceRadius: CGFloat = 12
+    public static let composerControlRadius: CGFloat = 10
+    public static let toolCardMinimumHeight: CGFloat = 74
+    public static let compactToolCardMinimumHeight: CGFloat = 58
+    public static let toolCardHeaderHeight: CGFloat = 44
+    public static let toolCardRawDetailsMaxHeight: CGFloat = 240
+    public static let toolCardRadius: CGFloat = 20
+    public static let pressScale: CGFloat = 0.96
 }
 
 struct QuillCodeHitTargetSpec {
@@ -149,10 +149,12 @@ func quillCodeWithAnimation(_ animation: Animation, reduceMotion: Bool, _ update
     }
 }
 
-struct QuillCodePressableButtonStyle: ButtonStyle {
+public struct QuillCodePressableButtonStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    func makeBody(configuration: Configuration) -> some View {
+    public init() {}
+
+    public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(
                 minWidth: QuillCodeMetrics.minimumHitTarget,
@@ -169,7 +171,7 @@ extension View {
         modifier(QuillCodeHitTargetModifier(spec: spec))
     }
 
-    func quillCodeHitTarget(
+    public func quillCodeHitTarget(
         minWidth: CGFloat = QuillCodeMetrics.minimumHitTarget,
         minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
         alignment: Alignment = .center
@@ -181,7 +183,7 @@ extension View {
         ))
     }
 
-    func quillCodeTextButtonTarget(
+    public func quillCodeTextButtonTarget(
         minWidth: CGFloat = QuillCodeMetrics.compactTextButtonMinWidth,
         minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
         alignment: Alignment = .center,
@@ -195,7 +197,7 @@ extension View {
         ))
     }
 
-    func quillCodeFormActionTarget(
+    public func quillCodeFormActionTarget(
         minWidth: CGFloat = QuillCodeMetrics.compactFormActionMinWidth,
         minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
         alignment: Alignment = .center
@@ -207,14 +209,14 @@ extension View {
         ))
     }
 
-    func quillCodeIconButtonTarget(
+    public func quillCodeIconButtonTarget(
         size: CGFloat = QuillCodeMetrics.minimumHitTarget,
         radius: CGFloat = QuillCodeMetrics.iconControlRadius
     ) -> some View {
         quillCodeInteractiveTarget(.icon(size: size, radius: radius))
     }
 
-    func quillCodeFullRowButtonTarget(
+    public func quillCodeFullRowButtonTarget(
         minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
         alignment: Alignment = .leading,
         radius: CGFloat = QuillCodeMetrics.compactControlRadius
@@ -226,7 +228,7 @@ extension View {
         ))
     }
 
-    func quillCodeCapsuleButtonTarget(
+    public func quillCodeCapsuleButtonTarget(
         minWidth: CGFloat? = nil,
         minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
         alignment: Alignment = .center

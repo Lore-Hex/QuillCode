@@ -424,4 +424,70 @@ export async function expectHitTarget(locator: Locator, label: string) {
   if (!box) throw new Error(`${label} should have layout bounds`);
   expect(Math.round(box.width), `${label} width`).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(Math.round(box.height), `${label} height`).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
+  const clickableInteriorIssues = await target.evaluate((element, minimumHitTarget) => {
+    const rect = element.getBoundingClientRect();
+    const style = window.getComputedStyle(element);
+    const issues: string[] = [];
+
+    function accessibleName(targetElement: Element) {
+      const labelledBy = targetElement.getAttribute('aria-labelledby') || '';
+      const labelledText = labelledBy
+        .split(/\s+/)
+        .map((id) => document.getElementById(id)?.textContent || '')
+        .join(' ');
+      const placeholder = (
+        targetElement instanceof HTMLInputElement
+        || targetElement instanceof HTMLTextAreaElement
+        || targetElement instanceof HTMLSelectElement
+      ) ? targetElement.getAttribute('placeholder') || targetElement.getAttribute('aria-placeholder') || '' : '';
+      return [
+        targetElement.getAttribute('aria-label') || '',
+        labelledText,
+        targetElement.getAttribute('title') || '',
+        placeholder,
+        targetElement.textContent || ''
+      ]
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function isPointOwnedByTarget(x: number, y: number) {
+      const topElement = document.elementFromPoint(x, y);
+      return topElement === element || Boolean(topElement && element.contains(topElement));
+    }
+
+    const insetX = Math.min(10, rect.width / 4);
+    const insetY = Math.min(10, rect.height / 4);
+    const samplePoints = [
+      [rect.left + rect.width / 2, rect.top + rect.height / 2],
+      [rect.left + insetX, rect.top + insetY],
+      [rect.right - insetX, rect.top + insetY],
+      [rect.left + insetX, rect.bottom - insetY],
+      [rect.right - insetX, rect.bottom - insetY]
+    ].filter(([x, y]) => (
+      x >= 0
+        && y >= 0
+        && x <= document.documentElement.clientWidth
+        && y <= document.documentElement.clientHeight
+    ));
+
+    if (!accessibleName(element)) {
+      issues.push('missing_accessible_name');
+    }
+    if (style.pointerEvents === 'none') {
+      issues.push('pointer_events_none');
+    }
+    if (Math.round(rect.width) < minimumHitTarget || Math.round(rect.height) < minimumHitTarget) {
+      issues.push('too_small');
+    }
+    if (samplePoints.length === 0) {
+      issues.push('no_visible_sample_points');
+    }
+    if (samplePoints.some(([x, y]) => !isPointOwnedByTarget(x, y))) {
+      issues.push('clickable_interior_blocked');
+    }
+    return issues;
+  }, MINIMUM_HIT_TARGET);
+  expect(clickableInteriorIssues, `${label} should have a named, unblocked clickable interior`).toEqual([]);
 }
