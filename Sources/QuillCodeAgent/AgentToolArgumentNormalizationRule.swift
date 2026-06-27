@@ -180,6 +180,7 @@ enum AgentToolArgumentNormalizationRules {
         ToolDefinition.gitPullRequestReview.name,
         ToolDefinition.gitPullRequestReviewComment.name,
         ToolDefinition.gitPullRequestReviewReply.name,
+        ToolDefinition.gitPullRequestReviewThreads.name,
         ToolDefinition.gitPullRequestMerge.name
     ]
 }

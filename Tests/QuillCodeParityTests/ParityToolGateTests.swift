@@ -458,8 +458,8 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
             "The parity matrix should mention implemented PR review-reply execution."
         )
         XCTAssertTrue(
-            matrix.contains("review-thread resolve/unresolve via `gh api graphql`"),
-            "The parity matrix should mention implemented PR review-thread resolution execution."
+            matrix.contains("review-thread listing plus resolve/unresolve via `gh api graphql`"),
+            "The parity matrix should mention implemented PR review-thread listing and resolution execution."
         )
         XCTAssertFalse(
             matrix.contains("inline comment reply/resolution workflows pending"),

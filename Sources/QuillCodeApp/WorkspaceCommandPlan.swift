@@ -60,6 +60,7 @@ enum WorkspaceCommandPlan: Equatable {
         "git-pr-view": ToolDefinition.gitPullRequestView.name,
         "git-pr-checks": ToolDefinition.gitPullRequestChecks.name,
         "git-pr-diff": ToolDefinition.gitPullRequestDiff.name,
+        "git-pr-review-threads": ToolDefinition.gitPullRequestReviewThreads.name,
         "git-worktree-list": ToolDefinition.gitWorktreeList.name
     ]
 

@@ -7149,6 +7149,29 @@ Strict grades:
 - `WorkspaceCommandPlan.swift`: **A**. The new actions use normal draft-prefill plans instead of special UI branches.
 - Safety and parser tests: **A**. They cover the exact utility risk: user-requested review-thread actions should Auto approve without becoming broad PR write permission.
 
+## 2026-06-27 PR Review Thread Discovery Slice
+
+Overall grade after this slice: **A tool parity, A safety routing, A- future review UX**.
+
+The previous PR review-thread slice let users reply to inline comments and resolve/unresolve GraphQL review threads, but it did not provide a structured way to discover the IDs those actions require. This slice adds a read-only `host.git.pr.review_threads` tool that queries GitHub GraphQL for thread IDs, resolved/outdated state, file/line metadata, and first review-comment `databaseId` values for replies.
+
+Code quality changes:
+
+- Added local and SSH Remote execution for `host.git.pr.review_threads`, sharing the existing PR metadata resolver, selector validation, remote shell quoting, execution-context chips, slash parser, and command palette path.
+- Made the command run directly like other read-only PR actions instead of drafting text, while keeping reply/resolve mutation actions as explicit draft or structured agent actions.
+- Allowed omitted selectors through both argument-normalization paths so `show review threads` works for the current branch without forcing the model to invent empty arguments.
+- Added a typed final-answer summary for GraphQL review-thread output so chat shows unresolved/resolved counts, file/line locations, thread IDs, and first comment IDs instead of raw JSON.
+- Updated Auto safety routing so “show unresolved review threads” approves the read-only list tool instead of accidentally matching the review-submission or resolve-thread mutation rules.
+- Expanded tool, router, slash, remote command builder, workspace surface, command plan, command ranker, icon, safety, and parity tests around the new read-only action.
+
+Strict grades:
+
+- `AgentFinalAnswerBuilder.swift`: **A-**. The new formatter keeps review-thread discovery readable in chat; the file is still accumulating tool-specific answer formatters and will eventually want a registry split.
+- `AgentToolArgumentNormalizer.swift`: **A**. The no-selector rule now matches the tool schema and the prompt guidance exactly.
+- `GitHubPullRequestToolExecutor.swift`: **A-**. The GraphQL query is explicit and covered, but PR command growth is pushing this executor toward a split by command family.
+- `WorkspaceRemoteGitHubPullRequestCommandBuilder.swift`: **A**. Remote parity is complete and quote-safe for this command, and the GraphQL query is shared with the local executor through the tool-layer query helper.
+- `StaticSafetyPolicy.swift`: **A**. The new list rule is intentionally ordered before mutation/review rules and avoids broad “thread” matching so resolve requests still route to the mutation tool.
+
 Remaining parity risk:
 
 - PR command metadata is still duplicated across command catalog, slash catalog, icon catalog, and draft planner. The code is correct and tested, but a future descriptor table would be more DRY if the PR tool family keeps growing.

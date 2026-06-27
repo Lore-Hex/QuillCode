@@ -264,6 +264,30 @@ final class GitHubPullRequestToolExecutorTests: XCTestCase {
         ])
     }
 
+    func testPullRequestReviewThreadsUsesGitHubGraphQLQuery() throws {
+        let fixture = try makeReviewCommentFixture()
+
+        let result = fixture.git.listPullRequestReviewThreads(cwd: fixture.root, selector: "123")
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        let arguments = try fixture.arguments()
+        XCTAssertEqual(Array(arguments.prefix(7)), [
+            "api",
+            "graphql",
+            "--raw-field",
+            "owner=example",
+            "--raw-field",
+            "name=repo",
+            "--field"
+        ])
+        XCTAssertEqual(arguments[7], "number=123")
+        XCTAssertEqual(arguments[8], "--raw-field")
+        XCTAssertTrue(arguments[9].contains("query=query($owner: String!"), arguments[9])
+        XCTAssertTrue(arguments[9].contains("reviewThreads(first: 50)"), arguments[9])
+        XCTAssertTrue(arguments[9].contains("databaseId"), arguments[9])
+        XCTAssertTrue(arguments[9].contains("isResolved"), arguments[9])
+    }
+
     func testPullRequestReviewThreadUsesGitHubGraphQLMutation() throws {
         let fixture = try makeReviewCommentFixture()
 
@@ -503,6 +527,16 @@ final class GitHubPullRequestToolExecutorTests: XCTestCase {
             "--raw-field",
             "body=Updated this."
         ])
+
+        let reviewThreadsFixture = try makeReviewCommentFixture()
+        let reviewThreads = reviewThreadsFixture.router().execute(ToolCall(
+            name: ToolDefinition.gitPullRequestReviewThreads.name,
+            argumentsJSON: #"{"selector":"123"}"#
+        ))
+        XCTAssertTrue(reviewThreads.ok, "\(reviewThreads.error ?? "") \(reviewThreads.stderr)")
+        let reviewThreadsArguments = try reviewThreadsFixture.arguments()
+        XCTAssertEqual(Array(reviewThreadsArguments.prefix(4)), ["api", "graphql", "--raw-field", "owner=example"])
+        XCTAssertTrue(reviewThreadsArguments.joined(separator: "\n").contains("reviewThreads(first: 50)"))
 
         let reviewThreadFixture = try makeReviewCommentFixture()
         let reviewThread = reviewThreadFixture.router().execute(ToolCall(

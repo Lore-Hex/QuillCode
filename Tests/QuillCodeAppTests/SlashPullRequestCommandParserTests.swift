@@ -80,6 +80,16 @@ final class SlashPullRequestCommandParserTests: XCTestCase {
             ]
         )
         try assertToolCall(
+            SlashPullRequestCommandParser.parse("review-threads 456"),
+            name: ToolDefinition.gitPullRequestReviewThreads.name,
+            arguments: ["selector": "456"]
+        )
+        try assertToolCall(
+            SlashPullRequestCommandParser.parse("threads"),
+            name: ToolDefinition.gitPullRequestReviewThreads.name,
+            arguments: [:]
+        )
+        try assertToolCall(
             SlashPullRequestCommandParser.parse("resolve-thread PRRT_kwDOExample"),
             name: ToolDefinition.gitPullRequestReviewThread.name,
             arguments: ["threadId": "PRRT_kwDOExample", "action": "resolve"]
@@ -120,7 +130,7 @@ final class SlashPullRequestCommandParserTests: XCTestCase {
         )
         XCTAssertEqual(
             SlashPullRequestCommandParser.parse("unknown"),
-            .invalid("Unknown pull request command 'unknown'. Use create, view, checks, diff, checkout, comment, review, review-comment, review-reply, review-thread, reviewers, labels, or merge.")
+            .invalid("Unknown pull request command 'unknown'. Use create, view, checks, diff, checkout, comment, review, review-comment, review-reply, review-threads, review-thread, reviewers, labels, or merge.")
         )
     }
 

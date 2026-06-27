@@ -79,6 +79,87 @@ final class AgentFinalAnswerBuilderTests: XCTestCase {
         XCTAssertTrue(answer.contains("../quillcode-older"))
     }
 
+    func testPullRequestReviewThreadsAnswerSummarizesGraphQLOutput() {
+        let output = """
+        {
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "reviewThreads": {
+                  "nodes": [
+                    {
+                      "id": "PRRT_unresolved",
+                      "isResolved": false,
+                      "isOutdated": false,
+                      "path": "Sources/App.swift",
+                      "line": 24,
+                      "startLine": 20,
+                      "comments": {
+                        "nodes": [
+                          {
+                            "id": "PRRC_node",
+                            "databaseId": 12345,
+                            "body": "This should use the shared command descriptor.",
+                            "author": { "login": "reviewer" }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": "PRRT_resolved",
+                      "isResolved": true,
+                      "isOutdated": true,
+                      "path": "Tests/AppTests.swift",
+                      "line": 42,
+                      "startLine": null,
+                      "comments": { "nodes": [] }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+        """
+
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.gitPullRequestReviewThreads.name,
+                argumentsJSON: ToolArguments.json([:])
+            ),
+            result: ToolResult(ok: true, stdout: output)
+        )
+
+        XCTAssertTrue(answer.contains("Found 2 review threads: 1 unresolved, 1 resolved."))
+        XCTAssertTrue(answer.contains("- unresolved `Sources/App.swift:20-24`: thread `PRRT_unresolved`; comment #12345 by reviewer"))
+        XCTAssertTrue(answer.contains("This should use the shared command descriptor."))
+        XCTAssertTrue(answer.contains("- resolved, outdated `Tests/AppTests.swift:42`: thread `PRRT_resolved`"))
+    }
+
+    func testPullRequestReviewThreadsAnswerHandlesEmptyGraphQLOutput() {
+        let output = """
+        {
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "reviewThreads": { "nodes": [] }
+              }
+            }
+          }
+        }
+        """
+
+        let answer = AgentFinalAnswerBuilder.finalAnswer(
+            for: ToolCall(
+                name: ToolDefinition.gitPullRequestReviewThreads.name,
+                argumentsJSON: ToolArguments.json([:])
+            ),
+            result: ToolResult(ok: true, stdout: output)
+        )
+
+        XCTAssertEqual(answer, "No pull request review threads found.")
+    }
+
     func testLongOutputIsTruncatedWithToolCardHint() {
         let answer = AgentFinalAnswerBuilder.finalAnswer(
             for: ToolCall(

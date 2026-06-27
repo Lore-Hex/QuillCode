@@ -16,6 +16,7 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestCreate.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestReviewComment.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestReviewReply.name))
+        XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestReviewThreads.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitPullRequestReviewThread.name))
         XCTAssertFalse(names.contains(ToolDefinition.browserInspect.name))
         XCTAssertFalse(names.contains(ToolDefinition.planUpdate.name))
@@ -215,6 +216,22 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
                 "gh api \"repos/${repo}/pulls/${pr_number}/comments/99/replies\" '--raw-field' 'body=Updated this, thanks.'"
             ].joined(separator: " && ")
         )
+    }
+
+    func testRemoteGitHubPullRequestBuilderBuildsReviewThreadsCommand() throws {
+        let command = try remotePullRequestCommand(
+            name: ToolDefinition.gitPullRequestReviewThreads.name,
+            arguments: ["selector": "42"]
+        )
+
+        XCTAssertTrue(command.contains("'gh' 'pr' 'view' '42' '--json' 'number' '--jq' '.number'"), command)
+        XCTAssertTrue(command.contains("'gh' 'repo' 'view' '--json' 'nameWithOwner' '--jq' '.nameWithOwner'"), command)
+        XCTAssertTrue(command.contains("owner=${repo%%/*}"), command)
+        XCTAssertTrue(command.contains("name=${repo#*/}"), command)
+        XCTAssertTrue(command.contains("gh api graphql"), command)
+        XCTAssertTrue(command.contains("\"number=${pr_number}\""), command)
+        XCTAssertTrue(command.contains("reviewThreads(first: 50)"), command)
+        XCTAssertTrue(command.contains("databaseId"), command)
     }
 
     func testRemoteGitHubPullRequestBuilderBuildsReviewThreadCommand() throws {

@@ -162,6 +162,7 @@ enum AgentToolArgumentNormalizer {
             ToolDefinition.gitPullRequestView.name,
             ToolDefinition.gitPullRequestChecks.name,
             ToolDefinition.gitPullRequestCheckout.name,
+            ToolDefinition.gitPullRequestReviewThreads.name,
             ToolDefinition.gitPullRequestMerge.name,
             ToolDefinition.gitWorktreeList.name,
             ToolDefinition.gitWorktreePrune.name,
