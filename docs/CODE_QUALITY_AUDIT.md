@@ -8027,3 +8027,20 @@ Code quality changes:
 Remaining risk:
 
 - This still does not synthesize native click/key events against a packaged `.app` window. The next coverage layer should launch `quill-code-desktop`, drive the native window with Accessibility/XCTest or a small appshot harness, and capture a screenshot/appshot for the same prompt family.
+
+## 2026-06-27 Click Target Contract Pass
+
+Overall grade after this slice: **A native target primitives, A rendered target coverage, A- source-level precision**.
+
+The click-target contract now treats every interactive surface as a first-class target, not just obvious buttons. The main risk was that source gates could miss text-only `Link` controls or pass because a nearby unrelated target helper appeared in a broad source window.
+
+Code quality changes:
+
+- Added native parity coverage proving the shared hit-target modifier enforces the 44 pt minimum frame and explicit `contentShape` for rectangle, rounded, and capsule targets.
+- Extended native source gating from `Button` declarations to `Link` declarations so artifact links and future link-style controls cannot shrink to text bounds.
+- Strengthened the rendered interaction-audit parity check so whole-screen audits and explicit critical-control probes both use the same 44 px minimum.
+- Updated `docs/DECISIONS.md` to make the `Button`/`Link` click-target contract explicit for future UI contributors.
+
+Remaining risk:
+
+- Native SwiftUI hit-target validation is still source-gated rather than measured with platform UI automation. Keep mirrored Playwright harness coverage for high-risk controls until packaged native UI automation can measure real pixels.

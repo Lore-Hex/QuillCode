@@ -33,10 +33,42 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "The rendered click-target audit should cover native controls, ARIA controls, tabs, and text entry."
         )
         XCTAssertTrue(
+            auditHelperText.contains("MINIMUM_HIT_TARGET = 44")
+                && auditHelperText.contains("expectHitTarget(locator: Locator"),
+            "The rendered click-target audit should keep the same 44 px minimum for whole-screen audits and explicit critical-control probes."
+        )
+        XCTAssertTrue(
             auditHelperText.contains("closestInteractiveAncestor")
                 && auditHelperText.contains("nestedIssues")
                 && auditHelperText.contains("expectNoNestedInteractiveTargets"),
             "The rendered click-target audit should fail nested interactive controls, not only undersized controls."
+        )
+    }
+
+    func testNativeHitTargetPrimitivesFrameAndShapeEveryTarget() throws {
+        let designText = try Self.appSourceText(named: "QuillCodeDesignSystem.swift")
+
+        XCTAssertTrue(
+            designText.contains("static let minimumHitTarget: CGFloat = 44"),
+            "Native controls should use the same 44 pt target baseline as the rendered harness."
+        )
+        XCTAssertTrue(
+            designText.contains(".frame(\n            minWidth: spec.minWidth")
+                && designText.contains("minHeight: spec.minHeight"),
+            "Shared native targets should enforce minimum width and height inside the modifier, not rely on per-call padding."
+        )
+        XCTAssertTrue(
+            designText.contains(".contentShape(Rectangle())")
+                && designText.contains(".contentShape(RoundedRectangle")
+                && designText.contains(".contentShape(Capsule())"),
+            "Shared native targets should give each visible shape an explicit tappable content shape."
+        )
+        XCTAssertTrue(
+            designText.contains("static func icon(")
+                && designText.contains("static func fullRow(")
+                && designText.contains("static func formAction(")
+                && designText.contains("static func capsule("),
+            "Shared target specs should cover icon, row, form-action, and capsule controls instead of ad hoc sizing."
         )
     }
 
@@ -93,6 +125,11 @@ private struct SwiftSourceInteractionTargetAudit {
                !hasSharedTarget(in: window(in: lines, around: index, radius: 56)) {
                 violations.append("\(relativePath):\(index + 1) Button lacks shared hit target")
             }
+
+            if isLinkDeclaration(line),
+               !hasSharedTarget(in: window(in: lines, around: index, radius: 28)) {
+                violations.append("\(relativePath):\(index + 1) Link lacks shared hit target")
+            }
         }
 
         return violations
@@ -105,6 +142,13 @@ private struct SwiftSourceInteractionTargetAudit {
     private func isButtonDeclaration(_ line: String) -> Bool {
         line.range(
             of: #"^\s*Button(?:\(|\s*\{)"#,
+            options: .regularExpression
+        ) != nil
+    }
+
+    private func isLinkDeclaration(_ line: String) -> Bool {
+        line.range(
+            of: #"^\s*Link(?:\(|\s*\{)"#,
             options: .regularExpression
         ) != nil
     }

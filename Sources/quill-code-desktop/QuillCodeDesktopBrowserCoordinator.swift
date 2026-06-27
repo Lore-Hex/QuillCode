@@ -27,6 +27,7 @@ struct QuillCodeDesktopBrowserCoordinator {
         model.setBrowserAddressDraft(addressDraft)
         _ = model.openBrowserPreview(workspaceRoot: activeWorkspaceRoot(for: model, fallback: workspaceRoot))
         refresh()
+        syncOpenSession(model: model)
 
         tasks.replace(.browserPreview) {
             _ = await model.refreshBrowserSnapshot(pageFetcher: pageFetcher)
@@ -34,6 +35,7 @@ struct QuillCodeDesktopBrowserCoordinator {
                 _ = await model.refreshRenderedBrowserSnapshot(capturer: liveDOMCapturer)
             }
         } onFinish: {
+            syncOpenSession(model: model)
             refresh()
         }
     }
@@ -57,12 +59,23 @@ struct QuillCodeDesktopBrowserCoordinator {
             return
         }
 
-        sessionPresenter.openSession(url: url)
         if model.browser.currentURL != url.absoluteString {
             model.setBrowserAddressDraft(url.absoluteString)
             _ = model.openBrowserPreview(workspaceRoot: root)
         }
+        let snapshot = BrowserSessionSyncSnapshot(browser: model.browser)
+        guard !snapshot.isEmpty else {
+            refresh()
+            return
+        }
+        sessionPresenter.presentSession(snapshot)
         refresh()
+    }
+
+    func syncOpenSession(model: QuillCodeWorkspaceModel) {
+        let snapshot = BrowserSessionSyncSnapshot(browser: model.browser)
+        guard !snapshot.isEmpty else { return }
+        sessionPresenter.syncSession(snapshot)
     }
 
     private func activeWorkspaceRoot(

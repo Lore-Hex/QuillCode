@@ -440,6 +440,7 @@ extension QuillCodeDesktopController: QuillCodeDesktopCommandPerforming {
             return
         }
         modelStateCoordinator.syncComposerDraft(from: model, draft: &draft)
+        browserCoordinator.syncOpenSession(model: model)
         refresh()
     }
 }

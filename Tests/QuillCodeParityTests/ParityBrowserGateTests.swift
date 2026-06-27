@@ -80,6 +80,27 @@ final class ParityBrowserGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelText.contains("WKWebView"), "WorkspaceModel should not depend on platform browser rendering types.")
     }
 
+    func testVisibleBrowserSessionSyncStaysBehindSnapshotContract() throws {
+        let snapshotText = try Self.appSourceText(named: "BrowserSessionSyncSnapshot.swift")
+        let presenterText = try Self.desktopSourceText(named: "DesktopBrowserSessionPresenter.swift")
+        let coordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopBrowserCoordinator.swift")
+        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let snapshotTests = try Self.appTestSourceText(named: "BrowserSessionSyncSnapshotTests.swift")
+
+        XCTAssertTrue(snapshotText.contains("public struct BrowserSessionSyncSnapshot"), "Visible browser session sync should have a shared app-layer snapshot.")
+        XCTAssertTrue(snapshotText.contains("public struct BrowserSessionTabSnapshot"), "Visible browser session tabs should have a shared app-layer snapshot.")
+        XCTAssertTrue(snapshotText.contains("public init(browser: BrowserState)"), "The sync snapshot should derive from browser state without desktop UI types.")
+        XCTAssertFalse(snapshotText.contains("WebKit"), "The app-layer browser session snapshot should not know about WebKit.")
+        XCTAssertFalse(snapshotText.contains("AppKit"), "The app-layer browser session snapshot should not know about AppKit.")
+        XCTAssertTrue(presenterText.contains("func presentSession(_ snapshot: BrowserSessionSyncSnapshot)"), "Desktop presenter should present the shared browser session snapshot.")
+        XCTAssertTrue(presenterText.contains("func syncSession(_ snapshot: BrowserSessionSyncSnapshot)"), "Desktop presenter should sync already-open sessions from the shared snapshot.")
+        XCTAssertTrue(presenterText.contains("NSTabView"), "macOS visible browser sessions should render synchronized native tabs.")
+        XCTAssertFalse(presenterText.contains("func openSession(url: URL)"), "Desktop presenter should not regress to single-URL visible browser sessions.")
+        XCTAssertTrue(coordinatorText.contains("BrowserSessionSyncSnapshot(browser: model.browser)"), "Desktop browser coordinator should derive sync snapshots from model browser state.")
+        XCTAssertTrue(controllerText.contains("browserCoordinator.syncOpenSession"), "Desktop workspace commands should sync an already-open visible browser session.")
+        XCTAssertTrue(snapshotTests.contains("testSnapshotIncludesOnlyNavigableTabsAndPreservesActiveTab"), "Session snapshot behavior should have focused unit coverage.")
+    }
+
     func testWorkspaceModelDelegatesBrowserStateTransitions() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let browserModelText = try Self.appSourceText(named: "WorkspaceModelBrowser.swift")
