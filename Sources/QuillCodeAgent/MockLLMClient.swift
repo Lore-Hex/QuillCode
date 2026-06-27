@@ -49,6 +49,18 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
+        if lower.contains("handoff"),
+           tools.contains(where: { $0.name == ToolDefinition.handoffUpdate.name }) {
+            let update = AgentHandoffUpdate(
+                summary: "Current task state is ready for continuation.",
+                nextSteps: ["Review the latest tool output", "Continue from the Activity pane"]
+            )
+            return .tool(.init(
+                name: ToolDefinition.handoffUpdate.name,
+                argumentsJSON: try JSONHelpers.encodePretty(update)
+            ))
+        }
+
         if lower.contains("whoami") {
             return .tool(.init(
                 name: ToolDefinition.shellRun.name,

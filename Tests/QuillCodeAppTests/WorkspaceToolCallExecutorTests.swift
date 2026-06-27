@@ -85,6 +85,31 @@ final class WorkspaceToolCallExecutorTests: XCTestCase {
         XCTAssertTrue(execution.followUps.isEmpty)
     }
 
+    func testHandoffUpdateRoutesBeforeLocalRouter() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let update = AgentHandoffUpdate(
+            summary: "Ready for the next agent.",
+            nextSteps: ["Check CI"]
+        )
+        let executor = WorkspaceToolCallExecutor(
+            selectedProject: nil,
+            browser: BrowserState(),
+            router: ToolRouter(workspaceRoot: root),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        )
+
+        let execution = executor.execute(ToolCall(
+            name: ToolDefinition.handoffUpdate.name,
+            argumentsJSON: try JSONHelpers.encodePretty(update)
+        ))
+        let decoded = try JSONHelpers.decode(AgentHandoffUpdate.self, from: execution.primary.result.stdout)
+
+        XCTAssertTrue(execution.ok, execution.primary.result.error ?? "")
+        XCTAssertEqual(decoded.summary, "Ready for the next agent.")
+        XCTAssertEqual(decoded.nextSteps, ["Check CI"])
+        XCTAssertTrue(execution.followUps.isEmpty)
+    }
+
     func testApplyPatchReturnsReviewDiffFollowUp() throws {
         let root = try temporaryGitRepository()
         let executor = WorkspaceToolCallExecutor(

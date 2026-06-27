@@ -50,6 +50,14 @@ enum AgentUtilityToolAnswerFormatters {
         call.name == ToolDefinition.planUpdate.name ? "Updated the task plan." : nil
     }
 
+    static func handoffUpdateAnswer(
+        call: ToolCall,
+        result _: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        call.name == ToolDefinition.handoffUpdate.name ? "Updated the handoff summary." : nil
+    }
+
     static func memoryRememberAnswer(
         call: ToolCall,
         result: ToolResult,

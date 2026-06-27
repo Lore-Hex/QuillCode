@@ -112,6 +112,23 @@ final class CoreModelTests: XCTestCase {
         XCTAssertTrue(ToolDefinition.memoryRemember.parametersJSON.contains(#""content""#))
     }
 
+    func testAgentHandoffUpdateRoundTrips() throws {
+        let update = AgentHandoffUpdate(
+            summary: "Implemented the focused slice and ran validation.",
+            nextSteps: ["Review the PR", "Merge once CI is green"]
+        )
+
+        let encoded = try JSONHelpers.encodePretty(update)
+        let decoded = try JSONHelpers.decode(AgentHandoffUpdate.self, from: encoded)
+
+        XCTAssertEqual(decoded, update)
+        XCTAssertEqual(ToolDefinition.handoffUpdate.name, "host.handoff.update")
+        XCTAssertEqual(ToolDefinition.handoffUpdate.host, .local)
+        XCTAssertEqual(ToolDefinition.handoffUpdate.risk, .read)
+        XCTAssertTrue(ToolDefinition.handoffUpdate.parametersJSON.contains(#""summary""#))
+        XCTAssertTrue(ToolDefinition.handoffUpdate.parametersJSON.contains(#""nextSteps""#))
+    }
+
     func testToolArgumentsRejectMissingCommand() throws {
         let args = try ToolArguments("{}")
         XCTAssertThrowsError(try args.requiredString("cmd"))

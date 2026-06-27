@@ -7532,3 +7532,27 @@ Strict grades:
 Remaining risk:
 
 - The coordinator is intentionally source-gated for now. If desktop coordinators move into a testable library target, add direct fake-model tests for review action routing and comment mutation edge cases.
+
+## 2026-06-27 Model-Authored Activity Handoff Pass
+
+Overall grade after this slice: **A event-log contract, A executor boundary, A- Activity depth**.
+
+The Activity pane had model-authored plans, but handoff summaries were deterministic fallback text only. That made continuation summaries replayable, but it prevented the agent from recording higher-context Codex-style handoff state when a task reached a natural transfer point.
+
+Code quality changes:
+
+- Added `AgentHandoffUpdate` and the built-in `host.handoff.update` tool schema beside the existing core tool records.
+- Added `HandoffUpdateToolExecutor` to normalize bounded summary and next-step payloads, parse the latest successful event-log update, and render the shared Activity body text.
+- Exposed the handoff tool through `WorkspaceAgentRunContextBuilder` and the generic workspace tool executor without adding branches to `WorkspaceModel`.
+- Updated Activity projection to prefer the latest model-authored handoff, then fall back to deterministic derived summary text.
+- Added unit, integration, agent-loop, and parity gates covering round-trip schema, tool routing, run-context exposure, transcript recording, and Activity rendering.
+
+Strict grades:
+
+- `HandoffUpdateToolExecutor.swift`: **A**. Small, pure, bounded, and parallel to the plan executor without broadening workspace model responsibilities.
+- `WorkspaceActivitySurfaceBuilder.swift`: **A-**. Activity owns one more authored-state preference cleanly, but richer task dependency rendering will eventually need a deeper activity-state reducer.
+- `WorkspaceAgentRunContextBuilder.swift`: **A-**. The additional Activity tool boundary is coherent; if more Activity-owned tools appear, split the tool list into a tiny `WorkspaceActivityToolDefinitions` helper.
+
+Remaining risk:
+
+- Handoff summaries are now model-authored when the model calls the tool, but QuillCode does not yet proactively prompt for handoff updates at every long-task boundary. Richer task lifecycle triggers remain part of broader Activity/task parity.

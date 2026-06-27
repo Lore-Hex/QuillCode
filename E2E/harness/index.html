@@ -2925,7 +2925,8 @@
       activity: {
         isVisible: false,
         collapsedSections: [],
-        authoredPlan: null
+        authoredPlan: null,
+        authoredHandoff: null
       },
       automations: {
         isVisible: false,
@@ -6255,6 +6256,15 @@
         artifacts,
         finalAnswer: latestAssistant?.text || null
       });
+      const fallbackHandoff = handoffSummary({
+        threadTitle: selectedThread?.title || 'No task selected',
+        latestRequest: latestUser ? latestUser.text : 'No task selected',
+        status: state.topBar.agentStatus,
+        tools: cards,
+        sources,
+        artifacts,
+        finalAnswer: latestAssistant?.text || null
+      });
       return {
         subtitle: `${countLabel(cards.length, 'tool')} · ${countLabel(sources.length, 'source')} · ${countLabel(artifacts.length, 'artifact')}`,
         statusLabel: state.topBar.agentStatus,
@@ -6272,15 +6282,7 @@
           artifacts,
           finalAnswer: latestAssistant?.text || null,
           planItems,
-          handoffSummary: handoffSummary({
-            threadTitle: selectedThread?.title || 'No task selected',
-            latestRequest: latestUser ? latestUser.text : 'No task selected',
-            status: state.topBar.agentStatus,
-            tools: cards,
-            sources,
-            artifacts,
-            finalAnswer: latestAssistant?.text || null
-          })
+          handoffSummary: state.activity.authoredHandoff || fallbackHandoff
         })
       };
     }
@@ -6854,6 +6856,7 @@
       state.transcript.toolCards = [];
       state.transcript.timelineItems = [];
       state.activity.authoredPlan = null;
+      state.activity.authoredHandoff = null;
       state.review = {
         title: 'Review changes',
         subtitle: 'Latest git diff',
@@ -9451,6 +9454,24 @@
           outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(update, null, 2) }, null, 2)
         });
         addMessage('assistant', 'Updated the task plan.');
+      } else if (text.toLowerCase().includes('handoff')) {
+        const update = {
+          summary: 'Current task state is ready for continuation.',
+          nextSteps: ['Review the latest tool output', 'Continue from the Activity pane']
+        };
+        state.activity.authoredHandoff = [
+          update.summary,
+          'Next steps:',
+          ...update.nextSteps.map((step, index) => `${index + 1}. ${step}`)
+        ].join('\n');
+        addToolCard({
+          title: 'host.handoff.update',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify(update, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(update, null, 2) }, null, 2)
+        });
+        addMessage('assistant', 'Updated the handoff summary.');
       } else if (browserTarget) {
         const url = normalizeBrowserURL(browserTarget);
         if (url) {

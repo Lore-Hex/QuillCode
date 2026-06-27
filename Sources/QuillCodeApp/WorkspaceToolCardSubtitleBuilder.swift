@@ -47,6 +47,8 @@ enum WorkspaceToolCardSubtitleBuilder {
             return sanitized(arguments.string("branch")) ?? sanitized(arguments.string("path"))
         case "host.plan.update":
             return "plan"
+        case "host.handoff.update":
+            return "handoff"
         case "host.browser.inspect":
             return sanitized(arguments.string("url"))
         case "host.memory.remember":

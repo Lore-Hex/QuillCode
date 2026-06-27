@@ -3,14 +3,14 @@ import QuillCodeAgent
 
 struct WorkspaceToolExecutionOverrideCombiner: Sendable, Hashable {
     static func combine(
-        plan: AgentToolExecutionOverride?,
+        activity: AgentToolExecutionOverride?,
         browser: AgentToolExecutionOverride?,
         computerUse: AgentToolExecutionOverride?,
         memory: AgentToolExecutionOverride?,
         mcp: AgentToolExecutionOverride?,
         remoteProject: AgentToolExecutionOverride?
     ) -> AgentToolExecutionOverride? {
-        guard plan != nil
+        guard activity != nil
                 || browser != nil
                 || computerUse != nil
                 || memory != nil
@@ -20,7 +20,7 @@ struct WorkspaceToolExecutionOverrideCombiner: Sendable, Hashable {
         }
 
         return { call, workspaceRoot in
-            if let result = await plan?(call, workspaceRoot) {
+            if let result = await activity?(call, workspaceRoot) {
                 return result
             }
             if let result = await remoteProject?(call, workspaceRoot) {
