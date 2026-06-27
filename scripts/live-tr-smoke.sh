@@ -8,6 +8,7 @@ SMOKE_WORKSPACE="$SMOKE_ROOT/workspace"
 KEY_FILE="${QUILLCODE_LIVE_KEY_FILE:-$HOME/.quill.code.keyfile}"
 RAW_MODEL="${QUILLCODE_LIVE_MODEL:-deepseekv4flash}"
 BASE_URL="${QUILLCODE_LIVE_BASE_URL:-https://api.trustedrouter.com/v1}"
+KEEP_ARTIFACTS="${QUILLCODE_LIVE_KEEP_ARTIFACTS:-0}"
 
 case "$RAW_MODEL" in
   deepseekv4flash|deepseek-v4-flash)
@@ -26,7 +27,17 @@ require_tool() {
 }
 
 cleanup() {
-  rm -rf "$SMOKE_ROOT"
+  local status=$?
+  if [[ "$status" -eq 0 && "$KEEP_ARTIFACTS" != "1" ]]; then
+    rm -rf "$SMOKE_ROOT"
+    return
+  fi
+
+  if [[ "$status" -eq 0 ]]; then
+    echo "Live smoke artifacts kept at $SMOKE_ROOT"
+  else
+    echo "Live smoke failed; artifacts kept at $SMOKE_ROOT" >&2
+  fi
 }
 trap cleanup EXIT
 

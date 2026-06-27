@@ -1,0 +1,44 @@
+name: Live TrustedRouter Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "TrustedRouter model to use for the live smoke"
+        required: false
+        default: "deepseekv4flash"
+  schedule:
+    - cron: "17 10 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-trustedrouter-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  live-smoke:
+    runs-on: macos-15
+    env:
+      QUILLCODE_API_KEY: ${{ secrets.QUILLCODE_LIVE_API_KEY }}
+      QUILLCODE_LIVE_MODEL: ${{ inputs.model || 'deepseekv4flash' }}
+      QUILLCODE_LIVE_KEEP_ARTIFACTS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check live smoke secret
+        run: |
+          if [[ -z "${QUILLCODE_API_KEY:-}" ]]; then
+            echo "::notice::Skipping live TrustedRouter smoke because QUILLCODE_LIVE_API_KEY is not configured."
+            exit 0
+          fi
+      - name: Run live TrustedRouter smoke
+        if: env.QUILLCODE_API_KEY != ''
+        run: ./scripts/live-tr-smoke.sh
+      - name: Upload live smoke artifacts
+        if: always() && env.QUILLCODE_API_KEY != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-trustedrouter-smoke
+          path: /tmp/quillcode-live-smoke.*
+          if-no-files-found: ignore

@@ -1,5 +1,20 @@
 # Code Quality Audit
 
+## 2026-06-27 Real-World Smoke Coverage Pass
+
+Overall grade after this slice: **A deterministic CI stability, A- real-provider release coverage, B+ live workflow observability until secrets are configured**.
+
+The deterministic suite is strong enough for every PR, but real model regressions need a first-class lane because the failures users noticed were end-to-end behavior failures: passive promises, empty shell arguments, missing file side effects, and model-output/schema drift. This pass turns the existing live TrustedRouter smoke into a documented release lane instead of an easy-to-forget script.
+
+- Added `scripts/real-world-smoke.sh` as the release-candidate wrapper: deterministic smoke always runs, live TrustedRouter smoke runs when a key is available, and `QUILLCODE_REQUIRE_LIVE_SMOKE=1` makes the live path mandatory for prompt/parser/runtime/safety changes.
+- Added a manual and weekly `Live TrustedRouter Smoke` workflow that runs the real-provider suite when `QUILLCODE_LIVE_API_KEY` is configured.
+- Preserved live smoke artifacts on failure, and optionally on success, so stdout/stderr/thread JSON/workspace state survive debugging.
+- Documented when to use deterministic CI versus the real-world smoke lane in the test plan and decisions log.
+
+Residual risk:
+
+- The live workflow depends on a repository secret being configured. Until that exists, local keyfile runs remain the real-provider release gate.
+
 ## 2026-06-27 HTML Command Routing Contract Pass
 
 Overall grade after this slice: **A command attribute consistency, A renderer/harness drift coverage, A- full click-action breadth**.
