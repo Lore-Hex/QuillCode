@@ -18,10 +18,19 @@ case "$RAW_MODEL" in
     ;;
 esac
 
+require_tool() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "Required tool not found: $1" >&2
+    exit 2
+  fi
+}
+
 cleanup() {
   rm -rf "$SMOKE_ROOT"
 }
 trap cleanup EXIT
+
+require_tool jq
 
 trim() {
   awk '{$1=$1; print}'
@@ -123,6 +132,54 @@ assert_workspace_file_contains_exactly() {
   fi
 }
 
+assert_saved_transcripts_are_actionable() {
+  local threads_dir="$SMOKE_HOME/threads"
+
+  if [[ ! -d "$threads_dir" ]]; then
+    echo "live smoke did not persist any thread directory" >&2
+    exit 1
+  fi
+
+  local thread_count
+  thread_count="$(find "$threads_dir" -maxdepth 1 -type f -name '*.json' | wc -l | tr -d ' ')"
+  if [[ "$thread_count" -lt 3 ]]; then
+    echo "live smoke expected at least 3 persisted thread transcripts, found $thread_count" >&2
+    find "$threads_dir" -maxdepth 1 -type f -name '*.json' -print >&2
+    exit 1
+  fi
+
+  jq -s -e '
+    def queued_calls:
+      [.events[]? | select(.kind == "toolQueued") | .payloadJSON | fromjson];
+    def queued_arguments:
+      [queued_calls[] | .argumentsJSON | fromjson];
+    def completed_results:
+      [.events[]? | select(.kind == "toolCompleted") | .payloadJSON | fromjson];
+    def bad_assistant_promises:
+      [.messages[]?
+        | select(.role == "assistant")
+        | .content
+        | select(test("No shell command was specified|I'\''?ll (run|check|do)"; "i"))];
+
+    all(.[]; (
+      (.messages | length) >= 2
+      and (bad_assistant_promises | length) == 0
+      and (queued_calls | length) >= 1
+      and (queued_arguments | length) == (queued_calls | length)
+      and all(queued_calls[]; (.name | type == "string") and (.name | length) > 0)
+      and all(queued_calls[]; (.argumentsJSON | type == "string") and (.argumentsJSON | length) > 2)
+      and all(queued_arguments[]; (type == "object") and (length > 0))
+      and ([.events[]? | select(.kind == "toolFailed")] | length) == 0
+      and (completed_results | length) >= 1
+      and all(completed_results[]; .ok == true)
+    ))
+  ' "$threads_dir"/*.json >/dev/null || {
+    echo "live smoke persisted transcript integrity check failed" >&2
+    jq '. | {title, messages, events}' "$threads_dir"/*.json >&2 || true
+    exit 1
+  }
+}
+
 echo "==> Running live TrustedRouter shell-action smoke with $MODEL"
 RUN_OUTPUT="$SMOKE_ROOT/run.stdout"
 RUN_ERROR="$SMOKE_ROOT/run.stderr"
@@ -141,5 +198,7 @@ FILE_ERROR="$SMOKE_ROOT/file.stderr"
 run_live_prompt "Create \`live-smoke.txt\` in this workspace with exactly this content: \`quillcode_live_file_smoke\`." "$FILE_OUTPUT" "$FILE_ERROR"
 assert_no_action_regression "$FILE_OUTPUT" "$FILE_ERROR"
 assert_workspace_file_contains_exactly "live-smoke.txt" "quillcode_live_file_smoke"
+
+assert_saved_transcripts_are_actionable
 
 echo "QuillCode live TrustedRouter smoke passed."
