@@ -142,6 +142,29 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(executorText.contains("parametersJSON"), "GitToolExecutor should not own JSON schema strings.")
     }
 
+    func testGitHubPullRequestMetadataResolutionStaysFocused() throws {
+        let executorText = try Self.toolsSourceText(named: "GitHubPullRequestToolExecutor.swift")
+        let resolverText = try Self.toolsSourceText(named: "GitHubPullRequestMetadataResolver.swift")
+        let resolverTests = try Self.toolsTestSourceText(named: "GitHubPullRequestMetadataResolverTests.swift")
+
+        XCTAssertTrue(resolverText.contains("struct GitHubPullRequestMetadataResolver"), "GitHub PR metadata lookup should live in a focused resolver.")
+        XCTAssertTrue(resolverText.contains("struct GitHubPullRequestMetadata"), "GitHub PR metadata records should live beside the resolver.")
+        XCTAssertTrue(resolverText.contains("struct GitHubRepositoryMetadata"), "GitHub repository metadata records should live beside the resolver.")
+        XCTAssertTrue(resolverText.contains("func pullRequest(selector: String?, cwd: URL)"), "PR metadata resolution should be directly testable.")
+        XCTAssertTrue(resolverText.contains("func repository(cwd: URL)"), "Repository metadata resolution should be directly testable.")
+        XCTAssertTrue(resolverText.contains("JSONDecoder().decode"), "Metadata JSON decoding should live in the resolver.")
+        XCTAssertTrue(executorText.contains("metadataResolver.pullRequest"), "GitHub PR executor should delegate PR metadata resolution.")
+        XCTAssertTrue(executorText.contains("metadataResolver.repository"), "GitHub PR executor should delegate repository metadata resolution.")
+        XCTAssertTrue(resolverTests.contains("testResolverUsesGitHubCLIAndDecodesMetadata"), "Metadata resolver needs focused success coverage.")
+        XCTAssertTrue(resolverTests.contains("testResolverRejectsInvalidPullRequestMetadata"), "Metadata resolver needs focused invalid PR metadata coverage.")
+        XCTAssertTrue(resolverTests.contains("testResolverRejectsInvalidRepositoryMetadata"), "Metadata resolver needs focused invalid repository metadata coverage.")
+        XCTAssertFalse(executorText.contains("struct PullRequestMetadata"), "GitHub PR executor should not own PR metadata records.")
+        XCTAssertFalse(executorText.contains("struct RepositoryMetadata"), "GitHub PR executor should not own repository metadata records.")
+        XCTAssertFalse(executorText.contains("func resolvePullRequest"), "GitHub PR executor should not own PR metadata resolution.")
+        XCTAssertFalse(executorText.contains("func resolveRepository"), "GitHub PR executor should not own repository metadata resolution.")
+        XCTAssertFalse(executorText.contains("JSONDecoder().decode"), "GitHub PR executor should not own metadata JSON decoding.")
+    }
+
     func testToolRouterDelegatesGitToolCallDispatch() throws {
         let routerText = try Self.toolsSourceText(named: "ToolRouter.swift")
         let dispatcherText = try Self.toolsSourceText(named: "GitToolCallDispatcher.swift")

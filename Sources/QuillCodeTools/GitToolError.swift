@@ -7,6 +7,9 @@ public enum GitToolError: Error, CustomStringConvertible {
     case emptyPullRequestReviewBody
     case emptyPullRequestReviewers
     case emptyPullRequestLabels
+    case invalidPullRequestReviewCommentID(Int)
+    case invalidPullRequestReviewThreadID(String)
+    case invalidPullRequestReviewThreadAction(String)
     case invalidPullRequestReviewLine(Int)
     case invalidPullRequestReviewLineRange(startLine: Int, line: Int)
     case invalidPullRequestReviewSide(String)
@@ -42,6 +45,12 @@ public enum GitToolError: Error, CustomStringConvertible {
             return "At least one GitHub pull request reviewer to add or remove is required."
         case .emptyPullRequestLabels:
             return "At least one GitHub pull request label to add or remove is required."
+        case .invalidPullRequestReviewCommentID(let value):
+            return "GitHub pull request review comment ID must be positive: \(value)"
+        case .invalidPullRequestReviewThreadID(let value):
+            return "GitHub pull request review thread ID is unsupported: \(value)"
+        case .invalidPullRequestReviewThreadAction(let value):
+            return "GitHub pull request review thread action is unsupported: \(value)"
         case .invalidPullRequestReviewLine(let value):
             return "GitHub pull request review line must be positive: \(value)"
         case .invalidPullRequestReviewLineRange(let startLine, let line):

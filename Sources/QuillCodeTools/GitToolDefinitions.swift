@@ -145,6 +145,22 @@ public extension ToolDefinition {
         risk: .append
     )
 
+    static let gitPullRequestReviewReply = ToolDefinition(
+        name: "host.git.pr.review_reply",
+        description: "Reply to an existing inline GitHub pull request review comment thread. Optional selector may be a PR number, URL, or branch. Use commentId from the review comment being replied to.",
+        parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."},"commentId":{"type":"integer","description":"GitHub pull request review comment ID to reply to."},"body":{"type":"string","description":"Reply body to post."}},"required":["commentId","body"]}"#,
+        host: .local,
+        risk: .append
+    )
+
+    static let gitPullRequestReviewThread = ToolDefinition(
+        name: "host.git.pr.review_thread",
+        description: "Resolve or unresolve an inline GitHub pull request review thread using its GraphQL thread ID.",
+        parametersJSON: #"{"type":"object","properties":{"threadId":{"type":"string","description":"GitHub GraphQL pull request review thread node ID."},"action":{"type":"string","enum":["resolve","unresolve"],"description":"Whether to resolve or unresolve the review thread."}},"required":["threadId","action"]}"#,
+        host: .local,
+        risk: .append
+    )
+
     static let gitPullRequestMerge = ToolDefinition(
         name: "host.git.pr.merge",
         description: "Merge or enable auto-merge for the current or selected GitHub pull request using GitHub CLI. Method must be squash, merge, or rebase.",

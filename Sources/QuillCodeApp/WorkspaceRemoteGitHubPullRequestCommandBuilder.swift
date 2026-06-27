@@ -15,6 +15,8 @@ enum WorkspaceRemoteGitHubPullRequestCommandBuilder {
         ToolDefinition.gitPullRequestComment.name,
         ToolDefinition.gitPullRequestReview.name,
         ToolDefinition.gitPullRequestReviewComment.name,
+        ToolDefinition.gitPullRequestReviewReply.name,
+        ToolDefinition.gitPullRequestReviewThread.name,
         ToolDefinition.gitPullRequestMerge.name
     ]
 
@@ -28,6 +30,7 @@ enum WorkspaceRemoteGitHubPullRequestCommandBuilder {
         ToolDefinition.gitPullRequestComment.name,
         ToolDefinition.gitPullRequestReview.name,
         ToolDefinition.gitPullRequestReviewComment.name,
+        ToolDefinition.gitPullRequestReviewReply.name,
         ToolDefinition.gitPullRequestMerge.name
     ]
 
@@ -71,6 +74,17 @@ enum WorkspaceRemoteGitHubPullRequestCommandBuilder {
                 body: try args.requiredString("body"),
                 startLine: args.int("startLine"),
                 startSide: args.string("startSide")
+            )
+        case ToolDefinition.gitPullRequestReviewReply.name:
+            return try reviewReply(
+                selector: args.string("selector"),
+                commentID: try args.requiredInt("commentId"),
+                body: try args.requiredString("body")
+            )
+        case ToolDefinition.gitPullRequestReviewThread.name:
+            return try reviewThread(
+                threadID: try args.requiredString("threadId"),
+                action: try args.requiredString("action")
             )
         case ToolDefinition.gitPullRequestMerge.name:
             return try merge(
@@ -288,6 +302,46 @@ enum WorkspaceRemoteGitHubPullRequestCommandBuilder {
         ].joined(separator: " && ")
     }
 
+    private static func reviewReply(
+        selector: String?,
+        commentID: Int,
+        body: String
+    ) throws -> String {
+        guard let body = GitInputValidator.trimmedNonEmpty(body) else {
+            throw GitToolError.emptyPullRequestComment
+        }
+        let commentID = try GitHubPullRequestInputValidator.safeReviewCommentID(commentID)
+
+        var viewArguments = ["gh", "pr", "view"]
+        if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
+            viewArguments.append(selector)
+        }
+        viewArguments += ["--json", "number", "--jq", ".number"]
+
+        return [
+            "pr_number=$(\(shellCommand(viewArguments)))",
+            "repo=$(\(shellCommand(["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"])))",
+            "gh api \"repos/${repo}/pulls/${pr_number}/comments/\(commentID)/replies\" \(quoted("--raw-field")) \(quoted("body=\(body)"))"
+        ].joined(separator: " && ")
+    }
+
+    private static func reviewThread(
+        threadID: String,
+        action: String
+    ) throws -> String {
+        let threadID = try GitHubPullRequestInputValidator.safeReviewThreadID(threadID)
+        let action = try GitHubPullRequestInputValidator.safeReviewThreadAction(action)
+        return shellCommand([
+            "gh",
+            "api",
+            "graphql",
+            "--raw-field",
+            "threadId=\(threadID)",
+            "--raw-field",
+            "query=\(reviewThreadMutation(for: action))"
+        ])
+    }
+
     private static func merge(
         selector: String?,
         method: String?,
@@ -306,6 +360,12 @@ enum WorkspaceRemoteGitHubPullRequestCommandBuilder {
             arguments.append("--delete-branch")
         }
         return shellCommand(arguments)
+    }
+
+    private static func reviewThreadMutation(for action: String) -> String {
+        let mutation = action == "resolve" ? "resolveReviewThread" : "unresolveReviewThread"
+        let nonNull = "\u{21}"
+        return "mutation($threadId: ID\(nonNull)) { \(mutation)(input: {threadId: $threadId}) { thread { id isResolved } } }"
     }
 
     private static func shellCommand(_ arguments: [String]) -> String {

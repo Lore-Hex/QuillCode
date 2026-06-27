@@ -24,6 +24,8 @@ struct GitToolCallDispatcher: Sendable {
         .gitPullRequestComment,
         .gitPullRequestReview,
         .gitPullRequestReviewComment,
+        .gitPullRequestReviewReply,
+        .gitPullRequestReviewThread,
         .gitPullRequestMerge,
         .gitWorktreeList,
         .gitWorktreeCreate,
@@ -132,6 +134,19 @@ struct GitToolCallDispatcher: Sendable {
                 body: try args.requiredString("body"),
                 startLine: args.int("startLine"),
                 startSide: args.string("startSide")
+            )
+        case ToolDefinition.gitPullRequestReviewReply.name:
+            return git.replyToPullRequestReviewComment(
+                cwd: workspaceRoot,
+                selector: args.string("selector"),
+                commentID: try args.requiredInt("commentId"),
+                body: try args.requiredString("body")
+            )
+        case ToolDefinition.gitPullRequestReviewThread.name:
+            return git.updatePullRequestReviewThread(
+                cwd: workspaceRoot,
+                threadID: try args.requiredString("threadId"),
+                action: try args.requiredString("action")
             )
         case ToolDefinition.gitPullRequestMerge.name:
             return git.mergePullRequest(

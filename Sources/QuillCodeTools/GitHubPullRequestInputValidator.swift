@@ -120,6 +120,39 @@ public enum GitHubPullRequestInputValidator {
         }
     }
 
+    public static func safeReviewCommentID(_ value: Int) throws -> Int {
+        guard value > 0 else {
+            throw GitToolError.invalidPullRequestReviewCommentID(value)
+        }
+        return value
+    }
+
+    public static func safeReviewThreadID(_ value: String) throws -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.count <= 256,
+              !trimmed.hasPrefix("-"),
+              trimmed.rangeOfCharacter(from: .whitespacesAndNewlines) == nil,
+              trimmed.rangeOfCharacter(from: .controlCharacters) == nil
+        else {
+            throw GitToolError.invalidPullRequestReviewThreadID(value)
+        }
+        return trimmed
+    }
+
+    public static func safeReviewThreadAction(_ value: String) throws -> String {
+        switch value.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .replacingOccurrences(of: "-", with: "_") {
+        case "resolve", "resolved":
+            return "resolve"
+        case "unresolve", "unresolved", "reopen", "open":
+            return "unresolve"
+        default:
+            throw GitToolError.invalidPullRequestReviewThreadAction(value)
+        }
+    }
+
     public static func safeMergeFlag(_ value: String?) throws -> String {
         let normalized = (GitInputValidator.trimmedNonEmpty(value) ?? "squash")
             .lowercased()

@@ -24,6 +24,8 @@ final class GitToolRouterTests: XCTestCase {
         XCTAssertTrue(definitions.contains("host.git.pr.comment"))
         XCTAssertTrue(definitions.contains("host.git.pr.review"))
         XCTAssertTrue(definitions.contains("host.git.pr.review_comment"))
+        XCTAssertTrue(definitions.contains("host.git.pr.review_reply"))
+        XCTAssertTrue(definitions.contains("host.git.pr.review_thread"))
         XCTAssertTrue(definitions.contains("host.git.pr.merge"))
         XCTAssertTrue(definitions.contains("host.git.worktree.list"))
         XCTAssertTrue(definitions.contains("host.git.worktree.create"))
