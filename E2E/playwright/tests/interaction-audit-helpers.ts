@@ -53,7 +53,13 @@ type TargetOverlapIssue = {
   overlapWidth: number;
 };
 
+type TargetNestedIssue = {
+  child: string;
+  parent: string;
+};
+
 type InteractionAuditReport = {
+  nestedIssues: TargetNestedIssue[];
   overlapIssues: TargetOverlapIssue[];
   targetIssues: TargetAuditIssue[];
 };
@@ -299,6 +305,15 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
         || layer.tagName.toLowerCase();
     }
 
+    function closestInteractiveAncestor(element: Element) {
+      let ancestor = element.parentElement;
+      while (ancestor) {
+        if (ancestor.matches(selector)) return ancestor;
+        ancestor = ancestor.parentElement;
+      }
+      return null;
+    }
+
     const visibleTargets: VisibleTarget[] = [...document.querySelectorAll(selector)]
       .map((element) => {
         const rect = element.getBoundingClientRect();
@@ -331,6 +346,18 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
         text: (element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
         width: Math.round(clipped.rect.width)
       }));
+
+    const visibleTargetElements = new Set(visibleTargets.map(({ element }) => element));
+    const nestedIssues: TargetNestedIssue[] = visibleTargets
+      .map(({ element }) => {
+        const parent = closestInteractiveAncestor(element);
+        if (!parent || !visibleTargetElements.has(parent)) return null;
+        return {
+          child: labelFor(element),
+          parent: labelFor(parent)
+        };
+      })
+      .filter((issue): issue is TargetNestedIssue => Boolean(issue));
 
     const overlapTargets: OverlapTarget[] = visibleTargets
       .map(({ clipped, element, rect }) => ({
@@ -365,7 +392,7 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
       }
     }
 
-    return { overlapIssues, targetIssues };
+    return { nestedIssues, overlapIssues, targetIssues };
   }, {
     activeLayerSelector: ACTIVE_LAYER_SELECTOR,
     minimumHitTarget: MINIMUM_HIT_TARGET,
@@ -381,6 +408,11 @@ export async function expectAllVisibleInteractiveTargets(page: Page, label: stri
 export async function expectNoOverlappingInteractiveTargets(page: Page, label: string) {
   const { overlapIssues } = await interactionAuditReport(page);
   expect(overlapIssues, `${label} should not have overlapping peer interactive targets`).toEqual([]);
+}
+
+export async function expectNoNestedInteractiveTargets(page: Page, label: string) {
+  const { nestedIssues } = await interactionAuditReport(page);
+  expect(nestedIssues, `${label} should not nest one interactive target inside another`).toEqual([]);
 }
 
 export async function expectHitTarget(locator: Locator, label: string) {

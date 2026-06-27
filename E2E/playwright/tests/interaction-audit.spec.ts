@@ -9,11 +9,13 @@ import {
 import {
   expectAllVisibleInteractiveTargets,
   expectHitTarget,
+  expectNoNestedInteractiveTargets,
   expectNoOverlappingInteractiveTargets
 } from './interaction-audit-helpers';
 
 async function expectInteractionTargetsClean(page: Page, label: string) {
   await expectAllVisibleInteractiveTargets(page, label);
+  await expectNoNestedInteractiveTargets(page, label);
   await expectNoOverlappingInteractiveTargets(page, label);
 }
 
@@ -221,6 +223,13 @@ test('mock harness keeps secondary pane actions at least 44px', async ({ page })
   await expectHitTarget(page.getByTestId('browser-session'), 'browser session button');
   await expectHitTarget(page.getByTestId('browser-open'), 'browser open button');
   await expectHitTarget(page.getByTestId('browser-add-comment'), 'browser comment button');
+  await expectHitTarget(page.getByTestId('browser-tab'), 'browser tab button');
+  await expectHitTarget(page.getByTestId('browser-new-tab'), 'browser new tab button');
+  await expectHitTarget(page.getByTestId('browser-close-tab'), 'browser close tab button');
+  await page.getByTestId('browser-new-tab').click();
+  await expect(page.getByTestId('browser-tab')).toHaveCount(2);
+  await expectHitTarget(page.getByTestId('browser-close-tab'), 'enabled browser close tab button');
+  await expectInteractionTargetsClean(page, 'browser pane with multiple tabs');
 
   await page.getByTestId('extensions-button').click();
   await expect(page.getByTestId('extensions-pane')).toBeVisible();

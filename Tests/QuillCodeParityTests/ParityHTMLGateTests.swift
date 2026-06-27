@@ -324,6 +324,8 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             browserText.contains(#"class="browser-form""#)
                 && browserText.contains(#"class="browser-nav-controls""#)
+                && browserText.contains(#"class="browser-tab \(WorkspaceHTMLPrimitives.capsuleHitTargetClass)"#)
+                && browserText.contains(#"class="browser-tab-action \(WorkspaceHTMLPrimitives.iconHitTargetClass)"#)
                 && browserText.contains(#"class="browser-nav-button""#)
                 && browserText.contains(#"class="browser-open-button""#)
                 && browserText.contains(#"data-testid="browser-address""#),
@@ -380,6 +382,11 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
                 && harnessText.contains("@media (max-width: 760px)")
                 && harnessText.contains("grid-template-columns: repeat(3, var(--hit-target)) minmax(72px, 1fr);"),
             "Browser nav controls should have explicit compact target CSS instead of relying on cramped grid auto sizing."
+        )
+        XCTAssertTrue(
+            harnessText.contains(#"class="browser-tab hit-target-capsule"#)
+                && harnessText.contains(#"class="browser-tab-action hit-target-icon"#),
+            "Harness browser tab controls should use the same semantic hit-target classes as production HTML."
         )
         XCTAssertTrue(
             harnessText.contains(#"class="artifact-chip interactive-hit-target""#),

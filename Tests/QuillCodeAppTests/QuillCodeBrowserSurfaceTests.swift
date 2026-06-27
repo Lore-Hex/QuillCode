@@ -8,6 +8,9 @@ final class QuillCodeBrowserSurfaceTests: XCTestCase {
         XCTAssertFalse(browser.canGoBack)
         XCTAssertFalse(browser.canGoForward)
         XCTAssertFalse(browser.canReload)
+        XCTAssertFalse(browser.canCloseSelectedTab)
+        XCTAssertEqual(browser.tabs.count, 1)
+        XCTAssertEqual(browser.tabs.first?.id, browser.selectedTabID)
         XCTAssertEqual(browser.title, "Browser preview")
         XCTAssertEqual(browser.status, "Ready")
     }
@@ -96,5 +99,40 @@ final class QuillCodeBrowserSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.snapshot?.textSnippet, "Welcome")
         XCTAssertEqual(surface.comments.first?.id, commentID)
         XCTAssertEqual(surface.comments.first?.text, "Check spacing")
+        XCTAssertEqual(surface.tabs.count, 1)
+        XCTAssertEqual(surface.tabs.first?.id, surface.activeTabID)
+        XCTAssertTrue(surface.tabs.first?.isActive == true)
+        XCTAssertEqual(surface.tabs.first?.title, "Docs")
+        XCTAssertEqual(surface.tabs.first?.urlLabel, "example.com")
+        XCTAssertFalse(surface.canCloseActiveTab)
+    }
+
+    func testBrowserSurfaceMapsMultipleTabsIntoPresentationContract() {
+        let firstID = UUID()
+        let secondID = UUID()
+        let browser = BrowserState(
+            tabs: [
+                BrowserTabState(
+                    id: firstID,
+                    currentURL: "https://example.com",
+                    title: "Example"
+                ),
+                BrowserTabState(id: secondID)
+            ],
+            selectedTabID: secondID
+        )
+
+        let surface = BrowserSurface(browser: browser)
+
+        XCTAssertEqual(surface.tabs.map(\.id), [firstID, secondID])
+        XCTAssertEqual(surface.activeTabID, secondID)
+        XCTAssertEqual(surface.tabs[0].title, "Example")
+        XCTAssertEqual(surface.tabs[0].urlLabel, "example.com")
+        XCTAssertFalse(surface.tabs[0].isActive)
+        XCTAssertEqual(surface.tabs[1].title, "New tab")
+        XCTAssertTrue(surface.tabs[1].isActive)
+        XCTAssertTrue(surface.canCloseActiveTab)
+        XCTAssertEqual(surface.tabs[0].selectCommandID, "browser-tab-select:\(firstID.uuidString)")
+        XCTAssertEqual(surface.tabs[1].closeCommandID, "browser-tab-close:\(secondID.uuidString)")
     }
 }

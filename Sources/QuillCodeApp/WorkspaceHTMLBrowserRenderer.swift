@@ -11,6 +11,7 @@ enum WorkspaceHTMLBrowserRenderer {
             <strong>Browser</strong>
             <span data-testid="browser-status-label">\(escape(browser.statusLabel))</span>
           </header>
+          \(renderTabs(browser))
           <form class="browser-form" data-testid="browser-form">
             <div class="browser-nav-controls" aria-label="Browser navigation">
               <button class="browser-nav-button" type="button" data-testid="browser-back" aria-label="Back" \(browser.canGoBack ? "" : "disabled")>Back</button>
@@ -29,6 +30,24 @@ enum WorkspaceHTMLBrowserRenderer {
             \(comments)
           </div>
         </section>
+        """
+    }
+
+    private static func renderTabs(_ browser: BrowserSurface) -> String {
+        let tabs = browser.tabs.map { tab in
+            """
+            <button class="browser-tab \(WorkspaceHTMLPrimitives.capsuleHitTargetClass)\(tab.isActive ? " active" : "")" type="button" data-testid="browser-tab" data-command-id="\(escape(tab.selectCommandID))" aria-pressed="\(tab.isActive ? "true" : "false")">
+              <span>\(escape(tab.title))</span>
+              \(tab.urlLabel.map { #"<small>\#(escape($0))</small>"# } ?? "")
+            </button>
+            """
+        }.joined(separator: "\n")
+        return """
+        <div class="browser-tabs" data-testid="browser-tabs">
+          \(tabs)
+          <button class="browser-tab-action \(WorkspaceHTMLPrimitives.iconHitTargetClass)" type="button" data-testid="browser-new-tab" data-command-id="browser-tab-new" aria-label="New browser tab">+</button>
+          <button class="browser-tab-action \(WorkspaceHTMLPrimitives.iconHitTargetClass)" type="button" data-testid="browser-close-tab" data-command-id="browser-tab-close:\(browser.activeTabID.uuidString)" aria-label="Close browser tab" \(browser.canCloseActiveTab ? "" : "disabled")>×</button>
+        </div>
         """
     }
 

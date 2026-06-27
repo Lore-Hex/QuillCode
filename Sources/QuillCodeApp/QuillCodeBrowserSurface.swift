@@ -15,6 +15,50 @@ public struct BrowserCommentState: Sendable, Hashable, Identifiable {
     }
 }
 
+public struct BrowserTabState: Sendable, Hashable, Identifiable {
+    public var id: UUID
+    public var addressDraft: String
+    public var currentURL: String?
+    public var history: [String]
+    public var historyIndex: Int?
+    public var title: String
+    public var status: String
+    public var snapshot: BrowserSnapshotState?
+    public var comments: [BrowserCommentState]
+
+    public var displayTitle: String {
+        if let currentURL,
+           let url = URL(string: currentURL),
+           let host = url.host,
+           !host.isEmpty {
+            return title == "Browser preview" ? host : title
+        }
+        return title == "Browser preview" ? "New tab" : title
+    }
+
+    public init(
+        id: UUID = UUID(),
+        addressDraft: String = "",
+        currentURL: String? = nil,
+        history: [String] = [],
+        historyIndex: Int? = nil,
+        title: String = "Browser preview",
+        status: String = "Ready",
+        snapshot: BrowserSnapshotState? = nil,
+        comments: [BrowserCommentState] = []
+    ) {
+        self.id = id
+        self.addressDraft = addressDraft
+        self.currentURL = currentURL
+        self.history = history
+        self.historyIndex = historyIndex
+        self.title = title
+        self.status = status
+        self.snapshot = snapshot
+        self.comments = comments
+    }
+}
+
 public struct BrowserSnapshotState: Sendable, Hashable {
     public var sourceLabel: String
     public var inspectionDepth: BrowserInspectionDepth
@@ -42,6 +86,8 @@ public struct BrowserSnapshotState: Sendable, Hashable {
 
 public struct BrowserState: Sendable, Hashable {
     public var isVisible: Bool
+    public var tabs: [BrowserTabState]
+    public var selectedTabID: UUID
     public var addressDraft: String
     public var currentURL: String?
     public var history: [String]
@@ -65,8 +111,14 @@ public struct BrowserState: Sendable, Hashable {
         currentURL != nil
     }
 
+    public var canCloseSelectedTab: Bool {
+        tabs.count > 1
+    }
+
     public init(
         isVisible: Bool = false,
+        tabs: [BrowserTabState] = [],
+        selectedTabID: UUID? = nil,
         addressDraft: String = "",
         currentURL: String? = nil,
         history: [String] = [],
@@ -77,6 +129,21 @@ public struct BrowserState: Sendable, Hashable {
         comments: [BrowserCommentState] = []
     ) {
         self.isVisible = isVisible
+        let selectedTabID = selectedTabID ?? tabs.first?.id ?? UUID()
+        self.tabs = tabs.isEmpty ? [
+            BrowserTabState(
+                id: selectedTabID,
+                addressDraft: addressDraft,
+                currentURL: currentURL,
+                history: history,
+                historyIndex: historyIndex,
+                title: title,
+                status: status,
+                snapshot: snapshot,
+                comments: comments
+            )
+        ] : tabs
+        self.selectedTabID = selectedTabID
         self.addressDraft = addressDraft
         self.currentURL = currentURL
         self.history = history
@@ -90,6 +157,9 @@ public struct BrowserState: Sendable, Hashable {
 
 public struct BrowserSurface: Codable, Sendable, Hashable {
     public var isVisible: Bool
+    public var tabs: [BrowserTabSurface]
+    public var activeTabID: UUID
+    public var canCloseActiveTab: Bool
     public var addressDraft: String
     public var currentURL: String?
     public var canGoBack: Bool
@@ -112,6 +182,9 @@ public struct BrowserSurface: Codable, Sendable, Hashable {
         emptySubtitle: String = "Use browser comments to keep observations attached to the current page."
     ) {
         self.isVisible = browser.isVisible
+        self.tabs = browser.tabs.map { BrowserTabSurface(tab: $0, isActive: $0.id == browser.selectedTabID) }
+        self.activeTabID = browser.selectedTabID
+        self.canCloseActiveTab = browser.canCloseSelectedTab
         self.addressDraft = browser.addressDraft
         self.currentURL = browser.currentURL
         self.canGoBack = browser.canGoBack
@@ -123,6 +196,24 @@ public struct BrowserSurface: Codable, Sendable, Hashable {
         self.comments = browser.comments.map(BrowserCommentSurface.init)
         self.emptyTitle = emptyTitle
         self.emptySubtitle = emptySubtitle
+    }
+}
+
+public struct BrowserTabSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: UUID
+    public var title: String
+    public var urlLabel: String?
+    public var isActive: Bool
+    public var closeCommandID: String
+    public var selectCommandID: String
+
+    public init(tab: BrowserTabState, isActive: Bool) {
+        self.id = tab.id
+        self.title = tab.displayTitle
+        self.urlLabel = tab.currentURL.flatMap { URL(string: $0)?.host } ?? tab.currentURL
+        self.isActive = isActive
+        self.closeCommandID = "browser-tab-close:\(tab.id.uuidString)"
+        self.selectCommandID = "browser-tab-select:\(tab.id.uuidString)"
     }
 }
 

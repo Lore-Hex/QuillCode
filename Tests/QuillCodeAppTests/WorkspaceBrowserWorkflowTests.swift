@@ -77,6 +77,30 @@ final class WorkspaceBrowserWorkflowTests: XCTestCase {
         XCTAssertNil(lastError)
     }
 
+    func testSnapshotFetchResultDoesNotOverwriteAfterTabSwitch() throws {
+        var browser = BrowserState()
+        var lastError: String?
+        WorkspaceBrowserEngine.openPage(try XCTUnwrap(URL(string: "https://example.com")), state: &browser, updateHistory: true)
+        let request = try XCTUnwrap(WorkspaceBrowserWorkflow.beginSnapshotFetch(browser: &browser))
+
+        _ = WorkspaceBrowserWorkflow.newTab(browser: &browser)
+        WorkspaceBrowserEngine.openPage(try XCTUnwrap(URL(string: "https://trustedrouter.com")), state: &browser, updateHistory: true)
+
+        XCTAssertFalse(WorkspaceBrowserWorkflow.applySnapshotFetchSuccess(
+            BrowserFetchedPage(
+                finalURL: try XCTUnwrap(URL(string: "https://example.com")),
+                html: "<html><head><title>Old Page</title></head><body></body></html>"
+            ),
+            request: request,
+            browser: &browser,
+            lastError: &lastError
+        ))
+
+        XCTAssertEqual(browser.currentURL, "https://trustedrouter.com")
+        XCTAssertEqual(browser.title, "trustedrouter.com")
+        XCTAssertNil(lastError)
+    }
+
     func testNavigationAndCommentsDelegateThroughWorkflow() throws {
         var browser = BrowserState()
         var lastError: String? = "old error"

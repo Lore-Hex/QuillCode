@@ -142,8 +142,30 @@ struct QuillCodeWorkspaceMainPaneView: View {
     }
 
     private func runCommand(id: String) {
-        guard let command = surface.commands.first(where: { $0.id == id }) else { return }
-        onCommand(command)
+        if let command = surface.commands.first(where: { $0.id == id }) {
+            onCommand(command)
+            return
+        }
+        guard WorkspaceCommandRoutingCatalog.isDispatchable(id) else { return }
+        onCommand(WorkspaceCommandSurface(
+            id: id,
+            title: browserCommandTitle(for: id),
+            category: WorkspaceCommandPalette.workspaceCategory,
+            keywords: ["browser", "tab", "preview", "web"]
+        ))
+    }
+
+    private func browserCommandTitle(for id: String) -> String {
+        if id == "browser-tab-new" {
+            return "Browser: New tab"
+        }
+        if id.hasPrefix("browser-tab-select:") {
+            return "Browser: Select tab"
+        }
+        if id.hasPrefix("browser-tab-close:") {
+            return "Browser: Close tab"
+        }
+        return id
     }
 
     private func stopActiveRun() {
