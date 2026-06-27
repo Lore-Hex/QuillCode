@@ -235,6 +235,58 @@ final class SafetyTests: XCTestCase {
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }
 
+    func testAutoClarifiesNegatedShellRunIntent() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: shellRun.name, argumentsJSON: #"{"cmd":"whoami"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "do not run whoami",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "do not run whoami")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
+    }
+
+    func testAutoApprovesAffirmedShellIntentAfterNegatedOccurrence() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: shellRun.name, argumentsJSON: #"{"cmd":"hostname"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "do not run whoami; run hostname",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "do not run whoami; run hostname")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoClarifiesNegatedApplyPatchIntent() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: applyPatch.name, argumentsJSON: #"{"patch":"diff --git a/a b/a\n"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "don't apply this patch",
+            toolCall: call,
+            toolDefinition: applyPatch,
+            recentMessages: [.init(role: .user, content: "don't apply this patch")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
+    }
+
+    func testAutoApprovesAffirmedApplyPatchIntentAfterNegatedOccurrence() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: applyPatch.name, argumentsJSON: #"{"patch":"diff --git a/a b/a\n"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "don't apply the old patch; apply this patch",
+            toolCall: call,
+            toolDefinition: applyPatch,
+            recentMessages: [.init(role: .user, content: "don't apply the old patch; apply this patch")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
     func testAutoDoesNotTreatRunAsBlanketIntentForGitPush() async {
         let reviewer = StaticSafetyReviewer()
         let call = ToolCall(name: gitPush.name, argumentsJSON: #"{"remote":"origin"}"#)
@@ -403,6 +455,22 @@ final class SafetyTests: XCTestCase {
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }
 
+    func testAutoClarifiesNegatedRememberIntent() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: memoryRemember.name,
+            argumentsJSON: #"{"content":"make small reviewable commits"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "don't remember this",
+            toolCall: call,
+            toolDefinition: memoryRemember,
+            recentMessages: [.init(role: .user, content: "don't remember this")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
+    }
+
     func testAutoApprovesUserRequestedGitPush() async {
         let reviewer = StaticSafetyReviewer()
         let call = ToolCall(name: gitPush.name, argumentsJSON: #"{"remote":"origin"}"#)
@@ -414,6 +482,19 @@ final class SafetyTests: XCTestCase {
             recentMessages: [.init(role: .user, content: "push this branch")]
         ))
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoClarifiesNegatedGitPushIntent() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: gitPush.name, argumentsJSON: #"{"remote":"origin"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "do not push this branch",
+            toolCall: call,
+            toolDefinition: gitPush,
+            recentMessages: [.init(role: .user, content: "do not push this branch")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
     }
 
     func testAutoApprovesUserRequestedPullRequest() async {
@@ -611,6 +692,19 @@ final class SafetyTests: XCTestCase {
             toolCall: call,
             toolDefinition: gitPush,
             recentMessages: [.init(role: .user, content: "show PR 42")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
+    }
+
+    func testAutoDoesNotTreatBarePullRequestTokenAsBlanketIntentForPush() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: gitPush.name, argumentsJSON: #"{"remote":"origin","branch":"main"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "PR 42",
+            toolCall: call,
+            toolDefinition: gitPush,
+            recentMessages: [.init(role: .user, content: "PR 42")]
         ))
         XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
     }
