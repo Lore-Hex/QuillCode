@@ -15,9 +15,9 @@ test('mock harness exposes actionable approval buttons on review cards', async (
       subtitle: 'Ready to run · whoami',
       status: 'review',
       reviewState: 'ready',
-      density: 'expanded',
+      density: 'peek',
       inputJSON: JSON.stringify({ cmd: 'whoami' }, null, 2),
-      isExpanded: true,
+      isExpanded: false,
       actions: [
         {
           id: 'tool-card-action-approve-approval-1',
@@ -41,8 +41,10 @@ test('mock harness exposes actionable approval buttons on review cards', async (
   await expect(page.getByTestId('tool-card')).toHaveCount(1);
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'review');
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-review-state', 'ready');
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-density', 'peek');
   await expect(page.getByTestId('tool-card-status')).toHaveText('Ready');
   await expect(page.getByTestId('tool-card-actions')).toBeVisible();
+  await expect(page.getByTestId('tool-card-input')).not.toBeVisible();
   await expect(page.getByTestId('tool-card-action').filter({ hasText: 'Run' })).toBeVisible();
   await expect(page.getByTestId('tool-card-action').filter({ hasText: 'Skip' })).toBeVisible();
   const runBounds = await elementRect(page, '[data-testid="tool-card-action"]:has-text("Run")');

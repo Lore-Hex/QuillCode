@@ -60,15 +60,18 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
                     style: .secondary
                 )
             ],
-            isExpanded: true
+            isExpanded: false,
+            density: .peek
         )
 
         let html = WorkspaceHTMLToolCardRenderer.render(card, timelineItemID: "timeline-approval")
 
         XCTAssertTrue(html.contains(#"data-testid="tool-card-actions""#))
         XCTAssertTrue(html.contains(#"data-review-state="ready""#))
+        XCTAssertTrue(html.contains(#"data-density="peek""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-status">Ready"#))
-        XCTAssertTrue(html.contains(#"aria-label="host.shell.run, ready to run, expanded"#))
+        XCTAssertTrue(html.contains(#"aria-label="host.shell.run, ready to run, preview"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-details" open"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="approve" data-action-style="primary" data-request-id="approval-html">Run"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="edit" data-action-style="secondary" data-request-id="approval-html">Edit"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="deny" data-action-style="secondary" data-request-id="approval-html">Skip"#))

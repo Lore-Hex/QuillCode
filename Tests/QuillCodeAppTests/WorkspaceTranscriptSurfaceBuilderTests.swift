@@ -172,7 +172,8 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(timelineCards[0].statusDisplayLabel, "Ready")
         XCTAssertEqual(timelineCards[0].statusAccessibilityLabel, "ready to run")
         XCTAssertEqual(timelineCards[0].reviewState, .ready)
-        XCTAssertTrue(timelineCards[0].isExpanded)
+        XCTAssertFalse(timelineCards[0].isExpanded)
+        XCTAssertEqual(timelineCards[0].density, .peek)
         XCTAssertEqual(timelineCards[0].actions.map(\.title), ["Run", "Edit", "Skip"])
         XCTAssertEqual(timelineCards[0].actions.map(\.requestID), ["approval-1", "approval-1", "approval-1"])
         XCTAssertEqual(timelineCards[1].title, "Tool")
@@ -250,6 +251,8 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(card.statusDisplayLabel, "Needs review")
         XCTAssertEqual(card.statusAccessibilityLabel, "needs review")
         XCTAssertEqual(card.reviewState, .needsReview)
+        XCTAssertTrue(card.isExpanded)
+        XCTAssertEqual(card.density, .expanded)
         XCTAssertEqual(card.actions, [])
     }
 

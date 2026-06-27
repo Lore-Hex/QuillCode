@@ -37,6 +37,7 @@ enum WorkspaceToolCardProjection {
         let title = toolCall?.name ?? fallback?.title ?? "Approval needed"
         let inputJSON = toolCall?.argumentsJSON ?? fallback?.inputJSON ?? event.payloadJSON
         let actions = request.flatMap { approvalActions(for: $0) } ?? []
+        let needsReview = request?.recommendedVerdict == .deny
 
         return ToolCardState(
             id: fallback?.id ?? toolCall?.id ?? event.id.uuidString,
@@ -50,8 +51,9 @@ enum WorkspaceToolCardProjection {
             status: .review,
             inputJSON: inputJSON,
             actions: actions,
-            isExpanded: true,
-            reviewState: request?.recommendedVerdict == .deny ? .needsReview : .ready
+            isExpanded: needsReview,
+            density: needsReview ? .expanded : .peek,
+            reviewState: needsReview ? .needsReview : .ready
         )
     }
 
