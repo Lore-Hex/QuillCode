@@ -197,6 +197,34 @@ final class AgentStreamingTests: XCTestCase {
         })
     }
 
+    func testStreamingPromisedShellTextRecoversWithoutVisibleDraftOrCorrectionPrompt() async throws {
+        let root = try makeTempDirectory()
+        let recorder = ProgressRecorder()
+        let runner = AgentRunner(llm: StreamingActionLLMClient(chunks: [
+            #"{"type":"say","text":"I'll"#,
+            #" run whoami on the device."}"#
+        ]))
+
+        let result = try await runner.send(
+            "whoami?",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root,
+            onProgress: { thread in
+                await recorder.record(thread)
+            }
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll run") })
+        XCTAssertTrue(result.thread.messages.last?.content.hasPrefix("You are `") == true)
+
+        let progressMessages = await recorder.messageContents()
+        XCTAssertFalse(progressMessages.contains { snapshot in
+            snapshot.contains { $0.contains("I'll run") }
+        })
+    }
+
     private func waitUntil(
         timeoutSeconds: TimeInterval,
         condition: @escaping () async -> Bool

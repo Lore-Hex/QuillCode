@@ -214,6 +214,11 @@ struct QuillCodeTranscriptView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
+                    .quillCodeFullRowButtonTarget(
+                        minHeight: 72,
+                        alignment: .center,
+                        radius: 14
+                    )
                     .quillCodeSurface(
                         fill: QuillCodePalette.panel.opacity(0.62),
                         radius: 14,
