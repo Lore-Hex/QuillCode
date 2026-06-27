@@ -73,6 +73,18 @@ assert_useful_output() {
   local stderr_file="$2"
   local expected="$3"
 
+  assert_no_action_regression "$output_file" "$stderr_file"
+  if ! grep -Fq "$expected" "$output_file"; then
+    echo "live smoke output did not contain expected text: $expected" >&2
+    cat "$output_file" >&2
+    exit 1
+  fi
+}
+
+assert_no_action_regression() {
+  local output_file="$1"
+  local stderr_file="$2"
+
   if [[ ! -s "$output_file" ]]; then
     echo "live smoke returned no stdout" >&2
     cat "$stderr_file" >&2 || true
@@ -88,9 +100,25 @@ assert_useful_output() {
     cat "$output_file" >&2
     exit 1
   fi
-  if ! grep -Fq "$expected" "$output_file"; then
-    echo "live smoke output did not contain expected text: $expected" >&2
-    cat "$output_file" >&2
+}
+
+assert_workspace_file_contains_exactly() {
+  local relative_path="$1"
+  local expected_content="$2"
+  local file_path="$SMOKE_WORKSPACE/$relative_path"
+
+  if [[ ! -f "$file_path" ]]; then
+    echo "live smoke did not create expected workspace file: $relative_path" >&2
+    find "$SMOKE_WORKSPACE" -maxdepth 2 -type f -print >&2
+    exit 1
+  fi
+
+  local actual_content
+  actual_content="$(tr -d '\r' < "$file_path")"
+  actual_content="${actual_content%$'\n'}"
+  if [[ "$actual_content" != "$expected_content" ]]; then
+    echo "live smoke file content mismatch for $relative_path" >&2
+    printf 'expected: %s\nactual: %s\n' "$expected_content" "$actual_content" >&2
     exit 1
   fi
 }
@@ -106,5 +134,12 @@ DIAG_OUTPUT="$SMOKE_ROOT/diag.stdout"
 DIAG_ERROR="$SMOKE_ROOT/diag.stderr"
 run_live_prompt "whoami?" "$DIAG_OUTPUT" "$DIAG_ERROR"
 assert_useful_output "$DIAG_OUTPUT" "$DIAG_ERROR" "$(id -un)"
+
+echo "==> Running live TrustedRouter file-write smoke with $MODEL"
+FILE_OUTPUT="$SMOKE_ROOT/file.stdout"
+FILE_ERROR="$SMOKE_ROOT/file.stderr"
+run_live_prompt "Create \`live-smoke.txt\` in this workspace with exactly this content: \`quillcode_live_file_smoke\`." "$FILE_OUTPUT" "$FILE_ERROR"
+assert_no_action_regression "$FILE_OUTPUT" "$FILE_ERROR"
+assert_workspace_file_contains_exactly "live-smoke.txt" "quillcode_live_file_smoke"
 
 echo "QuillCode live TrustedRouter smoke passed."
