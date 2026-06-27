@@ -1,16 +1,25 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeTools
 
 struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
     var toolCards: [ToolCardState]
     var events: [ThreadEvent]
 
     func surface() -> WorkspaceReviewSurface {
+        let pullRequestThreads = latestPullRequestReviewThreadsCard
+            .flatMap(pullRequestReviewThreads(from:)) ?? []
+
         guard let result = latestCompletedGitDiffResult else {
-            return WorkspaceReviewSurface()
+            return WorkspaceReviewSurface(
+                title: pullRequestThreads.isEmpty ? "Review changes" : "Review threads",
+                files: [],
+                pullRequestThreads: pullRequestThreads
+            )
         }
 
         var review = GitDiffReviewParser.parse(result.stdout)
+        review.pullRequestThreads = pullRequestThreads
         let commentBuckets = Self.reviewCommentBuckets(from: events)
         review.files = review.files.map { file in
             var file = file
@@ -34,7 +43,7 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
     }
 
     private var latestCompletedGitDiffResult: ToolResult? {
-        guard let card = toolCards.reversed().first(where: { $0.title == "host.git.diff" }),
+        guard let card = toolCards.reversed().first(where: { $0.title == ToolDefinition.gitDiff.name }),
               card.status == .done,
               let outputJSON = card.outputJSON,
               let result = try? JSONHelpers.decode(ToolResult.self, from: outputJSON),
@@ -43,6 +52,33 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
             return nil
         }
         return result
+    }
+
+    private var latestPullRequestReviewThreadsCard: ToolCardState? {
+        toolCards.reversed().first { $0.title == ToolDefinition.gitPullRequestReviewThreads.name }
+    }
+
+    private func pullRequestReviewThreads(from card: ToolCardState) -> [WorkspacePullRequestReviewThreadSurface]? {
+        guard card.status == .done,
+              let outputJSON = card.outputJSON,
+              let result = try? JSONHelpers.decode(ToolResult.self, from: outputJSON),
+              result.ok
+        else {
+            return nil
+        }
+        return WorkspacePullRequestReviewThreadsParser.parse(
+            result.stdout,
+            selector: selector(from: card.inputJSON)
+        )
+    }
+
+    private func selector(from inputJSON: String?) -> String? {
+        guard let inputJSON,
+              let arguments = try? ToolArguments(inputJSON)
+        else {
+            return nil
+        }
+        return arguments.string("selector")
     }
 
     private struct ReviewCommentBuckets: Sendable, Hashable {

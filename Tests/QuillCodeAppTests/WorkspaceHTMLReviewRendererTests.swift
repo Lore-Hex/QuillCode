@@ -47,4 +47,39 @@ final class WorkspaceHTMLReviewRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("Restore"))
         XCTAssertTrue(html.contains("1 file changed, +1 -0"))
     }
+
+    func testHTMLRendererIncludesPullRequestReviewThreads() throws {
+        let review = WorkspaceReviewSurface(
+            title: "Review threads",
+            pullRequestThreads: [
+                WorkspacePullRequestReviewThreadSurface(
+                    id: "PRRT_one",
+                    isResolved: false,
+                    path: "Sources/App.swift",
+                    line: 42,
+                    comments: [
+                        WorkspacePullRequestReviewThreadCommentSurface(
+                            id: "PRRC_one",
+                            databaseID: 171,
+                            author: "reviewer",
+                            body: "Please extract this helper."
+                        )
+                    ]
+                )
+            ]
+        )
+
+        let html = WorkspaceHTMLReviewRenderer.render(review)
+
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-threads""#))
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-thread""#))
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-thread-status""#))
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-thread-location""#))
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-thread-comment""#))
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-thread-action""#))
+        XCTAssertTrue(html.contains(#"data-action="resolve""#))
+        XCTAssertTrue(html.contains("Sources/App.swift:42"))
+        XCTAssertTrue(html.contains("Please extract this helper."))
+        XCTAssertTrue(html.contains("1 review thread, 1 unresolved, 0 resolved"))
+    }
 }

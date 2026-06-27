@@ -290,6 +290,15 @@ final class QuillCodeDesktopController: ObservableObject {
         refresh()
     }
 
+    func runPullRequestReviewThreadAction(_ action: WorkspacePullRequestReviewThreadActionSurface) {
+        workspaceActionCoordinator.runPullRequestReviewThreadAction(
+            action,
+            model: model,
+            fallbackWorkspaceRoot: workspaceRoot
+        )
+        refresh()
+    }
+
     func addReviewComment(
         path: String,
         lineNumber: Int?,

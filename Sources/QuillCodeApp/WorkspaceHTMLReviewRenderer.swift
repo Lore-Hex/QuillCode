@@ -4,15 +4,18 @@ enum WorkspaceHTMLReviewRenderer {
     static func render(_ review: WorkspaceReviewSurface) -> String {
         guard review.isVisible else { return "" }
         let files = review.files.map(renderFile).joined(separator: "\n")
+        let pullRequestThreads = renderPullRequestThreads(review.pullRequestThreads)
         return """
         <section class="review-pane" data-testid="review-pane" aria-label="Git review summary">
           <header>
             <strong>\(escape(review.title))</strong>
             <span data-testid="review-summary">\(escape(review.subtitle))</span>
+            <small data-testid="review-badge">\(escape(review.badgeLabel))</small>
           </header>
           <ul>
             \(files)
           </ul>
+          \(pullRequestThreads)
         </section>
         """
     }
@@ -72,6 +75,41 @@ enum WorkspaceHTMLReviewRenderer {
     private static func renderAction(_ action: WorkspaceReviewActionSurface) -> String {
         """
         <button type="button" class="review-action-button \(WorkspaceHTMLPrimitives.textHitTargetClass)" data-testid="review-action" data-action="\(escape(action.kind.rawValue))" data-path="\(escape(action.path))">
+          \(escape(action.kind.title))
+        </button>
+        """
+    }
+
+    private static func renderPullRequestThreads(_ threads: [WorkspacePullRequestReviewThreadSurface]) -> String {
+        guard !threads.isEmpty else { return "" }
+        return """
+        <section class="pr-review-threads" data-testid="pr-review-threads" aria-label="Pull request review threads">
+          <strong>Pull request review threads</strong>
+          <ul>
+            \(threads.map(renderPullRequestThread).joined(separator: "\n"))
+          </ul>
+        </section>
+        """
+    }
+
+    private static func renderPullRequestThread(_ thread: WorkspacePullRequestReviewThreadSurface) -> String {
+        """
+        <li data-testid="pr-review-thread" data-thread-id="\(escape(thread.id))">
+          <span data-testid="pr-review-thread-status">\(escape(thread.statusLabel))</span>
+          <code data-testid="pr-review-thread-location">\(escape(thread.locationLabel))</code>
+          <blockquote data-testid="pr-review-thread-comment">\(escape(thread.summaryText))</blockquote>
+          <span>
+            \(thread.actions.map(renderPullRequestThreadAction).joined(separator: "\n"))
+          </span>
+        </li>
+        """
+    }
+
+    private static func renderPullRequestThreadAction(
+        _ action: WorkspacePullRequestReviewThreadActionSurface
+    ) -> String {
+        """
+        <button type="button" class="review-action-button \(WorkspaceHTMLPrimitives.textHitTargetClass)" data-testid="pr-review-thread-action" data-action="\(escape(action.kind.rawValue))" data-thread-id="\(escape(action.threadID))">
           \(escape(action.kind.title))
         </button>
         """

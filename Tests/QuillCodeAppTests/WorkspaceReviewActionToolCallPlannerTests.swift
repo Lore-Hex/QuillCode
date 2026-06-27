@@ -106,4 +106,41 @@ final class WorkspaceReviewActionToolCallPlannerTests: XCTestCase {
         XCTAssertEqual(try arguments.requiredString("path"), "Sources/App.swift")
         XCTAssertEqual(arguments.string("patch"), "")
     }
+
+    func testPullRequestReviewThreadRunPlanExecutesActionThenRefreshesThreads() throws {
+        let plan = WorkspacePullRequestReviewThreadActionToolCallPlanner.runPlan(
+            for: WorkspacePullRequestReviewThreadActionSurface(
+                kind: .resolve,
+                threadID: "PRRT_one",
+                selector: "123"
+            )
+        )
+        let actionArguments = try ToolArguments(plan.actionCall.argumentsJSON)
+        let refreshArguments = try ToolArguments(plan.refreshCall.argumentsJSON)
+
+        XCTAssertEqual(plan.actionCall.name, ToolDefinition.gitPullRequestReviewThread.name)
+        XCTAssertEqual(try actionArguments.requiredString("threadId"), "PRRT_one")
+        XCTAssertEqual(try actionArguments.requiredString("action"), "resolve")
+        XCTAssertEqual(plan.refreshCall.name, ToolDefinition.gitPullRequestReviewThreads.name)
+        XCTAssertEqual(try refreshArguments.requiredString("selector"), "123")
+    }
+
+    func testPullRequestReviewThreadRunPlanFinalStatusRequiresActionAndRefreshSuccess() {
+        let plan = WorkspacePullRequestReviewThreadActionToolCallPlanner.runPlan(
+            for: WorkspacePullRequestReviewThreadActionSurface(kind: .unresolve, threadID: "PRRT_one")
+        )
+
+        XCTAssertEqual(
+            plan.finalStatus(actionResult: ToolResult(ok: true), refreshResult: ToolResult(ok: true)),
+            TopBarAgentStatusLabel.idle
+        )
+        XCTAssertEqual(
+            plan.finalStatus(actionResult: ToolResult(ok: false), refreshResult: ToolResult(ok: true)),
+            TopBarAgentStatusLabel.failed
+        )
+        XCTAssertEqual(
+            plan.finalStatus(actionResult: ToolResult(ok: true), refreshResult: ToolResult(ok: false)),
+            TopBarAgentStatusLabel.failed
+        )
+    }
 }

@@ -27,6 +27,51 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
         XCTAssertEqual(review.totalInsertions, 5)
         XCTAssertEqual(review.totalDeletions, 1)
         XCTAssertEqual(review.totalHunks, 3)
+        XCTAssertEqual(review.badgeLabel, "3 hunks")
+    }
+
+    func testReviewSurfaceSummarizesPullRequestThreads() {
+        let unresolved = WorkspacePullRequestReviewThreadSurface(
+            id: "PRRT_one",
+            isResolved: false,
+            path: "Sources/App.swift",
+            line: 42,
+            comments: [
+                WorkspacePullRequestReviewThreadCommentSurface(
+                    id: "PRRC_one",
+                    databaseID: 11,
+                    author: "reviewer",
+                    body: "Please extract this helper.\nThanks."
+                )
+            ],
+            selector: "123"
+        )
+        let resolved = WorkspacePullRequestReviewThreadSurface(
+            id: "PRRT_two",
+            isResolved: true,
+            isOutdated: true,
+            path: "Tests/AppTests.swift",
+            line: 18,
+            startLine: 16
+        )
+
+        let review = WorkspaceReviewSurface(
+            title: "Review threads",
+            pullRequestThreads: [unresolved, resolved]
+        )
+
+        XCTAssertTrue(review.isVisible)
+        XCTAssertEqual(review.subtitle, "2 review threads, 1 unresolved, 1 resolved")
+        XCTAssertEqual(review.badgeLabel, "2 threads")
+        XCTAssertEqual(unresolved.locationLabel, "Sources/App.swift:42")
+        XCTAssertEqual(resolved.locationLabel, "Tests/AppTests.swift:16-18")
+        XCTAssertEqual(unresolved.statusLabel, "Unresolved")
+        XCTAssertEqual(resolved.statusLabel, "Resolved · outdated")
+        XCTAssertEqual(unresolved.summaryText, "Please extract this helper. Thanks.")
+        XCTAssertEqual(unresolved.authorLabel, "reviewer")
+        XCTAssertEqual(unresolved.actions.first?.kind, .resolve)
+        XCTAssertEqual(unresolved.actions.first?.selector, "123")
+        XCTAssertEqual(resolved.actions.first?.kind, .unresolve)
     }
 
     func testReviewFileAndHunkSurfacesExposeLabelsAndActions() {

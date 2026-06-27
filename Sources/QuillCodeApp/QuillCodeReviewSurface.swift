@@ -4,27 +4,68 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
     public var title: String
     public var subtitle: String
     public var files: [WorkspaceReviewFileSurface]
+    public var pullRequestThreads: [WorkspacePullRequestReviewThreadSurface]
     public var totalInsertions: Int
     public var totalDeletions: Int
     public var totalHunks: Int
 
     public var isVisible: Bool {
-        !files.isEmpty
+        !files.isEmpty || !pullRequestThreads.isEmpty
+    }
+
+    public var badgeLabel: String {
+        let parts = [
+            files.isEmpty ? nil : "\(totalHunks) hunk\(totalHunks == 1 ? "" : "s")",
+            pullRequestThreads.isEmpty ? nil : "\(pullRequestThreads.count) thread\(pullRequestThreads.count == 1 ? "" : "s")"
+        ].compactMap(\.self)
+        return parts.isEmpty ? "Review" : parts.joined(separator: " · ")
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case title
+        case subtitle
+        case files
+        case pullRequestThreads
+        case totalInsertions
+        case totalDeletions
+        case totalHunks
     }
 
     public init(
         title: String = "Review changes",
         subtitle: String = "Latest git diff",
-        files: [WorkspaceReviewFileSurface] = []
+        files: [WorkspaceReviewFileSurface] = [],
+        pullRequestThreads: [WorkspacePullRequestReviewThreadSurface] = []
     ) {
         self.title = title
         self.files = files
+        self.pullRequestThreads = pullRequestThreads
         self.totalInsertions = files.reduce(0) { $0 + $1.insertions }
         self.totalDeletions = files.reduce(0) { $0 + $1.deletions }
         self.totalHunks = files.reduce(0) { $0 + $1.hunks }
-        self.subtitle = files.isEmpty
-            ? subtitle
-            : "\(files.count) file\(files.count == 1 ? "" : "s") changed, +\(totalInsertions) -\(totalDeletions)"
+        if !files.isEmpty {
+            self.subtitle = "\(files.count) file\(files.count == 1 ? "" : "s") changed, +\(totalInsertions) -\(totalDeletions)"
+        } else if !pullRequestThreads.isEmpty {
+            let unresolvedCount = pullRequestThreads.filter { !$0.isResolved }.count
+            let resolvedCount = pullRequestThreads.count - unresolvedCount
+            self.subtitle = "\(pullRequestThreads.count) review thread\(pullRequestThreads.count == 1 ? "" : "s"), \(unresolvedCount) unresolved, \(resolvedCount) resolved"
+        } else {
+            self.subtitle = subtitle
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.subtitle = try container.decode(String.self, forKey: .subtitle)
+        self.files = try container.decode([WorkspaceReviewFileSurface].self, forKey: .files)
+        self.pullRequestThreads = try container.decodeIfPresent(
+            [WorkspacePullRequestReviewThreadSurface].self,
+            forKey: .pullRequestThreads
+        ) ?? []
+        self.totalInsertions = try container.decode(Int.self, forKey: .totalInsertions)
+        self.totalDeletions = try container.decode(Int.self, forKey: .totalDeletions)
+        self.totalHunks = try container.decode(Int.self, forKey: .totalHunks)
     }
 }
 
