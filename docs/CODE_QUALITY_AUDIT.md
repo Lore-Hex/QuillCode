@@ -6,6 +6,20 @@ Overall grade: **A- foundation, B+ product surface maturity**.
 
 The architecture is moving in the right direction: core state is value typed, persistence and runtime adapters are separated, tools use explicit schemas, and SwiftUI plus the Playwright harness render from the same surface contract. The main drag on the grade is file size and feature density in the workspace layer, not a broken abstraction boundary.
 
+## 2026-06-27 Computer Use Status Contract Pass
+
+Overall grade after this slice: **A- Computer Use executor contract, A status copy accuracy, B+ platform parity**.
+
+Computer Use now has a clearer runtime boundary between permission-missing states and backend-unavailable states. The executor already preflights per-tool permissions before invoking platform APIs; this pass makes unsupported or unavailable backend states explicit so future Linux adapters, helper-process failures, or disabled Computer Use runtimes do not look like macOS permission problems.
+
+- Added a compatibility-safe `unavailableReason` field to `ComputerUseStatus`, with `unavailable` and `unsupportedPlatform` constructors for adapter-owned failures.
+- Updated `ComputerUseToolExecutor` to report backend-unavailable errors before permission guidance, but only for known Computer Use tools so unrelated tool names still fall through to the normal router.
+- Added focused tests for unavailable status construction, unavailable executor behavior, unknown-tool fallthrough, and preserving screenshot capture when only Accessibility is missing.
+
+Residual risk:
+
+- Product parity is still limited by the missing Linux backend, app-specific approval UX, and native visual verification loops. The protocol/executor contract is stronger, but the feature remains B+ until those adapter and UX milestones land.
+
 ## 2026-06-27 Desktop Model State Coordinator Pass
 
 Overall grade after this slice: **A desktop state synchronization, A- controller size, A refresh rule clarity**.
@@ -97,7 +111,7 @@ Residual risk:
 | `QuillCodeTools` | A- | Shell/file/git/MCP executors are bounded and testable. Git and MCP files are necessarily dense; keep extracting parsers/policies when behavior grows. |
 | `QuillCodeSafety` | A- | Small, explicit policy layer. Needs more production prompt telemetry once live Auto reviewer tuning begins. |
 | `QuillCodePersistence` | A | Focused stores, compatibility tests, and clear path ownership. |
-| `QuillComputerUseKit` | B+ | Protocol shape is good and macOS adapter is isolated. Linux adapter, app approvals, and visual feedback loops are still parity gaps. |
+| `QuillComputerUseKit` | A-/B+ | Protocol shape, macOS adapter isolation, per-tool permission preflight, and backend-unavailable status copy are solid. Linux adapter, app approvals, and visual feedback loops are still parity gaps. |
 | `QuillCodeApp` surface contracts | A- | Strong shared surface model and broad tests. Settings, runtime issue, model catalog, top-bar/model contracts, navigation assembly, sidebar/project contracts, command, command palette, review, review-comment planning, tool override composition, remote-project tool execution, context banner, transcript projection, execution-context enrichment, browser location/state transitions, MCP launch/session creation, thread seeding, thread lifecycle transitions, sidebar selection transitions, sidebar bulk action planning, and automation pane assembly now have focused builders; the main remaining risk is `WorkspaceModel`, `WorkspaceSurface`, and `WorkspaceSwiftUIView` continuing to absorb too many responsibilities. |
 | Playwright harness | B+ | Valuable parity harness with broad coverage. It intentionally duplicates rendering behavior, so keep it thin and derived from stable surface concepts. |
 
