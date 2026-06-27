@@ -7858,3 +7858,20 @@ Code quality changes:
 Remaining risk:
 
 - Live TrustedRouter models can still choose a different safe file name or command variant. The safety policy allows common curl/wget output forms, but live smoke coverage should keep checking that model output stays bounded and useful.
+
+## 2026-06-27 Responsiveness Budget E2E Pass
+
+Overall grade after this slice: **A- responsiveness coverage, A CI-stable budgets, A- native measurement gap**.
+
+QuillCode had broad UI coverage, but it lacked explicit speed and reflow budgets for interactions users feel immediately: first-load interactivity, simple one-turn tool completion, stop latency, and tool-card expand/collapse stability. This pass adds focused Playwright coverage with generous CI-stable thresholds so obvious jank regressions fail before they reach users.
+
+Code quality changes:
+
+- Added `responsiveness.spec.ts` with budgets for first load, one-turn shell completion, slow-task stop response, and tool-card expand/collapse.
+- Reused the shared `harnessURL()` helper and real harness interactions instead of synthetic DOM mutation.
+- Checked no horizontal overflow and stable scroll position after expand/collapse.
+- Added a Swift parity gate so responsiveness budgets stay in their focused spec instead of drifting into broad smoke tests.
+
+Remaining risk:
+
+- These are harness-level browser timings, not packaged native-window measurements. Native macOS/Linux UI automation should mirror these once available.

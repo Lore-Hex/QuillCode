@@ -420,6 +420,40 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         }
     }
 
+    func testPlaywrightResponsivenessBudgetsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let responsivenessSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("responsiveness.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let chromeSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("workspace-chrome.spec.ts"),
+            encoding: .utf8
+        )
+        let responsivenessFlowNames = [
+            "workspace becomes interactive quickly on first load",
+            "simple one-turn shell action completes within the interaction budget",
+            "stop responds quickly while a slow tool is running",
+            "tool-card expand and collapse keeps layout stable"
+        ]
+
+        XCTAssertTrue(responsivenessSpecText.contains("harnessURL()"), "Focused responsiveness flows should reuse the shared harness URL helper.")
+        XCTAssertTrue(responsivenessSpecText.contains("performance.now()"), "Responsiveness budgets should use browser timing for interaction measurements.")
+        XCTAssertTrue(responsivenessSpecText.contains("toBeLessThan(1800)"), "First-load interactivity should keep an explicit CI-stable budget.")
+        XCTAssertTrue(responsivenessSpecText.contains("toBeLessThan(700)"), "Simple tool and reflow interactions should keep explicit CI-stable budgets.")
+        XCTAssertTrue(responsivenessSpecText.contains("toBeLessThan(500)"), "Stop latency should keep an explicit CI-stable budget.")
+        XCTAssertTrue(responsivenessSpecText.contains("scrollWidth"), "Responsiveness coverage should guard against layout overflow after interaction.")
+        for flowName in responsivenessFlowNames {
+            XCTAssertTrue(responsivenessSpecText.contains(flowName), "\(flowName) should live in responsiveness.spec.ts.")
+            XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
+            XCTAssertFalse(chromeSpecText.contains(flowName), "\(flowName) should not drift back into workspace-chrome.spec.ts.")
+        }
+    }
+
     func testPlaywrightShortcutFlowsStayInFocusedSpec() throws {
         let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
         let shortcutSpecText = try String(
