@@ -53,8 +53,22 @@ type TargetOverlapIssue = {
   overlapWidth: number;
 };
 
-async function targetAuditIssues(page: Page): Promise<TargetAuditIssue[]> {
+type InteractionAuditReport = {
+  overlapIssues: TargetOverlapIssue[];
+  targetIssues: TargetAuditIssue[];
+};
+
+async function interactionAuditReport(page: Page): Promise<InteractionAuditReport> {
   return page.evaluate(({ activeLayerSelector, minimumHitTarget, selector }) => {
+    type VisibleTarget = {
+      element: Element;
+      rect: DOMRect;
+    };
+
+    type OverlapTarget = VisibleTarget & {
+      layer: string;
+    };
+
     function isVisible(element: Element, rect: DOMRect) {
       const style = window.getComputedStyle(element);
       const closedDetails = element.closest('details:not([open])');
@@ -67,17 +81,18 @@ async function targetAuditIssues(page: Page): Promise<TargetAuditIssue[]> {
         && !element.closest('[hidden],[aria-hidden="true"]');
     }
 
-    function activeInteractionLayer() {
+    const activeInteractionLayer = (() => {
       const layers = [...document.querySelectorAll(activeLayerSelector)].filter((element) => {
         const rect = element.getBoundingClientRect();
         return isVisible(element, rect);
       });
       return layers.at(-1) || null;
-    }
+    })();
 
     function isInActiveInteractionLayer(element: Element) {
-      const layer = activeInteractionLayer();
-      return !layer || layer === element || layer.contains(element);
+      return !activeInteractionLayer
+        || activeInteractionLayer === element
+        || activeInteractionLayer.contains(element);
     }
 
     function centerIsInViewport(rect: DOMRect) {
@@ -114,12 +129,23 @@ async function targetAuditIssues(page: Page): Promise<TargetAuditIssue[]> {
       return true;
     }
 
-    function isTopMostAtCenter(element: Element, rect: DOMRect) {
-      if (!centerIsInViewport(rect) || !centerIsInsideClippingAncestors(element, rect)) return true;
+    function centerCanBeInspected(element: Element, rect: DOMRect) {
+      return centerIsInViewport(rect) && centerIsInsideClippingAncestors(element, rect);
+    }
+
+    function topElementOwnsCenter(element: Element, rect: DOMRect) {
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
       const topElement = document.elementFromPoint(centerX, centerY);
       return topElement === element || Boolean(topElement && element.contains(topElement));
+    }
+
+    function isTopMostAtCenterForTargetAudit(element: Element, rect: DOMRect) {
+      return !centerCanBeInspected(element, rect) || topElementOwnsCenter(element, rect);
+    }
+
+    function isTopMostAtCenterForOverlapAudit(element: Element, rect: DOMRect) {
+      return centerCanBeInspected(element, rect) && topElementOwnsCenter(element, rect);
     }
 
     function auditReason(element: Element, rect: DOMRect) {
@@ -127,18 +153,35 @@ async function targetAuditIssues(page: Page): Promise<TargetAuditIssue[]> {
       if (Math.round(rect.width) < minimumHitTarget || Math.round(rect.height) < minimumHitTarget) {
         reasons.push('too_small');
       }
-      if (!isTopMostAtCenter(element, rect)) {
+      if (!isTopMostAtCenterForTargetAudit(element, rect)) {
         reasons.push('center_blocked_or_clipped');
       }
       return reasons.join(',');
     }
 
-    return [...document.querySelectorAll(selector)]
+    function labelFor(element: Element) {
+      const id = element.getAttribute('data-testid');
+      const aria = element.getAttribute('aria-label');
+      const text = (element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 48);
+      return [element.tagName.toLowerCase(), id, aria, text].filter(Boolean).join(':');
+    }
+
+    function interactionLayer(element: Element) {
+      const layer = element.closest(activeLayerSelector);
+      if (!layer) return 'workspace';
+      return layer.getAttribute('data-testid')
+        || String((layer as HTMLElement).className || '')
+        || layer.tagName.toLowerCase();
+    }
+
+    const visibleTargets: VisibleTarget[] = [...document.querySelectorAll(selector)]
       .map((element) => {
         const rect = element.getBoundingClientRect();
         return { element, rect };
       })
-      .filter(({ element, rect }) => isVisible(element, rect) && isInActiveInteractionLayer(element))
+      .filter(({ element, rect }) => isVisible(element, rect) && isInActiveInteractionLayer(element));
+
+    const targetIssues: TargetAuditIssue[] = visibleTargets
       .map(({ element, rect }) => ({
         element,
         reason: auditReason(element, rect),
@@ -155,133 +198,25 @@ async function targetAuditIssues(page: Page): Promise<TargetAuditIssue[]> {
         text: (element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
         width: Math.round(rect.width)
       }));
-  }, {
-    activeLayerSelector: ACTIVE_LAYER_SELECTOR,
-    minimumHitTarget: MINIMUM_HIT_TARGET,
-    selector: INTERACTIVE_SELECTOR
-  });
-}
 
-export async function expectAllVisibleInteractiveTargets(page: Page, label: string) {
-  const issues = await targetAuditIssues(page);
-  expect(issues, `${label} should keep every visible interactive target at least ${MINIMUM_HIT_TARGET}px`).toEqual([]);
-}
-
-async function targetOverlapIssues(page: Page): Promise<TargetOverlapIssue[]> {
-  return page.evaluate(({ activeLayerSelector, selector }) => {
-    function isVisible(element: Element, rect: DOMRect) {
-      const style = window.getComputedStyle(element);
-      const closedDetails = element.closest('details:not([open])');
-      if (closedDetails && element.tagName.toLowerCase() !== 'summary') return false;
-      return rect.width > 0
-        && rect.height > 0
-        && style.display !== 'none'
-        && style.visibility !== 'hidden'
-        && style.pointerEvents !== 'none'
-        && !element.closest('[hidden],[aria-hidden="true"]');
-    }
-
-    function activeInteractionLayer() {
-      const layers = [...document.querySelectorAll(activeLayerSelector)].filter((element) => {
-        const rect = element.getBoundingClientRect();
-        return isVisible(element, rect);
-      });
-      return layers.at(-1) || null;
-    }
-
-    function isInActiveInteractionLayer(element: Element) {
-      const layer = activeInteractionLayer();
-      return !layer || layer === element || layer.contains(element);
-    }
-
-    function centerIsInViewport(rect: DOMRect) {
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      return centerX >= 0
-        && centerY >= 0
-        && centerX <= document.documentElement.clientWidth
-        && centerY <= document.documentElement.clientHeight;
-    }
-
-    function centerIsInsideClippingAncestors(element: Element, rect: DOMRect) {
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      let ancestor = element.parentElement;
-      while (ancestor) {
-        const style = window.getComputedStyle(ancestor);
-        const clips = ['auto', 'scroll', 'hidden', 'clip'].some(value => (
-          style.overflow === value || style.overflowX === value || style.overflowY === value
-        ));
-        if (clips) {
-          const ancestorRect = ancestor.getBoundingClientRect();
-          if (
-            centerX < ancestorRect.left
-            || centerX > ancestorRect.right
-            || centerY < ancestorRect.top
-            || centerY > ancestorRect.bottom
-          ) {
-            return false;
-          }
-        }
-        ancestor = ancestor.parentElement;
-      }
-      return true;
-    }
-
-    function isTopMostAtCenter(element: Element, rect: DOMRect) {
-      if (!centerIsInViewport(rect) || !centerIsInsideClippingAncestors(element, rect)) return false;
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      const topElement = document.elementFromPoint(centerX, centerY);
-      return topElement === element || Boolean(topElement && element.contains(topElement));
-    }
-
-    function labelFor(element: Element) {
-      const id = element.getAttribute('data-testid');
-      const aria = element.getAttribute('aria-label');
-      const text = (element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 48);
-      return [element.tagName.toLowerCase(), id, aria, text].filter(Boolean).join(':');
-    }
-
-    function interactionLayer(element: Element) {
-      const layer = element.closest([
-        '[data-testid="model-browser"]',
-        '[data-testid="settings-panel"]',
-        '[data-testid="search-panel"]',
-        '[data-testid="command-palette-panel"]',
-        '[data-testid="keyboard-shortcuts-panel"]',
-        '[data-testid="find-bar"]',
-        '.sidebar-tools-popover',
-        '.sidebar-thread-menu-popover'
-      ].join(','));
-      if (!layer) return 'workspace';
-      return layer.getAttribute('data-testid') || layer.className || layer.tagName.toLowerCase();
-    }
-
-    const targets = [...document.querySelectorAll(selector)]
-      .map((element) => ({
-        element,
-        layer: interactionLayer(element),
-        rect: element.getBoundingClientRect()
-      }))
+    const overlapTargets: OverlapTarget[] = visibleTargets
+      .map(({ element, rect }) => ({ element, layer: interactionLayer(element), rect }))
       .filter(({ element, rect }) => (
-        isVisible(element, rect)
-          && isInActiveInteractionLayer(element)
-          && isTopMostAtCenter(element, rect)
+        isTopMostAtCenterForOverlapAudit(element, rect)
       ));
-    const issues: TargetOverlapIssue[] = [];
+    const overlapIssues: TargetOverlapIssue[] = [];
 
-    for (let i = 0; i < targets.length; i += 1) {
-      for (let j = i + 1; j < targets.length; j += 1) {
-        const first = targets[i];
-        const second = targets[j];
+    for (let i = 0; i < overlapTargets.length; i += 1) {
+      for (let j = i + 1; j < overlapTargets.length; j += 1) {
+        const first = overlapTargets[i];
+        const second = overlapTargets[j];
         if (first.layer !== second.layer) continue;
         if (first.element.contains(second.element) || second.element.contains(first.element)) continue;
 
         const overlapWidth = Math.min(first.rect.right, second.rect.right) - Math.max(first.rect.left, second.rect.left);
         const overlapHeight = Math.min(first.rect.bottom, second.rect.bottom) - Math.max(first.rect.top, second.rect.top);
         if (overlapWidth > 1 && overlapHeight > 1) {
-          issues.push({
+          overlapIssues.push({
             a: labelFor(first.element),
             b: labelFor(second.element),
             overlapHeight: Math.round(overlapHeight),
@@ -290,16 +225,23 @@ async function targetOverlapIssues(page: Page): Promise<TargetOverlapIssue[]> {
         }
       }
     }
-    return issues;
+
+    return { overlapIssues, targetIssues };
   }, {
     activeLayerSelector: ACTIVE_LAYER_SELECTOR,
+    minimumHitTarget: MINIMUM_HIT_TARGET,
     selector: INTERACTIVE_SELECTOR
   });
 }
 
+export async function expectAllVisibleInteractiveTargets(page: Page, label: string) {
+  const { targetIssues } = await interactionAuditReport(page);
+  expect(targetIssues, `${label} should keep every visible interactive target at least ${MINIMUM_HIT_TARGET}px`).toEqual([]);
+}
+
 export async function expectNoOverlappingInteractiveTargets(page: Page, label: string) {
-  const issues = await targetOverlapIssues(page);
-  expect(issues, `${label} should not have overlapping peer interactive targets`).toEqual([]);
+  const { overlapIssues } = await interactionAuditReport(page);
+  expect(overlapIssues, `${label} should not have overlapping peer interactive targets`).toEqual([]);
 }
 
 export async function expectHitTarget(locator: Locator, label: string) {
