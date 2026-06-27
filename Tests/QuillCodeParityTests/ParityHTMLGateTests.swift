@@ -283,6 +283,14 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             "HTML renderers should share one semantic class for non-button clickable targets."
         )
         XCTAssertTrue(
+            primitivesText.contains("static let iconHitTargetClass")
+                && primitivesText.contains("static let textHitTargetClass")
+                && primitivesText.contains("static let rowHitTargetClass")
+                && primitivesText.contains("static let capsuleHitTargetClass")
+                && primitivesText.contains("static let formActionHitTargetClass"),
+            "HTML hit-target classes should name the same semantic control categories as the SwiftUI target specs."
+        )
+        XCTAssertTrue(
             toolCardText.contains(#"class="tool-details""#),
             "Tool-card details disclosures should opt into the harness hit-target styling."
         )
@@ -291,7 +299,7 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             "Artifact links should keep an explicit 44 px hit target instead of relying on chip padding."
         )
         XCTAssertTrue(
-            reviewText.contains(#"class="review-action-button""#),
+            reviewText.contains(#"class="review-action-button \(WorkspaceHTMLPrimitives.textHitTargetClass)""#),
             "Review action buttons should use a named class that can be target-sized in CSS."
         )
         XCTAssertTrue(
@@ -307,8 +315,13 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             "The Playwright harness should size semantic non-button click targets explicitly."
         )
         XCTAssertTrue(
-            harnessText.contains("button,\n    summary,\n    a.interactive-hit-target"),
-            "The Playwright harness should enforce a global 44 px baseline for buttons, summaries, and link-style controls."
+            harnessText.contains("button,\n    summary,\n    input,\n    select,\n    textarea,\n    a.interactive-hit-target"),
+            "The Playwright harness should enforce a global 44 px baseline for buttons, summaries, fields, and link-style controls."
+        )
+        XCTAssertTrue(
+            harnessText.contains(".hit-target-icon")
+                && harnessText.contains(".hit-target-form-action"),
+            "The Playwright harness should expose semantic target classes for icon and compact form controls."
         )
         XCTAssertTrue(
             harnessText.contains("button:active:not(:disabled)")
@@ -339,8 +352,8 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             "Harness artifact links should match the production target class."
         )
         XCTAssertTrue(
-            harnessText.contains(#"class="review-action-button""#),
-            "Harness review buttons should match the production review action class."
+            harnessText.contains(#"class="review-action-button hit-target-text""#),
+            "Harness review buttons should match the production review action target class."
         )
     }
 

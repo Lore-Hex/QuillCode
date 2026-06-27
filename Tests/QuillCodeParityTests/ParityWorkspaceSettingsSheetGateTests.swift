@@ -94,8 +94,18 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         let terminalText = try Self.appSourceText(named: "QuillCodeTerminalPaneView.swift")
         let contextBannerText = try Self.appSourceText(named: "QuillCodeContextBannerView.swift")
         let reviewActionText = try Self.appSourceText(named: "QuillCodeReviewActionButton.swift")
+        let reviewLineText = try Self.appSourceText(named: "QuillCodeReviewLineRowView.swift")
+        let reviewHunkText = try Self.appSourceText(named: "QuillCodeReviewHunkView.swift")
         let modelRowsText = try Self.appSourceText(named: "QuillCodeModelPickerRows.swift")
 
+        XCTAssertTrue(
+            designSystemText.contains("struct QuillCodeHitTargetSpec"),
+            "Shared hit-target sizing should be modeled as semantic specs instead of independent frame helpers."
+        )
+        XCTAssertTrue(
+            designSystemText.contains("func quillCodeInteractiveTarget("),
+            "Target helpers should route through one primitive so shapes and sizes stay consistent."
+        )
         XCTAssertTrue(
             designSystemText.contains("minWidth: QuillCodeMetrics.minimumHitTarget"),
             "Shared pressable button style should enforce the 44 pt target instead of leaving it to every caller."
@@ -115,6 +125,10 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             designSystemText.contains("func quillCodeCapsuleButtonTarget("),
             "Capsule buttons should use a semantic 44 pt target helper that matches their visual shape."
+        )
+        XCTAssertTrue(
+            designSystemText.contains("func quillCodeFormActionTarget("),
+            "Compact form actions should use their own semantic target instead of shrinking below 44 pt."
         )
         XCTAssertTrue(
             designSystemText.contains(".contentShape(Rectangle())"),
@@ -167,6 +181,11 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             reviewActionText.contains(".quillCodeIconButtonTarget()"),
             "Review action icon buttons should use semantic icon click targets."
+        )
+        XCTAssertTrue(
+            reviewLineText.contains(".quillCodeFormActionTarget()")
+                && reviewHunkText.contains(".quillCodeFormActionTarget()"),
+            "Review note Add controls should use the compact form-action target instead of ad hoc small buttons."
         )
         XCTAssertTrue(
             modelRowsText.contains(".quillCodeFullRowButtonTarget(radius: 10)")

@@ -2,6 +2,11 @@ import Foundation
 
 enum WorkspaceHTMLPrimitives {
     static let interactiveHitTargetClass = "interactive-hit-target"
+    static let iconHitTargetClass = "hit-target-icon"
+    static let textHitTargetClass = "hit-target-text"
+    static let rowHitTargetClass = "hit-target-row"
+    static let capsuleHitTargetClass = "hit-target-capsule"
+    static let formActionHitTargetClass = "hit-target-form-action"
 
     static func escape(_ text: String) -> String {
         text

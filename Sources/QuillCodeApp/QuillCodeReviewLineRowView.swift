@@ -92,7 +92,7 @@ struct QuillCodeReviewLineRowView: View {
                     isAddingComment = false
                 }
                 .font(.caption.weight(.semibold))
-                .quillCodeTextButtonTarget(minWidth: QuillCodeMetrics.minimumHitTarget)
+                .quillCodeFormActionTarget()
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .disabled(commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
