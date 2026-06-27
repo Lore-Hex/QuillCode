@@ -7959,3 +7959,22 @@ Code quality changes:
 Remaining risk:
 
 - This still runs through the CLI, not the packaged native SwiftUI window. Native smoke should eventually inspect the same transcript evidence after a real app run.
+
+## 2026-06-27 Expanded Live Real-World Prompt Smoke Pass
+
+Overall grade after this slice: **A- live prompt realism, A bounded workspace effects, B+ provider/network variability**.
+
+The live smoke now covers the real user phrasings that have repeatedly regressed during device testing, not only minimal command examples. The goal is to catch live-model drift before it reaches the app: OpenClaw discovery should run a concrete shell command, and public-page downloads should create the requested workspace file.
+
+Code quality changes:
+
+- Added reusable live-smoke helpers for regex-based output checks and nonempty workspace-file assertions.
+- Extended the opt-in live TrustedRouter smoke from three prompts to five: backticked shell command, natural `whoami?`, exact file creation, `Do you have openclaw?`, and a public `https://example.com` download into `downloads/example.html`.
+- Hardened the TrustedRouter download prompt so live models create parent directories with `mkdir -p` before writing nested download paths.
+- Raised persisted transcript expectations to require all five live prompt transcripts, each with nonempty queued tool arguments, no failed tool events, and successful completed tool results.
+- Kept all external side effects bounded to an isolated temporary HOME and workspace.
+
+Remaining risk:
+
+- This still depends on live model, network, and public-page availability, so it remains an opt-in release/prompt/parser gate rather than a required PR check.
+- The smoke still drives the CLI entrypoint. Native macOS/Linux UI automation should later run the same scenarios through the packaged SwiftUI app and inspect saved transcripts.
