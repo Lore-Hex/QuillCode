@@ -34,7 +34,7 @@ final class WorkspaceStatusTextBuilderTests: XCTestCase {
         Instructions: 1 instruction file loaded
         Memories: 1 memory
         Mode: Review
-        Model: \(TrustedRouterDefaults.synthModel)
+        Model: Synth (/synth)
         Agent: Running
         """)
     }
@@ -72,7 +72,16 @@ final class WorkspaceStatusTextBuilderTests: XCTestCase {
         )
         XCTAssertEqual(
             WorkspaceStatusTextBuilder.topBarSubtitle(projectName: "QuillCode", thread: thread),
-            "QuillCode - Auto - \(TrustedRouterDefaults.fastModel)"
+            "QuillCode - Auto - Nike 1.0"
         )
+    }
+
+    func testModelLabelsPreferBrandingForRecommendedModels() {
+        XCTAssertEqual(WorkspaceStatusTextBuilder.subtitleModelLabel("trustedrouter/fusion"), "Synth")
+        XCTAssertEqual(WorkspaceStatusTextBuilder.statusModelLabel("trustedrouter/fusion"), "Synth (/synth)")
+        XCTAssertEqual(WorkspaceStatusTextBuilder.subtitleModelLabel(TrustedRouterDefaults.synthCodeModel), "Synth Code")
+        XCTAssertEqual(WorkspaceStatusTextBuilder.statusModelLabel(TrustedRouterDefaults.synthCodeModel), "Synth Code (/synth-code)")
+        XCTAssertEqual(WorkspaceStatusTextBuilder.subtitleModelLabel("anthropic/claude-opus-4.1"), "anthropic/claude-opus-4.1")
+        XCTAssertEqual(WorkspaceStatusTextBuilder.statusModelLabel("anthropic/claude-opus-4.1"), "anthropic/claude-opus-4.1")
     }
 }

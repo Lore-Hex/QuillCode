@@ -104,6 +104,20 @@ Residual risk:
 
 - This still combines source gates with HTML Playwright audits rather than native UI automation measuring the built SwiftUI app. Add native accessibility-frame checks once the packaged app test runner can inspect SwiftUI controls directly.
 
+## 2026-06-27 Model Status Display Pass
+
+Overall grade after this slice: **A user-facing model copy, A formatter ownership, A alias compatibility**.
+
+Nike/Synth naming was already enforced in the model picker, slash commands, config, and catalog normalization, but status copy still rendered raw IDs like `tr/synth` in the top-bar subtitle and `/status` transcript. This pass moves model status copy into `WorkspaceStatusTextBuilder` so status surfaces use the same model-branding rule.
+
+- Top-bar subtitles now show recommended model display names such as `Nike 1.0`, `Synth`, and `Synth Code`.
+- `/status` text keeps enough detail for support by showing branded recommended models with their preferred command IDs, such as `Synth (/synth)`.
+- Unknown provider/model IDs remain literal so advanced users can still verify exact custom model routing.
+
+Residual risk:
+
+- The subtitle still includes model identity for now because that matches the existing surface contract. If the top bar gets visually crowded again, remove the model from the subtitle rather than reintroducing raw IDs.
+
 ## 2026-06-27 Computer Use Status Contract Pass
 
 Overall grade after this slice: **A- Computer Use executor contract, A status copy accuracy, B+ platform parity**.
