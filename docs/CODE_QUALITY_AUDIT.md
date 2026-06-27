@@ -7430,3 +7430,27 @@ Strict grades:
 Remaining risk:
 
 - Like the other desktop coordinators, this is source-gated rather than covered by a dedicated executable test target. If desktop internals become importable, add fake OAuth/model-application tests around success and failure paths.
+
+## 2026-06-27 Desktop Runtime Settings Coordinator Pass
+
+Overall grade after this slice: **A settings/runtime ownership, A model-catalog boundary, A- desktop executable coverage**.
+
+`QuillCodeDesktopController.swift` still directly owned mode/model/favorite persistence, settings-result application, runtime rebuilds, and model-catalog refreshes. Those are runtime configuration policy, not UI routing, and they should live beside the existing key persistence and settings normalization rules.
+
+Code quality changes:
+
+- Moved desktop mode/model/favorite persistence into `QuillCodeDesktopSettingsCoordinator`.
+- Moved settings-result application and runtime rebuilds into the settings coordinator.
+- Moved post-save and manual model-catalog refreshes into the settings coordinator.
+- Reduced the desktop controller to invoking the coordinator and refreshing published UI state.
+- Strengthened the desktop parity gate so runtime settings mutations, catalog fetches, catalog application, and runtime rebuilds do not drift back into the controller.
+
+Strict grades:
+
+- `QuillCodeDesktopSettingsCoordinator.swift`: **A-**. It now owns desktop runtime settings policy coherently. If it grows further, split secret persistence from model/runtime application behind a small runtime-settings applier.
+- `QuillCodeDesktopController.swift`: **A-**. The controller still has broad desktop UI routing duties, but it no longer owns configuration mutation policy.
+- `ParityDesktopGateTests.swift`: **A**. The gate now protects mode/model/favorite persistence, settings saves, catalog refreshes, and Computer Use platform routing together.
+
+Remaining risk:
+
+- This is still source-gated rather than directly unit tested through an importable desktop library. If desktop coordinators move into a testable target, add fake-bootstrap tests for settings save, catalog refresh, API-key clear/replace, and runtime rebuild flows.

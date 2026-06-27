@@ -8,11 +8,53 @@ struct QuillCodeDesktopSettingsResult {
     var trustedRouterAPIKeyConfigured: Bool
 }
 
+@MainActor
 struct QuillCodeDesktopSettingsCoordinator {
     private let bootstrap: QuillCodeWorkspaceBootstrap
 
     init(bootstrap: QuillCodeWorkspaceBootstrap) {
         self.bootstrap = bootstrap
+    }
+
+    func setMode(_ mode: AgentMode, on model: QuillCodeWorkspaceModel) {
+        model.setMode(mode)
+        persist(model.root.config)
+    }
+
+    func setModel(_ modelID: String, on model: QuillCodeWorkspaceModel) {
+        model.setModel(modelID)
+        persist(model.root.config)
+    }
+
+    func toggleModelFavorite(_ modelID: String, on model: QuillCodeWorkspaceModel) {
+        model.toggleModelFavorite(modelID)
+        persist(model.root.config)
+    }
+
+    func refreshModelCatalog(on model: QuillCodeWorkspaceModel) async {
+        let models = await bootstrap.fetchModelCatalog(config: model.root.config)
+        model.setModelCatalog(models)
+    }
+
+    func saveSettings(
+        _ update: WorkspaceSettingsUpdate,
+        to model: QuillCodeWorkspaceModel,
+        refresh: @escaping @MainActor () -> Void
+    ) {
+        let result = apply(
+            update: update,
+            currentConfig: model.root.config
+        )
+        model.applySettings(
+            config: result.config,
+            trustedRouterAPIKeyConfigured: result.trustedRouterAPIKeyConfigured
+        )
+        model.applyRuntime(result.runtime)
+        refresh()
+        Task { @MainActor in
+            await refreshModelCatalog(on: model)
+            refresh()
+        }
     }
 
     func persist(_ config: AppConfig) {
