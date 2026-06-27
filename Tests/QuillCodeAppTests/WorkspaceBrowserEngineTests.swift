@@ -117,6 +117,75 @@ final class WorkspaceBrowserEngineTests: XCTestCase {
         XCTAssertTrue(browser.snapshot?.details.contains("Live DOM capture: No rendered browser session is attached.") == true)
     }
 
+    func testSessionUpdateSyncsVisibleBrowserNavigationBackIntoSelectedTab() throws {
+        var browser = BrowserState()
+        let firstTabID = browser.selectedTabID
+        WorkspaceBrowserEngine.openPage(try XCTUnwrap(URL(string: "https://example.com/docs")), state: &browser, updateHistory: true)
+        let secondTabID = WorkspaceBrowserEngine.newTab(state: &browser)
+        WorkspaceBrowserEngine.openPage(try XCTUnwrap(URL(string: "https://trustedrouter.com")), state: &browser, updateHistory: true)
+
+        let update = BrowserSessionUpdate(
+            tabs: [
+                BrowserSessionTabUpdate(
+                    id: firstTabID,
+                    title: "Docs",
+                    url: try XCTUnwrap(URL(string: "https://example.com/docs")),
+                    isActive: false
+                ),
+                BrowserSessionTabUpdate(
+                    id: secondTabID,
+                    title: "Dashboard",
+                    url: try XCTUnwrap(URL(string: "https://trustedrouter.com/dashboard")),
+                    isActive: true
+                )
+            ],
+            activeTabID: secondTabID
+        )
+
+        XCTAssertTrue(WorkspaceBrowserEngine.applySessionUpdate(update, state: &browser))
+
+        XCTAssertEqual(browser.selectedTabID, secondTabID)
+        XCTAssertEqual(browser.currentURL, "https://trustedrouter.com/dashboard")
+        XCTAssertEqual(browser.addressDraft, "https://trustedrouter.com/dashboard")
+        XCTAssertEqual(browser.title, "Dashboard")
+        XCTAssertEqual(browser.status, "Synced from browser session")
+        XCTAssertEqual(browser.history, [
+            "https://trustedrouter.com",
+            "https://trustedrouter.com/dashboard"
+        ])
+        XCTAssertEqual(browser.snapshot?.sourceLabel, "Web page")
+
+        XCTAssertTrue(WorkspaceBrowserEngine.selectTab(id: firstTabID, state: &browser))
+        XCTAssertEqual(browser.currentURL, "https://example.com/docs")
+        XCTAssertEqual(browser.title, "Docs")
+    }
+
+    func testSessionUpdateAddsExternallyCreatedVisibleSessionTab() throws {
+        var browser = BrowserState()
+        let initialTabID = browser.selectedTabID
+        let externalTabID = UUID()
+
+        XCTAssertTrue(WorkspaceBrowserEngine.applySessionUpdate(
+            BrowserSessionUpdate(
+                tabs: [
+                    BrowserSessionTabUpdate(
+                        id: externalTabID,
+                        title: "External",
+                        url: try XCTUnwrap(URL(string: "https://example.com/external")),
+                        isActive: true
+                    )
+                ],
+                activeTabID: externalTabID
+            ),
+            state: &browser
+        ))
+
+        XCTAssertEqual(browser.selectedTabID, externalTabID)
+        XCTAssertEqual(browser.tabs.map(\.id), [initialTabID, externalTabID])
+        XCTAssertEqual(browser.currentURL, "https://example.com/external")
+        XCTAssertEqual(browser.history, ["https://example.com/external"])
+    }
+
     func testAddCommentTrimsTextAndRequiresCurrentURL() throws {
         var browser = BrowserState()
 

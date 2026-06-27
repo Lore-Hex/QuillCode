@@ -17,6 +17,16 @@ struct QuillCodeDesktopBrowserCoordinator {
         self.sessionPresenter = sessionPresenter
     }
 
+    func installSessionUpdateHandler(
+        model: QuillCodeWorkspaceModel,
+        refresh: @escaping @MainActor () -> Void
+    ) {
+        sessionPresenter.onSessionUpdate = { update in
+            guard model.applyBrowserSessionUpdate(update) else { return }
+            refresh()
+        }
+    }
+
     func openPreview(
         model: QuillCodeWorkspaceModel,
         addressDraft: String,

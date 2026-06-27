@@ -50,6 +50,38 @@ final class WorkspaceBrowserIntegrationTests: XCTestCase {
         XCTAssertTrue(surface.commands.contains { $0.id == "toggle-browser" && $0.title == "Browser" })
     }
 
+    func testVisibleBrowserSessionUpdateRefreshesModelAndSurface() throws {
+        let model = QuillCodeWorkspaceModel()
+        XCTAssertTrue(model.openBrowserPreview("example.com/docs"))
+        let tabID = model.browser.selectedTabID
+
+        XCTAssertTrue(model.applyBrowserSessionUpdate(BrowserSessionUpdate(
+            tabs: [
+                BrowserSessionTabUpdate(
+                    id: tabID,
+                    title: "Signed-in dashboard",
+                    url: try XCTUnwrap(URL(string: "https://example.com/dashboard")),
+                    isActive: true
+                )
+            ],
+            activeTabID: tabID
+        )))
+
+        XCTAssertEqual(model.browser.currentURL, "https://example.com/dashboard")
+        XCTAssertEqual(model.browser.addressDraft, "https://example.com/dashboard")
+        XCTAssertEqual(model.browser.title, "Signed-in dashboard")
+        XCTAssertEqual(model.browser.status, "Synced from browser session")
+        XCTAssertEqual(model.browser.history, [
+            "https://example.com/docs",
+            "https://example.com/dashboard"
+        ])
+
+        let surface = model.surface()
+        XCTAssertEqual(surface.browser.currentURL, "https://example.com/dashboard")
+        XCTAssertEqual(surface.browser.title, "Signed-in dashboard")
+        XCTAssertEqual(surface.browser.statusLabel, "Synced from browser session")
+    }
+
     func testBrowserPreviewNormalizesURLsAndStoresComments() throws {
         let root = try makeTempDirectory()
         let previewFile = root.appendingPathComponent("preview.html")

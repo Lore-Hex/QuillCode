@@ -80,6 +80,10 @@ final class QuillCodeDesktopController: ObservableObject {
         self.draft = initialState.draft
         self.terminalDraft = initialState.terminalDraft
         self.browserAddressDraft = initialState.browserAddressDraft
+        browserCoordinator.installSessionUpdateHandler(
+            model: model,
+            refresh: { [weak self] in self?.refresh() }
+        )
         automationCoordinator.runDueAutomations(
             model: model,
             notifier: automationNotifier,

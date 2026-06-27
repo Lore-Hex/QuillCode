@@ -114,6 +114,28 @@ struct WorkspaceBrowserEngine {
         storeSelectedTab(in: &state)
     }
 
+    @discardableResult
+    static func applySessionUpdate(_ update: BrowserSessionUpdate, state: inout BrowserState) -> Bool {
+        guard !update.isEmpty else { return false }
+        storeSelectedTab(in: &state)
+
+        var changed = false
+        for tabUpdate in update.tabs {
+            changed = apply(tabUpdate, state: &state) || changed
+        }
+
+        if let activeTabID = update.activeTabID,
+           state.tabs.contains(where: { $0.id == activeTabID }),
+           state.selectedTabID != activeTabID {
+            state.selectedTabID = activeTabID
+            changed = true
+        }
+
+        loadSelectedTab(into: &state)
+        state.isVisible = true
+        return changed
+    }
+
     static func markSnapshotFetchFailure(_ error: any Error, state: inout BrowserState) {
         if var snapshot = state.snapshot {
             snapshot.details.append("Snapshot fetch: \(WorkspaceBrowserLocationResolver.snapshotFetchMessage(for: error))")
@@ -160,6 +182,40 @@ struct WorkspaceBrowserEngine {
         )
     }
 
+    @discardableResult
+    private static func apply(_ update: BrowserSessionTabUpdate, state: inout BrowserState) -> Bool {
+        let index: Int
+        if let existingIndex = state.tabs.firstIndex(where: { $0.id == update.id }) {
+            index = existingIndex
+        } else {
+            state.tabs.append(BrowserTabState(id: update.id))
+            index = state.tabs.count - 1
+        }
+
+        var tab = state.tabs[index]
+        var changed = false
+        let url = update.url.absoluteString
+        if tab.currentURL != url {
+            tab.currentURL = url
+            tab.addressDraft = url
+            tab.snapshot = BrowserInspector.snapshot(for: update.url)
+            appendHistory(url, history: &tab.history, historyIndex: &tab.historyIndex)
+            changed = true
+        }
+
+        let title = sessionTitle(update.title, fallbackURL: update.url)
+        if tab.title != title {
+            tab.title = title
+            changed = true
+        }
+
+        if changed {
+            tab.status = "Synced from browser session"
+            state.tabs[index] = tab
+        }
+        return changed
+    }
+
     private static func loadSelectedTab(into state: inout BrowserState) {
         ensureSelectedTab(in: &state)
         guard let tab = state.tabs.first(where: { $0.id == state.selectedTabID }) else { return }
@@ -197,22 +253,26 @@ struct WorkspaceBrowserEngine {
     }
 
     private static func appendHistory(_ url: String, state: inout BrowserState) {
-        if let historyIndex = state.historyIndex,
-           state.history.indices.contains(historyIndex),
-           state.history[historyIndex] == url {
+        appendHistory(url, history: &state.history, historyIndex: &state.historyIndex)
+    }
+
+    private static func appendHistory(_ url: String, history: inout [String], historyIndex: inout Int?) {
+        if let historyIndex,
+           history.indices.contains(historyIndex),
+           history[historyIndex] == url {
             return
         }
 
         let preservedHistory: ArraySlice<String>
-        if let historyIndex = state.historyIndex,
-           state.history.indices.contains(historyIndex) {
-            preservedHistory = state.history.prefix(through: historyIndex)
+        if let historyIndex,
+           history.indices.contains(historyIndex) {
+            preservedHistory = history.prefix(through: historyIndex)
         } else {
             preservedHistory = []
         }
 
-        state.history = Array(preservedHistory) + [url]
-        state.historyIndex = state.history.indices.last
+        history = Array(preservedHistory) + [url]
+        historyIndex = history.indices.last
     }
 
     private static func replaceCurrentHistory(with url: String, state: inout BrowserState) {
@@ -230,6 +290,11 @@ struct WorkspaceBrowserEngine {
             .first { $0.hasPrefix("Title: ") }
             .map { String($0.dropFirst("Title: ".count)) }
             ?? BrowserInspector.title(for: url)
+    }
+
+    private static func sessionTitle(_ title: String, fallbackURL url: URL) -> String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? BrowserInspector.title(for: url) : trimmed
     }
 
     private static func liveDOMCaptureMessage(for error: any Error) -> String {

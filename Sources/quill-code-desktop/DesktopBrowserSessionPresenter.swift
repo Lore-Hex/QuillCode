@@ -7,12 +7,16 @@ import WebKit
 
 @MainActor
 protocol DesktopBrowserSessionPresenting: AnyObject {
+    var onSessionUpdate: (@MainActor (BrowserSessionUpdate) -> Void)? { get set }
+
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot)
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot)
 }
 
 @MainActor
 final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
+    var onSessionUpdate: (@MainActor (BrowserSessionUpdate) -> Void)?
+
     private var session: DesktopBrowserSessionWindowController?
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {
@@ -24,6 +28,9 @@ final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
         }
 
         let session = DesktopBrowserSessionWindowController(snapshot: snapshot)
+        session.onSessionUpdate = { [weak self] update in
+            self?.onSessionUpdate?(update)
+        }
         session.onClose = { [weak self, weak session] in
             guard let session, self?.session === session else { return }
             self?.session = nil
@@ -39,7 +46,7 @@ final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
 }
 
 @MainActor
-private final class DesktopBrowserSessionWindowController: NSWindowController, NSWindowDelegate, WKNavigationDelegate {
+private final class DesktopBrowserSessionWindowController: NSWindowController, NSWindowDelegate, NSTabViewDelegate, WKNavigationDelegate {
     private struct SessionTab {
         var snapshot: BrowserSessionTabSnapshot
         var item: NSTabViewItem
@@ -47,6 +54,7 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
     }
 
     var onClose: (() -> Void)?
+    var onSessionUpdate: (@MainActor (BrowserSessionUpdate) -> Void)?
 
     private let tabView: NSTabView
     private var tabs: [UUID: SessionTab] = [:]
@@ -67,6 +75,7 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
         super.init(window: window)
 
         window.delegate = self
+        tabView.delegate = self
         sync(snapshot)
     }
 
@@ -80,6 +89,11 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
         onClose?()
     }
 
+    func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
+        updateWindowTitle()
+        emitSessionUpdate()
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation?) {
         guard let id = tabID(for: webView),
               var tab = tabs[id]
@@ -87,10 +101,19 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
             return
         }
         let title = nonEmpty(webView.title) ?? tab.snapshot.title
+        if let url = webView.url {
+            tab.snapshot = BrowserSessionTabSnapshot(
+                id: tab.snapshot.id,
+                title: title,
+                url: url,
+                isActive: tab.snapshot.isActive
+            )
+        }
         tab.snapshot.title = title
         tab.item.label = title
         tabs[id] = tab
         updateWindowTitle()
+        emitSessionUpdate()
     }
 
     func sync(_ snapshot: BrowserSessionSyncSnapshot) {
@@ -174,9 +197,32 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
         }
     }
 
+    private func emitSessionUpdate() {
+        let activeID = selectedTabID()
+        let updates = tabView.tabViewItems.compactMap { item -> BrowserSessionTabUpdate? in
+            guard let id = tabID(for: item),
+                  let tab = tabs[id]
+            else { return nil }
+            let url = tab.webView.url ?? tab.snapshot.url
+            let title = nonEmpty(tab.webView.title) ?? tab.snapshot.title
+            return BrowserSessionTabUpdate(
+                id: id,
+                title: title,
+                url: url,
+                isActive: id == activeID
+            )
+        }
+        guard !updates.isEmpty else { return }
+        onSessionUpdate?(BrowserSessionUpdate(tabs: updates, activeTabID: activeID))
+    }
+
     private func selectedTabID() -> UUID? {
         guard let selectedItem = tabView.selectedTabViewItem else { return nil }
         return tabs.first { $0.value.item === selectedItem }?.key
+    }
+
+    private func tabID(for item: NSTabViewItem) -> UUID? {
+        tabs.first { $0.value.item === item }?.key
     }
 
     private func tabID(for webView: WKWebView) -> UUID? {
@@ -197,12 +243,16 @@ private final class DesktopBrowserSessionWindowController: NSWindowController, N
 #else
 @MainActor
 protocol DesktopBrowserSessionPresenting: AnyObject {
+    var onSessionUpdate: (@MainActor (BrowserSessionUpdate) -> Void)? { get set }
+
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot)
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot)
 }
 
 @MainActor
 final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
+    var onSessionUpdate: (@MainActor (BrowserSessionUpdate) -> Void)?
+
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {}
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {}
 }
