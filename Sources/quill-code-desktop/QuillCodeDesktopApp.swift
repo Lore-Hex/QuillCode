@@ -96,6 +96,15 @@ private struct QuillCodeDesktopRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeToggleBrowser)) { _ in
             controller.toggleBrowser()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .quillCodeBrowserBack)) { _ in
+            controller.runWorkspaceCommand("browser-back")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .quillCodeBrowserForward)) { _ in
+            controller.runWorkspaceCommand("browser-forward")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .quillCodeBrowserReload)) { _ in
+            controller.runWorkspaceCommand("browser-reload")
+        }
         .onReceive(NotificationCenter.default.publisher(for: .quillCodeToggleExtensions)) { _ in
             controller.toggleExtensions()
         }

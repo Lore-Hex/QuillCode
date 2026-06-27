@@ -21,6 +21,18 @@ struct QuillCodeDesktopCommands: Commands {
                 NotificationCenter.default.post(name: .quillCodeToggleBrowser, object: nil)
             }
             .quillCodeShortcut("toggle-browser")
+            Button("Browser Back") {
+                NotificationCenter.default.post(name: .quillCodeBrowserBack, object: nil)
+            }
+            .quillCodeShortcut("browser-back")
+            Button("Browser Forward") {
+                NotificationCenter.default.post(name: .quillCodeBrowserForward, object: nil)
+            }
+            .quillCodeShortcut("browser-forward")
+            Button("Browser Reload") {
+                NotificationCenter.default.post(name: .quillCodeBrowserReload, object: nil)
+            }
+            .quillCodeShortcut("browser-reload")
             Button("Toggle Extensions") {
                 NotificationCenter.default.post(name: .quillCodeToggleExtensions, object: nil)
             }
@@ -57,6 +69,9 @@ extension Notification.Name {
     static let quillCodeKeyboardShortcuts = Notification.Name("QuillCodeKeyboardShortcuts")
     static let quillCodeToggleTerminal = Notification.Name("QuillCodeToggleTerminal")
     static let quillCodeToggleBrowser = Notification.Name("QuillCodeToggleBrowser")
+    static let quillCodeBrowserBack = Notification.Name("QuillCodeBrowserBack")
+    static let quillCodeBrowserForward = Notification.Name("QuillCodeBrowserForward")
+    static let quillCodeBrowserReload = Notification.Name("QuillCodeBrowserReload")
     static let quillCodeToggleExtensions = Notification.Name("QuillCodeToggleExtensions")
     static let quillCodeToggleMemories = Notification.Name("QuillCodeToggleMemories")
     static let quillCodeOpenSettings = Notification.Name("QuillCodeOpenSettings")
