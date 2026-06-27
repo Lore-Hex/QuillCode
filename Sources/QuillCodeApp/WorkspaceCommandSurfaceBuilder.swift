@@ -114,6 +114,7 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             sidebarSelectionIsActive: sidebarSelectionIsActive,
             hasSidebarSelection: !selectedSidebarThreads.isEmpty,
             hasPinnedSidebarSelection: selectedSidebarThreads.contains { $0.isPinned },
+            hasUnpinnedUnarchivedSidebarSelection: selectedSidebarThreads.contains { !$0.isPinned && !$0.isArchived },
             hasUnarchivedSidebarSelection: selectedSidebarThreads.contains { !$0.isArchived },
             hasArchivedSidebarSelection: selectedSidebarThreads.contains { $0.isArchived }
         )

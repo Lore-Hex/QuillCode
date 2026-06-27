@@ -15,6 +15,24 @@ Residual risk:
 
 - The live workflow depends on a repository secret being configured. Until that exists, local keyfile runs remain the real-provider release gate.
 
+## 2026-06-27 Sidebar Saved Filters Pass
+
+Overall grade after this slice: **A saved-filter architecture, A command/selection consistency, A- custom-search readiness**.
+
+The sidebar had pinned/recent/archived sections but no Codex-like saved-filter affordance, so users had to visually scan the whole chat list even when they only wanted pinned, recent, or archived threads. Adding this at the surface level would have been easy to drift across SwiftUI, static HTML, and Playwright, so the filter state now lives in the shared workspace/sidebar model instead.
+
+Code quality changes:
+
+- Added built-in `All`, `Pinned`, `Recent`, and `Archived` sidebar filters with stable `sidebar-filter:*` command IDs, counts, active state, accessibility labels, and compatibility decoding.
+- Routed filter changes through the existing workspace command pipeline instead of view-local callbacks, so SwiftUI, command palette, static HTML, and the Playwright harness share the same behavior.
+- Made visible rows the source of truth for select-all and sidebar bulk actions; changing filters clears transient selection and stale hidden selections are intersected away before rendering.
+- Kept partitioning/date buckets in `QuillCodeSidebarThreadListBuilder` and filter predicates in `SidebarSavedFilterKind`, preserving a small model boundary instead of adding renderer-specific list logic.
+- Added focused Swift tests plus Playwright coverage for counts, active filters, empty states, filtered selection, and disabled bulk pin when the visible selection is already pinned.
+
+Remaining risk:
+
+- These are fixed built-in filters, not user-authored saved searches. Custom saved searches, drag/drop ordering, and packaged-native click automation remain future Codex-parity work, but the command IDs and visible-row selection contract should not need to change.
+
 ## 2026-06-27 HTML Command Routing Contract Pass
 
 Overall grade after this slice: **A command attribute consistency, A renderer/harness drift coverage, A- full click-action breadth**.

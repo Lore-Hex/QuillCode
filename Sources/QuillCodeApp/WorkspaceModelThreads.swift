@@ -61,9 +61,15 @@ extension QuillCodeWorkspaceModel {
         sidebarSelection = WorkspaceSidebarSelectionEngine.clear()
     }
 
+    public func setSidebarFilter(_ filter: SidebarSavedFilterKind) {
+        guard sidebarFilter != filter else { return }
+        sidebarFilter = filter
+        clearSidebarSelection()
+    }
+
     public func selectAllSidebarThreads() {
         sidebarSelection = WorkspaceSidebarSelectionEngine.selectAll(
-            orderedThreadIDs: root.allSidebarItems.map(\.id)
+            orderedThreadIDs: filteredSidebarItems().map(\.id)
         )
     }
 
@@ -81,7 +87,7 @@ extension QuillCodeWorkspaceModel {
         guard let plan = WorkspaceSidebarBulkActionPlanner.plan(
             kind: kind,
             selection: sidebarSelection,
-            orderedSidebarThreadIDs: root.allSidebarItems.map(\.id),
+            orderedSidebarThreadIDs: filteredSidebarItems().map(\.id),
             threads: root.threads,
             selectedThreadID: root.selectedThreadID
         ) else {

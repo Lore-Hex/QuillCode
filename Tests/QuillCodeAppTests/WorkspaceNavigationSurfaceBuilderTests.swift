@@ -23,6 +23,7 @@ final class WorkspaceNavigationSurfaceBuilderTests: XCTestCase {
             sidebarItems: [SidebarItem(thread: selectedThread), SidebarItem(thread: otherThread)],
             selectedThreadID: selectedThread.id,
             threads: [selectedThread, otherThread],
+            activeSidebarFilter: .all,
             selectionIsActive: false,
             selectedThreadIDs: []
         ).surface()
@@ -45,6 +46,7 @@ final class WorkspaceNavigationSurfaceBuilderTests: XCTestCase {
             sidebarItems: [SidebarItem(thread: thread)],
             selectedThreadID: thread.id,
             threads: [thread],
+            activeSidebarFilter: .all,
             selectionIsActive: false,
             selectedThreadIDs: [thread.id]
         ).surface()
@@ -70,6 +72,7 @@ final class WorkspaceNavigationSurfaceBuilderTests: XCTestCase {
             sidebarItems: threads.map { SidebarItem(thread: $0) },
             selectedThreadID: active.id,
             threads: threads,
+            activeSidebarFilter: .all,
             selectionIsActive: true,
             selectedThreadIDs: [active.id, pinned.id, archived.id]
         ).surface()
@@ -98,11 +101,42 @@ final class WorkspaceNavigationSurfaceBuilderTests: XCTestCase {
             sidebarItems: [],
             selectedThreadID: nil,
             threads: [],
+            activeSidebarFilter: .all,
             selectionIsActive: false,
             selectedThreadIDs: []
         ).surface()
 
         XCTAssertEqual(surface.sidebar.bulkActions.map(\.kind), [.select])
         XCTAssertEqual(surface.sidebar.bulkActions.first?.isEnabled, false)
+    }
+
+    func testSavedFilterRestrictsVisibleRowsAndBulkAvailability() throws {
+        let active = ChatThread(title: "Active")
+        var pinned = ChatThread(title: "Pinned")
+        pinned.isPinned = true
+        var archived = ChatThread(title: "Archived")
+        archived.isArchived = true
+        let threads = [active, pinned, archived]
+
+        let surface = WorkspaceNavigationSurfaceBuilder(
+            projects: [],
+            selectedProjectID: nil,
+            sidebarItems: threads.map { SidebarItem(thread: $0) },
+            selectedThreadID: active.id,
+            threads: threads,
+            activeSidebarFilter: .pinned,
+            selectionIsActive: true,
+            selectedThreadIDs: [active.id, pinned.id, archived.id]
+        ).surface()
+
+        XCTAssertEqual(surface.sidebar.activeFilter, .pinned)
+        XCTAssertEqual(surface.sidebar.savedFilters.map(\.count), [3, 1, 1, 1])
+        XCTAssertEqual(surface.sidebar.visibleItems.map(\.title), ["Pinned"])
+        XCTAssertEqual(surface.sidebar.selectedThreadIDs, [pinned.id])
+        XCTAssertEqual(surface.sidebar.selectionLabel, "1 chat selected")
+        XCTAssertEqual(surface.sidebar.bulkActions.first { $0.kind == .selectAll }?.isEnabled, false)
+        XCTAssertEqual(surface.sidebar.bulkActions.first { $0.kind == .pin }?.isEnabled, false)
+        XCTAssertEqual(surface.sidebar.bulkActions.first { $0.kind == .unpin }?.isEnabled, true)
+        XCTAssertEqual(surface.sidebar.bulkActions.first { $0.kind == .unarchive }?.isEnabled, false)
     }
 }

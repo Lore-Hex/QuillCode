@@ -86,6 +86,7 @@ public extension QuillCodeWorkspaceModel {
             sidebarItems: root.allSidebarItems,
             selectedThreadID: root.selectedThreadID,
             threads: root.threads,
+            activeSidebarFilter: sidebarFilter,
             selectionIsActive: sidebarSelection.isActive,
             selectedThreadIDs: sidebarSelectedThreadIDs
         ).surface()
@@ -177,12 +178,13 @@ public extension QuillCodeWorkspaceModel {
     private func commandSurfaceBuilder() -> WorkspaceCommandSurfaceBuilder {
         let sidebarSelectedThreadIDs = Set(selectedSidebarThreadIDs())
         let selectedSidebarThreads = root.threads.filter { sidebarSelectedThreadIDs.contains($0.id) }
+        let visibleSidebarItemCount = filteredSidebarItems().count
         return WorkspaceCommandSurfaceBuilder(
             selectedThread: selectedThread,
             selectedProject: selectedProject,
             selectedSidebarThreads: selectedSidebarThreads,
             sidebarSelectionIsActive: sidebarSelection.isActive,
-            sidebarItemCount: root.allSidebarItems.count,
+            sidebarItemCount: visibleSidebarItemCount,
             hasActiveWorkspaceRoot: activeWorkspaceRoot != nil,
             canRetryLastUserTurn: canRetryLastUserTurn,
             composerIsSending: composer.isSending,

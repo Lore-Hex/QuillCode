@@ -10,6 +10,14 @@ enum QuillCodeSidebarCommandAdapter {
         )
     }
 
+    static func workspaceCommand(for filter: SidebarSavedFilterSurface) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: filter.commandID,
+            title: "Show \(filter.title.lowercased()) chats",
+            category: WorkspaceCommandPalette.threadCategory
+        )
+    }
+
     static func toggleSelectionCommand(for item: SidebarItemSurface) -> WorkspaceCommandSurface {
         WorkspaceCommandSurface(
             id: "thread-selection-toggle:\(item.id.uuidString)",

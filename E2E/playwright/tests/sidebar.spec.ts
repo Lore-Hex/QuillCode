@@ -56,7 +56,7 @@ test('mock harness manages chat lifecycle from the sidebar', async ({ page }) =>
   await page.goto(harnessURL());
   const clickThreadAction = async (row: Locator, name: string) => {
     await row.getByLabel(/^Actions for /).click();
-    await row.getByRole('button', { name }).click();
+    await row.getByTestId('sidebar-thread-action').filter({ hasText: new RegExp(`^${name}$`) }).click();
   };
 
   await page.getByLabel('Message').fill('run whoami');
@@ -179,6 +179,52 @@ test('mock harness bulk-selects chats from the sidebar', async ({ page }) => {
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(0);
   await expect(page.getByTestId('sidebar-title-row')).toHaveCount(0);
   await expect(page.getByTestId('sidebar-empty')).toHaveText('No chats yet');
+});
+
+test('mock harness filters sidebar chats with saved filters', async ({ page }) => {
+  await page.goto(harnessURL());
+  const clickThreadAction = async (row: Locator, name: string) => {
+    await row.getByLabel(/^Actions for /).click();
+    await row.getByTestId('sidebar-thread-action').filter({ hasText: new RegExp(`^${name}$`) }).click();
+  };
+
+  await page.getByLabel('Message').fill('recent chat');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByTestId('new-chat-button').click();
+  await page.getByLabel('Message').fill('pinned chat');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await clickThreadAction(page.getByTestId('sidebar-thread-row').filter({ hasText: 'pinned chat' }), 'Pin');
+  await page.getByTestId('new-chat-button').click();
+  await page.getByLabel('Message').fill('archived chat');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await clickThreadAction(page.getByTestId('sidebar-thread-row').filter({ hasText: 'archived chat' }), 'Archive');
+
+  await expect(page.getByTestId('sidebar-filter')).toHaveCount(4);
+  await expect(page.getByTestId('sidebar-filter').nth(0)).toContainText('All');
+  await expect(page.getByTestId('sidebar-filter').nth(0).getByTestId('sidebar-filter-count')).toHaveText('3');
+  await expect(page.getByTestId('sidebar-filter').nth(1).getByTestId('sidebar-filter-count')).toHaveText('1');
+  await expect(page.getByTestId('sidebar-filter').nth(2).getByTestId('sidebar-filter-count')).toHaveText('1');
+  await expect(page.getByTestId('sidebar-filter').nth(3).getByTestId('sidebar-filter-count')).toHaveText('1');
+
+  const filter = (id: string) => page.locator(`[data-testid="sidebar-filter"][data-filter-id="${id}"]`);
+  await filter('pinned').click();
+  await expect(filter('pinned')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(1);
+  await expect(page.getByTestId('sidebar-thread-row')).toContainText('pinned chat');
+  await expect(page.getByTestId('sidebar')).not.toContainText('recent chat');
+
+  await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Select$/ }).click();
+  await page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Select all$/ }).click();
+  await expect(page.getByTestId('sidebar-selection-label')).toHaveText('1 chat selected');
+  await expect(page.getByTestId('sidebar-bulk-action').filter({ hasText: /^Pin$/ })).toBeDisabled();
+  await filter('archived').click();
+
+  await expect(page.getByTestId('sidebar-selection')).toHaveCount(0);
+  await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(1);
+  await expect(page.getByTestId('sidebar-thread-row')).toContainText('archived chat');
+  await filter('recent').click();
+  await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(1);
+  await expect(page.getByTestId('sidebar-thread-row')).toContainText('recent chat');
 });
 
 test('mock harness manages projects from the sidebar', async ({ page }) => {

@@ -71,11 +71,12 @@ final class WorkspaceCommandSurfaceBuilderTests: XCTestCase {
 
     func testSelectedThreadAndSidebarSelectionEnableThreadCommands() throws {
         let selectedThread = ChatThread(messages: [.init(role: .user, content: "Run whoami")])
+        let unpinnedThread = ChatThread(title: "Unpinned")
         let pinnedThread = ChatThread(title: "Pinned", isPinned: true)
         let archivedThread = ChatThread(title: "Archived", isArchived: true)
         let commands = makeBuilder(
             selectedThread: selectedThread,
-            selectedSidebarThreads: [pinnedThread, archivedThread],
+            selectedSidebarThreads: [unpinnedThread, pinnedThread, archivedThread],
             sidebarSelectionIsActive: true,
             sidebarItemCount: 3,
             canRetryLastUserTurn: true

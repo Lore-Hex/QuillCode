@@ -222,6 +222,11 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
 
         let html = WorkspaceHTMLRenderer.render(model.surface())
 
+        XCTAssertTrue(html.contains(#"data-testid="sidebar-filter-bar""#))
+        XCTAssertTrue(html.contains(#"data-command-id="sidebar-filter:all""#))
+        XCTAssertTrue(html.contains(#"data-command-id="sidebar-filter:pinned""#))
+        XCTAssertTrue(html.contains(#"data-command-id="sidebar-filter:recent""#))
+        XCTAssertTrue(html.contains(#"data-command-id="sidebar-filter:archived""#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar-section-title">Pinned"#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar-section-title">Today"#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar-section-title">Archived"#))

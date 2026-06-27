@@ -19,19 +19,39 @@ struct SidebarThreadListBuilder {
         }
     }
 
+    func items(for filter: SidebarSavedFilterKind) -> [SidebarItemSurface] {
+        items.filter { filter.includes(isPinned: $0.isPinned, isArchived: $0.isArchived) }
+    }
+
     var pinnedItems: [SidebarItemSurface] {
-        items.filter { $0.isPinned && !$0.isArchived }
+        pinnedItems(for: .all)
+    }
+
+    func pinnedItems(for filter: SidebarSavedFilterKind) -> [SidebarItemSurface] {
+        items(for: filter).filter { $0.isPinned && !$0.isArchived }
     }
 
     var recentItems: [SidebarItemSurface] {
-        items.filter { !$0.isPinned && !$0.isArchived }
+        recentItems(for: .all)
+    }
+
+    func recentItems(for filter: SidebarSavedFilterKind) -> [SidebarItemSurface] {
+        items(for: filter).filter { !$0.isPinned && !$0.isArchived }
     }
 
     func recentSections(
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> [SidebarThreadSectionSurface] {
-        let recent = recentItems
+        recentSections(for: .all, now: now, calendar: calendar)
+    }
+
+    func recentSections(
+        for filter: SidebarSavedFilterKind,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [SidebarThreadSectionSurface] {
+        let recent = recentItems(for: filter)
         guard !recent.isEmpty else { return [] }
 
         let grouped = Dictionary(grouping: recent) { item in
@@ -52,7 +72,11 @@ struct SidebarThreadListBuilder {
     }
 
     var archivedItems: [SidebarItemSurface] {
-        items.filter(\.isArchived)
+        archivedItems(for: .all)
+    }
+
+    func archivedItems(for filter: SidebarSavedFilterKind) -> [SidebarItemSurface] {
+        items(for: filter).filter(\.isArchived)
     }
 }
 

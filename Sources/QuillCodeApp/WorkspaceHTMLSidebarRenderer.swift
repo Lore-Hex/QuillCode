@@ -13,6 +13,7 @@ enum WorkspaceHTMLSidebarRenderer {
           </div>
           <div class="sidebar-threads-zone" data-testid="sidebar-threads-zone">
             \(renderThreadHeader(sidebar))
+            \(renderSavedFilters(sidebar))
             \(renderBulkToolbar(sidebar))
             \(renderThreadSections(sidebar))
           </div>
@@ -54,7 +55,7 @@ enum WorkspaceHTMLSidebarRenderer {
     }
 
     private static func renderThreadSections(_ sidebar: SidebarSurface) -> String {
-        guard !sidebar.items.isEmpty else {
+        guard !sidebar.visibleItems.isEmpty else {
             return #"<p data-testid="sidebar-empty">\#(escape(sidebar.emptyTitle))</p>"#
         }
 
@@ -65,6 +66,32 @@ enum WorkspaceHTMLSidebarRenderer {
         ]
         .filter { !$0.isEmpty }
         .joined(separator: "\n")
+    }
+
+    private static func renderSavedFilters(_ sidebar: SidebarSurface) -> String {
+        guard !sidebar.items.isEmpty else { return "" }
+        let filters = sidebar.savedFilters.map { filter in
+            WorkspaceHTMLPrimitives.commandButton(
+                "\(filter.title) \(filter.count)",
+                testID: "sidebar-filter",
+                commandID: filter.commandID,
+                classes: [
+                    "sidebar-filter",
+                    WorkspaceHTMLPrimitives.capsuleHitTargetClass,
+                    filter.isActive ? "active" : ""
+                ],
+                ariaLabel: filter.accessibilityLabel,
+                attributes: [
+                    ("aria-pressed", String(filter.isActive)),
+                    ("data-filter-id", filter.kind.rawValue)
+                ]
+            )
+        }.joined(separator: "\n")
+        return """
+        <div class="sidebar-filter-bar" data-testid="sidebar-filter-bar">
+          \(filters)
+        </div>
+        """
     }
 
     private static func renderPrimaryActions(_ commands: [WorkspaceCommandSurface]) -> String {
@@ -138,7 +165,7 @@ enum WorkspaceHTMLSidebarRenderer {
     }
 
     private static func renderSelectionHeaderAction(_ sidebar: SidebarSurface) -> String {
-        guard !sidebar.items.isEmpty,
+        guard !sidebar.visibleItems.isEmpty,
               !sidebar.isSelectionMode,
               let action = sidebar.bulkActions.first(where: { $0.kind == .select })
         else { return "" }
