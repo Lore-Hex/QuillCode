@@ -380,6 +380,34 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testHTMLInteractiveLinksUseSharedHitTargetPrimitive() throws {
+        let rendererNames = [
+            "WorkspaceHTMLBrowserRenderer.swift",
+            "WorkspaceHTMLReviewRenderer.swift",
+            "WorkspaceHTMLSecondaryPaneRenderer.swift",
+            "WorkspaceHTMLSidebarRenderer.swift",
+            "WorkspaceHTMLTerminalRenderer.swift",
+            "WorkspaceHTMLToolCardRenderer.swift",
+            "WorkspaceHTMLTopBarRenderer.swift",
+            "WorkspaceHTMLTranscriptRenderer.swift"
+        ]
+
+        for rendererName in rendererNames {
+            let source = try Self.appSourceText(named: rendererName)
+            let linkLines = source
+                .split(separator: "\n", omittingEmptySubsequences: false)
+                .map(String.init)
+                .filter { $0.contains("<a ") }
+
+            for line in linkLines {
+                XCTAssertTrue(
+                    line.contains("WorkspaceHTMLPrimitives.interactiveHitTargetClass"),
+                    "\(rendererName) should render link targets through WorkspaceHTMLPrimitives.interactiveHitTargetClass: \(line)"
+                )
+            }
+        }
+    }
+
     func testHTMLArchitectureGatesStayOutOfBroadSuite() throws {
         let broadSuiteText = try Self.parityTestSourceText(named: "ParityGateTests.swift")
         let htmlGateNames = [

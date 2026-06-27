@@ -130,7 +130,11 @@ struct QuillCodeComposerView: View {
             Button(action: onStop) {
                 Label("Stop", systemImage: "stop.fill")
                     .font(.headline)
-                    .frame(minWidth: 90, minHeight: 46)
+                    .quillCodeTextButtonTarget(
+                        minWidth: 90,
+                        minHeight: 46,
+                        radius: QuillCodeMetrics.composerControlRadius
+                    )
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .background(QuillCodePalette.red)
@@ -142,7 +146,10 @@ struct QuillCodeComposerView: View {
             Button(action: onSend) {
                 Image(systemName: "arrow.up")
                     .font(.headline.weight(.semibold))
-                    .frame(width: 46, height: 46)
+                    .quillCodeIconButtonTarget(
+                        size: 46,
+                        radius: QuillCodeMetrics.composerControlRadius
+                    )
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .background(composer.canSend ? QuillCodePalette.blue : QuillCodePalette.background.opacity(0.72))
