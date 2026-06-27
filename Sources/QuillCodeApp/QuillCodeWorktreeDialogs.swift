@@ -35,8 +35,10 @@ struct QuillCodeWorktreeOpenView: View {
             HStack {
                 Spacer()
                 Button("Cancel", action: onCancel)
+                    .quillCodeHitTarget(minWidth: 72)
                 Button("Open", action: onOpen)
                     .buttonStyle(.borderedProminent)
+                    .quillCodeHitTarget(minWidth: 72)
                     .disabled(!draft.canOpen)
             }
         }
@@ -77,8 +79,10 @@ struct QuillCodeWorktreeCreateView: View {
             HStack {
                 Spacer()
                 Button("Cancel", action: onCancel)
+                    .quillCodeHitTarget(minWidth: 72)
                 Button("Create", action: onCreate)
                     .buttonStyle(.borderedProminent)
+                    .quillCodeHitTarget(minWidth: 82)
                     .disabled(!draft.canCreate)
             }
         }
@@ -123,8 +127,10 @@ struct QuillCodeWorktreeRemoveView: View {
             HStack {
                 Spacer()
                 Button("Cancel", action: onCancel)
+                    .quillCodeHitTarget(minWidth: 72)
                 Button("Remove", action: onRemove)
                     .buttonStyle(.borderedProminent)
+                    .quillCodeHitTarget(minWidth: 84)
                     .disabled(!draft.canRemove)
             }
         }
@@ -159,8 +165,10 @@ struct QuillCodeWorktreePruneView: View {
                     .lineLimit(2)
                 Spacer()
                 Button("Cancel", action: onCancel)
+                    .quillCodeHitTarget(minWidth: 72)
                 Button("Prune", action: onPrune)
                     .buttonStyle(.borderedProminent)
+                    .quillCodeHitTarget(minWidth: 72)
                     .disabled(!draft.canPrune)
             }
         }

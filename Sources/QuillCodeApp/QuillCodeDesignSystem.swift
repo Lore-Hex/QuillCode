@@ -47,6 +47,15 @@ struct QuillCodePressableButtonStyle: ButtonStyle {
 }
 
 extension View {
+    func quillCodeHitTarget(
+        minWidth: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .center
+    ) -> some View {
+        frame(minWidth: minWidth, minHeight: minHeight, alignment: alignment)
+            .contentShape(Rectangle())
+    }
+
     func quillCodeSurface(
         fill: Color,
         radius: CGFloat,

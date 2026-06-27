@@ -33,15 +33,18 @@ struct QuillCodeContextBannerView: View {
                         onCommand(banner.compactCommand)
                     }
                     .buttonStyle(.borderedProminent)
+                    .quillCodeHitTarget(minWidth: 104)
                     .disabled(!banner.compactCommand.isEnabled)
                     Button(banner.newThreadCommand.title) {
                         onCommand(banner.newThreadCommand)
                     }
                     .buttonStyle(.bordered)
+                    .quillCodeHitTarget(minWidth: 112)
                     Button(banner.forkCommand.title) {
                         onCommand(banner.forkCommand)
                     }
                     .buttonStyle(.bordered)
+                    .quillCodeHitTarget(minWidth: 112)
                     .disabled(!banner.forkCommand.isEnabled)
                 }
             }

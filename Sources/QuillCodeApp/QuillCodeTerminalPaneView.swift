@@ -34,6 +34,7 @@ struct QuillCodeTerminalPaneView: View {
             Spacer()
             Button("Clear", action: onClear)
                 .controlSize(.small)
+                .quillCodeHitTarget(minWidth: 56)
                 .disabled(!terminal.canClear)
             if terminal.isRunning {
                 ProgressView()
@@ -41,6 +42,7 @@ struct QuillCodeTerminalPaneView: View {
                 Button("Stop", action: onStop)
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
+                    .quillCodeHitTarget(minWidth: 56)
                     .tint(QuillCodePalette.red)
             }
         }
@@ -82,8 +84,10 @@ struct QuillCodeTerminalPaneView: View {
                     onHistoryNext()
                     return .handled
                 }
+                .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
                 .disabled(terminal.isRunning)
             Button("Run", action: onRun)
+                .quillCodeHitTarget(minWidth: 64)
                 .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || terminal.isRunning)
         }
     }

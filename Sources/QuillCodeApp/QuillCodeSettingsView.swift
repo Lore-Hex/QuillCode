@@ -89,6 +89,7 @@ struct QuillCodeSettingsView: View {
                 .foregroundStyle(QuillCodePalette.muted)
             Button("Sign in with TrustedRouter", action: onStartTrustedRouterSignIn)
                 .buttonStyle(.borderedProminent)
+                .quillCodeHitTarget(minWidth: 190)
             Text(settings.signInURL)
                 .font(.caption2.monospaced())
                 .foregroundStyle(QuillCodePalette.muted)
@@ -114,6 +115,7 @@ struct QuillCodeSettingsView: View {
             }
             .disabled(!settings.hasStoredAPIKey)
             .font(.caption)
+            .quillCodeHitTarget(minWidth: 104, alignment: .leading)
         }
     }
 
@@ -121,8 +123,10 @@ struct QuillCodeSettingsView: View {
         HStack {
             Spacer()
             Button("Cancel", action: onCancel)
+                .quillCodeHitTarget(minWidth: 72)
             Button("Save", action: onSave)
                 .buttonStyle(.borderedProminent)
+                .quillCodeHitTarget(minWidth: 72)
                 .disabled(!draft.canSave)
         }
     }
