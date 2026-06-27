@@ -61,12 +61,29 @@ type InteractionAuditReport = {
 async function interactionAuditReport(page: Page): Promise<InteractionAuditReport> {
   return page.evaluate(({ activeLayerSelector, minimumHitTarget, selector }) => {
     type VisibleTarget = {
+      clipped: VisibleRectResult;
       element: Element;
       rect: DOMRect;
     };
 
     type OverlapTarget = VisibleTarget & {
       layer: string;
+      visibleRect: RectLike;
+    };
+
+    type RectLike = {
+      bottom: number;
+      height: number;
+      left: number;
+      right: number;
+      top: number;
+      width: number;
+    };
+
+    type VisibleRectResult = {
+      hardClipped: boolean;
+      rect: RectLike;
+      scrollClipped: boolean;
     };
 
     function isVisible(element: Element, rect: DOMRect) {
@@ -95,68 +112,90 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
         || activeInteractionLayer.contains(element);
     }
 
-    function centerIsInViewport(rect: DOMRect) {
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      return centerX >= 0
-        && centerY >= 0
-        && centerX <= document.documentElement.clientWidth
-        && centerY <= document.documentElement.clientHeight;
+    function rectFromEdges(left: number, top: number, right: number, bottom: number): RectLike {
+      return {
+        bottom,
+        height: Math.max(0, bottom - top),
+        left,
+        right,
+        top,
+        width: Math.max(0, right - left)
+      };
     }
 
-    function centerIsInsideClippingAncestors(element: Element, rect: DOMRect) {
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
+    function visibleRect(element: Element, rect: DOMRect): VisibleRectResult {
+      let visible = rectFromEdges(
+        Math.max(0, rect.left),
+        Math.max(0, rect.top),
+        Math.min(document.documentElement.clientWidth, rect.right),
+        Math.min(document.documentElement.clientHeight, rect.bottom)
+      );
+      let scrollClipped = visible.width < rect.width || visible.height < rect.height;
+      let hardClipped = false;
       let ancestor = element.parentElement;
       while (ancestor) {
         const style = window.getComputedStyle(ancestor);
-        const clips = ['auto', 'scroll', 'hidden', 'clip'].some(value => (
-          style.overflow === value || style.overflowX === value || style.overflowY === value
-        ));
+        const overflowValues = [style.overflow, style.overflowX, style.overflowY];
+        const clips = ['auto', 'scroll', 'hidden', 'clip'].some(value => overflowValues.includes(value));
         if (clips) {
           const ancestorRect = ancestor.getBoundingClientRect();
+          const before = visible;
+          visible = rectFromEdges(
+            Math.max(visible.left, ancestorRect.left),
+            Math.max(visible.top, ancestorRect.top),
+            Math.min(visible.right, ancestorRect.right),
+            Math.min(visible.bottom, ancestorRect.bottom)
+          );
           if (
-            centerX < ancestorRect.left
-            || centerX > ancestorRect.right
-            || centerY < ancestorRect.top
-            || centerY > ancestorRect.bottom
+            (visible.width < before.width || visible.height < before.height)
+            && ['auto', 'scroll'].some(value => overflowValues.includes(value))
           ) {
-            return false;
+            scrollClipped = true;
+          }
+          if (
+            (visible.width < before.width || visible.height < before.height)
+            && ['hidden', 'clip'].some(value => overflowValues.includes(value))
+          ) {
+            hardClipped = true;
           }
         }
         ancestor = ancestor.parentElement;
       }
-      return true;
+      return { hardClipped, rect: visible, scrollClipped };
     }
 
-    function centerCanBeInspected(element: Element, rect: DOMRect) {
-      return centerIsInViewport(rect) && centerIsInsideClippingAncestors(element, rect);
-    }
-
-    function topElementOwnsCenter(element: Element, rect: DOMRect) {
+    function isTopMostAtCenter(element: Element, rect: RectLike) {
+      if (rect.width <= 0 || rect.height <= 0) return false;
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
       const topElement = document.elementFromPoint(centerX, centerY);
       return topElement === element || Boolean(topElement && element.contains(topElement));
     }
 
-    function isTopMostAtCenterForTargetAudit(element: Element, rect: DOMRect) {
-      return !centerCanBeInspected(element, rect) || topElementOwnsCenter(element, rect);
-    }
-
-    function isTopMostAtCenterForOverlapAudit(element: Element, rect: DOMRect) {
-      return centerCanBeInspected(element, rect) && topElementOwnsCenter(element, rect);
-    }
-
-    function auditReason(element: Element, rect: DOMRect) {
+    function auditReason(element: Element, rect: DOMRect, clipped: VisibleRectResult) {
       const reasons = [];
       if (Math.round(rect.width) < minimumHitTarget || Math.round(rect.height) < minimumHitTarget) {
         reasons.push('too_small');
       }
-      if (!isTopMostAtCenterForTargetAudit(element, rect)) {
+      if (
+        (clipped.hardClipped || !clipped.scrollClipped)
+        && (Math.round(clipped.rect.width) < minimumHitTarget || Math.round(clipped.rect.height) < minimumHitTarget)
+      ) {
+        reasons.push('visible_area_too_small_or_clipped');
+      }
+      if (!isTopMostAtCenter(element, clipped.rect)) {
         reasons.push('center_blocked_or_clipped');
       }
       return reasons.join(',');
+    }
+
+    function isScrollBoundarySliver(clipped: VisibleRectResult) {
+      return clipped.scrollClipped
+        && !clipped.hardClipped
+        && (
+          Math.round(clipped.rect.width) < minimumHitTarget
+          || Math.round(clipped.rect.height) < minimumHitTarget
+        );
     }
 
     function labelFor(element: Element) {
@@ -177,32 +216,46 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
     const visibleTargets: VisibleTarget[] = [...document.querySelectorAll(selector)]
       .map((element) => {
         const rect = element.getBoundingClientRect();
-        return { element, rect };
+        const clipped = visibleRect(element, rect);
+        return { clipped, element, rect };
       })
-      .filter(({ element, rect }) => isVisible(element, rect) && isInActiveInteractionLayer(element));
+      .filter(({ clipped, element, rect }) => (
+        isVisible(element, rect)
+          && clipped.rect.width > 0
+          && clipped.rect.height > 0
+          && !isScrollBoundarySliver(clipped)
+          && isInActiveInteractionLayer(element)
+      ));
 
     const targetIssues: TargetAuditIssue[] = visibleTargets
-      .map(({ element, rect }) => ({
+      .map(({ clipped, element, rect }) => ({
+        clipped,
         element,
-        reason: auditReason(element, rect),
+        reason: auditReason(element, rect, clipped),
         rect
       }))
       .filter(({ reason }) => reason.length > 0)
-      .map(({ element, reason, rect }) => ({
+      .map(({ clipped, element, reason }) => ({
         className: String((element as HTMLElement).className || ''),
-        height: Math.round(rect.height),
+        height: Math.round(clipped.rect.height),
         label: element.getAttribute('aria-label') || '',
         reason,
         tag: element.tagName.toLowerCase(),
         testid: element.getAttribute('data-testid'),
         text: (element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
-        width: Math.round(rect.width)
+        width: Math.round(clipped.rect.width)
       }));
 
     const overlapTargets: OverlapTarget[] = visibleTargets
-      .map(({ element, rect }) => ({ element, layer: interactionLayer(element), rect }))
-      .filter(({ element, rect }) => (
-        isTopMostAtCenterForOverlapAudit(element, rect)
+      .map(({ clipped, element, rect }) => ({
+        clipped,
+        element,
+        layer: interactionLayer(element),
+        rect,
+        visibleRect: clipped.rect
+      }))
+      .filter(({ element, visibleRect }) => (
+        isTopMostAtCenter(element, visibleRect)
       ));
     const overlapIssues: TargetOverlapIssue[] = [];
 
@@ -213,8 +266,8 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
         if (first.layer !== second.layer) continue;
         if (first.element.contains(second.element) || second.element.contains(first.element)) continue;
 
-        const overlapWidth = Math.min(first.rect.right, second.rect.right) - Math.max(first.rect.left, second.rect.left);
-        const overlapHeight = Math.min(first.rect.bottom, second.rect.bottom) - Math.max(first.rect.top, second.rect.top);
+        const overlapWidth = Math.min(first.visibleRect.right, second.visibleRect.right) - Math.max(first.visibleRect.left, second.visibleRect.left);
+        const overlapHeight = Math.min(first.visibleRect.bottom, second.visibleRect.bottom) - Math.max(first.visibleRect.top, second.visibleRect.top);
         if (overlapWidth > 1 && overlapHeight > 1) {
           overlapIssues.push({
             a: labelFor(first.element),
