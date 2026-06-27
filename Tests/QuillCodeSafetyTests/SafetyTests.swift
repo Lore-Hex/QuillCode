@@ -129,6 +129,13 @@ final class SafetyTests: XCTestCase {
         host: .local,
         risk: .append
     )
+    private let mcpCall = ToolDefinition(
+        name: "host.mcp.call",
+        description: "Call an MCP tool",
+        parametersJSON: "{}",
+        host: .local,
+        risk: .append
+    )
 
     func testAutoApprovesUserRequestedWhoami() async {
         let reviewer = StaticSafetyReviewer()
@@ -141,6 +148,80 @@ final class SafetyTests: XCTestCase {
             recentMessages: [.init(role: .user, content: "whoami?")]
         ))
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoApprovesUserRequestedShellRun() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: shellRun.name, argumentsJSON: #"{"cmd":"swift test"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "run the tests",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "run the tests")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoDoesNotTreatRunAsBlanketIntentForGitPush() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(name: gitPush.name, argumentsJSON: #"{"remote":"origin"}"#)
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "run the tests",
+            toolCall: call,
+            toolDefinition: gitPush,
+            recentMessages: [.init(role: .user, content: "run the tests")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
+    }
+
+    func testAutoDoesNotTreatExecuteAsBlanketIntentForPullRequestMerge() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: gitPullRequestMerge.name,
+            argumentsJSON: #"{"selector":"42","method":"squash"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "execute the test suite",
+            toolCall: call,
+            toolDefinition: gitPullRequestMerge,
+            recentMessages: [.init(role: .user, content: "execute the test suite")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
+    }
+
+    func testAutoApprovesExplicitMCPToolRequest() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: mcpCall.name,
+            argumentsJSON: #"{"serverID":"mcp_server:filesystem","toolName":"read_file"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "run MCP read_file on README",
+            toolCall: call,
+            toolDefinition: mcpCall,
+            recentMessages: [.init(role: .user, content: "run MCP read_file on README")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoDoesNotTreatRunAsBlanketIntentForMCP() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: mcpCall.name,
+            argumentsJSON: #"{"serverID":"mcp_server:filesystem","toolName":"read_file"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "run the tests",
+            toolCall: call,
+            toolDefinition: mcpCall,
+            recentMessages: [.init(role: .user, content: "run the tests")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
     }
 
     func testReadOnlyDeniesWrite() async {

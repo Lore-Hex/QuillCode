@@ -28,14 +28,11 @@ struct StaticSafetyPolicy: Sendable {
         if request.containsAny(["remember", "memorize"]) {
             return toolName.contains("memory")
         }
-        if request.containsAny(["run", "execute"]) {
-            return true
-        }
         if request.containsAny(StaticSafetyPullRequestPolicy.requestTriggers) {
             return StaticSafetyPullRequestPolicy.intentMatches(request: request, toolName: toolName)
         }
-        if let rule = intentRules.first(where: { $0.matches(request: request) }) {
-            return rule.allows(toolName: toolName)
+        if intentRules.contains(where: { $0.matches(request: request) && $0.allows(toolName: toolName) }) {
+            return true
         }
         if toolName.contains("computer"),
            request.containsAny(StaticSafetyPolicy.computerUseTriggers) {
@@ -75,6 +72,14 @@ struct StaticSafetyPolicy: Sendable {
     ]
 
     private static let defaultIntentRules: [StaticSafetyIntentRule] = [
+        .init(
+            requestTriggers: ["run", "execute"],
+            allowedToolNames: ["shell.run"]
+        ),
+        .init(
+            requestTriggers: ["mcp"],
+            allowedToolNames: ["mcp.call"]
+        ),
         .init(
             requestTriggers: ["make", "create", "write"],
             allowedToolNames: ["file", "shell", "git.worktree"]
