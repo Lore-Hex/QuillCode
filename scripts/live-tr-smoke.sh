@@ -132,7 +132,33 @@ assert_workspace_file_contains_exactly() {
   fi
 }
 
+assert_workspace_file_nonempty() {
+  local relative_path="$1"
+  local file_path="$SMOKE_WORKSPACE/$relative_path"
+
+  if [[ ! -s "$file_path" ]]; then
+    echo "live smoke expected a non-empty workspace file: $relative_path" >&2
+    find "$SMOKE_WORKSPACE" -maxdepth 3 -type f -print >&2
+    exit 1
+  fi
+}
+
+assert_output_matches() {
+  local output_file="$1"
+  local stderr_file="$2"
+  local pattern="$3"
+  local description="$4"
+
+  assert_no_action_regression "$output_file" "$stderr_file"
+  if ! grep -Eiq "$pattern" "$output_file"; then
+    echo "live smoke output did not match expected $description" >&2
+    cat "$output_file" >&2
+    exit 1
+  fi
+}
+
 assert_saved_transcripts_are_actionable() {
+  local minimum_thread_count="${1:-3}"
   local threads_dir="$SMOKE_HOME/threads"
 
   if [[ ! -d "$threads_dir" ]]; then
@@ -142,8 +168,8 @@ assert_saved_transcripts_are_actionable() {
 
   local thread_count
   thread_count="$(find "$threads_dir" -maxdepth 1 -type f -name '*.json' | wc -l | tr -d ' ')"
-  if [[ "$thread_count" -lt 3 ]]; then
-    echo "live smoke expected at least 3 persisted thread transcripts, found $thread_count" >&2
+  if [[ "$thread_count" -lt "$minimum_thread_count" ]]; then
+    echo "live smoke expected at least $minimum_thread_count persisted thread transcripts, found $thread_count" >&2
     find "$threads_dir" -maxdepth 1 -type f -name '*.json' -print >&2
     exit 1
   fi
@@ -199,6 +225,19 @@ run_live_prompt "Create \`live-smoke.txt\` in this workspace with exactly this c
 assert_no_action_regression "$FILE_OUTPUT" "$FILE_ERROR"
 assert_workspace_file_contains_exactly "live-smoke.txt" "quillcode_live_file_smoke"
 
-assert_saved_transcripts_are_actionable
+echo "==> Running live TrustedRouter OpenClaw discovery smoke with $MODEL"
+OPENCLAW_OUTPUT="$SMOKE_ROOT/openclaw.stdout"
+OPENCLAW_ERROR="$SMOKE_ROOT/openclaw.stderr"
+run_live_prompt "Do you have openclaw?" "$OPENCLAW_OUTPUT" "$OPENCLAW_ERROR"
+assert_output_matches "$OPENCLAW_OUTPUT" "$OPENCLAW_ERROR" "openclaw|not found" "OpenClaw discovery result"
+
+echo "==> Running live TrustedRouter download smoke with $MODEL"
+DOWNLOAD_OUTPUT="$SMOKE_ROOT/download.stdout"
+DOWNLOAD_ERROR="$SMOKE_ROOT/download.stderr"
+run_live_prompt "Download https://example.com into \`downloads/example.html\` in this workspace." "$DOWNLOAD_OUTPUT" "$DOWNLOAD_ERROR"
+assert_output_matches "$DOWNLOAD_OUTPUT" "$DOWNLOAD_ERROR" "downloads/example\\.html|download" "download result"
+assert_workspace_file_nonempty "downloads/example.html"
+
+assert_saved_transcripts_are_actionable 5
 
 echo "QuillCode live TrustedRouter smoke passed."
