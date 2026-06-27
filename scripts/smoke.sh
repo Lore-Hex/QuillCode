@@ -14,15 +14,50 @@ trap cleanup EXIT
 mkdir -p "$SMOKE_HOME" "$SMOKE_WORKSPACE"
 cd "$ROOT_DIR"
 
+assert_cli_no_action_regression() {
+  local output="$1"
+  local label="$2"
+
+  if [[ -z "$output" ]]; then
+    echo "quill-code returned no output for $label" >&2
+    exit 1
+  fi
+  if grep -Eqi "No shell command was specified|I'?ll (run|check|do|download|create|write)" <<<"$output"; then
+    echo "quill-code regressed into passive or empty-tool output for $label" >&2
+    printf '%s\n' "$output" >&2
+    exit 1
+  fi
+}
+
+assert_cli_output_contains() {
+  local output="$1"
+  local expected="$2"
+  local label="$3"
+
+  assert_cli_no_action_regression "$output" "$label"
+  if ! grep -Fqi "$expected" <<<"$output"; then
+    echo "quill-code output for $label did not contain expected text: $expected" >&2
+    printf '%s\n' "$output" >&2
+    exit 1
+  fi
+}
+
 echo "==> Running Swift test suite"
 swift test
 
 echo "==> Running mock CLI shell command"
 whoami_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "run whoami")"
-if [[ -z "$whoami_output" ]]; then
-  echo "quill-code did not return output for run whoami" >&2
-  exit 1
-fi
+assert_cli_no_action_regression "$whoami_output" "run whoami"
+
+echo "==> Running mock CLI natural diagnostic prompts"
+whoami_question_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "whoami?")"
+assert_cli_output_contains "$whoami_question_output" "$(id -un)" "whoami?"
+
+disk_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "How much hd?")"
+assert_cli_output_contains "$disk_output" "Disk usage" "How much hd?"
+
+openclaw_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Do you have openclaw?")"
+assert_cli_output_contains "$openclaw_output" "openclaw" "Do you have openclaw?"
 
 echo "==> Running mock CLI file creation"
 swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "make a file that says hello world" >/dev/null
@@ -32,6 +67,25 @@ if [[ ! -f "$SMOKE_WORKSPACE/hello.txt" ]]; then
 fi
 if [[ "$(tr -d '\r' < "$SMOKE_WORKSPACE/hello.txt")" != "hello world" ]]; then
   echo "hello.txt did not contain the expected smoke content" >&2
+  exit 1
+fi
+
+echo "==> Running mock CLI local download"
+DOWNLOAD_SOURCE="$SMOKE_ROOT/source.html"
+printf '<!doctype html><title>QuillCode smoke</title>\n' > "$DOWNLOAD_SOURCE"
+download_output="$(swift run quill-code \
+  --home "$SMOKE_HOME" \
+  --cwd "$SMOKE_WORKSPACE" \
+  "Download file://$DOWNLOAD_SOURCE into \`downloads/example.html\` in this workspace.")"
+assert_cli_output_contains "$download_output" "downloads/example.html" "local file download"
+if [[ ! -s "$SMOKE_WORKSPACE/downloads/example.html" ]]; then
+  echo "quill-code did not create downloads/example.html in the smoke workspace" >&2
+  find "$SMOKE_WORKSPACE" -maxdepth 3 -type f -print >&2
+  exit 1
+fi
+if ! grep -q "QuillCode smoke" "$SMOKE_WORKSPACE/downloads/example.html"; then
+  echo "downloads/example.html did not contain the expected downloaded content" >&2
+  cat "$SMOKE_WORKSPACE/downloads/example.html" >&2
   exit 1
 fi
 

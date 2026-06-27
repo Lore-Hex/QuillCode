@@ -70,7 +70,7 @@ Drive the QuillCode test harness with mock LLM:
 
 ## Native Smoke Tests
 
-- `./scripts/smoke.sh` runs Swift tests, mock CLI `run whoami`, mock CLI file creation in a temp workspace, and Playwright E2E when local node modules are installed.
+- `./scripts/smoke.sh` runs Swift tests, mock CLI `run whoami`, natural diagnostic prompts (`whoami?`, disk usage, OpenClaw discovery), mock CLI file creation, a local `file://` download into a requested workspace path, live-mode missing-key error readability, and Playwright E2E when local node modules are installed.
 - `./scripts/live-tr-smoke.sh` is the opt-in real TrustedRouter smoke. It reads `QUILLCODE_API_KEY`, `TRUSTEDROUTER_API_KEY`, or `~/.quill.code.keyfile`, defaults to the cheap `deepseekv4flash` alias, runs through `quill-code --live`, and fails on empty shell arguments, passive “I’ll run...” answers, missing command output, unreadable live errors, model-planned file writes that do not actually create the requested temp-workspace file, OpenClaw/device-discovery prompts without concrete output, public-page download prompts that do not create a nonempty requested file, or persisted transcripts that lack nonempty queued tool calls and successful completed tool results.
 - Packaged macOS and Linux app launch.
 - Login/dev override.

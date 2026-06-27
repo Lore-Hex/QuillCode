@@ -68,9 +68,39 @@ final class AgentImmediateActionTests: XCTestCase {
         XCTAssertTrue(toolResult.ok, toolResult.error ?? "")
         XCTAssertEqual(
             try queuedShellCommand(in: result),
-            "mkdir -p downloads && curl -L --fail --silent --show-error --output 'downloads/linkedin.com.html' 'https://LinkedIn.com' && ls -lh 'downloads/linkedin.com.html'"
+            "mkdir -p 'downloads' && curl -L --fail --silent --show-error --output 'downloads/linkedin.com.html' 'https://LinkedIn.com' && ls -lh 'downloads/linkedin.com.html'"
         )
         XCTAssertEqual(result.thread.messages.last?.content, "Downloaded to `downloads/linkedin.com.html`.")
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll download") })
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
+    }
+
+    func testDownloadURLIntoExplicitPathUsesRequestedPath() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(toolExecutionOverride: { call, _ in
+            guard call.name == ToolDefinition.shellRun.name else { return nil }
+            return ToolResult(
+                ok: true,
+                stdout: "-rw-r--r--  1 mock  staff  559B downloads/example.html\n",
+                stderr: "",
+                exitCode: 0
+            )
+        })
+
+        let result = try await runner.send(
+            "Download https://example.com into `downloads/example.html` in this workspace.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        let toolResult = try XCTUnwrap(result.toolResults.first)
+        XCTAssertTrue(toolResult.ok, toolResult.error ?? "")
+        XCTAssertEqual(
+            try queuedShellCommand(in: result),
+            "mkdir -p 'downloads' && curl -L --fail --silent --show-error --output 'downloads/example.html' 'https://example.com' && ls -lh 'downloads/example.html'"
+        )
+        XCTAssertEqual(result.thread.messages.last?.content, "Downloaded to `downloads/example.html`.")
         XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll download") })
         XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
     }
