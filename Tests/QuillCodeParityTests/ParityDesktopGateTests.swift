@@ -295,6 +295,30 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(controllerText.contains("model.runWorkspaceCommand"), "Desktop controller should not execute generic workspace commands directly.")
     }
 
+    func testDesktopControllerDelegatesModelStateSynchronization() throws {
+        let text = try Self.desktopSourceText()
+        let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
+        let stateCoordinatorText = try Self.desktopSourceText(named: "QuillCodeDesktopModelStateCoordinator.swift")
+
+        XCTAssertTrue(text.contains("QuillCodeDesktopModelStateCoordinator"), "Desktop model state synchronization should be isolated from UI routing.")
+        XCTAssertTrue(controllerText.contains("modelStateCoordinator.ensureDefaultProject"), "Desktop controller should delegate bootstrap project fallback.")
+        XCTAssertTrue(controllerText.contains("modelStateCoordinator.initialState"), "Desktop controller should delegate initial surface/draft capture.")
+        XCTAssertTrue(controllerText.contains("modelStateCoordinator.refreshState"), "Desktop controller should delegate refresh-state synchronization.")
+        XCTAssertTrue(controllerText.contains("modelStateCoordinator.syncComposerDraft"), "Desktop controller should delegate forced composer draft synchronization.")
+        XCTAssertTrue(stateCoordinatorText.contains("model.root.projects.isEmpty"), "Model-state coordinator should own bootstrap project fallback checks.")
+        XCTAssertTrue(stateCoordinatorText.contains("model.addProject(path: workspaceRoot)"), "Model-state coordinator should own bootstrap project fallback mutation.")
+        XCTAssertTrue(stateCoordinatorText.contains("model.surface()"), "Model-state coordinator should own surface snapshots.")
+        XCTAssertTrue(stateCoordinatorText.contains("model.composer.draft"), "Model-state coordinator should own composer draft reads.")
+        XCTAssertTrue(stateCoordinatorText.contains("model.terminal.draft"), "Model-state coordinator should own terminal draft reads.")
+        XCTAssertTrue(stateCoordinatorText.contains("model.browser.addressDraft"), "Model-state coordinator should own browser address reads.")
+        XCTAssertFalse(controllerText.contains("model.root.projects.isEmpty"), "Desktop controller should not inspect project state directly during bootstrap.")
+        XCTAssertFalse(controllerText.contains("model.addProject(path: workspaceRoot)"), "Desktop controller should not mutate bootstrap project fallback directly.")
+        XCTAssertFalse(controllerText.contains("model.surface()"), "Desktop controller should not capture surface snapshots directly.")
+        XCTAssertFalse(controllerText.contains("model.composer.draft"), "Desktop controller should not read composer draft state directly.")
+        XCTAssertFalse(controllerText.contains("model.terminal.draft"), "Desktop controller should not read terminal draft state directly.")
+        XCTAssertFalse(controllerText.contains("model.browser.addressDraft"), "Desktop controller should not read browser address state directly.")
+    }
+
     func testDesktopControllerDelegatesNavigationMutations() throws {
         let text = try Self.desktopSourceText()
         let controllerText = try Self.desktopSourceText(named: "QuillCodeDesktopController.swift")
