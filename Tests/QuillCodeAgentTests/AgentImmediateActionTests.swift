@@ -49,6 +49,28 @@ final class AgentImmediateActionTests: XCTestCase {
         XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
     }
 
+    func testOpenClawDiscoveryDoesNotDependOnProviderKnowledge() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
+        let result = try await runner.send("Do you have openclaw?", in: ChatThread(mode: .auto), workspaceRoot: root)
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(try queuedShellCommand(in: result), "command -v openclaw || which openclaw || echo 'not found'")
+        XCTAssertEqual(result.thread.messages.last?.content, "openclaw is not installed or is not on PATH.")
+    }
+
+    func testDiskUsageQuestionDoesNotDependOnProviderKnowledge() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: FailingLLMClient(), enablesImmediateActionPreflight: true)
+        let result = try await runner.send("How much hd?", in: ChatThread(mode: .auto), workspaceRoot: root)
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(try queuedShellCommand(in: result), "df -h / /Quill 2>/dev/null || df -h /")
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll check") })
+    }
+
     func testDownloadDomainExecutesImmediatelyWithWorkspaceBoundedPath() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(toolExecutionOverride: { call, _ in
@@ -174,5 +196,15 @@ final class AgentImmediateActionTests: XCTestCase {
         let arguments = try ToolArguments(call.argumentsJSON)
         XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
         return try arguments.requiredString("cmd")
+    }
+}
+
+private enum FailingLLMClientError: Error {
+    case shouldNotBeCalled
+}
+
+private struct FailingLLMClient: LLMClient {
+    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        throw FailingLLMClientError.shouldNotBeCalled
     }
 }

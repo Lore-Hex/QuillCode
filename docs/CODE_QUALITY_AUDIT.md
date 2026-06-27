@@ -8061,3 +8061,37 @@ Code quality changes:
 Remaining risk:
 
 - Live smoke remains opt-in because it depends on an external model, network access, public-page availability, and a local/CI secret. It should run before releases and after prompt/parser/safety changes, while required PR CI keeps using deterministic mock coverage.
+
+## 2026-06-27 Native Render Smoke Pass
+
+Overall grade after this slice: **A- native render coverage, A real side-effect validation, B packaged-window coverage**.
+
+The desktop controller smoke proved native state transitions, but it still could not catch an app surface that visually rendered blank, collapsed, or visually disconnected from the action result. The new render smoke adds pixel-level coverage for the SwiftUI shell and the message/tool-card components that users actually inspect after a command runs.
+
+Code quality changes:
+
+- Added `QuillCodeDesktopRenderedSmokeTests`, which runs a real “write hello world” prompt through `QuillCodeDesktopController.send()`, verifies the `hello.txt` side effect, and renders the SwiftUI workspace shell to a deterministic 1280x900 image.
+- Added a focused transcript excerpt render that uses the real `QuillCodeMessageBubble` and `QuillCodeToolCardView` components for the latest user prompt, completed `host.file.write` card, artifact preview, and final answer.
+- The render smoke checks opacity, color diversity, bright text/control pixels, and QuillCode blue-accent pixels so dark-mode snapshots can stay dark while still failing on blank, monochrome, or missing-result regressions.
+- Debug image paths are opt-in through `QUILLCODE_RENDER_SMOKE_IMAGE_PATH` and `QUILLCODE_RENDER_SMOKE_TRANSCRIPT_IMAGE_PATH`, which keeps CI clean while making local visual inspection easy.
+
+Remaining risk:
+
+- `ImageRenderer` is a render-layer smoke, not a real packaged-window click test. It does not synthesize native mouse/keyboard events or prove AppKit menu-bar behavior. The next native coverage layer should launch a packaged `quill-code-desktop` app and drive it through Accessibility/XCTest or a small appshot harness.
+
+## 2026-06-27 Immediate Action Preflight Pass
+
+Overall grade after this slice: **A live-model drift resistance, A deterministic local diagnostics, A- planner scope control**.
+
+The opt-in live smoke exposed a concrete provider failure: `deepseek/deepseek-v4-flash` answered “OpenCL is not installed” from general knowledge when asked “Do you have openclaw?” instead of checking the local `openclaw` executable. This was the same user-visible failure class as earlier empty shell calls and “I'll check...” promises.
+
+Code quality changes:
+
+- Added `AgentImmediateActionPlanner`, a focused preflight planner for high-confidence local tasks before any LLM/provider call: explicit shell commands, `whoami`, disk usage, OpenClaw executable discovery, URL downloads, and simple hello-world file writes.
+- Added an explicit `AgentRunner` preflight option and enabled it for the TrustedRouter app runtime and CLI `--live` path before streaming/non-streaming provider calls, so live providers cannot hallucinate answers for these deterministic diagnostics while mock/custom LLM tests keep their exact model path.
+- Added `AgentImmediateActionTests` coverage with a deliberately failing LLM client to prove OpenClaw and disk-usage requests do not depend on provider knowledge.
+- Reran the opt-in live TrustedRouter smoke after the change; the OpenClaw stage now executes the local command and the full live smoke passes.
+
+Remaining risk:
+
+- The planner is intentionally narrow. Broader natural-language tool planning still depends on the model and the promised-work correction path; new deterministic preflight cases should only be added for actions that are unambiguous, bounded to the workspace/device, and already covered by real-world smoke prompts.

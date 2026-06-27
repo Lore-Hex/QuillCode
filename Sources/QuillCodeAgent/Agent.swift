@@ -73,6 +73,7 @@ public struct AgentRunner: Sendable {
     public var additionalToolDefinitions: [ToolDefinition]
     public var toolExecutionOverride: AgentToolExecutionOverride?
     public var maxToolSteps: Int
+    public var enablesImmediateActionPreflight: Bool
 
     public init(
         llm: LLMClient = MockLLMClient(),
@@ -80,7 +81,8 @@ public struct AgentRunner: Sendable {
         baseToolDefinitions: [ToolDefinition] = ToolRouter.definitions,
         additionalToolDefinitions: [ToolDefinition] = [],
         toolExecutionOverride: AgentToolExecutionOverride? = nil,
-        maxToolSteps: Int = AgentRunner.defaultMaxToolSteps
+        maxToolSteps: Int = AgentRunner.defaultMaxToolSteps,
+        enablesImmediateActionPreflight: Bool = false
     ) {
         self.llm = llm
         self.safety = safety
@@ -88,6 +90,7 @@ public struct AgentRunner: Sendable {
         self.additionalToolDefinitions = additionalToolDefinitions
         self.toolExecutionOverride = toolExecutionOverride
         self.maxToolSteps = maxToolSteps
+        self.enablesImmediateActionPreflight = enablesImmediateActionPreflight
     }
 
     public func send(
@@ -249,6 +252,11 @@ public struct AgentRunner: Sendable {
         tools: [ToolDefinition],
         onProgress: AgentRunProgressHandler?
     ) async throws -> AgentAction {
+        if enablesImmediateActionPreflight,
+           let action = AgentImmediateActionPlanner.action(for: userMessage, tools: tools) {
+            return action
+        }
+
         guard let streamingLLM = llm as? any StreamingLLMClient else {
             return try await llm.nextAction(thread: thread, userMessage: userMessage, tools: tools)
         }

@@ -63,7 +63,8 @@ public struct QuillCodeRuntimeFactory: Sendable {
         return QuillCodeRuntime(
             runner: AgentRunner(
                 llm: llm,
-                safety: AutoSafetyReviewer(client: safetyClient)
+                safety: AutoSafetyReviewer(client: safetyClient),
+                enablesImmediateActionPreflight: true
             ),
             mode: .trustedRouter,
             statusLabel: config.authMode == .oauth
