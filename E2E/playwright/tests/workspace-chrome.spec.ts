@@ -10,6 +10,161 @@ import {
 
 const MINIMUM_HIT_TARGET = 44;
 
+type TargetAuditIssue = {
+  className: string;
+  height: number;
+  label: string;
+  tag: string;
+  testid: string | null;
+  text: string;
+  width: number;
+};
+
+type TargetOverlapIssue = {
+  a: string;
+  b: string;
+  overlapHeight: number;
+  overlapWidth: number;
+};
+
+async function targetAuditIssues(page: Page): Promise<TargetAuditIssue[]> {
+  return page.evaluate((minimumHitTarget) => {
+    const selector = [
+      'button',
+      'summary',
+      'a[href]',
+      '[role="button"]',
+      'input:not([type="hidden"])',
+      'select',
+      'textarea'
+    ].join(',');
+
+    function isVisible(element: Element, rect: DOMRect) {
+      const style = window.getComputedStyle(element);
+      const closedDetails = element.closest('details:not([open])');
+      if (closedDetails && element.tagName.toLowerCase() !== 'summary') return false;
+      return rect.width > 0
+        && rect.height > 0
+        && style.display !== 'none'
+        && style.visibility !== 'hidden'
+        && style.pointerEvents !== 'none'
+        && !element.closest('[hidden],[aria-hidden="true"]');
+    }
+
+    return [...document.querySelectorAll(selector)]
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { element, rect };
+      })
+      .filter(({ element, rect }) => isVisible(element, rect))
+      .filter(({ rect }) => Math.round(rect.width) < minimumHitTarget || Math.round(rect.height) < minimumHitTarget)
+      .map(({ element, rect }) => ({
+        className: String((element as HTMLElement).className || ''),
+        height: Math.round(rect.height),
+        label: element.getAttribute('aria-label') || '',
+        tag: element.tagName.toLowerCase(),
+        testid: element.getAttribute('data-testid'),
+        text: (element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+        width: Math.round(rect.width)
+      }));
+  }, MINIMUM_HIT_TARGET);
+}
+
+async function expectAllVisibleInteractiveTargets(page: Page, label: string) {
+  const issues = await targetAuditIssues(page);
+  expect(issues, `${label} should keep every visible interactive target at least ${MINIMUM_HIT_TARGET}px`).toEqual([]);
+}
+
+async function targetOverlapIssues(page: Page): Promise<TargetOverlapIssue[]> {
+  return page.evaluate(() => {
+    const selector = [
+      'button',
+      'summary',
+      'a[href]',
+      '[role="button"]',
+      'input:not([type="hidden"])',
+      'select',
+      'textarea'
+    ].join(',');
+
+    function isVisible(element: Element, rect: DOMRect) {
+      const style = window.getComputedStyle(element);
+      const closedDetails = element.closest('details:not([open])');
+      if (closedDetails && element.tagName.toLowerCase() !== 'summary') return false;
+      return rect.width > 0
+        && rect.height > 0
+        && style.display !== 'none'
+        && style.visibility !== 'hidden'
+        && style.pointerEvents !== 'none'
+        && !element.closest('[hidden],[aria-hidden="true"]');
+    }
+
+    function isTopMostAtCenter(element: Element, rect: DOMRect) {
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const topElement = document.elementFromPoint(centerX, centerY);
+      return topElement === element || Boolean(topElement && element.contains(topElement));
+    }
+
+    function labelFor(element: Element) {
+      const id = element.getAttribute('data-testid');
+      const aria = element.getAttribute('aria-label');
+      const text = (element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 48);
+      return [element.tagName.toLowerCase(), id, aria, text].filter(Boolean).join(':');
+    }
+
+    function interactionLayer(element: Element) {
+      const layer = element.closest([
+        '[data-testid="model-browser"]',
+        '[data-testid="settings-panel"]',
+        '[data-testid="search-panel"]',
+        '[data-testid="command-palette-panel"]',
+        '[data-testid="keyboard-shortcuts-panel"]',
+        '[data-testid="find-bar"]',
+        '.sidebar-tools-popover',
+        '.sidebar-thread-menu-popover'
+      ].join(','));
+      if (!layer) return 'workspace';
+      return layer.getAttribute('data-testid') || layer.className || layer.tagName.toLowerCase();
+    }
+
+    const targets = [...document.querySelectorAll(selector)]
+      .map((element) => ({
+        element,
+        layer: interactionLayer(element),
+        rect: element.getBoundingClientRect()
+      }))
+      .filter(({ element, rect }) => isVisible(element, rect) && isTopMostAtCenter(element, rect));
+    const issues: TargetOverlapIssue[] = [];
+
+    for (let i = 0; i < targets.length; i += 1) {
+      for (let j = i + 1; j < targets.length; j += 1) {
+        const first = targets[i];
+        const second = targets[j];
+        if (first.layer !== second.layer) continue;
+        if (first.element.contains(second.element) || second.element.contains(first.element)) continue;
+
+        const overlapWidth = Math.min(first.rect.right, second.rect.right) - Math.max(first.rect.left, second.rect.left);
+        const overlapHeight = Math.min(first.rect.bottom, second.rect.bottom) - Math.max(first.rect.top, second.rect.top);
+        if (overlapWidth > 1 && overlapHeight > 1) {
+          issues.push({
+            a: labelFor(first.element),
+            b: labelFor(second.element),
+            overlapHeight: Math.round(overlapHeight),
+            overlapWidth: Math.round(overlapWidth)
+          });
+        }
+      }
+    }
+    return issues;
+  });
+}
+
+async function expectNoOverlappingInteractiveTargets(page: Page, label: string) {
+  const issues = await targetOverlapIssues(page);
+  expect(issues, `${label} should not have overlapping peer interactive targets`).toEqual([]);
+}
+
 async function expectHitTarget(locator: Locator, label: string) {
   const target = locator.first();
   await expect(target, `${label} should be visible`).toBeVisible();
@@ -316,6 +471,56 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(transcriptPolish.sidebarMenuWidth).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(transcriptPolish.sidebarMenuHeight).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   await expectHitTarget(page.locator('[data-testid="tool-card-details"] summary'), 'tool details disclosure');
+});
+
+test('mock harness audits every visible interactive click target across workspace states', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await expectAllVisibleInteractiveTargets(page, 'initial workspace');
+  await expectNoOverlappingInteractiveTargets(page, 'initial workspace');
+
+  await page.getByTestId('model-picker-button').click();
+  await expect(page.getByTestId('model-browser')).toBeVisible();
+  await expectAllVisibleInteractiveTargets(page, 'model picker');
+  await expectNoOverlappingInteractiveTargets(page, 'model picker');
+  await page.getByTestId('model-picker-button').click();
+
+  await openSettings(page);
+  await expect(page.getByTestId('settings-panel')).toBeVisible();
+  await expectAllVisibleInteractiveTargets(page, 'settings panel');
+  await expectNoOverlappingInteractiveTargets(page, 'settings panel');
+  await page.getByTestId('settings-cancel').click();
+
+  await clickSidebarTool(page, 'browser-button');
+  await expect(page.getByTestId('browser-pane')).toBeVisible();
+  await expectAllVisibleInteractiveTargets(page, 'browser pane');
+  await expectNoOverlappingInteractiveTargets(page, 'browser pane');
+
+  await clickSidebarTool(page, 'terminal-button');
+  await expect(page.getByTestId('terminal-pane')).toBeVisible();
+  await expectAllVisibleInteractiveTargets(page, 'terminal pane');
+  await expectNoOverlappingInteractiveTargets(page, 'terminal pane');
+
+  await page.getByTestId('extensions-button').click();
+  await expect(page.getByTestId('extensions-pane')).toBeVisible();
+  await expectAllVisibleInteractiveTargets(page, 'extensions pane');
+  await expectNoOverlappingInteractiveTargets(page, 'extensions pane');
+
+  await page.getByTestId('automations-button').click();
+  await expect(page.getByTestId('automations-pane')).toBeVisible();
+  await expectAllVisibleInteractiveTargets(page, 'automations pane');
+  await expectNoOverlappingInteractiveTargets(page, 'automations pane');
+
+  await clickSidebarTool(page, 'memories-button');
+  await expect(page.getByTestId('memories-pane')).toBeVisible();
+  await expectAllVisibleInteractiveTargets(page, 'memories pane');
+  await expectNoOverlappingInteractiveTargets(page, 'memories pane');
+
+  await page.getByLabel('Message').fill('run whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+  await expectAllVisibleInteractiveTargets(page, 'tool-card transcript');
+  await expectNoOverlappingInteractiveTargets(page, 'tool-card transcript');
 });
 
 test('mock harness keeps banner and recovery actions at least 44px', async ({ page }) => {

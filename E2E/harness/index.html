@@ -58,16 +58,43 @@
     .activity-item span {
       font-variant-numeric: tabular-nums;
     }
-    .interactive-hit-target {
+    .interactive-hit-target,
+    .hit-target-text,
+    .hit-target-row,
+    .hit-target-capsule,
+    .hit-target-form-action {
       min-width: var(--hit-target);
       min-height: var(--hit-target);
       display: inline-flex;
       align-items: center;
       justify-content: center;
     }
+    .hit-target-icon {
+      width: var(--hit-target);
+      min-width: var(--hit-target);
+      height: var(--hit-target);
+      min-height: var(--hit-target);
+      display: inline-grid;
+      place-items: center;
+    }
+    .hit-target-row {
+      width: 100%;
+      justify-content: flex-start;
+    }
+    .hit-target-capsule,
+    .hit-target-form-action {
+      border-radius: 999px;
+    }
+    .hit-target-form-action {
+      min-width: 56px;
+    }
     button,
     summary,
+    input,
+    select,
+    textarea,
     a.interactive-hit-target {
+      min-width: var(--hit-target);
       min-height: var(--hit-target);
       touch-action: manipulation;
     }
@@ -85,11 +112,24 @@
     button:disabled {
       cursor: not-allowed;
     }
+    input,
+    select,
+    textarea {
+      transition-property: box-shadow, border-color, background-color;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
     a.interactive-hit-target {
       text-decoration: none;
     }
     details > summary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       min-height: var(--hit-target);
+    }
+    details:not([open]) > :not(summary) {
+      display: none !important;
     }
     .quillcode-workspace { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
     .topbar {
@@ -954,10 +994,6 @@
       border-color: rgba(255,93,86,.35);
     }
     .sidebar-select-toggle {
-      position: absolute;
-      left: 8px;
-      top: 10px;
-      z-index: 2;
       width: var(--hit-target);
       height: var(--hit-target);
       padding: 0;
@@ -965,7 +1001,7 @@
       border-color: rgba(65,184,232,.45);
     }
     .sidebar-thread-row.selection-mode .sidebar-item {
-      padding-left: 52px;
+      padding-left: 12px;
     }
     .sidebar-thread-row.bulk-selected .sidebar-item {
       border-color: rgba(65,184,232,.58);
@@ -988,20 +1024,26 @@
     .sidebar-thread-row {
       position: relative;
       display: grid;
-      gap: 4px;
+      grid-template-columns: minmax(0, 1fr) var(--hit-target);
+      gap: 6px;
+      align-items: start;
       margin-bottom: 8px;
+    }
+    .sidebar-thread-row.selection-mode {
+      grid-template-columns: var(--hit-target) minmax(0, 1fr) var(--hit-target);
     }
     .project-row {
       position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) var(--hit-target);
+      gap: 6px;
+      align-items: start;
       margin-bottom: 8px;
     }
     .project-row .project-item {
-      padding-right: 56px;
+      padding-right: 12px;
     }
     .sidebar-thread-menu {
-      position: absolute;
-      right: 8px;
-      top: 8px;
       z-index: 2;
     }
     .sidebar-thread-menu summary {
@@ -4612,8 +4654,8 @@
                 <span data-testid="review-file-path">${escapeHTML(file.path)}</span>
                 <span class="review-actions">
                   <small>${escapeHTML(file.changeLabel)}</small>
-                  <button type="button" class="review-action-button" data-testid="review-action" data-action="stage" data-path="${escapeHTML(file.path)}">Stage</button>
-                  <button type="button" class="review-action-button" data-testid="review-action" data-action="restore" data-path="${escapeHTML(file.path)}">Restore</button>
+                  <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="stage" data-path="${escapeHTML(file.path)}">Stage</button>
+                  <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="restore" data-path="${escapeHTML(file.path)}">Restore</button>
                 </span>
                 ${(file.hunks || []).length ? `
                   <div class="review-hunks">
@@ -4623,15 +4665,15 @@
                           <code data-testid="review-hunk-header">${escapeHTML(hunk.header)}</code>
                           <span class="review-actions">
                             <small>${escapeHTML(hunk.changeLabel)}</small>
-                            <button type="button" class="review-action-button" data-testid="review-action" data-action="stage_hunk" data-path="${escapeHTML(file.path)}">Stage hunk</button>
-                            <button type="button" class="review-action-button" data-testid="review-action" data-action="restore_hunk" data-path="${escapeHTML(file.path)}">Restore hunk</button>
+                            <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="stage_hunk" data-path="${escapeHTML(file.path)}">Stage hunk</button>
+                            <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="restore_hunk" data-path="${escapeHTML(file.path)}">Restore hunk</button>
                           </span>
                         </div>
                         <form class="review-range-comment-form" data-testid="review-range-comment-form" data-path="${escapeHTML(file.path)}">
                           <input data-testid="review-range-start" aria-label="Range note start for ${escapeHTML(file.path)}" placeholder="From" value="${escapeHTML((hunk.lines || [])[0]?.lineNumber || '')}">
                           <input data-testid="review-range-end" aria-label="Range note end for ${escapeHTML(file.path)}" placeholder="To" value="${escapeHTML((hunk.lines || [])[1]?.lineNumber || (hunk.lines || [])[0]?.lineNumber || '')}">
                           <input data-testid="review-range-comment-input" aria-label="Range note for ${escapeHTML(file.path)}" placeholder="Range note">
-                          <button type="submit">Add range note</button>
+                          <button class="hit-target-form-action" type="submit">Add range note</button>
                         </form>
                         <ol class="review-lines" data-testid="review-lines">
                           ${(hunk.lines || []).map(line => `
@@ -4641,7 +4683,7 @@
                               <code class="review-line-content" data-testid="review-line-content">${escapeHTML(line.content)}</code>
                               <form class="review-line-comment-form" data-testid="review-line-comment-form" data-path="${escapeHTML(file.path)}" data-line-number="${escapeHTML(line.lineNumber || '')}" data-line-kind="${escapeHTML(line.kind)}">
                                 <input data-testid="review-line-comment-input" aria-label="Line note for ${escapeHTML(file.path)}:${escapeHTML(line.lineNumber || '')}" placeholder="Line note">
-                                <button type="submit">Add</button>
+                                <button class="hit-target-form-action" type="submit">Add</button>
                               </form>
                               ${(line.comments || []).length ? `
                                 <div class="review-line-comments">
@@ -4657,7 +4699,7 @@
                   </div>` : ''}
                 <form class="review-comment-form" data-testid="review-comment-form" data-path="${escapeHTML(file.path)}">
                   <input data-testid="review-comment-input" aria-label="Review note for ${escapeHTML(file.path)}" placeholder="Add review note">
-                  <button type="submit">Add note</button>
+                  <button class="hit-target-form-action" type="submit">Add note</button>
                 </form>
               </li>`).join('')}
           </ul>

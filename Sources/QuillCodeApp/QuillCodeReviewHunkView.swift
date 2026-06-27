@@ -83,7 +83,7 @@ struct QuillCodeReviewHunkView: View {
                     isAddingRangeComment = false
                 }
                 .font(.caption.weight(.semibold))
-                .quillCodeTextButtonTarget(minWidth: QuillCodeMetrics.minimumHitTarget)
+                .quillCodeFormActionTarget()
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .disabled(!canAddRangeComment)
             }
