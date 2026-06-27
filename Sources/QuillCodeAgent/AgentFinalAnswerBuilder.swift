@@ -4,6 +4,8 @@ import QuillCodeTools
 import QuillComputerUseKit
 
 enum AgentFinalAnswerBuilder {
+    private typealias ToolAnswerFormatter = (ToolCall, ToolResult, ToolResult?) -> String?
+
     static func finalAnswer(
         for call: ToolCall,
         result: ToolResult,
@@ -19,90 +21,34 @@ enum AgentFinalAnswerBuilder {
             return "Command failed:\n\(truncated(details))"
         }
 
-        if call.name == ToolDefinition.fileWrite.name {
-            if let path = argument("path", in: call) {
-                return "Wrote `\(path)`."
-            }
-            if let path = result.artifacts.first {
-                return "Wrote `\(path)`."
-            }
-            return "Wrote the file."
-        }
-
-        if call.name == ToolDefinition.applyPatch.name {
-            if let followUpReviewResult, !followUpReviewResult.ok {
-                let details = [followUpReviewResult.error, followUpReviewResult.stderr.trimmedNonEmpty]
-                    .compactMap { $0 }
-                    .joined(separator: "\n")
-                if details.isEmpty {
-                    return "Patch applied, but I could not refresh the review diff."
-                }
-                return "Patch applied, but I could not refresh the review diff:\n\(truncated(details))"
-            }
-            return followUpReviewResult == nil
-                ? "Patch applied."
-                : "Patch applied. Review the resulting diff below."
-        }
-
-        if call.name == ToolDefinition.gitWorktreePrune.name {
-            return gitWorktreePruneAnswer(call: call, result: result)
-        }
-
-        if call.name == ToolDefinition.gitPullRequestReviewThreads.name,
-           let answer = pullRequestReviewThreadsAnswer(result.stdout) {
-            return answer
-        }
-
-        if call.name == ToolDefinition.planUpdate.name {
-            return "Updated the task plan."
-        }
-
-        if call.name == ToolDefinition.memoryRemember.name {
-            if let output = try? JSONHelpers.decode(MemoryRememberToolOutput.self, from: result.stdout) {
-                return "Saved memory: \(output.title). It will be included as background context in future turns."
-            }
-            return "Saved memory."
-        }
-
-        if call.name == ToolDefinition.shellRun.name,
-           let command = argument("cmd", in: call) {
-            if let answer = shellAnswer(command: command, result: result) {
+        for formatter in toolAnswerFormatters {
+            if let answer = formatter(call, result, followUpReviewResult) {
                 return answer
             }
         }
 
-        if call.name == ToolDefinition.browserInspect.name,
-           let inspection = try? JSONHelpers.decode(BrowserInspectionToolOutput.self, from: result.stdout) {
-            return browserInspectionAnswer(inspection)
-        }
+        return defaultAnswer(result)
+    }
 
-        if call.name == ToolDefinition.browserOpen.name,
-           let inspection = try? JSONHelpers.decode(BrowserInspectionToolOutput.self, from: result.stdout) {
-            return browserOpenAnswer(inspection)
-        }
+    private static var toolAnswerFormatters: [ToolAnswerFormatter] {
+        [
+            fileWriteAnswer,
+            applyPatchAnswer,
+            worktreePruneAnswer,
+            pullRequestReviewThreadsAnswer,
+            planUpdateAnswer,
+            memoryRememberAnswer,
+            shellRunAnswer,
+            browserInspectAnswer,
+            browserOpenAnswer,
+            mcpReadResourceAnswer,
+            mcpGetPromptAnswer,
+            computerScreenshotAnswer,
+            computerUseActionAnswer
+        ]
+    }
 
-        if call.name == ToolDefinition.mcpReadResource.name {
-            let output = result.stdout.trimmedNonEmpty
-            return output.map { "MCP resource contents:\n\(truncated($0))" }
-                ?? "MCP resource read completed with no text content."
-        }
-
-        if call.name == ToolDefinition.mcpGetPrompt.name {
-            let output = result.stdout.trimmedNonEmpty
-            return output.map { "MCP prompt:\n\(truncated($0))" }
-                ?? "MCP prompt loaded."
-        }
-
-        if call.name == ToolDefinition.computerScreenshot.name,
-           let screenshot = try? JSONHelpers.decode(ComputerScreenshotToolOutput.self, from: result.stdout) {
-            return "Captured a screenshot (\(screenshot.width) x \(screenshot.height))."
-        }
-
-        if ToolDefinition.computerUseDefinitions.contains(where: { $0.name == call.name }) {
-            let output = result.stdout.trimmedNonEmpty
-            return output.map { "Computer Use completed: \($0)" } ?? "Computer Use action completed."
-        }
-
+    private static func defaultAnswer(_ result: ToolResult) -> String {
         let output = [result.stdout, result.stderr]
             .compactMap(\.trimmedNonEmpty)
             .joined(separator: "\n")
@@ -110,6 +56,179 @@ enum AgentFinalAnswerBuilder {
             return "Done."
         }
         return "Output:\n\(truncated(output))"
+    }
+
+    private static func fileWriteAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.fileWrite.name else {
+            return nil
+        }
+        if let path = argument("path", in: call) {
+            return "Wrote `\(path)`."
+        }
+        if let path = result.artifacts.first {
+            return "Wrote `\(path)`."
+        }
+        return "Wrote the file."
+    }
+
+    private static func applyPatchAnswer(
+        call: ToolCall,
+        result _: ToolResult,
+        followUpReviewResult: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.applyPatch.name else {
+            return nil
+        }
+        if let followUpReviewResult, !followUpReviewResult.ok {
+            let details = [followUpReviewResult.error, followUpReviewResult.stderr.trimmedNonEmpty]
+                .compactMap { $0 }
+                .joined(separator: "\n")
+            if details.isEmpty {
+                return "Patch applied, but I could not refresh the review diff."
+            }
+            return "Patch applied, but I could not refresh the review diff:\n\(truncated(details))"
+        }
+        return followUpReviewResult == nil
+            ? "Patch applied."
+            : "Patch applied. Review the resulting diff below."
+    }
+
+    private static func worktreePruneAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.gitWorktreePrune.name else {
+            return nil
+        }
+        return gitWorktreePruneAnswer(call: call, result: result)
+    }
+
+    private static func pullRequestReviewThreadsAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.gitPullRequestReviewThreads.name else {
+            return nil
+        }
+        return pullRequestReviewThreadsAnswer(result.stdout)
+    }
+
+    private static func planUpdateAnswer(
+        call: ToolCall,
+        result _: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        call.name == ToolDefinition.planUpdate.name ? "Updated the task plan." : nil
+    }
+
+    private static func memoryRememberAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.memoryRemember.name else {
+            return nil
+        }
+        if let output = try? JSONHelpers.decode(MemoryRememberToolOutput.self, from: result.stdout) {
+            return "Saved memory: \(output.title). It will be included as background context in future turns."
+        }
+        return "Saved memory."
+    }
+
+    private static func shellRunAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.shellRun.name,
+              let command = argument("cmd", in: call)
+        else {
+            return nil
+        }
+        return shellAnswer(command: command, result: result)
+    }
+
+    private static func browserInspectAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.browserInspect.name,
+              let inspection = try? JSONHelpers.decode(BrowserInspectionToolOutput.self, from: result.stdout)
+        else {
+            return nil
+        }
+        return browserInspectionAnswer(inspection)
+    }
+
+    private static func browserOpenAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.browserOpen.name,
+              let inspection = try? JSONHelpers.decode(BrowserInspectionToolOutput.self, from: result.stdout)
+        else {
+            return nil
+        }
+        return browserOpenAnswer(inspection)
+    }
+
+    private static func mcpReadResourceAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.mcpReadResource.name else {
+            return nil
+        }
+        let output = result.stdout.trimmedNonEmpty
+        return output.map { "MCP resource contents:\n\(truncated($0))" }
+            ?? "MCP resource read completed with no text content."
+    }
+
+    private static func mcpGetPromptAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.mcpGetPrompt.name else {
+            return nil
+        }
+        let output = result.stdout.trimmedNonEmpty
+        return output.map { "MCP prompt:\n\(truncated($0))" }
+            ?? "MCP prompt loaded."
+    }
+
+    private static func computerScreenshotAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard call.name == ToolDefinition.computerScreenshot.name,
+              let screenshot = try? JSONHelpers.decode(ComputerScreenshotToolOutput.self, from: result.stdout)
+        else {
+            return nil
+        }
+        return "Captured a screenshot (\(screenshot.width) x \(screenshot.height))."
+    }
+
+    private static func computerUseActionAnswer(
+        call: ToolCall,
+        result: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        guard ToolDefinition.computerUseDefinitions.contains(where: { $0.name == call.name }) else {
+            return nil
+        }
+        let output = result.stdout.trimmedNonEmpty
+        return output.map { "Computer Use completed: \($0)" } ?? "Computer Use action completed."
     }
 
     private static func browserInspectionAnswer(_ inspection: BrowserInspectionToolOutput) -> String {
