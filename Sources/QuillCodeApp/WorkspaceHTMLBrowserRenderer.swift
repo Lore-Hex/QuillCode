@@ -36,7 +36,14 @@ enum WorkspaceHTMLBrowserRenderer {
     private static func renderTabs(_ browser: BrowserSurface) -> String {
         let tabs = browser.tabs.map { tab in
             """
-            <button class="browser-tab \(WorkspaceHTMLPrimitives.capsuleHitTargetClass)\(tab.isActive ? " active" : "")" type="button" data-testid="browser-tab" data-command-id="\(escape(tab.selectCommandID))" aria-pressed="\(tab.isActive ? "true" : "false")">
+            <button\(WorkspaceHTMLPrimitives.buttonAttributes(
+                testID: "browser-tab",
+                classes: ["browser-tab", WorkspaceHTMLPrimitives.capsuleHitTargetClass, tab.isActive ? "active" : ""],
+                attributes: [
+                    ("data-command-id", tab.selectCommandID),
+                    ("aria-pressed", tab.isActive ? "true" : "false")
+                ]
+            ))>
               <span>\(escape(tab.title))</span>
               \(tab.urlLabel.map { #"<small>\#(escape($0))</small>"# } ?? "")
             </button>
@@ -45,8 +52,21 @@ enum WorkspaceHTMLBrowserRenderer {
         return """
         <div class="browser-tabs" data-testid="browser-tabs">
           \(tabs)
-          <button class="browser-tab-action \(WorkspaceHTMLPrimitives.iconHitTargetClass)" type="button" data-testid="browser-new-tab" data-command-id="browser-tab-new" aria-label="New browser tab">+</button>
-          <button class="browser-tab-action \(WorkspaceHTMLPrimitives.iconHitTargetClass)" type="button" data-testid="browser-close-tab" data-command-id="browser-tab-close:\(browser.activeTabID.uuidString)" aria-label="Close browser tab" \(browser.canCloseActiveTab ? "" : "disabled")>×</button>
+          \(WorkspaceHTMLPrimitives.commandButton(
+              "+",
+              testID: "browser-new-tab",
+              commandID: "browser-tab-new",
+              classes: ["browser-tab-action", WorkspaceHTMLPrimitives.iconHitTargetClass],
+              ariaLabel: "New browser tab"
+          ))
+          \(WorkspaceHTMLPrimitives.commandButton(
+              "×",
+              testID: "browser-close-tab",
+              commandID: "browser-tab-close:\(browser.activeTabID.uuidString)",
+              classes: ["browser-tab-action", WorkspaceHTMLPrimitives.iconHitTargetClass],
+              ariaLabel: "Close browser tab",
+              disabled: !browser.canCloseActiveTab
+          ))
         </div>
         """
     }

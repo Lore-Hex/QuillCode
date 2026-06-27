@@ -11,6 +11,17 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
             path: "/tmp/QuillCode",
             extensionManifests: [
                 ProjectExtensionManifest(
+                    id: "plugin:github",
+                    kind: .plugin,
+                    name: "GitHub",
+                    summary: "GitHub workflow helpers.",
+                    version: "1.2.0",
+                    sourceURL: "https://github.com/Lore-Hex/quillcode-github",
+                    relativePath: ".quillcode/plugins/github.json",
+                    installCommand: "git clone https://github.com/Lore-Hex/quillcode-github .quillcode/plugins/github",
+                    updateCommand: "git -C .quillcode/plugins/github pull --ff-only"
+                ),
+                ProjectExtensionManifest(
                     id: "mcp_server:filesystem",
                     kind: .mcpServer,
                     name: "Filesystem MCP",
@@ -40,7 +51,10 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
                                 requiredArguments: ["path"],
                                 schemaSummary: "required: path:string"
                             )
-                        ]
+                        ],
+                        resourceNames: ["README", "Project config"],
+                        resourceURIs: ["file:///workspace/README.md", "file:///workspace/.quillcode/config.toml"],
+                        promptNames: ["summarize_project"]
                     )
                 ]
             )
@@ -54,6 +68,14 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="extension-transport""#))
         XCTAssertTrue(html.contains(#"data-testid="extension-stop""#))
         XCTAssertTrue(html.contains(#"data-testid="extension-mcp-tool-schema">required: path:string · Read a file"#))
+        XCTAssertTrue(html.contains(#"data-testid="extension-install" data-command-id="extension-install:plugin:github">Install"#))
+        XCTAssertTrue(html.contains(#"data-testid="extension-update" data-command-id="extension-update:plugin:github">Update"#))
+        XCTAssertTrue(html.contains(#"data-testid="extension-stop" data-command-id="mcp-stop:mcp_server:filesystem">Stop"#))
+        XCTAssertTrue(html.contains(#"data-testid="extension-mcp-resource-action" data-command-id="mcp-resource:mcp_server:filesystem:0">Read README"#))
+        XCTAssertTrue(html.contains(#"data-testid="extension-mcp-resource-action" data-command-id="mcp-resource:mcp_server:filesystem:1">Read Project config"#))
+        XCTAssertTrue(html.contains(#"data-testid="extension-mcp-prompt-action" data-command-id="mcp-prompt:mcp_server:filesystem:0">Use summarize_project"#))
+        XCTAssertFalse(html.contains(#"data-command="extension-"#))
+        XCTAssertFalse(html.contains(#"data-command="mcp-"#))
         XCTAssertTrue(html.contains(".quillcode/mcp/filesystem.json"))
     }
 

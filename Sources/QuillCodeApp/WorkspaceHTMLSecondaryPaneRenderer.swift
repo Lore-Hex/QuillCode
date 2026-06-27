@@ -124,16 +124,16 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
             }.joined(separator: "\n")
         }
         let createButton = automations.createThreadFollowUpCommand.map { command in
-            #"<button type="button" data-testid="automation-create-follow-up" data-command-id="\#(escape(command.id))" \#(command.isEnabled ? "" : "disabled")>\#(escape(command.title))</button>"#
+            commandButton(command.title, testID: "automation-create-follow-up", commandID: command.id, disabled: !command.isEnabled)
         } ?? ""
         let createWorkspaceButton = automations.createWorkspaceScheduleCommand.map { command in
-            #"<button type="button" data-testid="automation-create-workspace-schedule" data-command-id="\#(escape(command.id))" \#(command.isEnabled ? "" : "disabled")>\#(escape(command.title))</button>"#
+            commandButton(command.title, testID: "automation-create-workspace-schedule", commandID: command.id, disabled: !command.isEnabled)
         } ?? ""
         let scheduleButtons = automations.scheduleThreadFollowUpCommands.map { command in
-            #"<button type="button" data-testid="automation-schedule-follow-up" data-command-id="\#(escape(command.id))" \#(command.isEnabled ? "" : "disabled")>\#(escape(command.title))</button>"#
+            commandButton(command.title, testID: "automation-schedule-follow-up", commandID: command.id, disabled: !command.isEnabled)
         }.joined(separator: "\n")
         let workspaceScheduleButtons = automations.scheduleWorkspaceScheduleCommands.map { command in
-            #"<button type="button" data-testid="automation-schedule-workspace" data-command-id="\#(escape(command.id))" \#(command.isEnabled ? "" : "disabled")>\#(escape(command.title))</button>"#
+            commandButton(command.title, testID: "automation-schedule-workspace", commandID: command.id, disabled: !command.isEnabled)
         }.joined(separator: "\n")
         let createActions = [createButton, createWorkspaceButton, scheduleButtons, workspaceScheduleButtons]
             .filter { !$0.isEmpty }
@@ -227,7 +227,12 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
     ) -> String {
         guard !actions.isEmpty else { return "" }
         let buttons = actions.map { action in
-            #"<button type="button" class="extension-reference-action" data-testid="\#(escape(testID))" data-command="\#(escape(action.commandID))">\#(escape(titlePrefix)) \#(escape(action.title))</button>"#
+            commandButton(
+                "\(titlePrefix) \(action.title)",
+                testID: testID,
+                commandID: action.commandID,
+                classes: ["extension-reference-action", WorkspaceHTMLPrimitives.capsuleHitTargetClass]
+            )
         }.joined()
         return #"<div class="extension-mcp-group" data-testid="\#(escape(testID))-group"><span class="extension-mcp-group-label" data-testid="extension-mcp-group-label">\#(escape(title))</span><div class="extension-mcp-chip-row">\#(buttons)</div></div>"#
     }
@@ -235,16 +240,16 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
     private static func renderExtensionActions(_ item: ProjectExtensionManifestSurface) -> String {
         var buttons: [String] = []
         if let installCommandID = item.installCommandID {
-            buttons.append(#"<button type="button" class="extension-action-button" data-testid="extension-install" data-command="\#(escape(installCommandID))">Install</button>"#)
+            buttons.append(commandButton("Install", testID: "extension-install", commandID: installCommandID, classes: extensionActionClasses))
         }
         if let updateCommandID = item.updateCommandID {
-            buttons.append(#"<button type="button" class="extension-action-button" data-testid="extension-update" data-command="\#(escape(updateCommandID))">Update</button>"#)
+            buttons.append(commandButton("Update", testID: "extension-update", commandID: updateCommandID, classes: extensionActionClasses))
         }
         if let stopCommandID = item.stopCommandID {
-            buttons.append(#"<button type="button" class="extension-action-button" data-testid="extension-stop" data-command="\#(escape(stopCommandID))">Stop</button>"#)
+            buttons.append(commandButton("Stop", testID: "extension-stop", commandID: stopCommandID, classes: extensionActionClasses))
         }
         if let startCommandID = item.startCommandID {
-            buttons.append(#"<button type="button" class="extension-action-button" data-testid="extension-start" data-command="\#(escape(startCommandID))">Start</button>"#)
+            buttons.append(commandButton("Start", testID: "extension-start", commandID: startCommandID, classes: extensionActionClasses))
         }
         return buttons.joined(separator: "\n")
     }
@@ -255,8 +260,8 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
           <header>
             <span data-testid="memory-scope">\(escape(item.scopeLabel))</span>
             <span data-testid="memory-size">\(escape(item.byteCountLabel))</span>
-            \(item.editCommandID.map { #"<button type="button" class="memory-edit-button" data-testid="memory-edit" data-command-id="\#(escape($0))">Edit</button>"# } ?? "")
-            \(item.deleteCommandID.map { #"<button type="button" class="memory-delete-button" data-testid="memory-delete" data-command-id="\#(escape($0))">Forget</button>"# } ?? "")
+            \(item.editCommandID.map { commandButton("Edit", testID: "memory-edit", commandID: $0, classes: ["memory-edit-button", WorkspaceHTMLPrimitives.formActionHitTargetClass]) } ?? "")
+            \(item.deleteCommandID.map { commandButton("Forget", testID: "memory-delete", commandID: $0, classes: ["memory-delete-button", WorkspaceHTMLPrimitives.formActionHitTargetClass]) } ?? "")
           </header>
           <strong data-testid="memory-title">\(escape(item.title))</strong>
           <p data-testid="memory-preview">\(escape(item.preview))</p>
@@ -269,14 +274,14 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
         var buttons: [String] = []
         if let commandID = workflow.runCommandID,
            let title = workflow.runActionTitle {
-            buttons.append(#"<button type="button" data-testid="automation-run" data-command-id="\#(escape(commandID))">\#(escape(title))</button>"#)
+            buttons.append(commandButton(title, testID: "automation-run", commandID: commandID))
         }
         if let commandID = workflow.primaryCommandID,
            let title = workflow.primaryActionTitle {
-            buttons.append(#"<button type="button" data-testid="automation-primary-action" data-command-id="\#(escape(commandID))">\#(escape(title))</button>"#)
+            buttons.append(commandButton(title, testID: "automation-primary-action", commandID: commandID))
         }
         if let commandID = workflow.deleteCommandID {
-            buttons.append(#"<button type="button" data-testid="automation-delete" data-command-id="\#(escape(commandID))">Delete</button>"#)
+            buttons.append(commandButton("Delete", testID: "automation-delete", commandID: commandID))
         }
         guard !buttons.isEmpty else { return "" }
         return #"<div class="automation-actions">\#(buttons.joined(separator: "\n"))</div>"#
@@ -312,9 +317,16 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
         }
         return """
         <section class="activity-section" data-testid="\(escape(section.itemTestID))-section" data-collapsed="\(section.isCollapsed ? "true" : "false")">
-          <button type="button" data-testid="activity-section-toggle" data-command-id="\(escape(section.toggleCommandID))">
+          <button\(WorkspaceHTMLPrimitives.buttonAttributes(
+              testID: "activity-section-toggle",
+              classes: [WorkspaceHTMLPrimitives.rowHitTargetClass],
+              attributes: [
+                  ("data-command-id", section.toggleCommandID),
+                  ("data-section-title", section.title)
+              ]
+          ))>
             <span>\(section.isCollapsed ? ">" : "v") \(escape(section.title))</span>
-            <span>\(escape(section.countLabel))</span>
+            <span data-testid="activity-section-count">\(escape(section.countLabel))</span>
           </button>
           \(content)
         </section>
@@ -331,5 +343,26 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
 
     private static func escape(_ text: String) -> String {
         WorkspaceHTMLPrimitives.escape(text)
+    }
+
+    private static let extensionActionClasses = [
+        "extension-action-button",
+        WorkspaceHTMLPrimitives.formActionHitTargetClass
+    ]
+
+    private static func commandButton(
+        _ label: String,
+        testID: String,
+        commandID: String,
+        classes: [String] = [WorkspaceHTMLPrimitives.textHitTargetClass],
+        disabled: Bool = false
+    ) -> String {
+        WorkspaceHTMLPrimitives.commandButton(
+            label,
+            testID: testID,
+            commandID: commandID,
+            classes: classes,
+            disabled: disabled
+        )
     }
 }

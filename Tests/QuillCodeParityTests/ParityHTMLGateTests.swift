@@ -289,6 +289,12 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             "HTML renderers should share one semantic class for non-button clickable targets."
         )
         XCTAssertTrue(
+            primitivesText.contains("static func commandButton(")
+                && primitivesText.contains("static func buttonAttributes(")
+                && primitivesText.contains(#"attributes: [("data-command-id", commandID)] + attributes"#),
+            "HTML command buttons should be emitted through one primitive that owns command routing, disabled semantics, and target classes."
+        )
+        XCTAssertTrue(
             primitivesText.contains("static let iconHitTargetClass")
                 && primitivesText.contains("static let textHitTargetClass")
                 && primitivesText.contains("static let rowHitTargetClass")
@@ -314,18 +320,34 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             "Pull request review-thread reply forms should expose explicit form-action targets."
         )
         XCTAssertTrue(
-            secondaryText.contains(#"class="extension-action-button""#),
-            "Extension action buttons should use a named class that can be target-sized in CSS."
+            secondaryText.contains("extensionActionClasses")
+                && secondaryText.contains("extension-action-button")
+                && secondaryText.contains("WorkspaceHTMLPrimitives.formActionHitTargetClass"),
+            "Extension action buttons should use the shared command primitive plus named form-action hit-target classes."
         )
         XCTAssertTrue(
-            secondaryText.contains(#"class="memory-edit-button""#),
-            "Memory edit buttons should keep the shared memory action class."
+            secondaryText.contains("commandButton(\"Install\"")
+                && secondaryText.contains("commandButton(\"Start\"")
+                && secondaryText.contains("extension-reference-action")
+                && secondaryText.contains("WorkspaceHTMLPrimitives.capsuleHitTargetClass"),
+            "Extension and MCP reference buttons should use the shared command primitive consumed by click routing."
+        )
+        XCTAssertFalse(
+            secondaryText.contains(#"data-command=""#),
+            "Secondary-pane HTML should not emit data-command; command buttons must use the shared data-command-id contract."
+        )
+        XCTAssertTrue(
+            secondaryText.contains("memory-edit-button")
+                && secondaryText.contains("memory-delete-button")
+                && secondaryText.contains("WorkspaceHTMLPrimitives.formActionHitTargetClass"),
+            "Memory edit/delete buttons should keep shared memory action classes and compact form-action targets."
         )
         XCTAssertTrue(
             browserText.contains(#"class="browser-form""#)
                 && browserText.contains(#"class="browser-nav-controls""#)
-                && browserText.contains(#"class="browser-tab \(WorkspaceHTMLPrimitives.capsuleHitTargetClass)"#)
-                && browserText.contains(#"class="browser-tab-action \(WorkspaceHTMLPrimitives.iconHitTargetClass)"#)
+                && browserText.contains("WorkspaceHTMLPrimitives.buttonAttributes")
+                && browserText.contains("WorkspaceHTMLPrimitives.capsuleHitTargetClass")
+                && browserText.contains("WorkspaceHTMLPrimitives.iconHitTargetClass")
                 && browserText.contains(#"class="browser-nav-button""#)
                 && browserText.contains(#"class="browser-open-button""#)
                 && browserText.contains(#"data-testid="browser-address""#),
@@ -426,6 +448,39 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
                 XCTAssertTrue(
                     line.contains("WorkspaceHTMLPrimitives.interactiveHitTargetClass"),
                     "\(rendererName) should render link targets through WorkspaceHTMLPrimitives.interactiveHitTargetClass: \(line)"
+                )
+            }
+        }
+    }
+
+    func testHTMLCommandButtonsUseSharedPrimitive() throws {
+        let rendererNames = [
+            "WorkspaceHTMLBrowserRenderer.swift",
+            "WorkspaceHTMLReviewRenderer.swift",
+            "WorkspaceHTMLSecondaryPaneRenderer.swift",
+            "WorkspaceHTMLSidebarRenderer.swift",
+            "WorkspaceHTMLTerminalRenderer.swift",
+            "WorkspaceHTMLToolCardRenderer.swift",
+            "WorkspaceHTMLTopBarRenderer.swift",
+            "WorkspaceHTMLTranscriptRenderer.swift"
+        ]
+
+        for rendererName in rendererNames {
+            let source = try Self.appSourceText(named: rendererName)
+            let rawCommandLines = source
+                .split(separator: "\n", omittingEmptySubsequences: false)
+                .enumerated()
+                .map { ($0.offset + 1, String($0.element)) }
+                .filter { _, line in line.contains("data-command-id") }
+
+            for (lineNumber, line) in rawCommandLines {
+                let isStructuredNestedButton = rendererName == "WorkspaceHTMLBrowserRenderer.swift"
+                    && line.contains(#"("data-command-id", tab.selectCommandID)"#)
+                    || rendererName == "WorkspaceHTMLSecondaryPaneRenderer.swift"
+                    && line.contains(#"("data-command-id", section.toggleCommandID)"#)
+                XCTAssertTrue(
+                    isStructuredNestedButton,
+                    "\(rendererName):\(lineNumber) should route command buttons through WorkspaceHTMLPrimitives.commandButton unless nested visible markup requires buttonAttributes: \(line)"
                 )
             }
         }

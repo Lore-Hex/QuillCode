@@ -85,7 +85,14 @@ enum WorkspaceHTMLTopBarRenderer {
             return ""
         }
         let title = command.shortcut.map { "\(command.title) (\($0))" } ?? command.title
-        return #"<button type="button" class="topbar-stop-button" data-testid="top-bar-stop-button" data-command-id="stop-all" title="\#(escape(title))" aria-label="Stop active work">Stop</button>"#
+        return WorkspaceHTMLPrimitives.commandButton(
+            "Stop",
+            testID: "top-bar-stop-button",
+            commandID: "stop-all",
+            classes: ["topbar-stop-button", WorkspaceHTMLPrimitives.textHitTargetClass],
+            ariaLabel: "Stop active work",
+            title: title
+        )
     }
 
     private static func renderOverflow(
@@ -102,9 +109,15 @@ enum WorkspaceHTMLTopBarRenderer {
 
     private static func renderOverflowButton(_ command: WorkspaceCommandSurface) -> String {
         let testID = TopBarOverflowCommandCatalog.testID(for: command.id)
-        let disabledAttribute = command.isEnabled ? "" : #" disabled aria-disabled="true""#
         let title = command.shortcut.map { "\(command.title) (\($0))" } ?? command.title
-        return #"<button type="button" data-testid="\#(escape(testID))" data-command-id="\#(escape(command.id))" title="\#(escape(title))"\#(disabledAttribute)>\#(escape(command.title))</button>"#
+        return WorkspaceHTMLPrimitives.commandButton(
+            command.title,
+            testID: testID,
+            commandID: command.id,
+            title: title,
+            role: "menuitem",
+            disabled: !command.isEnabled
+        )
     }
 
     private static func escape(_ text: String) -> String {
