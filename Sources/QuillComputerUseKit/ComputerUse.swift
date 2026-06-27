@@ -152,6 +152,10 @@ public struct ComputerUseToolExecutor: Sendable {
     }
 
     public func execute(_ call: ToolCall) async -> ToolResult? {
+        if let failure = permissionPreflightFailure(for: call.name) {
+            return failure
+        }
+
         do {
             let args = try ToolArguments(call.argumentsJSON)
             switch call.name {
@@ -201,6 +205,70 @@ public struct ComputerUseToolExecutor: Sendable {
         }
     }
 
+    private func permissionPreflightFailure(for toolName: String) -> ToolResult? {
+        let status = backend.status
+        let missingPermissions = Self.missingPermissions(for: toolName, status: status)
+        guard !missingPermissions.isEmpty else {
+            return nil
+        }
+
+        return ToolResult(
+            ok: false,
+            error: Self.permissionPreflightMessage(
+                missingPermissions: missingPermissions,
+                toolName: toolName
+            )
+        )
+    }
+
+    private static func missingPermissions(
+        for toolName: String,
+        status: ComputerUseStatus
+    ) -> [ComputerUsePermissionRequirement] {
+        switch toolName {
+        case ToolDefinition.computerScreenshot.name:
+            return status.screenRecordingGranted ? [] : [.screenRecording]
+        case ToolDefinition.computerClick.name,
+             ToolDefinition.computerType.name,
+             ToolDefinition.computerScroll.name,
+             ToolDefinition.computerMove.name,
+             ToolDefinition.computerKey.name:
+            return status.accessibilityGranted ? [] : [.accessibility]
+        default:
+            return []
+        }
+    }
+
+    private static func permissionPreflightMessage(
+        missingPermissions: [ComputerUsePermissionRequirement],
+        toolName: String
+    ) -> String {
+        let permissionList = missingPermissions
+            .map(\.displayName)
+            .joined(separator: " + ")
+        return "Computer Use \(toolDisplayName(for: toolName)) needs \(permissionList). "
+            + "Open Computer Use setup from Settings, grant \(permissionList), then refresh status."
+    }
+
+    private static func toolDisplayName(for toolName: String) -> String {
+        switch toolName {
+        case ToolDefinition.computerScreenshot.name:
+            return "screenshot"
+        case ToolDefinition.computerClick.name:
+            return "click"
+        case ToolDefinition.computerType.name:
+            return "typing"
+        case ToolDefinition.computerScroll.name:
+            return "scroll"
+        case ToolDefinition.computerMove.name:
+            return "cursor movement"
+        case ToolDefinition.computerKey.name:
+            return "keyboard"
+        default:
+            return "action"
+        }
+    }
+
     private func writeScreenshotArtifact(_ screenshot: ComputerScreenshot) throws -> String? {
         guard let data = Data(base64Encoded: screenshot.pngBase64) else {
             return nil
@@ -214,6 +282,20 @@ public struct ComputerUseToolExecutor: Sendable {
             .appendingPathExtension("png")
         try data.write(to: url, options: .atomic)
         return url.path
+    }
+}
+
+private enum ComputerUsePermissionRequirement {
+    case screenRecording
+    case accessibility
+
+    var displayName: String {
+        switch self {
+        case .screenRecording:
+            return "Screen Recording"
+        case .accessibility:
+            return "Accessibility"
+        }
     }
 }
 
