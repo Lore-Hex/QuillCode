@@ -48,6 +48,20 @@ Residual risk:
 
 - The helper remains intentionally browser-DOM specific. Native SwiftUI hit-target confidence still depends on mirrored HTML harness coverage plus smoke tests until a native UI automation layer exists.
 
+## 2026-06-27 Interaction Audit Spec Split
+
+Overall grade after this slice: **A spec ownership, A failure locality, A regression coverage**.
+
+`workspace-chrome.spec.ts` still owned both top-bar/workspace chrome scenarios and the broad interaction-audit sweeps. This made the largest Playwright spec harder to scan and made interaction target failures look like generic chrome failures. This pass moves the cross-state hit-target, overlap, banner, recovery, and secondary-pane target checks into a dedicated interaction-audit spec.
+
+- Added `interaction-audit.spec.ts` for visible target audits, overlap audits, context/runtime recovery target checks, and secondary-pane target checks.
+- Kept `workspace-chrome.spec.ts` focused on top-bar overflow flows, horizontal clipping, interface polish primitives, and long-status top-bar stability.
+- Reduced `workspace-chrome.spec.ts` from 538 lines to 377 lines without changing test behavior.
+
+Residual risk:
+
+- The interface polish primitive test still covers a broad visual contract inside `workspace-chrome.spec.ts`. Split it only if the visual contract grows or starts failing independently from chrome behavior.
+
 ## 2026-06-27 Computer Use Status Contract Pass
 
 Overall grade after this slice: **A- Computer Use executor contract, A status copy accuracy, B+ platform parity**.
