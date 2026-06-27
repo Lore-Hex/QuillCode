@@ -214,6 +214,35 @@ final class TrustedRouterActionParserTests: XCTestCase {
         XCTAssertEqual(arguments.stringArray("remove"), ["blocked"])
     }
 
+    func testActionParserNormalizesPullRequestReviewReplyAliases() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {"type":"tool","name":"host.git.pr.review_reply","arguments":{"pr":"42","comment_id":99,"message":"Updated this."}}
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.gitPullRequestReviewReply.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(arguments.string("selector"), "42")
+        XCTAssertEqual(arguments.int("commentId"), 99)
+        XCTAssertEqual(arguments.string("body"), "Updated this.")
+    }
+
+    func testActionParserNormalizesPullRequestReviewThreadAliases() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {"type":"tool","name":"host.git.pr.review_thread","arguments":{"thread_id":"PRRT_kwDOExample","state":"resolve"}}
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.gitPullRequestReviewThread.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(arguments.string("threadId"), "PRRT_kwDOExample")
+        XCTAssertEqual(arguments.string("action"), "resolve")
+    }
+
     func testActionParserAllowsNoArgumentTools() throws {
         let gitAction = try AgentActionJSONParser.parse("""
         {"type":"tool","name":"host.git.status","arguments":{}}

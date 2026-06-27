@@ -81,6 +81,20 @@ enum WorkspaceGitCommandCatalog {
                 isEnabled: hasWorkspaceOrRemoteProject
             ),
             WorkspaceCommandSurface(
+                id: "git-pr-review-reply",
+                title: "Reply to pull request line comment",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["github", "pr", "review", "reply", "inline reply", "review comment reply"],
+                isEnabled: hasWorkspaceOrRemoteProject
+            ),
+            WorkspaceCommandSurface(
+                id: "git-pr-review-thread",
+                title: "Resolve pull request review thread",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["github", "pr", "review", "thread", "resolve", "unresolve"],
+                isEnabled: hasWorkspaceOrRemoteProject
+            ),
+            WorkspaceCommandSurface(
                 id: "git-pr-labels",
                 title: "Label pull request",
                 category: WorkspaceCommandPalette.gitCategory,

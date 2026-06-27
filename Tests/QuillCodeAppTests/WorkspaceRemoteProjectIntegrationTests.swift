@@ -34,6 +34,8 @@ final class WorkspaceRemoteProjectIntegrationTests: XCTestCase {
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-comment" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-review" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-review-comment" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-review-reply" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "git-pr-review-thread" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-labels" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-pr-merge" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "git-worktree-list" }?.isEnabled, true)

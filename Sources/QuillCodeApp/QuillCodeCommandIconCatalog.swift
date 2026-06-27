@@ -50,6 +50,10 @@ enum QuillCodeCommandIconCatalog {
             return "person.2.badge.gearshape"
         case "git-pr-review-comment":
             return "text.bubble"
+        case "git-pr-review-reply":
+            return "arrowshape.turn.up.left"
+        case "git-pr-review-thread":
+            return "checkmark.bubble"
         case "git-pr-labels":
             return "tag"
         case "git-pr-merge":

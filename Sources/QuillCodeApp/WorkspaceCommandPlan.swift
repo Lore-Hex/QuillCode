@@ -76,6 +76,8 @@ enum WorkspaceCommandPlan: Equatable {
         "git-pr-comment": "Comment on the current pull request: ",
         "git-pr-review": "Review the current pull request: approve",
         "git-pr-review-comment": "Comment on a pull request line: ",
+        "git-pr-review-reply": "Reply to pull request review comment: ",
+        "git-pr-review-thread": "Resolve pull request review thread: ",
         "git-pr-labels": "Label the current pull request: ",
         "git-pr-merge": "Merge the current pull request with squash",
         "git-worktree-create": "Create a git worktree named ",

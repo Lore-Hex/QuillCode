@@ -73,6 +73,27 @@ final class SafetyTests: XCTestCase {
         host: .local,
         risk: .append
     )
+    private let gitPullRequestReviewComment = ToolDefinition(
+        name: "host.git.pr.review_comment",
+        description: "Inline pull request review comment",
+        parametersJSON: "{}",
+        host: .local,
+        risk: .append
+    )
+    private let gitPullRequestReviewReply = ToolDefinition(
+        name: "host.git.pr.review_reply",
+        description: "Reply to inline pull request review comment",
+        parametersJSON: "{}",
+        host: .local,
+        risk: .append
+    )
+    private let gitPullRequestReviewThread = ToolDefinition(
+        name: "host.git.pr.review_thread",
+        description: "Update pull request review thread",
+        parametersJSON: "{}",
+        host: .local,
+        risk: .append
+    )
     private let gitPullRequestMerge = ToolDefinition(
         name: "host.git.pr.merge",
         description: "Merge pull request",
@@ -297,6 +318,51 @@ final class SafetyTests: XCTestCase {
             toolCall: call,
             toolDefinition: gitPullRequestReview,
             recentMessages: [.init(role: .user, content: "request changes on PR 42 saying Please add tests.")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoApprovesUserRequestedPullRequestInlineCommentAndReply() async {
+        let reviewer = StaticSafetyReviewer()
+        let inlineComment = ToolCall(
+            name: gitPullRequestReviewComment.name,
+            argumentsJSON: #"{"selector":"42","path":"Sources/App.swift","line":12,"body":"Please cover this."}"#
+        )
+        let inlineReview = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "comment on PR 42 line 12 saying Please cover this.",
+            toolCall: inlineComment,
+            toolDefinition: gitPullRequestReviewComment,
+            recentMessages: [.init(role: .user, content: "comment on PR 42 line 12 saying Please cover this.")]
+        ))
+        XCTAssertEqual(inlineReview.verdict, ApprovalVerdict.approve)
+
+        let reply = ToolCall(
+            name: gitPullRequestReviewReply.name,
+            argumentsJSON: #"{"selector":"42","commentId":99,"body":"Updated this."}"#
+        )
+        let replyReview = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "reply to review comment 99 on PR 42 saying Updated this.",
+            toolCall: reply,
+            toolDefinition: gitPullRequestReviewReply,
+            recentMessages: [.init(role: .user, content: "reply to review comment 99 on PR 42 saying Updated this.")]
+        ))
+        XCTAssertEqual(replyReview.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoApprovesUserRequestedPullRequestReviewThreadResolution() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: gitPullRequestReviewThread.name,
+            argumentsJSON: #"{"threadId":"PRRT_kwDOExample","action":"resolve"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "resolve the review thread PRRT_kwDOExample",
+            toolCall: call,
+            toolDefinition: gitPullRequestReviewThread,
+            recentMessages: [.init(role: .user, content: "resolve the review thread PRRT_kwDOExample")]
         ))
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }
