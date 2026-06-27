@@ -28,7 +28,7 @@ struct StaticSafetyPolicy: Sendable {
         if request.containsAny(["remember", "memorize"]) {
             return toolName.contains("memory")
         }
-        if request.containsAny(StaticSafetyPullRequestPolicy.requestTriggers) {
+        if StaticSafetyPullRequestPolicy.requestMatches(request) {
             return StaticSafetyPullRequestPolicy.intentMatches(request: request, toolName: toolName)
         }
         if intentRules.contains(where: { $0.matches(request: request) && $0.allows(toolName: toolName) }) {
@@ -37,6 +37,9 @@ struct StaticSafetyPolicy: Sendable {
         if toolName.contains("computer"),
            request.containsAny(StaticSafetyPolicy.computerUseTriggers) {
             return true
+        }
+        guard context.toolDefinition?.risk == .read else {
+            return false
         }
         return request.significantWords.contains { word in
             context.toolCall.argumentsJSON.lowercased().contains(word)
@@ -80,6 +83,10 @@ struct StaticSafetyPolicy: Sendable {
         .init(
             requestTriggers: commonDiagnosticTriggers,
             allowedToolNames: ["shell.run"]
+        ),
+        .init(
+            requestTriggers: ["apply patch", "apply this patch", "patch"],
+            allowedToolNames: ["apply_patch"]
         ),
         .init(
             requestTriggers: ["make", "create", "write"],
@@ -183,6 +190,13 @@ struct StaticSafetyRequest: Sendable {
     func containsAny(_ phrases: [String]) -> Bool {
         phrases.contains { text.contains($0) }
     }
+
+    func containsToken(_ token: String) -> Bool {
+        let normalized = token.lowercased()
+        return text
+            .split { !$0.isLetter && !$0.isNumber }
+            .contains { $0 == normalized }
+    }
 }
 
 enum StaticSafetyPullRequestPolicy {
@@ -258,9 +272,14 @@ enum StaticSafetyPullRequestPolicy {
         "git.status"
     ]
 
+    static func requestMatches(_ request: StaticSafetyRequest) -> Bool {
+        request.containsToken("pr") || request.containsAny(requestTriggers)
+    }
+
     static func intentMatches(request: StaticSafetyRequest, toolName: String) -> Bool {
-        if let rule = specificRules.first(where: { $0.matches(request: request) }) {
-            return rule.allows(toolName: toolName)
+        let matchingRules = specificRules.filter { $0.matches(request: request) }
+        if !matchingRules.isEmpty {
+            return matchingRules.contains { $0.allows(toolName: toolName) }
         }
         return defaultAllowedToolNames.contains { toolName.contains($0) }
     }
