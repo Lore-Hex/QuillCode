@@ -157,7 +157,7 @@ final class ParityBrowserGateTests: QuillCodeParityTestCase {
         let executorText = try Self.appSourceText(named: "WorkspaceToolCallExecutor.swift")
         let browserToolText = try Self.appSourceText(named: "WorkspaceBrowserToolExecutor.swift")
         let normalizerText = try Self.agentSourceText(named: "AgentToolArgumentNormalizer.swift")
-        let finalAnswerText = try Self.agentSourceText(named: "AgentToolAnswerFormatters.swift")
+        let finalAnswerText = try Self.agentSourceText(named: "AgentBrowserToolAnswerFormatters.swift")
 
         XCTAssertTrue(toolModelsText.contains("static let browserOpen"), "Browser navigation should have a first-class tool definition.")
         XCTAssertTrue(builderText.contains("ToolDefinition.browserOpen"), "Agent run context should expose browser navigation beside inspection.")
