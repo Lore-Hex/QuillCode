@@ -66,6 +66,10 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(composerCoordinatorText.contains("tasks.startIfIdle(.send"), "Composer sends should use the task coordinator.")
         XCTAssertTrue(composerCoordinatorText.contains("draft.trimmingCharacters(in: .whitespacesAndNewlines)"), "Composer coordinator should normalize submitted prompts.")
         XCTAssertTrue(composerCoordinatorText.contains("model.prepareRetryLastUserTurn()"), "Composer retry preparation should live in the composer coordinator.")
+        XCTAssertFalse(
+            composerCoordinatorText.contains("draft = \"\"\n        refresh()\n        submitPreparedComposer"),
+            "Desktop send/retry must not refresh after clearing the visible draft but before submitComposer publishes the optimistic user turn."
+        )
         XCTAssertTrue(controllerText.contains("QuillCodeDesktopTerminalCoordinator"), "Desktop terminal workflow should be isolated behind a coordinator.")
         XCTAssertTrue(controllerText.contains("terminalCoordinator.runCommand"), "Desktop controller should delegate terminal command execution.")
         XCTAssertTrue(controllerText.contains("terminalCoordinator.recallPreviousCommand"), "Desktop controller should delegate terminal history recall.")

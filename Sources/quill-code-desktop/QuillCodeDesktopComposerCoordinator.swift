@@ -15,7 +15,6 @@ struct QuillCodeDesktopComposerCoordinator {
 
         model.setDraft(prompt)
         draft = ""
-        refresh()
         submitPreparedComposer(
             model: model,
             fallbackWorkspaceRoot: fallbackWorkspaceRoot,
@@ -34,7 +33,6 @@ struct QuillCodeDesktopComposerCoordinator {
         guard !tasks.isRunning(.send), model.prepareRetryLastUserTurn() else { return }
 
         draft = ""
-        refresh()
         submitPreparedComposer(
             model: model,
             fallbackWorkspaceRoot: fallbackWorkspaceRoot,
