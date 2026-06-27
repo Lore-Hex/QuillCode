@@ -2,7 +2,6 @@ import Foundation
 import SwiftUI
 import QuillCodeApp
 import QuillCodeCore
-import QuillComputerUseKit
 
 @MainActor
 final class QuillCodeDesktopController: ObservableObject {
@@ -18,7 +17,7 @@ final class QuillCodeDesktopController: ObservableObject {
 
     private let model: QuillCodeWorkspaceModel
     private let bootstrap: QuillCodeWorkspaceBootstrap
-    private let computerUseBackend: MacComputerUseBackend
+    private let computerUseCoordinator: QuillCodeDesktopComputerUseCoordinator
     private let activeWorkCoordinator: QuillCodeDesktopActiveWorkCoordinator
     private let browserCoordinator: QuillCodeDesktopBrowserCoordinator
     private let automationCoordinator: QuillCodeDesktopAutomationCoordinator
@@ -28,7 +27,6 @@ final class QuillCodeDesktopController: ObservableObject {
     private let commandCoordinator: QuillCodeDesktopCommandCoordinator
     private let signInCoordinator: QuillCodeDesktopSignInCoordinator
     private let settingsCoordinator: QuillCodeDesktopSettingsCoordinator
-    private let systemSettingsOpener: MacSystemSettingsOpener
     private let composerCoordinator: QuillCodeDesktopComposerCoordinator
     private let copyCoordinator: QuillCodeDesktopCopyCoordinator
     private let projectImportCoordinator: QuillCodeDesktopProjectImportCoordinator
@@ -45,7 +43,7 @@ final class QuillCodeDesktopController: ObservableObject {
         workspaceRoot: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     ) {
         self.bootstrap = bootstrap
-        self.computerUseBackend = MacComputerUseBackend()
+        self.computerUseCoordinator = QuillCodeDesktopComputerUseCoordinator()
         self.activeWorkCoordinator = QuillCodeDesktopActiveWorkCoordinator()
         self.browserCoordinator = QuillCodeDesktopBrowserCoordinator(
             pageFetcher: browserPageFetcher,
@@ -58,7 +56,6 @@ final class QuillCodeDesktopController: ObservableObject {
         self.commandCoordinator = QuillCodeDesktopCommandCoordinator()
         self.signInCoordinator = QuillCodeDesktopSignInCoordinator(bootstrap: bootstrap)
         self.settingsCoordinator = QuillCodeDesktopSettingsCoordinator(bootstrap: bootstrap)
-        self.systemSettingsOpener = MacSystemSettingsOpener()
         self.composerCoordinator = QuillCodeDesktopComposerCoordinator()
         self.copyCoordinator = QuillCodeDesktopCopyCoordinator()
         self.projectImportCoordinator = QuillCodeDesktopProjectImportCoordinator()
@@ -73,7 +70,7 @@ final class QuillCodeDesktopController: ObservableObject {
         if self.model.root.projects.isEmpty {
             _ = self.model.addProject(path: workspaceRoot)
         }
-        self.model.setComputerUseBackend(computerUseBackend)
+        self.computerUseCoordinator.install(on: model)
         self.surface = model.surface()
         self.draft = model.composer.draft
         self.terminalDraft = model.terminal.draft
@@ -414,7 +411,7 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     private func refresh() {
-        model.setComputerUseStatus(computerUseBackend.status)
+        computerUseCoordinator.refreshStatus(on: model)
         surface = model.surface()
         if draft != model.composer.draft, !model.composer.isSending {
             draft = model.composer.draft
@@ -428,7 +425,7 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func openComputerUseSystemSettings(_ destination: MacSystemSettingsOpener.Destination) {
-        systemSettingsOpener.open(destination)
+        computerUseCoordinator.openSystemSettings(destination, model: model)
         refresh()
     }
 }
