@@ -7808,3 +7808,19 @@ Code quality changes:
 Remaining risk:
 
 - Plain-text command recovery is intentionally narrow and allowlisted. Broader command recovery should come from stronger TrustedRouter structured output and live-model smoke tests, not from making this fallback permissive.
+
+## 2026-06-27 Device Diagnostic Prompt Coverage Pass
+
+Overall grade after this slice: **A real-device prompt coverage, A agent/browser parity, A DRY test helper**.
+
+The previous real-world action coverage protected `whoami?`, `Run \`ls\``, and file creation. The next user-visible device prompts from Feather testing were disk usage and OpenClaw discovery. Both now have direct browser-harness and agent-level coverage so they cannot regress into empty shell calls, passive promises, or extra confirmation turns.
+
+Code quality changes:
+
+- Added Playwright coverage for `How much hd?` and `Do you have openclaw?` with exact nonempty shell commands, final answer text, and no confirmation-loop copy.
+- Added agent immediate-action tests for disk usage and OpenClaw discovery.
+- Reused a focused `queuedShellCommand` helper to keep command-payload assertions DRY across immediate-action tests.
+
+Remaining risk:
+
+- “Download a site” still needs a product decision: it could mean browser-open, file download into the workspace, or a remote shell `curl`. That should be specified before locking in E2E semantics.
