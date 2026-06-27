@@ -28,14 +28,8 @@ struct QuillCodeToolCardView: View {
             if !card.actions.isEmpty {
                 QuillCodeToolCardActionRow(actions: card.actions, onAction: onAction)
             }
-            HStack {
-                QuillCodeTranscriptCopyButton(
-                    label: copyActionLabel,
-                    copiedLabel: "Copied",
-                    isCopied: isCopied,
-                    action: onCopy
-                )
-                Spacer()
+            if showsTopLevelCopyAction {
+                copyActionButton
             }
             if !card.artifacts.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
@@ -96,6 +90,9 @@ struct QuillCodeToolCardView: View {
                         }
                         if let outputJSON = card.outputJSON {
                             QuillCodeCodeBlock(title: "Output", text: outputJSON)
+                        }
+                        if showsDetailsCopyAction {
+                            copyActionButton
                         }
                     }
                     .padding(.top, 4)
@@ -175,6 +172,18 @@ struct QuillCodeToolCardView: View {
             )
         }
         .frame(minHeight: QuillCodeMetrics.toolCardHeaderHeight, alignment: .top)
+    }
+
+    private var copyActionButton: some View {
+        HStack {
+            QuillCodeTranscriptCopyButton(
+                label: copyActionLabel,
+                copiedLabel: "Copied",
+                isCopied: isCopied,
+                action: onCopy
+            )
+            Spacer()
+        }
     }
 
     private var minimumHeight: CGFloat {
@@ -263,6 +272,14 @@ struct QuillCodeToolCardView: View {
             return "Copy input"
         }
         return "Copy"
+    }
+
+    private var showsTopLevelCopyAction: Bool {
+        !showsDetailsCopyAction
+    }
+
+    private var showsDetailsCopyAction: Bool {
+        card.inputJSON != nil && card.outputJSON == nil
     }
 
     private var accessibilityLabel: String {

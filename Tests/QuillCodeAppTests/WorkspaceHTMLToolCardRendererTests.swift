@@ -31,9 +31,12 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("Copy output"))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-output""#))
         XCTAssertTrue(html.contains("Show details"))
+        let copyIndex = try XCTUnwrap(html.range(of: #"data-testid="tool-card-copy""#)?.lowerBound)
+        let detailsIndex = try XCTUnwrap(html.range(of: #"data-testid="tool-card-details""#)?.lowerBound)
+        XCTAssertLessThan(copyIndex, detailsIndex)
     }
 
-    func testHTMLToolCardRendererIncludesApprovalActions() {
+    func testHTMLToolCardRendererIncludesApprovalActions() throws {
         let card = ToolCardState(
             id: "shell-review",
             title: ToolDefinition.shellRun.name,
@@ -72,6 +75,11 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-status">Ready"#))
         XCTAssertTrue(html.contains(#"aria-label="host.shell.run, ready to run, preview"#))
         XCTAssertFalse(html.contains(#"data-testid="tool-card-details" open"#))
+        XCTAssertTrue(html.contains("Show input"))
+        XCTAssertTrue(html.contains("Copy input"))
+        let detailsIndex = try XCTUnwrap(html.range(of: #"data-testid="tool-card-details""#)?.lowerBound)
+        let copyIndex = try XCTUnwrap(html.range(of: #"data-testid="tool-card-copy""#)?.lowerBound)
+        XCTAssertLessThan(detailsIndex, copyIndex)
         XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="approve" data-action-style="primary" data-request-id="approval-html">Run"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="edit" data-action-style="secondary" data-request-id="approval-html">Edit"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-action" data-action-kind="deny" data-action-style="secondary" data-request-id="approval-html">Skip"#))
