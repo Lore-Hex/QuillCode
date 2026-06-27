@@ -7,6 +7,15 @@ import QuillCodeApp
 struct QuillCodeDesktopApp: App {
     @StateObject private var controller = QuillCodeDesktopController()
 
+    init() {
+        guard let request = QuillCodeDesktopSmokeRequest(arguments: CommandLine.arguments) else {
+            return
+        }
+        Task { @MainActor in
+            await QuillCodeDesktopSmokeRunner.runAndExit(request)
+        }
+    }
+
     var body: some Scene {
         WindowGroup("QuillCode") {
             QuillCodeDesktopRootView(controller: controller)
@@ -40,7 +49,7 @@ struct QuillCodeDesktopApp: App {
     }
 }
 
-private struct QuillCodeDesktopRootView: View {
+struct QuillCodeDesktopRootView: View {
     @ObservedObject var controller: QuillCodeDesktopController
 
     var body: some View {
