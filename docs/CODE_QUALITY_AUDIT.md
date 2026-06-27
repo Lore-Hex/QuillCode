@@ -7875,3 +7875,21 @@ Code quality changes:
 Remaining risk:
 
 - These are harness-level browser timings, not packaged native-window measurements. Native macOS/Linux UI automation should mirror these once available.
+
+## 2026-06-27 Live TrustedRouter Smoke Pass
+
+Overall grade after this slice: **A- real-provider coverage, A secret hygiene, B+ live-flake containment**.
+
+The deterministic mock and Playwright suites now catch many user-visible action regressions, but they still cannot prove that a live TrustedRouter model returns structured QuillCode actions under current prompt wording. This pass adds an explicit opt-in live smoke script instead of folding paid/network work into every PR.
+
+Code quality changes:
+
+- Added `scripts/live-tr-smoke.sh`, which reads `QUILLCODE_API_KEY`, `TRUSTEDROUTER_API_KEY`, or `~/.quill.code.keyfile` without printing secrets.
+- Defaulted the live smoke to the user-facing `deepseekv4flash` alias and normalize it to `deepseek/deepseek-v4-flash` for the CLI call.
+- Exercised real `quill-code --live` flows for an exact backticked shell command and a natural `whoami?` diagnostic.
+- Made the script fail on the exact regressions seen in device testing: empty shell arguments, passive “I’ll run...” answers, empty stdout, or missing expected command output.
+- Documented the live smoke as an opt-in release/prompt/parser/safety gate in `docs/TEST_PLAN.md`.
+
+Remaining risk:
+
+- Live provider behavior can be flaky or rate-limited. Keep this out of normal PR gates unless a stable CI secret, retry policy, and provider budget are explicitly configured.
