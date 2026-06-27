@@ -10,6 +10,7 @@ protocol QuillCodeDesktopCommandPerforming: AnyObject {
     func toggleExtensions()
     func toggleMemories()
     func openCommandPalette()
+    func openKeyboardShortcuts()
     func openSettings()
     func openComputerUseSystemSettings(_ destination: MacSystemSettingsOpener.Destination)
     func refreshComputerUseStatus()
@@ -42,6 +43,8 @@ struct QuillCodeDesktopCommandCoordinator {
             performer.toggleMemories()
         case .commandPalette:
             performer.openCommandPalette()
+        case .keyboardShortcuts:
+            performer.openKeyboardShortcuts()
         case .settings:
             performer.openSettings()
         case .openComputerUseSystemSettings(let destination):

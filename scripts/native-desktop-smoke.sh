@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/quillcode-native-desktop-smoke.XXXXXX")"
 REPORT_PATH="$SMOKE_ROOT/report.json"
 RENDER_PATH="$SMOKE_ROOT/workspace.png"
+CHROME_RENDER_PATH="$SMOKE_ROOT/chrome.png"
 HTML_PATH="$SMOKE_ROOT/workspace.html"
 STDOUT_PATH="$SMOKE_ROOT/stdout.log"
 
@@ -21,6 +22,7 @@ swift run quill-code-desktop \
   --smoke-workspace "$SMOKE_ROOT" \
   --smoke-report "$REPORT_PATH" \
   --smoke-render "$RENDER_PATH" \
+  --smoke-chrome-render "$CHROME_RENDER_PATH" \
   --smoke-html "$HTML_PATH" \
   >"$STDOUT_PATH"
 
@@ -30,6 +32,11 @@ if [[ ! -s "$REPORT_PATH" ]]; then
 fi
 if [[ ! -s "$RENDER_PATH" ]]; then
   echo "quill-code-desktop native smoke did not write a rendered PNG" >&2
+  cat "$REPORT_PATH" >&2 || true
+  exit 1
+fi
+if [[ ! -s "$CHROME_RENDER_PATH" ]]; then
+  echo "quill-code-desktop native smoke did not write a desktop chrome rendered PNG" >&2
   cat "$REPORT_PATH" >&2 || true
   exit 1
 fi
@@ -48,6 +55,18 @@ if ! grep -q '"toolName" : "host.file.write"' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
+if ! grep -q '"appName" : "QuillCode"' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not validate the desktop chrome surface" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+for command_id in command-palette keyboard-shortcuts settings toggle-terminal toggle-browser; do
+  if ! grep -q "$command_id" "$REPORT_PATH"; then
+    echo "quill-code-desktop native smoke did not exercise chrome command: $command_id" >&2
+    cat "$REPORT_PATH" >&2
+    exit 1
+  fi
+done
 if ! grep -Eq '"messageCount" : [2-9][0-9]*' "$REPORT_PATH"; then
   echo "quill-code-desktop native smoke did not record enough transcript messages" >&2
   cat "$REPORT_PATH" >&2
@@ -71,6 +90,12 @@ fi
 if [[ "$(wc -c < "$RENDER_PATH" | tr -d ' ')" -lt 4096 ]]; then
   echo "quill-code-desktop native smoke rendered a suspiciously small PNG" >&2
   ls -l "$RENDER_PATH" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+if [[ "$(wc -c < "$CHROME_RENDER_PATH" | tr -d ' ')" -lt 2048 ]]; then
+  echo "quill-code-desktop native smoke rendered a suspiciously small desktop chrome PNG" >&2
+  ls -l "$CHROME_RENDER_PATH" >&2
   cat "$REPORT_PATH" >&2
   exit 1
 fi

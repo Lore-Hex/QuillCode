@@ -9,6 +9,7 @@ enum QuillCodeDesktopCommandAction {
     case toggleExtensions
     case toggleMemories
     case commandPalette
+    case keyboardShortcuts
     case settings
     case openComputerUseSystemSettings(MacSystemSettingsOpener.Destination)
     case refreshComputerUseStatus
@@ -37,6 +38,8 @@ enum QuillCodeDesktopCommandPlanner {
             return .toggleMemories
         case "command-palette":
             return .commandPalette
+        case "keyboard-shortcuts":
+            return .keyboardShortcuts
         case "settings", "computer-use-setup":
             return .settings
         case "computer-use-open-screen-recording":
