@@ -7942,3 +7942,20 @@ Code quality changes:
 Remaining risk:
 
 - Live file-write behavior can still vary by model. If a model writes a safe alternate file path, the smoke should fail intentionally because the product contract for this prompt is an exact requested path.
+
+## 2026-06-27 Live Transcript Integrity Smoke Pass
+
+Overall grade after this slice: **A live transcript evidence, A regression detection, B+ external tool dependency**.
+
+The live smoke now proves the user-visible results and the actual persisted thread evidence. This closes a gap where a smoke could pass from stdout alone while saved transcripts still carried malformed, empty, failed, or passive action records.
+
+Code quality changes:
+
+- Added `jq` availability checking to the live smoke because transcript inspection needs structured JSON parsing.
+- Added transcript integrity checks across all saved live-smoke threads: at least one queued tool call per thread, nonempty tool names, nonempty JSON argument objects, no tool failures, successful completed tool results, and no persisted assistant “I’ll run/check/do” or empty-shell-command copy.
+- Kept detailed failure output bounded to the relevant saved thread titles, messages, and events so live-smoke failures are actionable without printing secrets.
+- Updated the test plan to treat persisted transcript integrity as part of live release/prompt/parser validation.
+
+Remaining risk:
+
+- This still runs through the CLI, not the packaged native SwiftUI window. Native smoke should eventually inspect the same transcript evidence after a real app run.
