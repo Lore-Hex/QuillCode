@@ -212,6 +212,25 @@ final class SafetyTests: XCTestCase {
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }
 
+    func testAutoApprovesExplicitLocalFileURLDownloadShellRun() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: shellRun.name,
+            argumentsJSON: #"{"cmd":"mkdir -p 'downloads' && curl -L --fail --silent --show-error --output 'downloads/example.html' 'file:///tmp/quillcode-smoke/source.html' && ls -lh 'downloads/example.html'"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Download file:///tmp/quillcode-smoke/source.html into `downloads/example.html` in this workspace.",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(
+                role: .user,
+                content: "Download file:///tmp/quillcode-smoke/source.html into `downloads/example.html` in this workspace."
+            )]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
     func testAutoDoesNotUseDownloadIntentForUnrelatedShellRun() async {
         let reviewer = StaticSafetyReviewer()
         let call = ToolCall(
@@ -240,6 +259,25 @@ final class SafetyTests: XCTestCase {
             toolCall: call,
             toolDefinition: shellRun,
             recentMessages: [.init(role: .user, content: "Can you download LinkedIn.com?")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
+    }
+
+    func testAutoDoesNotApproveDownloadForDifferentLocalFileURL() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: shellRun.name,
+            argumentsJSON: #"{"cmd":"curl -L --output 'downloads/source.html' 'file:///tmp/other/source.html'"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Download file:///tmp/quillcode-smoke/source.html into `downloads/source.html`.",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(
+                role: .user,
+                content: "Download file:///tmp/quillcode-smoke/source.html into `downloads/source.html`."
+            )]
         ))
         XCTAssertEqual(review.verdict, ApprovalVerdict.clarify)
     }

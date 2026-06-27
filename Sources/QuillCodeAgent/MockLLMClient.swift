@@ -262,9 +262,10 @@ public struct MockLLMClient: LLMClient {
             return nil
         }
         let url = normalizedWebURLString(target)
-        let path = "downloads/\(downloadFileName(for: url))"
+        let path = extractRequestedDownloadPath(from: request) ?? "downloads/\(downloadFileName(for: url))"
+        let parentDirectory = parentDirectory(for: path)
         return [
-            "mkdir -p downloads",
+            "mkdir -p \(shellSingleQuoted(parentDirectory))",
             "curl -L --fail --silent --show-error --output \(shellSingleQuoted(path)) \(shellSingleQuoted(url))",
             "ls -lh \(shellSingleQuoted(path))"
         ].joined(separator: " && ")
@@ -296,27 +297,39 @@ public struct MockLLMClient: LLMClient {
     }
 
     private static func extractDownloadTarget(from request: String) -> String? {
-        if let quoted = firstBacktickQuotedValue(in: request), looksLikeBrowserTarget(quoted) {
-            return quoted
-        }
         let tokenSeparators = CharacterSet.whitespacesAndNewlines
-            .union(CharacterSet(charactersIn: "\"'(),<>[]{}"))
-        return request
+            .union(CharacterSet(charactersIn: "`\"'(),<>[]{}"))
+        let tokens = request
             .components(separatedBy: tokenSeparators)
             .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: ".:;!?")) }
-            .first(where: looksLikeBrowserTarget)
+            .filter { !$0.isEmpty }
+
+        if let token = tokens.first(where: looksLikeDownloadSource) {
+            return token
+        }
+        if let quoted = backtickQuotedValues(in: request).first(where: looksLikeDownloadSource) {
+            return quoted
+        }
+        return backtickQuotedValues(in: request).first(where: looksLikeBrowserTarget)
     }
 
     private static func firstBacktickQuotedValue(in request: String) -> String? {
-        guard let first = request.firstIndex(of: "`"),
-              let last = request[request.index(after: first)...].lastIndex(of: "`"),
-              first < last
-        else {
-            return nil
+        backtickQuotedValues(in: request).first
+    }
+
+    private static func backtickQuotedValues(in request: String) -> [String] {
+        var values: [String] = []
+        var cursor = request.startIndex
+        while let first = request[cursor...].firstIndex(of: "`"),
+              let last = request[request.index(after: first)...].firstIndex(of: "`") {
+            let value = String(request[request.index(after: first)..<last])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !value.isEmpty {
+                values.append(value)
+            }
+            cursor = request.index(after: last)
         }
-        let value = String(request[request.index(after: first)..<last])
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return value.isEmpty ? nil : value
+        return values
     }
 
     private static func looksLikeBrowserTarget(_ value: String) -> Bool {
@@ -333,9 +346,71 @@ public struct MockLLMClient: LLMClient {
             || (lower.contains(".") && !lower.contains("@"))
     }
 
+    private static func looksLikeDownloadSource(_ value: String) -> Bool {
+        let lower = value.lowercased()
+        if lower.hasPrefix("http://") || lower.hasPrefix("https://") || lower.hasPrefix("file://") {
+            return true
+        }
+        guard !lower.hasPrefix("./"),
+              !lower.hasPrefix("/"),
+              !lower.contains("@")
+        else {
+            return false
+        }
+        let firstPathComponent = lower.split(separator: "/", maxSplits: 1).first ?? ""
+        return firstPathComponent.contains(".")
+    }
+
+    private static func extractRequestedDownloadPath(from request: String) -> String? {
+        if let quotedPath = backtickQuotedValues(in: request)
+            .compactMap(safeRelativeWorkspacePath)
+            .first {
+            return quotedPath
+        }
+
+        let lower = request.lowercased()
+        for marker in [" into ", " to ", " as "] {
+            guard let range = lower.range(of: marker) else { continue }
+            let suffix = String(request[range.upperBound...])
+            let token = suffix
+                .split(whereSeparator: { $0.isWhitespace || "\"'(),<>[]{}".contains($0) })
+                .first
+                .map(String.init)?
+                .trimmingCharacters(in: CharacterSet(charactersIn: "`.:;!?"))
+            if let token, let safePath = safeRelativeWorkspacePath(token) {
+                return safePath
+            }
+        }
+        return nil
+    }
+
+    private static func safeRelativeWorkspacePath(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = trimmed.lowercased()
+        guard !trimmed.isEmpty,
+              !trimmed.hasPrefix("/"),
+              !trimmed.hasPrefix("~"),
+              !lower.hasPrefix("http://"),
+              !lower.hasPrefix("https://"),
+              !lower.hasPrefix("file://"),
+              !trimmed.split(separator: "/").contains("..")
+        else {
+            return nil
+        }
+        return trimmed
+    }
+
+    private static func parentDirectory(for path: String) -> String {
+        guard let slash = path.lastIndex(of: "/") else { return "." }
+        let parent = path[..<slash]
+        return parent.isEmpty ? "." : String(parent)
+    }
+
     private static func normalizedWebURLString(_ value: String) -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.lowercased().hasPrefix("http://") || trimmed.lowercased().hasPrefix("https://") {
+        if trimmed.lowercased().hasPrefix("http://")
+            || trimmed.lowercased().hasPrefix("https://")
+            || trimmed.lowercased().hasPrefix("file://") {
             return trimmed
         }
         return "https://\(trimmed)"

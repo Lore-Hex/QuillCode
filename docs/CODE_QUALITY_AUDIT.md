@@ -7978,3 +7978,20 @@ Remaining risk:
 
 - This still depends on live model, network, and public-page availability, so it remains an opt-in release/prompt/parser gate rather than a required PR check.
 - The smoke still drives the CLI entrypoint. Native macOS/Linux UI automation should later run the same scenarios through the packaged SwiftUI app and inspect saved transcripts.
+
+## 2026-06-27 Default Smoke Real-World Action Pass
+
+Overall grade after this slice: **A default-entrypoint coverage, A local side-effect isolation, A- mock planner realism**.
+
+The optional live smoke catches real provider drift, but every PR also needs cheap coverage for the same user-visible action family. The default smoke now runs natural prompts through the real `quill-code` CLI with the deterministic mock model, real shell execution, real filesystem writes, and a local curl download.
+
+Code quality changes:
+
+- Added default smoke assertions that reject empty-shell and passive “I’ll run/check/do...” output for CLI prompts.
+- Expanded `scripts/smoke.sh` beyond `run whoami` and file creation to cover `whoami?`, `How much hd?`, `Do you have openclaw?`, and a local `file://` download into the requested `downloads/example.html` path.
+- Hardened the mock LLM download planner so it distinguishes source URLs/domains from requested output paths and supports local `file://` smoke sources.
+- Added agent-level coverage for explicit download output paths so deterministic tests catch the exact command shape before CI smoke runs.
+
+Remaining risk:
+
+- This still exercises the CLI rather than the packaged SwiftUI app. It is valuable because it is cheap and required in CI, but native UI smoke should eventually drive these same prompts through the desktop window.

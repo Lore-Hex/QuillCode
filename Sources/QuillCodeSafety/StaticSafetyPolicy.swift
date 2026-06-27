@@ -197,6 +197,14 @@ struct StaticSafetyRequest: Sendable {
             .compactMap(Self.normalizedHostCandidate)
     }
 
+    var requestedDownloadFileURLs: [String] {
+        let separators = CharacterSet.whitespacesAndNewlines
+            .union(CharacterSet(charactersIn: "\"'`()[]{}<>"))
+        return text
+            .components(separatedBy: separators)
+            .compactMap(Self.normalizedFileURLCandidate)
+    }
+
     func containsAffirmedAny(_ phrases: [String]) -> Bool {
         phrases.contains { containsAffirmed($0) }
     }
@@ -312,7 +320,11 @@ struct StaticSafetyRequest: Sendable {
 
     private static func normalizedHostCandidate(_ value: String) -> String? {
         var candidate = value.trimmingCharacters(in: CharacterSet(charactersIn: ",:;!?"))
-        guard candidate.contains(".") && !candidate.contains("@") else {
+        let lowerCandidate = candidate.lowercased()
+        guard !lowerCandidate.hasPrefix("file://"),
+              candidate.contains("."),
+              !candidate.contains("@")
+        else {
             return nil
         }
         if !candidate.contains("://") {
@@ -324,6 +336,13 @@ struct StaticSafetyRequest: Sendable {
             return nil
         }
         return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+    }
+
+    private static func normalizedFileURLCandidate(_ value: String) -> String? {
+        let candidate = value
+            .trimmingCharacters(in: CharacterSet(charactersIn: ",;!?"))
+            .lowercased()
+        return candidate.hasPrefix("file://") ? candidate : nil
     }
 }
 
@@ -343,10 +362,13 @@ enum StaticSafetyDownloadPolicy {
         else {
             return false
         }
-        let requestedHosts = request.requestedDownloadHosts
-        guard !requestedHosts.isEmpty else {
-            return false
+        let requestedFileURLs = request.requestedDownloadFileURLs
+        if !requestedFileURLs.isEmpty {
+            return requestedFileURLs.contains { fileURL in
+                lowerCommand.contains(fileURL)
+            }
         }
+        let requestedHosts = request.requestedDownloadHosts
         return requestedHosts.contains { host in
             lowerCommand.contains(host)
         }
