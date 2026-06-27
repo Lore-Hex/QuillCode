@@ -8078,3 +8078,21 @@ Code quality changes:
 Remaining risk:
 
 - Live smoke remains opt-in because it depends on an external model, network access, public-page availability, and a local/CI secret. It should run before releases and after prompt/parser/safety changes, while required PR CI keeps using deterministic mock coverage.
+
+## 2026-06-27 Routed Click Target Architecture Pass
+
+Overall grade after this slice: **A routed-command consistency, A hit-target architecture, A- native pixel measurement**.
+
+The previous click-target work measured many rendered states, but HTML feature renderers still hand-wrote routed buttons. That made it too easy to regress into a control with the right visual size but the wrong command attribute, missing disabled semantics, or a mismatched hit-target class.
+
+Code quality changes:
+
+- Added `WorkspaceHTMLPrimitives.commandButton` and `buttonAttributes` so routed HTML buttons share one implementation for `type`, `data-testid`, `data-command-id`, ARIA labels, titles, roles, disabled state, and default hit-target classing.
+- Migrated top-bar Stop/overflow actions, sidebar primary/tool/bulk actions, browser tab actions, transcript retry/context actions, extension/MCP/memory/automation actions, and activity-section toggles to the shared primitive path.
+- Preserved structured nested button content where it matters: browser tabs still keep title/URL spans, and activity sections still keep label/count spans while using shared attribute construction.
+- Added a parity gate that rejects raw `data-command-id` button literals in HTML renderers except for the two documented nested-content cases.
+- Updated HTML renderer tests to assert command routing by semantic contract rather than brittle attribute order.
+
+Remaining risk:
+
+- Native SwiftUI controls are still source-gated for target helpers instead of measured by packaged-app UI automation. Playwright continues to measure the mirrored HTML harness until native appshot/Accessibility pixel checks are wired into CI.

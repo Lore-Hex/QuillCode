@@ -174,7 +174,11 @@ enum WorkspaceHTMLTranscriptRenderer {
               message.id == latestAssistantMessageID,
               let command
         else { return "" }
-        return #"<button type="button" data-testid="message-retry" data-command-id="\#(escape(command.id))">\#(escape(command.title))</button>"#
+        return WorkspaceHTMLPrimitives.commandButton(
+            command.title,
+            testID: "message-retry",
+            commandID: command.id
+        )
     }
 
     private static func renderContextBanner(_ banner: ContextBannerSurface?) -> String {
@@ -187,9 +191,9 @@ enum WorkspaceHTMLTranscriptRenderer {
           </header>
           <p data-testid="context-banner-subtitle">\(escape(banner.subtitle))</p>
           <div>
-            <button type="button" data-testid="context-compact" data-command-id="\(escape(banner.compactCommand.id))">\(escape(banner.compactCommand.title))</button>
-            <button type="button" data-testid="context-new-thread" data-command-id="\(escape(banner.newThreadCommand.id))">\(escape(banner.newThreadCommand.title))</button>
-            <button type="button" data-testid="context-fork-last" data-command-id="\(escape(banner.forkCommand.id))">\(escape(banner.forkCommand.title))</button>
+            \(WorkspaceHTMLPrimitives.commandButton(banner.compactCommand.title, testID: "context-compact", commandID: banner.compactCommand.id))
+            \(WorkspaceHTMLPrimitives.commandButton(banner.newThreadCommand.title, testID: "context-new-thread", commandID: banner.newThreadCommand.id))
+            \(WorkspaceHTMLPrimitives.commandButton(banner.forkCommand.title, testID: "context-fork-last", commandID: banner.forkCommand.id))
           </div>
         </section>
         """

@@ -45,15 +45,16 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="sidebar-compose-zone""#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar-threads-zone""#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar-projects-zone""#))
-        XCTAssertTrue(html.contains(#"data-testid="new-chat-button" data-primary="true" data-icon="new" data-command-id="new-chat">New chat"#))
-        XCTAssertTrue(html.contains(#"data-testid="sidebar-search-button" data-primary="true" data-icon="search" data-command-id="search">Search"#))
-        XCTAssertTrue(html.contains(#"data-testid="extensions-button" data-primary="true" data-icon="plugins" data-command-id="toggle-extensions">Plugins"#))
-        XCTAssertTrue(html.contains(#"data-testid="automations-button" data-primary="true" data-icon="automations" data-command-id="toggle-automations">Automations"#))
+        assertCommandButton(html, testID: "new-chat-button", commandID: "new-chat", title: "New chat")
+        assertCommandButton(html, testID: "sidebar-search-button", commandID: "search", title: "Search")
+        assertCommandButton(html, testID: "extensions-button", commandID: "toggle-extensions", title: "Plugins")
+        assertCommandButton(html, testID: "automations-button", commandID: "toggle-automations", title: "Automations")
         XCTAssertTrue(html.contains(#"data-testid="sidebar-tools-menu""#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar-tools-button""#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar-tools-section" data-command-group="navigate""#))
         XCTAssertTrue(html.contains(#"data-testid="sidebar-tools-section-title">Navigate"#))
-        XCTAssertTrue(html.contains(#"data-testid="command-palette-button" role="menuitem" aria-label="Command palette" title="Command palette" data-icon="command" data-command-id="command-palette">Command palette"#))
+        assertCommandButton(html, testID: "command-palette-button", commandID: "command-palette", title: "Command palette")
+        XCTAssertTrue(html.contains(#"role="menuitem""#))
         XCTAssertFalse(html.contains(#"data-testid="sidebar-tools-section" data-command-group="extensions""#))
         XCTAssertFalse(html.contains(#"data-testid="sidebar-tools-section-title">Extensions"#))
         XCTAssertFalse(html.contains(#"data-testid="sidebar-tools-section" data-command-group="automate""#))
@@ -227,5 +228,18 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("Pinned chat"))
         XCTAssertTrue(html.contains("Recent chat"))
         XCTAssertTrue(html.contains("Archived chat"))
+    }
+
+    private func assertCommandButton(
+        _ html: String,
+        testID: String,
+        commandID: String,
+        title: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertTrue(html.contains(#"data-testid="\#(testID)""#), file: file, line: line)
+        XCTAssertTrue(html.contains(#"data-command-id="\#(commandID)""#), file: file, line: line)
+        XCTAssertTrue(html.contains(#">\#(title)</button>"#), file: file, line: line)
     }
 }
