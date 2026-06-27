@@ -449,4 +449,25 @@ final class ParityToolGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(surfaceText.contains("contextUsedPercent"), "WorkspaceSurface should not own context usage calculation.")
         XCTAssertFalse(surfaceText.contains("estimatedContextTokens"), "WorkspaceSurface should not own context token estimation.")
     }
+
+    func testPullRequestReviewThreadParityMatrixMatchesImplementedTools() throws {
+        let matrix = try Self.docsText(named: "CODEX_PARITY_MATRIX.md")
+
+        XCTAssertTrue(
+            matrix.contains("inline comment replies via `gh api`"),
+            "The parity matrix should mention implemented PR review-reply execution."
+        )
+        XCTAssertTrue(
+            matrix.contains("review-thread resolve/unresolve via `gh api graphql`"),
+            "The parity matrix should mention implemented PR review-thread resolution execution."
+        )
+        XCTAssertFalse(
+            matrix.contains("inline comment reply/resolution workflows pending"),
+            "Implemented PR review reply/thread tools should not be described as pending."
+        )
+        XCTAssertFalse(
+            matrix.contains("reply, and resolution workflows pending"),
+            "Implemented PR review reply/thread tools should not be described as pending in the review pane row."
+        )
+    }
 }
