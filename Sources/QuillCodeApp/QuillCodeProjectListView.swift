@@ -27,8 +27,7 @@ struct QuillCodeProjectListView: View {
             Button(action: onAddProjectRequested) {
                 Image(systemName: "plus.circle")
                     .imageScale(.small)
-                    .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
-                    .contentShape(Rectangle())
+                    .quillCodeIconButtonTarget()
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .foregroundStyle(QuillCodePalette.muted)
@@ -38,8 +37,7 @@ struct QuillCodeProjectListView: View {
             } label: {
                 Image(systemName: "xmark.circle")
                     .imageScale(.small)
-                    .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
-                    .contentShape(Rectangle())
+                    .quillCodeIconButtonTarget()
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .foregroundStyle(QuillCodePalette.muted)
@@ -101,7 +99,7 @@ private struct QuillCodeProjectRowView: View {
                         .foregroundStyle(QuillCodePalette.muted)
                         .lineLimit(1)
                 }
-                .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)
+                .quillCodeFullRowButtonTarget()
             }
             .buttonStyle(QuillCodePressableButtonStyle())
 
@@ -117,9 +115,8 @@ private struct QuillCodeProjectRowView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+                    .quillCodeIconButtonTarget()
                     .foregroundStyle(QuillCodePalette.muted)
-                    .contentShape(Rectangle())
             }
             .buttonStyle(QuillCodePressableButtonStyle())
         }

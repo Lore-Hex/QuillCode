@@ -21,9 +21,11 @@ struct QuillCodeToolCardActionRow: View {
                     .font(.caption.weight(.semibold))
                     .lineLimit(1)
                     .padding(.horizontal, 12)
-                    .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
-                    .frame(
+                    .quillCodeTextButtonTarget(
                         minWidth: action.style == .primary ? 118 : 72,
+                        radius: QuillCodeMetrics.minimumHitTarget / 2
+                    )
+                    .frame(
                         maxWidth: action.style == .primary ? .infinity : 92
                     )
                     .foregroundStyle(foregroundColor(for: action.style))
@@ -33,7 +35,6 @@ struct QuillCodeToolCardActionRow: View {
                             .stroke(strokeColor(for: action.style), lineWidth: 1)
                     )
                     .clipShape(Capsule())
-                    .contentShape(Capsule())
                 }
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .help(action.title)

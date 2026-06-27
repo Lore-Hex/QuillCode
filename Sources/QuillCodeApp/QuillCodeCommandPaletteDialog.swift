@@ -221,14 +221,13 @@ private struct QuillCodeCommandRow: View {
                 }
             }
             .padding(12)
-            .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)
+            .quillCodeFullRowButtonTarget(radius: 12)
             .background(isSelected ? QuillCodePalette.selection : QuillCodePalette.panel)
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(isSelected ? QuillCodePalette.blue.opacity(0.6) : Color.clear)
             )
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .disabled(!command.isEnabled)

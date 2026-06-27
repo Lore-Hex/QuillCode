@@ -37,7 +37,7 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(worktreeChromeText.contains("struct QuillCodeWorktreeChoiceSection"), "Shared worktree choice rows should live in focused worktree dialog chrome.")
         XCTAssertTrue(worktreeChromeText.contains("struct QuillCodeWorktreeDialogFrame"), "Shared worktree sheet frame should live in focused worktree dialog chrome.")
         XCTAssertTrue(worktreeChromeText.contains("QuillCodePressableButtonStyle"), "Worktree choice rows should use shared 0.96 press feedback.")
-        XCTAssertTrue(worktreeChromeText.contains("QuillCodeMetrics.minimumHitTarget"), "Worktree choice rows should preserve minimum hit targets.")
+        XCTAssertTrue(worktreeChromeText.contains("quillCodeFullRowButtonTarget"), "Worktree choice rows should preserve semantic full-row hit targets.")
         XCTAssertTrue(worktreeCoordinatorText.contains("final class QuillCodeWorktreeDialogCoordinator"), "Worktree dialog lifecycle should live in a focused coordinator.")
         XCTAssertTrue(worktreeCoordinatorText.contains("func presentOpen("), "Worktree open sheet presentation/loading should live in the coordinator.")
         XCTAssertTrue(worktreeCoordinatorText.contains("guard self.sheet == sheet else { return }"), "Worktree choice loading should guard stale sheet results.")
@@ -90,10 +90,31 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         let activityText = try Self.appSourceText(named: "WorkspaceActivityPaneView.swift")
         let memoriesText = try Self.appSourceText(named: "QuillCodeMemoriesPaneView.swift")
         let worktreeChromeText = try Self.appSourceText(named: "QuillCodeWorktreeDialogChrome.swift")
+        let browserText = try Self.appSourceText(named: "QuillCodeBrowserPaneView.swift")
+        let terminalText = try Self.appSourceText(named: "QuillCodeTerminalPaneView.swift")
+        let contextBannerText = try Self.appSourceText(named: "QuillCodeContextBannerView.swift")
+        let reviewActionText = try Self.appSourceText(named: "QuillCodeReviewActionButton.swift")
+        let modelRowsText = try Self.appSourceText(named: "QuillCodeModelPickerRows.swift")
 
         XCTAssertTrue(
             designSystemText.contains("minWidth: QuillCodeMetrics.minimumHitTarget"),
             "Shared pressable button style should enforce the 44 pt target instead of leaving it to every caller."
+        )
+        XCTAssertTrue(
+            designSystemText.contains("func quillCodeTextButtonTarget("),
+            "Text buttons should use a semantic 44 pt target helper instead of ad hoc frames."
+        )
+        XCTAssertTrue(
+            designSystemText.contains("func quillCodeIconButtonTarget("),
+            "Icon-only buttons should use a semantic 44 pt target helper instead of ad hoc frames."
+        )
+        XCTAssertTrue(
+            designSystemText.contains("func quillCodeFullRowButtonTarget("),
+            "Full-row buttons should use a semantic 44 pt target helper instead of ad hoc row frames."
+        )
+        XCTAssertTrue(
+            designSystemText.contains("func quillCodeCapsuleButtonTarget("),
+            "Capsule buttons should use a semantic 44 pt target helper that matches their visual shape."
         )
         XCTAssertTrue(
             designSystemText.contains(".contentShape(Rectangle())"),
@@ -101,7 +122,7 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         )
 
         XCTAssertTrue(
-            computerUseText.contains(".quillCodeHitTarget(minWidth: 112, alignment: .leading)"),
+            computerUseText.contains(".quillCodeTextButtonTarget(minWidth: 112, alignment: .leading)"),
             "Computer Use refresh should not rely on borderless button default sizing."
         )
         XCTAssertTrue(
@@ -113,24 +134,44 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
             "Runtime issue recovery actions should not use compact borderless defaults."
         )
         XCTAssertTrue(
-            memoriesText.contains(".buttonStyle(QuillCodePressableButtonStyle())"),
-            "Memory edit/delete icon buttons should use shared press feedback and hit targets."
+            memoriesText.contains(".quillCodeIconButtonTarget()"),
+            "Memory edit/delete icon buttons should use the shared icon hit-target helper."
         )
         XCTAssertTrue(
-            worktreeChromeText.contains(".buttonStyle(QuillCodePressableButtonStyle())"),
+            worktreeChromeText.contains(".quillCodeTextButtonTarget(minWidth: 56)"),
             "Worktree retry actions should use shared press feedback and hit targets."
         )
         XCTAssertTrue(
-            activityText.contains(".frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)"),
+            activityText.contains(".quillCodeFullRowButtonTarget()"),
             "Activity section toggles should keep a full-row 44 pt hit target."
-        )
-        XCTAssertTrue(
-            activityText.contains(".contentShape(Rectangle())"),
-            "Activity section toggles should make the full row clickable."
         )
         XCTAssertTrue(
             activityText.contains("QuillCodePressableButtonStyle()"),
             "Activity section toggles should keep shared 0.96 press feedback."
+        )
+        XCTAssertTrue(
+            browserText.contains(".quillCodeIconButtonTarget()")
+                && browserText.contains(".quillCodeTextButtonTarget(minWidth: 92)"),
+            "Browser nav and comment controls should use semantic 44 pt click targets."
+        )
+        XCTAssertTrue(
+            terminalText.contains(".quillCodeTextButtonTarget(minWidth: 56)")
+                && terminalText.contains(".quillCodeTextButtonTarget(minWidth: 64)"),
+            "Terminal clear/stop/run controls should use semantic 44 pt text targets."
+        )
+        XCTAssertTrue(
+            contextBannerText.contains(".quillCodeTextButtonTarget(minWidth: 104)")
+                && contextBannerText.contains(".quillCodeTextButtonTarget(minWidth: 112)"),
+            "Context banner actions should keep large explicit click targets."
+        )
+        XCTAssertTrue(
+            reviewActionText.contains(".quillCodeIconButtonTarget()"),
+            "Review action icon buttons should use semantic icon click targets."
+        )
+        XCTAssertTrue(
+            modelRowsText.contains(".quillCodeFullRowButtonTarget(radius: 10)")
+                && modelRowsText.contains(".quillCodeIconButtonTarget()"),
+            "Model picker rows and row actions should keep full-row/icon click targets."
         )
     }
 

@@ -248,14 +248,13 @@ private struct QuillCodeSlashSuggestionRow: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)
+            .quillCodeFullRowButtonTarget(radius: 12)
             .background(isSelected ? QuillCodePalette.blue.opacity(0.13) : Color.clear)
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(isSelected ? QuillCodePalette.blue.opacity(0.24) : Color.clear, lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .accessibilityLabel("\(suggestion.usage), \(suggestion.title)")

@@ -63,6 +63,7 @@ struct QuillCodeSidebarView: View {
                 }
                 .font(.caption.weight(.semibold))
                 .buttonStyle(QuillCodePressableButtonStyle())
+                .quillCodeTextButtonTarget(minWidth: 56)
                 .foregroundStyle(action.isEnabled ? QuillCodePalette.blue : QuillCodePalette.muted)
                 .disabled(!action.isEnabled)
             }
@@ -90,11 +91,10 @@ private struct QuillCodeSidebarActionsView: View {
                         QuillCodeSidebarCommandPresentation.displayTitle(for: command),
                         systemImage: QuillCodeSidebarCommandPresentation.systemImage(for: command.id)
                     )
-                        .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)
+                        .quillCodeFullRowButtonTarget()
                         .padding(.horizontal, 10)
                         .background(command.id == "new-chat" ? QuillCodePalette.panel.opacity(0.74) : Color.clear)
                         .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-                        .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                 }
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .disabled(!command.isEnabled)
@@ -136,11 +136,10 @@ private struct QuillCodeSidebarUtilityActionsView: View {
             } label: {
                 Label("Tools", systemImage: "wrench.and.screwdriver")
                     .font(.callout.weight(.semibold))
-                    .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget)
+                    .quillCodeFullRowButtonTarget(alignment: .center, radius: 10)
                     .foregroundStyle(QuillCodePalette.muted)
                     .background(QuillCodePalette.panel.opacity(0.50))
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .help("Tools")
@@ -154,11 +153,10 @@ private struct QuillCodeSidebarUtilityActionsView: View {
                         systemImage: QuillCodeSidebarCommandPresentation.systemImage(for: settingsCommand.id)
                     )
                         .font(.callout.weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget)
+                        .quillCodeFullRowButtonTarget(alignment: .center, radius: 10)
                         .foregroundStyle(settingsCommand.isEnabled ? QuillCodePalette.muted : QuillCodePalette.muted.opacity(0.45))
                         .background(QuillCodePalette.panel.opacity(0.50))
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .disabled(!settingsCommand.isEnabled)

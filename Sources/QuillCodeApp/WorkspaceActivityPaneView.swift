@@ -86,8 +86,7 @@ private struct QuillCodeActivitySectionView: View {
                         .foregroundStyle(QuillCodePalette.blue)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)
-            .contentShape(Rectangle())
+            .quillCodeFullRowButtonTarget()
             .buttonStyle(QuillCodePressableButtonStyle())
             .accessibilityLabel("\(section.isCollapsed ? "Expand" : "Collapse") \(section.title)")
 

@@ -80,8 +80,7 @@ struct QuillCodeReviewFileRowView: View {
             } label: {
                 Label("Add review note", systemImage: "plus.bubble")
                     .labelStyle(.iconOnly)
-                    .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
-                    .contentShape(Rectangle())
+                    .quillCodeIconButtonTarget()
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .disabled(commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

@@ -119,7 +119,7 @@ struct QuillCodeWorktreeChoiceStatusRow: View {
                     .buttonStyle(QuillCodePressableButtonStyle())
                     .controlSize(.small)
                     .font(.caption.weight(.semibold))
-                    .quillCodeHitTarget(minWidth: 56)
+                    .quillCodeTextButtonTarget(minWidth: 56)
                     .accessibilityIdentifier("quillcode-worktree-choice-retry")
             }
         }
@@ -170,9 +170,8 @@ struct QuillCodeWorktreeChoiceRow: View {
                         .accessibilityLabel("Selected")
                 }
             }
-            .contentShape(Rectangle())
             .padding(10)
-            .frame(minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .center)
+            .quillCodeFullRowButtonTarget(alignment: .center, radius: 10)
             .background(
                 RoundedRectangle(cornerRadius: 10)
                     .fill(choice.path == selectedPath

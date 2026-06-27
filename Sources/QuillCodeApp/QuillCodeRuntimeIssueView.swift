@@ -22,7 +22,7 @@ struct QuillCodeRuntimeIssueView: View {
                             .buttonStyle(QuillCodePressableButtonStyle())
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(tint)
-                            .quillCodeHitTarget(minWidth: 72, alignment: .leading)
+                            .quillCodeTextButtonTarget(alignment: .leading)
                     } else {
                         Text(actionLabel)
                             .font(.caption.weight(.semibold))

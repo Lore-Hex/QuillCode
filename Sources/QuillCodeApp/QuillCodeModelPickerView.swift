@@ -49,8 +49,7 @@ struct QuillCodeModelPickerView: View {
             }
             .foregroundStyle(QuillCodePalette.text)
             .padding(.horizontal, 8)
-            .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
-            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .quillCodeTextButtonTarget(minWidth: 56, radius: 8)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("Choose model")
@@ -160,8 +159,7 @@ struct QuillCodeModelPickerView: View {
                 .font(.caption.weight(.semibold))
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .foregroundStyle(QuillCodePalette.blue)
-                .frame(minWidth: 56, minHeight: QuillCodeMetrics.minimumHitTarget)
-                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .quillCodeTextButtonTarget(minWidth: 56)
                 .help("Clear model search")
             }
         }
@@ -192,7 +190,7 @@ struct QuillCodeModelPickerView: View {
                 .font(.caption.weight(.semibold))
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .foregroundStyle(QuillCodePalette.blue)
-                .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+                .quillCodeTextButtonTarget(minWidth: 92, alignment: .leading)
                 .padding(.top, 2)
             }
         }

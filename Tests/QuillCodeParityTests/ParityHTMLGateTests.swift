@@ -307,8 +307,32 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             "The Playwright harness should size semantic non-button click targets explicitly."
         )
         XCTAssertTrue(
+            harnessText.contains("button,\n    summary,\n    a.interactive-hit-target"),
+            "The Playwright harness should enforce a global 44 px baseline for buttons, summaries, and link-style controls."
+        )
+        XCTAssertTrue(
+            harnessText.contains("button:active:not(:disabled)")
+                && harnessText.contains("transform: scale(.96)"),
+            "The Playwright harness should keep consistent 0.96 press feedback on clickable controls."
+        )
+        XCTAssertTrue(
             harnessText.contains("details > summary"),
             "Disclosure summaries should keep a minimum click target in the harness."
+        )
+        XCTAssertTrue(
+            harnessText.contains(".activity-section button")
+                && harnessText.contains("min-height: var(--hit-target);"),
+            "Activity disclosure rows should keep full-row 44 px click targets in the harness."
+        )
+        XCTAssertTrue(
+            harnessText.contains(".memory-edit-button,\n    .memory-delete-button")
+                && harnessText.contains("min-width: var(--hit-target);"),
+            "Memory edit/delete controls should keep explicit 44 px icon targets in the harness."
+        )
+        XCTAssertTrue(
+            harnessText.contains(".extension-card button")
+                && harnessText.contains("min-width: 72px;"),
+            "Extension action controls should keep explicit text-button targets in the harness."
         )
         XCTAssertTrue(
             harnessText.contains(#"class="artifact-chip interactive-hit-target""#),

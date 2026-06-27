@@ -45,7 +45,7 @@ struct QuillCodeMemoriesPaneView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
-            .quillCodeHitTarget(minWidth: 72)
+            .quillCodeTextButtonTarget()
         }
     }
 
@@ -82,7 +82,7 @@ struct QuillCodeMemoriesPaneView: View {
                                 Label("Edit", systemImage: "pencil")
                                     .labelStyle(.iconOnly)
                             }
-                            .quillCodeHitTarget()
+                            .quillCodeIconButtonTarget()
                             .help("Edit this memory")
                         }
                         if let deleteCommandID = item.deleteCommandID {
@@ -92,7 +92,7 @@ struct QuillCodeMemoriesPaneView: View {
                                 Label("Forget", systemImage: "trash")
                                     .labelStyle(.iconOnly)
                             }
-                            .quillCodeHitTarget()
+                            .quillCodeIconButtonTarget()
                             .help("Forget this memory")
                         }
                     }

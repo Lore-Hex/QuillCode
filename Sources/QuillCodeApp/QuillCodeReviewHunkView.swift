@@ -34,8 +34,7 @@ struct QuillCodeReviewHunkView: View {
             } label: {
                 Label("Add range note", systemImage: "text.bubble.badge.plus")
                     .labelStyle(.iconOnly)
-                    .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
-                    .contentShape(Rectangle())
+                    .quillCodeIconButtonTarget()
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .help("Add range note")
@@ -84,7 +83,7 @@ struct QuillCodeReviewHunkView: View {
                     isAddingRangeComment = false
                 }
                 .font(.caption.weight(.semibold))
-                .frame(minWidth: QuillCodeMetrics.minimumHitTarget, minHeight: QuillCodeMetrics.minimumHitTarget)
+                .quillCodeTextButtonTarget(minWidth: QuillCodeMetrics.minimumHitTarget)
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .disabled(!canAddRangeComment)
             }
