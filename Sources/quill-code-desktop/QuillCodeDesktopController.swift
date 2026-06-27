@@ -349,7 +349,9 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func setMessageFeedback(messageID: UUID, value: MessageFeedbackValue) {
-        guard model.setMessageFeedback(messageID: messageID, value: value) else { return }
+        guard workspaceActionCoordinator.setMessageFeedback(messageID: messageID, value: value, model: model) else {
+            return
+        }
         refresh()
     }
 
@@ -409,7 +411,11 @@ extension QuillCodeDesktopController: QuillCodeDesktopCommandPerforming {
     }
 
     func runWorkspaceCommand(_ commandID: String) {
-        guard model.runWorkspaceCommand(commandID, workspaceRoot: model.activeWorkspaceRoot ?? workspaceRoot) else {
+        guard workspaceActionCoordinator.runWorkspaceCommand(
+            commandID,
+            model: model,
+            fallbackWorkspaceRoot: workspaceRoot
+        ) else {
             return
         }
         draft = model.composer.draft
