@@ -57,4 +57,38 @@ final class BrowserSessionSyncSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.activeTabID, tab.id)
         XCTAssertEqual(snapshot.activeTab, tab)
     }
+
+    func testSessionUpdateRejectsUnknownActiveTab() throws {
+        let tab = BrowserSessionTabUpdate(
+            id: UUID(),
+            title: "Docs",
+            url: try XCTUnwrap(URL(string: "https://example.com")),
+            isActive: false
+        )
+
+        let update = BrowserSessionUpdate(tabs: [tab], activeTabID: UUID())
+
+        XCTAssertEqual(update.activeTabID, tab.id)
+        XCTAssertEqual(update.activeTab, tab)
+    }
+
+    func testSessionUpdateUsesActiveFlagWhenActiveTabIDIsMissing() throws {
+        let first = BrowserSessionTabUpdate(
+            id: UUID(),
+            title: "Docs",
+            url: try XCTUnwrap(URL(string: "https://example.com/docs")),
+            isActive: false
+        )
+        let second = BrowserSessionTabUpdate(
+            id: UUID(),
+            title: "Dashboard",
+            url: try XCTUnwrap(URL(string: "https://example.com/dashboard")),
+            isActive: true
+        )
+
+        let update = BrowserSessionUpdate(tabs: [first, second], activeTabID: nil)
+
+        XCTAssertEqual(update.activeTabID, second.id)
+        XCTAssertEqual(update.activeTab, second)
+    }
 }

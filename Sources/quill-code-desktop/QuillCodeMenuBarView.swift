@@ -35,27 +35,32 @@ struct QuillCodeMenuBarView: View {
         Text("Mode: \(surface.topBar.modeLabel)")
         Text("Computer Use: \(surface.topBar.computerUseLabel)")
         Divider()
-        Button("New Chat", action: onNewChat)
-        Button("Open Project...", action: onOpenProject)
-        Button("Command Palette", action: onCommandPalette)
-        Button("Keyboard Shortcuts", action: onKeyboardShortcuts)
-        Button(surface.terminal.isVisible ? "Hide Terminal" : "Show Terminal", action: onToggleTerminal)
-        Button(surface.browser.isVisible ? "Hide Browser" : "Show Browser", action: onToggleBrowser)
-        Button("Open Browser Session", action: onOpenBrowserSession)
-            .disabled(surface.browser.currentURL == nil && !surface.browser.canOpen)
-        Button(surface.memories.isVisible ? "Hide Memories" : "Show Memories", action: onToggleMemories)
-        Button(surface.extensions.isVisible ? "Hide Extensions" : "Show Extensions", action: onToggleExtensions)
+        menuActionButton("New Chat", action: onNewChat)
+        menuActionButton("Open Project...", action: onOpenProject)
+        menuActionButton("Command Palette", action: onCommandPalette)
+        menuActionButton("Keyboard Shortcuts", action: onKeyboardShortcuts)
+        menuActionButton(surface.terminal.isVisible ? "Hide Terminal" : "Show Terminal", action: onToggleTerminal)
+        menuActionButton(surface.browser.isVisible ? "Hide Browser" : "Show Browser", action: onToggleBrowser)
+        menuActionButton(
+            "Open Browser Session",
+            isDisabled: surface.browser.currentURL == nil && !surface.browser.canOpen,
+            action: onOpenBrowserSession
+        )
+        menuActionButton(surface.memories.isVisible ? "Hide Memories" : "Show Memories", action: onToggleMemories)
+        menuActionButton(surface.extensions.isVisible ? "Hide Extensions" : "Show Extensions", action: onToggleExtensions)
         if surface.topBar.showsComputerUseSetup {
-            Button("Computer Use Setup", action: onComputerUseSetup)
+            menuActionButton("Computer Use Setup", action: onComputerUseSetup)
         }
-        Button("Settings...", action: onSettings)
+        menuActionButton("Settings...", action: onSettings)
         Divider()
-        Button("Stop All", action: onStopAll)
-            .disabled(stopAllCommand?.isEnabled != true)
-        Button("Disconnect All", action: onDisconnectAll)
-            .disabled(disconnectAllCommand?.isEnabled != true)
+        menuActionButton("Stop All", isDisabled: stopAllCommand?.isEnabled != true, action: onStopAll)
+        menuActionButton(
+            "Disconnect All",
+            isDisabled: disconnectAllCommand?.isEnabled != true,
+            action: onDisconnectAll
+        )
         Divider()
-        Button("Quit QuillCode", action: onQuit)
+        menuActionButton("Quit QuillCode", action: onQuit)
     }
 
     private var stopAllCommand: WorkspaceCommandSurface? {
@@ -75,5 +80,16 @@ struct QuillCodeMenuBarView: View {
         default:
             return "checkmark.circle"
         }
+    }
+
+    private func menuActionButton(
+        _ title: String,
+        isDisabled: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(title, action: action)
+            .buttonStyle(QuillCodePressableButtonStyle())
+            .quillCodeFullRowButtonTarget()
+            .disabled(isDisabled)
     }
 }

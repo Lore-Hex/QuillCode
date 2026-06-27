@@ -174,6 +174,8 @@ enum QuillCodeDesktopSmokeRunner {
 
 @MainActor
 private final class SmokeBrowserSessionPresenter: DesktopBrowserSessionPresenting {
+    var onSessionUpdate: (@MainActor (BrowserSessionUpdate) -> Void)?
+
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {}
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {}
 }

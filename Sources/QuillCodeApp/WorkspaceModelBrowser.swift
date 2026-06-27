@@ -148,6 +148,16 @@ extension QuillCodeWorkspaceModel {
     }
 
     @discardableResult
+    public func applyBrowserSessionUpdate(_ update: BrowserSessionUpdate) -> Bool {
+        let applied = mutateBrowserState { browser, _ in
+            WorkspaceBrowserWorkflow.applySessionUpdate(update, browser: &browser)
+        }
+        guard applied else { return false }
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        return true
+    }
+
+    @discardableResult
     public func newBrowserTab() -> UUID {
         let tabID = mutateBrowserState { browser, _ in
             WorkspaceBrowserWorkflow.newTab(browser: &browser)

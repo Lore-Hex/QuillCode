@@ -6,6 +6,32 @@ import QuillCodePersistence
 
 @MainActor
 final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
+    func testDesktopControllerAppliesVisibleBrowserSessionUpdates() async throws {
+        let presenter = NoopDesktopBrowserSessionPresenter()
+        let controller = try makeController(
+            workspaceRoot: try makeTempDirectory(),
+            browserSessionPresenter: presenter
+        )
+        let tabID = controller.surface.browser.activeTabID
+
+        presenter.onSessionUpdate?(BrowserSessionUpdate(
+            tabs: [
+                BrowserSessionTabUpdate(
+                    id: tabID,
+                    title: "Signed-in dashboard",
+                    url: try XCTUnwrap(URL(string: "https://example.com/dashboard")),
+                    isActive: true
+                )
+            ],
+            activeTabID: tabID
+        ))
+
+        XCTAssertEqual(controller.surface.browser.currentURL, "https://example.com/dashboard")
+        XCTAssertEqual(controller.surface.browser.title, "Signed-in dashboard")
+        XCTAssertEqual(controller.surface.browser.statusLabel, "Synced from browser session")
+        XCTAssertEqual(controller.browserAddressDraft, "https://example.com/dashboard")
+    }
+
     func testDesktopControllerSendPathCoversRealWorldActionPromptFamily() async throws {
         let workspaceRoot = try makeTempDirectory()
         let downloadSource = workspaceRoot.appendingPathComponent("source.html")
@@ -112,7 +138,10 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         }
     }
 
-    private func makeController(workspaceRoot: URL) throws -> QuillCodeDesktopController {
+    private func makeController(
+        workspaceRoot: URL,
+        browserSessionPresenter: any DesktopBrowserSessionPresenting = NoopDesktopBrowserSessionPresenter()
+    ) throws -> QuillCodeDesktopController {
         let stateRoot = try makeTempDirectory().appendingPathComponent("state", isDirectory: true)
         let paths = QuillCodePaths(home: stateRoot)
         let runtimeFactory = QuillCodeRuntimeFactory(
@@ -124,7 +153,7 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
             bootstrap: bootstrap,
             browserPageFetcher: URLSessionBrowserPageFetcher(),
             browserLiveDOMCapturer: nil,
-            browserSessionPresenter: NoopDesktopBrowserSessionPresenter(),
+            browserSessionPresenter: browserSessionPresenter,
             automationNotifier: NoopAutomationNotifier(),
             workspaceRoot: workspaceRoot
         )
@@ -197,6 +226,8 @@ private enum DesktopRealWorldSmokeSideEffect {
 
 @MainActor
 private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
+    var onSessionUpdate: (@MainActor (BrowserSessionUpdate) -> Void)?
+
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {}
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {}
 }
