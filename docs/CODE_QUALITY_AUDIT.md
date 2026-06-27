@@ -134,6 +134,21 @@ Residual risk:
 
 - This still combines source gates with HTML Playwright audits rather than native UI automation measuring the built SwiftUI app. Add native accessibility-frame checks once the packaged app test runner can inspect SwiftUI controls directly.
 
+## 2026-06-27 Reliable Click Target Audit Pass
+
+Overall grade after this slice: **A reliable hit geometry, A overlap detection, A cross-surface coverage**.
+
+The interaction audit now treats click targets as real pointer surfaces instead of only checking their center point. This caught stacked sidebar menus and form controls whose visible checkbox was intentionally smaller than the user-facing label row.
+
+- Sampled center and inset corner points for every visible interactive target so partially blocked controls fail with `interior_click_area_blocked`.
+- Evaluated checkbox and radio controls through their associated label when the label provides the actual 44 px pointer target.
+- Expanded the Playwright interaction sweep across menus, selection controls, empty model search, worktree dialogs, slash suggestions, PR replies, and approval action buttons.
+- Fixed sidebar menu stacking and checkbox row styling in the harness so the visible target and the DOM click target agree.
+
+Residual risk:
+
+- Native SwiftUI hit areas still need direct accessibility-frame automation. The harness now catches the same layout class before it ships through web parity, but packaged native measurement remains a release-gate improvement.
+
 ## 2026-06-27 Model Status Display Pass
 
 Overall grade after this slice: **A user-facing model copy, A formatter ownership, A alias compatibility**.

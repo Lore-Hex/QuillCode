@@ -583,6 +583,41 @@
     .search-card h2, .search-card p { margin: 0; }
     .settings-card label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
     .search-card label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+    .search-card label:has(input[type="checkbox"]),
+    .settings-card label:has(input[type="checkbox"]) {
+      min-height: var(--hit-target);
+      align-items: start;
+      cursor: pointer;
+    }
+    .search-card label:has(input[type="checkbox"]) span,
+    .settings-card label:has(input[type="checkbox"]) span {
+      min-height: var(--hit-target);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 10px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.045);
+      box-shadow: var(--shadow-border);
+      transition-property: box-shadow, background-color;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .search-card label:has(input[type="checkbox"]) span:hover,
+    .settings-card label:has(input[type="checkbox"]) span:hover {
+      background: rgba(255,255,255,.065);
+      box-shadow: var(--shadow-border-hover);
+    }
+    .search-card input[type="checkbox"],
+    .settings-card input[type="checkbox"] {
+      width: 20px;
+      min-width: 20px;
+      height: 20px;
+      min-height: 20px;
+      margin: 0;
+      accent-color: var(--blue);
+      cursor: pointer;
+    }
     .search-card header { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
     .dialog-choice-list { display: grid; gap: 8px; }
     .dialog-choice-list .eyebrow { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
@@ -1044,7 +1079,11 @@
       padding-right: 12px;
     }
     .sidebar-thread-menu {
+      position: relative;
       z-index: 2;
+    }
+    .sidebar-thread-menu[open] {
+      z-index: 20;
     }
     .sidebar-thread-menu summary {
       display: grid;
@@ -1069,6 +1108,7 @@
       position: absolute;
       right: 0;
       top: 46px;
+      z-index: 21;
       min-width: 152px;
       display: grid;
       gap: 4px;

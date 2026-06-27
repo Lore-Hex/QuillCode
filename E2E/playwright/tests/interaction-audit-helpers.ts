@@ -164,12 +164,39 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
       return { hardClipped, rect: visible, scrollClipped };
     }
 
-    function isTopMostAtCenter(element: Element, rect: RectLike) {
-      if (rect.width <= 0 || rect.height <= 0) return false;
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      const topElement = document.elementFromPoint(centerX, centerY);
+    function isPointOwnedBy(element: Element, x: number, y: number) {
+      const topElement = document.elementFromPoint(x, y);
       return topElement === element || Boolean(topElement && element.contains(topElement));
+    }
+
+    function auditSamplePoints(rect: RectLike) {
+      if (rect.width <= 0 || rect.height <= 0) return [];
+      const insetX = Math.min(10, rect.width / 4);
+      const insetY = Math.min(10, rect.height / 4);
+      return [
+        [rect.left + rect.width / 2, rect.top + rect.height / 2],
+        [rect.left + insetX, rect.top + insetY],
+        [rect.right - insetX, rect.top + insetY],
+        [rect.left + insetX, rect.bottom - insetY],
+        [rect.right - insetX, rect.bottom - insetY]
+      ].filter(([x, y]) => (
+        x >= 0
+          && y >= 0
+          && x <= document.documentElement.clientWidth
+          && y <= document.documentElement.clientHeight
+      ));
+    }
+
+    function isTopMostAtCenter(element: Element, rect: RectLike) {
+      const points = auditSamplePoints(rect);
+      const center = points[0];
+      return Boolean(center && isPointOwnedBy(element, center[0], center[1]));
+    }
+
+    function hasReliableClickableInterior(element: Element, rect: RectLike) {
+      const points = auditSamplePoints(rect);
+      if (!points.length) return false;
+      return points.every(([x, y]) => isPointOwnedBy(element, x, y));
     }
 
     function auditReason(element: Element, rect: DOMRect, clipped: VisibleRectResult) {
@@ -186,6 +213,9 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
       if (!isTopMostAtCenter(element, clipped.rect)) {
         reasons.push('center_blocked_or_clipped');
       }
+      if (!hasReliableClickableInterior(element, clipped.rect)) {
+        reasons.push('interior_click_area_blocked');
+      }
       return reasons.join(',');
     }
 
@@ -196,6 +226,27 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
           Math.round(clipped.rect.width) < minimumHitTarget
           || Math.round(clipped.rect.height) < minimumHitTarget
         );
+    }
+
+    function associatedLabel(element: Element) {
+      if (!(element instanceof HTMLInputElement)) return null;
+      if (!['checkbox', 'radio'].includes(element.type)) return null;
+      if (element.closest('label')) return element.closest('label');
+      if (!element.id) return null;
+      return document.querySelector(`label[for="${CSS.escape(element.id)}"]`);
+    }
+
+    function hasAuditedLabelHitTarget(element: Element) {
+      const label = associatedLabel(element);
+      if (!label) return false;
+      const rect = label.getBoundingClientRect();
+      const clipped = visibleRect(label, rect);
+      return isVisible(label, rect)
+        && Math.round(rect.width) >= minimumHitTarget
+        && Math.round(rect.height) >= minimumHitTarget
+        && Math.round(clipped.rect.width) >= minimumHitTarget
+        && Math.round(clipped.rect.height) >= minimumHitTarget
+        && hasReliableClickableInterior(label, clipped.rect);
     }
 
     function labelFor(element: Element) {
@@ -231,7 +282,7 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
       .map(({ clipped, element, rect }) => ({
         clipped,
         element,
-        reason: auditReason(element, rect, clipped),
+        reason: hasAuditedLabelHitTarget(element) ? '' : auditReason(element, rect, clipped),
         rect
       }))
       .filter(({ reason }) => reason.length > 0)
