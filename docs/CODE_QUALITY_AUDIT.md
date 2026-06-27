@@ -8148,3 +8148,20 @@ Code quality changes:
 Remaining risk:
 
 - This still renders the SwiftUI root view offscreen and exits through a smoke flag; it does not synthesize real clicks/typing against a packaged `.app` window or verify AppKit menu-bar behavior. The next native layer should package the app and drive it through Accessibility/XCTest/appshot automation.
+
+## 2026-06-27 Desktop Chrome Smoke Hardening Pass
+
+Overall grade after this slice: **A desktop command-route coverage, A product-smoke usefulness, B+ packaged menu-bar automation**.
+
+The executable smoke was useful for the main chat path, but desktop chrome could still drift: a command could be visible in the top bar or menu bar while the native command planner silently dropped it. The hardened smoke immediately found one such bug: `keyboard-shortcuts` was present in chrome but did not route through the desktop command planner/coordinator.
+
+Code quality changes:
+
+- Extended `QuillCodeDesktopSmokeRunner` to validate required desktop chrome command IDs, exercise Command Palette, Keyboard Shortcuts, Settings, Terminal, and Browser routes against the real `QuillCodeDesktopController`, and fail if any command does not mutate the expected native state.
+- Added the missing first-class `keyboardShortcuts` desktop command action to the planner/coordinator instead of relying on source parity or menu notifications.
+- Added a desktop chrome evidence render to the product smoke report, including app name, top-bar title/subtitle, selected model/mode, Computer Use label, required command IDs, and exercised route IDs.
+- Updated `scripts/native-desktop-smoke.sh` to require the chrome evidence PNG and command-route JSON fields, so CI now catches visible-but-unrouted desktop chrome regressions.
+
+Remaining risk:
+
+- The chrome evidence panel is deterministic smoke evidence, not a real AppKit menu capture. Raw `MenuBarExtra` menu content does not render faithfully offscreen with `ImageRenderer`, so the true next layer remains packaged `.app` UI automation that opens the menu-bar extra and clicks the commands through Accessibility or XCTest.
