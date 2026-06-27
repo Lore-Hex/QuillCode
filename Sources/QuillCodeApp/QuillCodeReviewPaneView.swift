@@ -4,6 +4,7 @@ struct QuillCodeReviewPaneView: View {
     var review: WorkspaceReviewSurface
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
+    var onPullRequestReviewThreadReplyDraft: (String) -> Void
     var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
 
     var body: some View {
@@ -80,7 +81,8 @@ struct QuillCodeReviewPaneView: View {
             ForEach(review.pullRequestThreads) { thread in
                 QuillCodePullRequestReviewThreadRowView(
                     thread: thread,
-                    onAction: onPullRequestReviewThreadAction
+                    onAction: onPullRequestReviewThreadAction,
+                    onReplyDraft: onPullRequestReviewThreadReplyDraft
                 )
             }
         }
@@ -90,6 +92,7 @@ struct QuillCodeReviewPaneView: View {
 private struct QuillCodePullRequestReviewThreadRowView: View {
     var thread: WorkspacePullRequestReviewThreadSurface
     var onAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
+    var onReplyDraft: (String) -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -117,21 +120,39 @@ private struct QuillCodePullRequestReviewThreadRowView: View {
                 }
             }
             Spacer(minLength: 12)
-            ForEach(thread.actions) { action in
-                Button {
-                    onAction(action)
-                } label: {
-                    Label(action.kind.title, systemImage: action.kind.systemImage)
-                        .font(.caption.weight(.semibold))
-                        .labelStyle(.titleAndIcon)
-                        .padding(.horizontal, 12)
-                        .frame(minWidth: 92, minHeight: 40)
-                        .background(QuillCodePalette.blue.opacity(0.14))
-                        .clipShape(Capsule())
+            HStack(spacing: 8) {
+                if let replyDraft = thread.replyDraft {
+                    Button {
+                        onReplyDraft(replyDraft)
+                    } label: {
+                        Label("Reply", systemImage: "arrowshape.turn.up.left")
+                            .font(.caption.weight(.semibold))
+                            .labelStyle(.titleAndIcon)
+                            .padding(.horizontal, 12)
+                            .frame(minWidth: 86, minHeight: 40)
+                            .background(QuillCodePalette.blue.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(QuillCodePressableButtonStyle())
+                    .foregroundStyle(QuillCodePalette.blue)
+                    .help("Draft a reply to review comment \(thread.comments.first?.databaseID ?? 0)")
                 }
-                .buttonStyle(QuillCodePressableButtonStyle())
-                .foregroundStyle(QuillCodePalette.blue)
-                .help("\(action.kind.title) review thread \(thread.id)")
+                ForEach(thread.actions) { action in
+                    Button {
+                        onAction(action)
+                    } label: {
+                        Label(action.kind.title, systemImage: action.kind.systemImage)
+                            .font(.caption.weight(.semibold))
+                            .labelStyle(.titleAndIcon)
+                            .padding(.horizontal, 12)
+                            .frame(minWidth: 92, minHeight: 40)
+                            .background(QuillCodePalette.blue.opacity(0.14))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(QuillCodePressableButtonStyle())
+                    .foregroundStyle(QuillCodePalette.blue)
+                    .help("\(action.kind.title) review thread \(thread.id)")
+                }
             }
         }
         .padding(10)

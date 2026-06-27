@@ -4756,6 +4756,7 @@
                     <code data-testid="pr-review-thread-location">${escapeHTML(thread.locationLabel || 'Unknown location')}</code>
                     <blockquote data-testid="pr-review-thread-comment">${escapeHTML(thread.summaryText || '')}</blockquote>
                     <span class="review-actions">
+                      ${thread.replyDraft ? `<button type="button" class="review-action-button hit-target-text" data-testid="pr-review-thread-reply" data-reply-draft="${escapeHTML(thread.replyDraft)}">Reply</button>` : ''}
                       <button type="button" class="review-action-button hit-target-text" data-testid="pr-review-thread-action" data-action="${thread.isResolved ? 'unresolve' : 'resolve'}" data-thread-id="${escapeHTML(thread.id)}">${thread.isResolved ? 'Unresolve' : 'Resolve'}</button>
                     </span>
                   </li>`).join('')}
@@ -5504,6 +5505,11 @@
           const action = event.currentTarget.getAttribute('data-action');
           const threadID = event.currentTarget.getAttribute('data-thread-id');
           runPullRequestReviewThreadAction(action, threadID);
+        });
+      });
+      document.querySelectorAll('[data-testid="pr-review-thread-reply"]').forEach(button => {
+        button.addEventListener('click', event => {
+          usePromptAsDraft(event.currentTarget.getAttribute('data-reply-draft') || '');
         });
       });
       document.querySelectorAll('[data-testid="review-comment-form"]').forEach(form => {
@@ -9512,6 +9518,9 @@
             : `${thread.path}:${thread.line || thread.startLine || ''}`.replace(/:$/, ''),
           statusLabel: `${thread.isResolved ? 'Resolved' : 'Unresolved'}${thread.isOutdated ? ' · outdated' : ''}`,
           summaryText: thread.comments.nodes[0]?.body || 'No comment text.',
+          replyDraft: thread.comments.nodes[0]?.databaseId
+            ? `/pr review-reply ${selector} ${thread.comments.nodes[0].databaseId} `
+            : null,
           selector
         }))
       };

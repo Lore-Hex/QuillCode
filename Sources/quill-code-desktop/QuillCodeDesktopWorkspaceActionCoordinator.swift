@@ -37,6 +37,10 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
         )
     }
 
+    func useComposerDraft(_ draft: String, model: QuillCodeWorkspaceModel) {
+        model.setDraft(draft)
+    }
+
     func addReviewComment(
         path: String,
         lineNumber: Int?,

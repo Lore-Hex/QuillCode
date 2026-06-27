@@ -69,6 +69,7 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
         XCTAssertEqual(resolved.statusLabel, "Resolved · outdated")
         XCTAssertEqual(unresolved.summaryText, "Please extract this helper. Thanks.")
         XCTAssertEqual(unresolved.authorLabel, "reviewer")
+        XCTAssertEqual(unresolved.replyDraft, "/pr review-reply 123 11 ")
         XCTAssertEqual(unresolved.actions.first?.kind, .resolve)
         XCTAssertEqual(unresolved.actions.first?.selector, "123")
         XCTAssertEqual(resolved.actions.first?.kind, .unresolve)

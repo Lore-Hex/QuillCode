@@ -76,6 +76,8 @@ final class WorkspaceHTMLReviewRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="pr-review-thread-status""#))
         XCTAssertTrue(html.contains(#"data-testid="pr-review-thread-location""#))
         XCTAssertTrue(html.contains(#"data-testid="pr-review-thread-comment""#))
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-thread-reply""#))
+        XCTAssertTrue(html.contains(#"data-reply-draft="/pr review-reply 171 ""#))
         XCTAssertTrue(html.contains(#"data-testid="pr-review-thread-action""#))
         XCTAssertTrue(html.contains(#"data-action="resolve""#))
         XCTAssertTrue(html.contains("Sources/App.swift:42"))

@@ -185,11 +185,18 @@ test('mock harness browses and resolves pull request review threads', async ({ p
   await expect(page.getByTestId('pr-review-thread')).toHaveCount(2);
   await expect(page.getByTestId('pr-review-thread').first()).toContainText('Sources/App.swift:42');
   await expect(page.getByTestId('pr-review-thread-comment').first()).toContainText('Please extract this branch');
+  await expect(page.getByTestId('pr-review-thread-reply').first()).toHaveText('Reply');
   await expect(page.getByTestId('pr-review-thread-action').first()).toHaveText('Resolve');
 
+  const replyBounds = await elementRect(page, '[data-testid="pr-review-thread-reply"]:has-text("Reply")');
+  expect(replyBounds.width).toBeGreaterThanOrEqual(40);
+  expect(replyBounds.height).toBeGreaterThanOrEqual(40);
   const resolveBounds = await elementRect(page, '[data-testid="pr-review-thread-action"]:has-text("Resolve")');
   expect(resolveBounds.width).toBeGreaterThanOrEqual(40);
   expect(resolveBounds.height).toBeGreaterThanOrEqual(40);
+
+  await page.getByTestId('pr-review-thread-reply').first().click();
+  await expect(page.getByLabel('Message')).toHaveValue('/pr review-reply 123 171 ');
 
   await page.getByTestId('pr-review-thread-action').first().click();
 

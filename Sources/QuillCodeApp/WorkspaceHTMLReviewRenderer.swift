@@ -99,9 +99,19 @@ enum WorkspaceHTMLReviewRenderer {
           <code data-testid="pr-review-thread-location">\(escape(thread.locationLabel))</code>
           <blockquote data-testid="pr-review-thread-comment">\(escape(thread.summaryText))</blockquote>
           <span>
+            \(renderPullRequestThreadReply(thread))
             \(thread.actions.map(renderPullRequestThreadAction).joined(separator: "\n"))
           </span>
         </li>
+        """
+    }
+
+    private static func renderPullRequestThreadReply(_ thread: WorkspacePullRequestReviewThreadSurface) -> String {
+        guard let replyDraft = thread.replyDraft else { return "" }
+        return """
+        <button type="button" class="review-action-button \(WorkspaceHTMLPrimitives.textHitTargetClass)" data-testid="pr-review-thread-reply" data-reply-draft="\(escape(replyDraft))">
+          Reply
+        </button>
         """
     }
 
