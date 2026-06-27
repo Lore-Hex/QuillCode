@@ -101,8 +101,8 @@ test('mock harness prunes worktrees from the command palette', async ({ page }) 
 
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
   await expect(page.getByTestId('worktree-prune-panel')).toBeVisible();
-  await expect(page.getByTestId('worktree-prune-loading')).toBeVisible();
   await expect(page.getByTestId('worktree-prune-record')).toContainText('/mock/quillcode-stale');
+  await expect(page.getByTestId('worktree-prune-loading')).toHaveCount(0);
   await expect(page.getByTestId('worktree-prune-submit')).toBeEnabled();
 
   await page.getByTestId('worktree-prune-submit').click();

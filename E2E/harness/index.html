@@ -5991,6 +5991,64 @@
       return `${model.provider}/${model.displayName}`;
     }
 
+    function canonicalModelID(modelID) {
+      const normalized = String(modelID || '').trim().toLowerCase();
+      const aliases = {
+        fast: 'trustedrouter/fast',
+        '/fast': 'trustedrouter/fast',
+        'tr/fast': 'trustedrouter/fast',
+        nike: 'trustedrouter/fast',
+        '/nike': 'trustedrouter/fast',
+        'nike 1.0': 'trustedrouter/fast',
+        'trustedrouter/nike': 'trustedrouter/fast',
+        synth: 'tr/synth',
+        '/synth': 'tr/synth',
+        'trustedrouter/synth': 'tr/synth',
+        fusion: 'tr/synth',
+        '/fusion': 'tr/synth',
+        'tr/fusion': 'tr/synth',
+        'trustedrouter/fusion': 'tr/synth',
+        'synth-code': 'tr/synth-code',
+        'synth code': 'tr/synth-code',
+        '/synth-code': 'tr/synth-code',
+        'trustedrouter/synth-code': 'tr/synth-code',
+        'fusion-code': 'tr/synth-code',
+        '/fusion-code': 'tr/synth-code',
+        'tr/fusion-code': 'tr/synth-code',
+        'trustedrouter/fusion-code': 'tr/synth-code'
+      };
+      return aliases[normalized] || String(modelID || '').trim();
+    }
+
+    function preferredDisplayModelID(modelID) {
+      const canonical = canonicalModelID(modelID);
+      if (canonical === 'tr/synth') return '/synth';
+      if (canonical === 'tr/synth-code') return '/synth-code';
+      return canonical;
+    }
+
+    function statusModelLabel(modelID) {
+      const canonical = canonicalModelID(modelID);
+      if (canonical === 'trustedrouter/fast') return `Nike 1.0 (${preferredDisplayModelID(canonical)})`;
+      if (canonical === 'tr/synth') return `Synth (${preferredDisplayModelID(canonical)})`;
+      if (canonical === 'tr/synth-code') return `Synth Code (${preferredDisplayModelID(canonical)})`;
+      return canonical;
+    }
+
+    function workspaceStatusText() {
+      const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
+      const selectedThread = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
+      return [
+        `Project: ${selectedProject?.name || 'No project'}`,
+        `Thread: ${selectedThread?.title || state.topBar.primaryTitle || 'New chat'}`,
+        `Instructions: ${state.topBar.instructionLabel}`,
+        `Memories: ${state.topBar.memoryLabel}`,
+        `Mode: ${state.topBar.modeLabel}`,
+        `Model: ${statusModelLabel(state.topBar.selectedModelID)}`,
+        `Agent: ${state.topBar.agentStatus}`
+      ].join('\n');
+    }
+
     function modelBadgeClass(badge) {
       const normalized = String(badge || '').toLowerCase();
       if (normalized === 'current') return 'current';
@@ -9686,6 +9744,8 @@
           message: "The selected model did not follow QuillCode's action schema. Try Nike 1.0, Synth, or another coding model.",
           actionLabel: 'Switch model'
         }, 'Expected valid QuillCode action JSON but received an empty argument object.');
+      } else if (/^\/status\b/i.test(text)) {
+        addMessage('assistant', workspaceStatusText());
       } else if (/^\/(new|new-chat|newchat)\b/i.test(text)) {
         newChat();
         return;

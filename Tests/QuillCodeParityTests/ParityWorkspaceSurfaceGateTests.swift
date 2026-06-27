@@ -359,6 +359,36 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         }
     }
 
+    func testPlaywrightStatusFlowsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let statusSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("status.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let composerSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("composer.spec.ts"),
+            encoding: .utf8
+        )
+        let statusFlowNames = [
+            "reports workspace status from composer with branded default model",
+            "reports Synth status with preferred slash alias after model switch"
+        ]
+
+        XCTAssertTrue(statusSpecText.contains("harnessURL()"), "Focused status flows should reuse the shared harness URL helper.")
+        XCTAssertTrue(statusSpecText.contains("Model: Nike 1.0 (trustedrouter/fast)"), "Status E2E should cover the branded default model output.")
+        XCTAssertTrue(statusSpecText.contains("Model: Synth (/synth)"), "Status E2E should cover the preferred Synth slash alias output.")
+        XCTAssertTrue(statusSpecText.contains("top-bar-subtitle"), "Status E2E should cover the top-bar state seen by real users.")
+        for flowName in statusFlowNames {
+            XCTAssertTrue(statusSpecText.contains(flowName), "\(flowName) should live in status.spec.ts.")
+            XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
+            XCTAssertFalse(composerSpecText.contains(flowName), "\(flowName) should not drift back into composer.spec.ts.")
+        }
+    }
+
     func testPlaywrightShortcutFlowsStayInFocusedSpec() throws {
         let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
         let shortcutSpecText = try String(
