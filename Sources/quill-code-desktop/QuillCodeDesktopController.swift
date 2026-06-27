@@ -30,6 +30,7 @@ final class QuillCodeDesktopController: ObservableObject {
     private let composerCoordinator: QuillCodeDesktopComposerCoordinator
     private let copyCoordinator: QuillCodeDesktopCopyCoordinator
     private let projectImportCoordinator: QuillCodeDesktopProjectImportCoordinator
+    private let paneCoordinator: QuillCodeDesktopPaneCoordinator
     private let workspaceActionCoordinator: QuillCodeDesktopWorkspaceActionCoordinator
     private let terminalCoordinator: QuillCodeDesktopTerminalCoordinator
     private let worktreeCoordinator: QuillCodeDesktopWorktreeCoordinator
@@ -60,6 +61,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.composerCoordinator = QuillCodeDesktopComposerCoordinator()
         self.copyCoordinator = QuillCodeDesktopCopyCoordinator()
         self.projectImportCoordinator = QuillCodeDesktopProjectImportCoordinator()
+        self.paneCoordinator = QuillCodeDesktopPaneCoordinator()
         self.workspaceActionCoordinator = QuillCodeDesktopWorkspaceActionCoordinator()
         self.terminalCoordinator = QuillCodeDesktopTerminalCoordinator()
         self.worktreeCoordinator = QuillCodeDesktopWorktreeCoordinator()
@@ -206,22 +208,22 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func toggleTerminal() {
-        model.toggleTerminal()
+        paneCoordinator.toggleTerminal(on: model)
         refresh()
     }
 
     func toggleBrowser() {
-        model.toggleBrowser()
+        paneCoordinator.toggleBrowser(on: model)
         refresh()
     }
 
     func toggleExtensions() {
-        model.toggleExtensions()
+        paneCoordinator.toggleExtensions(on: model)
         refresh()
     }
 
     func toggleMemories() {
-        model.toggleMemories()
+        paneCoordinator.toggleMemories(on: model)
         refresh()
     }
 
@@ -245,7 +247,7 @@ final class QuillCodeDesktopController: ObservableObject {
     }
 
     func addBrowserComment(_ comment: String) {
-        _ = model.addBrowserComment(comment)
+        paneCoordinator.addBrowserComment(comment, to: model)
         refresh()
     }
 
