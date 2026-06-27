@@ -23,6 +23,8 @@ final class WorkspaceCommandPaletteRankerTests: XCTestCase {
         XCTAssertEqual(WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: "request reviewers").first?.id, "git-pr-reviewers")
         XCTAssertEqual(WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: "comment pull").first?.id, "git-pr-comment")
         XCTAssertEqual(WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: "approve pr").first?.id, "git-pr-review")
+        XCTAssertEqual(WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: "inline reply").first?.id, "git-pr-review-reply")
+        XCTAssertEqual(WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: ">resolve thread").first?.id, "git-pr-review-thread")
         XCTAssertEqual(WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: "label pr").first?.id, "git-pr-labels")
         XCTAssertEqual(WorkspaceCommandPaletteRanker.rankedCommands(commands, matching: "merge pull").first?.id, "git-pr-merge")
     }

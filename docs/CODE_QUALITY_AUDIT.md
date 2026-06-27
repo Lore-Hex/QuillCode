@@ -7119,3 +7119,26 @@ Strict grades:
 Remaining parity risk:
 
 - `GitHubPullRequestToolExecutor` is still a large focused executor because PR create/view/check/diff/checkout/comment/review/reviewer/label/merge/review-comment behavior shares validation and fake-CLI fixture needs. If inline comments or review actions grow materially, split by PR command family next rather than expanding one file indefinitely.
+
+## 2026-06-27 PR Review Thread Command Surface Slice
+
+Overall grade after this slice: **A command discoverability, A safety coverage, A- command-surface breadth**.
+
+The review-thread tool slice made inline review replies and resolve/unresolve operations available to the agent and slash parser, but the user-facing command surfaces still stopped at inline review comments. That left the new structured tools harder to discover from the command palette, `/help`, visible command suggestions, and draft-prefill flows.
+
+Code quality changes:
+
+- Added `git-pr-review-reply` and `git-pr-review-thread` rows to the workspace Git command catalog, slash command catalog, draft planner, and native icon catalog.
+- Extended command-palette ranking, workspace surface, remote-project surface, command-plan, command-icon, and PR integration tests so the new actions appear wherever older PR actions appear.
+- Added parser/normalizer tests for model-authored review reply and thread aliases, plus Auto safety approval coverage for user-requested inline comments, replies, and review-thread resolution.
+
+Strict grades:
+
+- `WorkspaceGitCommandCatalog.swift`: **A-**. The PR command list remains straightforward and complete. If more PR actions land, the next refactor should group PR command descriptors to avoid manual row duplication across catalog, icons, and plans.
+- `SlashCommandCatalog.swift`: **A-**. Slash discovery now matches implemented PR review-thread behavior. The catalog is still a static table, which is acceptable until command metadata is promoted into a shared descriptor.
+- `WorkspaceCommandPlan.swift`: **A**. The new actions use normal draft-prefill plans instead of special UI branches.
+- Safety and parser tests: **A**. They cover the exact utility risk: user-requested review-thread actions should Auto approve without becoming broad PR write permission.
+
+Remaining parity risk:
+
+- PR command metadata is still duplicated across command catalog, slash catalog, icon catalog, and draft planner. The code is correct and tested, but a future descriptor table would be more DRY if the PR tool family keeps growing.

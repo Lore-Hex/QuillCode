@@ -25,6 +25,8 @@ final class QuillCodeCommandIconCatalogTests: XCTestCase {
             "git-pr-checkout": "arrow.down.doc",
             "git-pr-reviewers": "person.2.badge.gearshape",
             "git-pr-review-comment": "text.bubble",
+            "git-pr-review-reply": "arrowshape.turn.up.left",
+            "git-pr-review-thread": "checkmark.bubble",
             "git-pr-labels": "tag",
             "git-pr-merge": "arrow.triangle.merge",
             "git-worktree-list": "point.3.connected.trianglepath.dotted",
