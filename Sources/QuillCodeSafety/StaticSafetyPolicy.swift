@@ -119,6 +119,7 @@ struct StaticSafetyPolicy: Sendable {
     ]
 
     private static let commonDiagnosticTriggers = [
+        "hd",
         "openclaw",
         "whoami",
         "disk",

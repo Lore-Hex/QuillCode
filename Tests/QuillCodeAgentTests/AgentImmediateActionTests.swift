@@ -22,12 +22,31 @@ final class AgentImmediateActionTests: XCTestCase {
         XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll run") })
         XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
 
-        let queued = try XCTUnwrap(result.thread.events.first { $0.kind == .toolQueued })
-        let payloadJSON = try XCTUnwrap(queued.payloadJSON)
-        let call = try JSONDecoder().decode(ToolCall.self, from: Data(payloadJSON.utf8))
-        let arguments = try ToolArguments(call.argumentsJSON)
-        XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
-        XCTAssertEqual(try arguments.requiredString("cmd"), "whoami")
+        XCTAssertEqual(try queuedShellCommand(in: result), "whoami")
+    }
+
+    func testDiskUsageQuestionExecutesImmediately() async throws {
+        let root = try makeTempDirectory()
+        let result = try await AgentRunner().send("How much hd?", in: ChatThread(mode: .auto), workspaceRoot: root)
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        let toolResult = try XCTUnwrap(result.toolResults.first)
+        XCTAssertTrue(toolResult.ok, toolResult.error ?? "")
+        XCTAssertEqual(try queuedShellCommand(in: result), "df -h / /Quill 2>/dev/null || df -h /")
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll check") })
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
+    }
+
+    func testOpenClawDiscoveryExecutesImmediately() async throws {
+        let root = try makeTempDirectory()
+        let result = try await AgentRunner().send("Do you have openclaw?", in: ChatThread(mode: .auto), workspaceRoot: root)
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        let toolResult = try XCTUnwrap(result.toolResults.first)
+        XCTAssertTrue(toolResult.ok, toolResult.error ?? "")
+        XCTAssertEqual(try queuedShellCommand(in: result), "command -v openclaw || which openclaw || echo 'not found'")
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll check") })
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
     }
 
     func testBacktickCommandDoesNotBecomeEmptyToolCall() async throws {
@@ -90,5 +109,14 @@ final class AgentImmediateActionTests: XCTestCase {
         XCTAssertEqual(result.toolResults.count, 1)
         XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
         XCTAssertEqual(result.thread.events.filter { $0.summary.contains("host.git.push") }.count, 3)
+    }
+
+    private func queuedShellCommand(in result: AgentRunResult) throws -> String {
+        let queued = try XCTUnwrap(result.thread.events.first { $0.kind == .toolQueued })
+        let payloadJSON = try XCTUnwrap(queued.payloadJSON)
+        let call = try JSONDecoder().decode(ToolCall.self, from: Data(payloadJSON.utf8))
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
+        return try arguments.requiredString("cmd")
     }
 }

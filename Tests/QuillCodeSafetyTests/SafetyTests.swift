@@ -180,6 +180,22 @@ final class SafetyTests: XCTestCase {
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }
 
+    func testAutoApprovesHdDiagnosticShellRunWithoutRunVerb() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: shellRun.name,
+            argumentsJSON: #"{"cmd":"df -h / /Quill 2>/dev/null || df -h /"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "How much hd?",
+            toolCall: call,
+            toolDefinition: shellRun,
+            recentMessages: [.init(role: .user, content: "How much hd?")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
     func testAutoDoesNotTreatDiagnosticRequestAsBlanketIntentForGitPush() async {
         let reviewer = StaticSafetyReviewer()
         let call = ToolCall(name: gitPush.name, argumentsJSON: #"{"remote":"origin"}"#)

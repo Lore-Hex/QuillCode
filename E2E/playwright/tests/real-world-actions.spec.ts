@@ -49,3 +49,34 @@ test('writes requested file content immediately without a confirmation loop', as
   await expect(page.getByText('Wrote `hello.txt`.')).toBeVisible();
   await expect(page.getByText(/I'?ll write|should I|do you want me to|ok\?/i)).toHaveCount(0);
 });
+
+test('answers device diagnostic prompts with concrete shell actions', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('How much hd?');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card')).toHaveCount(1);
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.shell.run');
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-input')).toContainText('"cmd": "df -h / /Quill 2>/dev/null || df -h /"');
+  await expect(page.getByTestId('tool-card-input')).not.toContainText('{}');
+  await expect(page.getByTestId('tool-card-output')).toContainText('/mock/QuillCode');
+  await expect(page.getByText('Workspace storage: 15% used.')).toBeVisible();
+  await expect(page.getByText(/No shell command was specified/i)).toHaveCount(0);
+  await expect(page.getByText(/I'?ll check|should I|do you want me to/i)).toHaveCount(0);
+
+  await page.getByLabel('Message').fill('Do you have openclaw?');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card')).toHaveCount(2);
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.shell.run');
+  await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
+  await expect(page.getByTestId('tool-card-input').last())
+    .toContainText('"cmd": "command -v openclaw || which openclaw || echo \'not found\'"');
+  await expect(page.getByTestId('tool-card-input').last()).not.toContainText('{}');
+  await expect(page.getByTestId('tool-card-output').last()).toContainText('not found');
+  await expect(page.getByText('OpenClaw is not installed.')).toBeVisible();
+  await expect(page.getByText(/No shell command was specified/i)).toHaveCount(0);
+  await expect(page.getByText(/I'?ll check|should I|do you want me to/i)).toHaveCount(0);
+});
