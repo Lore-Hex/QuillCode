@@ -7248,3 +7248,26 @@ Strict grades:
 Remaining parity risk:
 
 - SwiftUI hit-target coverage is compile-verified but not pixel-measured in native tests. If QuillCode adds native screenshot testing, promote these Playwright assertions into matching AppKit/SwiftUI smoke checks.
+
+## 2026-06-27 Agent Final Answer Formatter Registry
+
+Overall grade after this slice: **A formatter extensibility, A behavior preservation, A- builder file size**.
+
+`AgentFinalAnswerBuilder.finalAnswer` had started accumulating one branch per tool family. That kept behavior correct, but it made the top-level method responsible for dispatching shell, browser, file, patch, MCP, Computer Use, memory, worktree, and PR review-thread summaries directly. The builder now keeps failure/default output at the top level and routes successful tool-specific summaries through a small formatter registry.
+
+Code quality changes:
+
+- Added a `ToolAnswerFormatter` registry for tool-specific final-answer summaries.
+- Moved file-write, apply-patch, worktree prune, PR review-thread, plan, memory, shell, browser, MCP, screenshot, and Computer Use summaries behind small formatter functions.
+- Preserved existing user-facing copy and truncation behavior.
+- Added a parity guard so future tool summaries use the registry instead of regrowing the top-level method.
+
+Strict grades:
+
+- `AgentFinalAnswerBuilder.swift`: **A-**. Dispatch is cleaner and more extensible; the file still owns all final-answer copy, which is acceptable until formatter families become large enough to justify per-domain files.
+- `AgentFinalAnswerBuilderTests.swift`: **A**. Existing behavioral coverage caught the refactor without changing expected copy.
+- `ParityAgentGateTests.swift`: **A**. The gate now protects the registry shape while leaving individual formatters free to evolve.
+
+Remaining parity risk:
+
+- Browser and PR review-thread summaries are the most likely to grow richer. If either gains substantially more formatting logic, split that formatter family into a separate helper rather than expanding this file again.

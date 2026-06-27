@@ -7,6 +7,8 @@ final class ParityAgentGateTests: QuillCodeParityTestCase {
 
         XCTAssertTrue(builderText.contains("enum AgentFinalAnswerBuilder"), "Tool-result final answer copy should live in a focused builder.")
         XCTAssertTrue(builderText.contains("static func finalAnswer"), "Final answer formatting should be directly testable.")
+        XCTAssertTrue(builderText.contains("private static var toolAnswerFormatters"), "Tool-specific final answers should be registered instead of growing the top-level finalAnswer method.")
+        XCTAssertTrue(builderText.contains("for formatter in toolAnswerFormatters"), "The top-level final-answer method should route through the formatter registry.")
         XCTAssertTrue(builderText.contains("ToolDefinition.shellRun.name"), "Shell final-answer special cases should live in the builder.")
         XCTAssertTrue(builderText.contains("ToolDefinition.browserInspect.name"), "Browser final-answer special cases should live in the builder.")
         XCTAssertTrue(agentText.contains("AgentFinalAnswerBuilder.finalAnswer"), "AgentRunner should delegate final-answer formatting.")
