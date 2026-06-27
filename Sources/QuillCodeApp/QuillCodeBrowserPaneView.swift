@@ -38,6 +38,27 @@ struct QuillCodeBrowserPaneView: View {
     }
 
     private var navigationBar: some View {
+        ViewThatFits(in: .horizontal) {
+            horizontalNavigationBar
+            compactNavigationBar
+        }
+    }
+
+    private var horizontalNavigationBar: some View {
+        HStack(spacing: 8) {
+            browserNavigationControls
+            browserAddressControls
+        }
+    }
+
+    private var compactNavigationBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            browserNavigationControls
+            browserAddressControls
+        }
+    }
+
+    private var browserNavigationControls: some View {
         HStack(spacing: 8) {
             browserNavigationButton(
                 systemName: "chevron.left",
@@ -60,19 +81,24 @@ struct QuillCodeBrowserPaneView: View {
             ) {
                 onCommand("browser-reload")
             }
-            TextField("localhost:3000, docs/page.html, or https://example.com", text: $addressDraft)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit(onOpen)
-                .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
-            Button("Open", action: onOpen)
-                .quillCodeTextButtonTarget()
-                .disabled(addressDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             if let onOpenSession {
                 Button("Session", action: onOpenSession)
                     .quillCodeTextButtonTarget(minWidth: 84)
                     .disabled(!browser.canOpen && browser.currentURL == nil)
                     .help("Open a visible browser session using QuillCode's persistent browser profile.")
             }
+        }
+    }
+
+    private var browserAddressControls: some View {
+        HStack(spacing: 8) {
+            TextField("localhost:3000, docs/page.html, or https://example.com", text: $addressDraft)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit(onOpen)
+                .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget)
+            Button("Open", action: onOpen)
+                .quillCodeTextButtonTarget()
+                .disabled(addressDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
     }
 

@@ -29,6 +29,11 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                     violations.append("\(relativePath):\(index + 1) compact platform button style lacks shared hit target")
                 }
 
+                if line.contains(".buttonStyle(QuillCodePressableButtonStyle())"),
+                   !targetMarkers.contains(where: window(in: lines, around: index, radius: 18).contains) {
+                    violations.append("\(relativePath):\(index + 1) pressable button lacks explicit shared hit target")
+                }
+
                 if line.contains(".labelStyle(.iconOnly)"),
                    !window(in: lines, around: index, radius: 8).contains("quillCodeIconButtonTarget") {
                     violations.append("\(relativePath):\(index + 1) icon-only control lacks icon hit target")

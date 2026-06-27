@@ -360,9 +360,11 @@ final class WorkspaceBrowserIntegrationTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="browser-pane""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-preview""#))
-        XCTAssertTrue(html.contains(#"data-testid="browser-back" disabled"#))
-        XCTAssertTrue(html.contains(#"data-testid="browser-forward" disabled"#))
+        XCTAssertTrue(html.contains(#"class="browser-nav-controls" aria-label="Browser navigation""#))
+        XCTAssertTrue(html.contains(#"class="browser-nav-button" type="button" data-testid="browser-back" aria-label="Back" disabled"#))
+        XCTAssertTrue(html.contains(#"class="browser-nav-button" type="button" data-testid="browser-forward" aria-label="Forward" disabled"#))
         XCTAssertTrue(html.contains(#"data-testid="browser-reload" "#))
+        XCTAssertTrue(html.contains(#"data-testid="browser-address" aria-label="Browser address""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-current-url""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-snapshot""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-source""#))

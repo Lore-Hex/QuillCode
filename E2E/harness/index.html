@@ -2775,6 +2775,13 @@
       .topbar-cluster {
         flex-wrap: wrap;
       }
+      .browser-form {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+      .browser-nav-controls {
+        grid-column: 1 / -1;
+        grid-template-columns: repeat(3, var(--hit-target)) minmax(72px, 1fr);
+      }
       .message, .tool-card { max-width: 100%; width: 100%; }
     }
   </style>

@@ -269,6 +269,7 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
 
     func testHTMLInteractiveControlsKeepExplicitHitTargets() throws {
         let primitivesText = try Self.appSourceText(named: "WorkspaceHTMLPrimitives.swift")
+        let browserText = try Self.appSourceText(named: "WorkspaceHTMLBrowserRenderer.swift")
         let toolCardText = try Self.appSourceText(named: "WorkspaceHTMLToolCardRenderer.swift")
         let reviewText = try Self.appSourceText(named: "WorkspaceHTMLReviewRenderer.swift")
         let secondaryText = try Self.appSourceText(named: "WorkspaceHTMLSecondaryPaneRenderer.swift")
@@ -321,6 +322,14 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             "Memory edit buttons should keep the shared memory action class."
         )
         XCTAssertTrue(
+            browserText.contains(#"class="browser-form""#)
+                && browserText.contains(#"class="browser-nav-controls""#)
+                && browserText.contains(#"class="browser-nav-button""#)
+                && browserText.contains(#"class="browser-open-button""#)
+                && browserText.contains(#"data-testid="browser-address""#),
+            "Browser controls should keep named classes and address test IDs so compact hit-target CSS and audits cannot silently regress."
+        )
+        XCTAssertTrue(
             harnessText.contains(".interactive-hit-target"),
             "The Playwright harness should size semantic non-button click targets explicitly."
         )
@@ -364,6 +373,13 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             harnessText.contains(".extension-card button")
                 && harnessText.contains("min-width: 72px;"),
             "Extension action controls should keep explicit text-button targets in the harness."
+        )
+        XCTAssertTrue(
+            harnessText.contains(".browser-nav-button")
+                && harnessText.contains(".browser-open-button")
+                && harnessText.contains("@media (max-width: 760px)")
+                && harnessText.contains("grid-template-columns: repeat(3, var(--hit-target)) minmax(72px, 1fr);"),
+            "Browser nav controls should have explicit compact target CSS instead of relying on cramped grid auto sizing."
         )
         XCTAssertTrue(
             harnessText.contains(#"class="artifact-chip interactive-hit-target""#),

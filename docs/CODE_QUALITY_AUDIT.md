@@ -1,5 +1,37 @@
 # Code Quality Audit
 
+## 2026-06-27 Promised Work Execution Hardening
+
+Overall grade after this slice: **A action reliability, A streaming behavior, A- model prompt dependence**.
+
+Codex-style interaction breaks down when the assistant says it will do work and then waits for the user to ask again. The agent already corrected a narrow version of this, but the correction path still depended on a single follow-up and did not directly recover explicit shell promises from `say` actions.
+
+- Promised `say` actions like `I'll run whoami` are now parsed into `host.shell.run` before asking the model for a correction.
+- Correction is bounded and repeated promised-work answers now fail as a model-action error instead of becoming a fake final answer.
+- Streaming promised-work drafts stay hidden while the final parsed action can still recover and execute the shell command.
+- The TrustedRouter system prompt now explicitly forbids future-tense action answers when a tool action can be returned immediately.
+
+Residual risk:
+
+- This recovery only handles explicit shell-command promises. Natural-language promises like `I'll check disk usage` still depend on the correction prompt producing a concrete tool call. Broader intent-to-tool planning should stay in the model/tool planner rather than growing ad hoc command heuristics.
+
+## 2026-06-27 Click Target Re-Architecture Pass
+
+Overall grade after this slice: **A native target contracts, A compact viewport coverage, A- native pixel smoke coverage**.
+
+Click targets need to be treated as a product invariant, not as incidental padding. The existing 44 px HTML audit was valuable, but it only covered the default desktop flow and the native source gate did not require every pressable SwiftUI control to declare an explicit target contract.
+
+| Before | After |
+| --- | --- |
+| The empty-state starter cards relied on `QuillCodePressableButtonStyle` to provide target size indirectly. | Starter cards now declare a centered full-row target with a 72 px minimum height and the same 14 px radius as the visible card. |
+| Native source gates only checked compact platform button styles and icon-only labels. | The parity gate now also rejects any `QuillCodePressableButtonStyle` control that lacks a nearby shared hit-target modifier. |
+| The broad Playwright interaction audit ran only through the default desktop workspace states. | Added a compact 390 x 844 audit that exercises top-bar overflow, model picker, search, settings, tool cards, terminal, and browser pane targets. |
+| The browser address field could collapse to 32 px wide on compact layouts because navigation, address, and Open controls were forced into one row. | Browser navigation wraps on compact layouts, preserving a full-width address target while keeping nav buttons at 44 px. Native SwiftUI uses `ViewThatFits` to choose the same desktop-vs-compact structure. |
+
+Residual risk:
+
+- Pixel-perfect native target verification still depends on source gates plus SwiftUI smoke until a packaged native UI automation layer can inspect rendered SwiftUI hit regions directly.
+
 ## 2026-06-27 Browser Navigation Shortcut Pass
 
 Overall grade after this slice: **A shortcut contract, A native/menu parity, A regression coverage**.

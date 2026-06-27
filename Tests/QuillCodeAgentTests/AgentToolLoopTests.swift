@@ -100,15 +100,11 @@ final class AgentToolLoopTests: XCTestCase {
         ])
     }
 
-    func testAgentRetriesPromisedWorkAnswerBeforeFinalizing() async throws {
+    func testAgentRecoversBacktickedPromisedWorkAnswerBeforeFinalizing() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(llm: SequenceLLMClient(actions: [
             .say("I'll run `whoami` on the device."),
-            .tool(.init(
-                name: ToolDefinition.shellRun.name,
-                argumentsJSON: ToolArguments.json(["cmd": "whoami"])
-            )),
-            .say("Finished.")
+            .say("Done after running whoami.")
         ]))
 
         let result = try await runner.send(
@@ -122,18 +118,15 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertFalse(result.thread.messages.contains {
             $0.content.contains("I'll run")
         })
-        XCTAssertEqual(result.thread.messages.last?.content, "Finished.")
+        XCTAssertFalse(result.toolResults[0].stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        XCTAssertEqual(result.thread.messages.last?.content, "Done after running whoami.")
     }
 
-    func testAgentRetriesNonBacktickedPromisedWorkAnswerBeforeFinalizing() async throws {
+    func testAgentRecoversNonBacktickedPromisedWorkAnswerBeforeFinalizing() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(llm: SequenceLLMClient(actions: [
             .say("I'll run whoami on the device."),
-            .tool(.init(
-                name: ToolDefinition.shellRun.name,
-                argumentsJSON: ToolArguments.json(["cmd": "whoami"])
-            )),
-            .say("Finished.")
+            .say("Done after running whoami.")
         ]))
 
         let result = try await runner.send(
@@ -147,7 +140,55 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertFalse(result.thread.messages.contains {
             $0.content.contains("I'll run")
         })
-        XCTAssertEqual(result.thread.messages.last?.content, "Finished.")
+        XCTAssertFalse(result.toolResults[0].stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        XCTAssertEqual(result.thread.messages.last?.content, "Done after running whoami.")
+    }
+
+    func testAgentRecoversComplexBacktickedPromisedShellAnswerBeforeFinalizing() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .say("I'll execute `command -v definitely_missing_quillcode_binary || echo not found`."),
+                .say("Done after checking the command.")
+            ]),
+            safety: AlwaysApprovingSafetyReviewer()
+        )
+
+        let result = try await runner.send(
+            "Do you have definitely_missing_quillcode_binary?",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertFalse(result.thread.messages.contains {
+            $0.content.contains("I'll execute")
+        })
+        XCTAssertEqual(result.toolResults[0].stdout.trimmingCharacters(in: .whitespacesAndNewlines), "not found")
+        XCTAssertEqual(result.thread.messages.last?.content, "Done after checking the command.")
+    }
+
+    func testAgentDoesNotFinalizeRepeatedPromisedWorkAnswers() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: SequenceLLMClient(actions: [
+            .say("I'll check the disk usage now."),
+            .say("I'll check the disk usage now."),
+            .say("I'll check the disk usage now.")
+        ]))
+
+        do {
+            _ = try await runner.send(
+                "How much disk is used?",
+                in: ChatThread(mode: .auto),
+                workspaceRoot: root
+            )
+            XCTFail("Expected repeated promised work to throw.")
+        } catch AgentError.promisedWorkWithoutToolAction {
+            // Expected: do not leak another fake final answer into the transcript.
+        } catch {
+            XCTFail("Expected promisedWorkWithoutToolAction, got \(error).")
+        }
     }
 
     func testAgentDoesNotRetryInformationalAnswerThatMentionsCapabilities() async throws {

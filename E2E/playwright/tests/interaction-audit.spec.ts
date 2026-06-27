@@ -242,3 +242,48 @@ test('mock harness keeps secondary pane actions at least 44px', async ({ page })
   await expectHitTarget(page.getByTestId('automation-primary-action'), 'automation primary action button');
   await expectHitTarget(page.getByTestId('automation-delete'), 'automation delete button');
 });
+
+test('mock harness audits compact viewport click targets across primary states', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(harnessURL());
+
+  await expectInteractionTargetsClean(page, 'compact initial workspace');
+
+  await openTopBarOverflow(page);
+  await expect(page.getByTestId('top-bar-overflow-menu')).toHaveAttribute('open', '');
+  await expectInteractionTargetsClean(page, 'compact top-bar overflow menu');
+  await page.getByTestId('top-bar-overflow-button').click();
+
+  await page.getByTestId('model-picker-button').click();
+  await expect(page.getByTestId('model-browser')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'compact model picker');
+  await page.getByTestId('model-picker-button').click();
+
+  await openTopBarOverflow(page);
+  await page.getByTestId('top-bar-overflow-search').click();
+  await expect(page.getByTestId('search-panel')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'compact search panel');
+  await page.getByTestId('search-close').click();
+
+  await openSettings(page);
+  await expect(page.getByTestId('settings-panel')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'compact settings panel');
+  await page.getByTestId('settings-cancel').click();
+
+  await page.getByLabel('Message').fill('run whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
+  await expectInteractionTargetsClean(page, 'compact tool-card transcript');
+
+  await openTopBarOverflow(page);
+  await page.getByTestId('top-bar-overflow-command-palette').click();
+  await clickCommandPaletteCommand(page, '>terminal', 'toggle-terminal');
+  await expect(page.getByTestId('terminal-pane')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'compact terminal pane');
+
+  await openTopBarOverflow(page);
+  await page.getByTestId('top-bar-overflow-command-palette').click();
+  await clickCommandPaletteCommand(page, '>browser', 'toggle-browser');
+  await expect(page.getByTestId('browser-pane')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'compact browser pane');
+});

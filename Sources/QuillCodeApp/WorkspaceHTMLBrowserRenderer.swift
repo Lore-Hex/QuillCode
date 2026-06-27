@@ -11,16 +11,18 @@ enum WorkspaceHTMLBrowserRenderer {
             <strong>Browser</strong>
             <span data-testid="browser-status-label">\(escape(browser.statusLabel))</span>
           </header>
-          <form data-testid="browser-form">
-            <button type="button" data-testid="browser-back" \(browser.canGoBack ? "" : "disabled")>Back</button>
-            <button type="button" data-testid="browser-forward" \(browser.canGoForward ? "" : "disabled")>Forward</button>
-            <button type="button" data-testid="browser-reload" \(browser.canReload ? "" : "disabled")>Reload</button>
-            <input aria-label="Browser address" value="\(escape(browser.addressDraft))">
-            <button type="submit" data-testid="browser-open" \(browser.canOpen ? "" : "disabled")>Open</button>
+          <form class="browser-form" data-testid="browser-form">
+            <div class="browser-nav-controls" aria-label="Browser navigation">
+              <button class="browser-nav-button" type="button" data-testid="browser-back" aria-label="Back" \(browser.canGoBack ? "" : "disabled")>Back</button>
+              <button class="browser-nav-button" type="button" data-testid="browser-forward" aria-label="Forward" \(browser.canGoForward ? "" : "disabled")>Forward</button>
+              <button class="browser-nav-button" type="button" data-testid="browser-reload" aria-label="Reload" \(browser.canReload ? "" : "disabled")>Reload</button>
+            </div>
+            <input data-testid="browser-address" aria-label="Browser address" value="\(escape(browser.addressDraft))">
+            <button class="browser-open-button" type="submit" data-testid="browser-open" \(browser.canOpen ? "" : "disabled")>Open</button>
           </form>
           \(preview)
-          <form data-testid="browser-comment-form">
-            <input aria-label="Browser comment" placeholder="Add browser comment">
+          <form class="browser-comment-form" data-testid="browser-comment-form">
+            <input data-testid="browser-comment-input" aria-label="Browser comment" placeholder="Add browser comment">
             <button type="submit" data-testid="browser-add-comment" \(browser.currentURL == nil ? "disabled" : "")>Comment</button>
           </form>
           <div data-testid="browser-comments">
