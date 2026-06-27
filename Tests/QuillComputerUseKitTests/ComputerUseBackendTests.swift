@@ -134,10 +134,157 @@ final class ComputerUseBackendTests: XCTestCase {
         XCTAssertEqual(result.error, "Missing required integer argument: y")
     }
 
+    func testComputerUseToolExecutorPreflightsScreenRecordingForScreenshots() async throws {
+        let backend = PermissionRecordingComputerUseBackend(
+            status: .permissionStatus(
+                screenRecordingGranted: false,
+                accessibilityGranted: true
+            )
+        )
+        let executor = ComputerUseToolExecutor(backend: backend)
+
+        let toolResult = await executor.execute(ToolCall(
+            name: ToolDefinition.computerScreenshot.name,
+            argumentsJSON: "{}"
+        ))
+        let result = try XCTUnwrap(toolResult)
+        let actions = await backend.recordedActions()
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(
+            result.error,
+            "Computer Use screenshot needs Screen Recording. Open Computer Use setup from Settings, grant Screen Recording, then refresh status."
+        )
+        XCTAssertEqual(actions, [])
+    }
+
+    func testComputerUseToolExecutorPreflightsAccessibilityForInputActions() async throws {
+        let backend = PermissionRecordingComputerUseBackend(
+            status: .permissionStatus(
+                screenRecordingGranted: true,
+                accessibilityGranted: false
+            )
+        )
+        let executor = ComputerUseToolExecutor(backend: backend)
+        let calls: [(ToolCall, String)] = [
+            (
+                ToolCall(
+                    name: ToolDefinition.computerClick.name,
+                    argumentsJSON: #"{"x":10,"y":20}"#
+                ),
+                "Computer Use click needs Accessibility. Open Computer Use setup from Settings, grant Accessibility, then refresh status."
+            ),
+            (
+                ToolCall(
+                    name: ToolDefinition.computerType.name,
+                    argumentsJSON: #"{"text":"hello"}"#
+                ),
+                "Computer Use typing needs Accessibility. Open Computer Use setup from Settings, grant Accessibility, then refresh status."
+            ),
+            (
+                ToolCall(
+                    name: ToolDefinition.computerScroll.name,
+                    argumentsJSON: #"{"dx":0,"dy":100}"#
+                ),
+                "Computer Use scroll needs Accessibility. Open Computer Use setup from Settings, grant Accessibility, then refresh status."
+            ),
+            (
+                ToolCall(
+                    name: ToolDefinition.computerMove.name,
+                    argumentsJSON: #"{"x":10,"y":20}"#
+                ),
+                "Computer Use cursor movement needs Accessibility. Open Computer Use setup from Settings, grant Accessibility, then refresh status."
+            ),
+            (
+                ToolCall(
+                    name: ToolDefinition.computerKey.name,
+                    argumentsJSON: #"{"key":"return"}"#
+                ),
+                "Computer Use keyboard needs Accessibility. Open Computer Use setup from Settings, grant Accessibility, then refresh status."
+            )
+        ]
+
+        for (call, expectedError) in calls {
+            let toolResult = await executor.execute(call)
+            let result = try XCTUnwrap(toolResult)
+            XCTAssertFalse(result.ok)
+            XCTAssertEqual(result.error, expectedError)
+        }
+        let actions = await backend.recordedActions()
+        XCTAssertEqual(actions, [])
+    }
+
+    func testComputerUseToolExecutorAllowsScreenshotWhenOnlyAccessibilityIsMissing() async throws {
+        let backend = PermissionRecordingComputerUseBackend(
+            status: .permissionStatus(
+                screenRecordingGranted: true,
+                accessibilityGranted: false
+            )
+        )
+        let artifactDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("QuillCodeComputerUsePreflightTests-\(UUID().uuidString)")
+        defer {
+            try? FileManager.default.removeItem(at: artifactDirectory)
+        }
+        let executor = ComputerUseToolExecutor(
+            backend: backend,
+            artifactDirectory: artifactDirectory
+        )
+
+        let toolResult = await executor.execute(ToolCall(
+            name: ToolDefinition.computerScreenshot.name,
+            argumentsJSON: "{}"
+        ))
+        let result = try XCTUnwrap(toolResult)
+        let actions = await backend.recordedActions()
+
+        XCTAssertTrue(result.ok)
+        XCTAssertEqual(actions, ["screenshot"])
+        XCTAssertEqual(result.artifacts.count, 1)
+    }
+
     func testMacBackendReportsCurrentPermissionState() {
         let status = MacComputerUseBackend().status
 
         XCTAssertEqual(status.available, status.screenRecordingGranted && status.accessibilityGranted)
         XCTAssertFalse(status.message.isEmpty)
+    }
+}
+
+private actor PermissionRecordingComputerUseBackend: ComputerUseBackend {
+    nonisolated let status: ComputerUseStatus
+    private var actions: [String] = []
+
+    init(status: ComputerUseStatus) {
+        self.status = status
+    }
+
+    func recordedActions() -> [String] {
+        actions
+    }
+
+    func screenshot() async throws -> ComputerScreenshot {
+        actions.append("screenshot")
+        return ComputerScreenshot(width: 1, height: 1, pngBase64: "iVBORw0KGgo=")
+    }
+
+    func leftClick(x: Int, y: Int) async throws {
+        actions.append("leftClick:\(x),\(y)")
+    }
+
+    func type(_ text: String) async throws {
+        actions.append("type:\(text)")
+    }
+
+    func scroll(dx: Int, dy: Int) async throws {
+        actions.append("scroll:\(dx),\(dy)")
+    }
+
+    func moveCursor(x: Int, y: Int) async throws {
+        actions.append("move:\(x),\(y)")
+    }
+
+    func pressKey(_ key: String) async throws {
+        actions.append("key:\(key)")
     }
 }
