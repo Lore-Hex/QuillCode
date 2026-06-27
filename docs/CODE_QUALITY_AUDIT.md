@@ -1,5 +1,22 @@
 # Code Quality Audit
 
+## 2026-06-27 HTML Command Routing Contract Pass
+
+Overall grade after this slice: **A command attribute consistency, A renderer/harness drift coverage, A- full click-action breadth**.
+
+The click-target audits proved buttons were visible and hittable, but a visible target can still be dead if generated HTML does not expose the same command attribute the click router reads. The Extensions pane had exactly that class of bug: production Swift HTML emitted `data-command` for extension and MCP reference actions, while the harness and click handler expected `data-command-id`.
+
+Code quality changes:
+
+- Normalized extension install/update/start/stop and MCP resource/prompt buttons in `WorkspaceHTMLSecondaryPaneRenderer` to emit `data-command-id`.
+- Extended the focused secondary-pane renderer test to cover plugin install/update, MCP stop, MCP resource actions, and MCP prompt actions with exact command IDs.
+- Added a parity gate that rejects `data-command` in secondary-pane HTML so future renderer changes stay aligned with the shared click-routing contract.
+- Documented `data-command-id` as the single command-button contract in `docs/DECISIONS.md`.
+
+Remaining risk:
+
+- This pass hardens one renderer family and one known drift pattern. A broader generated-HTML audit that enumerates every enabled `data-command-id` in a rendered surface and proves it maps to a dispatchable command would further reduce “button looks live but does nothing” regressions.
+
 ## 2026-06-27 Promised Work Execution Hardening
 
 Overall grade after this slice: **A action reliability, A streaming behavior, A- model prompt dependence**.

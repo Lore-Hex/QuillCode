@@ -318,6 +318,17 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             "Extension action buttons should use a named class that can be target-sized in CSS."
         )
         XCTAssertTrue(
+            secondaryText.contains(#"data-testid="extension-start" data-command-id="#)
+                && secondaryText.contains(#"data-testid="extension-install" data-command-id="#)
+                && secondaryText.contains(#"class="extension-reference-action" data-testid=""#)
+                && secondaryText.contains("data-command-id=\"\\#(escape(action.commandID))\""),
+            "Extension and MCP reference buttons should use the same data-command-id attribute consumed by click routing."
+        )
+        XCTAssertFalse(
+            secondaryText.contains(#"data-command=""#),
+            "Secondary-pane HTML should not emit data-command; command buttons must use the shared data-command-id contract."
+        )
+        XCTAssertTrue(
             secondaryText.contains(#"class="memory-edit-button""#),
             "Memory edit buttons should keep the shared memory action class."
         )
