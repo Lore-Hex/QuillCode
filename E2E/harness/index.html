@@ -8625,6 +8625,45 @@
       return `'${String(value).replaceAll("'", "'\"'\"'")}'`;
     }
 
+    function cleanNaturalCommandFragment(value) {
+      return String(value || '')
+        .trim()
+        .replace(/^(?:please\s+)?(?:can\s+you\s+)?(?:could\s+you\s+)?(?:would\s+you\s+)?/i, '')
+        .replace(/[?.!]+$/g, '')
+        .trim();
+    }
+
+    function shellCommandFromPrompt(text) {
+      const quoted = text.match(/`([^`]+)`/)?.[1]?.trim();
+      if (quoted) return quoted;
+
+      const trimmed = String(text || '').trim();
+      if (/^whoami[?.!]?$/i.test(trimmed)) return 'whoami';
+
+      const runMatch = trimmed.match(/^(?:please\s+)?(?:can\s+you\s+)?(?:could\s+you\s+)?(?:would\s+you\s+)?(?:run|execute)\s+(.+)$/i);
+      if (runMatch) return cleanNaturalCommandFragment(runMatch[1]) || 'whoami';
+
+      if (/\bwhoami\b/i.test(trimmed)) return 'whoami';
+      return cleanNaturalCommandFragment(trimmed.replace(/^run\s+/i, '')) || 'whoami';
+    }
+
+    function mockShellOutputForPrompt(command, selectedProject, isRemoteProject) {
+      const cmd = command.trim();
+      if (isRemoteProject) return remoteTerminalOutput(cmd, selectedProject.path, {});
+      return terminalOutput(cmd, state.terminal.cwdLabel || '/mock/QuillCode', {});
+    }
+
+    function fileWriteRequestFromPrompt(text) {
+      if (!/\b(write|make|create)\b.+\bfile\b/i.test(text)) return null;
+      const quoted = text.match(/["“”]([^"“”]+)["“”]/)?.[1]?.trim();
+      const saysMatch = text.match(/\bsays?\s+(.+)$/i)?.[1]?.trim();
+      const content = cleanNaturalCommandFragment(quoted || saysMatch || 'hello world');
+      return {
+        path: 'hello.txt',
+        content: `${content || 'hello world'}\n`
+      };
+    }
+
     function normalizeMockTerminalPath(cwd, target) {
       const segments = target.startsWith('/') ? [] : cwd.split('/').filter(Boolean);
       for (const part of target.split('/')) {
@@ -9670,6 +9709,7 @@
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
       const isRemoteProject = Boolean(selectedProject?.isRemote);
       const browserTarget = browserOpenTargetFromPrompt(text);
+      const fileWriteRequest = fileWriteRequestFromPrompt(text);
       if (text.toLowerCase().includes('slow task')) {
         state.composer.isSending = true;
         state.topBar.agentStatus = 'Running';
@@ -9999,10 +10039,10 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Captured ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Captured appshot `checkout.appshot.json`.');
-      } else if (text.toLowerCase().includes('write a file') || text.toLowerCase().includes('make a file')) {
-        const path = 'hello.txt';
+      } else if (fileWriteRequest) {
+        const { path, content } = fileWriteRequest;
         if (isRemoteProject) {
-          const cmd = `printf %s ${shellSingleQuoted('hello world\n')} > ${path}`;
+          const cmd = `printf %s ${shellSingleQuoted(content)} > ${path}`;
           addToolCard({
             title: 'host.shell.run',
             subtitle: 'Completed',
@@ -10012,12 +10052,12 @@
           });
           addMessage('assistant', `Wrote \`${path}\` on ${selectedProject.name}.`);
         } else {
-          state.mockFiles[`/mock/QuillCode/${path}`] = 'hello world\n';
+          state.mockFiles[`/mock/QuillCode/${path}`] = content;
           addToolCard({
             title: 'host.file.write',
             subtitle: 'Completed',
             status: 'done',
-            inputJSON: JSON.stringify({ path, content: 'hello world\n' }, null, 2),
+            inputJSON: JSON.stringify({ path, content }, null, 2),
             outputJSON: JSON.stringify({ ok: true, stdout: `Wrote /mock/QuillCode/${path}\n`, artifacts: [`/mock/QuillCode/${path}`] }, null, 2)
           });
           addMessage('assistant', `Wrote \`${path}\`.`);
@@ -10096,10 +10136,8 @@
         });
         addMessage('assistant', stdout.includes('not found') ? 'OpenClaw is not installed.' : `OpenClaw is installed at \`${stdout.trim()}\`.`);
       } else if (text.toLowerCase().includes('run') || text.toLowerCase().includes('whoami')) {
-        const cmd = text.match(/`([^`]+)`/)?.[1] || text.replace(/^run\s+/i, '') || 'whoami';
-        const output = isRemoteProject
-          ? remoteTerminalOutput(cmd.trim(), selectedProject.path, {})
-          : { stdout: 'mock-user\n', stderr: '', exitCode: 0 };
+        const cmd = shellCommandFromPrompt(text);
+        const output = mockShellOutputForPrompt(cmd, selectedProject, isRemoteProject);
         state.review = { ...state.review, files: [], pullRequestThreads: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
         addToolCard({
           title: 'host.shell.run',
