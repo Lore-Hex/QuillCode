@@ -82,6 +82,37 @@ final class TrustedRouterActionParserTests: XCTestCase {
         XCTAssertEqual(try arguments.requiredString("cmd"), "df -h /")
     }
 
+    func testActionParserRecoversNonBacktickedPromisedShellCommand() throws {
+        let action = try AgentActionJSONParser.parse("I'll run whoami on the device.")
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected recovered shell tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("cmd"), "whoami")
+    }
+
+    func testActionParserRecoversNonBacktickedDiskCheckCommand() throws {
+        let action = try AgentActionJSONParser.parse("I’ll check df -h / now.")
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected recovered shell tool action")
+        }
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("cmd"), "df -h /")
+    }
+
+    func testActionParserPreservesDottedPlainCommands() throws {
+        let action = try AgentActionJSONParser.parse("I'll run curl https://www.linkedin.com.")
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected recovered shell tool action")
+        }
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("cmd"), "curl https://www.linkedin.com")
+    }
+
     func testActionParserRepairsEmptyShellArgumentsFromExplicitNearbyCommand() throws {
         let action = try AgentActionJSONParser.parse("""
         I'll execute `command -v openclaw || which openclaw || echo 'not found'`.
@@ -99,14 +130,45 @@ final class TrustedRouterActionParserTests: XCTestCase {
         )
     }
 
+    func testActionParserRepairsEmptyShellArgumentsFromNonBacktickedNearbyCommand() throws {
+        let action = try AgentActionJSONParser.parse("""
+        I'll run whoami.
+        {"type":"tool","name":"host.shell.run","arguments":{}}
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected repaired shell tool action")
+        }
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("cmd"), "whoami")
+    }
+
     func testActionParserDoesNotRecoverPassiveBacktickedTextAsCommand() {
         XCTAssertThrowsError(try AgentActionJSONParser.parse("You can use `whoami` if you want.")) { error in
             XCTAssertTrue(String(describing: error).contains("valid QuillCode action JSON object"))
         }
     }
 
+    func testActionParserDoesNotRecoverPlainCommandWithoutExecutionIntent() {
+        XCTAssertThrowsError(try AgentActionJSONParser.parse("You can use whoami if you want.")) { error in
+            XCTAssertTrue(String(describing: error).contains("valid QuillCode action JSON object"))
+        }
+    }
+
+    func testActionParserDoesNotRecoverPassivePlainRunSuggestion() {
+        XCTAssertThrowsError(try AgentActionJSONParser.parse("You can run whoami if you want.")) { error in
+            XCTAssertTrue(String(describing: error).contains("valid QuillCode action JSON object"))
+        }
+    }
+
     func testActionParserDoesNotRecoverNegativeBacktickedCommandIntent() {
         XCTAssertThrowsError(try AgentActionJSONParser.parse("I will not run `rm -rf /`.")) { error in
+            XCTAssertTrue(String(describing: error).contains("valid QuillCode action JSON object"))
+        }
+    }
+
+    func testActionParserDoesNotRecoverPlainNegativeCommandIntent() {
+        XCTAssertThrowsError(try AgentActionJSONParser.parse("I will not run whoami.")) { error in
             XCTAssertTrue(String(describing: error).contains("valid QuillCode action JSON object"))
         }
     }

@@ -7791,3 +7791,20 @@ Code quality changes:
 Remaining risk:
 
 - This is deterministic browser harness coverage. The next layer should connect the same scenarios to a mock TrustedRouter transcript parser or live smoke harness so real model output is checked against the same one-turn action contract.
+
+## 2026-06-27 Agent Real-World Action Coverage Pass
+
+Overall grade after this slice: **A parser recovery guardrails, A agent one-turn action coverage, A- model-output tolerance**.
+
+The browser harness now catches simple action regressions at the UI level, but the deeper agent layer still needed direct coverage for malformed model output seen during device testing: `whoami?` should execute immediately, “I'll run whoami” must not become a dead promise, and an empty `host.shell.run` object should be repaired only when a nearby explicit command exists.
+
+Code quality changes:
+
+- Added agent-level coverage for the exact `whoami?` prompt, including inspection of the queued tool payload to require `{"cmd":"whoami"}`.
+- Added parser coverage for non-backticked promised shell commands, disk checks, dotted URL commands, and empty shell-argument repair from nearby plain-text commands.
+- Preserved conservative guardrails for passive suggestions and negative execution intent so the fallback does not turn arbitrary prose into commands.
+- Added an agent-loop regression that keeps non-backticked “I'll run ...” promises out of the transcript before the actual tool executes.
+
+Remaining risk:
+
+- Plain-text command recovery is intentionally narrow and allowlisted. Broader command recovery should come from stronger TrustedRouter structured output and live-model smoke tests, not from making this fallback permissive.

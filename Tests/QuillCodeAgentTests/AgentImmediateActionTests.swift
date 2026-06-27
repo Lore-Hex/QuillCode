@@ -12,6 +12,24 @@ final class AgentImmediateActionTests: XCTestCase {
         XCTAssertTrue(result.thread.messages.last?.content.hasPrefix("You are `") == true)
     }
 
+    func testWhoamiQuestionExecutesImmediatelyWithoutConfirmationLoop() async throws {
+        let root = try makeTempDirectory()
+        let result = try await AgentRunner().send("whoami?", in: ChatThread(mode: .auto), workspaceRoot: root)
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertTrue(result.thread.messages.last?.content.hasPrefix("You are `") == true)
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("I'll run") })
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("No shell command was specified") })
+
+        let queued = try XCTUnwrap(result.thread.events.first { $0.kind == .toolQueued })
+        let payloadJSON = try XCTUnwrap(queued.payloadJSON)
+        let call = try JSONDecoder().decode(ToolCall.self, from: Data(payloadJSON.utf8))
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
+        XCTAssertEqual(try arguments.requiredString("cmd"), "whoami")
+    }
+
     func testBacktickCommandDoesNotBecomeEmptyToolCall() async throws {
         let root = try makeTempDirectory()
         let result = try await AgentRunner().send("Run `pwd`", in: ChatThread(mode: .auto), workspaceRoot: root)
