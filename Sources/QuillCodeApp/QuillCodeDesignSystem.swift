@@ -2,6 +2,9 @@ import SwiftUI
 
 enum QuillCodeMetrics {
     static let minimumHitTarget: CGFloat = 44
+    static let compactTextButtonMinWidth: CGFloat = 72
+    static let compactControlRadius: CGFloat = 9
+    static let iconControlRadius: CGFloat = 10
     static let topBarHeight: CGFloat = 44
     static let composerSurfaceRadius: CGFloat = 12
     static let composerControlRadius: CGFloat = 10
@@ -59,6 +62,41 @@ extension View {
     ) -> some View {
         frame(minWidth: minWidth, minHeight: minHeight, alignment: alignment)
             .contentShape(Rectangle())
+    }
+
+    func quillCodeTextButtonTarget(
+        minWidth: CGFloat = QuillCodeMetrics.compactTextButtonMinWidth,
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .center,
+        radius: CGFloat = QuillCodeMetrics.compactControlRadius
+    ) -> some View {
+        frame(minWidth: minWidth, minHeight: minHeight, alignment: alignment)
+            .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+    }
+
+    func quillCodeIconButtonTarget(
+        radius: CGFloat = QuillCodeMetrics.iconControlRadius
+    ) -> some View {
+        frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+            .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+    }
+
+    func quillCodeFullRowButtonTarget(
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .leading,
+        radius: CGFloat = QuillCodeMetrics.compactControlRadius
+    ) -> some View {
+        frame(maxWidth: .infinity, minHeight: minHeight, alignment: alignment)
+            .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+    }
+
+    func quillCodeCapsuleButtonTarget(
+        minWidth: CGFloat? = nil,
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .center
+    ) -> some View {
+        frame(minWidth: minWidth, minHeight: minHeight, alignment: alignment)
+            .contentShape(Capsule())
     }
 
     func quillCodeSurface(

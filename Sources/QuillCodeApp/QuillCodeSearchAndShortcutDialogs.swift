@@ -248,14 +248,13 @@ private struct QuillCodeSearchResultRow: View {
                 }
             }
             .padding(12)
-            .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)
+            .quillCodeFullRowButtonTarget(radius: 12)
             .background(rowBackground)
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(rowStroke, lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(QuillCodePressableButtonStyle())
     }

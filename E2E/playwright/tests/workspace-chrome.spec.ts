@@ -246,6 +246,37 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   await expectHitTarget(page.getByTestId('model-favorite-button'), 'model favorite button');
   await page.getByTestId('model-picker-button').click();
 
+  await clickSidebarTool(page, 'browser-button');
+  await expect(page.getByTestId('browser-pane')).toBeVisible();
+  await expectHitTarget(page.getByTestId('browser-back'), 'browser back button');
+  await expectHitTarget(page.getByTestId('browser-forward'), 'browser forward button');
+  await expectHitTarget(page.getByTestId('browser-reload'), 'browser reload button');
+  await expectHitTarget(page.getByTestId('browser-session'), 'browser session button');
+  await expectHitTarget(page.getByTestId('browser-open'), 'browser open button');
+  await expectHitTarget(page.getByTestId('browser-add-comment'), 'browser comment button');
+
+  await clickSidebarTool(page, 'terminal-button');
+  await expect(page.getByTestId('terminal-pane')).toBeVisible();
+  await expectHitTarget(page.getByTestId('terminal-clear'), 'terminal clear button');
+  await expectHitTarget(page.getByTestId('terminal-run'), 'terminal run button');
+
+  await clickSidebarTool(page, 'activity-button');
+  await expect(page.getByTestId('activity-pane')).toBeVisible();
+  await expectHitTarget(page.getByTestId('activity-section-toggle'), 'activity section toggle');
+
+  await page.getByTestId('extensions-button').click();
+  await expect(page.getByTestId('extensions-pane')).toBeVisible();
+  await expectHitTarget(page.getByTestId('extension-install'), 'extension install button');
+
+  await page.getByTestId('automations-button').click();
+  await expect(page.getByTestId('automations-pane')).toBeVisible();
+  await expectHitTarget(page.getByTestId('automation-create-workspace-schedule'), 'automation create button');
+
+  await clickSidebarTool(page, 'memories-button');
+  await expect(page.getByTestId('memories-pane')).toBeVisible();
+  await expectHitTarget(page.getByTestId('memory-edit'), 'memory edit button');
+  await expectHitTarget(page.getByTestId('memory-delete'), 'memory delete button');
+
   await page.getByLabel('Message').fill('run whoami');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');

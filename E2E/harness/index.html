@@ -65,6 +65,26 @@
       align-items: center;
       justify-content: center;
     }
+    button,
+    summary,
+    a.interactive-hit-target {
+      min-height: var(--hit-target);
+      touch-action: manipulation;
+    }
+    button {
+      cursor: pointer;
+      transition-property: transform, background-color, box-shadow, color;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    button:active:not(:disabled),
+    summary:active,
+    a.interactive-hit-target:active {
+      transform: scale(.96);
+    }
+    button:disabled {
+      cursor: not-allowed;
+    }
     a.interactive-hit-target {
       text-decoration: none;
     }
@@ -1131,11 +1151,12 @@
     }
     .activity-section button {
       width: 100%;
+      min-height: var(--hit-target);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      padding: 0;
+      padding: 0 2px;
       border: 0;
       background: transparent;
       color: var(--muted);
@@ -1409,6 +1430,8 @@
     .memories-add-button,
     .memory-edit-button,
     .memory-delete-button {
+      min-width: var(--hit-target);
+      min-height: var(--hit-target);
       font: inherit;
       cursor: pointer;
     }
@@ -1516,6 +1539,8 @@
       line-height: 1.25;
     }
     .extension-card button {
+      min-width: 72px;
+      min-height: var(--hit-target);
       justify-self: start;
       padding: 7px 11px;
       border: 1px solid rgba(65,184,232,.24);

@@ -44,6 +44,22 @@ Residual risk:
 
 - Native SwiftUI hit targets are still source-guarded rather than measured by screenshot/UI automation. Keep mirroring critical controls in Playwright until native UI automation exists.
 
+## 2026-06-27 Click Target Standardization Pass
+
+Overall grade after this slice: **A click-target consistency, A interaction regression coverage, A- native measurement**.
+
+Click targets are now a design-system concern instead of a local padding habit. Compact controls remain visually dense, but text buttons, icon-only buttons, full-row buttons, and capsule controls use semantic helpers that preserve a 44 pt minimum target and make source review straightforward.
+
+- Added `quillCodeTextButtonTarget`, `quillCodeIconButtonTarget`, and `quillCodeFullRowButtonTarget` beside the existing pressable button style.
+- Moved browser, terminal, settings, worktree, context banner, sidebar, model picker, memory, review, transcript, command/search result, composer suggestion, and tool-card controls onto the semantic target helpers.
+- Added a global HTML harness baseline for `button`, `summary`, and link-style interactive targets, including 0.96 press feedback and targeted sizing for activity, memory, and extension controls.
+- Expanded Playwright coverage to measure rendered hit boxes for browser, terminal, activity, extensions, automations, and memory controls.
+- Expanded parity gates so native and HTML controls cannot quietly drift back to ad hoc frames or platform-default compact targets.
+
+Residual risk:
+
+- Native SwiftUI measurement is still source-gated. The Playwright harness now measures the corresponding rendered controls; add native UI automation before relying on exact platform pixels in packaged builds.
+
 ## 2026-06-27 Desktop Pane Coordinator Pass
 
 Overall grade after this slice: **A- desktop pane routing, A browser-comment mutation ownership, A controller readability**.

@@ -69,7 +69,7 @@ struct QuillCodeSidebarBulkActionsView: View {
                         }
                         .font(.caption.weight(.semibold))
                         .padding(.horizontal, 10)
-                        .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+                        .quillCodeTextButtonTarget(minWidth: 56, radius: 8)
                         .background((action.isDestructive ? QuillCodePalette.red : QuillCodePalette.panel).opacity(action.isEnabled ? 1 : 0.45))
                         .foregroundStyle(action.isDestructive ? Color.white : QuillCodePalette.text)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))

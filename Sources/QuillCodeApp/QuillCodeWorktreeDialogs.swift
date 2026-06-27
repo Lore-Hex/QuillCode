@@ -35,10 +35,10 @@ struct QuillCodeWorktreeOpenView: View {
             HStack {
                 Spacer()
                 Button("Cancel", action: onCancel)
-                    .quillCodeHitTarget(minWidth: 72)
+                    .quillCodeTextButtonTarget()
                 Button("Open", action: onOpen)
                     .buttonStyle(.borderedProminent)
-                    .quillCodeHitTarget(minWidth: 72)
+                    .quillCodeTextButtonTarget()
                     .disabled(!draft.canOpen)
             }
         }
@@ -79,10 +79,10 @@ struct QuillCodeWorktreeCreateView: View {
             HStack {
                 Spacer()
                 Button("Cancel", action: onCancel)
-                    .quillCodeHitTarget(minWidth: 72)
+                    .quillCodeTextButtonTarget()
                 Button("Create", action: onCreate)
                     .buttonStyle(.borderedProminent)
-                    .quillCodeHitTarget(minWidth: 82)
+                    .quillCodeTextButtonTarget(minWidth: 82)
                     .disabled(!draft.canCreate)
             }
         }
@@ -127,10 +127,10 @@ struct QuillCodeWorktreeRemoveView: View {
             HStack {
                 Spacer()
                 Button("Cancel", action: onCancel)
-                    .quillCodeHitTarget(minWidth: 72)
+                    .quillCodeTextButtonTarget()
                 Button("Remove", action: onRemove)
                     .buttonStyle(.borderedProminent)
-                    .quillCodeHitTarget(minWidth: 84)
+                    .quillCodeTextButtonTarget(minWidth: 84)
                     .disabled(!draft.canRemove)
             }
         }
@@ -165,10 +165,10 @@ struct QuillCodeWorktreePruneView: View {
                     .lineLimit(2)
                 Spacer()
                 Button("Cancel", action: onCancel)
-                    .quillCodeHitTarget(minWidth: 72)
+                    .quillCodeTextButtonTarget()
                 Button("Prune", action: onPrune)
                     .buttonStyle(.borderedProminent)
-                    .quillCodeHitTarget(minWidth: 72)
+                    .quillCodeTextButtonTarget()
                     .disabled(!draft.canPrune)
             }
         }

@@ -11,8 +11,7 @@ struct QuillCodeReviewActionButton: View {
         } label: {
             Label(action.kind.title, systemImage: action.kind.systemImage)
                 .labelStyle(.iconOnly)
-                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
-                .contentShape(Rectangle())
+                .quillCodeIconButtonTarget()
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("\(action.kind.title) \(path)")

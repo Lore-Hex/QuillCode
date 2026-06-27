@@ -65,11 +65,11 @@ struct QuillCodeBrowserPaneView: View {
                 .onSubmit(onOpen)
                 .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
             Button("Open", action: onOpen)
-                .quillCodeHitTarget(minWidth: 72)
+                .quillCodeTextButtonTarget()
                 .disabled(addressDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             if let onOpenSession {
                 Button("Session", action: onOpenSession)
-                    .quillCodeHitTarget(minWidth: 84)
+                    .quillCodeTextButtonTarget(minWidth: 84)
                     .disabled(!browser.canOpen && browser.currentURL == nil)
                     .help("Open a visible browser session using QuillCode's persistent browser profile.")
             }
@@ -182,7 +182,7 @@ struct QuillCodeBrowserPaneView: View {
                 .onSubmit(addComment)
                 .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
             Button("Comment", action: addComment)
-                .quillCodeHitTarget(minWidth: 92)
+                .quillCodeTextButtonTarget(minWidth: 92)
                 .disabled(browser.currentURL == nil || commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
     }
@@ -224,10 +224,7 @@ struct QuillCodeBrowserPaneView: View {
     ) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .frame(
-                    minWidth: QuillCodeMetrics.minimumHitTarget,
-                    minHeight: QuillCodeMetrics.minimumHitTarget
-                )
+                .quillCodeIconButtonTarget()
         }
         .buttonStyle(.bordered)
         .controlSize(.small)

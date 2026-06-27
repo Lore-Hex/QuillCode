@@ -59,8 +59,7 @@ struct QuillCodeModelRow: View {
                                 .accessibilityLabel("Current model")
                         }
                     }
-                    .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
-                    .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .quillCodeFullRowButtonTarget(radius: 10)
                 }
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .help(option.metadataDetails.joined(separator: "\n"))
@@ -183,8 +182,7 @@ struct QuillCodeModelRow: View {
             Image(systemName: systemImage)
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(tint)
-                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
-                .contentShape(Circle())
+                .quillCodeIconButtonTarget()
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help(title)

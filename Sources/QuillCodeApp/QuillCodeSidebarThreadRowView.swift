@@ -27,8 +27,7 @@ struct QuillCodeSidebarThreadRowView: View {
                 Image(systemName: item.isBulkSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(item.isBulkSelected ? QuillCodePalette.blue : QuillCodePalette.muted)
-                    .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
-                    .contentShape(Rectangle())
+                    .quillCodeIconButtonTarget()
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .accessibilityLabel(item.isBulkSelected ? "Deselect \(item.title)" : "Select \(item.title)")
@@ -52,7 +51,7 @@ struct QuillCodeSidebarThreadRowView: View {
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
             }
-            .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)
+            .quillCodeFullRowButtonTarget()
         }
         .buttonStyle(QuillCodePressableButtonStyle())
     }
@@ -68,9 +67,8 @@ struct QuillCodeSidebarThreadRowView: View {
             }
         } label: {
             Image(systemName: "ellipsis")
-                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+                .quillCodeIconButtonTarget()
                 .foregroundStyle(QuillCodePalette.muted)
-                .contentShape(Rectangle())
         }
         .buttonStyle(QuillCodePressableButtonStyle())
     }

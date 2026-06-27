@@ -37,8 +37,7 @@ struct QuillCodeReviewLineRowView: View {
                 } label: {
                     Label("Comment on line \(line.lineLabel)", systemImage: "plus.bubble")
                         .labelStyle(.iconOnly)
-                        .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
-                        .contentShape(Rectangle())
+                        .quillCodeIconButtonTarget()
                 }
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .help("Comment on line \(line.lineLabel)")
@@ -93,7 +92,7 @@ struct QuillCodeReviewLineRowView: View {
                     isAddingComment = false
                 }
                 .font(.caption.weight(.semibold))
-                .frame(minWidth: QuillCodeMetrics.minimumHitTarget, minHeight: QuillCodeMetrics.minimumHitTarget)
+                .quillCodeTextButtonTarget(minWidth: QuillCodeMetrics.minimumHitTarget)
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .disabled(commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }

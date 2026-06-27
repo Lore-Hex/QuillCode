@@ -146,13 +146,12 @@ struct QuillCodeTopBarView: View {
             }
             .foregroundStyle(Color.white)
             .padding(.horizontal, 12)
-            .frame(minWidth: 64, minHeight: QuillCodeMetrics.minimumHitTarget)
+            .quillCodeTextButtonTarget(minWidth: 64, radius: QuillCodeMetrics.minimumHitTarget / 2)
             .background(QuillCodePalette.red.opacity(0.90))
             .overlay {
                 Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1)
             }
             .clipShape(Capsule())
-            .contentShape(Capsule())
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("Stop active work")
@@ -177,10 +176,9 @@ struct QuillCodeTopBarView: View {
             Image(systemName: "ellipsis")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(QuillCodePalette.muted)
-                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+                .quillCodeIconButtonTarget()
                 .background(QuillCodePalette.selection.opacity(0.22))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("More")
@@ -241,13 +239,12 @@ struct QuillCodeModePickerButton: View {
             }
             .foregroundStyle(QuillCodePalette.text)
             .padding(.horizontal, 10)
-            .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+            .quillCodeCapsuleButtonTarget()
             .background(QuillCodePalette.selection.opacity(0.62))
             .overlay {
                 Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1)
             }
             .clipShape(Capsule())
-            .contentShape(Capsule())
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("Choose Auto safety mode")

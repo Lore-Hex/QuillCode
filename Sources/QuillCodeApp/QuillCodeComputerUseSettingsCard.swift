@@ -96,7 +96,7 @@ struct QuillCodeComputerUseSettingsCard: View {
                 onCommand(settings.computerUseRefreshCommand)
             }
             .buttonStyle(QuillCodePressableButtonStyle())
-            .quillCodeHitTarget(minWidth: 112, alignment: .leading)
+            .quillCodeTextButtonTarget(minWidth: 112, alignment: .leading)
             Spacer()
         }
         .font(.caption.weight(.semibold))
@@ -138,7 +138,7 @@ private struct QuillCodePermissionRow: View {
                 .buttonStyle(.bordered)
                 .disabled(!requirement.command.isEnabled)
                 .controlSize(.small)
-                .frame(minWidth: 72, minHeight: QuillCodeMetrics.minimumHitTarget)
+                .quillCodeTextButtonTarget()
             }
         }
         .padding(10)
