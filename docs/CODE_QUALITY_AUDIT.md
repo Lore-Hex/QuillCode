@@ -7318,3 +7318,29 @@ File grades:
 Residual risk:
 
 - Native SwiftUI hit boxes are compile-covered but still not pixel-measured. When native screenshot/UI automation lands, mirror the Playwright bounding-box assertions for AppKit/SwiftUI controls.
+
+## 2026-06-27 Agent Answer Formatter Family Split
+
+Overall grade after this slice: **A registry ownership, A formatter family boundaries, A shared argument parsing**.
+
+`AgentToolAnswerFormatters.swift` had become the correct owner after the reducer split, but it still mixed unrelated formatter families in one 462-line file. That made a browser answer tweak compete with shell summaries, PR review-thread GraphQL response models, worktree prune copy, utility tool copy, MCP output, and Computer Use feedback.
+
+Code quality changes:
+
+- Reduced `AgentToolAnswerFormatters` to the formatter registry and shared truncation helper.
+- Split domain copy into focused files: `AgentShellToolAnswerFormatters`, `AgentBrowserToolAnswerFormatters`, `AgentGitToolAnswerFormatters`, and `AgentUtilityToolAnswerFormatters`.
+- Added `AgentToolAnswerFormatterSupport` for shared argument parsing, boolean parsing, first-line extraction, and trimmed non-empty string handling.
+- Updated agent and browser parity gates to protect the new registry-plus-family boundary.
+- Preserved existing final-answer copy and all tool summary behavior.
+
+Strict grades:
+
+- `AgentToolAnswerFormatters.swift`: **A**. It now reads as a registry with no domain-specific parsing or response models.
+- `AgentShellToolAnswerFormatters.swift`: **A**. Shell command special cases are cohesive and isolated from unrelated tool families.
+- `AgentBrowserToolAnswerFormatters.swift`: **A**. Browser open/inspect copy now sits beside the browser output projection code that will likely evolve with browser parity.
+- `AgentGitToolAnswerFormatters.swift`: **A-**. Worktree and PR review-thread copy are both git-family behavior. If more PR output formatting lands, split PR answer models into a `AgentPullRequestToolAnswerFormatters` file.
+- `AgentUtilityToolAnswerFormatters.swift`: **A-**. Utility tools remain compact enough together; split MCP or Computer Use only if those summaries become multi-state.
+
+Remaining parity risk:
+
+- Formatter tests still validate behavior through `AgentFinalAnswerBuilderTests`, which is appropriate for user-visible copy. If any formatter family gains branching policy beyond summary formatting, add direct focused tests for that family.
