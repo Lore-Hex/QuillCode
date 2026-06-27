@@ -389,6 +389,37 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         }
     }
 
+    func testPlaywrightRealWorldActionFlowsStayInFocusedSpec() throws {
+        let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
+        let actionSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("real-world-actions.spec.ts"),
+            encoding: .utf8
+        )
+        let coreSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("core.spec.ts"),
+            encoding: .utf8
+        )
+        let artifactSpecText = try String(
+            contentsOf: testRoot.appendingPathComponent("artifacts.spec.ts"),
+            encoding: .utf8
+        )
+        let actionFlowNames = [
+            "runs natural shell requests immediately with nonempty arguments",
+            "writes requested file content immediately without a confirmation loop"
+        ]
+
+        XCTAssertTrue(actionSpecText.contains("harnessURL()"), "Focused real-world action flows should reuse the shared harness URL helper.")
+        XCTAssertTrue(actionSpecText.contains("whoami?"), "Focused real-world action flows should cover natural command punctuation.")
+        XCTAssertTrue(actionSpecText.contains("Run `ls`"), "Focused real-world action flows should cover backticked command extraction.")
+        XCTAssertTrue(actionSpecText.contains("No shell command was specified"), "Focused real-world action flows should guard against empty shell argument regressions.")
+        XCTAssertTrue(actionSpecText.contains("confirmation loop"), "Focused real-world action flows should guard against extra acknowledgement turns.")
+        for flowName in actionFlowNames {
+            XCTAssertTrue(actionSpecText.contains(flowName), "\(flowName) should live in real-world-actions.spec.ts.")
+            XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
+            XCTAssertFalse(artifactSpecText.contains(flowName), "\(flowName) should not drift back into artifacts.spec.ts.")
+        }
+    }
+
     func testPlaywrightShortcutFlowsStayInFocusedSpec() throws {
         let testRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
         let shortcutSpecText = try String(

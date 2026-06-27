@@ -7758,3 +7758,21 @@ Ready-to-run approval cards now use progressive disclosure: the user sees the de
 Remaining risk:
 
 - This pass is documentation-only after the implementation merge. If tool-card density evolves again, update `ToolCardState` tests, Playwright review tests, the parity matrix, and this audit together.
+
+## 2026-06-27 Real-World Action E2E Coverage Pass
+
+Overall grade after this slice: **A focused browser coverage, A- mock command realism, A parity guard**.
+
+The user-visible regressions around simple shell/file actions needed a focused browser spec instead of relying on broad coverage buried in `core.spec.ts` and `artifacts.spec.ts`. Natural prompts such as `whoami?`, backticked commands such as `Run \`ls\``, and file creation requests now have direct E2E coverage for one-turn execution, nonempty structured arguments, final-answer rendering, and absence of confirmation-loop placeholder responses.
+
+Code quality changes:
+
+- Added `real-world-actions.spec.ts` for high-signal user flows that should never regress silently.
+- Normalized natural shell prompts in the harness so punctuation and polite wrappers do not become literal command text.
+- Routed mock shell prompts through the same terminal-output simulator used by the integrated terminal.
+- Parsed simple file-write requests into a bounded request object instead of relying on a broad string branch.
+- Added a parity gate so the real-world action spec remains focused and keeps guarding against empty shell arguments.
+
+Remaining risk:
+
+- This is deterministic browser harness coverage. The next layer should connect the same scenarios to a mock TrustedRouter transcript parser or live smoke harness so real model output is checked against the same one-turn action contract.

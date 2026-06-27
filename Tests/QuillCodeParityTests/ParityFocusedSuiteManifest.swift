@@ -33,6 +33,7 @@ struct ParityFocusedSuiteManifest {
             "testPlaywrightWorkspaceChromeFlowsStayInFocusedSpec",
             "testPlaywrightWorkspaceStateFlowsStayInFocusedSpec",
             "testPlaywrightStatusFlowsStayInFocusedSpec",
+            "testPlaywrightRealWorldActionFlowsStayInFocusedSpec",
             "testPlaywrightShortcutFlowsStayInFocusedSpec",
             "testPlaywrightReviewFlowsStayInFocusedSpec"
         ]),
