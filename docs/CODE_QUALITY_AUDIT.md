@@ -7367,3 +7367,29 @@ Strict grades:
 Remaining risk:
 
 - Desktop executable behavior is still guarded through parity/source gates rather than a dedicated desktop XCTest target. If the package later exposes desktop coordinators as a library target, add direct coordinator tests with fake backend and opener injections.
+
+## 2026-06-27 Provider Outage Runtime Diagnostics
+
+Overall grade after this slice: **A runtime classification ownership, A diagnostics redaction, A- live provider-health parity**.
+
+TrustedRouter runtime failures already normalized missing auth, rejected keys, rate limits, network failures, empty responses, malformed actions, and generic failures. Provider-side outages still fell through as generic failures or network-ish errors, which made live model instability harder to distinguish from local connectivity or key problems.
+
+Changes:
+
+- Added provider identity to runtime diagnostics for every runtime issue surface.
+- Classified 5xx/upstream/provider-unavailable errors as `TrustedRouter provider unavailable` with model-switch recovery.
+- Parsed provider-outage diagnostics for provider status, HTTP status, and request ID while preserving existing secret redaction for the raw last-error line.
+- Kept 5xx detection regex-based so arbitrary text such as token counts does not become a provider outage.
+- Mirrored provider-outage diagnostics in the Playwright harness and added settings recovery coverage for model-switch action plus diagnostics rendering.
+- Updated parity gates so provider outage classification and diagnostics stay in `WorkspaceRuntimeIssueBuilder` rather than drifting into `WorkspaceSurface`.
+
+File grades:
+
+- `WorkspaceRuntimeIssueBuilder.swift`: **A**. Runtime issue classification remains pure, directly testable, and renderer-independent.
+- `WorkspaceRuntimeIssueBuilderTests.swift`: **A**. Tests cover provider diagnostics, request IDs, provider labels, and the false-positive guard.
+- `settings.spec.ts`: **A**. Runtime recovery now covers sign-in, network retry, malformed output, rate limit, and provider-outage branches.
+- `ParityWorkspaceRuntimeReviewGateTests.swift`: **A**. The gate now protects rate-limit, provider-outage, and redaction ownership together.
+
+Residual risk:
+
+- This is local runtime-error classification, not live provider-health telemetry. Full parity still needs a stable TrustedRouter provider-status source before QuillCode can proactively warn about outages before a run fails.

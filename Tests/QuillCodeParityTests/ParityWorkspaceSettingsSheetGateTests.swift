@@ -132,7 +132,8 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
             "retries the last user turn from a runtime issue",
             "shows runtime diagnostics in settings",
             "opens model picker from malformed model issue",
-            "surfaces rate limits with model-switch recovery and diagnostics"
+            "surfaces rate limits with model-switch recovery and diagnostics",
+            "surfaces provider outages with model-switch recovery and diagnostics"
         ]
 
         XCTAssertTrue(settingsSpecText.contains("harnessURL()"), "Focused settings/runtime flows should reuse the shared harness URL helper.")
@@ -140,6 +141,7 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(settingsSpecText.contains("computer-use-settings"), "Focused settings flows should cover Computer Use onboarding.")
         XCTAssertTrue(settingsSpecText.contains("runtime-diagnostics"), "Focused runtime flows should cover diagnostic redaction.")
         XCTAssertTrue(settingsSpecText.contains("TrustedRouter rate limit reached"), "Focused runtime flows should cover rate-limit recovery.")
+        XCTAssertTrue(settingsSpecText.contains("TrustedRouter provider unavailable"), "Focused runtime flows should cover provider-outage recovery.")
         for flowName in settingsFlowNames {
             XCTAssertTrue(settingsSpecText.contains(flowName), "\(flowName) should live in settings.spec.ts.")
             XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")

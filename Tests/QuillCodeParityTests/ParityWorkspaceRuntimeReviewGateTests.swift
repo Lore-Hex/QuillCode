@@ -29,12 +29,15 @@ final class ParityWorkspaceRuntimeReviewGateTests: QuillCodeParityTestCase {
         let builderText = try Self.appSourceText(named: "WorkspaceRuntimeIssueBuilder.swift")
 
         XCTAssertTrue(builderText.contains("struct WorkspaceRuntimeIssueBuilder"), "Runtime issue classification should live in a focused builder.")
-        XCTAssertTrue(builderText.contains("static func issue(from error:"), "Runtime error classification should be directly testable.")
+        XCTAssertTrue(builderText.contains("static func issue("), "Runtime error classification should be directly testable.")
+        XCTAssertTrue(builderText.contains("from error: String"), "Runtime error classification should keep an explicit error input.")
         XCTAssertTrue(builderText.contains("static func rateLimitDiagnostics"), "Rate-limit diagnostics should be directly testable.")
+        XCTAssertTrue(builderText.contains("static func providerOutageDiagnostics"), "Provider outage diagnostics should be directly testable.")
         XCTAssertTrue(builderText.contains("static func redactedDiagnosticError"), "Secret redaction should be directly testable.")
         XCTAssertTrue(surfaceText.contains("WorkspaceRuntimeIssueBuilder("), "WorkspaceSurface should delegate runtime issue construction.")
         XCTAssertFalse(surfaceText.contains("static func issue(from error:"), "WorkspaceSurface should not own runtime error classification.")
         XCTAssertFalse(surfaceText.contains("rateLimitDiagnostics(from error:"), "WorkspaceSurface should not own rate-limit diagnostics.")
+        XCTAssertFalse(surfaceText.contains("providerOutageDiagnostics(from error:"), "WorkspaceSurface should not own provider outage diagnostics.")
         XCTAssertFalse(surfaceText.contains("redactedDiagnosticError"), "WorkspaceSurface should not own secret redaction.")
     }
 

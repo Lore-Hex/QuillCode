@@ -18,10 +18,12 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
             "Authentication",
             "Key state",
             "Model",
+            "Provider",
             "Agent status"
         ])
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Authentication" }?.value, "TrustedRouter login")
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Key state" }?.value, "Missing")
+        XCTAssertEqual(issue?.diagnostics.first { $0.label == "Provider" }?.value, "trustedrouter")
     }
 
     func testDeveloperKeyIssueUsesDeveloperOverrideDiagnostics() {
@@ -36,6 +38,7 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
         XCTAssertEqual(issue?.actionLabel, "Add key")
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Authentication" }?.value, "Developer override")
         XCTAssertEqual(issue?.diagnostics.first { $0.label == "Model" }?.value, TrustedRouterDefaults.synthModel)
+        XCTAssertEqual(issue?.diagnostics.first { $0.label == "Provider" }?.value, "trustedrouter")
     }
 
     func testRuntimeStatusLabelsPreserveStableUserFacingCopy() {
@@ -69,6 +72,26 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
         XCTAssertFalse(lastError.contains("abcdefghijklmnop"))
     }
 
+    func testProviderOutageIssueAddsProviderDiagnostics() {
+        let issue = WorkspaceRuntimeIssueBuilder(
+            config: AppConfig(),
+            hasStoredAPIKey: true,
+            modelID: "deepseek/deepseek-v4-flash",
+            agentStatus: "Failed",
+            lastError: "HTTP 503 service unavailable from upstream provider. request-id: req_abc123"
+        ).surface()
+
+        XCTAssertEqual(issue?.severity, .warning)
+        XCTAssertEqual(issue?.title, "TrustedRouter provider unavailable")
+        XCTAssertEqual(issue?.actionLabel, "Switch model")
+        XCTAssertTrue(issue?.message.contains("deepseek") == true)
+        XCTAssertTrue(issue?.message.contains("Deepseek V4 Flash") == true)
+        XCTAssertEqual(issue?.diagnostics.first { $0.label == "Provider" }?.value, "deepseek")
+        XCTAssertEqual(issue?.diagnostics.first { $0.label == "Provider status" }?.value, "Unavailable")
+        XCTAssertEqual(issue?.diagnostics.first { $0.label == "HTTP status" }?.value, "503")
+        XCTAssertEqual(issue?.diagnostics.first { $0.label == "Request ID" }?.value, "req_abc123")
+    }
+
     func testNetworkIssueUsesConfiguredBaseURL() {
         let issue = WorkspaceRuntimeIssueBuilder.issue(
             from: "request timed out while connecting",
@@ -93,5 +116,15 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
         XCTAssertEqual(issue?.actionLabel, "Switch model")
         XCTAssertTrue(issue?.message.contains(TrustedRouterDefaults.fastModelDisplayName) == true)
         XCTAssertTrue(issue?.message.contains(TrustedRouterDefaults.synthModelDisplayName) == true)
+    }
+
+    func testArbitraryNumbersDoNotBecomeProviderOutages() {
+        let issue = WorkspaceRuntimeIssueBuilder.issue(
+            from: "Provider reported roughly 500 queued tokens before a timeout",
+            config: AppConfig(),
+            modelID: "deepseek/deepseek-v4-flash"
+        )
+
+        XCTAssertNotEqual(issue?.title, "TrustedRouter provider unavailable")
     }
 }
