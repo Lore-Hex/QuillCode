@@ -30,6 +30,7 @@ public enum AgentActionStreamCollector {
             rawActionText.append(chunk)
             guard let visibleText = AgentActionStreamPreview.visibleAssistantText(from: rawActionText),
                   !visibleText.isEmpty,
+                  !AgentPromisedWorkGuard.shouldSuppressStreamingPreview(for: visibleText),
                   visibleText != lastVisibleText
             else {
                 continue

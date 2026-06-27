@@ -36,6 +36,21 @@ final class AgentPromisedWorkGuardTests: XCTestCase {
         ))
     }
 
+    func testSuppressesPromisedWorkStreamingPreview() {
+        XCTAssertTrue(AgentPromisedWorkGuard.shouldSuppressStreamingPreview(
+            for: "I'll"
+        ))
+        XCTAssertTrue(AgentPromisedWorkGuard.shouldSuppressStreamingPreview(
+            for: "I'll check your Quill's disk usage now."
+        ))
+        XCTAssertFalse(AgentPromisedWorkGuard.shouldSuppressStreamingPreview(
+            for: "I can run commands, edit files, and review diffs when you ask."
+        ))
+        XCTAssertFalse(AgentPromisedWorkGuard.shouldSuppressStreamingPreview(
+            for: "Let me know if you want a deeper review."
+        ))
+    }
+
     func testCorrectionPromptKeepsSchemaBoundaryExplicit() {
         let prompt = AgentPromisedWorkGuard.correctionPrompt(
             assistantText: "I'll run whoami.",
