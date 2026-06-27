@@ -88,6 +88,13 @@ enum WorkspaceGitCommandCatalog {
                 isEnabled: hasWorkspaceOrRemoteProject
             ),
             WorkspaceCommandSurface(
+                id: "git-pr-review-threads",
+                title: "List pull request review threads",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["github", "pr", "review", "thread", "threads", "unresolved", "ids", "browse"],
+                isEnabled: hasWorkspaceOrRemoteProject
+            ),
+            WorkspaceCommandSurface(
                 id: "git-pr-review-thread",
                 title: "Resolve pull request review thread",
                 category: WorkspaceCommandPalette.gitCategory,

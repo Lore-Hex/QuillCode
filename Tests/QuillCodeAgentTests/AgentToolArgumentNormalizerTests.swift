@@ -120,5 +120,11 @@ final class AgentToolArgumentNormalizerTests: XCTestCase {
                 arguments: [:]
             )
         )
+        XCTAssertTrue(
+            AgentToolArgumentNormalizer.hasMinimumRequiredArguments(
+                for: ToolDefinition.gitPullRequestReviewThreads.name,
+                arguments: [:]
+            )
+        )
     }
 }

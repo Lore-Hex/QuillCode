@@ -25,6 +25,7 @@ struct GitToolCallDispatcher: Sendable {
         .gitPullRequestReview,
         .gitPullRequestReviewComment,
         .gitPullRequestReviewReply,
+        .gitPullRequestReviewThreads,
         .gitPullRequestReviewThread,
         .gitPullRequestMerge,
         .gitWorktreeList,
@@ -141,6 +142,11 @@ struct GitToolCallDispatcher: Sendable {
                 selector: args.string("selector"),
                 commentID: try args.requiredInt("commentId"),
                 body: try args.requiredString("body")
+            )
+        case ToolDefinition.gitPullRequestReviewThreads.name:
+            return git.listPullRequestReviewThreads(
+                cwd: workspaceRoot,
+                selector: args.string("selector")
             )
         case ToolDefinition.gitPullRequestReviewThread.name:
             return git.updatePullRequestReviewThread(

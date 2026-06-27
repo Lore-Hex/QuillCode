@@ -16,6 +16,7 @@ enum WorkspaceRemoteGitHubPullRequestCommandBuilder {
         ToolDefinition.gitPullRequestReview.name,
         ToolDefinition.gitPullRequestReviewComment.name,
         ToolDefinition.gitPullRequestReviewReply.name,
+        ToolDefinition.gitPullRequestReviewThreads.name,
         ToolDefinition.gitPullRequestReviewThread.name,
         ToolDefinition.gitPullRequestMerge.name
     ]
@@ -81,6 +82,8 @@ enum WorkspaceRemoteGitHubPullRequestCommandBuilder {
                 commentID: try args.requiredInt("commentId"),
                 body: try args.requiredString("body")
             )
+        case ToolDefinition.gitPullRequestReviewThreads.name:
+            return try reviewThreads(selector: args.string("selector"))
         case ToolDefinition.gitPullRequestReviewThread.name:
             return try reviewThread(
                 threadID: try args.requiredString("threadId"),
@@ -322,6 +325,22 @@ enum WorkspaceRemoteGitHubPullRequestCommandBuilder {
             "pr_number=$(\(shellCommand(viewArguments)))",
             "repo=$(\(shellCommand(["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"])))",
             "gh api \"repos/${repo}/pulls/${pr_number}/comments/\(commentID)/replies\" \(quoted("--raw-field")) \(quoted("body=\(body)"))"
+        ].joined(separator: " && ")
+    }
+
+    private static func reviewThreads(selector: String?) throws -> String {
+        var viewArguments = ["gh", "pr", "view"]
+        if let selector = try GitHubPullRequestInputValidator.safeSelector(selector) {
+            viewArguments.append(selector)
+        }
+        viewArguments += ["--json", "number", "--jq", ".number"]
+
+        return [
+            "pr_number=$(\(shellCommand(viewArguments)))",
+            "repo=$(\(shellCommand(["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"])))",
+            "owner=${repo%%/*}",
+            "name=${repo#*/}",
+            "gh api graphql \(quoted("--raw-field")) \"owner=${owner}\" \(quoted("--raw-field")) \"name=${name}\" \(quoted("--field")) \"number=${pr_number}\" \(quoted("--raw-field")) \(quoted("query=\(GitHubPullRequestReviewThreadsQuery.graphql)"))"
         ].joined(separator: " && ")
     }
 

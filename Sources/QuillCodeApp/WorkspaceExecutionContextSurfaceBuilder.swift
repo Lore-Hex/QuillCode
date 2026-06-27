@@ -80,6 +80,7 @@ struct WorkspaceExecutionContextSurfaceBuilder: Sendable, Hashable {
         ToolDefinition.gitPullRequestReview.name,
         ToolDefinition.gitPullRequestReviewComment.name,
         ToolDefinition.gitPullRequestReviewReply.name,
+        ToolDefinition.gitPullRequestReviewThreads.name,
         ToolDefinition.gitPullRequestReviewThread.name,
         ToolDefinition.gitPullRequestMerge.name,
         ToolDefinition.gitWorktreeList.name,

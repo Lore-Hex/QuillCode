@@ -294,6 +294,29 @@ public struct GitHubPullRequestToolExecutor: Sendable {
         }
     }
 
+    public func reviewThreads(cwd: URL, selector: String? = nil) -> ToolResult {
+        do {
+            let pullRequest = try metadataResolver.pullRequest(selector: selector, cwd: cwd)
+            let repository = try metadataResolver.repository(cwd: cwd)
+            let (owner, name) = try repositoryOwnerAndName(repository.nameWithOwner)
+            let arguments = [
+                "api",
+                "graphql",
+                "--raw-field",
+                "owner=\(owner)",
+                "--raw-field",
+                "name=\(name)",
+                "--field",
+                "number=\(pullRequest.number)",
+                "--raw-field",
+                "query=\(GitHubPullRequestReviewThreadsQuery.graphql)"
+            ]
+            return runner.runGitHub(arguments, cwd: cwd, timeoutSeconds: 60)
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
     public func reviewThread(
         cwd: URL,
         threadID: String,
@@ -347,6 +370,14 @@ public struct GitHubPullRequestToolExecutor: Sendable {
         let mutation = action == "resolve" ? "resolveReviewThread" : "unresolveReviewThread"
         let nonNull = "\u{21}"
         return "mutation($threadId: ID\(nonNull)) { \(mutation)(input: {threadId: $threadId}) { thread { id isResolved } } }"
+    }
+
+    private func repositoryOwnerAndName(_ nameWithOwner: String) throws -> (owner: String, name: String) {
+        let parts = nameWithOwner.split(separator: "/", maxSplits: 1).map(String.init)
+        guard parts.count == 2, !parts[0].isEmpty, !parts[1].isEmpty else {
+            throw GitToolError.invalidPullRequestSelector(nameWithOwner)
+        }
+        return (parts[0], parts[1])
     }
 
     private func addURLArtifacts(to result: ToolResult) -> ToolResult {

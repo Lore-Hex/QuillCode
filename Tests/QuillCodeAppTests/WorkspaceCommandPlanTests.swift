@@ -26,6 +26,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .runTool(name: ToolDefinition.gitPullRequestDiff.name)
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "git-pr-review-threads"),
+            .runTool(name: ToolDefinition.gitPullRequestReviewThreads.name)
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "git-worktree-list"),
             .runTool(name: ToolDefinition.gitWorktreeList.name)
         )

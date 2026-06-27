@@ -196,6 +196,8 @@ enum StaticSafetyPullRequestPolicy {
         "auto merge pr",
         "inline comment",
         "review thread",
+        "review threads",
+        "thread ids",
         "resolve thread",
         "unresolve thread"
     ]
@@ -216,6 +218,10 @@ enum StaticSafetyPullRequestPolicy {
         .init(
             requestTriggers: ["merge", "automerge"],
             allowedToolNames: ["git.pr.merge", "git.pr.checks", "git.status"]
+        ),
+        .init(
+            requestTriggers: ["list", "show", "browse", "find", "unresolved", "thread ids", "comment ids"],
+            allowedToolNames: ["git.pr.review_threads", "git.pr.view", "git.status"]
         ),
         .init(
             requestTriggers: ["resolve", "unresolve", "reopen"],

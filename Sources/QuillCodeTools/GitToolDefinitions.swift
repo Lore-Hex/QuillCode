@@ -153,6 +153,14 @@ public extension ToolDefinition {
         risk: .append
     )
 
+    static let gitPullRequestReviewThreads = ToolDefinition(
+        name: "host.git.pr.review_threads",
+        description: "List inline GitHub pull request review threads, including GraphQL thread IDs and first review comment IDs, for the current or selected pull request.",
+        parametersJSON: #"{"type":"object","properties":{"selector":{"type":"string","description":"Optional pull request number, URL, or branch. Omit to use the current branch."}}}"#,
+        host: .local,
+        risk: .read
+    )
+
     static let gitPullRequestReviewThread = ToolDefinition(
         name: "host.git.pr.review_thread",
         description: "Resolve or unresolve an inline GitHub pull request review thread using its GraphQL thread ID.",

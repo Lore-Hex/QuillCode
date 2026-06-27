@@ -42,6 +42,8 @@ enum SlashPullRequestCommandParser {
             return parseReviewComment(rest)
         case "review_reply", "inline_reply", "reply_comment":
             return parseReviewReply(rest)
+        case "review_threads", "threads", "review_thread_list", "thread_list", "list_threads":
+            return pullRequestTool(.gitPullRequestReviewThreads, selector: rest)
         case "review_thread", "thread":
             return parseReviewThread(rest)
         case "resolve_thread", "resolve_review_thread":
@@ -70,7 +72,7 @@ enum SlashPullRequestCommandParser {
         case "merge", "automerge", "auto_merge":
             return parseMerge(rest, autoByDefault: subcommand != "merge")
         default:
-            return .invalid("Unknown pull request command '\(rawSubcommand)'. Use create, view, checks, diff, checkout, comment, review, review-comment, review-reply, review-thread, reviewers, labels, or merge.")
+            return .invalid("Unknown pull request command '\(rawSubcommand)'. Use create, view, checks, diff, checkout, comment, review, review-comment, review-reply, review-threads, review-thread, reviewers, labels, or merge.")
         }
     }
 

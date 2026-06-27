@@ -87,6 +87,13 @@ final class SafetyTests: XCTestCase {
         host: .local,
         risk: .append
     )
+    private let gitPullRequestReviewThreads = ToolDefinition(
+        name: "host.git.pr.review_threads",
+        description: "List pull request review threads",
+        parametersJSON: "{}",
+        host: .local,
+        risk: .read
+    )
     private let gitPullRequestReviewThread = ToolDefinition(
         name: "host.git.pr.review_thread",
         description: "Update pull request review thread",
@@ -363,6 +370,22 @@ final class SafetyTests: XCTestCase {
             toolCall: call,
             toolDefinition: gitPullRequestReviewThread,
             recentMessages: [.init(role: .user, content: "resolve the review thread PRRT_kwDOExample")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
+    }
+
+    func testAutoApprovesUserRequestedPullRequestReviewThreadListing() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: gitPullRequestReviewThreads.name,
+            argumentsJSON: #"{"selector":"42"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "show unresolved review threads and IDs on PR 42",
+            toolCall: call,
+            toolDefinition: gitPullRequestReviewThreads,
+            recentMessages: [.init(role: .user, content: "show unresolved review threads and IDs on PR 42")]
         ))
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve)
     }

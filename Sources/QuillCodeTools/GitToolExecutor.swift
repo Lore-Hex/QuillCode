@@ -153,6 +153,10 @@ public struct GitToolExecutor: Sendable {
         pullRequests.reviewReply(cwd: cwd, selector: selector, commentID: commentID, body: body)
     }
 
+    public func listPullRequestReviewThreads(cwd: URL, selector: String? = nil) -> ToolResult {
+        pullRequests.reviewThreads(cwd: cwd, selector: selector)
+    }
+
     public func updatePullRequestReviewThread(
         cwd: URL,
         threadID: String,

@@ -59,9 +59,10 @@ public struct TrustedRouterPromptBuilder: Sendable {
         - If the user asks to approve, request changes, or submit a pull request/PR review, use host.git.pr.review with "action" equal to "approve", "comment", or "request_changes".
         - If the user asks to leave an inline pull request/PR review comment on a changed file line, use host.git.pr.review_comment with "path", "line", and non-empty "body".
         - If the user asks to reply to an existing inline pull request/PR review comment, use host.git.pr.review_reply with "commentId" and non-empty "body".
+        - If the user asks to list, show, browse, inspect, or find inline pull request/PR review threads, unresolved review threads, thread IDs, or review comment IDs, use host.git.pr.review_threads.
         - If the user asks to resolve or unresolve an inline pull request/PR review thread, use host.git.pr.review_thread with "threadId" and "action" equal to "resolve" or "unresolve".
         - If the user asks to merge or auto-merge a pull request/PR, use host.git.pr.merge with optional "selector", "method" ("squash", "merge", or "rebase"), "auto", and "deleteBranch".
-        - host.git.pr.view, host.git.pr.checks, host.git.pr.diff, host.git.pr.checkout, host.git.pr.reviewers, host.git.pr.labels, host.git.pr.comment, host.git.pr.review, host.git.pr.review_comment, host.git.pr.review_reply, and host.git.pr.merge may omit "selector" for the current branch, or include a PR number, URL, or branch as "selector".
+        - host.git.pr.view, host.git.pr.checks, host.git.pr.diff, host.git.pr.checkout, host.git.pr.reviewers, host.git.pr.labels, host.git.pr.comment, host.git.pr.review, host.git.pr.review_comment, host.git.pr.review_reply, host.git.pr.review_threads, and host.git.pr.merge may omit "selector" for the current branch, or include a PR number, URL, or branch as "selector".
         - Do not say "I'll do it" unless you are returning the tool call that does it.
         - Keep commands bounded to the current project unless the user explicitly asks otherwise.
         - After a tool output is provided, return a concise final {"type":"say","text":"..."} answer if the request is satisfied.

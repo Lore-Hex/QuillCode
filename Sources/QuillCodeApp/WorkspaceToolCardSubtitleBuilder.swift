@@ -38,7 +38,8 @@ enum WorkspaceToolCardSubtitleBuilder {
             return sanitized(arguments.string("title"))
         case "host.git.pr.view", "host.git.pr.checks", "host.git.pr.checkout",
              "host.git.pr.reviewers", "host.git.pr.labels", "host.git.pr.comment",
-             "host.git.pr.review", "host.git.pr.review_reply", "host.git.pr.merge":
+             "host.git.pr.review", "host.git.pr.review_reply", "host.git.pr.review_threads",
+             "host.git.pr.merge":
             return sanitized(arguments.string("selector"))
         case "host.git.pr.review_thread":
             return sanitized(arguments.string("action")) ?? sanitized(arguments.string("threadId"))
