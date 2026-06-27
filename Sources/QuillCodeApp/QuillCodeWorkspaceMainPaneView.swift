@@ -23,6 +23,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
     var onOpenBrowserSession: (() -> Void)?
     var onAddBrowserComment: (String) -> Void
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
+    var onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
     var onToolCardAction: (ToolCardActionSurface) -> Void
     var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     var onCopyTranscriptItem: (String, String) -> Void
@@ -53,6 +54,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
                         onContextCommand: onCommand,
                         onRuntimeIssueAction: runtimeIssueAction(for: surface.runtimeIssue),
                         onReviewAction: onReviewAction,
+                        onPullRequestReviewThreadAction: onPullRequestReviewThreadAction,
                         onToolCardAction: onToolCardAction,
                         onAddReviewComment: onAddReviewComment,
                         onCopyTranscriptItem: onCopyTranscriptItem,

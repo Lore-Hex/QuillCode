@@ -157,6 +157,68 @@ final class WorkspaceReviewSurfaceBuilderTests: XCTestCase {
         XCTAssertFalse(otherToolReview.isVisible)
     }
 
+    func testSurfaceSummarizesLatestSuccessfulPullRequestReviewThreads() throws {
+        let review = try WorkspaceReviewSurfaceBuilder(
+            toolCards: [
+                pullRequestReviewThreadsCard(stdout: pullRequestReviewThreadsOutput(), selector: "123")
+            ],
+            events: []
+        ).surface()
+
+        XCTAssertTrue(review.isVisible)
+        XCTAssertEqual(review.title, "Review threads")
+        XCTAssertEqual(review.subtitle, "2 review threads, 1 unresolved, 1 resolved")
+        XCTAssertEqual(review.badgeLabel, "2 threads")
+        XCTAssertEqual(review.pullRequestThreads.map(\.id), ["PRRT_one", "PRRT_two"])
+        XCTAssertEqual(review.pullRequestThreads.first?.locationLabel, "Sources/App.swift:42")
+        XCTAssertEqual(review.pullRequestThreads.first?.summaryText, "Extract this helper.")
+        XCTAssertEqual(review.pullRequestThreads.first?.authorLabel, "reviewer")
+        XCTAssertEqual(review.pullRequestThreads.first?.actions.first?.selector, "123")
+        XCTAssertEqual(review.pullRequestThreads.last?.statusLabel, "Resolved · outdated")
+        XCTAssertEqual(review.files, [])
+    }
+
+    func testSurfaceCombinesDiffAndPullRequestReviewThreads() throws {
+        let diff = """
+        diff --git a/Sources/App.swift b/Sources/App.swift
+        --- a/Sources/App.swift
+        +++ b/Sources/App.swift
+        @@ -1 +1,2 @@
+        +let title = "QuillCode"
+         import Foundation
+        """
+
+        let review = try WorkspaceReviewSurfaceBuilder(
+            toolCards: [
+                pullRequestReviewThreadsCard(stdout: pullRequestReviewThreadsOutput(), selector: "123"),
+                diffCard(stdout: diff)
+            ],
+            events: []
+        ).surface()
+
+        XCTAssertEqual(review.files.map(\.path), ["Sources/App.swift"])
+        XCTAssertEqual(review.pullRequestThreads.count, 2)
+        XCTAssertEqual(review.badgeLabel, "1 hunk · 2 threads")
+        XCTAssertEqual(review.subtitle, "1 file changed, +1 -0")
+    }
+
+    func testLatestFailedPullRequestReviewThreadsHidesEarlierThreadSurface() throws {
+        let review = try WorkspaceReviewSurfaceBuilder(
+            toolCards: [
+                pullRequestReviewThreadsCard(id: "threads-1", stdout: pullRequestReviewThreadsOutput()),
+                pullRequestReviewThreadsCard(
+                    id: "threads-2",
+                    status: .failed,
+                    result: ToolResult(ok: false, error: "gh failed")
+                )
+            ],
+            events: []
+        ).surface()
+
+        XCTAssertFalse(review.isVisible)
+        XCTAssertEqual(review.pullRequestThreads, [])
+    }
+
     private func diffCard(
         id: String = "diff",
         status: ToolCardStatus = .done,
@@ -171,6 +233,78 @@ final class WorkspaceReviewSurfaceBuilderTests: XCTestCase {
             status: status,
             outputJSON: try JSONHelpers.encodePretty(result)
         )
+    }
+
+    private func pullRequestReviewThreadsCard(
+        id: String = "threads",
+        status: ToolCardStatus = .done,
+        stdout: String = "",
+        selector: String? = nil,
+        result: ToolResult? = nil
+    ) throws -> ToolCardState {
+        let result = result ?? ToolResult(ok: true, stdout: stdout)
+        let input = selector.map { ToolArguments.json(["selector": $0]) } ?? "{}"
+        return ToolCardState(
+            id: id,
+            title: "host.git.pr.review_threads",
+            subtitle: "done",
+            status: status,
+            inputJSON: input,
+            outputJSON: try JSONHelpers.encodePretty(result)
+        )
+    }
+
+    private func pullRequestReviewThreadsOutput() -> String {
+        """
+        {
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "reviewThreads": {
+                  "nodes": [
+                    {
+                      "id": "PRRT_one",
+                      "isResolved": false,
+                      "isOutdated": false,
+                      "path": "Sources/App.swift",
+                      "line": 42,
+                      "startLine": null,
+                      "comments": {
+                        "nodes": [
+                          {
+                            "id": "PRRC_one",
+                            "databaseId": 171,
+                            "body": "Extract this helper.",
+                            "author": { "login": "reviewer" }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": "PRRT_two",
+                      "isResolved": true,
+                      "isOutdated": true,
+                      "path": "Tests/AppTests.swift",
+                      "line": 18,
+                      "startLine": 16,
+                      "comments": {
+                        "nodes": [
+                          {
+                            "id": "PRRC_two",
+                            "databaseId": 172,
+                            "body": "Covered now.",
+                            "author": { "login": "maintainer" }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+        """
     }
 
     private func reviewCommentEvent(_ comment: WorkspaceReviewCommentState) throws -> ThreadEvent {

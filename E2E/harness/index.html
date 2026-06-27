@@ -2275,6 +2275,42 @@
       border-radius: 8px;
       font-size: 13px;
     }
+    .pr-review-threads {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,.10);
+    }
+    .pr-review-threads > strong {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .pr-review-threads li {
+      grid-template-columns: minmax(0, .32fr) minmax(0, .45fr) auto;
+      align-items: center;
+      padding: 9px;
+      border-radius: 12px;
+      background: rgba(0,0,0,.20);
+    }
+    .pr-review-threads blockquote {
+      grid-column: 1 / -1;
+      margin: 0;
+      color: var(--text);
+      opacity: .92;
+    }
+    [data-testid="pr-review-thread-status"] {
+      color: var(--yellow);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    [data-testid="pr-review-thread-location"] {
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
     .review-comment-form {
       grid-column: 1 / -1;
       display: grid;
@@ -2770,6 +2806,7 @@
         title: 'Review changes',
         subtitle: 'Latest git diff',
         files: [],
+        pullRequestThreads: [],
         totalInsertions: 0,
         totalDeletions: 0,
         totalHunks: 0
@@ -4642,11 +4679,17 @@
       syncAutomationsSurface();
       const context = renderContextBanner(contextBanner());
       const runtimeIssue = renderRuntimeIssue(state.runtimeIssue);
-      const review = state.review.files.length ? `
+      const reviewThreads = state.review.pullRequestThreads || [];
+      const reviewBadge = [
+        state.review.files.length ? `${state.review.totalHunks} hunk${state.review.totalHunks === 1 ? '' : 's'}` : null,
+        reviewThreads.length ? `${reviewThreads.length} thread${reviewThreads.length === 1 ? '' : 's'}` : null
+      ].filter(Boolean).join(' · ') || 'Review';
+      const review = (state.review.files.length || reviewThreads.length) ? `
         <section class="review-pane" data-testid="review-pane" aria-label="Git review summary">
           <header>
             <strong>${escapeHTML(state.review.title)}</strong>
             <span data-testid="review-summary">${escapeHTML(state.review.subtitle)}</span>
+            <small data-testid="review-badge">${escapeHTML(reviewBadge)}</small>
           </header>
           <ul>
             ${state.review.files.map(file => `
@@ -4703,6 +4746,21 @@
                 </form>
               </li>`).join('')}
           </ul>
+          ${reviewThreads.length ? `
+            <section class="pr-review-threads" data-testid="pr-review-threads" aria-label="Pull request review threads">
+              <strong>Pull request review threads</strong>
+              <ul>
+                ${reviewThreads.map(thread => `
+                  <li data-testid="pr-review-thread" data-thread-id="${escapeHTML(thread.id)}">
+                    <span data-testid="pr-review-thread-status">${escapeHTML(thread.statusLabel || (thread.isResolved ? 'Resolved' : 'Unresolved'))}</span>
+                    <code data-testid="pr-review-thread-location">${escapeHTML(thread.locationLabel || 'Unknown location')}</code>
+                    <blockquote data-testid="pr-review-thread-comment">${escapeHTML(thread.summaryText || '')}</blockquote>
+                    <span class="review-actions">
+                      <button type="button" class="review-action-button hit-target-text" data-testid="pr-review-thread-action" data-action="${thread.isResolved ? 'unresolve' : 'resolve'}" data-thread-id="${escapeHTML(thread.id)}">${thread.isResolved ? 'Unresolve' : 'Resolve'}</button>
+                    </span>
+                  </li>`).join('')}
+              </ul>
+            </section>` : ''}
         </section>` : '';
       const findMatches = transcriptFindMatches();
       const activeFindID = state.find.isOpen && findMatches.length
@@ -5439,6 +5497,13 @@
           const action = event.currentTarget.getAttribute('data-action');
           const path = event.currentTarget.getAttribute('data-path');
           runReviewAction(action, path);
+        });
+      });
+      document.querySelectorAll('[data-testid="pr-review-thread-action"]').forEach(button => {
+        button.addEventListener('click', event => {
+          const action = event.currentTarget.getAttribute('data-action');
+          const threadID = event.currentTarget.getAttribute('data-thread-id');
+          runPullRequestReviewThreadAction(action, threadID);
         });
       });
       document.querySelectorAll('[data-testid="review-comment-form"]').forEach(form => {
@@ -7029,7 +7094,8 @@
         totalInsertions: 0,
         totalDeletions: 0,
         totalHunks: 0,
-        files: []
+        files: [],
+        pullRequestThreads: []
       };
       state.composer.draft = '';
       state.composer.canSend = false;
@@ -7075,7 +7141,8 @@
         totalInsertions: 0,
         totalDeletions: 0,
         totalHunks: 0,
-        files: []
+        files: [],
+        pullRequestThreads: []
       };
       state.topBar.primaryTitle = title;
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
@@ -7137,7 +7204,8 @@
         totalInsertions: 0,
         totalDeletions: 0,
         totalHunks: 0,
-        files: []
+        files: [],
+        pullRequestThreads: []
       };
       state.topBar.primaryTitle = title;
       const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
@@ -9035,7 +9103,8 @@
         totalInsertions: 0,
         totalDeletions: 0,
         totalHunks: 0,
-        files: []
+        files: [],
+        pullRequestThreads: []
       };
       state.terminal.cwdLabel = path;
       state.terminal.environment = {};
@@ -9370,6 +9439,84 @@
       };
     }
 
+    function mockPullRequestReviewThreadsPayload(isResolved = false) {
+      return {
+        data: {
+          repository: {
+            pullRequest: {
+              reviewThreads: {
+                nodes: [
+                  {
+                    id: 'PRRT_kwDOExample001',
+                    isResolved,
+                    isOutdated: false,
+                    path: 'Sources/App.swift',
+                    line: 42,
+                    startLine: null,
+                    comments: {
+                      nodes: [
+                        {
+                          id: 'PRRC_kwDOExampleComment001',
+                          databaseId: 171,
+                          body: 'Please extract this branch into a named helper.',
+                          author: { login: 'reviewer' }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    id: 'PRRT_kwDOExample002',
+                    isResolved: true,
+                    isOutdated: true,
+                    path: 'Tests/AppTests.swift',
+                    line: 18,
+                    startLine: 16,
+                    comments: {
+                      nodes: [
+                        {
+                          id: 'PRRC_kwDOExampleComment002',
+                          databaseId: 172,
+                          body: 'The edge case is covered now.',
+                          author: { login: 'maintainer' }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      };
+    }
+
+    function reviewThreadSurfaceFromPayload(payload, selector = '123') {
+      const threads = payload.data.repository.pullRequest.reviewThreads.nodes;
+      const unresolved = threads.filter(thread => !thread.isResolved).length;
+      return {
+        title: 'Review threads',
+        subtitle: `${threads.length} review threads, ${unresolved} unresolved, ${threads.length - unresolved} resolved`,
+        totalInsertions: 0,
+        totalDeletions: 0,
+        totalHunks: 0,
+        files: [],
+        pullRequestThreads: threads.map(thread => ({
+          id: thread.id,
+          isResolved: thread.isResolved,
+          isOutdated: thread.isOutdated,
+          path: thread.path,
+          line: thread.line,
+          startLine: thread.startLine,
+          locationLabel: thread.startLine && thread.line && thread.startLine !== thread.line
+            ? `${thread.path}:${thread.startLine}-${thread.line}`
+            : `${thread.path}:${thread.line || thread.startLine || ''}`.replace(/:$/, ''),
+          statusLabel: `${thread.isResolved ? 'Resolved' : 'Unresolved'}${thread.isOutdated ? ' · outdated' : ''}`,
+          summaryText: thread.comments.nodes[0]?.body || 'No comment text.',
+          selector
+        }))
+      };
+    }
+
     function sendMessage(value) {
       const text = String(value).trim();
       if (!text) return;
@@ -9572,6 +9719,17 @@
           render();
         }
         return;
+      } else if (/review threads?|review-threads|review_threads/i.test(text)) {
+        const payload = mockPullRequestReviewThreadsPayload(false);
+        state.review = reviewThreadSurfaceFromPayload(payload);
+        addToolCard({
+          title: 'host.git.pr.review_threads',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ selector: '123' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(payload, null, 2), stderr: '', exitCode: 0 }, null, 2)
+        });
+        addMessage('assistant', 'Found 2 review threads: 1 unresolved, 1 resolved.');
       } else if (/^\/(pr|pull-?request)\b/i.test(text)) {
         state.composer.draft = 'Create a pull request titled ';
         addMessage('assistant', 'Pull request prompt prepared.');
@@ -9760,7 +9918,7 @@
         return;
       } else if (text.toLowerCase().includes('commit')) {
         const message = text.match(/message[: ]+(.+)$/i)?.[1]?.trim() || 'QuillCode changes';
-        state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
+        state.review = { ...state.review, files: [], pullRequestThreads: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
         addToolCard({
           title: 'host.git.commit',
           subtitle: 'Completed',
@@ -9800,7 +9958,7 @@
         const output = isRemoteProject
           ? remoteTerminalOutput(cmd.trim(), selectedProject.path, {})
           : { stdout: 'mock-user\n', stderr: '', exitCode: 0 };
-        state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
+        state.review = { ...state.review, files: [], pullRequestThreads: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
         addToolCard({
           title: 'host.shell.run',
           subtitle: 'Completed',
@@ -9813,7 +9971,7 @@
           : `Output:\n${output.stdout.trim() || '(no output)'}`;
         addMessage('assistant', answer);
       } else {
-        state.review = { ...state.review, files: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
+        state.review = { ...state.review, files: [], pullRequestThreads: [], subtitle: 'Latest git diff', totalInsertions: 0, totalDeletions: 0, totalHunks: 0 };
         addMessage('assistant', 'I can inspect and edit this project.');
       }
       syncSelectedThreadSearchText();
@@ -9904,8 +10062,41 @@
         totalInsertions: 0,
         totalDeletions: 0,
         totalHunks: 0,
-        files: []
+        files: [],
+        pullRequestThreads: []
       };
+      state.topBar.agentStatus = 'Idle';
+      render();
+    }
+
+    function runPullRequestReviewThreadAction(action, threadID) {
+      if (!threadID) return;
+      const shouldResolve = action !== 'unresolve';
+      state.topBar.agentStatus = 'Running';
+      addToolCard({
+        title: 'host.git.pr.review_thread',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({ threadId: threadID, action: shouldResolve ? 'resolve' : 'unresolve' }, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: '', stderr: '', exitCode: 0 }, null, 2)
+      });
+
+      const currentPayload = mockPullRequestReviewThreadsPayload(shouldResolve);
+      const refreshed = reviewThreadSurfaceFromPayload(currentPayload);
+      state.review = {
+        ...state.review,
+        title: refreshed.title,
+        subtitle: refreshed.subtitle,
+        pullRequestThreads: refreshed.pullRequestThreads
+      };
+      addToolCard({
+        title: 'host.git.pr.review_threads',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({ selector: '123' }, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(currentPayload, null, 2), stderr: '', exitCode: 0 }, null, 2)
+      });
+      addMessage('assistant', `${shouldResolve ? 'Resolved' : 'Reopened'} review thread ${threadID}.`);
       state.topBar.agentStatus = 'Idle';
       render();
     }

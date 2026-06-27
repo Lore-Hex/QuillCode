@@ -26,6 +26,17 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
         )
     }
 
+    func runPullRequestReviewThreadAction(
+        _ action: WorkspacePullRequestReviewThreadActionSurface,
+        model: QuillCodeWorkspaceModel,
+        fallbackWorkspaceRoot: URL
+    ) {
+        model.runPullRequestReviewThreadAction(
+            action,
+            workspaceRoot: activeWorkspaceRoot(for: model, fallback: fallbackWorkspaceRoot)
+        )
+    }
+
     func addReviewComment(
         path: String,
         lineNumber: Int?,

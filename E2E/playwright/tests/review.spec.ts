@@ -172,6 +172,38 @@ test('mock harness stages a single hunk from the review pane', async ({ page }) 
   await expect(page.getByTestId('tool-card-input').nth(1)).toContainText('Sources/App.swift');
 });
 
+test('mock harness browses and resolves pull request review threads', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('/pr review-threads 123');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('review-pane')).toBeVisible();
+  await expect(page.getByTestId('review-summary')).toHaveText('2 review threads, 1 unresolved, 1 resolved');
+  await expect(page.getByTestId('review-badge')).toHaveText('2 threads');
+  await expect(page.getByTestId('pr-review-threads')).toBeVisible();
+  await expect(page.getByTestId('pr-review-thread')).toHaveCount(2);
+  await expect(page.getByTestId('pr-review-thread').first()).toContainText('Sources/App.swift:42');
+  await expect(page.getByTestId('pr-review-thread-comment').first()).toContainText('Please extract this branch');
+  await expect(page.getByTestId('pr-review-thread-action').first()).toHaveText('Resolve');
+
+  const resolveBounds = await elementRect(page, '[data-testid="pr-review-thread-action"]:has-text("Resolve")');
+  expect(resolveBounds.width).toBeGreaterThanOrEqual(40);
+  expect(resolveBounds.height).toBeGreaterThanOrEqual(40);
+
+  await page.getByTestId('pr-review-thread-action').first().click();
+
+  await expect(page.getByTestId('tool-card-title')).toContainText([
+    'host.git.pr.review_threads',
+    'host.git.pr.review_thread',
+    'host.git.pr.review_threads'
+  ]);
+  await expect(page.getByTestId('tool-card-input').nth(1)).toContainText('PRRT_kwDOExample001');
+  await expect(page.getByTestId('pr-review-thread-status').first()).toContainText('Resolved');
+  await expect(page.getByTestId('pr-review-thread-action').first()).toHaveText('Unresolve');
+  await expect(page.getByText('Resolved review thread PRRT_kwDOExample001.')).toBeVisible();
+});
+
 test('mock harness commits staged changes in one turn', async ({ page }) => {
   await page.goto(harnessURL());
 

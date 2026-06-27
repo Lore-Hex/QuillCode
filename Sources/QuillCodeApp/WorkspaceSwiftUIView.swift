@@ -31,6 +31,7 @@ public struct QuillCodeWorkspaceView: View {
     public var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
     public var onStartTrustedRouterSignIn: () -> Void
     public var onReviewAction: (WorkspaceReviewActionSurface) -> Void
+    public var onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
     public var onToolCardAction: (ToolCardActionSurface) -> Void
     public var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     public var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
@@ -85,6 +86,7 @@ public struct QuillCodeWorkspaceView: View {
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onStartTrustedRouterSignIn: @escaping () -> Void,
         onReviewAction: @escaping (WorkspaceReviewActionSurface) -> Void,
+        onPullRequestReviewThreadAction: @escaping (WorkspacePullRequestReviewThreadActionSurface) -> Void = { _ in },
         onToolCardAction: @escaping (ToolCardActionSurface) -> Void = { _ in },
         onAddReviewComment: @escaping (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
@@ -125,6 +127,7 @@ public struct QuillCodeWorkspaceView: View {
         self.onSaveSettings = onSaveSettings
         self.onStartTrustedRouterSignIn = onStartTrustedRouterSignIn
         self.onReviewAction = onReviewAction
+        self.onPullRequestReviewThreadAction = onPullRequestReviewThreadAction
         self.onToolCardAction = onToolCardAction
         self.onAddReviewComment = onAddReviewComment
         self.onCreateWorktree = onCreateWorktree
@@ -182,6 +185,7 @@ public struct QuillCodeWorkspaceView: View {
                     onOpenBrowserSession: onOpenBrowserSession,
                     onAddBrowserComment: onAddBrowserComment,
                     onReviewAction: onReviewAction,
+                    onPullRequestReviewThreadAction: onPullRequestReviewThreadAction,
                     onToolCardAction: onToolCardAction,
                     onAddReviewComment: onAddReviewComment,
                     onCopyTranscriptItem: onCopyTranscriptItem,
