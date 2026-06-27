@@ -6,6 +6,20 @@ Overall grade: **A- foundation, B+ product surface maturity**.
 
 The architecture is moving in the right direction: core state is value typed, persistence and runtime adapters are separated, tools use explicit schemas, and SwiftUI plus the Playwright harness render from the same surface contract. The main drag on the grade is file size and feature density in the workspace layer, not a broken abstraction boundary.
 
+## 2026-06-27 Shared Playwright Hit-Target Audit Pass
+
+Overall grade after this slice: **A reusable UI audit helper, A chrome spec cohesion, A regression coverage**.
+
+`workspace-chrome.spec.ts` had absorbed the generic visible-interactive-target and overlap audit implementation while the rest of the Playwright suite used shared harness helpers for navigation and measurement. That made the chrome spec harder to review and prevented other feature specs from reusing the same 44 px hit-target contract without copying browser-side DOM logic.
+
+- Moved `MINIMUM_HIT_TARGET`, hit-target measurement, overlap detection, and `expectHitTarget` into `E2E/playwright/tests/harness-helpers.ts`.
+- Kept `workspace-chrome.spec.ts` focused on QuillCode chrome scenarios while importing the shared audit helpers.
+- Verified the extraction with the focused chrome spec and the full 77-test Playwright suite.
+
+Residual risk:
+
+- The helper still duplicates some browser-side visibility primitives between size and overlap reporting to keep this pass behavior-preserving. A later cleanup can combine both audits into one browser evaluation if more specs start calling both in the same flow.
+
 ## 2026-06-27 Computer Use Status Contract Pass
 
 Overall grade after this slice: **A- Computer Use executor contract, A status copy accuracy, B+ platform parity**.
