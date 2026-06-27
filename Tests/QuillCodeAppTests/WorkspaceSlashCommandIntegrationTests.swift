@@ -278,7 +278,7 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
         XCTAssertTrue(message.contains("Project: QuillCode"))
         XCTAssertTrue(message.contains("Thread: Status thread"))
         XCTAssertTrue(message.contains("Mode: Auto"))
-        XCTAssertTrue(message.contains("Model: trustedrouter/fast"))
+        XCTAssertTrue(message.contains("Model: Nike 1.0 (trustedrouter/fast)"))
     }
 
     private func makeProjectWithLocalEnvironmentAction(

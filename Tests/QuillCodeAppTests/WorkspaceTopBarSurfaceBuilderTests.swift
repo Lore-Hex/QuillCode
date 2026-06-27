@@ -55,7 +55,7 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
 
         XCTAssertEqual(topBar.appName, "QuillCode")
         XCTAssertEqual(topBar.primaryTitle, "Ship QuillCode")
-        XCTAssertEqual(topBar.subtitle, "QuillCode - Auto - \(TrustedRouterDefaults.synthModel)")
+        XCTAssertEqual(topBar.subtitle, "QuillCode - Auto - Synth")
         XCTAssertEqual(topBar.instructionLabel, "1 instruction file loaded")
         XCTAssertEqual(topBar.instructionSources, ["AGENTS.md"])
         XCTAssertEqual(topBar.memoryLabel, "1 memory")

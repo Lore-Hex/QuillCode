@@ -36,7 +36,7 @@ struct WorkspaceStatusTextBuilder {
         Instructions: \(instructionLabel(for: context.instructions))
         Memories: \(memoryLabel(for: context.memories))
         Mode: \(modeLabel(context.mode))
-        Model: \(context.model)
+        Model: \(statusModelLabel(context.model))
         Agent: \(context.agentStatus)
         """
     }
@@ -45,7 +45,32 @@ struct WorkspaceStatusTextBuilder {
         guard let thread else {
             return "\(projectName) - Not started"
         }
-        return "\(projectName) - \(modeLabel(thread.mode)) - \(thread.model)"
+        return "\(projectName) - \(modeLabel(thread.mode)) - \(subtitleModelLabel(thread.model))"
+    }
+
+    static func subtitleModelLabel(_ modelID: String) -> String {
+        guard let recommended = recommendedModelDisplay(for: modelID) else {
+            return TrustedRouterDefaults.canonicalModelID(modelID)
+        }
+        return recommended.displayName
+    }
+
+    static func statusModelLabel(_ modelID: String) -> String {
+        guard let recommended = recommendedModelDisplay(for: modelID) else {
+            return TrustedRouterDefaults.canonicalModelID(modelID)
+        }
+        return "\(recommended.displayName) (\(TrustedRouterDefaults.preferredDisplayModelID(recommended.modelID)))"
+    }
+
+    private static func recommendedModelDisplay(for modelID: String) -> (modelID: String, displayName: String)? {
+        let canonicalModelID = TrustedRouterDefaults.canonicalModelID(modelID)
+        guard TrustedRouterDefaults.isRecommendedModel(canonicalModelID) else {
+            return nil
+        }
+        return (
+            modelID: canonicalModelID,
+            displayName: TrustedRouterDefaults.displayName(fromModelID: canonicalModelID)
+        )
     }
 
     static func modeLabel(_ mode: AgentMode) -> String {
