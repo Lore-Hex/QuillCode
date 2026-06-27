@@ -104,7 +104,7 @@ assert_no_action_regression() {
     cat "$output_file" >&2
     exit 1
   fi
-  if grep -Eq "I'?ll (run|check|do)" "$output_file"; then
+  if grep -Eq "I'?ll (run|check|do|download|create|write)" "$output_file"; then
     echo "live smoke returned a passive promise instead of executing" >&2
     cat "$output_file" >&2
     exit 1
@@ -185,7 +185,7 @@ assert_saved_transcripts_are_actionable() {
       [.messages[]?
         | select(.role == "assistant")
         | .content
-        | select(test("No shell command was specified|I'\''?ll (run|check|do)"; "i"))];
+        | select(test("No shell command was specified|I'\''?ll (run|check|do|download|create|write)"; "i"))];
 
     all(.[]; (
       (.messages | length) >= 2
@@ -218,12 +218,25 @@ DIAG_ERROR="$SMOKE_ROOT/diag.stderr"
 run_live_prompt "whoami?" "$DIAG_OUTPUT" "$DIAG_ERROR"
 assert_useful_output "$DIAG_OUTPUT" "$DIAG_ERROR" "$(id -un)"
 
+echo "==> Running live TrustedRouter disk-usage smoke with $MODEL"
+DISK_OUTPUT="$SMOKE_ROOT/disk.stdout"
+DISK_ERROR="$SMOKE_ROOT/disk.stderr"
+run_live_prompt "How much hd?" "$DISK_OUTPUT" "$DISK_ERROR"
+assert_output_matches "$DISK_OUTPUT" "$DISK_ERROR" "Disk usage|available|used|[0-9]+%" "disk usage result"
+
 echo "==> Running live TrustedRouter file-write smoke with $MODEL"
 FILE_OUTPUT="$SMOKE_ROOT/file.stdout"
 FILE_ERROR="$SMOKE_ROOT/file.stderr"
 run_live_prompt "Create \`live-smoke.txt\` in this workspace with exactly this content: \`quillcode_live_file_smoke\`." "$FILE_OUTPUT" "$FILE_ERROR"
 assert_no_action_regression "$FILE_OUTPUT" "$FILE_ERROR"
 assert_workspace_file_contains_exactly "live-smoke.txt" "quillcode_live_file_smoke"
+
+echo "==> Running live TrustedRouter natural file-write smoke with $MODEL"
+HELLO_OUTPUT="$SMOKE_ROOT/hello.stdout"
+HELLO_ERROR="$SMOKE_ROOT/hello.stderr"
+run_live_prompt "Can you write \`hello-world.txt\` with exactly this content: \`hello world\`?" "$HELLO_OUTPUT" "$HELLO_ERROR"
+assert_no_action_regression "$HELLO_OUTPUT" "$HELLO_ERROR"
+assert_workspace_file_contains_exactly "hello-world.txt" "hello world"
 
 echo "==> Running live TrustedRouter OpenClaw discovery smoke with $MODEL"
 OPENCLAW_OUTPUT="$SMOKE_ROOT/openclaw.stdout"
@@ -238,6 +251,6 @@ run_live_prompt "Download https://example.com into \`downloads/example.html\` in
 assert_output_matches "$DOWNLOAD_OUTPUT" "$DOWNLOAD_ERROR" "downloads/example\\.html|download" "download result"
 assert_workspace_file_nonempty "downloads/example.html"
 
-assert_saved_transcripts_are_actionable 5
+assert_saved_transcripts_are_actionable 7
 
 echo "QuillCode live TrustedRouter smoke passed."

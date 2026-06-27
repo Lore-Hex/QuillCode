@@ -8044,3 +8044,20 @@ Code quality changes:
 Remaining risk:
 
 - Native SwiftUI hit-target validation is still source-gated rather than measured with platform UI automation. Keep mirrored Playwright harness coverage for high-risk controls until packaged native UI automation can measure real pixels.
+
+## 2026-06-27 Live Smoke Hardening Pass
+
+Overall grade after this slice: **A live prompt regression detection, A transcript integrity checks, B+ provider/network variability**.
+
+The opt-in live smoke had fallen slightly behind the deterministic real-world smoke family. It covered live shell, `whoami?`, file write, OpenClaw, and public download, but it did not cover natural disk-usage prompts and its passive-answer guard still allowed “I'll download/create/write...” regressions that were visible in app testing.
+
+Code quality changes:
+
+- Expanded the live passive-answer guard from `run/check/do` to `run/check/do/download/create/write`, and applied the same rule to persisted transcript inspection.
+- Added a real TrustedRouter `How much hd?` prompt that must produce concrete disk-usage output instead of a promise.
+- Added a natural `hello-world.txt` file-write prompt with exact temp-workspace side-effect verification, in addition to the existing explicit file-write case.
+- Raised persisted transcript expectations from five to seven live prompt transcripts so every live scenario has nonempty queued tool arguments, no failed tool events, and successful completed tool results.
+
+Remaining risk:
+
+- Live smoke remains opt-in because it depends on an external model, network access, public-page availability, and a local/CI secret. It should run before releases and after prompt/parser/safety changes, while required PR CI keeps using deterministic mock coverage.
