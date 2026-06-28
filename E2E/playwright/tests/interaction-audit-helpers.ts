@@ -101,6 +101,16 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
     };
 
     const targetSampleFractions = [0.2, 0.5, 0.8];
+    const sharedHitTargetClasses = [
+      'hit-target-owned',
+      'interactive-hit-target',
+      'hit-target-icon',
+      'hit-target-text',
+      'hit-target-text-entry',
+      'hit-target-row',
+      'hit-target-capsule',
+      'hit-target-form-action'
+    ];
 
     function associatedLabelControl(element: Element) {
       if (!(element instanceof HTMLLabelElement)) return null;
@@ -110,13 +120,11 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
     }
 
     function isLabelHitTargetClass(element: Element) {
-      return [
-        'interactive-hit-target',
-        'hit-target-text',
-        'hit-target-row',
-        'hit-target-capsule',
-        'hit-target-form-action'
-      ].some(className => element.classList.contains(className));
+      return hasSharedHitTargetClass(element);
+    }
+
+    function hasSharedHitTargetClass(element: Element) {
+      return sharedHitTargetClasses.some(className => element.classList.contains(className));
     }
 
     function isAuditableInteractiveElement(element: Element) {
@@ -166,6 +174,7 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
         && rect.height > 0
         && style.display !== 'none'
         && style.visibility !== 'hidden'
+        && !element.closest('.visually-hidden,.composer-sr-only')
         && !element.closest('[hidden],[aria-hidden="true"]');
     }
 
@@ -313,6 +322,9 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
       const reasons = [];
       if (!accessibleName(element)) {
         reasons.push('missing_accessible_name');
+      }
+      if (!isDisabled && !hasSharedHitTargetClass(element)) {
+        reasons.push('missing_shared_hit_target_contract');
       }
       if (style.pointerEvents === 'none' && !isDisabled) {
         reasons.push('pointer_events_none');
@@ -513,6 +525,16 @@ export async function expectHitTarget(locator: Locator, label: string) {
     const rect = element.getBoundingClientRect();
     const style = window.getComputedStyle(element);
     const targetSampleFractions = [0.2, 0.5, 0.8];
+    const sharedHitTargetClasses = [
+      'hit-target-owned',
+      'interactive-hit-target',
+      'hit-target-icon',
+      'hit-target-text',
+      'hit-target-text-entry',
+      'hit-target-row',
+      'hit-target-capsule',
+      'hit-target-form-action'
+    ];
     const issues: string[] = [];
 
     function accessibleName(targetElement: Element) {
@@ -558,6 +580,9 @@ export async function expectHitTarget(locator: Locator, label: string) {
 
     if (!accessibleName(element)) {
       issues.push('missing_accessible_name');
+    }
+    if (!sharedHitTargetClasses.some(className => element.classList.contains(className))) {
+      issues.push('missing_shared_hit_target_contract');
     }
     if (style.pointerEvents === 'none' && !isDisabled) {
       issues.push('pointer_events_none');

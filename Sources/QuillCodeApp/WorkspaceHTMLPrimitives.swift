@@ -1,9 +1,11 @@
 import Foundation
 
 enum WorkspaceHTMLPrimitives {
+    static let ownedHitTargetClass = "hit-target-owned"
     static let interactiveHitTargetClass = "interactive-hit-target"
     static let iconHitTargetClass = "hit-target-icon"
     static let textHitTargetClass = "hit-target-text"
+    static let textEntryHitTargetClass = "hit-target-text-entry"
     static let rowHitTargetClass = "hit-target-row"
     static let capsuleHitTargetClass = "hit-target-capsule"
     static let formActionHitTargetClass = "hit-target-form-action"
@@ -184,8 +186,10 @@ enum WorkspaceHTMLPrimitives {
     private static func isHitTargetClass(_ className: String) -> Bool {
         [
             interactiveHitTargetClass,
+            ownedHitTargetClass,
             iconHitTargetClass,
             textHitTargetClass,
+            textEntryHitTargetClass,
             rowHitTargetClass,
             capsuleHitTargetClass,
             formActionHitTargetClass

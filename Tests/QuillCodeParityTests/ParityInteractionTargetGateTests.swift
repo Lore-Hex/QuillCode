@@ -68,6 +68,11 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Visible clickable controls should expose a pointer affordance, not only a large invisible hit box."
         )
         XCTAssertTrue(
+            auditHelperText.contains("missing_shared_hit_target_contract")
+                && auditHelperText.contains("sharedHitTargetClasses"),
+            "Visible interactive controls should declare ownership through a shared hit-target class, not only rely on global geometry."
+        )
+        XCTAssertTrue(
             auditHelperText.contains("closestInteractiveAncestor")
                 && auditHelperText.contains("nestedIssues")
                 && auditHelperText.contains("expectNoNestedInteractiveTargets"),
@@ -101,7 +106,9 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(
             primitivesText.contains("private static func isHitTargetClass")
+                && primitivesText.contains("ownedHitTargetClass")
                 && primitivesText.contains("interactiveHitTargetClass")
+                && primitivesText.contains("textEntryHitTargetClass")
                 && primitivesText.contains("formActionHitTargetClass"),
             "The defaulting helper should recognize every shared rendered hit-target class instead of duplicating class-name logic at call sites."
         )
@@ -203,6 +210,26 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             harnessText.contains(".find-bar input,\n      .find-status")
                 && harnessText.contains("grid-column: 1 / -1"),
             "Rendered transcript find should wrap input/status rows on compact widths instead of squeezing the input target."
+        )
+    }
+
+    func testHarnessNormalizesDynamicClickTargetContracts() throws {
+        let harnessText = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("E2E/harness/index.html"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(
+            harnessText.contains("function normalizeInteractionTargetContracts")
+                && harnessText.contains("sharedHitTargetClasses")
+                && harnessText.contains("hit-target-owned")
+                && harnessText.contains("hit-target-text-entry"),
+            "The dynamic HTML harness should attach explicit hit-target contracts after every render instead of relying on global button/input CSS."
+        )
+        XCTAssertTrue(
+            harnessText.contains("normalizeInteractionTargetContracts(document.getElementById('app'))"),
+            "The dynamic hit-target normalizer should run immediately after rendering before audits and click handlers observe the DOM."
         )
     }
 
@@ -440,9 +467,11 @@ private struct HTMLSourceInteractionTargetAudit {
     ]
 
     private let hitTargetMarkers = [
+        "WorkspaceHTMLPrimitives.ownedHitTargetClass",
         "WorkspaceHTMLPrimitives.interactiveHitTargetClass",
         "WorkspaceHTMLPrimitives.iconHitTargetClass",
         "WorkspaceHTMLPrimitives.textHitTargetClass",
+        "WorkspaceHTMLPrimitives.textEntryHitTargetClass",
         "WorkspaceHTMLPrimitives.rowHitTargetClass",
         "WorkspaceHTMLPrimitives.capsuleHitTargetClass",
         "WorkspaceHTMLPrimitives.formActionHitTargetClass"
@@ -471,6 +500,9 @@ private struct HTMLSourceInteractionTargetAudit {
         line.contains("<button")
             || line.contains("<summary")
             || line.contains("<a ")
+            || line.contains("<input")
+            || line.contains("<select")
+            || line.contains("<textarea")
     }
 
     private func lineHasSharedTargetContract(_ line: String) -> Bool {

@@ -29,7 +29,7 @@ enum WorkspaceHTMLReviewRenderer {
         <form class="pr-review-draft" data-testid="pr-review-draft" aria-label="Submit pull request review">
           <label>
             Action
-            <select data-testid="pr-review-draft-action" aria-label="Pull request review action">
+            <select class="\(WorkspaceHTMLPrimitives.textEntryHitTargetClass)" data-testid="pr-review-draft-action" aria-label="Pull request review action">
               \(WorkspacePullRequestReviewActionKind.allCases.map { action in
                   let selected = action == draft.action ? #" selected="selected""# : ""
                   return #"<option value="\#(escape(action.rawValue))"\#(selected)>\#(escape(action.title))</option>"#
@@ -38,11 +38,11 @@ enum WorkspaceHTMLReviewRenderer {
           </label>
           <label>
             Pull request
-            <input data-testid="pr-review-draft-selector" aria-label="Pull request selector" placeholder="PR number, URL, or branch" value="\(escape(draft.selector))">
+            <input class="\(WorkspaceHTMLPrimitives.textEntryHitTargetClass)" data-testid="pr-review-draft-selector" aria-label="Pull request selector" placeholder="PR number, URL, or branch" value="\(escape(draft.selector))">
           </label>
           <label>
             Body
-            <textarea data-testid="pr-review-draft-body" aria-label="Pull request review body" placeholder="\(escape(draft.action.bodyPlaceholder))">\(escape(draft.body))</textarea>
+            <textarea class="\(WorkspaceHTMLPrimitives.textEntryHitTargetClass)" data-testid="pr-review-draft-body" aria-label="Pull request review body" placeholder="\(escape(draft.action.bodyPlaceholder))">\(escape(draft.body))</textarea>
           </label>
           \(inlineComments)
           <footer>
@@ -64,11 +64,11 @@ enum WorkspaceHTMLReviewRenderer {
             return """
             <li data-testid="pr-review-draft-inline-comment">
               <label>
-                <input type="checkbox" data-testid="pr-review-draft-inline-comment-toggle" aria-label="Include inline note at \(escape(comment.locationLabel))" data-comment-id="\(escape(comment.id.uuidString))"\(commentChecked)\(disabled)>
+                <input class="\(WorkspaceHTMLPrimitives.iconHitTargetClass)" type="checkbox" data-testid="pr-review-draft-inline-comment-toggle" aria-label="Include inline note at \(escape(comment.locationLabel))" data-comment-id="\(escape(comment.id.uuidString))"\(commentChecked)\(disabled)>
                 <span>\(comment.isIncluded ? "Included" : "Skipped")</span>
               </label>
               <code>\(escape(comment.locationLabel))</code>
-              <textarea data-testid="pr-review-draft-inline-comment-body" aria-label="Inline note text at \(escape(comment.locationLabel))" data-comment-id="\(escape(comment.id.uuidString))">\(escape(comment.body))</textarea>
+              <textarea class="\(WorkspaceHTMLPrimitives.textEntryHitTargetClass)" data-testid="pr-review-draft-inline-comment-body" aria-label="Inline note text at \(escape(comment.locationLabel))" data-comment-id="\(escape(comment.id.uuidString))">\(escape(comment.body))</textarea>
               \(draft.includeInlineComments && comment.isIncluded && comment.normalizedBody.isEmpty ? #"<small data-testid="pr-review-draft-inline-comment-warning">Add note text or skip this note.</small>"# : "")
             </li>
             """
@@ -79,7 +79,7 @@ enum WorkspaceHTMLReviewRenderer {
             : "\(selectedCount) of \(draft.inlineCommentCount) inline review notes"
         return """
         <label class="pr-review-inline-comments">
-          <input type="checkbox" data-testid="pr-review-draft-include-inline-comments" aria-label="Include inline review notes"\(checked)>
+          <input class="\(WorkspaceHTMLPrimitives.iconHitTargetClass)" type="checkbox" data-testid="pr-review-draft-include-inline-comments" aria-label="Include inline review notes"\(checked)>
           <span>Include \(countLabel)</span>
         </label>
         <ul class="pr-review-inline-comment-list" data-testid="pr-review-draft-inline-comments">
@@ -193,7 +193,7 @@ enum WorkspaceHTMLReviewRenderer {
           Reply
         </button>
         <form class="pr-review-thread-reply-form" data-testid="pr-review-thread-reply-form" data-thread-id="\(escape(replyTarget.threadID))" data-comment-id="\(replyTarget.commentID)"\(selectorAttribute) hidden>
-          <textarea data-testid="pr-review-thread-reply-input" aria-label="Reply to review thread" placeholder="Reply to review thread"></textarea>
+          <textarea class="\(WorkspaceHTMLPrimitives.textEntryHitTargetClass)" data-testid="pr-review-thread-reply-input" aria-label="Reply to review thread" placeholder="Reply to review thread"></textarea>
           <button type="reset" class="review-action-button \(WorkspaceHTMLPrimitives.formActionHitTargetClass)" data-testid="pr-review-thread-reply-cancel">Cancel</button>
           <button type="submit" class="review-action-button \(WorkspaceHTMLPrimitives.formActionHitTargetClass)" data-testid="pr-review-thread-reply-submit">Post reply</button>
         </form>
