@@ -135,6 +135,29 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
       return element.matches(':disabled,[aria-disabled="true"]');
     }
 
+    function isTextEntryLikeElement(element: Element) {
+      if (element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) return true;
+      if (!(element instanceof HTMLInputElement)) return false;
+      return ![
+        'button',
+        'checkbox',
+        'color',
+        'file',
+        'image',
+        'radio',
+        'range',
+        'reset',
+        'submit'
+      ].includes((element.type || 'text').toLowerCase());
+    }
+
+    function requiresPointerAffordance(element: Element) {
+      if (isSemanticallyDisabled(element) || isTextEntryLikeElement(element)) return false;
+      if (element instanceof HTMLLabelElement) return isAuditableInteractiveElement(element);
+      if (element instanceof HTMLInputElement) return true;
+      return true;
+    }
+
     function isVisible(element: Element, rect: DOMRect) {
       const style = window.getComputedStyle(element);
       const closedDetails = element.closest('details:not([open])');
@@ -293,6 +316,9 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
       }
       if (style.pointerEvents === 'none' && !isDisabled) {
         reasons.push('pointer_events_none');
+      }
+      if (requiresPointerAffordance(element) && style.cursor !== 'pointer') {
+        reasons.push('missing_click_affordance');
       }
       if (Math.round(rect.width) < minimumHitTarget || Math.round(rect.height) < minimumHitTarget) {
         reasons.push('too_small');
@@ -535,6 +561,13 @@ export async function expectHitTarget(locator: Locator, label: string) {
     }
     if (style.pointerEvents === 'none' && !isDisabled) {
       issues.push('pointer_events_none');
+    }
+    if (!isDisabled && ![
+      'input',
+      'select',
+      'textarea'
+    ].includes(element.tagName.toLowerCase()) && style.cursor !== 'pointer') {
+      issues.push('missing_click_affordance');
     }
     if (Math.round(rect.width) < minimumHitTarget || Math.round(rect.height) < minimumHitTarget) {
       issues.push('too_small');

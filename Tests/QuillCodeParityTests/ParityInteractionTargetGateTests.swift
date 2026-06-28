@@ -63,6 +63,11 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Visible interactive controls with pointer-events disabled should fail unless they are semantically disabled."
         )
         XCTAssertTrue(
+            auditHelperText.contains("missing_click_affordance")
+                && auditHelperText.contains("requiresPointerAffordance"),
+            "Visible clickable controls should expose a pointer affordance, not only a large invisible hit box."
+        )
+        XCTAssertTrue(
             auditHelperText.contains("closestInteractiveAncestor")
                 && auditHelperText.contains("nestedIssues")
                 && auditHelperText.contains("expectNoNestedInteractiveTargets"),
@@ -172,6 +177,32 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && interactionSpecText.contains("browser-comment-input")
                 && interactionSpecText.contains("tool-card-details"),
             "The registry should include small/high-risk controls that commonly regress: model row actions, settings auth, browser inputs, and tool disclosures."
+        )
+        XCTAssertTrue(
+            interactionSpecText.contains("audits narrow viewport click targets across squeezed states")
+                && interactionSpecText.contains("width: 320"),
+            "Click-target coverage should include a narrow squeezed viewport, not only standard desktop and phone widths."
+        )
+    }
+
+    func testFindBarUsesResponsiveTargetPreservingLayout() throws {
+        let findText = try Self.appSourceText(named: "QuillCodeTranscriptFindView.swift")
+        let harnessText = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("E2E/harness/index.html"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(
+            findText.contains("ViewThatFits(in: .horizontal)")
+                && findText.contains("compactLayout")
+                && findText.contains("quillCodeTextEntryTarget()"),
+            "Native transcript find should switch to a compact layout before the search field can shrink below its text-entry target."
+        )
+        XCTAssertTrue(
+            harnessText.contains(".find-bar input,\n      .find-status")
+                && harnessText.contains("grid-column: 1 / -1"),
+            "Rendered transcript find should wrap input/status rows on compact widths instead of squeezing the input target."
         )
     }
 

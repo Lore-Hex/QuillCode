@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-27 Click Target Affordance And Narrow-Viewport Pass
+
+Overall grade after this slice: **A rendered click-target behavior, A narrow-layout resilience, A- native pixel measurement**.
+
+The target contract now covers more than size: a visible clickable control must look clickable, and squeezed layouts must wrap before stealing width from text-entry targets. A new 320 px audit caught the transcript find bar collapsing its input to 32 px; the rendered and native SwiftUI find bars now switch to compact layouts that preserve 44 px targets.
+
+| Before | After |
+| --- | --- |
+| The rendered audit caught undersized, blocked, nested, and overlapping controls but did not fail a large control that visually used the default cursor and felt inert. | Added `missing_click_affordance` for non-disabled clickable controls without pointer affordance, with text-entry/select controls exempted. |
+| Compact coverage used a 390 px viewport, which missed narrower squeezed pane failures. | Added a 320 px narrow viewport audit across top-bar overflow, model picker, command palette, browser, settings, transcript tool cards, and find. |
+| The transcript find bar used a fixed six-column layout, so the input could collapse below the target minimum under squeeze. | Rendered find wraps input/status rows on compact widths, and SwiftUI uses `ViewThatFits` to choose horizontal or compact layouts before compression breaks the text field. |
+
+Residual risk:
+
+- Native target validation is still source-gated and smoke-tested through Swift compilation rather than measured in a packaged macOS/Linux window.
+
 ## 2026-06-27 Pull Request Command Palette Parity Pass
 
 Overall grade after this slice: **A command catalog parity, A search target resilience, A- native command breadth smoke**.

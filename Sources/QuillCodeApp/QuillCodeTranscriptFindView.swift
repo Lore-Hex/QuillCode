@@ -65,36 +65,9 @@ struct QuillCodeTranscriptFindBar: View {
     }
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "text.magnifyingglass")
-                .foregroundStyle(QuillCodePalette.blue)
-            TextField("Find in chat", text: $query)
-                .textFieldStyle(.roundedBorder)
-                .focused($isFocused)
-                .quillCodeTextEntryTarget()
-                .onSubmit(onNext)
-            Text(statusText)
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(matchCount > 0 || query.isEmpty ? QuillCodePalette.muted : QuillCodePalette.yellow)
-                .frame(minWidth: 86, alignment: .trailing)
-            Button(action: onPrevious) {
-                Image(systemName: "chevron.up")
-            }
-            .buttonStyle(QuillCodePressableButtonStyle())
-            .quillCodeIconButtonTarget()
-            .disabled(matchCount == 0)
-            Button(action: onNext) {
-                Image(systemName: "chevron.down")
-            }
-            .buttonStyle(QuillCodePressableButtonStyle())
-            .quillCodeIconButtonTarget()
-            .disabled(matchCount == 0)
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-            }
-            .buttonStyle(QuillCodePressableButtonStyle())
-            .quillCodeIconButtonTarget()
-            .keyboardShortcut(.cancelAction)
+        ViewThatFits(in: .horizontal) {
+            horizontalLayout
+            compactLayout
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -103,6 +76,75 @@ struct QuillCodeTranscriptFindBar: View {
             DispatchQueue.main.async {
                 isFocused = true
             }
+        }
+    }
+
+    private var horizontalLayout: some View {
+        HStack(spacing: 10) {
+            searchIcon
+            queryField
+            statusLabel
+                .frame(minWidth: 86, alignment: .trailing)
+            navigationButtons
+        }
+    }
+
+    private var compactLayout: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                searchIcon
+                queryField
+            }
+            HStack(spacing: 8) {
+                statusLabel
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                navigationButtons
+            }
+        }
+    }
+
+    private var searchIcon: some View {
+        Image(systemName: "text.magnifyingglass")
+            .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+            .foregroundStyle(QuillCodePalette.blue)
+    }
+
+    private var queryField: some View {
+        TextField("Find in chat", text: $query)
+            .textFieldStyle(.roundedBorder)
+            .focused($isFocused)
+            .quillCodeTextEntryTarget()
+            .onSubmit(onNext)
+    }
+
+    private var statusLabel: some View {
+        Text(statusText)
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(matchCount > 0 || query.isEmpty ? QuillCodePalette.muted : QuillCodePalette.yellow)
+    }
+
+    private var navigationButtons: some View {
+        HStack(spacing: 8) {
+            Button(action: onPrevious) {
+                Image(systemName: "chevron.up")
+            }
+            .buttonStyle(QuillCodePressableButtonStyle())
+            .quillCodeIconButtonTarget()
+            .disabled(matchCount == 0)
+
+            Button(action: onNext) {
+                Image(systemName: "chevron.down")
+            }
+            .buttonStyle(QuillCodePressableButtonStyle())
+            .quillCodeIconButtonTarget()
+            .disabled(matchCount == 0)
+
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(QuillCodePressableButtonStyle())
+            .quillCodeIconButtonTarget()
+            .keyboardShortcut(.cancelAction)
         }
     }
 }
