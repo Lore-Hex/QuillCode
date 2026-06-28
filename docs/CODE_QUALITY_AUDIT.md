@@ -1,5 +1,22 @@
 # Code Quality Audit
 
+## 2026-06-27 Click Target Hittability Pass
+
+Overall grade after this slice: **A interaction test oracle, A disabled-control semantics, A- native rendered pixel coverage**.
+
+The prior click-target architecture gave QuillCode a strong shared 44 px target contract, but the browser audit could still under-model real user misses: it sampled only the center plus corners, filtered out visible controls with `pointer-events: none`, and did not assert that generic dialogs participate in active-layer scoping. This pass keeps the UI visually compact while making the audit closer to real click behavior.
+
+| Before | After |
+| --- | --- |
+| Visible controls with `pointer-events: none` could be filtered out before the audit produced an issue. | Non-disabled visible controls with `pointer-events: none` now fail with `pointer_events_none`; semantically disabled controls still get size/name checks without false clickable-interior failures. |
+| Explicit hit-target probes sampled five points, leaving edge-only blockers easier to miss. | Probes now sample a 3x3 interior grid at 20%, 50%, and 80% across the target. |
+| Active-layer scoping knew QuillCode-specific panels and popovers. | Generic `dialog[open]` and `[role="dialog"]` surfaces are also treated as active interaction layers. |
+| There was no regression fixture proving the audit catches dead/edge-blocked controls. | Added a Playwright fixture that injects a dead target, an edge-blocked target, and a disabled target, then verifies only the real failures are reported. |
+
+Residual risk:
+
+- Native SwiftUI rendered hit regions are still guarded through source-level semantic target contracts plus desktop smoke, not pixel-level native UI inspection. A future packaged UI automation layer should apply the same grid-sampling idea to actual macOS/Linux rendered controls.
+
 ## 2026-06-27 Real-World Smoke Coverage Pass
 
 Overall grade after this slice: **A deterministic CI stability, A- real-provider release coverage, B+ live workflow observability until secrets are configured**.

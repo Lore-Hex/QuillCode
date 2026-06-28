@@ -20,6 +20,8 @@ const INTERACTIVE_SELECTOR = [
 ].join(',');
 
 const ACTIVE_LAYER_SELECTOR = [
+  'dialog[open]',
+  '[role="dialog"]',
   '[data-testid="model-browser"]',
   '[data-testid="settings-panel"]',
   '[data-testid="search-panel"]',
@@ -64,7 +66,7 @@ type InteractionAuditReport = {
   targetIssues: TargetAuditIssue[];
 };
 
-async function interactionAuditReport(page: Page): Promise<InteractionAuditReport> {
+export async function interactionAuditReport(page: Page): Promise<InteractionAuditReport> {
   return page.evaluate(({ activeLayerSelector, minimumHitTarget, selector }) => {
     type VisibleTarget = {
       clipped: VisibleRectResult;
@@ -92,6 +94,12 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
       scrollClipped: boolean;
     };
 
+    const targetSampleFractions = [0.2, 0.5, 0.8];
+
+    function isSemanticallyDisabled(element: Element) {
+      return element.matches(':disabled,[aria-disabled="true"]');
+    }
+
     function isVisible(element: Element, rect: DOMRect) {
       const style = window.getComputedStyle(element);
       const closedDetails = element.closest('details:not([open])');
@@ -100,7 +108,6 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
         && rect.height > 0
         && style.display !== 'none'
         && style.visibility !== 'hidden'
-        && style.pointerEvents !== 'none'
         && !element.closest('[hidden],[aria-hidden="true"]');
     }
 
@@ -175,17 +182,14 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
       return topElement === element || Boolean(topElement && element.contains(topElement));
     }
 
-    function auditSamplePoints(rect: RectLike) {
+    function targetInteriorSamplePoints(rect: RectLike) {
       if (rect.width <= 0 || rect.height <= 0) return [];
-      const insetX = Math.min(10, rect.width / 4);
-      const insetY = Math.min(10, rect.height / 4);
-      return [
-        [rect.left + rect.width / 2, rect.top + rect.height / 2],
-        [rect.left + insetX, rect.top + insetY],
-        [rect.right - insetX, rect.top + insetY],
-        [rect.left + insetX, rect.bottom - insetY],
-        [rect.right - insetX, rect.bottom - insetY]
-      ].filter(([x, y]) => (
+      return targetSampleFractions.flatMap((yFraction) => (
+        targetSampleFractions.map((xFraction) => [
+          rect.left + rect.width * xFraction,
+          rect.top + rect.height * yFraction
+        ])
+      )).filter(([x, y]) => (
         x >= 0
           && y >= 0
           && x <= document.documentElement.clientWidth
@@ -194,13 +198,21 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
     }
 
     function isTopMostAtCenter(element: Element, rect: RectLike) {
-      const points = auditSamplePoints(rect);
-      const center = points[0];
-      return Boolean(center && isPointOwnedBy(element, center[0], center[1]));
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      if (
+        x < 0
+        || y < 0
+        || x > document.documentElement.clientWidth
+        || y > document.documentElement.clientHeight
+      ) {
+        return false;
+      }
+      return isPointOwnedBy(element, x, y);
     }
 
     function hasReliableClickableInterior(element: Element, rect: RectLike) {
-      const points = auditSamplePoints(rect);
+      const points = targetInteriorSamplePoints(rect);
       if (!points.length) return false;
       return points.every(([x, y]) => isPointOwnedBy(element, x, y));
     }
@@ -238,9 +250,14 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
     }
 
     function auditReason(element: Element, rect: DOMRect, clipped: VisibleRectResult) {
+      const style = window.getComputedStyle(element);
+      const isDisabled = isSemanticallyDisabled(element);
       const reasons = [];
       if (!accessibleName(element)) {
         reasons.push('missing_accessible_name');
+      }
+      if (style.pointerEvents === 'none' && !isDisabled) {
+        reasons.push('pointer_events_none');
       }
       if (Math.round(rect.width) < minimumHitTarget || Math.round(rect.height) < minimumHitTarget) {
         reasons.push('too_small');
@@ -251,10 +268,10 @@ async function interactionAuditReport(page: Page): Promise<InteractionAuditRepor
       ) {
         reasons.push('visible_area_too_small_or_clipped');
       }
-      if (!isTopMostAtCenter(element, clipped.rect)) {
+      if (!isDisabled && !isTopMostAtCenter(element, clipped.rect)) {
         reasons.push('center_blocked_or_clipped');
       }
-      if (!hasReliableClickableInterior(element, clipped.rect)) {
+      if (!isDisabled && !hasReliableClickableInterior(element, clipped.rect)) {
         reasons.push('interior_click_area_blocked');
       }
       return reasons.join(',');
@@ -427,6 +444,7 @@ export async function expectHitTarget(locator: Locator, label: string) {
   const clickableInteriorIssues = await target.evaluate((element, minimumHitTarget) => {
     const rect = element.getBoundingClientRect();
     const style = window.getComputedStyle(element);
+    const targetSampleFractions = [0.2, 0.5, 0.8];
     const issues: string[] = [];
 
     function accessibleName(targetElement: Element) {
@@ -457,15 +475,13 @@ export async function expectHitTarget(locator: Locator, label: string) {
       return topElement === element || Boolean(topElement && element.contains(topElement));
     }
 
-    const insetX = Math.min(10, rect.width / 4);
-    const insetY = Math.min(10, rect.height / 4);
-    const samplePoints = [
-      [rect.left + rect.width / 2, rect.top + rect.height / 2],
-      [rect.left + insetX, rect.top + insetY],
-      [rect.right - insetX, rect.top + insetY],
-      [rect.left + insetX, rect.bottom - insetY],
-      [rect.right - insetX, rect.bottom - insetY]
-    ].filter(([x, y]) => (
+    const isDisabled = element.matches(':disabled,[aria-disabled="true"]');
+    const samplePoints = targetSampleFractions.flatMap((yFraction) => (
+      targetSampleFractions.map((xFraction) => [
+        rect.left + rect.width * xFraction,
+        rect.top + rect.height * yFraction
+      ])
+    )).filter(([x, y]) => (
       x >= 0
         && y >= 0
         && x <= document.documentElement.clientWidth
@@ -475,16 +491,16 @@ export async function expectHitTarget(locator: Locator, label: string) {
     if (!accessibleName(element)) {
       issues.push('missing_accessible_name');
     }
-    if (style.pointerEvents === 'none') {
+    if (style.pointerEvents === 'none' && !isDisabled) {
       issues.push('pointer_events_none');
     }
     if (Math.round(rect.width) < minimumHitTarget || Math.round(rect.height) < minimumHitTarget) {
       issues.push('too_small');
     }
-    if (samplePoints.length === 0) {
+    if (!isDisabled && samplePoints.length === 0) {
       issues.push('no_visible_sample_points');
     }
-    if (samplePoints.some(([x, y]) => !isPointOwnedByTarget(x, y))) {
+    if (!isDisabled && samplePoints.some(([x, y]) => !isPointOwnedByTarget(x, y))) {
       issues.push('clickable_interior_blocked');
     }
     return issues;

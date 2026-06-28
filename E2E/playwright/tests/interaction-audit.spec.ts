@@ -9,6 +9,7 @@ import {
 import {
   expectAllVisibleInteractiveTargets,
   expectHitTarget,
+  interactionAuditReport,
   expectNoNestedInteractiveTargets,
   expectNoOverlappingInteractiveTargets
 } from './interaction-audit-helpers';
@@ -188,6 +189,45 @@ test('mock harness audits every visible interactive click target across workspac
   await expect(page.getByTestId('find-bar')).toBeVisible();
   await expectInteractionTargetsClean(page, 'find bar');
   await page.getByTestId('find-close').click();
+});
+
+test('interaction audit catches dead and edge-blocked visible controls', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.evaluate(() => {
+    const fixture = document.createElement('div');
+    fixture.setAttribute('data-testid', 'interaction-audit-fixture');
+    fixture.innerHTML = `
+      <button
+        type="button"
+        data-testid="bad-pointer-target"
+        style="position: fixed; left: 24px; top: 24px; z-index: 1000; width: 96px; height: 48px; pointer-events: none;"
+      >Dead target</button>
+      <button
+        type="button"
+        disabled
+        data-testid="disabled-pointer-target"
+        style="position: fixed; left: 24px; top: 84px; z-index: 1000; width: 96px; height: 48px; pointer-events: none;"
+      >Disabled target</button>
+      <button
+        type="button"
+        data-testid="edge-blocked-target"
+        style="position: fixed; left: 24px; top: 144px; z-index: 1000; width: 96px; height: 64px;"
+      >Edge blocked</button>
+      <span
+        aria-hidden="true"
+        style="position: fixed; left: 24px; top: 144px; z-index: 1001; width: 28px; height: 28px; background: rgba(255, 93, 82, 0.85);"
+      ></span>
+    `;
+    document.body.appendChild(fixture);
+  });
+
+  const report = await interactionAuditReport(page);
+  const issueFor = (testid: string) => report.targetIssues.find((issue) => issue.testid === testid);
+
+  expect(issueFor('bad-pointer-target')?.reason).toContain('pointer_events_none');
+  expect(issueFor('edge-blocked-target')?.reason).toContain('interior_click_area_blocked');
+  expect(issueFor('disabled-pointer-target')).toBeUndefined();
 });
 
 test('mock harness keeps banner and recovery actions at least 44px', async ({ page }) => {
