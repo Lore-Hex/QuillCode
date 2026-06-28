@@ -153,7 +153,7 @@ public struct WorkspacePullRequestReviewDraftSurface: Codable, Sendable, Hashabl
     }
 
     public var canSubmit: Bool {
-        !action.requiresBody || !normalizedBody.isEmpty
+        (!action.requiresBody || !normalizedBody.isEmpty) && invalidSelectedInlineComments.isEmpty
     }
 
     public var inlineCommentCount: Int {
@@ -168,9 +168,22 @@ public struct WorkspacePullRequestReviewDraftSurface: Codable, Sendable, Hashabl
         includeInlineComments ? inlineComments.filter(\.isIncluded) : []
     }
 
+    public var invalidSelectedInlineComments: [WorkspacePullRequestReviewDraftCommentSurface] {
+        selectedInlineComments.filter { $0.normalizedBody.isEmpty }
+    }
+
     public mutating func setInlineComment(id: UUID, isIncluded: Bool) {
+        updateInlineComment(id: id, isIncluded: isIncluded)
+    }
+
+    public mutating func updateInlineComment(id: UUID, isIncluded: Bool? = nil, body: String? = nil) {
         guard let index = inlineComments.firstIndex(where: { $0.id == id }) else { return }
-        inlineComments[index].isIncluded = isIncluded
+        if let isIncluded {
+            inlineComments[index].isIncluded = isIncluded
+        }
+        if let body {
+            inlineComments[index].body = body
+        }
     }
 
     public init(
@@ -212,6 +225,10 @@ public struct WorkspacePullRequestReviewDraftCommentSurface: Codable, Sendable, 
             return "\(path):\(startLine)-\(line)"
         }
         return "\(path):\(line)"
+    }
+
+    public var normalizedBody: String {
+        body.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     public init(

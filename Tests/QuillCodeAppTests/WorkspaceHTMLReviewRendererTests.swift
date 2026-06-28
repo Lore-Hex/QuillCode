@@ -105,6 +105,11 @@ final class WorkspaceHTMLReviewRendererTests: XCTestCase {
                         line: 7,
                         body: "Skip this branch.",
                         isIncluded: false
+                    ),
+                    WorkspacePullRequestReviewDraftCommentSurface(
+                        path: "Sources/Empty.swift",
+                        line: 9,
+                        body: "   "
                     )
                 ]
             )
@@ -121,7 +126,9 @@ final class WorkspaceHTMLReviewRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="pr-review-draft-include-inline-comments""#))
         XCTAssertTrue(html.contains(#"data-testid="pr-review-draft-inline-comment""#))
         XCTAssertTrue(html.contains(#"data-testid="pr-review-draft-inline-comment-toggle""#))
-        XCTAssertTrue(html.contains("Include 1 of 2 inline review notes"))
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-draft-inline-comment-body""#))
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-draft-inline-comment-warning""#))
+        XCTAssertTrue(html.contains("Include 2 of 3 inline review notes"))
         XCTAssertTrue(html.contains("Skipped"))
         XCTAssertTrue(html.contains("Sources/App.swift:42"))
         XCTAssertTrue(html.contains("Cover this branch."))

@@ -177,6 +177,7 @@ final class WorkspacePullRequestIntegrationTests: XCTestCase {
         ))
         XCTAssertEqual(draft.inlineCommentCount, 2)
         XCTAssertEqual(draft.selectedInlineCommentCount, 1)
+        draft.updateInlineComment(id: draft.inlineComments[0].id, body: "Cover this edited branch.")
         draft.action = .requestChanges
         draft.selector = "456"
         draft.body = "Please address the inline note."
@@ -194,7 +195,7 @@ final class WorkspacePullRequestIntegrationTests: XCTestCase {
                 "api",
                 "repos/example/repo/pulls/456/comments",
                 "--raw-field",
-                "body=Cover this new branch.",
+                "body=Cover this edited branch.",
                 "--raw-field",
                 "commit_id=abc123",
                 "--raw-field",

@@ -52,7 +52,7 @@ enum WorkspacePullRequestReviewDraftToolCallPlanner {
                 "path": comment.path,
                 "line": comment.line,
                 "side": comment.side,
-                "body": comment.body
+                "body": comment.normalizedBody
             ]
             if let selector = draft.normalizedSelector {
                 arguments["selector"] = selector
