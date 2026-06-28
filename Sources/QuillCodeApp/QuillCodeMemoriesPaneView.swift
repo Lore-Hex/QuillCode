@@ -43,8 +43,7 @@ struct QuillCodeMemoriesPaneView: View {
             } label: {
                 Label("Add", systemImage: "plus")
             }
-            .buttonStyle(.borderedProminent)
-            .quillCodeTextButtonTarget()
+            .buttonStyle(QuillCodeActionButtonStyle(.primary))
         }
     }
 

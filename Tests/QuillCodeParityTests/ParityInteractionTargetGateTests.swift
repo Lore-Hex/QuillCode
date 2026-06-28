@@ -285,6 +285,15 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Native text entry, segmented controls, and switches should have semantic hit-target helpers so call sites do not use raw frames."
         )
         XCTAssertTrue(
+            designText.contains("public struct QuillCodeActionButtonStyle: ButtonStyle")
+                && designText.contains("public enum Tone")
+                && designText.contains("case primary")
+                && designText.contains("case destructive")
+                && designText.contains("minWidth: CGFloat = QuillCodeMetrics.compactTextButtonMinWidth")
+                && designText.contains(".contentShape(RoundedRectangle"),
+            "Native action buttons should use one shared tone-aware style that owns the visible surface, 44 pt minimum, press feedback, and tappable shape."
+        )
+        XCTAssertTrue(
             designText.contains("static let controlClusterSpacing: CGFloat = 8")
                 && designText.contains("static let denseControlClusterSpacing: CGFloat = 6"),
             "Dense control groups should use named spacing metrics so adjacent 44 pt hit targets do not drift into overlap-prone magic numbers."
@@ -524,7 +533,8 @@ private struct SwiftSourceInteractionTargetAudit {
         "quillCodeSegmentedControlTarget",
         "quillCodeSwitchRowTarget",
         "quillCodeHitTarget",
-        "quillCodeInteractiveTarget"
+        "quillCodeInteractiveTarget",
+        "QuillCodeActionButtonStyle"
     ]
 
     func violations(in sourceFiles: [URL]) throws -> [String] {
@@ -549,8 +559,8 @@ private struct SwiftSourceInteractionTargetAudit {
             }
 
             if isCompactPlatformButtonStyle(line),
-               !hasSharedTarget(in: owningControlScope) {
-                violations.append("\(relativePath):\(index + 1) compact platform button style lacks shared hit target")
+               !isSystemMenuItemButton(lines: lines, index: index) {
+                violations.append("\(relativePath):\(index + 1) compact platform button style should use QuillCodePressableButtonStyle or QuillCodeActionButtonStyle")
             }
 
             if line.contains(".buttonStyle(QuillCodePressableButtonStyle())"),

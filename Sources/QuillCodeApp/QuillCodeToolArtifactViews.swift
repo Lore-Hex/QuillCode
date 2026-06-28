@@ -15,7 +15,7 @@ struct QuillCodeArtifactChip: View {
                         radius: QuillCodeMetrics.minimumHitTarget / 2
                     )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(QuillCodePressableButtonStyle())
             .accessibilityLabel("Artifact \(artifact.label)")
         } else {
             label
@@ -83,7 +83,7 @@ struct QuillCodeArtifactDocumentPreview: View {
                 content
                     .quillCodeTextButtonTarget(minWidth: 160, alignment: .leading, radius: 18)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(QuillCodePressableButtonStyle())
             .accessibilityElement(children: .combine)
             .accessibilityLabel(accessibilityLabel)
         } else {

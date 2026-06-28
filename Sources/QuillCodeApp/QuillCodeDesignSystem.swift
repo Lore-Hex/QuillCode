@@ -215,6 +215,90 @@ public struct QuillCodePressableButtonStyle: ButtonStyle {
     }
 }
 
+public struct QuillCodeActionButtonStyle: ButtonStyle {
+    public enum Tone {
+        case primary
+        case secondary
+        case destructive
+    }
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isEnabled) private var isEnabled
+
+    private let tone: Tone
+    private let minWidth: CGFloat
+    private let minHeight: CGFloat
+    private let radius: CGFloat
+    private let alignment: Alignment
+
+    public init(
+        _ tone: Tone = .secondary,
+        minWidth: CGFloat = QuillCodeMetrics.compactTextButtonMinWidth,
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        radius: CGFloat = QuillCodeMetrics.compactControlRadius,
+        alignment: Alignment = .center
+    ) {
+        self.tone = tone
+        self.minWidth = minWidth
+        self.minHeight = minHeight
+        self.radius = radius
+        self.alignment = alignment
+    }
+
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, 12)
+            .frame(minWidth: minWidth, minHeight: minHeight, alignment: alignment)
+            .foregroundStyle(foregroundColor)
+            .background(backgroundColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(strokeColor, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .scaleEffect(!reduceMotion && configuration.isPressed ? QuillCodeMetrics.pressScale : 1)
+            .opacity(isEnabled ? 1 : 0.48)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+
+    private var foregroundColor: Color {
+        guard isEnabled else { return QuillCodePalette.muted }
+        switch tone {
+        case .primary:
+            return .white
+        case .secondary:
+            return QuillCodePalette.blue
+        case .destructive:
+            return QuillCodePalette.red
+        }
+    }
+
+    private var backgroundColor: Color {
+        guard isEnabled else { return QuillCodePalette.selection.opacity(0.26) }
+        switch tone {
+        case .primary:
+            return QuillCodePalette.blue
+        case .secondary:
+            return QuillCodePalette.blue.opacity(0.14)
+        case .destructive:
+            return QuillCodePalette.red.opacity(0.14)
+        }
+    }
+
+    private var strokeColor: Color {
+        guard isEnabled else { return Color.white.opacity(0.06) }
+        switch tone {
+        case .primary:
+            return Color.white.opacity(0.18)
+        case .secondary:
+            return QuillCodePalette.blue.opacity(0.24)
+        case .destructive:
+            return QuillCodePalette.red.opacity(0.24)
+        }
+    }
+}
+
 extension View {
     func quillCodeInteractiveTarget(_ spec: QuillCodeHitTargetSpec) -> some View {
         modifier(QuillCodeHitTargetModifier(spec: spec))
