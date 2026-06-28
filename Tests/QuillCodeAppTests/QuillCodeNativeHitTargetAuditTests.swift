@@ -16,9 +16,14 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(Set(report.designSystemContracts.map(\.kind)), Set(QuillCodeNativeHitTargetKind.allCases))
         XCTAssertEqual(report.missingDesignKinds, [])
         XCTAssertEqual(report.missingSurfaceFamilies, [])
+        XCTAssertEqual(report.missingRequiredFocusTargets, [])
         XCTAssertEqual(
             Set(report.coveredSurfaceFamilies),
             Set(QuillCodeInteractionSurfaceFamily.allCases.map(\.rawValue))
+        )
+        XCTAssertEqual(
+            Set(report.coveredFocusTargets),
+            Set(QuillCodeNativeFocusTarget.allCases.map(\.rawValue))
         )
         XCTAssertEqual(report.missingRequiredCommandIDs, [])
         XCTAssertEqual(report.validationIssues, [])
@@ -45,8 +50,11 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             "search.result",
             "settings.text-entry",
             "settings.action",
+            "model-picker.search",
             "model-picker.option",
             "model-picker.option-action",
+            "review.body",
+            "review.thread-reply",
             "review.file-row",
             "review.action",
             "secondary-pane.tab",
@@ -93,6 +101,16 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(contractsByID["browser.comment"]?.action, .textInput)
         XCTAssertEqual(contractsByID["transcript.artifact-link"]?.action, .link)
         XCTAssertEqual(contractsByID["browser.new-tab"]?.action, .press)
+        XCTAssertEqual(contractsByID["composer.input"]?.focusTarget, .composerMessage)
+        XCTAssertEqual(contractsByID["command-palette.input"]?.focusTarget, .commandPaletteSearch)
+        XCTAssertEqual(contractsByID["search.input"]?.focusTarget, .searchChats)
+        XCTAssertEqual(contractsByID["settings.text-entry"]?.focusTarget, .settingsTrustedRouterBaseURL)
+        XCTAssertEqual(contractsByID["model-picker.search"]?.focusTarget, .modelPickerSearch)
+        XCTAssertEqual(contractsByID["review.body"]?.focusTarget, .reviewBody)
+        XCTAssertEqual(contractsByID["review.thread-reply"]?.focusTarget, .reviewThreadReply)
+        XCTAssertEqual(contractsByID["terminal.command"]?.focusTarget, .terminalCommand)
+        XCTAssertEqual(contractsByID["browser.address"]?.focusTarget, .browserAddress)
+        XCTAssertEqual(contractsByID["browser.comment"]?.focusTarget, .browserComment)
         XCTAssertEqual(contractsByID["memories.edit"]?.requiresUnblockedInterior, true)
         XCTAssertEqual(contractsByID["model-picker.option"]?.allowsNestedInteractiveChildren, false)
         XCTAssertEqual(contractsByID["command-palette.input"]?.family, .commandPalette)
@@ -111,9 +129,14 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
 
         XCTAssertTrue(report.isValid)
         XCTAssertEqual(report.missingSurfaceFamilies, [])
+        XCTAssertEqual(report.missingRequiredFocusTargets, [])
         XCTAssertEqual(
             Set(report.coveredSurfaceFamilies),
             Set(QuillCodeInteractionSurfaceFamily.allCases.map(\.rawValue))
+        )
+        XCTAssertEqual(
+            Set(report.coveredFocusTargets),
+            Set(QuillCodeNativeFocusTarget.allCases.map(\.rawValue))
         )
     }
 

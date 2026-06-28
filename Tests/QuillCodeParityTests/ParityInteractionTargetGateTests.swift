@@ -643,6 +643,18 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Native hit-target audit should report activation semantics and interior ownership, not only size and kind."
         )
         XCTAssertTrue(
+            auditText.contains("public enum QuillCodeNativeFocusTarget")
+                && auditText.contains("case composerMessage = \"composer.message\"")
+                && auditText.contains("case searchChats = \"search.chats\"")
+                && auditText.contains("case commandPaletteSearch = \"command-palette.search\"")
+                && auditText.contains("case modelPickerSearch = \"model-picker.search\"")
+                && auditText.contains("case terminalCommand = \"terminal.command\"")
+                && auditText.contains("case browserAddress = \"browser.address\"")
+                && auditText.contains("focusTarget: QuillCodeNativeFocusTarget?")
+                && auditText.contains("missingRequiredFocusTargets"),
+            "Native text-entry targets should have named focus contracts so search, command palette, terminal, browser, and composer typing regressions fail product smoke."
+        )
+        XCTAssertTrue(
             auditText.contains("public enum QuillCodeInteractionSurfaceFamily")
                 && auditText.contains("case sidebarThreadList")
                 && auditText.contains("case commandPalette")
@@ -678,6 +690,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             smokeRunnerText.contains("QuillCodeNativeHitTargetAudit.report(for: surface)")
                 && smokeRunnerText.contains("nativeHitTargets.isValid")
+                && smokeRunnerText.contains("missingRequiredFocusTargets")
                 && smokeRunnerText.contains("nativeHitTargetAuditFailed"),
             "The product executable smoke should fail closed when native hit-target contracts are invalid."
         )
@@ -689,6 +702,16 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && smokeScriptText.contains("math.isclose(press_scale, 0.96")
                 && smokeScriptText.contains(#""icon", "textButton", "formAction", "link", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule""#),
             "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric and semantic kind."
+        )
+        XCTAssertTrue(
+            smokeScriptText.contains("required_focus_targets")
+                && smokeScriptText.contains(#""composer.message""#)
+                && smokeScriptText.contains(#""search.chats""#)
+                && smokeScriptText.contains(#""command-palette.search""#)
+                && smokeScriptText.contains(#""model-picker.search""#)
+                && smokeScriptText.contains(#""terminal.command""#)
+                && smokeScriptText.contains(#""browser.address""#),
+            "The release smoke wrapper should validate named native focus targets, not only generic text-entry kind coverage."
         )
         XCTAssertTrue(
             smokeScriptText.contains(#""command-palette""#)

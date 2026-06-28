@@ -22,6 +22,19 @@ public enum QuillCodeNativeHitTargetAction: String, Codable, Sendable, Hashable,
     case textInput = "text-input"
 }
 
+public enum QuillCodeNativeFocusTarget: String, Codable, Sendable, Hashable, CaseIterable {
+    case browserAddress = "browser.address"
+    case browserComment = "browser.comment"
+    case commandPaletteSearch = "command-palette.search"
+    case composerMessage = "composer.message"
+    case modelPickerSearch = "model-picker.search"
+    case reviewBody = "review.body"
+    case reviewThreadReply = "review.thread-reply"
+    case searchChats = "search.chats"
+    case settingsTrustedRouterBaseURL = "settings.trustedrouter-base-url"
+    case terminalCommand = "terminal.command"
+}
+
 extension QuillCodeNativeHitTargetKind {
     var action: QuillCodeNativeHitTargetAction {
         switch self {
@@ -79,6 +92,7 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
     public var allowsNestedInteractiveChildren: Bool
     public var requiresUnblockedInterior: Bool
     public var source: String
+    public var focusTarget: QuillCodeNativeFocusTarget?
 
     public init(
         id: String,
@@ -88,6 +102,7 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
         kind: QuillCodeNativeHitTargetKind,
         minWidth: Double?,
         minHeight: Double = Double(QuillCodeMetrics.minimumHitTarget),
+        focusTarget: QuillCodeNativeFocusTarget? = nil,
         source: String
     ) {
         self.id = id
@@ -101,6 +116,7 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
         self.allowsNestedInteractiveChildren = kind.allowsNestedInteractiveChildren
         self.requiresUnblockedInterior = kind.requiresUnblockedInterior
         self.source = source
+        self.focusTarget = focusTarget
     }
 
     public var dictionary: [String: Any] {
@@ -119,6 +135,9 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
         if let minWidth {
             value["minWidth"] = minWidth
         }
+        if let focusTarget {
+            value["focusTarget"] = focusTarget.rawValue
+        }
         return value
     }
 
@@ -133,6 +152,9 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
         if allowsNestedInteractiveChildren {
             issues.append("\(id) allows nested interactive children; split the parent target or make the children decorative")
         }
+        if kind == .textEntry && family != .designSystem && focusTarget == nil {
+            issues.append("\(id) text entry does not declare a focus target")
+        }
         return issues
     }
 }
@@ -145,12 +167,15 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
     public var missingDesignKinds: [String]
     public var coveredSurfaceFamilies: [String]
     public var missingSurfaceFamilies: [String]
+    public var coveredFocusTargets: [String]
+    public var missingRequiredFocusTargets: [String]
     public var missingRequiredCommandIDs: [String]
     public var validationIssues: [String]
 
     public var isValid: Bool {
         missingDesignKinds.isEmpty
             && missingSurfaceFamilies.isEmpty
+            && missingRequiredFocusTargets.isEmpty
             && missingRequiredCommandIDs.isEmpty
             && validationIssues.isEmpty
     }
@@ -165,6 +190,8 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
             "missingDesignKinds": missingDesignKinds,
             "coveredSurfaceFamilies": coveredSurfaceFamilies,
             "missingSurfaceFamilies": missingSurfaceFamilies,
+            "coveredFocusTargets": coveredFocusTargets,
+            "missingRequiredFocusTargets": missingRequiredFocusTargets,
             "missingRequiredCommandIDs": missingRequiredCommandIDs,
             "validationIssues": validationIssues
         ]
@@ -187,6 +214,7 @@ public enum QuillCodeNativeHitTargetAudit {
     ]
 
     public static let requiredSurfaceFamilies = QuillCodeInteractionSurfaceFamily.allCases
+    public static let requiredFocusTargets = QuillCodeNativeFocusTarget.allCases
 
     public static var designSystemContracts: [QuillCodeNativeHitTargetContract] {
         [
@@ -218,6 +246,11 @@ public enum QuillCodeNativeHitTargetAudit {
             .filter { !coveredFamilies.contains($0) }
             .map(\.rawValue)
             .sorted()
+        let coveredFocusTargets = Set(surfaceContracts.compactMap(\.focusTarget))
+        let missingFocusTargets = requiredFocusTargets
+            .filter { !coveredFocusTargets.contains($0) }
+            .map(\.rawValue)
+            .sorted()
         let validationIssues = (designContracts + surfaceContracts).flatMap(\.validationIssues)
 
         return QuillCodeNativeHitTargetAuditReport(
@@ -228,6 +261,8 @@ public enum QuillCodeNativeHitTargetAudit {
             missingDesignKinds: missingKinds,
             coveredSurfaceFamilies: coveredFamilies.map(\.rawValue).sorted(),
             missingSurfaceFamilies: missingFamilies,
+            coveredFocusTargets: coveredFocusTargets.map(\.rawValue).sorted(),
+            missingRequiredFocusTargets: missingFocusTargets,
             missingRequiredCommandIDs: missingCommandIDs,
             validationIssues: validationIssues
         )
@@ -243,7 +278,7 @@ public enum QuillCodeNativeHitTargetAudit {
 
     private static func persistentSurfaceContracts() -> [QuillCodeNativeHitTargetContract] {
         [
-            contract("composer.input", family: .composer, surface: "Composer", label: "Message", kind: .textEntry, minWidth: nil),
+            contract("composer.input", family: .composer, surface: "Composer", label: "Message", kind: .textEntry, minWidth: nil, focusTarget: .composerMessage),
             contract("composer.send", family: .composer, surface: "Composer", label: "Send message", kind: .icon, minWidth: 44),
             contract("composer.model-picker", family: .composer, surface: "Composer", label: "Model picker", kind: .capsule, minWidth: nil),
             contract("composer.mode-picker", family: .composer, surface: "Composer", label: "Mode picker", kind: .capsule, minWidth: nil),
@@ -262,19 +297,23 @@ public enum QuillCodeNativeHitTargetAudit {
             contract("transcript.tool-card", family: .toolCard, surface: "Tool card", label: "Tool details", kind: .fullRow, minWidth: nil),
             contract("transcript.tool-card-action", family: .toolCard, surface: "Tool card", label: "Tool action", kind: .textButton, minWidth: 72),
             contract("transcript.context-banner-action", family: .contextBanner, surface: "Context banner", label: "Context action", kind: .textButton, minWidth: 72),
-            contract("command-palette.input", family: .commandPalette, surface: "Command palette", label: "Command search", kind: .textEntry, minWidth: nil),
+            contract("command-palette.input", family: .commandPalette, surface: "Command palette", label: "Command search", kind: .textEntry, minWidth: nil, focusTarget: .commandPaletteSearch),
             contract("command-palette.result", family: .commandPalette, surface: "Command palette", label: "Command result", kind: .fullRow, minWidth: nil),
-            contract("search.input", family: .search, surface: "Search", label: "Search chats", kind: .textEntry, minWidth: nil),
+            contract("search.input", family: .search, surface: "Search", label: "Search chats", kind: .textEntry, minWidth: nil, focusTarget: .searchChats),
             contract("search.result", family: .search, surface: "Search", label: "Search result", kind: .fullRow, minWidth: nil),
-            contract("settings.text-entry", family: .settings, surface: "Settings", label: "Settings text entry", kind: .textEntry, minWidth: nil),
+            contract("settings.text-entry", family: .settings, surface: "Settings", label: "Settings text entry", kind: .textEntry, minWidth: nil, focusTarget: .settingsTrustedRouterBaseURL),
             contract("settings.action", family: .settings, surface: "Settings", label: "Settings action", kind: .formAction, minWidth: 72),
+            contract("model-picker.search", family: .modelPicker, surface: "Model picker", label: "Model search", kind: .textEntry, minWidth: nil, focusTarget: .modelPickerSearch),
             contract("model-picker.option", family: .modelPicker, surface: "Model picker", label: "Model option", kind: .fullRow, minWidth: nil),
             contract("model-picker.option-action", family: .modelPicker, surface: "Model picker", label: "Model option action", kind: .icon, minWidth: 44),
+            contract("review.body", family: .review, surface: "Review", label: "Review body", kind: .textEntry, minWidth: nil, focusTarget: .reviewBody),
+            contract("review.thread-reply", family: .review, surface: "Review", label: "Review thread reply", kind: .textEntry, minWidth: nil, focusTarget: .reviewThreadReply),
             contract("review.file-row", family: .review, surface: "Review", label: "Review file", kind: .fullRow, minWidth: nil),
             contract("review.action", family: .review, surface: "Review", label: "Review action", kind: .formAction, minWidth: 72),
             contract("secondary-pane.tab", family: .secondaryPane, surface: "Secondary pane", label: "Pane tab", kind: .capsule, minWidth: 72),
-            contract("terminal.family-entry", family: .terminal, surface: "Terminal", label: "Terminal command", kind: .textEntry, minWidth: nil),
-            contract("browser.family-entry", family: .browser, surface: "Browser", label: "Browser address", kind: .textEntry, minWidth: nil),
+            contract("terminal.family-entry", family: .terminal, surface: "Terminal", label: "Terminal command", kind: .textEntry, minWidth: nil, focusTarget: .terminalCommand),
+            contract("browser.family-entry", family: .browser, surface: "Browser", label: "Browser address", kind: .textEntry, minWidth: nil, focusTarget: .browserAddress),
+            contract("browser.comment-entry", family: .browser, surface: "Browser", label: "Browser comment", kind: .textEntry, minWidth: nil, focusTarget: .browserComment),
             contract("extensions.family-entry", family: .extensions, surface: "Extensions", label: "Extension action", kind: .formAction, minWidth: 74),
             contract("memories.family-entry", family: .memories, surface: "Memories", label: "Add memory", kind: .formAction, minWidth: 56),
             contract("automations.family-entry", family: .automations, surface: "Automations", label: "Create automation", kind: .formAction, minWidth: 90),
@@ -334,16 +373,16 @@ public enum QuillCodeNativeHitTargetAudit {
         var contracts: [QuillCodeNativeHitTargetContract] = []
 
         if surface.terminal.isVisible {
-            contracts.append(contract("terminal.command", family: .terminal, surface: "Terminal", label: "Terminal command", kind: .textEntry, minWidth: nil))
+            contracts.append(contract("terminal.command", family: .terminal, surface: "Terminal", label: "Terminal command", kind: .textEntry, minWidth: nil, focusTarget: .terminalCommand))
             contracts.append(contract("terminal.run", family: .terminal, surface: "Terminal", label: surface.terminal.commandActionTitle, kind: .textButton, minWidth: 64))
             contracts.append(contract("terminal.clear", family: .terminal, surface: "Terminal", label: "Clear", kind: .textButton, minWidth: 56))
         }
 
         if surface.browser.isVisible {
-            contracts.append(contract("browser.address", family: .browser, surface: "Browser", label: "Browser address", kind: .textEntry, minWidth: nil))
+            contracts.append(contract("browser.address", family: .browser, surface: "Browser", label: "Browser address", kind: .textEntry, minWidth: nil, focusTarget: .browserAddress))
             contracts.append(contract("browser.open", family: .browser, surface: "Browser", label: "Open", kind: .textButton, minWidth: 64))
             contracts.append(contract("browser.new-tab", family: .browser, surface: "Browser", label: "New tab", kind: .icon, minWidth: 44))
-            contracts.append(contract("browser.comment", family: .browser, surface: "Browser", label: "Browser comment", kind: .textEntry, minWidth: nil))
+            contracts.append(contract("browser.comment", family: .browser, surface: "Browser", label: "Browser comment", kind: .textEntry, minWidth: nil, focusTarget: .browserComment))
             contracts.append(contract("browser.add-comment", family: .browser, surface: "Browser", label: "Add comment", kind: .textButton, minWidth: 92))
         }
 
@@ -398,6 +437,7 @@ public enum QuillCodeNativeHitTargetAudit {
         kind: QuillCodeNativeHitTargetKind,
         minWidth: Double?,
         minHeight: Double = Double(QuillCodeMetrics.minimumHitTarget),
+        focusTarget: QuillCodeNativeFocusTarget? = nil,
         source: String = "SwiftUI"
     ) -> QuillCodeNativeHitTargetContract {
         QuillCodeNativeHitTargetContract(
@@ -408,6 +448,7 @@ public enum QuillCodeNativeHitTargetAudit {
             kind: kind,
             minWidth: minWidth,
             minHeight: minHeight,
+            focusTarget: focusTarget,
             source: source
         )
     }
