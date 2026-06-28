@@ -407,6 +407,13 @@ extension View {
         ))
     }
 
+    public func quillCodeDecorativeIconFrame(
+        size: CGFloat = QuillCodeMetrics.minimumHitTarget
+    ) -> some View {
+        frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
+
     func quillCodeSurface(
         fill: Color,
         radius: CGFloat,

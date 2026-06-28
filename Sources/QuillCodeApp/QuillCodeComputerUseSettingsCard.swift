@@ -115,7 +115,7 @@ private struct QuillCodePermissionRow: View {
                 Image(systemName: requirement.isGranted ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                     .foregroundStyle(iconTint)
             }
-            .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+            .quillCodeDecorativeIconFrame()
             VStack(alignment: .leading, spacing: 2) {
                 Text(requirement.title)
                     .font(.callout.weight(.semibold))

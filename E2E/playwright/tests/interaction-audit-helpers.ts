@@ -1,7 +1,8 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 export const MINIMUM_HIT_TARGET = 44;
-export const TARGET_SAMPLE_FRACTIONS = [0.2, 0.5, 0.8];
+export const TARGET_INTERIOR_SAMPLE_FRACTIONS = [0.2, 0.5, 0.8];
+export const TARGET_EDGE_SAMPLE_FRACTIONS = [0.08, 0.92];
 export const SHARED_HIT_TARGET_CLASSES = [
   'hit-target-owned',
   'interactive-hit-target',
@@ -96,7 +97,7 @@ export type CriticalTargetProbe = {
 };
 
 export async function interactionAuditReport(page: Page): Promise<InteractionAuditReport> {
-  return page.evaluate(({ activeLayerSelector, minimumHitTarget, selector, sharedHitTargetClasses, targetSampleFractions }) => {
+  return page.evaluate(({ activeLayerSelector, edgeSampleFractions, interiorSampleFractions, minimumHitTarget, selector, sharedHitTargetClasses }) => {
     type VisibleTarget = {
       clipped: VisibleRectResult;
       element: Element;
@@ -262,12 +263,17 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
 
     function targetInteriorSamplePoints(rect: RectLike) {
       if (rect.width <= 0 || rect.height <= 0) return [];
-      return targetSampleFractions.flatMap((yFraction) => (
-        targetSampleFractions.map((xFraction) => [
+      const interiorGrid = interiorSampleFractions.flatMap((yFraction) => (
+        interiorSampleFractions.map((xFraction) => [
           rect.left + rect.width * xFraction,
           rect.top + rect.height * yFraction
         ])
-      )).filter(([x, y]) => (
+      ));
+      const edgeMidlines = edgeSampleFractions.flatMap((edgeFraction) => [
+        [rect.left + rect.width * edgeFraction, rect.top + rect.height * 0.5],
+        [rect.left + rect.width * 0.5, rect.top + rect.height * edgeFraction]
+      ]);
+      return [...interiorGrid, ...edgeMidlines].filter(([x, y]) => (
         x >= 0
           && y >= 0
           && x <= document.documentElement.clientWidth
@@ -503,10 +509,11 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
     return { nestedIssues, overlapIssues, targetIssues };
   }, {
     activeLayerSelector: ACTIVE_LAYER_SELECTOR,
+    edgeSampleFractions: TARGET_EDGE_SAMPLE_FRACTIONS,
+    interiorSampleFractions: TARGET_INTERIOR_SAMPLE_FRACTIONS,
     minimumHitTarget: MINIMUM_HIT_TARGET,
     selector: INTERACTIVE_SELECTOR,
-    sharedHitTargetClasses: SHARED_HIT_TARGET_CLASSES,
-    targetSampleFractions: TARGET_SAMPLE_FRACTIONS
+    sharedHitTargetClasses: SHARED_HIT_TARGET_CLASSES
   });
 }
 
@@ -534,7 +541,7 @@ export async function expectHitTarget(locator: Locator, label: string) {
   if (!box) throw new Error(`${label} should have layout bounds`);
   expect(Math.round(box.width), `${label} width`).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(Math.round(box.height), `${label} height`).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
-  const clickableInteriorIssues = await target.evaluate((element, { minimumHitTarget, sharedHitTargetClasses, targetSampleFractions }) => {
+  const clickableInteriorIssues = await target.evaluate((element, { edgeSampleFractions, interiorSampleFractions, minimumHitTarget, sharedHitTargetClasses }) => {
     const rect = element.getBoundingClientRect();
     const style = window.getComputedStyle(element);
     const issues: string[] = [];
@@ -568,12 +575,17 @@ export async function expectHitTarget(locator: Locator, label: string) {
     }
 
     const isDisabled = element.matches(':disabled,[aria-disabled="true"]');
-    const samplePoints = targetSampleFractions.flatMap((yFraction) => (
-      targetSampleFractions.map((xFraction) => [
+    const interiorGrid = interiorSampleFractions.flatMap((yFraction) => (
+      interiorSampleFractions.map((xFraction) => [
         rect.left + rect.width * xFraction,
         rect.top + rect.height * yFraction
       ])
-    )).filter(([x, y]) => (
+    ));
+    const edgeMidlines = edgeSampleFractions.flatMap((edgeFraction) => [
+      [rect.left + rect.width * edgeFraction, rect.top + rect.height * 0.5],
+      [rect.left + rect.width * 0.5, rect.top + rect.height * edgeFraction]
+    ]);
+    const samplePoints = [...interiorGrid, ...edgeMidlines].filter(([x, y]) => (
       x >= 0
         && y >= 0
         && x <= document.documentElement.clientWidth
@@ -607,9 +619,10 @@ export async function expectHitTarget(locator: Locator, label: string) {
     }
     return issues;
   }, {
+    edgeSampleFractions: TARGET_EDGE_SAMPLE_FRACTIONS,
+    interiorSampleFractions: TARGET_INTERIOR_SAMPLE_FRACTIONS,
     minimumHitTarget: MINIMUM_HIT_TARGET,
-    sharedHitTargetClasses: SHARED_HIT_TARGET_CLASSES,
-    targetSampleFractions: TARGET_SAMPLE_FRACTIONS
+    sharedHitTargetClasses: SHARED_HIT_TARGET_CLASSES
   });
   expect(clickableInteriorIssues, `${label} should have a named, unblocked clickable interior`).toEqual([]);
 }

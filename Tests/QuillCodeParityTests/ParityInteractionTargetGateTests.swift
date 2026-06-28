@@ -54,9 +54,10 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Explicit critical-control probes should test the clickable interior, not only raw bounding-box dimensions."
         )
         XCTAssertTrue(
-            auditHelperText.contains("TARGET_SAMPLE_FRACTIONS = [0.2, 0.5, 0.8]")
+            auditHelperText.contains("TARGET_INTERIOR_SAMPLE_FRACTIONS = [0.2, 0.5, 0.8]")
+                && auditHelperText.contains("TARGET_EDGE_SAMPLE_FRACTIONS = [0.08, 0.92]")
                 && auditHelperText.contains("targetInteriorSamplePoints"),
-            "Click-target probes should sample a 3x3 interior grid so edge-blocked controls cannot pass with only the center clickable."
+            "Click-target probes should sample near-edge and interior points so controls cannot pass with only the center or middle band clickable."
         )
         XCTAssertTrue(
             auditHelperText.contains("pointer_events_none")
@@ -345,8 +346,9 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             designText.contains("quillCodeTextEntryTarget")
                 && designText.contains("quillCodeSegmentedControlTarget")
-                && designText.contains("quillCodeSwitchRowTarget"),
-            "Native text entry, segmented controls, and switches should have semantic hit-target helpers so call sites do not use raw frames."
+                && designText.contains("quillCodeSwitchRowTarget")
+                && designText.contains("quillCodeDecorativeIconFrame"),
+            "Native text entry, segmented controls, switches, and decorative icon frames should have semantic helpers so call sites do not use raw frames."
         )
         XCTAssertTrue(
             designText.contains("public struct QuillCodeActionButtonStyle: ButtonStyle")
@@ -448,6 +450,45 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
 
                 TextEditor(text: $text)
                     .quillCodeTextEntryTarget()
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertEqual(violations, [])
+    }
+
+    func testNativeSourceAuditRejectsAmbiguousMinimumHitTargetFrames() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct AmbiguousChrome: View {
+            var body: some View {
+                Image(systemName: "info")
+                    .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertTrue(
+            violations.contains { $0.contains("raw minimum hit-target frame should use semantic target or decorative helper") },
+            "Raw 44 pt frames hide whether a view is clickable or decorative."
+        )
+    }
+
+    func testNativeSourceAuditAcceptsDecorativeIconFrames() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct DecorativeChrome: View {
+            var body: some View {
+                Image(systemName: "info")
+                    .quillCodeDecorativeIconFrame()
             }
         }
         """)
@@ -640,6 +681,11 @@ private struct SwiftSourceInteractionTargetAudit {
 
             if isGestureClick(line) {
                 violations.append("\(relativePath):\(index + 1) gesture-based click target should be a Button or Link")
+            }
+
+            if isRawMinimumHitTargetFrame(line),
+               !isSharedDesignSystem(relativePath) {
+                violations.append("\(relativePath):\(index + 1) raw minimum hit-target frame should use semantic target or decorative helper")
             }
 
             if isCompactPlatformButtonStyle(line),
@@ -887,6 +933,14 @@ private struct SwiftSourceInteractionTargetAudit {
             || line.contains(".buttonStyle(.borderedProminent")
             || line.contains(".buttonStyle(.borderless")
             || line.contains(".buttonStyle(.plain")
+    }
+
+    private func isRawMinimumHitTargetFrame(_ line: String) -> Bool {
+        line.contains(".frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)")
+    }
+
+    private func isSharedDesignSystem(_ relativePath: String) -> Bool {
+        relativePath == "Sources/QuillCodeApp/QuillCodeDesignSystem.swift"
     }
 
     private func isSystemMenuItemButton(lines: [String], index: Int) -> Bool {

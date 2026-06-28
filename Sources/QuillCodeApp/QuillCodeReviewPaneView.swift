@@ -50,7 +50,7 @@ struct QuillCodeReviewPaneView: View {
             Image(systemName: "doc.text.magnifyingglass")
                 .font(.title3)
                 .foregroundStyle(QuillCodePalette.blue)
-                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+                .quillCodeDecorativeIconFrame()
                 .background(QuillCodePalette.blue.opacity(0.14))
                 .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.iconControlRadius, style: .continuous))
             VStack(alignment: .leading, spacing: 3) {
@@ -450,10 +450,9 @@ private struct QuillCodePullRequestReviewThreadRowView: View {
                 Image(systemName: thread.isResolved ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                     .font(.body.weight(.semibold))
                     .foregroundStyle(thread.isResolved ? QuillCodePalette.green : QuillCodePalette.yellow)
-                    .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+                    .quillCodeDecorativeIconFrame()
                     .background((thread.isResolved ? QuillCodePalette.green : QuillCodePalette.yellow).opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.iconControlRadius, style: .continuous))
-                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(spacing: 7) {
                         Text(thread.statusLabel)

@@ -330,6 +330,11 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
       >Edge blocked</button>
       <button
         type="button"
+        data-testid="near-edge-blocked-target"
+        style="position: fixed; left: 24px; top: 408px; z-index: 1000; width: 120px; height: 48px;"
+      >Near edge blocked</button>
+      <button
+        type="button"
         data-testid="missing-affordance-target"
         style="position: fixed; left: 24px; top: 220px; z-index: 1000; width: 96px; height: 48px; cursor: default;"
       >Looks dead</button>
@@ -341,6 +346,10 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
       <span
         aria-hidden="true"
         style="position: fixed; left: 24px; top: 144px; z-index: 1001; width: 28px; height: 28px; background: rgba(255, 93, 82, 0.85);"
+      ></span>
+      <span
+        aria-hidden="true"
+        style="position: fixed; left: 132px; top: 408px; z-index: 1001; width: 12px; height: 48px; background: rgba(255, 93, 82, 0.85);"
       ></span>
       <input
         type="checkbox"
@@ -374,6 +383,7 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
 
   expect(issueFor('bad-pointer-target')?.reason).toContain('pointer_events_none');
   expect(issueFor('edge-blocked-target')?.reason).toContain('interior_click_area_blocked');
+  expect(issueFor('near-edge-blocked-target')?.reason).toContain('interior_click_area_blocked');
   expect(issueFor('missing-affordance-target')?.reason).toContain('missing_click_affordance');
   expect(issueFor('missing-contract-target')?.reason).toContain('missing_shared_hit_target_contract');
   expect(issueFor('tiny-checkbox-label')?.reason).toContain('too_small');
