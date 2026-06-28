@@ -8561,3 +8561,20 @@ Code quality changes:
 Remaining risk:
 
 - This hardens deterministic parser coverage. The opt-in live TrustedRouter smoke remains the proof lane for actual provider/model behavior across passive promises, empty shell args, file side effects, download side effects, and persisted transcript integrity.
+
+## 2026-06-28 Project Instruction Conflict Diagnostics Pass
+
+Overall grade after this slice: **A- instruction diagnostics, A scope discipline, B+ conflict review UX**.
+
+The instruction pipeline already made broad-to-specific scope precedence visible, but it only flagged structural risk. Users could still load explicit opposing instructions and have the model silently resolve them by order.
+
+Code quality changes:
+
+- Added conservative semantic-conflict diagnostics for high-confidence opposing rules such as requiring tests versus avoiding tests over the same or nested scopes.
+- Kept contradiction detection inside `ProjectInstructionDiagnosticsBuilder` so WorkspaceModel, Activity projection, and prompt building stay decoupled from rule-analysis details.
+- Deduplicated repeated phrases per instruction and avoided sibling-scope conflicts, because sibling rules can intentionally differ.
+- Added focused unit coverage plus a parity gate requiring visible conflict diagnostics.
+
+Remaining risk:
+
+- This is deterministic, intentionally conservative text analysis. A richer conflict review UI and optional model-assisted rule audit are still needed before this reaches full Codex parity.
