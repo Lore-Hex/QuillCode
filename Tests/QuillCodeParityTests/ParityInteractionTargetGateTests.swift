@@ -607,12 +607,32 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Native hit-target audit should expose every semantic target kind instead of only a generic minimum-size check."
         )
         XCTAssertTrue(
+            auditText.contains("public enum QuillCodeInteractionSurfaceFamily")
+                && auditText.contains("case sidebarThreadList")
+                && auditText.contains("case commandPalette")
+                && auditText.contains("case modelPicker")
+                && auditText.contains("case contextBanner")
+                && auditText.contains("case menuBar")
+                && auditText.contains("requiredSurfaceFamilies")
+                && auditText.contains("missingSurfaceFamilies"),
+            "Native hit-target audit should inventory whole interaction surface families, not only individual button kinds."
+        )
+        XCTAssertTrue(
             auditText.contains("requiredCommandIDs")
                 && auditText.contains(#""toggle-extensions""#)
                 && auditText.contains(#""toggle-memories""#)
                 && auditText.contains(#""toggle-automations""#)
                 && auditText.contains("conditionalPaneContracts(for surface: WorkspaceSurface)"),
             "Native hit-target audit should cover command surfaces and visible secondary panes."
+        )
+        XCTAssertTrue(
+            auditText.contains("canonicalTransientSurfaceContracts")
+                && auditText.contains(#""command-palette.input""#)
+                && auditText.contains(#""search.result""#)
+                && auditText.contains(#""settings.action""#)
+                && auditText.contains(#""model-picker.option-action""#)
+                && auditText.contains(#""menu-bar.action""#),
+            "Transient surfaces should have canonical native target contracts even when they are not visible in the current workspace snapshot."
         )
         XCTAssertTrue(
             smokeSupportText.contains("nativeHitTargets: QuillCodeNativeHitTargetAuditReport")
@@ -633,6 +653,13 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && smokeScriptText.contains("math.isclose(press_scale, 0.96")
                 && smokeScriptText.contains(#""icon", "textButton", "formAction", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule""#),
             "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric and semantic kind."
+        )
+        XCTAssertTrue(
+            smokeScriptText.contains(#""command-palette""#)
+                && smokeScriptText.contains(#""model-picker""#)
+                && smokeScriptText.contains(#""context-banner""#)
+                && smokeScriptText.contains(#""menu-bar""#),
+            "The release smoke wrapper should validate that all named interaction surface families remain covered."
         )
     }
 

@@ -13,8 +13,33 @@ public enum QuillCodeNativeHitTargetKind: String, Codable, Sendable, Hashable, C
     case capsule
 }
 
+public enum QuillCodeInteractionSurfaceFamily: String, Codable, Sendable, Hashable, CaseIterable {
+    case designSystem = "design-system"
+    case workspaceChrome = "workspace-chrome"
+    case sidebar
+    case sidebarThreadList = "sidebar-thread-list"
+    case topBar = "top-bar"
+    case composer
+    case transcript
+    case toolCard = "tool-card"
+    case contextBanner = "context-banner"
+    case commandPalette = "command-palette"
+    case search
+    case settings
+    case modelPicker = "model-picker"
+    case review
+    case secondaryPane = "secondary-pane"
+    case terminal
+    case browser
+    case extensions
+    case memories
+    case automations
+    case menuBar = "menu-bar"
+}
+
 public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
     public var id: String
+    public var family: QuillCodeInteractionSurfaceFamily
     public var surface: String
     public var label: String
     public var kind: QuillCodeNativeHitTargetKind
@@ -24,6 +49,7 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
 
     public init(
         id: String,
+        family: QuillCodeInteractionSurfaceFamily,
         surface: String,
         label: String,
         kind: QuillCodeNativeHitTargetKind,
@@ -32,6 +58,7 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
         source: String
     ) {
         self.id = id
+        self.family = family
         self.surface = surface
         self.label = label
         self.kind = kind
@@ -43,6 +70,7 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
     public var dictionary: [String: Any] {
         var value: [String: Any] = [
             "id": id,
+            "family": family.rawValue,
             "surface": surface,
             "label": label,
             "kind": kind.rawValue,
@@ -73,11 +101,16 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
     public var designSystemContracts: [QuillCodeNativeHitTargetContract]
     public var surfaceContracts: [QuillCodeNativeHitTargetContract]
     public var missingDesignKinds: [String]
+    public var coveredSurfaceFamilies: [String]
+    public var missingSurfaceFamilies: [String]
     public var missingRequiredCommandIDs: [String]
     public var validationIssues: [String]
 
     public var isValid: Bool {
-        missingDesignKinds.isEmpty && missingRequiredCommandIDs.isEmpty && validationIssues.isEmpty
+        missingDesignKinds.isEmpty
+            && missingSurfaceFamilies.isEmpty
+            && missingRequiredCommandIDs.isEmpty
+            && validationIssues.isEmpty
     }
 
     public var dictionary: [String: Any] {
@@ -88,6 +121,8 @@ public struct QuillCodeNativeHitTargetAuditReport: Codable, Sendable, Hashable {
             "designSystemContracts": designSystemContracts.map(\.dictionary),
             "surfaceContracts": surfaceContracts.map(\.dictionary),
             "missingDesignKinds": missingDesignKinds,
+            "coveredSurfaceFamilies": coveredSurfaceFamilies,
+            "missingSurfaceFamilies": missingSurfaceFamilies,
             "missingRequiredCommandIDs": missingRequiredCommandIDs,
             "validationIssues": validationIssues
         ]
@@ -109,18 +144,20 @@ public enum QuillCodeNativeHitTargetAudit {
         "settings"
     ]
 
+    public static let requiredSurfaceFamilies = QuillCodeInteractionSurfaceFamily.allCases
+
     public static var designSystemContracts: [QuillCodeNativeHitTargetContract] {
         [
-            contract("design.icon", surface: "Design system", label: "Icon button", kind: .icon, minWidth: 44),
-            contract("design.text-button", surface: "Design system", label: "Text button", kind: .textButton, minWidth: 72),
-            contract("design.form-action", surface: "Design system", label: "Form action", kind: .formAction, minWidth: 56),
-            contract("design.text-entry", surface: "Design system", label: "Text entry", kind: .textEntry, minWidth: nil),
-            contract("design.segmented-control", surface: "Design system", label: "Segmented control", kind: .segmentedControl, minWidth: nil),
-            contract("design.adjustable-control", surface: "Design system", label: "Adjustable control", kind: .adjustableControl, minWidth: nil),
-            contract("design.switch-row", surface: "Design system", label: "Switch row", kind: .switchRow, minWidth: nil),
-            contract("design.owned-gesture", surface: "Design system", label: "Owned gesture target", kind: .ownedGesture, minWidth: nil),
-            contract("design.full-row", surface: "Design system", label: "Full row button", kind: .fullRow, minWidth: nil),
-            contract("design.capsule", surface: "Design system", label: "Capsule button", kind: .capsule, minWidth: nil)
+            contract("design.icon", family: .designSystem, surface: "Design system", label: "Icon button", kind: .icon, minWidth: 44),
+            contract("design.text-button", family: .designSystem, surface: "Design system", label: "Text button", kind: .textButton, minWidth: 72),
+            contract("design.form-action", family: .designSystem, surface: "Design system", label: "Form action", kind: .formAction, minWidth: 56),
+            contract("design.text-entry", family: .designSystem, surface: "Design system", label: "Text entry", kind: .textEntry, minWidth: nil),
+            contract("design.segmented-control", family: .designSystem, surface: "Design system", label: "Segmented control", kind: .segmentedControl, minWidth: nil),
+            contract("design.adjustable-control", family: .designSystem, surface: "Design system", label: "Adjustable control", kind: .adjustableControl, minWidth: nil),
+            contract("design.switch-row", family: .designSystem, surface: "Design system", label: "Switch row", kind: .switchRow, minWidth: nil),
+            contract("design.owned-gesture", family: .designSystem, surface: "Design system", label: "Owned gesture target", kind: .ownedGesture, minWidth: nil),
+            contract("design.full-row", family: .designSystem, surface: "Design system", label: "Full row button", kind: .fullRow, minWidth: nil),
+            contract("design.capsule", family: .designSystem, surface: "Design system", label: "Capsule button", kind: .capsule, minWidth: nil)
         ]
     }
 
@@ -133,6 +170,11 @@ public enum QuillCodeNativeHitTargetAudit {
         let missingKinds = QuillCodeNativeHitTargetKind.allCases
             .filter { !designKinds.contains($0) }
             .map(\.rawValue)
+        let coveredFamilies = Set((designContracts + surfaceContracts).map(\.family))
+        let missingFamilies = requiredSurfaceFamilies
+            .filter { !coveredFamilies.contains($0) }
+            .map(\.rawValue)
+            .sorted()
         let validationIssues = (designContracts + surfaceContracts).flatMap(\.validationIssues)
 
         return QuillCodeNativeHitTargetAuditReport(
@@ -141,6 +183,8 @@ public enum QuillCodeNativeHitTargetAudit {
             designSystemContracts: designContracts,
             surfaceContracts: surfaceContracts,
             missingDesignKinds: missingKinds,
+            coveredSurfaceFamilies: coveredFamilies.map(\.rawValue).sorted(),
+            missingSurfaceFamilies: missingFamilies,
             missingRequiredCommandIDs: missingCommandIDs,
             validationIssues: validationIssues
         )
@@ -148,6 +192,7 @@ public enum QuillCodeNativeHitTargetAudit {
 
     private static func surfaceContracts(for surface: WorkspaceSurface) -> [QuillCodeNativeHitTargetContract] {
         var contracts = persistentSurfaceContracts()
+        contracts.append(contentsOf: canonicalTransientSurfaceContracts())
         contracts.append(contentsOf: commandContracts(from: surface.commands))
         contracts.append(contentsOf: conditionalPaneContracts(for: surface))
         return contracts
@@ -155,12 +200,41 @@ public enum QuillCodeNativeHitTargetAudit {
 
     private static func persistentSurfaceContracts() -> [QuillCodeNativeHitTargetContract] {
         [
-            contract("composer.input", surface: "Composer", label: "Message", kind: .textEntry, minWidth: nil),
-            contract("composer.send", surface: "Composer", label: "Send message", kind: .icon, minWidth: 44),
-            contract("composer.model-picker", surface: "Composer", label: "Model picker", kind: .capsule, minWidth: nil),
-            contract("composer.mode-picker", surface: "Composer", label: "Mode picker", kind: .capsule, minWidth: nil),
-            contract("top-bar.overflow", surface: "Top bar", label: "More workspace actions", kind: .icon, minWidth: 44),
-            contract("sidebar.tools-menu", surface: "Sidebar", label: "Tools", kind: .fullRow, minWidth: nil)
+            contract("composer.input", family: .composer, surface: "Composer", label: "Message", kind: .textEntry, minWidth: nil),
+            contract("composer.send", family: .composer, surface: "Composer", label: "Send message", kind: .icon, minWidth: 44),
+            contract("composer.model-picker", family: .composer, surface: "Composer", label: "Model picker", kind: .capsule, minWidth: nil),
+            contract("composer.mode-picker", family: .composer, surface: "Composer", label: "Mode picker", kind: .capsule, minWidth: nil),
+            contract("top-bar.overflow", family: .topBar, surface: "Top bar", label: "More workspace actions", kind: .icon, minWidth: 44),
+            contract("sidebar.tools-menu", family: .sidebar, surface: "Sidebar", label: "Tools", kind: .fullRow, minWidth: nil),
+            contract("workspace.chrome", family: .workspaceChrome, surface: "Workspace chrome", label: "Workspace command", kind: .fullRow, minWidth: nil)
+        ]
+    }
+
+    private static func canonicalTransientSurfaceContracts() -> [QuillCodeNativeHitTargetContract] {
+        [
+            contract("sidebar.thread-row", family: .sidebarThreadList, surface: "Sidebar thread list", label: "Thread row", kind: .fullRow, minWidth: nil),
+            contract("sidebar.thread-action", family: .sidebarThreadList, surface: "Sidebar thread list", label: "Thread row action", kind: .icon, minWidth: 44),
+            contract("transcript.message-action", family: .transcript, surface: "Transcript", label: "Message action", kind: .icon, minWidth: 44),
+            contract("transcript.tool-card", family: .toolCard, surface: "Tool card", label: "Tool details", kind: .fullRow, minWidth: nil),
+            contract("transcript.tool-card-action", family: .toolCard, surface: "Tool card", label: "Tool action", kind: .textButton, minWidth: 72),
+            contract("transcript.context-banner-action", family: .contextBanner, surface: "Context banner", label: "Context action", kind: .textButton, minWidth: 72),
+            contract("command-palette.input", family: .commandPalette, surface: "Command palette", label: "Command search", kind: .textEntry, minWidth: nil),
+            contract("command-palette.result", family: .commandPalette, surface: "Command palette", label: "Command result", kind: .fullRow, minWidth: nil),
+            contract("search.input", family: .search, surface: "Search", label: "Search chats", kind: .textEntry, minWidth: nil),
+            contract("search.result", family: .search, surface: "Search", label: "Search result", kind: .fullRow, minWidth: nil),
+            contract("settings.text-entry", family: .settings, surface: "Settings", label: "Settings text entry", kind: .textEntry, minWidth: nil),
+            contract("settings.action", family: .settings, surface: "Settings", label: "Settings action", kind: .formAction, minWidth: 72),
+            contract("model-picker.option", family: .modelPicker, surface: "Model picker", label: "Model option", kind: .fullRow, minWidth: nil),
+            contract("model-picker.option-action", family: .modelPicker, surface: "Model picker", label: "Model option action", kind: .icon, minWidth: 44),
+            contract("review.file-row", family: .review, surface: "Review", label: "Review file", kind: .fullRow, minWidth: nil),
+            contract("review.action", family: .review, surface: "Review", label: "Review action", kind: .formAction, minWidth: 72),
+            contract("secondary-pane.tab", family: .secondaryPane, surface: "Secondary pane", label: "Pane tab", kind: .capsule, minWidth: 72),
+            contract("terminal.family-entry", family: .terminal, surface: "Terminal", label: "Terminal command", kind: .textEntry, minWidth: nil),
+            contract("browser.family-entry", family: .browser, surface: "Browser", label: "Browser address", kind: .textEntry, minWidth: nil),
+            contract("extensions.family-entry", family: .extensions, surface: "Extensions", label: "Extension action", kind: .formAction, minWidth: 74),
+            contract("memories.family-entry", family: .memories, surface: "Memories", label: "Add memory", kind: .formAction, minWidth: 56),
+            contract("automations.family-entry", family: .automations, surface: "Automations", label: "Create automation", kind: .formAction, minWidth: 90),
+            contract("menu-bar.action", family: .menuBar, surface: "Menu bar", label: "Menu bar action", kind: .fullRow, minWidth: nil)
         ]
     }
 
@@ -191,6 +265,7 @@ public enum QuillCodeNativeHitTargetAudit {
         }
         return contract(
             "command.\(command.id)",
+            family: commandFamily(command.id),
             surface: surface,
             label: command.title,
             kind: kind,
@@ -199,61 +274,73 @@ public enum QuillCodeNativeHitTargetAudit {
         )
     }
 
+    private static func commandFamily(_ commandID: String) -> QuillCodeInteractionSurfaceFamily {
+        switch commandID {
+        case "new-chat", "search", "toggle-extensions", "toggle-automations",
+            "toggle-terminal", "toggle-browser", "toggle-memories", "toggle-activity":
+            return .sidebar
+        case "keyboard-shortcuts", "settings":
+            return .topBar
+        default:
+            return .workspaceChrome
+        }
+    }
+
     private static func conditionalPaneContracts(for surface: WorkspaceSurface) -> [QuillCodeNativeHitTargetContract] {
         var contracts: [QuillCodeNativeHitTargetContract] = []
 
         if surface.terminal.isVisible {
-            contracts.append(contract("terminal.command", surface: "Terminal", label: "Terminal command", kind: .textEntry, minWidth: nil))
-            contracts.append(contract("terminal.run", surface: "Terminal", label: surface.terminal.commandActionTitle, kind: .textButton, minWidth: 64))
-            contracts.append(contract("terminal.clear", surface: "Terminal", label: "Clear", kind: .textButton, minWidth: 56))
+            contracts.append(contract("terminal.command", family: .terminal, surface: "Terminal", label: "Terminal command", kind: .textEntry, minWidth: nil))
+            contracts.append(contract("terminal.run", family: .terminal, surface: "Terminal", label: surface.terminal.commandActionTitle, kind: .textButton, minWidth: 64))
+            contracts.append(contract("terminal.clear", family: .terminal, surface: "Terminal", label: "Clear", kind: .textButton, minWidth: 56))
         }
 
         if surface.browser.isVisible {
-            contracts.append(contract("browser.address", surface: "Browser", label: "Browser address", kind: .textEntry, minWidth: nil))
-            contracts.append(contract("browser.open", surface: "Browser", label: "Open", kind: .textButton, minWidth: 64))
-            contracts.append(contract("browser.new-tab", surface: "Browser", label: "New tab", kind: .icon, minWidth: 44))
-            contracts.append(contract("browser.comment", surface: "Browser", label: "Browser comment", kind: .textEntry, minWidth: nil))
-            contracts.append(contract("browser.add-comment", surface: "Browser", label: "Add comment", kind: .textButton, minWidth: 92))
+            contracts.append(contract("browser.address", family: .browser, surface: "Browser", label: "Browser address", kind: .textEntry, minWidth: nil))
+            contracts.append(contract("browser.open", family: .browser, surface: "Browser", label: "Open", kind: .textButton, minWidth: 64))
+            contracts.append(contract("browser.new-tab", family: .browser, surface: "Browser", label: "New tab", kind: .icon, minWidth: 44))
+            contracts.append(contract("browser.comment", family: .browser, surface: "Browser", label: "Browser comment", kind: .textEntry, minWidth: nil))
+            contracts.append(contract("browser.add-comment", family: .browser, surface: "Browser", label: "Add comment", kind: .textButton, minWidth: 92))
         }
 
         if surface.extensions.isVisible {
             if surface.extensions.items.contains(where: { item in
                 item.installCommandID != nil || item.updateCommandID != nil || item.startCommandID != nil || item.stopCommandID != nil
             }) {
-                contracts.append(contract("extensions.action", surface: "Extensions", label: "Extension action", kind: .formAction, minWidth: 74))
+                contracts.append(contract("extensions.action", family: .extensions, surface: "Extensions", label: "Extension action", kind: .formAction, minWidth: 74))
             }
             if surface.extensions.items.contains(where: { !$0.resourceActions.isEmpty || !$0.promptActions.isEmpty }) {
-                contracts.append(contract("extensions.mcp-reference", surface: "Extensions", label: "MCP resource or prompt action", kind: .capsule, minWidth: 96))
+                contracts.append(contract("extensions.mcp-reference", family: .extensions, surface: "Extensions", label: "MCP resource or prompt action", kind: .capsule, minWidth: 96))
             }
         }
 
         if surface.memories.isVisible {
-            contracts.append(contract("memories.add", surface: "Memories", label: "Add memory", kind: .formAction, minWidth: 56))
+            contracts.append(contract("memories.add", family: .memories, surface: "Memories", label: "Add memory", kind: .formAction, minWidth: 56))
             if surface.memories.items.contains(where: { $0.canEdit }) {
-                contracts.append(contract("memories.edit", surface: "Memories", label: "Edit memory", kind: .icon, minWidth: 44))
+                contracts.append(contract("memories.edit", family: .memories, surface: "Memories", label: "Edit memory", kind: .icon, minWidth: 44))
             }
             if surface.memories.items.contains(where: { $0.canDelete }) {
-                contracts.append(contract("memories.delete", surface: "Memories", label: "Forget memory", kind: .icon, minWidth: 44))
+                contracts.append(contract("memories.delete", family: .memories, surface: "Memories", label: "Forget memory", kind: .icon, minWidth: 44))
             }
         }
 
         if surface.automations.isVisible {
             if surface.automations.createThreadFollowUpCommand != nil || surface.automations.createWorkspaceScheduleCommand != nil {
-                contracts.append(contract("automations.create", surface: "Automations", label: "Create automation", kind: .formAction, minWidth: 90))
+                contracts.append(contract("automations.create", family: .automations, surface: "Automations", label: "Create automation", kind: .formAction, minWidth: 90))
             }
             if surface.automations.workflows.contains(where: { $0.runCommandID != nil }) {
-                contracts.append(contract("automations.run", surface: "Automations", label: "Run automation", kind: .formAction, minWidth: 56))
+                contracts.append(contract("automations.run", family: .automations, surface: "Automations", label: "Run automation", kind: .formAction, minWidth: 56))
             }
             if surface.automations.workflows.contains(where: { $0.primaryCommandID != nil }) {
-                contracts.append(contract("automations.primary", surface: "Automations", label: "Pause or resume automation", kind: .formAction, minWidth: 56))
+                contracts.append(contract("automations.primary", family: .automations, surface: "Automations", label: "Pause or resume automation", kind: .formAction, minWidth: 56))
             }
             if surface.automations.workflows.contains(where: { $0.deleteCommandID != nil }) {
-                contracts.append(contract("automations.delete", surface: "Automations", label: "Delete automation", kind: .formAction, minWidth: 56))
+                contracts.append(contract("automations.delete", family: .automations, surface: "Automations", label: "Delete automation", kind: .formAction, minWidth: 56))
             }
         }
 
         if surface.transcript.thinking?.traceLines.isEmpty == false {
-            contracts.append(contract("transcript.thinking-trace", surface: "Transcript", label: "Thinking trace", kind: .capsule, minWidth: 96))
+            contracts.append(contract("transcript.thinking-trace", family: .transcript, surface: "Transcript", label: "Thinking trace", kind: .capsule, minWidth: 96))
         }
 
         return contracts
@@ -261,6 +348,7 @@ public enum QuillCodeNativeHitTargetAudit {
 
     private static func contract(
         _ id: String,
+        family: QuillCodeInteractionSurfaceFamily,
         surface: String,
         label: String,
         kind: QuillCodeNativeHitTargetKind,
@@ -270,6 +358,7 @@ public enum QuillCodeNativeHitTargetAudit {
     ) -> QuillCodeNativeHitTargetContract {
         QuillCodeNativeHitTargetContract(
             id: id,
+            family: family,
             surface: surface,
             label: label,
             kind: kind,

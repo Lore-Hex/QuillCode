@@ -8832,3 +8832,20 @@ Code quality changes:
 Remaining risk:
 
 - This covers deterministic slash-command subagent workers. Full Codex parity still needs model-backed subagent sessions with per-worker transcript drilldown and richer dependency controls.
+
+## 2026-06-28 Click Target Surface-Family Pass
+
+Overall grade after this slice: **A target ownership, A surface-family coverage, A- native accessibility-frame sampling**.
+
+The click-target system already enforced 44 pt helpers, source gates, rendered Playwright probes, and native smoke validation, but the mental model was still too call-site oriented. A control could be well sized while an entire transient surface family, such as command palette, settings, model picker, or menu-bar actions, quietly fell out of the release evidence.
+
+Code quality changes:
+
+- Added `QuillCodeInteractionSurfaceFamily` so every native hit-target contract records where the user interacts, not only what shape the target uses.
+- Added canonical transient-surface contracts for sidebar thread rows, transcript message actions, tool cards, context banners, command palette, search, settings, model picker, review, secondary panes, terminal, browser, extensions, memories, automations, and menu-bar popover actions.
+- Extended the native audit report and desktop smoke contract to fail if any expected surface family is missing.
+- Updated parity and unit tests so click-target reviews start with the surface-family inventory before inspecting individual controls.
+
+Remaining risk:
+
+- This is still semantic/source/native-smoke evidence. The next A+ layer is packaged native UI automation that samples actual Accessibility frames for each family on a built `.app`, matching the rendered Playwright interior sampling already used for the HTML harness.
