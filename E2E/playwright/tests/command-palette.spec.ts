@@ -155,7 +155,7 @@ test('mock harness views pull request details, checks, and diff from the command
 
   await clickSidebarTool(page, 'command-palette-button');
   await fillCommandPalette(page, '>view pull request');
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
+  await expect(commandPaletteResult(page, 'git-pr-view')).toBeVisible();
   await commandPaletteResult(page, 'git-pr-view').click();
 
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
@@ -165,7 +165,7 @@ test('mock harness views pull request details, checks, and diff from the command
 
   await clickSidebarTool(page, 'command-palette-button');
   await fillCommandPalette(page, '>pr checks');
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
+  await expect(commandPaletteResult(page, 'git-pr-checks')).toBeVisible();
   await commandPaletteResult(page, 'git-pr-checks').click();
 
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
@@ -174,12 +174,105 @@ test('mock harness views pull request details, checks, and diff from the command
 
   await clickSidebarTool(page, 'command-palette-button');
   await fillCommandPalette(page, '>pr diff');
-  await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
+  await expect(commandPaletteResult(page, 'git-pr-diff')).toBeVisible();
   await commandPaletteResult(page, 'git-pr-diff').click();
 
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.pr.diff');
   await expect(page.getByTestId('message').last()).toContainText('PR diff preview from GitHub CLI');
+});
+
+test('mock harness covers the full pull request command family from the command palette', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  const pullRequestCommandIDs = [
+    'git-pr-create',
+    'git-pr-view',
+    'git-pr-checks',
+    'git-pr-diff',
+    'git-pr-checkout',
+    'git-pr-reviewers',
+    'git-pr-comment',
+    'git-pr-review',
+    'git-pr-review-comment',
+    'git-pr-review-reply',
+    'git-pr-review-threads',
+    'git-pr-review-thread',
+    'git-pr-labels',
+    'git-pr-merge'
+  ];
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await fillCommandPalette(page, '>pull request');
+  for (const commandID of pullRequestCommandIDs) {
+    await expect(commandPaletteResult(page, commandID), `${commandID} should be visible in the rendered command palette`).toBeVisible();
+  }
+  await page.getByTestId('command-palette-close').click();
+
+  const draftCommands = [
+    {
+      id: 'git-pr-checkout',
+      query: '>checkout pull request',
+      draft: 'Checkout pull request '
+    },
+    {
+      id: 'git-pr-reviewers',
+      query: '>request reviewers',
+      draft: 'Request reviewers for the current pull request: '
+    },
+    {
+      id: 'git-pr-comment',
+      query: '>comment on pull request',
+      draft: 'Comment on the current pull request: '
+    },
+    {
+      id: 'git-pr-review',
+      query: '>approve pr',
+      draft: 'Review the current pull request: approve'
+    },
+    {
+      id: 'git-pr-review-comment',
+      query: '>line comment',
+      draft: 'Comment on a pull request line: '
+    },
+    {
+      id: 'git-pr-review-reply',
+      query: '>inline reply',
+      draft: 'Reply to pull request review comment: '
+    },
+    {
+      id: 'git-pr-review-thread',
+      query: '>resolve review thread',
+      draft: 'Resolve pull request review thread: '
+    },
+    {
+      id: 'git-pr-labels',
+      query: '>label pull request',
+      draft: 'Label the current pull request: '
+    },
+    {
+      id: 'git-pr-merge',
+      query: '>merge pull request',
+      draft: 'Merge the current pull request with squash'
+    }
+  ];
+
+  for (const command of draftCommands) {
+    await clickSidebarTool(page, 'command-palette-button');
+    await clickCommandPaletteCommand(page, command.query, command.id);
+    await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+    await expect(page.getByLabel('Message'), `${command.id} should prepare a focused composer draft`).toHaveValue(command.draft);
+    await expect(page.getByLabel('Message')).toBeFocused();
+  }
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await clickCommandPaletteCommand(page, '>review threads', 'git-pr-review-threads');
+
+  await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.pr.review_threads');
+  await expect(page.getByTestId('review-pane')).toBeVisible();
+  await expect(page.getByTestId('pr-review-thread')).toHaveCount(2);
+  await expect(page.getByTestId('message').last()).toContainText('Found 2 review threads: 1 unresolved, 1 resolved.');
 });
 
 test('mock harness runs local environment action from the command palette', async ({ page }) => {

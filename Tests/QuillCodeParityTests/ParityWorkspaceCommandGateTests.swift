@@ -103,6 +103,7 @@ final class ParityWorkspaceCommandGateTests: QuillCodeParityTestCase {
             "lists worktrees from the command palette",
             "prepares pull request creation from the command palette",
             "views pull request details, checks, and diff from the command palette",
+            "covers the full pull request command family from the command palette",
             "runs local environment action from the command palette",
             "creates and removes worktrees from dialogs"
         ]
@@ -114,6 +115,13 @@ final class ParityWorkspaceCommandGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(commandSpecText.contains("commandPaletteResult"), "Focused command palette flows should use exact command-result locators instead of role-name matches.")
         XCTAssertTrue(commandSpecText.contains(">worktree"), "Focused command palette flows should cover Git worktree commands.")
         XCTAssertTrue(commandSpecText.contains("host.git.pr.view"), "Focused command palette flows should cover pull request command execution.")
+        XCTAssertTrue(
+            commandSpecText.contains("git-pr-review-threads")
+                && commandSpecText.contains("git-pr-review-comment")
+                && commandSpecText.contains("git-pr-review-reply")
+                && commandSpecText.contains("git-pr-merge"),
+            "Focused command palette flows should cover the full pull request command family, including review-thread, inline-comment, reply, and merge actions."
+        )
         XCTAssertTrue(commandSpecText.contains(".quillcode/actions/bootstrap.sh"), "Focused command palette flows should cover local environment actions.")
         for flowName in commandFlowNames {
             XCTAssertTrue(commandSpecText.contains(flowName), "\(flowName) should live in command-palette.spec.ts.")
