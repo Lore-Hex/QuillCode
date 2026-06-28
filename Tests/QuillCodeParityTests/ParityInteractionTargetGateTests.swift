@@ -78,6 +78,11 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "HTML button attributes should add the shared text hit-target class unless a more specific shared target class is already present."
         )
         XCTAssertTrue(
+            primitivesText.contains("static func summary(")
+                && primitivesText.contains("<summary\\(elementAttributes("),
+            "HTML details summaries should route through the shared primitive so disclosure controls keep named hit targets."
+        )
+        XCTAssertTrue(
             primitivesText.contains("private static func isHitTargetClass")
                 && primitivesText.contains("interactiveHitTargetClass")
                 && primitivesText.contains("formActionHitTargetClass"),
@@ -155,7 +160,8 @@ private struct HTMLSourceInteractionTargetAudit {
     private let primitiveMarkers = [
         "WorkspaceHTMLPrimitives.button(",
         "WorkspaceHTMLPrimitives.commandButton(",
-        "WorkspaceHTMLPrimitives.buttonAttributes("
+        "WorkspaceHTMLPrimitives.buttonAttributes(",
+        "WorkspaceHTMLPrimitives.summary("
     ]
 
     private let hitTargetMarkers = [
@@ -187,7 +193,9 @@ private struct HTMLSourceInteractionTargetAudit {
     }
 
     private func containsHTMLInteractiveElement(_ line: String) -> Bool {
-        line.contains("<button") || line.contains("<a ")
+        line.contains("<button")
+            || line.contains("<summary")
+            || line.contains("<a ")
     }
 
     private func lineHasSharedTargetContract(_ line: String) -> Bool {

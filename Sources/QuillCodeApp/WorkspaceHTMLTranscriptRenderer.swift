@@ -131,7 +131,7 @@ enum WorkspaceHTMLTranscriptRenderer {
         guard let thinking else { return "" }
         let trace = thinking.traceLines.isEmpty ? "" : """
           <details data-testid="thinking-trace">
-            <summary>\(escape(thinking.traceTitle))</summary>
+            \(WorkspaceHTMLPrimitives.summary(thinking.traceTitle))
             <ul>
               \(thinking.traceLines.map { #"<li>\#(escape($0))</li>"# }.joined(separator: "\n"))
             </ul>

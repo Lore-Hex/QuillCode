@@ -215,7 +215,12 @@ enum WorkspaceHTMLSidebarRenderer {
         """
         <div class="sidebar-footer" aria-label="Workspace tools">
           <details class="sidebar-tools-menu" data-testid="sidebar-tools-menu">
-            <summary data-testid="sidebar-tools-button" aria-label="Tools" title="Tools">Tools</summary>
+            \(WorkspaceHTMLPrimitives.summary(
+                "Tools",
+                testID: "sidebar-tools-button",
+                ariaLabel: "Tools",
+                title: "Tools"
+            ))
             <div class="sidebar-tools-popover" role="menu">
               \(renderUtilityActions(commands))
             </div>

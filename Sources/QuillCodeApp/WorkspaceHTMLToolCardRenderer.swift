@@ -90,7 +90,7 @@ enum WorkspaceHTMLToolCardRenderer {
         let isOpen = card.opensDetailsByDefault
         return """
         <details class="tool-details" data-testid="tool-card-details"\(isOpen ? " open" : "")>
-          <summary>\(detailsLabel(for: card, isOpen: isOpen))</summary>
+          \(WorkspaceHTMLPrimitives.summary(detailsLabel(for: card, isOpen: isOpen)))
           \(card.inputJSON.map { #"<pre data-testid="tool-card-input">\#(escape($0))</pre>"# } ?? "")
           \(card.outputJSON.map { #"<pre data-testid="tool-card-output">\#(escape($0))</pre>"# } ?? "")
           \(renderDetailsCopyAction(for: card, copyID: copyID))
