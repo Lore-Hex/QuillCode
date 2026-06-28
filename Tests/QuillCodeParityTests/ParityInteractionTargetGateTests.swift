@@ -257,6 +257,37 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && designText.contains("quillCodeSwitchRowTarget"),
             "Native text entry, segmented controls, and switches should have semantic hit-target helpers so call sites do not use raw frames."
         )
+        XCTAssertTrue(
+            designText.contains("static let controlClusterSpacing: CGFloat = 8")
+                && designText.contains("static let denseControlClusterSpacing: CGFloat = 6"),
+            "Dense control groups should use named spacing metrics so adjacent 44 pt hit targets do not drift into overlap-prone magic numbers."
+        )
+    }
+
+    func testInteractiveContainersPreserveChildTargets() throws {
+        let topBarText = try Self.appSourceText(named: "QuillCodeTopBarView.swift")
+        let toolCardText = try Self.appSourceText(named: "QuillCodeToolCardView.swift")
+        let composerText = try Self.appSourceText(named: "QuillCodeComposerView.swift")
+        let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
+        let modelRowsText = try Self.appSourceText(named: "QuillCodeModelPickerRows.swift")
+
+        XCTAssertTrue(
+            topBarText.contains(".accessibilityElement(children: .contain)")
+                && !topBarText.contains(".accessibilityElement(children: .combine)"),
+            "Top bar chrome contains buttons and menus, so it must preserve child targets instead of combining them into one accessibility element."
+        )
+        XCTAssertTrue(
+            toolCardText.contains(".accessibilityElement(children: .contain)")
+                && !toolCardText.contains(".accessibilityElement(children: .combine)"),
+            "Tool cards contain actions and disclosure controls, so they must preserve child click targets instead of combining the whole card."
+        )
+        XCTAssertTrue(
+            topBarText.contains("HStack(spacing: QuillCodeMetrics.controlClusterSpacing)")
+                && composerText.contains("HStack(spacing: QuillCodeMetrics.controlClusterSpacing)")
+                && sidebarText.contains("HStack(spacing: QuillCodeMetrics.controlClusterSpacing)")
+                && modelRowsText.contains("HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing)"),
+            "High-risk adjacent controls should use named hit-target spacing metrics, not local magic numbers."
+        )
     }
 
     func testNativeSourceAuditCoversMenuAndPickerTriggers() throws {

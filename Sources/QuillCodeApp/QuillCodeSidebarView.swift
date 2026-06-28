@@ -81,9 +81,9 @@ private struct QuillCodeSidebarSavedFilterBar: View {
 
     var body: some View {
         LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 100), spacing: 6, alignment: .leading)],
+            columns: [GridItem(.adaptive(minimum: 100), spacing: QuillCodeMetrics.denseControlClusterSpacing, alignment: .leading)],
             alignment: .leading,
-            spacing: 6
+            spacing: QuillCodeMetrics.denseControlClusterSpacing
         ) {
             ForEach(filters) { filter in
                 Button {
@@ -126,7 +126,7 @@ private struct QuillCodeSidebarActionsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             ForEach(visibleCommands) { command in
                 Button {
                     onCommand(command)
@@ -160,7 +160,7 @@ private struct QuillCodeSidebarUtilityActionsView: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             Menu {
                 ForEach(visibleCommandGroups) { group in
                     Section(group.title) {

@@ -131,7 +131,7 @@ struct QuillCodeToolCardView: View {
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isDetailsOpen)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
     }
 

@@ -6,7 +6,7 @@ struct QuillCodeToolCardActionRow: View {
     var onAction: (ToolCardActionSurface) -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             ForEach(actions) { action in
                 Button {
                     onAction(action)

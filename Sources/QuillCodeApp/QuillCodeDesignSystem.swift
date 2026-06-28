@@ -6,6 +6,8 @@ public enum QuillCodeMetrics {
     public static let compactFormActionMinWidth: CGFloat = 56
     public static let compactControlRadius: CGFloat = 9
     public static let iconControlRadius: CGFloat = 10
+    public static let controlClusterSpacing: CGFloat = 8
+    public static let denseControlClusterSpacing: CGFloat = 6
     public static let topBarHeight: CGFloat = 44
     public static let composerSurfaceRadius: CGFloat = 12
     public static let composerControlRadius: CGFloat = 10
