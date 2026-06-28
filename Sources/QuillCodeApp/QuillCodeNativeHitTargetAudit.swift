@@ -248,6 +248,10 @@ public enum QuillCodeNativeHitTargetAudit {
             }
         }
 
+        if surface.transcript.thinking?.traceLines.isEmpty == false {
+            contracts.append(contract("transcript.thinking-trace", surface: "Transcript", label: "Thinking trace", kind: .capsule, minWidth: 96))
+        }
+
         return contracts
     }
 

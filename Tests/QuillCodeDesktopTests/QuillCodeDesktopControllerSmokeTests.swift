@@ -1,4 +1,5 @@
 import XCTest
+import QuillCodeAgent
 import QuillCodeApp
 import QuillCodeCore
 import QuillCodePersistence
@@ -6,6 +7,42 @@ import QuillCodePersistence
 
 @MainActor
 final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
+    func testDesktopComposerSendPublishesOptimisticTranscriptBeforeAgentReturns() async throws {
+        let workspaceRoot = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(runner: AgentRunner(llm: DesktopSlowLLMClient()))
+        let coordinator = QuillCodeDesktopComposerCoordinator()
+        let tasks = QuillCodeDesktopTaskCoordinator()
+        let recorder = DesktopRefreshRecorder()
+        var draft = "run a slow task"
+
+        coordinator.send(
+            draft: &draft,
+            model: model,
+            fallbackWorkspaceRoot: workspaceRoot,
+            tasks: tasks,
+            refresh: {
+                recorder.record(model.surface())
+            }
+        )
+
+        try await waitUntil(timeoutSeconds: 1) {
+            recorder.surface?.transcript.timelineItems.first?.message?.text == "run a slow task"
+        }
+        let surface = try XCTUnwrap(recorder.surface)
+        XCTAssertEqual(draft, "")
+        XCTAssertTrue(surface.composer.isSending)
+        XCTAssertEqual(surface.transcript.messages.map(\.text), ["run a slow task"])
+        XCTAssertEqual(surface.transcript.timelineItems.first?.message?.text, "run a slow task")
+        XCTAssertEqual(surface.transcript.thinking?.title, "Thinking")
+        XCTAssertEqual(surface.transcript.thinking?.subtitle, "Preparing the next step")
+        XCTAssertTrue(tasks.isRunning(.send))
+
+        tasks.cancel(.send)
+        try await waitUntil(timeoutSeconds: 1) {
+            !model.composer.isSending
+        }
+    }
+
     func testDesktopControllerAppliesVisibleBrowserSessionUpdates() async throws {
         let presenter = NoopDesktopBrowserSessionPresenter()
         let controller = try makeController(
@@ -179,6 +216,22 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTFail("Desktop send did not complete with expected answer: \(expectedAnswer)", file: file, line: line)
     }
 
+    private func waitUntil(
+        timeoutSeconds: TimeInterval,
+        condition: @MainActor @escaping () -> Bool,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeoutSeconds)
+        while !condition() {
+            if Date() > deadline {
+                XCTFail("Timed out waiting for desktop condition", file: file, line: line)
+                return
+            }
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
+    }
+
     private func assertSideEffect(
         _ sideEffect: DesktopRealWorldSmokeSideEffect?,
         workspaceRoot: URL,
@@ -222,6 +275,22 @@ private struct DesktopRealWorldSmokeCase {
 
 private enum DesktopRealWorldSmokeSideEffect {
     case fileContains(path: String, text: String)
+}
+
+@MainActor
+private final class DesktopRefreshRecorder {
+    private(set) var surface: WorkspaceSurface?
+
+    func record(_ surface: WorkspaceSurface) {
+        self.surface = surface
+    }
+}
+
+private struct DesktopSlowLLMClient: LLMClient {
+    func nextAction(thread _: ChatThread, userMessage _: String, tools _: [ToolDefinition]) async throws -> AgentAction {
+        try await Task.sleep(nanoseconds: 5_000_000_000)
+        return .say("late response")
+    }
 }
 
 @MainActor
