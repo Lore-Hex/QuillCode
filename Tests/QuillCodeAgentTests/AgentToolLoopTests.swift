@@ -57,6 +57,33 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(update.nextSteps, ["Review the latest tool output", "Continue from the Activity pane"])
     }
 
+    func testAgentUsesSubagentProgressToolWhenAvailable() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(
+            additionalToolDefinitions: [ToolDefinition.subagentsUpdate],
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.subagentsUpdate.name else { return nil }
+                return ToolResult(ok: true, stdout: call.argumentsJSON)
+            }
+        )
+
+        let result = try await runner.send(
+            "show subagent progress for parallel agent validation",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok)
+        XCTAssertEqual(result.thread.messages.last?.content, "Updated subagent progress.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .toolCompleted && $0.summary == "\(ToolDefinition.subagentsUpdate.name) completed"
+        })
+        let update = try JSONHelpers.decode(SubagentProgressUpdate.self, from: result.toolResults[0].stdout)
+        XCTAssertEqual(update.subagents.map(\.name), ["Explorer", "Verifier"])
+        XCTAssertEqual(update.subagents.map(\.status), [.completed, .running])
+    }
+
     func testAgentContinuesAcrossMultipleToolCallsInOneTurn() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(llm: SequenceLLMClient(actions: [

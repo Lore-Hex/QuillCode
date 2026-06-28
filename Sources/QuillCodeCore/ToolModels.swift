@@ -252,6 +252,14 @@ public extension ToolDefinition {
         risk: .read
     )
 
+    static let subagentsUpdate = ToolDefinition(
+        name: "host.subagents.update",
+        description: "Update visible subagent progress for an explicitly requested parallel-agent workflow. Use this only when the user asks to spawn, delegate to, or run parallel subagents. Include each subagent's role, status, and concise summary so the Activity pane can show progress without polluting the main transcript.",
+        parametersJSON: #"{"type":"object","properties":{"objective":{"type":"string","description":"Optional shared objective for the subagent workflow."},"subagents":{"type":"array","minItems":1,"maxItems":12,"items":{"type":"object","properties":{"name":{"type":"string","description":"Short stable label such as Security reviewer or Test scout."},"role":{"type":"string","description":"What this subagent is responsible for."},"status":{"type":"string","enum":["queued","running","blocked","completed","failed"]},"summary":{"type":"string","description":"Current finding, blocker, or result summary."}},"required":["name","role","status"]}}},"required":["subagents"]}"#,
+        host: .local,
+        risk: .read
+    )
+
     static let browserInspect = ToolDefinition(
         name: "host.browser.inspect",
         description: "Inspect the current QuillCode browser preview page, including URL, title, inspection depth, summary, visible page outline, text snippet, and attached browser comments.",

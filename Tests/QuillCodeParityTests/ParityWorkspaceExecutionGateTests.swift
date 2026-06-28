@@ -477,6 +477,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(executorText.contains("WorkspaceBrowserToolExecutor.execute"), "The executor should own browser tool routing.")
         XCTAssertTrue(executorText.contains("PlanUpdateToolExecutor.execute"), "The executor should own plan update routing.")
         XCTAssertTrue(executorText.contains("HandoffUpdateToolExecutor.execute"), "The executor should own handoff summary update routing.")
+        XCTAssertTrue(executorText.contains("SubagentProgressToolExecutor.execute"), "The executor should own subagent progress update routing.")
         XCTAssertTrue(executorText.contains("WorkspaceRemoteProjectToolExecutor.execute"), "The executor should own remote project routing.")
         XCTAssertTrue(executorText.contains("ToolDefinition.applyPatch.name"), "The executor should own apply-patch follow-up routing.")
         XCTAssertTrue(toolRunsText.contains("WorkspaceToolRunCoordinator"), "The tool-run extension should delegate orchestration to the focused coordinator.")

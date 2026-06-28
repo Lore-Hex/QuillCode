@@ -58,6 +58,14 @@ enum AgentUtilityToolAnswerFormatters {
         call.name == ToolDefinition.handoffUpdate.name ? "Updated the handoff summary." : nil
     }
 
+    static func subagentsUpdateAnswer(
+        call: ToolCall,
+        result _: ToolResult,
+        followUpReviewResult _: ToolResult?
+    ) -> String? {
+        call.name == ToolDefinition.subagentsUpdate.name ? "Updated subagent progress." : nil
+    }
+
     static func memoryRememberAnswer(
         call: ToolCall,
         result: ToolResult,

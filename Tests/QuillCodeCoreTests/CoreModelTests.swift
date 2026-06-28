@@ -129,6 +129,36 @@ final class CoreModelTests: XCTestCase {
         XCTAssertTrue(ToolDefinition.handoffUpdate.parametersJSON.contains(#""nextSteps""#))
     }
 
+    func testSubagentProgressUpdateRoundTrips() throws {
+        let update = SubagentProgressUpdate(
+            objective: "Review the current task in parallel.",
+            subagents: [
+                SubagentProgressItem(
+                    name: "Explorer",
+                    role: "Find relevant files.",
+                    status: .completed,
+                    summary: "Mapped the Activity pane."
+                ),
+                SubagentProgressItem(
+                    name: "Verifier",
+                    role: "Run focused checks.",
+                    status: .running
+                )
+            ]
+        )
+
+        let encoded = try JSONHelpers.encodePretty(update)
+        let decoded = try JSONHelpers.decode(SubagentProgressUpdate.self, from: encoded)
+
+        XCTAssertEqual(decoded, update)
+        XCTAssertEqual(ToolDefinition.subagentsUpdate.name, "host.subagents.update")
+        XCTAssertEqual(ToolDefinition.subagentsUpdate.host, .local)
+        XCTAssertEqual(ToolDefinition.subagentsUpdate.risk, .read)
+        XCTAssertEqual(SubagentStatus.completed.label, "Done")
+        XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains(#""subagents""#))
+        XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains("blocked"))
+    }
+
     func testToolArgumentsRejectMissingCommand() throws {
         let args = try ToolArguments("{}")
         XCTAssertThrowsError(try args.requiredString("cmd"))

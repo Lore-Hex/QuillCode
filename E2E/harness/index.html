@@ -3305,6 +3305,7 @@
         isVisible: false,
         collapsedSections: [],
         authoredPlan: null,
+        authoredSubagents: null,
         authoredHandoff: null
       },
       automations: {
@@ -4116,6 +4117,8 @@
       if (toolName?.startsWith('host.git.pr.')) return toolCardSanitized(args.selector);
       if (toolName === 'host.git.worktree.create') return toolCardSanitized(args.branch) || toolCardSanitized(args.path);
       if (toolName === 'host.plan.update') return 'plan';
+      if (toolName === 'host.handoff.update') return 'handoff';
+      if (toolName === 'host.subagents.update') return 'subagents';
       if (toolName === 'host.browser.inspect') return toolCardSanitized(args.url);
       if (toolName === 'host.browser.open') return toolCardSanitized(args.url);
       if (toolName === 'host.memory.remember') return toolCardSanitized(args.content);
@@ -6843,6 +6846,7 @@
           artifacts,
           finalAnswer: latestAssistant?.text || null,
           planItems,
+          subagents: state.activity.authoredSubagents || [],
           handoffSummary: state.activity.authoredHandoff || fallbackHandoff
         })
       };
@@ -6867,6 +6871,10 @@
         section('recent', 'Recent', 'activity-step', 'No task events yet', {
           items: activity.steps,
           countLabel: countLabel(activity.steps.length, 'item')
+        }),
+        section('subagents', 'Subagents', 'activity-subagent', 'No subagents running', {
+          items: activity.subagents,
+          countLabel: countLabel(activity.subagents.length, 'item')
         }),
         section('handoff', 'Handoff Summary', 'activity-handoff', '', {
           bodyText: activity.handoffSummary,
@@ -7481,6 +7489,7 @@
       state.transcript.toolCards = [];
       state.transcript.timelineItems = [];
       state.activity.authoredPlan = null;
+      state.activity.authoredSubagents = null;
       state.activity.authoredHandoff = null;
       state.review = {
         title: 'Review changes',
@@ -10463,6 +10472,39 @@
           outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(update, null, 2) }, null, 2)
         });
         addMessage('assistant', 'Updated the task plan.');
+      } else if (text.toLowerCase().includes('subagent')) {
+        const update = {
+          objective: 'Coordinate parallel review of the current task.',
+          subagents: [
+            {
+              name: 'Explorer',
+              role: 'Map the code and identify relevant files.',
+              status: 'completed',
+              summary: 'Found the Activity surface and tool routing seams.'
+            },
+            {
+              name: 'Verifier',
+              role: 'Run focused validation and report failures.',
+              status: 'running',
+              summary: 'Preparing smoke coverage.'
+            }
+          ]
+        };
+        state.activity.authoredSubagents = update.subagents.map((subagent, index) => ({
+          id: `subagent-${index}-${subagent.name}`,
+          title: subagent.name,
+          detail: `${subagent.role} - ${subagent.summary} - Goal: ${update.objective}`,
+          kind: 'subagent',
+          statusLabel: subagent.status === 'completed' ? 'Done' : 'Running'
+        }));
+        addToolCard({
+          title: 'host.subagents.update',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify(update, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(update, null, 2) }, null, 2)
+        });
+        addMessage('assistant', 'Updated subagent progress.');
       } else if (text.toLowerCase().includes('handoff')) {
         const update = {
           summary: 'Current task state is ready for continuation.',
