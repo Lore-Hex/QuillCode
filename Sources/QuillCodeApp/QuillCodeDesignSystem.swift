@@ -26,6 +26,7 @@ struct QuillCodeHitTargetSpec {
         case formAction
         case textEntry
         case segmentedControl
+        case adjustableControl
         case switchRow
         case fullRow
         case capsule
@@ -121,6 +122,22 @@ struct QuillCodeHitTargetSpec {
     ) -> Self {
         Self(
             kind: .segmentedControl,
+            minWidth: nil,
+            maxWidth: .infinity,
+            width: nil,
+            minHeight: minHeight,
+            height: nil,
+            alignment: alignment,
+            shape: .rounded(QuillCodeMetrics.compactControlRadius)
+        )
+    }
+
+    static func adjustableControl(
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .center
+    ) -> Self {
+        Self(
+            kind: .adjustableControl,
             minWidth: nil,
             maxWidth: .infinity,
             width: nil,
@@ -357,6 +374,16 @@ extension View {
         alignment: Alignment = .center
     ) -> some View {
         quillCodeInteractiveTarget(.segmentedControl(
+            minHeight: minHeight,
+            alignment: alignment
+        ))
+    }
+
+    public func quillCodeAdjustableControlTarget(
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .center
+    ) -> some View {
+        quillCodeInteractiveTarget(.adjustableControl(
             minHeight: minHeight,
             alignment: alignment
         ))

@@ -64,7 +64,8 @@
     .hit-target-text-entry,
     .hit-target-row,
     .hit-target-capsule,
-    .hit-target-form-action {
+    .hit-target-form-action,
+    .hit-target-adjustable {
       min-width: var(--hit-target);
       min-height: var(--hit-target);
       touch-action: manipulation;
@@ -73,7 +74,8 @@
     .hit-target-text,
     .hit-target-row,
     .hit-target-capsule,
-    .hit-target-form-action {
+    .hit-target-form-action,
+    .hit-target-adjustable {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -124,7 +126,8 @@
     .hit-target-text,
     .hit-target-row,
     .hit-target-capsule,
-    .hit-target-form-action {
+    .hit-target-form-action,
+    .hit-target-adjustable {
       cursor: pointer;
     }
     button:active:not(:disabled),
@@ -2960,7 +2963,8 @@
     .hit-target-text:focus-visible,
     .hit-target-row:focus-visible,
     .hit-target-capsule:focus-visible,
-    .hit-target-form-action:focus-visible {
+    .hit-target-form-action:focus-visible,
+    .hit-target-adjustable:focus-visible {
       outline: 0;
       box-shadow: 0 0 0 3px rgba(65,184,232,.22), var(--shadow-border-hover);
     }
@@ -3654,7 +3658,8 @@
       'hit-target-text-entry',
       'hit-target-row',
       'hit-target-capsule',
-      'hit-target-form-action'
+      'hit-target-form-action',
+      'hit-target-adjustable'
     ];
 
     function hasSharedHitTargetClass(element) {
@@ -3703,12 +3708,16 @@
       if (element.classList.contains('hit-target-row')) return 'row';
       if (element.classList.contains('hit-target-capsule')) return 'capsule';
       if (element.classList.contains('hit-target-form-action')) return 'form-action';
+      if (element.classList.contains('hit-target-adjustable')) return 'adjustable';
       if (element.classList.contains('interactive-hit-target')) return 'link';
       if (element.classList.contains('hit-target-owned')) return 'owned';
       return '';
     }
 
     function fallbackHitTargetContract(element) {
+      if (element instanceof HTMLInputElement && (element.type || 'text').toLowerCase() === 'range') {
+        return ['hit-target-adjustable', 'adjustable'];
+      }
       if (isRenderedTextEntry(element)) return ['hit-target-text-entry', 'text-entry'];
       if (isRenderedLabelTarget(element)) return ['hit-target-row', 'row'];
       if (element.matches('summary')) {

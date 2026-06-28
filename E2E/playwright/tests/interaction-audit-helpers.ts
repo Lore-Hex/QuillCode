@@ -11,7 +11,8 @@ export const SHARED_HIT_TARGET_CLASSES = [
   'hit-target-text-entry',
   'hit-target-row',
   'hit-target-capsule',
-  'hit-target-form-action'
+  'hit-target-form-action',
+  'hit-target-adjustable'
 ];
 
 const EXPECTED_KIND_BY_CLASS: Record<string, string> = {
@@ -22,7 +23,8 @@ const EXPECTED_KIND_BY_CLASS: Record<string, string> = {
   'hit-target-text-entry': 'text-entry',
   'hit-target-row': 'row',
   'hit-target-capsule': 'capsule',
-  'hit-target-form-action': 'form-action'
+  'hit-target-form-action': 'form-action',
+  'hit-target-adjustable': 'adjustable'
 };
 
 const INTERACTIVE_SELECTOR = [
