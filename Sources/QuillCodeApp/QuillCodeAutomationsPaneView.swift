@@ -91,8 +91,7 @@ struct QuillCodeAutomationsPaneView: View {
             } label: {
                 Label("Create", systemImage: "plus")
             }
-            .buttonStyle(.borderedProminent)
-            .quillCodeTextButtonTarget(minWidth: 90)
+            .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 90))
         }
     }
 
@@ -140,23 +139,20 @@ struct QuillCodeAutomationsPaneView: View {
                     Button(actionTitle) {
                         onCommand(automationCommand(id: commandID, title: actionTitle))
                     }
-                    .buttonStyle(.borderedProminent)
-                    .quillCodeTextButtonTarget()
+                    .buttonStyle(QuillCodeActionButtonStyle(.primary))
                 }
                 if let commandID = workflow.primaryCommandID,
                    let actionTitle = workflow.primaryActionTitle {
                     Button(actionTitle) {
                         onCommand(automationCommand(id: commandID, title: actionTitle))
                     }
-                    .buttonStyle(.bordered)
-                    .quillCodeTextButtonTarget()
+                    .buttonStyle(QuillCodeActionButtonStyle())
                 }
                 if let commandID = workflow.deleteCommandID {
                     Button("Delete", role: .destructive) {
                         onCommand(automationCommand(id: commandID, title: "Delete automation"))
                     }
-                    .buttonStyle(.bordered)
-                    .quillCodeTextButtonTarget()
+                    .buttonStyle(QuillCodeActionButtonStyle(.destructive))
                 }
             }
             .font(.caption.weight(.semibold))

@@ -8528,3 +8528,19 @@ Code quality changes:
 Remaining risk:
 
 - The PR review queue now covers include, skip, edit, reorder, readiness summary, and dispatch ordering. Remaining review-pane work should focus on richer native diff affordances and shared Swift/HTML fixture generation rather than more draft state.
+
+## 2026-06-28 Native Action Click Target Pass
+
+Overall grade after this slice: **A native action primitives, A source gate, A- packaged-window pointer automation**.
+
+Native SwiftUI action buttons still mixed shared hit-target modifiers with compact platform button styles. That kept most controls large enough, but the visible surface, disabled treatment, and press feedback were split between QuillCode and SwiftUI defaults.
+
+Code quality changes:
+
+- Added `QuillCodeActionButtonStyle` with primary, secondary, and destructive tones that own the visible action surface, 44 pt minimum target, rounded tappable shape, disabled opacity, and 0.96 press feedback.
+- Migrated settings, context banners, automations, extensions, memories, worktree dialogs, browser comments, Computer Use setup, terminal Stop, and artifact links away from `.bordered`, `.borderedProminent`, and `.plain`.
+- Tightened `ParityInteractionTargetGateTests` so visible app and desktop code must use QuillCode-owned action or pressable styles instead of compact platform button styles.
+
+Remaining risk:
+
+- Source gates and Playwright rendered audits now cover the shared target contracts. Full packaged-window pointer automation across native macOS controls remains the deeper final proof layer.

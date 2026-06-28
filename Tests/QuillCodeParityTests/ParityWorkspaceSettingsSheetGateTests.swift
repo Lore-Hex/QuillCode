@@ -166,7 +166,7 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(
             browserText.contains(".quillCodeIconButtonTarget()")
-                && browserText.contains(".quillCodeTextButtonTarget(minWidth: 92)"),
+                && browserText.contains("QuillCodeActionButtonStyle(.secondary, minWidth: 92)"),
             "Browser nav and comment controls should use semantic 44 pt click targets."
         )
         XCTAssertFalse(
@@ -175,11 +175,13 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(
             terminalText.contains(".quillCodeTextButtonTarget(minWidth: 56)")
+                && terminalText.contains("QuillCodeActionButtonStyle(.destructive, minWidth: 56)")
                 && terminalText.contains(".quillCodeTextButtonTarget(minWidth: 64)"),
             "Terminal clear/stop/run controls should use semantic 44 pt text targets."
         )
         XCTAssertTrue(
-            contextBannerText.contains(".quillCodeTextButtonTarget(minWidth: minWidth)")
+            contextBannerText.contains("QuillCodeActionButtonStyle(.primary, minWidth: minWidth)")
+                && contextBannerText.contains("QuillCodeActionButtonStyle(.secondary, minWidth: minWidth)")
                 && contextBannerText.contains("minWidth: 120")
                 && contextBannerText.contains("minWidth: 112")
                 && contextBannerText.contains("minWidth: 104"),
@@ -264,9 +266,10 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
             "Shared dialog close buttons should use the common text-button target."
         )
         XCTAssertTrue(
-            settingsText.contains(".quillCodeTextButtonTarget(minWidth: 190)")
-                && settingsText.contains(".quillCodeTextButtonTarget(minWidth: 104")
-                && settingsText.contains(".quillCodeTextButtonTarget()"),
+            settingsText.contains("QuillCodeActionButtonStyle(.primary, minWidth: 190)")
+                && settingsText.contains("QuillCodeActionButtonStyle(.destructive, minWidth: 104")
+                && settingsText.contains("QuillCodeActionButtonStyle()")
+                && settingsText.contains("QuillCodeActionButtonStyle(.primary)"),
             "Settings sign-in, clear, cancel, and save actions should remain explicit 44 pt targets."
         )
         XCTAssertTrue(

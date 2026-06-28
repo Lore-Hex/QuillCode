@@ -135,9 +135,8 @@ private struct QuillCodePermissionRow: View {
                 Button("Open") {
                     onCommand(requirement.command)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(QuillCodeActionButtonStyle())
                 .disabled(!requirement.command.isEnabled)
-                .quillCodeTextButtonTarget()
             }
         }
         .padding(10)

@@ -40,9 +40,7 @@ struct QuillCodeTerminalPaneView: View {
                 ProgressView()
                     .controlSize(.small)
                 Button("Stop", action: onStop)
-                    .buttonStyle(.borderedProminent)
-                    .quillCodeTextButtonTarget(minWidth: 56)
-                    .tint(QuillCodePalette.red)
+                    .buttonStyle(QuillCodeActionButtonStyle(.destructive, minWidth: 56))
             }
         }
     }

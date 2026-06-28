@@ -149,28 +149,24 @@ struct QuillCodeExtensionsPaneView: View {
             Button("Install") {
                 onCommand(extensionCommand(id: installCommandID, title: "Install \(item.name)"))
             }
-            .buttonStyle(.bordered)
-            .quillCodeTextButtonTarget(minWidth: 74)
+            .buttonStyle(QuillCodeActionButtonStyle(.secondary, minWidth: 74))
         }
         if let updateCommandID = item.updateCommandID {
             Button("Update") {
                 onCommand(extensionCommand(id: updateCommandID, title: "Update \(item.name)"))
             }
-            .buttonStyle(.bordered)
-            .quillCodeTextButtonTarget(minWidth: 74)
+            .buttonStyle(QuillCodeActionButtonStyle(.secondary, minWidth: 74))
         }
         if let stopCommandID = item.stopCommandID {
             Button("Stop") {
                 onCommand(extensionCommand(id: stopCommandID, title: "Stop \(item.name)"))
             }
-            .buttonStyle(.bordered)
-            .quillCodeTextButtonTarget(minWidth: 74)
+            .buttonStyle(QuillCodeActionButtonStyle(.destructive, minWidth: 74))
         } else if let startCommandID = item.startCommandID {
             Button("Start") {
                 onCommand(extensionCommand(id: startCommandID, title: "Start \(item.name)"))
             }
-            .buttonStyle(.borderedProminent)
-            .quillCodeTextButtonTarget(minWidth: 74)
+            .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 74))
         }
     }
 
@@ -297,8 +293,7 @@ struct QuillCodeExtensionsPaneView: View {
                         Button("\(titlePrefix) \(action.title)") {
                             onCommand(extensionCommand(id: action.commandID, title: "\(titlePrefix) \(action.title)"))
                         }
-                        .buttonStyle(.bordered)
-                        .quillCodeTextButtonTarget(minWidth: 96)
+                        .buttonStyle(QuillCodeActionButtonStyle(.secondary, minWidth: 96))
                     }
                 }
             }

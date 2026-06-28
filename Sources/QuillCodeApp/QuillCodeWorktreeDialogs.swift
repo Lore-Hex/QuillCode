@@ -35,11 +35,9 @@ struct QuillCodeWorktreeOpenView: View {
             HStack {
                 Spacer()
                 Button("Cancel", action: onCancel)
-                    .buttonStyle(.bordered)
-                    .quillCodeTextButtonTarget()
+                    .buttonStyle(QuillCodeActionButtonStyle())
                 Button("Open", action: onOpen)
-                    .buttonStyle(.borderedProminent)
-                    .quillCodeTextButtonTarget()
+                    .buttonStyle(QuillCodeActionButtonStyle(.primary))
                     .disabled(!draft.canOpen)
             }
         }
@@ -80,11 +78,9 @@ struct QuillCodeWorktreeCreateView: View {
             HStack {
                 Spacer()
                 Button("Cancel", action: onCancel)
-                    .buttonStyle(.bordered)
-                    .quillCodeTextButtonTarget()
+                    .buttonStyle(QuillCodeActionButtonStyle())
                 Button("Create", action: onCreate)
-                    .buttonStyle(.borderedProminent)
-                    .quillCodeTextButtonTarget(minWidth: 82)
+                    .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 82))
                     .disabled(!draft.canCreate)
             }
         }
@@ -129,11 +125,9 @@ struct QuillCodeWorktreeRemoveView: View {
             HStack {
                 Spacer()
                 Button("Cancel", action: onCancel)
-                    .buttonStyle(.bordered)
-                    .quillCodeTextButtonTarget()
+                    .buttonStyle(QuillCodeActionButtonStyle())
                 Button("Remove", action: onRemove)
-                    .buttonStyle(.borderedProminent)
-                    .quillCodeTextButtonTarget(minWidth: 84)
+                    .buttonStyle(QuillCodeActionButtonStyle(.destructive, minWidth: 84))
                     .disabled(!draft.canRemove)
             }
         }
@@ -168,11 +162,9 @@ struct QuillCodeWorktreePruneView: View {
                     .lineLimit(2)
                 Spacer()
                 Button("Cancel", action: onCancel)
-                    .buttonStyle(.bordered)
-                    .quillCodeTextButtonTarget()
+                    .buttonStyle(QuillCodeActionButtonStyle())
                 Button("Prune", action: onPrune)
-                    .buttonStyle(.borderedProminent)
-                    .quillCodeTextButtonTarget()
+                    .buttonStyle(QuillCodeActionButtonStyle(.destructive))
                     .disabled(!draft.canPrune)
             }
         }

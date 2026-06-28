@@ -90,8 +90,7 @@ struct QuillCodeSettingsView: View {
                 .font(.caption)
                 .foregroundStyle(QuillCodePalette.muted)
             Button("Sign in with TrustedRouter", action: onStartTrustedRouterSignIn)
-                .buttonStyle(.borderedProminent)
-                .quillCodeTextButtonTarget(minWidth: 190)
+                .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 190))
             Text(settings.signInURL)
                 .font(.caption2.monospaced())
                 .foregroundStyle(QuillCodePalette.muted)
@@ -116,10 +115,9 @@ struct QuillCodeSettingsView: View {
                 draft.replacementAPIKey = ""
                 draft.shouldClearAPIKey = true
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(QuillCodeActionButtonStyle(.destructive, minWidth: 104, alignment: .leading))
             .disabled(!settings.hasStoredAPIKey)
             .font(.caption)
-            .quillCodeTextButtonTarget(minWidth: 104, alignment: .leading)
         }
     }
 
@@ -127,11 +125,9 @@ struct QuillCodeSettingsView: View {
         HStack {
             Spacer()
             Button("Cancel", action: onCancel)
-                .buttonStyle(.bordered)
-                .quillCodeTextButtonTarget()
+                .buttonStyle(QuillCodeActionButtonStyle())
             Button("Save", action: onSave)
-                .buttonStyle(.borderedProminent)
-                .quillCodeTextButtonTarget()
+                .buttonStyle(QuillCodeActionButtonStyle(.primary))
                 .disabled(!draft.canSave)
         }
     }
