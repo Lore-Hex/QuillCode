@@ -104,6 +104,46 @@ final class WorkspaceProjectExtensionIntegrationTests: XCTestCase {
         XCTAssertTrue(setup.model.selectedThread?.events.contains { $0.summary == "Installed extension GitHub" } == true)
     }
 
+    func testProjectMarketplaceInstallRefreshesToInstalledManifest() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let marketplaceDirectory = root.appendingPathComponent(".quillcode/marketplace")
+        try FileManager.default.createDirectory(at: marketplaceDirectory, withIntermediateDirectories: true)
+        try #"""
+        {
+          "id": "github",
+          "kind": "plugin",
+          "name": "GitHub",
+          "description": "PR workflow helpers.",
+          "version": "1.2.0",
+          "installCommand": "mkdir -p .quillcode/plugins && printf '%s' '{\"id\":\"github\",\"name\":\"GitHub\",\"description\":\"Installed PR workflow helpers.\"}' > .quillcode/plugins/github.json",
+          "installTimeoutSeconds": 30
+        }
+        """#.write(
+            to: marketplaceDirectory.appendingPathComponent("github.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let model = QuillCodeWorkspaceModel()
+        let projectID = model.addProject(path: root, name: "Marketplace Project")
+        model.selectProject(projectID)
+
+        let available = model.surface().extensions.items.first
+        XCTAssertEqual(available?.id, "plugin:github")
+        XCTAssertEqual(available?.statusLabel, "Available")
+        XCTAssertEqual(available?.relativePath, ".quillcode/marketplace/github.json")
+        XCTAssertEqual(model.surface().commands.first { $0.id == "extension-install:plugin:github" }?.isEnabled, true)
+
+        XCTAssertTrue(model.runWorkspaceCommand("extension-install:plugin:github", workspaceRoot: root))
+
+        let installed = model.surface().extensions.items.first
+        XCTAssertEqual(installed?.id, "plugin:github")
+        XCTAssertEqual(installed?.statusLabel, "Discovered")
+        XCTAssertEqual(installed?.relativePath, ".quillcode/plugins/github.json")
+        XCTAssertEqual(installed?.summary, "Installed PR workflow helpers.")
+        XCTAssertTrue(model.selectedThread?.events.contains { $0.summary == "Installed extension GitHub" } == true)
+    }
+
     func testProjectExtensionUpdateFailureKeepsManifestAndRecordsFailureNotice() throws {
         let setup = try makeProjectWithPluginManifest(
             #"{"id":"github","name":"GitHub","description":"PR workflow helpers.","version":"1.0.0","updateCommand":"sh -c 'exit 7'","updateTimeoutSeconds":30}"#

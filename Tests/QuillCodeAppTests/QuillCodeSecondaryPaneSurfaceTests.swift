@@ -66,6 +66,28 @@ final class QuillCodeSecondaryPaneSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.items[1].updateCommandID, "extension-update:mcp:filesystem")
     }
 
+    func testExtensionsSurfaceMarksMarketplaceEntriesAvailable() {
+        let availablePlugin = ProjectExtensionManifest(
+            id: "plugin:github",
+            kind: .plugin,
+            name: "GitHub",
+            summary: "PR helpers.",
+            version: "1.2.0",
+            relativePath: ".quillcode/marketplace/github.json",
+            installCommand: "git clone https://github.com/Lore-Hex/quillcode-github .quillcode/plugins/github"
+        )
+
+        let surface = WorkspaceExtensionsSurface(
+            isVisible: true,
+            manifests: [availablePlugin]
+        )
+
+        XCTAssertEqual(surface.subtitle, "1 plugin · 0 skills · 0 MCP servers · 1 available extension")
+        XCTAssertEqual(surface.availableCount, 1)
+        XCTAssertEqual(surface.items.first?.statusLabel, "Available")
+        XCTAssertEqual(surface.items.first?.installCommandID, "extension-install:plugin:github")
+    }
+
     func testMemoriesSurfaceBuildsPreviewCountsAndDeleteCommands() {
         let global = MemoryNote(
             id: "global-1",

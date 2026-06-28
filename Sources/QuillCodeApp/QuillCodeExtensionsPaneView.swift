@@ -39,6 +39,9 @@ struct QuillCodeExtensionsPaneView: View {
                 QuillCodePaneCountPill(label: "Plugins", count: extensions.pluginCount)
                 QuillCodePaneCountPill(label: "Skills", count: extensions.skillCount)
                 QuillCodePaneCountPill(label: "MCP", count: extensions.mcpServerCount)
+                if extensions.availableCount > 0 {
+                    QuillCodePaneCountPill(label: "Available", count: extensions.availableCount)
+                }
             }
         }
     }
@@ -309,7 +312,7 @@ struct QuillCodeExtensionsPaneView: View {
         switch status {
         case "Discovered", "Running", "Ready":
             return QuillCodePalette.green
-        case "Probing":
+        case "Available", "Probing":
             return QuillCodePalette.blue
         case "Failed", "Missing command":
             return QuillCodePalette.red

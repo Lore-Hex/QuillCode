@@ -1,4 +1,5 @@
 import XCTest
+import QuillCodeCore
 @testable import QuillCodeApp
 
 final class ProjectExtensionManifestLoaderTests: XCTestCase {
@@ -126,5 +127,42 @@ final class ProjectExtensionManifestLoaderTests: XCTestCase {
         let manifests = ProjectExtensionManifestLoader.load(from: root)
 
         XCTAssertEqual(manifests.map(\.name), ["Code Review", "Issue Triage"])
+    }
+
+    func testLoadsMarketplaceEntriesAndFiltersInstalledExtensions() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let marketplaceDirectory = root.appendingPathComponent(".quillcode/marketplace")
+        try FileManager.default.createDirectory(at: marketplaceDirectory, withIntermediateDirectories: true)
+        try #"{"id":"github","kind":"plugin","name":"GitHub","description":"PR helpers.","version":"1.2.0","source":"https://github.com/Lore-Hex/quillcode-github","installCommand":"git clone https://github.com/Lore-Hex/quillcode-github .quillcode/plugins/github","installTimeoutSeconds":600}"#.write(
+            to: marketplaceDirectory.appendingPathComponent("github.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try #"{"id":"review","kind":"skill","name":"Code Review","summary":"Review defects first."}"#.write(
+            to: marketplaceDirectory.appendingPathComponent("review.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try #"{"id":"bad","kind":"unknown","name":"Bad"}"#.write(
+            to: marketplaceDirectory.appendingPathComponent("bad.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let manifests = ProjectExtensionManifestLoader.loadMarketplace(
+            from: root,
+            installedManifests: [
+                ProjectExtensionManifest(
+                    id: "plugin:github",
+                    kind: .plugin,
+                    name: "GitHub",
+                    relativePath: ".quillcode/plugins/github.json"
+                )
+            ]
+        )
+
+        XCTAssertEqual(manifests.map(\.id), ["skill:review"])
+        XCTAssertEqual(manifests.map(\.kind), [.skill])
+        XCTAssertEqual(manifests.map(\.relativePath), [".quillcode/marketplace/review.json"])
     }
 }

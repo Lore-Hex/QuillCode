@@ -8,6 +8,10 @@ public enum ProjectExtensionManifestLoader {
         (".quillcode/mcp", .mcpServer)
     ]
 
+    public static let defaultMarketplaceDirectories = [
+        ".quillcode/marketplace"
+    ]
+
     public static let maxManifests = 48
     public static let maxManifestBytes = 20_000
 
@@ -49,6 +53,58 @@ public enum ProjectExtensionManifestLoader {
                         fileURL: fileURL,
                         maxManifestBytes: maxManifestBytes
                       ),
+                      !seenIDs.contains(manifest.id)
+                else {
+                    continue
+                }
+                seenIDs.insert(manifest.id)
+                manifests.append(manifest)
+            }
+        }
+
+        return manifests
+    }
+
+    public static func loadMarketplace(
+        from projectRoot: URL,
+        installedManifests: [ProjectExtensionManifest],
+        directories: [String] = defaultMarketplaceDirectories,
+        maxManifests: Int = maxManifests,
+        maxManifestBytes: Int = maxManifestBytes
+    ) -> [ProjectExtensionManifest] {
+        let root = projectRoot.standardizedFileURL.resolvingSymlinksInPath()
+        let installedIDs = Set(installedManifests.map(\.id))
+        var manifests: [ProjectExtensionManifest] = []
+        var seenIDs = Set<String>()
+
+        for relativePath in directories {
+            guard manifests.count < maxManifests else {
+                break
+            }
+
+            guard let directory = manifestDirectory(
+                root: root,
+                relativePath: relativePath,
+                kind: .plugin
+            ) else {
+                continue
+            }
+
+            let files = (try? FileManager.default.contentsOfDirectory(
+                at: directory.url,
+                includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey],
+                options: [.skipsHiddenFiles]
+            )) ?? []
+
+            for fileURL in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+                guard manifests.count < maxManifests,
+                      let manifest = marketplaceManifest(
+                        root: root,
+                        directory: directory.relativePath,
+                        fileURL: fileURL,
+                        maxManifestBytes: maxManifestBytes
+                      ),
+                      !installedIDs.contains(manifest.id),
                       !seenIDs.contains(manifest.id)
                 else {
                     continue
@@ -106,6 +162,53 @@ public enum ProjectExtensionManifestLoader {
         fileURL: URL,
         maxManifestBytes: Int
     ) -> ProjectExtensionManifest? {
+        guard let payload = payload(
+            root: root,
+            fileURL: fileURL,
+            maxManifestBytes: maxManifestBytes
+        ) else {
+            return nil
+        }
+
+        let resolved = fileURL.standardizedFileURL.resolvingSymlinksInPath()
+        return manifest(
+            payload: payload,
+            kind: kind,
+            directory: directory,
+            fileURL: resolved
+        )
+    }
+
+    private static func marketplaceManifest(
+        root: URL,
+        directory: String,
+        fileURL: URL,
+        maxManifestBytes: Int
+    ) -> ProjectExtensionManifest? {
+        guard let payload = payload(
+            root: root,
+            fileURL: fileURL,
+            maxManifestBytes: maxManifestBytes
+        ),
+              let kind = payload.marketplaceKind
+        else {
+            return nil
+        }
+
+        let resolved = fileURL.standardizedFileURL.resolvingSymlinksInPath()
+        return manifest(
+            payload: payload,
+            kind: kind,
+            directory: directory,
+            fileURL: resolved
+        )
+    }
+
+    private static func payload(
+        root: URL,
+        fileURL: URL,
+        maxManifestBytes: Int
+    ) -> ManifestPayload? {
         guard maxManifestBytes > 0,
               fileURL.pathExtension == "json"
         else {
@@ -132,14 +235,23 @@ public enum ProjectExtensionManifestLoader {
             return nil
         }
 
+        return payload
+    }
+
+    private static func manifest(
+        payload: ManifestPayload,
+        kind: ProjectExtensionKind,
+        directory: String,
+        fileURL: URL
+    ) -> ProjectExtensionManifest? {
         let manifestID = payload.normalizedID
         guard !manifestID.isEmpty else {
             return nil
         }
 
-        let relativePath = "\(directory)/\(resolved.lastPathComponent)"
+        let relativePath = "\(directory)/\(fileURL.lastPathComponent)"
         let name = payload.displayName
-            ?? displayName(from: resolved.deletingPathExtension().lastPathComponent)
+            ?? displayName(from: fileURL.deletingPathExtension().lastPathComponent)
         return ProjectExtensionManifest(
             id: "\(kind.rawValue):\(manifestID)",
             kind: kind,
@@ -183,6 +295,7 @@ private struct ManifestDirectory {
 
 private struct ManifestPayload: Decodable {
     var id: String?
+    var kind: String?
     var name: String?
     var description: String?
     var summary: String?
@@ -203,6 +316,27 @@ private struct ManifestPayload: Decodable {
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
             .filter { $0.isLetter || $0.isNumber || $0 == "." || $0 == "_" || $0 == "-" }
+    }
+
+    var marketplaceKind: ProjectExtensionKind? {
+        guard let kind = normalizedOptional(kind, maxLength: 80)?
+            .lowercased()
+            .replacingOccurrences(of: "-", with: "_")
+            .replacingOccurrences(of: " ", with: "_")
+        else {
+            return nil
+        }
+
+        switch kind {
+        case "plugin", "plugins":
+            return .plugin
+        case "skill", "skills":
+            return .skill
+        case "mcp", "mcp_server", "mcpserver", "mcp_servers", "mcpservers":
+            return .mcpServer
+        default:
+            return nil
+        }
     }
 
     var displayName: String? {

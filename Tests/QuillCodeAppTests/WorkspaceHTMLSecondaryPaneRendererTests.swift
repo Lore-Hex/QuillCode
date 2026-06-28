@@ -79,6 +79,34 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(".quillcode/mcp/filesystem.json"))
     }
 
+    func testHTMLRendererIncludesAvailableMarketplaceExtensions() throws {
+        let project = ProjectRef(
+            name: "QuillCode",
+            path: "/tmp/QuillCode",
+            extensionManifests: [
+                ProjectExtensionManifest(
+                    id: "plugin:github",
+                    kind: .plugin,
+                    name: "GitHub",
+                    summary: "PR workflow helpers.",
+                    relativePath: ".quillcode/marketplace/github.json",
+                    installCommand: "git clone https://github.com/Lore-Hex/quillcode-github .quillcode/plugins/github"
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            extensions: ExtensionsState(isVisible: true)
+        )
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-status="Available""#))
+        XCTAssertTrue(html.contains(#"data-testid="extension-status">Available"#))
+        XCTAssertTrue(html.contains(#"1 available extension"#))
+        XCTAssertTrue(html.contains(#"data-testid="extension-install" data-command-id="extension-install:plugin:github">Install"#))
+    }
+
     func testHTMLRendererIncludesVisibleMemoriesPane() throws {
         let project = ProjectRef(
             name: "QuillCode",

@@ -86,7 +86,9 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
         self.versionLabel = manifest.version.map { "v\($0)" }
         self.sourceURL = manifest.sourceURL
         self.relativePath = manifest.relativePath
-        if manifest.isEnabled {
+        if manifest.isMarketplaceEntry {
+            self.statusLabel = "Available"
+        } else if manifest.isEnabled {
             if manifest.kind == .mcpServer {
                 self.statusLabel = manifest.launchExecutable == nil ? "Missing command" : mcpServerStatus.title
             } else {
@@ -209,5 +211,11 @@ public struct ProjectExtensionManifestSurface: Codable, Sendable, Hashable, Iden
                 commandID: "mcp-prompt:\(manifest.id):\(index)"
             )
         }
+    }
+}
+
+private extension ProjectExtensionManifest {
+    var isMarketplaceEntry: Bool {
+        relativePath.hasPrefix(".quillcode/marketplace/")
     }
 }
