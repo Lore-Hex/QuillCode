@@ -198,10 +198,29 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
         XCTAssertEqual(draft.selectedInlineComments.map(\.body), ["  Keep this edited note.  "])
         XCTAssertEqual(draft.selectedInlineComments.map(\.normalizedBody), ["Keep this edited note."])
         XCTAssertEqual(draft.subtitle, "Submit approve review with 1 of 2 inline notes")
+        XCTAssertEqual(draft.submitSummary.status, .ready)
+        XCTAssertEqual(draft.submitSummary.title, "Ready to submit")
+        XCTAssertEqual(draft.submitSummary.detail, "Approve review for current pull request")
+        XCTAssertEqual(draft.submitSummary.items, [
+            "Action: Approve",
+            "Target: current pull request",
+            "Body: optional",
+            "Inline notes: 1 selected, 1 skipped"
+        ])
         XCTAssertTrue(draft.canSubmit)
 
         draft.updateInlineComment(id: draft.inlineComments[0].id, body: "  ")
         XCTAssertEqual(draft.invalidSelectedInlineComments.map(\.locationLabel), ["Sources/App.swift:42"])
+        XCTAssertEqual(draft.submitSummary.status, .blocked)
+        XCTAssertEqual(draft.submitSummary.title, "Needs attention")
+        XCTAssertEqual(draft.submitSummary.detail, "Resolve required fields before submitting")
+        XCTAssertEqual(draft.submitSummary.items, [
+            "Action: Approve",
+            "Target: current pull request",
+            "Body: optional",
+            "Inline notes: 1 selected, 1 skipped, 1 missing text",
+            "1 selected inline note needs text"
+        ])
         XCTAssertFalse(draft.canSubmit)
 
         draft.setInlineComment(id: draft.inlineComments[0].id, isIncluded: false)
@@ -210,6 +229,7 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
         draft.includeInlineComments = false
         XCTAssertTrue(draft.selectedInlineComments.isEmpty)
         XCTAssertEqual(draft.subtitle, "Submit approve review without inline notes")
+        XCTAssertEqual(draft.submitSummary.items.last, "Inline notes: skipped 2")
 
         let encodedLegacyComment = """
         {

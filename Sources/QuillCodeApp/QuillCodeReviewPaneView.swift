@@ -196,6 +196,8 @@ private struct QuillCodePullRequestReviewDraftView: View {
                 .padding(.horizontal, 10)
             }
 
+            submitSummary
+
             HStack(spacing: 8) {
                 if let submitBlockReason {
                     Text(submitBlockReason)
@@ -227,6 +229,46 @@ private struct QuillCodePullRequestReviewDraftView: View {
         .padding(12)
         .background(QuillCodePalette.background.opacity(0.58))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var submitSummary: some View {
+        let summary = draft.submitSummary
+        let tint = summary.status == .ready ? QuillCodePalette.green : QuillCodePalette.yellow
+        return HStack(alignment: .top, spacing: 10) {
+            Image(systemName: summary.status == .ready ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(tint)
+                .frame(width: 28, height: 28)
+                .background(tint.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(summary.title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(tint)
+                Text(summary.detail)
+                    .font(.caption)
+                    .foregroundStyle(QuillCodePalette.text)
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(Array(summary.items.enumerated()), id: \.offset) { _, item in
+                        Text(item)
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(QuillCodePalette.muted)
+                            .lineLimit(2)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(tint.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(tint.opacity(0.22), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(summary.title). \(summary.detail). \(summary.items.joined(separator: ". "))")
     }
 
     private var submitTitle: String {

@@ -2473,6 +2473,37 @@
       gap: 8px;
       flex-wrap: wrap;
     }
+    .pr-review-draft-summary {
+      display: grid;
+      gap: 5px;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(80,220,122,.22);
+      background: rgba(80,220,122,.08);
+    }
+    .pr-review-draft-summary[data-status="blocked"] {
+      border-color: rgba(255,179,71,.24);
+      background: rgba(255,179,71,.09);
+    }
+    .pr-review-draft-summary strong {
+      color: var(--green);
+      font-size: 13px;
+    }
+    .pr-review-draft-summary[data-status="blocked"] strong {
+      color: var(--yellow);
+    }
+    .pr-review-draft-summary p {
+      margin: 0;
+      color: var(--text);
+      font-size: 13px;
+    }
+    .pr-review-draft-summary ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
     .pr-review-inline-comments {
       display: grid;
       grid-template-columns: 24px 1fr;
@@ -5155,6 +5186,43 @@
       return `Submit ${pullRequestReviewActionLabels[action].toLowerCase()} review with ${selectedCount} of ${inlineCommentCount} inline notes`;
     }
 
+    function pullRequestReviewDraftSubmitSummary(draft) {
+      const action = draft?.action || 'approve';
+      const target = (draft?.selector || '').trim() ? `PR ${(draft.selector || '').trim()}` : 'current pull request';
+      const inlineCommentCount = (draft?.inlineComments || []).length;
+      const selectedInlineCount = selectedPullRequestReviewDraftInlineComments(draft).length;
+      const skippedInlineCount = Math.max(0, inlineCommentCount - selectedInlineCount);
+      const invalidInlineCount = selectedPullRequestReviewDraftInlineComments(draft)
+        .filter(comment => !(comment.body || '').trim()).length;
+      const bodyIsReady = !!(draft?.body || '').trim();
+      const bodyItem = bodyIsReady
+        ? 'Body: ready'
+        : (action === 'approve' ? 'Body: optional' : 'Body: required');
+      const inlineItem = inlineCommentCount === 0
+        ? 'Inline notes: none'
+        : (draft?.includeInlineComments === false
+          ? `Inline notes: skipped ${inlineCommentCount}`
+          : `Inline notes: ${selectedInlineCount} selected${skippedInlineCount ? `, ${skippedInlineCount} skipped` : ''}${invalidInlineCount ? `, ${invalidInlineCount} missing text` : ''}`);
+      const canSubmit = pullRequestReviewDraftCanSubmit(action, draft?.body || '');
+      const items = [
+        `Action: ${pullRequestReviewActionLabels[action]}`,
+        `Target: ${target}`,
+        bodyItem,
+        inlineItem
+      ];
+      if (invalidInlineCount) {
+        items.push(`${invalidInlineCount} selected inline note${invalidInlineCount === 1 ? '' : 's'} ${invalidInlineCount === 1 ? 'needs' : 'need'} text`);
+      }
+      return {
+        status: canSubmit ? 'ready' : 'blocked',
+        title: canSubmit ? 'Ready to submit' : 'Needs attention',
+        detail: canSubmit
+          ? `${pullRequestReviewActionLabels[action]} review for ${target}`
+          : 'Resolve required fields before submitting',
+        items
+      };
+    }
+
     function collectPullRequestReviewDraftInlineComments() {
       return state.review.files.flatMap(file => (file.hunks || [])
         .flatMap(hunk => (hunk.lines || [])
@@ -5187,6 +5255,7 @@
       const inlineCommentCountLabel = selectedInlineCommentCount === inlineCommentCount
         ? `${inlineCommentCount} inline review note${inlineCommentCount === 1 ? '' : 's'}`
         : `${selectedInlineCommentCount} of ${inlineCommentCount} inline review notes`;
+      const submitSummary = pullRequestReviewDraftSubmitSummary(draft);
       const inlineCommentPreview = inlineCommentCount ? `
         <label class="pr-review-inline-comments">
           <input type="checkbox" data-testid="pr-review-draft-include-inline-comments" aria-label="Include inline review notes" ${draft.includeInlineComments === false ? '' : 'checked'}>
@@ -5229,6 +5298,13 @@
             <textarea data-testid="pr-review-draft-body" aria-label="Pull request review body" placeholder="${escapeHTML(pullRequestReviewActionBodyPlaceholder(action))}">${escapeHTML(draft.body || '')}</textarea>
           </label>
           ${inlineCommentPreview}
+          <section class="pr-review-draft-summary" data-testid="pr-review-draft-summary" data-status="${escapeHTML(submitSummary.status)}" aria-label="Pull request review submit summary">
+            <strong data-testid="pr-review-draft-summary-title">${escapeHTML(submitSummary.title)}</strong>
+            <p data-testid="pr-review-draft-summary-detail">${escapeHTML(submitSummary.detail)}</p>
+            <ul>
+              ${submitSummary.items.map(item => `<li data-testid="pr-review-draft-summary-item">${escapeHTML(item)}</li>`).join('')}
+            </ul>
+          </section>
           <footer>
             <button type="reset" class="review-action-button hit-target-form-action" data-testid="pr-review-draft-cancel">Cancel</button>
             <button type="submit" class="review-action-button hit-target-form-action" data-testid="pr-review-draft-submit" ${pullRequestReviewDraftCanSubmit(action, draft.body) ? '' : 'disabled'}>${escapeHTML(pullRequestReviewActionSubmitTitle(action))}</button>
@@ -6173,6 +6249,23 @@
             if (warning) warning.hidden = !showWarning;
           });
         };
+        const syncDraftSubmitSummary = () => {
+          const draft = state.review.reviewDraft;
+          const summarySurface = form.querySelector('[data-testid="pr-review-draft-summary"]');
+          if (!draft || !summarySurface) return;
+          const summary = pullRequestReviewDraftSubmitSummary(draft);
+          summarySurface.setAttribute('data-status', summary.status);
+          const title = summarySurface.querySelector('[data-testid="pr-review-draft-summary-title"]');
+          const detail = summarySurface.querySelector('[data-testid="pr-review-draft-summary-detail"]');
+          const itemList = summarySurface.querySelector('ul');
+          if (title) title.textContent = summary.title;
+          if (detail) detail.textContent = summary.detail;
+          if (itemList) {
+            itemList.innerHTML = summary.items
+              .map(item => `<li data-testid="pr-review-draft-summary-item">${escapeHTML(item)}</li>`)
+              .join('');
+          }
+        };
         const syncDraftControls = () => {
           syncDraftState();
           const action = actionSelect.value;
@@ -6180,9 +6273,10 @@
           submitButton.textContent = pullRequestReviewActionSubmitTitle(action);
           submitButton.disabled = !pullRequestReviewDraftCanSubmit(action, bodyInput.value);
           syncInlineCommentWarnings();
+          syncDraftSubmitSummary();
         };
         actionSelect.addEventListener('change', syncDraftControls);
-        selectorInput.addEventListener('input', syncDraftState);
+        selectorInput.addEventListener('input', syncDraftControls);
         bodyInput.addEventListener('input', syncDraftControls);
         inlineBodyInputs.forEach(input => {
           input.addEventListener('input', syncDraftControls);

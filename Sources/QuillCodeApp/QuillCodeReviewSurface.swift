@@ -172,6 +172,10 @@ public struct WorkspacePullRequestReviewDraftSurface: Codable, Sendable, Hashabl
         selectedInlineComments.filter { $0.normalizedBody.isEmpty }
     }
 
+    public var submitSummary: WorkspacePullRequestReviewDraftSubmitSummarySurface {
+        WorkspacePullRequestReviewDraftSubmitSummarySurface(draft: self)
+    }
+
     public mutating func setInlineComment(id: UUID, isIncluded: Bool) {
         updateInlineComment(id: id, isIncluded: isIncluded)
     }
@@ -198,6 +202,74 @@ public struct WorkspacePullRequestReviewDraftSurface: Codable, Sendable, Hashabl
         self.body = body
         self.includeInlineComments = includeInlineComments
         self.inlineComments = inlineComments
+    }
+}
+
+public struct WorkspacePullRequestReviewDraftSubmitSummarySurface: Sendable, Hashable {
+    public enum Status: String, Sendable, Hashable {
+        case ready
+        case blocked
+    }
+
+    public var status: Status
+    public var title: String
+    public var detail: String
+    public var items: [String]
+
+    public init(draft: WorkspacePullRequestReviewDraftSurface) {
+        let target = draft.normalizedSelector.map { "PR \($0)" } ?? "current pull request"
+        let selectedInlineCount = draft.selectedInlineCommentCount
+        let skippedInlineCount = max(0, draft.inlineCommentCount - selectedInlineCount)
+        let invalidInlineCount = draft.invalidSelectedInlineComments.count
+        let bodyItem = Self.bodyItem(for: draft)
+        let inlineItem = Self.inlineItem(
+            total: draft.inlineCommentCount,
+            selected: selectedInlineCount,
+            skipped: skippedInlineCount,
+            invalid: invalidInlineCount,
+            includeInlineComments: draft.includeInlineComments
+        )
+        let isReady = draft.canSubmit
+
+        self.status = isReady ? .ready : .blocked
+        self.title = isReady ? "Ready to submit" : "Needs attention"
+        self.detail = isReady
+            ? "\(draft.action.title) review for \(target)"
+            : "Resolve required fields before submitting"
+        self.items = [
+            "Action: \(draft.action.title)",
+            "Target: \(target)",
+            bodyItem,
+            inlineItem
+        ] + (invalidInlineCount > 0 ? [
+            "\(invalidInlineCount) selected inline note\(invalidInlineCount == 1 ? "" : "s") \(invalidInlineCount == 1 ? "needs" : "need") text"
+        ] : [])
+    }
+
+    private static func bodyItem(for draft: WorkspacePullRequestReviewDraftSurface) -> String {
+        if draft.normalizedBody.isEmpty {
+            return draft.action.requiresBody ? "Body: required" : "Body: optional"
+        }
+        return "Body: ready"
+    }
+
+    private static func inlineItem(
+        total: Int,
+        selected: Int,
+        skipped: Int,
+        invalid: Int,
+        includeInlineComments: Bool
+    ) -> String {
+        guard total > 0 else {
+            return "Inline notes: none"
+        }
+        if !includeInlineComments {
+            return "Inline notes: skipped \(total)"
+        }
+        let selectedLabel = "\(selected) selected"
+        let skippedLabel = skipped > 0 ? ", \(skipped) skipped" : ""
+        let invalidLabel = invalid > 0 ? ", \(invalid) missing text" : ""
+        return "Inline notes: \(selectedLabel)\(skippedLabel)\(invalidLabel)"
     }
 }
 
