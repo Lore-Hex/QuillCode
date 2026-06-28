@@ -2464,6 +2464,41 @@
       gap: 8px;
       flex-wrap: wrap;
     }
+    .pr-review-inline-comments {
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(65,184,232,.08);
+    }
+    .pr-review-inline-comments input {
+      min-width: 20px;
+      min-height: 20px;
+      width: 20px;
+      height: 20px;
+      padding: 0;
+    }
+    .pr-review-inline-comment-list {
+      display: grid;
+      gap: 5px;
+      margin: 0;
+      padding: 0 10px;
+      list-style: none;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .pr-review-inline-comment-list li {
+      display: flex;
+      gap: 8px;
+      min-width: 0;
+    }
+    .pr-review-inline-comment-list code,
+    .pr-review-inline-comment-list span {
+      overflow-wrap: anywhere;
+    }
     .pr-review-threads {
       display: grid;
       gap: 8px;
@@ -4985,10 +5020,46 @@
       return `Submit ${pullRequestReviewActionLabels[action].toLowerCase()} review through GitHub CLI`;
     }
 
+    function collectPullRequestReviewDraftInlineComments() {
+      return state.review.files.flatMap(file => (file.hunks || [])
+        .flatMap(hunk => (hunk.lines || [])
+          .flatMap(line => (line.comments || []).map(comment => {
+            const startLine = comment.endLineNumber && comment.endLineNumber !== comment.lineNumber
+              ? Math.min(comment.lineNumber, comment.endLineNumber)
+              : null;
+            const lineNumber = comment.endLineNumber
+              ? Math.max(comment.lineNumber, comment.endLineNumber)
+              : comment.lineNumber;
+            return {
+              id: comment.id || crypto.randomUUID(),
+              path: comment.path || file.path,
+              line: lineNumber,
+              startLine,
+              side: comment.lineKind === 'deletion' || line.kind === 'deletion' ? 'LEFT' : 'RIGHT',
+              body: comment.text || ''
+            };
+          }))));
+    }
+
     function renderPullRequestReviewDraft(draft) {
       if (!draft) return '';
       const action = draft.action || 'approve';
       const actions = ['approve', 'comment', 'request_changes'];
+      const inlineComments = draft.inlineComments || [];
+      const inlineCommentCount = inlineComments.length;
+      const inlineCommentPreview = inlineCommentCount ? `
+        <label class="pr-review-inline-comments">
+          <input type="checkbox" data-testid="pr-review-draft-include-inline-comments" aria-label="Include inline review notes" ${draft.includeInlineComments === false ? '' : 'checked'}>
+          <span>Include ${inlineCommentCount} inline review note${inlineCommentCount === 1 ? '' : 's'}</span>
+        </label>
+        <ul class="pr-review-inline-comment-list" data-testid="pr-review-draft-inline-comments">
+          ${inlineComments.slice(0, 3).map(comment => `
+            <li data-testid="pr-review-draft-inline-comment">
+              <code>${escapeHTML(comment.startLine && comment.startLine !== comment.line ? `${comment.path}:${comment.startLine}-${comment.line}` : `${comment.path}:${comment.line}`)}</code>
+              <span>${escapeHTML(comment.body || '')}</span>
+            </li>`).join('')}
+          ${inlineCommentCount > 3 ? `<li data-testid="pr-review-draft-inline-comment-more">+${inlineCommentCount - 3} more</li>` : ''}
+        </ul>` : '';
       return `
         <form class="pr-review-draft" data-testid="pr-review-draft" aria-label="Submit pull request review">
           <label>
@@ -5005,6 +5076,7 @@
             Body
             <textarea data-testid="pr-review-draft-body" aria-label="Pull request review body" placeholder="${escapeHTML(pullRequestReviewActionBodyPlaceholder(action))}">${escapeHTML(draft.body || '')}</textarea>
           </label>
+          ${inlineCommentPreview}
           <footer>
             <button type="reset" class="review-action-button hit-target-form-action" data-testid="pr-review-draft-cancel">Cancel</button>
             <button type="submit" class="review-action-button hit-target-form-action" data-testid="pr-review-draft-submit" ${pullRequestReviewDraftCanSubmit(action, draft.body) ? '' : 'disabled'}>${escapeHTML(pullRequestReviewActionSubmitTitle(action))}</button>
@@ -8034,14 +8106,19 @@
 
     function openPullRequestReviewDraft() {
       ensureThread('Review pull request');
+      const inlineComments = collectPullRequestReviewDraftInlineComments();
       state.review = {
         ...state.review,
         title: 'Review pull request',
-        subtitle: pullRequestReviewDraftSubtitle('approve'),
+        subtitle: inlineComments.length
+          ? `Submit approve review with ${inlineComments.length} inline note${inlineComments.length === 1 ? '' : 's'}`
+          : pullRequestReviewDraftSubtitle('approve'),
         reviewDraft: {
           action: 'approve',
           selector: '',
-          body: ''
+          body: '',
+          includeInlineComments: true,
+          inlineComments
         }
       };
       render();
@@ -8060,9 +8137,36 @@
       const action = form.querySelector('[data-testid="pr-review-draft-action"]').value;
       const selector = form.querySelector('[data-testid="pr-review-draft-selector"]').value.trim();
       const body = form.querySelector('[data-testid="pr-review-draft-body"]').value.trim();
+      const includeInlineComments = form.querySelector('[data-testid="pr-review-draft-include-inline-comments"]')?.checked ?? false;
+      const inlineComments = includeInlineComments ? (state.review.reviewDraft?.inlineComments || []) : [];
       if (!pullRequestReviewDraftCanSubmit(action, body)) {
         return;
       }
+      inlineComments.forEach(comment => {
+        const commentInput = {
+          path: comment.path,
+          line: comment.line,
+          side: comment.side || 'RIGHT',
+          body: comment.body
+        };
+        if (selector) commentInput.selector = selector;
+        if (comment.startLine) {
+          commentInput.startLine = comment.startLine;
+          commentInput.startSide = comment.side || 'RIGHT';
+        }
+        addToolCard({
+          title: 'host.git.pr.review_comment',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify(commentInput, null, 2),
+          outputJSON: JSON.stringify({
+            ok: true,
+            stdout: `posted inline comment on ${comment.path}:${comment.line}\n`,
+            stderr: '',
+            exitCode: 0
+          }, null, 2)
+        });
+      });
       const input = { action };
       if (selector) input.selector = selector;
       if (body) input.body = body;
@@ -8078,7 +8182,10 @@
           exitCode: 0
         }, null, 2)
       });
-      addMessage('assistant', `Pull request review submitted: ${pullRequestReviewActionLabels[action].toLowerCase()}.`);
+      const noteSuffix = inlineComments.length
+        ? ` with ${inlineComments.length} inline note${inlineComments.length === 1 ? '' : 's'}`
+        : '';
+      addMessage('assistant', `Pull request review submitted: ${pullRequestReviewActionLabels[action].toLowerCase()}${noteSuffix}.`);
       state.review.reviewDraft = null;
       syncSelectedThreadSearchText();
       render();

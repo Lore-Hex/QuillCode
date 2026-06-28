@@ -8402,3 +8402,21 @@ Code quality changes:
 Remaining risk:
 
 - This covers one submitted review at a time. Full Codex-style multi-comment review-session batching, editable pending review queues, and submit-review summaries remain future review-pane work.
+
+## 2026-06-28 Pull Request Review Inline Notes Pass
+
+Overall grade after this slice: **A- review-session parity, A local/SSH routing reuse, A regression coverage**.
+
+The structured PR review draft still ignored review notes that users had already placed on changed diff lines. That forced users to either submit those notes one by one or rely on the model to recreate them, which is too far from Codex's review workflow.
+
+Code quality changes:
+
+- Extended `WorkspacePullRequestReviewDraftSurface` with a snapshot of line/range review notes and an explicit include/skip toggle.
+- Added `WorkspacePullRequestReviewDraftCommentSurface` as the normalized bridge from visible diff notes to `host.git.pr.review_comment` arguments, including line ranges and LEFT/RIGHT side mapping.
+- Kept submission on the existing `runToolCall` coordinator so inline comments and the final `host.git.pr.review` share local and SSH Remote execution, tool-card recording, safety/audit metadata, and failure handling.
+- Mirrored the draft-note preview and toggle in native SwiftUI, static HTML, and the Playwright harness.
+- Added focused Swift coverage for note collection, planner arguments, HTML markup, and an SSH Remote integration test that posts an inline comment before the final review. Added Playwright coverage for creating a diff note, opening the PR review draft, and seeing the inline comment tool card before the final review card.
+
+Remaining risk:
+
+- Inline notes are snapshotted when the draft opens. Richer editable pending-review queues, per-note removal/reordering, and a review summary before submit remain future review-pane work.

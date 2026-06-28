@@ -125,6 +125,65 @@ final class WorkspaceReviewActionToolCallPlannerTests: XCTestCase {
         XCTAssertEqual(try refreshArguments.requiredString("selector"), "123")
     }
 
+    func testPullRequestReviewDraftRunPlanIncludesInlineCommentCallsBeforeReview() throws {
+        let draft = WorkspacePullRequestReviewDraftSurface(
+            action: .requestChanges,
+            selector: "456",
+            body: "Please address the inline notes.",
+            inlineComments: [
+                WorkspacePullRequestReviewDraftCommentSurface(
+                    path: "Sources/App.swift",
+                    line: 42,
+                    startLine: 40,
+                    side: "RIGHT",
+                    body: "This branch needs coverage."
+                )
+            ]
+        )
+        let plan = try XCTUnwrap(WorkspacePullRequestReviewDraftToolCallPlanner.runPlan(for: draft))
+        let inlineArguments = try ToolArguments(plan.inlineCommentCalls[0].argumentsJSON)
+        let reviewArguments = try ToolArguments(plan.reviewCall.argumentsJSON)
+
+        XCTAssertEqual(plan.calls.map(\.name), [
+            ToolDefinition.gitPullRequestReviewComment.name,
+            ToolDefinition.gitPullRequestReview.name
+        ])
+        XCTAssertEqual(try inlineArguments.requiredString("selector"), "456")
+        XCTAssertEqual(try inlineArguments.requiredString("path"), "Sources/App.swift")
+        XCTAssertEqual(try inlineArguments.requiredInt("line"), 42)
+        XCTAssertEqual(try inlineArguments.requiredInt("startLine"), 40)
+        XCTAssertEqual(try inlineArguments.requiredString("side"), "RIGHT")
+        XCTAssertEqual(try inlineArguments.requiredString("startSide"), "RIGHT")
+        XCTAssertEqual(try inlineArguments.requiredString("body"), "This branch needs coverage.")
+        XCTAssertEqual(try reviewArguments.requiredString("action"), "request_changes")
+        XCTAssertEqual(try reviewArguments.requiredString("body"), "Please address the inline notes.")
+        XCTAssertEqual(
+            plan.finalStatus(for: plan.calls.map { WorkspaceRecordedToolResult(call: $0, result: ToolResult(ok: true)) }),
+            TopBarAgentStatusLabel.idle
+        )
+        XCTAssertEqual(
+            plan.finalStatus(for: [WorkspaceRecordedToolResult(call: plan.inlineCommentCalls[0], result: ToolResult(ok: false))]),
+            TopBarAgentStatusLabel.failed
+        )
+    }
+
+    func testPullRequestReviewDraftRunPlanCanOptOutOfInlineComments() throws {
+        let draft = WorkspacePullRequestReviewDraftSurface(
+            includeInlineComments: false,
+            inlineComments: [
+                WorkspacePullRequestReviewDraftCommentSurface(
+                    path: "Sources/App.swift",
+                    line: 42,
+                    body: "Skipped."
+                )
+            ]
+        )
+        let plan = try XCTUnwrap(WorkspacePullRequestReviewDraftToolCallPlanner.runPlan(for: draft))
+
+        XCTAssertTrue(plan.inlineCommentCalls.isEmpty)
+        XCTAssertEqual(plan.calls.map(\.name), [ToolDefinition.gitPullRequestReview.name])
+    }
+
     func testPullRequestReviewThreadRunPlanFinalStatusRequiresActionAndRefreshSuccess() {
         let plan = WorkspacePullRequestReviewThreadActionToolCallPlanner.runPlan(
             for: WorkspacePullRequestReviewThreadActionSurface(kind: .unresolve, threadID: "PRRT_one")

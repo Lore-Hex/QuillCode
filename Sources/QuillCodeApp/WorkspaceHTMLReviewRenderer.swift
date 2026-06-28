@@ -24,6 +24,7 @@ enum WorkspaceHTMLReviewRenderer {
 
     private static func renderPullRequestReviewDraft(_ draft: WorkspacePullRequestReviewDraftSurface?) -> String {
         guard let draft else { return "" }
+        let inlineComments = renderPullRequestReviewDraftInlineComments(draft)
         return """
         <form class="pr-review-draft" data-testid="pr-review-draft" aria-label="Submit pull request review">
           <label>
@@ -43,11 +44,40 @@ enum WorkspaceHTMLReviewRenderer {
             Body
             <textarea data-testid="pr-review-draft-body" aria-label="Pull request review body" placeholder="\(escape(draft.action.bodyPlaceholder))">\(escape(draft.body))</textarea>
           </label>
+          \(inlineComments)
           <footer>
             <button type="reset" class="review-action-button \(WorkspaceHTMLPrimitives.formActionHitTargetClass)" data-testid="pr-review-draft-cancel">Cancel</button>
             <button type="submit" class="review-action-button \(WorkspaceHTMLPrimitives.formActionHitTargetClass)" data-testid="pr-review-draft-submit"\(draft.canSubmit ? "" : " disabled")>\(escape(submitTitle(for: draft.action)))</button>
           </footer>
         </form>
+        """
+    }
+
+    private static func renderPullRequestReviewDraftInlineComments(
+        _ draft: WorkspacePullRequestReviewDraftSurface
+    ) -> String {
+        guard draft.inlineCommentCount > 0 else { return "" }
+        let checked = draft.includeInlineComments ? #" checked="checked""# : ""
+        let comments = draft.inlineComments.prefix(3).map { comment in
+            """
+            <li data-testid="pr-review-draft-inline-comment">
+              <code>\(escape(comment.locationLabel))</code>
+              <span>\(escape(comment.body))</span>
+            </li>
+            """
+        }.joined(separator: "\n")
+        let remaining = draft.inlineCommentCount > 3
+            ? #"<li data-testid="pr-review-draft-inline-comment-more">+\#(draft.inlineCommentCount - 3) more</li>"#
+            : ""
+        return """
+        <label class="pr-review-inline-comments">
+          <input type="checkbox" data-testid="pr-review-draft-include-inline-comments" aria-label="Include inline review notes"\(checked)>
+          <span>Include \(draft.inlineCommentCount) inline review note\(draft.inlineCommentCount == 1 ? "" : "s")</span>
+        </label>
+        <ul class="pr-review-inline-comment-list" data-testid="pr-review-draft-inline-comments">
+          \(comments)
+          \(remaining)
+        </ul>
         """
     }
 

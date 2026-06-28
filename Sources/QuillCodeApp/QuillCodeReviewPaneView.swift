@@ -130,6 +130,13 @@ private struct QuillCodePullRequestReviewDraftView: View {
         )
     }
 
+    private var includeInlineCommentsBinding: Binding<Bool> {
+        Binding(
+            get: { draft.includeInlineComments },
+            set: { update(includeInlineComments: $0) }
+        )
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Picker("Review action", selection: actionBinding) {
@@ -161,6 +168,42 @@ private struct QuillCodePullRequestReviewDraftView: View {
                 .background(QuillCodePalette.background.opacity(0.64))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .accessibilityLabel("Pull request review body")
+
+            if draft.inlineCommentCount > 0 {
+                Toggle(isOn: includeInlineCommentsBinding) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Include \(draft.inlineCommentCount) inline review note\(draft.inlineCommentCount == 1 ? "" : "s")")
+                            .font(.caption.weight(.semibold))
+                        Text("Posts saved line notes before the final review.")
+                            .font(.caption2)
+                            .foregroundStyle(QuillCodePalette.muted)
+                    }
+                }
+                .toggleStyle(.switch)
+                .quillCodeSwitchRowTarget()
+                .accessibilityLabel("Include inline review notes")
+
+                VStack(alignment: .leading, spacing: 5) {
+                    ForEach(draft.inlineComments.prefix(3)) { comment in
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(comment.locationLabel)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(QuillCodePalette.blue)
+                                .lineLimit(1)
+                            Text(comment.body)
+                                .font(.caption)
+                                .foregroundStyle(QuillCodePalette.muted)
+                                .lineLimit(1)
+                        }
+                    }
+                    if draft.inlineCommentCount > 3 {
+                        Text("+\(draft.inlineCommentCount - 3) more")
+                            .font(.caption2)
+                            .foregroundStyle(QuillCodePalette.muted)
+                    }
+                }
+                .padding(.horizontal, 10)
+            }
 
             HStack(spacing: 8) {
                 Spacer()
@@ -201,7 +244,8 @@ private struct QuillCodePullRequestReviewDraftView: View {
     private func update(
         action: WorkspacePullRequestReviewActionKind? = nil,
         selector: String? = nil,
-        body: String? = nil
+        body: String? = nil,
+        includeInlineComments: Bool? = nil
     ) {
         var next = draft
         if let action {
@@ -212,6 +256,9 @@ private struct QuillCodePullRequestReviewDraftView: View {
         }
         if let body {
             next.body = body
+        }
+        if let includeInlineComments {
+            next.includeInlineComments = includeInlineComments
         }
         onChange(next)
     }

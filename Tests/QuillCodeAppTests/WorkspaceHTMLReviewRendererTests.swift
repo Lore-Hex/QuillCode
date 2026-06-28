@@ -92,7 +92,16 @@ final class WorkspaceHTMLReviewRendererTests: XCTestCase {
 
     func testHTMLRendererIncludesPullRequestReviewDraft() throws {
         let review = WorkspaceReviewSurface(
-            pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface(action: .comment)
+            pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface(
+                action: .comment,
+                inlineComments: [
+                    WorkspacePullRequestReviewDraftCommentSurface(
+                        path: "Sources/App.swift",
+                        line: 42,
+                        body: "Cover this branch."
+                    )
+                ]
+            )
         )
 
         let html = WorkspaceHTMLReviewRenderer.render(review)
@@ -103,6 +112,10 @@ final class WorkspaceHTMLReviewRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="pr-review-draft-body""#))
         XCTAssertTrue(html.contains(#"data-testid="pr-review-draft-cancel""#))
         XCTAssertTrue(html.contains(#"data-testid="pr-review-draft-submit" disabled"#))
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-draft-include-inline-comments""#))
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-draft-inline-comment""#))
+        XCTAssertTrue(html.contains("Sources/App.swift:42"))
+        XCTAssertTrue(html.contains("Cover this branch."))
         XCTAssertTrue(html.contains("Submit comment"))
     }
 }
