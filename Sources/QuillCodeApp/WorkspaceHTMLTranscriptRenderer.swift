@@ -37,8 +37,14 @@ enum WorkspaceHTMLTranscriptRenderer {
 
     static func renderComposer(_ composer: ComposerSurface, topBar: TopBarSurface) -> String {
         let button = composer.isSending
-            ? #"<button type="button" data-testid="stop-button">Stop</button>"#
-            : #"<button type="submit" data-testid="send-button" \#(composer.canSend ? "" : "disabled")>Send</button>"#
+            ? WorkspaceHTMLPrimitives.button("Stop", testID: "stop-button")
+            : WorkspaceHTMLPrimitives.button(
+                "Send",
+                testID: "send-button",
+                type: "submit",
+                classes: [WorkspaceHTMLPrimitives.iconHitTargetClass],
+                disabled: !composer.canSend
+            )
         return """
         <form class="composer" data-testid="composer">
           <div class="composer-surface" data-testid="composer-surface">
@@ -48,8 +54,17 @@ enum WorkspaceHTMLTranscriptRenderer {
               \(button)
             </div>
             <div class="composer-controls" data-testid="composer-controls" aria-label="Composer model and safety controls">
-              <button type="button" class="composer-model-button" data-testid="model-picker-button" aria-label="Model: \(escape(topBar.modelLabel))">◇ <span data-testid="model-pill">\(escape(topBar.modelLabel))</span></button>
-              <button type="button" class="mode-pill-button" data-testid="mode-picker-button" data-mode-tone="\(modeTone(for: topBar.modeLabel))" aria-label="Auto safety mode: \(escape(topBar.modeLabel))">
+              <button\(WorkspaceHTMLPrimitives.buttonAttributes(
+                  testID: "model-picker-button",
+                  classes: ["composer-model-button", WorkspaceHTMLPrimitives.capsuleHitTargetClass],
+                  ariaLabel: "Model: \(topBar.modelLabel)"
+              ))>◇ <span data-testid="model-pill">\(escape(topBar.modelLabel))</span></button>
+              <button\(WorkspaceHTMLPrimitives.buttonAttributes(
+                  testID: "mode-picker-button",
+                  classes: ["mode-pill-button", WorkspaceHTMLPrimitives.capsuleHitTargetClass],
+                  ariaLabel: "Auto safety mode: \(topBar.modeLabel)",
+                  attributes: [("data-mode-tone", modeTone(for: topBar.modeLabel))]
+              ))>
                 <span class="mode-dot" aria-hidden="true"></span>
                 <span data-testid="mode-pill">\(escape(topBar.modeLabel))</span>
               </button>
@@ -75,7 +90,16 @@ enum WorkspaceHTMLTranscriptRenderer {
         return """
         <div class="empty-starters" data-testid="empty-starter-actions">
           \(actions.map { action in
-            #"<button type="button" class="empty-starter" data-testid="empty-starter-action" data-action-id="\#(escape(action.id))" data-prompt="\#(escape(action.prompt))"><strong>\#(escape(action.title))</strong><span>\#(escape(action.subtitle))</span></button>"#
+            """
+            <button\(WorkspaceHTMLPrimitives.buttonAttributes(
+                testID: "empty-starter-action",
+                classes: ["empty-starter", WorkspaceHTMLPrimitives.rowHitTargetClass],
+                attributes: [
+                    ("data-action-id", action.id),
+                    ("data-prompt", action.prompt)
+                ]
+            ))><strong>\(escape(action.title))</strong><span>\(escape(action.subtitle))</span></button>
+            """
           }.joined(separator: "\n"))
         </div>
         """
@@ -97,7 +121,7 @@ enum WorkspaceHTMLTranscriptRenderer {
             <span data-testid="runtime-issue-severity">\(escape(issue.severity.rawValue))</span>
           </header>
           <p data-testid="runtime-issue-message">\(escape(issue.message))</p>
-          \(issue.actionLabel.map { #"<button type="button" data-testid="runtime-issue-action">\#(escape($0))</button>"# } ?? "")
+          \(issue.actionLabel.map { WorkspaceHTMLPrimitives.button($0, testID: "runtime-issue-action") } ?? "")
           \(diagnostics)
         </section>
         """
@@ -137,7 +161,11 @@ enum WorkspaceHTMLTranscriptRenderer {
             <article class="message \(message.role.rawValue)" data-testid="message" data-timeline-id="\(escape(item.id))" aria-label="\(escape(message.accessibilityLabel))">
               <p>\(escape(message.text))</p>
               <footer class="transcript-actions">
-                <button type="button" data-testid="message-copy" data-copy-id="\(escape(item.id))">Copy</button>
+                \(WorkspaceHTMLPrimitives.button(
+                    "Copy",
+                    testID: "message-copy",
+                    attributes: [("data-copy-id", item.id)]
+                ))
                 \(renderMessageDraftAction(message))
                 \(renderMessageRetryAction(message, latestAssistantMessageID: latestAssistantMessageID, command: retryLastTurnCommand))
                 \(renderMessageFeedbackActions(message))
@@ -155,14 +183,32 @@ enum WorkspaceHTMLTranscriptRenderer {
         let helpfulSelected = message.feedback == .helpful ? "true" : "false"
         let notHelpfulSelected = message.feedback == .notHelpful ? "true" : "false"
         return """
-        <button type="button" data-testid="message-feedback-up" data-message-id="\(message.id.uuidString)" data-selected="\(helpfulSelected)">Helpful</button>
-        <button type="button" data-testid="message-feedback-down" data-message-id="\(message.id.uuidString)" data-selected="\(notHelpfulSelected)">Not helpful</button>
+        \(WorkspaceHTMLPrimitives.button(
+            "Helpful",
+            testID: "message-feedback-up",
+            attributes: [
+                ("data-message-id", message.id.uuidString),
+                ("data-selected", helpfulSelected)
+            ]
+        ))
+        \(WorkspaceHTMLPrimitives.button(
+            "Not helpful",
+            testID: "message-feedback-down",
+            attributes: [
+                ("data-message-id", message.id.uuidString),
+                ("data-selected", notHelpfulSelected)
+            ]
+        ))
         """
     }
 
     private static func renderMessageDraftAction(_ message: MessageSurface) -> String {
         guard message.role == .user else { return "" }
-        return #"<button type="button" data-testid="message-use-as-draft" data-message-id="\#(message.id.uuidString)">Use as draft</button>"#
+        return WorkspaceHTMLPrimitives.button(
+            "Use as draft",
+            testID: "message-use-as-draft",
+            attributes: [("data-message-id", message.id.uuidString)]
+        )
     }
 
     private static func renderMessageRetryAction(

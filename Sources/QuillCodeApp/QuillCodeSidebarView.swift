@@ -80,33 +80,36 @@ private struct QuillCodeSidebarSavedFilterBar: View {
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(filters) { filter in
-                    Button {
-                        onCommand(QuillCodeSidebarCommandAdapter.workspaceCommand(for: filter))
-                    } label: {
-                        HStack(spacing: 5) {
-                            Text(filter.title)
-                                .font(.caption.weight(.semibold))
-                            Text("\(filter.count)")
-                                .font(.caption2.weight(.bold))
-                                .monospacedDigit()
-                                .foregroundStyle(filter.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background((filter.isActive ? Color.white : QuillCodePalette.panel).opacity(0.28))
-                                .clipShape(Capsule())
-                        }
-                        .quillCodeCapsuleButtonTarget(minWidth: 66)
-                        .foregroundStyle(filter.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
-                        .background(filter.isActive ? QuillCodePalette.blue : QuillCodePalette.panel.opacity(0.55))
-                        .clipShape(Capsule())
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 100), spacing: 6, alignment: .leading)],
+            alignment: .leading,
+            spacing: 6
+        ) {
+            ForEach(filters) { filter in
+                Button {
+                    onCommand(QuillCodeSidebarCommandAdapter.workspaceCommand(for: filter))
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(filter.title)
+                            .font(.caption.weight(.semibold))
+                        Text("\(filter.count)")
+                            .font(.caption2.weight(.bold))
+                            .monospacedDigit()
+                            .foregroundStyle(filter.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background((filter.isActive ? Color.white : QuillCodePalette.panel).opacity(0.28))
+                            .clipShape(Capsule())
                     }
-                    .buttonStyle(QuillCodePressableButtonStyle())
-                    .accessibilityLabel(filter.accessibilityLabel)
-                    .accessibilityAddTraits(filter.isActive ? .isSelected : [])
+                    .lineLimit(1)
+                    .quillCodeCapsuleButtonTarget(minWidth: 66)
+                    .foregroundStyle(filter.isActive ? QuillCodePalette.background : QuillCodePalette.muted)
+                    .background(filter.isActive ? QuillCodePalette.blue : QuillCodePalette.panel.opacity(0.55))
+                    .clipShape(Capsule())
                 }
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .accessibilityLabel(filter.accessibilityLabel)
+                .accessibilityAddTraits(filter.isActive ? .isSelected : [])
             }
         }
     }

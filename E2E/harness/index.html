@@ -777,12 +777,12 @@
     }
     .sidebar-filter-bar {
       display: flex;
+      flex-wrap: wrap;
+      align-items: center;
       gap: 6px;
-      overflow-x: auto;
+      overflow: visible;
       padding: 2px 0 8px;
-      scrollbar-width: none;
     }
-    .sidebar-filter-bar::-webkit-scrollbar { display: none; }
     .sidebar-filter {
       min-height: var(--hit-target);
       min-width: 66px;

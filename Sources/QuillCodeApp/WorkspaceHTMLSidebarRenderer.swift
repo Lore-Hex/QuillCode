@@ -20,7 +20,12 @@ enum WorkspaceHTMLSidebarRenderer {
           <div class="sidebar-projects-zone" data-testid="sidebar-projects-zone">
             <div class="sidebar-section-title">
               <h2>\(escape(projects.title))</h2>
-              <button type="button" data-testid="add-project-button" aria-label="Open project">+</button>
+              \(WorkspaceHTMLPrimitives.button(
+                  "+",
+                  testID: "add-project-button",
+                  classes: [WorkspaceHTMLPrimitives.iconHitTargetClass],
+                  ariaLabel: "Open project"
+              ))
             </div>
             \(renderProjects(projects))
           </div>
@@ -46,7 +51,14 @@ enum WorkspaceHTMLSidebarRenderer {
 
         return projects.items.map { project in
             """
-            <button class="project-item\(project.isSelected ? " selected" : "")" data-testid="project-item" data-project-id="\(project.id.uuidString)" aria-current="\(project.isSelected ? "true" : "false")">
+            <button\(WorkspaceHTMLPrimitives.buttonAttributes(
+                testID: "project-item",
+                classes: ["project-item", WorkspaceHTMLPrimitives.rowHitTargetClass, project.isSelected ? "selected" : ""],
+                attributes: [
+                    ("data-project-id", project.id.uuidString),
+                    ("aria-current", project.isSelected ? "true" : "false")
+                ]
+            ))>
               <span>\(escape(project.name))\(project.isRemote ? #" <small data-testid="project-connection-kind">SSH Remote</small>"# : "")</span>
               <small>\(escape(project.path))</small>
             </button>
@@ -124,7 +136,14 @@ enum WorkspaceHTMLSidebarRenderer {
             """
             <div data-testid="sidebar-thread-row">
               \(item.isBulkSelected ? "<span data-testid=\"sidebar-thread-selected\">Selected</span>" : "")
-              <button class="sidebar-item\(item.isSelected ? " selected" : "")" data-testid="sidebar-item" data-thread-id="\(item.id.uuidString)" aria-current="\(item.isSelected ? "true" : "false")">
+              <button\(WorkspaceHTMLPrimitives.buttonAttributes(
+                  testID: "sidebar-item",
+                  classes: ["sidebar-item", WorkspaceHTMLPrimitives.rowHitTargetClass, item.isSelected ? "selected" : ""],
+                  attributes: [
+                      ("data-thread-id", item.id.uuidString),
+                      ("aria-current", item.isSelected ? "true" : "false")
+                  ]
+              ))>
                 <span>\(escape(item.title))</span>
                 <small>\(escape(item.subtitle))</small>
               </button>
@@ -182,9 +201,14 @@ enum WorkspaceHTMLSidebarRenderer {
     }
 
     private static func renderAction(_ action: SidebarItemActionSurface) -> String {
-        """
-        <button type="button" data-testid="sidebar-thread-action" data-action="\(escape(action.kind.rawValue))" data-thread-id="\(action.threadID.uuidString)">\(escape(action.kind.title))</button>
-        """
+        WorkspaceHTMLPrimitives.button(
+            action.kind.title,
+            testID: "sidebar-thread-action",
+            attributes: [
+                ("data-action", action.kind.rawValue),
+                ("data-thread-id", action.threadID.uuidString)
+            ]
+        )
     }
 
     private static func renderFooter(_ commands: [WorkspaceCommandSurface]) -> String {
@@ -196,7 +220,13 @@ enum WorkspaceHTMLSidebarRenderer {
               \(renderUtilityActions(commands))
             </div>
           </details>
-          <button class="sidebar-settings-button" type="button" data-testid="settings-button" aria-label="Settings" title="Settings">Settings</button>
+          \(WorkspaceHTMLPrimitives.button(
+              "Settings",
+              testID: "settings-button",
+              classes: ["sidebar-settings-button", WorkspaceHTMLPrimitives.rowHitTargetClass],
+              ariaLabel: "Settings",
+              title: "Settings"
+          ))
         </div>
         """
     }

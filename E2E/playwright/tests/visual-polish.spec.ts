@@ -39,6 +39,52 @@ test('mock harness avoids horizontal clipping in key desktop and mobile flows', 
   }
 });
 
+test('mock harness keeps sidebar saved filters fully visible', async ({ page }) => {
+  await page.goto(harnessURL());
+  await page.getByLabel('Message').fill('run whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('sidebar-item')).toContainText('run whoami');
+
+  const filterBar = page.getByTestId('sidebar-filter-bar');
+  await expect(filterBar).toBeVisible();
+
+  const metrics = await filterBar.evaluate((element) => {
+    const style = window.getComputedStyle(element);
+    const barRect = element.getBoundingClientRect();
+    const filters = [...element.querySelectorAll<HTMLElement>('[data-testid="sidebar-filter"]')].map((filter) => {
+      const rect = filter.getBoundingClientRect();
+      return {
+        text: filter.textContent?.trim() ?? '',
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom
+      };
+    });
+    return {
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      flexWrap: style.flexWrap,
+      overflowX: style.overflowX,
+      left: barRect.left,
+      right: barRect.right,
+      top: barRect.top,
+      bottom: barRect.bottom,
+      filters
+    };
+  });
+
+  expect(metrics.flexWrap).toBe('wrap');
+  expect(metrics.overflowX).toBe('visible');
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
+  for (const filter of metrics.filters) {
+    expect(filter.left, `${filter.text} should not clip left`).toBeGreaterThanOrEqual(metrics.left - 1);
+    expect(filter.right, `${filter.text} should not clip right`).toBeLessThanOrEqual(metrics.right + 1);
+    expect(filter.top, `${filter.text} should not clip top`).toBeGreaterThanOrEqual(metrics.top - 1);
+    expect(filter.bottom, `${filter.text} should not clip bottom`).toBeLessThanOrEqual(metrics.bottom + 1);
+  }
+});
+
 test('mock harness applies interface polish primitives', async ({ page }) => {
   await page.goto(harnessURL());
 
