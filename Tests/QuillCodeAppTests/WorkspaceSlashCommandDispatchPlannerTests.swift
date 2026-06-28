@@ -66,6 +66,10 @@ final class WorkspaceSlashCommandDispatchPlannerTests: XCTestCase {
         let openWorktree = WorkspaceWorktreeOpenRequest(path: "../feature")
         let removeWorktree = WorkspaceWorktreeRemoveRequest(path: "../feature", force: true)
         let pruneWorktrees = WorkspaceWorktreePruneRequest(dryRun: true, verbose: true)
+        let subagents = WorkspaceSubagentRunRequest(
+            objective: "audit release",
+            workers: [.init(name: "Verifier", role: "run checks")]
+        )
 
         XCTAssertEqual(
             WorkspaceSlashCommandDispatchPlanner.action(
@@ -98,6 +102,14 @@ final class WorkspaceSlashCommandDispatchPlannerTests: XCTestCase {
                 statusText: "unused"
             ),
             .workspaceSchedule("hourly", userText: "/workspace-check hourly")
+        )
+        XCTAssertEqual(
+            WorkspaceSlashCommandDispatchPlanner.action(
+                for: .subagents(subagents),
+                userText: "/subagents audit release | Verifier: run checks",
+                statusText: "unused"
+            ),
+            .subagents(subagents, userText: "/subagents audit release | Verifier: run checks")
         )
         XCTAssertEqual(
             WorkspaceSlashCommandDispatchPlanner.action(

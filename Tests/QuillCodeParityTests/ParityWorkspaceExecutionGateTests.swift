@@ -649,7 +649,7 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(actionExecutorText.contains("func runSlashCommandDispatchAction"), "Typed slash action application should live outside the main model file.")
         XCTAssertTrue(actionExecutorText.contains("switch action"), "The slash action executor should own the typed action switch.")
         XCTAssertTrue(composerText.contains("WorkspaceSlashCommandDispatchPlanner.action("), "WorkspaceModel composer APIs should consume the slash dispatch planner.")
-        XCTAssertTrue(composerText.contains("runSlashCommandDispatchAction(action, workspaceRoot: workspaceRoot)"), "WorkspaceModel composer APIs should delegate typed slash action application.")
+        XCTAssertTrue(composerText.contains("await runSlashCommandDispatchAction(action, workspaceRoot: workspaceRoot)"), "WorkspaceModel composer APIs should delegate typed slash action application.")
         XCTAssertTrue(plannerTests.contains("testExternalCommandFamiliesMapToTypedActions"), "Slash dispatch families should have focused planner coverage.")
         XCTAssertFalse(modelText.contains("WorkspaceSlashCommandDispatchPlanner.action("), "WorkspaceModel.swift should not own slash dispatch planning.")
         XCTAssertFalse(modelText.contains("switch command {\n        case .help:"), "WorkspaceModel should not switch directly over parsed slash commands.")
@@ -659,6 +659,24 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(modelText.contains("WorkspaceSlashCommandTranscriptPlanner.workspaceCommandFailed"), "WorkspaceModel should not own slash workspace-command failure transcripts.")
         XCTAssertFalse(modelText.contains("case .unknown(let name):"), "WorkspaceModel should not own unknown slash-command transcripts.")
         XCTAssertFalse(modelText.contains("case .invalid(let message):"), "WorkspaceModel should not own invalid slash-command transcripts.")
+    }
+
+    func testSubagentExecutionIsRealSchedulerNotDisplayOnly() throws {
+        let schedulerText = try Self.appSourceText(named: "WorkspaceSubagentScheduler.swift")
+        let runnerText = try Self.appSourceText(named: "WorkspaceSubagentSlashCommandRunner.swift")
+        let slashParserText = try Self.appSourceText(named: "WorkspaceSubagentRunRequest.swift")
+        let actionExecutorText = try Self.appSourceText(named: "WorkspaceSlashCommandActionExecutor.swift")
+        let schedulerTests = try Self.appTestSourceText(named: "WorkspaceSubagentSchedulerTests.swift")
+        let integrationTests = try Self.appTestSourceText(named: "WorkspaceSlashCommandIntegrationTests.swift")
+
+        XCTAssertTrue(schedulerText.contains("withTaskGroup"), "Subagent execution should fan out real workers concurrently.")
+        XCTAssertTrue(schedulerText.contains("ProgressSink"), "Subagent execution should publish progress while work runs.")
+        XCTAssertTrue(runnerText.contains("SubagentProgressToolExecutor.execute"), "Subagent runtime progress should reuse the existing tool/event contract.")
+        XCTAssertTrue(runnerText.contains("WorkspaceToolEventRecorder.append"), "Subagent progress should be replayable from thread tool events.")
+        XCTAssertTrue(slashParserText.contains("enum SlashSubagentCommandParser"), "Subagent slash parsing should live in a focused parser.")
+        XCTAssertTrue(actionExecutorText.contains("case .subagents(let request, let userText):"), "Slash dispatch should have a typed subagent execution branch.")
+        XCTAssertTrue(schedulerTests.contains("testSchedulerRunsWorkersConcurrentlyAndPublishesProgress"), "Scheduler concurrency needs focused test coverage.")
+        XCTAssertTrue(integrationTests.contains("testSlashSubagentsRunsSchedulerAndRecordsActivityProgress"), "Slash subagent execution needs workspace integration coverage.")
     }
 
     func testWorkspaceModelDelegatesToolExecutionOverrideCombining() throws {

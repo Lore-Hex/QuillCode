@@ -39,7 +39,7 @@ extension QuillCodeWorkspaceModel {
         case .slash(let command, let originalPrompt):
             composer.draft = ""
             setLastError(nil)
-            handleSlashCommand(command, originalPrompt: originalPrompt, workspaceRoot: workspaceRoot)
+            await handleSlashCommand(command, originalPrompt: originalPrompt, workspaceRoot: workspaceRoot)
             return
         case .agent(let plannedPrompt):
             prompt = plannedPrompt
@@ -159,13 +159,13 @@ extension QuillCodeWorkspaceModel {
         return result
     }
 
-    private func handleSlashCommand(_ command: SlashCommand, originalPrompt: String, workspaceRoot: URL) {
+    private func handleSlashCommand(_ command: SlashCommand, originalPrompt: String, workspaceRoot: URL) async {
         let action = WorkspaceSlashCommandDispatchPlanner.action(
             for: command,
             userText: originalPrompt,
             statusText: statusText()
         )
-        runSlashCommandDispatchAction(action, workspaceRoot: workspaceRoot)
+        await runSlashCommandDispatchAction(action, workspaceRoot: workspaceRoot)
         composer.isSending = false
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
     }

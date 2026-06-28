@@ -8765,3 +8765,20 @@ Code quality changes:
 Remaining risk:
 
 - This covers the coordinator and SwiftUI target contract. The remaining A+ layer is a packaged-window Accessibility click test that samples the live trace control frame and clicks near its edges in a running `.app`.
+
+## 2026-06-28 Subagent Scheduler Runtime Slice
+
+Overall grade after this slice: **A scheduler architecture, A replayable Activity state, B+ model-backed worker parity**.
+
+Subagents previously had a good visible progress contract, but execution was still model-authored display state only. That meant QuillCode could show parallel-agent progress without having a local runtime that actually fans out work and replays progress from the event log.
+
+Code quality changes:
+
+- Added `WorkspaceSubagentScheduler`, an injectable-worker scheduler that runs workers with Swift task groups, emits queued/running/per-worker-completed updates, preserves partial success when one worker fails, and aggregates a concise final summary.
+- Added `/subagents objective | Name: role` with a bounded deterministic parser so users and tests can run an explicit local parallel workflow without relying on model guessing.
+- Added `WorkspaceSubagentSlashCommandRunner`, which appends the user request, records progress through the existing `host.subagents.update` tool/event path, updates Activity from replayable events, and writes the final assistant summary.
+- Added parser, scheduler concurrency, dispatch-planner, workspace integration, and parity-gate coverage so future changes cannot regress subagents back to display-only state.
+
+Remaining risk:
+
+- The scheduler is ready for real agent workers, but the default slash-command worker is still a deterministic local worker. Full Codex parity still needs model-backed subagent sessions, cancellation, per-worker transcript drilldown, and richer dependency/status controls.
