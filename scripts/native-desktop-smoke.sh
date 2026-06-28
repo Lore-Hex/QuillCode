@@ -89,6 +89,17 @@ required_kinds = {"icon", "textButton", "formAction", "textEntry", "segmentedCon
 missing_kinds = sorted(required_kinds - contract_kinds)
 if missing_kinds:
     raise SystemExit(f"quill-code-desktop native smoke did not include native target kinds: {', '.join(missing_kinds)}")
+
+contract_families = {contract.get("family") for contract in contracts if isinstance(contract, dict)}
+required_families = {
+    "design-system", "workspace-chrome", "sidebar", "sidebar-thread-list", "top-bar",
+    "composer", "transcript", "tool-card", "context-banner", "command-palette",
+    "search", "settings", "model-picker", "review", "secondary-pane", "terminal",
+    "browser", "extensions", "memories", "automations", "menu-bar"
+}
+missing_families = sorted(required_families - contract_families)
+if missing_families:
+    raise SystemExit(f"quill-code-desktop native smoke did not include native target surface families: {', '.join(missing_families)}")
 PY
 for command_id in command-palette keyboard-shortcuts settings toggle-terminal toggle-browser; do
   if ! grep -q "$command_id" "$REPORT_PATH"; then

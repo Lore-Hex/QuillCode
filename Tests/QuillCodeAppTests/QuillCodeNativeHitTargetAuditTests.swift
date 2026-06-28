@@ -15,6 +15,11 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(report.pressScale, 0.96)
         XCTAssertEqual(Set(report.designSystemContracts.map(\.kind)), Set(QuillCodeNativeHitTargetKind.allCases))
         XCTAssertEqual(report.missingDesignKinds, [])
+        XCTAssertEqual(report.missingSurfaceFamilies, [])
+        XCTAssertEqual(
+            Set(report.coveredSurfaceFamilies),
+            Set(QuillCodeInteractionSurfaceFamily.allCases.map(\.rawValue))
+        )
         XCTAssertEqual(report.missingRequiredCommandIDs, [])
         XCTAssertEqual(report.validationIssues, [])
 
@@ -26,6 +31,25 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             "composer.mode-picker",
             "top-bar.overflow",
             "sidebar.tools-menu",
+            "workspace.chrome",
+            "sidebar.thread-row",
+            "sidebar.thread-action",
+            "transcript.message-action",
+            "transcript.tool-card",
+            "transcript.tool-card-action",
+            "transcript.context-banner-action",
+            "command-palette.input",
+            "command-palette.result",
+            "search.input",
+            "search.result",
+            "settings.text-entry",
+            "settings.action",
+            "model-picker.option",
+            "model-picker.option-action",
+            "review.file-row",
+            "review.action",
+            "secondary-pane.tab",
+            "menu-bar.action",
             "command.new-chat",
             "command.search",
             "command.toggle-extensions",
@@ -64,11 +88,26 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(contractsByID["automations.create"]?.kind, .formAction)
         XCTAssertEqual(contractsByID["browser.comment"]?.kind, .textEntry)
         XCTAssertEqual(contractsByID["transcript.thinking-trace"]?.kind, .capsule)
+        XCTAssertEqual(contractsByID["command-palette.input"]?.family, .commandPalette)
+        XCTAssertEqual(contractsByID["search.result"]?.family, .search)
+        XCTAssertEqual(contractsByID["menu-bar.action"]?.family, .menuBar)
+        XCTAssertEqual(contractsByID["transcript.context-banner-action"]?.family, .contextBanner)
 
         surface.commands.removeAll { $0.id == "toggle-extensions" }
         let missingReport = QuillCodeNativeHitTargetAudit.report(for: surface)
         XCTAssertEqual(missingReport.missingRequiredCommandIDs, ["toggle-extensions"])
         XCTAssertFalse(missingReport.isValid)
+    }
+
+    func testAuditCoversEverySurfaceFamilyForPlainWorkspaceSnapshot() {
+        let report = QuillCodeNativeHitTargetAudit.report(for: QuillCodeWorkspaceModel().surface())
+
+        XCTAssertTrue(report.isValid)
+        XCTAssertEqual(report.missingSurfaceFamilies, [])
+        XCTAssertEqual(
+            Set(report.coveredSurfaceFamilies),
+            Set(QuillCodeInteractionSurfaceFamily.allCases.map(\.rawValue))
+        )
     }
 
     private func makeWorkspaceSurfaceWithRepresentativePanes() -> WorkspaceSurface {
