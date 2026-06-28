@@ -14,7 +14,7 @@ struct QuillCodeLabeledTextField: View {
                 .foregroundStyle(QuillCodePalette.muted)
             TextField(placeholder, text: $text)
                 .textFieldStyle(.roundedBorder)
-                .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+                .quillCodeTextEntryTarget()
                 .onSubmit {
                     onSubmit?()
                 }

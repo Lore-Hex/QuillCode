@@ -70,7 +70,7 @@ struct QuillCodeReviewFileRowView: View {
                 .font(.caption)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 7)
-                .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+                .quillCodeTextEntryTarget(radius: 8)
                 .background(QuillCodePalette.background.opacity(0.72))
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             Button {

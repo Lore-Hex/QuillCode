@@ -113,7 +113,7 @@ struct QuillCodeModelPickerView: View {
         TextField("Search models", text: $searchText)
             .textFieldStyle(.roundedBorder)
             .focused($isSearchFocused)
-            .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+            .quillCodeTextEntryTarget()
             .accessibilityLabel("Search models")
             .onSubmit(selectHighlightedModel)
     }

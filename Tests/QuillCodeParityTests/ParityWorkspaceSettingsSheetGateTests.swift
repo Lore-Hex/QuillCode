@@ -251,12 +251,12 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(
             searchDialogText.contains(".quillCodeFullRowButtonTarget(radius: 12)")
-                && searchDialogText.contains(".frame(minHeight: QuillCodeMetrics.minimumHitTarget)"),
+                && searchDialogText.contains(".quillCodeTextEntryTarget()"),
             "Search results and search input should keep explicit click/type targets."
         )
         XCTAssertTrue(
             commandPaletteText.contains(".quillCodeFullRowButtonTarget(radius: 12)")
-                && commandPaletteText.contains(".frame(minHeight: QuillCodeMetrics.minimumHitTarget)"),
+                && commandPaletteText.contains(".quillCodeTextEntryTarget()"),
             "Command palette rows and command input should keep explicit click/type targets."
         )
         XCTAssertTrue(

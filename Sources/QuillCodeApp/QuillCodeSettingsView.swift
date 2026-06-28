@@ -58,6 +58,7 @@ struct QuillCodeSettingsView: View {
             Text("Developer override").tag(TrustedRouterAuthMode.developerOverride)
         }
         .pickerStyle(.segmented)
+        .quillCodeSegmentedControlTarget()
         .onChange(of: draft.authMode) { _, mode in
             draft.developerOverrideEnabled = mode == .developerOverride
         }
@@ -70,6 +71,7 @@ struct QuillCodeSettingsView: View {
                 .foregroundStyle(QuillCodePalette.muted)
             TextField("https://api.trustedrouter.com/v1", text: $draft.apiBaseURL)
                 .textFieldStyle(.roundedBorder)
+                .quillCodeTextEntryTarget()
         }
     }
 
@@ -104,6 +106,7 @@ struct QuillCodeSettingsView: View {
                 .foregroundStyle(QuillCodePalette.muted)
             SecureField(settings.hasStoredAPIKey ? "Leave blank to keep saved key" : "Paste TrustedRouter key", text: $draft.replacementAPIKey)
                 .textFieldStyle(.roundedBorder)
+                .quillCodeTextEntryTarget()
             if draft.shouldClearAPIKey {
                 Text("Saved key will be cleared when you save.")
                     .font(.caption)

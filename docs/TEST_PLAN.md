@@ -16,6 +16,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - Computer Use status labeling for all permission combinations, deterministic stub backend action recording, structured tool definitions, and executor argument validation.
 - Memory discovery from global and project roots, extension allow-listing, symlink/root bounds, unsupported file skips, count/file/total byte caps, truncation labels, explicit `/remember text` global writes, agent-callable `host.memory.remember` writes, global memory deletion, credential/token/password/private-key rejection, thread snapshotting, TrustedRouter prompt injection as background context, and future memory redaction.
 - Browser snapshot extraction, local HTML outline/text-snippet parsing, browser comment filtering, structured `host.browser.inspect` output, and browser inspection final-answer rendering.
+- Source-level interaction gates for native SwiftUI controls: every visible `Button`, `Link`, text-entry field, segmented picker, and toggle must use a shared QuillCode hit-target helper, while generated HTML buttons, links, and summaries must use shared HTML primitives/classes.
 
 ## Functional Tests
 
@@ -36,7 +37,7 @@ Drive the QuillCode test harness with mock LLM:
 
 - first run
 - login
-- interface polish primitives: root font smoothing, balanced headings, pretty short text, tabular dynamic numbers, 44px hit areas, explicit transitions without `all`, tactile `scale(0.96)` press feedback, concentric panel radii, and image outlines
+- interface polish primitives: root font smoothing, balanced headings, pretty short text, tabular dynamic numbers, 44px hit areas, accessible names, no nested or overlapping interactive targets, unblocked center/inset click points, explicit transitions without `all`, tactile `scale(0.96)` press feedback, concentric panel radii, and image outlines
 - open project, rename it, refresh context, start a project-scoped chat, and remove it from the project list
 - add an SSH Remote from `Project: Add SSH Remote...`, complete `/ssh user@host:/path`, verify sidebar badge/path/top-bar context, refresh remote context from mock AGENTS/rules/memories, run `pwd` in the integrated terminal against the remote mock, run remote git status/diff from the command palette, run stage/restore from the review pane, run commit/push/PR creation/checkout/commenting/reviewing/reviewer-request/merging from chat-driven tools through fake SSH and fake `gh`, run remote worktree list/create/remove through fake SSH, verify remote worktree creation opens the new worktree as an SSH Remote project/thread, verify terminal and tool-card execution-context chips/rails say `SSH Remote`, and verify chat-driven `whoami` uses `host.shell.run` while remote file read/write, apply-patch, and review requests use `host.file.read`/`host.file.write`/`host.apply_patch`/`host.git.*` over SSH instead of local file tools
 - find within the active chat with `Cmd+F`, focused input, result counts, next/previous navigation, and close behavior
