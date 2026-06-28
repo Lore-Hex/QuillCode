@@ -7,6 +7,7 @@ enum WorkspaceHTMLHitTargetKind: String, CaseIterable {
     case row
     case capsule
     case formAction = "form-action"
+    case adjustable = "adjustable"
     case link
     case owned
 
@@ -24,6 +25,8 @@ enum WorkspaceHTMLHitTargetKind: String, CaseIterable {
             return "hit-target-capsule"
         case .formAction:
             return "hit-target-form-action"
+        case .adjustable:
+            return "hit-target-adjustable"
         case .link:
             return "interactive-hit-target"
         case .owned:
@@ -41,6 +44,7 @@ enum WorkspaceHTMLPrimitives {
     static let rowHitTargetClass = WorkspaceHTMLHitTargetKind.row.className
     static let capsuleHitTargetClass = WorkspaceHTMLHitTargetKind.capsule.className
     static let formActionHitTargetClass = WorkspaceHTMLHitTargetKind.formAction.className
+    static let adjustableHitTargetClass = WorkspaceHTMLHitTargetKind.adjustable.className
     static let hitTargetKindAttributeName = "data-hit-target-kind"
 
     static func hitTargetKindAttribute(for className: String) -> String {
@@ -295,6 +299,7 @@ enum WorkspaceHTMLPrimitives {
         (WorkspaceHTMLHitTargetKind.row.className, WorkspaceHTMLHitTargetKind.row.rawValue),
         (WorkspaceHTMLHitTargetKind.capsule.className, WorkspaceHTMLHitTargetKind.capsule.rawValue),
         (WorkspaceHTMLHitTargetKind.formAction.className, WorkspaceHTMLHitTargetKind.formAction.rawValue),
+        (WorkspaceHTMLHitTargetKind.adjustable.className, WorkspaceHTMLHitTargetKind.adjustable.rawValue),
         (WorkspaceHTMLHitTargetKind.text.className, WorkspaceHTMLHitTargetKind.text.rawValue),
         (WorkspaceHTMLHitTargetKind.link.className, WorkspaceHTMLHitTargetKind.link.rawValue),
         (WorkspaceHTMLHitTargetKind.owned.className, WorkspaceHTMLHitTargetKind.owned.rawValue)

@@ -6,6 +6,7 @@ public enum QuillCodeNativeHitTargetKind: String, Codable, Sendable, Hashable, C
     case formAction
     case textEntry
     case segmentedControl
+    case adjustableControl
     case switchRow
     case fullRow
     case capsule
@@ -114,6 +115,7 @@ public enum QuillCodeNativeHitTargetAudit {
             contract("design.form-action", surface: "Design system", label: "Form action", kind: .formAction, minWidth: 56),
             contract("design.text-entry", surface: "Design system", label: "Text entry", kind: .textEntry, minWidth: nil),
             contract("design.segmented-control", surface: "Design system", label: "Segmented control", kind: .segmentedControl, minWidth: nil),
+            contract("design.adjustable-control", surface: "Design system", label: "Adjustable control", kind: .adjustableControl, minWidth: nil),
             contract("design.switch-row", surface: "Design system", label: "Switch row", kind: .switchRow, minWidth: nil),
             contract("design.full-row", surface: "Design system", label: "Full row button", kind: .fullRow, minWidth: nil),
             contract("design.capsule", surface: "Design system", label: "Capsule button", kind: .capsule, minWidth: nil)

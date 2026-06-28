@@ -287,7 +287,8 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             primitivesText.contains("enum WorkspaceHTMLHitTargetKind: String, CaseIterable")
                 && primitivesText.contains("case link")
-                && primitivesText.contains("case formAction = \"form-action\""),
+                && primitivesText.contains("case formAction = \"form-action\"")
+                && primitivesText.contains("case adjustable = \"adjustable\""),
             "HTML renderers should choose typed semantic target kinds before those kinds are mapped to CSS classes."
         )
         XCTAssertTrue(
@@ -371,8 +372,9 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(
             harnessText.contains(".hit-target-icon")
-                && harnessText.contains(".hit-target-form-action"),
-            "The Playwright harness should expose semantic target classes for icon and compact form controls."
+                && harnessText.contains(".hit-target-form-action")
+                && harnessText.contains(".hit-target-adjustable"),
+            "The Playwright harness should expose semantic target classes for icon, compact form, and adjustable controls."
         )
         XCTAssertTrue(
             harnessText.contains("button:active:not(:disabled)")
@@ -383,7 +385,8 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             harnessText.contains("summary:focus-visible")
                 && harnessText.contains("a.interactive-hit-target:focus-visible")
                 && harnessText.contains(#"[role="option"]:focus-visible"#)
-                && harnessText.contains(".hit-target-form-action:focus-visible"),
+                && harnessText.contains(".hit-target-form-action:focus-visible")
+                && harnessText.contains(".hit-target-adjustable:focus-visible"),
             "The Playwright harness should give non-button semantic targets the same visible keyboard focus treatment as buttons and fields."
         )
         XCTAssertTrue(

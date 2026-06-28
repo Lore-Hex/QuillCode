@@ -33,6 +33,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && auditHelperText.contains("[role=\"button\"]")
                 && auditHelperText.contains("[role=\"tab\"]")
                 && auditHelperText.contains("label")
+                && auditHelperText.contains("range")
                 && auditHelperText.contains("textarea"),
             "The rendered click-target audit should cover native controls, ARIA controls, tabs, interactive labels, and text entry."
         )
@@ -72,7 +73,8 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             auditHelperText.contains("missing_shared_hit_target_contract")
                 && auditHelperText.contains("SHARED_HIT_TARGET_CLASSES")
-                && auditHelperText.contains("EXPECTED_KIND_BY_CLASS"),
+                && auditHelperText.contains("EXPECTED_KIND_BY_CLASS")
+                && auditHelperText.contains("'hit-target-adjustable': 'adjustable'"),
             "Visible interactive controls should declare ownership through a shared hit-target class and semantic kind, not only rely on global geometry."
         )
         XCTAssertTrue(
@@ -108,6 +110,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && primitivesText.contains("case icon")
                 && primitivesText.contains("case textEntry = \"text-entry\"")
                 && primitivesText.contains("case formAction = \"form-action\"")
+                && primitivesText.contains("case adjustable = \"adjustable\"")
                 && primitivesText.contains("var className: String"),
             "Rendered controls should declare hit-target intent through a typed semantic kind instead of passing target CSS classes as the primary API."
         )
@@ -132,6 +135,11 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && primitivesText.contains("textEntryHitTargetClass")
                 && primitivesText.contains("formActionHitTargetClass"),
             "The defaulting helper should recognize every shared rendered hit-target class instead of duplicating class-name logic at call sites."
+        )
+        XCTAssertTrue(
+            primitivesText.contains("adjustableHitTargetClass")
+                && primitivesText.contains("hit-target-adjustable"),
+            "Rendered adjustable controls such as range inputs should have their own semantic hit-target class instead of falling through to generic ownership."
         )
     }
 
@@ -281,8 +289,9 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && harnessText.contains("['hit-target-text-entry', 'text-entry']")
                 && harnessText.contains("['hit-target-row', 'row']")
                 && harnessText.contains("['hit-target-capsule', 'capsule']")
+                && harnessText.contains("['hit-target-adjustable', 'adjustable']")
                 && harnessText.contains("['hit-target-text', 'text']"),
-            "Dynamic fallback targets should classify controls as icon, text-entry, row, capsule, or text before using generic ownership."
+            "Dynamic fallback targets should classify controls as icon, text-entry, row, capsule, adjustable, or text before using generic ownership."
         )
         XCTAssertTrue(
             harnessText.contains("normalizeInteractionTargetContracts(document.getElementById('app'))"),
@@ -370,15 +379,17 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && designText.contains("static func capsule(")
                 && designText.contains("static func textEntry(")
                 && designText.contains("static func segmentedControl(")
+                && designText.contains("static func adjustableControl(")
                 && designText.contains("static func switchRow("),
-            "Shared target specs should cover icon, row, form-action, capsule, text-entry, segmented, and switch controls instead of ad hoc sizing."
+            "Shared target specs should cover icon, row, form-action, capsule, text-entry, segmented, adjustable, and switch controls instead of ad hoc sizing."
         )
         XCTAssertTrue(
             designText.contains("quillCodeTextEntryTarget")
                 && designText.contains("quillCodeSegmentedControlTarget")
+                && designText.contains("quillCodeAdjustableControlTarget")
                 && designText.contains("quillCodeSwitchRowTarget")
                 && designText.contains("quillCodeDecorativeIconFrame"),
-            "Native text entry, segmented controls, switches, and decorative icon frames should have semantic helpers so call sites do not use raw frames."
+            "Native text entry, segmented controls, adjustable controls, switches, and decorative icon frames should have semantic helpers so call sites do not use raw frames."
         )
         XCTAssertFalse(
             designText.contains("public func quillCodeHitTarget("),
@@ -494,6 +505,57 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(violations, [])
     }
 
+    func testNativeSourceAuditCoversAdjustableControls() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct BadAdjustableTargets: View {
+            @State private var value = 0.5
+
+            var body: some View {
+                VStack {
+                    Slider(value: $value)
+                    Stepper("Amount", value: $value)
+                }
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertEqual(
+            violations.filter { $0.contains("adjustable control lacks shared adjustable hit target") }.count,
+            2,
+            "Sliders and steppers should not pass the native source audit without a semantic adjustable-control target."
+        )
+    }
+
+    func testNativeSourceAuditAcceptsAdjustableControlContracts() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct GoodAdjustableTargets: View {
+            @State private var value = 0.5
+
+            var body: some View {
+                VStack {
+                    Slider(value: $value)
+                        .quillCodeAdjustableControlTarget()
+
+                    Stepper("Amount", value: $value)
+                        .quillCodeAdjustableControlTarget()
+                }
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertEqual(violations, [])
+    }
+
     func testNativeSourceAuditRejectsActionButtonStyleWithoutSemanticTarget() throws {
         let file = try makeTemporarySwiftFile("""
         import SwiftUI
@@ -531,6 +593,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && auditText.contains("case formAction")
                 && auditText.contains("case textEntry")
                 && auditText.contains("case segmentedControl")
+                && auditText.contains("case adjustableControl")
                 && auditText.contains("case switchRow")
                 && auditText.contains("case fullRow")
                 && auditText.contains("case capsule"),
@@ -561,7 +624,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && smokeScriptText.contains(#"native_targets.get("isValid") is not True"#)
                 && smokeScriptText.contains(#"native_targets.get("minimumHitTarget") != 44"#)
                 && smokeScriptText.contains("math.isclose(press_scale, 0.96")
-                && smokeScriptText.contains(#""icon", "textButton", "formAction", "textEntry", "segmentedControl", "switchRow", "fullRow", "capsule""#),
+                && smokeScriptText.contains(#""icon", "textButton", "formAction", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "fullRow", "capsule""#),
             "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric and semantic kind."
         )
     }
@@ -612,7 +675,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(
             violations.filter { $0.contains("generic hit-target helper should use a semantic target helper") }.count,
             2,
-            "Generic target helpers should not satisfy visible app controls; choose icon, text, row, capsule, form, switch, segmented, or text-entry intent."
+            "Generic target helpers should not satisfy visible app controls; choose icon, text, row, capsule, form, switch, segmented, adjustable, or text-entry intent."
         )
         XCTAssertTrue(violations.contains { $0.contains("Button lacks shared hit target") })
     }
@@ -725,7 +788,8 @@ private struct HTMLSourceInteractionTargetAudit {
         "WorkspaceHTMLPrimitives.textEntryHitTargetClass",
         "WorkspaceHTMLPrimitives.rowHitTargetClass",
         "WorkspaceHTMLPrimitives.capsuleHitTargetClass",
-        "WorkspaceHTMLPrimitives.formActionHitTargetClass"
+        "WorkspaceHTMLPrimitives.formActionHitTargetClass",
+        "WorkspaceHTMLPrimitives.adjustableHitTargetClass"
     ]
 
     private let hitTargetKindMarkers = [
@@ -793,6 +857,7 @@ private struct SwiftSourceInteractionTargetAudit {
         "quillCodeFormActionTarget",
         "quillCodeTextEntryTarget",
         "quillCodeSegmentedControlTarget",
+        "quillCodeAdjustableControlTarget",
         "quillCodeSwitchRowTarget"
     ]
 
@@ -890,6 +955,11 @@ private struct SwiftSourceInteractionTargetAudit {
             if isToggleDeclaration(line),
                !declarationScope.contains("quillCodeSwitchRowTarget") {
                 violations.append("\(relativePath):\(index + 1) toggle control lacks shared switch-row hit target")
+            }
+
+            if isAdjustableDeclaration(line),
+               !declarationScope.contains("quillCodeAdjustableControlTarget") {
+                violations.append("\(relativePath):\(index + 1) adjustable control lacks shared adjustable hit target")
             }
 
             if line.contains(".pickerStyle(.segmented)"),
@@ -1063,6 +1133,13 @@ private struct SwiftSourceInteractionTargetAudit {
         ) != nil
     }
 
+    private func isAdjustableDeclaration(_ line: String) -> Bool {
+        line.range(
+            of: #"^\s*(Slider|Stepper|DatePicker|ColorPicker)\("#,
+            options: .regularExpression
+        ) != nil
+    }
+
     private func isControlDeclaration(_ line: String) -> Bool {
         isButtonDeclaration(line)
             || isMenuDeclaration(line)
@@ -1070,6 +1147,7 @@ private struct SwiftSourceInteractionTargetAudit {
             || isLinkDeclaration(line)
             || isTextEntryDeclaration(line)
             || isToggleDeclaration(line)
+            || isAdjustableDeclaration(line)
     }
 
     private func isGestureClick(_ line: String) -> Bool {
