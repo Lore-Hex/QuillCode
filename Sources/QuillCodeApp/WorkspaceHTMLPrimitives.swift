@@ -28,7 +28,7 @@ enum WorkspaceHTMLHitTargetKind: String, CaseIterable {
         case .adjustable:
             return "hit-target-adjustable"
         case .link:
-            return "interactive-hit-target"
+            return "hit-target-link"
         case .owned:
             return "hit-target-owned"
         }
@@ -52,6 +52,8 @@ enum WorkspaceHTMLHitTargetKind: String, CaseIterable {
 
 enum WorkspaceHTMLPrimitives {
     static let ownedHitTargetClass = WorkspaceHTMLHitTargetKind.owned.className
+    static let linkHitTargetClass = WorkspaceHTMLHitTargetKind.link.className
+    @available(*, deprecated, message: "Use linkHitTargetClass for explicit link semantics.")
     static let interactiveHitTargetClass = WorkspaceHTMLHitTargetKind.link.className
     static let iconHitTargetClass = WorkspaceHTMLHitTargetKind.icon.className
     static let textHitTargetClass = WorkspaceHTMLHitTargetKind.text.className

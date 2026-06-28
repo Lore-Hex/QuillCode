@@ -27,6 +27,7 @@ struct QuillCodeHitTargetSpec {
         case textEntry
         case segmentedControl
         case adjustableControl
+        case link
         case switchRow
         case ownedGesture
         case fullRow
@@ -38,6 +39,8 @@ struct QuillCodeHitTargetSpec {
                 return "text-input"
             case .adjustableControl:
                 return "adjust"
+            case .link:
+                return "link"
             case .ownedGesture:
                 return "owned-gesture"
             case .icon, .textButton, .formAction, .segmentedControl, .switchRow, .fullRow, .capsule:
@@ -166,6 +169,24 @@ struct QuillCodeHitTargetSpec {
             height: nil,
             alignment: alignment,
             shape: .rounded(QuillCodeMetrics.compactControlRadius)
+        )
+    }
+
+    static func link(
+        minWidth: CGFloat? = QuillCodeMetrics.compactTextButtonMinWidth,
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .center,
+        radius: CGFloat = QuillCodeMetrics.compactControlRadius
+    ) -> Self {
+        Self(
+            kind: .link,
+            minWidth: minWidth,
+            maxWidth: nil,
+            width: nil,
+            minHeight: minHeight,
+            height: nil,
+            alignment: alignment,
+            shape: .rounded(radius)
         )
     }
 
@@ -424,6 +445,20 @@ extension View {
         quillCodeInteractiveTarget(.adjustableControl(
             minHeight: minHeight,
             alignment: alignment
+        ))
+    }
+
+    public func quillCodeLinkTarget(
+        minWidth: CGFloat? = QuillCodeMetrics.compactTextButtonMinWidth,
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .center,
+        radius: CGFloat = QuillCodeMetrics.compactControlRadius
+    ) -> some View {
+        quillCodeInteractiveTarget(.link(
+            minWidth: minWidth,
+            minHeight: minHeight,
+            alignment: alignment,
+            radius: radius
         ))
     }
 

@@ -35,6 +35,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             "sidebar.thread-row",
             "sidebar.thread-action",
             "transcript.message-action",
+            "transcript.artifact-link",
             "transcript.tool-card",
             "transcript.tool-card-action",
             "transcript.context-banner-action",
@@ -84,11 +85,13 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         }
 
         XCTAssertEqual(contractsByID["extensions.mcp-reference"]?.kind, .capsule)
+        XCTAssertEqual(contractsByID["transcript.artifact-link"]?.kind, .link)
         XCTAssertEqual(contractsByID["memories.edit"]?.kind, .icon)
         XCTAssertEqual(contractsByID["automations.create"]?.kind, .formAction)
         XCTAssertEqual(contractsByID["browser.comment"]?.kind, .textEntry)
         XCTAssertEqual(contractsByID["transcript.thinking-trace"]?.kind, .capsule)
         XCTAssertEqual(contractsByID["browser.comment"]?.action, .textInput)
+        XCTAssertEqual(contractsByID["transcript.artifact-link"]?.action, .link)
         XCTAssertEqual(contractsByID["browser.new-tab"]?.action, .press)
         XCTAssertEqual(contractsByID["memories.edit"]?.requiresUnblockedInterior, true)
         XCTAssertEqual(contractsByID["model-picker.option"]?.allowsNestedInteractiveChildren, false)

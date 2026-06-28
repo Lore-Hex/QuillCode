@@ -4,6 +4,7 @@ public enum QuillCodeNativeHitTargetKind: String, Codable, Sendable, Hashable, C
     case icon
     case textButton
     case formAction
+    case link
     case textEntry
     case segmentedControl
     case adjustableControl
@@ -28,6 +29,8 @@ extension QuillCodeNativeHitTargetKind {
             return .textInput
         case .adjustableControl:
             return .adjust
+        case .link:
+            return .link
         case .ownedGesture:
             return .ownedGesture
         case .icon, .textButton, .formAction, .segmentedControl, .switchRow, .fullRow, .capsule:
@@ -190,6 +193,7 @@ public enum QuillCodeNativeHitTargetAudit {
             contract("design.icon", family: .designSystem, surface: "Design system", label: "Icon button", kind: .icon, minWidth: 44),
             contract("design.text-button", family: .designSystem, surface: "Design system", label: "Text button", kind: .textButton, minWidth: 72),
             contract("design.form-action", family: .designSystem, surface: "Design system", label: "Form action", kind: .formAction, minWidth: 56),
+            contract("design.link", family: .designSystem, surface: "Design system", label: "Link", kind: .link, minWidth: 72),
             contract("design.text-entry", family: .designSystem, surface: "Design system", label: "Text entry", kind: .textEntry, minWidth: nil),
             contract("design.segmented-control", family: .designSystem, surface: "Design system", label: "Segmented control", kind: .segmentedControl, minWidth: nil),
             contract("design.adjustable-control", family: .designSystem, surface: "Design system", label: "Adjustable control", kind: .adjustableControl, minWidth: nil),
@@ -254,6 +258,7 @@ public enum QuillCodeNativeHitTargetAudit {
             contract("sidebar.thread-row", family: .sidebarThreadList, surface: "Sidebar thread list", label: "Thread row", kind: .fullRow, minWidth: nil),
             contract("sidebar.thread-action", family: .sidebarThreadList, surface: "Sidebar thread list", label: "Thread row action", kind: .icon, minWidth: 44),
             contract("transcript.message-action", family: .transcript, surface: "Transcript", label: "Message action", kind: .icon, minWidth: 44),
+            contract("transcript.artifact-link", family: .transcript, surface: "Transcript", label: "Artifact link", kind: .link, minWidth: 96),
             contract("transcript.tool-card", family: .toolCard, surface: "Tool card", label: "Tool details", kind: .fullRow, minWidth: nil),
             contract("transcript.tool-card-action", family: .toolCard, surface: "Tool card", label: "Tool action", kind: .textButton, minWidth: 72),
             contract("transcript.context-banner-action", family: .contextBanner, surface: "Context banner", label: "Context action", kind: .textButton, minWidth: 72),

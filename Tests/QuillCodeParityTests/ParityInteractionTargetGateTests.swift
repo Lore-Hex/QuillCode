@@ -144,7 +144,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             primitivesText.contains("private static func isHitTargetClass")
                 && primitivesText.contains("ownedHitTargetClass")
-                && primitivesText.contains("interactiveHitTargetClass")
+                && primitivesText.contains("linkHitTargetClass")
                 && primitivesText.contains("textEntryHitTargetClass")
                 && primitivesText.contains("formActionHitTargetClass"),
             "The defaulting helper should recognize every shared rendered hit-target class instead of duplicating class-name logic at call sites."
@@ -403,18 +403,20 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && designText.contains("static func textEntry(")
                 && designText.contains("static func segmentedControl(")
                 && designText.contains("static func adjustableControl(")
+                && designText.contains("static func link(")
                 && designText.contains("static func switchRow(")
                 && designText.contains("static func ownedGesture("),
-            "Shared target specs should cover icon, row, form-action, capsule, text-entry, segmented, adjustable, switch, and owned gesture controls instead of ad hoc sizing."
+            "Shared target specs should cover icon, row, form-action, capsule, link, text-entry, segmented, adjustable, switch, and owned gesture controls instead of ad hoc sizing."
         )
         XCTAssertTrue(
             designText.contains("quillCodeTextEntryTarget")
                 && designText.contains("quillCodeSegmentedControlTarget")
                 && designText.contains("quillCodeAdjustableControlTarget")
+                && designText.contains("quillCodeLinkTarget")
                 && designText.contains("quillCodeSwitchRowTarget")
                 && designText.contains("quillCodeOwnedGestureTarget")
                 && designText.contains("quillCodeDecorativeIconFrame"),
-            "Native text entry, segmented controls, adjustable controls, switches, owned gesture regions, and decorative icon frames should have semantic helpers so call sites do not use raw frames."
+            "Native text entry, segmented controls, adjustable controls, links, switches, owned gesture regions, and decorative icon frames should have semantic helpers so call sites do not use raw frames."
         )
         XCTAssertTrue(
             designText.contains(".accessibilityAddTraits(.isButton)"),
@@ -685,7 +687,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && smokeScriptText.contains(#"native_targets.get("isValid") is not True"#)
                 && smokeScriptText.contains(#"native_targets.get("minimumHitTarget") != 44"#)
                 && smokeScriptText.contains("math.isclose(press_scale, 0.96")
-                && smokeScriptText.contains(#""icon", "textButton", "formAction", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule""#),
+                && smokeScriptText.contains(#""icon", "textButton", "formAction", "link", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule""#),
             "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric and semantic kind."
         )
         XCTAssertTrue(
@@ -746,6 +748,39 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Generic target helpers should not satisfy visible app controls; choose icon, text, row, capsule, form, switch, segmented, adjustable, or text-entry intent."
         )
         XCTAssertTrue(violations.contains { $0.contains("Button lacks shared hit target") })
+    }
+
+    func testNativeSourceAuditRejectsLinksWithoutLinkSemantics() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct LinkChrome: View {
+            var body: some View {
+                VStack {
+                    Link(destination: URL(string: "https://quillos.cloud")!) {
+                        Text("Docs")
+                            .quillCodeTextButtonTarget()
+                    }
+                    .buttonStyle(QuillCodePressableButtonStyle())
+
+                    Link(destination: URL(string: "https://quillos.cloud")!) {
+                        Text("Support")
+                            .quillCodeLinkTarget()
+                    }
+                    .buttonStyle(QuillCodePressableButtonStyle())
+                }
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertEqual(
+            violations.filter { $0.contains("Link should use quillCodeLinkTarget so external navigation is not styled as a button press") }.count,
+            1,
+            "Native links need link semantics; button-sized geometry alone is not enough."
+        )
     }
 
     func testNativeSourceAuditRejectsRawShapeAndHitTestingOverrides() throws {
@@ -993,7 +1028,7 @@ private struct HTMLSourceInteractionTargetAudit {
 
     private let hitTargetMarkers = [
         "WorkspaceHTMLPrimitives.ownedHitTargetClass",
-        "WorkspaceHTMLPrimitives.interactiveHitTargetClass",
+        "WorkspaceHTMLPrimitives.linkHitTargetClass",
         "WorkspaceHTMLPrimitives.iconHitTargetClass",
         "WorkspaceHTMLPrimitives.textHitTargetClass",
         "WorkspaceHTMLPrimitives.textEntryHitTargetClass",
@@ -1068,6 +1103,7 @@ private struct SwiftSourceInteractionTargetAudit {
         "quillCodeFullRowButtonTarget",
         "quillCodeCapsuleButtonTarget",
         "quillCodeFormActionTarget",
+        "quillCodeLinkTarget",
         "quillCodeTextEntryTarget",
         "quillCodeSegmentedControlTarget",
         "quillCodeAdjustableControlTarget",
@@ -1176,6 +1212,11 @@ private struct SwiftSourceInteractionTargetAudit {
             if isLinkDeclaration(line),
                !hasSharedTarget(in: declarationScope) {
                 violations.append("\(relativePath):\(index + 1) Link lacks shared hit target")
+            }
+
+            if isLinkDeclaration(line),
+               !declarationScope.contains("quillCodeLinkTarget") {
+                violations.append("\(relativePath):\(index + 1) Link should use quillCodeLinkTarget so external navigation is not styled as a button press")
             }
 
             if isTextEntryDeclaration(line),

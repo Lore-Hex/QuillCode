@@ -9,7 +9,7 @@ struct QuillCodeArtifactChip: View {
         if let url = artifactURL {
             Link(destination: url) {
                 label
-                    .quillCodeTextButtonTarget(
+                    .quillCodeLinkTarget(
                         minWidth: 96,
                         alignment: .leading,
                         radius: QuillCodeMetrics.minimumHitTarget / 2
@@ -81,7 +81,7 @@ struct QuillCodeArtifactDocumentPreview: View {
         if let url = artifactURL {
             Link(destination: url) {
                 content
-                    .quillCodeTextButtonTarget(minWidth: 160, alignment: .leading, radius: 18)
+                    .quillCodeLinkTarget(minWidth: 160, alignment: .leading, radius: 18)
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .accessibilityElement(children: .combine)
