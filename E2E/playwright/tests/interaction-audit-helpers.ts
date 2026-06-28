@@ -15,6 +15,7 @@ const INTERACTIVE_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])',
   '[contenteditable="true"]',
   'input:not([type="hidden"])',
+  'label',
   'select',
   'textarea'
 ].join(',');
@@ -96,7 +97,36 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
 
     const targetSampleFractions = [0.2, 0.5, 0.8];
 
+    function associatedLabelControl(element: Element) {
+      if (!(element instanceof HTMLLabelElement)) return null;
+      if (element.control) return element.control;
+      if (!element.htmlFor) return null;
+      return document.getElementById(element.htmlFor);
+    }
+
+    function isLabelHitTargetClass(element: Element) {
+      return [
+        'interactive-hit-target',
+        'hit-target-text',
+        'hit-target-row',
+        'hit-target-capsule',
+        'hit-target-form-action'
+      ].some(className => element.classList.contains(className));
+    }
+
+    function isAuditableInteractiveElement(element: Element) {
+      if (!(element instanceof HTMLLabelElement)) return true;
+      const control = associatedLabelControl(element);
+      if (control?.matches(':disabled,[aria-disabled="true"]')) return false;
+      if (control instanceof HTMLInputElement && ['checkbox', 'radio'].includes(control.type)) {
+        return true;
+      }
+      return isLabelHitTargetClass(element);
+    }
+
     function isSemanticallyDisabled(element: Element) {
+      const labelledControl = associatedLabelControl(element);
+      if (labelledControl?.matches(':disabled,[aria-disabled="true"]')) return true;
       return element.matches(':disabled,[aria-disabled="true"]');
     }
 
@@ -331,6 +361,11 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
       return null;
     }
 
+    function isAssociatedLabelPair(child: Element, parent: Element) {
+      return parent instanceof HTMLLabelElement
+        && associatedLabelControl(parent) === child;
+    }
+
     const visibleTargets: VisibleTarget[] = [...document.querySelectorAll(selector)]
       .map((element) => {
         const rect = element.getBoundingClientRect();
@@ -338,7 +373,8 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
         return { clipped, element, rect };
       })
       .filter(({ clipped, element, rect }) => (
-        isVisible(element, rect)
+        isAuditableInteractiveElement(element)
+          && isVisible(element, rect)
           && clipped.rect.width > 0
           && clipped.rect.height > 0
           && !isScrollBoundarySliver(clipped)
@@ -369,6 +405,7 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
       .map(({ element }) => {
         const parent = closestInteractiveAncestor(element);
         if (!parent || !visibleTargetElements.has(parent)) return null;
+        if (isAssociatedLabelPair(element, parent)) return null;
         return {
           child: labelFor(element),
           parent: labelFor(parent)

@@ -32,8 +32,9 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             auditHelperText.contains("button")
                 && auditHelperText.contains("[role=\"button\"]")
                 && auditHelperText.contains("[role=\"tab\"]")
+                && auditHelperText.contains("label")
                 && auditHelperText.contains("textarea"),
-            "The rendered click-target audit should cover native controls, ARIA controls, tabs, and text entry."
+            "The rendered click-target audit should cover native controls, ARIA controls, tabs, interactive labels, and text entry."
         )
         XCTAssertTrue(
             auditHelperText.contains("MINIMUM_HIT_TARGET = 44")
@@ -61,6 +62,12 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && auditHelperText.contains("nestedIssues")
                 && auditHelperText.contains("expectNoNestedInteractiveTargets"),
             "The rendered click-target audit should fail nested interactive controls, not only undersized controls."
+        )
+        XCTAssertTrue(
+            auditHelperText.contains("isAuditableInteractiveElement")
+                && auditHelperText.contains("HTMLLabelElement")
+                && auditHelperText.contains("associatedLabelControl"),
+            "Interactive labels should be audited when they act as checkbox/radio click targets without treating passive form captions as buttons."
         )
         XCTAssertTrue(
             auditHelperText.contains("dialog[open]")
@@ -143,6 +150,74 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testNativeSourceAuditCoversMenuAndPickerTriggers() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct BadClickTargets: View {
+            @State private var text = ""
+            @State private var selected = 0
+
+            var body: some View {
+                Menu {
+                    Text("One")
+                } label: {
+                    Image(systemName: "ellipsis")
+                }
+
+                Picker("Mode", selection: $selected) {
+                    Text("One").tag(1)
+                }
+
+                TextEditor(text: $text)
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertTrue(violations.contains { $0.contains("Menu trigger lacks shared hit target") })
+        XCTAssertTrue(violations.contains { $0.contains("Menu trigger lacks explicit press or platform style") })
+        XCTAssertTrue(violations.contains { $0.contains("Picker lacks shared hit target") })
+        XCTAssertTrue(violations.contains { $0.contains("text-entry control lacks shared text-entry hit target") })
+    }
+
+    func testNativeSourceAuditAcceptsMenuPickerAndTextEditorContracts() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct GoodClickTargets: View {
+            @State private var text = ""
+            @State private var selected = 0
+
+            var body: some View {
+                Menu {
+                    Text("One")
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .quillCodeIconButtonTarget()
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+
+                Picker("Mode", selection: $selected) {
+                    Text("One").tag(1)
+                }
+                .pickerStyle(.segmented)
+                .quillCodeSegmentedControlTarget()
+
+                TextEditor(text: $text)
+                    .quillCodeTextEntryTarget()
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertEqual(violations, [])
+    }
+
     func testDesktopMenuBarPopoverUsesSharedFullRowTargets() throws {
         let menuBarText = try Self.desktopSourceText(named: "QuillCodeMenuBarView.swift")
 
@@ -161,6 +236,17 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
     }
 
+    private func makeTemporarySwiftFile(_ source: String) throws -> URL {
+        let directory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("quillcode-click-target-audit-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let fileURL = directory.appendingPathComponent("Fixture.swift")
+        try source.write(to: fileURL, atomically: true, encoding: .utf8)
+        return fileURL
+    }
 }
 
 private struct HTMLSourceInteractionTargetAudit {
@@ -274,6 +360,21 @@ private struct SwiftSourceInteractionTargetAudit {
                 violations.append("\(relativePath):\(index + 1) Button lacks explicit press or platform style")
             }
 
+            if isMenuDeclaration(line),
+               !hasSharedTarget(in: window(in: lines, around: index, radius: 56)) {
+                violations.append("\(relativePath):\(index + 1) Menu trigger lacks shared hit target")
+            }
+
+            if isMenuDeclaration(line),
+               !hasButtonStyle(in: window(in: lines, around: index, radius: 56)) {
+                violations.append("\(relativePath):\(index + 1) Menu trigger lacks explicit press or platform style")
+            }
+
+            if isPickerDeclaration(line),
+               !hasSharedTarget(in: window(in: lines, around: index, radius: 28)) {
+                violations.append("\(relativePath):\(index + 1) Picker lacks shared hit target")
+            }
+
             if isLinkDeclaration(line),
                !hasSharedTarget(in: window(in: lines, around: index, radius: 28)) {
                 violations.append("\(relativePath):\(index + 1) Link lacks shared hit target")
@@ -313,6 +414,20 @@ private struct SwiftSourceInteractionTargetAudit {
         ) != nil
     }
 
+    private func isMenuDeclaration(_ line: String) -> Bool {
+        line.range(
+            of: #"^\s*Menu(?:\(|\s*\{)"#,
+            options: .regularExpression
+        ) != nil
+    }
+
+    private func isPickerDeclaration(_ line: String) -> Bool {
+        line.range(
+            of: #"^\s*Picker(?:\(|\s*\{)"#,
+            options: .regularExpression
+        ) != nil
+    }
+
     private func isLinkDeclaration(_ line: String) -> Bool {
         line.range(
             of: #"^\s*Link(?:\(|\s*\{)"#,
@@ -322,7 +437,7 @@ private struct SwiftSourceInteractionTargetAudit {
 
     private func isTextEntryDeclaration(_ line: String) -> Bool {
         line.range(
-            of: #"^\s*(TextField|SecureField)\("#,
+            of: #"^\s*(TextField|SecureField|TextEditor)\("#,
             options: .regularExpression
         ) != nil
     }
