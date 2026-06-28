@@ -323,6 +323,11 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Native controls should use the same 44 pt target baseline as the rendered harness."
         )
         XCTAssertTrue(
+            designText.contains("enum Kind")
+                && designText.contains("var kind: Kind"),
+            "Native hit-target specs should carry an explicit semantic intent so controls cannot pass with only generic geometry."
+        )
+        XCTAssertTrue(
             designText.contains(".frame(\n            minWidth: spec.minWidth")
                 && designText.contains("minHeight: spec.minHeight"),
             "Shared native targets should enforce minimum width and height inside the modifier, not rely on per-call padding."
@@ -349,6 +354,10 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && designText.contains("quillCodeSwitchRowTarget")
                 && designText.contains("quillCodeDecorativeIconFrame"),
             "Native text entry, segmented controls, switches, and decorative icon frames should have semantic helpers so call sites do not use raw frames."
+        )
+        XCTAssertFalse(
+            designText.contains("public func quillCodeHitTarget("),
+            "The app should not expose a generic hit-target helper; visible controls need icon/text/row/capsule/form/text-entry intent."
         )
         XCTAssertTrue(
             designText.contains("public struct QuillCodeActionButtonStyle: ButtonStyle")
@@ -479,6 +488,36 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             violations.contains { $0.contains("raw minimum hit-target frame should use semantic target or decorative helper") },
             "Raw 44 pt frames hide whether a view is clickable or decorative."
         )
+    }
+
+    func testNativeSourceAuditRejectsGenericHitTargetHelpers() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct GenericChrome: View {
+            var body: some View {
+                VStack {
+                    Button("Generic") {}
+                        .quillCodeHitTarget()
+                        .buttonStyle(QuillCodePressableButtonStyle())
+
+                    Button("Primitive") {}
+                        .quillCodeInteractiveTarget(.icon())
+                        .buttonStyle(QuillCodePressableButtonStyle())
+                }
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertEqual(
+            violations.filter { $0.contains("generic hit-target helper should use a semantic target helper") }.count,
+            2,
+            "Generic target helpers should not satisfy visible app controls; choose icon, text, row, capsule, form, switch, segmented, or text-entry intent."
+        )
+        XCTAssertTrue(violations.contains { $0.contains("Button lacks shared hit target") })
     }
 
     func testNativeSourceAuditAcceptsDecorativeIconFrames() throws {
@@ -657,9 +696,12 @@ private struct SwiftSourceInteractionTargetAudit {
         "quillCodeTextEntryTarget",
         "quillCodeSegmentedControlTarget",
         "quillCodeSwitchRowTarget",
-        "quillCodeHitTarget",
-        "quillCodeInteractiveTarget",
         "QuillCodeActionButtonStyle"
+    ]
+
+    private let genericTargetMarkers = [
+        "quillCodeHitTarget",
+        "quillCodeInteractiveTarget"
     ]
 
     func violations(in sourceFiles: [URL]) throws -> [String] {
@@ -686,6 +728,11 @@ private struct SwiftSourceInteractionTargetAudit {
             if isRawMinimumHitTargetFrame(line),
                !isSharedDesignSystem(relativePath) {
                 violations.append("\(relativePath):\(index + 1) raw minimum hit-target frame should use semantic target or decorative helper")
+            }
+
+            if usesGenericTargetHelper(line),
+               !isSharedDesignSystem(relativePath) {
+                violations.append("\(relativePath):\(index + 1) generic hit-target helper should use a semantic target helper")
             }
 
             if isCompactPlatformButtonStyle(line),
@@ -763,6 +810,10 @@ private struct SwiftSourceInteractionTargetAudit {
 
     private func hasButtonStyle(in sourceWindow: String) -> Bool {
         sourceWindow.contains(".buttonStyle(")
+    }
+
+    private func usesGenericTargetHelper(_ line: String) -> Bool {
+        genericTargetMarkers.contains { line.contains($0) }
     }
 
     private func controlScope(in lines: [String], startingAt index: Int) -> String {

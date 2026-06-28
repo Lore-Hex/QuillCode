@@ -20,12 +20,24 @@ public enum QuillCodeMetrics {
 }
 
 struct QuillCodeHitTargetSpec {
+    enum Kind {
+        case icon
+        case textButton
+        case formAction
+        case textEntry
+        case segmentedControl
+        case switchRow
+        case fullRow
+        case capsule
+    }
+
     enum Shape {
         case rectangle
         case rounded(CGFloat)
         case capsule
     }
 
+    var kind: Kind
     var minWidth: CGFloat?
     var maxWidth: CGFloat?
     var width: CGFloat?
@@ -39,6 +51,7 @@ struct QuillCodeHitTargetSpec {
         radius: CGFloat = QuillCodeMetrics.iconControlRadius
     ) -> Self {
         Self(
+            kind: .icon,
             minWidth: nil,
             maxWidth: nil,
             width: size,
@@ -56,6 +69,7 @@ struct QuillCodeHitTargetSpec {
         radius: CGFloat = QuillCodeMetrics.compactControlRadius
     ) -> Self {
         Self(
+            kind: .textButton,
             minWidth: minWidth,
             maxWidth: nil,
             width: nil,
@@ -71,11 +85,15 @@ struct QuillCodeHitTargetSpec {
         minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
         alignment: Alignment = .center
     ) -> Self {
-        textButton(
+        Self(
+            kind: .formAction,
             minWidth: minWidth,
+            maxWidth: nil,
+            width: nil,
             minHeight: minHeight,
+            height: nil,
             alignment: alignment,
-            radius: QuillCodeMetrics.minimumHitTarget / 2
+            shape: .rounded(QuillCodeMetrics.minimumHitTarget / 2)
         )
     }
 
@@ -86,6 +104,7 @@ struct QuillCodeHitTargetSpec {
         radius: CGFloat = QuillCodeMetrics.compactControlRadius
     ) -> Self {
         Self(
+            kind: .textEntry,
             minWidth: minWidth,
             maxWidth: nil,
             width: nil,
@@ -101,6 +120,7 @@ struct QuillCodeHitTargetSpec {
         alignment: Alignment = .center
     ) -> Self {
         Self(
+            kind: .segmentedControl,
             minWidth: nil,
             maxWidth: .infinity,
             width: nil,
@@ -116,6 +136,7 @@ struct QuillCodeHitTargetSpec {
         alignment: Alignment = .leading
     ) -> Self {
         Self(
+            kind: .switchRow,
             minWidth: nil,
             maxWidth: .infinity,
             width: nil,
@@ -132,6 +153,7 @@ struct QuillCodeHitTargetSpec {
         radius: CGFloat = QuillCodeMetrics.compactControlRadius
     ) -> Self {
         Self(
+            kind: .fullRow,
             minWidth: nil,
             maxWidth: .infinity,
             width: nil,
@@ -148,6 +170,7 @@ struct QuillCodeHitTargetSpec {
         alignment: Alignment = .center
     ) -> Self {
         Self(
+            kind: .capsule,
             minWidth: minWidth,
             maxWidth: nil,
             width: nil,
@@ -158,21 +181,6 @@ struct QuillCodeHitTargetSpec {
         )
     }
 
-    static func rectangle(
-        minWidth: CGFloat = QuillCodeMetrics.minimumHitTarget,
-        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
-        alignment: Alignment = .center
-    ) -> Self {
-        Self(
-            minWidth: minWidth,
-            maxWidth: nil,
-            width: nil,
-            minHeight: minHeight,
-            height: nil,
-            alignment: alignment,
-            shape: .rectangle
-        )
-    }
 }
 
 enum QuillCodePalette {
@@ -300,20 +308,8 @@ public struct QuillCodeActionButtonStyle: ButtonStyle {
 }
 
 extension View {
-    func quillCodeInteractiveTarget(_ spec: QuillCodeHitTargetSpec) -> some View {
+    fileprivate func quillCodeInteractiveTarget(_ spec: QuillCodeHitTargetSpec) -> some View {
         modifier(QuillCodeHitTargetModifier(spec: spec))
-    }
-
-    public func quillCodeHitTarget(
-        minWidth: CGFloat = QuillCodeMetrics.minimumHitTarget,
-        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
-        alignment: Alignment = .center
-    ) -> some View {
-        quillCodeInteractiveTarget(.rectangle(
-            minWidth: minWidth,
-            minHeight: minHeight,
-            alignment: alignment
-        ))
     }
 
     public func quillCodeTextButtonTarget(
