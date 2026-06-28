@@ -9,6 +9,28 @@ enum WorkspaceHTMLPrimitives {
     static let rowHitTargetClass = "hit-target-row"
     static let capsuleHitTargetClass = "hit-target-capsule"
     static let formActionHitTargetClass = "hit-target-form-action"
+    static let hitTargetKindAttributeName = "data-hit-target-kind"
+
+    static func hitTargetKindAttribute(for className: String) -> String {
+        hitTargetKindAttribute(forClasses: [className])
+    }
+
+    static func hitTargetKindAttribute(forClasses classes: [String]) -> String {
+        guard let kind = hitTargetKind(forClasses: classes) else { return "" }
+        return #" \#(hitTargetKindAttributeName)="\#(escape(kind))""#
+    }
+
+    static func hitTargetAttributes(for className: String) -> String {
+        hitTargetAttributes(classes: [className])
+    }
+
+    static func hitTargetAttributes(classes: [String]) -> String {
+        let parts = classAndHitTargetKindAttributeParts(
+            classes: normalizedClasses(classes),
+            explicitAttributes: []
+        )
+        return parts.isEmpty ? "" : " " + parts.joined(separator: " ")
+    }
 
     static func escape(_ text: String) -> String {
         text
@@ -142,13 +164,11 @@ enum WorkspaceHTMLPrimitives {
         attributes: [(String, String?)]
     ) -> [String] {
         var parts: [String] = []
-        let classAttribute = classesWithDefaultHitTarget(classes)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
-        if !classAttribute.isEmpty {
-            parts.append(#"class="\#(escape(classAttribute))""#)
-        }
+        let normalizedClasses = classesWithDefaultHitTarget(classes)
+        parts += classAndHitTargetKindAttributeParts(
+            classes: normalizedClasses,
+            explicitAttributes: attributes
+        )
         if let testID, !testID.isEmpty {
             parts.append(#"data-testid="\#(escape(testID))""#)
         }
@@ -174,27 +194,61 @@ enum WorkspaceHTMLPrimitives {
     }
 
     private static func classesWithDefaultHitTarget(_ classes: [String]) -> [String] {
-        let trimmed = classes
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        let trimmed = normalizedClasses(classes)
         if trimmed.contains(where: isHitTargetClass) {
             return trimmed
         }
         return trimmed + [textHitTargetClass]
     }
 
-    private static func isHitTargetClass(_ className: String) -> Bool {
-        [
-            interactiveHitTargetClass,
-            ownedHitTargetClass,
-            iconHitTargetClass,
-            textHitTargetClass,
-            textEntryHitTargetClass,
-            rowHitTargetClass,
-            capsuleHitTargetClass,
-            formActionHitTargetClass
-        ].contains(className)
+    private static func normalizedClasses(_ classes: [String]) -> [String] {
+        classes
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
+
+    private static func classAndHitTargetKindAttributeParts(
+        classes: [String],
+        explicitAttributes: [(String, String?)]
+    ) -> [String] {
+        let classAttribute = classes.joined(separator: " ")
+        var parts: [String] = []
+        if !classAttribute.isEmpty {
+            parts.append(#"class="\#(escape(classAttribute))""#)
+        }
+        if !explicitAttributes.contains(where: { $0.0 == hitTargetKindAttributeName }),
+           let hitTargetKind = hitTargetKind(forClasses: classes) {
+            parts.append(#"\#(hitTargetKindAttributeName)="\#(escape(hitTargetKind))""#)
+        }
+        return parts
+    }
+
+    private static func isHitTargetClass(_ className: String) -> Bool {
+        hitTargetKind(forClasses: [className]) != nil
+    }
+
+    private static func hitTargetKind(forClasses classes: [String]) -> String? {
+        let normalized = Set(classes.map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        })
+        for (className, kind) in hitTargetKindByClass {
+            if normalized.contains(className) {
+                return kind
+            }
+        }
+        return nil
+    }
+
+    private static let hitTargetKindByClass: [(String, String)] = [
+        (iconHitTargetClass, "icon"),
+        (textEntryHitTargetClass, "text-entry"),
+        (rowHitTargetClass, "row"),
+        (capsuleHitTargetClass, "capsule"),
+        (formActionHitTargetClass, "form-action"),
+        (textHitTargetClass, "text"),
+        (interactiveHitTargetClass, "link"),
+        (ownedHitTargetClass, "owned")
+    ]
 
     static func executionContextChip(
         _ context: ExecutionContextSurface?,

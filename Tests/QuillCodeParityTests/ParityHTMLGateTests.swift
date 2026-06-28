@@ -307,11 +307,11 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             "Tool-card details disclosures should opt into the harness hit-target styling."
         )
         XCTAssertTrue(
-            toolCardText.contains(#"artifact-chip \(WorkspaceHTMLPrimitives.interactiveHitTargetClass)"#),
+            toolCardText.contains(#"WorkspaceHTMLPrimitives.hitTargetAttributes(classes: ["artifact-chip", WorkspaceHTMLPrimitives.interactiveHitTargetClass])"#),
             "Artifact links should keep an explicit 44 px hit target instead of relying on chip padding."
         )
         XCTAssertTrue(
-            reviewText.contains(#"class="review-action-button \(WorkspaceHTMLPrimitives.textHitTargetClass)""#),
+            reviewText.contains(#"WorkspaceHTMLPrimitives.hitTargetAttributes(classes: ["review-action-button", WorkspaceHTMLPrimitives.textHitTargetClass])"#),
             "Review action buttons should use a named class that can be target-sized in CSS."
         )
         XCTAssertTrue(
