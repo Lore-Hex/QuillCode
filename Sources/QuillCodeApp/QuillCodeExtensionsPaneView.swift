@@ -150,23 +150,27 @@ struct QuillCodeExtensionsPaneView: View {
                 onCommand(extensionCommand(id: installCommandID, title: "Install \(item.name)"))
             }
             .buttonStyle(QuillCodeActionButtonStyle(.secondary, minWidth: 74))
+            .quillCodeFormActionTarget(minWidth: 74)
         }
         if let updateCommandID = item.updateCommandID {
             Button("Update") {
                 onCommand(extensionCommand(id: updateCommandID, title: "Update \(item.name)"))
             }
             .buttonStyle(QuillCodeActionButtonStyle(.secondary, minWidth: 74))
+            .quillCodeFormActionTarget(minWidth: 74)
         }
         if let stopCommandID = item.stopCommandID {
             Button("Stop") {
                 onCommand(extensionCommand(id: stopCommandID, title: "Stop \(item.name)"))
             }
             .buttonStyle(QuillCodeActionButtonStyle(.destructive, minWidth: 74))
+            .quillCodeFormActionTarget(minWidth: 74)
         } else if let startCommandID = item.startCommandID {
             Button("Start") {
                 onCommand(extensionCommand(id: startCommandID, title: "Start \(item.name)"))
             }
             .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 74))
+            .quillCodeFormActionTarget(minWidth: 74)
         }
     }
 
@@ -294,6 +298,7 @@ struct QuillCodeExtensionsPaneView: View {
                             onCommand(extensionCommand(id: action.commandID, title: "\(titlePrefix) \(action.title)"))
                         }
                         .buttonStyle(QuillCodeActionButtonStyle(.secondary, minWidth: 96))
+                        .quillCodeCapsuleButtonTarget(minWidth: 96)
                     }
                 }
             }

@@ -60,6 +60,36 @@ if ! grep -q '"appName" : "QuillCode"' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
+python3 - "$REPORT_PATH" <<'PY'
+import json
+import math
+import sys
+
+report_path = sys.argv[1]
+with open(report_path, "r", encoding="utf-8") as report_file:
+    report = json.load(report_file)
+
+native_targets = report.get("nativeHitTargets")
+if not isinstance(native_targets, dict):
+    raise SystemExit("quill-code-desktop native smoke did not include native hit target contracts")
+
+if native_targets.get("isValid") is not True:
+    raise SystemExit("quill-code-desktop native smoke did not validate native hit target contracts")
+
+if native_targets.get("minimumHitTarget") != 44:
+    raise SystemExit("quill-code-desktop native smoke reported unexpected native minimum hit target")
+
+press_scale = native_targets.get("pressScale")
+if not isinstance(press_scale, (int, float)) or not math.isclose(press_scale, 0.96, rel_tol=0.0, abs_tol=1e-9):
+    raise SystemExit("quill-code-desktop native smoke reported unexpected native press scale")
+
+contracts = native_targets.get("designSystemContracts", []) + native_targets.get("surfaceContracts", [])
+contract_kinds = {contract.get("kind") for contract in contracts if isinstance(contract, dict)}
+required_kinds = {"icon", "textButton", "formAction", "textEntry", "segmentedControl", "switchRow", "fullRow", "capsule"}
+missing_kinds = sorted(required_kinds - contract_kinds)
+if missing_kinds:
+    raise SystemExit(f"quill-code-desktop native smoke did not include native target kinds: {', '.join(missing_kinds)}")
+PY
 for command_id in command-palette keyboard-shortcuts settings toggle-terminal toggle-browser; do
   if ! grep -q "$command_id" "$REPORT_PATH"; then
     echo "quill-code-desktop native smoke did not exercise chrome command: $command_id" >&2

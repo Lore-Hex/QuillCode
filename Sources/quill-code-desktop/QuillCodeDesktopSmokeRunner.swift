@@ -65,6 +65,14 @@ enum QuillCodeDesktopSmokeRunner {
         }
 
         let surface = controller.surface
+        let nativeHitTargets = QuillCodeNativeHitTargetAudit.report(for: surface)
+        guard nativeHitTargets.isValid else {
+            throw QuillCodeDesktopSmokeFailure.nativeHitTargetAuditFailed(
+                nativeHitTargets.validationIssues
+                    + nativeHitTargets.missingDesignKinds.map { "missing design kind: \($0)" }
+                    + nativeHitTargets.missingRequiredCommandIDs.map { "missing command: \($0)" }
+            )
+        }
         guard surface.transcript.messages.count >= 2,
               surface.transcript.toolCards.count >= 1,
               surface.transcript.timelineItems.count >= 3
@@ -121,7 +129,8 @@ enum QuillCodeDesktopSmokeRunner {
             htmlPath: htmlURL.path,
             image: stats.report,
             chromeImage: chromeStats.report,
-            chrome: chrome
+            chrome: chrome,
+            nativeHitTargets: nativeHitTargets
         )
     }
 

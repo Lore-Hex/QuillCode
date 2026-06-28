@@ -44,6 +44,7 @@ struct QuillCodeMemoriesPaneView: View {
                 Label("Add", systemImage: "plus")
             }
             .buttonStyle(QuillCodeActionButtonStyle(.primary))
+            .quillCodeFormActionTarget()
         }
     }
 

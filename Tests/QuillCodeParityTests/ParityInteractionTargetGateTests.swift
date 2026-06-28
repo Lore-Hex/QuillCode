@@ -484,6 +484,57 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(violations, [])
     }
 
+    func testNativeHitTargetAuditIsPartOfDesktopSmokeContract() throws {
+        let auditText = try Self.appSourceText(named: "QuillCodeNativeHitTargetAudit.swift")
+        let smokeSupportText = try Self.desktopSourceText(named: "QuillCodeDesktopSmokeSupport.swift")
+        let smokeRunnerText = try Self.desktopSourceText(named: "QuillCodeDesktopSmokeRunner.swift")
+        let smokeScriptText = try String(
+            contentsOf: Self.packageRoot().appendingPathComponent("scripts/native-desktop-smoke.sh"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(
+            auditText.contains("public enum QuillCodeNativeHitTargetKind")
+                && auditText.contains("case icon")
+                && auditText.contains("case textButton")
+                && auditText.contains("case formAction")
+                && auditText.contains("case textEntry")
+                && auditText.contains("case segmentedControl")
+                && auditText.contains("case switchRow")
+                && auditText.contains("case fullRow")
+                && auditText.contains("case capsule"),
+            "Native hit-target audit should expose every semantic target kind instead of only a generic minimum-size check."
+        )
+        XCTAssertTrue(
+            auditText.contains("requiredCommandIDs")
+                && auditText.contains(#""toggle-extensions""#)
+                && auditText.contains(#""toggle-memories""#)
+                && auditText.contains(#""toggle-automations""#)
+                && auditText.contains("conditionalPaneContracts(for surface: WorkspaceSurface)"),
+            "Native hit-target audit should cover command surfaces and visible secondary panes."
+        )
+        XCTAssertTrue(
+            smokeSupportText.contains("nativeHitTargets: QuillCodeNativeHitTargetAuditReport")
+                && smokeSupportText.contains(#""nativeHitTargets": nativeHitTargets.dictionary"#),
+            "The desktop smoke JSON should include the native hit-target audit report."
+        )
+        XCTAssertTrue(
+            smokeRunnerText.contains("QuillCodeNativeHitTargetAudit.report(for: surface)")
+                && smokeRunnerText.contains("nativeHitTargets.isValid")
+                && smokeRunnerText.contains("nativeHitTargetAuditFailed"),
+            "The product executable smoke should fail closed when native hit-target contracts are invalid."
+        )
+        XCTAssertTrue(
+            smokeScriptText.contains(#""nativeHitTargets""#)
+                && smokeScriptText.contains("json.load")
+                && smokeScriptText.contains(#"native_targets.get("isValid") is not True"#)
+                && smokeScriptText.contains(#"native_targets.get("minimumHitTarget") != 44"#)
+                && smokeScriptText.contains("math.isclose(press_scale, 0.96")
+                && smokeScriptText.contains(#""icon", "textButton", "formAction", "textEntry", "segmentedControl", "switchRow", "fullRow", "capsule""#),
+            "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric and semantic kind."
+        )
+    }
+
     func testNativeSourceAuditRejectsAmbiguousMinimumHitTargetFrames() throws {
         let file = try makeTemporarySwiftFile("""
         import SwiftUI
