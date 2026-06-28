@@ -37,14 +37,19 @@ struct WorkspaceThreadCreationEngine {
     static func forkThread(
         from source: ChatThread,
         projectID: UUID?,
-        strategy: WorkspaceThreadForkStrategy = .latestTurn
+        strategy: WorkspaceThreadForkStrategy = .latestTurn,
+        summaryOverride: String? = nil
     ) -> ChatThread {
         ChatThread(
             title: "\(strategy.threadTitlePrefix): \(source.title)",
             projectID: projectID,
             mode: source.mode,
             model: source.model,
-            messages: WorkspaceThreadSeedBuilder.forkSeedMessages(from: source, strategy: strategy),
+            messages: WorkspaceThreadSeedBuilder.forkSeedMessages(
+                from: source,
+                strategy: strategy,
+                summaryOverride: summaryOverride
+            ),
             events: [
                 .init(
                     kind: .notice,
@@ -57,13 +62,20 @@ struct WorkspaceThreadCreationEngine {
         )
     }
 
-    static func compactThread(from source: ChatThread, projectID: UUID?) -> ChatThread {
+    static func compactThread(
+        from source: ChatThread,
+        projectID: UUID?,
+        summaryOverride: String? = nil
+    ) -> ChatThread {
         ChatThread(
             title: "Compact: \(source.title)",
             projectID: projectID,
             mode: source.mode,
             model: source.model,
-            messages: WorkspaceThreadSeedBuilder.compactSeedMessages(from: source),
+            messages: WorkspaceThreadSeedBuilder.compactSeedMessages(
+                from: source,
+                summaryOverride: summaryOverride
+            ),
             events: [
                 .init(
                     kind: .notice,

@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-28 Click-Target Collision Budget Pass
+
+Overall grade after this slice: **A native source gates, A dense-control spacing, A- native pixel measurement**.
+
+The click-target system already enforced 44 pt/px targets, semantic target kinds, and rendered interior sampling. This pass adds the missing adjacent-control rule: a target can be individually valid and still feel bad if nearby controls are packed with unexplained magic spacing.
+
+| Before | After |
+| --- | --- |
+| SwiftUI button clusters could use local `4`/`5` point spacing while still passing minimum-size target checks. | The native source audit now rejects tight numeric spacing when the scoped cluster contains interactive controls. |
+| Review file actions, saved-filter capsules, and extension/MCP reference grids used one-off dense spacing values. | Those clusters now use `QuillCodeMetrics.denseControlClusterSpacing`, keeping the collision budget named and consistent. |
+| Click-target docs focused on the target rectangle itself. | Decisions now explicitly treat adjacent-control spacing as part of the hit-target contract. |
+
+Residual risk:
+
+- Native SwiftUI hit regions are still source-gated and smoke-tested rather than sampled from a packaged macOS/Linux window.
+
 ## 2026-06-28 Rendered Click-Target Semantics Pass
 
 Overall grade after this slice: **A semantic target architecture, A rendered regression coverage, A- native pixel measurement**.

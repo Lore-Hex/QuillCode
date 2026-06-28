@@ -18,45 +18,76 @@ struct WorkspaceThreadSeedBuilder: Sendable, Hashable {
         return Array(visibleMessages[lastUserIndex...].prefix(4))
     }
 
-    static func forkSeedMessages(from thread: ChatThread, strategy: WorkspaceThreadForkStrategy) -> [ChatMessage] {
+    static func forkSeedMessages(
+        from thread: ChatThread,
+        strategy: WorkspaceThreadForkStrategy,
+        summaryOverride: String? = nil
+    ) -> [ChatMessage] {
         switch strategy {
         case .latestTurn:
             forkSeedMessages(from: thread.messages)
         case .summarizedContext:
-            summarizedForkSeedMessages(from: thread)
+            summarizedForkSeedMessages(from: thread, summaryOverride: summaryOverride)
         case .fullContext:
             fullContextSeedMessages(from: thread.messages)
         }
     }
 
-    static func summarizedForkSeedMessages(from thread: ChatThread) -> [ChatMessage] {
-        let visibleMessages = visibleConversationMessages(from: thread.messages)
-        let recentMessages = forkSeedMessages(from: visibleMessages)
-        let recentIDs = Set(recentMessages.map(\.id))
-        let olderMessages = visibleMessages.filter { !recentIDs.contains($0.id) }
+    static func summarizedForkSeedMessages(
+        from thread: ChatThread,
+        summaryOverride: String? = nil
+    ) -> [ChatMessage] {
+        let context = summaryContext(from: thread)
         return [summaryMessage(
             sourceTitle: thread.title,
-            olderMessages: olderMessages,
-            recentMessages: recentMessages,
-            purpose: .forkSummary
-        )] + recentMessages
+            olderMessages: context.olderMessages,
+            recentMessages: context.recentMessages,
+            purpose: .forkSummary,
+            summaryOverride: summaryOverride
+        )] + context.recentMessages
     }
 
     static func fullContextSeedMessages(from messages: [ChatMessage]) -> [ChatMessage] {
         visibleConversationMessages(from: messages)
     }
 
-    static func compactSeedMessages(from thread: ChatThread) -> [ChatMessage] {
+    static func compactSeedMessages(
+        from thread: ChatThread,
+        summaryOverride: String? = nil
+    ) -> [ChatMessage] {
+        let context = summaryContext(from: thread)
+        return [summaryMessage(
+            sourceTitle: thread.title,
+            olderMessages: context.olderMessages,
+            recentMessages: context.recentMessages,
+            purpose: .compact,
+            summaryOverride: summaryOverride
+        )] + context.recentMessages
+    }
+
+    static func summaryContext(from thread: ChatThread) -> WorkspaceContextSummaryContext {
         let visibleMessages = visibleConversationMessages(from: thread.messages)
         let recentMessages = forkSeedMessages(from: visibleMessages)
         let recentIDs = Set(recentMessages.map(\.id))
         let olderMessages = visibleMessages.filter { !recentIDs.contains($0.id) }
-        return [summaryMessage(
-            sourceTitle: thread.title,
+        return WorkspaceContextSummaryContext(
+            olderMessages: olderMessages,
+            recentMessages: recentMessages
+        )
+    }
+
+    static func summaryText(
+        sourceTitle: String,
+        olderMessages: [ChatMessage],
+        recentMessages: [ChatMessage],
+        purpose: WorkspaceContextSummaryPurpose
+    ) -> String {
+        summaryMessage(
+            sourceTitle: sourceTitle,
             olderMessages: olderMessages,
             recentMessages: recentMessages,
-            purpose: .compact
-        )] + recentMessages
+            purpose: SummaryPurpose(purpose)
+        ).content
     }
 
     private static func visibleConversationMessages(from messages: [ChatMessage]) -> [ChatMessage] {
@@ -67,8 +98,19 @@ struct WorkspaceThreadSeedBuilder: Sendable, Hashable {
         sourceTitle: String,
         olderMessages: [ChatMessage],
         recentMessages: [ChatMessage],
-        purpose: SummaryPurpose
+        purpose: SummaryPurpose,
+        summaryOverride: String? = nil
     ) -> ChatMessage {
+        if let summaryOverride = summaryOverride?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !summaryOverride.isEmpty {
+            return ChatMessage(role: .assistant, content: [
+                purpose.titleLine(sourceTitle: sourceTitle),
+                "Model summary:",
+                summaryOverride,
+                purpose.closingLine
+            ].joined(separator: "\n"))
+        }
+
         let olderCount = olderMessages.count
         let recentCount = recentMessages.count
         var lines = [
@@ -90,6 +132,15 @@ struct WorkspaceThreadSeedBuilder: Sendable, Hashable {
     private enum SummaryPurpose {
         case compact
         case forkSummary
+
+        init(_ purpose: WorkspaceContextSummaryPurpose) {
+            switch purpose {
+            case .compact:
+                self = .compact
+            case .forkSummary:
+                self = .forkSummary
+            }
+        }
 
         func titleLine(sourceTitle: String) -> String {
             switch self {

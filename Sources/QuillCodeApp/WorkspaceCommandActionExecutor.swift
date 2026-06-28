@@ -81,9 +81,9 @@ extension QuillCodeWorkspaceModel {
         case .retryLastTurn:
             return prepareRetryLastUserTurn()
         case .forkThread(let strategy):
-            return forkThread(strategy: strategy) != nil
+            return startForkThread(strategy: strategy)
         case .compactContext:
-            return compactContext() != nil
+            return startCompactContext()
         case .disconnectAll:
             return disconnectAll()
         }

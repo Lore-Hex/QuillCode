@@ -187,6 +187,63 @@ final class WorkspaceThreadLifecycleIntegrationTests: XCTestCase {
         XCTAssertEqual(compacted.events.first?.payloadJSON, source.id.uuidString)
     }
 
+    func testModelBackedCompactContextUsesConfiguredSummaryAndKeepsLatestTurn() async throws {
+        let source = ChatThread(
+            title: "Long live context",
+            messages: [
+                .init(role: .user, content: "old architecture question"),
+                .init(role: .assistant, content: "old architecture answer"),
+                .init(role: .user, content: "latest request"),
+                .init(role: .tool, content: #"{"hidden":"tool feedback"}"#),
+                .init(role: .assistant, content: "latest answer")
+            ]
+        )
+        let generator = FixedContextSummaryGenerator(summary: "Preserve the model-backed architecture decision.")
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [source], selectedThreadID: source.id),
+            contextSummaryGenerator: generator
+        )
+
+        let compactCandidate = await model.compactContextWithConfiguredSummary(sourceID: source.id)
+        let compactID = try XCTUnwrap(compactCandidate)
+        let compacted = try XCTUnwrap(model.root.threads.first { $0.id == compactID })
+
+        XCTAssertEqual(compacted.title, "Compact: Long live context")
+        XCTAssertTrue(compacted.messages[0].content.contains("Model summary:"))
+        XCTAssertTrue(compacted.messages[0].content.contains("model-backed architecture decision"))
+        XCTAssertEqual(Array(compacted.messages.map(\.content).suffix(2)), ["latest request", "latest answer"])
+        XCTAssertFalse(compacted.messages[0].content.contains("tool feedback"))
+        XCTAssertEqual(model.root.selectedThreadID, compactID)
+    }
+
+    func testModelBackedForkWithSummaryUsesConfiguredSummary() async throws {
+        let source = ChatThread(
+            title: "Fork source",
+            messages: [
+                .init(role: .user, content: "old task"),
+                .init(role: .assistant, content: "old result"),
+                .init(role: .user, content: "latest task"),
+                .init(role: .assistant, content: "latest result")
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [source], selectedThreadID: source.id),
+            contextSummaryGenerator: FixedContextSummaryGenerator(summary: "Keep the shipped tests and next work.")
+        )
+
+        let forkCandidate = await model.forkThreadWithConfiguredSummary(
+            sourceID: source.id,
+            strategy: .summarizedContext
+        )
+        let forkID = try XCTUnwrap(forkCandidate)
+        let fork = try XCTUnwrap(model.root.threads.first { $0.id == forkID })
+
+        XCTAssertEqual(fork.title, "Fork summary: Fork source")
+        XCTAssertTrue(fork.messages[0].content.contains("Model summary:"))
+        XCTAssertTrue(fork.messages[0].content.contains("shipped tests"))
+        XCTAssertEqual(Array(fork.messages.map(\.content).suffix(2)), ["latest task", "latest result"])
+    }
+
     func testSelectingProjectSelectsNewestThreadForThatProject() {
         let firstProject = ProjectRef(name: "One", path: "/tmp/one")
         let secondProject = ProjectRef(name: "Two", path: "/tmp/two")
@@ -309,5 +366,14 @@ final class WorkspaceThreadLifecycleIntegrationTests: XCTestCase {
         XCTAssertThrowsError(try threadStore.load(archived.id))
         XCTAssertFalse(model.root.threads.contains { $0.id == archived.id })
         XCTAssertEqual(model.root.selectedThreadID, duplicateID)
+    }
+}
+
+private struct FixedContextSummaryGenerator: WorkspaceContextSummaryGenerating {
+    var isModelBacked: Bool { true }
+    var summary: String
+
+    func summary(for request: WorkspaceContextSummaryRequest) async throws -> String {
+        summary
     }
 }

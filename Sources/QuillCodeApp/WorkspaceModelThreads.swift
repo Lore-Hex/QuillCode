@@ -35,6 +35,44 @@ extension QuillCodeWorkspaceModel {
     }
 
     @discardableResult
+    func startForkThread(strategy: WorkspaceThreadForkStrategy) -> Bool {
+        guard strategy == .summarizedContext, contextSummaryGenerator.isModelBacked else {
+            return forkThread(strategy: strategy) != nil
+        }
+        guard let source = selectedThread, !source.messages.isEmpty else { return false }
+        let sourceID = source.id
+        setAgentStatus("Summarizing context")
+        Task { @MainActor [weak self] in
+            _ = await self?.forkThreadWithConfiguredSummary(sourceID: sourceID, strategy: strategy)
+        }
+        return true
+    }
+
+    @discardableResult
+    func forkThreadWithConfiguredSummary(
+        sourceID: UUID,
+        strategy: WorkspaceThreadForkStrategy
+    ) async -> UUID? {
+        guard strategy == .summarizedContext,
+              let source = root.threads.first(where: { $0.id == sourceID }),
+              !source.messages.isEmpty
+        else { return forkThread(strategy: strategy) }
+
+        let projectID = knownProjectID(source.projectID)
+        let summary = await configuredSummary(
+            for: source,
+            purpose: .forkSummary
+        )
+        let fork = WorkspaceThreadCreationEngine.forkThread(
+            from: source,
+            projectID: projectID,
+            strategy: strategy,
+            summaryOverride: summary
+        )
+        return insertCreatedThread(fork, selectedProjectID: projectID, saveThread: true)
+    }
+
+    @discardableResult
     public func compactContext() -> UUID? {
         guard let source = selectedThread, !source.messages.isEmpty else { return nil }
         let projectID = knownProjectID(source.projectID)
@@ -43,6 +81,56 @@ extension QuillCodeWorkspaceModel {
             projectID: projectID
         )
         return insertCreatedThread(compacted, selectedProjectID: projectID, saveThread: true)
+    }
+
+    @discardableResult
+    func startCompactContext() -> Bool {
+        guard contextSummaryGenerator.isModelBacked else {
+            return compactContext() != nil
+        }
+        guard let source = selectedThread, !source.messages.isEmpty else { return false }
+        let sourceID = source.id
+        setAgentStatus("Compacting context")
+        Task { @MainActor [weak self] in
+            _ = await self?.compactContextWithConfiguredSummary(sourceID: sourceID)
+        }
+        return true
+    }
+
+    @discardableResult
+    func compactContextWithConfiguredSummary(sourceID: UUID) async -> UUID? {
+        guard let source = root.threads.first(where: { $0.id == sourceID }),
+              !source.messages.isEmpty
+        else { return nil }
+
+        let projectID = knownProjectID(source.projectID)
+        let summary = await configuredSummary(
+            for: source,
+            purpose: .compact
+        )
+        let compacted = WorkspaceThreadCreationEngine.compactThread(
+            from: source,
+            projectID: projectID,
+            summaryOverride: summary
+        )
+        return insertCreatedThread(compacted, selectedProjectID: projectID, saveThread: true)
+    }
+
+    private func configuredSummary(
+        for source: ChatThread,
+        purpose: WorkspaceContextSummaryPurpose
+    ) async -> String? {
+        let context = WorkspaceThreadSeedBuilder.summaryContext(from: source)
+        let request = WorkspaceContextSummaryRequest(
+            sourceTitle: source.title,
+            context: context,
+            purpose: purpose
+        )
+        do {
+            return try await contextSummaryGenerator.summary(for: request)
+        } catch {
+            return nil
+        }
     }
 
     public func selectThread(_ id: UUID) {

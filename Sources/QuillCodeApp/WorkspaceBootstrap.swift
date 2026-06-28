@@ -51,6 +51,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             ),
             automations: AutomationsState(items: automations),
             runner: runtime.runner,
+            contextSummaryGenerator: runtime.contextSummaryGenerator,
             threadStore: threadStore,
             projectStore: projectStore,
             automationStore: automationStore,

@@ -89,7 +89,7 @@ private struct QuillCodeSidebarSavedFilterBar: View {
                 Button {
                     onCommand(QuillCodeSidebarCommandAdapter.workspaceCommand(for: filter))
                 } label: {
-                    HStack(spacing: 5) {
+                    HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                         Text(filter.title)
                             .font(.caption.weight(.semibold))
                         Text("\(filter.count)")

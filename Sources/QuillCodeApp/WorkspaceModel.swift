@@ -21,6 +21,7 @@ public final class QuillCodeWorkspaceModel {
     public private(set) var lastError: String?
 
     var runner: AgentRunner
+    var contextSummaryGenerator: any WorkspaceContextSummaryGenerating
     let threadPersistence: WorkspaceThreadPersistence
     private let projectStore: JSONProjectStore?
     private let automationStore: JSONAutomationStore?
@@ -44,6 +45,7 @@ public final class QuillCodeWorkspaceModel {
         sidebarFilter: SidebarSavedFilterKind = .all,
         sidebarSelection: SidebarSelectionState = SidebarSelectionState(),
         runner: AgentRunner = AgentRunner(),
+        contextSummaryGenerator: any WorkspaceContextSummaryGenerating = DeterministicWorkspaceContextSummaryGenerator(),
         threadStore: JSONThreadStore? = nil,
         projectStore: JSONProjectStore? = nil,
         automationStore: JSONAutomationStore? = nil,
@@ -63,6 +65,7 @@ public final class QuillCodeWorkspaceModel {
         self.sidebarFilter = sidebarFilter
         self.sidebarSelection = sidebarSelection
         self.runner = runner
+        self.contextSummaryGenerator = contextSummaryGenerator
         self.threadPersistence = WorkspaceThreadPersistence(store: threadStore)
         self.projectStore = projectStore
         self.automationStore = automationStore

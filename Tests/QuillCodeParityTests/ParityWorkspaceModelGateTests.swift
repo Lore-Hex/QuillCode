@@ -195,16 +195,22 @@ final class ParityWorkspaceModelGateTests: QuillCodeParityTestCase {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let seedBuilderText = try Self.appSourceText(named: "WorkspaceThreadSeedBuilder.swift")
         let creationText = try Self.appSourceText(named: "WorkspaceThreadCreationEngine.swift")
+        let summaryGeneratorText = try Self.appSourceText(named: "WorkspaceContextSummaryGenerator.swift")
+        let runtimeText = try Self.appSourceText(named: "RuntimeFactory.swift")
 
         XCTAssertTrue(seedBuilderText.contains("struct WorkspaceThreadSeedBuilder"), "Fork and compact seed construction should live in a focused builder.")
         XCTAssertTrue(seedBuilderText.contains("static func title(fromUserPrompt"), "Thread title seeding should be directly testable.")
         XCTAssertTrue(seedBuilderText.contains("static func forkSeedMessages"), "Fork seed construction should be directly testable.")
         XCTAssertTrue(seedBuilderText.contains("static func compactSeedMessages"), "Compact seed construction should be directly testable.")
+        XCTAssertTrue(summaryGeneratorText.contains("protocol WorkspaceContextSummaryGenerating"), "Model-backed context summaries should live behind a focused summary generator protocol.")
+        XCTAssertTrue(summaryGeneratorText.contains("struct LLMWorkspaceContextSummaryGenerator"), "Live context summaries should be implemented outside the workspace model.")
+        XCTAssertTrue(runtimeText.contains("contextSummaryGenerator: LLMWorkspaceContextSummaryGenerator"), "TrustedRouter runtime should wire model-backed context summaries.")
         XCTAssertTrue(creationText.contains("WorkspaceThreadSeedBuilder.forkSeedMessages"), "Thread creation should delegate fork seeding.")
         XCTAssertTrue(creationText.contains("WorkspaceThreadSeedBuilder.compactSeedMessages"), "Thread creation should delegate context compaction seeding.")
         XCTAssertFalse(modelText.contains("private static func forkSeedMessages"), "WorkspaceModel should not own fork seed construction.")
         XCTAssertFalse(modelText.contains("private static func compactSeedMessages"), "WorkspaceModel should not own compact seed construction.")
         XCTAssertFalse(modelText.contains("private static func compactSummaryMessage"), "WorkspaceModel should not own compact summary formatting.")
+        XCTAssertFalse(modelText.contains("TrustedRouterLLMClient"), "WorkspaceModel should not know about the concrete TrustedRouter summarizer.")
     }
 
     func testWorkspaceModelDelegatesThreadCreationRecords() throws {
