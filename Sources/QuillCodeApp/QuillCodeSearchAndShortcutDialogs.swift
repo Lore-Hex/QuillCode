@@ -81,7 +81,7 @@ struct QuillCodeSearchView: View {
                 .textFieldStyle(.roundedBorder)
                 .focused($isSearchFocused)
                 .accessibilityIdentifier("quillcode-search-input")
-                .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+                .quillCodeTextEntryTarget()
                 .onSubmit {
                     selectHighlightedResult()
                 }

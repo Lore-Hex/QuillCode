@@ -71,6 +71,7 @@ struct QuillCodeTranscriptFindBar: View {
             TextField("Find in chat", text: $query)
                 .textFieldStyle(.roundedBorder)
                 .focused($isFocused)
+                .quillCodeTextEntryTarget()
                 .onSubmit(onNext)
             Text(statusText)
                 .font(.caption.monospacedDigit())

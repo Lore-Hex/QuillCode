@@ -50,7 +50,7 @@ struct QuillCodeCommandPaletteView: View {
                     .textFieldStyle(.roundedBorder)
                     .focused($isSearchFocused)
                     .accessibilityIdentifier("quillcode-command-palette-input")
-                    .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+                    .quillCodeTextEntryTarget()
                     .onSubmit(selectHighlightedCommand)
                 if let label = activeScopeLabel {
                     Text(label)

@@ -99,7 +99,7 @@ struct QuillCodeComposerView: View {
             .lineLimit(1...5)
             .padding(.horizontal, 6)
             .padding(.vertical, 8)
-            .frame(minHeight: 44)
+            .quillCodeTextEntryTarget()
             .disabled(composer.isSending)
             .focused(isFocused)
             .onKeyPress(.downArrow) {

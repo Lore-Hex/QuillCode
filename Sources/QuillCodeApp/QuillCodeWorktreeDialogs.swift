@@ -122,7 +122,7 @@ struct QuillCodeWorktreeRemoveView: View {
             )
 
             Toggle("Force removal", isOn: $draft.force)
-                .frame(minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)
+                .quillCodeSwitchRowTarget()
         } footer: {
             HStack {
                 Spacer()

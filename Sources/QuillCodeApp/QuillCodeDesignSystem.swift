@@ -77,6 +77,53 @@ struct QuillCodeHitTargetSpec {
         )
     }
 
+    static func textEntry(
+        minWidth: CGFloat? = nil,
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .center,
+        radius: CGFloat = QuillCodeMetrics.compactControlRadius
+    ) -> Self {
+        Self(
+            minWidth: minWidth,
+            maxWidth: nil,
+            width: nil,
+            minHeight: minHeight,
+            height: nil,
+            alignment: alignment,
+            shape: .rounded(radius)
+        )
+    }
+
+    static func segmentedControl(
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .center
+    ) -> Self {
+        Self(
+            minWidth: nil,
+            maxWidth: .infinity,
+            width: nil,
+            minHeight: minHeight,
+            height: nil,
+            alignment: alignment,
+            shape: .rounded(QuillCodeMetrics.compactControlRadius)
+        )
+    }
+
+    static func switchRow(
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .leading
+    ) -> Self {
+        Self(
+            minWidth: nil,
+            maxWidth: .infinity,
+            width: nil,
+            minHeight: minHeight,
+            height: nil,
+            alignment: alignment,
+            shape: .rectangle
+        )
+    }
+
     static func fullRow(
         minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
         alignment: Alignment = .leading,
@@ -204,6 +251,40 @@ extension View {
     ) -> some View {
         quillCodeInteractiveTarget(.formAction(
             minWidth: minWidth,
+            minHeight: minHeight,
+            alignment: alignment
+        ))
+    }
+
+    public func quillCodeTextEntryTarget(
+        minWidth: CGFloat? = nil,
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .center,
+        radius: CGFloat = QuillCodeMetrics.compactControlRadius
+    ) -> some View {
+        quillCodeInteractiveTarget(.textEntry(
+            minWidth: minWidth,
+            minHeight: minHeight,
+            alignment: alignment,
+            radius: radius
+        ))
+    }
+
+    public func quillCodeSegmentedControlTarget(
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .center
+    ) -> some View {
+        quillCodeInteractiveTarget(.segmentedControl(
+            minHeight: minHeight,
+            alignment: alignment
+        ))
+    }
+
+    public func quillCodeSwitchRowTarget(
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .leading
+    ) -> some View {
+        quillCodeInteractiveTarget(.switchRow(
             minHeight: minHeight,
             alignment: alignment
         ))

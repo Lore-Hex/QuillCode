@@ -196,7 +196,7 @@ private struct QuillCodePullRequestReviewThreadRowView: View {
                 .lineLimit(1...4)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 9)
-                .frame(minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .center)
+                .quillCodeTextEntryTarget(alignment: .center, radius: 10)
                 .background(QuillCodePalette.panel.opacity(0.82))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .focused($isReplyFocused)

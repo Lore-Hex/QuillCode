@@ -81,7 +81,7 @@ struct QuillCodeReviewLineRowView: View {
                     .textFieldStyle(.plain)
                     .font(.caption)
                     .padding(.horizontal, 9)
-                    .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+                    .quillCodeTextEntryTarget(radius: 8)
                     .background(QuillCodePalette.panel.opacity(0.82))
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 Button("Add") {

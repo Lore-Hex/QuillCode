@@ -83,7 +83,7 @@ struct QuillCodeTerminalPaneView: View {
                     onHistoryNext()
                     return .handled
                 }
-                .frame(minHeight: QuillCodeMetrics.minimumHitTarget)
+                .quillCodeTextEntryTarget()
                 .disabled(terminal.isRunning)
             Button("Run", action: onRun)
                 .buttonStyle(QuillCodePressableButtonStyle())

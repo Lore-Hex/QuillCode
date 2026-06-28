@@ -129,8 +129,17 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             designText.contains("static func icon(")
                 && designText.contains("static func fullRow(")
                 && designText.contains("static func formAction(")
-                && designText.contains("static func capsule("),
-            "Shared target specs should cover icon, row, form-action, and capsule controls instead of ad hoc sizing."
+                && designText.contains("static func capsule(")
+                && designText.contains("static func textEntry(")
+                && designText.contains("static func segmentedControl(")
+                && designText.contains("static func switchRow("),
+            "Shared target specs should cover icon, row, form-action, capsule, text-entry, segmented, and switch controls instead of ad hoc sizing."
+        )
+        XCTAssertTrue(
+            designText.contains("quillCodeTextEntryTarget")
+                && designText.contains("quillCodeSegmentedControlTarget")
+                && designText.contains("quillCodeSwitchRowTarget"),
+            "Native text entry, segmented controls, and switches should have semantic hit-target helpers so call sites do not use raw frames."
         )
     }
 
@@ -213,6 +222,9 @@ private struct SwiftSourceInteractionTargetAudit {
         "quillCodeFullRowButtonTarget",
         "quillCodeCapsuleButtonTarget",
         "quillCodeFormActionTarget",
+        "quillCodeTextEntryTarget",
+        "quillCodeSegmentedControlTarget",
+        "quillCodeSwitchRowTarget",
         "quillCodeHitTarget",
         "quillCodeInteractiveTarget"
     ]
@@ -266,6 +278,21 @@ private struct SwiftSourceInteractionTargetAudit {
                !hasSharedTarget(in: window(in: lines, around: index, radius: 28)) {
                 violations.append("\(relativePath):\(index + 1) Link lacks shared hit target")
             }
+
+            if isTextEntryDeclaration(line),
+               !window(in: lines, around: index, radius: 22).contains("quillCodeTextEntryTarget") {
+                violations.append("\(relativePath):\(index + 1) text-entry control lacks shared text-entry hit target")
+            }
+
+            if isToggleDeclaration(line),
+               !window(in: lines, around: index, radius: 16).contains("quillCodeSwitchRowTarget") {
+                violations.append("\(relativePath):\(index + 1) toggle control lacks shared switch-row hit target")
+            }
+
+            if line.contains(".pickerStyle(.segmented)"),
+               !window(in: lines, around: index, radius: 8).contains("quillCodeSegmentedControlTarget") {
+                violations.append("\(relativePath):\(index + 1) segmented picker lacks shared segmented hit target")
+            }
         }
 
         return violations
@@ -289,6 +316,20 @@ private struct SwiftSourceInteractionTargetAudit {
     private func isLinkDeclaration(_ line: String) -> Bool {
         line.range(
             of: #"^\s*Link(?:\(|\s*\{)"#,
+            options: .regularExpression
+        ) != nil
+    }
+
+    private func isTextEntryDeclaration(_ line: String) -> Bool {
+        line.range(
+            of: #"^\s*(TextField|SecureField)\("#,
+            options: .regularExpression
+        ) != nil
+    }
+
+    private func isToggleDeclaration(_ line: String) -> Bool {
+        line.range(
+            of: #"^\s*Toggle\("#,
             options: .regularExpression
         ) != nil
     }
