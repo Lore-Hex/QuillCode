@@ -8648,3 +8648,20 @@ Code quality changes:
 Remaining risk:
 
 - Dismiss is intentionally session/workspace UI state. Durable project-level resolution records, diff-assisted rule edits, and native editor jump-to-line remain future AGENTS/rules parity work.
+
+## 2026-06-28 Critical Click Target Source Contract Pass
+
+Overall grade after this slice: **A explicit target ownership, A Playwright proof, A- native packaged-window proof**.
+
+The previous click-target pass made rendered controls measurable and semantically classified, but critical controls could still pass the registry through an `auto-*` classification added after render. That was too weak for primary actions because a future UI edit could accidentally depend on fallback geometry while losing the intended button, row, capsule, icon, form-action, or text-entry semantics.
+
+Code quality changes:
+
+- Promoted primary harness controls to explicit semantic target classes across top bar, sidebar, composer, settings, search, command palette, Find, terminal, browser, model picker, slash suggestions, and transcript tool cards.
+- Centralized Playwright target constants so the audit report and edge/interior probe use the same 44 px baseline, shared target class list, and 3x3 sample grid.
+- Tightened `expectCriticalTargetRegistry` to require the expected class and matching non-fallback `data-hit-target-kind`, so high-risk controls cannot pass by fallback normalization alone.
+- Added browser-tab coverage to the critical registry because tab strips are easy to regress into tiny or overlapping controls.
+
+Remaining risk:
+
+- This is strong for the HTML harness and source gates. The remaining A+ proof is packaged native macOS/Linux UI automation that samples real SwiftUI control interiors, focus rings, and click ownership outside the harness.

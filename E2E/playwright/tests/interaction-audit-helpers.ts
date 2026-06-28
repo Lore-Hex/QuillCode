@@ -1,6 +1,28 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 export const MINIMUM_HIT_TARGET = 44;
+export const TARGET_SAMPLE_FRACTIONS = [0.2, 0.5, 0.8];
+export const SHARED_HIT_TARGET_CLASSES = [
+  'hit-target-owned',
+  'interactive-hit-target',
+  'hit-target-icon',
+  'hit-target-text',
+  'hit-target-text-entry',
+  'hit-target-row',
+  'hit-target-capsule',
+  'hit-target-form-action'
+];
+
+const EXPECTED_KIND_BY_CLASS: Record<string, string> = {
+  'hit-target-owned': 'owned',
+  'interactive-hit-target': 'link',
+  'hit-target-icon': 'icon',
+  'hit-target-text': 'text',
+  'hit-target-text-entry': 'text-entry',
+  'hit-target-row': 'row',
+  'hit-target-capsule': 'capsule',
+  'hit-target-form-action': 'form-action'
+};
 
 const INTERACTIVE_SELECTOR = [
   'button',
@@ -74,7 +96,7 @@ export type CriticalTargetProbe = {
 };
 
 export async function interactionAuditReport(page: Page): Promise<InteractionAuditReport> {
-  return page.evaluate(({ activeLayerSelector, minimumHitTarget, selector }) => {
+  return page.evaluate(({ activeLayerSelector, minimumHitTarget, selector, sharedHitTargetClasses, targetSampleFractions }) => {
     type VisibleTarget = {
       clipped: VisibleRectResult;
       element: Element;
@@ -100,18 +122,6 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
       rect: RectLike;
       scrollClipped: boolean;
     };
-
-    const targetSampleFractions = [0.2, 0.5, 0.8];
-    const sharedHitTargetClasses = [
-      'hit-target-owned',
-      'interactive-hit-target',
-      'hit-target-icon',
-      'hit-target-text',
-      'hit-target-text-entry',
-      'hit-target-row',
-      'hit-target-capsule',
-      'hit-target-form-action'
-    ];
 
     function associatedLabelControl(element: Element) {
       if (!(element instanceof HTMLLabelElement)) return null;
@@ -494,7 +504,9 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
   }, {
     activeLayerSelector: ACTIVE_LAYER_SELECTOR,
     minimumHitTarget: MINIMUM_HIT_TARGET,
-    selector: INTERACTIVE_SELECTOR
+    selector: INTERACTIVE_SELECTOR,
+    sharedHitTargetClasses: SHARED_HIT_TARGET_CLASSES,
+    targetSampleFractions: TARGET_SAMPLE_FRACTIONS
   });
 }
 
@@ -522,20 +534,9 @@ export async function expectHitTarget(locator: Locator, label: string) {
   if (!box) throw new Error(`${label} should have layout bounds`);
   expect(Math.round(box.width), `${label} width`).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
   expect(Math.round(box.height), `${label} height`).toBeGreaterThanOrEqual(MINIMUM_HIT_TARGET);
-  const clickableInteriorIssues = await target.evaluate((element, minimumHitTarget) => {
+  const clickableInteriorIssues = await target.evaluate((element, { minimumHitTarget, sharedHitTargetClasses, targetSampleFractions }) => {
     const rect = element.getBoundingClientRect();
     const style = window.getComputedStyle(element);
-    const targetSampleFractions = [0.2, 0.5, 0.8];
-    const sharedHitTargetClasses = [
-      'hit-target-owned',
-      'interactive-hit-target',
-      'hit-target-icon',
-      'hit-target-text',
-      'hit-target-text-entry',
-      'hit-target-row',
-      'hit-target-capsule',
-      'hit-target-form-action'
-    ];
     const issues: string[] = [];
 
     function accessibleName(targetElement: Element) {
@@ -605,7 +606,11 @@ export async function expectHitTarget(locator: Locator, label: string) {
       issues.push('clickable_interior_blocked');
     }
     return issues;
-  }, MINIMUM_HIT_TARGET);
+  }, {
+    minimumHitTarget: MINIMUM_HIT_TARGET,
+    sharedHitTargetClasses: SHARED_HIT_TARGET_CLASSES,
+    targetSampleFractions: TARGET_SAMPLE_FRACTIONS
+  });
   expect(clickableInteriorIssues, `${label} should have a named, unblocked clickable interior`).toEqual([]);
 }
 
@@ -619,6 +624,14 @@ export async function expectCriticalTargetRegistry(label: string, probes: Critic
         classList,
         `${label}: ${probe.label} should use the expected semantic click-target class`
       ).toContain(probe.expectedClass);
+      const expectedKind = EXPECTED_KIND_BY_CLASS[probe.expectedClass];
+      if (expectedKind) {
+        const hitTargetKind = await probe.locator.first().getAttribute('data-hit-target-kind');
+        expect(
+          hitTargetKind,
+          `${label}: ${probe.label} should declare the expected semantic click-target kind`
+        ).toBe(expectedKind);
+      }
     }
   }
 }

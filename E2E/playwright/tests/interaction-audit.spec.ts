@@ -114,6 +114,7 @@ test('critical click-target registry covers primary workspace surfaces', async (
   await clickSidebarTool(page, 'browser-button');
   await expect(page.getByTestId('browser-pane')).toBeVisible();
   await expectCriticalTargetRegistry('browser pane', [
+    { label: 'active browser tab', locator: page.getByTestId('browser-tab').first(), expectedClass: 'hit-target-capsule' },
     { label: 'back', locator: page.getByTestId('browser-back'), expectedClass: 'hit-target-icon' },
     { label: 'forward', locator: page.getByTestId('browser-forward'), expectedClass: 'hit-target-icon' },
     { label: 'reload', locator: page.getByTestId('browser-reload'), expectedClass: 'hit-target-icon' },
