@@ -226,11 +226,6 @@ test('mock harness covers the full pull request command family from the command 
       draft: 'Comment on the current pull request: '
     },
     {
-      id: 'git-pr-review',
-      query: '>approve pr',
-      draft: 'Review the current pull request: approve'
-    },
-    {
       id: 'git-pr-review-comment',
       query: '>line comment',
       draft: 'Comment on a pull request line: '
@@ -264,6 +259,23 @@ test('mock harness covers the full pull request command family from the command 
     await expect(page.getByLabel('Message'), `${command.id} should prepare a focused composer draft`).toHaveValue(command.draft);
     await expect(page.getByLabel('Message')).toBeFocused();
   }
+
+  await clickSidebarTool(page, 'command-palette-button');
+  await clickCommandPaletteCommand(page, '>approve pr', 'git-pr-review');
+  await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
+  await expect(page.getByTestId('review-pane')).toBeVisible();
+  await expect(page.getByTestId('pr-review-draft')).toBeVisible();
+  await expect(page.getByTestId('review-summary')).toHaveText('Submit approve review through GitHub CLI');
+  await page.getByTestId('pr-review-draft-action').selectOption('request_changes');
+  await page.getByTestId('pr-review-draft-selector').fill('123');
+  await expect(page.getByTestId('pr-review-draft-submit')).toBeDisabled();
+  await page.getByTestId('pr-review-draft-body').fill('Please add a regression test.');
+  await expect(page.getByTestId('pr-review-draft-submit')).toBeEnabled();
+  await page.getByTestId('pr-review-draft-submit').click();
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.pr.review');
+  await expect(page.getByTestId('tool-card').last()).toContainText('"action": "request_changes"');
+  await expect(page.getByTestId('tool-card').last()).toContainText('"selector": "123"');
+  await expect(page.getByTestId('message').last()).toContainText('Pull request review submitted: request changes.');
 
   await clickSidebarTool(page, 'command-palette-button');
   await clickCommandPaletteCommand(page, '>review threads', 'git-pr-review-threads');

@@ -8384,3 +8384,21 @@ Code quality changes:
 Remaining risk:
 
 - This prevents native/rendered command registry drift for command IDs. A true packaged-window UI automation layer is still needed to prove AppKit/SwiftUI event delivery from actual pixels through the desktop controller.
+
+## 2026-06-28 Structured Pull Request Review Draft Pass
+
+Overall grade after this slice: **A command-action routing, A review-surface state, A- review-session parity**.
+
+The command-palette `git-pr-review` action was still a composer prefill even though PR review execution had a structured `host.git.pr.review` tool. That made review submission feel less like Codex's dedicated review workflow and kept approve/comment/request-changes validation outside the review pane.
+
+Code quality changes:
+
+- Moved `git-pr-review` from draft-prefill routing into the typed `WorkspaceCommandAction` path.
+- Added `WorkspacePullRequestReviewDraftSurface` as review-pane state for action, optional selector, body copy, submit validation, and presentation labels.
+- Added a small `WorkspacePullRequestReviewDraftToolCallPlanner` so submit builds the existing `host.git.pr.review` call and reuses local/SSH Remote tool execution.
+- Rendered the draft in native SwiftUI and static HTML with shared 44 pt form-action/text-entry target helpers and matching Playwright `data-testid` contracts.
+- Added command-palette E2E coverage for opening the draft, switching to request changes, requiring a body, submitting, and verifying the resulting tool-card JSON.
+
+Remaining risk:
+
+- This covers one submitted review at a time. Full Codex-style multi-comment review-session batching, editable pending review queues, and submit-review summaries remain future review-pane work.

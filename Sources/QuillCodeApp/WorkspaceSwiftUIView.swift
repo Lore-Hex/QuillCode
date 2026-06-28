@@ -33,6 +33,9 @@ public struct QuillCodeWorkspaceView: View {
     public var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     public var onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
     public var onPullRequestReviewThreadReply: (WorkspacePullRequestReviewThreadReplyRequest) -> Void
+    public var onPullRequestReviewDraftChange: (WorkspacePullRequestReviewDraftSurface) -> Void
+    public var onCancelPullRequestReviewDraft: () -> Void
+    public var onSubmitPullRequestReviewDraft: () -> Void
     public var onToolCardAction: (ToolCardActionSurface) -> Void
     public var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     public var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
@@ -89,6 +92,9 @@ public struct QuillCodeWorkspaceView: View {
         onReviewAction: @escaping (WorkspaceReviewActionSurface) -> Void,
         onPullRequestReviewThreadAction: @escaping (WorkspacePullRequestReviewThreadActionSurface) -> Void = { _ in },
         onPullRequestReviewThreadReply: @escaping (WorkspacePullRequestReviewThreadReplyRequest) -> Void = { _ in },
+        onPullRequestReviewDraftChange: @escaping (WorkspacePullRequestReviewDraftSurface) -> Void = { _ in },
+        onCancelPullRequestReviewDraft: @escaping () -> Void = {},
+        onSubmitPullRequestReviewDraft: @escaping () -> Void = {},
         onToolCardAction: @escaping (ToolCardActionSurface) -> Void = { _ in },
         onAddReviewComment: @escaping (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
@@ -131,6 +137,9 @@ public struct QuillCodeWorkspaceView: View {
         self.onReviewAction = onReviewAction
         self.onPullRequestReviewThreadAction = onPullRequestReviewThreadAction
         self.onPullRequestReviewThreadReply = onPullRequestReviewThreadReply
+        self.onPullRequestReviewDraftChange = onPullRequestReviewDraftChange
+        self.onCancelPullRequestReviewDraft = onCancelPullRequestReviewDraft
+        self.onSubmitPullRequestReviewDraft = onSubmitPullRequestReviewDraft
         self.onToolCardAction = onToolCardAction
         self.onAddReviewComment = onAddReviewComment
         self.onCreateWorktree = onCreateWorktree
@@ -190,6 +199,9 @@ public struct QuillCodeWorkspaceView: View {
                     onReviewAction: onReviewAction,
                     onPullRequestReviewThreadAction: onPullRequestReviewThreadAction,
                     onPullRequestReviewThreadReply: onPullRequestReviewThreadReply,
+                    onPullRequestReviewDraftChange: onPullRequestReviewDraftChange,
+                    onCancelPullRequestReviewDraft: onCancelPullRequestReviewDraft,
+                    onSubmitPullRequestReviewDraft: onSubmitPullRequestReviewDraft,
                     onToolCardAction: onToolCardAction,
                     onAddReviewComment: onAddReviewComment,
                     onCopyTranscriptItem: onCopyTranscriptItem,

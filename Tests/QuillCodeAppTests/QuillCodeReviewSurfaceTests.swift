@@ -80,6 +80,32 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
         XCTAssertEqual(resolved.actions.first?.kind, .unresolve)
     }
 
+    func testReviewSurfaceSummarizesPullRequestReviewDraft() {
+        let approveDraft = WorkspacePullRequestReviewDraftSurface()
+        let commentDraft = WorkspacePullRequestReviewDraftSurface(action: .comment, selector: "123")
+        let requestChangesDraft = WorkspacePullRequestReviewDraftSurface(
+            action: .requestChanges,
+            body: "Please add tests."
+        )
+
+        let review = WorkspaceReviewSurface(pullRequestReviewDraft: commentDraft)
+
+        XCTAssertTrue(review.isVisible)
+        XCTAssertEqual(review.title, "Review pull request")
+        XCTAssertEqual(review.subtitle, "Submit comment review through GitHub CLI")
+        XCTAssertEqual(review.badgeLabel, "review draft")
+        XCTAssertTrue(approveDraft.canSubmit)
+        XCTAssertFalse(commentDraft.canSubmit)
+        XCTAssertTrue(requestChangesDraft.canSubmit)
+        XCTAssertEqual(commentDraft.normalizedSelector, "123")
+        XCTAssertEqual(requestChangesDraft.normalizedBody, "Please add tests.")
+        XCTAssertEqual(WorkspacePullRequestReviewActionKind.allCases.map(\.title), [
+            "Approve",
+            "Comment",
+            "Request changes"
+        ])
+    }
+
     func testReviewFileAndHunkSurfacesExposeLabelsAndActions() {
         let hunk = WorkspaceReviewHunkSurface(
             id: "hunk-1",

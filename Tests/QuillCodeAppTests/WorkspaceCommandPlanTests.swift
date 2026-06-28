@@ -53,10 +53,6 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .setDraft("Create a pull request titled ")
         )
         XCTAssertEqual(
-            WorkspaceCommandPlan(commandID: "git-pr-review"),
-            .setDraft("Review the current pull request: approve")
-        )
-        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "git-pr-review-comment"),
             .setDraft("Comment on a pull request line: ")
         )
@@ -75,6 +71,13 @@ final class WorkspaceCommandPlanTests: XCTestCase {
         XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "git-worktree-open"),
             .setDraft("Open git worktree at ")
+        )
+    }
+
+    func testPullRequestReviewCommandOpensStructuredDraftAction() {
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "git-pr-review"),
+            .action(.pullRequestReviewDraft)
         )
     }
 

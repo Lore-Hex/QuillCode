@@ -25,6 +25,9 @@ struct QuillCodeWorkspaceMainPaneView: View {
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
     var onPullRequestReviewThreadReply: (WorkspacePullRequestReviewThreadReplyRequest) -> Void
+    var onPullRequestReviewDraftChange: (WorkspacePullRequestReviewDraftSurface) -> Void
+    var onCancelPullRequestReviewDraft: () -> Void
+    var onSubmitPullRequestReviewDraft: () -> Void
     var onToolCardAction: (ToolCardActionSurface) -> Void
     var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
     var onCopyTranscriptItem: (String, String) -> Void
@@ -57,6 +60,9 @@ struct QuillCodeWorkspaceMainPaneView: View {
                         onReviewAction: onReviewAction,
                         onPullRequestReviewThreadAction: onPullRequestReviewThreadAction,
                         onPullRequestReviewThreadReply: onPullRequestReviewThreadReply,
+                        onPullRequestReviewDraftChange: onPullRequestReviewDraftChange,
+                        onCancelPullRequestReviewDraft: onCancelPullRequestReviewDraft,
+                        onSubmitPullRequestReviewDraft: onSubmitPullRequestReviewDraft,
                         onToolCardAction: onToolCardAction,
                         onAddReviewComment: onAddReviewComment,
                         onCopyTranscriptItem: onCopyTranscriptItem,

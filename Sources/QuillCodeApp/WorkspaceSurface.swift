@@ -119,7 +119,8 @@ public extension QuillCodeWorkspaceModel {
             contextBanner: WorkspaceContextBannerBuilder(thread: thread).banner(),
             review: WorkspaceReviewSurfaceBuilder(
                 toolCards: toolCards,
-                events: thread?.events ?? []
+                events: thread?.events ?? [],
+                pullRequestReviewDraft: pullRequestReviewDraft
             ).surface(),
             terminal: TerminalSurface(
                 terminal: terminal,

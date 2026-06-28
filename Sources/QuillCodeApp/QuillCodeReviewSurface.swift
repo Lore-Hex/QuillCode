@@ -5,18 +5,20 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
     public var subtitle: String
     public var files: [WorkspaceReviewFileSurface]
     public var pullRequestThreads: [WorkspacePullRequestReviewThreadSurface]
+    public var pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface?
     public var totalInsertions: Int
     public var totalDeletions: Int
     public var totalHunks: Int
 
     public var isVisible: Bool {
-        !files.isEmpty || !pullRequestThreads.isEmpty
+        !files.isEmpty || !pullRequestThreads.isEmpty || pullRequestReviewDraft != nil
     }
 
     public var badgeLabel: String {
         let parts = [
             files.isEmpty ? nil : "\(totalHunks) hunk\(totalHunks == 1 ? "" : "s")",
-            pullRequestThreads.isEmpty ? nil : "\(pullRequestThreads.count) thread\(pullRequestThreads.count == 1 ? "" : "s")"
+            pullRequestThreads.isEmpty ? nil : "\(pullRequestThreads.count) thread\(pullRequestThreads.count == 1 ? "" : "s")",
+            pullRequestReviewDraft == nil ? nil : "review draft"
         ].compactMap(\.self)
         return parts.isEmpty ? "Review" : parts.joined(separator: " · ")
     }
@@ -26,6 +28,7 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
         case subtitle
         case files
         case pullRequestThreads
+        case pullRequestReviewDraft
         case totalInsertions
         case totalDeletions
         case totalHunks
@@ -35,11 +38,18 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
         title: String = "Review changes",
         subtitle: String = "Latest git diff",
         files: [WorkspaceReviewFileSurface] = [],
-        pullRequestThreads: [WorkspacePullRequestReviewThreadSurface] = []
+        pullRequestThreads: [WorkspacePullRequestReviewThreadSurface] = [],
+        pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface? = nil
     ) {
-        self.title = title
+        self.title = files.isEmpty
+            && pullRequestThreads.isEmpty
+            && pullRequestReviewDraft != nil
+            && title == "Review changes"
+            ? "Review pull request"
+            : title
         self.files = files
         self.pullRequestThreads = pullRequestThreads
+        self.pullRequestReviewDraft = pullRequestReviewDraft
         self.totalInsertions = files.reduce(0) { $0 + $1.insertions }
         self.totalDeletions = files.reduce(0) { $0 + $1.deletions }
         self.totalHunks = files.reduce(0) { $0 + $1.hunks }
@@ -49,6 +59,8 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
             let unresolvedCount = pullRequestThreads.filter { !$0.isResolved }.count
             let resolvedCount = pullRequestThreads.count - unresolvedCount
             self.subtitle = "\(pullRequestThreads.count) review thread\(pullRequestThreads.count == 1 ? "" : "s"), \(unresolvedCount) unresolved, \(resolvedCount) resolved"
+        } else if let pullRequestReviewDraft {
+            self.subtitle = pullRequestReviewDraft.subtitle
         } else {
             self.subtitle = subtitle
         }
@@ -63,9 +75,83 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
             [WorkspacePullRequestReviewThreadSurface].self,
             forKey: .pullRequestThreads
         ) ?? []
+        self.pullRequestReviewDraft = try container.decodeIfPresent(
+            WorkspacePullRequestReviewDraftSurface.self,
+            forKey: .pullRequestReviewDraft
+        )
         self.totalInsertions = try container.decode(Int.self, forKey: .totalInsertions)
         self.totalDeletions = try container.decode(Int.self, forKey: .totalDeletions)
         self.totalHunks = try container.decode(Int.self, forKey: .totalHunks)
+    }
+}
+
+public enum WorkspacePullRequestReviewActionKind: String, Codable, Sendable, Hashable, CaseIterable {
+    case approve
+    case comment
+    case requestChanges = "request_changes"
+
+    public var title: String {
+        switch self {
+        case .approve:
+            return "Approve"
+        case .comment:
+            return "Comment"
+        case .requestChanges:
+            return "Request changes"
+        }
+    }
+
+    public var requiresBody: Bool {
+        switch self {
+        case .approve:
+            return false
+        case .comment, .requestChanges:
+            return true
+        }
+    }
+
+    public var bodyPlaceholder: String {
+        switch self {
+        case .approve:
+            return "Optional approval note"
+        case .comment:
+            return "Review comment"
+        case .requestChanges:
+            return "Explain the changes needed"
+        }
+    }
+}
+
+public struct WorkspacePullRequestReviewDraftSurface: Codable, Sendable, Hashable {
+    public var action: WorkspacePullRequestReviewActionKind
+    public var selector: String
+    public var body: String
+
+    public var subtitle: String {
+        "Submit \(action.title.lowercased()) review through GitHub CLI"
+    }
+
+    public var normalizedSelector: String? {
+        let trimmed = selector.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    public var normalizedBody: String {
+        body.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    public var canSubmit: Bool {
+        !action.requiresBody || !normalizedBody.isEmpty
+    }
+
+    public init(
+        action: WorkspacePullRequestReviewActionKind = .approve,
+        selector: String = "",
+        body: String = ""
+    ) {
+        self.action = action
+        self.selector = selector
+        self.body = body
     }
 }
 

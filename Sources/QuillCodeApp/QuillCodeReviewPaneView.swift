@@ -5,11 +5,25 @@ struct QuillCodeReviewPaneView: View {
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
     var onPullRequestReviewThreadReply: (WorkspacePullRequestReviewThreadReplyRequest) -> Void
+    var onPullRequestReviewDraftChange: (WorkspacePullRequestReviewDraftSurface) -> Void
+    var onCancelPullRequestReviewDraft: () -> Void
+    var onSubmitPullRequestReviewDraft: () -> Void
     var onAddReviewComment: (String, Int?, Int?, WorkspaceReviewLineKind?, String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
+            if let draft = review.pullRequestReviewDraft {
+                QuillCodePullRequestReviewDraftView(
+                    draft: draft,
+                    onChange: onPullRequestReviewDraftChange,
+                    onCancel: onCancelPullRequestReviewDraft,
+                    onSubmit: onSubmitPullRequestReviewDraft
+                )
+            }
+            if review.pullRequestReviewDraft != nil && (!review.files.isEmpty || !review.pullRequestThreads.isEmpty) {
+                Divider()
+            }
             if !review.files.isEmpty {
                 fileList
             }
@@ -86,6 +100,120 @@ struct QuillCodeReviewPaneView: View {
                 )
             }
         }
+    }
+}
+
+private struct QuillCodePullRequestReviewDraftView: View {
+    var draft: WorkspacePullRequestReviewDraftSurface
+    var onChange: (WorkspacePullRequestReviewDraftSurface) -> Void
+    var onCancel: () -> Void
+    var onSubmit: () -> Void
+
+    private var actionBinding: Binding<WorkspacePullRequestReviewActionKind> {
+        Binding(
+            get: { draft.action },
+            set: { update(action: $0) }
+        )
+    }
+
+    private var selectorBinding: Binding<String> {
+        Binding(
+            get: { draft.selector },
+            set: { update(selector: $0) }
+        )
+    }
+
+    private var bodyBinding: Binding<String> {
+        Binding(
+            get: { draft.body },
+            set: { update(body: $0) }
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Picker("Review action", selection: actionBinding) {
+                ForEach(WorkspacePullRequestReviewActionKind.allCases, id: \.self) { action in
+                    Text(action.title).tag(action)
+                }
+            }
+            .pickerStyle(.segmented)
+            .quillCodeSegmentedControlTarget()
+            .accessibilityLabel("Pull request review action")
+
+            TextField("PR number, URL, or branch (optional)", text: selectorBinding)
+                .textFieldStyle(.plain)
+                .font(.callout.monospaced())
+                .padding(.horizontal, 10)
+                .padding(.vertical, 9)
+                .quillCodeTextEntryTarget(alignment: .center, radius: 10)
+                .background(QuillCodePalette.background.opacity(0.64))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .accessibilityLabel("Pull request selector")
+
+            TextField(draft.action.bodyPlaceholder, text: bodyBinding, axis: .vertical)
+                .textFieldStyle(.plain)
+                .font(.callout)
+                .lineLimit(2...6)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 9)
+                .quillCodeTextEntryTarget(alignment: .topLeading, radius: 10)
+                .background(QuillCodePalette.background.opacity(0.64))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .accessibilityLabel("Pull request review body")
+
+            HStack(spacing: 8) {
+                Spacer()
+                Button("Cancel", action: onCancel)
+                    .font(.caption.weight(.semibold))
+                    .quillCodeFormActionTarget(minWidth: 82)
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .background(QuillCodePalette.selection.opacity(0.45))
+                    .clipShape(Capsule())
+                    .buttonStyle(QuillCodePressableButtonStyle())
+
+                Button(submitTitle, action: onSubmit)
+                    .font(.caption.weight(.semibold))
+                    .quillCodeFormActionTarget(minWidth: 116)
+                    .foregroundStyle(draft.canSubmit ? Color.white : QuillCodePalette.muted)
+                    .background(draft.canSubmit ? QuillCodePalette.blue : QuillCodePalette.selection.opacity(0.45))
+                    .clipShape(Capsule())
+                    .buttonStyle(QuillCodePressableButtonStyle())
+                    .disabled(!draft.canSubmit)
+            }
+        }
+        .padding(12)
+        .background(QuillCodePalette.background.opacity(0.58))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var submitTitle: String {
+        switch draft.action {
+        case .approve:
+            return "Submit approval"
+        case .comment:
+            return "Submit comment"
+        case .requestChanges:
+            return "Request changes"
+        }
+    }
+
+    private func update(
+        action: WorkspacePullRequestReviewActionKind? = nil,
+        selector: String? = nil,
+        body: String? = nil
+    ) {
+        var next = draft
+        if let action {
+            next.action = action
+        }
+        if let selector {
+            next.selector = selector
+        }
+        if let body {
+            next.body = body
+        }
+        onChange(next)
     }
 }
 

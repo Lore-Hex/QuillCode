@@ -5,6 +5,7 @@ import QuillCodeTools
 struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
     var toolCards: [ToolCardState]
     var events: [ThreadEvent]
+    var pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface?
 
     func surface() -> WorkspaceReviewSurface {
         let pullRequestThreads = latestPullRequestReviewThreadsCard
@@ -14,12 +15,14 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
             return WorkspaceReviewSurface(
                 title: pullRequestThreads.isEmpty ? "Review changes" : "Review threads",
                 files: [],
-                pullRequestThreads: pullRequestThreads
+                pullRequestThreads: pullRequestThreads,
+                pullRequestReviewDraft: pullRequestReviewDraft
             )
         }
 
         var review = GitDiffReviewParser.parse(result.stdout)
         review.pullRequestThreads = pullRequestThreads
+        review.pullRequestReviewDraft = pullRequestReviewDraft
         let commentBuckets = Self.reviewCommentBuckets(from: events)
         review.files = review.files.map { file in
             var file = file

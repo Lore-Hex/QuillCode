@@ -13,6 +13,7 @@ enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case toggleMemories
     case toggleActivity
     case toggleAutomations
+    case openPullRequestReviewDraft
     case createThreadFollowUp
     case createWorkspaceSchedule
     case createThreadFollowUpTomorrow
@@ -62,6 +63,8 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return .toggleActivity
         case .toggleAutomations:
             return .toggleAutomations
+        case .pullRequestReviewDraft:
+            return .openPullRequestReviewDraft
         case .createThreadFollowUp:
             return .createThreadFollowUp
         case .createWorkspaceSchedule:

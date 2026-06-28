@@ -2424,6 +2424,46 @@
       border-radius: 8px;
       font-size: 13px;
     }
+    .pr-review-draft {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 12px;
+      background: rgba(0,0,0,.22);
+      border: 1px solid rgba(255,255,255,.10);
+    }
+    .pr-review-draft label {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .pr-review-draft select,
+    .pr-review-draft input,
+    .pr-review-draft textarea {
+      min-height: 44px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(2,8,12,.72);
+      color: var(--text);
+      padding: 9px 10px;
+      font: inherit;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .pr-review-draft textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+    .pr-review-draft footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
     .pr-review-threads {
       display: grid;
       gap: 8px;
@@ -3011,6 +3051,7 @@
         subtitle: 'Latest git diff',
         files: [],
         pullRequestThreads: [],
+        reviewDraft: null,
         totalInsertions: 0,
         totalDeletions: 0,
         totalHunks: 0,
@@ -4918,6 +4959,59 @@
       timeline.scrollTop = Math.min(snapshot.timelineScrollTop || 0, maxScrollTop);
     }
 
+    const pullRequestReviewActionLabels = {
+      approve: 'Approve',
+      comment: 'Comment',
+      request_changes: 'Request changes'
+    };
+
+    function pullRequestReviewActionBodyPlaceholder(action) {
+      if (action === 'comment') return 'Review comment';
+      if (action === 'request_changes') return 'Explain the changes needed';
+      return 'Optional approval note';
+    }
+
+    function pullRequestReviewActionSubmitTitle(action) {
+      if (action === 'comment') return 'Submit comment';
+      if (action === 'request_changes') return 'Request changes';
+      return 'Submit approval';
+    }
+
+    function pullRequestReviewDraftCanSubmit(action, body) {
+      return action === 'approve' || (body || '').trim().length > 0;
+    }
+
+    function pullRequestReviewDraftSubtitle(action) {
+      return `Submit ${pullRequestReviewActionLabels[action].toLowerCase()} review through GitHub CLI`;
+    }
+
+    function renderPullRequestReviewDraft(draft) {
+      if (!draft) return '';
+      const action = draft.action || 'approve';
+      const actions = ['approve', 'comment', 'request_changes'];
+      return `
+        <form class="pr-review-draft" data-testid="pr-review-draft" aria-label="Submit pull request review">
+          <label>
+            Action
+            <select data-testid="pr-review-draft-action" aria-label="Pull request review action">
+              ${actions.map(candidate => `<option value="${escapeHTML(candidate)}" ${candidate === action ? 'selected' : ''}>${escapeHTML(pullRequestReviewActionLabels[candidate])}</option>`).join('')}
+            </select>
+          </label>
+          <label>
+            Pull request
+            <input data-testid="pr-review-draft-selector" aria-label="Pull request selector" placeholder="PR number, URL, or branch" value="${escapeHTML(draft.selector || '')}">
+          </label>
+          <label>
+            Body
+            <textarea data-testid="pr-review-draft-body" aria-label="Pull request review body" placeholder="${escapeHTML(pullRequestReviewActionBodyPlaceholder(action))}">${escapeHTML(draft.body || '')}</textarea>
+          </label>
+          <footer>
+            <button type="reset" class="review-action-button hit-target-form-action" data-testid="pr-review-draft-cancel">Cancel</button>
+            <button type="submit" class="review-action-button hit-target-form-action" data-testid="pr-review-draft-submit" ${pullRequestReviewDraftCanSubmit(action, draft.body) ? '' : 'disabled'}>${escapeHTML(pullRequestReviewActionSubmitTitle(action))}</button>
+          </footer>
+        </form>`;
+    }
+
     function render() {
       const scrollSnapshot = captureTranscriptScroll();
       updateDynamicCommands();
@@ -4925,17 +5019,20 @@
       const context = renderContextBanner(contextBanner());
       const runtimeIssue = renderRuntimeIssue(state.runtimeIssue);
       const reviewThreads = state.review.pullRequestThreads || [];
+      const reviewDraft = state.review.reviewDraft || null;
       const reviewBadge = [
         state.review.files.length ? `${state.review.totalHunks} hunk${state.review.totalHunks === 1 ? '' : 's'}` : null,
-        reviewThreads.length ? `${reviewThreads.length} thread${reviewThreads.length === 1 ? '' : 's'}` : null
+        reviewThreads.length ? `${reviewThreads.length} thread${reviewThreads.length === 1 ? '' : 's'}` : null,
+        reviewDraft ? 'review draft' : null
       ].filter(Boolean).join(' · ') || 'Review';
-      const review = (state.review.files.length || reviewThreads.length) ? `
+      const review = (state.review.files.length || reviewThreads.length || reviewDraft) ? `
         <section class="review-pane" data-testid="review-pane" aria-label="Git review summary">
           <header>
             <strong>${escapeHTML(state.review.title)}</strong>
             <span data-testid="review-summary">${escapeHTML(state.review.subtitle)}</span>
             <small data-testid="review-badge">${escapeHTML(reviewBadge)}</small>
           </header>
+          ${renderPullRequestReviewDraft(reviewDraft)}
           <ul>
             ${state.review.files.map(file => `
               <li data-testid="review-file">
@@ -5807,6 +5904,27 @@
             selector: formElement.getAttribute('data-selector') || null,
             body: textarea.value
           });
+        });
+      });
+      document.querySelectorAll('[data-testid="pr-review-draft"]').forEach(form => {
+        const actionSelect = form.querySelector('[data-testid="pr-review-draft-action"]');
+        const bodyInput = form.querySelector('[data-testid="pr-review-draft-body"]');
+        const submitButton = form.querySelector('[data-testid="pr-review-draft-submit"]');
+        const syncDraftControls = () => {
+          const action = actionSelect.value;
+          bodyInput.setAttribute('placeholder', pullRequestReviewActionBodyPlaceholder(action));
+          submitButton.textContent = pullRequestReviewActionSubmitTitle(action);
+          submitButton.disabled = !pullRequestReviewDraftCanSubmit(action, bodyInput.value);
+        };
+        actionSelect.addEventListener('change', syncDraftControls);
+        bodyInput.addEventListener('input', syncDraftControls);
+        form.addEventListener('reset', event => {
+          event.preventDefault();
+          cancelPullRequestReviewDraft();
+        });
+        form.addEventListener('submit', event => {
+          event.preventDefault();
+          submitPullRequestReviewDraft(event.currentTarget);
         });
       });
       document.querySelectorAll('[data-testid="review-comment-form"]').forEach(form => {
@@ -7914,6 +8032,58 @@
       render();
     }
 
+    function openPullRequestReviewDraft() {
+      ensureThread('Review pull request');
+      state.review = {
+        ...state.review,
+        title: 'Review pull request',
+        subtitle: pullRequestReviewDraftSubtitle('approve'),
+        reviewDraft: {
+          action: 'approve',
+          selector: '',
+          body: ''
+        }
+      };
+      render();
+    }
+
+    function cancelPullRequestReviewDraft() {
+      state.review.reviewDraft = null;
+      if (!state.review.files.length && !(state.review.pullRequestThreads || []).length) {
+        state.review.title = 'Review changes';
+        state.review.subtitle = 'Latest git diff';
+      }
+      render();
+    }
+
+    function submitPullRequestReviewDraft(form) {
+      const action = form.querySelector('[data-testid="pr-review-draft-action"]').value;
+      const selector = form.querySelector('[data-testid="pr-review-draft-selector"]').value.trim();
+      const body = form.querySelector('[data-testid="pr-review-draft-body"]').value.trim();
+      if (!pullRequestReviewDraftCanSubmit(action, body)) {
+        return;
+      }
+      const input = { action };
+      if (selector) input.selector = selector;
+      if (body) input.body = body;
+      addToolCard({
+        title: 'host.git.pr.review',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify(input, null, 2),
+        outputJSON: JSON.stringify({
+          ok: true,
+          stdout: `submitted ${action} review\n`,
+          stderr: '',
+          exitCode: 0
+        }, null, 2)
+      });
+      addMessage('assistant', `Pull request review submitted: ${pullRequestReviewActionLabels[action].toLowerCase()}.`);
+      state.review.reviewDraft = null;
+      syncSelectedThreadSearchText();
+      render();
+    }
+
     function openFindInChat() {
       state.find.isOpen = true;
       state.find.query = '';
@@ -8828,11 +8998,14 @@
         runGitPullRequestDiffAction();
         return;
       }
+      if (commandID === 'git-pr-review') {
+        openPullRequestReviewDraft();
+        return;
+      }
       const pullRequestDrafts = {
         'git-pr-checkout': 'Checkout pull request ',
         'git-pr-reviewers': 'Request reviewers for the current pull request: ',
         'git-pr-comment': 'Comment on the current pull request: ',
-        'git-pr-review': 'Review the current pull request: approve',
         'git-pr-review-comment': 'Comment on a pull request line: ',
         'git-pr-review-reply': 'Reply to pull request review comment: ',
         'git-pr-review-thread': 'Resolve pull request review thread: ',

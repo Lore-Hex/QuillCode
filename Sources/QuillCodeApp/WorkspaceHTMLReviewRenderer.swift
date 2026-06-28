@@ -3,6 +3,7 @@ import Foundation
 enum WorkspaceHTMLReviewRenderer {
     static func render(_ review: WorkspaceReviewSurface) -> String {
         guard review.isVisible else { return "" }
+        let pullRequestReviewDraft = renderPullRequestReviewDraft(review.pullRequestReviewDraft)
         let files = review.files.map(renderFile).joined(separator: "\n")
         let pullRequestThreads = renderPullRequestThreads(review.pullRequestThreads)
         return """
@@ -12,12 +13,53 @@ enum WorkspaceHTMLReviewRenderer {
             <span data-testid="review-summary">\(escape(review.subtitle))</span>
             <small data-testid="review-badge">\(escape(review.badgeLabel))</small>
           </header>
+          \(pullRequestReviewDraft)
           <ul>
             \(files)
           </ul>
           \(pullRequestThreads)
         </section>
         """
+    }
+
+    private static func renderPullRequestReviewDraft(_ draft: WorkspacePullRequestReviewDraftSurface?) -> String {
+        guard let draft else { return "" }
+        return """
+        <form class="pr-review-draft" data-testid="pr-review-draft" aria-label="Submit pull request review">
+          <label>
+            Action
+            <select data-testid="pr-review-draft-action" aria-label="Pull request review action">
+              \(WorkspacePullRequestReviewActionKind.allCases.map { action in
+                  let selected = action == draft.action ? #" selected="selected""# : ""
+                  return #"<option value="\#(escape(action.rawValue))"\#(selected)>\#(escape(action.title))</option>"#
+              }.joined(separator: "\n"))
+            </select>
+          </label>
+          <label>
+            Pull request
+            <input data-testid="pr-review-draft-selector" aria-label="Pull request selector" placeholder="PR number, URL, or branch" value="\(escape(draft.selector))">
+          </label>
+          <label>
+            Body
+            <textarea data-testid="pr-review-draft-body" aria-label="Pull request review body" placeholder="\(escape(draft.action.bodyPlaceholder))">\(escape(draft.body))</textarea>
+          </label>
+          <footer>
+            <button type="reset" class="review-action-button \(WorkspaceHTMLPrimitives.formActionHitTargetClass)" data-testid="pr-review-draft-cancel">Cancel</button>
+            <button type="submit" class="review-action-button \(WorkspaceHTMLPrimitives.formActionHitTargetClass)" data-testid="pr-review-draft-submit"\(draft.canSubmit ? "" : " disabled")>\(escape(submitTitle(for: draft.action)))</button>
+          </footer>
+        </form>
+        """
+    }
+
+    private static func submitTitle(for action: WorkspacePullRequestReviewActionKind) -> String {
+        switch action {
+        case .approve:
+            return "Submit approval"
+        case .comment:
+            return "Submit comment"
+        case .requestChanges:
+            return "Request changes"
+        }
     }
 
     private static func renderFile(_ file: WorkspaceReviewFileSurface) -> String {

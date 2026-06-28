@@ -89,4 +89,20 @@ final class WorkspaceHTMLReviewRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("Please extract this helper."))
         XCTAssertTrue(html.contains("1 review thread, 1 unresolved, 0 resolved"))
     }
+
+    func testHTMLRendererIncludesPullRequestReviewDraft() throws {
+        let review = WorkspaceReviewSurface(
+            pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface(action: .comment)
+        )
+
+        let html = WorkspaceHTMLReviewRenderer.render(review)
+
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-draft""#))
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-draft-action""#))
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-draft-selector""#))
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-draft-body""#))
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-draft-cancel""#))
+        XCTAssertTrue(html.contains(#"data-testid="pr-review-draft-submit" disabled"#))
+        XCTAssertTrue(html.contains("Submit comment"))
+    }
 }

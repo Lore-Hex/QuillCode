@@ -46,6 +46,9 @@ extension QuillCodeWorkspaceModel {
         case .toggleAutomations:
             toggleAutomations()
             return true
+        case .openPullRequestReviewDraft:
+            presentPullRequestReviewDraft()
+            return true
         case .createThreadFollowUp:
             return createThreadFollowUpAutomation() != nil
         case .createWorkspaceSchedule:
