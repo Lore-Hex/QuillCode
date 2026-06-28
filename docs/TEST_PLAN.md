@@ -16,7 +16,7 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - Computer Use status labeling for all permission combinations, deterministic stub backend action recording, structured tool definitions, and executor argument validation.
 - Memory discovery from global and project roots, extension allow-listing, symlink/root bounds, unsupported file skips, count/file/total byte caps, truncation labels, explicit `/remember text` global writes, agent-callable `host.memory.remember` writes, global memory deletion, credential/token/password/private-key rejection, thread snapshotting, TrustedRouter prompt injection as background context, and future memory redaction.
 - Browser snapshot extraction, local HTML outline/text-snippet parsing, browser comment filtering, structured `host.browser.inspect` output, and browser inspection final-answer rendering.
-- Source-level interaction gates for native SwiftUI controls: every visible `Button`, `Link`, `Menu` trigger, text-entry field, segmented picker, and toggle must use a shared QuillCode hit-target helper, while generated HTML buttons, links, summaries, and checkbox/radio labels must use shared HTML primitives/classes or pass rendered hit-target audits.
+- Source-level interaction gates for native SwiftUI controls: every visible `Button`, `Link`, `Menu` trigger, text-entry field, segmented picker, and toggle must use a shared QuillCode hit-target helper on the owning control scope, while generated HTML buttons, links, summaries, and checkbox/radio labels must use shared HTML primitives/classes or pass rendered hit-target audits.
 
 ## Functional Tests
 

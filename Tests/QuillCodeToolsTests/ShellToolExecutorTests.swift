@@ -101,9 +101,12 @@ final class ShellToolExecutorTests: XCTestCase {
     }
 
     func testStreamingShellTimeoutKeepsPartialOutputAndStopsProcess() async throws {
+        let root = try makeTempDirectory()
+        let fifoPath = root.appendingPathComponent("blocked-input").path
+            .replacingOccurrences(of: "'", with: "'\\''")
         let stream = ShellToolExecutor().runStreaming(.init(
-            command: "printf stream-start; sleep 5; printf stream-end",
-            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            command: "mkfifo '\(fifoPath)'; printf stream-start; IFS= read _ < '\(fifoPath)'; printf stream-end",
+            cwd: root,
             timeoutSeconds: 0.2
         ))
 

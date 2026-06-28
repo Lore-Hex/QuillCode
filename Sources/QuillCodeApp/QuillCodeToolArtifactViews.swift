@@ -4,19 +4,28 @@ import QuillCodeCore
 struct QuillCodeArtifactChip: View {
     var artifact: ToolArtifactState
 
+    @ViewBuilder
     var body: some View {
-        Group {
-            if let url = artifactURL {
-                Link(destination: url) {
-                    label
-                }
-            } else {
+        if let url = artifactURL {
+            Link(destination: url) {
                 label
+                    .quillCodeTextButtonTarget(
+                        minWidth: 96,
+                        alignment: .leading,
+                        radius: QuillCodeMetrics.minimumHitTarget / 2
+                    )
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Artifact \(artifact.label)")
+        } else {
+            label
+                .quillCodeTextButtonTarget(
+                    minWidth: 96,
+                    alignment: .leading,
+                    radius: QuillCodeMetrics.minimumHitTarget / 2
+                )
+                .accessibilityLabel("Artifact \(artifact.label)")
         }
-        .buttonStyle(.plain)
-        .quillCodeTextButtonTarget(minWidth: 96, alignment: .leading, radius: QuillCodeMetrics.minimumHitTarget / 2)
-        .accessibilityLabel("Artifact \(artifact.label)")
     }
 
     private var label: some View {
@@ -67,20 +76,22 @@ struct QuillCodeArtifactChip: View {
 struct QuillCodeArtifactDocumentPreview: View {
     var artifact: ToolArtifactState
 
+    @ViewBuilder
     var body: some View {
-        Group {
-            if let url = artifactURL {
-                Link(destination: url) {
-                    content
-                }
-            } else {
+        if let url = artifactURL {
+            Link(destination: url) {
                 content
+                    .quillCodeTextButtonTarget(minWidth: 160, alignment: .leading, radius: 18)
             }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilityLabel)
+        } else {
+            content
+                .quillCodeTextButtonTarget(minWidth: 160, alignment: .leading, radius: 18)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(accessibilityLabel)
         }
-        .buttonStyle(.plain)
-        .quillCodeTextButtonTarget(minWidth: 160, alignment: .leading, radius: 18)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityLabel)
     }
 
     private var content: some View {
