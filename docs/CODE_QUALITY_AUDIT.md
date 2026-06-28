@@ -8319,3 +8319,20 @@ Code quality changes:
 Remaining risk:
 
 - This proves the rendered harness command contract and catches silent no-ops in HTML parity states. Native SwiftUI/AppKit packaged-window click automation is still the next deeper layer for proving every actual macOS button invokes the expected controller action.
+
+## 2026-06-28 Native/Rendered Command Routing Parity Pass
+
+Overall grade after this slice: **A rendered/native command registry parity, A PR-command click routing coverage, B+ packaged-window click automation**.
+
+The rendered command audit exposed a second registry alongside the native Swift command surface. That is useful for Playwright, but it creates drift risk: a native command can be added and tested while the rendered harness forgets to route it, leaving a Codex-parity action invisible to E2E interaction audits.
+
+Code quality changes:
+
+- Added `WorkspaceRenderedCommandRoutingParityTests`, which builds a rich native command surface with thread, project, GitHub PR, local environment, MCP, extension, automation, memory, browser, and Computer Use commands.
+- The test parses `E2E/harness/index.html` and verifies every native command ID is covered by either the harness static routing registry or a dynamic command prefix.
+- Added a focused pull-request descriptor check so new `WorkspacePullRequestCommandCatalog` commands cannot silently drop out of rendered click routing.
+- Fixed the rendered harness registry to include every PR command descriptor: checkout, comment, reviewers, labels, merge, review, inline review comment, review reply, review threads, and review-thread resolution.
+
+Remaining risk:
+
+- This prevents native/rendered command registry drift for command IDs. A true packaged-window UI automation layer is still needed to prove AppKit/SwiftUI event delivery from actual pixels through the desktop controller.
