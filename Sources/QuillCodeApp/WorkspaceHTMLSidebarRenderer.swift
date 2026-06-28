@@ -23,7 +23,7 @@ enum WorkspaceHTMLSidebarRenderer {
               \(WorkspaceHTMLPrimitives.button(
                   "+",
                   testID: "add-project-button",
-                  classes: [WorkspaceHTMLPrimitives.iconHitTargetClass],
+                  hitTargetKind: .icon,
                   ariaLabel: "Open project"
               ))
             </div>
@@ -53,7 +53,8 @@ enum WorkspaceHTMLSidebarRenderer {
             """
             <button\(WorkspaceHTMLPrimitives.buttonAttributes(
                 testID: "project-item",
-                classes: ["project-item", WorkspaceHTMLPrimitives.rowHitTargetClass, project.isSelected ? "selected" : ""],
+                hitTargetKind: .row,
+                classes: ["project-item", project.isSelected ? "selected" : ""],
                 attributes: [
                     ("data-project-id", project.id.uuidString),
                     ("aria-current", project.isSelected ? "true" : "false")
@@ -87,9 +88,9 @@ enum WorkspaceHTMLSidebarRenderer {
                 "\(filter.title) \(filter.count)",
                 testID: "sidebar-filter",
                 commandID: filter.commandID,
+                hitTargetKind: .capsule,
                 classes: [
                     "sidebar-filter",
-                    WorkspaceHTMLPrimitives.capsuleHitTargetClass,
                     filter.isActive ? "active" : ""
                 ],
                 ariaLabel: filter.accessibilityLabel,
@@ -119,7 +120,8 @@ enum WorkspaceHTMLSidebarRenderer {
                     title,
                     testID: testID,
                     commandID: command.id,
-                    classes: ["sidebar-action", WorkspaceHTMLPrimitives.rowHitTargetClass],
+                    hitTargetKind: .row,
+                    classes: ["sidebar-action"],
                     disabled: !command.isEnabled,
                     attributes: [
                         ("data-primary", "true"),
@@ -138,7 +140,8 @@ enum WorkspaceHTMLSidebarRenderer {
               \(item.isBulkSelected ? "<span data-testid=\"sidebar-thread-selected\">Selected</span>" : "")
               <button\(WorkspaceHTMLPrimitives.buttonAttributes(
                   testID: "sidebar-item",
-                  classes: ["sidebar-item", WorkspaceHTMLPrimitives.rowHitTargetClass, item.isSelected ? "selected" : ""],
+                  hitTargetKind: .row,
+                  classes: ["sidebar-item", item.isSelected ? "selected" : ""],
                   attributes: [
                       ("data-thread-id", item.id.uuidString),
                       ("aria-current", item.isSelected ? "true" : "false")
@@ -228,7 +231,8 @@ enum WorkspaceHTMLSidebarRenderer {
           \(WorkspaceHTMLPrimitives.button(
               "Settings",
               testID: "settings-button",
-              classes: ["sidebar-settings-button", WorkspaceHTMLPrimitives.rowHitTargetClass],
+              hitTargetKind: .row,
+              classes: ["sidebar-settings-button"],
               ariaLabel: "Settings",
               title: "Settings"
           ))
@@ -257,7 +261,8 @@ enum WorkspaceHTMLSidebarRenderer {
             title,
             testID: testID,
             commandID: command.id,
-            classes: ["sidebar-tool-action", WorkspaceHTMLPrimitives.rowHitTargetClass],
+            hitTargetKind: .row,
+            classes: ["sidebar-tool-action"],
             ariaLabel: title,
             title: title,
             role: "menuitem",

@@ -43,9 +43,9 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(
             auditHelperText.contains("export type CriticalTargetProbe")
-                && auditHelperText.contains("expectedClass?: string")
+                && auditHelperText.contains("expectedKind?: string")
                 && auditHelperText.contains("expectCriticalTargetRegistry"),
-            "High-risk click targets should be declared through a named registry with expected semantic target classes instead of scattered one-off assertions."
+            "High-risk click targets should be declared through a named registry with expected semantic target kinds instead of scattered one-off assertions."
         )
         XCTAssertTrue(
             auditHelperText.contains("target.evaluate")
@@ -99,12 +99,22 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
 
         XCTAssertTrue(
             primitivesText.contains("classesWithDefaultHitTarget")
-                && primitivesText.contains("return trimmed + [textHitTargetClass]"),
-            "HTML button attributes should add the shared text hit-target class unless a more specific shared target class is already present."
+                && primitivesText.contains("defaultKind: WorkspaceHTMLHitTargetKind = .text")
+                && primitivesText.contains("return trimmed + [defaultKind.className]"),
+            "HTML button attributes should add the default semantic hit-target kind unless a more specific shared target class is already present."
+        )
+        XCTAssertTrue(
+            primitivesText.contains("enum WorkspaceHTMLHitTargetKind")
+                && primitivesText.contains("case icon")
+                && primitivesText.contains("case textEntry = \"text-entry\"")
+                && primitivesText.contains("case formAction = \"form-action\"")
+                && primitivesText.contains("var className: String"),
+            "Rendered controls should declare hit-target intent through a typed semantic kind instead of passing target CSS classes as the primary API."
         )
         XCTAssertTrue(
             primitivesText.contains(#"static let hitTargetKindAttributeName = "data-hit-target-kind""#)
                 && primitivesText.contains("static func hitTargetKindAttribute(forClasses classes: [String])")
+                && primitivesText.contains("static func hitTargetAttributes(kind: WorkspaceHTMLHitTargetKind")
                 && primitivesText.contains("static func hitTargetAttributes(classes: [String])")
                 && primitivesText.contains("hitTargetKindByClass")
                 && primitivesText.contains(##"parts.append(#"\#(hitTargetKindAttributeName)="\#(escape(hitTargetKind))""#)"##),
@@ -217,15 +227,15 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Click-target coverage should include a narrow squeezed viewport, not only standard desktop and phone widths."
         )
         XCTAssertTrue(
-            interactionSpecText.contains("expectedClass: 'hit-target-icon'")
-                && interactionSpecText.contains("expectedClass: 'hit-target-text-entry'")
-                && interactionSpecText.contains("expectedClass: 'hit-target-row'")
-                && interactionSpecText.contains("expectedClass: 'hit-target-text'"),
+            interactionSpecText.contains("expectedKind: 'icon'")
+                && interactionSpecText.contains("expectedKind: 'text-entry'")
+                && interactionSpecText.contains("expectedKind: 'row'")
+                && interactionSpecText.contains("expectedKind: 'text'"),
             "Critical click-target probes should assert the intended semantic target kind, not only any shared class."
         )
         XCTAssertTrue(
-            interactionSpecText.contains("expectedClass: 'hit-target-form-action'")
-                || interactionSpecText.contains("expectedClass: 'hit-target-capsule'"),
+            interactionSpecText.contains("expectedKind: 'form-action'")
+                || interactionSpecText.contains("expectedKind: 'capsule'"),
             "Critical click-target probes should include compact form-action or capsule controls, not only generic row/text/icon controls."
         )
     }
@@ -319,7 +329,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         let file = try makeTemporarySwiftFile(##"""
         enum GoodHTMLRenderer {
             func render() -> String {
-                #"<input\#(WorkspaceHTMLPrimitives.hitTargetAttributes(for: WorkspaceHTMLPrimitives.textEntryHitTargetClass)) aria-label="Search">"#
+                #"<input\#(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .textEntry)) aria-label="Search">"#
             }
         }
         """##)
@@ -703,6 +713,7 @@ private struct HTMLSourceInteractionTargetAudit {
         "WorkspaceHTMLPrimitives.button(",
         "WorkspaceHTMLPrimitives.commandButton(",
         "WorkspaceHTMLPrimitives.buttonAttributes(",
+        "WorkspaceHTMLPrimitives.hitTargetAttributes(kind:",
         "WorkspaceHTMLPrimitives.summary("
     ]
 

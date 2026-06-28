@@ -18,18 +18,19 @@ enum WorkspaceHTMLBrowserRenderer {
               \(browserNavButton("Forward", testID: "browser-forward", isEnabled: browser.canGoForward))
               \(browserNavButton("Reload", testID: "browser-reload", isEnabled: browser.canReload))
             </div>
-            <input\(WorkspaceHTMLPrimitives.hitTargetAttributes(for: WorkspaceHTMLPrimitives.textEntryHitTargetClass)) data-testid="browser-address" aria-label="Browser address" value="\(escape(browser.addressDraft))">
+            <input\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .textEntry)) data-testid="browser-address" aria-label="Browser address" value="\(escape(browser.addressDraft))">
             \(WorkspaceHTMLPrimitives.button(
                 "Open",
                 testID: "browser-open",
                 type: "submit",
-                classes: ["browser-open-button", WorkspaceHTMLPrimitives.textHitTargetClass],
+                hitTargetKind: .text,
+                classes: ["browser-open-button"],
                 disabled: !browser.canOpen
             ))
           </form>
           \(preview)
           <form class="browser-comment-form" data-testid="browser-comment-form">
-            <input\(WorkspaceHTMLPrimitives.hitTargetAttributes(for: WorkspaceHTMLPrimitives.textEntryHitTargetClass)) data-testid="browser-comment-input" aria-label="Browser comment" placeholder="Add browser comment">
+            <input\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .textEntry)) data-testid="browser-comment-input" aria-label="Browser comment" placeholder="Add browser comment">
             \(WorkspaceHTMLPrimitives.button(
                 "Comment",
                 testID: "browser-add-comment",
@@ -52,7 +53,8 @@ enum WorkspaceHTMLBrowserRenderer {
         WorkspaceHTMLPrimitives.button(
             label,
             testID: testID,
-            classes: ["browser-nav-button", WorkspaceHTMLPrimitives.iconHitTargetClass],
+            hitTargetKind: .icon,
+            classes: ["browser-nav-button"],
             ariaLabel: label,
             disabled: !isEnabled
         )
@@ -63,7 +65,8 @@ enum WorkspaceHTMLBrowserRenderer {
             """
             <button\(WorkspaceHTMLPrimitives.buttonAttributes(
                 testID: "browser-tab",
-                classes: ["browser-tab", WorkspaceHTMLPrimitives.capsuleHitTargetClass, tab.isActive ? "active" : ""],
+                hitTargetKind: .capsule,
+                classes: ["browser-tab", tab.isActive ? "active" : ""],
                 attributes: [
                     ("data-command-id", tab.selectCommandID),
                     ("aria-pressed", tab.isActive ? "true" : "false")
@@ -81,14 +84,16 @@ enum WorkspaceHTMLBrowserRenderer {
               "+",
               testID: "browser-new-tab",
               commandID: "browser-tab-new",
-              classes: ["browser-tab-action", WorkspaceHTMLPrimitives.iconHitTargetClass],
+              hitTargetKind: .icon,
+              classes: ["browser-tab-action"],
               ariaLabel: "New browser tab"
           ))
           \(WorkspaceHTMLPrimitives.commandButton(
               "×",
               testID: "browser-close-tab",
               commandID: "browser-tab-close:\(browser.activeTabID.uuidString)",
-              classes: ["browser-tab-action", WorkspaceHTMLPrimitives.iconHitTargetClass],
+              hitTargetKind: .icon,
+              classes: ["browser-tab-action"],
               ariaLabel: "Close browser tab",
               disabled: !browser.canCloseActiveTab
           ))

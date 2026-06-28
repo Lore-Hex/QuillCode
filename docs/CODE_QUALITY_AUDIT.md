@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-28 Rendered Click-Target Semantics Pass
+
+Overall grade after this slice: **A semantic target architecture, A rendered regression coverage, A- native pixel measurement**.
+
+Rendered click targets now state their intended interaction shape through a typed `WorkspaceHTMLHitTargetKind` before CSS classes are emitted. This removes the old pattern where each renderer had to remember which `hit-target-*` class to append, and it lets Playwright assert the intended kind for critical controls.
+
+| Before | After |
+| --- | --- |
+| Feature renderers passed hit-target CSS constants directly, mixing visual classes with interaction semantics and making class order part of the contract. | Renderers pass `hitTargetKind: .icon/.text/.row/.capsule/.formAction/.link` or `hitTargetAttributes(kind:)`; the primitive maps that to classes plus `data-hit-target-kind`. |
+| The `summary` primitive defaulted to a row target class even when callers wanted an icon-sized disclosure, so caller intent could be overridden by the default class list. | `summary` defaults through `hitTargetKind: .row` with no implicit class list, so icon summaries and row summaries both get the correct semantic class. |
+| Critical Playwright probes checked expected CSS classes, which made tests care about implementation spelling more than interaction meaning. | Probes now support `expectedKind`, verify the matching class and `data-hit-target-kind`, and still sample center/edge/interior click ownership. |
+
+Residual risk:
+
+- Native SwiftUI hit regions are still source-gated and smoke-tested rather than sampled from a packaged macOS/Linux window.
+
 ## 2026-06-27 Click Target Affordance And Narrow-Viewport Pass
 
 Overall grade after this slice: **A rendered click-target behavior, A narrow-layout resilience, A- native pixel measurement**.

@@ -285,8 +285,10 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
         )
 
         XCTAssertTrue(
-            primitivesText.contains("static let interactiveHitTargetClass"),
-            "HTML renderers should share one semantic class for non-button clickable targets."
+            primitivesText.contains("enum WorkspaceHTMLHitTargetKind: String, CaseIterable")
+                && primitivesText.contains("case link")
+                && primitivesText.contains("case formAction = \"form-action\""),
+            "HTML renderers should choose typed semantic target kinds before those kinds are mapped to CSS classes."
         )
         XCTAssertTrue(
             primitivesText.contains("static func commandButton(")
@@ -295,41 +297,38 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             "HTML command buttons should be emitted through one primitive that owns command routing, disabled semantics, and target classes."
         )
         XCTAssertTrue(
-            primitivesText.contains("static let iconHitTargetClass")
-                && primitivesText.contains("static let textHitTargetClass")
-                && primitivesText.contains("static let rowHitTargetClass")
-                && primitivesText.contains("static let capsuleHitTargetClass")
-                && primitivesText.contains("static let formActionHitTargetClass"),
-            "HTML hit-target classes should name the same semantic control categories as the SwiftUI target specs."
+            primitivesText.contains("static func hitTargetAttributes(kind: WorkspaceHTMLHitTargetKind")
+                && primitivesText.contains("classesWithDefaultHitTarget(classes, defaultKind: kind)"),
+            "HTML hit-target attributes should derive classes and data-hit-target-kind from typed semantic target kinds."
         )
         XCTAssertTrue(
             toolCardText.contains(#"class="tool-details""#),
             "Tool-card details disclosures should opt into the harness hit-target styling."
         )
         XCTAssertTrue(
-            toolCardText.contains(#"WorkspaceHTMLPrimitives.hitTargetAttributes(classes: ["artifact-chip", WorkspaceHTMLPrimitives.interactiveHitTargetClass])"#),
+            toolCardText.contains(#"WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .link, classes: ["artifact-chip"])"#),
             "Artifact links should keep an explicit 44 px hit target instead of relying on chip padding."
         )
         XCTAssertTrue(
-            reviewText.contains(#"WorkspaceHTMLPrimitives.hitTargetAttributes(classes: ["review-action-button", WorkspaceHTMLPrimitives.textHitTargetClass])"#),
-            "Review action buttons should use a named class that can be target-sized in CSS."
+            reviewText.contains(#"WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .text, classes: ["review-action-button"])"#),
+            "Review action buttons should declare text-button hit-target semantics through the shared primitive."
         )
         XCTAssertTrue(
             reviewText.contains(#"data-testid="pr-review-thread-reply-form""#)
-                && reviewText.contains(#"WorkspaceHTMLPrimitives.formActionHitTargetClass"#),
+                && reviewText.contains(#"WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .formAction, classes: ["review-action-button"])"#),
             "Pull request review-thread reply forms should expose explicit form-action targets."
         )
         XCTAssertTrue(
-            secondaryText.contains("extensionActionClasses")
+            secondaryText.contains("extensionActionButton(")
                 && secondaryText.contains("extension-action-button")
-                && secondaryText.contains("WorkspaceHTMLPrimitives.formActionHitTargetClass"),
-            "Extension action buttons should use the shared command primitive plus named form-action hit-target classes."
+                && secondaryText.contains("hitTargetKind: .formAction"),
+            "Extension action buttons should use the shared command primitive plus named form-action hit-target semantics."
         )
         XCTAssertTrue(
-            secondaryText.contains("commandButton(\"Install\"")
-                && secondaryText.contains("commandButton(\"Start\"")
+            secondaryText.contains("extensionActionButton(\"Install\"")
+                && secondaryText.contains("extensionActionButton(\"Start\"")
                 && secondaryText.contains("extension-reference-action")
-                && secondaryText.contains("WorkspaceHTMLPrimitives.capsuleHitTargetClass"),
+                && secondaryText.contains("hitTargetKind: .capsule"),
             "Extension and MCP reference buttons should use the shared command primitive consumed by click routing."
         )
         XCTAssertFalse(
@@ -339,16 +338,16 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             secondaryText.contains("memory-edit-button")
                 && secondaryText.contains("memory-delete-button")
-                && secondaryText.contains("WorkspaceHTMLPrimitives.formActionHitTargetClass"),
-            "Memory edit/delete buttons should keep shared memory action classes and compact form-action targets."
+                && secondaryText.contains("hitTargetKind: .formAction"),
+            "Memory edit/delete buttons should keep shared memory action classes and compact form-action semantics."
         )
         XCTAssertTrue(
             browserText.contains(#"class="browser-form""#)
                 && browserText.contains(#"class="browser-nav-controls""#)
                 && browserText.contains("browserNavButton(")
                 && browserText.contains("WorkspaceHTMLPrimitives.button(")
-                && browserText.contains("WorkspaceHTMLPrimitives.capsuleHitTargetClass")
-                && browserText.contains("WorkspaceHTMLPrimitives.iconHitTargetClass")
+                && browserText.contains("hitTargetKind: .capsule")
+                && browserText.contains("hitTargetKind: .icon")
                 && browserText.contains(#""browser-nav-button""#)
                 && browserText.contains(#""browser-open-button""#)
                 && browserText.contains(#"data-testid="browser-address""#),
@@ -454,8 +453,8 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
 
             for line in linkLines {
                 XCTAssertTrue(
-                    line.contains("WorkspaceHTMLPrimitives.interactiveHitTargetClass"),
-                    "\(rendererName) should render link targets through WorkspaceHTMLPrimitives.interactiveHitTargetClass: \(line)"
+                    line.contains("WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .link"),
+                    "\(rendererName) should render link targets through WorkspaceHTMLPrimitives link semantics: \(line)"
                 )
             }
         }

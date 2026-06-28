@@ -53,31 +53,31 @@ test('critical click-target registry covers primary workspace surfaces', async (
   await page.goto(harnessURL());
 
   await expectCriticalTargetRegistry('primary workspace chrome', [
-    { label: 'new chat', locator: page.getByTestId('new-chat-button'), expectedClass: 'hit-target-text' },
-    { label: 'sidebar search', locator: page.getByTestId('sidebar-search-button'), expectedClass: 'hit-target-text' },
-    { label: 'sidebar tools', locator: page.getByTestId('sidebar-tools-button'), expectedClass: 'hit-target-row' },
-    { label: 'model picker', locator: page.getByTestId('model-picker-button'), expectedClass: 'hit-target-text' },
-    { label: 'top-bar overflow', locator: page.getByTestId('top-bar-overflow-button'), expectedClass: 'hit-target-icon' },
-    { label: 'composer text entry', locator: page.getByLabel('Message'), expectedClass: 'hit-target-text-entry' },
-    { label: 'composer send', locator: page.getByRole('button', { name: 'Send' }), expectedClass: 'hit-target-text' }
+    { label: 'new chat', locator: page.getByTestId('new-chat-button'), expectedKind: 'text' },
+    { label: 'sidebar search', locator: page.getByTestId('sidebar-search-button'), expectedKind: 'text' },
+    { label: 'sidebar tools', locator: page.getByTestId('sidebar-tools-button'), expectedKind: 'row' },
+    { label: 'model picker', locator: page.getByTestId('model-picker-button'), expectedKind: 'capsule' },
+    { label: 'top-bar overflow', locator: page.getByTestId('top-bar-overflow-button'), expectedKind: 'icon' },
+    { label: 'composer text entry', locator: page.getByLabel('Message'), expectedKind: 'text-entry' },
+    { label: 'composer send', locator: page.getByRole('button', { name: 'Send' }), expectedKind: 'icon' }
   ]);
 
   await openTopBarOverflow(page);
   await expectCriticalTargetRegistry('top-bar overflow menu', [
-    { label: 'search', locator: page.getByTestId('top-bar-overflow-search'), expectedClass: 'hit-target-row' },
-    { label: 'command palette', locator: page.getByTestId('top-bar-overflow-command-palette'), expectedClass: 'hit-target-row' },
-    { label: 'keyboard shortcuts', locator: page.getByTestId('top-bar-overflow-keyboard-shortcuts'), expectedClass: 'hit-target-row' },
-    { label: 'settings', locator: page.getByTestId('top-bar-overflow-settings'), expectedClass: 'hit-target-row' }
+    { label: 'search', locator: page.getByTestId('top-bar-overflow-search'), expectedKind: 'row' },
+    { label: 'command palette', locator: page.getByTestId('top-bar-overflow-command-palette'), expectedKind: 'row' },
+    { label: 'keyboard shortcuts', locator: page.getByTestId('top-bar-overflow-keyboard-shortcuts'), expectedKind: 'row' },
+    { label: 'settings', locator: page.getByTestId('top-bar-overflow-settings'), expectedKind: 'row' }
   ]);
   await page.getByTestId('top-bar-overflow-button').click();
 
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-browser')).toBeVisible();
   await expectCriticalTargetRegistry('model picker', [
-    { label: 'model search', locator: page.getByTestId('model-search'), expectedClass: 'hit-target-text-entry' },
-    { label: 'first model option', locator: page.getByTestId('model-option').first(), expectedClass: 'hit-target-row' },
-    { label: 'first model details', locator: page.getByTestId('model-detail-button').first(), expectedClass: 'hit-target-icon' },
-    { label: 'first model favorite', locator: page.getByTestId('model-favorite-button').first(), expectedClass: 'hit-target-icon' }
+    { label: 'model search', locator: page.getByTestId('model-search'), expectedKind: 'text-entry' },
+    { label: 'first model option', locator: page.getByTestId('model-option').first(), expectedKind: 'row' },
+    { label: 'first model details', locator: page.getByTestId('model-detail-button').first(), expectedKind: 'icon' },
+    { label: 'first model favorite', locator: page.getByTestId('model-favorite-button').first(), expectedKind: 'icon' }
   ]);
   await page.getByTestId('model-picker-button').click();
 
@@ -86,42 +86,42 @@ test('critical click-target registry covers primary workspace surfaces', async (
   await expect(page.getByTestId('command-palette-panel')).toBeVisible();
   await fillCommandPalette(page, '>git');
   await expectCriticalTargetRegistry('command palette', [
-    { label: 'command search', locator: page.getByTestId('command-palette-input'), expectedClass: 'hit-target-text-entry' },
-    { label: 'close command palette', locator: page.getByTestId('command-palette-close'), expectedClass: 'hit-target-text' },
-    { label: 'first command result', locator: page.getByTestId('command-palette-result').first(), expectedClass: 'hit-target-row' }
+    { label: 'command search', locator: page.getByTestId('command-palette-input'), expectedKind: 'text-entry' },
+    { label: 'close command palette', locator: page.getByTestId('command-palette-close'), expectedKind: 'text' },
+    { label: 'first command result', locator: page.getByTestId('command-palette-result').first(), expectedKind: 'row' }
   ]);
   await page.getByTestId('command-palette-close').click();
 
   await openSettings(page);
   await expect(page.getByTestId('settings-panel')).toBeVisible();
   await expectCriticalTargetRegistry('settings panel', [
-    { label: 'API base URL', locator: page.getByLabel('TrustedRouter API base URL'), expectedClass: 'hit-target-text-entry' },
-    { label: 'authentication selector', locator: page.getByLabel('Authentication'), expectedClass: 'hit-target-text-entry' },
-    { label: 'TrustedRouter sign in', locator: page.getByTestId('settings-sign-in'), expectedClass: 'hit-target-text' },
-    { label: 'cancel', locator: page.getByTestId('settings-cancel'), expectedClass: 'hit-target-text' },
-    { label: 'save', locator: page.getByTestId('settings-save'), expectedClass: 'hit-target-text' }
+    { label: 'API base URL', locator: page.getByLabel('TrustedRouter API base URL'), expectedKind: 'text-entry' },
+    { label: 'authentication selector', locator: page.getByLabel('Authentication'), expectedKind: 'text-entry' },
+    { label: 'TrustedRouter sign in', locator: page.getByTestId('settings-sign-in'), expectedKind: 'text' },
+    { label: 'cancel', locator: page.getByTestId('settings-cancel'), expectedKind: 'text' },
+    { label: 'save', locator: page.getByTestId('settings-save'), expectedKind: 'text' }
   ]);
   await page.getByTestId('settings-cancel').click();
 
   await clickSidebarTool(page, 'terminal-button');
   await expect(page.getByTestId('terminal-pane')).toBeVisible();
   await expectCriticalTargetRegistry('terminal pane', [
-    { label: 'clear', locator: page.getByTestId('terminal-clear'), expectedClass: 'hit-target-text' },
-    { label: 'command input', locator: page.getByTestId('terminal-input'), expectedClass: 'hit-target-text-entry' },
-    { label: 'run', locator: page.getByTestId('terminal-run'), expectedClass: 'hit-target-text' }
+    { label: 'clear', locator: page.getByTestId('terminal-clear'), expectedKind: 'text' },
+    { label: 'command input', locator: page.getByTestId('terminal-input'), expectedKind: 'text-entry' },
+    { label: 'run', locator: page.getByTestId('terminal-run'), expectedKind: 'text' }
   ]);
 
   await clickSidebarTool(page, 'browser-button');
   await expect(page.getByTestId('browser-pane')).toBeVisible();
   await expectCriticalTargetRegistry('browser pane', [
-    { label: 'active browser tab', locator: page.getByTestId('browser-tab').first(), expectedClass: 'hit-target-capsule' },
-    { label: 'back', locator: page.getByTestId('browser-back'), expectedClass: 'hit-target-icon' },
-    { label: 'forward', locator: page.getByTestId('browser-forward'), expectedClass: 'hit-target-icon' },
-    { label: 'reload', locator: page.getByTestId('browser-reload'), expectedClass: 'hit-target-icon' },
-    { label: 'address', locator: page.getByTestId('browser-address'), expectedClass: 'hit-target-text-entry' },
-    { label: 'open', locator: page.getByTestId('browser-open'), expectedClass: 'hit-target-text' },
-    { label: 'comment input', locator: page.getByTestId('browser-comment-input'), expectedClass: 'hit-target-text-entry' },
-    { label: 'add comment', locator: page.getByTestId('browser-add-comment'), expectedClass: 'hit-target-text' }
+    { label: 'active browser tab', locator: page.getByTestId('browser-tab').first(), expectedKind: 'capsule' },
+    { label: 'back', locator: page.getByTestId('browser-back'), expectedKind: 'icon' },
+    { label: 'forward', locator: page.getByTestId('browser-forward'), expectedKind: 'icon' },
+    { label: 'reload', locator: page.getByTestId('browser-reload'), expectedKind: 'icon' },
+    { label: 'address', locator: page.getByTestId('browser-address'), expectedKind: 'text-entry' },
+    { label: 'open', locator: page.getByTestId('browser-open'), expectedKind: 'text' },
+    { label: 'comment input', locator: page.getByTestId('browser-comment-input'), expectedKind: 'text-entry' },
+    { label: 'add comment', locator: page.getByTestId('browser-add-comment'), expectedKind: 'text' }
   ]);
 
   await page.getByTestId('extensions-button').click();
@@ -129,18 +129,18 @@ test('critical click-target registry covers primary workspace surfaces', async (
   await page.getByTestId('extension-start').click();
   await expect(page.getByTestId('extension-item').nth(2)).toContainText('Ready');
   await expectCriticalTargetRegistry('extensions pane', [
-    { label: 'install extension', locator: page.getByTestId('extension-install'), expectedClass: 'hit-target-form-action' },
-    { label: 'stop MCP server', locator: page.getByTestId('extension-stop'), expectedClass: 'hit-target-form-action' },
-    { label: 'read MCP resource', locator: page.getByTestId('extension-mcp-resource-action').first(), expectedClass: 'hit-target-capsule' },
-    { label: 'use MCP prompt', locator: page.getByTestId('extension-mcp-prompt-action'), expectedClass: 'hit-target-capsule' }
+    { label: 'install extension', locator: page.getByTestId('extension-install'), expectedKind: 'form-action' },
+    { label: 'stop MCP server', locator: page.getByTestId('extension-stop'), expectedKind: 'form-action' },
+    { label: 'read MCP resource', locator: page.getByTestId('extension-mcp-resource-action').first(), expectedKind: 'capsule' },
+    { label: 'use MCP prompt', locator: page.getByTestId('extension-mcp-prompt-action'), expectedKind: 'capsule' }
   ]);
 
   await clickSidebarTool(page, 'memories-button');
   await expect(page.getByTestId('memories-pane')).toBeVisible();
   await expectCriticalTargetRegistry('memories pane', [
-    { label: 'add memory', locator: page.getByTestId('memories-add'), expectedClass: 'hit-target-text' },
-    { label: 'edit memory', locator: page.getByTestId('memory-edit').first(), expectedClass: 'hit-target-form-action' },
-    { label: 'forget memory', locator: page.getByTestId('memory-delete').first(), expectedClass: 'hit-target-form-action' }
+    { label: 'add memory', locator: page.getByTestId('memories-add'), expectedKind: 'text' },
+    { label: 'edit memory', locator: page.getByTestId('memory-edit').first(), expectedKind: 'form-action' },
+    { label: 'forget memory', locator: page.getByTestId('memory-delete').first(), expectedKind: 'form-action' }
   ]);
 
   await page.getByTestId('automations-button').click();
@@ -148,20 +148,20 @@ test('critical click-target registry covers primary workspace surfaces', async (
   await page.getByTestId('automation-create-workspace-schedule').click();
   await expect(page.getByTestId('automation-card')).toBeVisible();
   await expectCriticalTargetRegistry('automations pane', [
-    { label: 'schedule follow-up', locator: page.getByTestId('automation-schedule-follow-up').first(), expectedClass: 'hit-target-text' },
-    { label: 'create workspace schedule', locator: page.getByTestId('automation-create-workspace-schedule'), expectedClass: 'hit-target-text' },
-    { label: 'run automation', locator: page.getByTestId('automation-run'), expectedClass: 'hit-target-text' },
-    { label: 'pause automation', locator: page.getByTestId('automation-primary-action'), expectedClass: 'hit-target-text' },
-    { label: 'delete automation', locator: page.getByTestId('automation-delete'), expectedClass: 'hit-target-text' }
+    { label: 'schedule follow-up', locator: page.getByTestId('automation-schedule-follow-up').first(), expectedKind: 'text' },
+    { label: 'create workspace schedule', locator: page.getByTestId('automation-create-workspace-schedule'), expectedKind: 'text' },
+    { label: 'run automation', locator: page.getByTestId('automation-run'), expectedKind: 'text' },
+    { label: 'pause automation', locator: page.getByTestId('automation-primary-action'), expectedKind: 'text' },
+    { label: 'delete automation', locator: page.getByTestId('automation-delete'), expectedKind: 'text' }
   ]);
 
   await page.getByLabel('Message').fill('run whoami');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
   await expectCriticalTargetRegistry('transcript tool card', [
-    { label: 'tool disclosure', locator: page.getByTestId('tool-card-details').last().locator('summary'), expectedClass: 'hit-target-row' },
-    { label: 'message composer', locator: page.getByLabel('Message'), expectedClass: 'hit-target-text-entry' },
-    { label: 'send after transcript update', locator: page.getByRole('button', { name: 'Send' }), expectedClass: 'hit-target-text' }
+    { label: 'tool disclosure', locator: page.getByTestId('tool-card-details').last().locator('summary'), expectedKind: 'row' },
+    { label: 'message composer', locator: page.getByLabel('Message'), expectedKind: 'text-entry' },
+    { label: 'send after transcript update', locator: page.getByRole('button', { name: 'Send' }), expectedKind: 'icon' }
   ]);
 });
 

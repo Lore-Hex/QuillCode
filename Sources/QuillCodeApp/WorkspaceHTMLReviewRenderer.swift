@@ -30,7 +30,7 @@ enum WorkspaceHTMLReviewRenderer {
         <form class="pr-review-draft" data-testid="pr-review-draft" aria-label="Submit pull request review">
           <label>
             Action
-            <select\(WorkspaceHTMLPrimitives.hitTargetAttributes(for: WorkspaceHTMLPrimitives.textEntryHitTargetClass)) data-testid="pr-review-draft-action" aria-label="Pull request review action">
+            <select\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .textEntry)) data-testid="pr-review-draft-action" aria-label="Pull request review action">
               \(WorkspacePullRequestReviewActionKind.allCases.map { action in
                   let selected = action == draft.action ? #" selected="selected""# : ""
                   return #"<option value="\#(escape(action.rawValue))"\#(selected)>\#(escape(action.title))</option>"#
@@ -39,17 +39,17 @@ enum WorkspaceHTMLReviewRenderer {
           </label>
           <label>
             Pull request
-            <input\(WorkspaceHTMLPrimitives.hitTargetAttributes(for: WorkspaceHTMLPrimitives.textEntryHitTargetClass)) data-testid="pr-review-draft-selector" aria-label="Pull request selector" placeholder="PR number, URL, or branch" value="\(escape(draft.selector))">
+            <input\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .textEntry)) data-testid="pr-review-draft-selector" aria-label="Pull request selector" placeholder="PR number, URL, or branch" value="\(escape(draft.selector))">
           </label>
           <label>
             Body
-            <textarea\(WorkspaceHTMLPrimitives.hitTargetAttributes(for: WorkspaceHTMLPrimitives.textEntryHitTargetClass)) data-testid="pr-review-draft-body" aria-label="Pull request review body" placeholder="\(escape(draft.action.bodyPlaceholder))">\(escape(draft.body))</textarea>
+            <textarea\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .textEntry)) data-testid="pr-review-draft-body" aria-label="Pull request review body" placeholder="\(escape(draft.action.bodyPlaceholder))">\(escape(draft.body))</textarea>
           </label>
           \(inlineComments)
           \(submitSummary)
           <footer>
-            <button type="reset"\(WorkspaceHTMLPrimitives.hitTargetAttributes(classes: ["review-action-button", WorkspaceHTMLPrimitives.formActionHitTargetClass])) data-testid="pr-review-draft-cancel">Cancel</button>
-            <button type="submit"\(WorkspaceHTMLPrimitives.hitTargetAttributes(classes: ["review-action-button", WorkspaceHTMLPrimitives.formActionHitTargetClass])) data-testid="pr-review-draft-submit"\(draft.canSubmit ? "" : " disabled")>\(escape(submitTitle(for: draft.action)))</button>
+            <button type="reset"\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .formAction, classes: ["review-action-button"])) data-testid="pr-review-draft-cancel">Cancel</button>
+            <button type="submit"\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .formAction, classes: ["review-action-button"])) data-testid="pr-review-draft-submit"\(draft.canSubmit ? "" : " disabled")>\(escape(submitTitle(for: draft.action)))</button>
           </footer>
         </form>
         """
@@ -82,15 +82,15 @@ enum WorkspaceHTMLReviewRenderer {
             return """
             <li data-testid="pr-review-draft-inline-comment">
               <label>
-                <input\(WorkspaceHTMLPrimitives.hitTargetAttributes(for: WorkspaceHTMLPrimitives.iconHitTargetClass)) type="checkbox" data-testid="pr-review-draft-inline-comment-toggle" aria-label="Include inline note at \(escape(comment.locationLabel))" data-comment-id="\(escape(comment.id.uuidString))"\(commentChecked)\(disabled)>
+                <input\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .icon)) type="checkbox" data-testid="pr-review-draft-inline-comment-toggle" aria-label="Include inline note at \(escape(comment.locationLabel))" data-comment-id="\(escape(comment.id.uuidString))"\(commentChecked)\(disabled)>
                 <span>\(comment.isIncluded ? "Included" : "Skipped")</span>
               </label>
               <span class="pr-review-inline-comment-order">
-                <button type="button"\(WorkspaceHTMLPrimitives.hitTargetAttributes(classes: ["review-action-button", WorkspaceHTMLPrimitives.iconHitTargetClass])) data-testid="pr-review-draft-inline-comment-move-up" aria-label="Move inline note at \(escape(comment.locationLabel)) up" data-comment-id="\(escape(comment.id.uuidString))"\(moveUpDisabled ? " disabled" : "")>^</button>
-                <button type="button"\(WorkspaceHTMLPrimitives.hitTargetAttributes(classes: ["review-action-button", WorkspaceHTMLPrimitives.iconHitTargetClass])) data-testid="pr-review-draft-inline-comment-move-down" aria-label="Move inline note at \(escape(comment.locationLabel)) down" data-comment-id="\(escape(comment.id.uuidString))"\(moveDownDisabled ? " disabled" : "")>v</button>
+                <button type="button"\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .icon, classes: ["review-action-button"])) data-testid="pr-review-draft-inline-comment-move-up" aria-label="Move inline note at \(escape(comment.locationLabel)) up" data-comment-id="\(escape(comment.id.uuidString))"\(moveUpDisabled ? " disabled" : "")>^</button>
+                <button type="button"\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .icon, classes: ["review-action-button"])) data-testid="pr-review-draft-inline-comment-move-down" aria-label="Move inline note at \(escape(comment.locationLabel)) down" data-comment-id="\(escape(comment.id.uuidString))"\(moveDownDisabled ? " disabled" : "")>v</button>
               </span>
               <code>\(escape(comment.locationLabel))</code>
-              <textarea\(WorkspaceHTMLPrimitives.hitTargetAttributes(for: WorkspaceHTMLPrimitives.textEntryHitTargetClass)) data-testid="pr-review-draft-inline-comment-body" aria-label="Inline note text at \(escape(comment.locationLabel))" data-comment-id="\(escape(comment.id.uuidString))">\(escape(comment.body))</textarea>
+              <textarea\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .textEntry)) data-testid="pr-review-draft-inline-comment-body" aria-label="Inline note text at \(escape(comment.locationLabel))" data-comment-id="\(escape(comment.id.uuidString))">\(escape(comment.body))</textarea>
               \(draft.includeInlineComments && comment.isIncluded && comment.normalizedBody.isEmpty ? #"<small data-testid="pr-review-draft-inline-comment-warning">Add note text or skip this note.</small>"# : "")
             </li>
             """
@@ -101,7 +101,7 @@ enum WorkspaceHTMLReviewRenderer {
             : "\(selectedCount) of \(draft.inlineCommentCount) inline review notes"
         return """
         <label class="pr-review-inline-comments">
-          <input\(WorkspaceHTMLPrimitives.hitTargetAttributes(for: WorkspaceHTMLPrimitives.iconHitTargetClass)) type="checkbox" data-testid="pr-review-draft-include-inline-comments" aria-label="Include inline review notes"\(checked)>
+          <input\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .icon)) type="checkbox" data-testid="pr-review-draft-include-inline-comments" aria-label="Include inline review notes"\(checked)>
           <span>Include \(countLabel)</span>
         </label>
         <ul class="pr-review-inline-comment-list" data-testid="pr-review-draft-inline-comments">
@@ -175,7 +175,7 @@ enum WorkspaceHTMLReviewRenderer {
 
     private static func renderAction(_ action: WorkspaceReviewActionSurface) -> String {
         """
-        <button type="button"\(WorkspaceHTMLPrimitives.hitTargetAttributes(classes: ["review-action-button", WorkspaceHTMLPrimitives.textHitTargetClass])) data-testid="review-action" data-action="\(escape(action.kind.rawValue))" data-path="\(escape(action.path))">
+        <button type="button"\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .text, classes: ["review-action-button"])) data-testid="review-action" data-action="\(escape(action.kind.rawValue))" data-path="\(escape(action.path))">
           \(escape(action.kind.title))
         </button>
         """
@@ -211,13 +211,13 @@ enum WorkspaceHTMLReviewRenderer {
         guard let replyTarget = thread.replyTarget else { return "" }
         let selectorAttribute = replyTarget.selector.map { #" data-selector="\#(escape($0))""# } ?? ""
         return """
-        <button type="button"\(WorkspaceHTMLPrimitives.hitTargetAttributes(classes: ["review-action-button", WorkspaceHTMLPrimitives.textHitTargetClass])) data-testid="pr-review-thread-reply" data-thread-id="\(escape(replyTarget.threadID))">
+        <button type="button"\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .text, classes: ["review-action-button"])) data-testid="pr-review-thread-reply" data-thread-id="\(escape(replyTarget.threadID))">
           Reply
         </button>
         <form class="pr-review-thread-reply-form" data-testid="pr-review-thread-reply-form" data-thread-id="\(escape(replyTarget.threadID))" data-comment-id="\(replyTarget.commentID)"\(selectorAttribute) hidden>
-          <textarea\(WorkspaceHTMLPrimitives.hitTargetAttributes(for: WorkspaceHTMLPrimitives.textEntryHitTargetClass)) data-testid="pr-review-thread-reply-input" aria-label="Reply to review thread" placeholder="Reply to review thread"></textarea>
-          <button type="reset"\(WorkspaceHTMLPrimitives.hitTargetAttributes(classes: ["review-action-button", WorkspaceHTMLPrimitives.formActionHitTargetClass])) data-testid="pr-review-thread-reply-cancel">Cancel</button>
-          <button type="submit"\(WorkspaceHTMLPrimitives.hitTargetAttributes(classes: ["review-action-button", WorkspaceHTMLPrimitives.formActionHitTargetClass])) data-testid="pr-review-thread-reply-submit">Post reply</button>
+          <textarea\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .textEntry)) data-testid="pr-review-thread-reply-input" aria-label="Reply to review thread" placeholder="Reply to review thread"></textarea>
+          <button type="reset"\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .formAction, classes: ["review-action-button"])) data-testid="pr-review-thread-reply-cancel">Cancel</button>
+          <button type="submit"\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .formAction, classes: ["review-action-button"])) data-testid="pr-review-thread-reply-submit">Post reply</button>
         </form>
         """
     }
@@ -226,7 +226,7 @@ enum WorkspaceHTMLReviewRenderer {
         _ action: WorkspacePullRequestReviewThreadActionSurface
     ) -> String {
         """
-        <button type="button"\(WorkspaceHTMLPrimitives.hitTargetAttributes(classes: ["review-action-button", WorkspaceHTMLPrimitives.textHitTargetClass])) data-testid="pr-review-thread-action" data-action="\(escape(action.kind.rawValue))" data-thread-id="\(escape(action.threadID))">
+        <button type="button"\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .text, classes: ["review-action-button"])) data-testid="pr-review-thread-action" data-action="\(escape(action.kind.rawValue))" data-thread-id="\(escape(action.threadID))">
           \(escape(action.kind.title))
         </button>
         """

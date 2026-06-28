@@ -74,7 +74,7 @@ enum WorkspaceHTMLTopBarRenderer {
             \(WorkspaceHTMLPrimitives.summary(
                 "...",
                 testID: "top-bar-overflow-button",
-                classes: [WorkspaceHTMLPrimitives.iconHitTargetClass],
+                hitTargetKind: .icon,
                 ariaLabel: "More",
                 title: "More"
             ))
@@ -95,7 +95,8 @@ enum WorkspaceHTMLTopBarRenderer {
             "Stop",
             testID: "top-bar-stop-button",
             commandID: "stop-all",
-            classes: ["topbar-stop-button", WorkspaceHTMLPrimitives.textHitTargetClass],
+            hitTargetKind: .text,
+            classes: ["topbar-stop-button"],
             ariaLabel: "Stop active work",
             title: title
         )
@@ -120,7 +121,7 @@ enum WorkspaceHTMLTopBarRenderer {
             command.title,
             testID: testID,
             commandID: command.id,
-            classes: [WorkspaceHTMLPrimitives.rowHitTargetClass],
+            hitTargetKind: .row,
             title: title,
             role: "menuitem",
             disabled: !command.isEnabled

@@ -37,12 +37,16 @@ enum WorkspaceHTMLTranscriptRenderer {
 
     static func renderComposer(_ composer: ComposerSurface, topBar: TopBarSurface) -> String {
         let button = composer.isSending
-            ? WorkspaceHTMLPrimitives.button("Stop", testID: "stop-button")
+            ? WorkspaceHTMLPrimitives.button(
+                "Stop",
+                testID: "stop-button",
+                hitTargetKind: .text
+            )
             : WorkspaceHTMLPrimitives.button(
                 "Send",
                 testID: "send-button",
                 type: "submit",
-                classes: [WorkspaceHTMLPrimitives.iconHitTargetClass],
+                hitTargetKind: .icon,
                 disabled: !composer.canSend
             )
         return """
@@ -50,18 +54,20 @@ enum WorkspaceHTMLTranscriptRenderer {
           <div class="composer-surface" data-testid="composer-surface">
             <label class="composer-sr-only" for="message">Message</label>
             <div class="composer-input-row">
-              <textarea\(WorkspaceHTMLPrimitives.hitTargetAttributes(for: WorkspaceHTMLPrimitives.textEntryHitTargetClass)) id="message" aria-label="Message" placeholder="\(escape(composer.placeholder))" rows="1" \(composer.isSending ? "disabled" : "")>\(escape(composer.draft))</textarea>
+              <textarea\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .textEntry)) id="message" aria-label="Message" placeholder="\(escape(composer.placeholder))" rows="1" \(composer.isSending ? "disabled" : "")>\(escape(composer.draft))</textarea>
               \(button)
             </div>
             <div class="composer-controls" data-testid="composer-controls" aria-label="Composer model and safety controls">
               <button\(WorkspaceHTMLPrimitives.buttonAttributes(
                   testID: "model-picker-button",
-                  classes: ["composer-model-button", WorkspaceHTMLPrimitives.capsuleHitTargetClass],
+                  hitTargetKind: .capsule,
+                  classes: ["composer-model-button"],
                   ariaLabel: "Model: \(topBar.modelLabel)"
               ))>◇ <span data-testid="model-pill">\(escape(topBar.modelLabel))</span></button>
               <button\(WorkspaceHTMLPrimitives.buttonAttributes(
                   testID: "mode-picker-button",
-                  classes: ["mode-pill-button", WorkspaceHTMLPrimitives.capsuleHitTargetClass],
+                  hitTargetKind: .capsule,
+                  classes: ["mode-pill-button"],
                   ariaLabel: "Auto safety mode: \(topBar.modeLabel)",
                   attributes: [("data-mode-tone", modeTone(for: topBar.modeLabel))]
               ))>
@@ -93,7 +99,8 @@ enum WorkspaceHTMLTranscriptRenderer {
             """
             <button\(WorkspaceHTMLPrimitives.buttonAttributes(
                 testID: "empty-starter-action",
-                classes: ["empty-starter", WorkspaceHTMLPrimitives.rowHitTargetClass],
+                hitTargetKind: .row,
+                classes: ["empty-starter"],
                 attributes: [
                     ("data-action-id", action.id),
                     ("data-prompt", action.prompt)
