@@ -319,10 +319,10 @@ final class WorkspaceAutomationEngineTests: XCTestCase {
         let ids = WorkspaceAutomationRunner.dueAutomationIDs(
             in: [future, paused, monitor, firstDue, secondDue],
             now: now,
-            limit: 1
+            limit: 2
         )
 
-        XCTAssertEqual(ids, [firstDue.id])
+        XCTAssertEqual(ids, [monitor.id, firstDue.id])
     }
 
     func testUpdatedAfterRunAdvancesRecurringAutomation() {
@@ -470,6 +470,68 @@ final class WorkspaceAutomationEngineTests: XCTestCase {
         XCTAssertEqual(draft.report.followUpThreadID, draft.thread.id)
         XCTAssertEqual(draft.report.title, "QuillCode workspace check ready")
         XCTAssertEqual(draft.report.body, "Scheduled check: QuillCode was created for QuillCode.")
+    }
+
+    func testMonitorDraftCreatesProjectThreadAndReport() {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        let instructions = [
+            ProjectInstruction(path: "AGENTS.md", title: "AGENTS.md", content: "Use tests.", byteCount: 10)
+        ]
+        let memories = [
+            MemoryNote(
+                id: "project:notes",
+                scope: .project,
+                title: "Notes",
+                content: "Remember release goals.",
+                relativePath: ".quillcode/memories/notes.md",
+                byteCount: 23
+            )
+        ]
+        let automation = QuillAutomation(
+            title: "Watch CI",
+            detail: "Watch pull request checks and summarize new failures.",
+            kind: .monitor,
+            scheduleKind: .event,
+            scheduleDescription: "PR check events",
+            projectID: project.id,
+            nextRunAt: now.addingTimeInterval(-10)
+        )
+
+        let draft = WorkspaceAutomationRunner.monitorDraft(
+            automation: automation,
+            project: project,
+            mode: .auto,
+            model: "trustedrouter/fast",
+            instructions: instructions,
+            memories: memories,
+            now: now
+        )
+
+        XCTAssertEqual(draft.automation.lastRunAt, now)
+        XCTAssertNil(draft.automation.nextRunAt)
+        XCTAssertEqual(draft.thread.title, "Monitor: Watch CI")
+        XCTAssertEqual(draft.thread.projectID, project.id)
+        XCTAssertEqual(draft.thread.mode, .auto)
+        XCTAssertEqual(draft.thread.model, "trustedrouter/fast")
+        XCTAssertEqual(draft.thread.messages.map(\.content), [
+            """
+            Run the monitor "Watch CI".
+            Watch condition: Watch pull request checks and summarize new failures.
+            Use the QuillCode workspace context.
+            Report what changed, whether action is needed, and the next concrete step.
+            """
+        ])
+        XCTAssertEqual(draft.thread.events.map(\.summary), [
+            "Automation ran: Watch CI",
+            "Monitor check started from PR check events"
+        ])
+        XCTAssertEqual(draft.thread.instructions, instructions)
+        XCTAssertEqual(draft.thread.memories, memories)
+        XCTAssertEqual(draft.selectedProjectID, project.id)
+        XCTAssertEqual(draft.report.automationID, automation.id)
+        XCTAssertEqual(draft.report.followUpThreadID, draft.thread.id)
+        XCTAssertEqual(draft.report.title, "QuillCode monitor check ready")
+        XCTAssertEqual(draft.report.body, "Monitor: Watch CI was created for QuillCode.")
     }
 
     private func automation(

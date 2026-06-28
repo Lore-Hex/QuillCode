@@ -7326,7 +7326,7 @@
         </div>` : `
         <div class="automation-empty" data-testid="automations-empty">
           <strong>No automations yet</strong>
-          <p>Create scheduled follow-ups, workspace checks, and monitors once the automation runtime lands.</p>
+          <p>Create scheduled follow-ups, workspace checks, and configured monitors for later runs.</p>
         </div>`;
       return `
         <section class="automations-pane" data-testid="automations-pane" aria-label="Automations">
@@ -8029,6 +8029,31 @@
       render();
     }
 
+    function createMonitorAutomation(scheduleLabel = 'Manual monitor check', options = {}) {
+      const project = selectedProject();
+      const id = `automation-${state.nextAutomationIndex++}`;
+      state.automations.configuredWorkflows = [
+        {
+          id,
+          kind: 'monitor',
+          title: options.title || 'Watch CI',
+          detail: options.detail || 'Watch CI, PRs, endpoints, or files and surface actionable changes.',
+          statusLabel: 'Active',
+          scheduleLabel,
+          isRecurring: Boolean(options.isRecurring),
+          sourceProjectID: project?.id || null,
+          runActionTitle: 'Run now',
+          runCommandID: `automation-run:${id}`,
+          primaryActionTitle: 'Pause',
+          primaryCommandID: `automation-pause:${id}`,
+          deleteCommandID: `automation-delete:${id}`
+        },
+        ...state.automations.configuredWorkflows
+      ];
+      state.automations.isVisible = true;
+      render();
+    }
+
     function updateAutomationStatus(commandID, statusLabel) {
       const id = commandID.split(':')[1];
       state.automations.configuredWorkflows = state.automations.configuredWorkflows.map(workflow => {
@@ -8047,6 +8072,60 @@
       const id = commandID.split(':')[1];
       const workflow = state.automations.configuredWorkflows.find(candidate => candidate.id === id);
       if (!workflow || workflow.statusLabel === 'Paused') return;
+      if (workflow.kind === 'monitor') {
+        const project = state.projects.items.find(candidate => candidate.id === workflow.sourceProjectID) || null;
+        const threadID = `thread-${state.nextThreadIndex++}`;
+        const title = `Monitor: ${workflow.title}`;
+        const messageLines = [
+          `Run the monitor "${workflow.title}".`,
+          `Watch condition: ${workflow.detail}`,
+          project ? `Use the ${project.name} workspace context.` : null,
+          'Report what changed, whether action is needed, and the next concrete step.'
+        ].filter(Boolean);
+        const message = {
+          id: `message-${state.nextTimelineIndex++}`,
+          role: 'user',
+          text: messageLines.join('\n')
+        };
+        if (project) {
+          state.projects.selectedProjectID = project.id;
+          state.projects.items = state.projects.items.map(item => ({
+            ...item,
+            isSelected: item.id === project.id
+          }));
+          state.terminal.cwdLabel = project.path;
+        }
+        state.sidebar.selectedThreadID = threadID;
+        state.sidebar.items = [{
+          id: threadID,
+          title,
+          subtitle: state.topBar.modelLabel,
+          searchText: message.text,
+          updatedAt: new Date().toISOString(),
+          isSelected: true,
+          isPinned: false,
+          isArchived: false
+        }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
+        state.transcript.messages = [message];
+        state.transcript.toolCards = [];
+        state.transcript.timelineItems = [{
+          id: `timeline-${state.nextTimelineIndex++}`,
+          kind: 'message',
+          message
+        }];
+        state.topBar.primaryTitle = title;
+        state.topBar.subtitle = `${project?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
+        state.automations.configuredWorkflows = state.automations.configuredWorkflows.map(candidate => (
+          candidate.id === id ? {
+            ...candidate,
+            statusLabel: workflow.isRecurring ? 'Active' : 'Ran',
+            scheduleLabel: workflow.scheduleLabel || 'Manual monitor check'
+          } : candidate
+        ));
+        state.automations.isVisible = true;
+        render();
+        return;
+      }
       if (workflow.kind === 'workspaceSchedule') {
         const project = state.projects.items.find(candidate => candidate.id === (workflow.sourceProjectID || state.projects.selectedProjectID));
         if (!project) return;
@@ -10786,6 +10865,8 @@
       event.preventDefault();
       runCommand(command.id);
     });
+
+    window.__quillCodeTestCreateMonitorAutomation = createMonitorAutomation;
 
     render();
   </script>

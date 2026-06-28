@@ -226,7 +226,6 @@ enum WorkspaceAutomationRunner {
         automations
             .filter { automation in
                 automation.status == .active
-                    && automation.kind != .monitor
                     && automation.nextRunAt.map { $0 <= now } == true
             }
             .prefix(max(0, limit))
@@ -321,6 +320,61 @@ enum WorkspaceAutomationRunner {
                 followUpThreadID: thread.id,
                 title: "QuillCode workspace check ready",
                 body: "\(thread.title) was created for \(project.name)."
+            )
+        )
+    }
+
+    static func monitorDraft(
+        automation: QuillAutomation,
+        project: ProjectRef?,
+        mode: AgentMode,
+        model: String,
+        instructions: [ProjectInstruction],
+        memories: [MemoryNote],
+        now: Date
+    ) -> WorkspaceAutomationRunDraft {
+        let projectSentence = project.map { "Use the \($0.name) workspace context." }
+        let messageLines = [
+            "Run the monitor \"\(automation.title)\".",
+            "Watch condition: \(automation.detail)",
+            projectSentence,
+            "Report what changed, whether action is needed, and the next concrete step."
+        ].compactMap(\.self)
+
+        let thread = ChatThread(
+            title: "Monitor: \(automation.title)",
+            projectID: project?.id,
+            mode: mode,
+            model: model,
+            messages: [
+                .init(role: .user, content: messageLines.joined(separator: "\n"))
+            ],
+            events: [
+                .init(
+                    kind: .notice,
+                    summary: "Automation ran: \(automation.title)",
+                    payloadJSON: automation.id.uuidString
+                ),
+                .init(
+                    kind: .notice,
+                    summary: "Monitor check started from \(automation.scheduleDescription.isEmpty ? automation.scheduleKind.label : automation.scheduleDescription)",
+                    payloadJSON: automation.kind.rawValue
+                )
+            ],
+            instructions: instructions,
+            memories: memories
+        )
+        return WorkspaceAutomationRunDraft(
+            automation: updatedAfterRun(automation, now: now),
+            thread: thread,
+            selectedProjectID: project?.id,
+            report: AutomationRunReport(
+                automationID: automation.id,
+                followUpThreadID: thread.id,
+                title: "QuillCode monitor check ready",
+                body: project.map {
+                    "\(thread.title) was created for \($0.name)."
+                } ?? "\(thread.title) was created."
             )
         )
     }
