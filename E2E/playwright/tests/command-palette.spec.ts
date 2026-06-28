@@ -267,16 +267,23 @@ test('mock harness covers the full pull request command family from the command 
   await firstLineCommentForm.getByTestId('review-line-comment-input').fill('Cover this new line.');
   await firstLineCommentForm.getByRole('button', { name: 'Add' }).click();
   await expect(page.getByTestId('review-line-comment')).toContainText('Cover this new line.');
+  const secondLineCommentForm = page.getByTestId('review-line-comment-form').nth(1);
+  await secondLineCommentForm.getByTestId('review-line-comment-input').fill('Skip this draft note.');
+  await secondLineCommentForm.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByTestId('review-line-comment').nth(1)).toContainText('Skip this draft note.');
 
   await clickSidebarTool(page, 'command-palette-button');
   await clickCommandPaletteCommand(page, '>approve pr', 'git-pr-review');
   await expect(page.getByTestId('command-palette-panel')).toHaveCount(0);
   await expect(page.getByTestId('review-pane')).toBeVisible();
   await expect(page.getByTestId('pr-review-draft')).toBeVisible();
-  await expect(page.getByTestId('review-summary')).toHaveText('Submit approve review with 1 inline note');
+  await expect(page.getByTestId('review-summary')).toHaveText('Submit approve review with 2 inline notes');
   await expect(page.getByTestId('pr-review-draft-include-inline-comments')).toBeChecked();
-  await expect(page.getByTestId('pr-review-draft-inline-comment')).toContainText('Sources/App.swift:1');
-  await expect(page.getByTestId('pr-review-draft-inline-comment')).toContainText('Cover this new line.');
+  await expect(page.getByTestId('pr-review-draft-inline-comment')).toHaveCount(2);
+  await expect(page.getByTestId('pr-review-draft-inline-comment').first()).toContainText('Sources/App.swift:1');
+  await expect(page.getByTestId('pr-review-draft-inline-comment').first()).toContainText('Cover this new line.');
+  await page.getByTestId('pr-review-draft-inline-comment-toggle').nth(1).click();
+  await expect(page.getByTestId('review-summary')).toHaveText('Submit approve review with 1 of 2 inline notes');
   await page.getByTestId('pr-review-draft-action').selectOption('request_changes');
   await page.getByTestId('pr-review-draft-selector').fill('123');
   await expect(page.getByTestId('pr-review-draft-submit')).toBeDisabled();
@@ -287,6 +294,7 @@ test('mock harness covers the full pull request command family from the command 
   const inlineReviewCommentCard = page.getByTestId('tool-card').filter({ hasText: 'host.git.pr.review_comment' }).last();
   await expect(inlineReviewCommentCard).toContainText('"path": "Sources/App.swift"');
   await expect(inlineReviewCommentCard).toContainText('"body": "Cover this new line."');
+  await expect(page.getByTestId('tool-card').filter({ hasText: 'host.git.pr.review_comment' })).toHaveCount(1);
   await expect(page.getByTestId('tool-card').last()).toContainText('"action": "request_changes"');
   await expect(page.getByTestId('tool-card').last()).toContainText('"selector": "123"');
   await expect(page.getByTestId('message').last()).toContainText('Pull request review submitted: request changes with 1 inline note.');

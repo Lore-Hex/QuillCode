@@ -172,9 +172,9 @@ private struct QuillCodePullRequestReviewDraftView: View {
             if draft.inlineCommentCount > 0 {
                 Toggle(isOn: includeInlineCommentsBinding) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Include \(draft.inlineCommentCount) inline review note\(draft.inlineCommentCount == 1 ? "" : "s")")
+                        Text(inlineCommentToggleTitle)
                             .font(.caption.weight(.semibold))
-                        Text("Posts saved line notes before the final review.")
+                        Text("Review the pending line notes before submitting.")
                             .font(.caption2)
                             .foregroundStyle(QuillCodePalette.muted)
                     }
@@ -183,23 +183,14 @@ private struct QuillCodePullRequestReviewDraftView: View {
                 .quillCodeSwitchRowTarget()
                 .accessibilityLabel("Include inline review notes")
 
-                VStack(alignment: .leading, spacing: 5) {
-                    ForEach(draft.inlineComments.prefix(3)) { comment in
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(comment.locationLabel)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(QuillCodePalette.blue)
-                                .lineLimit(1)
-                            Text(comment.body)
-                                .font(.caption)
-                                .foregroundStyle(QuillCodePalette.muted)
-                                .lineLimit(1)
-                        }
-                    }
-                    if draft.inlineCommentCount > 3 {
-                        Text("+\(draft.inlineCommentCount - 3) more")
-                            .font(.caption2)
-                            .foregroundStyle(QuillCodePalette.muted)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Pending inline notes")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .textCase(.uppercase)
+
+                    ForEach(draft.inlineComments) { comment in
+                        inlineCommentRow(comment)
                     }
                 }
                 .padding(.horizontal, 10)
@@ -241,6 +232,49 @@ private struct QuillCodePullRequestReviewDraftView: View {
         }
     }
 
+    private var inlineCommentToggleTitle: String {
+        let selectedCount = draft.selectedInlineCommentCount
+        if selectedCount == draft.inlineCommentCount {
+            return "Include \(draft.inlineCommentCount) inline review note\(draft.inlineCommentCount == 1 ? "" : "s")"
+        }
+        return "Include \(selectedCount) of \(draft.inlineCommentCount) inline review notes"
+    }
+
+    private func inlineCommentRow(
+        _ comment: WorkspacePullRequestReviewDraftCommentSurface
+    ) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(comment.locationLabel)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(QuillCodePalette.blue)
+                    .lineLimit(1)
+                Text(comment.body)
+                    .font(.caption)
+                    .foregroundStyle(QuillCodePalette.muted)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 8)
+            Button(comment.isIncluded ? "Included" : "Skipped") {
+                updateInlineComment(id: comment.id, isIncluded: !comment.isIncluded)
+            }
+            .font(.caption.weight(.semibold))
+            .quillCodeTextButtonTarget(minWidth: 82, alignment: .center)
+            .foregroundStyle(comment.isIncluded ? QuillCodePalette.green : QuillCodePalette.muted)
+            .background((comment.isIncluded ? QuillCodePalette.green : QuillCodePalette.selection).opacity(0.14))
+            .clipShape(Capsule())
+            .buttonStyle(QuillCodePressableButtonStyle())
+            .disabled(!draft.includeInlineComments)
+            .opacity(draft.includeInlineComments ? 1 : 0.48)
+            .accessibilityLabel("\(comment.isIncluded ? "Skip" : "Include") inline note at \(comment.locationLabel)")
+        }
+        .padding(.leading, 10)
+        .padding(.trailing, 8)
+        .padding(.vertical, 6)
+        .background(QuillCodePalette.selection.opacity(0.25))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
     private func update(
         action: WorkspacePullRequestReviewActionKind? = nil,
         selector: String? = nil,
@@ -260,6 +294,12 @@ private struct QuillCodePullRequestReviewDraftView: View {
         if let includeInlineComments {
             next.includeInlineComments = includeInlineComments
         }
+        onChange(next)
+    }
+
+    private func updateInlineComment(id: UUID, isIncluded: Bool) {
+        var next = draft
+        next.setInlineComment(id: id, isIncluded: isIncluded)
         onChange(next)
     }
 }

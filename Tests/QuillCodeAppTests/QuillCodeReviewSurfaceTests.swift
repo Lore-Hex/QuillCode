@@ -171,6 +171,50 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
         XCTAssertEqual(comments.map(\.locationLabel), ["Sources/App.swift:42", "Sources/App.swift:50-52"])
         XCTAssertEqual(comments.map(\.side), ["RIGHT", "LEFT"])
         XCTAssertEqual(comments.map(\.body), ["Cover this new branch.", "This deletion needs explanation."])
+        XCTAssertEqual(comments.map(\.isIncluded), [true, true])
+    }
+
+    func testPullRequestReviewDraftTracksSelectedInlineComments() throws {
+        let skippedID = UUID()
+        var draft = WorkspacePullRequestReviewDraftSurface(inlineComments: [
+            WorkspacePullRequestReviewDraftCommentSurface(
+                path: "Sources/App.swift",
+                line: 42,
+                body: "Keep this note."
+            ),
+            WorkspacePullRequestReviewDraftCommentSurface(
+                id: skippedID,
+                path: "Sources/App.swift",
+                line: 50,
+                body: "Skip this note."
+            )
+        ])
+
+        draft.setInlineComment(id: skippedID, isIncluded: false)
+
+        XCTAssertEqual(draft.inlineCommentCount, 2)
+        XCTAssertEqual(draft.selectedInlineCommentCount, 1)
+        XCTAssertEqual(draft.selectedInlineComments.map(\.body), ["Keep this note."])
+        XCTAssertEqual(draft.subtitle, "Submit approve review with 1 of 2 inline notes")
+
+        draft.includeInlineComments = false
+        XCTAssertTrue(draft.selectedInlineComments.isEmpty)
+        XCTAssertEqual(draft.subtitle, "Submit approve review without inline notes")
+
+        let encodedLegacyComment = """
+        {
+          "id": "\(skippedID.uuidString)",
+          "path": "Sources/App.swift",
+          "line": 50,
+          "side": "RIGHT",
+          "body": "Legacy draft note."
+        }
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(
+            WorkspacePullRequestReviewDraftCommentSurface.self,
+            from: encodedLegacyComment
+        )
+        XCTAssertTrue(decoded.isIncluded)
     }
 
     func testReviewFileAndHunkSurfacesExposeLabelsAndActions() {

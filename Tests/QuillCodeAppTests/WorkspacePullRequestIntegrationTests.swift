@@ -169,6 +169,14 @@ final class WorkspacePullRequestIntegrationTests: XCTestCase {
         XCTAssertTrue(fixture.model.runWorkspaceCommand("git-pr-review", workspaceRoot: fixture.localRoot))
         var draft = try XCTUnwrap(fixture.model.pullRequestReviewDraft)
         XCTAssertEqual(draft.inlineCommentCount, 1)
+        draft.inlineComments.append(WorkspacePullRequestReviewDraftCommentSurface(
+            path: "Sources/App.swift",
+            line: 2,
+            body: "Do not post this skipped note.",
+            isIncluded: false
+        ))
+        XCTAssertEqual(draft.inlineCommentCount, 2)
+        XCTAssertEqual(draft.selectedInlineCommentCount, 1)
         draft.action = .requestChanges
         draft.selector = "456"
         draft.body = "Please address the inline note."
