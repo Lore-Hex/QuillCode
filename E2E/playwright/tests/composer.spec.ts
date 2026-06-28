@@ -24,6 +24,21 @@ test('mock harness composer supports multiline editing and Enter-to-send', async
   await expect(page.getByTestId('message').first()).toContainText('second line');
 });
 
+test('mock harness shows sent message and thinking state before async work completes', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('slow task');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByLabel('Message')).toBeDisabled();
+  await expect(page.getByTestId('message').first()).toContainText('slow task');
+  await expect(page.getByTestId('thinking-indicator')).toBeVisible();
+  await expect(page.getByTestId('thinking-title')).toHaveText('Thinking');
+  await expect(page.getByTestId('thinking-subtitle')).toContainText(/Preparing the next step|host\.shell\.run/);
+  await expect(page.getByTestId('agent-status')).toHaveText('Running');
+  await expect(page.getByText('Long-running task completed.')).toHaveCount(0);
+});
+
 test('mock harness stops an active composer run from the composer', async ({ page }) => {
   await page.goto(harnessURL());
 
