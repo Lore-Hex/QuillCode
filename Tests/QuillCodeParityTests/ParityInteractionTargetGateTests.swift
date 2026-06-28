@@ -377,12 +377,11 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Native controls should use the same 44 pt target baseline as the rendered harness."
         )
         XCTAssertTrue(
-            designText.contains("enum Kind")
-                && designText.contains("var kind: Kind")
+            designText.contains("var kind: QuillCodeNativeHitTargetKind")
                 && designText.contains("var action: String")
                 && designText.contains("var allowsNestedInteractiveChildren: Bool")
                 && designText.contains("var requiresUnblockedInterior: Bool"),
-            "Native hit-target specs should carry explicit semantic intent and behavior flags so controls cannot pass with only generic geometry."
+            "Native hit-target specs should reuse the audited native semantic vocabulary so controls cannot pass with only generic geometry or a parallel enum."
         )
         XCTAssertTrue(
             designText.contains(".frame(\n            minWidth: spec.minWidth")
