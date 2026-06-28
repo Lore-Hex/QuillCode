@@ -12,8 +12,20 @@ public struct TerminalSurface: Codable, Sendable, Hashable {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isRunning
     }
 
+    public var canSubmitDraft: Bool {
+        isRunning ? !draft.isEmpty : canRun
+    }
+
     public var canClear: Bool {
         !entries.isEmpty && !isRunning
+    }
+
+    public var commandPlaceholder: String {
+        isRunning ? "Send input" : "Run command"
+    }
+
+    public var commandActionTitle: String {
+        isRunning ? "Send" : "Run"
     }
 
     public init(

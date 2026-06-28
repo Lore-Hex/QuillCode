@@ -6670,8 +6670,7 @@
       });
       document.querySelector('[data-testid="terminal-input"]')?.addEventListener('input', event => {
         setTerminalDraft(event.target.value);
-        document.querySelector('[data-testid="terminal-run"]').disabled =
-          !state.terminal.draft.trim() || state.terminal.isRunning;
+        document.querySelector('[data-testid="terminal-run"]').disabled = !terminalCanSubmitDraft();
       });
       document.querySelector('[data-testid="terminal-input"]')?.addEventListener('keydown', event => {
         if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
@@ -7776,6 +7775,20 @@
       return `<div class="activity-item-actions">${buttons}</div>`;
     }
 
+    function terminalCanSubmitDraft() {
+      return state.terminal.isRunning
+        ? Boolean(state.terminal.draft)
+        : Boolean(state.terminal.draft.trim());
+    }
+
+    function terminalCommandPlaceholder() {
+      return state.terminal.isRunning ? 'Send input' : 'Run command';
+    }
+
+    function terminalCommandActionTitle() {
+      return state.terminal.isRunning ? 'Send' : 'Run';
+    }
+
     function renderTerminalPane() {
       const entries = state.terminal.entries.length ? state.terminal.entries.map(entry => `
         <article class="terminal-entry" data-testid="terminal-entry"${entry.executionContext ? ` data-execution-context="${escapeHTML(entry.executionContext.kind)}"` : ''}>
@@ -7802,8 +7815,8 @@
           <div class="terminal-history" data-testid="terminal-history">${entries}</div>
           <form class="terminal-form" data-testid="terminal-form">
             <code>$</code>
-            <input class="hit-target-text-entry" data-testid="terminal-input" aria-label="Terminal command" placeholder="Run command" value="${escapeHTML(state.terminal.draft)}" ${state.terminal.isRunning ? 'disabled' : ''}>
-            <button class="hit-target-text" type="submit" data-testid="terminal-run" ${state.terminal.draft.trim() && !state.terminal.isRunning ? '' : 'disabled'}>Run</button>
+            <input class="hit-target-text-entry" data-testid="terminal-input" aria-label="Terminal command" placeholder="${terminalCommandPlaceholder()}" value="${escapeHTML(state.terminal.draft)}">
+            <button class="hit-target-text" type="submit" data-testid="terminal-run" ${terminalCanSubmitDraft() ? '' : 'disabled'}>${terminalCommandActionTitle()}</button>
           </form>
         </section>`;
 	    }
@@ -9048,8 +9061,10 @@
         window.clearTimeout(activeMockRun.timer);
         activeMockRun = null;
       }
-      if (activeTerminalRun?.timer) {
-        window.clearTimeout(activeTerminalRun.timer);
+      if (activeTerminalRun) {
+        if (activeTerminalRun.timer) {
+          window.clearTimeout(activeTerminalRun.timer);
+        }
         activeTerminalRun = null;
       }
       state.composer.isSending = false;
@@ -9847,8 +9862,12 @@
     }
 
     function runTerminalCommand() {
+      if (state.terminal.isRunning) {
+        sendTerminalInput();
+        return;
+      }
       const command = state.terminal.draft.trim();
-      if (!command || state.terminal.isRunning) return;
+      if (!command) return;
       state.terminal.draft = '';
       state.terminal.historyCursor = null;
       state.terminal.historyDraft = null;
@@ -9867,6 +9886,13 @@
       state.terminal.entries.push(entry);
       updateDynamicCommands();
       render();
+
+      if (terminalWaitsForInput(command)) {
+        entry.stdout += 'input? ';
+        activeTerminalRun = { entry, timer: null, kind: 'stdin' };
+        render();
+        return;
+      }
 
       const streamingOutput = terminalStreamingOutput(command);
       if (streamingOutput) {
@@ -9899,6 +9925,31 @@
         render();
       }, completionDelay);
       activeTerminalRun = { entry, timer };
+    }
+
+    function sendTerminalInput() {
+      const input = state.terminal.draft;
+      if (!input || !activeTerminalRun?.entry || terminalStatus(activeTerminalRun.entry) !== 'running') return;
+      state.terminal.draft = '';
+      state.terminal.historyCursor = null;
+      state.terminal.historyDraft = null;
+
+      if (activeTerminalRun.kind === 'stdin') {
+        const entry = activeTerminalRun.entry;
+        entry.stdout += `hello:${input.trim()}\n`;
+        entry.stderr = '';
+        entry.exitCode = 0;
+        entry.ok = true;
+        entry.status = 'done';
+        state.terminal.isRunning = false;
+        activeTerminalRun = null;
+        updateDynamicCommands();
+        render();
+        return;
+      }
+
+      activeTerminalRun.entry.stdin = `${activeTerminalRun.entry.stdin || ''}${input}\n`;
+      render();
     }
 
     function setTerminalDraft(value) {
@@ -10114,6 +10165,10 @@
         return 'stream-start\n';
       }
       return '';
+    }
+
+    function terminalWaitsForInput(command) {
+      return command === 'read-demo' || /\bread\s+[A-Za-z_][A-Za-z0-9_]*/.test(command);
     }
 
     function normalizeBrowserURL(raw) {

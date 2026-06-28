@@ -68,7 +68,7 @@ struct QuillCodeTerminalPaneView: View {
             Text("$")
                 .font(.body.monospaced())
                 .foregroundStyle(QuillCodePalette.muted)
-            TextField("Run command", text: $draft)
+            TextField(terminal.commandPlaceholder, text: $draft)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(onRun)
                 .onKeyPress(.upArrow) {
@@ -82,11 +82,14 @@ struct QuillCodeTerminalPaneView: View {
                     return .handled
                 }
                 .quillCodeTextEntryTarget()
-                .disabled(terminal.isRunning)
-            Button("Run", action: onRun)
+            Button(terminal.commandActionTitle, action: onRun)
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .quillCodeTextButtonTarget(minWidth: 64)
-                .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || terminal.isRunning)
+                .disabled(!canSubmitDraft)
         }
+    }
+
+    private var canSubmitDraft: Bool {
+        terminal.isRunning ? !draft.isEmpty : !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }

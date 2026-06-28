@@ -28,6 +28,7 @@ public final class QuillCodeWorkspaceModel {
     var computerUseBackend: (any ComputerUseBackend)?
     let sshRemoteShellExecutor: SSHRemoteShellExecutor
     let mcpRuntime: WorkspaceMCPRuntime
+    var activeTerminalSession: ShellStreamingSession?
 
     public init(
         root: QuillCodeRootState = QuillCodeRootState(),
@@ -76,6 +77,7 @@ public final class QuillCodeWorkspaceModel {
     }
 
     deinit {
+        activeTerminalSession?.cancel()
         mcpRuntime.terminateAllRunningProcesses()
     }
 

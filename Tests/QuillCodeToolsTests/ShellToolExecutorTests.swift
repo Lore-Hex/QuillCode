@@ -80,6 +80,37 @@ final class ShellToolExecutorTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("stream-end"))
     }
 
+    func testStreamingSessionSendsInputToRunningProcess() async throws {
+        let session = ShellToolExecutor().startStreamingSession(.init(
+            command: "printf 'input? '; IFS= read name; printf 'hello:%s\\n' \"$name\"",
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory()),
+            timeoutSeconds: 5
+        ))
+        var stdout = ""
+        var didSendInput = false
+        var finishedResult: ToolResult?
+
+        for await event in session.events {
+            switch event {
+            case .stdout(let text):
+                stdout += text
+                if stdout.contains("input? "), !didSendInput {
+                    XCTAssertTrue(session.sendInput("quill\n"))
+                    didSendInput = true
+                }
+            case .stderr:
+                continue
+            case .finished(let result):
+                finishedResult = result
+            }
+        }
+
+        let result = try XCTUnwrap(finishedResult)
+        XCTAssertTrue(didSendInput)
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(result.stdout, "input? hello:quill\n")
+    }
+
     func testStreamingShellRejectsEmptyCommand() async throws {
         let stream = ShellToolExecutor().runStreaming(.init(
             command: "   ",

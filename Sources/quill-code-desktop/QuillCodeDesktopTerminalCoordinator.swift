@@ -10,8 +10,16 @@ struct QuillCodeDesktopTerminalCoordinator {
         tasks: QuillCodeDesktopTaskCoordinator,
         refresh: @escaping @MainActor () -> Void
     ) {
+        if tasks.isRunning(.terminal) {
+            let input = draft
+            guard !input.isEmpty, model.sendTerminalInput(input) else { return }
+            draft = ""
+            refresh()
+            return
+        }
+
         let command = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !command.isEmpty, !tasks.isRunning(.terminal) else { return }
+        guard !command.isEmpty else { return }
 
         draft = ""
         refresh()
