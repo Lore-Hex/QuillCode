@@ -47,10 +47,25 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Explicit critical-control probes should test the clickable interior, not only raw bounding-box dimensions."
         )
         XCTAssertTrue(
+            auditHelperText.contains("targetSampleFractions = [0.2, 0.5, 0.8]")
+                && auditHelperText.contains("targetInteriorSamplePoints"),
+            "Click-target probes should sample a 3x3 interior grid so edge-blocked controls cannot pass with only the center clickable."
+        )
+        XCTAssertTrue(
+            auditHelperText.contains("pointer_events_none")
+                && auditHelperText.contains("isSemanticallyDisabled"),
+            "Visible interactive controls with pointer-events disabled should fail unless they are semantically disabled."
+        )
+        XCTAssertTrue(
             auditHelperText.contains("closestInteractiveAncestor")
                 && auditHelperText.contains("nestedIssues")
                 && auditHelperText.contains("expectNoNestedInteractiveTargets"),
             "The rendered click-target audit should fail nested interactive controls, not only undersized controls."
+        )
+        XCTAssertTrue(
+            auditHelperText.contains("dialog[open]")
+                && auditHelperText.contains(#"[role="dialog"]"#),
+            "The active-layer audit should cover generic dialogs in addition to QuillCode-specific popovers and panels."
         )
     }
 
