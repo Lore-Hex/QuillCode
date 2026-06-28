@@ -71,7 +71,13 @@ enum WorkspaceHTMLTopBarRenderer {
         <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
           \(renderActiveStopButton(commands: commands))
           <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
-            <summary data-testid="top-bar-overflow-button" aria-label="More" title="More">...</summary>
+            \(WorkspaceHTMLPrimitives.summary(
+                "...",
+                testID: "top-bar-overflow-button",
+                classes: [WorkspaceHTMLPrimitives.iconHitTargetClass],
+                ariaLabel: "More",
+                title: "More"
+            ))
             <div class="topbar-overflow-popover">
               \(renderOverflow(commands: commands, showsComputerUseSetup: topBar.showsComputerUseSetup))
             </div>

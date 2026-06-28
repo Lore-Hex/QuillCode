@@ -78,6 +78,68 @@ enum WorkspaceHTMLPrimitives {
         var parts = [
             #"type="\#(escape(type))""#
         ]
+        parts += elementAttributeParts(
+            testID: testID,
+            classes: classes,
+            ariaLabel: ariaLabel,
+            title: title,
+            role: role,
+            attributes: attributes
+        )
+        if disabled {
+            parts.append("disabled")
+            parts.append(#"aria-disabled="true""#)
+        }
+        return " " + parts.joined(separator: " ")
+    }
+
+    static func summary(
+        _ label: String,
+        testID: String? = nil,
+        classes: [String] = [rowHitTargetClass],
+        ariaLabel: String? = nil,
+        title: String? = nil,
+        attributes: [(String, String?)] = []
+    ) -> String {
+        """
+        <summary\(elementAttributes(
+            testID: testID,
+            classes: classes,
+            ariaLabel: ariaLabel,
+            title: title,
+            attributes: attributes
+        ))>\(escape(label))</summary>
+        """
+    }
+
+    private static func elementAttributes(
+        testID: String?,
+        classes: [String] = [],
+        ariaLabel: String? = nil,
+        title: String? = nil,
+        role: String? = nil,
+        attributes: [(String, String?)] = []
+    ) -> String {
+        let parts = elementAttributeParts(
+            testID: testID,
+            classes: classes,
+            ariaLabel: ariaLabel,
+            title: title,
+            role: role,
+            attributes: attributes
+        )
+        return parts.isEmpty ? "" : " " + parts.joined(separator: " ")
+    }
+
+    private static func elementAttributeParts(
+        testID: String?,
+        classes: [String],
+        ariaLabel: String?,
+        title: String?,
+        role: String? = nil,
+        attributes: [(String, String?)]
+    ) -> [String] {
+        var parts: [String] = []
         let classAttribute = classesWithDefaultHitTarget(classes)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -85,7 +147,9 @@ enum WorkspaceHTMLPrimitives {
         if !classAttribute.isEmpty {
             parts.append(#"class="\#(escape(classAttribute))""#)
         }
-        parts.append(#"data-testid="\#(escape(testID))""#)
+        if let testID, !testID.isEmpty {
+            parts.append(#"data-testid="\#(escape(testID))""#)
+        }
         if let ariaLabel, !ariaLabel.isEmpty {
             parts.append(#"aria-label="\#(escape(ariaLabel))""#)
         }
@@ -104,11 +168,7 @@ enum WorkspaceHTMLPrimitives {
                 parts.append(escape(trimmedName))
             }
         }
-        if disabled {
-            parts.append("disabled")
-            parts.append(#"aria-disabled="true""#)
-        }
-        return " " + parts.joined(separator: " ")
+        return parts
     }
 
     private static func classesWithDefaultHitTarget(_ classes: [String]) -> [String] {

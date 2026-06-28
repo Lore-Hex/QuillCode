@@ -507,3 +507,22 @@ export async function expectHitTarget(locator: Locator, label: string) {
   }, MINIMUM_HIT_TARGET);
   expect(clickableInteriorIssues, `${label} should have a named, unblocked clickable interior`).toEqual([]);
 }
+
+export async function clickTargetInteriorPoint(
+  locator: Locator,
+  label: string,
+  xFraction: number,
+  yFraction: number
+) {
+  const target = locator.first();
+  await expectHitTarget(target, label);
+  const box = await target.boundingBox();
+  if (!box) throw new Error(`${label} should have layout bounds`);
+  const clamp = (value: number, max: number) => Math.max(1, Math.min(max - 1, value));
+  await target.click({
+    position: {
+      x: clamp(box.width * xFraction, box.width),
+      y: clamp(box.height * yFraction, box.height)
+    }
+  });
+}

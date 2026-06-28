@@ -10,6 +10,7 @@ import {
   expectAllVisibleInteractiveTargets,
   expectHitTarget,
   interactionAuditReport,
+  clickTargetInteriorPoint,
   expectNoNestedInteractiveTargets,
   expectNoOverlappingInteractiveTargets
 } from './interaction-audit-helpers';
@@ -228,6 +229,31 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
   expect(issueFor('bad-pointer-target')?.reason).toContain('pointer_events_none');
   expect(issueFor('edge-blocked-target')?.reason).toContain('interior_click_area_blocked');
   expect(issueFor('disabled-pointer-target')).toBeUndefined();
+});
+
+test('critical controls respond from the full interior click target, not only the center', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await clickTargetInteriorPoint(page.getByTestId('top-bar-overflow-button'), 'top-bar overflow leading interior', 0.2, 0.5);
+  await expect(page.getByTestId('top-bar-overflow-menu')).toHaveAttribute('open', '');
+  await clickTargetInteriorPoint(page.getByTestId('top-bar-overflow-button'), 'top-bar overflow trailing interior', 0.8, 0.5);
+  await expect(page.getByTestId('top-bar-overflow-menu')).not.toHaveAttribute('open', '');
+
+  await clickTargetInteriorPoint(page.getByTestId('model-picker-button'), 'model picker leading interior', 0.2, 0.5);
+  await expect(page.getByTestId('model-browser')).toBeVisible();
+  await clickTargetInteriorPoint(page.getByTestId('model-picker-button'), 'model picker trailing interior', 0.8, 0.5);
+  await expect(page.getByTestId('model-browser')).not.toBeVisible();
+
+  await clickTargetInteriorPoint(page.getByTestId('sidebar-tools-button'), 'sidebar tools leading interior', 0.2, 0.5);
+  await expect(page.getByTestId('sidebar-tools-menu')).toHaveAttribute('open', '');
+  await clickTargetInteriorPoint(page.getByTestId('browser-button'), 'browser tool row trailing interior', 0.85, 0.5);
+  await expect(page.getByTestId('browser-pane')).toBeVisible();
+
+  await page.getByLabel('Message').fill('run whoami');
+  await clickTargetInteriorPoint(page.getByRole('button', { name: 'Send' }), 'composer send button leading interior', 0.2, 0.5);
+  await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
+  await clickTargetInteriorPoint(page.getByTestId('tool-card-details').last().locator('summary'), 'tool details disclosure leading interior', 0.2, 0.5);
+  await expect(page.getByTestId('tool-card-details').last()).toHaveAttribute('open', '');
 });
 
 test('mock harness keeps banner and recovery actions at least 44px', async ({ page }) => {
