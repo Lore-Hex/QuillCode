@@ -8815,3 +8815,20 @@ Code quality changes:
 Remaining risk:
 
 - This establishes scheduler-level cancellation semantics. The next parity step is wiring Stop All or worker timeouts into active model-backed subagent sessions once those sessions exist.
+
+## 2026-06-28 Subagent Slash Cancellation Wiring Pass
+
+Overall grade after this slice: **A slash cancellation lifecycle, A stopped-state preservation, B+ model-backed worker parity**.
+
+After scheduler cancellation became a first-class status, the slash-command path still had a stale completion edge: a cancelled `/subagents` send could finish the scheduler, append a normal final summary, and flip the top bar back to Idle.
+
+Code quality changes:
+
+- Added an injectable `subagentScheduler` on `QuillCodeWorkspaceModel` so cancellation behavior can be tested through the real composer/slash path.
+- Stopped `/subagents` runs now keep cancelled progress but skip the final assistant summary when the surrounding send task is cancelled.
+- Slash-command completion now preserves `Stopped` top-bar state when the task was cancelled instead of blindly reporting `Idle`.
+- Added composer integration and parity coverage for the stopped-state/no-fake-summary behavior.
+
+Remaining risk:
+
+- This covers deterministic slash-command subagent workers. Full Codex parity still needs model-backed subagent sessions with per-worker transcript drilldown and richer dependency controls.

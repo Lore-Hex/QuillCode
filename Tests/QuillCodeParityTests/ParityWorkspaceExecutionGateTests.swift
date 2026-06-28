@@ -664,20 +664,27 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
     func testSubagentExecutionIsRealSchedulerNotDisplayOnly() throws {
         let schedulerText = try Self.appSourceText(named: "WorkspaceSubagentScheduler.swift")
         let runnerText = try Self.appSourceText(named: "WorkspaceSubagentSlashCommandRunner.swift")
+        let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
+        let composerText = try Self.appSourceText(named: "WorkspaceModelComposer.swift")
         let slashParserText = try Self.appSourceText(named: "WorkspaceSubagentRunRequest.swift")
         let actionExecutorText = try Self.appSourceText(named: "WorkspaceSlashCommandActionExecutor.swift")
         let schedulerTests = try Self.appTestSourceText(named: "WorkspaceSubagentSchedulerTests.swift")
+        let composerTests = try Self.appTestSourceText(named: "WorkspaceComposerIntegrationTests.swift")
         let integrationTests = try Self.appTestSourceText(named: "WorkspaceSlashCommandIntegrationTests.swift")
 
         XCTAssertTrue(schedulerText.contains("withTaskGroup"), "Subagent execution should fan out real workers concurrently.")
         XCTAssertTrue(schedulerText.contains("ProgressSink"), "Subagent execution should publish progress while work runs.")
         XCTAssertTrue(schedulerText.contains("catch is CancellationError"), "Subagent cancellation should publish cancelled progress instead of failed progress.")
+        XCTAssertTrue(modelText.contains("var subagentScheduler = WorkspaceSubagentScheduler()"), "Workspace model should own an injectable subagent scheduler for cancellation and worker tests.")
+        XCTAssertTrue(runnerText.contains("guard !Task.isCancelled"), "Subagent slash runs should not append a final success summary after Stop All cancellation.")
+        XCTAssertTrue(composerText.contains("Task.isCancelled"), "Slash-command completion should preserve stopped top-bar state when its task was cancelled.")
         XCTAssertTrue(runnerText.contains("SubagentProgressToolExecutor.execute"), "Subagent runtime progress should reuse the existing tool/event contract.")
         XCTAssertTrue(runnerText.contains("WorkspaceToolEventRecorder.append"), "Subagent progress should be replayable from thread tool events.")
         XCTAssertTrue(slashParserText.contains("enum SlashSubagentCommandParser"), "Subagent slash parsing should live in a focused parser.")
         XCTAssertTrue(actionExecutorText.contains("case .subagents(let request, let userText):"), "Slash dispatch should have a typed subagent execution branch.")
         XCTAssertTrue(schedulerTests.contains("testSchedulerRunsWorkersConcurrentlyAndPublishesProgress"), "Scheduler concurrency needs focused test coverage.")
         XCTAssertTrue(schedulerTests.contains("testSchedulerMarksCancelledWorkersWithoutTreatingThemAsFailures"), "Scheduler cancellation needs focused test coverage.")
+        XCTAssertTrue(composerTests.contains("testCancellingSubagentSlashCommandPublishesCancelledProgressWithoutFinalSummary"), "Composer cancellation coverage should prove slash subagents stop without fake success summaries.")
         XCTAssertTrue(integrationTests.contains("testSlashSubagentsRunsSchedulerAndRecordsActivityProgress"), "Slash subagent execution needs workspace integration coverage.")
     }
 

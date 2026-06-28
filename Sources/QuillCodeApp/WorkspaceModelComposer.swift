@@ -167,7 +167,10 @@ extension QuillCodeWorkspaceModel {
         )
         await runSlashCommandDispatchAction(action, workspaceRoot: workspaceRoot)
         composer.isSending = false
-        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        refreshTopBar(agentStatus: Task.isCancelled
+            ? TopBarAgentStatusLabel.stopped
+            : TopBarAgentStatusLabel.idle
+        )
     }
 
     func runThreadFollowUpSlashCommand(_ scheduleText: String, originalPrompt: String) {
