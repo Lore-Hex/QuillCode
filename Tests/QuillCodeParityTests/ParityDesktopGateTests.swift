@@ -202,7 +202,7 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(settingsCoordinatorText.contains("model.applyRuntime"), "Desktop settings coordinator should rebuild runtime after settings saves.")
         XCTAssertTrue(controllerText.contains("computerUseCoordinator.openSystemSettings"), "Computer Use system settings routing should use the capability coordinator.")
         XCTAssertTrue(controllerText.contains("computerUseCoordinator.refreshStatus"), "Computer Use status refresh should use the capability coordinator.")
-        XCTAssertTrue(computerUseCoordinatorText.contains("MacComputerUseBackend"), "Computer Use coordinator should own the macOS backend.")
+        XCTAssertTrue(computerUseCoordinatorText.contains("ComputerUseBackendFactory.platformDefault"), "Computer Use coordinator should get platform backends from the shared kit factory.")
         XCTAssertTrue(computerUseCoordinatorText.contains("model.setComputerUseBackend"), "Computer Use coordinator should install the backend into the workspace model.")
         XCTAssertTrue(computerUseCoordinatorText.contains("model.setComputerUseStatus"), "Computer Use coordinator should refresh status from the backend.")
         XCTAssertTrue(computerUseCoordinatorText.contains("systemSettingsOpener.open"), "Computer Use coordinator should route System Settings opens through the platform opener.")
@@ -224,6 +224,7 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(controllerText.contains("x-apple.systempreferences"), "Desktop controller should not own macOS System Settings URLs.")
         XCTAssertFalse(controllerText.contains("Privacy_ScreenCapture"), "Desktop controller should not own Screen Recording pane URLs.")
         XCTAssertFalse(controllerText.contains("Privacy_Accessibility"), "Desktop controller should not own Accessibility pane URLs.")
+        XCTAssertFalse(computerUseCoordinatorText.contains("MacComputerUseBackend"), "Desktop Computer Use coordinator should not directly choose the macOS backend.")
     }
 
     func testDesktopControllerDelegatesTranscriptCopyFeedback() throws {

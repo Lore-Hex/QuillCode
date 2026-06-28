@@ -15,7 +15,7 @@ struct QuillCodeDesktopComputerUseCoordinator {
     private let systemSettingsOpener: any QuillCodeDesktopComputerUseSettingsOpening
 
     init(
-        backend: any ComputerUseBackend = MacComputerUseBackend(),
+        backend: any ComputerUseBackend = ComputerUseBackendFactory.platformDefault().backend(),
         systemSettingsOpener: any QuillCodeDesktopComputerUseSettingsOpening = MacSystemSettingsOpener()
     ) {
         self.backend = backend
