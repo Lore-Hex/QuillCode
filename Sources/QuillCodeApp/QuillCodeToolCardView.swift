@@ -140,10 +140,9 @@ struct QuillCodeToolCardView: View {
             Image(systemName: iconName)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(statusColor)
-                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+                .quillCodeDecorativeIconFrame()
                 .background(statusColor.opacity(0.14))
                 .clipShape(Circle())
-                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {

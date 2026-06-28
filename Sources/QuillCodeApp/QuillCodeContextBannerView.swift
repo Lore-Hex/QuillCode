@@ -9,7 +9,7 @@ struct QuillCodeContextBannerView: View {
             Image(systemName: "text.bubble.badge.exclamationmark")
                 .font(.title3)
                 .foregroundStyle(QuillCodePalette.yellow)
-                .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+                .quillCodeDecorativeIconFrame()
                 .background(QuillCodePalette.yellow.opacity(0.14))
                 .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.iconControlRadius, style: .continuous))
 

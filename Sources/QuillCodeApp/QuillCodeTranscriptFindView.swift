@@ -105,7 +105,7 @@ struct QuillCodeTranscriptFindBar: View {
 
     private var searchIcon: some View {
         Image(systemName: "text.magnifyingglass")
-            .frame(width: QuillCodeMetrics.minimumHitTarget, height: QuillCodeMetrics.minimumHitTarget)
+            .quillCodeDecorativeIconFrame()
             .foregroundStyle(QuillCodePalette.blue)
     }
 
