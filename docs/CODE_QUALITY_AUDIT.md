@@ -8799,3 +8799,19 @@ Code quality changes:
 Remaining risk:
 
 - Source, semantic, rendered, and smoke gates are now stronger. The final A+ layer is still a packaged-window Accessibility frame sampler that clicks near target edges in the live macOS app.
+
+## 2026-06-28 Subagent Cancellation Progress Pass
+
+Overall grade after this slice: **A scheduler cancellation contract, A replayable Activity state, B+ Stop All worker wiring**.
+
+`WorkspaceSubagentScheduler` previously collapsed `CancellationError` into the generic failed-worker path. That made an interrupted worker look equivalent to a broken worker and left future Stop All wiring without a clean replayable state.
+
+Code quality changes:
+
+- Added `SubagentStatus.cancelled` and updated the `host.subagents.update` schema enum so cancellation is part of the public progress contract.
+- Added a typed scheduler worker outcome so completed, cancelled, and failed results are handled explicitly instead of flowing through a generic `Result<String, Error>`.
+- Added focused scheduler and parity coverage to keep cancellation separate from failure in progress updates and final summaries.
+
+Remaining risk:
+
+- This establishes scheduler-level cancellation semantics. The next parity step is wiring Stop All or worker timeouts into active model-backed subagent sessions once those sessions exist.
