@@ -8474,3 +8474,21 @@ Code quality changes:
 Remaining risk:
 
 - Inline-note reordering and a final submit-summary screen remain future review-pane work. The harness still duplicates some Swift display logic, so shared renderer contracts or generated fixtures remain a good future cleanup.
+
+## 2026-06-28 Explicit Click Target Ownership Pass
+
+Overall grade after this slice: **A rendered target ownership, A source-gated generated HTML inputs, A- native-packaged click automation**.
+
+The prior audits proved minimum size, clipping, overlap, nested target, center ownership, command routing, and native helper usage. The missing layer was target ownership: a visible control could be large enough but still be a one-off element outside the shared click-target design system.
+
+Code quality changes:
+
+- Added neutral `hit-target-owned` and semantic `hit-target-text-entry` classes for controls whose visible shape is already supplied by native browser semantics or field styling.
+- Made the Playwright interaction audit fail visible interactive controls that do not carry one of the shared hit-target classes.
+- Normalized dynamic harness controls after render so mock-only UI states use the same target contract as generated app HTML.
+- Kept hidden accessibility labels and passive text-field labels out of the target normalizer, while preserving checkbox/radio label auditing for intentional tap surfaces.
+- Extended the Swift source gate to include raw generated `input`, `select`, and `textarea` controls, then updated composer, terminal, browser, and PR review renderers to use the text-entry target class.
+
+Remaining risk:
+
+- This proves rendered harness/source contracts and catches uncategorized HTML controls. Packaged-window pixel automation across every native SwiftUI/AppKit control remains the deeper layer for final desktop event-delivery proof.

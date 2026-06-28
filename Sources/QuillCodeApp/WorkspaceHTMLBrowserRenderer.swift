@@ -18,7 +18,7 @@ enum WorkspaceHTMLBrowserRenderer {
               \(browserNavButton("Forward", testID: "browser-forward", isEnabled: browser.canGoForward))
               \(browserNavButton("Reload", testID: "browser-reload", isEnabled: browser.canReload))
             </div>
-            <input data-testid="browser-address" aria-label="Browser address" value="\(escape(browser.addressDraft))">
+            <input class="\(WorkspaceHTMLPrimitives.textEntryHitTargetClass)" data-testid="browser-address" aria-label="Browser address" value="\(escape(browser.addressDraft))">
             \(WorkspaceHTMLPrimitives.button(
                 "Open",
                 testID: "browser-open",
@@ -29,7 +29,7 @@ enum WorkspaceHTMLBrowserRenderer {
           </form>
           \(preview)
           <form class="browser-comment-form" data-testid="browser-comment-form">
-            <input data-testid="browser-comment-input" aria-label="Browser comment" placeholder="Add browser comment">
+            <input class="\(WorkspaceHTMLPrimitives.textEntryHitTargetClass)" data-testid="browser-comment-input" aria-label="Browser comment" placeholder="Add browser comment">
             \(WorkspaceHTMLPrimitives.button(
                 "Comment",
                 testID: "browser-add-comment",

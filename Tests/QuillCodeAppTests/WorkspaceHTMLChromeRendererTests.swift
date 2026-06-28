@@ -123,7 +123,8 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="top-bar-stop-button""#))
         XCTAssertTrue(html.contains(#"data-testid="stop-button""#))
         XCTAssertTrue(html.contains(">Stop</button>"))
-        XCTAssertTrue(html.contains(#"<textarea id="message" aria-label="Message""#))
+        XCTAssertTrue(html.contains(#"<textarea class="hit-target-text-entry" id="message""#))
+        XCTAssertTrue(html.contains(#"aria-label="Message""#))
         XCTAssertTrue(html.contains(#"rows="1""#))
         XCTAssertTrue(html.contains("disabled"))
         XCTAssertFalse(html.contains(#"data-testid="send-button""#))
@@ -170,7 +171,8 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
 
         let html = WorkspaceHTMLRenderer.render(model.surface())
 
-        XCTAssertTrue(html.contains(#"<textarea id="message" aria-label="Message""#))
+        XCTAssertTrue(html.contains(#"<textarea class="hit-target-text-entry" id="message""#))
+        XCTAssertTrue(html.contains(#"aria-label="Message""#))
         XCTAssertTrue(html.contains(#"rows="1""#))
         XCTAssertTrue(html.contains("first line\nsecond line</textarea>"))
         XCTAssertFalse(html.contains(#"<input id="message""#))

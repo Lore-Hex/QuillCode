@@ -58,13 +58,22 @@
     .activity-item span {
       font-variant-numeric: tabular-nums;
     }
+    .hit-target-owned,
     .interactive-hit-target,
     .hit-target-text,
+    .hit-target-text-entry,
     .hit-target-row,
     .hit-target-capsule,
     .hit-target-form-action {
       min-width: var(--hit-target);
       min-height: var(--hit-target);
+      touch-action: manipulation;
+    }
+    .interactive-hit-target,
+    .hit-target-text,
+    .hit-target-row,
+    .hit-target-capsule,
+    .hit-target-form-action {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -3532,6 +3541,72 @@
         .replaceAll("'", '&#39;');
     }
 
+    const sharedHitTargetClasses = [
+      'hit-target-owned',
+      'interactive-hit-target',
+      'hit-target-icon',
+      'hit-target-text',
+      'hit-target-text-entry',
+      'hit-target-row',
+      'hit-target-capsule',
+      'hit-target-form-action'
+    ];
+
+    function hasSharedHitTargetClass(element) {
+      return sharedHitTargetClasses.some(className => element.classList.contains(className));
+    }
+
+    function isRenderedTextEntry(element) {
+      if (element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) return true;
+      if (!(element instanceof HTMLInputElement)) return false;
+      return ![
+        'button',
+        'checkbox',
+        'color',
+        'file',
+        'image',
+        'radio',
+        'range',
+        'reset',
+        'submit'
+      ].includes((element.type || 'text').toLowerCase());
+    }
+
+    function isRenderedLabelTarget(element) {
+      if (!(element instanceof HTMLLabelElement)) return false;
+      const control = element.control || (element.htmlFor ? document.getElementById(element.htmlFor) : null);
+      return control instanceof HTMLInputElement && ['checkbox', 'radio'].includes(control.type);
+    }
+
+    function normalizeInteractionTargetContracts(root = document) {
+      root.querySelectorAll([
+        'button',
+        'summary',
+        'a[href]',
+        '[role="button"]',
+        '[role="checkbox"]',
+        '[role="menuitem"]',
+        '[role="option"]',
+        '[role="switch"]',
+        '[role="tab"]',
+        '[tabindex]:not([tabindex="-1"])',
+        '[contenteditable="true"]',
+        'input:not([type="hidden"])',
+        'label',
+        'select',
+        'textarea'
+      ].join(',')).forEach(element => {
+        if (element.closest('.visually-hidden,.composer-sr-only,[hidden],[aria-hidden="true"]')) return;
+        if (element instanceof HTMLLabelElement && !isRenderedLabelTarget(element)) return;
+        if (hasSharedHitTargetClass(element)) return;
+        if (isRenderedTextEntry(element)) {
+          element.classList.add('hit-target-text-entry');
+          return;
+        }
+        element.classList.add('hit-target-owned');
+      });
+    }
+
     function commandByID(commandID) {
       return state.commands.find(command => command.id === commandID);
     }
@@ -5709,6 +5784,7 @@
           ${state.worktreeDialog.mode ? renderWorktreeDialog() : ''}
         </section>`;
 
+      normalizeInteractionTargetContracts(document.getElementById('app'));
       restoreTranscriptScroll(scrollSnapshot);
 
       const form = document.querySelector('[data-testid="composer"]');

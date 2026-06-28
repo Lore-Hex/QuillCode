@@ -21,7 +21,7 @@ enum WorkspaceHTMLTerminalRenderer {
             \(entries)
           </div>
           <form data-testid="terminal-form">
-            <input aria-label="Terminal command" value="\(escape(terminal.draft))">
+            <input class="\(WorkspaceHTMLPrimitives.textEntryHitTargetClass)" aria-label="Terminal command" value="\(escape(terminal.draft))">
             \(WorkspaceHTMLPrimitives.button(
                 "Run",
                 testID: "terminal-run",
