@@ -8700,3 +8700,20 @@ Code quality changes:
 Remaining risk:
 
 - The harness and source gates now cover secondary panes deeply. The remaining A+ layer is still packaged native UI automation that samples actual SwiftUI/AppKit control frames and click ownership in a running macOS/Linux app.
+
+## 2026-06-28 Native Hit Target Audit Smoke Pass
+
+Overall grade after this slice: **A native semantic target audit, A release-smoke evidence, A- AppKit frame sampling proof**.
+
+The rendered HTML and Playwright layers had strong click-target geometry, semantic-kind, overlap, and edge-click coverage. The native app still relied mostly on Swift source gates plus rendered PNG pixel sanity checks, so the desktop executable smoke could not explain which native target contracts were actually expected in the running app state.
+
+Code quality changes:
+
+- Added `QuillCodeNativeHitTargetAudit`, a typed report for native SwiftUI target semantics, required command IDs, 44 pt minimum dimensions, 0.96 press scale, and visible secondary-pane contracts.
+- Wired the audit into `quill-code-desktop --native-render-smoke`, so CI now receives machine-readable native target evidence in the product smoke JSON and fails if core command targets or design-system kinds disappear.
+- Added focused unit and parity gates for the native audit report, including representative terminal, browser, extension, memory, and automation pane contracts.
+- Tightened native secondary-pane buttons so Extensions, MCP resource/prompt actions, Memories, and Automations declare explicit form/capsule target helpers instead of relying only on action button styling.
+
+Remaining risk:
+
+- This proves the native target contract through SwiftUI semantics and the packaged executable smoke report. It still does not sample live `.app` Accessibility frames or perform OS-level edge clicks in a real window; that remains the final A+ native interaction layer.
