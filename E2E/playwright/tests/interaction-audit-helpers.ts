@@ -526,3 +526,14 @@ export async function clickTargetInteriorPoint(
     }
   });
 }
+
+export async function expectTextEntryFocusFromInteriorPoint(
+  locator: Locator,
+  label: string,
+  xFraction: number,
+  yFraction: number
+) {
+  const target = locator.first();
+  await clickTargetInteriorPoint(target, label, xFraction, yFraction);
+  await expect(target, `${label} should focus after clicking inside its hit target`).toBeFocused();
+}

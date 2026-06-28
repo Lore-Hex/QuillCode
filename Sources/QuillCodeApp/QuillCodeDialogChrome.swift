@@ -44,6 +44,7 @@ struct QuillCodeDialogHeader: View {
             }
             Spacer()
             Button(closeTitle, action: onClose)
+                .buttonStyle(QuillCodePressableButtonStyle())
                 .quillCodeTextButtonTarget()
                 .keyboardShortcut(.cancelAction)
         }

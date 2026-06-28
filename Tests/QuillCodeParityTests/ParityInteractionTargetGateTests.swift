@@ -256,6 +256,12 @@ private struct SwiftSourceInteractionTargetAudit {
                 violations.append("\(relativePath):\(index + 1) Button lacks shared hit target")
             }
 
+            if isButtonDeclaration(line),
+               !isSystemMenuItemButton(lines: lines, index: index),
+               !hasButtonStyle(in: window(in: lines, around: index, radius: 56)) {
+                violations.append("\(relativePath):\(index + 1) Button lacks explicit press or platform style")
+            }
+
             if isLinkDeclaration(line),
                !hasSharedTarget(in: window(in: lines, around: index, radius: 28)) {
                 violations.append("\(relativePath):\(index + 1) Link lacks shared hit target")
@@ -267,6 +273,10 @@ private struct SwiftSourceInteractionTargetAudit {
 
     private func hasSharedTarget(in sourceWindow: String) -> Bool {
         targetMarkers.contains { sourceWindow.contains($0) }
+    }
+
+    private func hasButtonStyle(in sourceWindow: String) -> Bool {
+        sourceWindow.contains(".buttonStyle(")
     }
 
     private func isButtonDeclaration(_ line: String) -> Bool {
