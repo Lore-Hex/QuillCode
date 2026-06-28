@@ -13,9 +13,7 @@ struct QuillCodeActivityPaneView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     ForEach(activity.sections) { section in
-                        QuillCodeActivitySectionView(section: section) {
-                            onCommand(section.toggleCommandID)
-                        }
+                        QuillCodeActivitySectionView(section: section, onCommand: onCommand)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -67,11 +65,11 @@ struct QuillCodeActivityPaneView: View {
 
 private struct QuillCodeActivitySectionView: View {
     var section: ActivitySectionSurface
-    var onToggle: () -> Void
+    var onCommand: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Button(action: onToggle) {
+            Button(action: { onCommand(section.toggleCommandID) }) {
                 HStack(spacing: 8) {
                     Image(systemName: section.isCollapsed ? "chevron.right" : "chevron.down")
                         .font(.caption2.weight(.bold))
@@ -109,7 +107,7 @@ private struct QuillCodeActivitySectionView: View {
             }
         } else if !section.items.isEmpty {
             ForEach(section.items) { item in
-                QuillCodeActivityItemView(item: item)
+                QuillCodeActivityItemView(item: item, onCommand: onCommand)
             }
         } else {
             Text(section.emptyTitle)
@@ -117,36 +115,53 @@ private struct QuillCodeActivitySectionView: View {
                 .foregroundStyle(QuillCodePalette.muted)
         }
     }
+
 }
 
 private struct QuillCodeActivityItemView: View {
     var item: ActivityItemSurface
+    var onCommand: (String) -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Circle()
-                .fill(color(for: item.statusLabel))
-                .frame(width: 7, height: 7)
-                .padding(.top, 5)
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(item.title)
-                        .font(.caption.weight(.semibold))
-                        .lineLimit(1)
-                    if !item.statusLabel.isEmpty {
-                        Text(item.statusLabel)
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(color(for: item.statusLabel))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
+                Circle()
+                    .fill(color(for: item.statusLabel))
+                    .frame(width: 7, height: 7)
+                    .padding(.top, 5)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(item.title)
+                            .font(.caption.weight(.semibold))
+                            .lineLimit(1)
+                        if !item.statusLabel.isEmpty {
+                            Text(item.statusLabel)
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(color(for: item.statusLabel))
+                        }
+                    }
+                    if !item.detail.isEmpty {
+                        Text(item.detail)
+                            .font(.caption2)
+                            .foregroundStyle(QuillCodePalette.muted)
+                            .lineLimit(2)
                     }
                 }
-                if !item.detail.isEmpty {
-                    Text(item.detail)
-                        .font(.caption2)
-                        .foregroundStyle(QuillCodePalette.muted)
-                        .lineLimit(2)
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            if !item.actions.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(item.actions) { action in
+                        Button(action.title) {
+                            onCommand(action.commandID)
+                        }
+                        .buttonStyle(QuillCodePressableButtonStyle())
+                        .quillCodeCapsuleButtonTarget(minWidth: 58)
+                        .accessibilityLabel("\(action.title) \(item.title)")
+                    }
+                }
+                .padding(.leading, 15)
+            }
         }
     }
 

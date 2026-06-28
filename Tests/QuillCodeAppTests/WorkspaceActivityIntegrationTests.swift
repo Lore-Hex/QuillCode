@@ -64,6 +64,12 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
         XCTAssertEqual(activity.artifacts.map(\.label), ["quillcode-activity.png"])
         XCTAssertEqual(activity.sources.map(\.title), ["rules.md", "Prefers concise diffs"])
         XCTAssertEqual(activity.sources.first?.detail, ".quillcode/rules.md · Scope: whole project")
+        XCTAssertEqual(activity.sources.first?.actions.map(\.title), ["Open", "Edit"])
+        XCTAssertEqual(activity.sources.first?.actions.map(\.commandID), [
+            "activity-source-open:.quillcode/rules.md",
+            "activity-source-edit:.quillcode/rules.md"
+        ])
+        XCTAssertEqual(activity.sources.first?.actions.map(\.kind), ["open", "edit"])
         XCTAssertEqual(activity.finalAnswer, "Output: quill")
         XCTAssertEqual(activity.planItems.map(\.title), [
             "Understand request",
@@ -162,6 +168,16 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
         XCTAssertEqual(reviewSection.title, "Instruction Review")
         XCTAssertEqual(reviewSection.countLabel, "1 issue")
         XCTAssertEqual(reviewSection.items, [conflict])
+        XCTAssertEqual(conflict.actions.first?.title, "Resolve")
+        XCTAssertEqual(conflict.actions.first?.kind, "resolve")
+        let diagnosticID = try XCTUnwrap(ProjectInstructionDiagnosticsBuilder
+            .diagnostics(for: instructions)
+            .first { $0.statusLabel == "conflict" }?
+            .id)
+        XCTAssertEqual(
+            conflict.actions.first?.commandID,
+            "activity-instruction-resolve:\(diagnosticID)"
+        )
         XCTAssertEqual(
             activity.sections.map(\.kind),
             [.plan, .recent, .subagents, .handoff, .tools, .instructionReview, .sources, .artifacts]

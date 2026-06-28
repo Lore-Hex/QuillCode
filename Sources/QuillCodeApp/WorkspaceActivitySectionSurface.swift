@@ -176,18 +176,53 @@ public struct ActivityItemSurface: Codable, Sendable, Hashable, Identifiable {
     public var detail: String
     public var kind: String
     public var statusLabel: String
+    public var actions: [ActivityItemActionSurface]
 
     public init(
         id: String,
         title: String,
         detail: String,
         kind: String,
-        statusLabel: String = ""
+        statusLabel: String = "",
+        actions: [ActivityItemActionSurface] = []
     ) {
         self.id = id
         self.title = title
         self.detail = detail
         self.kind = kind
         self.statusLabel = statusLabel
+        self.actions = actions
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case detail
+        case kind
+        case statusLabel
+        case actions
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.detail = try container.decodeIfPresent(String.self, forKey: .detail) ?? ""
+        self.kind = try container.decodeIfPresent(String.self, forKey: .kind) ?? ""
+        self.statusLabel = try container.decodeIfPresent(String.self, forKey: .statusLabel) ?? ""
+        self.actions = try container.decodeIfPresent([ActivityItemActionSurface].self, forKey: .actions) ?? []
+    }
+}
+
+public struct ActivityItemActionSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String { commandID }
+    public var title: String
+    public var commandID: String
+    public var kind: String
+
+    public init(title: String, commandID: String, kind: String) {
+        self.title = title
+        self.commandID = commandID
+        self.kind = kind
     }
 }

@@ -304,11 +304,13 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
             }.joined(separator: "\n")
         } else if !section.items.isEmpty {
             content = section.items.map { item in
-                """
+                let actions = renderActivityItemActions(item)
+                return """
                 <article class="activity-item" data-testid="\(escape(section.itemTestID))" data-kind="\(escape(item.kind))">
                   <strong>\(escape(item.title))</strong>
                   \(item.statusLabel.isEmpty ? "" : #"<span>\#(escape(item.statusLabel))</span>"#)
                   \(item.detail.isEmpty ? "" : #"<p>\#(escape(item.detail))</p>"#)
+                  \(actions)
                 </article>
                 """
             }.joined(separator: "\n")
@@ -331,6 +333,22 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
           \(content)
         </section>
         """
+    }
+
+    private static func renderActivityItemActions(_ item: ActivityItemSurface) -> String {
+        guard !item.actions.isEmpty else { return "" }
+        let buttons = item.actions.map { action in
+            commandButton(
+                action.title,
+                testID: "activity-source-action",
+                commandID: action.commandID,
+                classes: [
+                    "activity-source-action",
+                    WorkspaceHTMLPrimitives.formActionHitTargetClass
+                ]
+            )
+        }.joined(separator: "\n")
+        return #"<div class="activity-item-actions">\#(buttons)</div>"#
     }
 
     private static func countLabel(_ count: Int, singular: String) -> String {

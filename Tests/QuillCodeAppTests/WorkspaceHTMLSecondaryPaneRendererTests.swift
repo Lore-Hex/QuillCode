@@ -156,5 +156,8 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="activity-instruction-conflict" data-kind="instruction-diagnostic""#))
         XCTAssertTrue(html.contains("Tests: AGENTS.md says require; Sources/Feature/AGENTS.md says avoid"))
         XCTAssertTrue(html.contains(#"data-command-id="activity-toggle-section:instructionReview""#))
+        XCTAssertTrue(html.contains(#"data-testid="activity-source-action" data-command-id="activity-instruction-resolve:instruction-semantic-conflict-tests-agents-md-sources-feature-agents-md">Resolve"#))
+        XCTAssertTrue(html.contains(#"data-testid="activity-source-action" data-command-id="activity-source-open:AGENTS.md">Open"#))
+        XCTAssertTrue(html.contains(#"data-testid="activity-source-action" data-command-id="activity-source-edit:AGENTS.md">Edit"#))
     }
 }
