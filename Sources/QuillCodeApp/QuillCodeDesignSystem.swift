@@ -20,47 +20,14 @@ public enum QuillCodeMetrics {
 }
 
 struct QuillCodeHitTargetSpec {
-    enum Kind {
-        case icon
-        case textButton
-        case formAction
-        case textEntry
-        case segmentedControl
-        case adjustableControl
-        case link
-        case switchRow
-        case ownedGesture
-        case fullRow
-        case capsule
-
-        var action: String {
-            switch self {
-            case .textEntry:
-                return "text-input"
-            case .adjustableControl:
-                return "adjust"
-            case .link:
-                return "link"
-            case .ownedGesture:
-                return "owned-gesture"
-            case .icon, .textButton, .formAction, .segmentedControl, .switchRow, .fullRow, .capsule:
-                return "press"
-            }
-        }
-
-        var allowsNestedInteractiveChildren: Bool { false }
-
-        var requiresUnblockedInterior: Bool { true }
-    }
-
     enum Shape {
         case rectangle
         case rounded(CGFloat)
         case capsule
     }
 
-    var kind: Kind
-    var action: String { kind.action }
+    var kind: QuillCodeNativeHitTargetKind
+    var action: String { kind.action.rawValue }
     var allowsNestedInteractiveChildren: Bool { kind.allowsNestedInteractiveChildren }
     var requiresUnblockedInterior: Bool { kind.requiresUnblockedInterior }
     var minWidth: CGFloat?

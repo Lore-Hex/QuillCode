@@ -5,6 +5,31 @@ import QuillCodeTools
 
 @MainActor
 final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
+    func testDesignSystemHitTargetSpecsUseNativeSemantics() {
+        let cases: [(spec: QuillCodeHitTargetSpec, kind: QuillCodeNativeHitTargetKind, action: QuillCodeNativeHitTargetAction)] = [
+            (.icon(), .icon, .press),
+            (.textButton(), .textButton, .press),
+            (.formAction(), .formAction, .press),
+            (.textEntry(), .textEntry, .textInput),
+            (.segmentedControl(), .segmentedControl, .press),
+            (.adjustableControl(), .adjustableControl, .adjust),
+            (.link(), .link, .link),
+            (.switchRow(), .switchRow, .press),
+            (.ownedGesture(), .ownedGesture, .ownedGesture),
+            (.fullRow(), .fullRow, .press),
+            (.capsule(), .capsule, .press)
+        ]
+
+        XCTAssertEqual(Set(cases.map(\.kind)), Set(QuillCodeNativeHitTargetKind.allCases))
+        for hitTargetCase in cases {
+            XCTAssertEqual(hitTargetCase.spec.kind, hitTargetCase.kind)
+            XCTAssertEqual(hitTargetCase.spec.action, hitTargetCase.action.rawValue)
+            XCTAssertEqual(hitTargetCase.spec.allowsNestedInteractiveChildren, hitTargetCase.kind.allowsNestedInteractiveChildren)
+            XCTAssertEqual(hitTargetCase.spec.requiresUnblockedInterior, hitTargetCase.kind.requiresUnblockedInterior)
+            XCTAssertGreaterThanOrEqual(hitTargetCase.spec.minHeight, QuillCodeMetrics.minimumHitTarget)
+        }
+    }
+
     func testAuditCoversDesignSystemCommandsAndVisibleSecondaryPanes() {
         var surface = makeWorkspaceSurfaceWithRepresentativePanes()
 
