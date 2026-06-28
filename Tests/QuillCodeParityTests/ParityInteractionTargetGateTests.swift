@@ -102,6 +102,14 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "HTML button attributes should add the shared text hit-target class unless a more specific shared target class is already present."
         )
         XCTAssertTrue(
+            primitivesText.contains(#"static let hitTargetKindAttributeName = "data-hit-target-kind""#)
+                && primitivesText.contains("static func hitTargetKindAttribute(forClasses classes: [String])")
+                && primitivesText.contains("static func hitTargetAttributes(classes: [String])")
+                && primitivesText.contains("hitTargetKindByClass")
+                && primitivesText.contains(##"parts.append(#"\#(hitTargetKindAttributeName)="\#(escape(hitTargetKind))""#)"##),
+            "HTML primitives should emit an explicit semantic hit-target kind so rendered controls can be audited by contract, not only by geometry."
+        )
+        XCTAssertTrue(
             primitivesText.contains("static func summary(")
                 && primitivesText.contains("<summary\\(elementAttributes("),
             "HTML details summaries should route through the shared primitive so disclosure controls keep named hit targets."
@@ -271,6 +279,39 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             violations.isEmpty,
             "Generated HTML controls must route through shared click-target primitives or shared hit-target classes:\n\(violations.joined(separator: "\n"))"
         )
+    }
+
+    func testHTMLSourceAuditRequiresSemanticKindForRawSharedTargets() throws {
+        let file = try makeTemporarySwiftFile(##"""
+        enum BadHTMLRenderer {
+            func render() -> String {
+                #"<input class="\#(WorkspaceHTMLPrimitives.textEntryHitTargetClass)" aria-label="Search">"#
+            }
+        }
+        """##)
+
+        let violations = try HTMLSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertTrue(
+            violations.contains { $0.contains("shared hit-target class without semantic data-hit-target-kind") },
+            "Raw generated HTML that directly uses a shared target class should also declare the semantic hit-target kind."
+        )
+    }
+
+    func testHTMLSourceAuditAcceptsRawSharedTargetsWithSemanticKind() throws {
+        let file = try makeTemporarySwiftFile(##"""
+        enum GoodHTMLRenderer {
+            func render() -> String {
+                #"<input\#(WorkspaceHTMLPrimitives.hitTargetAttributes(for: WorkspaceHTMLPrimitives.textEntryHitTargetClass)) aria-label="Search">"#
+            }
+        }
+        """##)
+
+        let violations = try HTMLSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertEqual(violations, [])
     }
 
     func testNativeHitTargetPrimitivesFrameAndShapeEveryTarget() throws {
@@ -509,6 +550,12 @@ private struct HTMLSourceInteractionTargetAudit {
         "WorkspaceHTMLPrimitives.formActionHitTargetClass"
     ]
 
+    private let hitTargetKindMarkers = [
+        "WorkspaceHTMLPrimitives.hitTargetAttributes",
+        "WorkspaceHTMLPrimitives.hitTargetKindAttribute",
+        #"data-hit-target-kind"#
+    ]
+
     func violations(in sourceFiles: [URL]) throws -> [String] {
         try sourceFiles.flatMap(violations(in:))
     }
@@ -521,9 +568,16 @@ private struct HTMLSourceInteractionTargetAudit {
             with: ""
         )
         return lines.enumerated().compactMap { index, line in
-            guard containsHTMLInteractiveElement(line),
-                  !lineHasSharedTargetContract(line)
-            else { return nil }
+            guard containsHTMLInteractiveElement(line) else { return nil }
+            if lineHasPrimitiveTargetContract(line) {
+                return nil
+            }
+            if lineHasSharedTargetClass(line) {
+                guard lineHasSemanticHitTargetKind(line) else {
+                    return "\(relativePath):\(index + 1) generated HTML control uses a shared hit-target class without semantic data-hit-target-kind"
+                }
+                return nil
+            }
             return "\(relativePath):\(index + 1) generated HTML control lacks shared hit-target primitive"
         }
     }
@@ -537,9 +591,16 @@ private struct HTMLSourceInteractionTargetAudit {
             || line.contains("<textarea")
     }
 
-    private func lineHasSharedTargetContract(_ line: String) -> Bool {
+    private func lineHasPrimitiveTargetContract(_ line: String) -> Bool {
         primitiveMarkers.contains { line.contains($0) }
-            || hitTargetMarkers.contains { line.contains($0) }
+    }
+
+    private func lineHasSharedTargetClass(_ line: String) -> Bool {
+        hitTargetMarkers.contains { line.contains($0) }
+    }
+
+    private func lineHasSemanticHitTargetKind(_ line: String) -> Bool {
+        hitTargetKindMarkers.contains { line.contains($0) }
     }
 }
 

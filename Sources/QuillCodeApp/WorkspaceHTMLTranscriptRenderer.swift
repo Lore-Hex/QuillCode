@@ -50,7 +50,7 @@ enum WorkspaceHTMLTranscriptRenderer {
           <div class="composer-surface" data-testid="composer-surface">
             <label class="composer-sr-only" for="message">Message</label>
             <div class="composer-input-row">
-              <textarea class="\(WorkspaceHTMLPrimitives.textEntryHitTargetClass)" id="message" aria-label="Message" placeholder="\(escape(composer.placeholder))" rows="1" \(composer.isSending ? "disabled" : "")>\(escape(composer.draft))</textarea>
+              <textarea\(WorkspaceHTMLPrimitives.hitTargetAttributes(for: WorkspaceHTMLPrimitives.textEntryHitTargetClass)) id="message" aria-label="Message" placeholder="\(escape(composer.placeholder))" rows="1" \(composer.isSending ? "disabled" : "")>\(escape(composer.draft))</textarea>
               \(button)
             </div>
             <div class="composer-controls" data-testid="composer-controls" aria-label="Composer model and safety controls">
