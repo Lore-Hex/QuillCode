@@ -122,13 +122,9 @@ enum WorkspaceThreadCommandCatalog {
                 keywords: ["thread", "chat", "bulk", "delete"],
                 isEnabled: availability.hasSidebarSelection
             ),
-            WorkspaceCommandSurface(
-                id: "fork-from-last",
-                title: "Fork from last",
-                category: WorkspaceCommandPalette.threadCategory,
-                keywords: ["thread", "context", "continue"],
-                isEnabled: availability.selectedThreadHasMessages
-            ),
+            WorkspaceThreadForkStrategy.latestTurn.command(isEnabled: availability.selectedThreadHasMessages),
+            WorkspaceThreadForkStrategy.summarizedContext.command(isEnabled: availability.selectedThreadHasMessages),
+            WorkspaceThreadForkStrategy.fullContext.command(isEnabled: availability.selectedThreadHasMessages),
             WorkspaceCommandSurface(
                 id: "compact-context",
                 title: "Compact context",

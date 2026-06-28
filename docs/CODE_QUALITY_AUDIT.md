@@ -8250,3 +8250,21 @@ Code quality changes:
 Remaining risk:
 
 - The chrome evidence panel is deterministic smoke evidence, not a real AppKit menu capture. Raw `MenuBarExtra` menu content does not render faithfully offscreen with `ImageRenderer`, so the true next layer remains packaged `.app` UI automation that opens the menu-bar extra and clicks the commands through Accessibility or XCTest.
+
+## 2026-06-27 Context Fork Control Pass
+
+Overall grade after this slice: **A strategy boundary, A shared renderer contract, A- deterministic summaries**.
+
+The context pressure banner only had one fork action, which forced every “continue with context” decision into the same latest-turn behavior. That was simple, but it did not match Codex-style recovery choices for users who need a smaller, summarized, or full visible-context continuation.
+
+Code quality changes:
+
+- Added `WorkspaceThreadForkStrategy` as the single source for fork command IDs, titles, keywords, thread-title prefixes, notice copy, and banner test IDs.
+- Moved fork seeding behind one strategy-aware `WorkspaceThreadSeedBuilder` boundary while keeping legacy `forkSeedMessages(from:)` behavior intact.
+- Extended `ContextBannerSurface` with backward-compatible `forkCommands` decoding so old payloads with only `forkCommand` still work.
+- Routed command palette actions, SwiftUI banner buttons, static HTML, and the Playwright harness through the same strategy IDs instead of renderer-local forks.
+- Reused one derived-thread insertion path in the harness for compact, latest fork, summary fork, and full fork.
+
+Remaining risk:
+
+- Summarized forks still use deterministic local summaries. Exact provider token accounting and model-authored summaries remain separate parity work.

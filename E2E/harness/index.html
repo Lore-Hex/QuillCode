@@ -3202,7 +3202,9 @@
         { id: 'thread-bulk-archive', title: 'Archive selected chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'bulk', 'archive'], isEnabled: false },
         { id: 'thread-bulk-unarchive', title: 'Unarchive selected chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'bulk', 'restore'], isEnabled: false },
         { id: 'thread-bulk-delete', title: 'Delete selected chats', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'bulk', 'delete'], isEnabled: false },
-        { id: 'fork-from-last', title: 'Fork from last', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'continue'], isEnabled: false },
+        { id: 'fork-from-last', title: 'Fork from last', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'continue', 'latest'], isEnabled: false },
+        { id: 'fork-with-summary', title: 'Fork summary', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'summarize', 'fork', 'compact'], isEnabled: false },
+        { id: 'fork-full-context', title: 'Fork full', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'full', 'fork', 'copy'], isEnabled: false },
         { id: 'compact-context', title: 'Compact context', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'summarize', 'compact'], isEnabled: false },
         { id: 'retry-last-turn', title: 'Retry last turn', shortcut: '', category: 'Control', keywords: ['retry', 'rerun', 'again', 'failed'], isEnabled: false },
         { id: 'search', title: 'Search', shortcut: 'Cmd+K', category: 'Navigation', keywords: ['find', 'threads', 'chat'], isEnabled: true },
@@ -4467,6 +4469,8 @@
         command.id === 'git-worktree-remove' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'git-worktree-prune' ? { ...command, isEnabled: hasLocalProject } :
         command.id === 'fork-from-last' ? { ...command, isEnabled: hasMessages } :
+        command.id === 'fork-with-summary' ? { ...command, isEnabled: hasMessages } :
+        command.id === 'fork-full-context' ? { ...command, isEnabled: hasMessages } :
         command.id === 'compact-context' ? { ...command, isEnabled: hasMessages } :
         command.id === 'retry-last-turn' ? { ...command, isEnabled: hasUserMessages && !state.composer.isSending } :
         command.id === 'find-in-chat' ? { ...command, isEnabled: hasThread } :
@@ -4784,7 +4788,7 @@
       return {
         usedPercent,
         title: `${usedPercent >= 100 ? 'Context limit reached' : 'Approaching context limit'} (${usedPercent}% used)`,
-        subtitle: 'Older turns may drop out soon. Compact the thread, start fresh, or fork from the latest useful context.'
+        subtitle: 'Older turns may drop out soon. Compact the thread, start fresh, or fork with latest, summarized, or full visible context.'
       };
     }
 
@@ -4801,6 +4805,8 @@
             <button type="button" data-testid="context-compact" data-command-id="compact-context">Compact context</button>
             <button type="button" data-testid="context-new-thread" data-command-id="new-chat">New thread</button>
             <button type="button" data-testid="context-fork-last" data-command-id="fork-from-last">Fork from last</button>
+            <button type="button" data-testid="context-fork-summary" data-command-id="fork-with-summary">Fork summary</button>
+            <button type="button" data-testid="context-fork-full" data-command-id="fork-full-context">Fork full</button>
           </div>
         </section>`;
     }
@@ -7494,15 +7500,41 @@
       render();
     }
 
-    function forkFromLast() {
-      if (!state.sidebar.selectedThreadID || !state.transcript.messages.length) return;
-      const source = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
-      const title = `Fork: ${source?.title || 'Chat'}`;
-      const latestUserIndex = state.transcript.messages
+    function visibleConversationMessages(messages = state.transcript.messages) {
+      return messages.filter(message => message.role !== 'tool');
+    }
+
+    function latestTurnMessages(messages = state.transcript.messages) {
+      const visibleMessages = visibleConversationMessages(messages);
+      const latestUserIndex = visibleMessages
         .map((message, index) => ({ message, index }))
         .filter(entry => entry.message.role === 'user')
-        .at(-1)?.index ?? Math.max(0, state.transcript.messages.length - 4);
-      const copiedMessages = state.transcript.messages.slice(latestUserIndex, latestUserIndex + 4);
+        .at(-1)?.index ?? Math.max(0, visibleMessages.length - 4);
+      return visibleMessages.slice(latestUserIndex, latestUserIndex + 4);
+    }
+
+    function contextSummaryLines({ sourceTitle, olderMessages, recentMessages, kind }) {
+      const summaryLines = [
+        kind === 'compact'
+          ? `Context compacted from "${sourceTitle}".`
+          : `Context forked from "${sourceTitle}" with a summary.`,
+        `Kept ${recentMessages.length} latest message${recentMessages.length === 1 ? '' : 's'} and summarized ${olderMessages.length} earlier message${olderMessages.length === 1 ? '' : 's'}.`
+      ];
+      if (olderMessages.length) {
+        summaryLines.push('Earlier context:');
+        olderMessages.slice(-6).forEach(message => {
+          summaryLines.push(`- ${message.role}: ${String(message.text || '').replace(/\s+/g, ' ').trim().slice(0, 180)}`);
+        });
+      } else {
+        summaryLines.push('No earlier turns were dropped.');
+      }
+      summaryLines.push(kind === 'compact'
+        ? 'Continue from the preserved latest turn below.'
+        : 'Continue the fork from the preserved latest turn below.');
+      return summaryLines;
+    }
+
+    function insertDerivedThread({ title, messages }) {
       const threadID = `thread-${state.nextThreadIndex++}`;
 
       state.sidebar.selectedThreadID = threadID;
@@ -7510,15 +7542,15 @@
         id: threadID,
         title,
         subtitle: state.topBar.modelLabel,
-        searchText: copiedMessages.map(message => message.text).join('\n'),
+        searchText: messages.map(message => message.text).join('\n'),
         updatedAt: new Date().toISOString(),
         isSelected: true,
         isPinned: false,
         isArchived: false
       }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
-      state.transcript.messages = copiedMessages;
+      state.transcript.messages = messages;
       state.transcript.toolCards = [];
-      state.transcript.timelineItems = copiedMessages.map(message => ({
+      state.transcript.timelineItems = messages.map(message => ({
         id: `timeline-${state.nextTimelineIndex++}`,
         kind: 'message',
         message
@@ -7538,67 +7570,62 @@
       render();
     }
 
+    function forkThread(strategy = 'latest') {
+      if (!state.sidebar.selectedThreadID || !state.transcript.messages.length) return;
+      const source = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
+      const sourceTitle = source?.title || 'Chat';
+      const visibleMessages = visibleConversationMessages();
+      const latestMessages = latestTurnMessages(visibleMessages);
+      const latestIDs = new Set(latestMessages.map(message => message.id));
+      const olderMessages = visibleMessages.filter(message => !latestIDs.has(message.id));
+      if (strategy === 'summary') {
+        insertDerivedThread({
+          title: `Fork summary: ${sourceTitle}`,
+          messages: [
+            { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text: contextSummaryLines({
+              sourceTitle,
+              olderMessages,
+              recentMessages: latestMessages,
+              kind: 'fork'
+            }).join('\n') },
+            ...latestMessages
+          ]
+        });
+        return;
+      }
+      if (strategy === 'full') {
+        insertDerivedThread({
+          title: `Fork full: ${sourceTitle}`,
+          messages: visibleMessages
+        });
+        return;
+      }
+      insertDerivedThread({
+        title: `Fork: ${sourceTitle}`,
+        messages: latestMessages
+      });
+    }
+
     function compactContext() {
       if (!state.sidebar.selectedThreadID || !state.transcript.messages.length) return;
       const source = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
-      const title = `Compact: ${source?.title || 'Chat'}`;
-      const latestUserIndex = state.transcript.messages
-        .map((message, index) => ({ message, index }))
-        .filter(entry => entry.message.role === 'user')
-        .at(-1)?.index ?? Math.max(0, state.transcript.messages.length - 4);
-      const recentMessages = state.transcript.messages.slice(latestUserIndex, latestUserIndex + 4);
-      const olderMessages = state.transcript.messages.slice(0, latestUserIndex);
-      const summaryLines = [
-        `Context compacted from "${source?.title || 'Chat'}".`,
-        `Kept ${recentMessages.length} latest message${recentMessages.length === 1 ? '' : 's'} and summarized ${olderMessages.length} earlier message${olderMessages.length === 1 ? '' : 's'}.`
-      ];
-      if (olderMessages.length) {
-        summaryLines.push('Earlier context:');
-        olderMessages.slice(-6).forEach(message => {
-          summaryLines.push(`- ${message.role}: ${String(message.text || '').replace(/\s+/g, ' ').trim().slice(0, 180)}`);
-        });
-      } else {
-        summaryLines.push('No earlier turns were dropped.');
-      }
-      summaryLines.push('Continue from the preserved latest turn below.');
-
-      const compactedMessages = [
-        { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text: summaryLines.join('\n') },
-        ...recentMessages
-      ];
-      const threadID = `thread-${state.nextThreadIndex++}`;
-
-      state.sidebar.selectedThreadID = threadID;
-      state.sidebar.items = [{
-        id: threadID,
-        title,
-        subtitle: state.topBar.modelLabel,
-        searchText: compactedMessages.map(message => message.text).join('\n'),
-        updatedAt: new Date().toISOString(),
-        isSelected: true,
-        isPinned: false,
-        isArchived: false
-      }, ...state.sidebar.items.map(item => ({ ...item, isSelected: false }))];
-      state.transcript.messages = compactedMessages;
-      state.transcript.toolCards = [];
-      state.transcript.timelineItems = compactedMessages.map(message => ({
-        id: `timeline-${state.nextTimelineIndex++}`,
-        kind: 'message',
-        message
-      }));
-      state.review = {
-        title: 'Review changes',
-        subtitle: 'Latest git diff',
-        totalInsertions: 0,
-        totalDeletions: 0,
-        totalHunks: 0,
-        files: [],
-        pullRequestThreads: []
-      };
-      state.topBar.primaryTitle = title;
-      const selectedProject = state.projects.items.find(project => project.id === state.projects.selectedProjectID);
-      state.topBar.subtitle = `${selectedProject?.name || 'No project'} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
-      render();
+      const sourceTitle = source?.title || 'Chat';
+      const visibleMessages = visibleConversationMessages();
+      const recentMessages = latestTurnMessages(visibleMessages);
+      const recentIDs = new Set(recentMessages.map(message => message.id));
+      const olderMessages = visibleMessages.filter(message => !recentIDs.has(message.id));
+      insertDerivedThread({
+        title: `Compact: ${sourceTitle}`,
+        messages: [
+          { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text: contextSummaryLines({
+            sourceTitle,
+            olderMessages,
+            recentMessages,
+            kind: 'compact'
+          }).join('\n') },
+          ...recentMessages
+        ]
+      });
     }
 
     function addProject() {
@@ -8303,7 +8330,15 @@
         return;
       }
       if (commandID === 'fork-from-last') {
-        forkFromLast();
+        forkThread('latest');
+        return;
+      }
+      if (commandID === 'fork-with-summary') {
+        forkThread('summary');
+        return;
+      }
+      if (commandID === 'fork-full-context') {
+        forkThread('full');
         return;
       }
       if (commandID === 'compact-context') {

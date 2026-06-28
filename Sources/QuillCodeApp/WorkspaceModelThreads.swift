@@ -19,11 +19,17 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func forkFromLast() -> UUID? {
+        forkThread(strategy: .latestTurn)
+    }
+
+    @discardableResult
+    func forkThread(strategy: WorkspaceThreadForkStrategy) -> UUID? {
         guard let source = selectedThread, !source.messages.isEmpty else { return nil }
         let projectID = knownProjectID(source.projectID)
         let fork = WorkspaceThreadCreationEngine.forkThread(
             from: source,
-            projectID: projectID
+            projectID: projectID,
+            strategy: strategy
         )
         return insertCreatedThread(fork, selectedProjectID: projectID, saveThread: true)
     }

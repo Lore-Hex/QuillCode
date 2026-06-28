@@ -65,6 +65,59 @@ final class WorkspaceThreadCreationEngineTests: XCTestCase {
         XCTAssertEqual(fork.events.first?.payloadJSON, source.id.uuidString)
     }
 
+    func testForkThreadCanSeedSummarizedContext() {
+        let source = ChatThread(
+            title: "Investigate issue",
+            mode: .review,
+            model: "trustedrouter/fast",
+            messages: [
+                .init(role: .user, content: "old question"),
+                .init(role: .assistant, content: "old answer"),
+                .init(role: .user, content: "latest question"),
+                .init(role: .assistant, content: "latest answer")
+            ]
+        )
+
+        let fork = WorkspaceThreadCreationEngine.forkThread(
+            from: source,
+            projectID: nil,
+            strategy: .summarizedContext
+        )
+
+        XCTAssertEqual(fork.title, "Fork summary: Investigate issue")
+        XCTAssertTrue(fork.messages.first?.content.contains("Context forked from \"Investigate issue\" with a summary.") == true)
+        XCTAssertEqual(Array(fork.messages.map(\.content).suffix(2)), ["latest question", "latest answer"])
+        XCTAssertEqual(fork.events.first?.summary, "Forked with summary from Investigate issue")
+    }
+
+    func testForkThreadCanSeedFullVisibleContext() {
+        let source = ChatThread(
+            title: "Investigate issue",
+            messages: [
+                .init(role: .user, content: "old question"),
+                .init(role: .tool, content: #"{"hidden":true}"#),
+                .init(role: .assistant, content: "old answer"),
+                .init(role: .user, content: "latest question"),
+                .init(role: .assistant, content: "latest answer")
+            ]
+        )
+
+        let fork = WorkspaceThreadCreationEngine.forkThread(
+            from: source,
+            projectID: nil,
+            strategy: .fullContext
+        )
+
+        XCTAssertEqual(fork.title, "Fork full: Investigate issue")
+        XCTAssertEqual(fork.messages.map(\.content), [
+            "old question",
+            "old answer",
+            "latest question",
+            "latest answer"
+        ])
+        XCTAssertEqual(fork.events.first?.summary, "Forked with full visible context from Investigate issue")
+    }
+
     func testCompactThreadAddsSummaryAndPreservesSourceContext() {
         let source = ChatThread(
             title: "Large thread",

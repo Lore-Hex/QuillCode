@@ -77,8 +77,8 @@ extension QuillCodeWorkspaceModel {
             return performSidebarBulkAction(kind)
         case .retryLastTurn:
             return prepareRetryLastUserTurn()
-        case .forkFromLast:
-            return forkFromLast() != nil
+        case .forkThread(let strategy):
+            return forkThread(strategy: strategy) != nil
         case .compactContext:
             return compactContext() != nil
         case .disconnectAll:

@@ -92,6 +92,49 @@ final class WorkspaceThreadLifecycleIntegrationTests: XCTestCase {
         XCTAssertEqual(model.selectedThread?.messages.map(\.content), ["run whoami", "Output:\nquill"])
     }
 
+    func testWorkspaceCommandForkWithSummarySelectsSummarizedFork() throws {
+        let source = ChatThread(title: "Active", messages: [
+            .init(role: .user, content: "old task"),
+            .init(role: .assistant, content: "old answer"),
+            .init(role: .user, content: "latest task"),
+            .init(role: .assistant, content: "latest answer")
+        ])
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [source],
+            selectedThreadID: source.id
+        ))
+
+        XCTAssertTrue(model.runWorkspaceCommand("fork-with-summary", workspaceRoot: try makeTempDirectory()))
+
+        XCTAssertEqual(model.selectedThread?.title, "Fork summary: Active")
+        XCTAssertTrue(model.selectedThread?.messages.first?.content.contains("Context forked from \"Active\" with a summary.") == true)
+        XCTAssertEqual(Array(model.selectedThread?.messages.map(\.content).suffix(2) ?? []), ["latest task", "latest answer"])
+    }
+
+    func testWorkspaceCommandForkFullContextSelectsFullVisibleFork() throws {
+        let source = ChatThread(title: "Active", messages: [
+            .init(role: .user, content: "old task"),
+            .init(role: .tool, content: #"{"hidden":true}"#),
+            .init(role: .assistant, content: "old answer"),
+            .init(role: .user, content: "latest task"),
+            .init(role: .assistant, content: "latest answer")
+        ])
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [source],
+            selectedThreadID: source.id
+        ))
+
+        XCTAssertTrue(model.runWorkspaceCommand("fork-full-context", workspaceRoot: try makeTempDirectory()))
+
+        XCTAssertEqual(model.selectedThread?.title, "Fork full: Active")
+        XCTAssertEqual(model.selectedThread?.messages.map(\.content), [
+            "old task",
+            "old answer",
+            "latest task",
+            "latest answer"
+        ])
+    }
+
     func testWorkspaceCommandCompactContextCreatesBoundedThread() throws {
         let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
         let instructions = [

@@ -18,15 +18,44 @@ struct WorkspaceThreadSeedBuilder: Sendable, Hashable {
         return Array(visibleMessages[lastUserIndex...].prefix(4))
     }
 
+    static func forkSeedMessages(from thread: ChatThread, strategy: WorkspaceThreadForkStrategy) -> [ChatMessage] {
+        switch strategy {
+        case .latestTurn:
+            forkSeedMessages(from: thread.messages)
+        case .summarizedContext:
+            summarizedForkSeedMessages(from: thread)
+        case .fullContext:
+            fullContextSeedMessages(from: thread.messages)
+        }
+    }
+
+    static func summarizedForkSeedMessages(from thread: ChatThread) -> [ChatMessage] {
+        let visibleMessages = visibleConversationMessages(from: thread.messages)
+        let recentMessages = forkSeedMessages(from: visibleMessages)
+        let recentIDs = Set(recentMessages.map(\.id))
+        let olderMessages = visibleMessages.filter { !recentIDs.contains($0.id) }
+        return [summaryMessage(
+            sourceTitle: thread.title,
+            olderMessages: olderMessages,
+            recentMessages: recentMessages,
+            purpose: .forkSummary
+        )] + recentMessages
+    }
+
+    static func fullContextSeedMessages(from messages: [ChatMessage]) -> [ChatMessage] {
+        visibleConversationMessages(from: messages)
+    }
+
     static func compactSeedMessages(from thread: ChatThread) -> [ChatMessage] {
         let visibleMessages = visibleConversationMessages(from: thread.messages)
         let recentMessages = forkSeedMessages(from: visibleMessages)
         let recentIDs = Set(recentMessages.map(\.id))
         let olderMessages = visibleMessages.filter { !recentIDs.contains($0.id) }
-        return [compactSummaryMessage(
+        return [summaryMessage(
             sourceTitle: thread.title,
             olderMessages: olderMessages,
-            recentMessages: recentMessages
+            recentMessages: recentMessages,
+            purpose: .compact
         )] + recentMessages
     }
 
@@ -34,15 +63,16 @@ struct WorkspaceThreadSeedBuilder: Sendable, Hashable {
         messages.filter { $0.role != .tool }
     }
 
-    private static func compactSummaryMessage(
+    private static func summaryMessage(
         sourceTitle: String,
         olderMessages: [ChatMessage],
-        recentMessages: [ChatMessage]
+        recentMessages: [ChatMessage],
+        purpose: SummaryPurpose
     ) -> ChatMessage {
         let olderCount = olderMessages.count
         let recentCount = recentMessages.count
         var lines = [
-            "Context compacted from \"\(sourceTitle)\".",
+            purpose.titleLine(sourceTitle: sourceTitle),
             "Kept \(recentCount) latest message\(recentCount == 1 ? "" : "s") and summarized \(olderCount) earlier message\(olderCount == 1 ? "" : "s")."
         ]
         if olderMessages.isEmpty {
@@ -53,8 +83,31 @@ struct WorkspaceThreadSeedBuilder: Sendable, Hashable {
                 lines.append("- \(roleLabel(message.role)): \(singleLineExcerpt(message.content, limit: 180))")
             }
         }
-        lines.append("Continue from the preserved latest turn below.")
+        lines.append(purpose.closingLine)
         return ChatMessage(role: .assistant, content: lines.joined(separator: "\n"))
+    }
+
+    private enum SummaryPurpose {
+        case compact
+        case forkSummary
+
+        func titleLine(sourceTitle: String) -> String {
+            switch self {
+            case .compact:
+                "Context compacted from \"\(sourceTitle)\"."
+            case .forkSummary:
+                "Context forked from \"\(sourceTitle)\" with a summary."
+            }
+        }
+
+        var closingLine: String {
+            switch self {
+            case .compact:
+                "Continue from the preserved latest turn below."
+            case .forkSummary:
+                "Continue the fork from the preserved latest turn below."
+            }
+        }
     }
 
     private static func roleLabel(_ role: ChatRole) -> String {

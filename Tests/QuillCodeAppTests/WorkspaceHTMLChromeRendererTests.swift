@@ -190,6 +190,8 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="context-banner""#))
         XCTAssertTrue(html.contains(#"data-testid="context-new-thread""#))
         XCTAssertTrue(html.contains(#"data-testid="context-fork-last""#))
+        XCTAssertTrue(html.contains(#"data-testid="context-fork-summary""#))
+        XCTAssertTrue(html.contains(#"data-testid="context-fork-full""#))
         XCTAssertTrue(html.contains(#"data-testid="context-compact""#))
     }
 

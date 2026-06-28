@@ -117,5 +117,6 @@ final class QuillCodeTranscriptSurfaceTests: XCTestCase {
         XCTAssertEqual(banner.compactCommand.category, WorkspaceCommandPalette.threadCategory)
         XCTAssertEqual(banner.compactCommand.keywords, ["thread", "context", "summarize", "compact"])
         XCTAssertEqual(banner.compactCommand.isEnabled, true)
+        XCTAssertEqual(banner.forkCommands.map(\.id), ["fork-from-last"])
     }
 }
