@@ -7,7 +7,9 @@ struct QuillCodeComputerUseSettingsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             cardHeader
-            requirementRows
+            if !settings.computerUseRequirements.isEmpty {
+                requirementRows
+            }
             nextActionRow
             restartHint
             refreshAction
@@ -83,7 +85,7 @@ struct QuillCodeComputerUseSettingsCard: View {
             Image(systemName: "info.circle")
                 .foregroundStyle(QuillCodePalette.blue)
                 .frame(width: 18)
-            Text("After changing macOS permissions, quit and reopen QuillCode if the status does not update.")
+            Text("After changing permissions or desktop helper tools, quit and reopen QuillCode if the status does not update.")
                 .font(.caption2)
                 .foregroundStyle(QuillCodePalette.muted)
                 .fixedSize(horizontal: false, vertical: true)

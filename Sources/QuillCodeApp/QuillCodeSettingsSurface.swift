@@ -169,6 +169,9 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         if status.available {
             return "Ready"
         }
+        if status.unavailableReason != nil {
+            return "Unavailable"
+        }
         if !status.screenRecordingGranted && !status.accessibilityGranted {
             return "Setup needed"
         }
@@ -182,12 +185,18 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         if status.available {
             return "Ready for screenshots, clicks, typing, scrolling, and keyboard shortcuts."
         }
-        return "Computer Use needs macOS privacy permissions before QuillCode can inspect or control the desktop."
+        if let unavailableReason = status.unavailableReason {
+            return unavailableReason
+        }
+        return "Computer Use needs desktop permissions before QuillCode can inspect or control the screen."
     }
 
     private static func computerUseNextAction(_ status: ComputerUseStatus) -> String {
         if status.available {
             return "Computer Use is enabled. Ask QuillCode to inspect the screen or operate an app."
+        }
+        if status.unavailableReason != nil {
+            return "Install or enable the required desktop backend, then refresh status."
         }
         if !status.screenRecordingGranted && !status.accessibilityGranted {
             return "Open Screen Recording first, enable QuillCode, then open Accessibility."
@@ -203,7 +212,10 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         screenRecordingCommand: WorkspaceCommandSurface,
         accessibilityCommand: WorkspaceCommandSurface
     ) -> [ComputerUseRequirementSurface] {
-        [
+        guard status.unavailableReason == nil else {
+            return []
+        }
+        return [
             ComputerUseRequirementSurface(
                 id: "screen-recording",
                 title: "Screen Recording",
