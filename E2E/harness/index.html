@@ -5056,7 +5056,7 @@
         return '<p data-testid="search-empty">No matching chats</p>';
       }
       return results.map(item => `
-        <button class="search-result ${item.id === state.search.highlightedThreadID ? 'selected' : ''}" type="button" data-testid="search-result" data-thread-id="${escapeHTML(item.id)}" data-highlighted="${item.id === state.search.highlightedThreadID ? 'true' : 'false'}">
+        <button class="search-result hit-target-row ${item.id === state.search.highlightedThreadID ? 'selected' : ''}" type="button" data-testid="search-result" data-thread-id="${escapeHTML(item.id)}" data-highlighted="${item.id === state.search.highlightedThreadID ? 'true' : 'false'}">
           <span>${escapeHTML(item.title)}</span>
           <small>${escapeHTML(item.subtitle)}${item.isPinned ? ' · pinned' : ''}${item.isArchived ? ' · archived' : ''}</small>
         </button>`).join('');
@@ -5616,7 +5616,7 @@
       const toolCardCopyLabel = card => card.outputJSON ? 'Copy output' : card.inputJSON ? 'Copy input' : 'Copy';
       const renderToolDetails = (card, copyID = '') => card.inputJSON || card.outputJSON ? `
           <details class="tool-details" data-testid="tool-card-details" ${card.density === 'expanded' ? 'open' : ''}>
-            <summary>${detailsLabel(card)}</summary>
+            <summary class="hit-target-row">${detailsLabel(card)}</summary>
             ${card.inputJSON ? `<pre data-testid="tool-card-input">${escapeHTML(card.inputJSON)}</pre>` : ''}
             ${card.outputJSON ? `<pre data-testid="tool-card-output">${escapeHTML(card.outputJSON)}</pre>` : ''}
             ${hasInputOnlyPayload(card) ? copyButton('tool-card-copy', copyID || card.id, toolCardCopyLabel(card)) : ''}
@@ -5624,7 +5624,7 @@
       const renderToolActions = card => (card.actions || []).length ? `
           <div class="tool-card-actions" data-testid="tool-card-actions">
             ${card.actions.map(action => `
-              <button type="button" data-testid="tool-card-action" data-action-kind="${escapeHTML(action.kind)}" data-action-style="${escapeHTML(action.style)}" data-request-id="${escapeHTML(action.requestID)}">${escapeHTML(action.title)}</button>
+              <button class="hit-target-form-action" type="button" data-testid="tool-card-action" data-action-kind="${escapeHTML(action.kind)}" data-action-style="${escapeHTML(action.style)}" data-request-id="${escapeHTML(action.requestID)}">${escapeHTML(action.title)}</button>
             `).join('')}
           </div>` : '';
       const renderToolCard = (card, timelineID = '') => {
@@ -5800,8 +5800,8 @@
                     ${(model.badges || []).length ? `<span class="model-badges" data-testid="model-badges">${(model.badges || []).slice(0, 3).map(badge => `<span class="model-badge ${modelBadgeClass(badge)}" data-testid="model-badge">${escapeHTML(badge)}</span>`).join('')}</span>` : ''}
                   </button>
                   <div class="model-actions">
-                    <button class="model-detail-toggle ${state.topBar.expandedModelID === model.id ? 'active' : ''}" type="button" data-testid="model-detail-button" data-model-id="${escapeHTML(model.id)}" aria-expanded="${state.topBar.expandedModelID === model.id ? 'true' : 'false'}" aria-label="${state.topBar.expandedModelID === model.id ? 'Hide model details' : 'Show model details'}">${state.topBar.expandedModelID === model.id ? 'i' : 'ⓘ'}</button>
-                    <button class="model-favorite ${model.isFavorite ? 'active' : ''}" type="button" data-testid="model-favorite-button" data-model-id="${escapeHTML(model.id)}" aria-label="${model.isFavorite ? 'Remove favorite model' : 'Favorite model'}">${model.isFavorite ? '★' : '☆'}</button>
+                    <button class="model-detail-toggle hit-target-icon ${state.topBar.expandedModelID === model.id ? 'active' : ''}" type="button" data-testid="model-detail-button" data-model-id="${escapeHTML(model.id)}" aria-expanded="${state.topBar.expandedModelID === model.id ? 'true' : 'false'}" aria-label="${state.topBar.expandedModelID === model.id ? 'Hide model details' : 'Show model details'}">${state.topBar.expandedModelID === model.id ? 'i' : 'ⓘ'}</button>
+                    <button class="model-favorite hit-target-icon ${model.isFavorite ? 'active' : ''}" type="button" data-testid="model-favorite-button" data-model-id="${escapeHTML(model.id)}" aria-label="${model.isFavorite ? 'Remove favorite model' : 'Favorite model'}">${model.isFavorite ? '★' : '☆'}</button>
                   </div>
                   ${state.topBar.expandedModelID === model.id ? `
                     <div class="model-inspector" data-testid="model-inspector" data-model-id="${escapeHTML(model.id)}">
@@ -5819,7 +5819,7 @@
         <div class="model-empty" data-testid="model-empty">
           <strong>No models match</strong>
           <span>Try a provider, category, model name, or state.</span>
-          ${modelSearchQuery ? '<button class="model-clear-search" type="button" data-testid="model-clear-search">Clear search</button>' : ''}
+          ${modelSearchQuery ? '<button class="model-clear-search hit-target-text" type="button" data-testid="model-clear-search">Clear search</button>' : ''}
         </div>`;
       const modelBrowser = state.topBar.modelPickerOpen ? `
         <section class="model-panel" data-testid="model-browser" aria-label="Model browser">
@@ -5827,10 +5827,10 @@
             <h2>Choose Model</h2>
             <p>Search provider, category, model, or state</p>
           </div>
-          <input data-testid="model-search" aria-label="Search models" placeholder="Search models" value="${escapeHTML(state.topBar.modelSearch)}">
+          <input class="hit-target-text-entry" data-testid="model-search" aria-label="Search models" placeholder="Search models" value="${escapeHTML(state.topBar.modelSearch)}">
           <div class="model-result-summary" data-testid="model-result-summary">
             <span data-testid="model-result-count">${escapeHTML(modelResultSummary)}</span>
-            ${modelSearchQuery ? '<button class="model-clear-search" type="button" data-testid="model-clear-search">Clear</button>' : ''}
+            ${modelSearchQuery ? '<button class="model-clear-search hit-target-text" type="button" data-testid="model-clear-search">Clear</button>' : ''}
           </div>
           ${modelResults}
         </section>` : '';
@@ -5847,7 +5847,7 @@
         .filter(command => command && (command.id !== 'disconnect-all' || command.isEnabled));
       const topBarStopCommand = commandByID('stop-all');
       const topBarStopButton = topBarStopCommand?.isEnabled
-        ? `<button type="button" class="topbar-stop-button" data-testid="top-bar-stop-button" data-command-id="stop-all" title="Stop all (${escapeHTML(topBarStopCommand.shortcut || 'Esc')})" aria-label="Stop active work">Stop</button>`
+        ? `<button type="button" class="topbar-stop-button hit-target-text" data-testid="top-bar-stop-button" data-command-id="stop-all" title="Stop all (${escapeHTML(topBarStopCommand.shortcut || 'Esc')})" aria-label="Stop active work">Stop</button>`
         : '';
 
       document.getElementById('app').innerHTML = `
@@ -5868,7 +5868,7 @@
               <div class="topbar-cluster topbar-action-cluster" data-testid="top-bar-action-cluster">
                 ${topBarStopButton}
                 <details class="topbar-overflow-menu" data-testid="top-bar-overflow-menu">
-                  <summary data-testid="top-bar-overflow-button" aria-label="More" title="More">...</summary>
+                  <summary class="hit-target-icon" data-testid="top-bar-overflow-button" aria-label="More" title="More">...</summary>
                   <div class="topbar-overflow-popover">
                     ${topBarOverflowCommands.map(renderTopBarOverflowCommand).join('')}
                   </div>
@@ -5880,10 +5880,10 @@
           <div class="workspace-grid ${state.activity.isVisible ? 'with-activity' : ''}">
             <aside class="sidebar" data-testid="sidebar" aria-label="Projects and chats">
               <div class="sidebar-actions" data-testid="sidebar-compose-zone" aria-label="Primary chat actions">
-                <button class="sidebar-action" type="button" data-testid="new-chat-button" data-primary="true" data-icon="new" data-command-id="new-chat">New chat</button>
-                <button class="sidebar-action" type="button" data-testid="sidebar-search-button" data-primary="true" data-icon="search" data-command-id="search">Search</button>
-                <button class="sidebar-action" type="button" data-testid="extensions-button" data-primary="true" data-icon="plugins" data-command-id="toggle-extensions">Plugins</button>
-                <button class="sidebar-action" type="button" data-testid="automations-button" data-primary="true" data-icon="automations" data-command-id="toggle-automations">Automations</button>
+                <button class="sidebar-action hit-target-text" type="button" data-testid="new-chat-button" data-primary="true" data-icon="new" data-command-id="new-chat">New chat</button>
+                <button class="sidebar-action hit-target-text" type="button" data-testid="sidebar-search-button" data-primary="true" data-icon="search" data-command-id="search">Search</button>
+                <button class="sidebar-action hit-target-text" type="button" data-testid="extensions-button" data-primary="true" data-icon="plugins" data-command-id="toggle-extensions">Plugins</button>
+                <button class="sidebar-action hit-target-text" type="button" data-testid="automations-button" data-primary="true" data-icon="automations" data-command-id="toggle-automations">Automations</button>
               </div>
               <div class="sidebar-threads-zone" data-testid="sidebar-threads-zone">
                 ${sidebarThreadHeader}
@@ -5892,31 +5892,31 @@
               <div class="sidebar-projects-zone" data-testid="sidebar-projects-zone">
                 <div class="sidebar-section-title">
                   <h2>${escapeHTML(state.projects.title)}</h2>
-                  <button class="sidebar-icon-button" type="button" data-testid="add-project-button" aria-label="Open project">+</button>
+                  <button class="sidebar-icon-button hit-target-icon" type="button" data-testid="add-project-button" aria-label="Open project">+</button>
                 </div>
                 ${projectsContent}
               </div>
               <div class="sidebar-footer" aria-label="Workspace tools">
                 <details class="sidebar-tools-menu" data-testid="sidebar-tools-menu">
-                  <summary data-testid="sidebar-tools-button" aria-label="Tools" title="Tools">Tools</summary>
+                  <summary class="hit-target-row" data-testid="sidebar-tools-button" aria-label="Tools" title="Tools">Tools</summary>
                   <div class="sidebar-tools-popover" role="menu">
                     <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="navigate">
                       <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Navigate</h3>
-                      <button class="sidebar-tool-action" type="button" data-testid="command-palette-button" role="menuitem" aria-label="Command palette" title="Command palette" data-icon="command" data-command-id="command-palette">Command palette</button>
+                      <button class="sidebar-tool-action hit-target-row" type="button" data-testid="command-palette-button" role="menuitem" aria-label="Command palette" title="Command palette" data-icon="command" data-command-id="command-palette">Command palette</button>
                     </section>
                     <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="workspace">
                       <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Workspace</h3>
-                      <button class="sidebar-tool-action" type="button" data-testid="terminal-button" role="menuitem" aria-label="Terminal" title="Terminal" data-icon="terminal" data-command-id="toggle-terminal">Terminal</button>
-                      <button class="sidebar-tool-action" type="button" data-testid="browser-button" role="menuitem" aria-label="Browser" title="Browser" data-icon="browser" data-command-id="toggle-browser">Browser</button>
+                      <button class="sidebar-tool-action hit-target-row" type="button" data-testid="terminal-button" role="menuitem" aria-label="Terminal" title="Terminal" data-icon="terminal" data-command-id="toggle-terminal">Terminal</button>
+                      <button class="sidebar-tool-action hit-target-row" type="button" data-testid="browser-button" role="menuitem" aria-label="Browser" title="Browser" data-icon="browser" data-command-id="toggle-browser">Browser</button>
                     </section>
                     <section class="sidebar-tools-section" data-testid="sidebar-tools-section" data-command-group="context">
                       <h3 class="sidebar-tools-section-title" data-testid="sidebar-tools-section-title">Context</h3>
-                      <button class="sidebar-tool-action" type="button" data-testid="memories-button" role="menuitem" aria-label="Memories" title="Memories" data-icon="memories" data-command-id="toggle-memories">Memories</button>
-                      <button class="sidebar-tool-action" type="button" data-testid="activity-button" role="menuitem" aria-label="Activity" title="Activity" data-icon="activity" data-command-id="toggle-activity">Activity</button>
+                      <button class="sidebar-tool-action hit-target-row" type="button" data-testid="memories-button" role="menuitem" aria-label="Memories" title="Memories" data-icon="memories" data-command-id="toggle-memories">Memories</button>
+                      <button class="sidebar-tool-action hit-target-row" type="button" data-testid="activity-button" role="menuitem" aria-label="Activity" title="Activity" data-icon="activity" data-command-id="toggle-activity">Activity</button>
                     </section>
                   </div>
                 </details>
-                <button class="sidebar-settings-button" type="button" data-testid="settings-button" aria-label="Settings" title="Settings">Settings</button>
+                <button class="sidebar-settings-button hit-target-row" type="button" data-testid="settings-button" aria-label="Settings" title="Settings">Settings</button>
               </div>
             </aside>
 	            <main class="transcript" data-testid="transcript">
@@ -5932,17 +5932,17 @@
                 <div class="composer-surface" data-testid="composer-surface">
                   <label class="composer-sr-only" for="message">Message</label>
                   <div class="composer-input-row">
-                    <textarea id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" rows="1" ${state.composer.isSending ? 'disabled' : ''}>${escapeHTML(state.composer.draft)}</textarea>
+                    <textarea class="hit-target-text-entry" id="message" aria-label="Message" placeholder="${escapeHTML(state.composer.placeholder)}" rows="1" ${state.composer.isSending ? 'disabled' : ''}>${escapeHTML(state.composer.draft)}</textarea>
                     ${state.composer.isSending
-                      ? '<button type="button" class="stop-button" data-testid="stop-button">Stop</button>'
-                      : `<button type="submit" data-testid="send-button" ${state.composer.canSend ? '' : 'disabled'}>Send</button>`}
+                      ? '<button type="button" class="stop-button hit-target-text" data-testid="stop-button">Stop</button>'
+                      : `<button class="hit-target-text" type="submit" data-testid="send-button" ${state.composer.canSend ? '' : 'disabled'}>Send</button>`}
                   </div>
                   <div class="composer-controls" data-testid="composer-controls" aria-label="Composer model and safety controls">
                     <div class="model-picker-wrap">
-                      <button class="composer-model-button" type="button" aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" aria-label="Model: ${escapeHTML(state.topBar.modelLabel)}" data-testid="model-picker-button">${escapeHTML(state.topBar.modelLabel)}</button>
+                      <button class="composer-model-button hit-target-text" type="button" aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" aria-label="Model: ${escapeHTML(state.topBar.modelLabel)}" data-testid="model-picker-button">${escapeHTML(state.topBar.modelLabel)}</button>
                       ${modelBrowser}
                     </div>
-                    <button type="button" class="mode-pill-button" data-testid="mode-picker-button" data-mode-tone="${escapeHTML(modeTone(state.topBar.modeLabel))}" aria-label="Auto safety mode: ${escapeHTML(state.topBar.modeLabel)}">
+                    <button type="button" class="mode-pill-button hit-target-capsule" data-testid="mode-picker-button" data-mode-tone="${escapeHTML(modeTone(state.topBar.modeLabel))}" aria-label="Auto safety mode: ${escapeHTML(state.topBar.modeLabel)}">
                       <span class="mode-dot" aria-hidden="true"></span>
                       <span data-testid="mode-pill">${escapeHTML(state.topBar.modeLabel)}</span>
                     </button>
@@ -7073,11 +7073,11 @@
             ${state.runtimeIssue ? renderRuntimeIssue(state.runtimeIssue, { showDiagnostics: true }) : ''}
             <label>
               TrustedRouter API base URL
-              <input name="apiBaseURL" aria-label="TrustedRouter API base URL" value="${escapeHTML(state.settings.apiBaseURL)}">
+              <input class="hit-target-text-entry" name="apiBaseURL" aria-label="TrustedRouter API base URL" value="${escapeHTML(state.settings.apiBaseURL)}">
             </label>
             <label>
               Authentication
-              <select name="authMode" aria-label="Authentication">
+              <select class="hit-target-text-entry" name="authMode" aria-label="Authentication">
                 <option value="oauth" ${state.settings.authMode === 'oauth' ? 'selected' : ''}>TrustedRouter login</option>
                 <option value="developer-override" ${state.settings.authMode === 'developer-override' ? 'selected' : ''}>Developer override</option>
               </select>
@@ -7085,17 +7085,17 @@
             ${state.settings.authMode === 'developer-override' ? `
               <label>
                 Replace API key
-                <input name="replacementAPIKey" aria-label="Replace API key" type="password" value="${escapeHTML(state.settings.replacementAPIKey)}">
+                <input class="hit-target-text-entry" name="replacementAPIKey" aria-label="Replace API key" type="password" value="${escapeHTML(state.settings.replacementAPIKey)}">
               </label>
             ` : `
               <p>OAuth browser login opens TrustedRouter and returns through QuillCode's local callback.</p>
-              <button type="button" data-testid="settings-sign-in">Sign in with TrustedRouter</button>
+              <button class="hit-target-text" type="button" data-testid="settings-sign-in">Sign in with TrustedRouter</button>
               <p data-testid="settings-sign-in-url">${escapeHTML(state.settings.signInURL)}</p>
               ${state.lastOpenedURL ? `<p data-testid="last-opened-url">${escapeHTML(state.lastOpenedURL)}</p>` : ''}
             `}
             <div class="settings-actions">
-              <button type="button" data-testid="settings-cancel">Cancel</button>
-              <button type="submit" data-testid="settings-save">Save</button>
+              <button class="hit-target-text" type="button" data-testid="settings-cancel">Cancel</button>
+              <button class="hit-target-text" type="submit" data-testid="settings-save">Save</button>
             </div>
           </form>
         </div>`;
@@ -7117,7 +7117,7 @@
           <p class="permission-next-action" data-testid="computer-use-next-action">${escapeHTML(computerUseNextAction())}</p>
           <p class="permission-footnote">After changing macOS permissions, quit and reopen QuillCode if the status does not update.</p>
           <div class="permission-actions">
-            <button type="button" data-testid="computer-use-refresh" data-command-id="${state.settings.computerUseRefreshCommand.id}">Refresh status</button>
+            <button class="hit-target-text" type="button" data-testid="computer-use-refresh" data-command-id="${state.settings.computerUseRefreshCommand.id}">Refresh status</button>
           </div>
           ${state.lastOpenedURL?.startsWith('x-apple.systempreferences:')
             ? `<p data-testid="computer-use-last-opened">${escapeHTML(state.lastOpenedURL)}</p>`
@@ -7134,7 +7134,7 @@
           </div>
           ${requirement.isGranted
             ? `<strong data-testid="computer-use-permission-status">${escapeHTML(requirement.statusLabel)}</strong>`
-            : `<button type="button" data-testid="computer-use-permission-open" data-command-id="${requirement.command.id}" ${requirement.command.isEnabled ? '' : 'disabled'}>Open</button>`}
+            : `<button class="hit-target-text" type="button" data-testid="computer-use-permission-open" data-command-id="${requirement.command.id}" ${requirement.command.isEnabled ? '' : 'disabled'}>Open</button>`}
         </div>`;
     }
 
@@ -7197,9 +7197,9 @@
                 <h2>Search chats</h2>
                 <p>Find a thread by title, model, pinned state, archived state, or transcript text.</p>
               </div>
-              <button type="button" data-testid="search-close">Close</button>
+              <button class="hit-target-text" type="button" data-testid="search-close">Close</button>
             </header>
-            <input data-testid="search-input" aria-label="Search chats" placeholder="Search chats" value="${escapeHTML(state.search.query)}" autofocus>
+            <input class="hit-target-text-entry" data-testid="search-input" aria-label="Search chats" placeholder="Search chats" value="${escapeHTML(state.search.query)}" autofocus>
             <div class="search-results" data-testid="search-results">
               ${searchResultsHTML()}
             </div>
@@ -7307,11 +7307,11 @@
       return `
         <form class="find-bar" data-testid="find-bar" aria-label="Find in chat">
           <span>⌕</span>
-          <input data-testid="find-input" aria-label="Find in chat" placeholder="Find in chat" value="${escapeHTML(state.find.query)}" autofocus>
+          <input class="hit-target-text-entry" data-testid="find-input" aria-label="Find in chat" placeholder="Find in chat" value="${escapeHTML(state.find.query)}" autofocus>
           <small class="find-status" data-testid="find-status">${escapeHTML(status)}</small>
-          <button type="button" data-testid="find-previous" ${matches.length ? '' : 'disabled'}>↑</button>
-          <button type="button" data-testid="find-next" ${matches.length ? '' : 'disabled'}>↓</button>
-          <button type="button" data-testid="find-close" aria-label="Close find">×</button>
+          <button class="hit-target-icon" type="button" data-testid="find-previous" ${matches.length ? '' : 'disabled'}>↑</button>
+          <button class="hit-target-icon" type="button" data-testid="find-next" ${matches.length ? '' : 'disabled'}>↓</button>
+          <button class="hit-target-icon" type="button" data-testid="find-close" aria-label="Close find">×</button>
         </form>`;
     }
 
@@ -7321,7 +7321,7 @@
       clampSlashActiveIndex(suggestions);
       const rows = suggestions.map((suggestion, index) => `
         <button
-          class="slash-suggestion ${index === state.composer.slashActiveIndex ? 'selected' : ''}"
+          class="slash-suggestion hit-target-row ${index === state.composer.slashActiveIndex ? 'selected' : ''}"
           type="button"
           data-testid="slash-suggestion"
           data-insert-text="${escapeHTML(suggestion.insertText)}"
@@ -7355,10 +7355,10 @@
                 <h2>Command palette</h2>
                 <p>Run actions, or type / to insert slash commands.</p>
               </div>
-              <button type="button" data-testid="command-palette-close">Close</button>
+              <button class="hit-target-text" type="button" data-testid="command-palette-close">Close</button>
             </header>
             <div class="command-palette-input-row">
-              <input data-testid="command-palette-input" aria-label="Search commands" placeholder="Search commands, > actions, / slash" value="${escapeHTML(state.commandPalette.query)}" autofocus>
+              <input class="hit-target-text-entry" data-testid="command-palette-input" aria-label="Search commands" placeholder="Search commands, > actions, / slash" value="${escapeHTML(state.commandPalette.query)}" autofocus>
               ${scopeLabel ? `<span class="command-scope-badge" data-testid="command-palette-scope">${escapeHTML(scopeLabel)}</span>` : '<span class="command-palette-legend">&gt; actions · / slash</span>'}
             </div>
             <div class="search-results" data-testid="command-palette-results">
@@ -7398,7 +7398,7 @@
                 <h2>Keyboard shortcuts</h2>
                 <p>Fast paths for the workspace actions available right now.</p>
               </div>
-              <button type="button" data-testid="keyboard-shortcuts-close">Close</button>
+              <button class="hit-target-text" type="button" data-testid="keyboard-shortcuts-close">Close</button>
             </header>
             <div class="search-results" data-testid="keyboard-shortcuts-list">
               ${sortedCategories.map(category => `
@@ -7796,14 +7796,14 @@
           <header>
             <strong>Terminal</strong>
             <code data-testid="terminal-cwd">${escapeHTML(state.terminal.cwdLabel)}</code>
-            <button type="button" data-testid="terminal-clear" ${state.terminal.entries.length && !state.terminal.isRunning ? '' : 'disabled'}>Clear</button>
-            ${state.terminal.isRunning ? '<button type="button" data-testid="terminal-stop">Stop</button>' : ''}
+            <button class="hit-target-text" type="button" data-testid="terminal-clear" ${state.terminal.entries.length && !state.terminal.isRunning ? '' : 'disabled'}>Clear</button>
+            ${state.terminal.isRunning ? '<button class="hit-target-text" type="button" data-testid="terminal-stop">Stop</button>' : ''}
           </header>
           <div class="terminal-history" data-testid="terminal-history">${entries}</div>
           <form class="terminal-form" data-testid="terminal-form">
             <code>$</code>
-            <input data-testid="terminal-input" aria-label="Terminal command" placeholder="Run command" value="${escapeHTML(state.terminal.draft)}" ${state.terminal.isRunning ? 'disabled' : ''}>
-            <button type="submit" data-testid="terminal-run" ${state.terminal.draft.trim() && !state.terminal.isRunning ? '' : 'disabled'}>Run</button>
+            <input class="hit-target-text-entry" data-testid="terminal-input" aria-label="Terminal command" placeholder="Run command" value="${escapeHTML(state.terminal.draft)}" ${state.terminal.isRunning ? 'disabled' : ''}>
+            <button class="hit-target-text" type="submit" data-testid="terminal-run" ${state.terminal.draft.trim() && !state.terminal.isRunning ? '' : 'disabled'}>Run</button>
           </form>
         </section>`;
 	    }
@@ -7857,19 +7857,19 @@
               </div>
 	          <form class="browser-form" data-testid="browser-form">
             <div class="browser-nav-controls" aria-label="Browser navigation">
-              <button class="browser-nav-button" type="button" data-testid="browser-back" aria-label="Back" ${browserCanGoBack() ? '' : 'disabled'}>&lt;</button>
-              <button class="browser-nav-button" type="button" data-testid="browser-forward" aria-label="Forward" ${browserCanGoForward() ? '' : 'disabled'}>&gt;</button>
-              <button class="browser-nav-button" type="button" data-testid="browser-reload" aria-label="Reload" ${browserCanReload() ? '' : 'disabled'}>R</button>
-              <button class="browser-nav-button" type="button" data-testid="browser-session" aria-label="Open visible browser session" ${browserCanOpenSession() ? '' : 'disabled'}>Session</button>
+              <button class="browser-nav-button hit-target-icon" type="button" data-testid="browser-back" aria-label="Back" ${browserCanGoBack() ? '' : 'disabled'}>&lt;</button>
+              <button class="browser-nav-button hit-target-icon" type="button" data-testid="browser-forward" aria-label="Forward" ${browserCanGoForward() ? '' : 'disabled'}>&gt;</button>
+              <button class="browser-nav-button hit-target-icon" type="button" data-testid="browser-reload" aria-label="Reload" ${browserCanReload() ? '' : 'disabled'}>R</button>
+              <button class="browser-nav-button hit-target-text" type="button" data-testid="browser-session" aria-label="Open visible browser session" ${browserCanOpenSession() ? '' : 'disabled'}>Session</button>
             </div>
-	            <input data-testid="browser-address" aria-label="Browser address" placeholder="localhost:3000 or https://example.com" value="${escapeHTML(state.browser.addressDraft)}">
-	            <button class="browser-open-button" type="submit" data-testid="browser-open" ${state.browser.addressDraft.trim() ? '' : 'disabled'}>Open</button>
+	            <input class="hit-target-text-entry" data-testid="browser-address" aria-label="Browser address" placeholder="localhost:3000 or https://example.com" value="${escapeHTML(state.browser.addressDraft)}">
+	            <button class="browser-open-button hit-target-text" type="submit" data-testid="browser-open" ${state.browser.addressDraft.trim() ? '' : 'disabled'}>Open</button>
 	          </form>
             ${state.browser.sessionURL ? `<p class="browser-session-status" data-testid="browser-session-status">Visible session ${state.browser.sessionOpenCount}: <code data-testid="browser-session-url">${escapeHTML(state.browser.sessionURL)}</code></p>` : ''}
 	          ${preview}
 	          <form class="browser-comment-form" data-testid="browser-comment-form">
-	            <input data-testid="browser-comment-input" aria-label="Browser comment" placeholder="Add browser comment">
-	            <button type="submit" data-testid="browser-add-comment" ${state.browser.currentURL ? '' : 'disabled'}>Comment</button>
+	            <input class="hit-target-text-entry" data-testid="browser-comment-input" aria-label="Browser comment" placeholder="Add browser comment">
+	            <button class="hit-target-text" type="submit" data-testid="browser-add-comment" ${state.browser.currentURL ? '' : 'disabled'}>Comment</button>
 	          </form>
 	          <div class="browser-comments" data-testid="browser-comments">${comments}</div>
 	        </section>`;

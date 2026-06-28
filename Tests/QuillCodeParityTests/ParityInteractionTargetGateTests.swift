@@ -54,7 +54,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Explicit critical-control probes should test the clickable interior, not only raw bounding-box dimensions."
         )
         XCTAssertTrue(
-            auditHelperText.contains("targetSampleFractions = [0.2, 0.5, 0.8]")
+            auditHelperText.contains("TARGET_SAMPLE_FRACTIONS = [0.2, 0.5, 0.8]")
                 && auditHelperText.contains("targetInteriorSamplePoints"),
             "Click-target probes should sample a 3x3 interior grid so edge-blocked controls cannot pass with only the center clickable."
         )
@@ -70,8 +70,9 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(
             auditHelperText.contains("missing_shared_hit_target_contract")
-                && auditHelperText.contains("sharedHitTargetClasses"),
-            "Visible interactive controls should declare ownership through a shared hit-target class, not only rely on global geometry."
+                && auditHelperText.contains("SHARED_HIT_TARGET_CLASSES")
+                && auditHelperText.contains("EXPECTED_KIND_BY_CLASS"),
+            "Visible interactive controls should declare ownership through a shared hit-target class and semantic kind, not only rely on global geometry."
         )
         XCTAssertTrue(
             auditHelperText.contains("closestInteractiveAncestor")
@@ -197,6 +198,11 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && interactionSpecText.contains("expectedClass: 'hit-target-row'")
                 && interactionSpecText.contains("expectedClass: 'hit-target-text'"),
             "Critical click-target probes should assert the intended semantic target kind, not only any shared class."
+        )
+        XCTAssertTrue(
+            interactionSpecText.contains("expectedClass: 'hit-target-form-action'")
+                || interactionSpecText.contains("expectedClass: 'hit-target-capsule'"),
+            "Critical click-target probes should include compact form-action or capsule controls, not only generic row/text/icon controls."
         )
     }
 
