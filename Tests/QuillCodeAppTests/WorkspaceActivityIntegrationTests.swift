@@ -152,12 +152,46 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
 
         let activity = model.surface().activity
         let conflict = try XCTUnwrap(activity.sources.first { $0.statusLabel == "conflict" })
+        let reviewSection = try XCTUnwrap(activity.sections.first { $0.kind == .instructionReview })
 
         XCTAssertEqual(conflict.title, "Conflicting instruction intent")
         XCTAssertEqual(
             conflict.detail,
             "Tests: AGENTS.md says require; Sources/Feature/AGENTS.md says avoid"
         )
+        XCTAssertEqual(reviewSection.title, "Instruction Review")
+        XCTAssertEqual(reviewSection.countLabel, "1 issue")
+        XCTAssertEqual(reviewSection.items, [conflict])
+        XCTAssertEqual(
+            activity.sections.map(\.kind),
+            [.plan, .recent, .subagents, .handoff, .tools, .instructionReview, .sources, .artifacts]
+        )
+    }
+
+    func testActivitySourcesPrioritizeConflictDiagnosticsWithinSourceCap() throws {
+        let instructions = [
+            ProjectInstruction(path: "AGENTS.md", title: "AGENTS.md", content: "Always run tests.", byteCount: 17),
+            ProjectInstruction(path: ".quillcode/rules.md", title: "rules.md", content: "Use Swift.", byteCount: 10),
+            ProjectInstruction(path: ".quillcode/instructions.md", title: "instructions.md", content: "Use small diffs.", byteCount: 15),
+            ProjectInstruction(path: "Sources/AGENTS.md", title: "Sources AGENTS.md", content: "Use source patterns.", byteCount: 20),
+            ProjectInstruction(path: "Sources/Feature/AGENTS.md", title: "Feature AGENTS.md", content: "Do not run tests.", byteCount: 17)
+        ]
+        let thread = ChatThread(
+            title: "Inspect conflicts",
+            messages: [.init(role: .user, content: "what rules apply?")],
+            instructions: instructions
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            activity: ActivityState(isVisible: true)
+        )
+
+        let activity = model.surface().activity
+        let reviewSection = try XCTUnwrap(activity.sections.first { $0.kind == .instructionReview })
+
+        XCTAssertTrue(activity.sources.filter { $0.kind == "instruction-diagnostic" }.prefix(4).contains { $0.statusLabel == "conflict" })
+        XCTAssertEqual(reviewSection.items.count, 1)
+        XCTAssertEqual(reviewSection.items.first?.statusLabel, "conflict")
     }
 
     func testActivitySurfacePrefersModelAuthoredPlan() throws {

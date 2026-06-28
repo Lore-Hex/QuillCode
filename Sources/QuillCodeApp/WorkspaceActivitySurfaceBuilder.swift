@@ -60,7 +60,8 @@ enum WorkspaceActivitySurfaceBuilder {
         handoffSummary: String?,
         collapsedSectionIDs: Set<ActivitySectionKind>
     ) -> [ActivitySectionSurface] {
-        [
+        let instructionConflicts = instructionConflictItems(from: sources)
+        return [
             ActivitySectionSurface(
                 kind: .plan,
                 items: planItems,
@@ -87,6 +88,11 @@ enum WorkspaceActivitySurfaceBuilder {
                 isCollapsed: collapsedSectionIDs.contains(.tools)
             ),
             ActivitySectionSurface(
+                kind: .instructionReview,
+                items: instructionConflicts,
+                isCollapsed: collapsedSectionIDs.contains(.instructionReview)
+            ),
+            ActivitySectionSurface(
                 kind: .sources,
                 items: sources,
                 isCollapsed: collapsedSectionIDs.contains(.sources)
@@ -102,6 +108,12 @@ enum WorkspaceActivitySurfaceBuilder {
                 isCollapsed: collapsedSectionIDs.contains(.latestAnswer)
             )
         ].filter { !$0.isEmpty || $0.kind.alwaysVisible }
+    }
+
+    static func instructionConflictItems(from sources: [ActivityItemSurface]) -> [ActivityItemSurface] {
+        sources.filter {
+            $0.kind == "instruction-diagnostic" && $0.statusLabel == "conflict"
+        }
     }
 
     static func planItems(

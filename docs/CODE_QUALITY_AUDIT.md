@@ -8578,3 +8578,20 @@ Code quality changes:
 Remaining risk:
 
 - This is deterministic, intentionally conservative text analysis. A richer conflict review UI and optional model-assisted rule audit are still needed before this reaches full Codex parity.
+
+## 2026-06-28 Activity Instruction Review Section Pass
+
+Overall grade after this slice: **A section derivation, A- review visibility, B+ conflict resolution UX**.
+
+Instruction conflicts were visible as source diagnostics, but users still had to find them inside the mixed Sources section. Codex parity needs important workflow risks to have a dedicated place in the activity/task pane.
+
+Code quality changes:
+
+- Added `instructionReview` as a first-class `ActivitySectionKind` with issue-oriented count labels and a dedicated `activity-instruction-conflict` test ID.
+- Derived the section from existing conflict diagnostic source rows, keeping one source of truth instead of adding persisted review state.
+- Prioritized conflict diagnostics inside the existing source cap so the review section cannot disappear behind lower-severity structural diagnostics.
+- Added Swift and HTML renderer coverage plus architecture gates for the first-class section.
+
+Remaining risk:
+
+- The section makes conflicts visible and reviewable. Follow-up parity work should add source-to-file navigation, edit actions, and explicit resolve/dismiss state once the project file-editing UX is ready.

@@ -11,9 +11,8 @@ enum WorkspaceActivitySourceSurfaceBuilder {
                 statusLabel: instruction.wasTruncated ? "truncated" : "rules"
             )
         }
-        let diagnosticItems = ProjectInstructionDiagnosticsBuilder
+        let allDiagnosticItems = ProjectInstructionDiagnosticsBuilder
             .diagnostics(for: instructions)
-            .prefix(4)
             .map { diagnostic in
                 ActivityItemSurface(
                     id: diagnostic.id,
@@ -23,6 +22,11 @@ enum WorkspaceActivitySourceSurfaceBuilder {
                     statusLabel: diagnostic.statusLabel
                 )
             }
+        let diagnosticItems = Array(
+            (allDiagnosticItems.filter { $0.statusLabel == "conflict" }
+                + allDiagnosticItems.filter { $0.statusLabel != "conflict" })
+                .prefix(4)
+        )
         let memoryItems = memories.prefix(4).map { memory in
             ActivityItemSurface(
                 id: "memory-\(memory.id)",

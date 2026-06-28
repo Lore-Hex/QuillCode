@@ -6,6 +6,7 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
     case subagents
     case handoff
     case tools
+    case instructionReview
     case sources
     case artifacts
     case latestAnswer
@@ -22,6 +23,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
             return "Handoff Summary"
         case .tools:
             return "Tools"
+        case .instructionReview:
+            return "Instruction Review"
         case .sources:
             return "Sources"
         case .artifacts:
@@ -43,6 +46,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
             return ""
         case .tools:
             return "No tools used yet"
+        case .instructionReview:
+            return "No instruction conflicts"
         case .sources:
             return "No context sources attached"
         case .artifacts:
@@ -64,6 +69,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
             return "activity-handoff"
         case .tools:
             return "activity-tool"
+        case .instructionReview:
+            return "activity-instruction-conflict"
         case .sources:
             return "activity-source"
         case .artifacts:
@@ -78,6 +85,8 @@ public enum ActivitySectionKind: String, Codable, Sendable, Hashable, CaseIterab
         case .plan:
             return true
         case .handoff, .latestAnswer:
+            return false
+        case .instructionReview:
             return false
         case .recent, .subagents, .tools, .sources, .artifacts:
             return true
@@ -109,6 +118,9 @@ public struct ActivitySectionSurface: Codable, Sendable, Hashable, Identifiable 
         }
         if !artifacts.isEmpty {
             return "\(artifacts.count) artifact\(artifacts.count == 1 ? "" : "s")"
+        }
+        if kind == .instructionReview {
+            return "\(items.count) issue\(items.count == 1 ? "" : "s")"
         }
         return "\(items.count) item\(items.count == 1 ? "" : "s")"
     }
