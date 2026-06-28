@@ -13,6 +13,7 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
     public var pluginCount: Int { items.filter { $0.kind == .plugin }.count }
     public var skillCount: Int { items.filter { $0.kind == .skill }.count }
     public var mcpServerCount: Int { items.filter { $0.kind == .mcpServer }.count }
+    public var availableCount: Int { items.filter { $0.statusLabel == "Available" }.count }
 
     public init(
         isVisible: Bool = false,
@@ -22,28 +23,34 @@ public struct WorkspaceExtensionsSurface: Codable, Sendable, Hashable {
         emptyTitle: String = "No extension manifests found",
         emptySubtitle: String = "Add JSON manifests under .quillcode/plugins, .quillcode/skills, or .quillcode/mcp."
     ) {
-        self.isVisible = isVisible
-        self.items = manifests.map {
+        let projectedItems = manifests.map {
             ProjectExtensionManifestSurface(
                 manifest: $0,
                 mcpServerStatus: mcpServerStatuses[$0.id] ?? .stopped,
                 probeSummary: mcpServerProbeSummaries[$0.id]
             )
         }
+        self.isVisible = isVisible
+        self.items = projectedItems
         self.emptyTitle = emptyTitle
         self.emptySubtitle = emptySubtitle
         self.title = "Extensions"
         if manifests.isEmpty {
             self.subtitle = "No project-local plugins, skills, or MCP servers discovered"
         } else {
-            let pluginCount = manifests.filter { $0.kind == .plugin }.count
-            let skillCount = manifests.filter { $0.kind == .skill }.count
-            let mcpCount = manifests.filter { $0.kind == .mcpServer }.count
-            self.subtitle = [
+            let pluginCount = projectedItems.filter { $0.kind == .plugin }.count
+            let skillCount = projectedItems.filter { $0.kind == .skill }.count
+            let mcpServerCount = projectedItems.filter { $0.kind == .mcpServer }.count
+            let availableCount = projectedItems.filter { $0.statusLabel == "Available" }.count
+            let counts = [
                 Self.countLabel(pluginCount, singular: "plugin"),
                 Self.countLabel(skillCount, singular: "skill"),
-                Self.countLabel(mcpCount, singular: "MCP server")
-            ].joined(separator: " · ")
+                Self.countLabel(mcpServerCount, singular: "MCP server")
+            ]
+            let availability = availableCount == 0
+                ? []
+                : [Self.countLabel(availableCount, singular: "available extension")]
+            self.subtitle = (counts + availability).joined(separator: " · ")
         }
     }
 

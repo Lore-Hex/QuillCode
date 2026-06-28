@@ -8,6 +8,7 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
         <span data-testid="extensions-count">\(countLabel(extensions.pluginCount, singular: "plugin"))</span>
         <span data-testid="extensions-count">\(countLabel(extensions.skillCount, singular: "skill"))</span>
         <span data-testid="extensions-count">\(countLabel(extensions.mcpServerCount, singular: "MCP server"))</span>
+        \(extensions.availableCount > 0 ? #"<span data-testid="extensions-count">\#(countLabel(extensions.availableCount, singular: "available extension"))</span>"# : "")
         """
         let content: String
         if extensions.items.isEmpty {
