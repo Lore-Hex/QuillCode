@@ -78,7 +78,7 @@ enum WorkspaceHTMLPrimitives {
         var parts = [
             #"type="\#(escape(type))""#
         ]
-        let classAttribute = classes
+        let classAttribute = classesWithDefaultHitTarget(classes)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .joined(separator: " ")
@@ -109,6 +109,27 @@ enum WorkspaceHTMLPrimitives {
             parts.append(#"aria-disabled="true""#)
         }
         return " " + parts.joined(separator: " ")
+    }
+
+    private static func classesWithDefaultHitTarget(_ classes: [String]) -> [String] {
+        let trimmed = classes
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if trimmed.contains(where: isHitTargetClass) {
+            return trimmed
+        }
+        return trimmed + [textHitTargetClass]
+    }
+
+    private static func isHitTargetClass(_ className: String) -> Bool {
+        [
+            interactiveHitTargetClass,
+            iconHitTargetClass,
+            textHitTargetClass,
+            rowHitTargetClass,
+            capsuleHitTargetClass,
+            formActionHitTargetClass
+        ].contains(className)
     }
 
     static func executionContextChip(

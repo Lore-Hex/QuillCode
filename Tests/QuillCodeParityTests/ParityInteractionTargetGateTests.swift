@@ -69,6 +69,39 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testHTMLButtonPrimitiveDefaultsToSharedHitTargetClass() throws {
+        let primitivesText = try Self.appSourceText(named: "WorkspaceHTMLPrimitives.swift")
+
+        XCTAssertTrue(
+            primitivesText.contains("classesWithDefaultHitTarget")
+                && primitivesText.contains("return trimmed + [textHitTargetClass]"),
+            "HTML button attributes should add the shared text hit-target class unless a more specific shared target class is already present."
+        )
+        XCTAssertTrue(
+            primitivesText.contains("private static func isHitTargetClass")
+                && primitivesText.contains("interactiveHitTargetClass")
+                && primitivesText.contains("formActionHitTargetClass"),
+            "The defaulting helper should recognize every shared rendered hit-target class instead of duplicating class-name logic at call sites."
+        )
+    }
+
+    func testHTMLRenderersUseSharedClickTargetPrimitives() throws {
+        let rendererFiles = try Self.swiftSourceFiles(in: "Sources/QuillCodeApp")
+            .filter {
+                $0.lastPathComponent.hasPrefix("WorkspaceHTML")
+                    && $0.lastPathComponent != "WorkspaceHTMLPrimitives.swift"
+            }
+        let violations = try HTMLSourceInteractionTargetAudit(
+            packageRoot: Self.packageRoot()
+        )
+        .violations(in: rendererFiles)
+
+        XCTAssertTrue(
+            violations.isEmpty,
+            "Generated HTML controls must route through shared click-target primitives or shared hit-target classes:\n\(violations.joined(separator: "\n"))"
+        )
+    }
+
     func testNativeHitTargetPrimitivesFrameAndShapeEveryTarget() throws {
         let designText = try Self.appSourceText(named: "QuillCodeDesignSystem.swift")
 
@@ -114,6 +147,53 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
     }
 
+}
+
+private struct HTMLSourceInteractionTargetAudit {
+    var packageRoot: URL
+
+    private let primitiveMarkers = [
+        "WorkspaceHTMLPrimitives.button(",
+        "WorkspaceHTMLPrimitives.commandButton(",
+        "WorkspaceHTMLPrimitives.buttonAttributes("
+    ]
+
+    private let hitTargetMarkers = [
+        "WorkspaceHTMLPrimitives.interactiveHitTargetClass",
+        "WorkspaceHTMLPrimitives.iconHitTargetClass",
+        "WorkspaceHTMLPrimitives.textHitTargetClass",
+        "WorkspaceHTMLPrimitives.rowHitTargetClass",
+        "WorkspaceHTMLPrimitives.capsuleHitTargetClass",
+        "WorkspaceHTMLPrimitives.formActionHitTargetClass"
+    ]
+
+    func violations(in sourceFiles: [URL]) throws -> [String] {
+        try sourceFiles.flatMap(violations(in:))
+    }
+
+    private func violations(in file: URL) throws -> [String] {
+        let lines = try String(contentsOf: file, encoding: .utf8)
+            .components(separatedBy: .newlines)
+        let relativePath = file.path.replacingOccurrences(
+            of: packageRoot.path + "/",
+            with: ""
+        )
+        return lines.enumerated().compactMap { index, line in
+            guard containsHTMLInteractiveElement(line),
+                  !lineHasSharedTargetContract(line)
+            else { return nil }
+            return "\(relativePath):\(index + 1) generated HTML control lacks shared hit-target primitive"
+        }
+    }
+
+    private func containsHTMLInteractiveElement(_ line: String) -> Bool {
+        line.contains("<button") || line.contains("<a ")
+    }
+
+    private func lineHasSharedTargetContract(_ line: String) -> Bool {
+        primitiveMarkers.contains { line.contains($0) }
+            || hitTargetMarkers.contains { line.contains($0) }
+    }
 }
 
 private struct SwiftSourceInteractionTargetAudit {

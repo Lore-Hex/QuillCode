@@ -11,14 +11,23 @@ enum WorkspaceHTMLTerminalRenderer {
           <header>
             <strong>Terminal</strong>
             <code data-testid="terminal-cwd">\(escape(terminal.cwdLabel))</code>
-            <button type="button" data-testid="terminal-clear" \(terminal.canClear ? "" : "disabled")>Clear</button>
+            \(WorkspaceHTMLPrimitives.button(
+                "Clear",
+                testID: "terminal-clear",
+                disabled: !terminal.canClear
+            ))
           </header>
           <div data-testid="terminal-history">
             \(entries)
           </div>
           <form data-testid="terminal-form">
             <input aria-label="Terminal command" value="\(escape(terminal.draft))">
-            <button type="submit" data-testid="terminal-run" \(terminal.canRun ? "" : "disabled")>Run</button>
+            \(WorkspaceHTMLPrimitives.button(
+                "Run",
+                testID: "terminal-run",
+                type: "submit",
+                disabled: !terminal.canRun
+            ))
           </form>
         </section>
         """

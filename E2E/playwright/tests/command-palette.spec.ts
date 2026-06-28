@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import {
   clickCommandPaletteCommand,
   clickSidebarTool,
@@ -6,6 +6,11 @@ import {
   fillCommandPalette,
   harnessURL
 } from './harness-helpers';
+
+async function expectWorktreeChoicesLoaded(page: Page, labels: string[]) {
+  await expect(page.getByTestId('worktree-choice')).toContainText(labels);
+  await expect(page.getByTestId('worktree-choices-loading')).toHaveCount(0);
+}
 
 test('mock harness runs a command from the command palette', async ({ page }) => {
   await page.goto(harnessURL());
@@ -223,9 +228,7 @@ test('mock harness creates and removes worktrees from dialogs', async ({ page })
   await clickCommandPaletteCommand(page, '>open worktree', 'git-worktree-open');
   await expect(page.getByTestId('worktree-open-panel')).toBeVisible();
   await expect(page.getByTestId('worktree-open-submit')).toBeDisabled();
-  await expect(page.getByTestId('worktree-choices-loading')).toBeVisible();
-  await expect(page.getByTestId('worktree-choice')).toContainText(['QuillCode', 'quillcode-existing']);
-  await expect(page.getByTestId('worktree-choices-loading')).toHaveCount(0);
+  await expectWorktreeChoicesLoaded(page, ['QuillCode', 'quillcode-existing']);
 
   await page.getByTestId('worktree-choice').filter({ hasText: 'quillcode-existing' }).click();
   await expect(page.getByLabel('Worktree folder')).toHaveValue('/mock/quillcode-existing');
@@ -240,9 +243,7 @@ test('mock harness creates and removes worktrees from dialogs', async ({ page })
   await clickSidebarTool(page, 'command-palette-button');
   await clickCommandPaletteCommand(page, '>remove worktree', 'git-worktree-remove');
   await expect(page.getByTestId('worktree-remove-panel')).toBeVisible();
-  await expect(page.getByTestId('worktree-choices-loading')).toBeVisible();
-  await expect(page.getByTestId('worktree-choice')).toContainText(['QuillCode', 'quillcode-feature']);
-  await expect(page.getByTestId('worktree-choices-loading')).toHaveCount(0);
+  await expectWorktreeChoicesLoaded(page, ['QuillCode', 'quillcode-feature']);
 
   await page.getByTestId('worktree-choice').filter({ hasText: 'quillcode-feature' }).click();
   await expect(page.getByLabel('Worktree folder')).toHaveValue('/mock/quillcode-feature');

@@ -42,7 +42,11 @@ enum WorkspaceHTMLToolCardRenderer {
     private static func renderCopyAction(for card: ToolCardState, copyID: String) -> String {
         """
         <footer class="transcript-actions">
-          <button type="button" data-testid="tool-card-copy" data-copy-id="\(escape(copyID))">\(escape(copyActionLabel(for: card)))</button>
+          \(WorkspaceHTMLPrimitives.button(
+              copyActionLabel(for: card),
+              testID: "tool-card-copy",
+              attributes: [("data-copy-id", copyID)]
+          ))
         </footer>
         """
     }
@@ -64,9 +68,15 @@ enum WorkspaceHTMLToolCardRenderer {
     private static func renderActions(_ actions: [ToolCardActionSurface]) -> String {
         guard !actions.isEmpty else { return "" }
         let buttons = actions.map { action in
-            """
-            <button type="button" data-testid="tool-card-action" data-action-kind="\(escape(action.kind.rawValue))" data-action-style="\(escape(action.style.rawValue))" data-request-id="\(escape(action.requestID))">\(escape(action.title))</button>
-            """
+            WorkspaceHTMLPrimitives.button(
+                action.title,
+                testID: "tool-card-action",
+                attributes: [
+                    ("data-action-kind", action.kind.rawValue),
+                    ("data-action-style", action.style.rawValue),
+                    ("data-request-id", action.requestID)
+                ]
+            )
         }.joined(separator: "\n")
         return """
         <div class="tool-card-actions" data-testid="tool-card-actions">

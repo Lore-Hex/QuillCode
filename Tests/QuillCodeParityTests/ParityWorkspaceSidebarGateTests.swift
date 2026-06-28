@@ -115,6 +115,20 @@ final class ParityWorkspaceSidebarGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(htmlSidebarText.contains(#"data-icon="plugins">Plugins"#), "HTML sidebar renderer should not hard-code sidebar plugin markup.")
     }
 
+    func testSidebarSavedFiltersWrapInsteadOfClippingHorizontally() throws {
+        let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
+        let harnessText = try String(
+            contentsOf: Self.packageRoot().appendingPathComponent("E2E/harness/index.html"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(sidebarText.contains("LazyVGrid("), "Native saved-filter chips should wrap instead of relying on hidden horizontal scrolling.")
+        XCTAssertTrue(sidebarText.contains(".adaptive(minimum: 100)"), "Native saved-filter chips should keep enough width for labels like Archived.")
+        XCTAssertFalse(sidebarText.contains("ScrollView(.horizontal, showsIndicators: false) {\n            HStack(spacing: 6)"), "Native saved-filter chips should not hide clipped horizontal overflow.")
+        XCTAssertTrue(harnessText.contains("flex-wrap: wrap;"), "HTML saved-filter chips should wrap instead of clipping at the sidebar edge.")
+        XCTAssertFalse(harnessText.contains(".sidebar-filter-bar::-webkit-scrollbar"), "HTML saved-filter chips should not hide scrollbars around clipped controls.")
+    }
+
     func testNativeSidebarDelegatesProjectListRendering() throws {
         let sidebarText = try Self.appSourceText(named: "QuillCodeSidebarView.swift")
         let projectListText = try Self.appSourceText(named: "QuillCodeProjectListView.swift")

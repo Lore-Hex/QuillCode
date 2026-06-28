@@ -14,23 +14,48 @@ enum WorkspaceHTMLBrowserRenderer {
           \(renderTabs(browser))
           <form class="browser-form" data-testid="browser-form">
             <div class="browser-nav-controls" aria-label="Browser navigation">
-              <button class="browser-nav-button" type="button" data-testid="browser-back" aria-label="Back" \(browser.canGoBack ? "" : "disabled")>Back</button>
-              <button class="browser-nav-button" type="button" data-testid="browser-forward" aria-label="Forward" \(browser.canGoForward ? "" : "disabled")>Forward</button>
-              <button class="browser-nav-button" type="button" data-testid="browser-reload" aria-label="Reload" \(browser.canReload ? "" : "disabled")>Reload</button>
+              \(browserNavButton("Back", testID: "browser-back", isEnabled: browser.canGoBack))
+              \(browserNavButton("Forward", testID: "browser-forward", isEnabled: browser.canGoForward))
+              \(browserNavButton("Reload", testID: "browser-reload", isEnabled: browser.canReload))
             </div>
             <input data-testid="browser-address" aria-label="Browser address" value="\(escape(browser.addressDraft))">
-            <button class="browser-open-button" type="submit" data-testid="browser-open" \(browser.canOpen ? "" : "disabled")>Open</button>
+            \(WorkspaceHTMLPrimitives.button(
+                "Open",
+                testID: "browser-open",
+                type: "submit",
+                classes: ["browser-open-button", WorkspaceHTMLPrimitives.textHitTargetClass],
+                disabled: !browser.canOpen
+            ))
           </form>
           \(preview)
           <form class="browser-comment-form" data-testid="browser-comment-form">
             <input data-testid="browser-comment-input" aria-label="Browser comment" placeholder="Add browser comment">
-            <button type="submit" data-testid="browser-add-comment" \(browser.currentURL == nil ? "disabled" : "")>Comment</button>
+            \(WorkspaceHTMLPrimitives.button(
+                "Comment",
+                testID: "browser-add-comment",
+                type: "submit",
+                disabled: browser.currentURL == nil
+            ))
           </form>
           <div data-testid="browser-comments">
             \(comments)
           </div>
         </section>
         """
+    }
+
+    private static func browserNavButton(
+        _ label: String,
+        testID: String,
+        isEnabled: Bool
+    ) -> String {
+        WorkspaceHTMLPrimitives.button(
+            label,
+            testID: testID,
+            classes: ["browser-nav-button", WorkspaceHTMLPrimitives.iconHitTargetClass],
+            ariaLabel: label,
+            disabled: !isEnabled
+        )
     }
 
     private static func renderTabs(_ browser: BrowserSurface) -> String {

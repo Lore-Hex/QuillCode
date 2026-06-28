@@ -345,11 +345,12 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             browserText.contains(#"class="browser-form""#)
                 && browserText.contains(#"class="browser-nav-controls""#)
-                && browserText.contains("WorkspaceHTMLPrimitives.buttonAttributes")
+                && browserText.contains("browserNavButton(")
+                && browserText.contains("WorkspaceHTMLPrimitives.button(")
                 && browserText.contains("WorkspaceHTMLPrimitives.capsuleHitTargetClass")
                 && browserText.contains("WorkspaceHTMLPrimitives.iconHitTargetClass")
-                && browserText.contains(#"class="browser-nav-button""#)
-                && browserText.contains(#"class="browser-open-button""#)
+                && browserText.contains(#""browser-nav-button""#)
+                && browserText.contains(#""browser-open-button""#)
                 && browserText.contains(#"data-testid="browser-address""#),
             "Browser controls should keep named classes and address test IDs so compact hit-target CSS and audits cannot silently regress."
         )
