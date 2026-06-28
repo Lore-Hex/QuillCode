@@ -1,5 +1,6 @@
 import XCTest
 import QuillCodeCore
+import QuillComputerUseKit
 @testable import QuillCodeApp
 
 @MainActor
@@ -21,7 +22,7 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.computerUseStatusLabel, "Setup needed")
         XCTAssertEqual(
             settings.computerUseSetupSummary,
-            "Computer Use needs macOS privacy permissions before QuillCode can inspect or control the desktop."
+            "Computer Use needs desktop permissions before QuillCode can inspect or control the screen."
         )
         XCTAssertEqual(
             settings.computerUseNextAction,
@@ -97,6 +98,29 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.computerUseRequirements.map(\.title), ["Screen Recording", "Accessibility"])
         XCTAssertEqual(settings.computerUseRequirements.map(\.statusLabel), ["Granted", "Required"])
         XCTAssertEqual(settings.computerUseRequirements.map(\.command.isEnabled), [false, true])
+    }
+
+    func testSettingsSurfaceUsesUnavailableComputerUseReasonWithoutPermissionRows() {
+        let status = ComputerUseStatus.unavailable(
+            "Linux Computer Use detected Wayland but needs helper tools: ydotool, wtype."
+        )
+        let settings = WorkspaceSettingsSurface(
+            config: AppConfig(),
+            hasStoredAPIKey: false,
+            computerUseStatus: status
+        )
+
+        XCTAssertEqual(settings.computerUseStatusLabel, "Unavailable")
+        XCTAssertEqual(
+            settings.computerUseSetupSummary,
+            "Linux Computer Use detected Wayland but needs helper tools: ydotool, wtype."
+        )
+        XCTAssertEqual(
+            settings.computerUseNextAction,
+            "Install or enable the required desktop backend, then refresh status."
+        )
+        XCTAssertTrue(settings.computerUseRequirements.isEmpty)
+        XCTAssertTrue(settings.computerUseSetupCommand.isEnabled)
     }
 
     func testRuntimeIssueDecodesOlderPayloadWithoutDiagnostics() throws {
