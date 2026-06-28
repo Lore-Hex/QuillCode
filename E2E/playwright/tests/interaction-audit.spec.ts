@@ -20,6 +20,31 @@ async function expectInteractionTargetsClean(page: Page, label: string) {
   await expectAllVisibleInteractiveTargets(page, label);
   await expectNoNestedInteractiveTargets(page, label);
   await expectNoOverlappingInteractiveTargets(page, label);
+  await expectCommandTargetsRoutable(page, label);
+}
+
+async function expectCommandTargetsRoutable(page: Page, label: string) {
+  const report = await page.evaluate(() => {
+    const harness = window as typeof window & {
+      __quillCodeCommandRoutingAudit?: () => {
+        unroutableCommands: Array<{ commandID: string; title: string; enabled: boolean }>;
+        unroutableTargets: Array<{ commandID: string; testid: string; text: string }>;
+      };
+    };
+    return harness.__quillCodeCommandRoutingAudit?.() ?? {
+      unroutableCommands: [{ commandID: 'missing-audit-hook', title: 'Missing audit hook', enabled: true }],
+      unroutableTargets: []
+    };
+  });
+
+  expect(
+    report.unroutableCommands,
+    `${label} should not publish command IDs the harness cannot route`
+  ).toEqual([]);
+  expect(
+    report.unroutableTargets,
+    `${label} should not render visible enabled command targets with unroutable command IDs`
+  ).toEqual([]);
 }
 
 test('mock harness audits every visible interactive click target across workspace states', async ({ page }) => {
@@ -255,6 +280,41 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
   expect(issueFor('tiny-checkbox-label')?.reason).toContain('too_small');
   expect(issueFor('disabled-pointer-target')).toBeUndefined();
   expect(issueFor('disabled-checkbox-label')).toBeUndefined();
+});
+
+test('command routing audit catches visible dead command targets', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await expectCommandTargetsRoutable(page, 'initial workspace');
+  await page.evaluate(() => {
+    const fixture = document.createElement('button');
+    fixture.type = 'button';
+    fixture.textContent = 'Dead command';
+    fixture.setAttribute('data-testid', 'dead-command-target');
+    fixture.setAttribute('data-command-id', 'definitely-not-routable');
+    fixture.style.position = 'fixed';
+    fixture.style.left = '24px';
+    fixture.style.top = '24px';
+    fixture.style.zIndex = '1000';
+    fixture.style.width = '160px';
+    fixture.style.height = '48px';
+    document.body.appendChild(fixture);
+  });
+
+  const report = await page.evaluate(() => {
+    const harness = window as typeof window & {
+      __quillCodeCommandRoutingAudit: () => {
+        unroutableTargets: Array<{ commandID: string; testid: string; text: string }>;
+      };
+    };
+    return harness.__quillCodeCommandRoutingAudit();
+  });
+
+  expect(report.unroutableTargets).toContainEqual({
+    commandID: 'definitely-not-routable',
+    testid: 'dead-command-target',
+    text: 'Dead command'
+  });
 });
 
 test('critical controls respond from the full interior click target, not only the center', async ({ page }) => {

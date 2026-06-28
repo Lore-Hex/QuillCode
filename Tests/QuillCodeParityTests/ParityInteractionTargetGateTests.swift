@@ -97,6 +97,46 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testHarnessAuditsVisibleCommandTargetsForRouting() throws {
+        let harnessText = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("E2E/harness/index.html"),
+            encoding: .utf8
+        )
+        let interactionSpecText = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("E2E/playwright/tests/interaction-audit.spec.ts"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(
+            harnessText.contains("const harnessStaticCommandIDs = new Set")
+                && harnessText.contains("const harnessRoutableCommandPrefixes = ["),
+            "The harness should keep an explicit command routing registry for rendered command targets."
+        )
+        XCTAssertTrue(
+            harnessText.contains("function canRouteHarnessCommand(commandID)")
+                && harnessText.contains("function commandRoutingAuditReport()")
+                && harnessText.contains("unroutableCommands")
+                && harnessText.contains("unroutableTargets"),
+            "The harness should expose a reusable audit report for command IDs that would silently no-op."
+        )
+        XCTAssertTrue(
+            harnessText.contains("window.__quillCodeCommandRoutingAudit = commandRoutingAuditReport"),
+            "Playwright should be able to call the command routing audit after every rendered state."
+        )
+        XCTAssertTrue(
+            harnessText.contains("if (!canRouteHarnessCommand(commandID))")
+                && harnessText.contains("state.lastUnroutableCommandID"),
+            "The harness command dispatcher should reject unknown command IDs instead of silently rerendering."
+        )
+        XCTAssertTrue(
+            interactionSpecText.contains("expectCommandTargetsRoutable(page, label)")
+                && interactionSpecText.contains("command routing audit catches visible dead command targets"),
+            "The broad interaction audit should include command routing, with a regression proving dead command targets fail."
+        )
+    }
+
     func testHTMLRenderersUseSharedClickTargetPrimitives() throws {
         let rendererFiles = try Self.swiftSourceFiles(in: "Sources/QuillCodeApp")
             .filter {
