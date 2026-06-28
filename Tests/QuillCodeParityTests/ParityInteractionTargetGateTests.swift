@@ -180,6 +180,9 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "settings panel",
             "terminal pane",
             "browser pane",
+            "extensions pane",
+            "memories pane",
+            "automations pane",
             "transcript tool card"
         ] {
             XCTAssertTrue(
@@ -193,8 +196,20 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && interactionSpecText.contains("model-favorite-button")
                 && interactionSpecText.contains("settings-sign-in")
                 && interactionSpecText.contains("browser-comment-input")
+                && interactionSpecText.contains("extension-mcp-resource-action")
+                && interactionSpecText.contains("memory-delete")
+                && interactionSpecText.contains("automation-primary-action")
                 && interactionSpecText.contains("tool-card-details"),
             "The registry should include small/high-risk controls that commonly regress: model row actions, settings auth, browser inputs, and tool disclosures."
+        )
+        XCTAssertTrue(
+            interactionSpecText.contains("secondary pane controls respond from the full interior click target")
+                && interactionSpecText.contains("terminal run trailing interior")
+                && interactionSpecText.contains("browser new tab leading interior")
+                && interactionSpecText.contains("extension start trailing interior")
+                && interactionSpecText.contains("memory edit leading interior")
+                && interactionSpecText.contains("automation run leading interior"),
+            "Secondary pane controls should be edge-clicked in Playwright so non-central hit-area regressions fail before release."
         )
         XCTAssertTrue(
             interactionSpecText.contains("audits narrow viewport click targets across squeezed states")
