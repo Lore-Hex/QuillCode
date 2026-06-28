@@ -181,6 +181,7 @@ enum WorkspaceCommandAction: String, Equatable {
     case toggleMemories = "toggle-memories"
     case toggleActivity = "toggle-activity"
     case toggleAutomations = "toggle-automations"
+    case pullRequestReviewDraft = "git-pr-review"
     case createThreadFollowUp = "automation-create-thread-follow-up"
     case createWorkspaceSchedule = "automation-create-workspace-schedule"
     case createThreadFollowUpTomorrow = "automation-create-thread-follow-up-tomorrow"

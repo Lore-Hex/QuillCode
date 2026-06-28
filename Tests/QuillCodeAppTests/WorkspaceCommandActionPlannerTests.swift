@@ -17,6 +17,7 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
         XCTAssertEqual(planner.effect(for: .toggleMemories), .toggleMemories)
         XCTAssertEqual(planner.effect(for: .toggleActivity), .toggleActivity)
         XCTAssertEqual(planner.effect(for: .toggleAutomations), .toggleAutomations)
+        XCTAssertEqual(planner.effect(for: .pullRequestReviewDraft), .openPullRequestReviewDraft)
         XCTAssertEqual(planner.effect(for: .createThreadFollowUp), .createThreadFollowUp)
         XCTAssertEqual(planner.effect(for: .createWorkspaceSchedule), .createWorkspaceSchedule)
         XCTAssertEqual(planner.effect(for: .createThreadFollowUpTomorrow), .createThreadFollowUpTomorrow)

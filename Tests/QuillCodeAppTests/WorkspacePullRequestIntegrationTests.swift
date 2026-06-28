@@ -89,7 +89,7 @@ final class WorkspacePullRequestIntegrationTests: XCTestCase {
         XCTAssertEqual(try fixture.recordedGHArguments(), ["pr", "merge", "456", "--rebase", "--auto", "--delete-branch"])
     }
 
-    func testWorkspacePullRequestCommandsPrefillComposer() throws {
+    func testWorkspacePullRequestCommandsPrefillComposerOrOpenStructuredDraft() throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()
 
@@ -106,7 +106,9 @@ final class WorkspacePullRequestIntegrationTests: XCTestCase {
         XCTAssertEqual(model.composer.draft, "Comment on the current pull request: ")
 
         XCTAssertTrue(model.runWorkspaceCommand("git-pr-review", workspaceRoot: root))
-        XCTAssertEqual(model.composer.draft, "Review the current pull request: approve")
+        XCTAssertEqual(model.pullRequestReviewDraft?.action, .approve)
+        XCTAssertEqual(model.surface().review.title, "Review pull request")
+        XCTAssertTrue(model.surface().review.isVisible)
 
         XCTAssertTrue(model.runWorkspaceCommand("git-pr-review-comment", workspaceRoot: root))
         XCTAssertEqual(model.composer.draft, "Comment on a pull request line: ")
@@ -122,6 +124,26 @@ final class WorkspacePullRequestIntegrationTests: XCTestCase {
 
         XCTAssertTrue(model.runWorkspaceCommand("git-pr-merge", workspaceRoot: root))
         XCTAssertEqual(model.composer.draft, "Merge the current pull request with squash")
+    }
+
+    func testStructuredPullRequestReviewDraftSubmitsGitHubReviewThroughSSH() throws {
+        let fixture = try makeRemotePullRequestFixture()
+
+        XCTAssertTrue(fixture.model.runWorkspaceCommand("git-pr-review", workspaceRoot: fixture.localRoot))
+        fixture.model.updatePullRequestReviewDraft(WorkspacePullRequestReviewDraftSurface(
+            action: .requestChanges,
+            selector: "456",
+            body: "Please add tests."
+        ))
+
+        XCTAssertTrue(fixture.model.submitPullRequestReviewDraft(workspaceRoot: fixture.localRoot))
+        let card = try XCTUnwrap(fixture.model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.gitPullRequestReview.name)
+        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
+        XCTAssertNil(fixture.model.pullRequestReviewDraft)
+        XCTAssertEqual(try fixture.recordedGHArguments(), [
+            "pr", "review", "456", "--request-changes", "--body", "Please add tests."
+        ])
     }
 
     private func makeRemotePullRequestFixture() throws -> RemotePullRequestFixture {

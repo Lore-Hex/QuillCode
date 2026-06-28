@@ -48,6 +48,26 @@ struct QuillCodeDesktopWorkspaceActionCoordinator {
         )
     }
 
+    func updatePullRequestReviewDraft(
+        _ draft: WorkspacePullRequestReviewDraftSurface,
+        model: QuillCodeWorkspaceModel
+    ) {
+        model.updatePullRequestReviewDraft(draft)
+    }
+
+    func cancelPullRequestReviewDraft(model: QuillCodeWorkspaceModel) {
+        model.cancelPullRequestReviewDraft()
+    }
+
+    func submitPullRequestReviewDraft(
+        model: QuillCodeWorkspaceModel,
+        fallbackWorkspaceRoot: URL
+    ) {
+        _ = model.submitPullRequestReviewDraft(
+            workspaceRoot: activeWorkspaceRoot(for: model, fallback: fallbackWorkspaceRoot)
+        )
+    }
+
     func useComposerDraft(_ draft: String, model: QuillCodeWorkspaceModel) {
         model.setDraft(draft)
     }

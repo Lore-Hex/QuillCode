@@ -159,7 +159,6 @@ enum WorkspacePullRequestCommandCatalog {
             title: "Review pull request",
             keywords: ["github", "pr", "review", "approve", "approve pr", "request changes"],
             systemImage: "checkmark.seal",
-            draft: "Review the current pull request: approve",
             slash: pullRequestSlash(
                 usage: "/pr review approve|comment|request_changes",
                 title: "Review pull request",
