@@ -42,6 +42,11 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "The rendered click-target audit should keep the same 44 px minimum for whole-screen audits and explicit critical-control probes."
         )
         XCTAssertTrue(
+            auditHelperText.contains("export type CriticalTargetProbe")
+                && auditHelperText.contains("expectCriticalTargetRegistry"),
+            "High-risk click targets should be declared through a named registry instead of scattered one-off assertions."
+        )
+        XCTAssertTrue(
             auditHelperText.contains("target.evaluate")
                 && auditHelperText.contains("elementFromPoint")
                 && auditHelperText.contains("clickableInteriorIssues"),
@@ -134,6 +139,39 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             interactionSpecText.contains("expectCommandTargetsRoutable(page, label)")
                 && interactionSpecText.contains("command routing audit catches visible dead command targets"),
             "The broad interaction audit should include command routing, with a regression proving dead command targets fail."
+        )
+    }
+
+    func testRenderedCriticalTargetRegistryCoversPrimarySurfaces() throws {
+        let interactionSpecText = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("E2E/playwright/tests/interaction-audit.spec.ts"),
+            encoding: .utf8
+        )
+
+        for requiredSurface in [
+            "primary workspace chrome",
+            "top-bar overflow menu",
+            "model picker",
+            "command palette",
+            "settings panel",
+            "terminal pane",
+            "browser pane",
+            "transcript tool card"
+        ] {
+            XCTAssertTrue(
+                interactionSpecText.contains(requiredSurface),
+                "The critical click-target registry should cover \(requiredSurface)."
+            )
+        }
+
+        XCTAssertTrue(
+            interactionSpecText.contains("model-detail-button")
+                && interactionSpecText.contains("model-favorite-button")
+                && interactionSpecText.contains("settings-sign-in")
+                && interactionSpecText.contains("browser-comment-input")
+                && interactionSpecText.contains("tool-card-details"),
+            "The registry should include small/high-risk controls that commonly regress: model row actions, settings auth, browser inputs, and tool disclosures."
         )
     }
 

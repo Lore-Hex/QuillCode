@@ -2,12 +2,14 @@ import { test, expect, type Page } from '@playwright/test';
 import {
   clickCommandPaletteCommand,
   clickSidebarTool,
+  fillCommandPalette,
   harnessURL,
   openSettings,
   openTopBarOverflow
 } from './harness-helpers';
 import {
   expectAllVisibleInteractiveTargets,
+  expectCriticalTargetRegistry,
   expectHitTarget,
   interactionAuditReport,
   clickTargetInteriorPoint,
@@ -46,6 +48,90 @@ async function expectCommandTargetsRoutable(page: Page, label: string) {
     `${label} should not render visible enabled command targets with unroutable command IDs`
   ).toEqual([]);
 }
+
+test('critical click-target registry covers primary workspace surfaces', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await expectCriticalTargetRegistry('primary workspace chrome', [
+    { label: 'new chat', locator: page.getByTestId('new-chat-button') },
+    { label: 'sidebar search', locator: page.getByTestId('sidebar-search-button') },
+    { label: 'sidebar tools', locator: page.getByTestId('sidebar-tools-button') },
+    { label: 'model picker', locator: page.getByTestId('model-picker-button') },
+    { label: 'top-bar overflow', locator: page.getByTestId('top-bar-overflow-button') },
+    { label: 'composer text entry', locator: page.getByLabel('Message') },
+    { label: 'composer send', locator: page.getByRole('button', { name: 'Send' }) }
+  ]);
+
+  await openTopBarOverflow(page);
+  await expectCriticalTargetRegistry('top-bar overflow menu', [
+    { label: 'search', locator: page.getByTestId('top-bar-overflow-search') },
+    { label: 'command palette', locator: page.getByTestId('top-bar-overflow-command-palette') },
+    { label: 'keyboard shortcuts', locator: page.getByTestId('top-bar-overflow-keyboard-shortcuts') },
+    { label: 'settings', locator: page.getByTestId('top-bar-overflow-settings') }
+  ]);
+  await page.getByTestId('top-bar-overflow-button').click();
+
+  await page.getByTestId('model-picker-button').click();
+  await expect(page.getByTestId('model-browser')).toBeVisible();
+  await expectCriticalTargetRegistry('model picker', [
+    { label: 'model search', locator: page.getByTestId('model-search') },
+    { label: 'first model option', locator: page.getByTestId('model-option').first() },
+    { label: 'first model details', locator: page.getByTestId('model-detail-button').first() },
+    { label: 'first model favorite', locator: page.getByTestId('model-favorite-button').first() }
+  ]);
+  await page.getByTestId('model-picker-button').click();
+
+  await openTopBarOverflow(page);
+  await page.getByTestId('top-bar-overflow-command-palette').click();
+  await expect(page.getByTestId('command-palette-panel')).toBeVisible();
+  await fillCommandPalette(page, '>git');
+  await expectCriticalTargetRegistry('command palette', [
+    { label: 'command search', locator: page.getByTestId('command-palette-input') },
+    { label: 'close command palette', locator: page.getByTestId('command-palette-close') },
+    { label: 'first command result', locator: page.getByTestId('command-palette-result').first() }
+  ]);
+  await page.getByTestId('command-palette-close').click();
+
+  await openSettings(page);
+  await expect(page.getByTestId('settings-panel')).toBeVisible();
+  await expectCriticalTargetRegistry('settings panel', [
+    { label: 'API base URL', locator: page.getByLabel('TrustedRouter API base URL') },
+    { label: 'authentication selector', locator: page.getByLabel('Authentication') },
+    { label: 'TrustedRouter sign in', locator: page.getByTestId('settings-sign-in') },
+    { label: 'cancel', locator: page.getByTestId('settings-cancel') },
+    { label: 'save', locator: page.getByTestId('settings-save') }
+  ]);
+  await page.getByTestId('settings-cancel').click();
+
+  await clickSidebarTool(page, 'terminal-button');
+  await expect(page.getByTestId('terminal-pane')).toBeVisible();
+  await expectCriticalTargetRegistry('terminal pane', [
+    { label: 'clear', locator: page.getByTestId('terminal-clear') },
+    { label: 'command input', locator: page.getByTestId('terminal-input') },
+    { label: 'run', locator: page.getByTestId('terminal-run') }
+  ]);
+
+  await clickSidebarTool(page, 'browser-button');
+  await expect(page.getByTestId('browser-pane')).toBeVisible();
+  await expectCriticalTargetRegistry('browser pane', [
+    { label: 'back', locator: page.getByTestId('browser-back') },
+    { label: 'forward', locator: page.getByTestId('browser-forward') },
+    { label: 'reload', locator: page.getByTestId('browser-reload') },
+    { label: 'address', locator: page.getByTestId('browser-address') },
+    { label: 'open', locator: page.getByTestId('browser-open') },
+    { label: 'comment input', locator: page.getByTestId('browser-comment-input') },
+    { label: 'add comment', locator: page.getByTestId('browser-add-comment') }
+  ]);
+
+  await page.getByLabel('Message').fill('run whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
+  await expectCriticalTargetRegistry('transcript tool card', [
+    { label: 'tool disclosure', locator: page.getByTestId('tool-card-details').last().locator('summary') },
+    { label: 'message composer', locator: page.getByLabel('Message') },
+    { label: 'send after transcript update', locator: page.getByRole('button', { name: 'Send' }) }
+  ]);
+});
 
 test('mock harness audits every visible interactive click target across workspace states', async ({ page }) => {
   await page.goto(harnessURL());

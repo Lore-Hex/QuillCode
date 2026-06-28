@@ -67,6 +67,11 @@ type InteractionAuditReport = {
   targetIssues: TargetAuditIssue[];
 };
 
+export type CriticalTargetProbe = {
+  label: string;
+  locator: Locator;
+};
+
 export async function interactionAuditReport(page: Page): Promise<InteractionAuditReport> {
   return page.evaluate(({ activeLayerSelector, minimumHitTarget, selector }) => {
     type VisibleTarget = {
@@ -543,6 +548,13 @@ export async function expectHitTarget(locator: Locator, label: string) {
     return issues;
   }, MINIMUM_HIT_TARGET);
   expect(clickableInteriorIssues, `${label} should have a named, unblocked clickable interior`).toEqual([]);
+}
+
+export async function expectCriticalTargetRegistry(label: string, probes: CriticalTargetProbe[]) {
+  expect(probes.length, `${label} should declare at least one critical click target`).toBeGreaterThan(0);
+  for (const probe of probes) {
+    await expectHitTarget(probe.locator, `${label}: ${probe.label}`);
+  }
 }
 
 export async function clickTargetInteriorPoint(
