@@ -68,6 +68,7 @@ type InteractionAuditReport = {
 };
 
 export type CriticalTargetProbe = {
+  expectedClass?: string;
   label: string;
   locator: Locator;
 };
@@ -612,6 +613,13 @@ export async function expectCriticalTargetRegistry(label: string, probes: Critic
   expect(probes.length, `${label} should declare at least one critical click target`).toBeGreaterThan(0);
   for (const probe of probes) {
     await expectHitTarget(probe.locator, `${label}: ${probe.label}`);
+    if (probe.expectedClass) {
+      const classList = await probe.locator.first().evaluate((element) => [...element.classList]);
+      expect(
+        classList,
+        `${label}: ${probe.label} should use the expected semantic click-target class`
+      ).toContain(probe.expectedClass);
+    }
   }
 }
 

@@ -120,6 +120,7 @@ enum WorkspaceHTMLTopBarRenderer {
             command.title,
             testID: testID,
             commandID: command.id,
+            classes: [WorkspaceHTMLPrimitives.rowHitTargetClass],
             title: title,
             role: "menuitem",
             disabled: !command.isEnabled

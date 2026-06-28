@@ -43,8 +43,9 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(
             auditHelperText.contains("export type CriticalTargetProbe")
+                && auditHelperText.contains("expectedClass?: string")
                 && auditHelperText.contains("expectCriticalTargetRegistry"),
-            "High-risk click targets should be declared through a named registry instead of scattered one-off assertions."
+            "High-risk click targets should be declared through a named registry with expected semantic target classes instead of scattered one-off assertions."
         )
         XCTAssertTrue(
             auditHelperText.contains("target.evaluate")
@@ -190,6 +191,13 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && interactionSpecText.contains("width: 320"),
             "Click-target coverage should include a narrow squeezed viewport, not only standard desktop and phone widths."
         )
+        XCTAssertTrue(
+            interactionSpecText.contains("expectedClass: 'hit-target-icon'")
+                && interactionSpecText.contains("expectedClass: 'hit-target-text-entry'")
+                && interactionSpecText.contains("expectedClass: 'hit-target-row'")
+                && interactionSpecText.contains("expectedClass: 'hit-target-text'"),
+            "Critical click-target probes should assert the intended semantic target kind, not only any shared class."
+        )
     }
 
     func testFindBarUsesResponsiveTargetPreservingLayout() throws {
@@ -223,9 +231,18 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             harnessText.contains("function normalizeInteractionTargetContracts")
                 && harnessText.contains("sharedHitTargetClasses")
-                && harnessText.contains("hit-target-owned")
-                && harnessText.contains("hit-target-text-entry"),
-            "The dynamic HTML harness should attach explicit hit-target contracts after every render instead of relying on global button/input CSS."
+                && harnessText.contains("function fallbackHitTargetContract")
+                && harnessText.contains("function existingHitTargetKind")
+                && harnessText.contains("element.dataset.hitTargetKind = `auto-${kind}`"),
+            "The dynamic HTML harness should attach explicit semantic hit-target contracts after every render instead of relying on global button/input CSS."
+        )
+        XCTAssertTrue(
+            harnessText.contains("['hit-target-icon', 'icon']")
+                && harnessText.contains("['hit-target-text-entry', 'text-entry']")
+                && harnessText.contains("['hit-target-row', 'row']")
+                && harnessText.contains("['hit-target-capsule', 'capsule']")
+                && harnessText.contains("['hit-target-text', 'text']"),
+            "Dynamic fallback targets should classify controls as icon, text-entry, row, capsule, or text before using generic ownership."
         )
         XCTAssertTrue(
             harnessText.contains("normalizeInteractionTargetContracts(document.getElementById('app'))"),
