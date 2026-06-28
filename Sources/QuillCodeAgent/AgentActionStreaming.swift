@@ -1,4 +1,10 @@
 import Foundation
+import QuillCodeCore
+
+public enum AgentTextStreamEvent: Sendable, Hashable {
+    case text(String)
+    case usage(ModelTokenUsage)
+}
 
 public enum AgentActionStreamCollector {
     public static func collectText(from stream: AsyncThrowingStream<String, Error>) async throws -> String {
@@ -42,7 +48,37 @@ public enum AgentActionStreamCollector {
         return try parseAction(from: rawActionText, emptyError: emptyError())
     }
 
-    private static func parseAction(from text: String, emptyError: @autoclosure () -> any Error) throws -> AgentAction {
+    public static func collect(
+        from stream: AsyncThrowingStream<AgentTextStreamEvent, Error>,
+        emptyError: @autoclosure () -> any Error,
+        onVisibleAssistantText: ((String) async -> Void)?,
+        onUsage: ((ModelTokenUsage) async -> Void)?
+    ) async throws -> AgentAction {
+        var rawActionText = ""
+        var lastVisibleText = ""
+        for try await event in stream {
+            try Task.checkCancellation()
+            switch event {
+            case .text(let chunk):
+                rawActionText.append(chunk)
+                guard let visibleText = AgentActionStreamPreview.visibleAssistantText(from: rawActionText),
+                      !visibleText.isEmpty,
+                      !AgentPromisedWorkGuard.shouldSuppressStreamingPreview(for: visibleText),
+                      visibleText != lastVisibleText
+                else {
+                    continue
+                }
+                lastVisibleText = visibleText
+                await onVisibleAssistantText?(visibleText)
+            case .usage(let usage):
+                await onUsage?(usage)
+            }
+        }
+
+        return try parseAction(from: rawActionText, emptyError: emptyError())
+    }
+
+    static func parseAction(from text: String, emptyError: @autoclosure () -> any Error) throws -> AgentAction {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             throw emptyError()

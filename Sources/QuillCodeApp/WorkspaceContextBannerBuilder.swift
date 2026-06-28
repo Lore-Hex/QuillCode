@@ -12,11 +12,14 @@ struct WorkspaceContextBannerBuilder: Sendable, Hashable {
         guard let thread, !thread.messages.isEmpty else { return nil }
         let usedPercent = contextUsedPercent(for: thread)
         guard usedPercent >= effectiveWarningThresholdPercent else { return nil }
+        let hasProviderUsage = Self.latestProviderUsage(for: thread) != nil
 
         return ContextBannerSurface(
             usedPercent: usedPercent,
             title: "\(usedPercent >= 100 ? "Context limit reached" : "Approaching context limit") (\(usedPercent)% used)",
-            subtitle: "Older turns may drop out soon. Compact the thread, start fresh, or fork with latest, summarized, or full visible context.",
+            subtitle: hasProviderUsage
+                ? "Provider-reported token usage is near the limit. Compact the thread, start fresh, or fork with latest, summarized, or full visible context."
+                : "Older turns may drop out soon. Compact the thread, start fresh, or fork with latest, summarized, or full visible context.",
             newThreadCommand: WorkspaceCommandSurface(id: "new-chat", title: "New thread"),
             forkCommand: WorkspaceThreadForkStrategy.latestTurn.command(),
             forkCommands: WorkspaceThreadForkStrategy.allCases.map { $0.command() },
@@ -25,8 +28,8 @@ struct WorkspaceContextBannerBuilder: Sendable, Hashable {
     }
 
     func contextUsedPercent(for thread: ChatThread) -> Int {
-        let estimatedTokens = max(1, Self.estimatedContextTokens(for: thread))
-        return min(100, Int((Double(estimatedTokens) / Double(effectiveTokenBudget) * 100).rounded()))
+        let tokens = max(1, Self.latestProviderUsage(for: thread)?.contextTokens ?? Self.estimatedContextTokens(for: thread))
+        return min(100, Int((Double(tokens) / Double(effectiveTokenBudget) * 100).rounded()))
     }
 
     static func estimatedContextTokens(for thread: ChatThread) -> Int {
@@ -40,6 +43,10 @@ struct WorkspaceContextBannerBuilder: Sendable, Hashable {
             total + instruction.content.count
         }
         return (messageCharacters + eventCharacters + instructionCharacters) / 4
+    }
+
+    static func latestProviderUsage(for thread: ChatThread) -> ModelTokenUsage? {
+        thread.events.reversed().compactMap(ModelTokenUsageEvent.usage(from:)).first
     }
 
     private var effectiveTokenBudget: Int {

@@ -109,3 +109,50 @@ struct StreamingActionLLMClient: StreamingLLMClient {
         }
     }
 }
+
+struct UsageStreamingActionLLMClient: UsageStreamingLLMClient {
+    var events: [AgentTextStreamEvent]
+
+    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        throw StreamingActionLLMError.nonStreamingPathUsed
+    }
+
+    func actionTextStream(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) async throws -> AsyncThrowingStream<String, Error> {
+        let events = try await actionEventStream(
+            thread: thread,
+            userMessage: userMessage,
+            tools: tools
+        )
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    for try await event in events {
+                        if case .text(let chunk) = event {
+                            continuation.yield(chunk)
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
+
+    func actionEventStream(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) async throws -> AsyncThrowingStream<AgentTextStreamEvent, Error> {
+        AsyncThrowingStream { continuation in
+            for event in events {
+                continuation.yield(event)
+            }
+            continuation.finish()
+        }
+    }
+}
