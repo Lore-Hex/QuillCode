@@ -95,7 +95,7 @@ struct QuillCodeTranscriptFindBar: View {
                 searchIcon
                 queryField
             }
-            HStack(spacing: 8) {
+            HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 statusLabel
                     .frame(maxWidth: .infinity, alignment: .leading)
                 navigationButtons
@@ -124,7 +124,7 @@ struct QuillCodeTranscriptFindBar: View {
     }
 
     private var navigationButtons: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             Button(action: onPrevious) {
                 Image(systemName: "chevron.up")
             }

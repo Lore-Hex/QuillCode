@@ -65,7 +65,7 @@ struct QuillCodeModelRow: View {
                 .help(option.metadataDetails.joined(separator: "\n"))
                 .accessibilityHint(option.metadataDetails.joined(separator: ", "))
 
-                HStack(spacing: 6) {
+                HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                     modelActionButton(
                         systemImage: isExpanded ? "info.circle.fill" : "info.circle",
                         tint: isExpanded ? QuillCodePalette.blue : QuillCodePalette.muted,

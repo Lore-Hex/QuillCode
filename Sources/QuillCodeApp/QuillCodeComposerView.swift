@@ -45,7 +45,7 @@ struct QuillCodeComposerView: View {
 
     private var composerSurface: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .bottom, spacing: 10) {
+            HStack(alignment: .bottom, spacing: QuillCodeMetrics.controlClusterSpacing) {
                 composerField
                 composerAction
             }
@@ -71,7 +71,7 @@ struct QuillCodeComposerView: View {
     }
 
     private var composerAccessoryBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             QuillCodeModelPickerView(
                 topBar: topBar,
                 isPresented: $isModelPickerPresented,

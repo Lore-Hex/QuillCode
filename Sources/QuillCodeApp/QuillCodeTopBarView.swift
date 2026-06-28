@@ -32,7 +32,7 @@ struct QuillCodeTopBarView: View {
         }
         .background(QuillCodePalette.background)
         .help(topBarHelp)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(topBarAccessibilityLabel)
     }
 
@@ -123,7 +123,7 @@ struct QuillCodeTopBarView: View {
     }
 
     private var topBarActions: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             if let activeStopCommand {
                 stopButton(activeStopCommand)
                     .transition(reduceMotion ? .identity : .opacity.combined(with: .scale(scale: 0.94)))

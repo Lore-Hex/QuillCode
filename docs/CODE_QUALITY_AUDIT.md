@@ -8420,3 +8420,20 @@ Code quality changes:
 Remaining risk:
 
 - Inline notes are snapshotted when the draft opens. Richer editable pending-review queues, per-note removal/reordering, and a review summary before submit remain future review-pane work.
+
+## 2026-06-28 Click Target Semantics Pass
+
+Overall grade after this slice: **A- native target semantics, A rendered collision audit, B+ packaged-window click automation**.
+
+The app already had broad 44 px hit-target coverage, but two native semantics still needed to be made explicit: interactive parent containers should not collapse live child buttons into one accessibility element, and dense adjacent controls should use named spacing contracts instead of local magic numbers.
+
+Code quality changes:
+
+- Added shared `controlClusterSpacing` and `denseControlClusterSpacing` metrics to the design system so target-spacing decisions are reviewable and consistent.
+- Moved dense top-bar, composer, sidebar, model-row, tool-card action, and find-bar control clusters onto the shared spacing metrics.
+- Changed top-bar and tool-card containers from `.accessibilityElement(children: .combine)` to `.contain`, preserving child targets for buttons, menus, disclosures, and action rows.
+- Added a native parity gate that blocks regressions back to parent-combined interactive containers and checks that high-risk adjacent controls use named target spacing.
+
+Remaining risk:
+
+- The static SwiftUI gate catches source-level target contracts and the Playwright harness catches rendered HTML target size, clipping, overlap, and routing. True packaged-window pixel clicking across every native SwiftUI control remains the deeper future layer.
