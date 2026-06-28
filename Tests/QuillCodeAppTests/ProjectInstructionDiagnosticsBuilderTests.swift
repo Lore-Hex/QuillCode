@@ -45,12 +45,51 @@ final class ProjectInstructionDiagnosticsBuilderTests: XCTestCase {
         XCTAssertEqual(diagnostics, [])
     }
 
-    private func instruction(_ path: String) -> ProjectInstruction {
+    func testDiagnosticsFlagSemanticContradictionsAcrossOverlappingScopes() {
+        let diagnostics = ProjectInstructionDiagnosticsBuilder.diagnostics(for: [
+            instruction("AGENTS.md", content: "Always run tests before final answers."),
+            instruction("Sources/Feature/AGENTS.md", content: "Do not run tests for feature changes.")
+        ])
+
+        XCTAssertEqual(diagnostics.map(\.id), [
+            "instruction-nested-override-Sources-Feature",
+            "instruction-semantic-conflict-tests-agents-md-sources-feature-agents-md"
+        ])
+        XCTAssertEqual(diagnostics[1].title, "Conflicting instruction intent")
+        XCTAssertEqual(
+            diagnostics[1].detail,
+            "Tests: AGENTS.md says require; Sources/Feature/AGENTS.md says avoid"
+        )
+        XCTAssertEqual(diagnostics[1].statusLabel, "conflict")
+    }
+
+    func testDiagnosticsDoNotFlagSemanticContradictionsAcrossSiblingScopes() {
+        let diagnostics = ProjectInstructionDiagnosticsBuilder.diagnostics(for: [
+            instruction("Sources/Feature/AGENTS.md", content: "Always run tests for feature changes."),
+            instruction("Tests/AGENTS.md", content: "Do not run tests for test-fixture updates.")
+        ])
+
+        XCTAssertEqual(diagnostics, [])
+    }
+
+    func testDiagnosticsDeduplicateRepeatedSemanticClaims() {
+        let diagnostics = ProjectInstructionDiagnosticsBuilder.diagnostics(for: [
+            instruction("AGENTS.md", content: "Always run tests. Must run tests before final answers."),
+            instruction(".quillcode/rules.md", content: "Never run tests. Do not run tests for this project.")
+        ])
+
+        XCTAssertEqual(diagnostics.map(\.id), [
+            "instruction-duplicate-scope-root",
+            "instruction-semantic-conflict-tests-agents-md-quillcode-rules-md"
+        ])
+    }
+
+    private func instruction(_ path: String, content: String = "Rules") -> ProjectInstruction {
         ProjectInstruction(
             path: path,
             title: path,
-            content: "Rules",
-            byteCount: 5
+            content: content,
+            byteCount: content.utf8.count
         )
     }
 }

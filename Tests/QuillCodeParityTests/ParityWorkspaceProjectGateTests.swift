@@ -91,6 +91,7 @@ final class ParityWorkspaceProjectGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(diagnosticsText.contains("ProjectInstructionDiagnostic"), "Instruction diagnostics should live in a focused builder.")
         XCTAssertTrue(diagnosticsText.contains("Shared instruction scope"), "Duplicate scope diagnostics should be visible to users.")
         XCTAssertTrue(diagnosticsText.contains("Nested instruction override"), "Nested override diagnostics should be visible to users.")
+        XCTAssertTrue(diagnosticsText.contains("Conflicting instruction intent"), "Semantic conflict diagnostics should be visible to users.")
         XCTAssertFalse(modelText.contains("scopePath(for:"), "WorkspaceModel should not own instruction scope derivation.")
     }
 

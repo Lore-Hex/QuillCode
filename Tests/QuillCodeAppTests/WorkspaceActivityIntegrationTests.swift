@@ -125,6 +125,41 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
         XCTAssertEqual(activity.sections.first { $0.kind == .sources }?.countLabel, "5 items")
     }
 
+    func testActivitySourcesSurfaceInstructionSemanticConflictDiagnostics() throws {
+        let instructions = [
+            ProjectInstruction(
+                path: "AGENTS.md",
+                title: "AGENTS.md",
+                content: "Always run tests before final answers.",
+                byteCount: 38
+            ),
+            ProjectInstruction(
+                path: "Sources/Feature/AGENTS.md",
+                title: "Feature AGENTS.md",
+                content: "Do not run tests for feature changes.",
+                byteCount: 37
+            )
+        ]
+        let thread = ChatThread(
+            title: "Inspect conflicts",
+            messages: [.init(role: .user, content: "what rules apply?")],
+            instructions: instructions
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            activity: ActivityState(isVisible: true)
+        )
+
+        let activity = model.surface().activity
+        let conflict = try XCTUnwrap(activity.sources.first { $0.statusLabel == "conflict" })
+
+        XCTAssertEqual(conflict.title, "Conflicting instruction intent")
+        XCTAssertEqual(
+            conflict.detail,
+            "Tests: AGENTS.md says require; Sources/Feature/AGENTS.md says avoid"
+        )
+    }
+
     func testActivitySurfacePrefersModelAuthoredPlan() throws {
         let update = AgentPlanUpdate(
             explanation: "The model is planning the work directly.",
