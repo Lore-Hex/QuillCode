@@ -8631,3 +8631,20 @@ Code quality changes:
 Remaining risk:
 
 - This closes the first source-action gap. Richer native editor jump-to-line, diff-assisted conflict fixes, and explicit resolved/dismissed state remain the next AGENTS/rules parity layer.
+
+## 2026-06-28 Activity Instruction Diagnostic Dismissal Pass
+
+Overall grade after this slice: **A UI-state boundary, A command routing, A- durable conflict-resolution UX**.
+
+Resolve made conflict diagnostics actionable, but there was still no lightweight way to clear a reviewed diagnostic from the Activity pane without editing instruction files. This pass adds Dismiss as a UI-only state transition so users can keep the Activity pane focused while preserving the underlying project rules and audit trail.
+
+Code quality changes:
+
+- Added `dismissedInstructionDiagnosticIDs` to `ActivityState`, keeping reviewed diagnostic visibility in workspace UI state instead of mutating thread messages or project instruction records.
+- Added typed `activity-instruction-dismiss:*` routing through `WorkspaceCommandPlan` and `WorkspaceCommandPlanExecutor`, matching the existing Open/Edit/Resolve command path.
+- Filtered dismissed diagnostics in `WorkspaceActivitySourceSurfaceBuilder` so Instruction Review and Sources stay consistent across SwiftUI/static HTML/Playwright surfaces.
+- Updated the Playwright harness to render the same Instruction Review section data and to exercise Dismiss end to end.
+
+Remaining risk:
+
+- Dismiss is intentionally session/workspace UI state. Durable project-level resolution records, diff-assisted rule edits, and native editor jump-to-line remain future AGENTS/rules parity work.

@@ -25,9 +25,15 @@ public struct MemoriesState: Sendable, Hashable {
 public struct ActivityState: Sendable, Hashable {
     public var isVisible: Bool
     public var collapsedSectionIDs: Set<ActivitySectionKind>
+    public var dismissedInstructionDiagnosticIDs: Set<String>
 
-    public init(isVisible: Bool = false, collapsedSectionIDs: Set<ActivitySectionKind> = []) {
+    public init(
+        isVisible: Bool = false,
+        collapsedSectionIDs: Set<ActivitySectionKind> = [],
+        dismissedInstructionDiagnosticIDs: Set<String> = []
+    ) {
         self.isVisible = isVisible
         self.collapsedSectionIDs = collapsedSectionIDs
+        self.dismissedInstructionDiagnosticIDs = dismissedInstructionDiagnosticIDs
     }
 }

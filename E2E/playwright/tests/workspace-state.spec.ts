@@ -100,6 +100,26 @@ test('mock harness shows model-authored subagent progress in Activity', async ({
   await expect(page.getByTestId('activity-subagent-section')).toContainText('2 items');
 });
 
+test('mock harness dismisses instruction diagnostics from Activity review and sources', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.evaluate(() => {
+    const harness = window as unknown as { __quillCodeTestAddInstructionConflict: () => void };
+    harness.__quillCodeTestAddInstructionConflict();
+  });
+
+  await expect(page.getByTestId('activity-pane')).toBeVisible();
+  await expect(page.getByTestId('activity-instruction-conflict')).toHaveCount(1);
+  await expect(page.getByTestId('activity-instruction-conflict-section')).toContainText('1 issue');
+  await expect(page.getByTestId('activity-instruction-conflict')).toContainText('Conflicting instruction intent');
+  await expect(page.getByTestId('activity-source-section')).toContainText('Conflicting instruction intent');
+
+  await page.getByTestId('activity-instruction-conflict').getByTestId('activity-source-action').filter({ hasText: 'Dismiss' }).click();
+
+  await expect(page.getByTestId('activity-instruction-conflict')).toHaveCount(0);
+  await expect(page.getByTestId('activity-source-section')).not.toContainText('Conflicting instruction intent');
+});
+
 test('mock harness shows context pressure banner and compacts or forks from latest turn', async ({ page }) => {
   test.setTimeout(60000);
   await page.goto(harnessURL());

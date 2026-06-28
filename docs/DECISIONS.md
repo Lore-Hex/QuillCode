@@ -1,5 +1,9 @@
 # QuillCode Decisions
 
+## 2026-06-28
+
+- Dismissed Activity instruction diagnostics are workspace UI state, not project or thread mutations. A Dismiss action hides the current diagnostic from Instruction Review and Sources until the Activity state is reset or the underlying instruction surface changes; resolving the actual rule conflict still goes through the normal source edit/model/safety/review path.
+
 ## 2026-06-27
 
 - Click-target quality includes affordance and compression behavior, not only geometry. Non-disabled clickable rendered targets should expose a pointer cursor unless they are text-entry/select controls, and compact layouts should wrap before text inputs shrink below the 44 px target. The transcript find bar uses the same rule in both rendered HTML and SwiftUI (`ViewThatFits` for native, wrapped grid rows for the harness).

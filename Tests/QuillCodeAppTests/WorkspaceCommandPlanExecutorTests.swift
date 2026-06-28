@@ -142,4 +142,16 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
         XCTAssertEqual(model.composer.draft, "")
     }
 
+    func testExecutorDismissesInstructionDiagnostic() throws {
+        let model = QuillCodeWorkspaceModel()
+
+        XCTAssertTrue(model.runWorkspaceCommand(
+            "activity-instruction-dismiss:instruction-conflict",
+            workspaceRoot: try makeTempDirectory()
+        ))
+
+        XCTAssertTrue(model.activity.isVisible)
+        XCTAssertEqual(model.activity.dismissedInstructionDiagnosticIDs, ["instruction-conflict"])
+    }
+
 }

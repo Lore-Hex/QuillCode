@@ -145,7 +145,8 @@ public extension QuillCodeWorkspaceModel {
                 instructions: activeSources.instructions,
                 memories: activeSources.memories,
                 agentStatus: topBarState.agentStatus,
-                collapsedSectionIDs: activity.collapsedSectionIDs
+                collapsedSectionIDs: activity.collapsedSectionIDs,
+                dismissedInstructionDiagnosticIDs: activity.dismissedInstructionDiagnosticIDs
             ),
             automations: WorkspaceAutomationsSurfaceBuilder(
                 isVisible: automations.isVisible,

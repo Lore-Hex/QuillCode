@@ -1,7 +1,11 @@
 import QuillCodeCore
 
 enum WorkspaceActivitySourceSurfaceBuilder {
-    static func items(instructions: [ProjectInstruction], memories: [MemoryNote]) -> [ActivityItemSurface] {
+    static func items(
+        instructions: [ProjectInstruction],
+        memories: [MemoryNote],
+        dismissedInstructionDiagnosticIDs: Set<String> = []
+    ) -> [ActivityItemSurface] {
         let instructionItems = instructions.prefix(4).map { instruction in
             ActivityItemSurface(
                 id: "instruction-\(instruction.path)",
@@ -25,6 +29,7 @@ enum WorkspaceActivitySourceSurfaceBuilder {
         }
         let allDiagnosticItems = ProjectInstructionDiagnosticsBuilder
             .diagnostics(for: instructions)
+            .filter { !dismissedInstructionDiagnosticIDs.contains($0.id) }
             .map { diagnostic in
                 ActivityItemSurface(
                     id: diagnostic.id,
@@ -37,6 +42,11 @@ enum WorkspaceActivitySourceSurfaceBuilder {
                             title: "Resolve",
                             commandID: "activity-instruction-resolve:\(diagnostic.id)",
                             kind: "resolve"
+                        ),
+                        ActivityItemActionSurface(
+                            title: "Dismiss",
+                            commandID: "activity-instruction-dismiss:\(diagnostic.id)",
+                            kind: "dismiss"
                         )
                     ]
                 )

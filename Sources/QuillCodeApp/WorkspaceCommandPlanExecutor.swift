@@ -74,6 +74,8 @@ extension QuillCodeWorkspaceModel {
             return true
         case .resolveInstructionDiagnostic(let id):
             return prepareResolveInstructionDiagnostic(id: id)
+        case .dismissInstructionDiagnostic(let id):
+            return dismissInstructionDiagnostic(id: id)
         case .setDraft(let draft):
             setDraft(draft)
             return true
