@@ -8437,3 +8437,21 @@ Code quality changes:
 Remaining risk:
 
 - The static SwiftUI gate catches source-level target contracts and the Playwright harness catches rendered HTML target size, clipping, overlap, and routing. True packaged-window pixel clicking across every native SwiftUI control remains the deeper future layer.
+
+## 2026-06-28 Pull Request Review Pending Queue Pass
+
+Overall grade after this slice: **A review-draft state model, A selected-note dispatch, A- review-session parity**.
+
+The previous inline-note draft support was still all-or-nothing: a user could include every saved line note or skip all of them, and the draft preview only showed the first few notes. That was not enough for Codex-style pending review workflows where users decide exactly which comments ship with the final review.
+
+Code quality changes:
+
+- Added per-note `isIncluded` state to `WorkspacePullRequestReviewDraftCommentSurface`, with backward-tolerant decoding so older saved draft snapshots default to included.
+- Kept `WorkspacePullRequestReviewDraftSurface.selectedInlineComments` as the single dispatch boundary, now filtering both the global inline-note toggle and per-note Included/Skipped choices.
+- Updated the native SwiftUI draft to render every pending inline note with a full-size Included/Skipped action pill instead of a tiny checkbox or truncated preview.
+- Mirrored the pending-note queue in the static HTML renderer and Playwright harness, including state syncing for action/body/selector edits so queue toggles cannot wipe typed draft fields.
+- Added focused Swift coverage for selected-note counts, legacy decoding, skipped-note tool planning, rendered markup, and SSH Remote dispatch. Added Playwright coverage that creates two saved inline notes, skips one, and verifies only the selected note is posted before the final review.
+
+Remaining risk:
+
+- This queue supports include/skip decisions only. Richer per-note text editing, reordering, and a final submit-summary screen remain future review-pane work.

@@ -184,6 +184,31 @@ final class WorkspaceReviewActionToolCallPlannerTests: XCTestCase {
         XCTAssertEqual(plan.calls.map(\.name), [ToolDefinition.gitPullRequestReview.name])
     }
 
+    func testPullRequestReviewDraftRunPlanSkipsExcludedInlineComments() throws {
+        let draft = WorkspacePullRequestReviewDraftSurface(
+            inlineComments: [
+                WorkspacePullRequestReviewDraftCommentSurface(
+                    path: "Sources/App.swift",
+                    line: 42,
+                    body: "Post this note."
+                ),
+                WorkspacePullRequestReviewDraftCommentSurface(
+                    path: "Sources/Hidden.swift",
+                    line: 9,
+                    body: "Do not post this note.",
+                    isIncluded: false
+                )
+            ]
+        )
+
+        let plan = try XCTUnwrap(WorkspacePullRequestReviewDraftToolCallPlanner.runPlan(for: draft))
+        let inlineArguments = try ToolArguments(try XCTUnwrap(plan.inlineCommentCalls.first).argumentsJSON)
+
+        XCTAssertEqual(plan.inlineCommentCalls.count, 1)
+        XCTAssertEqual(try inlineArguments.requiredString("path"), "Sources/App.swift")
+        XCTAssertEqual(try inlineArguments.requiredString("body"), "Post this note.")
+    }
+
     func testPullRequestReviewThreadRunPlanFinalStatusRequiresActionAndRefreshSuccess() {
         let plan = WorkspacePullRequestReviewThreadActionToolCallPlanner.runPlan(
             for: WorkspacePullRequestReviewThreadActionSurface(kind: .unresolve, threadID: "PRRT_one")

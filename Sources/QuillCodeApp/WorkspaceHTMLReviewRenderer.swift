@@ -58,25 +58,31 @@ enum WorkspaceHTMLReviewRenderer {
     ) -> String {
         guard draft.inlineCommentCount > 0 else { return "" }
         let checked = draft.includeInlineComments ? #" checked="checked""# : ""
-        let comments = draft.inlineComments.prefix(3).map { comment in
-            """
+        let comments = draft.inlineComments.map { comment in
+            let commentChecked = comment.isIncluded ? #" checked="checked""# : ""
+            let disabled = draft.includeInlineComments ? "" : " disabled"
+            return """
             <li data-testid="pr-review-draft-inline-comment">
+              <label>
+                <input type="checkbox" data-testid="pr-review-draft-inline-comment-toggle" aria-label="Include inline note at \(escape(comment.locationLabel))" data-comment-id="\(escape(comment.id.uuidString))"\(commentChecked)\(disabled)>
+                <span>\(comment.isIncluded ? "Included" : "Skipped")</span>
+              </label>
               <code>\(escape(comment.locationLabel))</code>
               <span>\(escape(comment.body))</span>
             </li>
             """
         }.joined(separator: "\n")
-        let remaining = draft.inlineCommentCount > 3
-            ? #"<li data-testid="pr-review-draft-inline-comment-more">+\#(draft.inlineCommentCount - 3) more</li>"#
-            : ""
+        let selectedCount = draft.selectedInlineCommentCount
+        let countLabel = selectedCount == draft.inlineCommentCount
+            ? "\(draft.inlineCommentCount) inline review note\(draft.inlineCommentCount == 1 ? "" : "s")"
+            : "\(selectedCount) of \(draft.inlineCommentCount) inline review notes"
         return """
         <label class="pr-review-inline-comments">
           <input type="checkbox" data-testid="pr-review-draft-include-inline-comments" aria-label="Include inline review notes"\(checked)>
-          <span>Include \(draft.inlineCommentCount) inline review note\(draft.inlineCommentCount == 1 ? "" : "s")</span>
+          <span>Include \(countLabel)</span>
         </label>
         <ul class="pr-review-inline-comment-list" data-testid="pr-review-draft-inline-comments">
           \(comments)
-          \(remaining)
         </ul>
         """
     }

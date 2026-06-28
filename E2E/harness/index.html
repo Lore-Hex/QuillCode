@@ -2491,9 +2491,31 @@
       font-size: 12px;
     }
     .pr-review-inline-comment-list li {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(96px, auto) auto minmax(0, 1fr);
+      align-items: center;
       gap: 8px;
       min-width: 0;
+      min-height: 44px;
+      padding: 4px 0;
+    }
+    .pr-review-inline-comment-list label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 44px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .pr-review-inline-comment-list input {
+      min-width: 20px;
+      min-height: 20px;
+      width: 20px;
+      height: 20px;
+      padding: 0;
     }
     .pr-review-inline-comment-list code,
     .pr-review-inline-comment-list span {
@@ -5020,6 +5042,26 @@
       return `Submit ${pullRequestReviewActionLabels[action].toLowerCase()} review through GitHub CLI`;
     }
 
+    function selectedPullRequestReviewDraftInlineComments(draft) {
+      if (!draft || draft.includeInlineComments === false) return [];
+      return (draft.inlineComments || []).filter(comment => comment.isIncluded !== false);
+    }
+
+    function pullRequestReviewDraftSubtitleForDraft(draft) {
+      if (!draft) return 'Latest git diff';
+      const action = draft.action || 'approve';
+      const inlineCommentCount = (draft.inlineComments || []).length;
+      if (!inlineCommentCount) return pullRequestReviewDraftSubtitle(action);
+      const selectedCount = selectedPullRequestReviewDraftInlineComments(draft).length;
+      if (!selectedCount) {
+        return `Submit ${pullRequestReviewActionLabels[action].toLowerCase()} review without inline notes`;
+      }
+      if (selectedCount === inlineCommentCount) {
+        return `Submit ${pullRequestReviewActionLabels[action].toLowerCase()} review with ${selectedCount} inline note${selectedCount === 1 ? '' : 's'}`;
+      }
+      return `Submit ${pullRequestReviewActionLabels[action].toLowerCase()} review with ${selectedCount} of ${inlineCommentCount} inline notes`;
+    }
+
     function collectPullRequestReviewDraftInlineComments() {
       return state.review.files.flatMap(file => (file.hunks || [])
         .flatMap(hunk => (hunk.lines || [])
@@ -5036,7 +5078,8 @@
               line: lineNumber,
               startLine,
               side: comment.lineKind === 'deletion' || line.kind === 'deletion' ? 'LEFT' : 'RIGHT',
-              body: comment.text || ''
+              body: comment.text || '',
+              isIncluded: true
             };
           }))));
     }
@@ -5047,18 +5090,32 @@
       const actions = ['approve', 'comment', 'request_changes'];
       const inlineComments = draft.inlineComments || [];
       const inlineCommentCount = inlineComments.length;
+      const selectedInlineCommentCount = selectedPullRequestReviewDraftInlineComments(draft).length;
+      const inlineCommentCountLabel = selectedInlineCommentCount === inlineCommentCount
+        ? `${inlineCommentCount} inline review note${inlineCommentCount === 1 ? '' : 's'}`
+        : `${selectedInlineCommentCount} of ${inlineCommentCount} inline review notes`;
       const inlineCommentPreview = inlineCommentCount ? `
         <label class="pr-review-inline-comments">
           <input type="checkbox" data-testid="pr-review-draft-include-inline-comments" aria-label="Include inline review notes" ${draft.includeInlineComments === false ? '' : 'checked'}>
-          <span>Include ${inlineCommentCount} inline review note${inlineCommentCount === 1 ? '' : 's'}</span>
+          <span>Include ${inlineCommentCountLabel}</span>
         </label>
         <ul class="pr-review-inline-comment-list" data-testid="pr-review-draft-inline-comments">
-          ${inlineComments.slice(0, 3).map(comment => `
+          ${inlineComments.map(comment => {
+            const location = comment.startLine && comment.startLine !== comment.line
+              ? `${comment.path}:${comment.startLine}-${comment.line}`
+              : `${comment.path}:${comment.line}`;
+            const isIncluded = comment.isIncluded !== false;
+            const disabled = draft.includeInlineComments === false ? 'disabled' : '';
+            return `
             <li data-testid="pr-review-draft-inline-comment">
-              <code>${escapeHTML(comment.startLine && comment.startLine !== comment.line ? `${comment.path}:${comment.startLine}-${comment.line}` : `${comment.path}:${comment.line}`)}</code>
+              <label>
+                <input type="checkbox" data-testid="pr-review-draft-inline-comment-toggle" data-comment-id="${escapeHTML(comment.id || '')}" aria-label="Include inline note at ${escapeHTML(location)}" ${isIncluded ? 'checked' : ''} ${disabled}>
+                <span>${isIncluded ? 'Included' : 'Skipped'}</span>
+              </label>
+              <code>${escapeHTML(location)}</code>
               <span>${escapeHTML(comment.body || '')}</span>
-            </li>`).join('')}
-          ${inlineCommentCount > 3 ? `<li data-testid="pr-review-draft-inline-comment-more">+${inlineCommentCount - 3} more</li>` : ''}
+            </li>`;
+          }).join('')}
         </ul>` : '';
       return `
         <form class="pr-review-draft" data-testid="pr-review-draft" aria-label="Submit pull request review">
@@ -5980,16 +6037,53 @@
       });
       document.querySelectorAll('[data-testid="pr-review-draft"]').forEach(form => {
         const actionSelect = form.querySelector('[data-testid="pr-review-draft-action"]');
+        const selectorInput = form.querySelector('[data-testid="pr-review-draft-selector"]');
         const bodyInput = form.querySelector('[data-testid="pr-review-draft-body"]');
+        const includeInlineCommentsInput = form.querySelector('[data-testid="pr-review-draft-include-inline-comments"]');
         const submitButton = form.querySelector('[data-testid="pr-review-draft-submit"]');
+        const syncDraftState = () => {
+          if (!state.review.reviewDraft) return;
+          state.review.reviewDraft = {
+            ...state.review.reviewDraft,
+            action: actionSelect.value,
+            selector: selectorInput.value,
+            body: bodyInput.value,
+            includeInlineComments: includeInlineCommentsInput?.checked ?? false
+          };
+          state.review.subtitle = pullRequestReviewDraftSubtitleForDraft(state.review.reviewDraft);
+          const summary = document.querySelector('[data-testid="review-summary"]');
+          if (summary) summary.textContent = state.review.subtitle;
+        };
         const syncDraftControls = () => {
+          syncDraftState();
           const action = actionSelect.value;
           bodyInput.setAttribute('placeholder', pullRequestReviewActionBodyPlaceholder(action));
           submitButton.textContent = pullRequestReviewActionSubmitTitle(action);
           submitButton.disabled = !pullRequestReviewDraftCanSubmit(action, bodyInput.value);
         };
         actionSelect.addEventListener('change', syncDraftControls);
+        selectorInput.addEventListener('input', syncDraftState);
         bodyInput.addEventListener('input', syncDraftControls);
+        includeInlineCommentsInput?.addEventListener('change', event => {
+          syncDraftState();
+          render();
+        });
+        form.querySelectorAll('[data-testid="pr-review-draft-inline-comment-toggle"]').forEach(toggle => {
+          toggle.addEventListener('change', event => {
+            syncDraftState();
+            const commentID = event.currentTarget.getAttribute('data-comment-id');
+            state.review.reviewDraft = {
+              ...state.review.reviewDraft,
+              inlineComments: (state.review.reviewDraft?.inlineComments || []).map(comment => (
+                comment.id === commentID
+                  ? { ...comment, isIncluded: event.currentTarget.checked }
+                  : comment
+              ))
+            };
+            state.review.subtitle = pullRequestReviewDraftSubtitleForDraft(state.review.reviewDraft);
+            render();
+          });
+        });
         form.addEventListener('reset', event => {
           event.preventDefault();
           cancelPullRequestReviewDraft();
@@ -8107,19 +8201,18 @@
     function openPullRequestReviewDraft() {
       ensureThread('Review pull request');
       const inlineComments = collectPullRequestReviewDraftInlineComments();
+      const reviewDraft = {
+        action: 'approve',
+        selector: '',
+        body: '',
+        includeInlineComments: true,
+        inlineComments
+      };
       state.review = {
         ...state.review,
         title: 'Review pull request',
-        subtitle: inlineComments.length
-          ? `Submit approve review with ${inlineComments.length} inline note${inlineComments.length === 1 ? '' : 's'}`
-          : pullRequestReviewDraftSubtitle('approve'),
-        reviewDraft: {
-          action: 'approve',
-          selector: '',
-          body: '',
-          includeInlineComments: true,
-          inlineComments
-        }
+        subtitle: pullRequestReviewDraftSubtitleForDraft(reviewDraft),
+        reviewDraft
       };
       render();
     }
@@ -8138,7 +8231,9 @@
       const selector = form.querySelector('[data-testid="pr-review-draft-selector"]').value.trim();
       const body = form.querySelector('[data-testid="pr-review-draft-body"]').value.trim();
       const includeInlineComments = form.querySelector('[data-testid="pr-review-draft-include-inline-comments"]')?.checked ?? false;
-      const inlineComments = includeInlineComments ? (state.review.reviewDraft?.inlineComments || []) : [];
+      const inlineComments = includeInlineComments
+        ? selectedPullRequestReviewDraftInlineComments(state.review.reviewDraft)
+        : [];
       if (!pullRequestReviewDraftCanSubmit(action, body)) {
         return;
       }

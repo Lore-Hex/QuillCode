@@ -131,7 +131,14 @@ public struct WorkspacePullRequestReviewDraftSurface: Codable, Sendable, Hashabl
 
     public var subtitle: String {
         if inlineCommentCount > 0 {
-            return "Submit \(action.title.lowercased()) review with \(inlineCommentCount) inline note\(inlineCommentCount == 1 ? "" : "s")"
+            let selectedCount = selectedInlineCommentCount
+            if selectedCount == 0 {
+                return "Submit \(action.title.lowercased()) review without inline notes"
+            }
+            if selectedCount == inlineCommentCount {
+                return "Submit \(action.title.lowercased()) review with \(selectedCount) inline note\(selectedCount == 1 ? "" : "s")"
+            }
+            return "Submit \(action.title.lowercased()) review with \(selectedCount) of \(inlineCommentCount) inline notes"
         }
         return "Submit \(action.title.lowercased()) review through GitHub CLI"
     }
@@ -153,8 +160,17 @@ public struct WorkspacePullRequestReviewDraftSurface: Codable, Sendable, Hashabl
         inlineComments.count
     }
 
+    public var selectedInlineCommentCount: Int {
+        selectedInlineComments.count
+    }
+
     public var selectedInlineComments: [WorkspacePullRequestReviewDraftCommentSurface] {
-        includeInlineComments ? inlineComments : []
+        includeInlineComments ? inlineComments.filter(\.isIncluded) : []
+    }
+
+    public mutating func setInlineComment(id: UUID, isIncluded: Bool) {
+        guard let index = inlineComments.firstIndex(where: { $0.id == id }) else { return }
+        inlineComments[index].isIncluded = isIncluded
     }
 
     public init(
@@ -173,12 +189,23 @@ public struct WorkspacePullRequestReviewDraftSurface: Codable, Sendable, Hashabl
 }
 
 public struct WorkspacePullRequestReviewDraftCommentSurface: Codable, Sendable, Hashable, Identifiable {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case path
+        case line
+        case startLine
+        case side
+        case body
+        case isIncluded
+    }
+
     public var id: UUID
     public var path: String
     public var line: Int
     public var startLine: Int?
     public var side: String
     public var body: String
+    public var isIncluded: Bool
 
     public var locationLabel: String {
         if let startLine, startLine != line {
@@ -193,7 +220,8 @@ public struct WorkspacePullRequestReviewDraftCommentSurface: Codable, Sendable, 
         line: Int,
         startLine: Int? = nil,
         side: String = "RIGHT",
-        body: String
+        body: String,
+        isIncluded: Bool = true
     ) {
         self.id = id
         self.path = path
@@ -201,6 +229,7 @@ public struct WorkspacePullRequestReviewDraftCommentSurface: Codable, Sendable, 
         self.startLine = startLine
         self.side = side
         self.body = body
+        self.isIncluded = isIncluded
     }
 
     public init?(comment: WorkspaceReviewCommentSurface) {
@@ -220,6 +249,28 @@ public struct WorkspacePullRequestReviewDraftCommentSurface: Codable, Sendable, 
             side: Self.side(for: comment.lineKind),
             body: body
         )
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.path = try container.decode(String.self, forKey: .path)
+        self.line = try container.decode(Int.self, forKey: .line)
+        self.startLine = try container.decodeIfPresent(Int.self, forKey: .startLine)
+        self.side = try container.decode(String.self, forKey: .side)
+        self.body = try container.decode(String.self, forKey: .body)
+        self.isIncluded = try container.decodeIfPresent(Bool.self, forKey: .isIncluded) ?? true
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(path, forKey: .path)
+        try container.encode(line, forKey: .line)
+        try container.encodeIfPresent(startLine, forKey: .startLine)
+        try container.encode(side, forKey: .side)
+        try container.encode(body, forKey: .body)
+        try container.encode(isIncluded, forKey: .isIncluded)
     }
 
     public static func collect(from review: WorkspaceReviewSurface) -> [WorkspacePullRequestReviewDraftCommentSurface] {
