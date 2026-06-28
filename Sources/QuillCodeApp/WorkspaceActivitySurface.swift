@@ -69,7 +69,8 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         instructions: [ProjectInstruction],
         memories: [MemoryNote],
         agentStatus: String,
-        collapsedSectionIDs: Set<ActivitySectionKind> = []
+        collapsedSectionIDs: Set<ActivitySectionKind> = [],
+        dismissedInstructionDiagnosticIDs: Set<String> = []
     ) {
         guard let thread else {
             self.init(
@@ -80,7 +81,11 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
             return
         }
 
-        let sources = WorkspaceActivitySurfaceBuilder.sourceItems(instructions: instructions, memories: memories)
+        let sources = WorkspaceActivitySurfaceBuilder.sourceItems(
+            instructions: instructions,
+            memories: memories,
+            dismissedInstructionDiagnosticIDs: dismissedInstructionDiagnosticIDs
+        )
         let artifacts = WorkspaceActivitySurfaceBuilder.uniqueArtifacts(from: toolCards)
         let finalAnswer = WorkspaceActivitySurfaceBuilder.finalAnswer(for: thread)
         let planItems = WorkspaceActivitySurfaceBuilder.authoredPlanItems(for: thread)

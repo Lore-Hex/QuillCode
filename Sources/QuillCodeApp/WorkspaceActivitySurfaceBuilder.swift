@@ -34,8 +34,16 @@ enum WorkspaceActivitySurfaceBuilder {
             }
     }
 
-    static func sourceItems(instructions: [ProjectInstruction], memories: [MemoryNote]) -> [ActivityItemSurface] {
-        WorkspaceActivitySourceSurfaceBuilder.items(instructions: instructions, memories: memories)
+    static func sourceItems(
+        instructions: [ProjectInstruction],
+        memories: [MemoryNote],
+        dismissedInstructionDiagnosticIDs: Set<String> = []
+    ) -> [ActivityItemSurface] {
+        WorkspaceActivitySourceSurfaceBuilder.items(
+            instructions: instructions,
+            memories: memories,
+            dismissedInstructionDiagnosticIDs: dismissedInstructionDiagnosticIDs
+        )
     }
 
     static func uniqueArtifacts(from toolCards: [ToolCardState]) -> [ToolArtifactState] {

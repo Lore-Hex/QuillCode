@@ -168,20 +168,70 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
         XCTAssertEqual(reviewSection.title, "Instruction Review")
         XCTAssertEqual(reviewSection.countLabel, "1 issue")
         XCTAssertEqual(reviewSection.items, [conflict])
-        XCTAssertEqual(conflict.actions.first?.title, "Resolve")
-        XCTAssertEqual(conflict.actions.first?.kind, "resolve")
         let diagnosticID = try XCTUnwrap(ProjectInstructionDiagnosticsBuilder
             .diagnostics(for: instructions)
             .first { $0.statusLabel == "conflict" }?
             .id)
         XCTAssertEqual(
-            conflict.actions.first?.commandID,
-            "activity-instruction-resolve:\(diagnosticID)"
+            conflict.actions.map(\.title),
+            ["Resolve", "Dismiss"]
+        )
+        XCTAssertEqual(
+            conflict.actions.map(\.kind),
+            ["resolve", "dismiss"]
+        )
+        XCTAssertEqual(
+            conflict.actions.map(\.commandID),
+            [
+                "activity-instruction-resolve:\(diagnosticID)",
+                "activity-instruction-dismiss:\(diagnosticID)"
+            ]
         )
         XCTAssertEqual(
             activity.sections.map(\.kind),
             [.plan, .recent, .subagents, .handoff, .tools, .instructionReview, .sources, .artifacts]
         )
+    }
+
+    func testActivitySourcesHideDismissedInstructionDiagnostics() throws {
+        let instructions = [
+            ProjectInstruction(
+                path: "AGENTS.md",
+                title: "AGENTS.md",
+                content: "Always run tests before final answers.",
+                byteCount: 38
+            ),
+            ProjectInstruction(
+                path: "Sources/Feature/AGENTS.md",
+                title: "Feature AGENTS.md",
+                content: "Do not run tests for feature changes.",
+                byteCount: 37
+            )
+        ]
+        let diagnosticID = try XCTUnwrap(ProjectInstructionDiagnosticsBuilder
+            .diagnostics(for: instructions)
+            .first { $0.statusLabel == "conflict" }?
+            .id)
+        let thread = ChatThread(
+            title: "Inspect conflicts",
+            messages: [.init(role: .user, content: "what rules apply?")],
+            instructions: instructions
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            activity: ActivityState(
+                isVisible: true,
+                dismissedInstructionDiagnosticIDs: [diagnosticID]
+            )
+        )
+
+        let activity = model.surface().activity
+
+        XCTAssertFalse(activity.sources.contains { $0.id == diagnosticID })
+        XCTAssertNil(activity.sections.first { $0.kind == .instructionReview })
+        let sourceItems = try XCTUnwrap(activity.sections.first { $0.kind == .sources }?.items)
+        XCTAssertFalse(sourceItems.contains { $0.title == "Conflicting instruction intent" })
+        XCTAssertFalse(sourceItems.contains { $0.statusLabel == "conflict" })
     }
 
     func testActivitySourcesPrioritizeConflictDiagnosticsWithinSourceCap() throws {

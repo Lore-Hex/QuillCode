@@ -159,6 +159,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             WorkspaceCommandPlan(commandID: "activity-toggle-section:tools"),
             .toggleActivitySection(.tools)
         )
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "activity-instruction-dismiss:instruction-conflict"),
+            .dismissInstructionDiagnostic(id: "instruction-conflict")
+        )
     }
 
     func testAutomationScheduleCommandsParseTimeAndRecurrence() {

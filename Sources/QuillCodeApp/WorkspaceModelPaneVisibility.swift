@@ -27,4 +27,12 @@ extension QuillCodeWorkspaceModel {
             activity.collapsedSectionIDs.insert(section)
         }
     }
+
+    public func dismissInstructionDiagnostic(id: String) -> Bool {
+        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        activity.isVisible = true
+        activity.dismissedInstructionDiagnosticIDs.insert(trimmed)
+        return true
+    }
 }

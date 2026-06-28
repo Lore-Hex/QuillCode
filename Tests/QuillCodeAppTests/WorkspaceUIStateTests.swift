@@ -15,10 +15,12 @@ final class WorkspaceUIStateTests: XCTestCase {
 
         let activity = ActivityState(
             isVisible: true,
-            collapsedSectionIDs: [.tools, .sources]
+            collapsedSectionIDs: [.tools, .sources],
+            dismissedInstructionDiagnosticIDs: ["instruction-conflict"]
         )
 
         XCTAssertTrue(activity.isVisible)
         XCTAssertEqual(activity.collapsedSectionIDs, [.tools, .sources])
+        XCTAssertEqual(activity.dismissedInstructionDiagnosticIDs, ["instruction-conflict"])
     }
 }

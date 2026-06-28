@@ -3532,6 +3532,8 @@
       activity: {
         isVisible: false,
         collapsedSections: [],
+        dismissedInstructionDiagnostics: [],
+        instructionDiagnostics: [],
         authoredPlan: null,
         authoredSubagents: null,
         authoredHandoff: null
@@ -7491,11 +7493,23 @@
           statusLabel: memory.scopeLabel
         }))
       ];
+      const dismissedInstructionDiagnostics = new Set(state.activity.dismissedInstructionDiagnostics || []);
+      const instructionDiagnostics = (state.activity.instructionDiagnostics || [])
+        .filter(item => !dismissedInstructionDiagnostics.has(item.id))
+        .map(item => ({
+          ...item,
+          actions: [
+            { title: 'Resolve', commandID: `activity-instruction-resolve:${item.id}`, kind: 'resolve' },
+            { title: 'Dismiss', commandID: `activity-instruction-dismiss:${item.id}`, kind: 'dismiss' }
+          ]
+        }));
+      const allSources = [...sources, ...instructionDiagnostics];
+      const instructionConflicts = instructionDiagnostics.filter(item => item.statusLabel === 'conflict');
       const planItems = state.activity.authoredPlan || activityPlan({
         latestRequest: latestUser ? latestUser.text : 'No task selected',
         status: state.topBar.agentStatus,
         tools,
-        sources,
+        sources: allSources,
         artifacts,
         finalAnswer: latestAssistant?.text || null
       });
@@ -7504,24 +7518,26 @@
         latestRequest: latestUser ? latestUser.text : 'No task selected',
         status: state.topBar.agentStatus,
         tools: cards,
-        sources,
+        sources: allSources,
         artifacts,
         finalAnswer: latestAssistant?.text || null
       });
       return {
-        subtitle: `${countLabel(cards.length, 'tool')} · ${countLabel(sources.length, 'source')} · ${countLabel(artifacts.length, 'artifact')}`,
+        subtitle: `${countLabel(cards.length, 'tool')} · ${countLabel(allSources.length, 'source')} · ${countLabel(artifacts.length, 'artifact')}`,
         statusLabel: state.topBar.agentStatus,
         taskTitle: latestUser ? latestUser.text : 'No task selected',
         taskSubtitle: `${messages.length} ${messages.length === 1 ? 'message' : 'messages'} · ${state.transcript.timelineItems.length} timeline ${state.transcript.timelineItems.length === 1 ? 'item' : 'items'}`,
         steps,
         tools,
-        sources,
+        sources: allSources,
+        instructionConflicts,
         artifacts,
         finalAnswer: latestAssistant?.text || null,
         sections: activitySections({
           steps,
           tools,
-          sources,
+          sources: allSources,
+          instructionConflicts,
           artifacts,
           finalAnswer: latestAssistant?.text || null,
           planItems,
@@ -7563,6 +7579,10 @@
           items: activity.tools,
           countLabel: countLabel(activity.tools.length, 'item')
         }),
+        section('instructionReview', 'Instruction Review', 'activity-instruction-conflict', 'No instruction conflicts', {
+          items: activity.instructionConflicts || [],
+          countLabel: countLabel((activity.instructionConflicts || []).length, 'issue')
+        }),
         section('sources', 'Sources', 'activity-source', 'No context sources attached', {
           items: activity.sources,
           countLabel: countLabel(activity.sources.length, 'item')
@@ -7575,7 +7595,10 @@
           bodyText: activity.finalAnswer,
           countLabel: activity.finalAnswer ? '1 answer' : '0 answers'
         })
-      ].filter(section => (section.id !== 'latestAnswer' && section.id !== 'handoff') || section.bodyText);
+      ].filter(section => {
+        if (section.id === 'instructionReview') return (section.items || []).length > 0;
+        return (section.id !== 'latestAnswer' && section.id !== 'handoff') || section.bodyText;
+      });
     }
 
     function activityPlan(activity) {
@@ -9147,6 +9170,7 @@
 
     const harnessRoutableCommandPrefixes = [
       'activity-toggle-section:',
+      'activity-instruction-dismiss:',
       'activity-instruction-resolve:',
       'activity-source-edit:',
       'activity-source-open:',
@@ -9513,6 +9537,18 @@
         state.composer.canSend = true;
         render();
         focusComposerAtDraftEnd();
+        return;
+      }
+      if (commandID?.startsWith('activity-instruction-dismiss:')) {
+        const id = commandID.slice('activity-instruction-dismiss:'.length);
+        if (id) {
+          state.activity.dismissedInstructionDiagnostics = Array.from(new Set([
+            ...(state.activity.dismissedInstructionDiagnostics || []),
+            id
+          ]));
+        }
+        state.activity.isVisible = true;
+        render();
         return;
       }
       if (commandID === 'toggle-memories') {
@@ -11919,6 +11955,18 @@
 
     window.__quillCodeCommandRoutingAudit = commandRoutingAuditReport;
     window.__quillCodeTestCreateMonitorAutomation = createMonitorAutomation;
+    window.__quillCodeTestAddInstructionConflict = function() {
+      state.activity.instructionDiagnostics = [{
+        id: 'instruction-semantic-conflict-tests-agents-md-sources-feature-agents-md',
+        title: 'Conflicting instruction intent',
+        detail: 'Tests: AGENTS.md says require; Sources/Feature/AGENTS.md says avoid',
+        kind: 'instruction-diagnostic',
+        statusLabel: 'conflict'
+      }];
+      state.activity.dismissedInstructionDiagnostics = [];
+      state.activity.isVisible = true;
+      render();
+    };
 
     render();
   </script>

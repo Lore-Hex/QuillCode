@@ -28,6 +28,7 @@ enum WorkspaceCommandPlan: Equatable {
     case openActivitySource(path: String)
     case editActivitySource(path: String)
     case resolveInstructionDiagnostic(id: String)
+    case dismissInstructionDiagnostic(id: String)
     case setDraft(String)
     case runTool(name: String)
     case runToolCall(ToolCall)
@@ -163,6 +164,9 @@ enum WorkspaceCommandPlan: Equatable {
         }
         if let id = commandID.value(after: "activity-instruction-resolve:") {
             return id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : .resolveInstructionDiagnostic(id: id)
+        }
+        if let id = commandID.value(after: "activity-instruction-dismiss:") {
+            return id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : .dismissInstructionDiagnostic(id: id)
         }
         return nil
     }
