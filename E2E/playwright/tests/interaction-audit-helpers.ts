@@ -27,6 +27,18 @@ const EXPECTED_KIND_BY_CLASS: Record<string, string> = {
   'hit-target-adjustable': 'adjustable'
 };
 
+const EXPECTED_ACTION_BY_KIND: Record<string, string> = {
+  adjustable: 'adjust',
+  capsule: 'press',
+  'form-action': 'press',
+  icon: 'press',
+  link: 'link',
+  owned: 'owned-gesture',
+  row: 'press',
+  text: 'press',
+  'text-entry': 'text-input'
+};
+
 const INTERACTIVE_SELECTOR = [
   'button',
   'summary',
@@ -94,6 +106,7 @@ type InteractionAuditReport = {
 
 export type CriticalTargetProbe = {
   expectedClass?: string;
+  expectedAction?: string;
   expectedKind?: string;
   label: string;
   locator: Locator;
@@ -140,6 +153,17 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
 
     function hasSharedHitTargetClass(element: Element) {
       return sharedHitTargetClasses.some(className => element.classList.contains(className));
+    }
+
+    function hasExplicitHitTargetContract(element: Element) {
+      const source = element.getAttribute('data-hit-target-source') || '';
+      const kind = element.getAttribute('data-hit-target-kind') || '';
+      return source !== 'auto' && !kind.startsWith('auto-');
+    }
+
+    function hasHitTargetAction(element: Element) {
+      const action = element.getAttribute('data-hit-target-action') || '';
+      return Boolean(action) && !action.startsWith('auto-');
     }
 
     function isAuditableInteractiveElement(element: Element) {
@@ -343,8 +367,11 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
       if (!accessibleName(element)) {
         reasons.push('missing_accessible_name');
       }
-      if (!isDisabled && !hasSharedHitTargetClass(element)) {
+      if (!isDisabled && (!hasSharedHitTargetClass(element) || !hasExplicitHitTargetContract(element))) {
         reasons.push('missing_shared_hit_target_contract');
+      }
+      if (!isDisabled && !hasHitTargetAction(element)) {
+        reasons.push('missing_hit_target_action');
       }
       if (style.pointerEvents === 'none' && !isDisabled) {
         reasons.push('pointer_events_none');
@@ -601,6 +628,18 @@ export async function expectHitTarget(locator: Locator, label: string) {
     if (!sharedHitTargetClasses.some(className => element.classList.contains(className))) {
       issues.push('missing_shared_hit_target_contract');
     }
+    if (
+      (element.getAttribute('data-hit-target-source') || '') === 'auto'
+      || (element.getAttribute('data-hit-target-kind') || '').startsWith('auto-')
+    ) {
+      issues.push('missing_shared_hit_target_contract');
+    }
+    if (
+      !(element.getAttribute('data-hit-target-action') || '')
+      || (element.getAttribute('data-hit-target-action') || '').startsWith('auto-')
+    ) {
+      issues.push('missing_hit_target_action');
+    }
     if (style.pointerEvents === 'none' && !isDisabled) {
       issues.push('pointer_events_none');
     }
@@ -651,6 +690,11 @@ export async function expectCriticalTargetRegistry(label: string, probes: Critic
         hitTargetKind,
         `${label}: ${probe.label} should declare semantic click-target kind ${probe.expectedKind}`
       ).toBe(probe.expectedKind);
+      const hitTargetAction = await probe.locator.first().getAttribute('data-hit-target-action');
+      expect(
+        hitTargetAction,
+        `${label}: ${probe.label} should declare semantic click-target action ${EXPECTED_ACTION_BY_KIND[probe.expectedKind]}`
+      ).toBe(EXPECTED_ACTION_BY_KIND[probe.expectedKind]);
     }
     if (probe.expectedClass) {
       const classList = await probe.locator.first().evaluate((element) => [...element.classList]);
@@ -665,8 +709,19 @@ export async function expectCriticalTargetRegistry(label: string, probes: Critic
           hitTargetKind,
           `${label}: ${probe.label} should declare the expected semantic click-target kind`
         ).toBe(expectedKind);
+        const hitTargetAction = await probe.locator.first().getAttribute('data-hit-target-action');
+        expect(
+          hitTargetAction,
+          `${label}: ${probe.label} should declare the expected semantic click-target action`
+        ).toBe(EXPECTED_ACTION_BY_KIND[expectedKind]);
       }
     }
+    if (probe.expectedAction) {
+      await expect(probe.locator.first(), `${label}: ${probe.label} should declare action ${probe.expectedAction}`)
+        .toHaveAttribute('data-hit-target-action', probe.expectedAction);
+    }
+    await expect(probe.locator.first(), `${label}: ${probe.label} should not rely on auto-inferred hit-target semantics`)
+      .not.toHaveAttribute('data-hit-target-source', 'auto');
   }
 }
 

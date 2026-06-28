@@ -3714,6 +3714,14 @@
       return '';
     }
 
+    function hitTargetAction(kind) {
+      if (kind === 'text-entry') return 'text-input';
+      if (kind === 'adjustable') return 'adjust';
+      if (kind === 'link') return 'link';
+      if (kind === 'owned') return 'owned-gesture';
+      return 'press';
+    }
+
     function fallbackHitTargetContract(element) {
       if (element instanceof HTMLInputElement && (element.type || 'text').toLowerCase() === 'range') {
         return ['hit-target-adjustable', 'adjustable'];
@@ -3761,11 +3769,15 @@
         const existingKind = existingHitTargetKind(element);
         if (existingKind) {
           if (!element.dataset.hitTargetKind) element.dataset.hitTargetKind = existingKind;
+          if (!element.dataset.hitTargetAction) element.dataset.hitTargetAction = hitTargetAction(existingKind);
+          if (!element.dataset.hitTargetSource) element.dataset.hitTargetSource = 'class';
           return;
         }
         const [className, kind] = fallbackHitTargetContract(element);
         element.classList.add(className);
         element.dataset.hitTargetKind = `auto-${kind}`;
+        element.dataset.hitTargetAction = `auto-${hitTargetAction(kind)}`;
+        element.dataset.hitTargetSource = 'auto';
       });
     }
 
@@ -5194,11 +5206,11 @@
           </header>
           <p data-testid="context-banner-subtitle">${escapeHTML(banner.subtitle)}</p>
           <div>
-            <button type="button" data-testid="context-compact" data-command-id="compact-context">Compact context</button>
-            <button type="button" data-testid="context-new-thread" data-command-id="new-chat">New thread</button>
-            <button type="button" data-testid="context-fork-last" data-command-id="fork-from-last">Fork from last</button>
-            <button type="button" data-testid="context-fork-summary" data-command-id="fork-with-summary">Fork summary</button>
-            <button type="button" data-testid="context-fork-full" data-command-id="fork-full-context">Fork full</button>
+            <button type="button" class="hit-target-text" data-testid="context-compact" data-command-id="compact-context">Compact context</button>
+            <button type="button" class="hit-target-text" data-testid="context-new-thread" data-command-id="new-chat">New thread</button>
+            <button type="button" class="hit-target-text" data-testid="context-fork-last" data-command-id="fork-from-last">Fork from last</button>
+            <button type="button" class="hit-target-text" data-testid="context-fork-summary" data-command-id="fork-with-summary">Fork summary</button>
+            <button type="button" class="hit-target-text" data-testid="context-fork-full" data-command-id="fork-full-context">Fork full</button>
           </div>
         </section>`;
     }
@@ -5221,7 +5233,7 @@
             <span data-testid="runtime-issue-severity">${escapeHTML(severity)}</span>
           </header>
           <p data-testid="runtime-issue-message">${escapeHTML(issue.message)}</p>
-          ${issue.actionLabel ? `<button type="button" data-testid="runtime-issue-action">${escapeHTML(issue.actionLabel)}</button>` : ''}
+          ${issue.actionLabel ? `<button type="button" class="hit-target-text" data-testid="runtime-issue-action">${escapeHTML(issue.actionLabel)}</button>` : ''}
           ${diagnostics}
         </section>`;
     }
@@ -5390,8 +5402,8 @@
         : `${selectedInlineCommentCount} of ${inlineCommentCount} inline review notes`;
       const submitSummary = pullRequestReviewDraftSubmitSummary(draft);
       const inlineCommentPreview = inlineCommentCount ? `
-        <label class="pr-review-inline-comments">
-          <input type="checkbox" data-testid="pr-review-draft-include-inline-comments" aria-label="Include inline review notes" ${draft.includeInlineComments === false ? '' : 'checked'}>
+        <label class="pr-review-inline-comments hit-target-row">
+          <input type="checkbox" class="hit-target-adjustable" data-testid="pr-review-draft-include-inline-comments" aria-label="Include inline review notes" ${draft.includeInlineComments === false ? '' : 'checked'}>
           <span>Include ${inlineCommentCountLabel}</span>
         </label>
         <ul class="pr-review-inline-comment-list" data-testid="pr-review-draft-inline-comments">
@@ -5406,8 +5418,8 @@
             const hasWarning = draft.includeInlineComments !== false && isIncluded && !(comment.body || '').trim();
             return `
             <li data-testid="pr-review-draft-inline-comment">
-              <label>
-                <input type="checkbox" data-testid="pr-review-draft-inline-comment-toggle" data-comment-id="${escapeHTML(comment.id || '')}" aria-label="Include inline note at ${escapeHTML(location)}" ${isIncluded ? 'checked' : ''} ${disabled}>
+              <label class="hit-target-row">
+                <input type="checkbox" class="hit-target-adjustable" data-testid="pr-review-draft-inline-comment-toggle" data-comment-id="${escapeHTML(comment.id || '')}" aria-label="Include inline note at ${escapeHTML(location)}" ${isIncluded ? 'checked' : ''} ${disabled}>
                 <span>${isIncluded ? 'Included' : 'Skipped'}</span>
               </label>
               <span class="pr-review-inline-comment-order">
@@ -5415,7 +5427,7 @@
                 <button type="button" class="review-action-button hit-target-icon" data-testid="pr-review-draft-inline-comment-move-down" data-comment-id="${escapeHTML(comment.id || '')}" aria-label="Move inline note at ${escapeHTML(location)} down" ${moveDownDisabled}>v</button>
               </span>
               <code>${escapeHTML(location)}</code>
-              <textarea data-testid="pr-review-draft-inline-comment-body" data-comment-id="${escapeHTML(comment.id || '')}" aria-label="Inline note text at ${escapeHTML(location)}">${escapeHTML(comment.body || '')}</textarea>
+              <textarea class="hit-target-text-entry" data-testid="pr-review-draft-inline-comment-body" data-comment-id="${escapeHTML(comment.id || '')}" aria-label="Inline note text at ${escapeHTML(location)}">${escapeHTML(comment.body || '')}</textarea>
               <small data-testid="pr-review-draft-inline-comment-warning" ${hasWarning ? '' : 'hidden'}>Add note text or skip this note.</small>
             </li>`;
           }).join('')}
@@ -5424,17 +5436,17 @@
         <form class="pr-review-draft" data-testid="pr-review-draft" aria-label="Submit pull request review">
           <label>
             Action
-            <select data-testid="pr-review-draft-action" aria-label="Pull request review action">
+            <select class="hit-target-text-entry" data-testid="pr-review-draft-action" aria-label="Pull request review action">
               ${actions.map(candidate => `<option value="${escapeHTML(candidate)}" ${candidate === action ? 'selected' : ''}>${escapeHTML(pullRequestReviewActionLabels[candidate])}</option>`).join('')}
             </select>
           </label>
           <label>
             Pull request
-            <input data-testid="pr-review-draft-selector" aria-label="Pull request selector" placeholder="PR number, URL, or branch" value="${escapeHTML(draft.selector || '')}">
+            <input class="hit-target-text-entry" data-testid="pr-review-draft-selector" aria-label="Pull request selector" placeholder="PR number, URL, or branch" value="${escapeHTML(draft.selector || '')}">
           </label>
           <label>
             Body
-            <textarea data-testid="pr-review-draft-body" aria-label="Pull request review body" placeholder="${escapeHTML(pullRequestReviewActionBodyPlaceholder(action))}">${escapeHTML(draft.body || '')}</textarea>
+            <textarea class="hit-target-text-entry" data-testid="pr-review-draft-body" aria-label="Pull request review body" placeholder="${escapeHTML(pullRequestReviewActionBodyPlaceholder(action))}">${escapeHTML(draft.body || '')}</textarea>
           </label>
           ${inlineCommentPreview}
           <section class="pr-review-draft-summary" data-testid="pr-review-draft-summary" data-status="${escapeHTML(submitSummary.status)}" aria-label="Pull request review submit summary">
@@ -5494,9 +5506,9 @@
                           </span>
                         </div>
                         <form class="review-range-comment-form" data-testid="review-range-comment-form" data-path="${escapeHTML(file.path)}">
-                          <input data-testid="review-range-start" aria-label="Range note start for ${escapeHTML(file.path)}" placeholder="From" value="${escapeHTML((hunk.lines || [])[0]?.lineNumber || '')}">
-                          <input data-testid="review-range-end" aria-label="Range note end for ${escapeHTML(file.path)}" placeholder="To" value="${escapeHTML((hunk.lines || [])[1]?.lineNumber || (hunk.lines || [])[0]?.lineNumber || '')}">
-                          <input data-testid="review-range-comment-input" aria-label="Range note for ${escapeHTML(file.path)}" placeholder="Range note">
+                          <input class="hit-target-text-entry" data-testid="review-range-start" aria-label="Range note start for ${escapeHTML(file.path)}" placeholder="From" value="${escapeHTML((hunk.lines || [])[0]?.lineNumber || '')}">
+                          <input class="hit-target-text-entry" data-testid="review-range-end" aria-label="Range note end for ${escapeHTML(file.path)}" placeholder="To" value="${escapeHTML((hunk.lines || [])[1]?.lineNumber || (hunk.lines || [])[0]?.lineNumber || '')}">
+                          <input class="hit-target-text-entry" data-testid="review-range-comment-input" aria-label="Range note for ${escapeHTML(file.path)}" placeholder="Range note">
                           <button class="hit-target-form-action" type="submit">Add range note</button>
                         </form>
                         <ol class="review-lines" data-testid="review-lines">
@@ -5506,7 +5518,7 @@
                               <span class="review-line-marker" data-line-kind="${escapeHTML(line.kind)}">${escapeHTML(line.marker)}</span>
                               <code class="review-line-content" data-testid="review-line-content">${escapeHTML(line.content)}</code>
                               <form class="review-line-comment-form" data-testid="review-line-comment-form" data-path="${escapeHTML(file.path)}" data-line-number="${escapeHTML(line.lineNumber || '')}" data-line-kind="${escapeHTML(line.kind)}">
-                                <input data-testid="review-line-comment-input" aria-label="Line note for ${escapeHTML(file.path)}:${escapeHTML(line.lineNumber || '')}" placeholder="Line note">
+                                <input class="hit-target-text-entry" data-testid="review-line-comment-input" aria-label="Line note for ${escapeHTML(file.path)}:${escapeHTML(line.lineNumber || '')}" placeholder="Line note">
                                 <button class="hit-target-form-action" type="submit">Add</button>
                               </form>
                               ${(line.comments || []).length ? `
@@ -5522,7 +5534,7 @@
                     ${file.comments.map(comment => `<blockquote class="review-comment" data-testid="review-comment">${escapeHTML(comment.text)}</blockquote>`).join('')}
                   </div>` : ''}
                 <form class="review-comment-form" data-testid="review-comment-form" data-path="${escapeHTML(file.path)}">
-                  <input data-testid="review-comment-input" aria-label="Review note for ${escapeHTML(file.path)}" placeholder="Add review note">
+                  <input class="hit-target-text-entry" data-testid="review-comment-input" aria-label="Review note for ${escapeHTML(file.path)}" placeholder="Add review note">
                   <button class="hit-target-form-action" type="submit">Add note</button>
                 </form>
               </li>`).join('')}
@@ -5542,7 +5554,7 @@
                     </span>
                     ${thread.replyTarget ? `
                       <form class="pr-review-thread-reply-form" data-testid="pr-review-thread-reply-form" data-thread-id="${escapeHTML(thread.id)}" data-comment-id="${escapeHTML(thread.replyTarget.commentID)}" data-selector="${escapeHTML(thread.replyTarget.selector || '')}" ${state.review.activeReplyThreadID === thread.id ? '' : 'hidden'}>
-                        <textarea data-testid="pr-review-thread-reply-input" aria-label="Reply to review thread" placeholder="Reply to review thread"></textarea>
+                        <textarea class="hit-target-text-entry" data-testid="pr-review-thread-reply-input" aria-label="Reply to review thread" placeholder="Reply to review thread"></textarea>
                         <button type="reset" class="review-action-button hit-target-form-action" data-testid="pr-review-thread-reply-cancel">Cancel</button>
                         <button type="submit" class="review-action-button hit-target-form-action" data-testid="pr-review-thread-reply-submit">Post reply</button>
                       </form>` : ''}
@@ -5561,24 +5573,24 @@
       const copyButton = (testID, timelineID, label, extraActions = '') => {
         const copied = state.copiedTranscriptItemID === timelineID;
         return `<footer class="transcript-actions">
-          <button type="button" class="transcript-copy-button" data-testid="${testID}" data-copy-id="${escapeHTML(timelineID)}" data-copied="${copied ? 'true' : 'false'}">${copied ? 'Copied' : escapeHTML(label)}</button>
+          <button type="button" class="transcript-copy-button hit-target-text" data-testid="${testID}" data-copy-id="${escapeHTML(timelineID)}" data-copied="${copied ? 'true' : 'false'}">${copied ? 'Copied' : escapeHTML(label)}</button>
           ${extraActions}
         </footer>`;
       };
       const feedbackButtons = message => {
         if (!message || message.role !== 'assistant') return '';
         return `
-          <button type="button" class="transcript-feedback-button" data-testid="message-feedback-up" data-message-id="${escapeHTML(message.id || '')}" data-feedback-value="helpful" data-selected="${message.feedback === 'helpful' ? 'true' : 'false'}" aria-label="Mark response helpful">Helpful</button>
-          <button type="button" class="transcript-feedback-button" data-testid="message-feedback-down" data-message-id="${escapeHTML(message.id || '')}" data-feedback-value="notHelpful" data-selected="${message.feedback === 'notHelpful' ? 'true' : 'false'}" aria-label="Mark response not helpful">Not helpful</button>`;
+          <button type="button" class="transcript-feedback-button hit-target-text" data-testid="message-feedback-up" data-message-id="${escapeHTML(message.id || '')}" data-feedback-value="helpful" data-selected="${message.feedback === 'helpful' ? 'true' : 'false'}" aria-label="Mark response helpful">Helpful</button>
+          <button type="button" class="transcript-feedback-button hit-target-text" data-testid="message-feedback-down" data-message-id="${escapeHTML(message.id || '')}" data-feedback-value="notHelpful" data-selected="${message.feedback === 'notHelpful' ? 'true' : 'false'}" aria-label="Mark response not helpful">Not helpful</button>`;
       };
       const draftButton = message => {
         if (!message || message.role !== 'user') return '';
-        return `<button type="button" class="transcript-feedback-button" data-testid="message-use-as-draft" data-message-id="${escapeHTML(message.id || '')}" aria-label="Use as draft">Use as draft</button>`;
+        return `<button type="button" class="transcript-feedback-button hit-target-text" data-testid="message-use-as-draft" data-message-id="${escapeHTML(message.id || '')}" aria-label="Use as draft">Use as draft</button>`;
       };
       const retryButton = message => {
         const retryCommand = state.commands.find(command => command.id === 'retry-last-turn' && command.isEnabled);
         if (!message || message.role !== 'assistant' || message.id !== latestAssistantMessageID || !retryCommand) return '';
-        return `<button type="button" class="transcript-feedback-button" data-testid="message-retry" data-command-id="${escapeHTML(retryCommand.id)}" aria-label="Retry last turn">Retry</button>`;
+        return `<button type="button" class="transcript-feedback-button hit-target-text" data-testid="message-retry" data-command-id="${escapeHTML(retryCommand.id)}" aria-label="Retry last turn">Retry</button>`;
       };
       const renderMessage = (message, timelineID = '') => `
         <article class="message ${escapeHTML(message.role)}${activeClass(timelineID)}" data-testid="message" data-timeline-id="${escapeHTML(timelineID)}" aria-label="${escapeHTML(message.role + ': ' + message.text)}">
@@ -5734,7 +5746,7 @@
       const emptyStarterActions = (state.transcript.emptyStarterActions || []).length ? `
         <div class="empty-starters" data-testid="empty-starter-actions">
           ${state.transcript.emptyStarterActions.map(action => `
-            <button type="button" class="empty-starter" data-testid="empty-starter-action" data-action-id="${escapeHTML(action.id)}" data-prompt="${escapeHTML(action.prompt)}">
+            <button type="button" class="empty-starter hit-target-text" data-testid="empty-starter-action" data-action-id="${escapeHTML(action.id)}" data-prompt="${escapeHTML(action.prompt)}">
               <strong>${escapeHTML(action.title)}</strong>
               <span>${escapeHTML(action.subtitle)}</span>
             </button>
@@ -5749,14 +5761,14 @@
       const projectsContent = state.projects.items.length
         ? state.projects.items.map(item => `
           <div class="project-row" data-testid="project-row">
-            <button class="project-item ${item.isSelected ? 'selected' : ''}" data-testid="project-item" data-project-id="${escapeHTML(item.id)}" aria-current="${item.isSelected ? 'true' : 'false'}">
+            <button class="project-item hit-target-row ${item.isSelected ? 'selected' : ''}" data-testid="project-item" data-project-id="${escapeHTML(item.id)}" aria-current="${item.isSelected ? 'true' : 'false'}">
               <span>${escapeHTML(item.name)}${item.isRemote ? ` <small class="project-connection-kind" data-testid="project-connection-kind">${escapeHTML(item.connectionKindLabel || 'SSH')}</small>` : ''}</span>
               <small>${escapeHTML(item.path)}</small>
             </button>
             <details class="sidebar-thread-menu" data-testid="project-item-actions">
-              <summary aria-label="Actions for project ${escapeHTML(item.name)}">•••</summary>
+              <summary class="hit-target-icon" aria-label="Actions for project ${escapeHTML(item.name)}">•••</summary>
               <div class="sidebar-thread-menu-popover">
-                ${projectActionsFor(item).map(action => `<button type="button" data-testid="project-action" data-action="${escapeHTML(action.id)}" data-project-id="${escapeHTML(item.id)}" title="${escapeHTML(action.disabledReason || action.title)}" ${action.isEnabled === false ? 'disabled' : ''}>${escapeHTML(action.title)}</button>`).join('')}
+                ${projectActionsFor(item).map(action => `<button type="button" class="hit-target-row" data-testid="project-action" data-action="${escapeHTML(action.id)}" data-project-id="${escapeHTML(item.id)}" title="${escapeHTML(action.disabledReason || action.title)}" ${action.isEnabled === false ? 'disabled' : ''}>${escapeHTML(action.title)}</button>`).join('')}
               </div>
             </details>
           </div>`).join('')
@@ -5766,15 +5778,15 @@
           <h3 data-testid="sidebar-section-title">${escapeHTML(title)}</h3>
           ${items.map(item => `
           <div class="sidebar-thread-row ${state.sidebar.isSelectionMode ? 'selection-mode' : ''} ${state.sidebar.selectedThreadIDs.includes(item.id) ? 'bulk-selected' : ''}" data-testid="sidebar-thread-row">
-            ${state.sidebar.isSelectionMode ? `<button class="sidebar-select-toggle" type="button" data-testid="sidebar-select-toggle" data-thread-id="${escapeHTML(item.id)}" aria-label="${state.sidebar.selectedThreadIDs.includes(item.id) ? 'Deselect' : 'Select'} ${escapeHTML(item.title)}">${state.sidebar.selectedThreadIDs.includes(item.id) ? '✓' : '○'}</button>` : ''}
-            <button class="sidebar-item ${item.isSelected ? 'selected' : ''}" data-testid="sidebar-item" data-thread-id="${escapeHTML(item.id)}" aria-current="${item.isSelected ? 'true' : 'false'}">
+            ${state.sidebar.isSelectionMode ? `<button class="sidebar-select-toggle hit-target-icon" type="button" data-testid="sidebar-select-toggle" data-thread-id="${escapeHTML(item.id)}" aria-label="${state.sidebar.selectedThreadIDs.includes(item.id) ? 'Deselect' : 'Select'} ${escapeHTML(item.title)}">${state.sidebar.selectedThreadIDs.includes(item.id) ? '✓' : '○'}</button>` : ''}
+            <button class="sidebar-item hit-target-row ${item.isSelected ? 'selected' : ''}" data-testid="sidebar-item" data-thread-id="${escapeHTML(item.id)}" aria-current="${item.isSelected ? 'true' : 'false'}">
               <span>${escapeHTML(item.title)}</span>
               <small>${escapeHTML(item.subtitle)}</small>
             </button>
             <details class="sidebar-thread-menu" data-testid="sidebar-item-actions">
-              <summary aria-label="Actions for ${escapeHTML(item.title)}">•••</summary>
+              <summary class="hit-target-icon" aria-label="Actions for ${escapeHTML(item.title)}">•••</summary>
               <div class="sidebar-thread-menu-popover">
-                ${sidebarActionsFor(item).map(action => `<button type="button" data-testid="sidebar-thread-action" data-action="${escapeHTML(action.id)}" data-thread-id="${escapeHTML(item.id)}">${escapeHTML(action.title)}</button>`).join('')}
+                ${sidebarActionsFor(item).map(action => `<button type="button" class="hit-target-row" data-testid="sidebar-thread-action" data-action="${escapeHTML(action.id)}" data-thread-id="${escapeHTML(item.id)}">${escapeHTML(action.title)}</button>`).join('')}
               </div>
             </details>
           </div>`).join('')}
@@ -5819,7 +5831,7 @@
         <div class="sidebar-filter-bar" data-testid="sidebar-filter-bar">
           ${savedFilters.map(filter => `
             <button
-              class="sidebar-filter ${filter.isActive ? 'active' : ''}"
+              class="sidebar-filter hit-target-capsule ${filter.isActive ? 'active' : ''}"
               type="button"
               data-testid="sidebar-filter"
               data-filter-id="${escapeHTML(filter.id)}"
@@ -5832,13 +5844,13 @@
           `).join('')}
         </div>` : '';
       const sidebarHeaderAction = !state.sidebar.isSelectionMode && bulkActions.length ? `
-        <button class="sidebar-bulk-action" type="button" data-testid="sidebar-bulk-action" data-command-id="${escapeHTML(bulkActions[0].commandID)}" data-action="${escapeHTML(bulkActions[0].id)}" data-destructive="false" ${bulkActions[0].enabled ? '' : 'disabled'}>${escapeHTML(bulkActions[0].title)}</button>
+        <button class="sidebar-bulk-action hit-target-text" type="button" data-testid="sidebar-bulk-action" data-command-id="${escapeHTML(bulkActions[0].commandID)}" data-action="${escapeHTML(bulkActions[0].id)}" data-destructive="false" ${bulkActions[0].enabled ? '' : 'disabled'}>${escapeHTML(bulkActions[0].title)}</button>
       ` : '';
       const bulkToolbar = state.sidebar.isSelectionMode && bulkActions.length ? `
         <div class="sidebar-selection" data-testid="sidebar-selection" data-active="${state.sidebar.isSelectionMode ? 'true' : 'false'}" data-selected-count="${normalizedSidebarSelectionIDs().length}">
           <span data-testid="sidebar-selection-label">${escapeHTML(sidebarSelectionLabel())}</span>
           <div class="sidebar-selection-actions">
-            ${bulkActions.map(action => `<button class="sidebar-bulk-action" type="button" data-testid="sidebar-bulk-action" data-command-id="${escapeHTML(action.commandID)}" data-action="${escapeHTML(action.id)}" data-destructive="${action.destructive ? 'true' : 'false'}" ${action.enabled ? '' : 'disabled'}>${escapeHTML(action.title)}</button>`).join('')}
+            ${bulkActions.map(action => `<button class="sidebar-bulk-action hit-target-text" type="button" data-testid="sidebar-bulk-action" data-command-id="${escapeHTML(action.commandID)}" data-action="${escapeHTML(action.id)}" data-destructive="${action.destructive ? 'true' : 'false'}" ${action.enabled ? '' : 'disabled'}>${escapeHTML(action.title)}</button>`).join('')}
           </div>
         </div>` : '';
       const sidebarContent = visibleSidebarItems.length
@@ -7824,7 +7836,7 @@
       }
       return `
         <section class="activity-section" data-testid="${section.itemTestID}-section" data-collapsed="${section.isCollapsed ? 'true' : 'false'}">
-          <button type="button" data-testid="activity-section-toggle" data-command-id="${escapeHTML(section.commandID)}">
+          <button type="button" class="hit-target-row" data-testid="activity-section-toggle" data-command-id="${escapeHTML(section.commandID)}">
             <span>${section.isCollapsed ? '&gt;' : 'v'} ${escapeHTML(section.title)}</span>
             <span>${escapeHTML(section.countLabel)}</span>
           </button>
@@ -10628,23 +10640,23 @@
                   <h2>Create worktree</h2>
                   <p>Create a sibling git worktree for this project.</p>
                 </div>
-                <button type="button" data-testid="worktree-dialog-close">Close</button>
+                <button type="button" class="hit-target-text" data-testid="worktree-dialog-close">Close</button>
               </header>
               <label>
                 Worktree folder
-                <input name="path" aria-label="Worktree folder" placeholder="quillcode-feature" value="${escapeHTML(state.worktreeDialog.createPath)}" autofocus>
+                <input class="hit-target-text-entry" name="path" aria-label="Worktree folder" placeholder="quillcode-feature" value="${escapeHTML(state.worktreeDialog.createPath)}" autofocus>
               </label>
               <label>
                 New branch
-                <input name="branch" aria-label="New branch" placeholder="feature/quillcode" value="${escapeHTML(state.worktreeDialog.createBranch)}">
+                <input class="hit-target-text-entry" name="branch" aria-label="New branch" placeholder="feature/quillcode" value="${escapeHTML(state.worktreeDialog.createBranch)}">
               </label>
               <label>
                 Base ref
-                <input name="base" aria-label="Base ref" placeholder="main" value="${escapeHTML(state.worktreeDialog.createBase)}">
+                <input class="hit-target-text-entry" name="base" aria-label="Base ref" placeholder="main" value="${escapeHTML(state.worktreeDialog.createBase)}">
               </label>
               <div class="settings-actions">
-                <button type="button" data-testid="worktree-dialog-cancel">Cancel</button>
-                <button type="submit" data-testid="worktree-create-submit" ${state.worktreeDialog.createPath.trim() ? '' : 'disabled'}>Create</button>
+                <button type="button" class="hit-target-text" data-testid="worktree-dialog-cancel">Cancel</button>
+                <button type="submit" class="hit-target-form-action" data-testid="worktree-create-submit" ${state.worktreeDialog.createPath.trim() ? '' : 'disabled'}>Create</button>
               </div>
             </form>
           </div>`;
@@ -10658,16 +10670,16 @@
                   <h2>Open worktree</h2>
                   <p>Open an existing registered git worktree as a focused project.</p>
                 </div>
-                <button type="button" data-testid="worktree-dialog-close">Close</button>
+                <button type="button" class="hit-target-text" data-testid="worktree-dialog-close">Close</button>
               </header>
               ${renderWorktreeChoiceSection('open', 'No other registered worktrees found.')}
               <label>
                 Worktree folder
-                <input name="path" aria-label="Worktree folder" placeholder="quillcode-feature" value="${escapeHTML(state.worktreeDialog.openPath)}" autofocus>
+                <input class="hit-target-text-entry" name="path" aria-label="Worktree folder" placeholder="quillcode-feature" value="${escapeHTML(state.worktreeDialog.openPath)}" autofocus>
               </label>
               <div class="settings-actions">
-                <button type="button" data-testid="worktree-dialog-cancel">Cancel</button>
-                <button type="submit" data-testid="worktree-open-submit" ${state.worktreeDialog.openPath.trim() ? '' : 'disabled'}>Open</button>
+                <button type="button" class="hit-target-text" data-testid="worktree-dialog-cancel">Cancel</button>
+                <button type="submit" class="hit-target-form-action" data-testid="worktree-open-submit" ${state.worktreeDialog.openPath.trim() ? '' : 'disabled'}>Open</button>
               </div>
             </form>
           </div>`;
@@ -10677,7 +10689,7 @@
         const body = dialog.pruneLoading
           ? '<div class="dialog-choice-status" data-testid="worktree-prune-loading"><span class="dialog-choice-spinner" aria-hidden="true"></span><span>Checking stale worktree records...</span></div>'
           : dialog.pruneError
-            ? `<div class="dialog-choice-status" data-testid="worktree-prune-error"><span>${escapeHTML(dialog.pruneError)}</span><button type="button" data-testid="worktree-prune-retry">Retry</button></div>`
+            ? `<div class="dialog-choice-status" data-testid="worktree-prune-error"><span>${escapeHTML(dialog.pruneError)}</span><button type="button" class="hit-target-text" data-testid="worktree-prune-retry">Retry</button></div>`
             : dialog.pruneLoaded && dialog.pruneRecords.length === 0
               ? '<div class="dialog-choice-status" data-testid="worktree-prune-empty">No stale worktree records found.</div>'
               : dialog.pruneRecords.map(record => `
@@ -10693,7 +10705,7 @@
                   <h2>Review stale worktrees</h2>
                   <p>Review stale git worktree records before pruning them.</p>
                 </div>
-                <button type="button" data-testid="worktree-dialog-close">Close</button>
+                <button type="button" class="hit-target-text" data-testid="worktree-dialog-close">Close</button>
               </header>
               <div class="dialog-choice-list">
                 <div class="eyebrow">Preview</div>
@@ -10701,8 +10713,8 @@
               </div>
               <p>Prune runs <code>git worktree prune --verbose</code> for the selected project.</p>
               <div class="settings-actions">
-                <button type="button" data-testid="worktree-dialog-cancel">Cancel</button>
-                <button type="submit" data-testid="worktree-prune-submit" ${dialog.pruneLoaded && !dialog.pruneError && dialog.pruneRecords.length ? '' : 'disabled'}>Prune</button>
+                <button type="button" class="hit-target-text" data-testid="worktree-dialog-cancel">Cancel</button>
+                <button type="submit" class="hit-target-form-action" data-testid="worktree-prune-submit" ${dialog.pruneLoaded && !dialog.pruneError && dialog.pruneRecords.length ? '' : 'disabled'}>Prune</button>
               </div>
             </form>
           </div>`;
@@ -10715,22 +10727,22 @@
                 <h2>Remove worktree</h2>
                 <p>Remove an existing registered git worktree.</p>
               </div>
-              <button type="button" data-testid="worktree-dialog-close">Close</button>
+              <button type="button" class="hit-target-text" data-testid="worktree-dialog-close">Close</button>
             </header>
             ${renderWorktreeChoiceSection('remove', 'No removable registered worktrees found.')}
             <label>
               Worktree folder
-              <input name="path" aria-label="Worktree folder" placeholder="quillcode-feature" value="${escapeHTML(state.worktreeDialog.removePath)}" autofocus>
+              <input class="hit-target-text-entry" name="path" aria-label="Worktree folder" placeholder="quillcode-feature" value="${escapeHTML(state.worktreeDialog.removePath)}" autofocus>
             </label>
-            <label>
+            <label class="hit-target-row">
               <span>
-                <input type="checkbox" name="force" aria-label="Force removal" ${state.worktreeDialog.removeForce ? 'checked' : ''}>
+                <input type="checkbox" class="hit-target-adjustable" name="force" aria-label="Force removal" ${state.worktreeDialog.removeForce ? 'checked' : ''}>
                 Force removal
               </span>
             </label>
             <div class="settings-actions">
-              <button type="button" data-testid="worktree-dialog-cancel">Cancel</button>
-              <button type="submit" data-testid="worktree-remove-submit" ${state.worktreeDialog.removePath.trim() ? '' : 'disabled'}>Remove</button>
+              <button type="button" class="hit-target-text" data-testid="worktree-dialog-cancel">Cancel</button>
+              <button type="submit" class="hit-target-form-action" data-testid="worktree-remove-submit" ${state.worktreeDialog.removePath.trim() ? '' : 'disabled'}>Remove</button>
             </div>
           </form>
         </div>`;
@@ -10837,7 +10849,7 @@
       const status = dialog.choicesLoading
         ? '<div class="dialog-choice-status" data-testid="worktree-choices-loading"><span class="dialog-choice-spinner" aria-hidden="true"></span><span>Loading registered worktrees...</span></div>'
         : dialog.choicesError
-          ? `<div class="dialog-choice-status" data-testid="worktree-choices-error"><span>${escapeHTML(dialog.choicesError)} You can still paste a path.</span><button type="button" data-testid="worktree-choices-retry" data-target="${target}">Retry</button></div>`
+          ? `<div class="dialog-choice-status" data-testid="worktree-choices-error"><span>${escapeHTML(dialog.choicesError)} You can still paste a path.</span><button type="button" class="hit-target-text" data-testid="worktree-choices-retry" data-target="${target}">Retry</button></div>`
           : dialog.choicesLoaded && !dialog.choices.length
             ? `<div class="dialog-choice-status" data-testid="worktree-choices-empty">${escapeHTML(emptyMessage)} You can still paste a path.</div>`
             : '';
@@ -10846,7 +10858,7 @@
           <p class="eyebrow">Known worktrees</p>
           ${status}
           ${dialog.choices.map(choice => `
-            <button type="button" class="dialog-choice" data-testid="worktree-choice" data-target="${target}" data-path="${escapeHTML(choice.path)}">
+            <button type="button" class="dialog-choice hit-target-row" data-testid="worktree-choice" data-target="${target}" data-path="${escapeHTML(choice.path)}">
               <strong>${escapeHTML(choice.title)}</strong>
               <span>${escapeHTML(choice.detail)}</span>
               <code>${escapeHTML(choice.path)}</code>

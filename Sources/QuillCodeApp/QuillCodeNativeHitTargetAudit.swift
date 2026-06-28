@@ -13,6 +13,33 @@ public enum QuillCodeNativeHitTargetKind: String, Codable, Sendable, Hashable, C
     case capsule
 }
 
+public enum QuillCodeNativeHitTargetAction: String, Codable, Sendable, Hashable, CaseIterable {
+    case adjust
+    case link
+    case ownedGesture = "owned-gesture"
+    case press
+    case textInput = "text-input"
+}
+
+extension QuillCodeNativeHitTargetKind {
+    var action: QuillCodeNativeHitTargetAction {
+        switch self {
+        case .textEntry:
+            return .textInput
+        case .adjustableControl:
+            return .adjust
+        case .ownedGesture:
+            return .ownedGesture
+        case .icon, .textButton, .formAction, .segmentedControl, .switchRow, .fullRow, .capsule:
+            return .press
+        }
+    }
+
+    var allowsNestedInteractiveChildren: Bool { false }
+
+    var requiresUnblockedInterior: Bool { true }
+}
+
 public enum QuillCodeInteractionSurfaceFamily: String, Codable, Sendable, Hashable, CaseIterable {
     case designSystem = "design-system"
     case workspaceChrome = "workspace-chrome"
@@ -45,6 +72,9 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
     public var kind: QuillCodeNativeHitTargetKind
     public var minWidth: Double?
     public var minHeight: Double
+    public var action: QuillCodeNativeHitTargetAction
+    public var allowsNestedInteractiveChildren: Bool
+    public var requiresUnblockedInterior: Bool
     public var source: String
 
     public init(
@@ -64,6 +94,9 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
         self.kind = kind
         self.minWidth = minWidth
         self.minHeight = minHeight
+        self.action = kind.action
+        self.allowsNestedInteractiveChildren = kind.allowsNestedInteractiveChildren
+        self.requiresUnblockedInterior = kind.requiresUnblockedInterior
         self.source = source
     }
 
@@ -74,7 +107,10 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
             "surface": surface,
             "label": label,
             "kind": kind.rawValue,
+            "action": action.rawValue,
+            "allowsNestedInteractiveChildren": allowsNestedInteractiveChildren,
             "minHeight": minHeight,
+            "requiresUnblockedInterior": requiresUnblockedInterior,
             "source": source
         ]
         if let minWidth {
@@ -90,6 +126,9 @@ public struct QuillCodeNativeHitTargetContract: Codable, Sendable, Hashable {
         }
         if let minWidth, minWidth < Double(QuillCodeMetrics.minimumHitTarget) {
             issues.append("\(id) minWidth \(minWidth) is below \(QuillCodeMetrics.minimumHitTarget)")
+        }
+        if allowsNestedInteractiveChildren {
+            issues.append("\(id) allows nested interactive children; split the parent target or make the children decorative")
         }
         return issues
     }

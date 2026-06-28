@@ -92,7 +92,8 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-search""#))
         XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-settings""#))
         XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-keyboard-shortcuts""#))
-        XCTAssertTrue(idleHTML.contains(#"class="hit-target-row" data-hit-target-kind="row" data-testid="top-bar-overflow-search""#))
+        XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-search""#))
+        XCTAssertTrue(idleHTML.contains(#"class="hit-target-row" data-hit-target-kind="row" data-hit-target-action="press" data-hit-target-source="explicit""#))
         XCTAssertTrue(idleHTML.contains(#"role="menuitem""#))
         XCTAssertFalse(idleHTML.contains(#"data-testid="top-bar-overflow-stop-all""#))
         XCTAssertFalse(idleHTML.contains(#"data-testid="top-bar-overflow-disconnect-all""#))
@@ -125,7 +126,7 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="top-bar-stop-button""#))
         XCTAssertTrue(html.contains(#"data-testid="stop-button""#))
         XCTAssertTrue(html.contains(">Stop</button>"))
-        XCTAssertTrue(html.contains(#"<textarea class="hit-target-text-entry" data-hit-target-kind="text-entry" id="message""#))
+        XCTAssertTrue(html.contains(#"<textarea class="hit-target-text-entry" data-hit-target-kind="text-entry" data-hit-target-action="text-input" data-hit-target-source="explicit" id="message""#))
         XCTAssertTrue(html.contains(#"aria-label="Message""#))
         XCTAssertTrue(html.contains(#"rows="1""#))
         XCTAssertTrue(html.contains("disabled"))
@@ -173,7 +174,7 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
 
         let html = WorkspaceHTMLRenderer.render(model.surface())
 
-        XCTAssertTrue(html.contains(#"<textarea class="hit-target-text-entry" data-hit-target-kind="text-entry" id="message""#))
+        XCTAssertTrue(html.contains(#"<textarea class="hit-target-text-entry" data-hit-target-kind="text-entry" data-hit-target-action="text-input" data-hit-target-source="explicit" id="message""#))
         XCTAssertTrue(html.contains(#"aria-label="Message""#))
         XCTAssertTrue(html.contains(#"rows="1""#))
         XCTAssertTrue(html.contains("first line\nsecond line</textarea>"))

@@ -78,6 +78,13 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Visible interactive controls should declare ownership through a shared hit-target class and semantic kind, not only rely on global geometry."
         )
         XCTAssertTrue(
+            auditHelperText.contains("EXPECTED_ACTION_BY_KIND")
+                && auditHelperText.contains("missing_hit_target_action")
+                && auditHelperText.contains("data-hit-target-source")
+                && auditHelperText.contains("data-hit-target-action"),
+            "Visible interactive controls should declare semantic action and explicit/inferred source so auto-classified controls cannot pass as designed targets."
+        )
+        XCTAssertTrue(
             auditHelperText.contains("closestInteractiveAncestor")
                 && auditHelperText.contains("nestedIssues")
                 && auditHelperText.contains("expectNoNestedInteractiveTargets"),
@@ -116,12 +123,18 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(
             primitivesText.contains(#"static let hitTargetKindAttributeName = "data-hit-target-kind""#)
+                && primitivesText.contains(#"static let hitTargetActionAttributeName = "data-hit-target-action""#)
+                && primitivesText.contains(#"static let hitTargetSourceAttributeName = "data-hit-target-source""#)
                 && primitivesText.contains("static func hitTargetKindAttribute(forClasses classes: [String])")
                 && primitivesText.contains("static func hitTargetAttributes(kind: WorkspaceHTMLHitTargetKind")
                 && primitivesText.contains("static func hitTargetAttributes(classes: [String])")
                 && primitivesText.contains("hitTargetKindByClass")
-                && primitivesText.contains(##"parts.append(#"\#(hitTargetKindAttributeName)="\#(escape(hitTargetKind))""#)"##),
-            "HTML primitives should emit an explicit semantic hit-target kind so rendered controls can be audited by contract, not only by geometry."
+                && primitivesText.contains(##"#"\#(hitTargetActionAttributeName)="\#(escape(kind.action))""#"##)
+                && primitivesText.contains(##"#"\#(hitTargetSourceAttributeName)="explicit""#"##)
+                && primitivesText.contains(##"parts.append(#"\#(hitTargetKindAttributeName)="\#(escape(hitTargetKind.rawValue))""#)"##)
+                && primitivesText.contains(##"parts.append(#"\#(hitTargetActionAttributeName)="\#(escape(hitTargetKind.action))""#)"##)
+                && primitivesText.contains(##"parts.append(#"\#(hitTargetSourceAttributeName)="explicit""#)"##),
+            "HTML primitives should emit explicit semantic hit-target kind, action, and source so rendered controls can be audited by contract, not only by geometry."
         )
         XCTAssertTrue(
             primitivesText.contains("static func summary(")
@@ -281,8 +294,15 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && harnessText.contains("sharedHitTargetClasses")
                 && harnessText.contains("function fallbackHitTargetContract")
                 && harnessText.contains("function existingHitTargetKind")
+                && harnessText.contains("function hitTargetAction")
+                && harnessText.contains("element.dataset.hitTargetSource = 'class'")
                 && harnessText.contains("element.dataset.hitTargetKind = `auto-${kind}`"),
             "The dynamic HTML harness should attach explicit semantic hit-target contracts after every render instead of relying on global button/input CSS."
+        )
+        XCTAssertTrue(
+            harnessText.contains("element.dataset.hitTargetAction = `auto-${hitTargetAction(kind)}`")
+                && harnessText.contains("element.dataset.hitTargetSource = 'auto'"),
+            "The dynamic HTML harness should mark fallback targets as auto-inferred so audits can reject accidental missing semantic contracts."
         )
         XCTAssertTrue(
             harnessText.contains("['hit-target-icon', 'icon']")
@@ -329,8 +349,8 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             .violations(in: [file])
 
         XCTAssertTrue(
-            violations.contains { $0.contains("shared hit-target class without semantic data-hit-target-kind") },
-            "Raw generated HTML that directly uses a shared target class should also declare the semantic hit-target kind."
+            violations.contains { $0.contains("shared hit-target class without full semantic data-hit-target-kind/action/source contract") },
+            "Raw generated HTML that directly uses a shared target class should also declare the full semantic hit-target contract."
         )
     }
 
@@ -358,8 +378,11 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(
             designText.contains("enum Kind")
-                && designText.contains("var kind: Kind"),
-            "Native hit-target specs should carry an explicit semantic intent so controls cannot pass with only generic geometry."
+                && designText.contains("var kind: Kind")
+                && designText.contains("var action: String")
+                && designText.contains("var allowsNestedInteractiveChildren: Bool")
+                && designText.contains("var requiresUnblockedInterior: Bool"),
+            "Native hit-target specs should carry explicit semantic intent and behavior flags so controls cannot pass with only generic geometry."
         )
         XCTAssertTrue(
             designText.contains(".frame(\n            minWidth: spec.minWidth")
@@ -605,6 +628,17 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && auditText.contains("case fullRow")
                 && auditText.contains("case capsule"),
             "Native hit-target audit should expose every semantic target kind instead of only a generic minimum-size check."
+        )
+        XCTAssertTrue(
+            auditText.contains("public enum QuillCodeNativeHitTargetAction")
+                && auditText.contains("case press")
+                && auditText.contains("case textInput = \"text-input\"")
+                && auditText.contains("case adjust")
+                && auditText.contains("case ownedGesture = \"owned-gesture\"")
+                && auditText.contains("public var action: QuillCodeNativeHitTargetAction")
+                && auditText.contains("public var allowsNestedInteractiveChildren: Bool")
+                && auditText.contains("public var requiresUnblockedInterior: Bool"),
+            "Native hit-target audit should report activation semantics and interior ownership, not only size and kind."
         )
         XCTAssertTrue(
             auditText.contains("public enum QuillCodeInteractionSurfaceFamily")
@@ -969,12 +1003,6 @@ private struct HTMLSourceInteractionTargetAudit {
         "WorkspaceHTMLPrimitives.adjustableHitTargetClass"
     ]
 
-    private let hitTargetKindMarkers = [
-        "WorkspaceHTMLPrimitives.hitTargetAttributes",
-        "WorkspaceHTMLPrimitives.hitTargetKindAttribute",
-        #"data-hit-target-kind"#
-    ]
-
     func violations(in sourceFiles: [URL]) throws -> [String] {
         try sourceFiles.flatMap(violations(in:))
     }
@@ -992,8 +1020,8 @@ private struct HTMLSourceInteractionTargetAudit {
                 return nil
             }
             if lineHasSharedTargetClass(line) {
-                guard lineHasSemanticHitTargetKind(line) else {
-                    return "\(relativePath):\(index + 1) generated HTML control uses a shared hit-target class without semantic data-hit-target-kind"
+                guard lineHasSemanticHitTargetContract(line) else {
+                    return "\(relativePath):\(index + 1) generated HTML control uses a shared hit-target class without full semantic data-hit-target-kind/action/source contract"
                 }
                 return nil
             }
@@ -1018,8 +1046,16 @@ private struct HTMLSourceInteractionTargetAudit {
         hitTargetMarkers.contains { line.contains($0) }
     }
 
-    private func lineHasSemanticHitTargetKind(_ line: String) -> Bool {
-        hitTargetKindMarkers.contains { line.contains($0) }
+    private func lineHasSemanticHitTargetContract(_ line: String) -> Bool {
+        if line.contains("WorkspaceHTMLPrimitives.hitTargetAttributes")
+            || line.contains("WorkspaceHTMLPrimitives.hitTargetKindAttribute") {
+            return true
+        }
+        return [
+            #"data-hit-target-kind"#,
+            #"data-hit-target-action"#,
+            #"data-hit-target-source"#
+        ].allSatisfy { line.contains($0) }
     }
 }
 
