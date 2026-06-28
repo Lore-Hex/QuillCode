@@ -154,7 +154,7 @@ private struct QuillCodeActivityItemView: View {
         switch status.lowercased() {
         case "done", "checked", "logged", "rules", "global", "project":
             return QuillCodePalette.green
-        case "failed":
+        case "failed", "conflict":
             return QuillCodePalette.red
         case "review", "queued":
             return QuillCodePalette.yellow

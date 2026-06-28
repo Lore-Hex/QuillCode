@@ -123,4 +123,38 @@ final class WorkspaceHTMLSecondaryPaneRendererTests: XCTestCase {
         XCTAssertTrue(html.contains("Project"))
         XCTAssertTrue(html.contains(".quillcode/memories/project.md"))
     }
+
+    func testHTMLRendererIncludesInstructionReviewActivitySection() throws {
+        let thread = ChatThread(
+            title: "Inspect conflicts",
+            messages: [.init(role: .user, content: "what rules apply?")],
+            instructions: [
+                ProjectInstruction(
+                    path: "AGENTS.md",
+                    title: "AGENTS.md",
+                    content: "Always run tests before final answers.",
+                    byteCount: 38
+                ),
+                ProjectInstruction(
+                    path: "Sources/Feature/AGENTS.md",
+                    title: "Feature AGENTS.md",
+                    content: "Do not run tests for feature changes.",
+                    byteCount: 37
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            activity: ActivityState(isVisible: true)
+        )
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="activity-instruction-conflict-section""#))
+        XCTAssertTrue(html.contains("Instruction Review"))
+        XCTAssertTrue(html.contains(#"data-testid="activity-section-count">1 issue"#))
+        XCTAssertTrue(html.contains(#"data-testid="activity-instruction-conflict" data-kind="instruction-diagnostic""#))
+        XCTAssertTrue(html.contains("Tests: AGENTS.md says require; Sources/Feature/AGENTS.md says avoid"))
+        XCTAssertTrue(html.contains(#"data-command-id="activity-toggle-section:instructionReview""#))
+    }
 }
