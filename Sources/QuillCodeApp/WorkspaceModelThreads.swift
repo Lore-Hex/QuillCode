@@ -42,6 +42,10 @@ extension QuillCodeWorkspaceModel {
         guard let source = selectedThread, !source.messages.isEmpty else { return false }
         let sourceID = source.id
         setAgentStatus("Summarizing context")
+        recordContextSummarySourceNotice(
+            sourceID: sourceID,
+            summary: WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .forkSummary)
+        )
         Task { @MainActor [weak self] in
             _ = await self?.forkThreadWithConfiguredSummary(sourceID: sourceID, strategy: strategy)
         }
@@ -63,11 +67,25 @@ extension QuillCodeWorkspaceModel {
             for: source,
             purpose: .forkSummary
         )
-        let fork = WorkspaceThreadCreationEngine.forkThread(
+        recordContextSummarySourceNotice(
+            sourceID: sourceID,
+            summary: WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
+                outcome: summary,
+                purpose: .forkSummary
+            )
+        )
+        var fork = WorkspaceThreadCreationEngine.forkThread(
             from: source,
             projectID: projectID,
             strategy: strategy,
-            summaryOverride: summary
+            summaryOverride: summary.summaryOverride
+        )
+        fork.events.append(
+            WorkspaceContextSummaryTelemetryPlanner.continuationEvent(
+                outcome: summary,
+                sourceTitle: source.title,
+                purpose: .forkSummary
+            )
         )
         return insertCreatedThread(fork, selectedProjectID: projectID, saveThread: true)
     }
@@ -91,6 +109,10 @@ extension QuillCodeWorkspaceModel {
         guard let source = selectedThread, !source.messages.isEmpty else { return false }
         let sourceID = source.id
         setAgentStatus("Compacting context")
+        recordContextSummarySourceNotice(
+            sourceID: sourceID,
+            summary: WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .compact)
+        )
         Task { @MainActor [weak self] in
             _ = await self?.compactContextWithConfiguredSummary(sourceID: sourceID)
         }
@@ -108,10 +130,24 @@ extension QuillCodeWorkspaceModel {
             for: source,
             purpose: .compact
         )
-        let compacted = WorkspaceThreadCreationEngine.compactThread(
+        recordContextSummarySourceNotice(
+            sourceID: sourceID,
+            summary: WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
+                outcome: summary,
+                purpose: .compact
+            )
+        )
+        var compacted = WorkspaceThreadCreationEngine.compactThread(
             from: source,
             projectID: projectID,
-            summaryOverride: summary
+            summaryOverride: summary.summaryOverride
+        )
+        compacted.events.append(
+            WorkspaceContextSummaryTelemetryPlanner.continuationEvent(
+                outcome: summary,
+                sourceTitle: source.title,
+                purpose: .compact
+            )
         )
         return insertCreatedThread(compacted, selectedProjectID: projectID, saveThread: true)
     }
@@ -119,7 +155,7 @@ extension QuillCodeWorkspaceModel {
     private func configuredSummary(
         for source: ChatThread,
         purpose: WorkspaceContextSummaryPurpose
-    ) async -> String? {
+    ) async -> WorkspaceContextSummaryOutcome {
         let context = WorkspaceThreadSeedBuilder.summaryContext(from: source)
         let request = WorkspaceContextSummaryRequest(
             sourceTitle: source.title,
@@ -127,9 +163,22 @@ extension QuillCodeWorkspaceModel {
             purpose: purpose
         )
         do {
-            return try await contextSummaryGenerator.summary(for: request)
+            return WorkspaceContextSummaryOutcome(
+                summaryOverride: try await contextSummaryGenerator.summary(for: request),
+                source: .model
+            )
         } catch {
-            return nil
+            return WorkspaceContextSummaryOutcome(
+                summaryOverride: nil,
+                source: .deterministicFallback,
+                errorDescription: WorkspaceContextSummarySanitizer.diagnostic(from: error.localizedDescription)
+            )
+        }
+    }
+
+    private func recordContextSummarySourceNotice(sourceID: UUID, summary: String) {
+        _ = mutateThread(sourceID) { thread in
+            WorkspaceThreadNoticeAppender.appendNotice(summary, to: &thread)
         }
     }
 
