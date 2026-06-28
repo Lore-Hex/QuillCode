@@ -68,7 +68,8 @@ enum WorkspaceHTMLReviewRenderer {
                 <span>\(comment.isIncluded ? "Included" : "Skipped")</span>
               </label>
               <code>\(escape(comment.locationLabel))</code>
-              <span>\(escape(comment.body))</span>
+              <textarea data-testid="pr-review-draft-inline-comment-body" aria-label="Inline note text at \(escape(comment.locationLabel))" data-comment-id="\(escape(comment.id.uuidString))">\(escape(comment.body))</textarea>
+              \(draft.includeInlineComments && comment.isIncluded && comment.normalizedBody.isEmpty ? #"<small data-testid="pr-review-draft-inline-comment-warning">Add note text or skip this note.</small>"# : "")
             </li>
             """
         }.joined(separator: "\n")

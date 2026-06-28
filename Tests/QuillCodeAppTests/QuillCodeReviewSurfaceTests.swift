@@ -191,11 +191,21 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
         ])
 
         draft.setInlineComment(id: skippedID, isIncluded: false)
+        draft.updateInlineComment(id: draft.inlineComments[0].id, body: "  Keep this edited note.  ")
 
         XCTAssertEqual(draft.inlineCommentCount, 2)
         XCTAssertEqual(draft.selectedInlineCommentCount, 1)
-        XCTAssertEqual(draft.selectedInlineComments.map(\.body), ["Keep this note."])
+        XCTAssertEqual(draft.selectedInlineComments.map(\.body), ["  Keep this edited note.  "])
+        XCTAssertEqual(draft.selectedInlineComments.map(\.normalizedBody), ["Keep this edited note."])
         XCTAssertEqual(draft.subtitle, "Submit approve review with 1 of 2 inline notes")
+        XCTAssertTrue(draft.canSubmit)
+
+        draft.updateInlineComment(id: draft.inlineComments[0].id, body: "  ")
+        XCTAssertEqual(draft.invalidSelectedInlineComments.map(\.locationLabel), ["Sources/App.swift:42"])
+        XCTAssertFalse(draft.canSubmit)
+
+        draft.setInlineComment(id: draft.inlineComments[0].id, isIncluded: false)
+        XCTAssertTrue(draft.canSubmit)
 
         draft.includeInlineComments = false
         XCTAssertTrue(draft.selectedInlineComments.isEmpty)

@@ -197,7 +197,15 @@ private struct QuillCodePullRequestReviewDraftView: View {
             }
 
             HStack(spacing: 8) {
-                Spacer()
+                if let submitBlockReason {
+                    Text(submitBlockReason)
+                        .font(.caption2)
+                        .foregroundStyle(QuillCodePalette.yellow)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityLabel(submitBlockReason)
+                } else {
+                    Spacer()
+                }
                 Button("Cancel", action: onCancel)
                     .font(.caption.weight(.semibold))
                     .quillCodeFormActionTarget(minWidth: 82)
@@ -232,6 +240,16 @@ private struct QuillCodePullRequestReviewDraftView: View {
         }
     }
 
+    private var submitBlockReason: String? {
+        if draft.action.requiresBody && draft.normalizedBody.isEmpty {
+            return "Review body is required."
+        }
+        if !draft.invalidSelectedInlineComments.isEmpty {
+            return "Selected inline notes need text."
+        }
+        return nil
+    }
+
     private var inlineCommentToggleTitle: String {
         let selectedCount = draft.selectedInlineCommentCount
         if selectedCount == draft.inlineCommentCount {
@@ -249,10 +267,21 @@ private struct QuillCodePullRequestReviewDraftView: View {
                     .font(.caption.monospaced())
                     .foregroundStyle(QuillCodePalette.blue)
                     .lineLimit(1)
-                Text(comment.body)
+                TextField("Inline review note", text: inlineCommentBodyBinding(for: comment.id), axis: .vertical)
+                    .textFieldStyle(.plain)
                     .font(.caption)
-                    .foregroundStyle(QuillCodePalette.muted)
-                    .lineLimit(2)
+                    .lineLimit(1...3)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 7)
+                    .quillCodeTextEntryTarget(minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .topLeading, radius: 8)
+                    .background(QuillCodePalette.background.opacity(0.52))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .accessibilityLabel("Inline note text at \(comment.locationLabel)")
+                if draft.includeInlineComments && comment.isIncluded && comment.normalizedBody.isEmpty {
+                    Text("Add note text or skip this note.")
+                        .font(.caption2)
+                        .foregroundStyle(QuillCodePalette.yellow)
+                }
             }
             Spacer(minLength: 8)
             Button(comment.isIncluded ? "Included" : "Skipped") {
@@ -301,6 +330,23 @@ private struct QuillCodePullRequestReviewDraftView: View {
         var next = draft
         next.setInlineComment(id: id, isIncluded: isIncluded)
         onChange(next)
+    }
+
+    private func updateInlineComment(id: UUID, body: String) {
+        var next = draft
+        next.updateInlineComment(id: id, body: body)
+        onChange(next)
+    }
+
+    private func inlineCommentBodyBinding(for id: UUID) -> Binding<String> {
+        Binding(
+            get: {
+                draft.inlineComments.first(where: { $0.id == id })?.body ?? ""
+            },
+            set: { body in
+                updateInlineComment(id: id, body: body)
+            }
+        )
     }
 }
 

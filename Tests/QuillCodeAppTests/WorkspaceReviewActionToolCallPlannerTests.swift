@@ -190,7 +190,7 @@ final class WorkspaceReviewActionToolCallPlannerTests: XCTestCase {
                 WorkspacePullRequestReviewDraftCommentSurface(
                     path: "Sources/App.swift",
                     line: 42,
-                    body: "Post this note."
+                    body: "  Post this edited note.  "
                 ),
                 WorkspacePullRequestReviewDraftCommentSurface(
                     path: "Sources/Hidden.swift",
@@ -206,7 +206,21 @@ final class WorkspaceReviewActionToolCallPlannerTests: XCTestCase {
 
         XCTAssertEqual(plan.inlineCommentCalls.count, 1)
         XCTAssertEqual(try inlineArguments.requiredString("path"), "Sources/App.swift")
-        XCTAssertEqual(try inlineArguments.requiredString("body"), "Post this note.")
+        XCTAssertEqual(try inlineArguments.requiredString("body"), "Post this edited note.")
+    }
+
+    func testPullRequestReviewDraftRunPlanRejectsEmptySelectedInlineComments() {
+        let draft = WorkspacePullRequestReviewDraftSurface(
+            inlineComments: [
+                WorkspacePullRequestReviewDraftCommentSurface(
+                    path: "Sources/App.swift",
+                    line: 42,
+                    body: "   "
+                )
+            ]
+        )
+
+        XCTAssertNil(WorkspacePullRequestReviewDraftToolCallPlanner.runPlan(for: draft))
     }
 
     func testPullRequestReviewThreadRunPlanFinalStatusRequiresActionAndRefreshSuccess() {

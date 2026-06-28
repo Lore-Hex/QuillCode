@@ -8455,3 +8455,22 @@ Code quality changes:
 Remaining risk:
 
 - This queue supports include/skip decisions only. Richer per-note text editing, reordering, and a final submit-summary screen remain future review-pane work.
+
+## 2026-06-28 Editable Pull Request Review Notes Pass
+
+Overall grade after this slice: **A editable note state, A validation boundary, A- review-session parity**.
+
+The pending inline-note queue could include or skip saved diff notes, but the note text itself was still fixed at draft-open time. That left users unable to polish a comment before submitting a GitHub review, which is a core Codex review-session behavior.
+
+Code quality changes:
+
+- Added `normalizedBody` and `invalidSelectedInlineComments` to the PR review draft surface so selected inline notes are validated before any tool call is built.
+- Added a shared `updateInlineComment` mutation path for toggling and editing queued notes, keeping queue state inside the review-surface model instead of view-local state.
+- Updated the tool-call planner to post trimmed edited note text and reject empty selected notes before creating `host.git.pr.review_comment` calls.
+- Replaced static native inline-note copy with an editable multiline text field and an inline warning when a selected note has no text.
+- Mirrored editable note bodies in the HTML renderer and Playwright harness without re-rendering on every inline-note keystroke, preserving focused text entry while still updating submit validation.
+- Added focused Swift and Playwright coverage for edited note dispatch, empty-note blocking, skipped-note unblocking, and SSH Remote GitHub API arguments.
+
+Remaining risk:
+
+- Inline-note reordering and a final submit-summary screen remain future review-pane work. The harness still duplicates some Swift display logic, so shared renderer contracts or generated fixtures remain a good future cleanup.
