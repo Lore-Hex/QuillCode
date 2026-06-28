@@ -1,5 +1,19 @@
 # Code Quality Audit
 
+## 2026-06-28 Context Summary Telemetry Pass
+
+Overall grade after this slice: **A summary fallback resilience, A- progress observability**.
+
+| Before | After |
+| --- | --- |
+| Model-backed compact/fork summary failures silently returned `nil`, causing deterministic fallback without visible proof of why. | Summary generation now returns an explicit outcome and records model vs deterministic-fallback notices plus structured telemetry. |
+| Fallback diagnostics could have tempted raw error logging near secret-bearing runtime paths. | Diagnostics are whitespace-collapsed, redacted, and bounded before they enter thread events. |
+| The created continuation thread only said it was compacted/forked. | It now also records whether the continuation used a model summary or deterministic fallback. |
+
+Residual risk:
+
+- Activity currently renders these as ordinary notices. A richer progress row/spinner for in-flight model summaries remains a UI polish slice.
+
 ## 2026-06-28 Click-Target Collision Budget Pass
 
 Overall grade after this slice: **A native source gates, A dense-control spacing, A- native pixel measurement**.

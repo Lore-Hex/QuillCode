@@ -1,0 +1,75 @@
+import Foundation
+import QuillCodeCore
+
+struct WorkspaceContextSummaryTelemetryPlanner {
+    static func sourceStartSummary(purpose: WorkspaceContextSummaryPurpose) -> String {
+        switch purpose {
+        case .compact:
+            return "Compacting context with TrustedRouter"
+        case .forkSummary:
+            return "Summarizing context with TrustedRouter"
+        }
+    }
+
+    static func sourceFinishedSummary(
+        outcome: WorkspaceContextSummaryOutcome,
+        purpose: WorkspaceContextSummaryPurpose
+    ) -> String {
+        switch (purpose, outcome.source) {
+        case (.compact, .model):
+            return "Model context summary ready"
+        case (.forkSummary, .model):
+            return "Model fork summary ready"
+        case (.compact, .deterministicFallback):
+            return "Model context summary unavailable; used deterministic fallback"
+        case (.forkSummary, .deterministicFallback):
+            return "Model fork summary unavailable; used deterministic fallback"
+        }
+    }
+
+    static func continuationEvent(
+        outcome: WorkspaceContextSummaryOutcome,
+        sourceTitle: String,
+        purpose: WorkspaceContextSummaryPurpose
+    ) -> ThreadEvent {
+        ThreadEvent(
+            kind: .notice,
+            summary: continuationSummary(outcome: outcome, purpose: purpose),
+            payloadJSON: telemetryPayload(
+                outcome: outcome,
+                sourceTitle: sourceTitle,
+                purpose: purpose
+            )
+        )
+    }
+
+    private static func continuationSummary(
+        outcome: WorkspaceContextSummaryOutcome,
+        purpose: WorkspaceContextSummaryPurpose
+    ) -> String {
+        switch (purpose, outcome.source) {
+        case (.compact, .model):
+            return "Used model context summary"
+        case (.forkSummary, .model):
+            return "Used model fork summary"
+        case (.compact, .deterministicFallback):
+            return "Used deterministic context summary fallback"
+        case (.forkSummary, .deterministicFallback):
+            return "Used deterministic fork summary fallback"
+        }
+    }
+
+    private static func telemetryPayload(
+        outcome: WorkspaceContextSummaryOutcome,
+        sourceTitle: String,
+        purpose: WorkspaceContextSummaryPurpose
+    ) -> String? {
+        try? JSONHelpers.encodePretty(WorkspaceContextSummaryTelemetry(
+            purpose: purpose,
+            source: outcome.source,
+            sourceTitle: sourceTitle,
+            summaryCharacterCount: outcome.summaryOverride?.count,
+            errorDescription: outcome.errorDescription
+        ))
+    }
+}

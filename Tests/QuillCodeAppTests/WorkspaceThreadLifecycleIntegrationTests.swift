@@ -213,6 +213,11 @@ final class WorkspaceThreadLifecycleIntegrationTests: XCTestCase {
         XCTAssertTrue(compacted.messages[0].content.contains("model-backed architecture decision"))
         XCTAssertEqual(Array(compacted.messages.map(\.content).suffix(2)), ["latest request", "latest answer"])
         XCTAssertFalse(compacted.messages[0].content.contains("tool feedback"))
+        XCTAssertTrue(model.root.threads.first { $0.id == source.id }?.events.contains {
+            $0.summary == "Model context summary ready"
+        } == true)
+        XCTAssertEqual(compacted.events.last?.summary, "Used model context summary")
+        XCTAssertTrue(compacted.events.last?.payloadJSON?.contains(#""source" : "model""#) == true)
         XCTAssertEqual(model.root.selectedThreadID, compactID)
     }
 
@@ -242,6 +247,41 @@ final class WorkspaceThreadLifecycleIntegrationTests: XCTestCase {
         XCTAssertTrue(fork.messages[0].content.contains("Model summary:"))
         XCTAssertTrue(fork.messages[0].content.contains("shipped tests"))
         XCTAssertEqual(Array(fork.messages.map(\.content).suffix(2)), ["latest task", "latest result"])
+        XCTAssertTrue(model.root.threads.first { $0.id == source.id }?.events.contains {
+            $0.summary == "Model fork summary ready"
+        } == true)
+        XCTAssertEqual(fork.events.last?.summary, "Used model fork summary")
+    }
+
+    func testModelBackedCompactContextRecordsFallbackWhenSummaryFails() async throws {
+        let source = ChatThread(
+            title: "Fallback source",
+            messages: [
+                .init(role: .user, content: "old task"),
+                .init(role: .assistant, content: "old result"),
+                .init(role: .user, content: "latest task"),
+                .init(role: .assistant, content: "latest result")
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [source], selectedThreadID: source.id),
+            contextSummaryGenerator: FailingContextSummaryGenerator()
+        )
+
+        let compactCandidate = await model.compactContextWithConfiguredSummary(sourceID: source.id)
+        let compactID = try XCTUnwrap(compactCandidate)
+        let compacted = try XCTUnwrap(model.root.threads.first { $0.id == compactID })
+        let sourceAfter = try XCTUnwrap(model.root.threads.first { $0.id == source.id })
+
+        XCTAssertTrue(compacted.messages[0].content.contains("Context compacted from \"Fallback source\"."))
+        XCTAssertFalse(compacted.messages[0].content.contains("Model summary:"))
+        XCTAssertEqual(Array(compacted.messages.map(\.content).suffix(2)), ["latest task", "latest result"])
+        XCTAssertTrue(sourceAfter.events.contains {
+            $0.summary == "Model context summary unavailable; used deterministic fallback"
+        })
+        XCTAssertEqual(compacted.events.last?.summary, "Used deterministic context summary fallback")
+        XCTAssertTrue(compacted.events.last?.payloadJSON?.contains(#""source" : "deterministic_fallback""#) == true)
+        XCTAssertTrue(compacted.events.last?.payloadJSON?.contains("secret") == false)
     }
 
     func testSelectingProjectSelectsNewestThreadForThatProject() {
@@ -375,5 +415,17 @@ private struct FixedContextSummaryGenerator: WorkspaceContextSummaryGenerating {
 
     func summary(for request: WorkspaceContextSummaryRequest) async throws -> String {
         summary
+    }
+}
+
+private struct FailingContextSummaryGenerator: WorkspaceContextSummaryGenerating {
+    var isModelBacked: Bool { true }
+
+    func summary(for request: WorkspaceContextSummaryRequest) async throws -> String {
+        throw NSError(
+            domain: "Summary",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "failure with sk-tr-v1-secret"]
+        )
     }
 }

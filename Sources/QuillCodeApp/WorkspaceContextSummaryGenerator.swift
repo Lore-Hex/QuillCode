@@ -35,6 +35,49 @@ public struct WorkspaceContextSummaryRequest: Sendable, Hashable {
     }
 }
 
+public enum WorkspaceContextSummaryOutcomeSource: String, Codable, Sendable, Hashable {
+    case model
+    case deterministicFallback = "deterministic_fallback"
+}
+
+public struct WorkspaceContextSummaryOutcome: Sendable, Hashable {
+    public var summaryOverride: String?
+    public var source: WorkspaceContextSummaryOutcomeSource
+    public var errorDescription: String?
+
+    public init(
+        summaryOverride: String?,
+        source: WorkspaceContextSummaryOutcomeSource,
+        errorDescription: String? = nil
+    ) {
+        self.summaryOverride = summaryOverride
+        self.source = source
+        self.errorDescription = errorDescription
+    }
+}
+
+public struct WorkspaceContextSummaryTelemetry: Codable, Sendable, Hashable {
+    public var purpose: WorkspaceContextSummaryPurpose
+    public var source: WorkspaceContextSummaryOutcomeSource
+    public var sourceTitle: String
+    public var summaryCharacterCount: Int?
+    public var errorDescription: String?
+
+    public init(
+        purpose: WorkspaceContextSummaryPurpose,
+        source: WorkspaceContextSummaryOutcomeSource,
+        sourceTitle: String,
+        summaryCharacterCount: Int? = nil,
+        errorDescription: String? = nil
+    ) {
+        self.purpose = purpose
+        self.source = source
+        self.sourceTitle = sourceTitle
+        self.summaryCharacterCount = summaryCharacterCount
+        self.errorDescription = errorDescription
+    }
+}
+
 public protocol WorkspaceContextSummaryGenerating: Sendable {
     var isModelBacked: Bool { get }
     func summary(for request: WorkspaceContextSummaryRequest) async throws -> String
@@ -81,6 +124,15 @@ public struct LLMWorkspaceContextSummaryGenerator: WorkspaceContextSummaryGenera
 
 enum WorkspaceContextSummaryError: Error {
     case invalidModelSummary
+}
+
+extension WorkspaceContextSummaryError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .invalidModelSummary:
+            return "model did not return a valid summary action"
+        }
+    }
 }
 
 enum WorkspaceContextSummaryPromptBuilder {
@@ -141,6 +193,7 @@ enum WorkspaceContextSummaryPromptBuilder {
 
 enum WorkspaceContextSummarySanitizer {
     private static let maxSummaryCharacters = 6_000
+    private static let maxDiagnosticCharacters = 180
     private static let secretPatterns = [
         #"sk-[A-Za-z0-9_-]{12,}"#,
         #"-----BEGIN [A-Z ]*PRIVATE KEY-----"#
@@ -158,5 +211,20 @@ enum WorkspaceContextSummarySanitizer {
         }
         guard redacted.count > maxSummaryCharacters else { return redacted }
         return String(redacted.prefix(maxSummaryCharacters)).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
+    }
+
+    static func diagnostic(from text: String) -> String {
+        let collapsed = text
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let redacted = secretPatterns.reduce(collapsed) { result, pattern in
+            result.replacingOccurrences(
+                of: pattern,
+                with: "[redacted]",
+                options: .regularExpression
+            )
+        }
+        guard redacted.count > maxDiagnosticCharacters else { return redacted }
+        return String(redacted.prefix(maxDiagnosticCharacters)).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
     }
 }
