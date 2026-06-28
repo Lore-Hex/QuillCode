@@ -8595,3 +8595,21 @@ Code quality changes:
 Remaining risk:
 
 - The section makes conflicts visible and reviewable. Follow-up parity work should add source-to-file navigation, edit actions, and explicit resolve/dismiss state once the project file-editing UX is ready.
+
+## 2026-06-28 Click Target Semantic Contract Pass
+
+Overall grade after this slice: **A target semantics, A rendered audit, A- native rendered-window proof**.
+
+The click-target system already enforced 44 px/pt targets, interior clickability, pointer affordance, no nested targets, no peer overlap, and command routing. The remaining weakness was semantic drift: generic fallback classes could make controls large enough while hiding whether the control was intended to be an icon, text button, row, capsule, form action, text entry, or link.
+
+Code quality changes:
+
+- Changed the dynamic rendered harness normalizer to classify fallback targets by role and visible shape instead of defaulting most controls to `hit-target-owned`.
+- Added `data-hit-target-kind` on normalized controls so rendered debugging can distinguish explicit target contracts from auto-classified fallbacks.
+- Added focus-visible treatment for summaries, semantic links, ARIA controls, and shared hit-target classes so keyboard focus gets the same affordance as mouse/touch targets.
+- Tightened the critical Playwright registry so high-risk controls assert their expected semantic class in addition to 44 px geometry and 3x3 interior ownership.
+- Promoted top-bar overflow actions, model picker options, and command palette results to row targets where the visible UI behaves as a full-row choice.
+
+Remaining risk:
+
+- The rendered harness and Swift source gates now prove intent and geometry. The deeper remaining proof layer is packaged native UI automation that samples actual macOS/Linux SwiftUI control interiors the way Playwright samples rendered HTML.

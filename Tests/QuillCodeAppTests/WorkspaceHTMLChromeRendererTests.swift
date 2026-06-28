@@ -92,6 +92,8 @@ final class WorkspaceHTMLChromeRendererTests: XCTestCase {
         XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-search""#))
         XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-settings""#))
         XCTAssertTrue(idleHTML.contains(#"data-testid="top-bar-overflow-keyboard-shortcuts""#))
+        XCTAssertTrue(idleHTML.contains(#"class="hit-target-row" data-testid="top-bar-overflow-search""#))
+        XCTAssertTrue(idleHTML.contains(#"role="menuitem""#))
         XCTAssertFalse(idleHTML.contains(#"data-testid="top-bar-overflow-stop-all""#))
         XCTAssertFalse(idleHTML.contains(#"data-testid="top-bar-overflow-disconnect-all""#))
         XCTAssertFalse(idleHTML.contains(#"data-testid="top-bar-stop-button""#))

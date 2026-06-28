@@ -2902,6 +2902,22 @@
       outline: 0;
       box-shadow: 0 0 0 3px rgba(65,184,232,.24), var(--shadow-border-hover);
     }
+    summary:focus-visible,
+    a.interactive-hit-target:focus-visible,
+    [role="button"]:focus-visible,
+    [role="checkbox"]:focus-visible,
+    [role="menuitem"]:focus-visible,
+    [role="option"]:focus-visible,
+    [role="switch"]:focus-visible,
+    [role="tab"]:focus-visible,
+    .hit-target-icon:focus-visible,
+    .hit-target-text:focus-visible,
+    .hit-target-row:focus-visible,
+    .hit-target-capsule:focus-visible,
+    .hit-target-form-action:focus-visible {
+      outline: 0;
+      box-shadow: 0 0 0 3px rgba(65,184,232,.22), var(--shadow-border-hover);
+    }
     button:disabled {
       cursor: not-allowed;
       transform: none;
@@ -3619,6 +3635,52 @@
       return control instanceof HTMLInputElement && ['checkbox', 'radio'].includes(control.type);
     }
 
+    function renderedTargetText(element) {
+      return (element.textContent || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function isIconOnlyRenderedTarget(element) {
+      const text = renderedTargetText(element);
+      return text.length <= 3 && Boolean(
+        element.getAttribute('aria-label')
+          || element.getAttribute('title')
+          || element.getAttribute('data-icon')
+      );
+    }
+
+    function existingHitTargetKind(element) {
+      if (element.classList.contains('hit-target-icon')) return 'icon';
+      if (element.classList.contains('hit-target-text')) return 'text';
+      if (element.classList.contains('hit-target-text-entry')) return 'text-entry';
+      if (element.classList.contains('hit-target-row')) return 'row';
+      if (element.classList.contains('hit-target-capsule')) return 'capsule';
+      if (element.classList.contains('hit-target-form-action')) return 'form-action';
+      if (element.classList.contains('interactive-hit-target')) return 'link';
+      if (element.classList.contains('hit-target-owned')) return 'owned';
+      return '';
+    }
+
+    function fallbackHitTargetContract(element) {
+      if (isRenderedTextEntry(element)) return ['hit-target-text-entry', 'text-entry'];
+      if (isRenderedLabelTarget(element)) return ['hit-target-row', 'row'];
+      if (element.matches('summary')) {
+        return isIconOnlyRenderedTarget(element)
+          ? ['hit-target-icon', 'icon']
+          : ['hit-target-row', 'row'];
+      }
+      if (element.matches('[role="option"],[role="menuitem"],[role="checkbox"],[role="switch"]')) {
+        return ['hit-target-row', 'row'];
+      }
+      if (element.matches('[role="tab"]')) return ['hit-target-capsule', 'capsule'];
+      if (element.matches('button,[role="button"]')) {
+        return isIconOnlyRenderedTarget(element)
+          ? ['hit-target-icon', 'icon']
+          : ['hit-target-text', 'text'];
+      }
+      if (element.matches('a[href]')) return ['interactive-hit-target', 'link'];
+      return ['hit-target-owned', 'owned'];
+    }
+
     function normalizeInteractionTargetContracts(root = document) {
       root.querySelectorAll([
         'button',
@@ -3639,12 +3701,14 @@
       ].join(',')).forEach(element => {
         if (element.closest('.visually-hidden,.composer-sr-only,[hidden],[aria-hidden="true"]')) return;
         if (element instanceof HTMLLabelElement && !isRenderedLabelTarget(element)) return;
-        if (hasSharedHitTargetClass(element)) return;
-        if (isRenderedTextEntry(element)) {
-          element.classList.add('hit-target-text-entry');
+        const existingKind = existingHitTargetKind(element);
+        if (existingKind) {
+          if (!element.dataset.hitTargetKind) element.dataset.hitTargetKind = existingKind;
           return;
         }
-        element.classList.add('hit-target-owned');
+        const [className, kind] = fallbackHitTargetContract(element);
+        element.classList.add(className);
+        element.dataset.hitTargetKind = `auto-${kind}`;
       });
     }
 
@@ -3687,6 +3751,8 @@
       return `
         <button
           type="button"
+          class="hit-target-row"
+          role="menuitem"
           data-testid="${escapeHTML(topBarOverflowTestID(command.id))}"
           data-command-id="${escapeHTML(command.id)}"
           title="${escapeHTML(title)}"
@@ -5711,7 +5777,7 @@
               <h3>${escapeHTML(category.category)}</h3>
               ${category.models.map(model => `
                 <div class="model-row" data-testid="model-row" data-model-id="${escapeHTML(model.id)}">
-                  <button class="model-option ${model.id === state.topBar.selectedModelID ? 'selected' : ''} ${model.id === state.topBar.highlightedModelID ? 'highlighted' : ''}" type="button" data-testid="model-option" data-model-id="${escapeHTML(model.id)}" data-highlighted="${model.id === state.topBar.highlightedModelID ? 'true' : 'false'}">
+                  <button class="model-option hit-target-row ${model.id === state.topBar.selectedModelID ? 'selected' : ''} ${model.id === state.topBar.highlightedModelID ? 'highlighted' : ''}" type="button" role="option" data-testid="model-option" data-model-id="${escapeHTML(model.id)}" data-highlighted="${model.id === state.topBar.highlightedModelID ? 'true' : 'false'}">
                     <span class="model-title">${escapeHTML(modelDisplayLabel(model))}${model.id === state.topBar.selectedModelID ? ' ✓' : ''}</span>
                     <small class="model-summary" data-testid="model-option-summary">${escapeHTML(modelMetadataSummary(model, category.category))}</small>
                     ${(model.badges || []).length ? `<span class="model-badges" data-testid="model-badges">${(model.badges || []).slice(0, 3).map(badge => `<span class="model-badge ${modelBadgeClass(badge)}" data-testid="model-badge">${escapeHTML(badge)}</span>`).join('')}</span>` : ''}
@@ -7278,7 +7344,7 @@
                 <div class="command-group" data-testid="command-palette-group">
                   <div class="command-group-title">${escapeHTML(group.category)}</div>
                   ${group.commands.map(command => `
-                    <button class="search-result ${command.id === state.commandPalette.selectedCommandID ? 'selected' : ''}" type="button" data-testid="command-palette-result" data-command-id="${escapeHTML(command.id)}" data-selected="${command.id === state.commandPalette.selectedCommandID ? 'true' : 'false'}" ${command.isEnabled ? '' : 'disabled'}>
+                    <button class="search-result hit-target-row ${command.id === state.commandPalette.selectedCommandID ? 'selected' : ''}" type="button" data-testid="command-palette-result" data-command-id="${escapeHTML(command.id)}" data-selected="${command.id === state.commandPalette.selectedCommandID ? 'true' : 'false'}" ${command.isEnabled ? '' : 'disabled'}>
                       <span>${escapeHTML(command.title)}</span>
                       <small>${escapeHTML([command.shortcut, ...(command.keywords || []).slice(0, 3)].filter(Boolean).join(' · '))}</small>
                     </button>`).join('')}

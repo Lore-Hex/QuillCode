@@ -381,6 +381,13 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             "The Playwright harness should keep consistent 0.96 press feedback on clickable controls."
         )
         XCTAssertTrue(
+            harnessText.contains("summary:focus-visible")
+                && harnessText.contains("a.interactive-hit-target:focus-visible")
+                && harnessText.contains(#"[role="option"]:focus-visible"#)
+                && harnessText.contains(".hit-target-form-action:focus-visible"),
+            "The Playwright harness should give non-button semantic targets the same visible keyboard focus treatment as buttons and fields."
+        )
+        XCTAssertTrue(
             harnessText.contains("details > summary"),
             "Disclosure summaries should keep a minimum click target in the harness."
         )

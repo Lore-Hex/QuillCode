@@ -53,31 +53,31 @@ test('critical click-target registry covers primary workspace surfaces', async (
   await page.goto(harnessURL());
 
   await expectCriticalTargetRegistry('primary workspace chrome', [
-    { label: 'new chat', locator: page.getByTestId('new-chat-button') },
-    { label: 'sidebar search', locator: page.getByTestId('sidebar-search-button') },
-    { label: 'sidebar tools', locator: page.getByTestId('sidebar-tools-button') },
-    { label: 'model picker', locator: page.getByTestId('model-picker-button') },
-    { label: 'top-bar overflow', locator: page.getByTestId('top-bar-overflow-button') },
-    { label: 'composer text entry', locator: page.getByLabel('Message') },
-    { label: 'composer send', locator: page.getByRole('button', { name: 'Send' }) }
+    { label: 'new chat', locator: page.getByTestId('new-chat-button'), expectedClass: 'hit-target-text' },
+    { label: 'sidebar search', locator: page.getByTestId('sidebar-search-button'), expectedClass: 'hit-target-text' },
+    { label: 'sidebar tools', locator: page.getByTestId('sidebar-tools-button'), expectedClass: 'hit-target-row' },
+    { label: 'model picker', locator: page.getByTestId('model-picker-button'), expectedClass: 'hit-target-text' },
+    { label: 'top-bar overflow', locator: page.getByTestId('top-bar-overflow-button'), expectedClass: 'hit-target-icon' },
+    { label: 'composer text entry', locator: page.getByLabel('Message'), expectedClass: 'hit-target-text-entry' },
+    { label: 'composer send', locator: page.getByRole('button', { name: 'Send' }), expectedClass: 'hit-target-text' }
   ]);
 
   await openTopBarOverflow(page);
   await expectCriticalTargetRegistry('top-bar overflow menu', [
-    { label: 'search', locator: page.getByTestId('top-bar-overflow-search') },
-    { label: 'command palette', locator: page.getByTestId('top-bar-overflow-command-palette') },
-    { label: 'keyboard shortcuts', locator: page.getByTestId('top-bar-overflow-keyboard-shortcuts') },
-    { label: 'settings', locator: page.getByTestId('top-bar-overflow-settings') }
+    { label: 'search', locator: page.getByTestId('top-bar-overflow-search'), expectedClass: 'hit-target-row' },
+    { label: 'command palette', locator: page.getByTestId('top-bar-overflow-command-palette'), expectedClass: 'hit-target-row' },
+    { label: 'keyboard shortcuts', locator: page.getByTestId('top-bar-overflow-keyboard-shortcuts'), expectedClass: 'hit-target-row' },
+    { label: 'settings', locator: page.getByTestId('top-bar-overflow-settings'), expectedClass: 'hit-target-row' }
   ]);
   await page.getByTestId('top-bar-overflow-button').click();
 
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('model-browser')).toBeVisible();
   await expectCriticalTargetRegistry('model picker', [
-    { label: 'model search', locator: page.getByTestId('model-search') },
-    { label: 'first model option', locator: page.getByTestId('model-option').first() },
-    { label: 'first model details', locator: page.getByTestId('model-detail-button').first() },
-    { label: 'first model favorite', locator: page.getByTestId('model-favorite-button').first() }
+    { label: 'model search', locator: page.getByTestId('model-search'), expectedClass: 'hit-target-text-entry' },
+    { label: 'first model option', locator: page.getByTestId('model-option').first(), expectedClass: 'hit-target-row' },
+    { label: 'first model details', locator: page.getByTestId('model-detail-button').first(), expectedClass: 'hit-target-icon' },
+    { label: 'first model favorite', locator: page.getByTestId('model-favorite-button').first(), expectedClass: 'hit-target-icon' }
   ]);
   await page.getByTestId('model-picker-button').click();
 
@@ -86,50 +86,50 @@ test('critical click-target registry covers primary workspace surfaces', async (
   await expect(page.getByTestId('command-palette-panel')).toBeVisible();
   await fillCommandPalette(page, '>git');
   await expectCriticalTargetRegistry('command palette', [
-    { label: 'command search', locator: page.getByTestId('command-palette-input') },
-    { label: 'close command palette', locator: page.getByTestId('command-palette-close') },
-    { label: 'first command result', locator: page.getByTestId('command-palette-result').first() }
+    { label: 'command search', locator: page.getByTestId('command-palette-input'), expectedClass: 'hit-target-text-entry' },
+    { label: 'close command palette', locator: page.getByTestId('command-palette-close'), expectedClass: 'hit-target-text' },
+    { label: 'first command result', locator: page.getByTestId('command-palette-result').first(), expectedClass: 'hit-target-row' }
   ]);
   await page.getByTestId('command-palette-close').click();
 
   await openSettings(page);
   await expect(page.getByTestId('settings-panel')).toBeVisible();
   await expectCriticalTargetRegistry('settings panel', [
-    { label: 'API base URL', locator: page.getByLabel('TrustedRouter API base URL') },
-    { label: 'authentication selector', locator: page.getByLabel('Authentication') },
-    { label: 'TrustedRouter sign in', locator: page.getByTestId('settings-sign-in') },
-    { label: 'cancel', locator: page.getByTestId('settings-cancel') },
-    { label: 'save', locator: page.getByTestId('settings-save') }
+    { label: 'API base URL', locator: page.getByLabel('TrustedRouter API base URL'), expectedClass: 'hit-target-text-entry' },
+    { label: 'authentication selector', locator: page.getByLabel('Authentication'), expectedClass: 'hit-target-text-entry' },
+    { label: 'TrustedRouter sign in', locator: page.getByTestId('settings-sign-in'), expectedClass: 'hit-target-text' },
+    { label: 'cancel', locator: page.getByTestId('settings-cancel'), expectedClass: 'hit-target-text' },
+    { label: 'save', locator: page.getByTestId('settings-save'), expectedClass: 'hit-target-text' }
   ]);
   await page.getByTestId('settings-cancel').click();
 
   await clickSidebarTool(page, 'terminal-button');
   await expect(page.getByTestId('terminal-pane')).toBeVisible();
   await expectCriticalTargetRegistry('terminal pane', [
-    { label: 'clear', locator: page.getByTestId('terminal-clear') },
-    { label: 'command input', locator: page.getByTestId('terminal-input') },
-    { label: 'run', locator: page.getByTestId('terminal-run') }
+    { label: 'clear', locator: page.getByTestId('terminal-clear'), expectedClass: 'hit-target-text' },
+    { label: 'command input', locator: page.getByTestId('terminal-input'), expectedClass: 'hit-target-text-entry' },
+    { label: 'run', locator: page.getByTestId('terminal-run'), expectedClass: 'hit-target-text' }
   ]);
 
   await clickSidebarTool(page, 'browser-button');
   await expect(page.getByTestId('browser-pane')).toBeVisible();
   await expectCriticalTargetRegistry('browser pane', [
-    { label: 'back', locator: page.getByTestId('browser-back') },
-    { label: 'forward', locator: page.getByTestId('browser-forward') },
-    { label: 'reload', locator: page.getByTestId('browser-reload') },
-    { label: 'address', locator: page.getByTestId('browser-address') },
-    { label: 'open', locator: page.getByTestId('browser-open') },
-    { label: 'comment input', locator: page.getByTestId('browser-comment-input') },
-    { label: 'add comment', locator: page.getByTestId('browser-add-comment') }
+    { label: 'back', locator: page.getByTestId('browser-back'), expectedClass: 'hit-target-icon' },
+    { label: 'forward', locator: page.getByTestId('browser-forward'), expectedClass: 'hit-target-icon' },
+    { label: 'reload', locator: page.getByTestId('browser-reload'), expectedClass: 'hit-target-icon' },
+    { label: 'address', locator: page.getByTestId('browser-address'), expectedClass: 'hit-target-text-entry' },
+    { label: 'open', locator: page.getByTestId('browser-open'), expectedClass: 'hit-target-text' },
+    { label: 'comment input', locator: page.getByTestId('browser-comment-input'), expectedClass: 'hit-target-text-entry' },
+    { label: 'add comment', locator: page.getByTestId('browser-add-comment'), expectedClass: 'hit-target-text' }
   ]);
 
   await page.getByLabel('Message').fill('run whoami');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
   await expectCriticalTargetRegistry('transcript tool card', [
-    { label: 'tool disclosure', locator: page.getByTestId('tool-card-details').last().locator('summary') },
-    { label: 'message composer', locator: page.getByLabel('Message') },
-    { label: 'send after transcript update', locator: page.getByRole('button', { name: 'Send' }) }
+    { label: 'tool disclosure', locator: page.getByTestId('tool-card-details').last().locator('summary'), expectedClass: 'hit-target-row' },
+    { label: 'message composer', locator: page.getByLabel('Message'), expectedClass: 'hit-target-text-entry' },
+    { label: 'send after transcript update', locator: page.getByRole('button', { name: 'Send' }), expectedClass: 'hit-target-text' }
   ]);
 });
 
