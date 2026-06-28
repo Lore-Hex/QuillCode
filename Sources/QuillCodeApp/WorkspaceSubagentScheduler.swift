@@ -17,6 +17,12 @@ struct WorkspaceSubagentRunResult: Sendable, Hashable {
     var summary: String
 }
 
+private enum WorkspaceSubagentWorkerOutcome: Sendable, Hashable {
+    case completed(String)
+    case cancelled
+    case failed(String)
+}
+
 struct WorkspaceSubagentScheduler {
     typealias Worker = @Sendable (WorkspaceSubagentJob) async throws -> String
     typealias ProgressSink = @Sendable (SubagentProgressUpdate) async -> Void
@@ -43,25 +49,33 @@ struct WorkspaceSubagentScheduler {
         }
         await progress?(SubagentProgressUpdate(objective: request.objective, subagents: items))
 
-        await withTaskGroup(of: (Int, Result<String, any Error>).self) { group in
+        await withTaskGroup(of: (Int, WorkspaceSubagentWorkerOutcome).self) { group in
             for (index, job) in jobs.enumerated() {
                 group.addTask {
                     do {
-                        return (index, .success(try await worker(job)))
+                        try Task.checkCancellation()
+                        let summary = try await worker(job)
+                        try Task.checkCancellation()
+                        return (index, .completed(summary))
+                    } catch is CancellationError {
+                        return (index, .cancelled)
                     } catch {
-                        return (index, .failure(error))
+                        return (index, .failed(error.localizedDescription))
                     }
                 }
             }
 
-            for await (index, result) in group {
-                switch result {
-                case .success(let summary):
+            for await (index, outcome) in group {
+                switch outcome {
+                case .completed(let summary):
                     items[index].status = .completed
                     items[index].summary = Self.boundedSummary(summary)
-                case .failure(let error):
+                case .cancelled:
+                    items[index].status = .cancelled
+                    items[index].summary = "Cancelled"
+                case .failed(let summary):
                     items[index].status = .failed
-                    items[index].summary = Self.boundedSummary(error.localizedDescription)
+                    items[index].summary = Self.boundedSummary(summary)
                 }
                 await progress?(SubagentProgressUpdate(objective: request.objective, subagents: items))
             }
@@ -80,10 +94,11 @@ struct WorkspaceSubagentScheduler {
 
     private static func finalSummary(objective: String, items: [SubagentProgressItem]) -> String {
         let completed = items.filter { $0.status == .completed }.count
+        let cancelled = items.filter { $0.status == .cancelled }.count
         let failed = items.filter { $0.status == .failed }.count
-        let header = failed == 0
+        let header = cancelled == 0 && failed == 0
             ? "Subagents completed \(completed) worker\(completed == 1 ? "" : "s") for: \(objective)"
-            : "Subagents finished with \(completed) completed and \(failed) failed worker\(failed == 1 ? "" : "s") for: \(objective)"
+            : "Subagents finished with \(completed) completed, \(cancelled) cancelled, and \(failed) failed worker\(items.count == 1 ? "" : "s") for: \(objective)"
         let rows = items.map { item in
             let summary = item.summary.map { " - \($0)" } ?? ""
             return "- \(item.name): \(item.status.label)\(summary)"

@@ -57,7 +57,33 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
         XCTAssertEqual(result.update.subagents.map(\.status), [.completed, .failed])
         XCTAssertEqual(result.update.subagents[0].summary, "ok")
         XCTAssertEqual(result.update.subagents[1].summary, "worker exploded")
-        XCTAssertTrue(result.summary.contains("1 completed and 1 failed"))
+        XCTAssertTrue(result.summary.contains("1 completed, 0 cancelled, and 1 failed"))
+    }
+
+    func testSchedulerMarksCancelledWorkersWithoutTreatingThemAsFailures() async throws {
+        let scheduler = WorkspaceSubagentScheduler { job in
+            if job.name == "Stopped" { throw CancellationError() }
+            return "finished normally"
+        }
+        let request = WorkspaceSubagentRunRequest(
+            objective: "fan out review",
+            workers: [
+                .init(name: "Completed", role: "inspect code"),
+                .init(name: "Stopped", role: "run long task")
+            ]
+        )
+        let progress = ProgressRecorder()
+
+        let result = await scheduler.run(request: request) { update in
+            await progress.record(update)
+        }
+
+        XCTAssertEqual(result.update.subagents.map(\.status), [.completed, .cancelled])
+        XCTAssertEqual(result.update.subagents[0].summary, "finished normally")
+        XCTAssertEqual(result.update.subagents[1].summary, "Cancelled")
+        XCTAssertTrue(result.summary.contains("1 completed, 1 cancelled, and 0 failed"))
+        let updates = await progress.updates
+        XCTAssertEqual(updates.last?.subagents.map(\.status), [.completed, .cancelled])
     }
 }
 

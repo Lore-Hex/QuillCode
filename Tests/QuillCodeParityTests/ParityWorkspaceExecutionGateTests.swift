@@ -671,11 +671,13 @@ final class ParityWorkspaceExecutionGateTests: QuillCodeParityTestCase {
 
         XCTAssertTrue(schedulerText.contains("withTaskGroup"), "Subagent execution should fan out real workers concurrently.")
         XCTAssertTrue(schedulerText.contains("ProgressSink"), "Subagent execution should publish progress while work runs.")
+        XCTAssertTrue(schedulerText.contains("catch is CancellationError"), "Subagent cancellation should publish cancelled progress instead of failed progress.")
         XCTAssertTrue(runnerText.contains("SubagentProgressToolExecutor.execute"), "Subagent runtime progress should reuse the existing tool/event contract.")
         XCTAssertTrue(runnerText.contains("WorkspaceToolEventRecorder.append"), "Subagent progress should be replayable from thread tool events.")
         XCTAssertTrue(slashParserText.contains("enum SlashSubagentCommandParser"), "Subagent slash parsing should live in a focused parser.")
         XCTAssertTrue(actionExecutorText.contains("case .subagents(let request, let userText):"), "Slash dispatch should have a typed subagent execution branch.")
         XCTAssertTrue(schedulerTests.contains("testSchedulerRunsWorkersConcurrentlyAndPublishesProgress"), "Scheduler concurrency needs focused test coverage.")
+        XCTAssertTrue(schedulerTests.contains("testSchedulerMarksCancelledWorkersWithoutTreatingThemAsFailures"), "Scheduler cancellation needs focused test coverage.")
         XCTAssertTrue(integrationTests.contains("testSlashSubagentsRunsSchedulerAndRecordsActivityProgress"), "Slash subagent execution needs workspace integration coverage.")
     }
 

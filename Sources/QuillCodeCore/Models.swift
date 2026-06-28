@@ -81,6 +81,7 @@ public enum SubagentStatus: String, Codable, Sendable, Hashable, CaseIterable {
     case running
     case blocked
     case completed
+    case cancelled
     case failed
 
     public var label: String {
@@ -93,6 +94,8 @@ public enum SubagentStatus: String, Codable, Sendable, Hashable, CaseIterable {
             return "Blocked"
         case .completed:
             return "Done"
+        case .cancelled:
+            return "Cancelled"
         case .failed:
             return "Failed"
         }

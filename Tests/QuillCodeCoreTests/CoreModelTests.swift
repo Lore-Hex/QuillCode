@@ -155,8 +155,10 @@ final class CoreModelTests: XCTestCase {
         XCTAssertEqual(ToolDefinition.subagentsUpdate.host, .local)
         XCTAssertEqual(ToolDefinition.subagentsUpdate.risk, .read)
         XCTAssertEqual(SubagentStatus.completed.label, "Done")
+        XCTAssertEqual(SubagentStatus.cancelled.label, "Cancelled")
         XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains(#""subagents""#))
         XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains("blocked"))
+        XCTAssertTrue(ToolDefinition.subagentsUpdate.parametersJSON.contains("cancelled"))
     }
 
     func testToolArgumentsRejectMissingCommand() throws {
