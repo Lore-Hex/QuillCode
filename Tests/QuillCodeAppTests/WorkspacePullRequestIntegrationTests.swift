@@ -146,12 +146,77 @@ final class WorkspacePullRequestIntegrationTests: XCTestCase {
         ])
     }
 
-    private func makeRemotePullRequestFixture() throws -> RemotePullRequestFixture {
+    func testStructuredPullRequestReviewDraftSubmitsInlineNotesBeforeReviewThroughSSH() throws {
+        let fixture = try makeRemotePullRequestFixture(recordingReviewCalls: true)
+        let sources = fixture.remoteRoot.appendingPathComponent("Sources")
+        try FileManager.default.createDirectory(at: sources, withIntermediateDirectories: true)
+        let appFile = sources.appendingPathComponent("App.swift")
+        try "func old() {}\n".write(to: appFile, atomically: true, encoding: .utf8)
+        _ = try runGit(["add", "Sources/App.swift"], cwd: fixture.remoteRoot)
+        _ = try runGit(["commit", "-m", "add app"], cwd: fixture.remoteRoot)
+        try "func old() {}\nfunc newBranch() {}\n".write(to: appFile, atomically: true, encoding: .utf8)
+
+        _ = fixture.model.runToolCall(
+            ToolCall(name: ToolDefinition.gitDiff.name, argumentsJSON: "{}"),
+            workspaceRoot: fixture.localRoot
+        )
+        XCTAssertTrue(fixture.model.addReviewComment(
+            path: "Sources/App.swift",
+            lineNumber: 2,
+            lineKind: .insertion,
+            text: "Cover this new branch."
+        ))
+        XCTAssertTrue(fixture.model.runWorkspaceCommand("git-pr-review", workspaceRoot: fixture.localRoot))
+        var draft = try XCTUnwrap(fixture.model.pullRequestReviewDraft)
+        XCTAssertEqual(draft.inlineCommentCount, 1)
+        draft.action = .requestChanges
+        draft.selector = "456"
+        draft.body = "Please address the inline note."
+        fixture.model.updatePullRequestReviewDraft(draft)
+
+        XCTAssertTrue(fixture.model.submitPullRequestReviewDraft(workspaceRoot: fixture.localRoot))
+
+        XCTAssertEqual(fixture.model.currentToolCards.suffix(2).map(\.title), [
+            ToolDefinition.gitPullRequestReviewComment.name,
+            ToolDefinition.gitPullRequestReview.name
+        ])
+        XCTAssertNil(fixture.model.pullRequestReviewDraft)
+        XCTAssertEqual(try fixture.recordedGitHubCallArguments(), [
+            [
+                "api",
+                "repos/example/repo/pulls/456/comments",
+                "--raw-field",
+                "body=Cover this new branch.",
+                "--raw-field",
+                "commit_id=abc123",
+                "--raw-field",
+                "path=Sources/App.swift",
+                "--field",
+                "line=2",
+                "--raw-field",
+                "side=RIGHT"
+            ],
+            [
+                "pr",
+                "review",
+                "456",
+                "--request-changes",
+                "--body",
+                "Please address the inline note."
+            ]
+        ])
+    }
+
+    private func makeRemotePullRequestFixture(recordingReviewCalls: Bool = false) throws -> RemotePullRequestFixture {
         let localRoot = try makeTempDirectory()
         let bin = localRoot.appendingPathComponent("bin")
         try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
         let ghArgumentsFile = localRoot.appendingPathComponent("gh-args.txt")
-        _ = try makeFakeGitHubCLI(in: bin, argumentsFile: ghArgumentsFile)
+        if recordingReviewCalls {
+            _ = try makeRecordingReviewFakeGitHubCLI(in: bin, argumentsFile: ghArgumentsFile)
+        } else {
+            _ = try makeFakeGitHubCLI(in: bin, argumentsFile: ghArgumentsFile)
+        }
         let sshArgumentsFile = localRoot.appendingPathComponent("ssh-args.txt")
         let fakeSSH = try makeExecutingFakeSSH(
             in: localRoot,
@@ -176,19 +241,67 @@ final class WorkspacePullRequestIntegrationTests: XCTestCase {
         return RemotePullRequestFixture(
             localRoot: localRoot,
             ghArgumentsFile: ghArgumentsFile,
+            remoteRoot: remoteRoot,
             model: model
         )
+    }
+
+    private func makeRecordingReviewFakeGitHubCLI(in root: URL, argumentsFile: URL) throws -> URL {
+        let script = root.appendingPathComponent("gh")
+        let argumentsPath = shellSingleQuotedForPullRequestTest(argumentsFile.path)
+        try """
+        #!/bin/sh
+        if [ "$1" = "pr" ] && [ "$2" = "view" ]; then
+          if [ "$7" = '.number + " " + .headRefOid' ]; then
+            echo '456 abc123'
+          else
+            echo '{"number":456,"headRefOid":"abc123"}'
+          fi
+        elif [ "$1" = "repo" ] && [ "$2" = "view" ]; then
+          if [ "$6" = ".nameWithOwner" ]; then
+            echo 'example/repo'
+          else
+            echo '{"nameWithOwner":"example/repo"}'
+          fi
+        elif [ "$1" = "api" ]; then
+          printf '%s\\n' __CALL__ >> '\(argumentsPath)'
+          printf '%s\\n' "$@" >> '\(argumentsPath)'
+          echo '{"html_url":"https://github.com/example/repo/pull/456#discussion_r99"}'
+        elif [ "$1" = "pr" ] && [ "$2" = "review" ]; then
+          printf '%s\\n' __CALL__ >> '\(argumentsPath)'
+          printf '%s\\n' "$@" >> '\(argumentsPath)'
+          echo 'https://github.com/example/repo/pull/456'
+        else
+          printf '%s\\n' "$@" >&2
+          exit 1
+        fi
+        """.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        return script
+    }
+
+    private func shellSingleQuotedForPullRequestTest(_ value: String) -> String {
+        value.replacingOccurrences(of: "'", with: "'\\''")
     }
 }
 
 private struct RemotePullRequestFixture {
     var localRoot: URL
     var ghArgumentsFile: URL
+    var remoteRoot: URL
     var model: QuillCodeWorkspaceModel
 
     func recordedGHArguments() throws -> [String] {
         try String(contentsOf: ghArgumentsFile, encoding: .utf8)
             .split(separator: "\n")
             .map(String.init)
+    }
+
+    func recordedGitHubCallArguments() throws -> [[String]] {
+        try String(contentsOf: ghArgumentsFile, encoding: .utf8)
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .map(String.init)
+            .split(separator: "__CALL__")
+            .map { Array($0) }
     }
 }

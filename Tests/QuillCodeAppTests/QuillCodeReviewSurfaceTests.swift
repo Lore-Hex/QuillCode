@@ -106,6 +106,73 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
         ])
     }
 
+    func testPullRequestReviewDraftCollectsInlineCommentsFromDiffLines() {
+        let lineComment = WorkspaceReviewCommentSurface(comment: WorkspaceReviewCommentState(
+            path: "Sources/App.swift",
+            lineNumber: 42,
+            lineKind: .insertion,
+            text: "Cover this new branch."
+        ))
+        let rangeComment = WorkspaceReviewCommentSurface(comment: WorkspaceReviewCommentState(
+            path: "Sources/App.swift",
+            lineNumber: 50,
+            endLineNumber: 52,
+            lineKind: .deletion,
+            text: "This deletion needs explanation."
+        ))
+        let fileComment = WorkspaceReviewCommentSurface(comment: WorkspaceReviewCommentState(
+            path: "Sources/App.swift",
+            text: "File-level note stays local."
+        ))
+        let review = WorkspaceReviewSurface(files: [
+            WorkspaceReviewFileSurface(
+                path: "Sources/App.swift",
+                insertions: 2,
+                deletions: 1,
+                hunks: 1,
+                hunkItems: [
+                    WorkspaceReviewHunkSurface(
+                        id: "hunk-1",
+                        path: "Sources/App.swift",
+                        header: "@@ -40,12 +40,12 @@",
+                        insertions: 1,
+                        deletions: 1,
+                        patch: "@@ -40,12 +40,12 @@",
+                        lines: [
+                            WorkspaceReviewLineSurface(
+                                id: "line-42",
+                                path: "Sources/App.swift",
+                                hunkID: "hunk-1",
+                                oldLineNumber: nil,
+                                newLineNumber: 42,
+                                kind: .insertion,
+                                content: "newBranch()",
+                                comments: [lineComment]
+                            ),
+                            WorkspaceReviewLineSurface(
+                                id: "line-52",
+                                path: "Sources/App.swift",
+                                hunkID: "hunk-1",
+                                oldLineNumber: 52,
+                                newLineNumber: nil,
+                                kind: .deletion,
+                                content: "oldBranch()",
+                                comments: [rangeComment]
+                            )
+                        ]
+                    )
+                ],
+                comments: [fileComment]
+            )
+        ])
+
+        let comments = WorkspacePullRequestReviewDraftCommentSurface.collect(from: review)
+
+        XCTAssertEqual(comments.map(\.locationLabel), ["Sources/App.swift:42", "Sources/App.swift:50-52"])
+        XCTAssertEqual(comments.map(\.side), ["RIGHT", "LEFT"])
+        XCTAssertEqual(comments.map(\.body), ["Cover this new branch.", "This deletion needs explanation."])
+    }
+
     func testReviewFileAndHunkSurfacesExposeLabelsAndActions() {
         let hunk = WorkspaceReviewHunkSurface(
             id: "hunk-1",

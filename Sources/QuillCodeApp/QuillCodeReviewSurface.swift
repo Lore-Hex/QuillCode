@@ -126,9 +126,14 @@ public struct WorkspacePullRequestReviewDraftSurface: Codable, Sendable, Hashabl
     public var action: WorkspacePullRequestReviewActionKind
     public var selector: String
     public var body: String
+    public var includeInlineComments: Bool
+    public var inlineComments: [WorkspacePullRequestReviewDraftCommentSurface]
 
     public var subtitle: String {
-        "Submit \(action.title.lowercased()) review through GitHub CLI"
+        if inlineCommentCount > 0 {
+            return "Submit \(action.title.lowercased()) review with \(inlineCommentCount) inline note\(inlineCommentCount == 1 ? "" : "s")"
+        }
+        return "Submit \(action.title.lowercased()) review through GitHub CLI"
     }
 
     public var normalizedSelector: String? {
@@ -144,14 +149,90 @@ public struct WorkspacePullRequestReviewDraftSurface: Codable, Sendable, Hashabl
         !action.requiresBody || !normalizedBody.isEmpty
     }
 
+    public var inlineCommentCount: Int {
+        inlineComments.count
+    }
+
+    public var selectedInlineComments: [WorkspacePullRequestReviewDraftCommentSurface] {
+        includeInlineComments ? inlineComments : []
+    }
+
     public init(
         action: WorkspacePullRequestReviewActionKind = .approve,
         selector: String = "",
-        body: String = ""
+        body: String = "",
+        includeInlineComments: Bool = true,
+        inlineComments: [WorkspacePullRequestReviewDraftCommentSurface] = []
     ) {
         self.action = action
         self.selector = selector
         self.body = body
+        self.includeInlineComments = includeInlineComments
+        self.inlineComments = inlineComments
+    }
+}
+
+public struct WorkspacePullRequestReviewDraftCommentSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: UUID
+    public var path: String
+    public var line: Int
+    public var startLine: Int?
+    public var side: String
+    public var body: String
+
+    public var locationLabel: String {
+        if let startLine, startLine != line {
+            return "\(path):\(startLine)-\(line)"
+        }
+        return "\(path):\(line)"
+    }
+
+    public init(
+        id: UUID = UUID(),
+        path: String,
+        line: Int,
+        startLine: Int? = nil,
+        side: String = "RIGHT",
+        body: String
+    ) {
+        self.id = id
+        self.path = path
+        self.line = line
+        self.startLine = startLine
+        self.side = side
+        self.body = body
+    }
+
+    public init?(comment: WorkspaceReviewCommentSurface) {
+        guard let lineNumber = comment.lineNumber else {
+            return nil
+        }
+        let endLineNumber = comment.endLineNumber ?? lineNumber
+        let body = comment.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !body.isEmpty else {
+            return nil
+        }
+        self.init(
+            id: comment.id,
+            path: comment.path,
+            line: max(lineNumber, endLineNumber),
+            startLine: lineNumber == endLineNumber ? nil : min(lineNumber, endLineNumber),
+            side: Self.side(for: comment.lineKind),
+            body: body
+        )
+    }
+
+    public static func collect(from review: WorkspaceReviewSurface) -> [WorkspacePullRequestReviewDraftCommentSurface] {
+        review.files
+            .flatMap { file in
+                file.hunkItems.flatMap(\.lines)
+            }
+            .flatMap(\.comments)
+            .compactMap(Self.init(comment:))
+    }
+
+    private static func side(for lineKind: WorkspaceReviewLineKind?) -> String {
+        lineKind == .deletion ? "LEFT" : "RIGHT"
     }
 }
 
