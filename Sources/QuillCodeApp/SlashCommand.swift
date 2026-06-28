@@ -14,6 +14,7 @@ enum SlashCommand: Equatable {
     case editMemory(id: String, content: String)
     case threadFollowUp(String)
     case workspaceSchedule(String)
+    case subagents(WorkspaceSubagentRunRequest)
     case workspaceCommand(String)
     case worktreeCreate(WorkspaceWorktreeCreateRequest)
     case worktreeOpen(WorkspaceWorktreeOpenRequest)
@@ -50,6 +51,8 @@ enum SlashCommandParser {
             return SlashSchedulingCommandParser.parseThreadFollowUp(argument)
         case "workspace-check", "workspacecheck", "workspace-schedule", "project-check", "repo-check":
             return SlashSchedulingCommandParser.parseWorkspaceSchedule(argument)
+        case let subagentCommand where SlashSubagentCommandParser.supports(subagentCommand):
+            return SlashSubagentCommandParser.parse(argument)
         case "project":
             return SlashProjectCommandParser.parse(argument)
         case "ssh", "remote":

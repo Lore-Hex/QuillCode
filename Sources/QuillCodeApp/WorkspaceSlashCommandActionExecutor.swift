@@ -1,7 +1,7 @@
 import Foundation
 
 extension QuillCodeWorkspaceModel {
-    func runSlashCommandDispatchAction(_ action: WorkspaceSlashCommandDispatchAction, workspaceRoot: URL) {
+    func runSlashCommandDispatchAction(_ action: WorkspaceSlashCommandDispatchAction, workspaceRoot: URL) async {
         switch action {
         case .appendTranscript(let transcript):
             appendLocalCommandTranscript(transcript)
@@ -43,6 +43,8 @@ extension QuillCodeWorkspaceModel {
             runThreadFollowUpSlashCommand(scheduleText, originalPrompt: userText)
         case .workspaceSchedule(let scheduleText, let userText):
             runWorkspaceScheduleSlashCommand(scheduleText, originalPrompt: userText)
+        case .subagents(let request, let userText):
+            await runSubagentSlashCommand(request, originalPrompt: userText)
         case .workspaceCommand(let commandID, let userText):
             if !runWorkspaceCommand(commandID, workspaceRoot: workspaceRoot) {
                 appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.workspaceCommandFailed(

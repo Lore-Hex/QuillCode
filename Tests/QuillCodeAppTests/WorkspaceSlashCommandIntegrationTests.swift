@@ -154,6 +154,26 @@ final class WorkspaceSlashCommandIntegrationTests: XCTestCase {
         XCTAssertTrue(message.contains("Install dependencies and warm caches."))
     }
 
+    func testSlashSubagentsRunsSchedulerAndRecordsActivityProgress() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let model = QuillCodeWorkspaceModel()
+
+        model.setDraft("/subagents validate release | Explorer: inspect code | Verifier: run focused tests")
+        await model.submitComposer(workspaceRoot: root)
+
+        let thread = try XCTUnwrap(model.selectedThread)
+        XCTAssertEqual(thread.title, "Subagents")
+        XCTAssertEqual(thread.messages.map(\.role), [.user, .assistant])
+        XCTAssertTrue(thread.messages.last?.content.contains("Subagents completed 2 workers") == true)
+        let latestUpdate = try XCTUnwrap(SubagentProgressToolExecutor.latestUpdate(in: thread))
+        XCTAssertEqual(latestUpdate.objective, "validate release")
+        XCTAssertEqual(latestUpdate.subagents.map(\.name), ["Explorer", "Verifier"])
+        XCTAssertEqual(latestUpdate.subagents.map(\.status), [.completed, .completed])
+        XCTAssertEqual(model.surface().activity.subagents.map(\.title), ["Explorer", "Verifier"])
+        XCTAssertEqual(model.surface().activity.subagents.map(\.statusLabel), ["Done", "Done"])
+        XCTAssertEqual(model.currentToolCards.last?.title, ToolDefinition.subagentsUpdate.name)
+    }
+
     func testSlashNewCreatesFreshThreadWithoutAgentRun() async throws {
         let existing = ChatThread(title: "Existing")
         let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(

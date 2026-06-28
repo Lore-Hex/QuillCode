@@ -13,6 +13,7 @@ enum WorkspaceSlashCommandDispatchAction: Equatable {
     case editMemory(id: String, content: String, userText: String)
     case threadFollowUp(String, userText: String)
     case workspaceSchedule(String, userText: String)
+    case subagents(WorkspaceSubagentRunRequest, userText: String)
     case workspaceCommand(String, userText: String)
     case worktreeCreate(WorkspaceWorktreeCreateRequest, userText: String)
     case worktreeOpen(WorkspaceWorktreeOpenRequest, userText: String)
@@ -56,6 +57,8 @@ struct WorkspaceSlashCommandDispatchPlanner {
             return .threadFollowUp(scheduleText, userText: userText)
         case .workspaceSchedule(let scheduleText):
             return .workspaceSchedule(scheduleText, userText: userText)
+        case .subagents(let request):
+            return .subagents(request, userText: userText)
         case .workspaceCommand(let commandID):
             return .workspaceCommand(commandID, userText: userText)
         case .worktreeCreate(let request):
