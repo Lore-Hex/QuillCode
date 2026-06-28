@@ -8733,3 +8733,19 @@ Code quality changes:
 Remaining risk:
 
 - This closes the style-vs-semantics gap at source level. The next native A+ layer is still real packaged-window Accessibility frame and edge-click sampling.
+
+## 2026-06-28 Desktop Optimistic Send And Thinking Trace Target Pass
+
+Overall grade after this slice: **A desktop optimistic state proof, A native thinking trace target, A- packaged-window event automation**.
+
+The desktop send path already had workspace-model coverage, but the user-facing bug was subtler: a native coordinator can have correct model state while failing to repaint the user bubble and Thinking indicator until the agent finishes. Thinking traces also need to feel intentionally clickable instead of appearing as tiny disclosure text.
+
+Code quality changes:
+
+- Added a desktop coordinator smoke test that sends through `QuillCodeDesktopComposerCoordinator` with a slow mock LLM and asserts the draft clears, the user message is visible, Thinking is visible, and the send task is running before the model responds.
+- Replaced the native Thinking trace disclosure label with a semantic capsule button that has chevron state, event count, press feedback, a 96 pt target contract, and explicit accessibility label/value.
+- Added the Thinking trace capsule to `QuillCodeNativeHitTargetAudit` whenever visible trace lines exist, and extended the representative audit fixture so the target cannot disappear without failing tests.
+
+Remaining risk:
+
+- This covers the coordinator and SwiftUI target contract. The remaining A+ layer is a packaged-window Accessibility click test that samples the live trace control frame and clicks near its edges in a running `.app`.

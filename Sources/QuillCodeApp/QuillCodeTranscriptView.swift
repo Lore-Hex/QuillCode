@@ -309,7 +309,33 @@ private struct QuillCodeThinkingView: View {
                     .font(.caption)
                     .foregroundStyle(QuillCodePalette.muted)
                 if !thinking.traceLines.isEmpty {
-                    DisclosureGroup(isExpanded: $isTraceExpanded) {
+                    Button {
+                        quillCodeWithAnimation(.easeOut(duration: 0.16), reduceMotion: reduceMotion) {
+                            isTraceExpanded.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: isTraceExpanded ? "chevron.down" : "chevron.right")
+                                .font(.caption2.weight(.bold))
+                            Text(thinking.traceTitle)
+                                .font(.caption.weight(.semibold))
+                            Text("\(thinking.traceLines.count)")
+                                .font(.caption2.monospacedDigit().weight(.semibold))
+                                .foregroundStyle(QuillCodePalette.muted)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(QuillCodePalette.selection)
+                                .clipShape(Capsule())
+                        }
+                        .foregroundStyle(QuillCodePalette.blue)
+                        .quillCodeCapsuleButtonTarget(minWidth: 96, alignment: .leading)
+                    }
+                    .buttonStyle(QuillCodePressableButtonStyle())
+                    .accessibilityIdentifier("thinking-trace-toggle")
+                    .accessibilityLabel("\(thinking.traceTitle), \(thinking.traceLines.count) events")
+                    .accessibilityValue(isTraceExpanded ? "Expanded" : "Collapsed")
+
+                    if isTraceExpanded {
                         VStack(alignment: .leading, spacing: 6) {
                             ForEach(thinking.traceLines, id: \.self) { line in
                                 Text(line)
@@ -319,12 +345,7 @@ private struct QuillCodeThinkingView: View {
                             }
                         }
                         .padding(.top, 4)
-                    } label: {
-                        Text(thinking.traceTitle)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(QuillCodePalette.blue)
                     }
-                    .tint(QuillCodePalette.blue)
                 }
             }
             .padding(.horizontal, 14)

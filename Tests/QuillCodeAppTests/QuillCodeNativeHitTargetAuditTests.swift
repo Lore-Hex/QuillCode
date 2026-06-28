@@ -53,7 +53,8 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             "automations.create",
             "automations.run",
             "automations.primary",
-            "automations.delete"
+            "automations.delete",
+            "transcript.thinking-trace"
         ] {
             XCTAssertNotNil(contractsByID[requiredID], requiredID)
         }
@@ -62,6 +63,7 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
         XCTAssertEqual(contractsByID["memories.edit"]?.kind, .icon)
         XCTAssertEqual(contractsByID["automations.create"]?.kind, .formAction)
         XCTAssertEqual(contractsByID["browser.comment"]?.kind, .textEntry)
+        XCTAssertEqual(contractsByID["transcript.thinking-trace"]?.kind, .capsule)
 
         surface.commands.removeAll { $0.id == "toggle-extensions" }
         let missingReport = QuillCodeNativeHitTargetAudit.report(for: surface)
@@ -81,6 +83,15 @@ final class QuillCodeNativeHitTargetAuditTests: XCTestCase {
             selectedThreadID: thread.id
         ))
         var surface = model.surface()
+        surface.transcript.thinking = TranscriptThinkingSurface(
+            id: "thinking-native-target-audit",
+            title: "Thinking",
+            subtitle: "Running: host.shell.run running",
+            traceLines: [
+                "Queued: host.shell.run queued",
+                "Running: host.shell.run running"
+            ]
+        )
 
         surface.terminal.isVisible = true
         surface.terminal.draft = "pwd"
