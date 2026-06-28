@@ -20,6 +20,14 @@ public protocol StreamingLLMClient: LLMClient {
     ) async throws -> AsyncThrowingStream<String, Error>
 }
 
+public protocol UsageStreamingLLMClient: StreamingLLMClient {
+    func actionEventStream(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) async throws -> AsyncThrowingStream<AgentTextStreamEvent, Error>
+}
+
 public enum AgentError: Error, CustomStringConvertible {
     case emptyStreamingResponse
     case promisedWorkWithoutToolAction
@@ -257,6 +265,23 @@ public struct AgentRunner: Sendable {
             return action
         }
 
+        if let usageStreamingLLM = llm as? any UsageStreamingLLMClient {
+            thread.events.append(.init(kind: .notice, summary: Self.streamingNotice))
+            thread.updatedAt = Date()
+            await onProgress?(thread)
+
+            let stream = try await usageStreamingLLM.actionEventStream(
+                thread: thread,
+                userMessage: userMessage,
+                tools: tools
+            )
+            return try await Self.collectStreamingAction(
+                from: stream,
+                thread: &thread,
+                onProgress: onProgress
+            )
+        }
+
         guard let streamingLLM = llm as? any StreamingLLMClient else {
             return try await llm.nextAction(thread: thread, userMessage: userMessage, tools: tools)
         }
@@ -299,6 +324,35 @@ public struct AgentRunner: Sendable {
             }
         )
         thread = draftThread
+        return action
+    }
+
+    private static func collectStreamingAction(
+        from stream: AsyncThrowingStream<AgentTextStreamEvent, Error>,
+        thread: inout ChatThread,
+        onProgress: AgentRunProgressHandler?
+    ) async throws -> AgentAction {
+        var draftThread = thread
+        var latestUsage: ModelTokenUsage?
+
+        let action = try await AgentActionStreamCollector.collect(
+            from: stream,
+            emptyError: AgentError.emptyStreamingResponse,
+            onVisibleAssistantText: { visibleText in
+                publishAssistantDraft(visibleText, in: &draftThread)
+                await onProgress?(draftThread)
+            },
+            onUsage: { usage in
+                latestUsage = usage
+            }
+        )
+
+        thread = draftThread
+        if let latestUsage {
+            thread.events.append(ModelTokenUsageEvent.event(usage: latestUsage))
+            thread.updatedAt = Date()
+            await onProgress?(thread)
+        }
         return action
     }
 

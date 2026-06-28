@@ -162,6 +162,49 @@ final class AgentStreamingTests: XCTestCase {
         XCTAssertTrue(progressMessages.contains(["say hello", "hello world"]))
     }
 
+    func testUsageStreamingSayActionRecordsProviderTokenUsage() async throws {
+        let root = try makeTempDirectory()
+        let usage = ModelTokenUsage(promptTokens: 25_000, completionTokens: 500, totalTokens: 25_500)
+        let runner = AgentRunner(llm: UsageStreamingActionLLMClient(events: [
+            .text(#"{"type":"say","text":"hello"}"#),
+            .usage(usage)
+        ]))
+
+        let result = try await runner.send(
+            "say hello",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let recordedUsage = result.thread.events.compactMap(ModelTokenUsageEvent.usage(from:)).last
+        XCTAssertEqual(recordedUsage, usage)
+        XCTAssertEqual(result.thread.messages.last?.content, "hello")
+    }
+
+    func testUsageStreamingToolActionRecordsProviderTokenUsageBeforeToolEvents() async throws {
+        let root = try makeTempDirectory()
+        let usage = ModelTokenUsage(promptTokens: 10_000, completionTokens: 80, totalTokens: 10_080)
+        let runner = AgentRunner(llm: UsageStreamingActionLLMClient(events: [
+            .text(#"{"type":"tool","name":"host.shell.run","arguments":{"cmd":"whoami"}}"#),
+            .usage(usage)
+        ]))
+
+        let result = try await runner.send(
+            "run whoami",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertEqual(result.thread.events.compactMap(ModelTokenUsageEvent.usage(from:)).last, usage)
+        let usageEventIndex = try XCTUnwrap(result.thread.events.firstIndex {
+            ModelTokenUsageEvent.usage(from: $0) == usage
+        })
+        let queuedEventIndex = try XCTUnwrap(result.thread.events.firstIndex { $0.kind == .toolQueued })
+        XCTAssertLessThan(usageEventIndex, queuedEventIndex)
+        XCTAssertEqual(result.thread.events[1].summary, AgentRunner.streamingNotice)
+    }
+
     func testStreamingPromisedWorkDraftIsSuppressedBeforeCorrectionToolRuns() async throws {
         let root = try makeTempDirectory()
         let recorder = ProgressRecorder()

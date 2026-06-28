@@ -108,6 +108,33 @@ final class WorkspaceContextBannerBuilderTests: XCTestCase {
         XCTAssertEqual(WorkspaceContextBannerBuilder.estimatedContextTokens(for: thread), 12)
     }
 
+    func testProviderUsageOverridesCharacterEstimate() throws {
+        let usage = ModelTokenUsage(promptTokens: 25, completionTokens: 0, totalTokens: 25)
+        let thread = ChatThread(
+            messages: [
+                .init(role: .user, content: "short")
+            ],
+            events: [
+                ModelTokenUsageEvent.event(usage: usage)
+            ]
+        )
+        let builder = WorkspaceContextBannerBuilder(
+            thread: thread,
+            tokenBudget: 25,
+            warningThresholdPercent: 100
+        )
+
+        let banner = try XCTUnwrap(builder.banner())
+
+        XCTAssertEqual(WorkspaceContextBannerBuilder.latestProviderUsage(for: thread), usage)
+        XCTAssertEqual(builder.contextUsedPercent(for: thread), 100)
+        XCTAssertEqual(banner.title, "Context limit reached (100% used)")
+        XCTAssertEqual(
+            banner.subtitle,
+            "Provider-reported token usage is near the limit. Compact the thread, start fresh, or fork with latest, summarized, or full visible context."
+        )
+    }
+
     func testCustomBudgetAndThresholdSupportSmallDeterministicTests() throws {
         let thread = ChatThread(messages: [
             .init(role: .user, content: String(repeating: "x", count: 76))
