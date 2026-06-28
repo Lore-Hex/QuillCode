@@ -77,17 +77,30 @@ enum AgentToolArgumentNormalizer {
     }
 
     private static func argumentObject(for toolName: String, in object: [String: Any]) -> [String: Any] {
-        if let arguments = object["arguments"] as? [String: Any] {
-            return arguments
-        }
-        if let arguments = object["args"] as? [String: Any] {
+        if let arguments = dictionaryValue(in: object, keys: ["arguments", "args", "input"]) {
             return arguments
         }
         if toolName == ToolDefinition.shellRun.name,
-           let command = stringValue(in: object, keys: ["arguments", "args"]) {
+           let command = stringValue(in: object, keys: ["arguments", "args", "input"]) {
             return ["cmd": command]
         }
         return [:]
+    }
+
+    private static func dictionaryValue(in object: [String: Any], keys: [String]) -> [String: Any]? {
+        for key in keys {
+            if let value = object[key] as? [String: Any] {
+                return value
+            }
+            guard let value = object[key] as? String,
+                  let data = value.data(using: .utf8),
+                  let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            else {
+                continue
+            }
+            return parsed
+        }
+        return nil
     }
 
     private static func normalizeValueArgument(

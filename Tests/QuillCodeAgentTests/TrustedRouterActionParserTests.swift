@@ -48,6 +48,103 @@ final class TrustedRouterActionParserTests: XCTestCase {
         XCTAssertTrue(call.argumentsJSON.contains(#""cmd":"git status --short""#))
     }
 
+    func testActionParserParsesOpenAIToolCallsWrapper() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {
+          "choices": [
+            {
+              "message": {
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "type": "function",
+                    "function": {
+                      "name": "host.shell.run",
+                      "arguments": "{\\"command\\":\\"whoami\\"}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected wrapped tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("cmd"), "whoami")
+    }
+
+    func testActionParserPrefersMessageToolCallOverAssistantContent() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {
+          "type": "message",
+          "content": "I'll run whoami now.",
+          "tool_calls": [
+            {
+              "type": "function",
+              "function": {
+                "name": "host.shell.run",
+                "arguments": "{\\"cmd\\":\\"whoami\\"}"
+              }
+            }
+          ]
+        }
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected message tool call to win over text content")
+        }
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("cmd"), "whoami")
+    }
+
+    func testActionParserParsesAnthropicToolUseInputWrapper() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {
+          "type": "tool_use",
+          "name": "host.file.write",
+          "input": {
+            "filename": "hello.txt",
+            "text": "hello world\\n"
+          }
+        }
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool_use action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.fileWrite.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("path"), "hello.txt")
+        XCTAssertEqual(try arguments.requiredString("content"), "hello world\n")
+    }
+
+    func testActionParserParsesResponsesOutputFunctionCallWrapper() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {
+          "output": [
+            {"type":"reasoning","summary":[]},
+            {
+              "type": "function_call",
+              "name": "host.browser.open",
+              "arguments": "{\\"address\\":\\"https://example.com\\"}"
+            }
+          ]
+        }
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected output function call action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.browserOpen.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("url"), "https://example.com")
+    }
+
     func testActionParserExtractsActionObjectFromProse() throws {
         let action = try AgentActionJSONParser.parse("""
         I will run the command now.

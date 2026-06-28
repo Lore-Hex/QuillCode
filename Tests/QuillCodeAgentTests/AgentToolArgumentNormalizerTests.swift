@@ -32,6 +32,21 @@ final class AgentToolArgumentNormalizerTests: XCTestCase {
         XCTAssertNil(arguments["address"])
     }
 
+    func testCanonicalArgumentsDecodeStringifiedArgumentObjects() {
+        let arguments = AgentToolArgumentNormalizer.canonicalArguments(
+            for: ToolDefinition.fileWrite.name,
+            in: [
+                "arguments": #"{"filename":"note.txt","text":"hello\n"}"#
+            ],
+            sourceText: ""
+        )
+
+        XCTAssertEqual(arguments["path"] as? String, "note.txt")
+        XCTAssertEqual(arguments["content"] as? String, "hello\n")
+        XCTAssertNil(arguments["filename"])
+        XCTAssertNil(arguments["text"])
+    }
+
     func testCanonicalArgumentsNormalizePullRequestCollectionAliases() {
         let arguments = AgentToolArgumentNormalizer.canonicalArguments(
             for: ToolDefinition.gitPullRequestReviewers.name,
