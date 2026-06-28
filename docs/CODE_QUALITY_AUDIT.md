@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-27 Scoped Native Click-Target Audit Pass
+
+Overall grade after this slice: **A scoped native source gates, A call-site target ownership, A- native pixel measurement**.
+
+The native SwiftUI click-target gate now audits the actual control/modifier scope instead of accepting any target helper in a broad nearby source window. Menu trigger checks inspect the trigger/label portion rather than menu-item content, so a styled menu action cannot accidentally satisfy the ellipsis/button that opens the menu.
+
+Code quality changes:
+
+- Added scoped Swift source extraction for `Button`, `Menu`, `Picker`, `Link`, text-entry, and toggle controls, plus regression coverage proving a nearby compliant button or a target inside Menu content does not satisfy another control.
+- Moved native control contracts into the owning call sites for context-banner buttons, browser comment submission, memory-card icon actions, settings footer/API-key actions, worktree dialog footers, and artifact Links.
+- Artifact `Link` previews now own their 44 pt target inside the Link label instead of relying on a parent `Group` modifier, making the target contract easier to inspect and harder to break.
+
+Residual risk:
+
+- Native SwiftUI hit regions are still source-gated and offscreen-render smoke tested, not measured by packaged-window click automation. The next coverage layer should drive real macOS/Linux windows and sample rendered hit regions the way Playwright samples the HTML harness.
+
 ## 2026-06-27 Click Target System Rethink Pass
 
 Overall grade after this slice: **A native source gates, A rendered label semantics, A- native pixel measurement**.

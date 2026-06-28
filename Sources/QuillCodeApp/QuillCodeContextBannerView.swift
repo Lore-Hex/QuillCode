@@ -71,23 +71,21 @@ struct QuillCodeContextBannerView: View {
         minWidth: CGFloat
     ) -> some View {
         if isPrimary {
-            contextButtonBase(for: command)
+            Button(command.title) {
+                onCommand(command)
+            }
                 .buttonStyle(.borderedProminent)
                 .quillCodeTextButtonTarget(minWidth: minWidth)
                 .disabled(!command.isEnabled)
                 .accessibilityLabel(command.title)
         } else {
-            contextButtonBase(for: command)
+            Button(command.title) {
+                onCommand(command)
+            }
                 .buttonStyle(.bordered)
                 .quillCodeTextButtonTarget(minWidth: minWidth)
                 .disabled(!command.isEnabled)
                 .accessibilityLabel(command.title)
-        }
-    }
-
-    private func contextButtonBase(for command: WorkspaceCommandSurface) -> some View {
-        Button(command.title) {
-            onCommand(command)
         }
     }
 }

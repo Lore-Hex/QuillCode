@@ -218,6 +218,46 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(violations, [])
     }
 
+    func testNativeSourceAuditDoesNotLetNearbyTargetsSatisfyAnotherControl() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct MixedClickTargets: View {
+            @State private var text = ""
+
+            var body: some View {
+                VStack {
+                    Button("Ready") {}
+                        .quillCodeTextButtonTarget()
+                        .buttonStyle(QuillCodePressableButtonStyle())
+
+                    Button("Broken") {}
+
+                    Menu {
+                        Button("Nested") {}
+                            .quillCodeTextButtonTarget()
+                            .buttonStyle(QuillCodePressableButtonStyle())
+                    } label: {
+                        Image(systemName: "ellipsis")
+                    }
+                    .buttonStyle(QuillCodePressableButtonStyle())
+                }
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertTrue(violations.contains { $0.contains("Button lacks shared hit target") })
+        XCTAssertTrue(violations.contains { $0.contains("Button lacks explicit press or platform style") })
+        XCTAssertTrue(violations.contains { $0.contains("Menu trigger lacks shared hit target") })
+        XCTAssertFalse(
+            violations.contains { $0.contains("Ready") },
+            "A fully styled neighboring button should not be blamed while testing scope extraction."
+        )
+    }
+
     func testDesktopMenuBarPopoverUsesSharedFullRowTargets() throws {
         let menuBarText = try Self.desktopSourceText(named: "QuillCodeMenuBarView.swift")
 
@@ -329,17 +369,20 @@ private struct SwiftSourceInteractionTargetAudit {
         var violations: [String] = []
 
         for (index, line) in lines.enumerated() {
+            let declarationScope = controlScope(in: lines, startingAt: index)
+            let owningControlScope = controlScopeForModifier(in: lines, modifierIndex: index)
+
             if isGestureClick(line) {
                 violations.append("\(relativePath):\(index + 1) gesture-based click target should be a Button or Link")
             }
 
             if isCompactPlatformButtonStyle(line),
-               !hasSharedTarget(in: window(in: lines, around: index, radius: 18)) {
+               !hasSharedTarget(in: owningControlScope) {
                 violations.append("\(relativePath):\(index + 1) compact platform button style lacks shared hit target")
             }
 
             if line.contains(".buttonStyle(QuillCodePressableButtonStyle())"),
-               !hasSharedTarget(in: window(in: lines, around: index, radius: 28)) {
+               !hasSharedTarget(in: owningControlScope) {
                 violations.append("\(relativePath):\(index + 1) pressable button lacks explicit shared hit target")
             }
 
@@ -350,48 +393,51 @@ private struct SwiftSourceInteractionTargetAudit {
 
             if isButtonDeclaration(line),
                !isSystemMenuItemButton(lines: lines, index: index),
-               !hasSharedTarget(in: window(in: lines, around: index, radius: 56)) {
+               !hasSharedTarget(in: declarationScope) {
                 violations.append("\(relativePath):\(index + 1) Button lacks shared hit target")
             }
 
             if isButtonDeclaration(line),
                !isSystemMenuItemButton(lines: lines, index: index),
-               !hasButtonStyle(in: window(in: lines, around: index, radius: 56)) {
+               !hasButtonStyle(in: declarationScope) {
                 violations.append("\(relativePath):\(index + 1) Button lacks explicit press or platform style")
             }
 
+            let menuTriggerScope = isMenuDeclaration(line)
+                ? triggerScopeForMenu(in: lines, startingAt: index, declarationScope: declarationScope)
+                : declarationScope
             if isMenuDeclaration(line),
-               !hasSharedTarget(in: window(in: lines, around: index, radius: 56)) {
+               !hasSharedTarget(in: menuTriggerScope) {
                 violations.append("\(relativePath):\(index + 1) Menu trigger lacks shared hit target")
             }
 
             if isMenuDeclaration(line),
-               !hasButtonStyle(in: window(in: lines, around: index, radius: 56)) {
+               !hasButtonStyle(in: menuTriggerScope) {
                 violations.append("\(relativePath):\(index + 1) Menu trigger lacks explicit press or platform style")
             }
 
             if isPickerDeclaration(line),
-               !hasSharedTarget(in: window(in: lines, around: index, radius: 28)) {
+               !hasSharedTarget(in: declarationScope) {
                 violations.append("\(relativePath):\(index + 1) Picker lacks shared hit target")
             }
 
             if isLinkDeclaration(line),
-               !hasSharedTarget(in: window(in: lines, around: index, radius: 28)) {
+               !hasSharedTarget(in: declarationScope) {
                 violations.append("\(relativePath):\(index + 1) Link lacks shared hit target")
             }
 
             if isTextEntryDeclaration(line),
-               !window(in: lines, around: index, radius: 22).contains("quillCodeTextEntryTarget") {
+               !declarationScope.contains("quillCodeTextEntryTarget") {
                 violations.append("\(relativePath):\(index + 1) text-entry control lacks shared text-entry hit target")
             }
 
             if isToggleDeclaration(line),
-               !window(in: lines, around: index, radius: 16).contains("quillCodeSwitchRowTarget") {
+               !declarationScope.contains("quillCodeSwitchRowTarget") {
                 violations.append("\(relativePath):\(index + 1) toggle control lacks shared switch-row hit target")
             }
 
             if line.contains(".pickerStyle(.segmented)"),
-               !window(in: lines, around: index, radius: 8).contains("quillCodeSegmentedControlTarget") {
+               !declarationScope.contains("quillCodeSegmentedControlTarget") {
                 violations.append("\(relativePath):\(index + 1) segmented picker lacks shared segmented hit target")
             }
         }
@@ -405,6 +451,114 @@ private struct SwiftSourceInteractionTargetAudit {
 
     private func hasButtonStyle(in sourceWindow: String) -> Bool {
         sourceWindow.contains(".buttonStyle(")
+    }
+
+    private func controlScope(in lines: [String], startingAt index: Int) -> String {
+        let range = controlRange(in: lines, startingAt: index)
+        return window(in: lines, from: range.lowerBound, to: range.upperBound)
+    }
+
+    private func controlRange(in lines: [String], startingAt index: Int) -> Range<Int> {
+        let maxEnd = min(lines.count, index + 160)
+        var end = index
+        var depth = 0
+        var sawOpener = false
+        var lineIndex = index
+
+        while lineIndex < maxEnd {
+            let balance = delimiterBalance(in: lines[lineIndex])
+            depth += balance.delta
+            sawOpener = sawOpener || balance.sawOpener
+            end = lineIndex
+
+            if lineIndex > index,
+               sawOpener,
+               depth <= 0,
+               !isChainedModifierLine(lines[safe: lineIndex + 1]) {
+                break
+            }
+
+            lineIndex += 1
+        }
+
+        return index..<min(lines.count, end + 1)
+    }
+
+    private func controlScopeForModifier(in lines: [String], modifierIndex index: Int) -> String {
+        guard isChainedModifierLine(lines[safe: index]) else {
+            return controlScope(in: lines, startingAt: index)
+        }
+        let lowerBound = max(0, index - 160)
+        var lineIndex = index
+        while lineIndex >= lowerBound {
+            let line = lines[lineIndex]
+            if isControlDeclaration(line) {
+                let range = controlRange(in: lines, startingAt: lineIndex)
+                if range.contains(index) {
+                    return window(in: lines, from: range.lowerBound, to: range.upperBound)
+                }
+            }
+            if line.contains("var body: some View") || line.contains("var body:") {
+                break
+            }
+            lineIndex -= 1
+        }
+        return controlScope(in: lines, startingAt: index)
+    }
+
+    private func triggerScopeForMenu(
+        in lines: [String],
+        startingAt index: Int,
+        declarationScope: String
+    ) -> String {
+        let scopeLines = declarationScope.components(separatedBy: .newlines)
+        guard let labelLine = scopeLines.firstIndex(where: { $0.contains("label:") }) else {
+            return declarationScope
+        }
+        return scopeLines[labelLine...].joined(separator: "\n")
+    }
+
+    private func isChainedModifierLine(_ line: String?) -> Bool {
+        guard let line else { return false }
+        return line.range(
+            of: #"^\s*\."#,
+            options: .regularExpression
+        ) != nil
+    }
+
+    private func delimiterBalance(in line: String) -> (delta: Int, sawOpener: Bool) {
+        var delta = 0
+        var sawOpener = false
+        var isEscaped = false
+        var isInsideString = false
+        for character in line {
+            if isInsideString {
+                if isEscaped {
+                    isEscaped = false
+                } else if character == "\\" {
+                    isEscaped = true
+                } else if character == "\"" {
+                    isInsideString = false
+                }
+                continue
+            }
+
+            if character == "\"" {
+                isInsideString = true
+                continue
+            }
+
+            switch character {
+            case "(", "{", "[":
+                delta += 1
+                sawOpener = true
+            case ")", "}", "]":
+                delta -= 1
+            default:
+                continue
+            }
+        }
+        return (delta, sawOpener)
     }
 
     private func isButtonDeclaration(_ line: String) -> Bool {
@@ -449,6 +603,15 @@ private struct SwiftSourceInteractionTargetAudit {
         ) != nil
     }
 
+    private func isControlDeclaration(_ line: String) -> Bool {
+        isButtonDeclaration(line)
+            || isMenuDeclaration(line)
+            || isPickerDeclaration(line)
+            || isLinkDeclaration(line)
+            || isTextEntryDeclaration(line)
+            || isToggleDeclaration(line)
+    }
+
     private func isGestureClick(_ line: String) -> Bool {
         line.contains(".onTapGesture") || line.contains(".gesture(")
     }
@@ -461,10 +624,30 @@ private struct SwiftSourceInteractionTargetAudit {
     }
 
     private func isSystemMenuItemButton(lines: [String], index: Int) -> Bool {
-        let preceding = window(in: lines, from: max(0, index - 24), to: index)
-        let following = window(in: lines, from: index, to: min(lines.count, index + 16))
-        return preceding.contains("Menu {")
-            && !following.contains("} label:")
+        let lowerBound = max(0, index - 160)
+        var lineIndex = index
+        while lineIndex >= lowerBound {
+            if isMenuDeclaration(lines[lineIndex]) {
+                let range = controlRange(in: lines, startingAt: lineIndex)
+                guard range.contains(index) else {
+                    lineIndex -= 1
+                    continue
+                }
+                let scopeLines = Array(lines[range])
+                guard let labelOffset = scopeLines.firstIndex(where: { $0.contains("label:") }) else {
+                    return true
+                }
+                return index < range.lowerBound + labelOffset
+            }
+            if lineIndex < index, isControlDeclaration(lines[lineIndex]) {
+                let range = controlRange(in: lines, startingAt: lineIndex)
+                if range.contains(index) {
+                    return false
+                }
+            }
+            lineIndex -= 1
+        }
+        return false
     }
 
     private func window(in lines: [String], around index: Int, radius: Int) -> String {
@@ -476,5 +659,11 @@ private struct SwiftSourceInteractionTargetAudit {
     private func window(in lines: [String], from lowerBound: Int, to upperBound: Int) -> String {
         guard lowerBound < upperBound else { return "" }
         return lines[lowerBound..<upperBound].joined(separator: "\n")
+    }
+}
+
+private extension Array {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }

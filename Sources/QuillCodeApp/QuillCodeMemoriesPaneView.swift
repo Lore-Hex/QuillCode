@@ -81,6 +81,7 @@ struct QuillCodeMemoriesPaneView: View {
                                 Label("Edit", systemImage: "pencil")
                                     .labelStyle(.iconOnly)
                             }
+                            .buttonStyle(QuillCodePressableButtonStyle())
                             .quillCodeIconButtonTarget()
                             .help("Edit this memory")
                         }
@@ -91,11 +92,11 @@ struct QuillCodeMemoriesPaneView: View {
                                 Label("Forget", systemImage: "trash")
                                     .labelStyle(.iconOnly)
                             }
+                            .buttonStyle(QuillCodePressableButtonStyle())
                             .quillCodeIconButtonTarget()
                             .help("Forget this memory")
                         }
                     }
-                    .buttonStyle(QuillCodePressableButtonStyle())
                     .foregroundStyle(QuillCodePalette.muted)
                 }
             }

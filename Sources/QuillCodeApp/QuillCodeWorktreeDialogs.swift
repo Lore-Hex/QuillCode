@@ -35,6 +35,7 @@ struct QuillCodeWorktreeOpenView: View {
             HStack {
                 Spacer()
                 Button("Cancel", action: onCancel)
+                    .buttonStyle(.bordered)
                     .quillCodeTextButtonTarget()
                 Button("Open", action: onOpen)
                     .buttonStyle(.borderedProminent)
@@ -79,6 +80,7 @@ struct QuillCodeWorktreeCreateView: View {
             HStack {
                 Spacer()
                 Button("Cancel", action: onCancel)
+                    .buttonStyle(.bordered)
                     .quillCodeTextButtonTarget()
                 Button("Create", action: onCreate)
                     .buttonStyle(.borderedProminent)
@@ -127,6 +129,7 @@ struct QuillCodeWorktreeRemoveView: View {
             HStack {
                 Spacer()
                 Button("Cancel", action: onCancel)
+                    .buttonStyle(.bordered)
                     .quillCodeTextButtonTarget()
                 Button("Remove", action: onRemove)
                     .buttonStyle(.borderedProminent)
@@ -165,6 +168,7 @@ struct QuillCodeWorktreePruneView: View {
                     .lineLimit(2)
                 Spacer()
                 Button("Cancel", action: onCancel)
+                    .buttonStyle(.bordered)
                     .quillCodeTextButtonTarget()
                 Button("Prune", action: onPrune)
                     .buttonStyle(.borderedProminent)

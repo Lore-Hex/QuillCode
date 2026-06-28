@@ -116,6 +116,7 @@ struct QuillCodeSettingsView: View {
                 draft.replacementAPIKey = ""
                 draft.shouldClearAPIKey = true
             }
+            .buttonStyle(.bordered)
             .disabled(!settings.hasStoredAPIKey)
             .font(.caption)
             .quillCodeTextButtonTarget(minWidth: 104, alignment: .leading)
@@ -126,6 +127,7 @@ struct QuillCodeSettingsView: View {
         HStack {
             Spacer()
             Button("Cancel", action: onCancel)
+                .buttonStyle(.bordered)
                 .quillCodeTextButtonTarget()
             Button("Save", action: onSave)
                 .buttonStyle(.borderedProminent)
