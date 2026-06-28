@@ -8717,3 +8717,19 @@ Code quality changes:
 Remaining risk:
 
 - This proves the native target contract through SwiftUI semantics and the packaged executable smoke report. It still does not sample live `.app` Accessibility frames or perform OS-level edge clicks in a real window; that remains the final A+ native interaction layer.
+
+## 2026-06-28 Semantic Native Button Target Pass
+
+Overall grade after this slice: **A native semantic ownership, A source gate strictness, A- live frame sampling**.
+
+The previous native source gate still allowed `QuillCodeActionButtonStyle` to satisfy click-target ownership. That was too loose because a style describes visual treatment and press feedback, not whether the control is intended to be a form action, text button, icon target, capsule target, or full-row target.
+
+Code quality changes:
+
+- Removed `QuillCodeActionButtonStyle` from the native hit-target source gate's target marker list, so styled buttons now require an explicit semantic target helper.
+- Added the missing semantic helpers to settings, Computer Use setup, context banner actions, terminal stop, browser comment, and worktree dialog footer actions.
+- Added a regression test proving a styled button without a semantic target is rejected.
+
+Remaining risk:
+
+- This closes the style-vs-semantics gap at source level. The next native A+ layer is still real packaged-window Accessibility frame and edge-click sampling.

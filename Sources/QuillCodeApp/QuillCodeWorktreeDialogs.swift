@@ -36,8 +36,10 @@ struct QuillCodeWorktreeOpenView: View {
                 Spacer()
                 Button("Cancel", action: onCancel)
                     .buttonStyle(QuillCodeActionButtonStyle())
+                    .quillCodeFormActionTarget()
                 Button("Open", action: onOpen)
                     .buttonStyle(QuillCodeActionButtonStyle(.primary))
+                    .quillCodeFormActionTarget()
                     .disabled(!draft.canOpen)
             }
         }
@@ -79,8 +81,10 @@ struct QuillCodeWorktreeCreateView: View {
                 Spacer()
                 Button("Cancel", action: onCancel)
                     .buttonStyle(QuillCodeActionButtonStyle())
+                    .quillCodeFormActionTarget()
                 Button("Create", action: onCreate)
                     .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 82))
+                    .quillCodeFormActionTarget(minWidth: 82)
                     .disabled(!draft.canCreate)
             }
         }
@@ -126,8 +130,10 @@ struct QuillCodeWorktreeRemoveView: View {
                 Spacer()
                 Button("Cancel", action: onCancel)
                     .buttonStyle(QuillCodeActionButtonStyle())
+                    .quillCodeFormActionTarget()
                 Button("Remove", action: onRemove)
                     .buttonStyle(QuillCodeActionButtonStyle(.destructive, minWidth: 84))
+                    .quillCodeFormActionTarget(minWidth: 84)
                     .disabled(!draft.canRemove)
             }
         }
@@ -163,8 +169,10 @@ struct QuillCodeWorktreePruneView: View {
                 Spacer()
                 Button("Cancel", action: onCancel)
                     .buttonStyle(QuillCodeActionButtonStyle())
+                    .quillCodeFormActionTarget()
                 Button("Prune", action: onPrune)
                     .buttonStyle(QuillCodeActionButtonStyle(.destructive))
+                    .quillCodeFormActionTarget()
                     .disabled(!draft.canPrune)
             }
         }

@@ -136,6 +136,7 @@ private struct QuillCodePermissionRow: View {
                     onCommand(requirement.command)
                 }
                 .buttonStyle(QuillCodeActionButtonStyle())
+                .quillCodeFormActionTarget()
                 .disabled(!requirement.command.isEnabled)
             }
         }

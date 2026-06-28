@@ -484,6 +484,27 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(violations, [])
     }
 
+    func testNativeSourceAuditRejectsActionButtonStyleWithoutSemanticTarget() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct StyledButAmbiguousAction: View {
+            var body: some View {
+                Button("Save") {}
+                    .buttonStyle(QuillCodeActionButtonStyle(.primary))
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertTrue(
+            violations.contains { $0.contains("Button lacks shared hit target") },
+            "Action button styling should not satisfy semantic click-target ownership by itself."
+        )
+    }
+
     func testNativeHitTargetAuditIsPartOfDesktopSmokeContract() throws {
         let auditText = try Self.appSourceText(named: "QuillCodeNativeHitTargetAudit.swift")
         let smokeSupportText = try Self.desktopSourceText(named: "QuillCodeDesktopSmokeSupport.swift")
@@ -761,8 +782,7 @@ private struct SwiftSourceInteractionTargetAudit {
         "quillCodeFormActionTarget",
         "quillCodeTextEntryTarget",
         "quillCodeSegmentedControlTarget",
-        "quillCodeSwitchRowTarget",
-        "QuillCodeActionButtonStyle"
+        "quillCodeSwitchRowTarget"
     ]
 
     private let genericTargetMarkers = [
