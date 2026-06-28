@@ -327,6 +327,11 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
         data-testid="edge-blocked-target"
         style="position: fixed; left: 24px; top: 144px; z-index: 1000; width: 96px; height: 64px;"
       >Edge blocked</button>
+      <button
+        type="button"
+        data-testid="missing-affordance-target"
+        style="position: fixed; left: 24px; top: 220px; z-index: 1000; width: 96px; height: 48px; cursor: default;"
+      >Looks dead</button>
       <span
         aria-hidden="true"
         style="position: fixed; left: 24px; top: 144px; z-index: 1001; width: 28px; height: 28px; background: rgba(255, 93, 82, 0.85);"
@@ -340,7 +345,7 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
       <label
         for="tiny-checkbox"
         data-testid="tiny-checkbox-label"
-        style="position: fixed; left: 24px; top: 220px; z-index: 1000; width: 22px; height: 22px;"
+        style="position: fixed; left: 24px; top: 280px; z-index: 1000; width: 22px; height: 22px;"
       >Tiny</label>
       <input
         type="checkbox"
@@ -352,7 +357,7 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
       <label
         for="disabled-checkbox"
         data-testid="disabled-checkbox-label"
-        style="position: fixed; left: 24px; top: 252px; z-index: 1000; width: 22px; height: 22px;"
+        style="position: fixed; left: 24px; top: 312px; z-index: 1000; width: 22px; height: 22px;"
       >Disabled</label>
     `;
     document.body.appendChild(fixture);
@@ -363,6 +368,7 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
 
   expect(issueFor('bad-pointer-target')?.reason).toContain('pointer_events_none');
   expect(issueFor('edge-blocked-target')?.reason).toContain('interior_click_area_blocked');
+  expect(issueFor('missing-affordance-target')?.reason).toContain('missing_click_affordance');
   expect(issueFor('tiny-checkbox-label')?.reason).toContain('too_small');
   expect(issueFor('disabled-pointer-target')).toBeUndefined();
   expect(issueFor('disabled-checkbox-label')).toBeUndefined();
@@ -590,5 +596,45 @@ test('mock harness audits compact viewport click targets across primary states',
   await page.keyboard.press('Meta+F');
   await expect(page.getByTestId('find-bar')).toBeVisible();
   await expectInteractionTargetsClean(page, 'compact find bar');
+  await page.getByTestId('find-close').click();
+});
+
+test('mock harness audits narrow viewport click targets across squeezed states', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.goto(harnessURL());
+
+  await expectInteractionTargetsClean(page, 'narrow initial workspace');
+
+  await openTopBarOverflow(page);
+  await expect(page.getByTestId('top-bar-overflow-menu')).toHaveAttribute('open', '');
+  await expectInteractionTargetsClean(page, 'narrow top-bar overflow menu');
+  await page.getByTestId('top-bar-overflow-button').click();
+
+  await page.getByTestId('model-picker-button').click();
+  await expect(page.getByTestId('model-browser')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'narrow model picker');
+  await page.getByTestId('model-picker-button').click();
+
+  await openTopBarOverflow(page);
+  await page.getByTestId('top-bar-overflow-command-palette').click();
+  await expect(page.getByTestId('command-palette-panel')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'narrow command palette');
+  await clickCommandPaletteCommand(page, '>browser', 'toggle-browser');
+  await expect(page.getByTestId('browser-pane')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'narrow browser pane');
+
+  await openSettings(page);
+  await expect(page.getByTestId('settings-panel')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'narrow settings panel');
+  await page.getByTestId('settings-cancel').click();
+
+  await page.getByLabel('Message').fill('run whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
+  await expectInteractionTargetsClean(page, 'narrow transcript with tool card');
+
+  await page.keyboard.press('Meta+F');
+  await expect(page.getByTestId('find-bar')).toBeVisible();
+  await expectInteractionTargetsClean(page, 'narrow find bar');
   await page.getByTestId('find-close').click();
 });

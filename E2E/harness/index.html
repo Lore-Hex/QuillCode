@@ -104,6 +104,20 @@
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
     }
+    summary,
+    a.interactive-hit-target,
+    [role="button"],
+    [role="menuitem"],
+    [role="option"],
+    [role="switch"],
+    [role="tab"],
+    .hit-target-icon,
+    .hit-target-text,
+    .hit-target-row,
+    .hit-target-capsule,
+    .hit-target-form-action {
+      cursor: pointer;
+    }
     button:active:not(:disabled),
     summary:active,
     a.interactive-hit-target:active {
@@ -2876,6 +2890,20 @@
       .browser-nav-controls {
         grid-column: 1 / -1;
         grid-template-columns: repeat(3, var(--hit-target)) minmax(72px, 1fr);
+      }
+      .find-bar {
+        grid-template-columns: minmax(var(--hit-target), 1fr) repeat(3, var(--hit-target));
+      }
+      .find-bar > span {
+        display: none;
+      }
+      .find-bar input,
+      .find-status {
+        grid-column: 1 / -1;
+      }
+      .find-status {
+        min-width: 0;
+        text-align: left;
       }
       .message, .tool-card { max-width: 100%; width: 100%; }
     }
