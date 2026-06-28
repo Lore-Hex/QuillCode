@@ -71,6 +71,7 @@ enum QuillCodeDesktopSmokeRunner {
                 nativeHitTargets.validationIssues
                     + nativeHitTargets.missingDesignKinds.map { "missing design kind: \($0)" }
                     + nativeHitTargets.missingSurfaceFamilies.map { "missing surface family: \($0)" }
+                    + nativeHitTargets.missingRequiredFocusTargets.map { "missing focus target: \($0)" }
                     + nativeHitTargets.missingRequiredCommandIDs.map { "missing command: \($0)" }
             )
         }

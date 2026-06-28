@@ -100,6 +100,16 @@ required_families = {
 missing_families = sorted(required_families - contract_families)
 if missing_families:
     raise SystemExit(f"quill-code-desktop native smoke did not include native target surface families: {', '.join(missing_families)}")
+
+covered_focus_targets = set(native_targets.get("coveredFocusTargets", []))
+required_focus_targets = {
+    "browser.address", "browser.comment", "command-palette.search", "composer.message",
+    "model-picker.search", "review.body", "review.thread-reply", "search.chats",
+    "settings.trustedrouter-base-url", "terminal.command"
+}
+missing_focus_targets = sorted(required_focus_targets - covered_focus_targets)
+if missing_focus_targets:
+    raise SystemExit(f"quill-code-desktop native smoke did not include native focus targets: {', '.join(missing_focus_targets)}")
 PY
 for command_id in command-palette keyboard-shortcuts settings toggle-terminal toggle-browser; do
   if ! grep -q "$command_id" "$REPORT_PATH"; then
