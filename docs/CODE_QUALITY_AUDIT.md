@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-27 Critical Click-Target Registry Pass
+
+Overall grade after this slice: **A rendered click-target coverage, A registry maintainability, A- native pixel measurement**.
+
+The click-target system already enforced shared 44 px/pt primitives, but high-risk controls were still scattered through individual assertions. This pass makes the user-facing target checklist explicit so primary chrome, model choice, command palette, settings, secondary panes, composer, and transcript tool cards all have named, measured targets.
+
+| Before | After |
+| --- | --- |
+| Critical target checks were spread across state-specific tests, making it easy to miss a small row action or input when chrome changed. | Added `CriticalTargetProbe` and `expectCriticalTargetRegistry` so high-risk surfaces declare their important controls in one readable registry. |
+| Model picker coverage focused on panel visibility and broad audits. | The registry now measures model option rows, details buttons, and favorite buttons, which are exactly the compact row actions most likely to regress. |
+| Settings/browser/transcript coverage depended on broad visible-target sweeps. | The registry now explicitly probes auth/sign-in controls, browser address/comment inputs, and tool-card disclosures. |
+
+Residual risk:
+
+- Native SwiftUI rendered hit regions are still source-gated rather than sampled from a packaged macOS/Linux window. The next upgrade should add platform UI automation that measures real native windows with the same named-target registry.
+
 ## 2026-06-27 Scoped Native Click-Target Audit Pass
 
 Overall grade after this slice: **A scoped native source gates, A call-site target ownership, A- native pixel measurement**.
