@@ -29,7 +29,13 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     }
 
     var additionalToolDefinitions: [ToolDefinition] {
-        [ToolDefinition.planUpdate, ToolDefinition.handoffUpdate, ToolDefinition.browserInspect, ToolDefinition.browserOpen]
+        [
+            ToolDefinition.planUpdate,
+            ToolDefinition.handoffUpdate,
+            ToolDefinition.subagentsUpdate,
+            ToolDefinition.browserInspect,
+            ToolDefinition.browserOpen
+        ]
             + computerUseToolDefinitions
             + memoryToolDefinitions
             + mcpToolDefinitions
@@ -61,6 +67,8 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
                 return PlanUpdateToolExecutor.execute(call)
             case ToolDefinition.handoffUpdate.name:
                 return HandoffUpdateToolExecutor.execute(call)
+            case ToolDefinition.subagentsUpdate.name:
+                return SubagentProgressToolExecutor.execute(call)
             default:
                 return nil
             }

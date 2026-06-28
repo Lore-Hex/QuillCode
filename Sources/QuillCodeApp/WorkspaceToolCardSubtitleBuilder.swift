@@ -49,6 +49,8 @@ enum WorkspaceToolCardSubtitleBuilder {
             return "plan"
         case "host.handoff.update":
             return "handoff"
+        case "host.subagents.update":
+            return "subagents"
         case "host.browser.inspect":
             return sanitized(arguments.string("url"))
         case "host.memory.remember":

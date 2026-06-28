@@ -79,9 +79,10 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
         XCTAssertTrue(activity.handoffSummary?.contains("Tools: 1 tool (\(ToolDefinition.shellRun.name))") == true)
         XCTAssertTrue(activity.handoffSummary?.contains("Artifacts: 1 artifact (quillcode-activity.png)") == true)
         XCTAssertTrue(activity.recentSteps.contains { $0.title == "Tool completed" && $0.statusLabel == "Done" })
-        XCTAssertEqual(activity.sections.map(\.kind), [.plan, .recent, .handoff, .tools, .sources, .artifacts, .latestAnswer])
+        XCTAssertEqual(activity.sections.map(\.kind), [.plan, .recent, .subagents, .handoff, .tools, .sources, .artifacts, .latestAnswer])
         XCTAssertEqual(activity.sections.first { $0.kind == .plan }?.items.map(\.title), activity.planItems.map(\.title))
         XCTAssertEqual(activity.sections.first { $0.kind == .plan }?.countLabel, "5 items")
+        XCTAssertEqual(activity.sections.first { $0.kind == .subagents }?.countLabel, "0 items")
         XCTAssertEqual(activity.sections.first { $0.kind == .handoff }?.bodyText, activity.handoffSummary)
         XCTAssertEqual(activity.sections.first { $0.kind == .handoff }?.countLabel, "1 summary")
         XCTAssertEqual(activity.sections.first { $0.kind == .tools }?.items.map(\.title), [ToolDefinition.shellRun.name])
@@ -334,6 +335,62 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
 
         XCTAssertFalse(result.ok)
         XCTAssertEqual(result.error, "Handoff update requires a non-empty summary.")
+        XCTAssertEqual(model.root.topBar.agentStatus, "Failed")
+    }
+
+    func testSubagentProgressToolRecordsVisibleActivityItems() throws {
+        let model = QuillCodeWorkspaceModel(activity: ActivityState(isVisible: true))
+        _ = model.newChat()
+        let update = SubagentProgressUpdate(
+            objective: "  Split the validation pass across specialists.  ",
+            subagents: [
+                SubagentProgressItem(
+                    name: "  Explorer  ",
+                    role: "  Map the affected files.  ",
+                    status: .completed,
+                    summary: "  Activity and tool routing found.  "
+                ),
+                SubagentProgressItem(
+                    name: "Verifier",
+                    role: "Run focused checks.",
+                    status: .running,
+                    summary: "Waiting on Swift tests."
+                )
+            ]
+        )
+        let call = ToolCall(
+            name: ToolDefinition.subagentsUpdate.name,
+            argumentsJSON: try JSONHelpers.encodePretty(update)
+        )
+
+        let result = model.runToolCall(call, workspaceRoot: try makeTempDirectory())
+        let decoded = try JSONHelpers.decode(SubagentProgressUpdate.self, from: result.stdout)
+        let subagentSection = try XCTUnwrap(model.surface().activity.sections.first { $0.kind == .subagents })
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(decoded.objective, "Split the validation pass across specialists.")
+        XCTAssertEqual(decoded.subagents.map(\.name), ["Explorer", "Verifier"])
+        XCTAssertEqual(model.selectedThread?.events.last?.summary, "\(ToolDefinition.subagentsUpdate.name) completed")
+        XCTAssertEqual(model.surface().activity.subagents.map(\.title), ["Explorer", "Verifier"])
+        XCTAssertEqual(model.surface().activity.subagents.map(\.statusLabel), ["Done", "Running"])
+        XCTAssertEqual(model.surface().activity.subagents.map(\.kind), ["subagent", "subagent"])
+        XCTAssertTrue(model.surface().activity.subagents[0].detail.contains("Goal: Split the validation pass"))
+        XCTAssertEqual(subagentSection.countLabel, "2 items")
+        XCTAssertEqual(subagentSection.itemTestID, "activity-subagent")
+    }
+
+    func testSubagentProgressToolRejectsEmptySubagents() throws {
+        let model = QuillCodeWorkspaceModel()
+        _ = model.newChat()
+        let call = ToolCall(
+            name: ToolDefinition.subagentsUpdate.name,
+            argumentsJSON: try JSONHelpers.encodePretty(SubagentProgressUpdate(subagents: []))
+        )
+
+        let result = model.runToolCall(call, workspaceRoot: try makeTempDirectory())
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(result.error, "Subagent progress requires at least one subagent with a name and role.")
         XCTAssertEqual(model.root.topBar.agentStatus, "Failed")
     }
 }

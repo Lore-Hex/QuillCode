@@ -76,6 +76,53 @@ public struct AgentHandoffUpdate: Codable, Sendable, Hashable {
     }
 }
 
+public enum SubagentStatus: String, Codable, Sendable, Hashable, CaseIterable {
+    case queued
+    case running
+    case blocked
+    case completed
+    case failed
+
+    public var label: String {
+        switch self {
+        case .queued:
+            return "Queued"
+        case .running:
+            return "Running"
+        case .blocked:
+            return "Blocked"
+        case .completed:
+            return "Done"
+        case .failed:
+            return "Failed"
+        }
+    }
+}
+
+public struct SubagentProgressItem: Codable, Sendable, Hashable {
+    public var name: String
+    public var role: String
+    public var status: SubagentStatus
+    public var summary: String?
+
+    public init(name: String, role: String, status: SubagentStatus, summary: String? = nil) {
+        self.name = name
+        self.role = role
+        self.status = status
+        self.summary = summary
+    }
+}
+
+public struct SubagentProgressUpdate: Codable, Sendable, Hashable {
+    public var objective: String?
+    public var subagents: [SubagentProgressItem]
+
+    public init(objective: String? = nil, subagents: [SubagentProgressItem]) {
+        self.objective = objective
+        self.subagents = subagents
+    }
+}
+
 public enum ApprovalVerdict: String, Codable, Sendable {
     case approve
     case deny

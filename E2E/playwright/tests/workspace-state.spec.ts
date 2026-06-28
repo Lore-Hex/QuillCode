@@ -81,6 +81,25 @@ test('mock harness shows model-authored handoff summary in Activity', async ({ p
   await expect(page.getByTestId('activity-handoff-section')).toContainText('1 summary');
 });
 
+test('mock harness shows model-authored subagent progress in Activity', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('show subagent progress for parallel validation');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.subagents.update');
+  await expect(page.getByText('Updated subagent progress.')).toBeVisible();
+
+  await clickSidebarTool(page, 'activity-button');
+  await expect(page.getByTestId('activity-pane')).toBeVisible();
+  await expect(page.getByTestId('activity-subagent')).toHaveCount(2);
+  await expect(page.getByTestId('activity-subagent').nth(0)).toContainText('Explorer');
+  await expect(page.getByTestId('activity-subagent').nth(0)).toContainText('Done');
+  await expect(page.getByTestId('activity-subagent').nth(1)).toContainText('Verifier');
+  await expect(page.getByTestId('activity-subagent').nth(1)).toContainText('Running');
+  await expect(page.getByTestId('activity-subagent-section')).toContainText('2 items');
+});
+
 test('mock harness shows context pressure banner and compacts or forks from latest turn', async ({ page }) => {
   test.setTimeout(60000);
   await page.goto(harnessURL());

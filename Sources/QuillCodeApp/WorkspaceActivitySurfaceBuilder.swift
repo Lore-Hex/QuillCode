@@ -52,6 +52,7 @@ enum WorkspaceActivitySurfaceBuilder {
     static func sections(
         planItems: [ActivityItemSurface],
         recentSteps: [ActivityItemSurface],
+        subagents: [ActivityItemSurface],
         tools: [ActivityItemSurface],
         sources: [ActivityItemSurface],
         artifacts: [ToolArtifactState],
@@ -69,6 +70,11 @@ enum WorkspaceActivitySurfaceBuilder {
                 kind: .recent,
                 items: recentSteps,
                 isCollapsed: collapsedSectionIDs.contains(.recent)
+            ),
+            ActivitySectionSurface(
+                kind: .subagents,
+                items: subagents,
+                isCollapsed: collapsedSectionIDs.contains(.subagents)
             ),
             ActivitySectionSurface(
                 kind: .handoff,
@@ -118,6 +124,10 @@ enum WorkspaceActivitySurfaceBuilder {
 
     static func authoredPlanItems(for thread: ChatThread) -> [ActivityItemSurface]? {
         WorkspaceActivityPlanSurfaceBuilder.authoredItems(for: thread)
+    }
+
+    static func subagentItems(for thread: ChatThread) -> [ActivityItemSurface] {
+        SubagentProgressToolExecutor.activityItems(for: thread)
     }
 
     static func handoffSummary(

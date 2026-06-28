@@ -61,6 +61,31 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
+        if Self.isSubagentProgressRequest(lower),
+           tools.contains(where: { $0.name == ToolDefinition.subagentsUpdate.name }) {
+            let update = SubagentProgressUpdate(
+                objective: "Coordinate parallel review of the current task.",
+                subagents: [
+                    SubagentProgressItem(
+                        name: "Explorer",
+                        role: "Map the code and identify relevant files.",
+                        status: .completed,
+                        summary: "Found the Activity surface and tool routing seams."
+                    ),
+                    SubagentProgressItem(
+                        name: "Verifier",
+                        role: "Run focused validation and report failures.",
+                        status: .running,
+                        summary: "Preparing smoke coverage."
+                    )
+                ]
+            )
+            return .tool(.init(
+                name: ToolDefinition.subagentsUpdate.name,
+                argumentsJSON: try JSONHelpers.encodePretty(update)
+            ))
+        }
+
         if lower.contains("whoami") {
             return .tool(.init(
                 name: ToolDefinition.shellRun.name,
@@ -163,6 +188,11 @@ public struct MockLLMClient: LLMClient {
         }
 
         return .say("I can inspect and edit this project, run shell commands, review git diffs, and use Computer Use as the platform backends come online.")
+    }
+
+    private static func isSubagentProgressRequest(_ lowercasedRequest: String) -> Bool {
+        (lowercasedRequest.contains("subagent") || lowercasedRequest.contains("parallel agent"))
+            && (lowercasedRequest.contains("progress") || lowercasedRequest.contains("spawn") || lowercasedRequest.contains("run"))
     }
 
     static func extractExplicitRunCommand(from request: String) -> String? {

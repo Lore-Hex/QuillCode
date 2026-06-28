@@ -34,6 +34,7 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         XCTAssertEqual(session.runner.additionalToolDefinitions.map(\.name), [
             ToolDefinition.planUpdate.name,
             ToolDefinition.handoffUpdate.name,
+            ToolDefinition.subagentsUpdate.name,
             ToolDefinition.browserInspect.name,
             ToolDefinition.browserOpen.name,
             ToolDefinition.memoryRemember.name,

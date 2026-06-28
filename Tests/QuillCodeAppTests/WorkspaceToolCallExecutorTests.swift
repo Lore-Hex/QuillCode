@@ -110,6 +110,30 @@ final class WorkspaceToolCallExecutorTests: XCTestCase {
         XCTAssertTrue(execution.followUps.isEmpty)
     }
 
+    func testSubagentProgressRoutesBeforeLocalRouter() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let update = SubagentProgressUpdate(subagents: [
+            SubagentProgressItem(name: "Verifier", role: "Run focused checks.", status: .running)
+        ])
+        let executor = WorkspaceToolCallExecutor(
+            selectedProject: nil,
+            browser: BrowserState(),
+            router: ToolRouter(workspaceRoot: root),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        )
+
+        let execution = executor.execute(ToolCall(
+            name: ToolDefinition.subagentsUpdate.name,
+            argumentsJSON: try JSONHelpers.encodePretty(update)
+        ))
+        let decoded = try JSONHelpers.decode(SubagentProgressUpdate.self, from: execution.primary.result.stdout)
+
+        XCTAssertTrue(execution.ok, execution.primary.result.error ?? "")
+        XCTAssertEqual(decoded.subagents.map(\.name), ["Verifier"])
+        XCTAssertEqual(decoded.subagents.map(\.status), [.running])
+        XCTAssertTrue(execution.followUps.isEmpty)
+    }
+
     func testApplyPatchReturnsReviewDiffFollowUp() throws {
         let root = try temporaryGitRepository()
         let executor = WorkspaceToolCallExecutor(

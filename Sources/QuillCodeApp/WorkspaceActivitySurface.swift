@@ -10,6 +10,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
     public var taskSubtitle: String
     public var planItems: [ActivityItemSurface]
     public var recentSteps: [ActivityItemSurface]
+    public var subagents: [ActivityItemSurface]
     public var tools: [ActivityItemSurface]
     public var sources: [ActivityItemSurface]
     public var artifacts: [ToolArtifactState]
@@ -26,6 +27,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         taskSubtitle: String = "Start a chat to see task progress, tools, sources, and artifacts.",
         planItems: [ActivityItemSurface] = [],
         recentSteps: [ActivityItemSurface] = [],
+        subagents: [ActivityItemSurface] = [],
         tools: [ActivityItemSurface] = [],
         sources: [ActivityItemSurface] = [],
         artifacts: [ToolArtifactState] = [],
@@ -41,6 +43,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         self.taskSubtitle = taskSubtitle
         self.planItems = planItems
         self.recentSteps = recentSteps
+        self.subagents = subagents
         self.tools = tools
         self.sources = sources
         self.artifacts = artifacts
@@ -49,6 +52,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         self.sections = WorkspaceActivitySurfaceBuilder.sections(
             planItems: planItems,
             recentSteps: recentSteps,
+            subagents: subagents,
             tools: tools,
             sources: sources,
             artifacts: artifacts,
@@ -101,6 +105,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
             taskSubtitle: "\(thread.messages.count) message\(thread.messages.count == 1 ? "" : "s") - \(thread.events.count) event\(thread.events.count == 1 ? "" : "s")",
             planItems: planItems,
             recentSteps: WorkspaceActivitySurfaceBuilder.recentSteps(for: thread),
+            subagents: WorkspaceActivitySurfaceBuilder.subagentItems(for: thread),
             tools: WorkspaceActivitySurfaceBuilder.toolItems(from: toolCards),
             sources: sources,
             artifacts: artifacts,
@@ -126,6 +131,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
         case taskSubtitle
         case planItems
         case recentSteps
+        case subagents
         case tools
         case sources
         case artifacts
@@ -145,6 +151,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
             ?? "Start a chat to see task progress, tools, sources, and artifacts."
         self.planItems = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .planItems) ?? []
         self.recentSteps = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .recentSteps) ?? []
+        self.subagents = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .subagents) ?? []
         self.tools = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .tools) ?? []
         self.sources = try container.decodeIfPresent([ActivityItemSurface].self, forKey: .sources) ?? []
         self.artifacts = try container.decodeIfPresent([ToolArtifactState].self, forKey: .artifacts) ?? []
@@ -154,6 +161,7 @@ public struct WorkspaceActivitySurface: Codable, Sendable, Hashable {
             ?? WorkspaceActivitySurfaceBuilder.sections(
                 planItems: planItems,
                 recentSteps: recentSteps,
+                subagents: subagents,
                 tools: tools,
                 sources: sources,
                 artifacts: artifacts,

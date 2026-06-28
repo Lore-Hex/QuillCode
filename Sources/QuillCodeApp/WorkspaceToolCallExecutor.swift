@@ -68,6 +68,9 @@ struct WorkspaceToolCallExecutor: Sendable {
         if call.name == ToolDefinition.handoffUpdate.name {
             return HandoffUpdateToolExecutor.execute(call)
         }
+        if call.name == ToolDefinition.subagentsUpdate.name {
+            return SubagentProgressToolExecutor.execute(call)
+        }
         if let project = selectedProject, project.isRemote {
             return WorkspaceRemoteProjectToolExecutor.execute(
                 call,
