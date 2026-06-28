@@ -8509,4 +8509,22 @@ Code quality changes:
 
 Remaining risk:
 
-- Inline-note reordering remains the next review-session parity gap. The harness still duplicates some Swift summary display logic, so generated fixture parity would be a useful future cleanup.
+- Inline-note reordering was the next review-session parity gap after this pass. The harness still duplicates some Swift summary display logic, so generated fixture parity would be a useful future cleanup.
+
+## 2026-06-28 Pull Request Review Inline Note Reordering Pass
+
+Overall grade after this slice: **A draft mutation boundary, A dispatch-order coverage, A- full review-session parity**.
+
+The pending inline-note queue could edit, skip, and summarize notes, but the note order was still fixed to diff traversal order. Codex-style review sessions need users to control the final comment order before publishing a PR review.
+
+Code quality changes:
+
+- Added `moveInlineComment(id:offset:)` to `WorkspacePullRequestReviewDraftSurface` so reordering is a clamped draft mutation rather than view-local state.
+- Rendered explicit up/down icon controls in the SwiftUI draft row with boundary disabled states, help text, and accessibility labels while preserving existing 44 pt target helpers.
+- Mirrored reorder controls in static HTML and the Playwright harness, syncing current form values before rerendering so moving a row cannot drop edited note text.
+- Kept `selectedInlineComments` as the single dispatch boundary, so reordered selected notes naturally flow through `WorkspacePullRequestReviewDraftToolCallPlanner` and final `host.git.pr.review_comment` call order.
+- Added Swift and Playwright coverage for draft reordering, boundary clamping, rendered controls, and final planner order.
+
+Remaining risk:
+
+- The PR review queue now covers include, skip, edit, reorder, readiness summary, and dispatch ordering. Remaining review-pane work should focus on richer native diff affordances and shared Swift/HTML fixture generation rather than more draft state.

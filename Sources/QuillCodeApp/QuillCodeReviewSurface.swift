@@ -190,6 +190,16 @@ public struct WorkspacePullRequestReviewDraftSurface: Codable, Sendable, Hashabl
         }
     }
 
+    public mutating func moveInlineComment(id: UUID, offset: Int) {
+        guard offset != 0, let sourceIndex = inlineComments.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+        let destinationIndex = max(0, min(inlineComments.count - 1, sourceIndex + offset))
+        guard destinationIndex != sourceIndex else { return }
+        let comment = inlineComments.remove(at: sourceIndex)
+        inlineComments.insert(comment, at: destinationIndex)
+    }
+
     public init(
         action: WorkspacePullRequestReviewActionKind = .approve,
         selector: String = "",

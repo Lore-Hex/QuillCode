@@ -209,6 +209,41 @@ final class WorkspaceReviewActionToolCallPlannerTests: XCTestCase {
         XCTAssertEqual(try inlineArguments.requiredString("body"), "Post this edited note.")
     }
 
+    func testPullRequestReviewDraftRunPlanFollowsInlineCommentOrder() throws {
+        var draft = WorkspacePullRequestReviewDraftSurface(
+            inlineComments: [
+                WorkspacePullRequestReviewDraftCommentSurface(
+                    path: "Sources/First.swift",
+                    line: 10,
+                    body: "First."
+                ),
+                WorkspacePullRequestReviewDraftCommentSurface(
+                    path: "Sources/Skipped.swift",
+                    line: 20,
+                    body: "Skipped.",
+                    isIncluded: false
+                ),
+                WorkspacePullRequestReviewDraftCommentSurface(
+                    path: "Sources/Third.swift",
+                    line: 30,
+                    body: "Third."
+                )
+            ]
+        )
+        let thirdID = draft.inlineComments[2].id
+        draft.moveInlineComment(id: thirdID, offset: -2)
+
+        let plan = try XCTUnwrap(WorkspacePullRequestReviewDraftToolCallPlanner.runPlan(for: draft))
+        let firstInlineArguments = try ToolArguments(try XCTUnwrap(plan.inlineCommentCalls.first).argumentsJSON)
+        let secondInlineArguments = try ToolArguments(try XCTUnwrap(plan.inlineCommentCalls.last).argumentsJSON)
+
+        XCTAssertEqual(plan.inlineCommentCalls.count, 2)
+        XCTAssertEqual(try firstInlineArguments.requiredString("path"), "Sources/Third.swift")
+        XCTAssertEqual(try firstInlineArguments.requiredString("body"), "Third.")
+        XCTAssertEqual(try secondInlineArguments.requiredString("path"), "Sources/First.swift")
+        XCTAssertEqual(try secondInlineArguments.requiredString("body"), "First.")
+    }
+
     func testPullRequestReviewDraftRunPlanRejectsEmptySelectedInlineComments() {
         let draft = WorkspacePullRequestReviewDraftSurface(
             inlineComments: [

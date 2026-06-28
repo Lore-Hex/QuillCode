@@ -74,15 +74,21 @@ enum WorkspaceHTMLReviewRenderer {
     ) -> String {
         guard draft.inlineCommentCount > 0 else { return "" }
         let checked = draft.includeInlineComments ? #" checked="checked""# : ""
-        let comments = draft.inlineComments.map { comment in
+        let comments = draft.inlineComments.enumerated().map { index, comment in
             let commentChecked = comment.isIncluded ? #" checked="checked""# : ""
             let disabled = draft.includeInlineComments ? "" : " disabled"
+            let moveUpDisabled = !draft.includeInlineComments || index == 0
+            let moveDownDisabled = !draft.includeInlineComments || index >= draft.inlineComments.count - 1
             return """
             <li data-testid="pr-review-draft-inline-comment">
               <label>
                 <input class="\(WorkspaceHTMLPrimitives.iconHitTargetClass)" type="checkbox" data-testid="pr-review-draft-inline-comment-toggle" aria-label="Include inline note at \(escape(comment.locationLabel))" data-comment-id="\(escape(comment.id.uuidString))"\(commentChecked)\(disabled)>
                 <span>\(comment.isIncluded ? "Included" : "Skipped")</span>
               </label>
+              <span class="pr-review-inline-comment-order">
+                <button type="button" class="review-action-button \(WorkspaceHTMLPrimitives.iconHitTargetClass)" data-testid="pr-review-draft-inline-comment-move-up" aria-label="Move inline note at \(escape(comment.locationLabel)) up" data-comment-id="\(escape(comment.id.uuidString))"\(moveUpDisabled ? " disabled" : "")>^</button>
+                <button type="button" class="review-action-button \(WorkspaceHTMLPrimitives.iconHitTargetClass)" data-testid="pr-review-draft-inline-comment-move-down" aria-label="Move inline note at \(escape(comment.locationLabel)) down" data-comment-id="\(escape(comment.id.uuidString))"\(moveDownDisabled ? " disabled" : "")>v</button>
+              </span>
               <code>\(escape(comment.locationLabel))</code>
               <textarea class="\(WorkspaceHTMLPrimitives.textEntryHitTargetClass)" data-testid="pr-review-draft-inline-comment-body" aria-label="Inline note text at \(escape(comment.locationLabel))" data-comment-id="\(escape(comment.id.uuidString))">\(escape(comment.body))</textarea>
               \(draft.includeInlineComments && comment.isIncluded && comment.normalizedBody.isEmpty ? #"<small data-testid="pr-review-draft-inline-comment-warning">Add note text or skip this note.</small>"# : "")
