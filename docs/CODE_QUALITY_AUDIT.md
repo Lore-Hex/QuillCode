@@ -8300,3 +8300,22 @@ Code quality changes:
 Remaining risk:
 
 - Summarized forks still use deterministic local summaries. Exact provider token accounting and model-authored summaries remain separate parity work.
+
+## 2026-06-28 Command Click Routing Audit Pass
+
+Overall grade after this slice: **A- rendered click action routing, A regression coverage, B+ native click automation**.
+
+Large hit targets are not enough if the target routes to no command. The rendered harness already measured size, clipping, overlap, accessible names, and interior ownership, but it could still render a visible `data-command-id` that the mock command router ignored. That leaves a button looking correct while doing nothing when clicked.
+
+Code quality changes:
+
+- Added an explicit harness command routing registry for static command IDs and dynamic prefixes used by slash insertions, automations, memories, MCP, browser tabs, sidebar filters, activity sections, local env actions, and extension commands.
+- Added `commandRoutingAuditReport()` and exported it as `window.__quillCodeCommandRoutingAudit`, reporting both unroutable command catalog entries and visible enabled command targets.
+- Made `runCommand` reject unknown command IDs and record `lastUnroutableCommandID` instead of silently re-rendering.
+- Integrated command-routing checks into the broad Playwright interaction audit so every opened popover, panel, dialog, secondary pane, transcript state, and compact viewport state also proves visible command targets are routable.
+- Added a dead-command regression fixture that injects an otherwise visible 44 px button with `data-command-id="definitely-not-routable"` and verifies the audit reports it.
+- Added a Swift parity gate so future harness changes keep the routing audit hook, the unknown-command rejection, and the Playwright regression wired together.
+
+Remaining risk:
+
+- This proves the rendered harness command contract and catches silent no-ops in HTML parity states. Native SwiftUI/AppKit packaged-window click automation is still the next deeper layer for proving every actual macOS button invokes the expected controller action.

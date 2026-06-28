@@ -8269,7 +8269,149 @@
       }
     }
 
+    const harnessStaticCommandIDs = new Set([
+      'add-project',
+      'add-ssh-project',
+      'automation-create-thread-follow-up',
+      'automation-create-thread-follow-up-every:daily',
+      'automation-create-thread-follow-up-tomorrow',
+      'automation-create-workspace-schedule',
+      'automation-create-workspace-schedule-every:daily',
+      'automation-create-workspace-schedule-tomorrow',
+      'browser-back',
+      'browser-forward',
+      'browser-reload',
+      'browser-tab-new',
+      'command-palette',
+      'compact-context',
+      'computer-use-open-accessibility',
+      'computer-use-open-screen-recording',
+      'computer-use-refresh',
+      'computer-use-setup',
+      'disconnect-all',
+      'find-in-chat',
+      'fork-from-last',
+      'fork-full-context',
+      'fork-with-summary',
+      'git-diff',
+      'git-pr-checks',
+      'git-pr-create',
+      'git-pr-diff',
+      'git-pr-view',
+      'git-status',
+      'git-worktree-create',
+      'git-worktree-list',
+      'git-worktree-open',
+      'git-worktree-prune',
+      'git-worktree-remove',
+      'keyboard-shortcuts',
+      'memory-add',
+      'new-chat',
+      'open-browser-session',
+      'project-new-chat',
+      'project-refresh-context',
+      'project-remove',
+      'project-rename',
+      'retry-last-turn',
+      'search',
+      'settings',
+      'stop-all',
+      'terminal-clear',
+      'thread-archive',
+      'thread-bulk-archive',
+      'thread-bulk-delete',
+      'thread-bulk-pin',
+      'thread-bulk-unarchive',
+      'thread-bulk-unpin',
+      'thread-delete',
+      'thread-duplicate',
+      'thread-rename',
+      'thread-selection-clear',
+      'thread-selection-select-all',
+      'thread-selection-start',
+      'thread-unarchive',
+      'toggle-activity',
+      'toggle-automations',
+      'toggle-browser',
+      'toggle-extensions',
+      'toggle-memories',
+      'toggle-terminal'
+    ]);
+
+    const harnessRoutableCommandPrefixes = [
+      'activity-toggle-section:',
+      'automation-create-thread-follow-up-after:',
+      'automation-create-workspace-schedule-after:',
+      'automation-delete:',
+      'automation-pause:',
+      'automation-resume:',
+      'automation-run:',
+      'browser-tab-close:',
+      'browser-tab-select:',
+      'extension-install:',
+      'extension-update:',
+      'local-env:',
+      'mcp-prompt:',
+      'mcp-resource:',
+      'mcp-start:',
+      'mcp-stop:',
+      'memory-delete:',
+      'memory-edit:',
+      'sidebar-filter:',
+      'thread-selection-toggle:'
+    ];
+
+    function canRouteHarnessCommand(commandID) {
+      if (!commandID) return false;
+      const id = String(commandID).trim();
+      if (!id) return false;
+      if (harnessStaticCommandIDs.has(id)) return true;
+      if (id.startsWith(slashCommandPalettePrefix)) {
+        return slashCommandPaletteCommands().some(command => command.id === id);
+      }
+      return harnessRoutableCommandPrefixes.some(prefix => id.startsWith(prefix));
+    }
+
+    function isVisibleCommandTarget(element) {
+      if (!(element instanceof HTMLElement)) return false;
+      if (element.matches(':disabled,[aria-disabled="true"]')) return false;
+      const style = getComputedStyle(element);
+      return style.display !== 'none'
+        && style.visibility !== 'hidden'
+        && Number(style.opacity || '1') > 0
+        && element.getClientRects().length > 0;
+    }
+
+    function commandRoutingAuditReport() {
+      updateDynamicCommands();
+      const unroutableCommands = state.commands
+        .filter(command => !canRouteHarnessCommand(command.id))
+        .map(command => ({
+          commandID: command.id,
+          title: command.title,
+          enabled: Boolean(command.isEnabled)
+        }));
+      const unroutableTargets = Array
+        .from(document.querySelectorAll('[data-command-id]'))
+        .filter(isVisibleCommandTarget)
+        .map(element => ({
+          commandID: element.getAttribute('data-command-id') || '',
+          testid: element.getAttribute('data-testid') || '',
+          text: (element.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 80)
+        }))
+        .filter(target => !canRouteHarnessCommand(target.commandID));
+      return {
+        unroutableCommands,
+        unroutableTargets
+      };
+    }
+
     function runCommand(commandID) {
+      if (!canRouteHarnessCommand(commandID)) {
+        state.lastUnroutableCommandID = commandID || '';
+        console.warn('QuillCode harness received unroutable command', commandID);
+        return;
+      }
       if (commandID === 'command-palette') {
         openCommandPalette();
         return;
@@ -10908,6 +11050,7 @@
       runCommand(command.id);
     });
 
+    window.__quillCodeCommandRoutingAudit = commandRoutingAuditReport;
     window.__quillCodeTestCreateMonitorAutomation = createMonitorAutomation;
 
     render();
