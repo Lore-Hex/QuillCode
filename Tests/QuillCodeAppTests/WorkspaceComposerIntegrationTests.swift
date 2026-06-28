@@ -357,6 +357,33 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         XCTAssertFalse(secondThread.events.contains { $0.kind == .notice && $0.summary == "Stopped by user" })
     }
 
+    func testCancellingSubagentSlashCommandPublishesCancelledProgressWithoutFinalSummary() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel()
+        model.subagentScheduler = WorkspaceSubagentScheduler { _ in
+            try await Task.sleep(nanoseconds: 2_000_000_000)
+            return "unexpected completion"
+        }
+
+        model.setDraft("/subagents audit release | Worker: run slow check")
+        let task = Task {
+            await model.submitComposer(workspaceRoot: root)
+        }
+
+        try await waitUntil(timeoutSeconds: 1) {
+            model.root.topBar.agentStatus == TopBarAgentStatusLabel.running
+        }
+        task.cancel()
+        await task.value
+
+        XCTAssertFalse(model.composer.isSending)
+        XCTAssertEqual(model.root.topBar.agentStatus, TopBarAgentStatusLabel.stopped)
+        let thread = try XCTUnwrap(model.selectedThread)
+        XCTAssertEqual(thread.messages.map(\.role), [.user])
+        let update = try XCTUnwrap(SubagentProgressToolExecutor.latestUpdate(in: thread))
+        XCTAssertEqual(update.subagents.map(\.status), [.cancelled])
+    }
+
     func testCompletedComposerRunDoesNotStealSelectionAfterUserSwitchesThreads() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel(

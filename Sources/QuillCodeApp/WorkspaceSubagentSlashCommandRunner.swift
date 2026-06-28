@@ -16,8 +16,12 @@ extension QuillCodeWorkspaceModel {
         threadPersistence.saveIfPossible(selectedThread)
 
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.running)
-        let result = await WorkspaceSubagentScheduler().run(request: request) { [weak self] update in
+        let result = await subagentScheduler.run(request: request) { [weak self] update in
             await self?.recordSubagentProgress(update)
+        }
+        guard !Task.isCancelled else {
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.stopped)
+            return
         }
 
         mutateSelectedThread { thread in

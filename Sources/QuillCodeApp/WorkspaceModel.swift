@@ -29,6 +29,7 @@ public final class QuillCodeWorkspaceModel {
     let sshRemoteShellExecutor: SSHRemoteShellExecutor
     let mcpRuntime: WorkspaceMCPRuntime
     var activeTerminalSession: ShellStreamingSession?
+    var subagentScheduler = WorkspaceSubagentScheduler()
 
     public init(
         root: QuillCodeRootState = QuillCodeRootState(),
