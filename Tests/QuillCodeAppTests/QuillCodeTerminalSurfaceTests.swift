@@ -28,12 +28,15 @@ final class QuillCodeTerminalSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.cwdLabel, "/workspace")
         XCTAssertEqual(surface.draft, "  swift test  ")
         XCTAssertTrue(surface.canRun)
+        XCTAssertTrue(surface.canSubmitDraft)
         XCTAssertTrue(surface.canClear)
+        XCTAssertEqual(surface.commandPlaceholder, "Run command")
+        XCTAssertEqual(surface.commandActionTitle, "Run")
         XCTAssertEqual(surface.entries.first?.statusLabel, "Done")
         XCTAssertEqual(surface.entries.first?.exitCodeLabel, "exit 0")
     }
 
-    func testTerminalSurfaceDisablesRunAndClearWhileRunning() {
+    func testTerminalSurfaceDisablesRunAndClearButAllowsInputSubmitWhileRunning() {
         let terminal = TerminalState(
             currentDirectoryPath: "/workspace",
             isVisible: true,
@@ -55,7 +58,10 @@ final class QuillCodeTerminalSurfaceTests: XCTestCase {
 
         XCTAssertEqual(surface.cwdLabel, "/workspace")
         XCTAssertFalse(surface.canRun)
+        XCTAssertTrue(surface.canSubmitDraft)
         XCTAssertFalse(surface.canClear)
+        XCTAssertEqual(surface.commandPlaceholder, "Send input")
+        XCTAssertEqual(surface.commandActionTitle, "Send")
         XCTAssertTrue(surface.entries[0].isRunning)
         XCTAssertEqual(surface.entries[0].statusLabel, "Running")
         XCTAssertEqual(surface.entries[0].exitCodeLabel, "running")
@@ -106,6 +112,7 @@ final class QuillCodeTerminalSurfaceTests: XCTestCase {
 
         XCTAssertEqual(surface.cwdLabel, "No project")
         XCTAssertFalse(surface.canRun)
+        XCTAssertFalse(surface.canSubmitDraft)
         XCTAssertFalse(surface.canClear)
         XCTAssertTrue(surface.entries.isEmpty)
     }

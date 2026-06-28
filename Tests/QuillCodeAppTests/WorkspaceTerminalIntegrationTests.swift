@@ -155,6 +155,29 @@ final class WorkspaceTerminalIntegrationTests: XCTestCase {
         XCTAssertTrue(model.terminal.entries.first?.stdout.contains("terminal-end") == true)
     }
 
+    func testTerminalCanSendInputToRunningCommand() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let model = QuillCodeWorkspaceModel()
+
+        let task = Task {
+            await model.runTerminalCommand(
+                "printf 'input? '; IFS= read name; printf 'hello:%s\\n' \"$name\"",
+                workspaceRoot: root
+            )
+        }
+        try await waitUntil(timeoutSeconds: 2) {
+            model.terminal.entries.first?.status == .running
+                && model.terminal.entries.first?.stdout.contains("input? ") == true
+        }
+
+        XCTAssertTrue(model.sendTerminalInput("quill"))
+        await task.value
+
+        XCTAssertFalse(model.terminal.isRunning)
+        XCTAssertEqual(model.terminal.entries.first?.status, .done)
+        XCTAssertEqual(model.terminal.entries.first?.stdout, "input? hello:quill\n")
+    }
+
     func testTerminalCommandPersistsCurrentDirectoryAcrossCommands() async throws {
         let root = try makeQuillCodeTestDirectory()
         let nested = root.appendingPathComponent("nested")

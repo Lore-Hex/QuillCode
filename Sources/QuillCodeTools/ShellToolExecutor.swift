@@ -26,6 +26,31 @@ public enum ShellProcessEvent: Sendable, Equatable {
     case finished(ToolResult)
 }
 
+public final class ShellStreamingSession: @unchecked Sendable {
+    public let events: AsyncStream<ShellProcessEvent>
+    private let runner: ShellStreamingProcessRunner
+
+    init(request: ShellExecutionRequest) {
+        let (stream, continuation) = AsyncStream<ShellProcessEvent>.makeStream()
+        let runner = ShellStreamingProcessRunner(request: request, continuation: continuation)
+        continuation.onTermination = { @Sendable _ in
+            runner.cancel()
+        }
+        self.events = stream
+        self.runner = runner
+        runner.start()
+    }
+
+    @discardableResult
+    public func sendInput(_ text: String) -> Bool {
+        runner.sendInput(text)
+    }
+
+    public func cancel() {
+        runner.cancel()
+    }
+}
+
 enum ShellToolMessages {
     static let missingCommand = "No shell command was specified. Try `Run ls` or `Run df -h /`."
 }
@@ -56,13 +81,11 @@ public struct ShellToolExecutor: Sendable {
     }
 
     public func runStreaming(_ request: ShellExecutionRequest) -> AsyncStream<ShellProcessEvent> {
-        AsyncStream { continuation in
-            let runner = ShellStreamingProcessRunner(request: request, continuation: continuation)
-            continuation.onTermination = { @Sendable _ in
-                runner.cancel()
-            }
-            runner.start()
-        }
+        startStreamingSession(request).events
+    }
+
+    public func startStreamingSession(_ request: ShellExecutionRequest) -> ShellStreamingSession {
+        ShellStreamingSession(request: request)
     }
 
     private static func runProcess(

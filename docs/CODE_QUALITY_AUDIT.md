@@ -8665,3 +8665,21 @@ Code quality changes:
 Remaining risk:
 
 - This is strong for the HTML harness and source gates. The remaining A+ proof is packaged native macOS/Linux UI automation that samples real SwiftUI control interiors, focus rings, and click ownership outside the harness.
+
+## 2026-06-28 Terminal Interactive Stdin Pass
+
+Overall grade after this slice: **A line-oriented terminal input, A lifecycle cancellation, A- full PTY parity**.
+
+The integrated terminal could stream output and cancel commands, but the command field went inert while a process was running. That blocked common interactive shell flows such as a script prompting for a value, and made the terminal feel less like Codex even though the shell runner could own a real stdin pipe.
+
+Code quality changes:
+
+- Added `ShellStreamingSession` as the public streaming handle so callers can keep the existing async event stream while also sending stdin or cancelling the active runner.
+- Kept process lifecycle ownership inside `ShellStreamingProcessRunner`; it now creates a stdin pipe before launch completes, writes input through a throwing `FileHandle` API, closes stdin on cancel/finish, and still emits the final `ToolResult` through the existing stream.
+- Added `WorkspaceModel.sendTerminalInput` and a model-held active session reference so Stop All cancels the real shell process, not only the UI entry state.
+- Updated SwiftUI, static HTML, and Playwright harness terminal controls so Run becomes Send during active commands, the input stays focusable, Clear remains unavailable, Stop remains explicit, and Up/Down history recall stays disabled while the process is running.
+- Added shell, workspace-model, terminal-surface, and Playwright coverage for running-command stdin.
+
+Remaining risk:
+
+- This is deliberately line-oriented stdin support. Full PTY features such as alternate screen buffers, cursor-addressed TUIs, terminal resizing, job control, and raw-mode interactive programs still require a dedicated PTY adapter.

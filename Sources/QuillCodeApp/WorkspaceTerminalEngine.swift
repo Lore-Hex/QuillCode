@@ -10,6 +10,11 @@ enum WorkspaceTerminalEngine {
         input.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    static func normalizedProcessInput(_ input: String) -> String {
+        guard !input.isEmpty else { return "" }
+        return input.hasSuffix("\n") ? input : "\(input)\n"
+    }
+
     static func setDraft(_ draft: String, terminal: inout TerminalState) {
         terminal.draft = draft
         terminal.historyCursor = nil
@@ -18,6 +23,10 @@ enum WorkspaceTerminalEngine {
 
     static func canBeginRun(command: String, terminal: TerminalState) -> Bool {
         !command.isEmpty && !terminal.isRunning
+    }
+
+    static func canSendProcessInput(_ input: String, terminal: TerminalState) -> Bool {
+        !input.isEmpty && terminal.isRunning
     }
 
     @discardableResult

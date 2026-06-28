@@ -26,6 +26,19 @@ test('mock harness runs a command in the integrated terminal', async ({ page }) 
   await expect(page.getByTestId('terminal-status').last()).toHaveText('Done · exit 0');
   await expect(page.getByTestId('terminal-stdout').last()).toContainText('stream-end');
 
+  await page.getByLabel('Terminal command').fill('read-demo');
+  await page.getByTestId('terminal-run').click();
+  await expect(page.getByTestId('terminal-status').last()).toHaveText('Running · running');
+  await expect(page.getByLabel('Terminal command')).toBeEnabled();
+  await expect(page.getByLabel('Terminal command')).toHaveAttribute('placeholder', 'Send input');
+  await expect(page.getByTestId('terminal-run')).toHaveText('Send');
+  await expect(page.getByTestId('terminal-stdout').last()).toContainText('input?');
+  await page.getByLabel('Terminal command').fill('quill');
+  await expect(page.getByTestId('terminal-run')).toBeEnabled();
+  await page.getByTestId('terminal-run').click();
+  await expect(page.getByTestId('terminal-status').last()).toHaveText('Done · exit 0');
+  await expect(page.getByTestId('terminal-stdout').last()).toContainText('hello:quill');
+
   await page.getByLabel('Terminal command').fill('cd Packages');
   await page.getByTestId('terminal-run').click();
   await expect(page.getByTestId('terminal-status').last()).toHaveText('Done · exit 0');

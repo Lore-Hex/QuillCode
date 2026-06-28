@@ -38,6 +38,16 @@ extension QuillCodeWorkspaceModel {
         await runTerminalCommand(terminal.draft, workspaceRoot: workspaceRoot)
     }
 
+    @discardableResult
+    public func sendTerminalInput(_ input: String) -> Bool {
+        let processInput = WorkspaceTerminalEngine.normalizedProcessInput(input)
+        guard WorkspaceTerminalEngine.canSendProcessInput(processInput, terminal: terminal),
+              let activeTerminalSession else {
+            return false
+        }
+        return activeTerminalSession.sendInput(processInput)
+    }
+
     public func runTerminalCommand(_ input: String, workspaceRoot: URL) async {
         let command = WorkspaceTerminalEngine.normalizedCommand(input)
         guard WorkspaceTerminalEngine.canBeginRun(command: command, terminal: terminal) else { return }
@@ -65,7 +75,14 @@ extension QuillCodeWorkspaceModel {
         )
 
         var finalResult: ToolResult?
-        for await event in ShellToolExecutor().runStreaming(executionContext.request) {
+        let session = ShellToolExecutor().startStreamingSession(executionContext.request)
+        activeTerminalSession = session
+        defer {
+            if activeTerminalSession === session {
+                activeTerminalSession = nil
+            }
+        }
+        for await event in session.events {
             if Task.isCancelled || WorkspaceTerminalEngine.entryIsStopped(id: entryID, terminal: terminal) {
                 break
             }

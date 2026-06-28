@@ -11,6 +11,7 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
     private let continuation: AsyncStream<ShellProcessEvent>.Continuation
     private let lock = NSLock()
     private var process: Process?
+    private var standardInput: Pipe?
     private var stdout = ""
     private var stderr = ""
     private var didFinish = false
@@ -33,6 +34,7 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
 
     func cancel() {
         let activeProcess: Process?
+        let activeInput: Pipe?
         lock.lock()
         guard !didFinish else {
             lock.unlock()
@@ -40,8 +42,30 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
         }
         didCancel = true
         activeProcess = process
+        activeInput = standardInput
         lock.unlock()
+        try? activeInput?.fileHandleForWriting.close()
         activeProcess?.terminate()
+    }
+
+    func sendInput(_ text: String) -> Bool {
+        guard !text.isEmpty else { return false }
+        let input: Pipe?
+        lock.lock()
+        guard !didFinish, !didCancel, !didTimeOut else {
+            lock.unlock()
+            return false
+        }
+        input = standardInput
+        lock.unlock()
+
+        guard let input else { return false }
+        do {
+            try input.fileHandleForWriting.write(contentsOf: Data(text.utf8))
+            return true
+        } catch {
+            return false
+        }
     }
 
     private func run() {
@@ -65,6 +89,8 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
 
         let standardOutput = Pipe()
         let standardError = Pipe()
+        let standardInput = Pipe()
+        process.standardInput = standardInput
         process.standardOutput = standardOutput
         process.standardError = standardError
 
@@ -74,6 +100,7 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
             finishCancelled()
             return
         }
+        self.standardInput = standardInput
         lock.unlock()
 
         do {
@@ -217,9 +244,12 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
         }
         didFinish = true
         let activeProcess = process
+        let activeInput = standardInput
         process = nil
+        standardInput = nil
         lock.unlock()
 
+        try? activeInput?.fileHandleForWriting.close()
         if let activeProcess, activeProcess.isRunning {
             activeProcess.terminate()
         }
