@@ -124,6 +124,37 @@ test('critical click-target registry covers primary workspace surfaces', async (
     { label: 'add comment', locator: page.getByTestId('browser-add-comment'), expectedClass: 'hit-target-text' }
   ]);
 
+  await page.getByTestId('extensions-button').click();
+  await expect(page.getByTestId('extensions-pane')).toBeVisible();
+  await page.getByTestId('extension-start').click();
+  await expect(page.getByTestId('extension-item').nth(2)).toContainText('Ready');
+  await expectCriticalTargetRegistry('extensions pane', [
+    { label: 'install extension', locator: page.getByTestId('extension-install'), expectedClass: 'hit-target-form-action' },
+    { label: 'stop MCP server', locator: page.getByTestId('extension-stop'), expectedClass: 'hit-target-form-action' },
+    { label: 'read MCP resource', locator: page.getByTestId('extension-mcp-resource-action').first(), expectedClass: 'hit-target-capsule' },
+    { label: 'use MCP prompt', locator: page.getByTestId('extension-mcp-prompt-action'), expectedClass: 'hit-target-capsule' }
+  ]);
+
+  await clickSidebarTool(page, 'memories-button');
+  await expect(page.getByTestId('memories-pane')).toBeVisible();
+  await expectCriticalTargetRegistry('memories pane', [
+    { label: 'add memory', locator: page.getByTestId('memories-add'), expectedClass: 'hit-target-text' },
+    { label: 'edit memory', locator: page.getByTestId('memory-edit').first(), expectedClass: 'hit-target-form-action' },
+    { label: 'forget memory', locator: page.getByTestId('memory-delete').first(), expectedClass: 'hit-target-form-action' }
+  ]);
+
+  await page.getByTestId('automations-button').click();
+  await expect(page.getByTestId('automations-pane')).toBeVisible();
+  await page.getByTestId('automation-create-workspace-schedule').click();
+  await expect(page.getByTestId('automation-card')).toBeVisible();
+  await expectCriticalTargetRegistry('automations pane', [
+    { label: 'schedule follow-up', locator: page.getByTestId('automation-schedule-follow-up').first(), expectedClass: 'hit-target-text' },
+    { label: 'create workspace schedule', locator: page.getByTestId('automation-create-workspace-schedule'), expectedClass: 'hit-target-text' },
+    { label: 'run automation', locator: page.getByTestId('automation-run'), expectedClass: 'hit-target-text' },
+    { label: 'pause automation', locator: page.getByTestId('automation-primary-action'), expectedClass: 'hit-target-text' },
+    { label: 'delete automation', locator: page.getByTestId('automation-delete'), expectedClass: 'hit-target-text' }
+  ]);
+
   await page.getByLabel('Message').fill('run whoami');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
@@ -449,6 +480,58 @@ test('critical controls respond from the full interior click target, not only th
   await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
   await clickTargetInteriorPoint(page.getByTestId('tool-card-details').last().locator('summary'), 'tool details disclosure leading interior', 0.2, 0.5);
   await expect(page.getByTestId('tool-card-details').last()).toHaveAttribute('open', '');
+});
+
+test('secondary pane controls respond from the full interior click target', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await clickSidebarTool(page, 'terminal-button');
+  await expect(page.getByTestId('terminal-pane')).toBeVisible();
+  await page.getByLabel('Terminal command').fill('pwd');
+  await clickTargetInteriorPoint(page.getByTestId('terminal-run'), 'terminal run trailing interior', 0.85, 0.5);
+  await expect(page.getByTestId('terminal-stdout').last()).toContainText('/mock/QuillCode');
+  await clickTargetInteriorPoint(page.getByTestId('terminal-clear'), 'terminal clear leading interior', 0.2, 0.5);
+  await expect(page.getByTestId('terminal-entry')).toHaveCount(0);
+
+  await clickSidebarTool(page, 'browser-button');
+  await expect(page.getByTestId('browser-pane')).toBeVisible();
+  await page.getByLabel('Browser address').fill('localhost:5173');
+  await clickTargetInteriorPoint(page.getByTestId('browser-open'), 'browser open trailing interior', 0.85, 0.5);
+  await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
+  await clickTargetInteriorPoint(page.getByTestId('browser-new-tab'), 'browser new tab leading interior', 0.2, 0.5);
+  await expect(page.getByTestId('browser-tab')).toHaveCount(2);
+  await page.getByLabel('Browser address').fill('example.com/docs');
+  await clickTargetInteriorPoint(page.getByTestId('browser-open'), 'browser second tab open trailing interior', 0.85, 0.5);
+  await expect(page.getByTestId('browser-current-url')).toHaveText('https://example.com/docs');
+  await clickTargetInteriorPoint(page.getByTestId('browser-tab').first(), 'browser tab leading interior', 0.2, 0.5);
+  await expect(page.getByTestId('browser-current-url')).toHaveText('http://localhost:5173');
+  await page.getByLabel('Browser comment').fill('edge click works');
+  await clickTargetInteriorPoint(page.getByTestId('browser-add-comment'), 'browser add comment trailing interior', 0.85, 0.5);
+  await expect(page.getByTestId('browser-comment')).toContainText('edge click works');
+
+  await page.getByTestId('extensions-button').click();
+  await expect(page.getByTestId('extensions-pane')).toBeVisible();
+  await clickTargetInteriorPoint(page.getByTestId('extension-start'), 'extension start trailing interior', 0.85, 0.5);
+  await expect(page.getByTestId('extension-item').nth(2)).toContainText('Ready');
+  await clickTargetInteriorPoint(page.getByTestId('extension-mcp-resource-action').first(), 'MCP resource capsule leading interior', 0.2, 0.5);
+  await expect(page.getByTestId('tool-card').last()).toContainText('host.mcp.resource.read');
+  await clickTargetInteriorPoint(page.getByTestId('extension-stop'), 'extension stop leading interior', 0.2, 0.5);
+  await expect(page.getByTestId('extension-item').nth(2)).toContainText('Stopped');
+
+  await clickSidebarTool(page, 'memories-button');
+  await expect(page.getByTestId('memories-pane')).toBeVisible();
+  await clickTargetInteriorPoint(page.getByTestId('memories-add'), 'memory add trailing interior', 0.85, 0.5);
+  await expect(page.getByLabel('Message')).toHaveValue('/remember ');
+  await clickTargetInteriorPoint(page.getByTestId('memory-edit').first(), 'memory edit leading interior', 0.2, 0.5);
+  await expect(page.getByLabel('Message')).toHaveValue(/\/remember-edit global:memories\/preferences\.md/);
+
+  await page.getByTestId('automations-button').click();
+  await expect(page.getByTestId('automations-pane')).toBeVisible();
+  await clickTargetInteriorPoint(page.getByTestId('automation-create-workspace-schedule'), 'automation create workspace trailing interior', 0.85, 0.5);
+  await expect(page.getByTestId('automation-card')).toBeVisible();
+  await clickTargetInteriorPoint(page.getByTestId('automation-run'), 'automation run leading interior', 0.2, 0.5);
+  await expect(page.getByTestId('sidebar-item').first()).toContainText('Scheduled check: QuillCode');
+  await expect(page.getByTestId('message').first()).toContainText('Run the scheduled workspace check for QuillCode.');
 });
 
 test('critical text entry targets focus and type from interior edges', async ({ page }) => {

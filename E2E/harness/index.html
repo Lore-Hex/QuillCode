@@ -7986,7 +7986,7 @@
     function renderMCPReferenceActions(title, actions, testID, titlePrefix) {
       if (!actions?.length) return '';
       const buttons = actions.map(action => `
-        <button type="button" class="extension-reference-action" data-testid="${escapeHTML(testID)}" data-command-id="${escapeHTML(action.commandID)}">
+        <button type="button" class="extension-reference-action hit-target-capsule" data-testid="${escapeHTML(testID)}" data-command-id="${escapeHTML(action.commandID)}">
           ${escapeHTML(titlePrefix)} ${escapeHTML(action.title)}
         </button>`).join('');
       return `<div class="extension-mcp-group" data-testid="${escapeHTML(testID)}-group">
@@ -8025,10 +8025,10 @@
               ${renderMCPReferenceActions('Resource Actions', item.resourceActions, 'extension-mcp-resource-action', 'Read')}
               ${renderMCPReferenceActions('Prompt Actions', item.promptActions, 'extension-mcp-prompt-action', 'Use')}
               ${item.probeError ? `<p data-testid="extension-mcp-error">${escapeHTML(item.probeError)}</p>` : ''}
-              ${item.installCommandID ? `<button type="button" class="extension-action-button" data-testid="extension-install" data-command-id="${escapeHTML(item.installCommandID)}">Install</button>` : ''}
-              ${item.updateCommandID ? `<button type="button" class="extension-action-button" data-testid="extension-update" data-command-id="${escapeHTML(item.updateCommandID)}">Update</button>` : ''}
-              ${item.stopCommandID ? `<button type="button" class="extension-action-button" data-testid="extension-stop" data-command-id="${escapeHTML(item.stopCommandID)}">Stop</button>` : ''}
-              ${item.startCommandID ? `<button type="button" class="extension-action-button" data-testid="extension-start" data-command-id="${escapeHTML(item.startCommandID)}">Start</button>` : ''}
+              ${item.installCommandID ? `<button type="button" class="extension-action-button hit-target-form-action" data-testid="extension-install" data-command-id="${escapeHTML(item.installCommandID)}">Install</button>` : ''}
+              ${item.updateCommandID ? `<button type="button" class="extension-action-button hit-target-form-action" data-testid="extension-update" data-command-id="${escapeHTML(item.updateCommandID)}">Update</button>` : ''}
+              ${item.stopCommandID ? `<button type="button" class="extension-action-button hit-target-form-action" data-testid="extension-stop" data-command-id="${escapeHTML(item.stopCommandID)}">Stop</button>` : ''}
+              ${item.startCommandID ? `<button type="button" class="extension-action-button hit-target-form-action" data-testid="extension-start" data-command-id="${escapeHTML(item.startCommandID)}">Start</button>` : ''}
             </article>`).join('')}
         </div>` : `
         <div class="extensions-empty" data-testid="extensions-empty">
@@ -8059,8 +8059,8 @@
               <header>
                 <span data-testid="memory-scope">${escapeHTML(item.scopeLabel)}</span>
                 <span data-testid="memory-size">${escapeHTML(item.byteCountLabel)}</span>
-                ${item.editCommandID ? `<button class="memory-edit-button" type="button" data-testid="memory-edit" data-command-id="${escapeHTML(item.editCommandID)}">Edit</button>` : ''}
-                ${item.deleteCommandID ? `<button class="memory-delete-button" type="button" data-testid="memory-delete" data-command-id="${escapeHTML(item.deleteCommandID)}">Forget</button>` : ''}
+                ${item.editCommandID ? `<button class="memory-edit-button hit-target-form-action" type="button" data-testid="memory-edit" data-command-id="${escapeHTML(item.editCommandID)}">Edit</button>` : ''}
+                ${item.deleteCommandID ? `<button class="memory-delete-button hit-target-form-action" type="button" data-testid="memory-delete" data-command-id="${escapeHTML(item.deleteCommandID)}">Forget</button>` : ''}
               </header>
               <strong data-testid="memory-title">${escapeHTML(item.title)}</strong>
               <p data-testid="memory-preview">${escapeHTML(item.preview)}</p>
@@ -8079,7 +8079,7 @@
               <p data-testid="memories-subtitle">${escapeHTML(state.memories.subtitle)}</p>
             </div>
             <span class="memories-counts">${counts}</span>
-            <button class="memories-add-button" type="button" data-testid="memories-add" data-command-id="memory-add">Add memory</button>
+            <button class="memories-add-button hit-target-text" type="button" data-testid="memories-add" data-command-id="memory-add">Add memory</button>
           </header>
           ${content}
         </section>`;
@@ -8090,24 +8090,24 @@
       const renderActions = workflow => {
         const actions = [];
         if (workflow.runCommandID && workflow.runActionTitle) {
-          actions.push(`<button type="button" data-testid="automation-run" data-command-id="${escapeHTML(workflow.runCommandID)}">${escapeHTML(workflow.runActionTitle)}</button>`);
+          actions.push(`<button type="button" class="hit-target-text" data-testid="automation-run" data-command-id="${escapeHTML(workflow.runCommandID)}">${escapeHTML(workflow.runActionTitle)}</button>`);
         }
         if (workflow.primaryCommandID && workflow.primaryActionTitle) {
-          actions.push(`<button type="button" data-testid="automation-primary-action" data-command-id="${escapeHTML(workflow.primaryCommandID)}">${escapeHTML(workflow.primaryActionTitle)}</button>`);
+          actions.push(`<button type="button" class="hit-target-text" data-testid="automation-primary-action" data-command-id="${escapeHTML(workflow.primaryCommandID)}">${escapeHTML(workflow.primaryActionTitle)}</button>`);
         }
         if (workflow.deleteCommandID) {
-          actions.push(`<button type="button" data-testid="automation-delete" data-command-id="${escapeHTML(workflow.deleteCommandID)}">Delete</button>`);
+          actions.push(`<button type="button" class="hit-target-text" data-testid="automation-delete" data-command-id="${escapeHTML(workflow.deleteCommandID)}">Delete</button>`);
         }
         return actions.length ? `<div class="automation-actions">${actions.join('')}</div>` : '';
       };
       const scheduleButtons = (state.automations.scheduleThreadFollowUpCommands || []).map(command => `
-        <button type="button" data-testid="automation-schedule-follow-up" data-command-id="${escapeHTML(command.id)}" ${command.isEnabled ? '' : 'disabled'}>${escapeHTML(command.title)}</button>
+        <button type="button" class="hit-target-text" data-testid="automation-schedule-follow-up" data-command-id="${escapeHTML(command.id)}" ${command.isEnabled ? '' : 'disabled'}>${escapeHTML(command.title)}</button>
       `).join('');
       const workspaceButton = state.automations.createWorkspaceScheduleCommand ? `
-        <button type="button" data-testid="automation-create-workspace-schedule" data-command-id="${escapeHTML(state.automations.createWorkspaceScheduleCommand.id)}" ${state.automations.createWorkspaceScheduleCommand.isEnabled ? '' : 'disabled'}>${escapeHTML(state.automations.createWorkspaceScheduleCommand.title)}</button>
+        <button type="button" class="hit-target-text" data-testid="automation-create-workspace-schedule" data-command-id="${escapeHTML(state.automations.createWorkspaceScheduleCommand.id)}" ${state.automations.createWorkspaceScheduleCommand.isEnabled ? '' : 'disabled'}>${escapeHTML(state.automations.createWorkspaceScheduleCommand.title)}</button>
       ` : '';
       const workspaceScheduleButtons = (state.automations.scheduleWorkspaceScheduleCommands || []).map(command => `
-        <button type="button" data-testid="automation-schedule-workspace" data-command-id="${escapeHTML(command.id)}" ${command.isEnabled ? '' : 'disabled'}>${escapeHTML(command.title)}</button>
+        <button type="button" class="hit-target-text" data-testid="automation-schedule-workspace" data-command-id="${escapeHTML(command.id)}" ${command.isEnabled ? '' : 'disabled'}>${escapeHTML(command.title)}</button>
       `).join('');
       const content = workflows.length ? `
         <div class="automation-grid" data-testid="automation-grid">
@@ -8134,7 +8134,7 @@
               <p data-testid="automations-subtitle">${escapeHTML(state.automations.subtitle)}</p>
             </div>
             <div class="automation-create-actions">
-              <button type="button" data-testid="automation-create-follow-up" data-command-id="${escapeHTML(state.automations.createThreadFollowUpCommand.id)}" ${state.automations.createThreadFollowUpCommand.isEnabled ? '' : 'disabled'}>${escapeHTML(state.automations.createThreadFollowUpCommand.title)}</button>
+              <button type="button" class="hit-target-text" data-testid="automation-create-follow-up" data-command-id="${escapeHTML(state.automations.createThreadFollowUpCommand.id)}" ${state.automations.createThreadFollowUpCommand.isEnabled ? '' : 'disabled'}>${escapeHTML(state.automations.createThreadFollowUpCommand.title)}</button>
               ${workspaceButton}
               ${scheduleButtons}
               ${workspaceScheduleButtons}

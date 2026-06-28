@@ -8683,3 +8683,20 @@ Code quality changes:
 Remaining risk:
 
 - This is deliberately line-oriented stdin support. Full PTY features such as alternate screen buffers, cursor-addressed TUIs, terminal resizing, job control, and raw-mode interactive programs still require a dedicated PTY adapter.
+
+## 2026-06-28 Secondary Pane Click Target Coverage Pass
+
+Overall grade after this slice: **A secondary target semantics, A edge-click regression coverage, A- native packaged-window proof**.
+
+The main chrome already had explicit semantic target classes plus center, interior, edge, overlap, nesting, and routing audits. The remaining click-target quality gap was secondary-pane drift: extension, memory, and automation controls could rely on harness fallback classification even though the Swift renderer had explicit contracts.
+
+Code quality changes:
+
+- Added explicit semantic target classes to the Playwright harness for extension install/start/stop/update actions, MCP resource/prompt capsules, memory add/edit/delete actions, and automation create/run/pause/delete/schedule actions.
+- Promoted Extensions, Memories, and Automations into the named critical click-target registry so those panes are reviewed with the same standard as top-bar, model picker, settings, terminal, browser, and transcript controls.
+- Added edge-click behavioral coverage for terminal, browser tabs/comments, extension MCP actions, memory edits, and automation runs so controls must respond away from the center, where missed taps commonly happen.
+- Updated the parity gate so future interaction-audit edits must keep secondary-pane critical coverage and behavioral probes in place.
+
+Remaining risk:
+
+- The harness and source gates now cover secondary panes deeply. The remaining A+ layer is still packaged native UI automation that samples actual SwiftUI/AppKit control frames and click ownership in a running macOS/Linux app.
