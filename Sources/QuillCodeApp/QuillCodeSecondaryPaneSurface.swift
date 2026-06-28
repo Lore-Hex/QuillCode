@@ -118,7 +118,7 @@ public struct WorkspaceAutomationsSurface: Codable, Sendable, Hashable {
         scheduleWorkspaceScheduleCommands: [WorkspaceCommandSurface] = [],
         workflows: [AutomationWorkflowSurface] = AutomationWorkflowSurface.plannedWorkflows,
         emptyTitle: String = "No automations yet",
-        emptySubtitle: String = "Create scheduled follow-ups, workspace checks, and monitors once the automation runtime lands."
+        emptySubtitle: String = "Create scheduled follow-ups, workspace checks, and configured monitors for later runs."
     ) {
         let sortedAutomations = QuillAutomation.sortedForDisplay(automations)
         let configuredWorkflows = sortedAutomations.map(AutomationWorkflowSurface.init)

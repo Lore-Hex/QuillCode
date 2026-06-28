@@ -56,7 +56,7 @@ public struct AutomationWorkflowSurface: Codable, Sendable, Hashable, Identifiab
     }
 
     private static func canRunNow(_ automation: QuillAutomation) -> Bool {
-        automation.status == .active && automation.kind != .monitor
+        automation.status == .active
     }
 
     private static func statusLabel(for automation: QuillAutomation) -> String {

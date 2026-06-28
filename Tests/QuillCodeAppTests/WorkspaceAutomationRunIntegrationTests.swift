@@ -118,12 +118,13 @@ final class WorkspaceAutomationRunIntegrationTests: XCTestCase {
             threadID: source.id,
             nextRunAt: Date(timeIntervalSince1970: 80)
         )
-        let unsupported = QuillAutomation(
+        let monitor = QuillAutomation(
             title: "Due monitor",
-            detail: "Monitor runner pending.",
+            detail: "Watch CI and PR checks.",
             kind: .monitor,
             scheduleKind: .event,
             scheduleDescription: "Now",
+            projectID: project.id,
             nextRunAt: Date(timeIntervalSince1970: 70)
         )
         let workspace = try makeAutomationWorkspace(rootState: QuillCodeRootState(
@@ -132,18 +133,31 @@ final class WorkspaceAutomationRunIntegrationTests: XCTestCase {
             threads: [source],
             selectedThreadID: source.id
         ))
-        workspace.model.setAutomations([future, paused, unsupported, due, workspaceDue])
+        workspace.model.setAutomations([future, paused, monitor, due, workspaceDue])
 
         let followUpIDs = workspace.model.runDueAutomations(now: now)
 
-        XCTAssertEqual(followUpIDs.count, 2)
+        XCTAssertEqual(followUpIDs.count, 3)
+        let monitorThread = try XCTUnwrap(workspace.model.root.threads.first { $0.title == "Monitor: Due monitor" })
+        XCTAssertEqual(monitorThread.projectID, project.id)
+        XCTAssertEqual(monitorThread.messages.map(\.content), [
+            """
+            Run the monitor "Due monitor".
+            Watch condition: Watch CI and PR checks.
+            Use the QuillCode workspace context.
+            Report what changed, whether action is needed, and the next concrete step.
+            """
+        ])
         let followUp = try XCTUnwrap(workspace.model.root.threads.first { $0.title == "Follow-up: Due follow-up" })
         XCTAssertEqual(followUp.title, "Follow-up: Due follow-up")
         let workspaceCheck = try XCTUnwrap(workspace.model.root.threads.first { $0.title == "Scheduled check: QuillCode" })
         XCTAssertEqual(workspaceCheck.projectID, project.id)
-        XCTAssertTrue([followUp.id, workspaceCheck.id].contains(try XCTUnwrap(workspace.model.root.selectedThreadID)))
+        XCTAssertTrue([monitorThread.id, followUp.id, workspaceCheck.id].contains(try XCTUnwrap(workspace.model.root.selectedThreadID)))
 
         let savedAutomations = try workspace.automationStore.load()
+        let savedMonitor = try XCTUnwrap(savedAutomations.first { $0.id == monitor.id })
+        XCTAssertNotNil(savedMonitor.lastRunAt)
+        XCTAssertNil(savedMonitor.nextRunAt)
         let savedDue = try XCTUnwrap(savedAutomations.first { $0.id == due.id })
         XCTAssertNotNil(savedDue.lastRunAt)
         XCTAssertNil(savedDue.nextRunAt)
@@ -152,7 +166,6 @@ final class WorkspaceAutomationRunIntegrationTests: XCTestCase {
         XCTAssertNil(savedWorkspaceDue.nextRunAt)
         XCTAssertEqual(savedAutomations.first { $0.id == future.id }?.nextRunAt, future.nextRunAt)
         XCTAssertEqual(savedAutomations.first { $0.id == paused.id }?.nextRunAt, paused.nextRunAt)
-        XCTAssertEqual(savedAutomations.first { $0.id == unsupported.id }?.nextRunAt, unsupported.nextRunAt)
     }
 
     func testDueRecurringWorkspaceScheduleRunsAndAdvancesNextRun() throws {

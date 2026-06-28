@@ -69,6 +69,40 @@ test('mock harness creates and runs a workspace schedule automation', async ({ p
   await expect(page.getByTestId('automations-status')).toHaveText('1 active');
 });
 
+test('mock harness runs a configured monitor automation', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.evaluate(() => {
+    const harness = window as typeof window & {
+      __quillCodeTestCreateMonitorAutomation?: (
+        scheduleLabel?: string,
+        options?: { title?: string; detail?: string }
+      ) => void
+    };
+    harness.__quillCodeTestCreateMonitorAutomation?.(
+      'PR check events',
+      {
+        title: 'Watch CI',
+        detail: 'Watch pull request checks and summarize new failures.'
+      }
+    );
+  });
+
+  await expect(page.getByTestId('automations-pane')).toBeVisible();
+  await expect(page.getByTestId('automations-status')).toHaveText('1 active');
+  await expect(page.getByTestId('automation-card')).toHaveCount(1);
+  await expect(page.getByTestId('automation-card')).toContainText('Watch CI');
+  await expect(page.getByTestId('automation-run')).toHaveText('Run now');
+
+  await page.getByTestId('automation-run').click();
+
+  await expect(page.getByTestId('sidebar-item').first()).toContainText('Monitor: Watch CI');
+  await expect(page.getByTestId('message').first()).toContainText('Run the monitor "Watch CI".');
+  await expect(page.getByTestId('message').first()).toContainText('Watch condition: Watch pull request checks and summarize new failures.');
+  await expect(page.getByTestId('automation-card')).toContainText('Ran');
+  await expect(page.getByTestId('automations-status')).toHaveText('1 active');
+});
+
 test('mock harness schedules a thread follow-up from quick actions', async ({ page }) => {
   await page.goto(harnessURL());
 

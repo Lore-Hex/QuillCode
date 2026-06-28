@@ -205,9 +205,7 @@ extension QuillCodeWorkspaceModel {
         case .workspaceSchedule:
             return runWorkspaceScheduleAutomation(automation, now: now)
         case .monitor:
-            setLastError("Monitor automations can be configured, but monitor runners are not available yet.")
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-            return nil
+            return runMonitorAutomation(automation, now: now)
         }
     }
 
@@ -283,6 +281,39 @@ extension QuillCodeWorkspaceModel {
             model: root.config.defaultModel,
             instructions: context.instructions,
             memories: context.memories,
+            now: now
+        )
+        return applyAutomationRunDraft(draft)
+    }
+
+    private func runMonitorAutomation(
+        _ automation: QuillAutomation,
+        now: Date
+    ) -> AutomationRunReport? {
+        var resolvedProject: ProjectRef?
+        if let projectID = automation.projectID {
+            guard let project = project(id: projectID) else {
+                setLastError("The project for \(automation.title) is no longer available.")
+                refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+                return nil
+            }
+
+            if project.isRemote {
+                _ = refreshRemoteProjectContext(projectID)
+            } else {
+                refreshProjectMetadata(projectID)
+            }
+            resolvedProject = project
+        }
+
+        let context = resolvedProject.map { workspaceThreadContext($0.id) }
+        let draft = WorkspaceAutomationRunner.monitorDraft(
+            automation: automation,
+            project: resolvedProject,
+            mode: root.config.mode,
+            model: root.config.defaultModel,
+            instructions: context?.instructions ?? [],
+            memories: context?.memories ?? [],
             now: now
         )
         return applyAutomationRunDraft(draft)

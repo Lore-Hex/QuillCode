@@ -51,7 +51,7 @@ final class AutomationWorkflowSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.primaryCommandID, "automation-resume:00000000-0000-0000-0000-000000000102")
     }
 
-    func testMonitorDoesNotExposeRunNowEvenWhenActive() {
+    func testActiveMonitorExposesRunNow() {
         let automation = QuillAutomation(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000103")!,
             title: "Watch CI",
@@ -66,7 +66,7 @@ final class AutomationWorkflowSurfaceTests: XCTestCase {
 
         XCTAssertEqual(surface.statusLabel, "Active")
         XCTAssertEqual(surface.scheduleLabel, "Event")
-        XCTAssertNil(surface.runActionTitle)
-        XCTAssertNil(surface.runCommandID)
+        XCTAssertEqual(surface.runActionTitle, "Run now")
+        XCTAssertEqual(surface.runCommandID, "automation-run:00000000-0000-0000-0000-000000000103")
     }
 }
