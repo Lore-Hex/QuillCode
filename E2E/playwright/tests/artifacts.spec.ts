@@ -30,6 +30,9 @@ test('mock harness surfaces file artifacts from tool cards', async ({ page }) =>
   await expect(page.getByTestId('activity-artifact')).toContainText('/mock/QuillCode');
   await expect(page.getByTestId('activity-artifact')).not.toContainText('undefined');
   await expect(page.getByTestId('activity-source').first()).toContainText('AGENTS.md');
+  await expect(page.getByTestId('activity-source-action')).toHaveCount(2);
+  await expect(page.getByTestId('activity-source-action').nth(0)).toHaveText('Open');
+  await expect(page.getByTestId('activity-source-action').nth(1)).toHaveText('Edit');
   await expect(page.getByTestId('activity-plan')).toHaveCount(5);
   await expect(page.getByTestId('activity-plan').nth(0)).toContainText('Understand request');
   await expect(page.getByTestId('activity-plan').nth(2)).toContainText('Use tools');
@@ -59,6 +62,14 @@ test('mock harness surfaces file artifacts from tool cards', async ({ page }) =>
   await page.getByTestId('activity-tool-section').getByTestId('activity-section-toggle').click();
   await expect(page.getByTestId('activity-tool-section')).toHaveAttribute('data-collapsed', 'false');
   await expect(page.getByTestId('activity-tool')).toContainText('host.file.write');
+
+  await page.getByTestId('activity-source-action').filter({ hasText: 'Open' }).click();
+  await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.file.read');
+  await expect(page.getByTestId('activity-final-answer')).toContainText('Instruction source AGENTS.md:');
+  await expect(page.getByTestId('activity-final-answer')).toContainText('Use Swift patterns and keep changes reviewable.');
+
+  await page.getByTestId('activity-source-action').filter({ hasText: 'Edit' }).click();
+  await expect(page.getByLabel('Message')).toHaveValue('Edit instruction source AGENTS.md: ');
 });
 
 test('mock harness renders image artifact previews from tool cards', async ({ page }) => {

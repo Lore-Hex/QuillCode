@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeTools
 
 extension QuillCodeWorkspaceModel {
     @discardableResult
@@ -59,6 +60,20 @@ extension QuillCodeWorkspaceModel {
         case .toggleActivitySection(let section):
             toggleActivitySection(section)
             return true
+        case .openActivitySource(let path):
+            runToolCall(
+                ToolCall(
+                    name: ToolDefinition.fileRead.name,
+                    argumentsJSON: ToolArguments.json(["path": path])
+                ),
+                workspaceRoot: workspaceRoot
+            )
+            return true
+        case .editActivitySource(let path):
+            setDraft("Edit instruction source \(path): ")
+            return true
+        case .resolveInstructionDiagnostic(let id):
+            return prepareResolveInstructionDiagnostic(id: id)
         case .setDraft(let draft):
             setDraft(draft)
             return true
@@ -74,5 +89,18 @@ extension QuillCodeWorkspaceModel {
         case .action(let action):
             return runWorkspaceCommandAction(action)
         }
+    }
+
+    private func prepareResolveInstructionDiagnostic(id: String) -> Bool {
+        guard let diagnostic = selectedInstructionDiagnostics.first(where: { $0.id == id }) else {
+            return false
+        }
+        setDraft("Resolve instruction issue \"\(diagnostic.title)\" (\(diagnostic.detail)). Update the relevant instruction files so the guidance is consistent: ")
+        return true
+    }
+
+    private var selectedInstructionDiagnostics: [ProjectInstructionDiagnostic] {
+        guard let thread = selectedThread else { return [] }
+        return ProjectInstructionDiagnosticsBuilder.diagnostics(for: thread.instructions)
     }
 }

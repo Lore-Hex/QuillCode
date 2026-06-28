@@ -1345,6 +1345,21 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .activity-item-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 5px;
+    }
+    .activity-source-action {
+      border: 1px solid rgba(120, 220, 255, 0.24);
+      background: rgba(31, 164, 219, 0.14);
+      color: var(--accent);
+      border-radius: 10px;
+      font: 700 12px/1 var(--font-sans);
+      padding: 0 12px;
+    }
     .terminal-pane code,
     .terminal-entry code,
     .terminal-entry pre {
@@ -6169,6 +6184,11 @@
           runCommand(event.currentTarget.getAttribute('data-command-id'));
         });
       });
+      document.querySelectorAll('[data-testid="activity-source-action"]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
+        });
+      });
       document.querySelectorAll('[data-testid="automation-create-follow-up"], [data-testid="automation-create-workspace-schedule"]').forEach(button => {
         button.addEventListener('click', event => {
           runCommand(event.currentTarget.getAttribute('data-command-id'));
@@ -7454,7 +7474,16 @@
         };
       });
       const sources = [
-        { id: 'instruction-AGENTS.md', title: 'AGENTS.md', detail: '.quillcode/AGENTS.md', statusLabel: 'rules' },
+        {
+          id: 'instruction-AGENTS.md',
+          title: 'AGENTS.md',
+          detail: 'AGENTS.md · Scope: whole project',
+          statusLabel: 'rules',
+          actions: [
+            { title: 'Open', commandID: 'activity-source-open:AGENTS.md', kind: 'open' },
+            { title: 'Edit', commandID: 'activity-source-edit:AGENTS.md', kind: 'edit' }
+          ]
+        },
         ...state.memories.items.slice(0, 4).map(memory => ({
           id: `memory-${memory.id}`,
           title: memory.title,
@@ -7695,6 +7724,7 @@
               <strong>${escapeHTML(item.title)}</strong>
               <span>${escapeHTML(item.statusLabel || '')}</span>
               <p>${escapeHTML(item.detail || '')}</p>
+              ${renderActivityItemActions(item)}
             </article>`).join('');
         } else {
           content = `<p data-testid="${section.itemTestID}-empty">${escapeHTML(section.emptyTitle)}</p>`;
@@ -7708,6 +7738,19 @@
           </button>
           ${content}
         </section>`;
+    }
+
+    function renderActivityItemActions(item) {
+      if (!Array.isArray(item.actions) || !item.actions.length) return '';
+      const buttons = item.actions.map(action => `
+        <button
+          type="button"
+          class="activity-source-action hit-target-form-action"
+          data-testid="activity-source-action"
+          data-command-id="${escapeHTML(action.commandID)}"
+          data-action-kind="${escapeHTML(action.kind || '')}"
+        >${escapeHTML(action.title)}</button>`).join('');
+      return `<div class="activity-item-actions">${buttons}</div>`;
     }
 
     function renderTerminalPane() {
@@ -9104,6 +9147,9 @@
 
     const harnessRoutableCommandPrefixes = [
       'activity-toggle-section:',
+      'activity-instruction-resolve:',
+      'activity-source-edit:',
+      'activity-source-open:',
       'automation-create-thread-follow-up-after:',
       'automation-create-workspace-schedule-after:',
       'automation-delete:',
@@ -9434,6 +9480,40 @@
           collapsed.add(section);
         }
         state.activity.collapsedSections = Array.from(collapsed);
+      }
+      if (commandID?.startsWith('activity-source-open:')) {
+        const path = commandID.slice('activity-source-open:'.length);
+        addToolCard({
+          title: 'host.file.read',
+          status: 'Done',
+          kind: 'done',
+          summary: 'Completed',
+          input: { path },
+          output: {
+            ok: true,
+            path,
+            content: 'Use Swift patterns and keep changes reviewable.'
+          }
+        });
+        addMessage('assistant', `Instruction source ${path}:\nUse Swift patterns and keep changes reviewable.`);
+        render();
+        return;
+      }
+      if (commandID?.startsWith('activity-source-edit:')) {
+        const path = commandID.slice('activity-source-edit:'.length);
+        state.composer.draft = `Edit instruction source ${path}: `;
+        state.composer.canSend = true;
+        render();
+        focusComposerAtDraftEnd();
+        return;
+      }
+      if (commandID?.startsWith('activity-instruction-resolve:')) {
+        const id = commandID.slice('activity-instruction-resolve:'.length);
+        state.composer.draft = `Resolve instruction issue ${id}: `;
+        state.composer.canSend = true;
+        render();
+        focusComposerAtDraftEnd();
+        return;
       }
       if (commandID === 'toggle-memories') {
         state.memories.isVisible = !state.memories.isVisible;

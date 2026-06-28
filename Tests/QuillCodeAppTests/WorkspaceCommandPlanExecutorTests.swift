@@ -1,6 +1,7 @@
 import Foundation
 import XCTest
 import QuillCodeCore
+import QuillCodeTools
 @testable import QuillCodeApp
 
 @MainActor
@@ -47,6 +48,98 @@ final class WorkspaceCommandPlanExecutorTests: XCTestCase {
         XCTAssertTrue(model.runWorkspaceCommand("browser-tab-close:\(firstTabID.uuidString)", workspaceRoot: root))
         XCTAssertEqual(model.browser.selectedTabID, secondTabID)
         XCTAssertEqual(model.browser.tabs.count, 1)
+    }
+
+    func testExecutorOpensActivityInstructionSourceWithFileReadTool() throws {
+        let root = try makeTempDirectory()
+        try "Use Swift patterns.\n".write(
+            to: root.appendingPathComponent("AGENTS.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let thread = ChatThread(
+            title: "Inspect source",
+            messages: [.init(role: .user, content: "what rules apply?")],
+            instructions: [
+                ProjectInstruction(
+                    path: "AGENTS.md",
+                    title: "AGENTS.md",
+                    content: "Use Swift patterns.",
+                    byteCount: 19
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        XCTAssertTrue(model.runWorkspaceCommand("activity-source-open:AGENTS.md", workspaceRoot: root))
+
+        let selectedThread = try XCTUnwrap(model.selectedThread)
+        let card = try XCTUnwrap(WorkspaceTranscriptSurfaceBuilder(thread: selectedThread).toolCards().last)
+        XCTAssertEqual(card.title, ToolDefinition.fileRead.name)
+        XCTAssertEqual(card.status, .done)
+        XCTAssertEqual(card.inputJSON, ToolArguments.json(["path": "AGENTS.md"]))
+    }
+
+    func testExecutorPreparesActivityInstructionEditDraft() throws {
+        let model = QuillCodeWorkspaceModel()
+
+        XCTAssertTrue(model.runWorkspaceCommand(
+            "activity-source-edit:.quillcode/rules.md",
+            workspaceRoot: try makeTempDirectory()
+        ))
+
+        XCTAssertEqual(model.composer.draft, "Edit instruction source .quillcode/rules.md: ")
+    }
+
+    func testExecutorPreparesInstructionDiagnosticResolutionDraft() throws {
+        let thread = ChatThread(
+            title: "Inspect conflicts",
+            messages: [.init(role: .user, content: "what rules apply?")],
+            instructions: [
+                ProjectInstruction(
+                    path: "AGENTS.md",
+                    title: "AGENTS.md",
+                    content: "Always run tests before final answers.",
+                    byteCount: 38
+                ),
+                ProjectInstruction(
+                    path: "Sources/Feature/AGENTS.md",
+                    title: "Feature AGENTS.md",
+                    content: "Do not run tests for feature changes.",
+                    byteCount: 37
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+        let diagnosticID = try XCTUnwrap(ProjectInstructionDiagnosticsBuilder
+            .diagnostics(for: thread.instructions)
+            .first { $0.statusLabel == "conflict" }?
+            .id)
+
+        XCTAssertTrue(model.runWorkspaceCommand(
+            "activity-instruction-resolve:\(diagnosticID)",
+            workspaceRoot: try makeTempDirectory()
+        ))
+
+        XCTAssertTrue(model.composer.draft.hasPrefix("Resolve instruction issue \"Conflicting instruction intent\""))
+        XCTAssertTrue(model.composer.draft.contains("AGENTS.md says require"))
+        XCTAssertTrue(model.composer.draft.contains("Sources/Feature/AGENTS.md says avoid"))
+    }
+
+    func testExecutorRejectsMissingInstructionDiagnosticResolution() throws {
+        let model = QuillCodeWorkspaceModel()
+
+        XCTAssertFalse(model.runWorkspaceCommand(
+            "activity-instruction-resolve:not-found",
+            workspaceRoot: try makeTempDirectory()
+        ))
+        XCTAssertEqual(model.composer.draft, "")
     }
 
 }

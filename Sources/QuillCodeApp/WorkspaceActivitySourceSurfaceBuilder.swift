@@ -8,7 +8,19 @@ enum WorkspaceActivitySourceSurfaceBuilder {
                 title: WorkspaceActivityText.sourceTitle(instruction.path),
                 detail: "\(instruction.path) · Scope: \(instruction.scopeLabel)",
                 kind: "instruction",
-                statusLabel: instruction.wasTruncated ? "truncated" : "rules"
+                statusLabel: instruction.wasTruncated ? "truncated" : "rules",
+                actions: [
+                    ActivityItemActionSurface(
+                        title: "Open",
+                        commandID: "activity-source-open:\(instruction.path)",
+                        kind: "open"
+                    ),
+                    ActivityItemActionSurface(
+                        title: "Edit",
+                        commandID: "activity-source-edit:\(instruction.path)",
+                        kind: "edit"
+                    )
+                ]
             )
         }
         let allDiagnosticItems = ProjectInstructionDiagnosticsBuilder
@@ -19,7 +31,14 @@ enum WorkspaceActivitySourceSurfaceBuilder {
                     title: diagnostic.title,
                     detail: diagnostic.detail,
                     kind: "instruction-diagnostic",
-                    statusLabel: diagnostic.statusLabel
+                    statusLabel: diagnostic.statusLabel,
+                    actions: [
+                        ActivityItemActionSurface(
+                            title: "Resolve",
+                            commandID: "activity-instruction-resolve:\(diagnostic.id)",
+                            kind: "resolve"
+                        )
+                    ]
                 )
             }
         let diagnosticItems = Array(

@@ -8613,3 +8613,21 @@ Code quality changes:
 Remaining risk:
 
 - The rendered harness and Swift source gates now prove intent and geometry. The deeper remaining proof layer is packaged native UI automation that samples actual macOS/Linux SwiftUI control interiors the way Playwright samples rendered HTML.
+
+## 2026-06-28 Activity Instruction Source Actions Pass
+
+Overall grade after this slice: **A typed action contract, A command routing, A- full source-resolution UX**.
+
+Instruction Review made project-rule conflicts visible, but the rows still ended at passive diagnostics. Users needed obvious click targets to inspect the loaded instruction source, start an edit, or resolve a conflict without hunting through the filesystem manually.
+
+Code quality changes:
+
+- Added typed `ActivityItemActionSurface` metadata to Activity items so native SwiftUI, static HTML, and the Playwright harness share one source-action contract.
+- Added Open/Edit actions to instruction source rows and Resolve actions to instruction conflict diagnostics.
+- Routed `activity-source-open:*`, `activity-source-edit:*`, and `activity-instruction-resolve:*` through `WorkspaceCommandPlan` and `WorkspaceCommandPlanExecutor` instead of feature-local click handlers.
+- Kept mutations explicit: Open runs the bounded `host.file.read` tool, while Edit/Resolve seed composer drafts so edits still go through the normal model, safety, file-write, and review flow.
+- Added Swift surface/executor/HTML coverage plus Playwright coverage that clicks Open/Edit and verifies the resulting tool card and composer draft.
+
+Remaining risk:
+
+- This closes the first source-action gap. Richer native editor jump-to-line, diff-assisted conflict fixes, and explicit resolved/dismissed state remain the next AGENTS/rules parity layer.
