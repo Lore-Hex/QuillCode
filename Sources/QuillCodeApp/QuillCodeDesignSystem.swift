@@ -28,6 +28,7 @@ struct QuillCodeHitTargetSpec {
         case segmentedControl
         case adjustableControl
         case switchRow
+        case ownedGesture
         case fullRow
         case capsule
     }
@@ -161,6 +162,23 @@ struct QuillCodeHitTargetSpec {
             height: nil,
             alignment: alignment,
             shape: .rectangle
+        )
+    }
+
+    static func ownedGesture(
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .leading,
+        radius: CGFloat = QuillCodeMetrics.compactControlRadius
+    ) -> Self {
+        Self(
+            kind: .ownedGesture,
+            minWidth: nil,
+            maxWidth: .infinity,
+            width: nil,
+            minHeight: minHeight,
+            height: nil,
+            alignment: alignment,
+            shape: .rounded(radius)
         )
     }
 
@@ -397,6 +415,19 @@ extension View {
             minHeight: minHeight,
             alignment: alignment
         ))
+    }
+
+    public func quillCodeOwnedGestureTarget(
+        minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        alignment: Alignment = .leading,
+        radius: CGFloat = QuillCodeMetrics.compactControlRadius
+    ) -> some View {
+        quillCodeInteractiveTarget(.ownedGesture(
+            minHeight: minHeight,
+            alignment: alignment,
+            radius: radius
+        ))
+        .accessibilityAddTraits(.isButton)
     }
 
     public func quillCodeIconButtonTarget(

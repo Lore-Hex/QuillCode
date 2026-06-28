@@ -380,16 +380,22 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && designText.contains("static func textEntry(")
                 && designText.contains("static func segmentedControl(")
                 && designText.contains("static func adjustableControl(")
-                && designText.contains("static func switchRow("),
-            "Shared target specs should cover icon, row, form-action, capsule, text-entry, segmented, adjustable, and switch controls instead of ad hoc sizing."
+                && designText.contains("static func switchRow(")
+                && designText.contains("static func ownedGesture("),
+            "Shared target specs should cover icon, row, form-action, capsule, text-entry, segmented, adjustable, switch, and owned gesture controls instead of ad hoc sizing."
         )
         XCTAssertTrue(
             designText.contains("quillCodeTextEntryTarget")
                 && designText.contains("quillCodeSegmentedControlTarget")
                 && designText.contains("quillCodeAdjustableControlTarget")
                 && designText.contains("quillCodeSwitchRowTarget")
+                && designText.contains("quillCodeOwnedGestureTarget")
                 && designText.contains("quillCodeDecorativeIconFrame"),
-            "Native text entry, segmented controls, adjustable controls, switches, and decorative icon frames should have semantic helpers so call sites do not use raw frames."
+            "Native text entry, segmented controls, adjustable controls, switches, owned gesture regions, and decorative icon frames should have semantic helpers so call sites do not use raw frames."
+        )
+        XCTAssertTrue(
+            designText.contains(".accessibilityAddTraits(.isButton)"),
+            "Owned gesture targets should opt into button semantics so custom gestures remain discoverable and auditable."
         )
         XCTAssertFalse(
             designText.contains("public func quillCodeHitTarget("),
@@ -595,6 +601,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && auditText.contains("case segmentedControl")
                 && auditText.contains("case adjustableControl")
                 && auditText.contains("case switchRow")
+                && auditText.contains("case ownedGesture")
                 && auditText.contains("case fullRow")
                 && auditText.contains("case capsule"),
             "Native hit-target audit should expose every semantic target kind instead of only a generic minimum-size check."
@@ -624,7 +631,7 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
                 && smokeScriptText.contains(#"native_targets.get("isValid") is not True"#)
                 && smokeScriptText.contains(#"native_targets.get("minimumHitTarget") != 44"#)
                 && smokeScriptText.contains("math.isclose(press_scale, 0.96")
-                && smokeScriptText.contains(#""icon", "textButton", "formAction", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "fullRow", "capsule""#),
+                && smokeScriptText.contains(#""icon", "textButton", "formAction", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule""#),
             "The release smoke wrapper should parse the native hit-target report as JSON and validate every metric and semantic kind."
         )
     }
@@ -678,6 +685,82 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
             "Generic target helpers should not satisfy visible app controls; choose icon, text, row, capsule, form, switch, segmented, adjustable, or text-entry intent."
         )
         XCTAssertTrue(violations.contains { $0.contains("Button lacks shared hit target") })
+    }
+
+    func testNativeSourceAuditRejectsRawShapeAndHitTestingOverrides() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct RawTargetChrome: View {
+            var body: some View {
+                Button("Raw") {}
+                    .contentShape(Rectangle())
+                    .allowsHitTesting(false)
+                    .quillCodeTextButtonTarget()
+                    .buttonStyle(QuillCodePressableButtonStyle())
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertTrue(
+            violations.contains { $0.contains("raw contentShape should live in the shared target helper") },
+            "Raw content shapes let controls invent local hit regions instead of using the design-system contract."
+        )
+        XCTAssertTrue(
+            violations.contains { $0.contains("hit-testing override should not be used on app chrome") },
+            "Hit-testing overrides can create visible dead targets and should fail source review."
+        )
+    }
+
+    func testNativeSourceAuditAllowsNamedOwnedGestureTargets() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct OwnedGestureChrome: View {
+            var body: some View {
+                HStack {
+                    Text("Open")
+                    Image(systemName: "chevron.right")
+                }
+                .quillCodeOwnedGestureTarget()
+                .accessibilityLabel("Open detail")
+                .onTapGesture {}
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertEqual(violations, [])
+    }
+
+    func testNativeSourceAuditRejectsUnnamedGestureTargets() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct RawGestureChrome: View {
+            var body: some View {
+                Text("Open")
+                    .onTapGesture {}
+                Text("Press")
+                    .onLongPressGesture {}
+                Text("Priority")
+                    .highPriorityGesture(TapGesture())
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertGreaterThanOrEqual(
+            violations.filter { $0.contains("gesture-based click target should use Button, Link, or quillCodeOwnedGestureTarget") }.count,
+            3
+        )
     }
 
     func testNativeSourceAuditAcceptsDecorativeIconFrames() throws {
@@ -858,7 +941,8 @@ private struct SwiftSourceInteractionTargetAudit {
         "quillCodeTextEntryTarget",
         "quillCodeSegmentedControlTarget",
         "quillCodeAdjustableControlTarget",
-        "quillCodeSwitchRowTarget"
+        "quillCodeSwitchRowTarget",
+        "quillCodeOwnedGestureTarget"
     ]
 
     private let genericTargetMarkers = [
@@ -883,13 +967,24 @@ private struct SwiftSourceInteractionTargetAudit {
             let declarationScope = controlScope(in: lines, startingAt: index)
             let owningControlScope = controlScopeForModifier(in: lines, modifierIndex: index)
 
-            if isGestureClick(line) {
-                violations.append("\(relativePath):\(index + 1) gesture-based click target should be a Button or Link")
+            if isGestureClick(line),
+               !window(in: lines, around: index, radius: 10).contains("quillCodeOwnedGestureTarget") {
+                violations.append("\(relativePath):\(index + 1) gesture-based click target should use Button, Link, or quillCodeOwnedGestureTarget")
             }
 
             if isRawMinimumHitTargetFrame(line),
                !isSharedDesignSystem(relativePath) {
                 violations.append("\(relativePath):\(index + 1) raw minimum hit-target frame should use semantic target or decorative helper")
+            }
+
+            if line.contains(".contentShape("),
+               !isSharedDesignSystem(relativePath) {
+                violations.append("\(relativePath):\(index + 1) raw contentShape should live in the shared target helper")
+            }
+
+            if line.contains(".allowsHitTesting("),
+               !isSharedDesignSystem(relativePath) {
+                violations.append("\(relativePath):\(index + 1) hit-testing override should not be used on app chrome")
             }
 
             if usesGenericTargetHelper(line),
@@ -1151,7 +1246,13 @@ private struct SwiftSourceInteractionTargetAudit {
     }
 
     private func isGestureClick(_ line: String) -> Bool {
-        line.contains(".onTapGesture") || line.contains(".gesture(")
+        line.contains(".onTapGesture")
+            || line.contains(".onLongPressGesture")
+            || line.contains(".gesture(")
+            || line.contains(".simultaneousGesture(")
+            || line.contains(".highPriorityGesture(")
+            || line.contains("TapGesture(")
+            || line.contains("LongPressGesture(")
     }
 
     private func isCompactPlatformButtonStyle(_ line: String) -> Bool {
