@@ -41,6 +41,7 @@ struct QuillCodeTerminalPaneView: View {
                     .controlSize(.small)
                 Button("Stop", action: onStop)
                     .buttonStyle(QuillCodeActionButtonStyle(.destructive, minWidth: 56))
+                    .quillCodeFormActionTarget()
             }
         }
     }

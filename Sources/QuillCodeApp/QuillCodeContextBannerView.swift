@@ -75,6 +75,7 @@ struct QuillCodeContextBannerView: View {
                 onCommand(command)
             }
                 .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: minWidth))
+                .quillCodeTextButtonTarget(minWidth: minWidth)
                 .disabled(!command.isEnabled)
                 .accessibilityLabel(command.title)
         } else {
@@ -82,6 +83,7 @@ struct QuillCodeContextBannerView: View {
                 onCommand(command)
             }
                 .buttonStyle(QuillCodeActionButtonStyle(.secondary, minWidth: minWidth))
+                .quillCodeTextButtonTarget(minWidth: minWidth)
                 .disabled(!command.isEnabled)
                 .accessibilityLabel(command.title)
         }

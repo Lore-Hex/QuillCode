@@ -259,6 +259,7 @@ struct QuillCodeBrowserPaneView: View {
                 .quillCodeTextEntryTarget()
             Button("Comment", action: addComment)
                 .buttonStyle(QuillCodeActionButtonStyle(.secondary, minWidth: 92))
+                .quillCodeFormActionTarget(minWidth: 92)
                 .disabled(browser.currentURL == nil || commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
     }
