@@ -213,7 +213,11 @@ struct QuillCodeExtensionsPaneView: View {
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 5)], alignment: .leading, spacing: 5) {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 104), spacing: QuillCodeMetrics.denseControlClusterSpacing)],
+                    alignment: .leading,
+                    spacing: QuillCodeMetrics.denseControlClusterSpacing
+                ) {
                     ForEach(Array(tools.enumerated()), id: \.offset) { _, tool in
                         VStack(alignment: .leading, spacing: 2) {
                             Text(tool.name)
@@ -247,7 +251,11 @@ struct QuillCodeExtensionsPaneView: View {
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 82), spacing: 5)], alignment: .leading, spacing: 5) {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 82), spacing: QuillCodeMetrics.denseControlClusterSpacing)],
+                    alignment: .leading,
+                    spacing: QuillCodeMetrics.denseControlClusterSpacing
+                ) {
                     ForEach(Array(values.enumerated()), id: \.offset) { _, value in
                         Text(value)
                             .font(.caption2.weight(.medium))
@@ -295,7 +303,11 @@ struct QuillCodeExtensionsPaneView: View {
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(QuillCodePalette.muted)
                     .lineLimit(1)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 5)], alignment: .leading, spacing: 5) {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 96), spacing: QuillCodeMetrics.denseControlClusterSpacing)],
+                    alignment: .leading,
+                    spacing: QuillCodeMetrics.denseControlClusterSpacing
+                ) {
                     ForEach(actions) { action in
                         Button("\(titlePrefix) \(action.title)") {
                             onCommand(extensionCommand(id: action.commandID, title: "\(titlePrefix) \(action.title)"))

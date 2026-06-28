@@ -110,6 +110,27 @@ final class WorkspaceThreadSeedBuilderTests: XCTestCase {
         XCTAssertFalse(seed[0].content.contains("hidden continuation feedback"))
     }
 
+    func testCompactSeedCanUseModelSummaryOverride() {
+        let thread = ChatThread(title: "Live context", messages: [
+            ChatMessage(role: .user, content: "old request"),
+            ChatMessage(role: .assistant, content: "old answer"),
+            ChatMessage(role: .user, content: "latest request"),
+            ChatMessage(role: .assistant, content: "latest answer")
+        ])
+
+        let seed = WorkspaceThreadSeedBuilder.compactSeedMessages(
+            from: thread,
+            summaryOverride: "The model summary preserves the important implementation decision."
+        )
+
+        XCTAssertEqual(seed.count, 3)
+        XCTAssertTrue(seed[0].content.contains("Context compacted from \"Live context\"."))
+        XCTAssertTrue(seed[0].content.contains("Model summary:"))
+        XCTAssertTrue(seed[0].content.contains("important implementation decision"))
+        XCTAssertFalse(seed[0].content.contains("summarized 2 earlier messages"))
+        XCTAssertEqual(Array(seed.map(\.content).suffix(2)), ["latest request", "latest answer"])
+    }
+
     func testCompactSeedReportsWhenNothingWasDropped() {
         let thread = ChatThread(title: "Short context", messages: [
             ChatMessage(role: .user, content: "latest request"),

@@ -29,7 +29,7 @@ struct QuillCodeReviewFileRowView: View {
             Text(file.changeLabel)
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(QuillCodePalette.muted)
-            HStack(spacing: 4) {
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                 ForEach(file.actions) { action in
                     QuillCodeReviewActionButton(action: action, path: file.path, onReviewAction: onReviewAction)
                 }

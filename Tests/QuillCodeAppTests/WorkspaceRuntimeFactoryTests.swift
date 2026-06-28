@@ -15,6 +15,7 @@ final class WorkspaceRuntimeFactoryTests: XCTestCase {
 
         XCTAssertEqual(runtime.mode, .trustedRouter)
         XCTAssertEqual(runtime.statusLabel, QuillCodeRuntimeStatusLabel.trustedRouterSignedIn)
+        XCTAssertTrue(runtime.contextSummaryGenerator.isModelBacked)
     }
 
     func testUsesTrustedRouterWhenSecretExists() throws {
@@ -29,6 +30,7 @@ final class WorkspaceRuntimeFactoryTests: XCTestCase {
             .makeRuntime(config: AppConfig())
 
         XCTAssertEqual(runtime.mode, .trustedRouter)
+        XCTAssertTrue(runtime.contextSummaryGenerator.isModelBacked)
     }
 
     func testCanForceMockForDeterministicRuns() throws {
@@ -45,6 +47,7 @@ final class WorkspaceRuntimeFactoryTests: XCTestCase {
 
         XCTAssertEqual(runtime.mode, .mock)
         XCTAssertEqual(runtime.statusLabel, QuillCodeRuntimeStatusLabel.mockLLM)
+        XCTAssertFalse(runtime.contextSummaryGenerator.isModelBacked)
     }
 
     func testModelCatalogFallsBackWithoutKey() async throws {

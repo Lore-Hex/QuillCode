@@ -11,11 +11,18 @@ public enum QuillCodeRuntimeMode: String, Codable, Sendable, Hashable {
 
 public struct QuillCodeRuntime: Sendable {
     public var runner: AgentRunner
+    public var contextSummaryGenerator: any WorkspaceContextSummaryGenerating
     public var mode: QuillCodeRuntimeMode
     public var statusLabel: String
 
-    public init(runner: AgentRunner, mode: QuillCodeRuntimeMode, statusLabel: String) {
+    public init(
+        runner: AgentRunner,
+        contextSummaryGenerator: any WorkspaceContextSummaryGenerating = DeterministicWorkspaceContextSummaryGenerator(),
+        mode: QuillCodeRuntimeMode,
+        statusLabel: String
+    ) {
         self.runner = runner
+        self.contextSummaryGenerator = contextSummaryGenerator
         self.mode = mode
         self.statusLabel = statusLabel
     }
@@ -66,6 +73,7 @@ public struct QuillCodeRuntimeFactory: Sendable {
                 safety: AutoSafetyReviewer(client: safetyClient),
                 enablesImmediateActionPreflight: true
             ),
+            contextSummaryGenerator: LLMWorkspaceContextSummaryGenerator(llm: llm),
             mode: .trustedRouter,
             statusLabel: config.authMode == .oauth
                 ? QuillCodeRuntimeStatusLabel.trustedRouterSignedIn
@@ -114,6 +122,7 @@ public struct QuillCodeRuntimeFactory: Sendable {
     private func mockRuntime(status: String) -> QuillCodeRuntime {
         QuillCodeRuntime(
             runner: AgentRunner(),
+            contextSummaryGenerator: DeterministicWorkspaceContextSummaryGenerator(),
             mode: .mock,
             statusLabel: status
         )

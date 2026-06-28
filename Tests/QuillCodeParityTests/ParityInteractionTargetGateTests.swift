@@ -742,6 +742,73 @@ final class ParityInteractionTargetGateTests: QuillCodeParityTestCase {
         )
     }
 
+    func testNativeSourceAuditRejectsTightNumericControlClusters() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct TightClusterChrome: View {
+            var body: some View {
+                HStack(spacing: 4) {
+                    Button("Run") {}
+                        .quillCodeFormActionTarget()
+                        .buttonStyle(QuillCodeActionButtonStyle(.primary))
+                    Button("Cancel") {}
+                        .quillCodeFormActionTarget()
+                        .buttonStyle(QuillCodeActionButtonStyle())
+                }
+
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 5)], spacing: 5) {
+                    Button("Read") {}
+                        .quillCodeCapsuleButtonTarget(minWidth: 96)
+                        .buttonStyle(QuillCodeActionButtonStyle())
+                }
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertEqual(
+            violations.filter { $0.contains("interactive control cluster spacing should use QuillCodeMetrics.controlClusterSpacing or denseControlClusterSpacing") }.count,
+            2,
+            "Dense button groups should use named spacing metrics so future visual changes cannot silently shrink the collision budget."
+        )
+    }
+
+    func testNativeSourceAuditAcceptsNamedControlClusterSpacing() throws {
+        let file = try makeTemporarySwiftFile("""
+        import SwiftUI
+
+        struct NamedClusterChrome: View {
+            var body: some View {
+                HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                    Button("Run") {}
+                        .quillCodeFormActionTarget()
+                        .buttonStyle(QuillCodeActionButtonStyle(.primary))
+                    Button("Cancel") {}
+                        .quillCodeFormActionTarget()
+                        .buttonStyle(QuillCodeActionButtonStyle())
+                }
+
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 96), spacing: QuillCodeMetrics.denseControlClusterSpacing)],
+                    spacing: QuillCodeMetrics.denseControlClusterSpacing
+                ) {
+                    Button("Read") {}
+                        .quillCodeCapsuleButtonTarget(minWidth: 96)
+                        .buttonStyle(QuillCodeActionButtonStyle())
+                }
+            }
+        }
+        """)
+
+        let violations = try SwiftSourceInteractionTargetAudit(packageRoot: file.deletingLastPathComponent())
+            .violations(in: [file])
+
+        XCTAssertEqual(violations, [])
+    }
+
     func testNativeSourceAuditAllowsNamedOwnedGestureTargets() throws {
         let file = try makeTemporarySwiftFile("""
         import SwiftUI
@@ -1024,6 +1091,12 @@ private struct SwiftSourceInteractionTargetAudit {
                 violations.append("\(relativePath):\(index + 1) compact platform button style should use QuillCodePressableButtonStyle or QuillCodeActionButtonStyle")
             }
 
+            if isTightNumericControlCluster(line),
+               containsInteractiveControl(declarationScope),
+               !isSharedDesignSystem(relativePath) {
+                violations.append("\(relativePath):\(index + 1) interactive control cluster spacing should use QuillCodeMetrics.controlClusterSpacing or denseControlClusterSpacing")
+            }
+
             if line.contains(".buttonStyle(QuillCodePressableButtonStyle())"),
                !hasSharedTarget(in: owningControlScope) {
                 violations.append("\(relativePath):\(index + 1) pressable button lacks explicit shared hit target")
@@ -1287,6 +1360,33 @@ private struct SwiftSourceInteractionTargetAudit {
             || line.contains(".buttonStyle(.borderedProminent")
             || line.contains(".buttonStyle(.borderless")
             || line.contains(".buttonStyle(.plain")
+    }
+
+    private func isTightNumericControlCluster(_ line: String) -> Bool {
+        line.range(
+            of: #"(HStack|LazyHGrid|LazyVGrid)\([^\n]*spacing:\s*[0-5](?=[,\)\]])"#,
+            options: .regularExpression
+        ) != nil
+            || line.range(
+                of: #"GridItem\([^\n]*spacing:\s*[0-5](?=[,\)\]])"#,
+                options: .regularExpression
+            ) != nil
+    }
+
+    private func containsInteractiveControl(_ sourceWindow: String) -> Bool {
+        [
+            "Button(",
+            "Button {",
+            "Menu(",
+            "Menu {",
+            "Picker(",
+            "Toggle(",
+            "Link(",
+            "TextField(",
+            "SecureField(",
+            "TextEditor(",
+            "QuillCodeReviewActionButton("
+        ].contains { sourceWindow.contains($0) }
     }
 
     private func isRawMinimumHitTargetFrame(_ line: String) -> Bool {
