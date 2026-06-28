@@ -355,11 +355,11 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             "Browser controls should keep named classes and address test IDs so compact hit-target CSS and audits cannot silently regress."
         )
         XCTAssertTrue(
-            harnessText.contains(".interactive-hit-target"),
+            harnessText.contains(".hit-target-link"),
             "The Playwright harness should size semantic non-button click targets explicitly."
         )
         XCTAssertTrue(
-            harnessText.contains("button,\n    summary,\n    input,\n    select,\n    textarea,\n    a.interactive-hit-target"),
+            harnessText.contains("button,\n    summary,\n    input,\n    select,\n    textarea,\n    a.hit-target-link"),
             "The Playwright harness should enforce a global 44 px baseline for buttons, summaries, fields, and link-style controls."
         )
         XCTAssertTrue(
@@ -383,7 +383,7 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(
             harnessText.contains("summary:focus-visible")
-                && harnessText.contains("a.interactive-hit-target:focus-visible")
+                && harnessText.contains("a.hit-target-link:focus-visible")
                 && harnessText.contains(#"[role="option"]:focus-visible"#)
                 && harnessText.contains(".hit-target-form-action:focus-visible")
                 && harnessText.contains(".hit-target-adjustable:focus-visible"),
@@ -421,7 +421,7 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
             "Harness browser tab controls should use the same semantic hit-target classes as production HTML."
         )
         XCTAssertTrue(
-            harnessText.contains(#"class="artifact-chip interactive-hit-target""#),
+            harnessText.contains(#"class="artifact-chip hit-target-link""#),
             "Harness artifact links should match the production target class."
         )
         XCTAssertTrue(

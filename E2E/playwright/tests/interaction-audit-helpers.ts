@@ -5,7 +5,7 @@ export const TARGET_INTERIOR_SAMPLE_FRACTIONS = [0.2, 0.5, 0.8];
 export const TARGET_EDGE_SAMPLE_FRACTIONS = [0.08, 0.92];
 export const SHARED_HIT_TARGET_CLASSES = [
   'hit-target-owned',
-  'interactive-hit-target',
+  'hit-target-link',
   'hit-target-icon',
   'hit-target-text',
   'hit-target-text-entry',
@@ -17,7 +17,7 @@ export const SHARED_HIT_TARGET_CLASSES = [
 
 const EXPECTED_KIND_BY_CLASS: Record<string, string> = {
   'hit-target-owned': 'owned',
-  'interactive-hit-target': 'link',
+  'hit-target-link': 'link',
   'hit-target-icon': 'icon',
   'hit-target-text': 'text',
   'hit-target-text-entry': 'text-entry',

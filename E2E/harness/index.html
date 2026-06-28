@@ -59,7 +59,7 @@
       font-variant-numeric: tabular-nums;
     }
     .hit-target-owned,
-    .interactive-hit-target,
+    .hit-target-link,
     .hit-target-text,
     .hit-target-text-entry,
     .hit-target-row,
@@ -70,7 +70,7 @@
       min-height: var(--hit-target);
       touch-action: manipulation;
     }
-    .interactive-hit-target,
+    .hit-target-link,
     .hit-target-text,
     .hit-target-row,
     .hit-target-capsule,
@@ -104,7 +104,7 @@
     input,
     select,
     textarea,
-    a.interactive-hit-target {
+    a.hit-target-link {
       min-width: var(--hit-target);
       min-height: var(--hit-target);
       touch-action: manipulation;
@@ -116,7 +116,7 @@
       transition-timing-function: var(--ease-out);
     }
     summary,
-    a.interactive-hit-target,
+    a.hit-target-link,
     [role="button"],
     [role="menuitem"],
     [role="option"],
@@ -132,7 +132,7 @@
     }
     button:active:not(:disabled),
     summary:active,
-    a.interactive-hit-target:active {
+    a.hit-target-link:active {
       transform: scale(.96);
     }
     button:disabled {
@@ -145,7 +145,7 @@
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
     }
-    a.interactive-hit-target {
+    a.hit-target-link {
       text-decoration: none;
     }
     details > summary {
@@ -2952,7 +2952,7 @@
       box-shadow: 0 0 0 3px rgba(65,184,232,.24), var(--shadow-border-hover);
     }
     summary:focus-visible,
-    a.interactive-hit-target:focus-visible,
+    a.hit-target-link:focus-visible,
     [role="button"]:focus-visible,
     [role="checkbox"]:focus-visible,
     [role="menuitem"]:focus-visible,
@@ -3652,7 +3652,7 @@
 
     const sharedHitTargetClasses = [
       'hit-target-owned',
-      'interactive-hit-target',
+      'hit-target-link',
       'hit-target-icon',
       'hit-target-text',
       'hit-target-text-entry',
@@ -3709,7 +3709,7 @@
       if (element.classList.contains('hit-target-capsule')) return 'capsule';
       if (element.classList.contains('hit-target-form-action')) return 'form-action';
       if (element.classList.contains('hit-target-adjustable')) return 'adjustable';
-      if (element.classList.contains('interactive-hit-target')) return 'link';
+      if (element.classList.contains('hit-target-link') || element.classList.contains('interactive-hit-target')) return 'link';
       if (element.classList.contains('hit-target-owned')) return 'owned';
       return '';
     }
@@ -3742,7 +3742,7 @@
           ? ['hit-target-icon', 'icon']
           : ['hit-target-text', 'text'];
       }
-      if (element.matches('a[href]')) return ['interactive-hit-target', 'link'];
+      if (element.matches('a[href]')) return ['hit-target-link', 'link'];
       return ['hit-target-owned', 'owned'];
     }
 
@@ -5630,7 +5630,7 @@
           <div class="tool-artifacts" data-testid="tool-card-artifacts" aria-label="Artifacts">
             ${artifacts.map(artifact => {
               const href = artifactHref(artifact);
-              return `<a class="artifact-chip interactive-hit-target" data-testid="tool-card-artifact" data-kind="${escapeHTML(artifact.kind)}" ${href ? `href="${escapeHTML(href)}"` : ''}>
+              return `<a class="artifact-chip hit-target-link" data-testid="tool-card-artifact" data-kind="${escapeHTML(artifact.kind)}" ${href ? `href="${escapeHTML(href)}"` : ''}>
                 <span>
                   <strong data-testid="tool-card-artifact-label">${escapeHTML(artifact.label)}</strong>
                   <small data-testid="tool-card-artifact-detail">${escapeHTML(artifactDetail(artifact))}</small>
@@ -5681,7 +5681,7 @@
                   <strong data-testid="tool-card-document-preview-label">${escapeHTML(artifact.label)}</strong>
                   <small data-testid="tool-card-document-preview-detail">${escapeHTML(preview.detail)}</small>
                 </figcaption>
-                ${href ? `<a class="interactive-hit-target" data-testid="tool-card-document-preview-open" href="${escapeHTML(href)}">Open</a>` : ''}
+                ${href ? `<a class="hit-target-link" data-testid="tool-card-document-preview-open" href="${escapeHTML(href)}">Open</a>` : ''}
               </figure>`;
             }).join('')}
           </div>` : '';

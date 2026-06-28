@@ -85,7 +85,7 @@ if not isinstance(press_scale, (int, float)) or not math.isclose(press_scale, 0.
 
 contracts = native_targets.get("designSystemContracts", []) + native_targets.get("surfaceContracts", [])
 contract_kinds = {contract.get("kind") for contract in contracts if isinstance(contract, dict)}
-required_kinds = {"icon", "textButton", "formAction", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule"}
+required_kinds = {"icon", "textButton", "formAction", "link", "textEntry", "segmentedControl", "adjustableControl", "switchRow", "ownedGesture", "fullRow", "capsule"}
 missing_kinds = sorted(required_kinds - contract_kinds)
 if missing_kinds:
     raise SystemExit(f"quill-code-desktop native smoke did not include native target kinds: {', '.join(missing_kinds)}")
