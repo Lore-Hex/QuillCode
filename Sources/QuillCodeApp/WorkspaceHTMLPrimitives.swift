@@ -33,6 +33,21 @@ enum WorkspaceHTMLHitTargetKind: String, CaseIterable {
             return "hit-target-owned"
         }
     }
+
+    var action: String {
+        switch self {
+        case .textEntry:
+            return "text-input"
+        case .adjustable:
+            return "adjust"
+        case .link:
+            return "link"
+        case .owned:
+            return "owned-gesture"
+        case .icon, .text, .row, .capsule, .formAction:
+            return "press"
+        }
+    }
 }
 
 enum WorkspaceHTMLPrimitives {
@@ -46,6 +61,8 @@ enum WorkspaceHTMLPrimitives {
     static let formActionHitTargetClass = WorkspaceHTMLHitTargetKind.formAction.className
     static let adjustableHitTargetClass = WorkspaceHTMLHitTargetKind.adjustable.className
     static let hitTargetKindAttributeName = "data-hit-target-kind"
+    static let hitTargetActionAttributeName = "data-hit-target-action"
+    static let hitTargetSourceAttributeName = "data-hit-target-source"
 
     static func hitTargetKindAttribute(for className: String) -> String {
         hitTargetKindAttribute(forClasses: [className])
@@ -53,7 +70,13 @@ enum WorkspaceHTMLPrimitives {
 
     static func hitTargetKindAttribute(forClasses classes: [String]) -> String {
         guard let kind = hitTargetKind(forClasses: classes) else { return "" }
-        return #" \#(hitTargetKindAttributeName)="\#(escape(kind))""#
+        return [
+            #"\#(hitTargetKindAttributeName)="\#(escape(kind.rawValue))""#,
+            #"\#(hitTargetActionAttributeName)="\#(escape(kind.action))""#,
+            #"\#(hitTargetSourceAttributeName)="explicit""#
+        ]
+        .map { " " + $0 }
+        .joined()
     }
 
     static func hitTargetAttributes(for className: String) -> String {
@@ -270,9 +293,16 @@ enum WorkspaceHTMLPrimitives {
         if !classAttribute.isEmpty {
             parts.append(#"class="\#(escape(classAttribute))""#)
         }
-        if !explicitAttributes.contains(where: { $0.0 == hitTargetKindAttributeName }),
-           let hitTargetKind = hitTargetKind(forClasses: classes) {
-            parts.append(#"\#(hitTargetKindAttributeName)="\#(escape(hitTargetKind))""#)
+        if let hitTargetKind = hitTargetKind(forClasses: classes) {
+            if !explicitAttributes.contains(where: { $0.0 == hitTargetKindAttributeName }) {
+                parts.append(#"\#(hitTargetKindAttributeName)="\#(escape(hitTargetKind.rawValue))""#)
+            }
+            if !explicitAttributes.contains(where: { $0.0 == hitTargetActionAttributeName }) {
+                parts.append(#"\#(hitTargetActionAttributeName)="\#(escape(hitTargetKind.action))""#)
+            }
+            if !explicitAttributes.contains(where: { $0.0 == hitTargetSourceAttributeName }) {
+                parts.append(#"\#(hitTargetSourceAttributeName)="explicit""#)
+            }
         }
         return parts
     }
@@ -281,7 +311,7 @@ enum WorkspaceHTMLPrimitives {
         hitTargetKind(forClasses: [className]) != nil
     }
 
-    private static func hitTargetKind(forClasses classes: [String]) -> String? {
+    private static func hitTargetKind(forClasses classes: [String]) -> WorkspaceHTMLHitTargetKind? {
         let normalized = Set(classes.map {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)
         })
@@ -293,16 +323,16 @@ enum WorkspaceHTMLPrimitives {
         return nil
     }
 
-    private static let hitTargetKindByClass: [(String, String)] = [
-        (WorkspaceHTMLHitTargetKind.icon.className, WorkspaceHTMLHitTargetKind.icon.rawValue),
-        (WorkspaceHTMLHitTargetKind.textEntry.className, WorkspaceHTMLHitTargetKind.textEntry.rawValue),
-        (WorkspaceHTMLHitTargetKind.row.className, WorkspaceHTMLHitTargetKind.row.rawValue),
-        (WorkspaceHTMLHitTargetKind.capsule.className, WorkspaceHTMLHitTargetKind.capsule.rawValue),
-        (WorkspaceHTMLHitTargetKind.formAction.className, WorkspaceHTMLHitTargetKind.formAction.rawValue),
-        (WorkspaceHTMLHitTargetKind.adjustable.className, WorkspaceHTMLHitTargetKind.adjustable.rawValue),
-        (WorkspaceHTMLHitTargetKind.text.className, WorkspaceHTMLHitTargetKind.text.rawValue),
-        (WorkspaceHTMLHitTargetKind.link.className, WorkspaceHTMLHitTargetKind.link.rawValue),
-        (WorkspaceHTMLHitTargetKind.owned.className, WorkspaceHTMLHitTargetKind.owned.rawValue)
+    private static let hitTargetKindByClass: [(String, WorkspaceHTMLHitTargetKind)] = [
+        (WorkspaceHTMLHitTargetKind.icon.className, .icon),
+        (WorkspaceHTMLHitTargetKind.textEntry.className, .textEntry),
+        (WorkspaceHTMLHitTargetKind.row.className, .row),
+        (WorkspaceHTMLHitTargetKind.capsule.className, .capsule),
+        (WorkspaceHTMLHitTargetKind.formAction.className, .formAction),
+        (WorkspaceHTMLHitTargetKind.adjustable.className, .adjustable),
+        (WorkspaceHTMLHitTargetKind.text.className, .text),
+        (WorkspaceHTMLHitTargetKind.link.className, .link),
+        (WorkspaceHTMLHitTargetKind.owned.className, .owned)
     ]
 
     static func executionContextChip(

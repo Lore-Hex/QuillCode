@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-28 Click-Target Action Contract Pass
+
+Overall grade after this slice: **A explicit target semantics, A rendered coverage, A- native pixel measurement**.
+
+Click targets now carry a complete interaction contract instead of only a visual class. Every designed rendered target says what shape it is, what kind of action it performs, and whether that contract came from source markup or runtime fallback.
+
+| Before | After |
+| --- | --- |
+| A control with a `hit-target-*` class could still omit action/source metadata, so tests could not distinguish a deliberately designed target from one normalized after render. | `WorkspaceHTMLPrimitives` emits `data-hit-target-kind`, `data-hit-target-action`, and `data-hit-target-source="explicit"` together; the harness normalizer marks fallback targets as `auto-*`. |
+| Broad Playwright audits accepted fallback-normalized controls once they had a 44 px class. | The audit now fails `auto-*` source/kind/action metadata, forcing primary UI to declare target ownership at the render site. |
+| Native hit-target contracts only described family/kind/size. | Native contracts now include semantic action plus behavior flags for nested children and unblocked interior requirements. |
+
+Residual risk:
+
+- Native SwiftUI targets are still source/smoke audited rather than sampled from packaged macOS/Linux windows. The rendered harness has pixel-level interior probes; native parity still needs a future UI automation layer.
+
 ## 2026-06-28 Context Summary Telemetry Pass
 
 Overall grade after this slice: **A summary fallback resilience, A- progress observability**.

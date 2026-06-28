@@ -31,6 +31,23 @@ struct QuillCodeHitTargetSpec {
         case ownedGesture
         case fullRow
         case capsule
+
+        var action: String {
+            switch self {
+            case .textEntry:
+                return "text-input"
+            case .adjustableControl:
+                return "adjust"
+            case .ownedGesture:
+                return "owned-gesture"
+            case .icon, .textButton, .formAction, .segmentedControl, .switchRow, .fullRow, .capsule:
+                return "press"
+            }
+        }
+
+        var allowsNestedInteractiveChildren: Bool { false }
+
+        var requiresUnblockedInterior: Bool { true }
     }
 
     enum Shape {
@@ -40,6 +57,9 @@ struct QuillCodeHitTargetSpec {
     }
 
     var kind: Kind
+    var action: String { kind.action }
+    var allowsNestedInteractiveChildren: Bool { kind.allowsNestedInteractiveChildren }
+    var requiresUnblockedInterior: Bool { kind.requiresUnblockedInterior }
     var minWidth: CGFloat?
     var maxWidth: CGFloat?
     var width: CGFloat?
