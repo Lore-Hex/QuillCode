@@ -316,11 +316,110 @@ final class ComputerUseBackendTests: XCTestCase {
         XCTAssertNil(toolResult)
     }
 
-    func testMacBackendReportsCurrentPermissionState() {
-        let status = MacComputerUseBackend().status
+    func testUnavailableBackendReturnsPreflightStatus() async throws {
+        let backend = UnavailableComputerUseBackend(
+            status: .unsupportedPlatform("Computer Use is not wired on this platform.")
+        )
+        let executor = ComputerUseToolExecutor(backend: backend)
+
+        let toolResult = await executor.execute(ToolCall(
+            name: ToolDefinition.computerScreenshot.name,
+            argumentsJSON: "{}"
+        ))
+        let result = try XCTUnwrap(toolResult)
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(
+            result.error,
+            "Computer Use screenshot is unavailable: Unsupported platform: Computer Use is not wired on this platform."
+        )
+    }
+
+    func testDefaultBackendFactoryReportsCurrentPlatformState() {
+        let status = ComputerUseBackendFactory.platformDefault().backend().status
 
         XCTAssertEqual(status.available, status.screenRecordingGranted && status.accessibilityGranted)
         XCTAssertFalse(status.message.isEmpty)
+    }
+
+    func testLinuxComputerUseSessionDetectionPrefersWayland() {
+        let session = LinuxComputerUseSession.detect(from: [
+            "XDG_SESSION_TYPE": "wayland",
+            "WAYLAND_DISPLAY": "wayland-0",
+            "DISPLAY": ":0"
+        ])
+
+        XCTAssertEqual(session, .wayland)
+    }
+
+    func testLinuxComputerUseDetectorReportsMissingGraphicalSession() {
+        let report = LinuxComputerUseCapabilityDetector(
+            environment: [:],
+            executableLookup: { _ in false }
+        ).report()
+
+        XCTAssertEqual(report.session, .none)
+        XCTAssertEqual(report.availableHelpers, [])
+        XCTAssertEqual(report.missingHelpers, [])
+        XCTAssertFalse(report.status.available)
+        XCTAssertEqual(
+            report.status.message,
+            "Linux Computer Use needs a graphical Wayland or X11 session."
+        )
+    }
+
+    func testLinuxComputerUseDetectorReportsMissingWaylandHelpers() {
+        let report = LinuxComputerUseCapabilityDetector(
+            environment: [
+                "XDG_SESSION_TYPE": "wayland",
+                "WAYLAND_DISPLAY": "wayland-0"
+            ],
+            executableLookup: { $0 == "grim" }
+        ).report()
+
+        XCTAssertEqual(report.session, .wayland)
+        XCTAssertEqual(report.availableHelpers, ["grim"])
+        XCTAssertEqual(report.missingHelpers, ["ydotool", "wtype"])
+        XCTAssertEqual(
+            report.status.message,
+            "Linux Computer Use detected Wayland but needs helper tools: ydotool, wtype."
+        )
+    }
+
+    func testLinuxComputerUseDetectorReportsCompleteWaylandHelpersAsAdapterPending() {
+        let report = LinuxComputerUseCapabilityDetector(
+            environment: [
+                "XDG_SESSION_TYPE": "wayland",
+                "WAYLAND_DISPLAY": "wayland-0"
+            ],
+            executableLookup: { ["grim", "ydotool"].contains($0) }
+        ).report()
+
+        XCTAssertEqual(report.session, .wayland)
+        XCTAssertEqual(report.availableHelpers, ["grim", "ydotool"])
+        XCTAssertEqual(report.missingHelpers, [])
+        XCTAssertEqual(
+            report.status.message,
+            "Linux Computer Use detected Wayland helpers, but the Linux input adapter is not enabled yet."
+        )
+    }
+
+    func testLinuxComputerUseDetectorReportsX11Helpers() {
+        let report = LinuxComputerUseCapabilityDetector(
+            environment: [
+                "XDG_SESSION_TYPE": "x11",
+                "DISPLAY": ":0"
+            ],
+            executableLookup: { $0 == "xdotool" }
+        ).report()
+
+        XCTAssertEqual(report.session, .x11)
+        XCTAssertEqual(report.availableHelpers, ["xdotool"])
+        XCTAssertEqual(report.missingHelpers, ["import or scrot"])
+        XCTAssertEqual(
+            report.status.message,
+            "Linux Computer Use detected X11 but needs helper tools: import or scrot."
+        )
     }
 }
 

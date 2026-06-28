@@ -1,0 +1,258 @@
+import Foundation
+
+public struct ComputerUseBackendFactory: Sendable {
+    private let makeBackend: @Sendable () -> any ComputerUseBackend
+
+    public init(makeBackend: @escaping @Sendable () -> any ComputerUseBackend) {
+        self.makeBackend = makeBackend
+    }
+
+    public func backend() -> any ComputerUseBackend {
+        makeBackend()
+    }
+
+    public static func platformDefault() -> ComputerUseBackendFactory {
+        #if canImport(AppKit) && canImport(ApplicationServices) && canImport(CoreGraphics)
+        return ComputerUseBackendFactory {
+            MacComputerUseBackend()
+        }
+        #elseif os(Linux)
+        return ComputerUseBackendFactory {
+            UnavailableComputerUseBackend(
+                status: LinuxComputerUseCapabilityDetector().report().status
+            )
+        }
+        #else
+        return ComputerUseBackendFactory {
+            UnavailableComputerUseBackend(
+                status: .unsupportedPlatform("Computer Use is only available on macOS today.")
+            )
+        }
+        #endif
+    }
+}
+
+public struct UnavailableComputerUseBackend: ComputerUseBackend {
+    public let status: ComputerUseStatus
+
+    public init(status: ComputerUseStatus) {
+        self.status = status
+    }
+
+    public func screenshot() async throws -> ComputerScreenshot {
+        throw ComputerUseError.unavailable(reason)
+    }
+
+    public func leftClick(x _: Int, y _: Int) async throws {
+        throw ComputerUseError.unavailable(reason)
+    }
+
+    public func type(_: String) async throws {
+        throw ComputerUseError.unavailable(reason)
+    }
+
+    public func scroll(dx _: Int, dy _: Int) async throws {
+        throw ComputerUseError.unavailable(reason)
+    }
+
+    public func moveCursor(x _: Int, y _: Int) async throws {
+        throw ComputerUseError.unavailable(reason)
+    }
+
+    public func pressKey(_: String) async throws {
+        throw ComputerUseError.unavailable(reason)
+    }
+
+    private var reason: String {
+        status.unavailableReason ?? status.message
+    }
+}
+
+public struct LinuxComputerUseCapabilityDetector: Sendable {
+    public typealias ExecutableLookup = @Sendable (_ executableName: String) -> Bool
+
+    private let environment: [String: String]
+    private let executableLookup: ExecutableLookup?
+
+    public init(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        executableLookup: ExecutableLookup? = nil
+    ) {
+        self.environment = environment
+        self.executableLookup = executableLookup
+    }
+
+    public func report() -> LinuxComputerUseCapabilityReport {
+        let session = LinuxComputerUseSession.detect(from: environment)
+        switch session {
+        case .none:
+            return LinuxComputerUseCapabilityReport(
+                session: session,
+                availableHelpers: [],
+                missingHelpers: [],
+                status: .unavailable(
+                    "Linux Computer Use needs a graphical Wayland or X11 session."
+                )
+            )
+        case .wayland:
+            return waylandReport()
+        case .x11:
+            return x11Report()
+        }
+    }
+
+    private func waylandReport() -> LinuxComputerUseCapabilityReport {
+        let hasScreenshot = hasExecutable("grim")
+        let hasPointerAndKeys = hasExecutable("ydotool")
+        let hasTyping = hasPointerAndKeys || hasExecutable("wtype")
+        var available: [String] = []
+        var missing: [String] = []
+
+        if hasScreenshot {
+            available.append("grim")
+        } else {
+            missing.append("grim")
+        }
+
+        if hasPointerAndKeys {
+            available.append("ydotool")
+        } else {
+            missing.append("ydotool")
+        }
+
+        if hasTyping {
+            if !hasPointerAndKeys {
+                available.append("wtype")
+            }
+        } else {
+            missing.append("wtype")
+        }
+
+        return helperReport(
+            session: .wayland,
+            availableHelpers: available,
+            missingHelpers: missing
+        )
+    }
+
+    private func x11Report() -> LinuxComputerUseCapabilityReport {
+        let hasScreenshot = hasExecutable("import") || hasExecutable("scrot")
+        let hasInput = hasExecutable("xdotool")
+        var available: [String] = []
+        var missing: [String] = []
+
+        if hasScreenshot {
+            available.append("import/scrot")
+        } else {
+            missing.append("import or scrot")
+        }
+
+        if hasInput {
+            available.append("xdotool")
+        } else {
+            missing.append("xdotool")
+        }
+
+        return helperReport(
+            session: .x11,
+            availableHelpers: available,
+            missingHelpers: missing
+        )
+    }
+
+    private func helperReport(
+        session: LinuxComputerUseSession,
+        availableHelpers: [String],
+        missingHelpers: [String]
+    ) -> LinuxComputerUseCapabilityReport {
+        let status: ComputerUseStatus
+        if missingHelpers.isEmpty {
+            status = .unavailable(
+                "Linux Computer Use detected \(session.displayName) helpers, but the Linux input adapter is not enabled yet."
+            )
+        } else {
+            status = .unavailable(
+                "Linux Computer Use detected \(session.displayName) but needs helper tools: \(missingHelpers.joined(separator: ", "))."
+            )
+        }
+        return LinuxComputerUseCapabilityReport(
+            session: session,
+            availableHelpers: availableHelpers,
+            missingHelpers: missingHelpers,
+            status: status
+        )
+    }
+
+    private func hasExecutable(_ executableName: String) -> Bool {
+        if let executableLookup {
+            return executableLookup(executableName)
+        }
+        return Self.executableExists(
+            executableName,
+            path: environment["PATH"] ?? ""
+        )
+    }
+
+    private static func executableExists(
+        _ executableName: String,
+        path: String
+    ) -> Bool {
+        path
+            .split(separator: ":")
+            .map(String.init)
+            .contains { directory in
+                FileManager.default.isExecutableFile(
+                    atPath: URL(fileURLWithPath: directory)
+                        .appendingPathComponent(executableName)
+                        .path
+                )
+            }
+    }
+}
+
+public struct LinuxComputerUseCapabilityReport: Codable, Sendable, Hashable {
+    public var session: LinuxComputerUseSession
+    public var availableHelpers: [String]
+    public var missingHelpers: [String]
+    public var status: ComputerUseStatus
+
+    public init(
+        session: LinuxComputerUseSession,
+        availableHelpers: [String],
+        missingHelpers: [String],
+        status: ComputerUseStatus
+    ) {
+        self.session = session
+        self.availableHelpers = availableHelpers
+        self.missingHelpers = missingHelpers
+        self.status = status
+    }
+}
+
+public enum LinuxComputerUseSession: String, Codable, Sendable, Hashable {
+    case none
+    case wayland
+    case x11
+
+    public static func detect(from environment: [String: String]) -> LinuxComputerUseSession {
+        let sessionType = environment["XDG_SESSION_TYPE"]?.lowercased()
+        if sessionType == "wayland" || environment["WAYLAND_DISPLAY"]?.isEmpty == false {
+            return .wayland
+        }
+        if sessionType == "x11" || environment["DISPLAY"]?.isEmpty == false {
+            return .x11
+        }
+        return .none
+    }
+
+    public var displayName: String {
+        switch self {
+        case .none:
+            return "no graphical session"
+        case .wayland:
+            return "Wayland"
+        case .x11:
+            return "X11"
+        }
+    }
+}
