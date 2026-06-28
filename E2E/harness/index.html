@@ -2532,7 +2532,7 @@
     }
     .pr-review-inline-comment-list li {
       display: grid;
-      grid-template-columns: minmax(96px, auto) auto minmax(0, 1fr);
+      grid-template-columns: minmax(96px, auto) auto minmax(96px, auto) minmax(0, 1fr);
       align-items: center;
       gap: 8px;
       min-width: 0;
@@ -2557,6 +2557,16 @@
       height: 20px;
       padding: 0;
     }
+    .pr-review-inline-comment-order {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 92px;
+    }
+    .pr-review-inline-comment-order button {
+      font-size: 13px;
+      line-height: 1;
+    }
     .pr-review-inline-comment-list code,
     .pr-review-inline-comment-list span {
       overflow-wrap: anywhere;
@@ -2568,7 +2578,7 @@
       line-height: 1.35;
     }
     .pr-review-inline-comment-list small {
-      grid-column: 3;
+      grid-column: 4;
       color: #ffe2a3;
       font-size: 11px;
     }
@@ -5262,12 +5272,14 @@
           <span>Include ${inlineCommentCountLabel}</span>
         </label>
         <ul class="pr-review-inline-comment-list" data-testid="pr-review-draft-inline-comments">
-          ${inlineComments.map(comment => {
+          ${inlineComments.map((comment, index) => {
             const location = comment.startLine && comment.startLine !== comment.line
               ? `${comment.path}:${comment.startLine}-${comment.line}`
               : `${comment.path}:${comment.line}`;
             const isIncluded = comment.isIncluded !== false;
             const disabled = draft.includeInlineComments === false ? 'disabled' : '';
+            const moveUpDisabled = draft.includeInlineComments === false || index <= 0 ? 'disabled' : '';
+            const moveDownDisabled = draft.includeInlineComments === false || index >= inlineComments.length - 1 ? 'disabled' : '';
             const hasWarning = draft.includeInlineComments !== false && isIncluded && !(comment.body || '').trim();
             return `
             <li data-testid="pr-review-draft-inline-comment">
@@ -5275,6 +5287,10 @@
                 <input type="checkbox" data-testid="pr-review-draft-inline-comment-toggle" data-comment-id="${escapeHTML(comment.id || '')}" aria-label="Include inline note at ${escapeHTML(location)}" ${isIncluded ? 'checked' : ''} ${disabled}>
                 <span>${isIncluded ? 'Included' : 'Skipped'}</span>
               </label>
+              <span class="pr-review-inline-comment-order">
+                <button type="button" class="review-action-button hit-target-icon" data-testid="pr-review-draft-inline-comment-move-up" data-comment-id="${escapeHTML(comment.id || '')}" aria-label="Move inline note at ${escapeHTML(location)} up" ${moveUpDisabled}>^</button>
+                <button type="button" class="review-action-button hit-target-icon" data-testid="pr-review-draft-inline-comment-move-down" data-comment-id="${escapeHTML(comment.id || '')}" aria-label="Move inline note at ${escapeHTML(location)} down" ${moveDownDisabled}>v</button>
+              </span>
               <code>${escapeHTML(location)}</code>
               <textarea data-testid="pr-review-draft-inline-comment-body" data-comment-id="${escapeHTML(comment.id || '')}" aria-label="Inline note text at ${escapeHTML(location)}">${escapeHTML(comment.body || '')}</textarea>
               <small data-testid="pr-review-draft-inline-comment-warning" ${hasWarning ? '' : 'hidden'}>Add note text or skip this note.</small>
@@ -6284,6 +6300,32 @@
         includeInlineCommentsInput?.addEventListener('change', event => {
           syncDraftState();
           render();
+        });
+        const moveInlineComment = (commentID, offset) => {
+          syncDraftState();
+          const comments = [...(state.review.reviewDraft?.inlineComments || [])];
+          const sourceIndex = comments.findIndex(comment => comment.id === commentID);
+          if (sourceIndex < 0 || !offset) return;
+          const destinationIndex = Math.max(0, Math.min(comments.length - 1, sourceIndex + offset));
+          if (destinationIndex === sourceIndex) return;
+          const [comment] = comments.splice(sourceIndex, 1);
+          comments.splice(destinationIndex, 0, comment);
+          state.review.reviewDraft = {
+            ...state.review.reviewDraft,
+            inlineComments: comments
+          };
+          state.review.subtitle = pullRequestReviewDraftSubtitleForDraft(state.review.reviewDraft);
+          render();
+        };
+        form.querySelectorAll('[data-testid="pr-review-draft-inline-comment-move-up"]').forEach(button => {
+          button.addEventListener('click', event => {
+            moveInlineComment(event.currentTarget.getAttribute('data-comment-id'), -1);
+          });
+        });
+        form.querySelectorAll('[data-testid="pr-review-draft-inline-comment-move-down"]').forEach(button => {
+          button.addEventListener('click', event => {
+            moveInlineComment(event.currentTarget.getAttribute('data-comment-id'), 1);
+          });
         });
         form.querySelectorAll('[data-testid="pr-review-draft-inline-comment-toggle"]').forEach(toggle => {
           toggle.addEventListener('change', event => {

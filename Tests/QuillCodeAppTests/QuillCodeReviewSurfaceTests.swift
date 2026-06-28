@@ -363,4 +363,41 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
         XCTAssertEqual(rangeComment.createdAt, createdAt)
         XCTAssertEqual(rangeComment.lineKind, .context)
     }
+
+    func testPullRequestReviewDraftReordersInlineComments() {
+        var draft = WorkspacePullRequestReviewDraftSurface(inlineComments: [
+            WorkspacePullRequestReviewDraftCommentSurface(
+                path: "Sources/First.swift",
+                line: 1,
+                body: "First."
+            ),
+            WorkspacePullRequestReviewDraftCommentSurface(
+                path: "Sources/Second.swift",
+                line: 2,
+                body: "Second.",
+                isIncluded: false
+            ),
+            WorkspacePullRequestReviewDraftCommentSurface(
+                path: "Sources/Third.swift",
+                line: 3,
+                body: "Third."
+            )
+        ])
+        let firstID = draft.inlineComments[0].id
+        let secondID = draft.inlineComments[1].id
+        let thirdID = draft.inlineComments[2].id
+
+        draft.moveInlineComment(id: thirdID, offset: -2)
+        XCTAssertEqual(draft.inlineComments.map(\.id), [thirdID, firstID, secondID])
+        XCTAssertEqual(draft.selectedInlineComments.map(\.body), ["Third.", "First."])
+
+        draft.moveInlineComment(id: thirdID, offset: -1)
+        XCTAssertEqual(draft.inlineComments.map(\.id), [thirdID, firstID, secondID])
+
+        draft.moveInlineComment(id: thirdID, offset: 99)
+        XCTAssertEqual(draft.inlineComments.map(\.id), [firstID, secondID, thirdID])
+
+        draft.moveInlineComment(id: UUID(), offset: 1)
+        XCTAssertEqual(draft.inlineComments.map(\.id), [firstID, secondID, thirdID])
+    }
 }

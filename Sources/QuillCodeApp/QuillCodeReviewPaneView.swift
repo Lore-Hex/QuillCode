@@ -189,8 +189,8 @@ private struct QuillCodePullRequestReviewDraftView: View {
                         .foregroundStyle(QuillCodePalette.muted)
                         .textCase(.uppercase)
 
-                    ForEach(draft.inlineComments) { comment in
-                        inlineCommentRow(comment)
+                    ForEach(Array(draft.inlineComments.enumerated()), id: \.element.id) { index, comment in
+                        inlineCommentRow(comment, index: index)
                     }
                 }
                 .padding(.horizontal, 10)
@@ -301,7 +301,8 @@ private struct QuillCodePullRequestReviewDraftView: View {
     }
 
     private func inlineCommentRow(
-        _ comment: WorkspacePullRequestReviewDraftCommentSurface
+        _ comment: WorkspacePullRequestReviewDraftCommentSurface,
+        index: Int
     ) -> some View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
@@ -326,6 +327,22 @@ private struct QuillCodePullRequestReviewDraftView: View {
                 }
             }
             Spacer(minLength: 8)
+            VStack(spacing: 4) {
+                inlineCommentMoveButton(
+                    title: "Move inline note at \(comment.locationLabel) up",
+                    systemImage: "chevron.up",
+                    isDisabled: !draft.includeInlineComments || index == 0
+                ) {
+                    moveInlineComment(id: comment.id, offset: -1)
+                }
+                inlineCommentMoveButton(
+                    title: "Move inline note at \(comment.locationLabel) down",
+                    systemImage: "chevron.down",
+                    isDisabled: !draft.includeInlineComments || index >= draft.inlineComments.count - 1
+                ) {
+                    moveInlineComment(id: comment.id, offset: 1)
+                }
+            }
             Button(comment.isIncluded ? "Included" : "Skipped") {
                 updateInlineComment(id: comment.id, isIncluded: !comment.isIncluded)
             }
@@ -344,6 +361,25 @@ private struct QuillCodePullRequestReviewDraftView: View {
         .padding(.vertical, 6)
         .background(QuillCodePalette.selection.opacity(0.25))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func inlineCommentMoveButton(
+        title: String,
+        systemImage: String,
+        isDisabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .labelStyle(.iconOnly)
+                .quillCodeIconButtonTarget(size: QuillCodeMetrics.minimumHitTarget)
+        }
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .foregroundStyle(isDisabled ? QuillCodePalette.muted : QuillCodePalette.blue)
+        .opacity(isDisabled ? 0.42 : 1)
+        .disabled(isDisabled)
+        .help(title)
+        .accessibilityLabel(title)
     }
 
     private func update(
@@ -377,6 +413,12 @@ private struct QuillCodePullRequestReviewDraftView: View {
     private func updateInlineComment(id: UUID, body: String) {
         var next = draft
         next.updateInlineComment(id: id, body: body)
+        onChange(next)
+    }
+
+    private func moveInlineComment(id: UUID, offset: Int) {
+        var next = draft
+        next.moveInlineComment(id: id, offset: offset)
         onChange(next)
     }
 
