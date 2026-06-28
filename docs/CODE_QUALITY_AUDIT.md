@@ -8492,3 +8492,21 @@ Code quality changes:
 Remaining risk:
 
 - This proves rendered harness/source contracts and catches uncategorized HTML controls. Packaged-window pixel automation across every native SwiftUI/AppKit control remains the deeper layer for final desktop event-delivery proof.
+
+## 2026-06-28 Pull Request Review Submit Summary Pass
+
+Overall grade after this slice: **A review-draft derived state, A native/static/harness parity, A- review-session parity**.
+
+The PR review draft had editable pending inline notes, but users still had to infer the final submission shape from controls scattered through the pane. Codex-style review sessions need a compact final summary before submission so action, target, body readiness, skipped notes, and invalid selected notes are obvious.
+
+Code quality changes:
+
+- Added `WorkspacePullRequestReviewDraftSubmitSummarySurface` as a pure derived value from the existing draft state instead of adding persisted UI state.
+- Rendered the submit summary in SwiftUI and static HTML with ready/blocked state, target, body readiness, and inline-note selected/skipped/invalid counts.
+- Mirrored the summary in the Playwright harness and updated it live while typing or toggling notes without re-rendering the form and stealing focus.
+- Added Swift and Playwright coverage for ready, blocked, skipped-note, invalid-note, selector, and body-required summary states.
+- Updated the parity matrix and decision log so future review-note reordering builds on the same draft surface.
+
+Remaining risk:
+
+- Inline-note reordering remains the next review-session parity gap. The harness still duplicates some Swift summary display logic, so generated fixture parity would be a useful future cleanup.

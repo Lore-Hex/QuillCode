@@ -25,6 +25,7 @@ enum WorkspaceHTMLReviewRenderer {
     private static func renderPullRequestReviewDraft(_ draft: WorkspacePullRequestReviewDraftSurface?) -> String {
         guard let draft else { return "" }
         let inlineComments = renderPullRequestReviewDraftInlineComments(draft)
+        let submitSummary = renderPullRequestReviewDraftSubmitSummary(draft.submitSummary)
         return """
         <form class="pr-review-draft" data-testid="pr-review-draft" aria-label="Submit pull request review">
           <label>
@@ -45,11 +46,26 @@ enum WorkspaceHTMLReviewRenderer {
             <textarea class="\(WorkspaceHTMLPrimitives.textEntryHitTargetClass)" data-testid="pr-review-draft-body" aria-label="Pull request review body" placeholder="\(escape(draft.action.bodyPlaceholder))">\(escape(draft.body))</textarea>
           </label>
           \(inlineComments)
+          \(submitSummary)
           <footer>
             <button type="reset" class="review-action-button \(WorkspaceHTMLPrimitives.formActionHitTargetClass)" data-testid="pr-review-draft-cancel">Cancel</button>
             <button type="submit" class="review-action-button \(WorkspaceHTMLPrimitives.formActionHitTargetClass)" data-testid="pr-review-draft-submit"\(draft.canSubmit ? "" : " disabled")>\(escape(submitTitle(for: draft.action)))</button>
           </footer>
         </form>
+        """
+    }
+
+    private static func renderPullRequestReviewDraftSubmitSummary(
+        _ summary: WorkspacePullRequestReviewDraftSubmitSummarySurface
+    ) -> String {
+        """
+        <section class="pr-review-draft-summary" data-testid="pr-review-draft-summary" data-status="\(escape(summary.status.rawValue))" aria-label="Pull request review submit summary">
+          <strong data-testid="pr-review-draft-summary-title">\(escape(summary.title))</strong>
+          <p data-testid="pr-review-draft-summary-detail">\(escape(summary.detail))</p>
+          <ul>
+            \(summary.items.map { #"<li data-testid="pr-review-draft-summary-item">\#(escape($0))</li>"# }.joined(separator: "\n"))
+          </ul>
+        </section>
         """
     }
 
