@@ -64,7 +64,7 @@ test('mock harness keeps sidebar saved filters fully visible', async ({ page }) 
     return {
       clientWidth: element.clientWidth,
       scrollWidth: element.scrollWidth,
-      flexWrap: style.flexWrap,
+      flexWrap: style.getPropertyValue('flex-wrap') || style.flexWrap,
       overflowX: style.overflowX,
       left: barRect.left,
       right: barRect.right,
