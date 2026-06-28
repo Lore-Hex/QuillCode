@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-27 Pull Request Command Palette Parity Pass
+
+Overall grade after this slice: **A command catalog parity, A search target resilience, A- native command breadth smoke**.
+
+Rendered command-palette coverage now mirrors the native pull-request command family instead of exposing only the first four PR actions. The harness also treats command discovery as token-based intent matching, so users can type partial natural queries like `resolve review thread` and still hit the exact structured command.
+
+| Before | After |
+| --- | --- |
+| The native catalog exposed checkout, reviewer, comment, review, thread, label, and merge PR actions, but the rendered command palette only covered create/view/checks/diff. | Added the missing rendered PR command rows and routing for draft-based actions plus the concrete review-thread list action. |
+| Palette tests assumed one result for broad queries such as `view pull request`, which broke as the command family became complete. | Tests now click exact `data-command-id` targets and assert every PR command appears in the rendered palette. |
+| Palette search only matched contiguous phrases, so intent queries that skipped filler words could show no results. | Added token-wise command matching across title, ID, category, and keywords. |
+
+Residual risk:
+
+- Full native packaged-window click automation should still confirm that every SwiftUI PR command surface has the same discoverability and hit-target behavior as the rendered harness.
+
 ## 2026-06-27 Critical Click-Target Registry Pass
 
 Overall grade after this slice: **A rendered click-target coverage, A registry maintainability, A- native pixel measurement**.

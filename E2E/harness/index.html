@@ -3252,6 +3252,16 @@
         { id: 'git-pr-view', title: 'View pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'view', 'comments', 'review'], isEnabled: true },
         { id: 'git-pr-checks', title: 'Pull request checks', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'checks', 'ci', 'status'], isEnabled: true },
         { id: 'git-pr-diff', title: 'Pull request diff', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'pr diff', 'pull request diff', 'diff', 'review', 'changes'], isEnabled: true },
+        { id: 'git-pr-checkout', title: 'Checkout pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'checkout', 'switch', 'branch'], isEnabled: true },
+        { id: 'git-pr-reviewers', title: 'Request pull request reviewers', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'reviewer', 'reviewers', 'request review'], isEnabled: true },
+        { id: 'git-pr-comment', title: 'Comment on pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'comment', 'comment pull', 'reply', 'discussion'], isEnabled: true },
+        { id: 'git-pr-review', title: 'Review pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'review', 'approve', 'approve pr', 'request changes'], isEnabled: true },
+        { id: 'git-pr-review-comment', title: 'Comment on pull request line', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'review', 'inline', 'line comment', 'review comment'], isEnabled: true },
+        { id: 'git-pr-review-reply', title: 'Reply to pull request line comment', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'review', 'reply', 'inline reply', 'review comment reply'], isEnabled: true },
+        { id: 'git-pr-review-threads', title: 'List pull request review threads', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'review', 'thread', 'threads', 'unresolved', 'ids', 'browse'], isEnabled: true },
+        { id: 'git-pr-review-thread', title: 'Resolve pull request review thread', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'review', 'thread', 'resolve', 'unresolve'], isEnabled: true },
+        { id: 'git-pr-labels', title: 'Label pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'label', 'labels', 'triage'], isEnabled: true },
+        { id: 'git-pr-merge', title: 'Merge pull request', shortcut: '', category: 'Git', keywords: ['github', 'pr', 'merge', 'automerge', 'merge train'], isEnabled: true },
         { id: 'git-worktree-list', title: 'List worktrees', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
         { id: 'git-worktree-create', title: 'Create worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace'], isEnabled: true },
         { id: 'git-worktree-open', title: 'Open worktree', shortcut: '', category: 'Git', keywords: ['branch', 'git', 'workspace', 'switch'], isEnabled: true },
@@ -4555,6 +4565,8 @@
       const category = normalizeCommandText(command.category || 'Workspace');
       const keywords = (command.keywords || []).map(normalizeCommandText);
       const compactQuery = compactCommandText(query);
+      const queryTokens = query.split(/\s+/).filter(Boolean);
+      const searchableText = [title, id, category, ...keywords].join(' ');
 
       if (title === query || compactTitle === compactQuery) return 1000;
       if (title.startsWith(query) || compactTitle.startsWith(compactQuery)) return 900;
@@ -4563,6 +4575,7 @@
       if (keywords.some(keyword => keyword === query || keyword.startsWith(query))) return 720;
       if (title.includes(query) || compactTitle.includes(compactQuery)) return 650;
       if (id.includes(query) || keywords.some(keyword => keyword.includes(query))) return 560;
+      if (queryTokens.length > 1 && queryTokens.every(token => searchableText.includes(token))) return 540;
       if (category.includes(query)) return 440;
       return null;
     }
@@ -7857,6 +7870,22 @@
       render();
     }
 
+    function runGitPullRequestReviewThreadsAction() {
+      ensureThread('Pull request review threads');
+      const payload = mockPullRequestReviewThreadsPayload(false);
+      state.review = reviewThreadSurfaceFromPayload(payload);
+      addToolCard({
+        title: 'host.git.pr.review_threads',
+        subtitle: 'Completed',
+        status: 'done',
+        inputJSON: JSON.stringify({ selector: '123' }, null, 2),
+        outputJSON: JSON.stringify({ ok: true, stdout: JSON.stringify(payload, null, 2), stderr: '', exitCode: 0 }, null, 2)
+      });
+      addMessage('assistant', 'Found 2 review threads: 1 unresolved, 1 resolved.');
+      syncSelectedThreadSearchText();
+      render();
+    }
+
     function openFindInChat() {
       state.find.isOpen = true;
       state.find.query = '';
@@ -8756,7 +8785,8 @@
         return;
       }
       if (commandID === 'git-pr-create') {
-        state.composer.draft = 'Create a pull request titled ';
+        usePromptAsDraft('Create a pull request titled ');
+        return;
       }
       if (commandID === 'git-pr-view') {
         runGitPullRequestViewAction();
@@ -8768,6 +8798,25 @@
       }
       if (commandID === 'git-pr-diff') {
         runGitPullRequestDiffAction();
+        return;
+      }
+      const pullRequestDrafts = {
+        'git-pr-checkout': 'Checkout pull request ',
+        'git-pr-reviewers': 'Request reviewers for the current pull request: ',
+        'git-pr-comment': 'Comment on the current pull request: ',
+        'git-pr-review': 'Review the current pull request: approve',
+        'git-pr-review-comment': 'Comment on a pull request line: ',
+        'git-pr-review-reply': 'Reply to pull request review comment: ',
+        'git-pr-review-thread': 'Resolve pull request review thread: ',
+        'git-pr-labels': 'Label the current pull request: ',
+        'git-pr-merge': 'Merge the current pull request with squash'
+      };
+      if (Object.prototype.hasOwnProperty.call(pullRequestDrafts, commandID)) {
+        usePromptAsDraft(pullRequestDrafts[commandID]);
+        return;
+      }
+      if (commandID === 'git-pr-review-threads') {
+        runGitPullRequestReviewThreadsAction();
         return;
       }
       if (commandID === 'git-worktree-list') {
