@@ -183,6 +183,10 @@ enum WorkspaceHTMLTranscriptRenderer {
 
     private static func renderContextBanner(_ banner: ContextBannerSurface?) -> String {
         guard let banner else { return "" }
+        let forkButtons = banner.forkCommands.map { command in
+            let testID = WorkspaceThreadForkStrategy(commandID: command.id)?.contextBannerTestID ?? "context-fork"
+            return WorkspaceHTMLPrimitives.commandButton(command.title, testID: testID, commandID: command.id)
+        }.joined(separator: "\n            ")
         return """
         <section class="context-banner" data-testid="context-banner" aria-label="Context limit warning">
           <header>
@@ -193,7 +197,7 @@ enum WorkspaceHTMLTranscriptRenderer {
           <div>
             \(WorkspaceHTMLPrimitives.commandButton(banner.compactCommand.title, testID: "context-compact", commandID: banner.compactCommand.id))
             \(WorkspaceHTMLPrimitives.commandButton(banner.newThreadCommand.title, testID: "context-new-thread", commandID: banner.newThreadCommand.id))
-            \(WorkspaceHTMLPrimitives.commandButton(banner.forkCommand.title, testID: "context-fork-last", commandID: banner.forkCommand.id))
+            \(forkButtons)
           </div>
         </section>
         """

@@ -12,9 +12,14 @@ final class WorkspaceContextBannerBuilderTests: XCTestCase {
 
         XCTAssertEqual(banner.usedPercent, 80)
         XCTAssertEqual(banner.title, "Approaching context limit (80% used)")
-        XCTAssertEqual(banner.subtitle, "Older turns may drop out soon. Compact the thread, start fresh, or fork from the latest useful context.")
+        XCTAssertEqual(banner.subtitle, "Older turns may drop out soon. Compact the thread, start fresh, or fork with latest, summarized, or full visible context.")
         XCTAssertEqual(banner.newThreadCommand.id, "new-chat")
         XCTAssertEqual(banner.forkCommand.id, "fork-from-last")
+        XCTAssertEqual(banner.forkCommands.map(\.id), [
+            "fork-from-last",
+            "fork-with-summary",
+            "fork-full-context"
+        ])
         XCTAssertEqual(banner.compactCommand.id, "compact-context")
     }
 
@@ -58,8 +63,15 @@ final class WorkspaceContextBannerBuilderTests: XCTestCase {
         XCTAssertTrue(banner.title.contains("Context"))
         XCTAssertEqual(banner.newThreadCommand.id, "new-chat")
         XCTAssertEqual(banner.forkCommand.id, "fork-from-last")
+        XCTAssertEqual(banner.forkCommands.map(\.id), [
+            "fork-from-last",
+            "fork-with-summary",
+            "fork-full-context"
+        ])
         XCTAssertEqual(banner.compactCommand.id, "compact-context")
         XCTAssertEqual(surface.commands.first { $0.id == "fork-from-last" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "fork-with-summary" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "fork-full-context" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "compact-context" }?.isEnabled, true)
     }
 
@@ -75,6 +87,8 @@ final class WorkspaceContextBannerBuilderTests: XCTestCase {
 
         XCTAssertNil(surface.contextBanner)
         XCTAssertEqual(surface.commands.first { $0.id == "fork-from-last" }?.isEnabled, false)
+        XCTAssertEqual(surface.commands.first { $0.id == "fork-with-summary" }?.isEnabled, false)
+        XCTAssertEqual(surface.commands.first { $0.id == "fork-full-context" }?.isEnabled, false)
         XCTAssertEqual(surface.commands.first { $0.id == "compact-context" }?.isEnabled, false)
     }
 

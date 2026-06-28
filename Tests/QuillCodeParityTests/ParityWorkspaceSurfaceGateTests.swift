@@ -353,6 +353,8 @@ final class ParityWorkspaceSurfaceGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(stateSpecText.contains("clickSidebarTool"), "Focused workspace state flows should cover Activity navigation through shared sidebar helpers.")
         XCTAssertTrue(stateSpecText.contains("context-compact"), "Focused workspace state flows should cover context compaction.")
         XCTAssertTrue(stateSpecText.contains("context-fork-last"), "Focused workspace state flows should cover context forking.")
+        XCTAssertTrue(stateSpecText.contains("context-fork-summary"), "Focused workspace state flows should cover summarized context forking.")
+        XCTAssertTrue(stateSpecText.contains("context-fork-full"), "Focused workspace state flows should cover full-context forking.")
         for flowName in stateFlowNames {
             XCTAssertTrue(stateSpecText.contains(flowName), "\(flowName) should live in workspace-state.spec.ts.")
             XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")

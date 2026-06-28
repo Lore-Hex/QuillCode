@@ -240,6 +240,8 @@ test('mock harness keeps banner and recovery actions at least 44px', async ({ pa
   await expectHitTarget(page.getByTestId('context-compact'), 'context compact button');
   await expectHitTarget(page.getByTestId('context-new-thread'), 'context new thread button');
   await expectHitTarget(page.getByTestId('context-fork-last'), 'context fork button');
+  await expectHitTarget(page.getByTestId('context-fork-summary'), 'context summary fork button');
+  await expectHitTarget(page.getByTestId('context-fork-full'), 'context full fork button');
 
   await page.getByLabel('Message').fill('trigger network failure');
   await page.getByRole('button', { name: 'Send' }).click();

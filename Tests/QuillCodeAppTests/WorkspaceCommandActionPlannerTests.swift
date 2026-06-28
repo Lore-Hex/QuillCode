@@ -22,7 +22,9 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
         XCTAssertEqual(planner.effect(for: .createThreadFollowUpTomorrow), .createThreadFollowUpTomorrow)
         XCTAssertEqual(planner.effect(for: .createWorkspaceScheduleTomorrow), .createWorkspaceScheduleTomorrow)
         XCTAssertEqual(planner.effect(for: .retryLastTurn), .retryLastTurn)
-        XCTAssertEqual(planner.effect(for: .forkFromLast), .forkFromLast)
+        XCTAssertEqual(planner.effect(for: .forkFromLast), .forkThread(.latestTurn))
+        XCTAssertEqual(planner.effect(for: .forkWithSummary), .forkThread(.summarizedContext))
+        XCTAssertEqual(planner.effect(for: .forkFullContext), .forkThread(.fullContext))
         XCTAssertEqual(planner.effect(for: .compactContext), .compactContext)
         XCTAssertEqual(planner.effect(for: .disconnectAll), .disconnectAll)
     }

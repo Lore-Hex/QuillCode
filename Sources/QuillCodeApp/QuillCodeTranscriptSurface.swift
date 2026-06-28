@@ -160,6 +160,7 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
     public var subtitle: String
     public var newThreadCommand: WorkspaceCommandSurface
     public var forkCommand: WorkspaceCommandSurface
+    public var forkCommands: [WorkspaceCommandSurface]
     public var compactCommand: WorkspaceCommandSurface
 
     public init(
@@ -168,6 +169,7 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
         subtitle: String,
         newThreadCommand: WorkspaceCommandSurface,
         forkCommand: WorkspaceCommandSurface,
+        forkCommands: [WorkspaceCommandSurface]? = nil,
         compactCommand: WorkspaceCommandSurface = WorkspaceCommandSurface(
             id: "compact-context",
             title: "Compact context"
@@ -178,6 +180,10 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
         self.subtitle = subtitle
         self.newThreadCommand = newThreadCommand
         self.forkCommand = forkCommand
+        self.forkCommands = Self.normalizedForkCommands(
+            primary: forkCommand,
+            commands: forkCommands
+        )
         self.compactCommand = compactCommand
     }
 
@@ -187,6 +193,7 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
         case subtitle
         case newThreadCommand
         case forkCommand
+        case forkCommands
         case compactCommand
     }
 
@@ -197,6 +204,7 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
         let decodedSubtitle = try container.decode(String.self, forKey: .subtitle)
         let decodedNewThreadCommand = try container.decode(WorkspaceCommandSurface.self, forKey: .newThreadCommand)
         let decodedForkCommand = try container.decode(WorkspaceCommandSurface.self, forKey: .forkCommand)
+        let decodedForkCommands = try container.decodeIfPresent([WorkspaceCommandSurface].self, forKey: .forkCommands)
         let decodedCompactCommand = try container.decodeIfPresent(WorkspaceCommandSurface.self, forKey: .compactCommand)
             ?? WorkspaceCommandSurface(
                 id: "compact-context",
@@ -210,6 +218,10 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
         self.subtitle = decodedSubtitle
         self.newThreadCommand = decodedNewThreadCommand
         self.forkCommand = decodedForkCommand
+        self.forkCommands = Self.normalizedForkCommands(
+            primary: decodedForkCommand,
+            commands: decodedForkCommands
+        )
         self.compactCommand = decodedCompactCommand
     }
 
@@ -220,7 +232,21 @@ public struct ContextBannerSurface: Codable, Sendable, Hashable {
         try container.encode(subtitle, forKey: .subtitle)
         try container.encode(newThreadCommand, forKey: .newThreadCommand)
         try container.encode(forkCommand, forKey: .forkCommand)
+        try container.encode(forkCommands, forKey: .forkCommands)
         try container.encode(compactCommand, forKey: .compactCommand)
+    }
+
+    private static func normalizedForkCommands(
+        primary: WorkspaceCommandSurface,
+        commands: [WorkspaceCommandSurface]?
+    ) -> [WorkspaceCommandSurface] {
+        var seenIDs: Set<String> = []
+        return ([primary] + (commands ?? []))
+            .filter { command in
+                guard !seenIDs.contains(command.id) else { return false }
+                seenIDs.insert(command.id)
+                return true
+            }
     }
 }
 

@@ -82,6 +82,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "thread-bulk-unarchive",
             "thread-bulk-delete",
             "fork-from-last",
+            "fork-with-summary",
+            "fork-full-context",
             "compact-context",
             "retry-last-turn",
             "search",
@@ -146,6 +148,8 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "computer-use-refresh"
         ])
         XCTAssertEqual(surface.commands.first { $0.id == "fork-from-last" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "fork-with-summary" }?.isEnabled, true)
+        XCTAssertEqual(surface.commands.first { $0.id == "fork-full-context" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "compact-context" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "find-in-chat" }?.isEnabled, true)
         XCTAssertEqual(surface.commands.first { $0.id == "project-refresh-context" }?.isEnabled, true)

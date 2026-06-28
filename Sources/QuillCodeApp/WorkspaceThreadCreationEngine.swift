@@ -34,17 +34,21 @@ struct WorkspaceThreadCreationEngine {
         )
     }
 
-    static func forkThread(from source: ChatThread, projectID: UUID?) -> ChatThread {
+    static func forkThread(
+        from source: ChatThread,
+        projectID: UUID?,
+        strategy: WorkspaceThreadForkStrategy = .latestTurn
+    ) -> ChatThread {
         ChatThread(
-            title: "Fork: \(source.title)",
+            title: "\(strategy.threadTitlePrefix): \(source.title)",
             projectID: projectID,
             mode: source.mode,
             model: source.model,
-            messages: WorkspaceThreadSeedBuilder.forkSeedMessages(from: source.messages),
+            messages: WorkspaceThreadSeedBuilder.forkSeedMessages(from: source, strategy: strategy),
             events: [
                 .init(
                     kind: .notice,
-                    summary: "Forked from \(source.title)",
+                    summary: "\(strategy.noticeSummaryPrefix) from \(source.title)",
                     payloadJSON: source.id.uuidString
                 )
             ],

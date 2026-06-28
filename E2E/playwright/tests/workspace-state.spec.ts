@@ -85,16 +85,18 @@ test('mock harness shows context pressure banner and compacts or forks from late
   test.setTimeout(60000);
   await page.goto(harnessURL());
 
-  const longPrompt = 'long context ' + 'word '.repeat(22000);
-  await page.getByLabel('Message').fill(longPrompt);
-  await page.getByRole('button', { name: 'Send' }).click();
+  const createContextPressure = async (label: string) => {
+    await page.getByRole('textbox', { name: 'Message' }).fill(`${label} ${'word '.repeat(22000)}`);
+    await page.getByRole('button', { name: 'Send' }).click();
+    await expect(page.getByTestId('context-banner')).toBeVisible();
+    await expect(page.getByTestId('context-banner-title')).toContainText(/context limit/i);
 
-  await expect(page.getByTestId('context-banner')).toBeVisible();
-  await expect(page.getByTestId('context-banner-title')).toContainText(/context limit/i);
+    await page.getByRole('textbox', { name: 'Message' }).fill('run whoami');
+    await page.getByRole('button', { name: 'Send' }).click();
+    await expect(page.getByTestId('context-banner')).toBeVisible();
+  };
 
-  await page.getByLabel('Message').fill('run whoami');
-  await page.getByRole('button', { name: 'Send' }).click();
-  await expect(page.getByTestId('context-banner')).toBeVisible();
+  await createContextPressure('long context');
 
   await page.getByTestId('context-compact').click();
 
@@ -103,12 +105,7 @@ test('mock harness shows context pressure banner and compacts or forks from late
   await expect(page.getByTestId('message').first()).toContainText('Context compacted from');
   await expect(page.getByTestId('message').nth(1)).toContainText('run whoami');
 
-  await page.getByRole('textbox', { name: 'Message' }).fill('long context again ' + 'word '.repeat(22000));
-  await page.getByRole('button', { name: 'Send' }).click();
-  await expect(page.getByTestId('context-banner')).toBeVisible();
-  await page.getByRole('textbox', { name: 'Message' }).fill('run whoami');
-  await page.getByRole('button', { name: 'Send' }).click();
-  await expect(page.getByTestId('context-banner')).toBeVisible();
+  await createContextPressure('long context again');
 
   await page.getByTestId('context-fork-last').click();
 
@@ -116,4 +113,22 @@ test('mock harness shows context pressure banner and compacts or forks from late
   await expect(page.getByTestId('context-banner')).toHaveCount(0);
   await expect(page.getByTestId('message').first()).toContainText('run whoami');
   await expect(page.getByText('You are `mock-user` in this workspace.')).toBeVisible();
+
+  await createContextPressure('summary fork pressure');
+
+  await page.getByTestId('context-fork-summary').click();
+
+  await expect(page.getByTestId('top-bar-title')).toContainText('Fork summary:');
+  await expect(page.getByTestId('context-banner')).toHaveCount(0);
+  await expect(page.getByTestId('message').first()).toContainText('Context forked from');
+  await expect(page.getByTestId('message').nth(1)).toContainText('run whoami');
+
+  await createContextPressure('full fork pressure');
+
+  await page.getByTestId('context-fork-full').click();
+
+  await expect(page.getByTestId('top-bar-title')).toContainText('Fork full:');
+  await expect(page.getByTestId('context-banner')).toBeVisible();
+  await expect(page.getByTestId('message').first()).toContainText('Context forked from');
+  await expect(page.getByText('full fork pressure')).toBeVisible();
 });

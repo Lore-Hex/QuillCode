@@ -204,6 +204,8 @@ enum WorkspaceCommandAction: String, Equatable {
     case threadBulkDelete = "thread-bulk-delete"
     case retryLastTurn = "retry-last-turn"
     case forkFromLast = "fork-from-last"
+    case forkWithSummary = "fork-with-summary"
+    case forkFullContext = "fork-full-context"
     case compactContext = "compact-context"
     case disconnectAll = "disconnect-all"
 }

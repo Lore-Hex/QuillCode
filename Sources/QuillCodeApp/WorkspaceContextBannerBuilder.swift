@@ -16,9 +16,10 @@ struct WorkspaceContextBannerBuilder: Sendable, Hashable {
         return ContextBannerSurface(
             usedPercent: usedPercent,
             title: "\(usedPercent >= 100 ? "Context limit reached" : "Approaching context limit") (\(usedPercent)% used)",
-            subtitle: "Older turns may drop out soon. Compact the thread, start fresh, or fork from the latest useful context.",
+            subtitle: "Older turns may drop out soon. Compact the thread, start fresh, or fork with latest, summarized, or full visible context.",
             newThreadCommand: WorkspaceCommandSurface(id: "new-chat", title: "New thread"),
-            forkCommand: WorkspaceCommandSurface(id: "fork-from-last", title: "Fork from last"),
+            forkCommand: WorkspaceThreadForkStrategy.latestTurn.command(),
+            forkCommands: WorkspaceThreadForkStrategy.allCases.map { $0.command() },
             compactCommand: WorkspaceCommandSurface(id: "compact-context", title: "Compact context")
         )
     }

@@ -27,7 +27,7 @@ enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case deleteThread(threadID: UUID)
     case sidebarBulkAction(SidebarBulkActionKind)
     case retryLastTurn
-    case forkFromLast
+    case forkThread(WorkspaceThreadForkStrategy)
     case compactContext
     case disconnectAll
 }
@@ -107,7 +107,11 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
         case .retryLastTurn:
             return .retryLastTurn
         case .forkFromLast:
-            return .forkFromLast
+            return .forkThread(.latestTurn)
+        case .forkWithSummary:
+            return .forkThread(.summarizedContext)
+        case .forkFullContext:
+            return .forkThread(.fullContext)
         case .compactContext:
             return .compactContext
         case .disconnectAll:

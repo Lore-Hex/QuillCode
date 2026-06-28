@@ -179,8 +179,10 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
             "Terminal clear/stop/run controls should use semantic 44 pt text targets."
         )
         XCTAssertTrue(
-            contextBannerText.contains(".quillCodeTextButtonTarget(minWidth: 104)")
-                && contextBannerText.contains(".quillCodeTextButtonTarget(minWidth: 112)"),
+            contextBannerText.contains(".quillCodeTextButtonTarget(minWidth: minWidth)")
+                && contextBannerText.contains("minWidth: 120")
+                && contextBannerText.contains("minWidth: 112")
+                && contextBannerText.contains("minWidth: 104"),
             "Context banner actions should keep large explicit click targets."
         )
         XCTAssertTrue(

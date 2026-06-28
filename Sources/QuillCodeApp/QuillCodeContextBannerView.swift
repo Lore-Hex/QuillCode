@@ -28,25 +28,7 @@ struct QuillCodeContextBannerView: View {
                 Text(banner.subtitle)
                     .font(.callout)
                     .foregroundStyle(QuillCodePalette.muted)
-                HStack(spacing: 8) {
-                    Button(banner.compactCommand.title) {
-                        onCommand(banner.compactCommand)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .quillCodeTextButtonTarget(minWidth: 104)
-                    .disabled(!banner.compactCommand.isEnabled)
-                    Button(banner.newThreadCommand.title) {
-                        onCommand(banner.newThreadCommand)
-                    }
-                    .buttonStyle(.bordered)
-                    .quillCodeTextButtonTarget(minWidth: 112)
-                    Button(banner.forkCommand.title) {
-                        onCommand(banner.forkCommand)
-                    }
-                    .buttonStyle(.bordered)
-                    .quillCodeTextButtonTarget(minWidth: 112)
-                    .disabled(!banner.forkCommand.isEnabled)
-                }
+                actionButtons
             }
 
             Spacer(minLength: 0)
@@ -60,5 +42,52 @@ struct QuillCodeContextBannerView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        ViewThatFits(in: .horizontal) {
+            actionButtonRow
+            VStack(alignment: .leading, spacing: 8) {
+                actionButtonRow
+            }
+        }
+    }
+
+    private var actionButtonRow: some View {
+        HStack(spacing: 8) {
+            contextButton(for: banner.compactCommand, isPrimary: true, minWidth: 120)
+            contextButton(for: banner.newThreadCommand, minWidth: 112)
+            ForEach(banner.forkCommands, id: \.id) { command in
+                contextButton(for: command, minWidth: 104)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func contextButton(
+        for command: WorkspaceCommandSurface,
+        isPrimary: Bool = false,
+        minWidth: CGFloat
+    ) -> some View {
+        if isPrimary {
+            contextButtonBase(for: command)
+                .buttonStyle(.borderedProminent)
+                .quillCodeTextButtonTarget(minWidth: minWidth)
+                .disabled(!command.isEnabled)
+                .accessibilityLabel(command.title)
+        } else {
+            contextButtonBase(for: command)
+                .buttonStyle(.bordered)
+                .quillCodeTextButtonTarget(minWidth: minWidth)
+                .disabled(!command.isEnabled)
+                .accessibilityLabel(command.title)
+        }
+    }
+
+    private func contextButtonBase(for command: WorkspaceCommandSurface) -> some View {
+        Button(command.title) {
+            onCommand(command)
+        }
     }
 }

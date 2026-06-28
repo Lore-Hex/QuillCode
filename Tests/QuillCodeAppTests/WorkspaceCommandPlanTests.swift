@@ -203,6 +203,14 @@ final class WorkspaceCommandPlanTests: XCTestCase {
             .action(.threadBulkArchive)
         )
         XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "fork-with-summary"),
+            .action(.forkWithSummary)
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "fork-full-context"),
+            .action(.forkFullContext)
+        )
+        XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "compact-context"),
             .action(.compactContext)
         )
