@@ -92,6 +92,7 @@ type InteractionAuditReport = {
 
 export type CriticalTargetProbe = {
   expectedClass?: string;
+  expectedKind?: string;
   label: string;
   locator: Locator;
 };
@@ -631,6 +632,24 @@ export async function expectCriticalTargetRegistry(label: string, probes: Critic
   expect(probes.length, `${label} should declare at least one critical click target`).toBeGreaterThan(0);
   for (const probe of probes) {
     await expectHitTarget(probe.locator, `${label}: ${probe.label}`);
+    if (probe.expectedKind) {
+      const expectedClass = Object.entries(EXPECTED_KIND_BY_CLASS)
+        .find(([, kind]) => kind === probe.expectedKind)?.[0];
+      expect(
+        expectedClass,
+        `${label}: ${probe.label} should have a known class for semantic click-target kind ${probe.expectedKind}`
+      ).toBeTruthy();
+      const classList = await probe.locator.first().evaluate((element) => [...element.classList]);
+      expect(
+        classList,
+        `${label}: ${probe.label} should use the class for semantic click-target kind ${probe.expectedKind}`
+      ).toContain(expectedClass);
+      const hitTargetKind = await probe.locator.first().getAttribute('data-hit-target-kind');
+      expect(
+        hitTargetKind,
+        `${label}: ${probe.label} should declare semantic click-target kind ${probe.expectedKind}`
+      ).toBe(probe.expectedKind);
+    }
     if (probe.expectedClass) {
       const classList = await probe.locator.first().evaluate((element) => [...element.classList]);
       expect(

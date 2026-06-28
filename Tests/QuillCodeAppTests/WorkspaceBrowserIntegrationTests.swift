@@ -392,7 +392,7 @@ final class WorkspaceBrowserIntegrationTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="browser-pane""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-tabs""#))
-        XCTAssertTrue(html.contains(#"class="browser-tab hit-target-capsule active""#))
+        XCTAssertTrue(html.contains(#"class="browser-tab active hit-target-capsule""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-tab""#))
         XCTAssertTrue(html.contains(#"class="browser-tab-action hit-target-icon""#))
         XCTAssertTrue(html.contains(#"data-testid="browser-new-tab""#))

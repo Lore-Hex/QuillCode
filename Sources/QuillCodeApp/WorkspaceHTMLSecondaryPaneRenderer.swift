@@ -231,7 +231,8 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
                 "\(titlePrefix) \(action.title)",
                 testID: testID,
                 commandID: action.commandID,
-                classes: ["extension-reference-action", WorkspaceHTMLPrimitives.capsuleHitTargetClass]
+                hitTargetKind: .capsule,
+                classes: ["extension-reference-action"]
             )
         }.joined()
         return #"<div class="extension-mcp-group" data-testid="\#(escape(testID))-group"><span class="extension-mcp-group-label" data-testid="extension-mcp-group-label">\#(escape(title))</span><div class="extension-mcp-chip-row">\#(buttons)</div></div>"#
@@ -240,16 +241,16 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
     private static func renderExtensionActions(_ item: ProjectExtensionManifestSurface) -> String {
         var buttons: [String] = []
         if let installCommandID = item.installCommandID {
-            buttons.append(commandButton("Install", testID: "extension-install", commandID: installCommandID, classes: extensionActionClasses))
+            buttons.append(extensionActionButton("Install", testID: "extension-install", commandID: installCommandID))
         }
         if let updateCommandID = item.updateCommandID {
-            buttons.append(commandButton("Update", testID: "extension-update", commandID: updateCommandID, classes: extensionActionClasses))
+            buttons.append(extensionActionButton("Update", testID: "extension-update", commandID: updateCommandID))
         }
         if let stopCommandID = item.stopCommandID {
-            buttons.append(commandButton("Stop", testID: "extension-stop", commandID: stopCommandID, classes: extensionActionClasses))
+            buttons.append(extensionActionButton("Stop", testID: "extension-stop", commandID: stopCommandID))
         }
         if let startCommandID = item.startCommandID {
-            buttons.append(commandButton("Start", testID: "extension-start", commandID: startCommandID, classes: extensionActionClasses))
+            buttons.append(extensionActionButton("Start", testID: "extension-start", commandID: startCommandID))
         }
         return buttons.joined(separator: "\n")
     }
@@ -260,8 +261,8 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
           <header>
             <span data-testid="memory-scope">\(escape(item.scopeLabel))</span>
             <span data-testid="memory-size">\(escape(item.byteCountLabel))</span>
-            \(item.editCommandID.map { commandButton("Edit", testID: "memory-edit", commandID: $0, classes: ["memory-edit-button", WorkspaceHTMLPrimitives.formActionHitTargetClass]) } ?? "")
-            \(item.deleteCommandID.map { commandButton("Forget", testID: "memory-delete", commandID: $0, classes: ["memory-delete-button", WorkspaceHTMLPrimitives.formActionHitTargetClass]) } ?? "")
+            \(item.editCommandID.map { commandButton("Edit", testID: "memory-edit", commandID: $0, hitTargetKind: .formAction, classes: ["memory-edit-button"]) } ?? "")
+            \(item.deleteCommandID.map { commandButton("Forget", testID: "memory-delete", commandID: $0, hitTargetKind: .formAction, classes: ["memory-delete-button"]) } ?? "")
           </header>
           <strong data-testid="memory-title">\(escape(item.title))</strong>
           <p data-testid="memory-preview">\(escape(item.preview))</p>
@@ -321,7 +322,7 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
         <section class="activity-section" data-testid="\(escape(section.itemTestID))-section" data-collapsed="\(section.isCollapsed ? "true" : "false")">
           <button\(WorkspaceHTMLPrimitives.buttonAttributes(
               testID: "activity-section-toggle",
-              classes: [WorkspaceHTMLPrimitives.rowHitTargetClass],
+              hitTargetKind: .row,
               attributes: [
                   ("data-command-id", section.toggleCommandID),
                   ("data-section-title", section.title)
@@ -342,10 +343,8 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
                 action.title,
                 testID: "activity-source-action",
                 commandID: action.commandID,
-                classes: [
-                    "activity-source-action",
-                    WorkspaceHTMLPrimitives.formActionHitTargetClass
-                ]
+                hitTargetKind: .formAction,
+                classes: ["activity-source-action"]
             )
         }.joined(separator: "\n")
         return #"<div class="activity-item-actions">\#(buttons)</div>"#
@@ -363,22 +362,29 @@ enum WorkspaceHTMLSecondaryPaneRenderer {
         WorkspaceHTMLPrimitives.escape(text)
     }
 
-    private static let extensionActionClasses = [
-        "extension-action-button",
-        WorkspaceHTMLPrimitives.formActionHitTargetClass
-    ]
+    private static func extensionActionButton(_ label: String, testID: String, commandID: String) -> String {
+        commandButton(
+            label,
+            testID: testID,
+            commandID: commandID,
+            hitTargetKind: .formAction,
+            classes: ["extension-action-button"]
+        )
+    }
 
     private static func commandButton(
         _ label: String,
         testID: String,
         commandID: String,
-        classes: [String] = [WorkspaceHTMLPrimitives.textHitTargetClass],
+        hitTargetKind: WorkspaceHTMLHitTargetKind = .text,
+        classes: [String] = [],
         disabled: Bool = false
     ) -> String {
         WorkspaceHTMLPrimitives.commandButton(
             label,
             testID: testID,
             commandID: commandID,
+            hitTargetKind: hitTargetKind,
             classes: classes,
             disabled: disabled
         )

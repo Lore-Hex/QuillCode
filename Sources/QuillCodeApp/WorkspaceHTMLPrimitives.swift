@@ -1,14 +1,46 @@
 import Foundation
 
+enum WorkspaceHTMLHitTargetKind: String, CaseIterable {
+    case icon
+    case text
+    case textEntry = "text-entry"
+    case row
+    case capsule
+    case formAction = "form-action"
+    case link
+    case owned
+
+    var className: String {
+        switch self {
+        case .icon:
+            return "hit-target-icon"
+        case .text:
+            return "hit-target-text"
+        case .textEntry:
+            return "hit-target-text-entry"
+        case .row:
+            return "hit-target-row"
+        case .capsule:
+            return "hit-target-capsule"
+        case .formAction:
+            return "hit-target-form-action"
+        case .link:
+            return "interactive-hit-target"
+        case .owned:
+            return "hit-target-owned"
+        }
+    }
+}
+
 enum WorkspaceHTMLPrimitives {
-    static let ownedHitTargetClass = "hit-target-owned"
-    static let interactiveHitTargetClass = "interactive-hit-target"
-    static let iconHitTargetClass = "hit-target-icon"
-    static let textHitTargetClass = "hit-target-text"
-    static let textEntryHitTargetClass = "hit-target-text-entry"
-    static let rowHitTargetClass = "hit-target-row"
-    static let capsuleHitTargetClass = "hit-target-capsule"
-    static let formActionHitTargetClass = "hit-target-form-action"
+    static let ownedHitTargetClass = WorkspaceHTMLHitTargetKind.owned.className
+    static let interactiveHitTargetClass = WorkspaceHTMLHitTargetKind.link.className
+    static let iconHitTargetClass = WorkspaceHTMLHitTargetKind.icon.className
+    static let textHitTargetClass = WorkspaceHTMLHitTargetKind.text.className
+    static let textEntryHitTargetClass = WorkspaceHTMLHitTargetKind.textEntry.className
+    static let rowHitTargetClass = WorkspaceHTMLHitTargetKind.row.className
+    static let capsuleHitTargetClass = WorkspaceHTMLHitTargetKind.capsule.className
+    static let formActionHitTargetClass = WorkspaceHTMLHitTargetKind.formAction.className
     static let hitTargetKindAttributeName = "data-hit-target-kind"
 
     static func hitTargetKindAttribute(for className: String) -> String {
@@ -22,6 +54,10 @@ enum WorkspaceHTMLPrimitives {
 
     static func hitTargetAttributes(for className: String) -> String {
         hitTargetAttributes(classes: [className])
+    }
+
+    static func hitTargetAttributes(kind: WorkspaceHTMLHitTargetKind, classes: [String] = []) -> String {
+        hitTargetAttributes(classes: classesWithDefaultHitTarget(classes, defaultKind: kind))
     }
 
     static func hitTargetAttributes(classes: [String]) -> String {
@@ -45,6 +81,7 @@ enum WorkspaceHTMLPrimitives {
         _ label: String,
         testID: String,
         type: String = "button",
+        hitTargetKind: WorkspaceHTMLHitTargetKind = .text,
         classes: [String] = [],
         ariaLabel: String? = nil,
         title: String? = nil,
@@ -56,6 +93,7 @@ enum WorkspaceHTMLPrimitives {
         <button\(buttonAttributes(
             type: type,
             testID: testID,
+            hitTargetKind: hitTargetKind,
             classes: classes,
             ariaLabel: ariaLabel,
             title: title,
@@ -70,7 +108,8 @@ enum WorkspaceHTMLPrimitives {
         _ label: String,
         testID: String,
         commandID: String,
-        classes: [String] = [textHitTargetClass],
+        hitTargetKind: WorkspaceHTMLHitTargetKind = .text,
+        classes: [String] = [],
         ariaLabel: String? = nil,
         title: String? = nil,
         role: String? = nil,
@@ -80,6 +119,7 @@ enum WorkspaceHTMLPrimitives {
         button(
             label,
             testID: testID,
+            hitTargetKind: hitTargetKind,
             classes: classes,
             ariaLabel: ariaLabel,
             title: title,
@@ -92,6 +132,7 @@ enum WorkspaceHTMLPrimitives {
     static func buttonAttributes(
         type: String = "button",
         testID: String,
+        hitTargetKind: WorkspaceHTMLHitTargetKind = .text,
         classes: [String] = [],
         ariaLabel: String? = nil,
         title: String? = nil,
@@ -104,6 +145,7 @@ enum WorkspaceHTMLPrimitives {
         ]
         parts += elementAttributeParts(
             testID: testID,
+            hitTargetKind: hitTargetKind,
             classes: classes,
             ariaLabel: ariaLabel,
             title: title,
@@ -120,7 +162,8 @@ enum WorkspaceHTMLPrimitives {
     static func summary(
         _ label: String,
         testID: String? = nil,
-        classes: [String] = [rowHitTargetClass],
+        hitTargetKind: WorkspaceHTMLHitTargetKind = .row,
+        classes: [String] = [],
         ariaLabel: String? = nil,
         title: String? = nil,
         attributes: [(String, String?)] = []
@@ -128,6 +171,7 @@ enum WorkspaceHTMLPrimitives {
         """
         <summary\(elementAttributes(
             testID: testID,
+            hitTargetKind: hitTargetKind,
             classes: classes,
             ariaLabel: ariaLabel,
             title: title,
@@ -138,6 +182,7 @@ enum WorkspaceHTMLPrimitives {
 
     private static func elementAttributes(
         testID: String?,
+        hitTargetKind: WorkspaceHTMLHitTargetKind = .text,
         classes: [String] = [],
         ariaLabel: String? = nil,
         title: String? = nil,
@@ -146,6 +191,7 @@ enum WorkspaceHTMLPrimitives {
     ) -> String {
         let parts = elementAttributeParts(
             testID: testID,
+            hitTargetKind: hitTargetKind,
             classes: classes,
             ariaLabel: ariaLabel,
             title: title,
@@ -157,6 +203,7 @@ enum WorkspaceHTMLPrimitives {
 
     private static func elementAttributeParts(
         testID: String?,
+        hitTargetKind: WorkspaceHTMLHitTargetKind,
         classes: [String],
         ariaLabel: String?,
         title: String?,
@@ -164,7 +211,7 @@ enum WorkspaceHTMLPrimitives {
         attributes: [(String, String?)]
     ) -> [String] {
         var parts: [String] = []
-        let normalizedClasses = classesWithDefaultHitTarget(classes)
+        let normalizedClasses = classesWithDefaultHitTarget(classes, defaultKind: hitTargetKind)
         parts += classAndHitTargetKindAttributeParts(
             classes: normalizedClasses,
             explicitAttributes: attributes
@@ -193,12 +240,15 @@ enum WorkspaceHTMLPrimitives {
         return parts
     }
 
-    private static func classesWithDefaultHitTarget(_ classes: [String]) -> [String] {
+    private static func classesWithDefaultHitTarget(
+        _ classes: [String],
+        defaultKind: WorkspaceHTMLHitTargetKind = .text
+    ) -> [String] {
         let trimmed = normalizedClasses(classes)
         if trimmed.contains(where: isHitTargetClass) {
             return trimmed
         }
-        return trimmed + [textHitTargetClass]
+        return trimmed + [defaultKind.className]
     }
 
     private static func normalizedClasses(_ classes: [String]) -> [String] {
@@ -240,14 +290,14 @@ enum WorkspaceHTMLPrimitives {
     }
 
     private static let hitTargetKindByClass: [(String, String)] = [
-        (iconHitTargetClass, "icon"),
-        (textEntryHitTargetClass, "text-entry"),
-        (rowHitTargetClass, "row"),
-        (capsuleHitTargetClass, "capsule"),
-        (formActionHitTargetClass, "form-action"),
-        (textHitTargetClass, "text"),
-        (interactiveHitTargetClass, "link"),
-        (ownedHitTargetClass, "owned")
+        (WorkspaceHTMLHitTargetKind.icon.className, WorkspaceHTMLHitTargetKind.icon.rawValue),
+        (WorkspaceHTMLHitTargetKind.textEntry.className, WorkspaceHTMLHitTargetKind.textEntry.rawValue),
+        (WorkspaceHTMLHitTargetKind.row.className, WorkspaceHTMLHitTargetKind.row.rawValue),
+        (WorkspaceHTMLHitTargetKind.capsule.className, WorkspaceHTMLHitTargetKind.capsule.rawValue),
+        (WorkspaceHTMLHitTargetKind.formAction.className, WorkspaceHTMLHitTargetKind.formAction.rawValue),
+        (WorkspaceHTMLHitTargetKind.text.className, WorkspaceHTMLHitTargetKind.text.rawValue),
+        (WorkspaceHTMLHitTargetKind.link.className, WorkspaceHTMLHitTargetKind.link.rawValue),
+        (WorkspaceHTMLHitTargetKind.owned.className, WorkspaceHTMLHitTargetKind.owned.rawValue)
     ]
 
     static func executionContextChip(
