@@ -8782,3 +8782,20 @@ Code quality changes:
 Remaining risk:
 
 - The scheduler is ready for real agent workers, but the default slash-command worker is still a deterministic local worker. Full Codex parity still needs model-backed subagent sessions, cancellation, per-worker transcript drilldown, and richer dependency/status controls.
+
+## 2026-06-28 Click Target Ownership Hardening Pass
+
+Overall grade after this slice: **A semantic target architecture, A source-gate coverage, A- live packaged-window sampling**.
+
+The click-target system already enforced 44 pt geometry, semantic helpers, rendered Playwright audits, and native smoke evidence. The remaining architectural weakness was that local SwiftUI views could still introduce raw hit-shape or hit-testing overrides, and custom gesture regions had no first-class semantic target.
+
+Code quality changes:
+
+- Added an `ownedGesture` native target kind plus `quillCodeOwnedGestureTarget`, a named escape hatch for intentional custom gesture regions that still enforces 44 pt minimum shape and button accessibility traits.
+- Extended the native hit-target audit and desktop smoke contract so the owned-gesture kind is release evidence alongside icon, text, form, text-entry, segmented, adjustable, switch, full-row, and capsule targets.
+- Tightened `SwiftSourceInteractionTargetAudit` to reject raw `.contentShape(...)`, `.allowsHitTesting(...)`, and unnamed tap/long-press/priority gestures outside the shared design system.
+- Added regression tests proving raw hit-shape and hit-testing overrides fail, named owned gesture targets pass, and unnamed gestures are blocked.
+
+Remaining risk:
+
+- Source, semantic, rendered, and smoke gates are now stronger. The final A+ layer is still a packaged-window Accessibility frame sampler that clicks near target edges in the live macOS app.

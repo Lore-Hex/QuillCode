@@ -8,6 +8,7 @@ public enum QuillCodeNativeHitTargetKind: String, Codable, Sendable, Hashable, C
     case segmentedControl
     case adjustableControl
     case switchRow
+    case ownedGesture
     case fullRow
     case capsule
 }
@@ -117,6 +118,7 @@ public enum QuillCodeNativeHitTargetAudit {
             contract("design.segmented-control", surface: "Design system", label: "Segmented control", kind: .segmentedControl, minWidth: nil),
             contract("design.adjustable-control", surface: "Design system", label: "Adjustable control", kind: .adjustableControl, minWidth: nil),
             contract("design.switch-row", surface: "Design system", label: "Switch row", kind: .switchRow, minWidth: nil),
+            contract("design.owned-gesture", surface: "Design system", label: "Owned gesture target", kind: .ownedGesture, minWidth: nil),
             contract("design.full-row", surface: "Design system", label: "Full row button", kind: .fullRow, minWidth: nil),
             contract("design.capsule", surface: "Design system", label: "Capsule button", kind: .capsule, minWidth: nil)
         ]
