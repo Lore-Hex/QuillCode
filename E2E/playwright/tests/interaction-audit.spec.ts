@@ -220,6 +220,29 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
         aria-hidden="true"
         style="position: fixed; left: 24px; top: 144px; z-index: 1001; width: 28px; height: 28px; background: rgba(255, 93, 82, 0.85);"
       ></span>
+      <input
+        type="checkbox"
+        id="tiny-checkbox"
+        data-testid="tiny-checkbox"
+        style="position: fixed; left: -1000px; top: -1000px; width: 1px; height: 1px;"
+      >
+      <label
+        for="tiny-checkbox"
+        data-testid="tiny-checkbox-label"
+        style="position: fixed; left: 24px; top: 220px; z-index: 1000; width: 22px; height: 22px;"
+      >Tiny</label>
+      <input
+        type="checkbox"
+        id="disabled-checkbox"
+        disabled
+        data-testid="disabled-checkbox"
+        style="position: fixed; left: -1000px; top: -1000px; width: 1px; height: 1px;"
+      >
+      <label
+        for="disabled-checkbox"
+        data-testid="disabled-checkbox-label"
+        style="position: fixed; left: 24px; top: 252px; z-index: 1000; width: 22px; height: 22px;"
+      >Disabled</label>
     `;
     document.body.appendChild(fixture);
   });
@@ -229,7 +252,9 @@ test('interaction audit catches dead and edge-blocked visible controls', async (
 
   expect(issueFor('bad-pointer-target')?.reason).toContain('pointer_events_none');
   expect(issueFor('edge-blocked-target')?.reason).toContain('interior_click_area_blocked');
+  expect(issueFor('tiny-checkbox-label')?.reason).toContain('too_small');
   expect(issueFor('disabled-pointer-target')).toBeUndefined();
+  expect(issueFor('disabled-checkbox-label')).toBeUndefined();
 });
 
 test('critical controls respond from the full interior click target, not only the center', async ({ page }) => {

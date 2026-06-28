@@ -1,5 +1,21 @@
 # Code Quality Audit
 
+## 2026-06-27 Click Target System Rethink Pass
+
+Overall grade after this slice: **A native source gates, A rendered label semantics, A- native pixel measurement**.
+
+Click targets now have a stricter meaning across the app: every visible control needs a shared semantic target, every rendered target needs a usable 44 px interior, and label-based controls are treated as real click surfaces only when they actually operate a checkbox/radio target.
+
+| Before | After |
+| --- | --- |
+| Native gates audited `Button`, `Link`, text fields, toggles, and segmented controls, but visible `Menu` triggers and generic picker triggers could rely on nearby style by convention. | `Menu` triggers, visible `Picker` controls, and `TextEditor` now participate in the source audit with fixture tests for both failing and compliant source. |
+| The rendered audit treated labels as passive text, so a tiny checkbox/radio label could feel clickable while escaping the 44 px target contract. | Checkbox/radio labels are audited as click targets, disabled associated labels are ignored, and passive form captions stay out of the target set. |
+| Nested-target checks would reject valid HTML when an input lived inside its own label. | The audit keeps rejecting nested interactive controls, but allows the one valid associated label/control pair. |
+
+Residual risk:
+
+- Native SwiftUI hit regions are still source-gated rather than sampled from a packaged app window. The next step is a native UI automation layer that measures rendered macOS/Linux controls with the same 3x3 interior probe used in Playwright.
+
 ## 2026-06-27 Click Target Hittability Pass
 
 Overall grade after this slice: **A interaction test oracle, A disabled-control semantics, A- native rendered pixel coverage**.
