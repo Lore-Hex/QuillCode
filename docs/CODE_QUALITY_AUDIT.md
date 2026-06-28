@@ -8544,3 +8544,20 @@ Code quality changes:
 Remaining risk:
 
 - Source gates and Playwright rendered audits now cover the shared target contracts. Full packaged-window pointer automation across native macOS controls remains the deeper final proof layer.
+
+## 2026-06-28 Tool-Call Wrapper Parsing Pass
+
+Overall grade after this slice: **A action extraction, A argument normalization, A- live provider drift coverage**.
+
+Live model failures that look like “queued empty command” are often not tool-executor bugs; they come from valid intent wrapped in provider-specific action shapes. The parser already recovered several QuillCode-near JSON and prose cases, but it did not understand common `tool_calls`, `function_call`, `tool_use/input`, or stringified-arguments envelopes.
+
+Code quality changes:
+
+- Added wrapper-aware action extraction for OpenAI chat `choices[].message.tool_calls[].function`, Responses-style `output` entries, Anthropic-style `tool_use` entries, and direct `function_call` objects.
+- Kept extraction and schema cleanup split: the parser only chooses one action object, while `AgentToolArgumentNormalizer` decodes `arguments`/`args`/`input` dictionaries or stringified JSON and applies canonical key aliases.
+- Preserved the existing empty-command guard and passive-promise correction instead of silently accepting invalid shell calls.
+- Added focused tests for wrapper parsing, stringified arguments, `input` aliases, and canonical shell/file/browser arguments.
+
+Remaining risk:
+
+- This hardens deterministic parser coverage. The opt-in live TrustedRouter smoke remains the proof lane for actual provider/model behavior across passive promises, empty shell args, file side effects, download side effects, and persisted transcript integrity.
