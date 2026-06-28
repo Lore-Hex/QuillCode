@@ -79,16 +79,19 @@ struct QuillCodeTranscriptFindBar: View {
             Button(action: onPrevious) {
                 Image(systemName: "chevron.up")
             }
+            .buttonStyle(QuillCodePressableButtonStyle())
             .quillCodeIconButtonTarget()
             .disabled(matchCount == 0)
             Button(action: onNext) {
                 Image(systemName: "chevron.down")
             }
+            .buttonStyle(QuillCodePressableButtonStyle())
             .quillCodeIconButtonTarget()
             .disabled(matchCount == 0)
             Button(action: onClose) {
                 Image(systemName: "xmark")
             }
+            .buttonStyle(QuillCodePressableButtonStyle())
             .quillCodeIconButtonTarget()
             .keyboardShortcut(.cancelAction)
         }

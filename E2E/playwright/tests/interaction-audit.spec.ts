@@ -12,7 +12,8 @@ import {
   interactionAuditReport,
   clickTargetInteriorPoint,
   expectNoNestedInteractiveTargets,
-  expectNoOverlappingInteractiveTargets
+  expectNoOverlappingInteractiveTargets,
+  expectTextEntryFocusFromInteriorPoint
 } from './interaction-audit-helpers';
 
 async function expectInteractionTargetsClean(page: Page, label: string) {
@@ -254,6 +255,49 @@ test('critical controls respond from the full interior click target, not only th
   await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-status', 'done');
   await clickTargetInteriorPoint(page.getByTestId('tool-card-details').last().locator('summary'), 'tool details disclosure leading interior', 0.2, 0.5);
   await expect(page.getByTestId('tool-card-details').last()).toHaveAttribute('open', '');
+});
+
+test('critical text entry targets focus and type from interior edges', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await openTopBarOverflow(page);
+  await page.getByTestId('top-bar-overflow-search').click();
+  await expect(page.getByTestId('search-panel')).toBeVisible();
+  await expectTextEntryFocusFromInteriorPoint(page.getByTestId('search-input'), 'search input leading interior', 0.15, 0.5);
+  await page.keyboard.type('launch');
+  await expect(page.getByTestId('search-input')).toHaveValue('launch');
+  await page.getByTestId('search-close').click();
+
+  await openTopBarOverflow(page);
+  await page.getByTestId('top-bar-overflow-command-palette').click();
+  await expect(page.getByTestId('command-palette-panel')).toBeVisible();
+  await expectTextEntryFocusFromInteriorPoint(page.getByTestId('command-palette-input'), 'command palette trailing interior', 0.85, 0.5);
+  await page.keyboard.type('git');
+  await expect(page.getByTestId('command-palette-input')).toHaveValue('git');
+  await page.getByTestId('command-palette-close').click();
+
+  await clickSidebarTool(page, 'terminal-button');
+  await expect(page.getByTestId('terminal-pane')).toBeVisible();
+  await expectTextEntryFocusFromInteriorPoint(page.getByTestId('terminal-input'), 'terminal input leading interior', 0.15, 0.5);
+  await page.keyboard.type('pwd');
+  await expect(page.getByTestId('terminal-input')).toHaveValue('pwd');
+
+  await clickSidebarTool(page, 'browser-button');
+  await expect(page.getByTestId('browser-pane')).toBeVisible();
+  await expectTextEntryFocusFromInteriorPoint(page.getByTestId('browser-address'), 'browser address trailing interior', 0.85, 0.5);
+  await page.keyboard.type('localhost:5173');
+  await expect(page.getByTestId('browser-address')).toHaveValue('localhost:5173');
+  await expectTextEntryFocusFromInteriorPoint(page.getByTestId('browser-comment-input'), 'browser comment leading interior', 0.15, 0.5);
+  await page.keyboard.type('looks good');
+  await expect(page.getByTestId('browser-comment-input')).toHaveValue('looks good');
+
+  await openSettings(page);
+  await expect(page.getByTestId('settings-panel')).toBeVisible();
+  const baseURL = page.getByLabel('TrustedRouter API base URL');
+  await expectTextEntryFocusFromInteriorPoint(baseURL, 'settings API base URL input leading interior', 0.15, 0.5);
+  await baseURL.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await page.keyboard.type('https://api.trustedrouter.com/v1');
+  await expect(baseURL).toHaveValue('https://api.trustedrouter.com/v1');
 });
 
 test('mock harness keeps banner and recovery actions at least 44px', async ({ page }) => {

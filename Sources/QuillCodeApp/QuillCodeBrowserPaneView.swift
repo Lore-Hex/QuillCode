@@ -130,6 +130,7 @@ struct QuillCodeBrowserPaneView: View {
             }
             if let onOpenSession {
                 Button("Session", action: onOpenSession)
+                    .buttonStyle(QuillCodePressableButtonStyle())
                     .quillCodeTextButtonTarget(minWidth: 84)
                     .disabled(!browser.canOpen && browser.currentURL == nil)
                     .help("Open a visible browser session using QuillCode's persistent browser profile.")
@@ -144,6 +145,7 @@ struct QuillCodeBrowserPaneView: View {
                 .onSubmit(onOpen)
                 .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget)
             Button("Open", action: onOpen)
+                .buttonStyle(QuillCodePressableButtonStyle())
                 .quillCodeTextButtonTarget()
                 .disabled(addressDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
