@@ -87,6 +87,75 @@ final class WorkspaceRemoteProjectFilePatchIntegrationTests: XCTestCase {
         XCTAssertTrue(arguments.contains("cat -- 'docs/notes.md'"), arguments)
     }
 
+    func testRemoteProjectAgentListsRemoteFilesThroughSSH() async throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = try makeTempDirectory()
+        try FileManager.default.createDirectory(
+            at: remoteRoot.appendingPathComponent("Sources"),
+            withIntermediateDirectories: true
+        )
+        try "print(\"hello\")\n".write(
+            to: remoteRoot.appendingPathComponent("Sources/App.swift"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "remote readme\n".write(
+            to: remoteRoot.appendingPathComponent("README.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "hidden\n".write(
+            to: remoteRoot.appendingPathComponent(".secret"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let argumentsFile = root.appendingPathComponent("ssh-agent-file-list-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+        let connection = ProjectConnection.ssh(path: remoteRoot.path, host: "feather.local", user: "quill")
+        let project = ProjectRef(name: "Feather", path: connection.path, connection: connection)
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(projects: [project], selectedProjectID: project.id),
+            runner: AgentRunner(llm: FixedToolLLMClient(call: ToolCall(
+                name: ToolDefinition.fileList.name,
+                argumentsJSON: ToolArguments.json(["path": "."])
+            ))),
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(
+                sshExecutable: fakeSSH.path,
+                connectTimeoutSeconds: 4
+            )
+        )
+
+        model.setDraft("List the project files")
+        await model.submitComposer(workspaceRoot: root)
+
+        let card = try XCTUnwrap(model.currentToolCards.last)
+        XCTAssertEqual(card.title, ToolDefinition.fileList.name)
+        XCTAssertEqual(card.executionContext?.kind, .sshRemote)
+        let result = try JSONHelpers.decode(ToolResult.self, from: XCTUnwrap(card.outputJSON))
+        XCTAssertTrue(result.ok, result.error ?? "")
+        let output = try JSONDecoder().decode(FileListToolOutput.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(output.path, ".")
+        XCTAssertFalse(output.includedHidden)
+        XCTAssertFalse(output.truncated)
+        XCTAssertEqual(output.entries.map(\.path), ["Sources", "README.md"])
+        XCTAssertEqual(output.entries.map(\.kind), ["directory", "file"])
+        XCTAssertEqual(output.entries.last?.bytes, "remote readme\n".utf8.count)
+        XCTAssertEqual(output.totalEntries, 2)
+        XCTAssertEqual(
+            result.artifacts,
+            [
+                "ssh://quill@feather.local\(remoteRoot.path)/Sources",
+                "ssh://quill@feather.local\(remoteRoot.path)/README.md"
+            ]
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("README.md").path))
+
+        let arguments = try String(contentsOf: argumentsFile, encoding: .utf8)
+        XCTAssertTrue(arguments.contains("cd '\(remoteRoot.path)'"), arguments)
+        XCTAssertTrue(arguments.contains("dir='.'"), arguments)
+        XCTAssertFalse(arguments.contains(" ls "), arguments)
+    }
+
     func testRemoteProjectRejectsUnsafeRemoteFilePath() async throws {
         let root = try makeTempDirectory()
         let remoteRoot = try makeTempDirectory()

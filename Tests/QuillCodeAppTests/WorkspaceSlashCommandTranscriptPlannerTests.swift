@@ -100,7 +100,7 @@ final class WorkspaceSlashCommandTranscriptPlannerTests: XCTestCase {
             ),
             WorkspaceLocalCommandTranscript(
                 userText: "/ssh quill@feather:/Quill",
-                assistantText: "Added SSH Remote Feather at quill@feather:/Quill. Shell, file read/write, apply patch, git status/diff/stage/restore/commit/push/PR checkout/reviewers/labels/merge/worktree, and project context refresh run through SSH.",
+                assistantText: "Added SSH Remote Feather at quill@feather:/Quill. Shell, file read/list/write, apply patch, git status/diff/stage/restore/commit/push/PR checkout/reviewers/labels/merge/worktree, and project context refresh run through SSH.",
                 title: "Add SSH Remote"
             )
         )
