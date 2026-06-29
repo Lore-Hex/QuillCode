@@ -7,6 +7,7 @@ struct WorkspaceRemoteProjectToolExecutor: Sendable, Hashable {
     static let toolDefinitions: [ToolDefinition] = [
         .shellRun,
         .fileRead,
+        .fileList,
         .fileWrite,
         .applyPatch,
         .gitStatus,
@@ -114,7 +115,7 @@ struct WorkspaceRemoteProjectToolExecutor: Sendable, Hashable {
                 connection: connection,
                 executor: executor
             )
-        case ToolDefinition.fileRead.name, ToolDefinition.fileWrite.name:
+        case ToolDefinition.fileRead.name, ToolDefinition.fileList.name, ToolDefinition.fileWrite.name:
             return executeRemoteFileToolCall(
                 call,
                 connection: connection,
@@ -174,11 +175,16 @@ struct WorkspaceRemoteProjectToolExecutor: Sendable, Hashable {
     ) -> ToolResult {
         do {
             let args = try ToolArguments(call.argumentsJSON)
-            let relativePath = try WorkspaceRemoteProjectPath.relativePath(try args.requiredString("path"))
+            let relativePath = try remoteFilePath(for: call, arguments: args)
             let command: String
             switch call.name {
             case ToolDefinition.fileRead.name:
                 command = "cat -- \(shellSingleQuoted(relativePath))"
+            case ToolDefinition.fileList.name:
+                command = remoteFileListCommand(
+                    path: relativePath,
+                    includeHidden: args.bool("includeHidden") ?? false
+                )
             case ToolDefinition.fileWrite.name:
                 let content = try args.requiredString("content")
                 let encoded = Data(content.utf8).base64EncodedString()
@@ -196,6 +202,15 @@ struct WorkspaceRemoteProjectToolExecutor: Sendable, Hashable {
                 return ToolResult(ok: false, error: "SSH Remote project is missing a usable host.")
             }
             var result = ShellToolExecutor().run(request)
+            if call.name == ToolDefinition.fileList.name {
+                return remoteFileListResult(
+                    result,
+                    connection: connection,
+                    path: relativePath,
+                    includeHidden: args.bool("includeHidden") ?? false,
+                    maxEntries: args.int("maxEntries")
+                )
+            }
             if result.ok {
                 result.artifacts = [WorkspaceRemoteProjectPath.artifactPath(connection: connection, relativePath: relativePath)]
             }
@@ -203,6 +218,154 @@ struct WorkspaceRemoteProjectToolExecutor: Sendable, Hashable {
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
+    }
+
+    private static func remoteFilePath(for call: ToolCall, arguments: ToolArguments) throws -> String {
+        if call.name == ToolDefinition.fileList.name {
+            let path = arguments.string("path")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "."
+            if path.isEmpty || path == "." {
+                return "."
+            }
+            return try WorkspaceRemoteProjectPath.relativePath(path)
+        }
+        return try WorkspaceRemoteProjectPath.relativePath(try arguments.requiredString("path"))
+    }
+
+    private static func remoteFileListCommand(path: String, includeHidden: Bool) -> String {
+        let quotedPath = shellSingleQuoted(path)
+        let globSetup: String
+        if includeHidden {
+            globSetup = "set -- \"$dir\"/* \"$dir\"/.[!.]* \"$dir\"/..?*"
+        } else {
+            globSetup = "set -- \"$dir\"/*"
+        }
+        return [
+            "dir=\(quotedPath)",
+            "if [ ! -e \"$dir\" ]; then printf '__quillcode_file_list_error__\\tpath_not_found\\n'; exit 64; fi",
+            "if [ ! -d \"$dir\" ]; then printf '__quillcode_file_list_error__\\tnot_directory\\n'; exit 65; fi",
+            globSetup,
+            """
+            for p in "$@"; do
+              [ -e "$p" ] || [ -L "$p" ] || continue
+              name=${p##*/}
+              case "$name" in .|..) continue ;; esac
+              if [ -d "$p" ]; then kind=directory; size=''; elif [ -L "$p" ]; then kind=symlink; size=''; elif [ -f "$p" ]; then kind=file; size=$(wc -c < "$p" | tr -d '[:space:]'); else kind=other; size=''; fi
+              encoded_name=$(printf '%s' "$name" | base64 | tr -d '\\n')
+              printf '%s\\t%s\\t%s\\0' "$kind" "$size" "$encoded_name"
+            done
+            """
+        ].joined(separator: "\n")
+    }
+
+    private static func remoteFileListResult(
+        _ result: ToolResult,
+        connection: ProjectConnection,
+        path: String,
+        includeHidden: Bool,
+        maxEntries: Int?
+    ) -> ToolResult {
+        if let error = remoteFileListError(from: result.stdout, path: path) {
+            return ToolResult(ok: false, error: error)
+        }
+        guard result.ok else {
+            return result
+        }
+
+        let entries = parseRemoteFileList(stdout: result.stdout, path: path)
+            .sorted(by: remoteFileListEntrySort)
+        let limit = boundedRemoteListEntryLimit(maxEntries)
+        let returnedEntries = Array(entries.prefix(limit))
+        let output = FileListToolOutput(
+            path: path,
+            entries: returnedEntries,
+            totalEntries: entries.count,
+            includedHidden: includeHidden,
+            truncated: entries.count > returnedEntries.count
+        )
+        return ToolResult(
+            ok: true,
+            stdout: encode(output),
+            artifacts: returnedEntries.map {
+                WorkspaceRemoteProjectPath.artifactPath(connection: connection, relativePath: $0.path)
+            }
+        )
+    }
+
+    private static func remoteFileListError(from stdout: String, path: String) -> String? {
+        guard stdout.hasPrefix("__quillcode_file_list_error__\t") else { return nil }
+        if stdout.contains("\tpath_not_found") {
+            return String(describing: FileToolError.pathNotFound(path))
+        }
+        if stdout.contains("\tnot_directory") {
+            return String(describing: FileToolError.notDirectory(path))
+        }
+        return "Remote file listing failed."
+    }
+
+    private static func parseRemoteFileList(stdout: String, path: String) -> [FileListEntry] {
+        stdout.split(separator: "\0", omittingEmptySubsequences: true).compactMap { record in
+            let fields = record.split(separator: "\t", omittingEmptySubsequences: false)
+            guard fields.count == 3,
+                  let nameData = Data(base64Encoded: String(fields[2])),
+                  let name = String(data: nameData, encoding: .utf8),
+                  !name.isEmpty
+            else {
+                return nil
+            }
+            let kind = String(fields[0])
+            let bytes = Int(String(fields[1]))
+            return FileListEntry(
+                name: name,
+                path: path == "." ? name : "\(path)/\(name)",
+                kind: kind,
+                bytes: kind == "file" ? bytes : nil,
+                isHidden: name.hasPrefix(".")
+            )
+        }
+    }
+
+    private static func remoteFileListEntrySort(_ lhs: FileListEntry, _ rhs: FileListEntry) -> Bool {
+        let lhsRank = remoteFileListKindRank(lhs.kind)
+        let rhsRank = remoteFileListKindRank(rhs.kind)
+        if lhsRank != rhsRank {
+            return lhsRank < rhsRank
+        }
+        let nameOrder = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
+        if nameOrder != .orderedSame {
+            return nameOrder == .orderedAscending
+        }
+        return lhs.name < rhs.name
+    }
+
+    private static func remoteFileListKindRank(_ kind: String) -> Int {
+        switch kind {
+        case "directory":
+            return 0
+        case "file":
+            return 1
+        case "symlink":
+            return 2
+        case "other":
+            return 3
+        default:
+            return 4
+        }
+    }
+
+    private static func boundedRemoteListEntryLimit(_ requested: Int?) -> Int {
+        let defaultLimit = 200
+        let absoluteLimit = 500
+        guard let requested else { return defaultLimit }
+        return min(max(1, requested), absoluteLimit)
+    }
+
+    private static func encode<T: Encodable>(_ output: T) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let data = try? encoder.encode(output) else {
+            return "{}"
+        }
+        return String(decoding: data, as: UTF8.self)
     }
 
     private static func executeRemotePatchToolCall(

@@ -63,7 +63,7 @@ struct WorkspaceSlashCommandTranscriptPlanner {
     static func sshProjectAdded(userText: String, projectName: String, displayPath: String) -> WorkspaceLocalCommandTranscript {
         transcript(
             userText: userText,
-            assistantText: "Added SSH Remote \(projectName) at \(displayPath). Shell, file read/write, apply patch, git status/diff/stage/restore/commit/push/PR checkout/reviewers/labels/merge/worktree, and project context refresh run through SSH.",
+            assistantText: "Added SSH Remote \(projectName) at \(displayPath). Shell, file read/list/write, apply patch, git status/diff/stage/restore/commit/push/PR checkout/reviewers/labels/merge/worktree, and project context refresh run through SSH.",
             title: "Add SSH Remote"
         )
     }

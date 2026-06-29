@@ -10,6 +10,7 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
 
         XCTAssertTrue(names.contains(ToolDefinition.shellRun.name))
         XCTAssertTrue(names.contains(ToolDefinition.fileRead.name))
+        XCTAssertTrue(names.contains(ToolDefinition.fileList.name))
         XCTAssertTrue(names.contains(ToolDefinition.fileWrite.name))
         XCTAssertTrue(names.contains(ToolDefinition.applyPatch.name))
         XCTAssertTrue(names.contains(ToolDefinition.gitStatus.name))
@@ -89,6 +90,72 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         let command = try recordedArguments(from: argumentsFile).last ?? ""
         XCTAssertTrue(command.contains("mkdir -p -- 'notes'"), command)
         XCTAssertTrue(command.contains("base64 --decode > 'notes/hello.txt'"), command)
+    }
+
+    func testRemoteFileListReturnsStructuredBoundedOutput() throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = try makeTempDirectory()
+        try FileManager.default.createDirectory(
+            at: remoteRoot.appendingPathComponent("docs/nested"),
+            withIntermediateDirectories: true
+        )
+        try "visible\n".write(
+            to: remoteRoot.appendingPathComponent("docs/visible.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "secret\n".write(
+            to: remoteRoot.appendingPathComponent("docs/.env"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let argumentsFile = root.appendingPathComponent("ssh-list-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+
+        let result = WorkspaceRemoteProjectToolExecutor.execute(
+            ToolCall(
+                name: ToolDefinition.fileList.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "docs",
+                    "includeHidden": true,
+                    "maxEntries": 1
+                ])
+            ),
+            project: remoteProject(path: remoteRoot.path),
+            executor: SSHRemoteShellExecutor(sshExecutable: fakeSSH.path)
+        )
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        let output = try JSONDecoder().decode(FileListToolOutput.self, from: Data(result.stdout.utf8))
+        XCTAssertEqual(output.path, "docs")
+        XCTAssertEqual(output.totalEntries, 3)
+        XCTAssertTrue(output.includedHidden)
+        XCTAssertTrue(output.truncated)
+        XCTAssertEqual(output.entries.map(\.path), ["docs/nested"])
+        XCTAssertEqual(output.entries.first?.kind, "directory")
+        XCTAssertEqual(result.artifacts, ["ssh://quill@feather.local:2222\(remoteRoot.path)/docs/nested"])
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: argumentsFile.path))
+    }
+
+    func testRemoteFileListRejectsUnsafePathBeforeSSH() throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("ssh-unsafe-list-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+
+        let result = WorkspaceRemoteProjectToolExecutor.execute(
+            ToolCall(
+                name: ToolDefinition.fileList.name,
+                argumentsJSON: ToolArguments.json(["path": "../escape"])
+            ),
+            project: remoteProject(path: remoteRoot.path),
+            executor: SSHRemoteShellExecutor(sshExecutable: fakeSSH.path)
+        )
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("outside the workspace") == true, result.error ?? "")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: argumentsFile.path))
     }
 
     func testRemoteGitPlannerBuildsPullRequestCreateRequest() throws {
